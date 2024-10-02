@@ -1,0 +1,61 @@
+.mt-15 {
+	margin-top: 15px;
+}
+
+.process-text {
+	background-color: white;
+	color: gray;
+	right: 50px !important;
+
+}
+
+.process-text span {
+	color: black;
+	font-weight: 600;
+}
+
+/* 달력 스타일 */
+#auto-calendar {
+	margin: 0px auto;
+}
+
+/* 날짜 hover 효과 추가 */
+.fc-daygrid-day:hover {
+	background-color: lightgray;
+	transition: background-color 0.3s ease;
+}
+
+/* 모달 스타일 */
+.auto-modal {
+	display: none;
+	position: fixed;
+	z-index: 1;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.4);
+}
+
+.auto-modal-content {
+	background-color: white;
+	margin: 15% auto;
+	padding: 20px;
+	border: 1px solid #888;
+	width: 400px;
+}
+
+#auto-close {
+	float: right;
+	font-size: 28px;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+#auto-close:hover {
+	color: red;
+}
+
+.auto-modal-body {
+	margin-top: 10px;
+}

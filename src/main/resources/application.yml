@@ -1,0 +1,100 @@
+# 동작 환경 설정
+spring:
+  profiles:
+    active: test
+  application:
+    name: HiddenBATHAuto
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 1440m    # 60m * 24h * 30d
+      cookie:
+        max-age: 1440m    # 60m * 24h * 30d
+        name: SID
+        http-only: true
+        secure: true
+
+# 개발 환경
+--- 
+spring:
+  config:
+    activate: 
+      on-profile: test
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://203.245.44.103:3306/hidden7557?useUnicode=true&characterEncoding=utf8
+    username: hidden7557
+    password: hidden3660!@
+    hikari:
+      connectionTimeout: 30000
+      maximumPoolSize: 10
+      maxLifetime: 1800000
+      poolName: HikariCP
+      readOnly: false
+      connectionTestQuery: SELECT 1
+  h2:
+    console:
+      enabled: true
+  jpa:
+    database-platform: org.hibernate.dialect.MariaDBDialect
+  servlet:
+    multipart:
+      maxFileSize: 5000MB
+      maxRequestSize: -1
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: 'admin@hiddenbath.co.kr'
+    password: 'hfdpehjnemsxvhre'
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  upload.path: D:/Refactoring
+  upload.env: local
+
+# 배포 환경
+--- 
+spring:
+  config:
+    activate: 
+      on-profile: prod
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://localhost:3306/hidden7557?useUnicode=true&characterEncoding=utf8
+    username: hidden7557
+    password: hidden3660!@
+    hikari:
+      connectionTimeout: 30000
+      maximumPoolSize: 10
+      maxLifetime: 1800000
+      poolName: HikariCP
+      readOnly: false
+      connectionTestQuery: SELECT 1
+  h2:
+    console:
+      enabled: true
+  jpa:
+    database-platform: org.hibernate.dialect.MariaDBDialect
+  servlet:
+    multipart:
+      maxFileSize: 5000MB
+      maxRequestSize: -1
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: 'admin@hiddenbath.co.kr'
+    password: 'hfdpehjnemsxvhre'
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  upload.path: /home/hosting_users/hidden7557/tomcat/webapps
+  upload.env: prod
+
+
