@@ -14,48 +14,207 @@
 	font-weight: 600;
 }
 
-/* 달력 스타일 */
-#auto-calendar {
-	margin: 0px auto;
+.process-btn-wrap{
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+.process-btn-wrap a{
+	width:200px;
+	margin-right:5px;
+	font-size:14px;
+}
+@media(max-width:760px){
+	.process-btn-wrap{
+		display:block;
+	}
+	.process-btn-wrap a{
+		width:100px;
+		font-size:12px;
+		margin-bottom:5px;
+	}
 }
 
+
+/* 달력 스타일 */
+#auto-calendar {
+    margin: 0px auto;
+}
+.fc-daygrid-day{
+	transition: background-color 0.3s ease;
+	cursor:pointer;
+}
 /* 날짜 hover 효과 추가 */
 .fc-daygrid-day:hover {
-	background-color: lightgray;
-	transition: background-color 0.3s ease;
+    background-color: rgb(177, 219, 224, 0.7);
+}
+
+/* 달력 스타일 */
+#auto-calendar {
+    margin: 0px auto;
+}
+
+/* 이벤트 타이틀이 길 경우 줄임표 처리 */
+.fc-event-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 /* 모달 스타일 */
 .auto-modal {
-	display: none;
-	position: fixed;
-	z-index: 1;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	background-color: rgba(0, 0, 0, 0.4);
+    display: none;
+    position: fixed;
+    z-index: 999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* 어두운 배경이 화면 전체에 적용 */
+    
 }
 
 .auto-modal-content {
-	background-color: white;
-	margin: 15% auto;
-	padding: 20px;
-	border: 1px solid #888;
-	width: 400px;
+    background-color: white;
+    margin: 10% auto;
+    padding: 20px;
+    position:relative;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 600px;
+    font-family: Arial, sans-serif;
 }
 
-#auto-close {
-	float: right;
-	font-size: 28px;
-	font-weight: bold;
-	cursor: pointer;
-}
-
-#auto-close:hover {
-	color: red;
+.auto-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
 }
 
 .auto-modal-body {
-	margin-top: 10px;
+    margin-top: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 16px;
+    line-height: 1.5;
 }
+
+/* 개별 이벤트 항목 */
+.event-item {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+.event-item p{
+	margin-bottom:0px;
+	line-height:1.4;
+}
+
+/* 닫기 버튼 */
+#auto-close {
+	position:absolute;
+	right:10px;
+	top:15px;
+    font-size: 30px;
+    font-weight:600;
+    cursor: pointer;
+    color: #333;
+}
+
+#auto-close:hover {
+    color: red;
+}
+
+/* 모바일에서도 달력이 스크롤 없이 높이가 자동 조정되도록 */
+.fc-daygrid {
+    height: auto !important;
+}
+h3#auto-modal-title{
+	margin-bottom:30px;
+}
+.sign{
+	height:100vh;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+.sign-wrap{
+	padding-top:50px;
+	padding-bottom:50px;
+	width:100%;
+	max-width:600px;
+	margin:0 auto;
+}
+.memberList-wrap h2{
+	font-weight:600;
+	font-size:16px;
+	margin-bottom:10px;
+}
+.memberList-wrap p{
+	font-size:14px;
+	color:black;
+	font-weight:300;
+	margin-bottom:0px;
+	margin-top:0px;
+	line-height:1.4;
+}
+
+.memberList-btn-wrap{
+	display:flex;
+	margin-top:20px;
+}
+.memberList-btn-wrap a{
+	width:100%;
+	transition:all 0.3s ease-in-out;
+}
+.memberList-btn-wrap a i{
+	margin-right:5px;
+}
+.memberList-btn-wrap a.call-btn{
+	background-color: darkgreen !important;
+	color:white;
+}
+.memberList-btn-wrap a.call-btn:hover{
+	background-color: green;
+}
+.memberList-btn-wrap a.detail-btn{
+	background-color:rgb(0, 0, 128) !important;
+	color:white;
+}
+.memberList-btn-wrap a.detail-btn:hover{
+	background-color:rgb(0, 0, 128, 0.7) !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

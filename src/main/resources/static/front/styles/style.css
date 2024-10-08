@@ -8,7 +8,7 @@ body {
   font-size: 14px;
   font-family: "Noto Sans KR", sans-serif;
   line-height: 26px !important;
-  color: #6c6c6c !important;
+  color: black !important;
   background-color: white;
 }
 
@@ -94,8 +94,8 @@ body {
 
 /*Content Boxes*/
 .content {
-  margin: 20px 15px 20px 15px;
-  padding:10px 20px 5px 20px;
+  margin: 15px 15px 15px 15px;
+  padding:5px 20px 5px 20px;
 }
 .content p:last-child {
   margin-bottom: 0px;
@@ -2151,7 +2151,16 @@ button {
 @media(max-width:760px){
 	.card-style {
 	  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.08);
+	  margin-left:0px;
+	  margin-right:0px;
+	  margin-bottom:10px;
 	}	
+	.content{
+		padding:0px;
+	}
+	.content p{
+		line-height:1.4;
+	}
 }
 .card-style .card-body {
   padding: 15px;
@@ -3487,7 +3496,7 @@ input[type=number] {
 }
 
 .list-custom-large a {
-  line-height: 70px;
+  line-height: 75px;
   color: #1f1f1f;
   font-weight: 500;
   font-size: 13px;

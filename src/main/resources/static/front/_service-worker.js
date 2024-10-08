@@ -1,7 +1,7 @@
 // To clear cache on devices, always increase APP_VER number after making changes.
 // The app will serve fresh content right away or after 2-3 refreshes (open / close)
-var APP_NAME = 'StickyMobile';
-var APP_VER = '4.8.1';
+var APP_NAME = 'HIDDENBATH AUTO TASK';
+var APP_VER = '1.0.0';
 var CACHE_NAME = APP_NAME + '-' + APP_VER;
 
 // Files required to make this app work offline.
@@ -28,6 +28,7 @@ var REQUIRED_FILES = [
 	'/front/plugins/glightbox/glightbox.js',
 	'/front/plugins/glightbox/glightbox.css',
 	'/front/plugins/glightbox/glightbox-call.js',
+	'/front/plugins/calendar.js',
 	// Fonts
 	'/front/fonts/css/fontawesome-all.min.css',
 	'/front/fonts/webfonts/fa-brands-400.woff2',
@@ -35,6 +36,7 @@ var REQUIRED_FILES = [
 	'/front/fonts/webfonts/fa-solid-900.woff2',
 	// Images
 	'/front/images/empty.png',
+	
 ];
 
 // Service Worker Diagnostic. Set true to get console logs.

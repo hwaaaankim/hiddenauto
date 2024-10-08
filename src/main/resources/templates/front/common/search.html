@@ -1,0 +1,73 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+	
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+            <div class="card-center ms-3">
+                <h1 class="color-white mb-0">사이트검색</h1>
+                <p class="color-white mt-n1 mb-0">사이트 내에 존재하는 데이터를 통한 검색을 지원합니다.</p>
+            </div>
+            <div class="card-center me-3">
+                <a href="/index" data-back-button class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+            </div>
+            <div class="card-overlay bg-black opacity-80"></div>
+        </div>
+
+        <div class="search-page">
+
+            <div class="search-box search-header bg-theme card-style me-3 ms-3">
+                <i class="fa fa-search"></i>
+                <input type="text" class="border-0" placeholder="검색어를 입력 해 주세요.">
+                <a href="#" class="clear-search disabled mt-0"><i class="fa fa-times color-red-dark"></i></a>
+            </div>
+
+            <div class="search-results disabled-search-list card card-style shadow-l">
+            </div>
+
+            <div class="search-trending card card-style">
+                <div class="content mb-2">
+                    <h3>검색가능영역</h3>
+                    <p class="font-11 mt-n2">다양한 영역에서의 검색 기능을 지원합니다.</p>
+                </div>
+                <div class="list-group list-custom-small me-3 ms-3">
+                    <a href="#">
+                        <span class="font-400 color-blue-dark">기성 제품리스트</span>
+                        <i class="color-gray-dark fa fa-angle-right"></i>
+                    </a>
+                    <a href="#">
+                        <span class="font-400 color-blue-dark">공지사항</span>
+                        <i class="color-gray-dark fa fa-angle-right"></i>
+                    </a>
+                    <a href="#">
+                        <span class="font-400 color-blue-dark">FAQ</span>
+                        <i class="color-gray-dark fa fa-angle-right"></i>
+                    </a>
+                    <a href="#">
+                        <span class="font-400 color-blue-dark">튜토리얼</span>
+                        <i class="color-gray-dark fa fa-angle-right"></i>
+                    </a>
+                    <a href="#">
+                        <span class="font-400 color-blue-dark">업무 리스트</span>
+                        <i class="color-gray-dark fa fa-angle-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	
+</body>

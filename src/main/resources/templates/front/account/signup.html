@@ -1,0 +1,81 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooter"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+
+		<div class="page-content header-clear-medium sign">
+			<div class="sign-wrap">
+				<div class="ps-5 pe-5">
+					<h1 class="text-center font-800 font-40 mb-5">가맹점 회원가입</h1>
+
+					<div class="input-style no-borders has-icon">
+						<i class="fa-regular fa-user"></i>
+                        <input type="text" class="form-control" placeholder="성함을 입력 해 주세요.">
+                        <label for="form1a" class="color-blue-dark font-10 mt-1">성함</label>
+                        <em>(required)</em>
+                    </div>
+                     <div class="input-style no-borders has-icon mt-1">
+						 <i class="fa-solid fa-lock"></i>
+                        <input type="password" class="form-control" placeholder="사용하실 비밀번호를 입력 해 주세요.">
+                        <label for="form3a" class="color-blue-dark font-10 mt-1">비밀번호</label>
+                        <em>(required)</em>
+                    </div>
+                    <div class="input-style no-borders has-icon mt-1">
+						<i class="fa-solid fa-lock"></i>
+                        <input type="password" class="form-control" placeholder="비밀번호를 다시한번 입력 해 주세요.">
+                        <label for="form3a1" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
+                        <em>(required)</em>
+                    </div>
+                    <div class="input-style no-borders has-icon mt-1">
+						<i class="fa-solid fa-phone"></i>
+                        <input type="text" class="form-control" placeholder="연락처를 입력 해 주세요.">
+                        <label class="color-blue-dark font-10 mt-1">연락처</label>
+                        <em>(required)</em>
+                    </div>
+                    
+                    <div class="input-style no-borders has-icon mt-1">
+						<i class="fa-regular fa-building"></i>
+                        <input type="text" class="form-control" placeholder="업체명을 입력 해 주세요.">
+                        <label for="form1aa" class="color-blue-dark font-10 mt-1">업체명</label>
+                        <em>(required)</em>
+                    </div>
+                    
+                    <div class="input-style no-borders has-icon mt-1">
+						<i class="fa-regular fa-address-book"></i>
+                        <input type="text" class="form-control" placeholder="주소를 입력 해 주세요.">
+                        <label for="form1aa" class="color-blue-dark font-10 mt-1">주소</label>
+                        <em>(required)</em>
+                    </div>
+                    <div class="input-style no-borders has-icon mt-1">
+						<i class="fa-regular fa-envelope"></i>
+                        <input type="email" class="form-control" placeholder="이메일을 입력 해 주세요.">
+                        <label class="color-blue-dark font-10 mt-1">이메일</label>
+                    </div>
+                    <div class="input-style no-borders has-icon mt-1">
+						<i class="fa-solid fa-key"></i>
+                        <input type="text" class="form-control" placeholder="업체 소속인 경우 업체코드를 입력 해 주세요.">
+                        <label for="form1aa" class="color-blue-dark font-10 mt-1">업체코드</label>
+                    </div>
+
+                    <div class="text-center mb-2 mt-2">
+                        <a href="#" class="font-12">이미 회원가입을 하신 사용자의 경우 로그인을 진행 해 주세요.</a>
+                    </div>
+                    <a href="#" class="back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">회원가입</a>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+</body>
