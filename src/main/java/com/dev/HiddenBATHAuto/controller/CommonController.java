@@ -11,4 +11,11 @@ public class CommonController {
 		
 		return "front/common/search";
 	}
+	
+	@GetMapping("/orderProduct")
+	public String orderProduct() {
+		
+		return "front/common/orderProduct";
+	}
+
 }
