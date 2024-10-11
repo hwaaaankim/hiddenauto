@@ -30,18 +30,20 @@
 				</div>
 
 				<div class="chat-container" id="chat-container">
-					<!-- 챗봇 대화 영역 -->
 					<div class="chat-box" id="chat-box">
-						<div class="chat-message">대분류를 선택하세요:</div>
-						<div class="chat-options" id="category-options">
-							<div class="option" onclick="selectCategory('하부장')">하부장</div>
-							<div class="option" onclick="selectCategory('상부장')">상부장</div>
-							<div class="option" onclick="selectCategory('슬라이드장')">슬라이드장</div>
-							<div class="option" onclick="selectCategory('거울')">거울</div>
-							<div class="option" onclick="selectCategory('플랩장')">플랩장</div>
-							<div class="option" onclick="selectCategory('기타')">기타</div>
+						<div class="chat-message chat-question" data-aos="fade-right">대분류를 선택하세요:</div>
+						<div class="chat-options" id="category-options" data-aos="fade-up">
+							<button class="option" id="category-ha" onclick="selectCategory('하부장')">하부장</button>
+							<button class="option" id="category-sa" onclick="selectCategory('상부장')">상부장</button>
+							<button class="option" id="category-sl" onclick="selectCategory('슬라이드장')">슬라이드장</button>
+							<button class="option" id="category-gu" onclick="selectCategory('거울')">거울</button>
+							<button class="option" id="category-fl" onclick="selectCategory('플랩장')">플랩장</button>
+							<button class="option" id="category-gi" onclick="selectCategory('기타')">기타</button>
 						</div>
 					</div>
+
+					<div class="chat-box-item" id="product-box-item"></div> <!-- 제품이 추가될 위치 -->
+					<div class="chat-box-item" id="size-box-item"></div> <!-- 사이즈가 추가될 위치 -->
 				</div>
 			</div>
 		</div>
@@ -49,7 +51,13 @@
 	</div>
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
 	<script>
+		AOS.init({
+			duration: 500, // 애니메이션 지속 시간
+			easing: 'ease-in-out', // 애니메이션의 속도 조정
+		});
+
 		let selectedCategory = '';
 		let selectedProduct = '';
 		let selectedSize = '';
@@ -59,65 +67,112 @@
 			document.getElementById('selected-path').innerText = selectedPath !== ' -  - ' ? selectedPath : 'None';
 		}
 
-		function addChatMessage(message, options = null) {
-			const chatBox = document.getElementById('chat-box');
-			const newMessage = document.createElement('div');
-			newMessage.classList.add('chat-message');
-			newMessage.innerText = message;
-			chatBox.appendChild(newMessage);
+		// 메시지와 옵션을 그리기 위한 함수
+		function addChatMessage(message, type = 'question', options = null, containerId = '') {
+			const chatBoxItem = document.createElement('div');
+			chatBoxItem.classList.add('chat-box-item');
 
-			if (options) {
-				const optionsContainer = document.createElement('div');
-				optionsContainer.classList.add('chat-options');
-				options.forEach(option => {
-					const optionDiv = document.createElement('div');
-					optionDiv.classList.add('option');
-					optionDiv.innerText = option.label;
-					optionDiv.onclick = option.action;
-					optionsContainer.appendChild(optionDiv);
-				});
-				chatBox.appendChild(optionsContainer);
+			// 메시지 추가
+			const newMessage = document.createElement('div');
+			newMessage.classList.add('chat-message', `chat-${type}`);
+			newMessage.innerText = message;
+
+			// 'xx를 선택하셨습니다' 메시지에는 right-box 클래스 추가
+			if (type === 'answer') {
+				chatBoxItem.classList.add('right-box');
 			}
 
-			document.getElementById('chat-container').scrollTop = chatBox.scrollHeight;
+			// 애니메이션 방향 설정
+			if (type === 'question') {
+				newMessage.setAttribute('data-aos', 'fade-right');
+			} else {
+				newMessage.setAttribute('data-aos', 'fade-left');
+			}
+
+			chatBoxItem.appendChild(newMessage);
+
+			document.getElementById('chat-container').appendChild(chatBoxItem);
+			document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+			AOS.refresh(); // AOS 애니메이션 새로고침
+
+			// 딜레이를 두고 선택 항목 추가
+			if (options && containerId) {
+				setTimeout(() => {
+					const optionsContainer = document.createElement('div');
+					optionsContainer.classList.add('chat-options');
+					optionsContainer.id = containerId; // 옵션 컨테이너 ID 설정
+					options.forEach(option => {
+						const button = document.createElement('button');
+						button.classList.add('option');
+						button.innerText = option.label;
+						button.onclick = option.action;
+						button.id = option.id;
+						optionsContainer.appendChild(button);
+					});
+					chatBoxItem.appendChild(optionsContainer);
+					AOS.refresh(); // AOS 새로고침
+				}, 500); // 0.5초 딜레이
+			}
 		}
 
+		function disableButtons(containerId) {
+			const buttons = document.querySelectorAll(`#${containerId} button.option`);
+			buttons.forEach(button => {
+				button.disabled = true;
+			});
+		}
+
+		// 대분류 선택 후 제품 그리기
 		function selectCategory(category) {
 			selectedCategory = category;
 			updateSelectedItems();
-			addChatMessage(`'${category}' 대분류 선택하셨습니다.`);
-			addChatMessage('제품을 선택하세요:', [
-				{label: 'PRODUCT01', action: () => selectProduct('PRODUCT01')},
-				{label: 'PRODUCT02', action: () => selectProduct('PRODUCT02')},
-				{label: 'PRODUCT03', action: () => selectProduct('PRODUCT03')},
-				{label: 'PRODUCT04', action: () => selectProduct('PRODUCT04')},
-				{label: 'PRODUCT05', action: () => selectProduct('PRODUCT05')},
-				{label: 'PRODUCT06', action: () => selectProduct('PRODUCT06')}
-			]);
+			addChatMessage(`'${category}' 대분류 선택하셨습니다.`, 'answer');
 
-			// 선택 후 기존 옵션 숨기기
-			document.getElementById('category-options').style.display = 'none';
+			// 제품 옵션과 메시지 생성
+			addChatMessage('제품을 선택하세요:', 'question', [
+				{label: 'PRODUCT01', id: 'product-01', action: () => selectProduct('PRODUCT01')},
+				{label: 'PRODUCT02', id: 'product-02', action: () => selectProduct('PRODUCT02')},
+				{label: 'PRODUCT03', id: 'product-03', action: () => selectProduct('PRODUCT03')},
+				{label: 'PRODUCT04', id: 'product-04', action: () => selectProduct('PRODUCT04')},
+				{label: 'PRODUCT05', id: 'product-05', action: () => selectProduct('PRODUCT05')},
+				{label: 'PRODUCT06', id: 'product-06', action: () => selectProduct('PRODUCT06')}
+			], 'product-options');
+
+			// 선택 후 대분류 버튼 비활성화
+			disableButtons('category-options');
 		}
 
+		// 제품 선택 후 사이즈 그리기
 		function selectProduct(product) {
 			selectedProduct = product;
 			updateSelectedItems();
-			addChatMessage(`'${product}' 제품을 선택하셨습니다.`);
-			addChatMessage('사이즈를 선택하세요:', [
-				{label: 'SIZE01', action: () => selectSize('SIZE01')},
-				{label: 'SIZE02', action: () => selectSize('SIZE02')},
-				{label: 'SIZE03', action: () => selectSize('SIZE03')},
-				{label: 'SIZE04', action: () => selectSize('SIZE04')},
-				{label: 'SIZE05', action: () => selectSize('SIZE05')},
-				{label: 'SIZE06', action: () => selectSize('SIZE06')}
-			]);
+			addChatMessage(`'${product}' 제품을 선택하셨습니다.`, 'answer');
+
+			// 사이즈 옵션과 메시지 생성
+			addChatMessage('사이즈를 선택하세요:', 'question', [
+				{label: 'SIZE01', id: 'size-01', action: () => selectSize('SIZE01')},
+				{label: 'SIZE02', id: 'size-02', action: () => selectSize('SIZE02')},
+				{label: 'SIZE03', id: 'size-03', action: () => selectSize('SIZE03')},
+				{label: 'SIZE04', id: 'size-04', action: () => selectSize('SIZE04')},
+				{label: 'SIZE05', id: 'size-05', action: () => selectSize('SIZE05')},
+				{label: 'SIZE06', id: 'size-06', action: () => selectSize('SIZE06')}
+			], 'size-options');
+
+			// 선택 후 제품 버튼 비활성화
+			disableButtons('product-options');
 		}
 
+		// 사이즈 선택 후 처리
 		function selectSize(size) {
 			selectedSize = size;
 			updateSelectedItems();
-			addChatMessage(`'${size}' 사이즈를 선택하셨습니다.`);
-			addChatMessage('선택이 완료되었습니다. 다음 단계를 진행해주세요.');
+			addChatMessage(`'${size}' 사이즈를 선택하셨습니다.`, 'answer');
+			addChatMessage('선택이 완료되었습니다. 다음 단계를 진행해주세요.', 'question');
+
+			// 선택 후 사이즈 버튼 비활성화
+			disableButtons('size-options');
 		}
 	</script>
 </body>
+
+</html>
