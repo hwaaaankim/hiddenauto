@@ -215,7 +215,7 @@ h3#auto-modal-title {
 	padding: 20px;
 	border: 1px solid #ddd;
 	background-color: #f9f9f9;
-	height: 600px;
+	height: 800px;
 	overflow-y: auto;
 	position: relative;
 }
@@ -227,12 +227,13 @@ h3#auto-modal-title {
 }
 
 .chat-message {
-	background-color: #e6e6e6;
-	padding: 10px;
-	border-radius: 10px;
-	margin-bottom: 10px;
-	max-width: 70%;
-	display: inline-block;
+    display: flex;
+    align-items: center; /* 수직 중앙 정렬 */
+    background-color: #e6e6e6;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    max-width: 70%;
 }
 
 .chat-question {
@@ -262,12 +263,16 @@ button.option {
 	background-color: #4CAF50;
 	color: white;
 	padding: 10px;
-	border-radius: 5px;
-	margin: 5px;
 	cursor: pointer;
 	text-align: center;
-	min-width: 100px;
 	border: none;
+	animation: slideInFromLeft 0.5s ease-in-out;
+	/* 기본 왼쪽에서 등장하는 애니메이션 */
+}
+
+button.option.right {
+	animation: slideInFromRight 0.5s ease-in-out;
+	/* 오른쪽에서 등장하는 버튼 */
 }
 
 button.option:disabled {
@@ -279,11 +284,67 @@ button.option:hover:not(:disabled) {
 	background-color: #45a049;
 }
 
+@keyframes slideInFromLeft {
+	0% {
+		transform: translateX(-100%);
+		opacity: 0;
+	}
+
+	100% {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
+@keyframes slideInFromRight {
+	0% {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+
+	100% {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
 #selected-items {
-	background-color: #333;
-	color: white;
+	background-color: white;
 	padding: 10px;
 	border-radius: 5px;
 	margin-bottom: 20px;
-	text-align: center;
+}
+
+/* 애니메이션 */
+@keyframes slideInFromRight {
+	0% {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+
+	100% {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
+@keyframes slideOutToLeft {
+	0% {
+		transform: translateX(0);
+		opacity: 1;
+	}
+
+	100% {
+		transform: translateX(-100%);
+		opacity: 0;
+	}
+}
+
+/* 버튼 스타일 */
+.back-button {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 1.5em;
+	color: #333;
 }
