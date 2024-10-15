@@ -1,8 +1,5 @@
 <!DOCTYPE HTML>
-<html 
-lang="ko" 
-xmlns:th="http://www.thymeleaf.org"
-xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head th:fragment="autoHead">
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -10,7 +7,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<meta name="viewport"
 		content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover" />
-	<title>자동화</title>
+	<title>AUTO TASK</title>
 	<link
 		href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,500,500i,700,700i,900,900i|Source+Sans+Pro:300,300i,400,400i,600,600i,700,700i,900,900i&display=swap"
 		rel="stylesheet">
@@ -29,12 +26,12 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<div id="preloader">
 		<div class="spinner-border color-highlight" role="status"></div>
 	</div>
-</th:block>	
+</th:block>
 <th:block th:fragment="autoFooterMenu">
 	<div id="footer-bar" class="footer-bar-1">
 		<a href="/index"><i class="fa fa-home"></i><span>홈</span></a>
 		<a href="#" data-menu="bottombar-task"><i class="fa-solid fa-list-check"></i><span>업무관리</span></a>
-		<a href="#" data-menu="bottombar-order" class="active-nav"><i
+		<a href="#" data-menu="bottombar-order"><i
 				class="fa-brands fa-product-hunt"></i><span>발주관리</span></a>
 		<a href="#" data-menu="bottombar-as"><i class="fa-solid fa-screwdriver-wrench"></i><span>AS관리</span></a>
 		<a href="#" data-menu="bottombar-account"><i class="fa-solid fa-id-card"></i><span>계정관리</span></a>
@@ -49,6 +46,9 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 			<a class="header-icon header-icon-4" data-menu="menu-sidebar-left-4" href="#">
 				<i class="font-18 fas fa-bars"></i>
 			</a>
+			<a class="header-icon header-icon-3" href="/cart">
+				<i id="bag-icon" class="font-18 fa-solid fa-bag-shopping"></i>
+			</a>
 		</div>
 	</div>
 </th:block>
@@ -59,6 +59,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<script type="text/javascript" src="/front/scripts/custom.js"></script>
 	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 	<script src="/front/scripts/script.js"></script>
+	<script src="/front/cart.js" type="module"></script>
 </th:block>
 <th:block th:fragment="autoBottomMenu">
 	<div id="bottombar-account" class="menu menu-box-bottom menu-box-detached">
@@ -82,31 +83,26 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="/orderProduct">
+				<a href="/standardOrderProduct">
 					<span>규격 제품발주</span>
 					<strong>내가 원하는 형태의 제품을 주문할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="#">
+				<a href="/nonStandardOrderProduct">
 					<span>비규격 제품발주</span>
 					<strong>내가 원하는 형태의 제품을 주문할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<!--<a href="#">
-					<span>제품 발주 금액확인</span>
-					<strong>발주하는 제품의 금액을 확인할 수 있습니다.</strong>
+				<a href="#">
+					<span>즐겨찾기</span>
+					<strong>즐겨찾기 해둔 제품을 빠르게 발주할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
 				<a href="#">
-					<span>비규격 가능여부확인</span>
-					<strong>비규격 주문 가능여부를 확인할 수 있습니다.</strong>
+					<span>장바구니</span>
+					<strong>진행중인 발주 현황을 빠르게 확인할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="#">
-					<span>제품 배송일정 확인</span>
-					<strong>제품 발주 시 배송일을 확인할 수 있습니다.</strong>
-					<i class="fa fa-angle-right"></i>
-				</a>-->
 			</div>
 		</div>
 	</div>
@@ -237,19 +233,21 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 				</a>
 			</div>
 		</div>
-	</di>
+	</div>
 </th:block>
 
 <th:block th:fragment="autoFooter">
 	<div class="footer">
-        <div class="text-center mb-3">
-            <a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-facebook"><i class="fab fa-facebook-f"></i></a>
-            <a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-instagram"><i class="fab fa-instagram"></i></a>
-            <a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-phone"><i class="fa fa-phone"></i></a>
-            <a href="#" class="back-to-top icon icon-xs rounded-sm shadow-l bg-dark-light"><i class="fa fa-angle-up"></i></a>
-        </div>
-        <p class="footer-copyright">Copyright &copy; Enabled <span id="copyright-year"></span>. All Rights Reserved.</p>
-        <p class="footer-links"><a href="#">Privacy Policy</a> | <a href="#">Terms and Conditions</a> | <a href="#" class="back-to-top color-highlight"> Back to Top</a></p>
-        <div class="clear"></div>
-    </div>
+		<div class="text-center mb-3">
+			<a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-facebook"><i class="fab fa-facebook-f"></i></a>
+			<a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-instagram"><i class="fab fa-instagram"></i></a>
+			<a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-phone"><i class="fa fa-phone"></i></a>
+			<a href="#" class="back-to-top icon icon-xs rounded-sm shadow-l bg-dark-light"><i
+					class="fa fa-angle-up"></i></a>
+		</div>
+		<p class="footer-copyright">Copyright &copy; Enabled <span id="copyright-year"></span>. All Rights Reserved.</p>
+		<p class="footer-links"><a href="#">Privacy Policy</a> | <a href="#">Terms and Conditions</a> | <a href="#"
+				class="back-to-top color-highlight"> Back to Top</a></p>
+		<div class="clear"></div>
+	</div>
 </th:block>

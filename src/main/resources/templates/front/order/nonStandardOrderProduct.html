@@ -1,0 +1,37 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style">
+
+
+				<div class="chat-container" id="chat-container">
+					<div id="selected-items">
+						<h3>선택한 항목: <span id="selected-path">None</span></h3>
+					</div>
+					<div class="chat-box" id="chat-box">
+						<!-- 첫 번째 질문 영역 -->
+					</div>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
+	<script src="/front/nonStandardOrder.js"></script>
+</body>
+
+</html>

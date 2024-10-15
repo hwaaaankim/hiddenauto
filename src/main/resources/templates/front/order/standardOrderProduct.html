@@ -12,13 +12,12 @@
 
 	<div id="page" class="container">
 		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
-		<div class="page-content header-clear-medium">
-			<div class="card card-style">
-
-
+		<div class="page-content header-clear-medium" style="padding-top:0px !important;">
+			
+			<div class="card card-style" style="border-radius: 0px !important;">
 				<div class="chat-container" id="chat-container">
 					<div id="selected-items">
-						<h3>선택한 항목: <span id="selected-path">None</span></h3>
+						<h3>선택한 옵션 : <span id="selected-path">선택된 항목이 없습니다.</span></h3>
 					</div>
 					<div class="chat-box" id="chat-box">
 						<!-- 첫 번째 질문 영역 -->
@@ -31,7 +30,8 @@
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
-	<script src="/front/order.js"></script>
+	<script type="module" src="/front/standardOrderProduct.js"></script>
+	<div id="cart-notification" style="display: none;">장바구니에 추가되었습니다.</div>
 </body>
 
 </html>
