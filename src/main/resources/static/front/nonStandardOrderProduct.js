@@ -1,3 +1,6 @@
+// data.js에서 productData를 import
+import { productData } from './data.js';
+
 AOS.init({
 	duration: 500,
 	easing: 'ease-in-out',
@@ -9,53 +12,120 @@ let selectedOptions = {
 	product: '',
 	size: '',
 	color: '',
-	option: '',
 	led: '',
 	door: '',
-	handle: ''
+	handle: '',
+	numberofdoor: '',
+	numberofhandle: ''
 };
 
 // 선택 항목 구성
 const productSelectionSteps = {
-	default: ['category', 'product', 'size', 'color', 'option', 'led', 'door', 'handle']
+	default: ['category', 'product', 'size', 'color', 'led', 'door', 'numberofdoor', 'handle', 'numberofhandle', 'final']
 };
 
 // 선택된 아이템을 업데이트하는 함수
 function updateSelectedItems() {
 	const selectedPath = Object.values(selectedOptions).filter(Boolean).join(' - ');
 
-	// 선택한 항목이 없는 경우 "None" 대신 커스텀 메시지 설정 가능
 	const displayText = selectedPath || '선택한 항목이 없습니다';
-
-	// 선택한 항목을 업데이트
 	const selectedPathElement = document.getElementById('selected-path');
 	selectedPathElement.innerText = displayText;
-
-	// 선택 항목이 업데이트될 때 시각적으로 강조 (예: 색상 변화)
-	selectedPathElement.style.transition = 'color 0.3s ease'; // 부드러운 전환 효과
-	selectedPathElement.style.color = displayText !== '선택한 항목이 없습니다' ? '#4CAF50' : '#FF5722'; // 선택 시 녹색, 없을 시 빨간색
+	selectedPathElement.style.transition = 'color 0.3s ease';
+	selectedPathElement.style.color = displayText !== '선택한 항목이 없습니다' ? '#4CAF50' : '#FF5722';
 }
 
-
-// 선택된 단계를 처리하는 함수
 function handleSelection(type, value) {
 	selectedOptions[type] = value;
 	updateSelectedItems();
-	addChatMessage(`'${value}'을(를) 선택하셨습니다.`, 'answer', null, `${type}-options`, type);  // type을 넘겨서 각 단계마다 구분
 
-	// 다음 선택 옵션 제공
-	const nextStep = getNextStep(type);
+	let currentStep = type;
+	if (type === 'door' && value === 'add') {
+		currentStep = 'numberofdoor';  
+	} else if (type === 'handle' && value === 'add') {
+		currentStep = 'numberofhandle';  
+	}
+
+	addChatMessage(`'${value}'을(를) 선택하셨습니다.`, 'answer', null, `${type}-options`, currentStep);
+
+	if (type === 'door' || type === 'handle') {
+		if (value === 'add') {
+			addChatMessage('몇 개를 추가할까요?', 'question', [
+				{ label: '1개', action: () => handleCustomCountSelection(type, 1) },
+				{ label: '2개', action: () => handleCustomCountSelection(type, 2) },
+				{ label: '3개', action: () => handleCustomCountSelection(type, 3) },
+				{ label: '4개', action: () => handleCustomCountSelection(type, 4) }
+			], `${type}-add-options`, currentStep);
+		} else {
+			const nextStep = getNextStep(type);
+			if (nextStep) {
+				addSelectionStep(nextStep);
+			} else {
+				addChatMessage('선택이 완료되었습니다. 다음 단계를 진행해주세요.', 'question');
+			}
+		}
+	} else {
+		const nextStep = getNextStep(type);
+		if (nextStep) {
+			addSelectionStep(nextStep);
+		} else {
+			addChatMessage('선택이 완료되었습니다. 다음 단계를 진행해주세요.', 'question');
+		}
+	}
+
+	toggleButtons(`${type}-options`, true);
+}
+
+function addCustomInputWithConfirm(type, optionsContainer) {
+	if (!optionsContainer) {
+		return;
+	}
+
+	const inputWrapper = document.createElement('div');
+	inputWrapper.classList.add('input-wrapper');
+	inputWrapper.style.display = 'inline-flex';
+	inputWrapper.style.alignItems = 'center';
+
+	const inputElement = document.createElement('input');
+	inputElement.setAttribute('type', 'number');
+	inputElement.setAttribute('min', '1');
+	inputElement.setAttribute('placeholder', '직접 입력');
+	inputElement.classList.add('custom-input');
+	inputElement.style.marginLeft = '20px';
+	inputElement.style.height = '46px';
+
+	const confirmButton = document.createElement('button');
+	confirmButton.innerText = '확인';
+	confirmButton.classList.add('option');
+	confirmButton.style.marginLeft = '0px';
+	confirmButton.onclick = () => {
+		const customValue = parseInt(inputElement.value);
+		if (customValue >= 1) {
+			handleCustomCountSelection(type, customValue);
+		}
+	};
+
+	inputWrapper.appendChild(inputElement);
+	inputWrapper.appendChild(confirmButton);
+	optionsContainer.appendChild(inputWrapper);
+}
+
+function handleCustomCountSelection(type, count) {
+	selectedOptions[`numberof${type}`] = count;
+	updateSelectedItems();
+	addChatMessage(`'${count}개'를 선택하셨습니다.`, 'answer');
+
+	const nextStep = type === 'door' ? 'handle' : getNextStep(type);
+	
 	if (nextStep) {
 		addSelectionStep(nextStep);
 	} else {
 		addChatMessage('선택이 완료되었습니다. 다음 단계를 진행해주세요.', 'question');
 	}
 
-	// 현재 및 이전 단계의 버튼 비활성화
-	toggleButtons(`${type}-options`, true);
+	toggleButtons(`${type}-add-options`, true);
 }
 
-// 버튼 비활성화/활성화 함수
 function toggleButtons(containerId, disable = true) {
 	const buttons = document.querySelectorAll(`#${containerId} button.option`);
 	if (buttons.length > 0) {
@@ -65,71 +135,179 @@ function toggleButtons(containerId, disable = true) {
 	}
 }
 
-// 다음 선택 단계를 반환하는 함수
+function addFinalStepMessage() {
+	const chatBoxItem = document.createElement('div');
+	chatBoxItem.classList.add('chat-box-item', 'final-step');
+
+	const newMessage = document.createElement('div');
+	newMessage.classList.add('chat-message', 'chat-question', 'final-step');
+
+	const textNode = document.createElement('span');
+	textNode.innerText = '선택이 완료되었습니다.';
+	newMessage.appendChild(textNode);
+
+	const rightSide = document.createElement('div');
+	rightSide.classList.add('right-side');
+
+	const quantityContainer = document.createElement('div');
+	quantityContainer.classList.add('quantity-input-container');
+
+	const quantityLabel = document.createElement('label');
+	quantityLabel.setAttribute('for', 'quantity');
+	quantityLabel.innerText = '수량:';
+	quantityContainer.appendChild(quantityLabel);
+
+	const quantityInput = document.createElement('input');
+	quantityInput.setAttribute('type', 'number');
+	quantityInput.setAttribute('id', 'quantity');
+	quantityInput.classList.add('quantity-input');
+	quantityInput.setAttribute('min', '1');
+	quantityInput.setAttribute('value', '1');
+	quantityContainer.appendChild(quantityInput);
+
+	rightSide.appendChild(quantityContainer);
+
+	const buttonContainer = document.createElement('div');
+	buttonContainer.classList.add('button-container');
+
+	buttonContainer.appendChild(createButton('발주넣기', 'order-button', () => handleOrder(quantityInput.value)));
+	buttonContainer.appendChild(createButton('장바구니', 'cart-button', () => handleCart(quantityInput.value)));
+
+	rightSide.appendChild(buttonContainer);
+
+	newMessage.appendChild(rightSide);
+
+	chatBoxItem.appendChild(newMessage);
+	document.getElementById('chat-container').appendChild(chatBoxItem);
+	document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+	AOS.refresh();
+}
+
+function createButton(buttonText, buttonClass, onClickHandler) {
+	const button = document.createElement('button');
+	button.classList.add('final-button', buttonClass);
+	button.innerText = buttonText;
+	button.onclick = onClickHandler;
+	return button;
+}
+
+function handleOrder(quantity) {
+	const confirmOrder = confirm('발주를 진행하시겠습니까?');
+	if (confirmOrder) {
+		window.location.href = '/orderConfirm';
+	}
+}
+
+function handleCart(quantity) {
+	const confirmCart = confirm('장바구니에 추가하겠습니까?');
+	if (confirmCart) {
+		// 장바구니 처리 로직
+	}
+}
+
 function getNextStep(currentStep) {
 	const steps = productSelectionSteps['default'];
 	const currentIndex = steps.indexOf(currentStep);
-	return currentIndex !== -1 && currentIndex < steps.length - 1 ? steps[currentIndex + 1] : null;
+
+	if (selectedOptions['category'] === '거울') {
+		return currentIndex !== -1 && currentIndex < steps.length - 1 ? steps[currentIndex + 1] : 'final';
+	} else {
+		if (currentStep === 'color') {
+			return 'door';
+		} else if (currentStep === 'door') {
+			return selectedOptions['door'] === 'add' ? 'numberofdoor' : 'handle';
+		} else if (currentStep === 'numberofdoor') {
+			return 'handle';
+		} else if (currentStep === 'handle') {
+			return selectedOptions['handle'] === 'add' ? 'numberofhandle' : 'final';
+		} else if (currentStep === 'numberofhandle') {
+			return 'final';
+		} else {
+			return currentIndex !== -1 && currentIndex < steps.length - 1 ? steps[currentIndex + 1] : 'final';
+		}
+	}
 }
 
-// 선택 항목을 추가하는 함수 (각 단계에 맞는 id 부여)
 function addSelectionStep(type) {
+	if (type === 'final') {
+		addFinalStepMessage();
+		return;
+	}
+
 	const options = getOptionsForStep(type);
 	if (options.length) {
-		addChatMessage(`${type}을(를) 선택하세요:`, 'question', options, `${type}-options`, type); // 각 단계에 맞는 id와 type을 부여
+		addChatMessage(`${type}을(를) 선택하세요:`, 'question', options, `${type}-options`, type);
 	} else {
 		addChatMessage(`${type}을(를) 선택할 옵션이 없습니다.`, 'question');
 	}
 }
 
-// 각 단계별 옵션을 반환하는 함수
 function getOptionsForStep(type) {
 	switch (type) {
 		case 'category':
-			return [...Array(6).keys()].map(i => ({
-				label: `대분류0${i + 1}`, action: () => handleSelection('category', `대분류0${i + 1}`)
+			return Object.keys(productData).map(category => ({
+				label: category, action: () => handleSelection('category', category)
 			}));
 		case 'product':
-			return [...Array(6).keys()].map(i => ({
-				label: `PRODUCT0${i + 1}`, action: () => handleSelection('product', `PRODUCT0${i + 1}`)
-			}));
+			const selectedCategory = selectedOptions['category'];
+			if (selectedCategory && productData[selectedCategory]) {
+				return productData[selectedCategory].map(product => ({
+					label: product.name, action: () => handleSelection('product', product.name)
+				}));
+			} else {
+				return [];
+			}
 		case 'size':
-			return [...Array(6).keys()].map(i => ({
-				label: `SIZE0${i + 1}`, action: () => handleSelection('size', `SIZE0${i + 1}`)
-			}));
+			const selectedCategoryForSize = selectedOptions['category'];
+			const selectedProductForSize = selectedOptions['product'];
+			if (selectedCategoryForSize && selectedProductForSize) {
+				const product = productData[selectedCategoryForSize].find(p => p.name === selectedProductForSize);
+				if (product) {
+					return product.sizes.map(size => ({
+						label: size, action: () => handleSelection('size', size)
+					}));
+				}
+			}
+			return [];
 		case 'color':
-			return ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White'].map(color => ({
-				label: color, action: () => handleSelection('color', color)
-			}));
-		case 'option':
-			return [...Array(6).keys()].map(i => ({
-				label: `옵션0${i + 1}`, action: () => handleSelection('option', `옵션0${i + 1}`)
-			}));
+			const selectedCategoryForColor = selectedOptions['category'];
+			const selectedProductForColor = selectedOptions['product'];
+			if (selectedCategoryForColor && selectedProductForColor) {
+				const product = productData[selectedCategoryForColor].find(p => p.name === selectedProductForColor);
+				if (product) {
+					return product.colors.map(color => ({
+						label: color, action: () => handleSelection('color', color)
+					}));
+				}
+			}
+			return [];
 		case 'led':
-			return ['LED 추가', 'LED 미추가'].map(label => ({
-				label, action: () => handleSelection('led', label)
-			}));
+			if (selectedOptions['category'] === '거울') {
+				return ['add', 'notadd'].map(label => ({
+					label: label, action: () => handleSelection('led', label)
+				}));
+			}
+			return [];
 		case 'door':
-			return ['문 추가', '문 미추가'].map(label => ({
-				label, action: () => handleSelection('door', label)
-			}));
 		case 'handle':
-			return ['손잡이 추가', '손잡이 미추가'].map(label => ({
-				label, action: () => handleSelection('handle', label)
-			}));
+			if (selectedOptions['category'] !== '거울') {
+				return ['add', 'notadd'].map(label => ({
+					label: label, action: () => handleSelection(type, label)
+				}));
+			}
+			return [];
 		default:
 			return [];
 	}
 }
 
-// 메시지와 옵션을 추가하는 함수 (버튼 포함)
 function addChatMessage(message, type, options = null, containerId = '', step = '') {
+	const chatBox = document.getElementById('chat-box');
 	const chatBoxItem = document.createElement('div');
 	chatBoxItem.classList.add('chat-box-item');
 	const newMessage = document.createElement('div');
 	newMessage.classList.add('chat-message', `chat-${type}`);
 
-	// 'answer' 타입의 메시지에만 버튼 추가
 	if (type === 'answer') {
 		chatBoxItem.classList.add('right-box');
 
@@ -146,83 +324,75 @@ function addChatMessage(message, type, options = null, containerId = '', step = 
 	newMessage.appendChild(textNode);
 	newMessage.setAttribute('data-aos', type === 'question' ? 'fade-right' : 'fade-left');
 	chatBoxItem.appendChild(newMessage);
-	document.getElementById('chat-container').appendChild(chatBoxItem);
+	chatBox.appendChild(chatBoxItem);
 	document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
 	AOS.refresh();
 
 	if (options && containerId) {
-		setTimeout(() => {
-			const optionsContainer = document.createElement('div');
-			optionsContainer.setAttribute('id', containerId);
-			optionsContainer.classList.add('chat-options');
+		const optionsContainer = document.createElement('div');
+		optionsContainer.setAttribute('id', containerId);
+		optionsContainer.classList.add('chat-options');
 
-			options.forEach(option => {
-				const button = document.createElement('button');
-				button.classList.add('option');
-				button.innerText = option.label;
-				button.onclick = option.action;
-				optionsContainer.appendChild(button);
-			});
+		options.forEach(option => {
+			const button = document.createElement('button');
+			button.classList.add('option');
+			button.innerText = option.label;
+			button.onclick = option.action;
+			optionsContainer.appendChild(button);
+		});
 
-			chatBoxItem.appendChild(optionsContainer);
-			AOS.refresh();
-			scrollIfNeeded(optionsContainer);
-		}, 500);
+		chatBoxItem.appendChild(optionsContainer);
+		AOS.refresh();
+		scrollIfNeeded(optionsContainer);
+
+		if (step === 'numberofdoor' || step === 'numberofhandle') {
+			addCustomInputWithConfirm(step, optionsContainer);
+		}
 	}
 }
 
-// 요소에 fadeOut 효과를 적용하는 함수
 function fadeOut(element, duration, callback) {
 	element.style.transition = `opacity ${duration}ms`;
 	element.style.opacity = 0;
 
 	setTimeout(() => {
 		element.style.display = 'none';
-		if (callback) callback(); // 애니메이션 후 콜백 실행 (요소 제거 등)
+		if (callback) callback();
 	}, duration);
 }
 
-// 선택 초기화 및 버튼 활성화 처리
 function resetStepsFrom(step) {
 	const stepIndex = productSelectionSteps['default'].indexOf(step);
 	const stepsToReset = productSelectionSteps['default'].slice(stepIndex + 1);
 
-	// 현재 단계의 답변만 제거 (옵션 버튼은 남김)
 	const answerElements = document.querySelectorAll(`.chat-box-item .chat-answer`);
 	answerElements.forEach(answerElement => {
 		if (answerElement.innerText.includes(selectedOptions[step])) {
 			fadeOut(answerElement.closest('.chat-box-item'), 300, () => {
-				answerElement.closest('.chat-box-item').remove(); // 현재 단계의 답변만 제거
+				answerElement.closest('.chat-box-item').remove();
 			});
 		}
 	});
 
-	// 현재 단계의 선택값을 제거
-	selectedOptions[step] = '';  
+	if (step === 'numberofdoor' || step === 'numberofhandle') {
+		selectedOptions[`numberof${step.slice(-5)}`] = ''; 
+	}
 
-	// 이후 단계의 선택 초기화
+	selectedOptions[step] = '';
 	stepsToReset.forEach(nextStep => {
-		removeElements(nextStep); // 이후 단계의 질문, 답변, 옵션 제거
-		selectedOptions[nextStep] = '';  // 이후 단계 선택 항목 초기화
+		removeElements(nextStep);
+		selectedOptions[nextStep] = '';
 	});
 
-	// 현재 단계의 버튼 활성화
 	toggleButtons(`${step}-options`, false);
-
-	// 선택된 항목 업데이트
 	updateSelectedItems();
-	console.log(`${step} 이후의 모든 단계를 초기화했습니다.`);
 }
 
-
-
-// removeElements 함수 (옵션 및 질문을 포함한 fadeOut 적용)
 function removeElements(step) {
 	const questionElements = document.querySelectorAll(`.chat-box-item .chat-question`);
 	const answerElements = document.querySelectorAll(`.chat-box-item .chat-answer`);
 	const optionContainer = document.getElementById(`${step}-options`);
 
-	// 질문 제거: 해당 단계 이후의 질문만 제거
 	questionElements.forEach(questionElement => {
 		if (questionElement.closest('.chat-box-item').innerText.includes(step)) {
 			fadeOut(questionElement.closest('.chat-box-item'), 300, () => {
@@ -231,9 +401,8 @@ function removeElements(step) {
 		}
 	});
 
-	// 답변 제거: 해당 단계 이후의 답변만 제거
 	answerElements.forEach(answerElement => {
-		const selectedValue = selectedOptions[step]; 
+		const selectedValue = selectedOptions[step];
 		if (selectedValue && answerElement.innerText.includes(selectedValue)) {
 			fadeOut(answerElement.closest('.chat-box-item'), 300, () => {
 				answerElement.closest('.chat-box-item').remove();
@@ -241,7 +410,6 @@ function removeElements(step) {
 		}
 	});
 
-	// 옵션 제거
 	if (optionContainer) {
 		fadeOut(optionContainer.closest('.chat-box-item'), 300, () => {
 			optionContainer.closest('.chat-box-item').remove();
@@ -249,13 +417,11 @@ function removeElements(step) {
 	}
 }
 
-// 스크롤이 필요한지 체크하고, 필요하면 스크롤하는 함수
 function scrollIfNeeded(nextOptionsContainer) {
 	const chatContainer = document.getElementById('chat-container');
 	const nextOptionsBottom = nextOptionsContainer.getBoundingClientRect().bottom;
 	const containerBottom = chatContainer.getBoundingClientRect().bottom;
 
-	// 만약 다음 선택 옵션이 화면 아래로 사라지면 스크롤
 	if (nextOptionsBottom > containerBottom - 100) {
 		chatContainer.scrollTo({
 			top: chatContainer.scrollHeight,
@@ -264,5 +430,4 @@ function scrollIfNeeded(nextOptionsContainer) {
 	}
 }
 
-// 첫 질문 추가
 addChatMessage('카테고리를 선택하세요:', 'question', getOptionsForStep('category'), 'category-options');

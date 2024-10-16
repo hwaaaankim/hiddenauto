@@ -23,4 +23,16 @@ public class OrderController {
 		
 		return "front/order/cart";
 	}
+	
+	@GetMapping("/orderConfirm")
+	public String orderConfirm() {
+		
+		return "front/order/orderConfirm";
+	}
+	
+	@GetMapping("/modeling")
+	public String modeling() {
+		
+		return "front/order/modeling";
+	}
 }

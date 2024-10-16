@@ -207,11 +207,18 @@ function addFinalStepMessage() {
 	AOS.refresh();
 }
 
-
 // 발주넣기 처리 함수
 function handleOrder(quantity) {
-	console.log(`발주가 완료되었습니다. 수량: ${quantity}`);
-	alert(`발주가 완료되었습니다. 수량: ${quantity}`);
+	// Confirm 창 띄우기
+	const confirmOrder = confirm('발주를 진행하시겠습니까?');
+	
+	if (confirmOrder) {
+		console.log(`발주가 완료되었습니다. 수량: ${quantity}`);
+		// 확인을 누르면 /orderConfirm으로 이동
+		window.location.href = '/orderConfirm';
+	} else {
+		console.log('발주가 취소되었습니다.');
+	}
 }
 
 // 선택 상태를 초기화하고 최초 화면으로 돌아가는 함수

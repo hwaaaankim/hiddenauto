@@ -1,0 +1,173 @@
+body {
+	margin: 0;
+	overflow: hidden;
+}
+
+canvas {
+	display: block;
+	background-color: transparent;
+}
+
+.controls {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	z-index: 10;
+	background-color: rgba(255, 255, 255, 0.9);
+	padding: 15px;
+	border-radius: 10px;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+	width: 300px;
+}
+
+.controls label {
+	display: block;
+	margin-bottom: 5px;
+	font-weight: 600;
+	/* 라벨을 더 읽기 쉽게 굵게 */
+	color: #333;
+}
+
+.controls input {
+	width: 100%;
+	padding: 8px 10px;
+	margin-bottom: 15px;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	box-sizing: border-box;
+	font-size: 14px;
+	transition: border-color 0.3s ease-in-out;
+}
+
+.controls input:focus {
+	border-color: #007BFF;
+	/* 포커스 시 파란색 강조 */
+	outline: none;
+	box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+	/* 포커스 시 약간의 그림자 */
+}
+
+.controls button {
+	width: 100%;
+	padding: 10px;
+	margin-bottom: 10px;
+	background-color: #007BFF;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+}
+
+.controls button:hover {
+	background-color: #0056b3;
+	/* 호버 시 더 진한 파란색 */
+}
+
+.controls button:focus {
+	outline: none;
+	box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.controls button:active {
+	background-color: #004085;
+	/* 클릭 시 더 진한 색 */
+}
+
+.controls div {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.controls div button {
+	width: 48%;
+	/* 두 버튼의 폭을 50%로 설정 */
+}
+
+
+.circle {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    justify-content: center; /* 아이콘을 가로로 중앙 정렬 */
+    align-items: center; /* 아이콘을 세로로 중앙 정렬 */
+    font-size: 24px; /* 아이콘 크기 조절 */
+    color: black; /* 아이콘 색상 (검정색) */
+    border: 2px solid black; /* 원 테두리 색상 (검정색) */
+    background-color: transparent; /* 투명한 배경 */
+}
+
+.circle i {
+    pointer-events: none; /* 아이콘 클릭 이벤트를 무시하고 부모로 전달 */
+}
+
+.handle-circle {
+    right: 20px;
+    top: 20px;
+}
+
+.socket-circle {
+    right: 80px;
+    top: 20px;
+}
+
+.bulb-circle {
+    right: 140px;
+    top: 20px;
+}
+
+
+
+/* 모달 스타일 */
+.modal {
+	display: none;
+	position: fixed;
+	z-index: 100;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+	background-color: #fefefe;
+	margin: auto;
+	padding: 20px;
+	border: 1px solid #888;
+	width: 800px;
+	height: 800px;
+	position: relative;
+}
+
+.close {
+	color: #aaa;
+	position: relative;
+	float: right;
+	font-size: 28px;
+	font-weight: bold;
+	z-index: 99999 !important;
+}
+
+.close:hover,
+.close:focus {
+	color: black;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+#modal-canvas {
+	border: 2px solid black;
+	background-image: linear-gradient(#e0e0e0 1px, transparent 1px),
+		linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+	background-size: 20px 20px;
+	width: 800px;
+	height: 800px;
+}

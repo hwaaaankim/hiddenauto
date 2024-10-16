@@ -2510,7 +2510,8 @@ button {
   height: 1px;
   display: block;
   background-color: rgba(0, 0, 0, 0.05);
-  margin-bottom: 30px;
+  margin-bottom: 15px;
+  margin-top: 15px;
 }
 
 .divider-margins {
@@ -3260,7 +3261,6 @@ button:active {
   border-top-width: 1px !important;
   padding-left: 13px !important;
   padding-right: 10px !important;
-  border-radius: 10px !important;
 }
 
 .input-style.has-borders .valid,

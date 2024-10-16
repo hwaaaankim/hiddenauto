@@ -1,0 +1,164 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+				<div class="card-center ms-3">
+					<h1 class="color-white mb-0">발주하기</h1>
+					<p class="color-white mt-n1 mb-0">발주에 대한 정보 입력 후 확정할 수 있습니다.</p>
+				</div>
+				<div class="card-center me-3">
+					<a href="/index"
+						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+				</div>
+				<div class="card-overlay bg-black opacity-80"></div>
+			</div>
+			<div class="card card-style">
+				<div class="content">
+					<div class="mb-4">
+						<div class="row vertical-center" style="gap:20px;">
+							<div class="col-auto">
+								<img src="/front/images/pictures/10s.jpg" class="rounded-m shadow-xl" width="80">
+							</div>
+							<div class="col-auto">
+								<span class="font-11">제품코드</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">PRODUCT CODE</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">제품분류</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">PRODUCT SORT</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">제품명</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">PRODUCT NAME</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">색상</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">COLOR</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">사이즈</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">SIZE</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">수량</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">QUANTITY</strong>
+								</p>
+							</div>
+						</div>
+					</div>
+					<div class="divider"></div>
+					<div class="mb-4">
+						<div class="row vertical-center" style="gap:20px;">
+							<div class="col-auto">
+								<img src="/front/images/pictures/10s.jpg" class="rounded-m shadow-xl" width="80">
+							</div>
+							<div class="col-auto">
+								<span class="font-11">제품코드</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">PRODUCT CODE</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">제품분류</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">PRODUCT SORT</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">제품명</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">PRODUCT NAME</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">색상</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">COLOR</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">사이즈</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">SIZE</strong>
+								</p>
+							</div>
+							<div class="col-auto">
+								<span class="font-11">수량</span>
+								<p class="mt-n2 mb-1">
+									<strong class="color-theme">QUANTITY</strong>
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card card-style">
+				<div class="content">
+					<div class="payment-check-container">
+						<div class="payment-title">
+							<div>
+								<h2 class="mb-0">
+									결제 정보 확인
+								</h2>
+								<p>
+									배송 주소를 정확하게 확인 해 주시기 바랍니다.
+								</p>
+							</div>
+							<div class="same-address">
+								<input class="form-check-input" type="checkbox" id="same-address" />
+								<label for="same-address">회원 주소랑 동일</label>
+							</div>
+						</div>
+
+						<div class="payment-inputs">
+							<div class="input-group">
+								<input type="text" placeholder="주소" />
+								<button type="button">주소검색</button>
+							</div>
+							<div class="input-group">
+								<input type="text" placeholder="상세주소" />
+							</div>
+							<div class="input-group">
+								<input type="text" placeholder="최종금액" />
+							</div>
+							<div class="input-group">
+								<input type="text" placeholder="배송예정일" />
+							</div>
+						</div>
+					</div>
+
+					<a href="#" class="btn btn-full btn-m text-uppercase font-800 rounded-sm">발주확정</a>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+</body>
+
+</html>
