@@ -581,13 +581,13 @@ i#bag-icon.active {
 .input-wrapper {
 	display: flex;
 	align-items: center;
-	margin-left:20px;
+	margin-left: 20px;
 	/* 버튼들과 input, 확인 버튼 사이 여백 */
 }
 
 .custom-input {
 	width: 100px;
-	height:46px;
+	height: 46px;
 	/* input 너비 */
 	border: 1px solid #ddd;
 }
@@ -605,4 +605,119 @@ i#bag-icon.active {
 
 .confirm-button:hover {
 	background-color: #45a049;
+}
+
+/* 비규격주문 */
+/* 공통 옵션 컨테이너 스타일 */
+.option-container {
+	position: relative;
+	/* 덮개를 위한 상대적 위치 */
+}
+
+/* 옵션 영역 덮개 스타일 */
+.disabled-option::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.3);
+	/* 반투명 덮개 */
+	pointer-events: all;
+	/* 클릭 차단 */
+	z-index: 1;
+}
+
+/* 기본적인 스타일 리셋 */
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+/* 채팅창 컨테이너 */
+#chat-box {
+	width: 100%;
+	background-color: #f5f5f5;
+	border-radius: 10px;
+	overflow-y: auto;
+	height:800px;
+}
+
+/* wrap - 각 단계의 컨테이너 */
+.non-standard-wrap {
+	margin-bottom: 20px;
+}
+
+/* question - 왼쪽에 붙는 시스템 질문 스타일 */
+.non-standard-question {
+	background-color: #e0e0e0;
+	border-radius: 10px;
+	padding: 10px;
+	max-width: 70%;
+	text-align: left;
+	margin-bottom: 10px;
+	float: left;
+	clear: both;
+}
+
+/* option - 왼쪽에 나타나는 옵션 스타일 */
+.non-standard-option {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 20px;
+	float: left;
+	clear: both;
+	position:relative;
+}
+
+/* answer - 사용자가 선택한 답변을 오른쪽에 붙임 */
+.non-standard-answer {
+	background-color: #d1e7dd;
+	border-radius: 10px;
+	padding: 10px;
+	max-width: 70%;
+	text-align: right;
+	margin-bottom: 10px;
+	float: right;
+	clear: both;
+}
+.non-standard-answer .non-standard-btn{
+	margin-left:20px;
+}
+/* 버튼 스타일 */
+.non-standard-btn {
+	background-color: #007bff;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	padding: 10px 20px;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+}
+
+.non-standard-btn:hover {
+	background-color: #0056b3;
+}
+
+/* input 스타일 */
+.non-standard-input {
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	margin-left: 5px;
+	width: 120px;
+	height:100%;
+}
+
+.disabled-option {
+    opacity: 0.5;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.fadeOut {
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    pointer-events: none;
 }
