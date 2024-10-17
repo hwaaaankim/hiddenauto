@@ -152,10 +152,16 @@ function handleDirectInput(inputValue, categoryKey, step) {
 		answerDiv.classList.add('non-standard-answer'); // 디자인 클래스 추가
 		answerDiv.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
 		document.getElementById(`${step.step}-wrap`).appendChild(answerDiv);
+		// fadeIn 애니메이션 처리
+		setTimeout(() => {
+			answerDiv.style.opacity = '1';
+		}, 10);
+		// AOS 및 스크롤 처리 추가
+		AOS.refresh();
 	}
 
 	// 입력한 값으로 답변을 표시
-	answerDiv.innerText = `${inputValue}을(를) 입력하셨습니다. `;
+	answerDiv.innerText = `${inputValue}을(를) 입력하셨습니다.`;
 
 	// 초기화 버튼 추가
 	const resetButton = document.createElement('button');
@@ -186,19 +192,10 @@ function handleDirectInput(inputValue, categoryKey, step) {
 		updateProductOptions(categoryKey, nextStepIndex); // 다음 단계로 진행
 	} else {
 		// 마지막 단계 처리
-		const finalWrap = document.createElement('div');
-		finalWrap.id = 'final-wrap';
-		finalWrap.classList.add('non-standard-wrap'); // 디자인 클래스 추가
-		finalWrap.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
-		const finalAnswer = document.createElement('div');
-		finalAnswer.id = 'final-answer';
-		finalAnswer.classList.add('non-standard-answer'); // 디자인 클래스 추가
-		finalAnswer.innerText = '모든 선택이 완료되었습니다.';
-		finalWrap.appendChild(finalAnswer);
-		document.getElementById('chat-box').appendChild(finalWrap);
-		AOS.refresh(); // AOS 초기화
+		renderAnswer({ step: 'final' }, ''); // final 단계 처리
 	}
 }
+
 
 function updateProductOptions(categoryKey, stepIndex) {
 	const steps = productFlowSteps[categoryKey];
@@ -213,6 +210,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 	const stepWrap = document.createElement('div');
 	stepWrap.id = `${step.step}-wrap`;
 	stepWrap.classList.add('non-standard-wrap');
+	stepWrap.style.opacity = '0'; // 초기 상태에서 투명하게 설정
 	stepWrap.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
 
 	// 질문 추가
@@ -227,18 +225,104 @@ function updateProductOptions(categoryKey, stepIndex) {
 	optionDiv.id = `${step.step}-option`;
 	optionDiv.classList.add('non-standard-option');
 
-	// 일반적인 단계 - 옵션 버튼 추가
-	step.options.forEach(option => {
-		const button = document.createElement('button');
-		button.innerText = option;
-		button.classList.add('non-standard-btn');
-		button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
-		optionDiv.appendChild(button);
-	});
+	// size 단계에 대해 입력 필드와 확인 버튼 추가
+	if (step.step === 'size') {
+		// 사이즈 옵션 추가
+		step.options.forEach(option => {
+			const button = document.createElement('button');
+			button.innerText = option;
+			button.classList.add('non-standard-btn');
+			button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
+			optionDiv.appendChild(button);
+		});
+
+		// 입력 필드 추가
+		['width', 'height', 'depth', 'leg-height'].forEach(field => {
+			const label = document.createElement('label');
+			label.innerHTML = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
+			const input = document.createElement('input');
+			input.type = 'number';
+			input.id = `${field}-input`;
+			input.classList.add('non-standard-input');
+			label.appendChild(input);
+			optionDiv.appendChild(label);
+		});
+
+		// 확인 버튼 추가
+		const confirmButton = document.createElement('button');
+		confirmButton.innerText = '확인';
+		confirmButton.classList.add('non-standard-btn');
+		confirmButton.addEventListener('click', () => {
+			const width = document.getElementById('width-input').value;
+			const height = document.getElementById('height-input').value;
+			const depth = document.getElementById('depth-input').value;
+			const legHeight = document.getElementById('leg-height-input').value;
+
+			// 필수 입력 필드가 비어있을 경우 경고 표시
+			if (!width || !height || !depth || !legHeight) {
+				alert('모든 필드를 입력하세요.');
+				return;
+			}
+
+			const sizeText = `Width: ${width}, Height: ${height}, Depth: ${depth}, Leg Height: ${legHeight}`;
+			handleDirectInput(sizeText, categoryKey, step);
+		});
+		optionDiv.appendChild(confirmButton);
+
+	} else if (step.step === 'numberofdoor' || step.step === 'numberofhandle') {
+		// 갯수 선택 및 직접 입력 필드 추가
+		step.options.forEach(option => {
+			const button = document.createElement('button');
+			button.innerText = `${option}개`;
+			button.classList.add('non-standard-btn');
+			button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
+			optionDiv.appendChild(button);
+		});
+
+		const customInputLabel = document.createElement('label');
+		customInputLabel.innerHTML = '직접입력: ';
+		const customInput = document.createElement('input');
+		customInput.type = 'number';
+		customInput.id = 'custom-number-input';
+		customInput.classList.add('non-standard-input');
+		customInputLabel.appendChild(customInput);
+		optionDiv.appendChild(customInputLabel);
+
+		const customConfirmButton = document.createElement('button');
+		customConfirmButton.innerText = '확인';
+		customConfirmButton.classList.add('non-standard-btn');
+		customConfirmButton.addEventListener('click', () => {
+			const customNumber = document.getElementById('custom-number-input').value;
+			if (!customNumber) {
+				alert('숫자를 입력하세요.');
+				return;
+			}
+			handleDirectInput(`${customNumber}개`, categoryKey, step); // 숫자 입력 후 확인 처리
+		});
+		optionDiv.appendChild(customConfirmButton);
+
+	} else {
+		// 일반적인 단계 - 옵션 버튼 추가
+		step.options.forEach(option => {
+			const button = document.createElement('button');
+			button.innerText = option;
+			button.classList.add('non-standard-btn');
+			button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
+			optionDiv.appendChild(button);
+		});
+	}
 
 	stepWrap.appendChild(optionDiv);
 	document.getElementById('chat-box').appendChild(stepWrap);
-	AOS.refresh(); // AOS 초기화
+
+	// fadeIn 애니메이션 처리
+	setTimeout(() => {
+		stepWrap.style.opacity = '1';
+	}, 10);
+
+	// AOS 및 스크롤 처리 추가
+	AOS.refresh();
+	scrollIfNeeded(stepWrap);  // 스크롤 처리
 }
 
 function renderAnswer(step, product) {
@@ -250,6 +334,7 @@ function renderAnswer(step, product) {
 			answerDiv = document.createElement('div');
 			answerDiv.id = `${step.step}-answer`;
 			answerDiv.classList.add('non-standard-answer');
+			answerDiv.style.opacity = '0'; // 초기 상태에서 투명하게 설정
 			answerDiv.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
 			document.getElementById(`${step.step}-wrap`).appendChild(answerDiv);
 		}
@@ -262,11 +347,21 @@ function renderAnswer(step, product) {
 		resetButton.onclick = () => resetStep(step.step); // 해당 단계 초기화 처리
 		answerDiv.appendChild(resetButton);
 
+		// fadeIn 애니메이션 처리
+		setTimeout(() => {
+			answerDiv.style.opacity = '1';
+		}, 10);
+
+		// AOS 및 스크롤 처리 추가
+		AOS.refresh();
+		scrollIfNeeded(answerDiv);  // 스크롤 처리
+
 	} else {
 		// final 단계 처리
 		const finalWrap = document.createElement('div');
 		finalWrap.id = 'final-wrap';
 		finalWrap.classList.add('non-standard-answer');
+		finalWrap.style.opacity = '0'; // 초기 상태에서 투명하게 설정
 
 		const finalMessage = document.createElement('span');
 		finalMessage.innerText = '선택이 완료되었습니다.';
@@ -303,9 +398,18 @@ function renderAnswer(step, product) {
 		} else {
 			answerDiv.appendChild(finalWrap);
 		}
+
+		// fadeIn 애니메이션 처리
+		setTimeout(() => {
+			finalWrap.style.opacity = '1';
+		}, 10);
+
+		// AOS 및 스크롤 처리 추가
+		AOS.refresh();
+		scrollIfNeeded(finalWrap);  // 스크롤 처리
 	}
-	AOS.refresh(); // AOS 초기화
 }
+
 
 function handleProductSelection(product, categoryKey, step) {
 	renderAnswer(step, product);
@@ -351,6 +455,30 @@ function resetStep(step) {
 		optionDiv.classList.remove('disabled-option');
 	}
 }
+
+function scrollIfNeeded(nextOptionsContainer) {
+	const chatBox = document.getElementById('chat-box');
+	const chatContainer = document.getElementById('chat-container');
+	const nextOptionsBottom = nextOptionsContainer.getBoundingClientRect().bottom;
+	const containerBottom = chatBox.getBoundingClientRect().bottom;
+
+	// 만약 다음 선택 옵션이 화면 아래로 사라지면 스크롤
+	if (nextOptionsBottom > containerBottom - 200) {
+		// chat-box 스크롤
+		chatBox.scrollTo({
+			top: chatBox.scrollHeight + 200,
+			behavior: 'smooth'
+		});
+
+		// chat-container 스크롤
+		chatContainer.scrollTo({
+			top: chatContainer.scrollHeight,
+			behavior: 'smooth'
+		});
+	}
+}
+
+
 
 // 페이지가 로드될 때 초기 질문을 렌더링
 window.onload = renderInitialQuestion;
