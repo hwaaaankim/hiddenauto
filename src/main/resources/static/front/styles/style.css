@@ -3226,7 +3226,7 @@ button:active {
 
 .input-style input[type=date] {
   color: inherit;
-  width: calc(100vw - 64px);
+  width: 100%;
   display: block;
   appearance: none;
   -webkit-appearance: none;

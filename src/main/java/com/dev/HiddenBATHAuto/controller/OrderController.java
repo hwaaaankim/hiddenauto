@@ -35,4 +35,10 @@ public class OrderController {
 		
 		return "front/order/modeling";
 	}
+	
+	@GetMapping("/productMark")
+	public String productMark() {
+		
+		return "front/order/productMark";
+	}
 }

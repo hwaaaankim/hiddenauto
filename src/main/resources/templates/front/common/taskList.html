@@ -1,0 +1,131 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+				<div class="card-center ms-3">
+					<h1 class="color-white mb-0">업무 리스트</h1>
+					<p class="color-white mt-n1 mb-0">히든바스 AUTO TASK를 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
+				</div>
+				<div class="card-center me-3">
+					<a href="/index" data-back-button
+						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+				</div>
+				<div class="card-overlay bg-black opacity-80"></div>
+			</div>
+			<div class="card card-style">
+				<div class="content mb-0">
+					<h3>검색 FILTER</h3>
+					<p>
+						다양한 조건을 통해 데이터를 조회할 수 있습니다.
+					</p>
+					<div class="row">
+
+						<div class="input-style has-borders no-icon validate-field mb-4 col-3">
+							<input type="url" class="form-control" placeholder="검색어를 입력 해 주세요.">
+							<label for="form44" class="color-highlight">검색어</label>
+							<i class="fa fa-times disabled invalid color-red-dark"></i>
+							<i class="fa fa-check disabled valid color-green-dark"></i>
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4 col-3">
+							<label for="form5" class="color-highlight">Task Sort</label>
+							<select>
+								<option value="default" disabled selected>업무형태를 선택 해 주세요.</option>
+								<option value="iOS">모두보기</option>
+								<option value="Linux">발주관련</option>
+								<option value="MacOS">AS관련</option>
+								<option value="MacOS">기타</option>
+							</select>
+							<span><i class="fa fa-chevron-down"></i></span>
+							<i class="fa fa-check disabled valid color-green-dark"></i>
+							<i class="fa fa-check disabled invalid color-red-dark"></i>
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4 col-3">
+							<input type="date" value="2030-12-31" class="form-control validate-text">
+							<label for="form6" class="color-highlight">Select Date</label>
+							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
+							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
+						</div>
+						<div class="input-style has-borders no-icon mb-4 col-3">
+							<input type="date" value="2030-12-31" class="form-control validate-text">
+							<label for="form6" class="color-highlight">Select Date</label>
+							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
+							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="card card-style">
+
+				<div class="accordion" id="accordion-1">
+					<div class="mb-0">
+						<button class="btn accordion-btn no-effect" data-bs-toggle="collapse"
+							data-bs-target="#taks01">
+							<div class="content">
+				                <h3 class="mb-1">TASK TITLE</h3>
+				                <p class="font-11 mt-n2 mb-0 opacity-50">제품 AS신청</p>
+				                <div class="row mb-n2 color-theme">
+				                    <div class="col-6 font-10 text-start">
+				                        <span class="badge bg-black color-white font-10 mt-2">AS</span>
+				                        <span class="badge bg-black color-white font-10 mt-2">처리완료</span>
+				                    </div>
+				                    <div class="col-6 font-10 text-end opacity-30">
+				                        <i class="fa fa-calendar pe-2"></i>2024.01.01<span class="copyright-year"></span>
+				                    </div>
+				                </div>
+				            </div>
+						</button>
+						<div id="taks01" class="collapse" data-bs-parent="#accordion-1">
+							<div class="pt-1 pb-2 ps-3 pe-3">
+								<div class="content task-content">
+									<div class="row">
+					                    <div class="col-lg-3 col-md-6 col-sm-6">
+					                        <strong class="color-theme">AS 신청일 :</strong>
+					                        <p class="font-12"><i class="far fa-calendar me-2"></i>2024.01.01 11:11:11</p>
+					                    </div>
+					                    <div class="col-lg-3 col-md-6 col-sm-6">
+					                        <strong class="color-theme">AS 처리일 :</strong>
+					                        <p class="font-12"><i class="far fa-calendar me-2"></i>2024.01.01 11:11:11</p>
+					                    </div>
+					                    <div class="col-lg-3 col-md-6 col-sm-6">
+					                        <strong class="color-theme">AS 처리금액 :</strong>
+					                        <p class="font-12"><i class="fa-solid fa-money-bill me-2"></i>10,000 원</p>
+					                    </div>
+					                    <div class="col-lg-3 col-md-6 col-sm-6">
+					                        <strong class="color-theme">AS 처리담당자 :</strong>
+					                        <p class="font-12"><i class="fa-solid fa-person-military-to-person me-2"></i>직원 _____</p>
+					                    </div>
+					                    <div class="col-12 mt-2">
+					                        <strong class="color-theme">AS 신청 이미지 :</strong>
+					                        <p class="font-12"><i class="fa-solid fa-image me-2"></i> 클릭하여 다운로드</p>
+					                    </div>
+					                </div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<a href="#" class="btn btn-m btn-full rounded-sm shadow-xl text-uppercase mb-3 font-900">더보기</a>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+
+</body>
+
+</html>

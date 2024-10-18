@@ -724,3 +724,17 @@ i#bag-icon.active {
     transition: opacity 0.5s ease-in-out;
     pointer-events: none;
 }
+.accordion-btn div.content{
+	margin:0px;
+}
+div.content.task-content{
+	margin-left:0px;
+	margin-right:0px;
+}
+.task-content p{
+	margin-bottom:0px;
+}
+#tab-group-1.content{
+	padding-left:0px;
+	padding-right:0px;
+}

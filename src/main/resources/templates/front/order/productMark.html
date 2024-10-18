@@ -1,0 +1,738 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+				<div class="card-center ms-3">
+					<h1 class="color-white mb-0">즐겨찾기</h1>
+					<p class="color-white mt-n1 mb-0">즐겨찾기해둔 제품을 빠르게 발주진행할 수 있습니다.</p>
+				</div>
+				<div class="card-center me-3">
+					<a href="/index" data-back-button
+						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+				</div>
+				<div class="card-overlay bg-black opacity-80"></div>
+			</div>
+			<div class="tab-group-1">
+				<div class="card card-style">
+					<div class="content mb-0">
+						<h3>즐겨찾기</h3>
+						<p>
+							등록해둔 제품을 빠르게 발주 신청할 수 있습니다.
+						</p>
+						<div class="divider mb-0"></div>
+					</div>
+					<div class="tab-controls content tabs-small tabs-rounded" data-highlight="bg-blue-dark">
+						<a href="#" data-active data-bs-toggle="collapse" data-bs-target="#tab-1">모두보기</a>
+						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-2">대분류</a>
+						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-3">대분류</a>
+						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-4">대분류</a>
+						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-5">대분류</a>
+						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-6">대분류</a>
+					</div>
+				</div>
+
+				<div class="content" id="tab-group-1">
+					<!-- Tab -->
+					<div data-bs-parent="#tab-group-1" class="collapse show" id="tab-1">
+						<div class="row">
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Tab -->
+					<div data-bs-parent="#tab-group-1" class="collapse" id="tab-2">
+						<div class="row">
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<!-- Tab -->
+					<div data-bs-parent="#tab-group-1" class="collapse show" id="tab-3">
+						<div class="row">
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Tab -->
+					<div data-bs-parent="#tab-group-1" class="collapse" id="tab-4">
+						<div class="row">
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<!-- Tab -->
+					<div data-bs-parent="#tab-group-1" class="collapse show" id="tab-5">
+						<div class="row">
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Tab -->
+					<div data-bs-parent="#tab-group-1" class="collapse" id="tab-6">
+						<div class="row">
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-3">
+								<div class="card card-style mx-0">
+									<div class="card card-style bg-21 mx-2 mt-2" data-card-height="250"
+										style="height: 250px;">
+									</div>
+									<div class="content mt-n3">
+										<div class="d-flex">
+											<div>
+												<span class="d-block color-theme font-12">제품명 : </span>
+												<span class="d-block mt-n2 color-theme font-12">제품사이즈 : </span>
+												<span class="d-block mt-n2 color-theme font-12">색상 : </span>
+											</div>
+										</div>
+										<div class="divider mt-3 mb-3"></div>
+										<div class="row mb-0">
+											<div class="col-6 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-red-dark color-red-dark bg-theme">발주하기</a>
+											</div>
+											<div class="col-6 ps-1 pe-1">
+												<a href="#"
+													class="btn btn-m btn-full mb-3 rounded-0 text-uppercase font-900 border-green-dark color-green-dark bg-theme">장바구니</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+
+</body>
+
+</html>
