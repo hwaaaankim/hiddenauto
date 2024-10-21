@@ -1,3 +1,46 @@
+const savedSelections4 = {
+	category: '하부장',
+	product: 'Product B',
+	size: 'Small',
+	color: 'Blue',
+	door: 'notadd',  // 문 추가하지 않음
+	handle: 'notadd'  // 손잡이 추가하지 않음
+};
+
+const savedSelections3 = {
+	category: '상부장',
+	product: 'Product A',
+	size: 'Large',
+	color: 'Red',
+	door: 'add',  // 문을 추가
+	numberofdoor: '2',  // 문 2개 선택
+	handle: 'add',  // 손잡이 추가
+	numberofhandle: '3'  // 손잡이 3개 선택
+};
+
+const savedSelections2 = {
+	category: '거울',
+	product: 'Product 2',
+	size: 'Medium',
+	color: 'Blue',
+	led: 'NOT ADD'  // LED를 추가하지 않음
+};
+
+const savedSelections1 = {
+	category: '거울',
+	product: 'Product 1',
+	size: 'Small',
+	color: 'Red',
+	led: 'ADD',  // LED를 추가
+	ledcolor: 'Warm'  // 추가된 LED의 색상을 선택
+};
+const savedSelections = {
+	category: '상부장',
+	product: 'Product A',
+	size: 'Large',
+	color: 'Red',
+	door: 'add',  // 문을 추가
+};
 const initialQuestion = {
 	step: 'category',
 	options: ['거울', '상부장', '하부장', '플랩장', '슬라이드장'],
@@ -75,6 +118,100 @@ const fadeOutElement = (element) => {
 		element.remove();
 	}, 500); // 0.5초 후 요소 제거
 };
+
+function showOverlay() {
+	let overlay = document.getElementById('order-overlay');
+	if (!overlay) {
+		overlay = document.createElement('div');
+		overlay.id = 'order-overlay';
+		document.body.appendChild(overlay);
+	}
+	overlay.style.pointerEvents = 'auto';  // 클릭 차단 활성화
+	overlay.style.opacity = '1';  // fadeIn
+}
+
+function hideOverlay() {
+	const overlay = document.getElementById('order-overlay');
+	if (overlay) {
+		overlay.style.opacity = '0';  // fadeOut
+		overlay.style.pointerEvents = 'none';  // 클릭 차단 해제
+		setTimeout(() => {
+			overlay.remove();
+		}, 500);  // fadeOut 애니메이션이 끝난 후 제거
+	}
+}
+
+let renderedSteps = []; // 이미 그려진 단계들을 추적
+
+function autoProceed(savedSelections) {
+	// 오버레이 표시
+	showOverlay();
+
+	// 1. category 확인
+	const categoryKey = savedSelections.category === '거울' ? 'mirror' : 'top'; // 카테고리 키 결정
+	console.log(`Category: ${savedSelections.category} -> Flow: ${categoryKey}`);
+	handleCategorySelection(savedSelections.category);
+
+	// 2. productFlowSteps 흐름 파악
+	const steps = productFlowSteps[categoryKey];
+	console.log('Flow steps:', steps);
+
+	// 3. category 선택이 끝나면, savedSelections의 다음 값으로 자동 진행
+	function proceedWithSelections(stepIndex = 0) {
+		const currentStep = steps[stepIndex];
+		const nextStepKey = currentStep.next;
+
+		console.log(`Current step index: ${stepIndex}, Current step: ${currentStep.step}, Current selection: ${Object.values(savedSelections)[stepIndex + 1]}`);
+
+		// 4. savedSelections의 값이 없으면 흐름을 멈춤 (질문만 하고 대기)
+		const currentSelection = Object.values(savedSelections)[stepIndex + 1];
+		if (!currentSelection) {
+			console.log(`No selection for step: ${currentStep.step}. Showing options and stopping further flow.`);
+			hideOverlay(); // 오버레이 제거
+			return; // **현재 단계에서 멈춤 (더 이상 진행하지 않음)**
+		}
+
+		// 5. 해당 step의 선택된 값을 자동으로 처리
+		console.log(`Handling selection: ${currentSelection} for step: ${currentStep.step}`);
+		handleProductSelection(currentSelection, categoryKey, currentStep);
+
+		// 6. next가 함수일 때 처리
+		if (typeof nextStepKey === 'function') {
+			const nextStep = nextStepKey(currentSelection);
+			console.log(`Next step (function result): ${nextStep}`);
+			const nextStepIndex = steps.findIndex(step => step.step === nextStep);
+
+			// nextStep이 valid한지 확인
+			if (nextStepIndex >= 0) {
+				console.log(`Proceeding to next step: ${nextStep} (index: ${nextStepIndex})`);
+				setTimeout(() => proceedWithSelections(nextStepIndex), 500);
+			} else if (nextStep === 'final') {
+				console.log(`Final step reached.`);
+				hideOverlay(); // final일 경우 중복 처리를 방지하고 종료
+			} else {
+				console.log(`Unknown next step or end of flow: ${nextStep}. Ending flow.`);
+				hideOverlay(); // 끝에 도달했을 때 오버레이 제거
+			}
+		} else {
+			// 7. next가 문자열이면 다음 스텝으로 자동 진행
+			const nextStepIndex = steps.findIndex(step => step.step === nextStepKey);
+			console.log(`Next step (string): ${nextStepKey}, Next step index: ${nextStepIndex}`);
+			if (nextStepIndex >= 0) {
+				console.log(`Proceeding to next step: ${nextStepKey} (index: ${nextStepIndex})`);
+				setTimeout(() => proceedWithSelections(nextStepIndex), 500);
+			} else {
+				console.log(`Unknown next step or end of flow: ${nextStepKey}. Ending flow.`);
+				hideOverlay(); // 끝에 도달했을 때 오버레이 제거
+			}
+		}
+	}
+
+	// 8. 첫 번째 질문(product)부터 시작
+	setTimeout(() => {
+		console.log('Starting autoProceed from first step.');
+		proceedWithSelections(0);
+	}, 500);
+}
 
 // 초기 질문 렌더링 함수
 function renderInitialQuestion() {
@@ -480,6 +617,13 @@ function scrollIfNeeded(nextOptionsContainer) {
 
 
 
-// 페이지가 로드될 때 초기 질문을 렌더링
-window.onload = renderInitialQuestion;
+window.onload = () => {
+	// 초기 질문을 렌더링하고 나서 autoProceed 호출
+	renderInitialQuestion();
+
+	// renderInitialQuestion이 완료된 후 autoProceed 실행
+	setTimeout(() => {
+		autoProceed(savedSelections3);
+	}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+};
 
