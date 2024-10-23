@@ -21,13 +21,11 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        // WebSocket 경로를 등록하고 모든 도메인에서 접근 허용
         registry.addHandler(userWebSocketHandler(), "/ws/users").setAllowedOrigins("*");
     }
 
     @Bean
     UserWebSocketHandler userWebSocketHandler() {
-        // RedisSessionRepository를 UserWebSocketHandler에 전달
         return new UserWebSocketHandler(sessionRepository);
     }
 }
