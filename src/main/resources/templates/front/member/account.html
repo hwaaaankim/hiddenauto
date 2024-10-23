@@ -72,27 +72,21 @@
 						<label class="color-blue-dark font-13">연락처</label>
 						<em>(required)</em>
 					</div>
-					
+
 					<div class="input-style input-style-always-active has-borders has-icon mt-4">
 						<i class="fa-solid fa-inbox font-12"></i>
-						<input 
-							type="email" 
-							class="form-control"
-							placeholder="이메일">
+						<input type="email" class="form-control" placeholder="이메일">
 						<label class="color-blue-dark font-13">이메일</label>
 						<em></em>
 					</div>
-					
+
 					<div class="input-style input-style-always-active has-borders has-icon mt-4">
 						<i class="fa-solid fa-fax font-12"></i>
-						<input 
-							type="text" 
-							class="form-control"
-							placeholder="팩스">
+						<input type="text" class="form-control" placeholder="팩스">
 						<label class="color-blue-dark font-13">팩스</label>
 						<em></em>
 					</div>
-					
+
 					<a href="#"
 						class="btn btn-full bg-green-dark btn-m text-uppercase rounded-sm shadow-l mb-3 mt-4 font-900">변경사항저장</a>
 				</div>
@@ -119,26 +113,17 @@
 						비밀번호 변경을 진행할 수 있습니다.
 					</p>
 					<div class="input-style input-style-always-active has-borders no-icon">
-						<input 
-							type="password" 
-							class="form-control"
-							placeholder="">
+						<input type="password" class="form-control" placeholder="">
 						<label class="color-blue-dark font-12">기존 비밀번호</label>
 						<em>(required)</em>
 					</div>
 					<div class="input-style input-style-always-active has-borders no-icon ">
-						<input 
-							type="password" 
-							class="form-control"
-							placeholder="">
+						<input type="password" class="form-control" placeholder="">
 						<label class="color-blue-dark font-12">새로운 비밀번호</label>
 						<em>(required)</em>
 					</div>
 					<div class="input-style input-style-always-active has-borders no-icon">
-						<input 
-							type="password" 
-							class="form-control"
-							placeholder="">
+						<input type="password" class="form-control" placeholder="">
 						<label class="color-blue-dark font-12">비밀번호 확인</label>
 						<em>(required)</em>
 					</div>
@@ -147,9 +132,11 @@
 						Password</a>
 				</div>
 			</div>
-			<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 		</div>
-		<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
-		<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
 </body>
+
 </html>

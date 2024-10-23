@@ -12,4 +12,10 @@ public class IndexController {
 		return "front/index";
 	}
 	
+	@GetMapping("/loginForm")
+	public String loginForm() {
+		
+		return "front/test/loginForm";
+	}
+	
 }
