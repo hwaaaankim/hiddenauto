@@ -493,7 +493,6 @@ let numberOfOption = [];
 function determineNumberOfOptions(sizeOrWidth) {
 	
 	if (typeof sizeOrWidth === 'string') { // size 선택된 경우
-		console.log('sizeOrWidth : ', sizeOrWidth);
 		if (sizeOrWidth === 'size01') {
 			numberOfOption = [0, 1, 2];
 		} else if (sizeOrWidth === 'size02') {
@@ -520,7 +519,6 @@ function determineNumberOfOptions(sizeOrWidth) {
 			numberOfOption = []; // 범위를 벗어나는 경우 기본값 설정
 		}
 	}
-	console.log('numberOfOption : ', numberOfOption)
 }
 
 function resetNumberOfOption() {
@@ -767,11 +765,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 	const optionDiv = document.createElement('div');
 	optionDiv.id = `${step.step}-option`;
 	optionDiv.classList.add('non-standard-option');
-	console.log('0 : ', step.step);
-	console.log('numberOfOption : ', numberOfOption);
 	if (step.step === 'size') {
-		console.log('1 : ', step.step);
-		console.log('numberOfOption : ', numberOfOption);
 		// 사이즈 옵션 추가
 		step.options.forEach(option => {
 			const button = document.createElement('button');
@@ -823,8 +817,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 		});
 		optionDiv.appendChild(confirmButton);
 	} else if (step.step === 'numberofdoor' && numberOfOption.length > 0) {
-		console.log('2 : ', step.step);
-		console.log('numberOfOption : ', numberOfOption);
 		// numberofdoor 단계의 경우, numberOfOption에 따른 동적 옵션 렌더링
 		numberOfOption.forEach(option => {
 			const button = document.createElement('button');
@@ -834,8 +826,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 			optionDiv.appendChild(button);
 		});
 	} else {
-		console.log('3 : ', step.step);
-		console.log('numberOfOption : ', numberOfOption);
 		// 일반적인 단계 - 옵션 버튼 추가
 		step.options.forEach(option => {
 			const button = document.createElement('button');
