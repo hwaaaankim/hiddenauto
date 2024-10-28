@@ -1,59 +1,3 @@
-const savedSelections5 = {
-	category: '하부장',
-	product: 'Product B',
-	size: 'Small',
-	color: 'Blue',
-	door: 'add',
-	numberofdoor: '1',
-	doorDirection: '우측',
-	handle: 'notadd',
-	outlet: '우측'
-};
-
-
-const savedSelections4 = {
-	category: '하부장',
-	product: 'Product B',
-	size: 'Small',
-	color: 'Blue',
-	door: 'notadd',  // 문 추가하지 않음
-	handle: 'notadd'  // 손잡이 추가하지 않음
-};
-
-const savedSelections3 = {
-	category: '상부장',
-	product: 'Product A',
-	size: 'Large',
-	color: 'Red',
-	door: 'add',  // 문을 추가
-	numberofdoor: '2',  // 문 2개 선택
-	handle: 'add',  // 손잡이 추가
-	numberofhandle: '3'  // 손잡이 3개 선택
-};
-
-const savedSelections2 = {
-	category: '거울',
-	product: 'Product 2',
-	size: 'Medium',
-	color: 'Blue',
-	led: 'NOT ADD'  // LED를 추가하지 않음
-};
-
-const savedSelections1 = {
-	category: '거울',
-	product: 'Product 1',
-	size: 'Small',
-	color: 'Red',
-	led: 'ADD',  // LED를 추가
-	ledcolor: 'Warm'  // 추가된 LED의 색상을 선택
-};
-const savedSelections = {
-	category: '상부장',
-	product: 'Product A',
-	size: 'Large',
-	color: 'Red',
-	door: 'add',  // 문을 추가
-};
 
 const initialQuestion = {
 	step: { label: '카테고리', value: 'category' }, // label과 value로 구분
@@ -75,8 +19,6 @@ const initialQuestion = {
 		}
 	}
 };
-
-
 
 const productFlowSteps = {
 	mirror: [
@@ -565,61 +507,75 @@ function hideOverlay() {
 
 let renderedSteps = []; // 이미 그려진 단계들을 추적
 
+const savedSelections = {
+	category: '하부장',
+	product: 'simple',
+	color: 'Blue',
+	form: 'leg',
+};
+
+
 function autoProceed(savedSelections) {
-	// 오버레이 표시
-	showOverlay();
+    // 오버레이 표시
+    showOverlay();
 
-	// 1. category 확인
-	const categoryKey = savedSelections.category === '거울' ? 'mirror' : 'top'; // 카테고리 키 결정
-	handleCategorySelection(savedSelections.category);
+    // 카테고리 선택 및 시작 흐름 설정
+    const categoryKey = savedSelections.category === '거울' ? 'mirror' :
+                    savedSelections.category === '상부장' ? 'top' :
+                    savedSelections.category === '하부장' ? 'low' :
+                    savedSelections.category === '플랩장' ? 'flap' :
+                    savedSelections.category === '슬라이드장' ? 'slide' :
+                    savedSelections.category;
 
-	// 2. productFlowSteps 흐름 파악
-	const steps = productFlowSteps[categoryKey];
+    if (!categoryKey || !productFlowSteps[categoryKey]) {
+        console.error(`알 수 없는 카테고리: ${savedSelections.category}`);
+        hideOverlay();
+        return;
+    }
 
-	// 3. category 선택이 끝나면, savedSelections의 다음 값으로 자동 진행
-	function proceedWithSelections(stepIndex = 0) {
-		const currentStep = steps[stepIndex];
-		const nextStepKey = currentStep.next;
+    // 카테고리 선택 처리
+    handleCategorySelection(categoryKey);
+    const steps = productFlowSteps[categoryKey];
 
-		// 4. savedSelections의 값이 없으면 흐름을 멈춤 (질문만 하고 대기)
-		const currentSelection = Object.values(savedSelections)[stepIndex + 1];
-		if (!currentSelection) {
-			hideOverlay(); // 오버레이 제거
-			return; // **현재 단계에서 멈춤 (더 이상 진행하지 않음)**
-		}
+    // 자동 진행 함수 정의
+    function proceedWithSelections(stepIndex = 0) {
+        const currentStep = steps[stepIndex];
+        const currentSelection = savedSelections[currentStep.step];
 
-		// 5. 해당 step의 선택된 값을 자동으로 처리
-		handleProductSelection(currentSelection, categoryKey, currentStep);
+        // 저장된 선택 값이 없는 경우 자동 진행 멈춤
+        if (!currentSelection) {
+            hideOverlay();
+            return;
+        }
 
-		// 6. next가 함수일 때 처리
-		if (typeof nextStepKey === 'function') {
-			const nextStep = nextStepKey(currentSelection);
-			const nextStepIndex = steps.findIndex(step => step.step === nextStep);
+        // 현재 단계에서 선택 자동 처리
+        handleProductSelection(currentSelection, categoryKey, currentStep);
 
-			// nextStep이 valid한지 확인
-			if (nextStepIndex >= 0) {
-				setTimeout(() => proceedWithSelections(nextStepIndex), 500);
-			} else if (nextStep === 'final') {
-				hideOverlay(); // final일 경우 중복 처리를 방지하고 종료
-			} else {
-				hideOverlay(); // 끝에 도달했을 때 오버레이 제거
-			}
-		} else {
-			// 7. next가 문자열이면 다음 스텝으로 자동 진행
-			const nextStepIndex = steps.findIndex(step => step.step === nextStepKey);
-			if (nextStepIndex >= 0) {
-				setTimeout(() => proceedWithSelections(nextStepIndex), 500);
-			} else {
-				hideOverlay(); // 끝에 도달했을 때 오버레이 제거
-			}
-		}
-	}
+        // 다음 단계 계산
+        const nextStepKey = currentStep.next;
+        let nextStepIndex;
 
-	// 8. 첫 번째 질문(product)부터 시작
-	setTimeout(() => {
-		proceedWithSelections(0);
-	}, 500);
+        if (typeof nextStepKey === 'function') {
+            const nextStep = nextStepKey(currentSelection);
+            nextStepIndex = steps.findIndex(step => step.step === nextStep);
+        } else {
+            nextStepIndex = steps.findIndex(step => step.step === nextStepKey);
+        }
+
+        // 다음 단계가 존재하면 일정 시간 후 자동 진행
+        if (nextStepIndex >= 0) {
+            setTimeout(() => proceedWithSelections(nextStepIndex), 500);
+        } else {
+            // 마지막 단계 도달 시 오버레이 제거
+            hideOverlay();
+        }
+    }
+
+    // 첫 번째 단계부터 자동 진행 시작
+    setTimeout(() => proceedWithSelections(0), 500);
 }
+
+
 
 // 초기 질문 렌더링 함수
 function renderInitialQuestion() {
@@ -1021,8 +977,8 @@ window.onload = () => {
 	renderInitialQuestion();
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	/*setTimeout(() => {
-		autoProceed(savedSelections5);
-	}, 500); */ // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	setTimeout(() => {
+		autoProceed(savedSelections);
+	}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 
