@@ -78,11 +78,11 @@ const productFlowSteps = {
 		},
 		{
 			step: 'size', label: '사이즈', options: [
-				{ value: 'size01', label: '소형' },
-				{ value: 'size02', label: '중형' },
-				{ value: 'size03', label: '대형' },
-				{ value: 'size04', label: '특대형' },
-				{ value: 'size05', label: '초대형' }
+				{ value: '400*800*200', label: '소형' },
+				{ value: '600*800*200', label: '중형' },
+				{ value: '600*800*200', label: '대형' },
+				{ value: '1100*800*200', label: '특대형' },
+				{ value: '1600*800*200', label: '초대형' }
 			], next: 'numberofdoor'
 		},
 		{
@@ -170,11 +170,11 @@ const productFlowSteps = {
 		},
 		{
 			step: 'size', label: '사이즈', options: [
-				{ value: 'size01', label: '소형' },
-				{ value: 'size02', label: '중형' },
-				{ value: 'size03', label: '대형' },
-				{ value: 'size04', label: '특대형' },
-				{ value: 'size05', label: '초대형' }
+				{ value: '400*800*200', label: '소형' },
+				{ value: '600*800*200', label: '중형' },
+				{ value: '600*800*200', label: '대형' },
+				{ value: '1100*800*200', label: '특대형' },
+				{ value: '1600*800*200', label: '초대형' }
 			], next: 'washstand'
 		},
 		{
@@ -350,9 +350,11 @@ const productFlowSteps = {
 		},
 		{
 			step: 'size', label: '사이즈', options: [
-				{ value: 'size01', label: '소형' },
-				{ value: 'size02', label: '중형' },
-				{ value: 'size03', label: '대형' }
+				{ value: '400*800*200', label: '소형' },
+				{ value: '600*800*200', label: '중형' },
+				{ value: '600*800*200', label: '대형' },
+				{ value: '1100*800*200', label: '특대형' },
+				{ value: '1600*800*200', label: '초대형' }
 			], next: 'door'
 		},
 		{
