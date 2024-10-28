@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,63 +8,15 @@
 <body>
     <h1>Admin - Connected Users</h1>
 
-    <div>
-        <h2>로그인하지 않은 사용자</h2>
-        <ul id="not-logged-in-users"></ul>
-    </div>
-    
-    <div>
-        <h2>로그인한 사용자</h2>
-        <ul id="logged-in-users"></ul>
-    </div>
-    
-    <script>
-        var socket = new WebSocket("ws://localhost:8080/ws/users");
+    <!-- 모든 사용자에게 메시지 전송 -->
+    <button onclick="sendToAllUsers('Hello to All')">모든 유저에게 메시지 보내기</button>
 
-        socket.onopen = function() {
-            console.log("Admin WebSocket 연결됨");
-        };
+    <!-- 게스트 사용자에게 메시지 전송 -->
+    <button onclick="sendToGuests('Hello to Guests')">게스트에게 메시지 보내기</button>
 
-        socket.onmessage = function(message) {
-            var users = JSON.parse(message.data);
-            var notLoggedInUsers = document.getElementById("not-logged-in-users");
-            var loggedInUsers = document.getElementById("logged-in-users");
+    <!-- 특정 사용자에게 메시지 전송 -->
+    <button onclick="sendToMember('Hello to Member')">member에게 메시지 보내기</button>
 
-            // 사용자 목록 초기화
-            notLoggedInUsers.innerHTML = "";
-            loggedInUsers.innerHTML = "";
-
-            // 사용자 상태별로 구분하여 목록에 추가
-            for (var sessionId in users) {
-                var userPage = users[sessionId];
-                var userElement = document.createElement("li");
-
-                if (userPage.startsWith("NOT_LOGGED_IN")) {
-                    // 로그인하지 않은 사용자 표시
-                    userElement.textContent = "User not logged in (" + userPage.split("(")[1];
-                    notLoggedInUsers.appendChild(userElement);
-                } else {
-                    // 로그인한 사용자 표시 및 로그아웃 버튼 추가
-                    userElement.textContent = "User on " + userPage;
-
-                    var logoutButton = document.createElement("button");
-                    logoutButton.textContent = "로그아웃";
-                    (function(sessionId) {
-                        logoutButton.onclick = function() {
-                            console.log("로그아웃 요청을 보냄: " + sessionId);
-                            socket.send(JSON.stringify({ action: "logout", sessionId: sessionId }));
-                        };
-                    })(sessionId);  // 클로저로 sessionId 바인딩
-                    userElement.appendChild(logoutButton);
-                    loggedInUsers.appendChild(userElement);
-                }
-            }
-        };
-
-        socket.onclose = function() {
-            console.log("WebSocket 연결 종료");
-        };
-    </script>
     <th:block th:replace="fragments/front/common :: autoScript"></th:block>
 </body>
 </html>

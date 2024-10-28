@@ -10,7 +10,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class TestController {
 
     @GetMapping("/admin")
-    public String testPage(Model model) {
+    public String testAdmin(Model model) {
         return "front/test/admin";
+    }
+    
+    @GetMapping("/member")
+    public String testMember(Model model) {
+        return "front/test/member";
     }
 }

@@ -34,7 +34,7 @@ public class WebSecurityConfig {
 	};
 	
 	private final String[] membersUrls = {
-			"/test/user" 
+			"/test/member" 
 	};
 	
 	// 관리자

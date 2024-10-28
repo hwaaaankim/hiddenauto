@@ -1,17 +1,16 @@
 <!DOCTYPE HTML>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" 
+xmlns:th="http://www.thymeleaf.org" 
+xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head th:fragment="autoHead">
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-	<meta name="apple-mobile-web-app-capable" content="yes">
-	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<meta name="viewport"
 		content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover" />
 	<title>AUTO TASK</title>
 	<link
 		href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,500,500i,700,700i,900,900i|Source+Sans+Pro:300,300i,400,400i,600,600i,700,700i,900,900i&display=swap"
 		rel="stylesheet">
-	<link rel="manifest" href="/front/_manifest.json" data-pwa-version="set_in_manifest_and_pwa_js">
 	<link rel="apple-touch-icon" sizes="180x180" href="/front/app/icons/icon-192x192.png">
 	<link rel="stylesheet" type="text/css" href="/front/styles/bootstrap.css">
 	<link rel="stylesheet" type="text/css" href="/front/styles/style.css">
@@ -60,7 +59,15 @@
 	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 	<script src="/front/scripts/script.js"></script>
 	<script src="/front/cart.js" type="module"></script>
-	<script src="/front/test.js"></script>
+	<script src="/webjars/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="/webjars/stomp-websocket/2.3.4/stomp.min.js"></script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        // 로그인 여부를 Spring Security를 통해 설정
+        var isGuest = /*[[${#authentication.principal == null}]]*/ true;
+        /*]]>*/
+    </script>
+	<script src="/front/socket.js"></script>
 </th:block>
 <th:block th:fragment="autoBottomMenu">
 	<div id="bottombar-account" class="menu menu-box-bottom menu-box-detached">

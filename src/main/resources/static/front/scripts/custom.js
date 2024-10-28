@@ -126,8 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		}
 
-
-
 		//Image Sliders
 		var splide = document.getElementsByClassName('splide');
 		if (splide.length) {
@@ -1120,7 +1118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 		//Creating Offline Alert Messages
-		var addOfflineClasses = document.querySelectorAll('.offline-message');
+/*		var addOfflineClasses = document.querySelectorAll('.offline-message');
 		if (!addOfflineClasses.length) {
 			const offlineAlert = document.createElement('p');
 			const onlineAlert = document.createElement('p');
@@ -1130,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			onlineAlert.textContent = 'You are back online';
 			document.getElementsByTagName('body')[0].appendChild(offlineAlert);
 			document.getElementsByTagName('body')[0].appendChild(onlineAlert);
-		}
+		}*/
 
 		//Online / Offline Settings
 		//Activating and Deactivating Links Based on Online / Offline State

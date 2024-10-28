@@ -1,13 +1,13 @@
 const savedSelections5 = {
-    category: '하부장',
-    product: 'Product B',
-    size: 'Small',
-    color: 'Blue',
-    door: 'add',
-    numberofdoor: '1',
-    doorDirection: '우측',
-    handle: 'notadd',
-    outlet: '우측'
+	category: '하부장',
+	product: 'Product B',
+	size: 'Small',
+	color: 'Blue',
+	door: 'add',
+	numberofdoor: '1',
+	doorDirection: '우측',
+	handle: 'notadd',
+	outlet: '우측'
 };
 
 
@@ -55,78 +55,421 @@ const savedSelections = {
 	door: 'add',  // 문을 추가
 };
 
-
 const initialQuestion = {
-	step: 'category',
-	options: ['거울', '상부장', '하부장', '플랩장', '슬라이드장'],
-	next: (selectedCategory) => {
-		switch (selectedCategory) {
-			case '거울': return 'mirror';
-			case '상부장': return 'top';
-			case '하부장': return 'low';
-			case '플랩장': return 'flap';
-			case '슬라이드장': return 'slide';
+	step: { label: '카테고리', value: 'category' }, // label과 value로 구분
+	options: [
+		{ label: '거울', value: 'mirror' },
+		{ label: '상부장', value: 'top' },
+		{ label: '하부장', value: 'low' },
+		{ label: '플랩장', value: 'flap' },
+		{ label: '슬라이드장', value: 'slide' }
+	],
+	next: (selectedCategoryValue) => {
+		switch (selectedCategoryValue) {
+			case 'mirror': return 'mirror';
+			case 'top': return 'top';
+			case 'low': return 'low';
+			case 'flap': return 'flap';
+			case 'slide': return 'slide';
 			default: return null;
 		}
 	}
 };
 
+
+
 const productFlowSteps = {
 	mirror: [
-		{ step: 'product', options: ['Product 1', 'Product 2'], next: 'frame' },
-		{ step: 'frame', options: ['slim', 'sycle', 'luxury', 'nude'], next: 'size' },
-		{ step: 'size', options: ['size01', 'size02', 'Small', 'Medium', 'Large'], next: 'color' },  // 사이즈 옵션 추가
-		{ step: 'color', options: ['Red', 'Blue'], next: 'led' },
-		{ step: 'led', options: ['ADD', 'NOT ADD'], next: (selectedOption) => selectedOption === 'ADD' ? 'ledcolor' : 'final' },
-		{ step: 'ledcolor', options: ['Warm', 'Cool'], next: 'final' }
+		{
+			step: 'product', label: '제품', options: [
+				{ value: 'product1', label: '제품 1' },
+				{ value: 'product2', label: '제품 2' }
+			], next: 'frame'
+		},
+		{
+			step: 'frame', label: '프레임', options: [
+				{ value: 'slim', label: '슬림' },
+				{ value: 'cycle', label: '사이클' },
+				{ value: 'luxury', label: '럭셔리' },
+				{ value: 'nude', label: '누드' }
+			], next: 'size'
+		},
+		{
+			step: 'size', label: '사이즈', options: [
+				{ value: 'size01', label: '소형' },
+				{ value: 'size02', label: '중형' },
+				{ value: 'size03', label: '대형' }
+			], next: 'color'
+		},
+		{
+			step: 'color', label: '색상', options: [
+				{ value: 'Red', label: '빨간색' },
+				{ value: 'Blue', label: '파란색' }
+			], next: 'led'
+		},
+		{
+			step: 'led', label: 'LED 추가', options: [
+				{ value: 'ADD', label: '추가' },
+				{ value: 'NOT_ADD', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'ADD' ? 'ledcolor' : 'final'
+		},
+		{
+			step: 'ledcolor', label: 'LED 색상', options: [
+				{ value: 'Warm', label: '따뜻한 색' },
+				{ value: 'Cool', label: '차가운 색' }
+			], next: 'final'
+		}
 	],
 	top: [
-		{ step: 'product', options: ['simple', 'nude', 'round'], next: 'size' },
-		{ step: 'size', options: ['size01', 'size02', 'Small', 'Medium', 'Large'], next: 'color' },  // 사이즈 옵션 추가
-		{ step: 'color', options: ['Red', 'Blue'], next: 'door' },
-		{ step: 'door', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'handle' },
-		{ step: 'numberofdoor', options: ['1', '2', '3'], next: 'doorDirection' },
-		{ step: 'doorDirection', options: ['left', 'right'], next: 'handle' },
-		{ step: 'handle', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofhandle' : 'outlet' },
-		{ step: 'numberofhandle', options: ['1', '2', '3'], next: 'outlet' },
-		{ step: 'outlet', options: ['left', 'right'], next: 'final' }
+		{
+			step: 'product', label: '제품', options: [
+				{ value: 'simple', label: '심플' },
+				{ value: 'nude', label: '누드' },
+				{ value: 'round', label: '라운드' }
+			], next: 'color'
+		},
+		{
+			step: 'color', label: '색상', options: [
+				{ value: 'Red', label: '빨간색' },
+				{ value: 'Blue', label: '파란색' }
+			], next: 'size'
+		},
+		{
+			step: 'size', label: '사이즈', options: [
+				{ value: 'size01', label: '소형' },
+				{ value: 'size02', label: '중형' },
+				{ value: 'size03', label: '대형' },
+				{ value: 'size04', label: '특대형' },
+				{ value: 'size05', label: '초대형' }
+			], next: 'numberofdoor'
+		},
+		{
+			step: 'numberofdoor', label: '문 수량', options: [
+				{ value: '1', label: '1개' },
+				{ value: '2', label: '2개' },
+				{ value: '3', label: '3개' }
+			], next: 'doorDirection'
+		},
+		{
+			step: 'doorDirection', label: '문 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'handle'
+		},
+		{
+			step: 'handle', label: '손잡이 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: 'led'
+		},
+		{
+			step: 'led', label: 'LED 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'ledcolor' : 'tissue'
+		},
+		{
+			step: 'ledcolor', label: 'LED 색상', options: [
+				{ value: 'one', label: '색상 1' },
+				{ value: 'two', label: '색상 2' },
+				{ value: 'three', label: '색상 3' }
+			], next: 'tissue'
+		},
+		{
+			step: 'tissue', label: '휴지걸이 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: 'dry'
+		},
+		{
+			step: 'dry', label: '드라이기 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'outlet'
+		},
+		{
+			step: 'drydirection', label: '드라이기 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'outlet'
+		},
+		{
+			step: 'outlet', label: '콘센트 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+		},
+		{
+			step: 'outletdirection', label: '콘센트 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'final'
+		}
 	],
 	low: [
-		{ step: 'product', options: ['simple', 'clean', 'premium'], next: 'size' },
-		{ step: 'size', options: ['size01', 'size02', 'Small', 'Medium', 'Large'], next: 'color' },  // 사이즈 옵션 추가
-		{ step: 'color', options: ['Red', 'Blue'], next: 'door' },
-		{ step: 'door', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'handle' },
-		{ step: 'numberofdoor', options: ['1', '2', '3'], next: 'doorDirection' },
-		{ step: 'doorDirection', options: ['left', 'right'], next: 'handle' },
-		{ step: 'handle', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofhandle' : 'outlet' },
-		{ step: 'numberofhandle', options: ['1', '2', '3'], next: 'outlet' },
-		{ step: 'outlet', options: ['left', 'right'], next: 'final' }
+		{
+			step: 'product', label: '제품', options: [
+				{ value: 'simple', label: '심플' },
+				{ value: 'clean', label: '클린' },
+				{ value: 'premium', label: '프리미엄' }
+			], next: 'color'
+		},
+		{
+			step: 'color', label: '색상', options: [
+				{ value: 'Red', label: '빨간색' },
+				{ value: 'Blue', label: '파란색' }
+			], next: 'form'
+		},
+		{
+			step: 'form', label: '형태', options: [
+				{ value: 'leg', label: '다리형' },
+				{ value: 'wall', label: '벽걸이형' }
+			], next: 'size'
+		},
+		{
+			step: 'size', label: '사이즈', options: [
+				{ value: 'size01', label: '소형' },
+				{ value: 'size02', label: '중형' },
+				{ value: 'size03', label: '대형' },
+				{ value: 'size04', label: '특대형' },
+				{ value: 'size05', label: '초대형' }
+			], next: 'washstand'
+		},
+		{
+			step: 'colorofmarble', label: '대리석 색상', options: [
+				{ value: 'Red', label: '빨간색' },
+				{ value: 'Blue', label: '파란색' }
+			], next: 'washstand'
+		},
+		{
+			step: 'washstand', label: '세면대', options: [
+				{ value: 'one', label: '1구' },
+				{ value: 'two', label: '2구' },
+				{ value: 'three', label: '3구' },
+				{ value: 'four', label: '4구' },
+				{ value: 'five', label: '5구' }
+			], next: 'positionofwashstand'
+		},
+		{
+			step: 'positionofwashstand', label: '세면대 위치', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' },
+				{ value: 'center', label: '중앙' }
+			], next: 'formofdoor'
+		},
+		{
+			step: 'formofdoor', label: '문 형태', options: [
+				{ value: 'one', label: '단일문' },
+				{ value: 'two', label: '2단문' },
+				{ value: 'three', label: '3단문' },
+				{ value: 'four', label: '4단문' }
+			], next: 'numberofdoor'
+		},
+		{
+			step: 'numberofdoor', label: '문 수량', options: [
+				{ value: '0', label: '없음' },
+				{ value: '1', label: '1개' },
+				{ value: '2', label: '2개' },
+				{ value: '3', label: '3개' }
+			], next: 'doorDirection'
+		},
+		{
+			step: 'doorDirection', label: '문 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'handle'
+		},
+		{
+			step: 'handle', label: '손잡이 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'outlet'
+		},
+		{
+			step: 'handletype', label: '손잡이 종류', options: [
+				{ value: 'one', label: '종류 1' },
+				{ value: 'two', label: '종류 2' },
+				{ value: 'three', label: '종류 3' },
+				{ value: 'four', label: '종류 4' }
+			], next: 'handlecolor'
+		},
+		{
+			step: 'handlecolor', label: '손잡이 색상', options: [
+				{ value: 'one', label: '색상 1' },
+				{ value: 'two', label: '색상 2' },
+				{ value: 'three', label: '색상 3' },
+				{ value: 'four', label: '색상 4' }
+			], next: 'outlet'
+		},
+		{
+			step: 'outlet', label: '콘센트 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+		},
+		{
+			step: 'outletdirection', label: '콘센트 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'final'
+		}
 	],
 	flap: [
-		{ step: 'product', options: ['round', 'normal', 'complex'], next: 'size' },
-		{ step: 'size', options: ['size01', 'size02', 'Small', 'Medium', 'Large'], next: 'color' },  // 사이즈 옵션 추가
-		{ step: 'color', options: ['Red', 'Blue'], next: 'door' },
-		{ step: 'door', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'handle' },
-		{ step: 'numberofdoor', options: ['1', '2', '3'], next: 'doorDirection' },
-		{ step: 'doorDirection', options: ['left', 'right'], next: 'handle' },
-		{ step: 'handle', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofhandle' : 'outlet' },
-		{ step: 'numberofhandle', options: ['1', '2', '3'], next: 'outlet' },
-		{ step: 'outlet', options: ['left', 'right'], next: 'final' }
+		{
+			step: 'product', label: '제품', options: [
+				{ value: 'round', label: '라운드' },
+				{ value: 'normal', label: '일반형' },
+				{ value: 'complex', label: '복합형' }
+			], next: 'color'
+		},
+		{
+			step: 'color', label: '색상', options: [
+				{ value: 'Red', label: '빨간색' },
+				{ value: 'Blue', label: '파란색' }
+			], next: 'size'
+		},
+		{
+			step: 'size', label: '사이즈', options: [
+				{ value: 'size01', label: '소형' },
+				{ value: 'size02', label: '중형' },
+				{ value: 'size03', label: '대형' }
+			], next: 'door'
+		},
+		{
+			step: 'door', label: '문 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'doorDirection' : 'led'
+		},
+		{
+			step: 'doorDirection', label: '문 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'led'
+		},
+		{
+			step: 'led', label: 'LED 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'ledcolor' : 'tissue'
+		},
+		{
+			step: 'ledcolor', label: 'LED 색상', options: [
+				{ value: 'one', label: '색상 1' },
+				{ value: 'two', label: '색상 2' },
+				{ value: 'three', label: '색상 3' }
+			], next: 'tissue'
+		},
+		{
+			step: 'tissue', label: '휴지걸이 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: 'dry'
+		},
+		{
+			step: 'dry', label: '드라이기 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'outlet'
+		},
+		{
+			step: 'drydirection', label: '드라이기 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'outlet'
+		},
+		{
+			step: 'outlet', label: '콘센트 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+		},
+		{
+			step: 'outletdirection', label: '콘센트 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'final'
+		}
 	],
 	slide: [
-		{ step: 'product', options: ['premium', 'base', 'enough', 'perfect'], next: 'size' },
-		{ step: 'size', options: ['size01', 'size02', 'Small', 'Medium', 'Large'], next: 'color' },  // 사이즈 옵션 추가
-		{ step: 'color', options: ['Red', 'Blue'], next: 'door' },
-		{ step: 'door', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'handle' },
-		{ step: 'numberofdoor', options: ['1', '2', '3'], next: 'doorDirection' },
-		{ step: 'doorDirection', options: ['left', 'right'], next: 'handle' },
-		{ step: 'handle', options: ['add', 'notadd'], next: (selectedOption) => selectedOption === 'add' ? 'numberofhandle' : 'outlet' },
-		{ step: 'numberofhandle', options: ['1', '2', '3'], next: 'outlet' },
-		{ step: 'outlet', options: ['left', 'right'], next: 'final' }
+		{
+			step: 'product', label: '제품', options: [
+				{ value: 'premium', label: '프리미엄' },
+				{ value: 'base', label: '베이스' },
+				{ value: 'enough', label: '충분한' },
+				{ value: 'perfect', label: '완벽한' }
+			], next: 'color'
+		},
+		{
+			step: 'color', label: '색상', options: [
+				{ value: 'Red', label: '빨간색' },
+				{ value: 'Blue', label: '파란색' }
+			], next: 'size'
+		},
+		{
+			step: 'size', label: '사이즈', options: [
+				{ value: 'size01', label: '소형' },
+				{ value: 'size02', label: '중형' },
+				{ value: 'size03', label: '대형' }
+			], next: 'door'
+		},
+		{
+			step: 'door', label: '문 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: 'handle'
+		},
+		{
+			step: 'handle', label: '손잡이 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: 'led'
+		},
+		{
+			step: 'led', label: 'LED 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'ledcolor' : 'tissue'
+		},
+		{
+			step: 'ledcolor', label: 'LED 색상', options: [
+				{ value: 'one', label: '색상 1' },
+				{ value: 'two', label: '색상 2' },
+				{ value: 'three', label: '색상 3' }
+			], next: 'tissue'
+		},
+		{
+			step: 'tissue', label: '휴지걸이 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: 'dry'
+		},
+		{
+			step: 'dry', label: '드라이기 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'outlet'
+		},
+		{
+			step: 'drydirection', label: '드라이기 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'outlet'
+		},
+		{
+			step: 'outlet', label: '콘센트 추가', options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'notadd', label: '추가 안 함' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+		},
+		{
+			step: 'outletdirection', label: '콘센트 방향', options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' }
+			], next: 'final'
+		}
 	]
 };
-
-
 
 let currentFlow = ['category']; // 기본적으로 category는 포함됨
 
@@ -143,6 +486,62 @@ const fadeOutElement = (element) => {
 		element.remove();
 	}, 500); // 0.5초 후 요소 제거
 };
+
+let numberOfOption = [];
+
+// size나 width에 따라 numberOfOption을 설정하는 함수
+function determineNumberOfOptions(sizeOrWidth) {
+	
+	if (typeof sizeOrWidth === 'string') { // size 선택된 경우
+		console.log('sizeOrWidth : ', sizeOrWidth);
+		if (sizeOrWidth === 'size01') {
+			numberOfOption = [0, 1, 2];
+		} else if (sizeOrWidth === 'size02') {
+			numberOfOption = [0, 2, 3];
+		} else if (sizeOrWidth === 'size03') {
+			numberOfOption = [0, 3, 4];
+		} else if (sizeOrWidth === 'size04') {
+			numberOfOption = [0, 3, 4];
+		} else if (sizeOrWidth === 'size05') {
+			numberOfOption = [0, 3, 5];
+		} else {
+			numberOfOption = []; // 범위를 벗어나는 경우 기본값 설정
+		}
+	} else if (typeof sizeOrWidth === 'number') { // width 입력된 경우
+		if (sizeOrWidth >= 1 && sizeOrWidth <= 500) {
+			numberOfOption = [0, 1, 2];
+		} else if (sizeOrWidth <= 800) {
+			numberOfOption = [0, 2, 3];
+		} else if (sizeOrWidth <= 1200) {
+			numberOfOption = [0, 3, 4];
+		} else if (sizeOrWidth <= 2000) {
+			numberOfOption = [0, 3, 4, 5];
+		} else {
+			numberOfOption = []; // 범위를 벗어나는 경우 기본값 설정
+		}
+	}
+	console.log('numberOfOption : ', numberOfOption)
+}
+
+function resetNumberOfOption() {
+	numberOfOption = []; // 초기화
+}
+
+// size 선택 시 호출
+function handleSizeSelection(size, categoryKey) {
+	if (categoryKey === 'top' || categoryKey === 'low') {
+		determineNumberOfOptions(size); // 선택된 size에 따라 numberOfOption 설정
+	}
+	updateProductOptions(categoryKey, nextStepIndex); // 다음 단계로 진행
+}
+
+// width 입력 시 확인 버튼 클릭 시 호출
+function handleWidthInput(width, categoryKey) {
+	if (categoryKey === 'top' || categoryKey === 'low') {
+		determineNumberOfOptions(width); // 입력된 width에 따라 numberOfOption 설정
+	}
+	updateProductOptions(categoryKey, nextStepIndex); // 다음 단계로 진행
+}
 
 function showOverlay() {
 	let overlay = document.getElementById('order-overlay');
@@ -239,22 +638,23 @@ function renderInitialQuestion() {
 	const questionDiv = document.createElement('div');
 	questionDiv.id = 'category-question';
 	questionDiv.classList.add('non-standard-question');
-	questionDiv.innerText = initialQuestion.step + '을(를) 선택하세요:';
+	questionDiv.innerText = `${initialQuestion.step.label}을(를) 선택하세요:`; // step의 label을 표시
 	categoryWrap.appendChild(questionDiv);
 
 	// 옵션 버튼 추가
 	const optionDiv = document.createElement('div');
 	optionDiv.id = 'category-option';
 	optionDiv.classList.add('non-standard-option');
+
 	initialQuestion.options.forEach(option => {
 		const button = document.createElement('button');
-		button.innerText = option;
+		button.innerText = option.label; // label로 버튼 텍스트 설정
 		button.classList.add('non-standard-btn');
-		button.onclick = () => handleCategorySelection(option);
+		button.onclick = () => handleCategorySelection(option.value); // value를 이벤트에 전달
 		optionDiv.appendChild(button);
 	});
-	categoryWrap.appendChild(optionDiv);
 
+	categoryWrap.appendChild(optionDiv);
 	chatBox.appendChild(categoryWrap);
 	AOS.refresh(); // AOS 초기화
 }
@@ -340,7 +740,6 @@ function handleDirectInput(inputValue, categoryKey, step) {
 	}
 }
 
-
 function updateProductOptions(categoryKey, stepIndex) {
 	const steps = productFlowSteps[categoryKey];
 	const step = steps[stepIndex];
@@ -361,27 +760,36 @@ function updateProductOptions(categoryKey, stepIndex) {
 	const questionDiv = document.createElement('div');
 	questionDiv.id = `${step.step}-question`;
 	questionDiv.classList.add('non-standard-question');
-	questionDiv.innerText = `${step.step}을(를) 선택하세요:`;
+	questionDiv.innerText = `${step.label}을(를) 선택하세요:`; // label을 사용해 질문 텍스트 생성
 	stepWrap.appendChild(questionDiv);
 
 	// 옵션 추가 (옵션을 동적으로 처리)
 	const optionDiv = document.createElement('div');
 	optionDiv.id = `${step.step}-option`;
 	optionDiv.classList.add('non-standard-option');
-
-	// size 단계에 대해 입력 필드와 확인 버튼 추가
+	console.log('0 : ', step.step);
+	console.log('numberOfOption : ', numberOfOption);
 	if (step.step === 'size') {
+		console.log('1 : ', step.step);
+		console.log('numberOfOption : ', numberOfOption);
 		// 사이즈 옵션 추가
 		step.options.forEach(option => {
 			const button = document.createElement('button');
-			button.innerText = option;
+			button.innerText = option.label;
 			button.classList.add('non-standard-btn');
-			button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
+			button.addEventListener('click', () => {
+				// top 또는 low 카테고리에서만 determineNumberOfOptions 호출
+				if (categoryKey === 'top' || categoryKey === 'low') {
+					determineNumberOfOptions(option.value);
+				}
+				handleProductSelection(option.value, categoryKey, step);
+			});
 			optionDiv.appendChild(button);
 		});
 
 		// 입력 필드 추가
-		['width', 'height', 'depth'].forEach(field => {
+		const fields = categoryKey === 'mirror' ? ['width', 'height'] : ['width', 'height', 'depth'];
+		fields.forEach(field => {
 			const label = document.createElement('label');
 			label.innerHTML = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
 			const input = document.createElement('input');
@@ -397,61 +805,43 @@ function updateProductOptions(categoryKey, stepIndex) {
 		confirmButton.innerText = '확인';
 		confirmButton.classList.add('non-standard-btn');
 		confirmButton.addEventListener('click', () => {
-			const width = document.getElementById('width-input').value;
-			const height = document.getElementById('height-input').value;
-			const depth = document.getElementById('depth-input').value;
-			// const legHeight = document.getElementById('leg-height-input').value;
+			const width = parseInt(document.getElementById('width-input').value);
+			const height = parseInt(document.getElementById('height-input').value);
+			const depth = categoryKey === 'mirror' ? null : parseInt(document.getElementById('depth-input').value);
 
-			// 필수 입력 필드가 비어있을 경우 경고 표시
-			if (!width || !height || !depth) {
+			if (!width || !height || (categoryKey !== 'mirror' && !depth)) {
 				alert('모든 필드를 입력하세요.');
 				return;
 			}
 
-			const sizeText = `Width: ${width}, Height: ${height}, Depth: ${depth}`;
+			if (categoryKey === 'top' || categoryKey === 'low') {
+				determineNumberOfOptions(width); // 입력값에 따라 numberOfOption 설정
+			}
+
+			const sizeText = `Width: ${width}, Height: ${height}${categoryKey !== 'mirror' ? `, Depth: ${depth}` : ''}`;
 			handleDirectInput(sizeText, categoryKey, step);
 		});
 		optionDiv.appendChild(confirmButton);
-
-	} else if (step.step === 'numberofdoor' || step.step === 'numberofhandle') {
-		// 갯수 선택 및 직접 입력 필드 추가
-		step.options.forEach(option => {
+	} else if (step.step === 'numberofdoor' && numberOfOption.length > 0) {
+		console.log('2 : ', step.step);
+		console.log('numberOfOption : ', numberOfOption);
+		// numberofdoor 단계의 경우, numberOfOption에 따른 동적 옵션 렌더링
+		numberOfOption.forEach(option => {
 			const button = document.createElement('button');
 			button.innerText = `${option}개`;
 			button.classList.add('non-standard-btn');
 			button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
 			optionDiv.appendChild(button);
 		});
-
-		const customInputLabel = document.createElement('label');
-		customInputLabel.innerHTML = '직접입력: ';
-		const customInput = document.createElement('input');
-		customInput.type = 'number';
-		customInput.id = 'custom-number-input';
-		customInput.classList.add('non-standard-input');
-		customInputLabel.appendChild(customInput);
-		optionDiv.appendChild(customInputLabel);
-
-		const customConfirmButton = document.createElement('button');
-		customConfirmButton.innerText = '확인';
-		customConfirmButton.classList.add('non-standard-btn');
-		customConfirmButton.addEventListener('click', () => {
-			const customNumber = document.getElementById('custom-number-input').value;
-			if (!customNumber) {
-				alert('숫자를 입력하세요.');
-				return;
-			}
-			handleDirectInput(`${customNumber}개`, categoryKey, step); // 숫자 입력 후 확인 처리
-		});
-		optionDiv.appendChild(customConfirmButton);
-
 	} else {
+		console.log('3 : ', step.step);
+		console.log('numberOfOption : ', numberOfOption);
 		// 일반적인 단계 - 옵션 버튼 추가
 		step.options.forEach(option => {
 			const button = document.createElement('button');
-			button.innerText = option;
+			button.innerText = option.label;
 			button.classList.add('non-standard-btn');
-			button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
+			button.addEventListener('click', () => handleProductSelection(option.value, categoryKey, step));
 			optionDiv.appendChild(button);
 		});
 	}
@@ -466,8 +856,9 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 	// AOS 및 스크롤 처리 추가
 	AOS.refresh();
-	scrollIfNeeded(stepWrap);  // 스크롤 처리
+	scrollIfNeeded(stepWrap);
 }
+
 
 function renderAnswer(step, product) {
 	let answerDiv = document.getElementById(`${step.step}-answer`);
@@ -586,17 +977,28 @@ function resetStep(step) {
 		fadeOutElement(answerDiv); // fadeOut을 통해 부드럽게 제거
 	}
 
+	// 선택한 단계 이후의 모든 단계 제거
 	const stepsToDelete = currentFlow.slice(currentFlow.indexOf(step) + 1);
 	stepsToDelete.forEach((stepToDelete) => {
 		const wrapDiv = document.getElementById(`${stepToDelete}-wrap`);
 		if (wrapDiv) fadeOutElement(wrapDiv); // fadeOut 적용
 	});
 
+	// 현재 단계까지만 currentFlow 유지
 	currentFlow = currentFlow.slice(0, currentFlow.indexOf(step) + 1);
 
+	// 선택된 단계의 옵션 비활성화 해제
 	const optionDiv = document.getElementById(`${step}-option`);
 	if (optionDiv) {
 		optionDiv.classList.remove('disabled-option');
+	}
+
+	// size 및 그 이전 단계에서 초기화 시 numberOfOption 초기화
+	const sizeIndex = currentFlow.indexOf('size');
+	const resetIndex = currentFlow.indexOf(step);
+
+	if (sizeIndex !== -1 && resetIndex <= sizeIndex) {
+		resetNumberOfOption(); // numberOfOption 초기화
 	}
 }
 
@@ -629,8 +1031,8 @@ window.onload = () => {
 	renderInitialQuestion();
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	setTimeout(() => {
+	/*setTimeout(() => {
 		autoProceed(savedSelections5);
-	}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	}, 500); */ // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 
