@@ -629,13 +629,6 @@ i#bag-icon.active {
 	z-index: 1;
 }
 
-/* 기본적인 스타일 리셋 */
-* {
-	margin: 0;
-	padding: 0;
-	box-sizing: border-box;
-}
-
 /* 채팅창 컨테이너 */
 #chat-box {
 	width: 100%;
@@ -710,10 +703,69 @@ i#bag-icon.active {
 	width: 120px;
 	height:100%;
 }
+
 #final-wrap.non-standard-answer{
 	width:100%;
 	max-width:100% !important;
 } 
+
+/* textarea 스타일 */
+.non-standard-textarea {
+	width: 100%;
+	min-height: 100px;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	padding: 10px;
+	resize: vertical; /* 수직 방향으로만 크기 조절 */
+	font-family: inherit;
+	font-size: 1em;
+	color: #333;
+	background-color: #f9f9f9;
+	margin-bottom: 10px;
+	transition: border-color 0.3s ease;
+}
+
+.non-standard-textarea:focus {
+	border-color: #007bff;
+	outline: none;
+}
+
+/* input[type="file"] 스타일 */
+.non-standard-file-upload {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	padding: 10px;
+	background-color: #e0e0e0;
+	color: #333;
+	font-family: inherit;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+	margin-bottom: 10px;
+}
+
+.non-standard-file-upload:hover {
+	background-color: #d0d0d0;
+}
+
+.non-standard-file-upload::file-selector-button {
+	background-color: #007bff;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	padding: 5px 15px;
+	cursor: pointer;
+	margin-right: 10px;
+	transition: background-color 0.3s ease;
+}
+
+.non-standard-file-upload::file-selector-button:hover {
+	background-color: #0056b3;
+}
+
+
 .disabled-option {
     opacity: 0.5;
     transition: opacity 0.5s ease-in-out;

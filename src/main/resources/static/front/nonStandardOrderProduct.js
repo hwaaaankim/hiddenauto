@@ -1,4 +1,3 @@
-
 const initialQuestion = {
 	step: { label: '카테고리', value: 'category' }, // label과 value로 구분
 	options: [
@@ -78,12 +77,18 @@ const productFlowSteps = {
 		},
 		{
 			step: 'size', label: '사이즈', options: [
-				{ value: '400*800*200', label: '소형' },
-				{ value: '600*800*200', label: '중형' },
-				{ value: '600*800*200', label: '대형' },
-				{ value: '1100*800*200', label: '특대형' },
-				{ value: '1600*800*200', label: '초대형' }
-			], next: 'numberofdoor'
+				{ value: 'size01', label: '소형' },
+				{ value: 'size02', label: '중형' },
+				{ value: 'size03', label: '대형' },
+				{ value: 'size04', label: '특대형' },
+				{ value: 'size05', label: '초대형' }
+			], next: 'door'
+		},
+		{
+			step: 'door', label: '문 추가', options: [
+				{ value: 'add', label: '추가함' },
+				{ value: 'notadd', label: '추가하지않음' }
+			], next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'handle'
 		},
 		{
 			step: 'numberofdoor', label: '문 수량', options: [
@@ -170,11 +175,11 @@ const productFlowSteps = {
 		},
 		{
 			step: 'size', label: '사이즈', options: [
-				{ value: '400*800*200', label: '소형' },
-				{ value: '600*800*200', label: '중형' },
-				{ value: '600*800*200', label: '대형' },
-				{ value: '1100*800*200', label: '특대형' },
-				{ value: '1600*800*200', label: '초대형' }
+				{ value: 'size01', label: '소형' },
+				{ value: 'size02', label: '중형' },
+				{ value: 'size03', label: '대형' },
+				{ value: 'size04', label: '특대형' },
+				{ value: 'size05', label: '초대형' }
 			], next: 'washstand'
 		},
 		{
@@ -197,14 +202,20 @@ const productFlowSteps = {
 				{ value: 'left', label: '좌측' },
 				{ value: 'right', label: '우측' },
 				{ value: 'center', label: '중앙' }
-			], next: 'formofdoor'
+			], next: 'door'
+		},
+		{
+			step: 'door', label: '문 추가여부', options: [
+				{ value: 'add', label: '추가함' },
+				{ value: 'notadd', label: '추가하지않음' },
+			], next: (selectedOption) => selectedOption === 'add' ? 'formofdoor' : 'handle'
 		},
 		{
 			step: 'formofdoor', label: '문 형태', options: [
-				{ value: 'one', label: '단일문' },
-				{ value: 'two', label: '2단문' },
-				{ value: 'three', label: '3단문' },
-				{ value: 'four', label: '4단문' }
+				{ value: 'one', label: '여닫이' },
+				{ value: 'two', label: '슬라이드' },
+				{ value: 'three', label: '서랍식' },
+				{ value: 'four', label: '혼합식' }
 			], next: 'numberofdoor'
 		},
 		{
@@ -213,12 +224,6 @@ const productFlowSteps = {
 				{ value: '1', label: '1개' },
 				{ value: '2', label: '2개' },
 				{ value: '3', label: '3개' }
-			], next: 'doorDirection'
-		},
-		{
-			step: 'doorDirection', label: '문 방향', options: [
-				{ value: 'left', label: '좌측' },
-				{ value: 'right', label: '우측' }
 			], next: 'handle'
 		},
 		{
@@ -281,20 +286,43 @@ const productFlowSteps = {
 			step: 'door', label: '문 추가', options: [
 				{ value: 'add', label: '추가' },
 				{ value: 'notadd', label: '추가 안 함' }
-			], next: (selectedOption) => selectedOption === 'add' ? 'doorDirection' : 'led'
+			],
+			// next 조건에 따라 분기
+			next: (selectedOption, currentSelection) => {
+				if (selectedOption === 'notadd') {
+					return 'led'; // 문 추가 안 할 경우 LED로 바로 이동
+				} else if (selectedOption === 'add' && currentSelection === 'complex') {
+					return 'doorDirection'; // complex 선택 시 doorDirection 단계로 이동
+				} else {
+					return 'led'; // round 또는 normal 선택 시 LED 단계로 이동
+				}
+			}
 		},
 		{
 			step: 'doorDirection', label: '문 방향', options: [
-				{ value: 'left', label: '좌측' },
-				{ value: 'right', label: '우측' }
-			], next: 'led'
+				{ value: 'left', label: '좌플랩' },
+				{ value: 'right', label: '우플랩' }
+			],
+			// 복합형에서만 doorRatio로 이동, 그 외에는 led로 이동
+			next: 'doorRatio'
 		},
+		{
+			step: 'doorRatio', label: '문 비율', options: [
+				{ value: '1:1', label: '1:1' },
+				{ value: '2:1', label: '2:1' },
+				{ value: '2:1', label: '1:2' },
+			],
+			// doorRatio 이후에는 LED로 이동
+			next: 'led'
+		}
+		,
 		{
 			step: 'led', label: 'LED 추가', options: [
 				{ value: 'add', label: '추가' },
 				{ value: 'notadd', label: '추가 안 함' }
 			], next: (selectedOption) => selectedOption === 'add' ? 'ledcolor' : 'tissue'
 		},
+		// 나머지 기존 단계
 		{
 			step: 'ledcolor', label: 'LED 색상', options: [
 				{ value: 'one', label: '색상 1' },
@@ -416,7 +444,7 @@ const productFlowSteps = {
 };
 
 let currentFlow = ['category']; // 기본적으로 category는 포함됨
-
+let flapProductSelection = null;
 AOS.init({
 	duration: 500,
 	easing: 'ease-in-out',
@@ -433,32 +461,66 @@ const fadeOutElement = (element) => {
 
 let numberOfOption = [];
 
+// 1. 문의 방향을 위한 변수를 선언
+let doorDirectionOptions = [];
+
+// 2. numberofdoor에 따른 방향 조합을 생성하는 함수
+function generateDoorDirectionOptions(doorCount) {
+	doorDirectionOptions = []; // 초기화
+
+	// 문의 수에 따른 방향 조합 생성
+	function getDirectionCombinations(current, depth) {
+		if (depth === doorCount) {
+			doorDirectionOptions.push({
+				value: current.join('-').toLowerCase(),
+				label: current.join('')
+			});
+			return;
+		}
+
+		getDirectionCombinations([...current, '좌'], depth + 1);
+		getDirectionCombinations([...current, '우'], depth + 1);
+	}
+
+	getDirectionCombinations([], 0);
+
+	// 생성된 doorDirectionOptions 배열을 출력하여 확인
+	console.log(`Door Direction Options for door count ${doorCount}:`, doorDirectionOptions);
+}
+
+
+function handleNumberOfDoorSelection(doorCount, categoryKey) {
+	if (categoryKey === 'top') {
+		generateDoorDirectionOptions(doorCount); // doorCount에 따라 방향 조합 생성
+	}
+}
+
 // size나 width에 따라 numberOfOption을 설정하는 함수
 function determineNumberOfOptions(sizeOrWidth) {
-	
+
 	if (typeof sizeOrWidth === 'string') { // size 선택된 경우
 		if (sizeOrWidth === 'size01') {
-			numberOfOption = [0, 1, 2];
+			numberOfOption = [1, 2];
 		} else if (sizeOrWidth === 'size02') {
-			numberOfOption = [0, 2, 3];
+			numberOfOption = [2, 3];
 		} else if (sizeOrWidth === 'size03') {
-			numberOfOption = [0, 3, 4];
+			numberOfOption = [3, 4];
 		} else if (sizeOrWidth === 'size04') {
-			numberOfOption = [0, 3, 4];
+			numberOfOption = [3, 4];
 		} else if (sizeOrWidth === 'size05') {
-			numberOfOption = [0, 3, 5];
+			numberOfOption = [3, 4, 5];
 		} else {
 			numberOfOption = []; // 범위를 벗어나는 경우 기본값 설정
 		}
 	} else if (typeof sizeOrWidth === 'number') { // width 입력된 경우
 		if (sizeOrWidth >= 1 && sizeOrWidth <= 500) {
-			numberOfOption = [0, 1, 2];
+			numberOfOption = [1, 2];
 		} else if (sizeOrWidth <= 800) {
-			numberOfOption = [0, 2, 3];
+			numberOfOption = [2, 3];
 		} else if (sizeOrWidth <= 1200) {
-			numberOfOption = [0, 3, 4];
+			numberOfOption = [3, 4];
 		} else if (sizeOrWidth <= 2000) {
-			numberOfOption = [0, 3, 4, 5];
+			numberOfOption = [3, 4, 5];
 		} else {
 			numberOfOption = []; // 범위를 벗어나는 경우 기본값 설정
 		}
@@ -518,63 +580,63 @@ const savedSelections = {
 
 
 function autoProceed(savedSelections) {
-    // 오버레이 표시
-    showOverlay();
+	// 오버레이 표시
+	showOverlay();
 
-    // 카테고리 선택 및 시작 흐름 설정
-    const categoryKey = savedSelections.category === '거울' ? 'mirror' :
-                    savedSelections.category === '상부장' ? 'top' :
-                    savedSelections.category === '하부장' ? 'low' :
-                    savedSelections.category === '플랩장' ? 'flap' :
-                    savedSelections.category === '슬라이드장' ? 'slide' :
-                    savedSelections.category;
+	// 카테고리 선택 및 시작 흐름 설정
+	const categoryKey = savedSelections.category === '거울' ? 'mirror' :
+		savedSelections.category === '상부장' ? 'top' :
+			savedSelections.category === '하부장' ? 'low' :
+				savedSelections.category === '플랩장' ? 'flap' :
+					savedSelections.category === '슬라이드장' ? 'slide' :
+						savedSelections.category;
 
-    if (!categoryKey || !productFlowSteps[categoryKey]) {
-        console.error(`알 수 없는 카테고리: ${savedSelections.category}`);
-        hideOverlay();
-        return;
-    }
+	if (!categoryKey || !productFlowSteps[categoryKey]) {
+		console.error(`알 수 없는 카테고리: ${savedSelections.category}`);
+		hideOverlay();
+		return;
+	}
 
-    // 카테고리 선택 처리
-    handleCategorySelection(categoryKey);
-    const steps = productFlowSteps[categoryKey];
+	// 카테고리 선택 처리
+	handleCategorySelection(categoryKey);
+	const steps = productFlowSteps[categoryKey];
 
-    // 자동 진행 함수 정의
-    function proceedWithSelections(stepIndex = 0) {
-        const currentStep = steps[stepIndex];
-        const currentSelection = savedSelections[currentStep.step];
+	// 자동 진행 함수 정의
+	function proceedWithSelections(stepIndex = 0) {
+		const currentStep = steps[stepIndex];
+		const currentSelection = savedSelections[currentStep.step];
 
-        // 저장된 선택 값이 없는 경우 자동 진행 멈춤
-        if (!currentSelection) {
-            hideOverlay();
-            return;
-        }
+		// 저장된 선택 값이 없는 경우 자동 진행 멈춤
+		if (!currentSelection) {
+			hideOverlay();
+			return;
+		}
 
-        // 현재 단계에서 선택 자동 처리
-        handleProductSelection(currentSelection, categoryKey, currentStep);
+		// 현재 단계에서 선택 자동 처리
+		handleProductSelection(currentSelection, categoryKey, currentStep);
 
-        // 다음 단계 계산
-        const nextStepKey = currentStep.next;
-        let nextStepIndex;
+		// 다음 단계 계산
+		const nextStepKey = currentStep.next;
+		let nextStepIndex;
 
-        if (typeof nextStepKey === 'function') {
-            const nextStep = nextStepKey(currentSelection);
-            nextStepIndex = steps.findIndex(step => step.step === nextStep);
-        } else {
-            nextStepIndex = steps.findIndex(step => step.step === nextStepKey);
-        }
+		if (typeof nextStepKey === 'function') {
+			const nextStep = nextStepKey(currentSelection);
+			nextStepIndex = steps.findIndex(step => step.step === nextStep);
+		} else {
+			nextStepIndex = steps.findIndex(step => step.step === nextStepKey);
+		}
 
-        // 다음 단계가 존재하면 일정 시간 후 자동 진행
-        if (nextStepIndex >= 0) {
-            setTimeout(() => proceedWithSelections(nextStepIndex), 500);
-        } else {
-            // 마지막 단계 도달 시 오버레이 제거
-            hideOverlay();
-        }
-    }
+		// 다음 단계가 존재하면 일정 시간 후 자동 진행
+		if (nextStepIndex >= 0) {
+			setTimeout(() => proceedWithSelections(nextStepIndex), 500);
+		} else {
+			// 마지막 단계 도달 시 오버레이 제거
+			hideOverlay();
+		}
+	}
 
-    // 첫 번째 단계부터 자동 진행 시작
-    setTimeout(() => proceedWithSelections(0), 500);
+	// 첫 번째 단계부터 자동 진행 시작
+	setTimeout(() => proceedWithSelections(0), 500);
 }
 
 
@@ -699,7 +761,8 @@ function handleDirectInput(inputValue, categoryKey, step) {
 function updateProductOptions(categoryKey, stepIndex) {
 	const steps = productFlowSteps[categoryKey];
 	const step = steps[stepIndex];
-
+	console.log('step.step : ', step.step);
+	console.log('doorDirectionOptions : ', doorDirectionOptions);
 	if (!step) {
 		console.error(`No steps found for category: ${categoryKey}`);
 		return;
@@ -723,6 +786,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 	const optionDiv = document.createElement('div');
 	optionDiv.id = `${step.step}-option`;
 	optionDiv.classList.add('non-standard-option');
+
 	if (step.step === 'size') {
 		// 사이즈 옵션 추가
 		step.options.forEach(option => {
@@ -730,9 +794,8 @@ function updateProductOptions(categoryKey, stepIndex) {
 			button.innerText = option.label;
 			button.classList.add('non-standard-btn');
 			button.addEventListener('click', () => {
-				// top 또는 low 카테고리에서만 determineNumberOfOptions 호출
 				if (categoryKey === 'top' || categoryKey === 'low') {
-					determineNumberOfOptions(option.value);
+					determineNumberOfOptions(option.value); // top 또는 low 카테고리에서만 호출
 				}
 				handleProductSelection(option.value, categoryKey, step);
 			});
@@ -767,7 +830,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 			}
 
 			if (categoryKey === 'top' || categoryKey === 'low') {
-				determineNumberOfOptions(width); // 입력값에 따라 numberOfOption 설정
+				determineNumberOfOptions(width);
 			}
 
 			const sizeText = `Width: ${width}, Height: ${height}${categoryKey !== 'mirror' ? `, Depth: ${depth}` : ''}`;
@@ -780,7 +843,20 @@ function updateProductOptions(categoryKey, stepIndex) {
 			const button = document.createElement('button');
 			button.innerText = `${option}개`;
 			button.classList.add('non-standard-btn');
-			button.addEventListener('click', () => handleProductSelection(option, categoryKey, step));
+			button.addEventListener('click', () => {
+				handleNumberOfDoorSelection(option, categoryKey); // 선택된 numberOfDoor에 따라 방향 생성
+				handleProductSelection(option, categoryKey, step);
+			});
+			optionDiv.appendChild(button);
+		});
+	} else if (step.step === 'doorDirection' && doorDirectionOptions.length > 0) {
+		console.log('step.step : ', step.step);
+		// doordirection 단계에서 doorDirectionOptions 사용
+		doorDirectionOptions.forEach(option => {
+			const button = document.createElement('button');
+			button.innerText = option.label;
+			button.classList.add('non-standard-btn');
+			button.addEventListener('click', () => handleProductSelection(option.value, categoryKey, step));
 			optionDiv.appendChild(button);
 		});
 	} else {
@@ -807,8 +883,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 	scrollIfNeeded(stepWrap);
 }
 
-
-function renderAnswer(step, product) {
+function renderAnswer(step, product, categoryKey = '') {
 	let answerDiv = document.getElementById(`${step.step}-answer`);
 
 	// final이 아닌 단계의 answer 처리
@@ -845,6 +920,19 @@ function renderAnswer(step, product) {
 		finalWrap.id = 'final-wrap';
 		finalWrap.classList.add('non-standard-answer');
 		finalWrap.style.opacity = '0'; // 초기 상태에서 투명하게 설정
+
+		// low 카테고리인 경우 textarea와 파일 업로드 필드를 추가
+		if (categoryKey === 'low') {
+			const additionalInfo = document.createElement('textarea');
+			additionalInfo.placeholder = '추가 정보 입력';
+			additionalInfo.classList.add('non-standard-textarea');
+			finalWrap.appendChild(additionalInfo);
+
+			const fileUpload = document.createElement('input');
+			fileUpload.type = 'file';
+			fileUpload.classList.add('non-standard-file-upload');
+			finalWrap.appendChild(fileUpload);
+		}
 
 		const finalMessage = document.createElement('span');
 		finalMessage.innerText = '선택이 완료되었습니다.';
@@ -895,29 +983,57 @@ function renderAnswer(step, product) {
 
 
 function handleProductSelection(product, categoryKey, step) {
-	renderAnswer(step, product);
+	console.log('doorDirectionOptions : ', doorDirectionOptions);
+	renderAnswer(step, product, categoryKey); // categoryKey 추가
 
 	const optionDiv = document.getElementById(`${step.step}-option`);
 	optionDiv.classList.add('disabled-option');
 
 	const nextStepKey = step.next;
-	let nextStepIndex;
-
-	if (typeof nextStepKey === 'function') {
-		const nextKey = nextStepKey(product);
+	let nextStepIndex;	
+	
+	if (categoryKey === 'flap' && step.step === 'product') {
+		flapProductSelection = product;
+	}
+	console.log('flapProductSelection : ', flapProductSelection);
+	// flap 카테고리일 때만 currentSelections로 nextKey 계산
+	if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
+		const currentSelections = {};
+		currentFlow.forEach((stepKey) => {
+			const answerDiv = document.getElementById(`${stepKey}-answer`);
+			if (answerDiv) {
+				currentSelections[stepKey] = answerDiv.innerText
+					.replace('을(를) 선택하셨습니다.', '')
+					.replace('[초기화]', '') // [초기화] 부분 제거
+					.trim();
+			}
+		});
+		const nextKey = nextStepKey(product, flapProductSelection);
+		console.log('product : ', product);
+		console.log('currentSelections : ', currentSelections);
+		console.log('nextKey : ', nextKey);
 		nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
 		currentFlow.push(nextKey);
-	} else {
-		nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
-		currentFlow.push(nextStepKey);
+	}
+	else {
+		// flap이 아닐 때 기존 로직
+		if (typeof nextStepKey === 'function') {
+			const nextKey = nextStepKey(product);
+			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+			currentFlow.push(nextKey);
+		} else {
+			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
+			currentFlow.push(nextStepKey);
+		}
 	}
 
 	if (nextStepIndex >= 0) {
 		updateProductOptions(categoryKey, nextStepIndex);
 	} else {
-		renderAnswer({ step: 'final' }, '');
+		renderAnswer({ step: 'final' }, '', categoryKey); // categoryKey 추가
 	}
 }
+
 
 function resetStep(step) {
 	const answerDiv = document.getElementById(`${step}-answer`);
@@ -932,8 +1048,9 @@ function resetStep(step) {
 		if (wrapDiv) fadeOutElement(wrapDiv); // fadeOut 적용
 	});
 
-	// 현재 단계까지만 currentFlow 유지
-	currentFlow = currentFlow.slice(0, currentFlow.indexOf(step) + 1);
+	if (step === 'category') {
+		flapProductSelection = null;
+	}
 
 	// 선택된 단계의 옵션 비활성화 해제
 	const optionDiv = document.getElementById(`${step}-option`);
@@ -948,7 +1065,17 @@ function resetStep(step) {
 	if (sizeIndex !== -1 && resetIndex <= sizeIndex) {
 		resetNumberOfOption(); // numberOfOption 초기화
 	}
+
+	// numberofdoor 및 그 이전 단계 초기화 시 doorDirectionOptions 초기화
+	const numberOfDoorIndex = currentFlow.indexOf('numberofdoor');
+	if (numberOfDoorIndex !== -1 && resetIndex <= numberOfDoorIndex) {
+		doorDirectionOptions = []; // doorDirectionOptions 초기화
+	}
+
+	// 현재 단계까지만 currentFlow 유지
+	currentFlow = currentFlow.slice(0, currentFlow.indexOf(step) + 1);
 }
+
 
 function scrollIfNeeded(nextOptionsContainer) {
 	const chatBox = document.getElementById('chat-box');
@@ -979,8 +1106,8 @@ window.onload = () => {
 	renderInitialQuestion();
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	setTimeout(() => {
+	/*setTimeout(() => {
 		autoProceed(savedSelections);
-	}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	}, 500);*/  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 

@@ -1,0 +1,1680 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="fragments/administration/common :: autoAdminHead">
+</head>
+
+<body>
+
+	<!-- Begin page -->
+	<div id="layout-wrapper">
+
+		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+
+		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
+		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+
+			<div class="page-content">
+				<div class="container-fluid">
+
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">생산팀업무현황</h4>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript: void(0);">팀별업무관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">생산팀</a></li>
+										<li class="breadcrumb-item active">상부장</li>
+									</ol>
+								</div>
+
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-lg-10">
+							<div class="row">
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6 project-card">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15"><a href="#" class="text-body">상부장</a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item" href="#"><i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		상세보기
+																	</a>
+																</div>
+															</div>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<div class="py-3">
+												<div class="flex-grow-1">
+													<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+													<p class="text-muted text-truncate-two-lines mb-3">제작제품 상세[...처리]
+													</p>
+												</div>
+												<div class="row gy-3">
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Status</p>
+															<div class="badge bg-warning-subtle text-warning fs-12">
+																Registered
+															</div>
+														</div>
+													</div>
+													<div class="col-6">
+														<div>
+															<p class="text-muted mb-1">Update</p>
+															<h5 class="fs-14">00.00.00 00:00:00</h5>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+												<div class="flex-shrink-0">
+													<div class="text-muted">
+														<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+														00.00.00
+														00:00:00
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-2">
+							<div class="row g-4 mb-3">
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">게시물</label>
+										<select class="form-control w-md">
+											<option value="All">30개</option>
+											<option value="Today">50개</option>
+											<option value="Yesterday">100개</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">상태</label>
+										<select class="form-control w-md">
+											<option value="All">전체</option>
+											<option value="Today">대기중</option>
+											<option value="Today">제작중</option>
+											<option value="Yesterday">완료</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">검색조건</label>
+										<select class="form-control w-md">
+											<option value="All">대리점</option>
+											<option value="Today">담당자</option>
+											<option value="Yesterday">지역</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<label for="datepicker-deadline-input" class="form-label">검색어</label>
+									<div class="search-box">
+										<input type="text" class="form-control" placeholder="검색어를 입력 해 주세요.">
+										<i class="ri-search-line search-icon"></i>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">생산부서</label>
+										<select class="form-control w-md">
+											<option value="All">상부장</option>
+											<option value="Today">하부장</option>
+											<option value="Yesterday">슬라이드장</option>
+											<option value="Today">플랩장</option>
+											<option value="Yesterday">거울</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">시작일</label>
+										<input type="text" class="form-control" placeholder="Enter due date"
+											data-provider="flatpickr">
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">마감일</label>
+										<input type="text" class="form-control" placeholder="Enter due date"
+											data-provider="flatpickr">
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row g-0 text-center text-sm-start align-items-center mb-4">
+						<div class="col-sm-6">
+							<div>
+								<p class="mb-sm-0 text-muted">Showing <span class="fw-semibold">1</span> to <span
+										class="fw-semibold">10</span> of <span
+										class="fw-semibold text-decoration-underline">12</span> entries</p>
+							</div>
+						</div>
+						<div class="col-sm-6">
+							<ul
+								class="pagination pagination-separated justify-content-center justify-content-sm-end mb-sm-0">
+								<li class="page-item disabled">
+									<a href="#" class="page-link">Previous</a>
+								</li>
+								<li class="page-item active">
+									<a href="#" class="page-link">1</a>
+								</li>
+								<li class="page-item ">
+									<a href="#" class="page-link">2</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">3</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">4</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">5</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">Next</a>
+								</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+		</div>
+	</div>
+
+
+	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
+	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+</body>
+
+</html>

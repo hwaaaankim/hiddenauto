@@ -1,0 +1,942 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="fragments/administration/common :: autoAdminHead">
+</head>
+
+<body>
+
+	<!-- Begin page -->
+	<div id="layout-wrapper">
+
+		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+
+		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
+		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+
+			<div class="page-content">
+				<div class="container-fluid">
+					<!-- start page title -->
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">일반발주관리</h4>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript: void(0);">발주관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">발주개요</a></li>
+										<li class="breadcrumb-item active">일반발주관리</li>
+									</ol>
+								</div>
+
+							</div>
+						</div>
+					</div>
+					<!-- end page title -->
+
+					<div class="row">
+						<div class="col-xxl-3 col-sm-6">
+							<div class="card card-animate">
+								<div class="card-body">
+									<div class="d-flex justify-content-between">
+										<div>
+											<p class="fw-semibold text-muted mb-0">총 발주</p>
+											<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
+													data-target="234">234</span>회</h2>
+										</div>
+										<div>
+											<div class="avatar-sm flex-shrink-0">
+												<span class="avatar-title bg-info-subtle text-info rounded-circle fs-4">
+													<i class="ri-ticket-2-line"></i>
+												</span>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-xxl-3 col-sm-6">
+							<div class="card card-animate">
+								<div class="card-body">
+									<div class="d-flex justify-content-between">
+										<div>
+											<p class="fw-semibold text-muted mb-0">대기중</p>
+											<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
+													data-target="14">14</span>회</h2>
+										</div>
+										<div>
+											<div class="avatar-sm flex-shrink-0">
+												<span
+                                                    class="avatar-title bg-warning-subtle text-warning rounded-circle fs-4">
+                                                    <i class="mdi mdi-timer-sand"></i>
+                                                </span>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="col-xxl-3 col-sm-6">
+							<div class="card card-animate">
+								<div class="card-body">
+									<div class="d-flex justify-content-between">
+										<div>
+											<p class="fw-semibold text-muted mb-0">진행중</p>
+											<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
+													data-target="224">224</span>회</h2>
+										</div>
+										<div>
+											<div class="avatar-sm flex-shrink-0">
+												<span class="avatar-title bg-info-subtle text-info rounded-circle fs-4">
+													<i class="ri-ticket-2-line"></i>
+												</span>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-xxl-3 col-sm-6">
+							<div class="card card-animate">
+								<div class="card-body">
+									<div class="d-flex justify-content-between">
+										<div>
+											<p class="fw-semibold text-muted mb-0">발주취소</p>
+												<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
+													data-target="34">34</span>회</h2>
+										</div>
+										<div>
+											<div class="avatar-sm flex-shrink-0">
+												<span
+                                                    class="avatar-title bg-danger-subtle text-danger rounded-circle fs-4">
+                                                    <i class="ri-delete-bin-line"></i>
+                                                </span>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="card" id="tasksList">
+								<div class="card-header border-0">
+									<div class="d-flex align-items-center">
+										<h5 class="card-title mb-0 flex-grow-1">ORDER MANAGER</h5>
+										<div class="flex-shrink-0">
+											<div class="d-flex flex-wrap gap-2">
+												<button onclick="javascript:location.href='/normalOrderInsert'" class="btn btn-success add-btn"><i class="fa-solid fa-plus"></i> 발주등록</button>
+												<button onclick="javascript:location.href='/normalOrderInsert'" class="btn btn-warning add-btn"><i class="fa-solid fa-plus"></i> Excel</button>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="card-body border border-dashed border-end-0 border-start-0">
+									<form>
+										<div class="row g-3">
+											<div class="col-xxl-4 col-sm-12">
+												<div class="search-box">
+													<input type="text" 
+													class="form-control search bg-light border-light"
+													placeholder="검색어를 입력 해 주세요.">
+													<i class="ri-search-line search-icon"></i>
+												</div>
+											</div>
+
+											<div class="col-xxl-3 col-sm-4">
+												<input type="text" class="form-control bg-light border-light"
+													id="demo-datepicker" data-provider="flatpickr"
+													data-date-format="d M, Y" data-range-date="true"
+													placeholder="Select date range">
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">제품</option>
+														<option value="all" selected>All</option>
+														<option value="New">상부장</option>
+														<option value="Pending">하부장</option>
+														<option value="Inprogress">슬라이드장</option>
+														<option value="Completed">플랩장</option>
+														<option value="Completed">거울</option>
+													</select>
+												</div>
+											</div>
+											
+											<!--end col-->
+											<div class="col-xxl-1 col-sm-4">
+												<button type="button" class="btn btn-primary w-100"> 
+													<i class="fa-solid fa-magnifying-glass"></i>
+													검색
+												</button>
+											</div>
+											<div class="col-xxl-1 col-sm-4">
+												<button type="button" class="btn btn-danger w-100"> <i class="fa-solid fa-filter"></i>
+													상세검색
+												</button>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">상태</option>
+														<option value="all" selected>All</option>
+														<option value="New">대기중</option>
+														<option value="Pending">진행중</option>
+														<option value="Inprogress">완료</option>
+														<option value="Completed">취소</option>
+													</select>
+												</div>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">담당직원</option>
+														<option value="all" selected>All</option>
+														<option value="New">대기중</option>
+														<option value="Pending">진행중</option>
+														<option value="Inprogress">완료</option>
+														<option value="Completed">취소</option>
+													</select>
+												</div>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">담당배송직원</option>
+														<option value="all" selected>All</option>
+														<option value="New">대기중</option>
+														<option value="Pending">진행중</option>
+														<option value="Inprogress">완료</option>
+														<option value="Completed">취소</option>
+													</select>
+												</div>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">배송방식</option>
+														<option value="all" selected>All</option>
+														<option value="New">직배송</option>
+														<option value="Pending">택배</option>
+														<option value="Inprogress">용달</option>
+														<option value="Completed">기타</option>
+													</select>
+												</div>
+											</div>
+										</div>
+									</form>
+								</div>
+								<!--end card-body-->
+								<div class="card-body">
+									<div class="table-responsive table-card mb-4">
+										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
+											<thead class="table-light text-muted">
+												<tr>
+													<th scope="col" style="width: 40px;">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																id="checkAll" value="option">
+														</div>
+													</th>
+													<th class="sort">ID</th>
+													<th class="sort">대리점명</th>
+													<th class="sort">발주제품</th>
+													<th class="sort">대표자</th>
+													<th class="sort">담당영업사원</th>
+													<th class="sort">담당배송사원</th>
+													<th class="sort">발주일</th>
+													<th class="sort">배송일</th>
+													<th class="sort">상태</th>
+												</tr>
+											</thead>
+											<tbody class="list form-check-all">
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="/normarOrderDetail"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+												<tr>
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" value="option1">
+														</div>
+													</th>
+													<td class="id"><a href="#"
+															class="fw-medium link-primary">#ID_CODE</a></td>
+													<td class="project_name"><a href="#"
+															class="fw-medium link-primary">대리점명</a></td>
+													<td>
+														<div class="d-flex">
+															<div class="flex-grow-1 tasks_name">발주 제품 [...처리]
+															</div>
+															<div class="flex-shrink-0 ms-4">
+																<ul class="list-inline tasks-list-menu mb-0">
+																	<li class="list-inline-item">
+																		<a href="#">
+																			<i class="ri-eye-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																	<li class="list-inline-item"><a
+																			class="edit-item-btn" href="#showModal"
+																			data-bs-toggle="modal"><i
+																				class="ri-pencil-fill align-bottom me-2 text-muted"></i></a>
+																	</li>
+																	<li class="list-inline-item">
+																		<a class="remove-item-btn"
+																			data-bs-toggle="modal" href="#deleteOrder">
+																			<i
+																				class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																		</a>
+																	</li>
+																</ul>
+															</div>
+														</div>
+													</td>
+													<td class="client_name">대표자명</td>
+													<td class="assignedto">담당영업사원</td>
+													<td class="assignedto">담당배송사원</td>
+													<td class="due_date">00:00:00</td>
+													<td class="due_date">00:00:00</td>
+													<td class="status"><span
+															class="badge bg-secondary-subtle text-secondary text-uppercase">대기중</span>
+													</td>
+												</tr>
+											</tbody>
+										</table>
+
+										<div class="noresult" style="display: none">
+											<div class="text-center">
+												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
+													colors="primary:#121331,secondary:#08a88a"
+													style="width:75px;height:75px"></lord-icon>
+												<h5 class="mt-2">결과가 존재하지않습니다.</h5>
+												<p class="text-muted mb-0">다른 조건으로 검색을 진행 해 주시기 바랍니다.</p>
+											</div>
+										</div>
+									</div>
+									<div class="d-flex justify-content-end mt-2">
+										<div class="pagination-wrap hstack gap-2">
+											<a class="page-item pagination-prev disabled" href="#">
+												Previous
+											</a>
+											<a class="page-item pagination-next" href="#">
+												Next
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="modal fade flip" id="deleteOrder" tabindex="-1" aria-hidden="true">
+						<div class="modal-dialog modal-dialog-centered">
+							<div class="modal-content">
+								<div class="modal-body p-5 text-center">
+									<lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
+										colors="primary:#405189,secondary:#f06548"
+										style="width:90px;height:90px"></lord-icon>
+									<div class="mt-4 text-center">
+										<h4>발주 삭제</h4>
+										<p class="text-muted fs-14 mb-4">해당 발주를 삭제 하시겠습니까?</p>
+										<div class="hstack gap-2 justify-content-center remove">
+											<button
+												class="btn btn-link btn-ghost-success fw-medium text-decoration-none"
+												id="deleteRecord-close" data-bs-dismiss="modal"><i
+													class="ri-close-line me-1 align-middle"></i> 닫기</button>
+											<button class="btn btn-danger" id="delete-record"> 삭제</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="modal fade zoomIn" id="showModal" tabindex="-1" aria-labelledby="exampleModalLabel"
+						aria-hidden="true">
+						<div class="modal-dialog modal-dialog-centered modal-lg">
+							<div class="modal-content border-0">
+								<div class="modal-header p-3 bg-info-subtle">
+									<h5 class="modal-title" id="exampleModalLabel">발주수정</h5>
+									<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+										id="close-modal"></button>
+								</div>
+								<form class="tablelist-form" autocomplete="off">
+									<div class="modal-body">
+										<input type="hidden" id="tasksId" />
+										<div class="row g-3">
+											<div class="col-lg-12">
+												<label for="projectName-field" class="form-label">대리점명</label>
+												<input type="text" id="projectName-field" class="form-control"
+													placeholder="Agency" required />
+											</div>
+											<div class="col-lg-12">
+												<div>
+													<label for="tasksTitle-field" class="form-label">대표자명</label>
+													<input type="text" id="tasksTitle-field" class="form-control"
+														placeholder="Client" required />
+												</div>
+											</div>
+											<div class="col-lg-12">
+												<label for="clientName-field" class="form-label">신청제품</label>
+												<input type="text" id="clientName-field" class="form-control"
+													placeholder="Product" required />
+											</div>
+											<div class="col-lg-12">
+												<label for="clientName-field" class="form-label">배송지</label>
+												<input type="text" class="form-control"
+													placeholder="Address" required />
+											</div>
+											<div class="col-lg-12">
+												<label class="form-label">담당 배송직원</label>
+												<div data-simplebar style="height: 95px;">
+													<ul class="list-unstyled vstack gap-2 mb-0">
+														<li>
+															<div class="form-check d-flex align-items-center">
+																<input class="form-check-input me-3" type="checkbox"
+																	name="assignedTo[]" value="avatar-2.jpg">
+																<label
+																	class="form-check-label d-flex align-items-center"
+																	for="james-forbes">
+																	<span class="flex-shrink-0">
+																		<img src="/administration/assets/images/users/avatar-2.jpg"
+																			alt="" class="avatar-xxs rounded-circle">
+																	</span>
+																	<span class="flex-grow-1 ms-2">직원명</span>
+																</label>
+															</div>
+														</li>
+														<li>
+															<div class="form-check d-flex align-items-center">
+																<input class="form-check-input me-3" type="checkbox"
+																	name="assignedTo[]" value="avatar-2.jpg">
+																<label
+																	class="form-check-label d-flex align-items-center"
+																	for="james-forbes">
+																	<span class="flex-shrink-0">
+																		<img src="/administration/assets/images/users/avatar-2.jpg"
+																			alt="" class="avatar-xxs rounded-circle">
+																	</span>
+																	<span class="flex-grow-1 ms-2">직원명</span>
+																</label>
+															</div>
+														</li>
+													</ul>
+												</div>
+											</div>
+											<div class="col-lg-12">
+												<label class="form-label">담당영업사원</label>
+												<div data-simplebar style="height: 95px;">
+													<ul class="list-unstyled vstack gap-2 mb-0">
+														<li>
+															<div class="form-check d-flex align-items-center">
+																<input class="form-check-input me-3" type="checkbox"
+																	name="assignedTo[]" value="avatar-2.jpg">
+																<label
+																	class="form-check-label d-flex align-items-center"
+																	for="james-forbes">
+																	<span class="flex-shrink-0">
+																		<img src="/administration/assets/images/users/avatar-2.jpg"
+																			alt="" class="avatar-xxs rounded-circle">
+																	</span>
+																	<span class="flex-grow-1 ms-2">직원명</span>
+																</label>
+															</div>
+														</li>
+														<li>
+															<div class="form-check d-flex align-items-center">
+																<input class="form-check-input me-3" type="checkbox"
+																	name="assignedTo[]" value="avatar-3.jpg">
+																<label
+																	class="form-check-label d-flex align-items-center"
+																	for="john-robles">
+																	<span class="flex-shrink-0">
+																		<img src="/administration/assets/images/users/avatar-3.jpg"
+																			alt="" class="avatar-xxs rounded-circle">
+																	</span>
+																	<span class="flex-grow-1 ms-2">직원명</span>
+																</label>
+															</div>
+														</li>
+													</ul>
+												</div>
+											</div>
+											<!--end col-->
+											<div class="col-lg-6">
+												<label for="duedate-field" class="form-label">신청일</label>
+												<input type="text" class="form-control"
+													data-provider="flatpickr" placeholder="00.00.00 00:00:00" required />
+											</div>
+											<div class="col-lg-6">
+												<label for="duedate-field" class="form-label">배송(예정)일</label>
+												<input type="text" class="form-control"
+													data-provider="flatpickr" placeholder="00.00.00 00:00:00" required />
+											</div>
+											<!--end col-->
+											<div class="col-lg-12">
+												<label for="ticket-status" class="form-label">상태</label>
+												<select class="form-control" id="ticket-status">
+													<option value="">대기중</option>
+													<option value="New">완료</option>
+													<option value="Inprogress">확인</option>
+													<option value="Pending">진행</option>
+												</select>
+											</div>
+										</div>
+									</div>
+									<div class="modal-footer">
+										<div class="hstack gap-2 justify-content-end">
+											<button type="button" class="btn btn-light" id="close-modal"
+												data-bs-dismiss="modal">닫기</button>
+											<button type="submit" class="btn btn-success" id="add-btn">발주수정</button>
+											<!-- <button type="button" class="btn btn-success" id="edit-btn">Update Task</button> -->
+										</div>
+									</div>
+								</form>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+		</div>
+	</div>
+
+
+	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
+	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+</body>
+
+</html>
