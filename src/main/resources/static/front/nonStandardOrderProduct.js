@@ -1,19 +1,19 @@
 const initialQuestion = {
 	step: { label: '카테고리', value: 'category' }, // label과 value로 구분
 	options: [
-		{ label: '거울', value: 'mirror' },
-		{ label: '상부장', value: 'top' },
-		{ label: '하부장', value: 'low' },
-		{ label: '플랩장', value: 'flap' },
-		{ label: '슬라이드장', value: 'slide' }
+		{ label: '거울', value: '거울' },
+		{ label: '상부장', value: '상부장' },
+		{ label: '하부장', value: '하부장' },
+		{ label: '플랩장', value: '플랩장' },
+		{ label: '슬라이드장', value: '슬라이드장' }
 	],
 	next: (selectedCategoryValue) => {
 		switch (selectedCategoryValue) {
-			case 'mirror': return 'mirror';
-			case 'top': return 'top';
-			case 'low': return 'low';
-			case 'flap': return 'flap';
-			case 'slide': return 'slide';
+			case '거울': return 'mirror';
+			case '상부장': return 'top';
+			case '하부장': return 'low';
+			case '플랩장': return 'flap';
+			case '슬라이드장': return 'slide';
 			default: return null;
 		}
 	}
@@ -664,36 +664,53 @@ function renderInitialQuestion() {
 }
 
 function handleCategorySelection(category) {
-	const answerDiv = document.createElement('div');
-	answerDiv.id = 'category-answer';
-	answerDiv.classList.add('non-standard-answer'); // 디자인 클래스 추가
-	answerDiv.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
-	answerDiv.innerText = `${category}을(를) 선택하셨습니다.`;
+    const answerDiv = document.createElement('div');
+    answerDiv.id = 'category-answer';
+    answerDiv.classList.add('non-standard-answer'); // 디자인 클래스 추가
+    answerDiv.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
+    answerDiv.innerText = `${category}을(를) 선택하셨습니다.`;
 
-	// 초기화 버튼 추가
-	const resetButton = document.createElement('button');
-	resetButton.innerText = '[초기화]';
-	resetButton.classList.add('non-standard-btn'); // 디자인 클래스 추가
-	resetButton.onclick = () => resetStep('category'); // 초기화 처리
-	answerDiv.appendChild(resetButton);
+    // 초기화 버튼 추가
+    const resetButton = document.createElement('button');
+    resetButton.innerText = '[초기화]';
+    resetButton.classList.add('non-standard-btn'); // 디자인 클래스 추가
+    resetButton.onclick = () => resetStep('category'); // 초기화 처리
+    answerDiv.appendChild(resetButton);
 
-	// Answer div를 category wrap에 추가
-	document.getElementById('category-wrap').appendChild(answerDiv);
-	AOS.refresh(); // AOS 초기화
+    // Answer div를 category wrap에 추가
+    document.getElementById('category-wrap').appendChild(answerDiv);
+    AOS.refresh(); // AOS 초기화
 
-	// 선택한 카테고리의 옵션을 비활성화 (덮개 추가)
-	const categoryOptionDiv = document.getElementById('category-option');
-	categoryOptionDiv.classList.add('disabled-option'); // 덮개 효과 추가
+    // 선택한 카테고리의 옵션을 비활성화 (덮개 추가)
+    const categoryOptionDiv = document.getElementById('category-option');
+    categoryOptionDiv.classList.add('disabled-option'); // 덮개 효과 추가
 
-	// 선택한 카테고리에 따른 흐름 가져오기
-	const nextStep = initialQuestion.next(category);
-	currentFlow.push(productFlowSteps[nextStep][0].step); // 현재 흐름에 카테고리 추가
+    // 선택한 카테고리에 따른 흐름 가져오기
+    const nextStep = initialQuestion.next(category);
+    currentFlow.push(productFlowSteps[nextStep][0].step); // 현재 흐름에 카테고리 추가
 
-	// 제품 옵션 업데이트
-	if (nextStep) {
-		updateProductOptions(nextStep, 0); // 첫 번째 단계로 업데이트
-	}
+    // 선택한 카테고리에 맞는 제품 데이터 조회
+    $.ajax({
+        url: `/api/products/byCategory?category=${category}`, // 서버에서 카테고리에 맞는 제품 데이터 요청
+        method: 'GET',
+        success: (data) => {
+            // productFlowSteps의 product 단계에 동적으로 제품 옵션 설정
+            productFlowSteps[nextStep][0].options = data.map(product => ({
+                label: product.name,
+                value: product.id
+            }));
+            
+            // 제품 옵션 업데이트
+            if (nextStep) {
+                updateProductOptions(nextStep, 0); // 첫 번째 단계로 업데이트
+            }
+        },
+        error: (error) => {
+            console.error('제품 데이터 조회 실패:', error);
+        }
+    });
 }
+
 
 function handleDirectInput(inputValue, categoryKey, step) {
 	// answer를 동적으로 생성
@@ -982,54 +999,96 @@ function renderAnswer(step, product, categoryKey = '') {
 
 
 function handleProductSelection(product, categoryKey, step) {
-	
-	selectedAnswerValue[step.step] = product;
-	
-	renderAnswer(step, product, categoryKey); // categoryKey 추가
+    selectedAnswerValue[step.step] = product;
 
-	const optionDiv = document.getElementById(`${step.step}-option`);
-	optionDiv.classList.add('disabled-option');
+    renderAnswer(step, product, categoryKey); // categoryKey 추가
 
-	const nextStepKey = step.next;
-	let nextStepIndex;	
-	
-	if (categoryKey === 'flap' && step.step === 'product') {
-		flapProductSelection = product;
-	}
-	// flap 카테고리일 때만 currentSelections로 nextKey 계산
-	if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
-		const currentSelections = {};
-		currentFlow.forEach((stepKey) => {
-			const answerDiv = document.getElementById(`${stepKey}-answer`);
-			if (answerDiv) {
-				currentSelections[stepKey] = answerDiv.innerText
-					.replace('을(를) 선택하셨습니다.', '')
-					.replace('[초기화]', '') // [초기화] 부분 제거
-					.trim();
-			}
-		});
-		const nextKey = nextStepKey(product, flapProductSelection);
-		nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-		currentFlow.push(nextKey);
-	} else {
-		// flap이 아닐 때 기존 로직
-		if (typeof nextStepKey === 'function') {
-			const nextKey = nextStepKey(product);
-			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-			currentFlow.push(nextKey);
-		} else {
-			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
-			currentFlow.push(nextStepKey);
-		}
-	}
+    const optionDiv = document.getElementById(`${step.step}-option`);
+    optionDiv.classList.add('disabled-option');
 
-	if (nextStepIndex >= 0) {
-		updateProductOptions(categoryKey, nextStepIndex);
-	} else {
-		renderAnswer({ step: 'final' }, '', categoryKey); // categoryKey 추가
-	}
+    const nextStepKey = step.next;
+    let nextStepIndex;
+
+    // 제품을 선택했을 때, step이 'product'인 경우 추가 로직
+    if (step.step === 'product') {
+        // AJAX로 제품 정보를 조회
+        $.ajax({
+            url: `/api/products/getProductDetails`,  // 서버의 제품 상세 정보 API
+            method: 'GET',
+            data: { productId: product },  // 선택된 제품 이름 전달
+            success: function(response) {
+                // 조회된 데이터에서 size와 color 옵션을 업데이트
+                const sizes = response.productSizes.map(size => ({
+                    value: size.id,
+                    label: size.productSizeText
+                }));
+                const colors = response.productColors.map(color => ({
+                    value: color.id,
+                    label: color.productColorSubject
+                }));
+
+                // productFlowSteps의 size 및 color 옵션 업데이트
+                productFlowSteps[categoryKey].forEach(stepObj => {
+                    if (stepObj.step === 'size') {
+                        stepObj.options = sizes;
+                    }
+                    if (stepObj.step === 'color') {
+                        stepObj.options = colors;
+                    }
+                });
+
+                // 다음 단계로 이동
+                proceedToNextStep(categoryKey, nextStepKey, product);
+            },
+            error: function(error) {
+                console.error("제품 정보 조회 실패:", error);
+                alert("제품 정보를 불러오는 데 실패했습니다.");
+            }
+        });
+    } else {
+        // 제품 선택이 아닌 경우 바로 다음 단계로 이동
+        proceedToNextStep(categoryKey, nextStepKey, product);
+    }
 }
 
+// 다음 단계로 이동 처리 함수
+function proceedToNextStep(categoryKey, nextStepKey, product) {
+    let nextStepIndex;
+    if (categoryKey === 'flap' && step.step === 'product') {
+        flapProductSelection = product;
+    }
+
+    if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
+        const currentSelections = {};
+        currentFlow.forEach((stepKey) => {
+            const answerDiv = document.getElementById(`${stepKey}-answer`);
+            if (answerDiv) {
+                currentSelections[stepKey] = answerDiv.innerText
+                    .replace('을(를) 선택하셨습니다.', '')
+                    .replace('[초기화]', '')
+                    .trim();
+            }
+        });
+        const nextKey = nextStepKey(product, flapProductSelection);
+        nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+        currentFlow.push(nextKey);
+    } else {
+        if (typeof nextStepKey === 'function') {
+            const nextKey = nextStepKey(product);
+            nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+            currentFlow.push(nextKey);
+        } else {
+            nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
+            currentFlow.push(nextStepKey);
+        }
+    }
+
+    if (nextStepIndex >= 0) {
+        updateProductOptions(categoryKey, nextStepIndex);
+    } else {
+        renderAnswer({ step: 'final' }, '', categoryKey); // categoryKey 추가
+    }
+}
 
 function resetStep(step) {
 	const answerDiv = document.getElementById(`${step}-answer`);
