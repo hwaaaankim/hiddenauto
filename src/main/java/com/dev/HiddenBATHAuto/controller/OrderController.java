@@ -36,6 +36,12 @@ public class OrderController {
 		return "front/order/modeling";
 	}
 	
+	@GetMapping("/threed")
+	public String threed() {
+		
+		return "front/order/threed";
+	}
+	
 	@GetMapping("/productMark")
 	public String productMark() {
 		

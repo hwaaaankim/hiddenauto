@@ -635,7 +635,7 @@ i#bag-icon.active {
 	background-color: #f5f5f5;
 	border-radius: 10px;
 	overflow-y: auto;
-	height:800px;
+	height: 800px;
 }
 
 /* wrap - 각 단계의 컨테이너 */
@@ -663,7 +663,7 @@ i#bag-icon.active {
 	margin-bottom: 20px;
 	float: left;
 	clear: both;
-	position:relative;
+	position: relative;
 }
 
 /* answer - 사용자가 선택한 답변을 오른쪽에 붙임 */
@@ -677,9 +677,11 @@ i#bag-icon.active {
 	float: right;
 	clear: both;
 }
-.non-standard-answer .non-standard-btn{
-	margin-left:20px;
+
+.non-standard-answer .non-standard-btn {
+	margin-left: 20px;
 }
+
 /* 버튼 스타일 */
 .non-standard-btn {
 	background-color: #007bff;
@@ -701,13 +703,13 @@ i#bag-icon.active {
 	border-radius: 5px;
 	margin-left: 5px;
 	width: 120px;
-	height:100%;
+	height: 100%;
 }
 
-#final-wrap.non-standard-answer{
-	width:100%;
-	max-width:100% !important;
-} 
+#final-wrap.non-standard-answer {
+	width: 100%;
+	max-width: 100% !important;
+}
 
 /* textarea 스타일 */
 .non-standard-textarea {
@@ -716,7 +718,8 @@ i#bag-icon.active {
 	border: 1px solid #ccc;
 	border-radius: 5px;
 	padding: 10px;
-	resize: vertical; /* 수직 방향으로만 크기 조절 */
+	resize: vertical;
+	/* 수직 방향으로만 크기 조절 */
 	font-family: inherit;
 	font-size: 1em;
 	color: #333;
@@ -767,39 +770,85 @@ i#bag-icon.active {
 
 
 .disabled-option {
-    opacity: 0.5;
-    transition: opacity 0.5s ease-in-out;
+	opacity: 0.5;
+	transition: opacity 0.5s ease-in-out;
 }
 
 .fadeOut {
-    opacity: 0;
-    transition: opacity 0.5s ease-in-out;
-    pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.5s ease-in-out;
+	pointer-events: none;
 }
-.accordion-btn div.content{
-	margin:0px;
+
+.accordion-btn div.content {
+	margin: 0px;
 }
-div.content.task-content{
-	margin-left:0px;
-	margin-right:0px;
+
+div.content.task-content {
+	margin-left: 0px;
+	margin-right: 0px;
 }
-.task-content p{
-	margin-bottom:0px;
+
+.task-content p {
+	margin-bottom: 0px;
 }
-#tab-group-1.content{
-	padding-left:0px;
-	padding-right:0px;
+
+#tab-group-1.content {
+	padding-left: 0px;
+	padding-right: 0px;
 }
+
 /* 오버레이 스타일 */
 #order-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* 반투명한 검은색 */
-    z-index: 9999; /* 모든 화면 요소 위에 표시되도록 */
-    opacity: 0;
-    transition: opacity 0.5s ease-in-out; /* fadeIn/fadeOut 애니메이션 */
-    pointer-events: none; /* 클릭 불가능 */
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.5);
+	/* 반투명한 검은색 */
+	z-index: 9999;
+	/* 모든 화면 요소 위에 표시되도록 */
+	opacity: 0;
+	transition: opacity 0.5s ease-in-out;
+	/* fadeIn/fadeOut 애니메이션 */
+	pointer-events: none;
+	/* 클릭 불가능 */
+}
+
+.fixed-button {
+	position: fixed;
+	width: 60px;
+	height: 60px;
+	background-color: #007bff;
+	color: white;
+	font-size: 18px;
+	font-weight: bold;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	cursor: pointer;
+	transition: transform 0.3s, background-color 0.3s;
+	/* transition 설정 */
+}
+.fixed-button a{
+	color:white;
+}
+/* 각 버튼 위치 설정 */
+.fixed-button.drawing {
+	right: 50px;
+	bottom: 170px;
+}
+
+.fixed-button.three-d {
+	right: 50px;
+	bottom: 100px;
+}
+
+/* 호버 효과 */
+.fixed-button:hover {
+	transform: scale(1.1);
+	/* 크기 확대 */
+	background-color: #0056b3;
+	/* 색상 변경 */
 }

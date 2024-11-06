@@ -1,0 +1,214 @@
+body {
+	margin: 0;
+}
+
+canvas {
+	display: block;
+	background-color: transparent;
+}
+
+
+.controls {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	z-index: 10;
+	background-color: rgba(255, 255, 255, 0.9);
+	padding: 15px;
+	border-radius: 10px;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+	width: 500px;
+}
+
+/* 카테고리 체크박스 스타일 */
+.category-type {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 15px;
+}
+
+.category-type label {
+	flex: 1;
+	text-align: center;
+	padding: 8px;
+	font-weight: bold;
+	cursor: pointer;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.category-type input[type="radio"] {
+	display: none;
+}
+
+.category-type input[type="radio"]:checked+label {
+	background-color: #4caf50;
+	color: #fff;
+	border-color: #4caf50;
+}
+
+.category-type label:hover {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* 다리형 / 벽걸이형 선택 스타일 */
+.mount-type {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 15px;
+}
+
+.mount-option {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	padding: 8px 12px;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.mount-option input[type="radio"] {
+	display: none;
+}
+
+.mount-option span {
+	margin-left: 5px;
+}
+
+.mount-option input[type="radio"]:checked+span {
+	background-color: #4caf50;
+	color: #fff;
+	border-color: #4caf50;
+}
+
+.mount-option:hover {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+
+
+.circle {
+	position: absolute;
+	width: 50px;
+	height: 50px;
+	border-radius: 50%;
+	cursor: pointer;
+	display: flex;
+	justify-content: center;
+	/* 아이콘을 가로로 중앙 정렬 */
+	align-items: center;
+	/* 아이콘을 세로로 중앙 정렬 */
+	font-size: 24px;
+	/* 아이콘 크기 조절 */
+	color: black;
+	/* 아이콘 색상 (검정색) */
+	border: 2px solid black;
+	/* 원 테두리 색상 (검정색) */
+	background-color: transparent;
+	/* 투명한 배경 */
+}
+
+/* 거울 형태 선택 스타일 */
+.mirror-shape-type {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 15px;
+}
+
+.shape-option {
+	flex: 1;
+	text-align: center;
+	padding: 8px;
+	font-weight: bold;
+	cursor: pointer;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.shape-option input[type="radio"] {
+	display: none;
+}
+
+.shape-option input[type="radio"]:checked+label {
+	background-color: #007bff;
+	color: #fff;
+	border-color: #007bff;
+}
+
+.shape-option:hover {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* 일반 입력 필드 스타일 */
+.controls label {
+	display: block;
+	margin-bottom: 5px;
+	font-weight: 600;
+	color: #333;
+}
+
+.controls input {
+	width: 100%;
+	padding: 8px 10px;
+	margin-bottom: 15px;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	box-sizing: border-box;
+	font-size: 14px;
+	transition: border-color 0.3s ease-in-out;
+}
+
+.controls input:focus {
+	border-color: #007BFF;
+	outline: none;
+	box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+/* 버튼 스타일 */
+.controls button {
+	width: 100%;
+	padding: 10px;
+	margin-bottom: 10px;
+	background-color: #007BFF;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+}
+
+.controls button:hover {
+	background-color: #0056b3;
+}
+
+.controls button:focus {
+	outline: none;
+	box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.controls button:active {
+	background-color: #004085;
+}
+
+.controls div {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.controls div button {
+	width: 100%;
+}
+
+
+#modal-canvas {
+	background-image: linear-gradient(#e0e0e0 1px, transparent 1px),
+		linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+	background-size: 20px 20px;
+}

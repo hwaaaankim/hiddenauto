@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>디테일한 세면대 및 캐비닛 모델링</title>
+	<link rel="stylesheet" href="/front/modeling.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body>
+	<div class="controls">
+		<label>
+			Depth(mm):
+			<input type="number" id="depth" value="460" step="1" />
+		</label>
+		<label>
+			Height(mm):
+			<input type="number" id="height" value="800" step="1" />
+		</label>
+		<label>
+			Width(mm):
+			<input type="number" id="width" value="600" step="1" />
+		</label>
+		<label>
+			Leg Height(mm):
+			<input type="number" id="legHeight" value="100" step="1" />
+		</label>
+		<label>
+			Number of Doors:
+			<input type="number" id="numberOfDoors" value="2" step="1" />
+		</label>
+		<div style="display:flex;">
+			<button id="drawButton">Draw</button>
+			<button id="viewBlueprintButton">도면보기</button>
+		</div>
+	</div>
+	
+	<!-- 아이콘이 있는 원들 -->
+	<div class="circle handle-circle">
+		<i class="fas fa-hand-paper"></i> <!-- 손잡이 아이콘 (무료) -->
+	</div>
+	<div class="circle socket-circle">
+		<i class="fas fa-plug"></i> <!-- 콘센트 아이콘 (무료) -->
+	</div>
+	<div class="circle bulb-circle">
+		<i class="fas fa-lightbulb"></i> <!-- 전구 아이콘 (무료) -->
+	</div>
+
+	<!-- 모달 -->
+	<div id="blueprintModal" class="modal">
+		<div class="modal-content">
+			<span class="close">&times;</span>
+			<canvas id="modal-canvas"></canvas>
+		</div>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.2.4/fabric.min.js"></script>
+	<script src="/front/modeling.js"></script>
+</body>
+
+</html>
