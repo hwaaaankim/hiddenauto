@@ -84,6 +84,24 @@ public class Product {
     @Transient
     private String randomImage;
     
+    @Column(name="WIDTH_MIN_LIMIT")
+    private int widthMinLimit;
+    
+    @Column(name="WIDTH_MAX_LIMIT")
+    private int widthMaxLimit;
+    
+    @Column(name="HEIGHT_MIN_LIMIT")
+    private int heightMinLimit;
+    
+    @Column(name="HEIGHT_MAX_LIMIT")
+    private int heightMaxLimit;
+    
+    @Column(name="DEPTH_MIN_LIMIT")
+    private int depthMinLimit;
+    
+    @Column(name="DEPTH_MAX_LIMIT")
+    private int depthMaxLimit;
+    
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
     @JoinTable(

@@ -29,6 +29,12 @@
 	<div class="fixed-button drawing"><a target="_blank" href="/modeling">도면</a></div>
     <div class="fixed-button three-d"><a target="_blank" href="/threed">3D</a></div>
 	<div id="order-overlay"></div>
+	
+	<div id="loader-overlay" class="loader-overlay">
+		<div id="loader" class="loader">
+		    <img src="/front/images/loader.gif" alt="Loading...">
+		</div>
+	</div>
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
