@@ -26,19 +26,24 @@
 		</div>
 		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 	</div>
-	<div class="fixed-button drawing"><a target="_blank" href="/modeling">도면</a></div>
-    <div class="fixed-button three-d"><a target="_blank" href="/threed">3D</a></div>
+	<div class="fixed-button drawing">
+		<a id="modeling-btn" class="notUsed">도면</a>
+	</div>
+	<div class="fixed-button three-d">
+		<a id="three-d-btn" class="notUsed">3D</a>
+	</div>
 	<div id="order-overlay"></div>
-	
+
 	<div id="loader-overlay" class="loader-overlay">
 		<div id="loader" class="loader">
-		    <img src="/front/images/loader.gif" alt="Loading...">
+			<img src="/front/images/loader.gif" alt="Loading...">
 		</div>
 	</div>
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
-	<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js"
+		integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
 	<script type="module" src="/front/nonStandardOrderProduct.js"></script>
 </body>
 

@@ -1,5 +1,6 @@
 const initialQuestion = {
 	step: { label: '카테고리', value: 'category' }, // label과 value로 구분
+	question: '1차 카테고리를 선택 해 주세요',
 	options: [
 		{ label: '거울', value: '거울' },
 		{ label: '상부장', value: '상부장' },
@@ -430,7 +431,19 @@ const productFlowSteps = {
 		}
 	]
 };
-
+const sampleDataSet = {
+	"category": "상부장",
+	"middleSort": 2,
+	"product": 332,
+	"color": 2,
+	"size": "넓이: 1200, 높이: 500, 깊이: 100",
+	"door": "add",
+	"numberofdoor": 3,
+	"doorDirection": "좌-우-좌",
+	"handle": "notadd",
+	"led": "notadd",
+	"tissue": "add"
+}
 let selectedBigSort = null;    // 1차 카테고리 선택 값
 let selectedMiddleSort = null; // 2차 카테고리 선택 값
 let currentFlow = ['category']; // 기본적으로 category는 포함됨
@@ -441,6 +454,17 @@ AOS.init({
 	easing: 'ease-in-out',
 	once: true
 });
+function getProductDetails(productId) {
+	return new Promise((resolve, reject) => {
+		$.ajax({
+			url: `/api/products/getProductDetails`,
+			method: 'GET',
+			data: { productId },
+			success: (response) => resolve(response),
+			error: (error) => reject(error)
+		});
+	});
+}
 
 // 로더 표시 함수
 function showLoader() {
@@ -487,7 +511,6 @@ function generateDoorDirectionOptions(doorCount) {
 
 	getDirectionCombinations([], 0);
 
-	// 생성된 doorDirectionOptions 배열을 출력하여 확인
 }
 
 
@@ -597,66 +620,129 @@ const savedSelections = {
 	form: 'leg',
 };
 
+// 도면 및 3D 버튼 활성화 함수
+function enableModelingAndThreeDButtons() {
+	const modelingBtn = document.getElementById('modeling-btn');
+	const threeDBtn = document.getElementById('three-d-btn');
+
+	if (modelingBtn && threeDBtn) {
+		modelingBtn.classList.remove('notUsed');
+		threeDBtn.classList.remove('notUsed');
+	}
+}
 
 function autoProceed(savedSelections) {
-	// 오버레이 표시
 	showOverlay();
 
-	// 카테고리 선택 및 시작 흐름 설정
-	const categoryKey = savedSelections.category === '거울' ? 'mirror' :
-		savedSelections.category === '상부장' ? 'top' :
-			savedSelections.category === '하부장' ? 'low' :
-				savedSelections.category === '플랩장' ? 'flap' :
-					savedSelections.category === '슬라이드장' ? 'slide' :
-						savedSelections.category;
-
-	if (!categoryKey || !productFlowSteps[categoryKey]) {
+	selectedBigSort = savedSelections.category;
+	const categoryKey = getCategoryKey(selectedBigSort);
+	if (!categoryKey) {
 		hideOverlay();
 		return;
 	}
 
-	// 카테고리 선택 처리
-	handleCategorySelection(categoryKey);
-	const steps = productFlowSteps[categoryKey];
+	handleCategorySelection(selectedBigSort);
+	selectedAnswerValue['category'] = selectedBigSort;
 
-	// 자동 진행 함수 정의
+	if (savedSelections.middleSort) {
+		setTimeout(() => handleMiddleSortSelection(savedSelections.middleSort), 500);
+		selectedAnswerValue['middleSort'] = savedSelections.middleSort;
+	}
+
+	const steps = productFlowSteps[categoryKey];
+	const stepKeys = Object.keys(savedSelections);
+
 	function proceedWithSelections(stepIndex = 0) {
+		if (stepIndex >= steps.length) {
+			hideOverlay();
+			return;
+		}
+
 		const currentStep = steps[stepIndex];
 		const currentSelection = savedSelections[currentStep.step];
 
-		// 저장된 선택 값이 없는 경우 자동 진행 멈춤
 		if (!currentSelection) {
 			hideOverlay();
 			return;
 		}
 
-		// 현재 단계에서 선택 자동 처리
-		handleProductSelection(currentSelection, categoryKey, currentStep);
+		selectedAnswerValue[currentStep.step] = currentSelection;
 
-		// 다음 단계 계산
-		const nextStepKey = currentStep.next;
-		let nextStepIndex;
+		// **1. 사이즈 입력 처리**
+		if (currentStep.step === 'size' && typeof currentSelection === 'string' && currentSelection.includes('넓이')) {
+			const [width, height, depth] = parseSizeText(currentSelection);
+			document.getElementById('width-input').value = width;
+			document.getElementById('height-input').value = height;
+			if (depth) document.getElementById('depth-input').value = depth;
 
-		if (typeof nextStepKey === 'function') {
-			const nextStep = nextStepKey(currentSelection);
-			nextStepIndex = steps.findIndex(step => step.step === nextStep);
-		} else {
-			nextStepIndex = steps.findIndex(step => step.step === nextStepKey);
+			document.querySelector(`#${currentStep.step}-option button`).click();
+
+			// 다음 단계로 이동
+			moveToNextStep(stepIndex);
+			return;
 		}
 
-		// 다음 단계가 존재하면 일정 시간 후 자동 진행
+		// **2. 문의 방향 입력 처리**
+		if (currentStep.step === 'doorDirection' && currentSelection) {
+			const directionInput = document.getElementById('door-direction-input');
+			directionInput.value = currentSelection;
+
+			document.querySelector(`#${currentStep.step}-option button`).click();
+
+			// 다음 단계로 이동
+			moveToNextStep(stepIndex);
+			return;
+		}
+
+		// **3. Product 단계 비동기 처리**
+		if (currentStep.step === 'product') {
+			getProductDetails(currentSelection)
+				.then(() => {
+					handleProductSelection(currentSelection, categoryKey, currentStep);
+					// 제품 정보 조회 후 다음 단계로 이동
+					moveToNextStep(stepIndex);
+				})
+				.catch((error) => {
+					console.error("제품 정보 조회 실패:", error);
+					hideOverlay();
+				});
+			return; // 비동기 처리 중이므로 여기서 반환
+		}
+
+		// **기본 버튼 선택 로직**
+		handleProductSelection(currentSelection, categoryKey, currentStep);
+		moveToNextStep(stepIndex);
+	}
+
+	// 다음 단계로 이동하는 함수
+	function moveToNextStep(stepIndex) {
+		const nextStepKey = steps[stepIndex].next;
+		const nextStepIndex = typeof nextStepKey === 'function'
+			? steps.findIndex(step => step.step === nextStepKey(selectedAnswerValue[steps[stepIndex].step]))
+			: steps.findIndex(step => step.step === nextStepKey);
+
 		if (nextStepIndex >= 0) {
 			setTimeout(() => proceedWithSelections(nextStepIndex), 500);
 		} else {
-			// 마지막 단계 도달 시 오버레이 제거
 			hideOverlay();
 		}
 	}
 
-	// 첫 번째 단계부터 자동 진행 시작
 	setTimeout(() => proceedWithSelections(0), 500);
 }
 
+
+function parseSizeText(sizeText) {
+	const regex = /넓이:\s*(\d+),\s*높이:\s*(\d+)(?:,\s*깊이:\s*(\d+))?/;
+	const match = sizeText.match(regex);
+	if (match) {
+		const width = parseInt(match[1], 10);
+		const height = parseInt(match[2], 10);
+		const depth = match[3] ? parseInt(match[3], 10) : null;
+		return [width, height, depth];
+	}
+	return [null, null, null];
+}
 
 
 // 초기 질문 렌더링 함수
@@ -747,7 +833,7 @@ function handleMiddleSortSelection(middleSortId) {
 	// 옵션 비활성화
 	const optionDiv = document.getElementById(`middleSort-option`);
 	optionDiv.classList.add('disabled-option');
-
+	selectedAnswerValue['middleSort'] = selectedMiddleSort;
 	showLoader();
 	$.ajax({
 		url: `/api/products/byMiddleSort`,
@@ -823,6 +909,7 @@ function handleCategorySelection(category) {
 					selectedBigSort === '슬라이드장' ? 'slide' : '';
 
 	renderAnswer({ step: 'category' }, category, categoryKey);
+	selectedAnswerValue['category'] = selectedBigSort; // 1차 카테고리 저장
 	const optionDiv = document.getElementById(`category-option`);
 	optionDiv.classList.add('disabled-option');
 
@@ -848,6 +935,19 @@ function handleCategorySelection(category) {
 
 
 function handleDirectInput(inputValue, categoryKey, step) {
+
+	if (step.step === 'size') {
+		const width = document.getElementById('width-input').value;
+		const height = document.getElementById('height-input').value;
+		const depth = categoryKey !== 'mirror' ? document.getElementById('depth-input').value : null;
+		const sizeText = `넓이: ${width}, 높이: ${height}${categoryKey !== 'mirror' ? `, 깊이: ${depth}` : ''}`;
+
+		// selectedAnswerValue에 저장
+		selectedAnswerValue[step.step] = sizeText;
+
+		enableModelingAndThreeDButtons();
+	}
+
 	// answer를 동적으로 생성
 	let answerDiv = document.getElementById(`${step.step}-answer`);
 	if (!answerDiv) {
@@ -897,157 +997,212 @@ function handleDirectInput(inputValue, categoryKey, step) {
 }
 
 function updateProductOptions(categoryKey, stepIndex) {
-	const steps = productFlowSteps[categoryKey];
-	const step = steps[stepIndex];
-	if (!step) {
-		return;
-	}
+	return new Promise((resolve, reject) => {
+		const steps = productFlowSteps[categoryKey];
+		const step = steps[stepIndex];
+		if (!step) {
+			reject('Invalid step provided.');
+			return;
+		}
 
-	// 단계별 wrap 생성
-	const stepWrap = document.createElement('div');
-	stepWrap.id = `${step.step}-wrap`;
-	stepWrap.classList.add('non-standard-wrap');
-	stepWrap.style.opacity = '0'; // 초기 상태에서 투명하게 설정
-	stepWrap.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
+		// 단계별 wrap 생성
+		const stepWrap = document.createElement('div');
+		stepWrap.id = `${step.step}-wrap`;
+		stepWrap.classList.add('non-standard-wrap');
+		stepWrap.style.opacity = '0'; // 초기 상태에서 투명하게 설정
+		stepWrap.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
 
-	// 질문 추가
-	const questionDiv = document.createElement('div');
-	questionDiv.id = `${step.step}-question`;
-	questionDiv.classList.add('non-standard-question');
-	questionDiv.innerText = `${step.label}을(를) 선택하세요:`; // label을 사용해 질문 텍스트 생성
-	stepWrap.appendChild(questionDiv);
+		// 질문 추가
+		const questionDiv = document.createElement('div');
+		questionDiv.id = `${step.step}-question`;
+		questionDiv.classList.add('non-standard-question');
+		questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
+		stepWrap.appendChild(questionDiv);
 
-	// 옵션 추가 (옵션을 동적으로 처리)
-	const optionDiv = document.createElement('div');
-	optionDiv.id = `${step.step}-option`;
-	optionDiv.classList.add('non-standard-option');
+		// 옵션 추가 (옵션을 동적으로 처리)
+		const optionDiv = document.createElement('div');
+		optionDiv.id = `${step.step}-option`;
+		optionDiv.classList.add('non-standard-option');
 
-	if (step.step === 'size') {
-		// 사이즈 옵션 추가
-		step.options.forEach(option => {
-			const button = document.createElement('button');
-			button.innerText = option.label;
-			button.classList.add('non-standard-btn');
-			button.addEventListener('click', () => {
+		if (step.step === 'size') {
+			// 사이즈 옵션 추가
+			step.options.forEach(option => {
+				const button = document.createElement('button');
+				button.innerText = option.label;
+				button.classList.add('non-standard-btn');
+				button.addEventListener('click', () => {
+					if (categoryKey === 'top' || categoryKey === 'low') {
+						determineNumberOfOptions(option.value);
+					}
+					handleProductSelection(option.value, categoryKey, step);
+				});
+				optionDiv.appendChild(button);
+			});
+
+			// 사이즈 입력 필드 추가
+			const fields = categoryKey === 'mirror' ? ['width', 'height'] : ['width', 'height', 'depth'];
+			fields.forEach(field => {
+				const label = document.createElement('label');
+				label.innerHTML = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
+
+				const input = document.createElement('input');
+				input.type = 'number';
+				input.id = `${field}-input`;
+				input.classList.add('non-standard-input');
+
+				if (field === 'width') {
+					input.min = 100;
+					input.max = 2000;
+				} else if (field === 'height') {
+					input.min = 100;
+					input.max = 3000;
+				} else if (field === 'depth') {
+					input.min = 50;
+					input.max = 800;
+				}
+
+				input.addEventListener('change', () => {
+					const minValue = parseInt(input.min);
+					const maxValue = parseInt(input.max);
+					const value = parseInt(input.value);
+
+					if (value < minValue) {
+						input.value = minValue;
+						alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최소 ${minValue} 이상이어야 합니다.`);
+					} else if (value > maxValue) {
+						input.value = maxValue;
+						alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최대 ${maxValue} 이하이어야 합니다.`);
+					}
+				});
+
+				label.appendChild(input);
+				optionDiv.appendChild(label);
+			});
+
+			const confirmButton = document.createElement('button');
+			confirmButton.innerText = '확인';
+			confirmButton.classList.add('non-standard-btn');
+			confirmButton.addEventListener('click', () => {
+				const width = parseInt(document.getElementById('width-input').value);
+				const height = parseInt(document.getElementById('height-input').value);
+				const depth = categoryKey === 'mirror' ? null : parseInt(document.getElementById('depth-input').value);
+
+				if (!width || !height || (categoryKey !== 'mirror' && !depth)) {
+					alert('모든 필드를 입력하세요.');
+					return;
+				}
+
 				if (categoryKey === 'top' || categoryKey === 'low') {
-					determineNumberOfOptions(option.value); // top 또는 low 카테고리에서만 호출
+					determineNumberOfOptions(width);
 				}
-				handleProductSelection(option.value, categoryKey, step);
-			});
-			optionDiv.appendChild(button);
-		});
 
-		const fields = categoryKey === 'mirror' ? ['width', 'height'] : ['width', 'height', 'depth'];
-		fields.forEach(field => {
+				const sizeText = `넓이: ${width}, 높이: ${height}${categoryKey !== 'mirror' ? `, 깊이: ${depth}` : ''}`;
+				handleDirectInput(sizeText, categoryKey, step);
+				resolve();
+			});
+			optionDiv.appendChild(confirmButton);
+		} else if (step.step === 'numberofdoor' && numberOfOption.length > 0) {
+			numberOfOption.forEach(option => {
+				const button = document.createElement('button');
+				button.innerText = `${option}개`;
+				button.classList.add('non-standard-btn');
+				button.addEventListener('click', () => {
+					handleNumberOfDoorSelection(option, categoryKey);
+					handleProductSelection(option, categoryKey, step);
+					resolve();
+				});
+				optionDiv.appendChild(button);
+			});
+		} else if (step.step === 'doorDirection' && categoryKey === 'top') {
+			// label과 input 필드 추가
 			const label = document.createElement('label');
-			label.innerHTML = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
+			label.innerHTML = '경첩 방향: ';
 
-			const input = document.createElement('input');
-			input.type = 'number';
-			input.id = `${field}-input`;
-			input.classList.add('non-standard-input');
+			const directionInput = document.createElement('input');
+			directionInput.type = 'text';
+			directionInput.id = 'door-direction-input';
+			directionInput.classList.add('non-standard-input'); // 디자인 클래스 추가
+			directionInput.required = true;
+			directionInput.placeholder = '경첩 방향을 입력 해 주세요 예시) 좌-우-좌';
 
-			// 각 필드의 최소 및 최대 값 설정
-			if (field === 'width') {
-				input.min = 100;
-				input.max = 2000;
-			} else if (field === 'height') {
-				input.min = 100;
-				input.max = 3000;
-			} else if (field === 'depth') {
-				input.min = 50;
-				input.max = 800;
-			}
-
-			// 입력 값이 범위를 벗어났을 때 처리
-			input.addEventListener('change', () => {
-				const minValue = parseInt(input.min);
-				const maxValue = parseInt(input.max);
-				const value = parseInt(input.value);
-
-				if (value < minValue) {
-					input.value = minValue;
-					alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최소 ${minValue} 이상이어야 합니다.`);
-				} else if (value > maxValue) {
-					input.value = maxValue;
-					alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최대 ${maxValue} 이하이어야 합니다.`);
+			// 입력 값 검증
+			directionInput.addEventListener('change', () => {
+				const isValid = /^[좌우](-[좌우])*$/.test(directionInput.value.trim());
+				if (!isValid) {
+					alert('올바른 형식으로 입력 해 주세요. 예시) 좌-우-좌');
+					directionInput.value = ''; // 올바르지 않은 입력일 경우 초기화
 				}
 			});
 
-			label.appendChild(input);
-			optionDiv.appendChild(label);
-		});
+			// 확인 버튼 추가
+			const confirmButton = document.createElement('button');
+			confirmButton.innerText = '확인';
+			confirmButton.classList.add('non-standard-btn');
+			confirmButton.addEventListener('click', () => {
+				const directionValue = directionInput.value.trim();
 
-		// 확인 버튼 추가
-		const confirmButton = document.createElement('button');
-		confirmButton.innerText = '확인';
-		confirmButton.classList.add('non-standard-btn');
-		confirmButton.addEventListener('click', () => {
-			const width = parseInt(document.getElementById('width-input').value);
-			const height = parseInt(document.getElementById('height-input').value);
-			const depth = categoryKey === 'mirror' ? null : parseInt(document.getElementById('depth-input').value);
+				if (!directionValue) {
+					alert('경첩 방향을 입력 해 주세요.');
+					return;
+				}
 
-			if (!width || !height || (categoryKey !== 'mirror' && !depth)) {
-				alert('모든 필드를 입력하세요.');
-				return;
-			}
-
-			if (categoryKey === 'top' || categoryKey === 'low') {
-				determineNumberOfOptions(width);
-			}
-
-			const sizeText = `Width: ${width}, Height: ${height}${categoryKey !== 'mirror' ? `, Depth: ${depth}` : ''}`;
-			handleDirectInput(sizeText, categoryKey, step);
-		});
-		optionDiv.appendChild(confirmButton);
-	} else if (step.step === 'numberofdoor' && numberOfOption.length > 0) {
-		// numberofdoor 단계의 경우, numberOfOption에 따른 동적 옵션 렌더링
-		numberOfOption.forEach(option => {
-			const button = document.createElement('button');
-			button.innerText = `${option}개`;
-			button.classList.add('non-standard-btn');
-			button.addEventListener('click', () => {
-				handleNumberOfDoorSelection(option, categoryKey); // 선택된 numberOfDoor에 따라 방향 생성
-				handleProductSelection(option, categoryKey, step);
+				handleProductSelection(directionValue, categoryKey, step);
+				resolve();
 			});
-			optionDiv.appendChild(button);
-		});
-	} else if (step.step === 'doorDirection' && doorDirectionOptions.length > 0) {
-		// doordirection 단계에서 doorDirectionOptions 사용
-		doorDirectionOptions.forEach(option => {
-			const button = document.createElement('button');
-			button.innerText = option.label;
-			button.classList.add('non-standard-btn');
-			button.addEventListener('click', () => handleProductSelection(option.value, categoryKey, step));
-			optionDiv.appendChild(button);
-		});
-	} else {
-		// 일반적인 단계 - 옵션 버튼 추가
-		step.options.forEach(option => {
-			const button = document.createElement('button');
-			button.innerText = option.label;
-			button.classList.add('non-standard-btn');
-			button.addEventListener('click', () => handleProductSelection(option.value, categoryKey, step));
-			optionDiv.appendChild(button);
-		});
-	}
 
-	stepWrap.appendChild(optionDiv);
-	document.getElementById('chat-box').appendChild(stepWrap);
+			// label과 input을 함께 추가
+			label.appendChild(directionInput);
+			optionDiv.appendChild(label);
+			optionDiv.appendChild(confirmButton);
+		} else {
+			step.options.forEach(option => {
+				const button = document.createElement('button');
+				button.innerText = option.label;
+				button.classList.add('non-standard-btn');
+				button.addEventListener('click', () => {
+					handleProductSelection(option.value, categoryKey, step);
+					resolve();
+				});
+				optionDiv.appendChild(button);
+			});
+		}
 
-	// fadeIn 애니메이션 처리
-	setTimeout(() => {
-		stepWrap.style.opacity = '1';
-	}, 10);
+		stepWrap.appendChild(optionDiv);
+		document.getElementById('chat-box').appendChild(stepWrap);
 
-	// AOS 및 스크롤 처리 추가
-	AOS.refresh();
-	scrollIfNeeded(stepWrap);
+		setTimeout(() => {
+			stepWrap.style.opacity = '1';
+			AOS.refresh();
+			scrollIfNeeded(stepWrap);
+		}, 10);
+	});
+}
+
+function waitForElement(selector, timeout = 3000) {
+	return new Promise((resolve, reject) => {
+		const startTime = Date.now();
+
+		const interval = setInterval(() => {
+			const element = document.getElementById(selector);
+			if (element) {
+				clearInterval(interval);
+				resolve(element);
+			} else if (Date.now() - startTime > timeout) {
+				clearInterval(interval);
+				reject(new Error(`Element ${selector} not found within timeout`));
+			}
+		}, 100); // 100ms 간격으로 체크
+	});
 }
 
 function renderAnswer(step, product, categoryKey = '') {
-	console.log(currentFlow);
 	let answerDiv = document.getElementById(`${step.step}-answer`);
+
+	function getLabelByValue(step, value) {
+		const options = step.options || [];
+		const selectedOption = options.find(option => option.value.toString() === value.toString());
+		return selectedOption ? selectedOption.label : value;
+	}
 
 	// final이 아닌 단계의 answer 처리
 	if (step.step !== 'final') {
@@ -1057,10 +1212,20 @@ function renderAnswer(step, product, categoryKey = '') {
 			answerDiv.classList.add('non-standard-answer');
 			answerDiv.style.opacity = '0'; // 초기 상태에서 투명하게 설정
 			answerDiv.setAttribute('data-aos', 'fade-in'); // AOS 애니메이션 적용
-			document.getElementById(`${step.step}-wrap`).appendChild(answerDiv);
-		}
-		answerDiv.innerText = `${product}을(를) 선택하셨습니다.`;
 
+			// 요소가 DOM에 추가될 때까지 기다림
+			waitForElement(`${step.step}-wrap`)
+				.then((wrapElement) => {
+					wrapElement.appendChild(answerDiv);
+					console.log(`${step.step}-wrap 요소에 answerDiv 추가 완료`);
+				})
+				.catch((error) => {
+					console.error(error);
+				});
+		}
+
+		const displayValue = getLabelByValue(step, product);
+		answerDiv.innerText = `${displayValue}을(를) 선택하셨습니다.`;
 		// 초기화 버튼 추가
 		const resetButton = document.createElement('button');
 		resetButton.innerText = '[초기화]';
@@ -1138,9 +1303,6 @@ function renderAnswer(step, product, categoryKey = '') {
 		}
 
 		finalWrap.appendChild(orderButton);
-
-
-
 		const lastStep = currentFlow[currentFlow.length - 2]; // 마지막 이전 단계
 		const lastStepWrap = document.getElementById(`${lastStep}-wrap`);
 
@@ -1163,27 +1325,35 @@ function renderAnswer(step, product, categoryKey = '') {
 
 
 function handleProductSelection(product, categoryKey, step) {
-
 	if (categoryKey === 'flap' && step.step === 'product') {
 		flapProductSelection = product;
 	}
 	selectedAnswerValue[step.step] = product;
 	renderAnswer(step, product, categoryKey); // categoryKey 추가
 
-	const optionDiv = document.getElementById(`${step.step}-option`);
-	optionDiv.classList.add('disabled-option');
+	waitForElement(`${step.step}-option`)
+		.then((optionDiv) => {
+			optionDiv.classList.add('disabled-option');
+
+			// 스크롤 기능 추가
+			scrollIfNeeded(optionDiv);
+		})
+		.catch((error) => {
+			console.error(`Element ${step.step}-option not found:`, error);
+		});
+
 
 	const nextStepKey = step.next;
-	let nextStepIndex;
+
+	if (step.step === 'size') {
+		enableModelingAndThreeDButtons();
+	}
 
 	// 제품을 선택했을 때, step이 'product'인 경우 추가 로직
 	if (step.step === 'product') {
-		// AJAX로 제품 정보를 조회
-		$.ajax({
-			url: `/api/products/getProductDetails`,  // 서버의 제품 상세 정보 API
-			method: 'GET',
-			data: { productId: product },  // 선택된 제품 이름 전달
-			success: function(response) {
+		// AJAX로 제품 정보를 조회 (Promise 사용)
+		getProductDetails(product)
+			.then((response) => {
 				// 조회된 데이터에서 size와 color 옵션을 업데이트
 				const sizes = response.productSizes.map(size => ({
 					value: size.id,
@@ -1205,13 +1375,12 @@ function handleProductSelection(product, categoryKey, step) {
 				});
 
 				// 다음 단계로 이동
-				proceedToNextStep(categoryKey, nextStepKey, product);
-			},
-			error: function(error) {
+				return proceedToNextStep(categoryKey, nextStepKey, product);
+			})
+			.catch((error) => {
 				console.error("제품 정보 조회 실패:", error);
 				alert("제품 정보를 불러오는 데 실패했습니다.");
-			}
-		});
+			});
 	} else {
 		// 제품 선택이 아닌 경우 바로 다음 단계로 이동
 		proceedToNextStep(categoryKey, nextStepKey, product);
@@ -1220,44 +1389,69 @@ function handleProductSelection(product, categoryKey, step) {
 
 // 다음 단계로 이동 처리 함수
 function proceedToNextStep(categoryKey, nextStepKey, product) {
-	let nextStepIndex;
+	return new Promise((resolve, reject) => {
+		let nextStepIndex;
 
-
-	if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
-		const currentSelections = {};
-		currentFlow.forEach((stepKey) => {
-			const answerDiv = document.getElementById(`${stepKey}-answer`);
-			if (answerDiv) {
-				currentSelections[stepKey] = answerDiv.innerText
-					.replace('을(를) 선택하셨습니다.', '')
-					.replace('[초기화]', '')
-					.trim();
-			}
-		});
-		const nextKey = nextStepKey(product, flapProductSelection);
-		nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-		currentFlow.push(nextKey);
-	} else {
-		if (typeof nextStepKey === 'function') {
-			const nextKey = nextStepKey(product);
+		if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
+			const currentSelections = {};
+			currentFlow.forEach((stepKey) => {
+				const answerDiv = document.getElementById(`${stepKey}-answer`);
+				if (answerDiv) {
+					currentSelections[stepKey] = answerDiv.innerText
+						.replace('을(를) 선택하셨습니다.', '')
+						.replace('[초기화]', '')
+						.trim();
+				}
+			});
+			const nextKey = nextStepKey(product, flapProductSelection);
 			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
 			currentFlow.push(nextKey);
 		} else {
-			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
-			currentFlow.push(nextStepKey);
+			if (typeof nextStepKey === 'function') {
+				const nextKey = nextStepKey(product);
+				nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+				currentFlow.push(nextKey);
+			} else {
+				nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
+				currentFlow.push(nextStepKey);
+			}
 		}
-	}
 
-	if (nextStepIndex >= 0) {
-		updateProductOptions(categoryKey, nextStepIndex);
-	} else {
-		renderAnswer({ step: 'final' }, '', categoryKey); // categoryKey 추가
+		if (nextStepIndex >= 0) {
+			// 다음 단계로 이동하고 Promise 반환
+			updateProductOptions(categoryKey, nextStepIndex)
+				.then(() => resolve())
+				.catch((error) => {
+					console.error('옵션 업데이트 실패:', error);
+					reject(error);
+				});
+		} else {
+			// 마지막 단계 도달 시
+			renderAnswer({ step: 'final' }, '', categoryKey);
+			resolve();
+		}
+	});
+}
+
+function getCategoryKey(selectedBigSort) {
+	switch (selectedBigSort) {
+		case '거울':
+			return 'mirror';
+		case '상부장':
+			return 'top';
+		case '하부장':
+			return 'low';
+		case '플랩장':
+			return 'flap';
+		case '슬라이드장':
+			return 'slide';
+		default:
+			return null; // 알 수 없는 카테고리인 경우
 	}
 }
 
+
 function resetStep(step) {
-	console.log('currentFlow : ', currentFlow);
-	console.log('step : ', step);
 	const answerDiv = document.getElementById(`${step}-answer`);
 	if (answerDiv) {
 		fadeOutElement(answerDiv);
@@ -1372,6 +1566,29 @@ function resetSelections() {
 	renderInitialQuestion();
 }
 
+function postWithForm(url, data) {
+	const form = document.createElement('form');
+	form.method = 'POST';
+	form.action = url;
+
+	// JSON 데이터를 하나의 input으로 추가
+	const input = document.createElement('input');
+	input.type = 'hidden';
+	input.name = 'data';
+	input.value = JSON.stringify(data);
+	form.appendChild(input);
+
+	document.body.appendChild(form);
+	form.submit();
+}
+
+document.getElementById('modeling-btn').addEventListener('click', () => {
+	postWithForm('/modeling', selectedAnswerValue);
+});
+
+document.getElementById('three-d-btn').addEventListener('click', () => {
+	postWithForm('/threed', selectedAnswerValue);
+});
 
 window.onload = () => {
 	// 초기 질문을 렌더링하고 나서 autoProceed 호출
@@ -1379,7 +1596,7 @@ window.onload = () => {
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
 	/*setTimeout(() => {
-		autoProceed(savedSelections);
-	}, 500);*/  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+		autoProceed(sampleDataSet);
+	}, 500);*/ // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 

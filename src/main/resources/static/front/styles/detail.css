@@ -702,8 +702,12 @@ i#bag-icon.active {
 	border: 1px solid #ccc;
 	border-radius: 5px;
 	margin-left: 5px;
-	width: 120px;
+	width: 200px;
 	height: 100%;
+}
+
+#door-direction-input {
+	width: 300px;
 }
 
 #final-wrap.non-standard-answer {
@@ -816,44 +820,7 @@ div.content.task-content {
 	/* 클릭 불가능 */
 }
 
-.fixed-button {
-	position: fixed;
-	width: 60px;
-	height: 60px;
-	background-color: #007bff;
-	color: white;
-	font-size: 18px;
-	font-weight: bold;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	cursor: pointer;
-	transition: transform 0.3s, background-color 0.3s;
-	/* transition 설정 */
-}
 
-.fixed-button a {
-	color: white;
-}
-
-/* 각 버튼 위치 설정 */
-.fixed-button.drawing {
-	right: 50px;
-	bottom: 170px;
-}
-
-.fixed-button.three-d {
-	right: 50px;
-	bottom: 100px;
-}
-
-/* 호버 효과 */
-.fixed-button:hover {
-	transform: scale(1.1);
-	/* 크기 확대 */
-	background-color: #0056b3;
-	/* 색상 변경 */
-}
 
 .loader-overlay {
 	position: fixed;
@@ -895,4 +862,57 @@ div.content.task-content {
 .loader-overlay.show {
 	opacity: 1;
 	visibility: visible;
+}
+
+.fixed-button {
+	position: fixed;
+	width: 60px;
+	height: 60px;
+	background-color: #007bff;
+	color: white;
+	font-size: 18px;
+	font-weight: bold;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	cursor: pointer;
+	transition: transform 0.3s, background-color 0.3s;
+}
+
+.fixed-button a {
+	color: white;
+	text-decoration: none;
+}
+
+/* 각 버튼 위치 설정 */
+.fixed-button.drawing {
+	right: 50px;
+	bottom: 170px;
+}
+
+.fixed-button.three-d {
+	right: 50px;
+	bottom: 100px;
+}
+
+/* 호버 효과 */
+.fixed-button a:hover {
+	transform: scale(1.1);
+	background-color: #0056b3;
+}
+
+/* 비활성화 상태 (notUsed 클래스) */
+.fixed-button a.notUsed {
+	color: white;
+	pointer-events: none;
+	/* 클릭 방지 */
+	opacity: 0.5;
+	/* 흐려짐 효과 */
+	cursor: not-allowed;
+}
+
+/* 비활성화 상태에서는 호버 효과 제거 */
+.fixed-button a.notUsed:hover {
+	transform: none;
+	background-color: #007bff;
 }

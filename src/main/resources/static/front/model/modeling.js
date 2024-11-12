@@ -6,6 +6,36 @@ let selectedCircle = null;
 const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xff8800, side: THREE.DoubleSide });
 let originalMaterials = [];
 
+
+function createCabinetFromData(data) {
+    // 데이터 파싱
+    const category = data.category || '하부장';
+    const width = parseFloat(data.width) || 500;
+    const height = parseFloat(data.height) || 800;
+    const depth = parseFloat(data.depth) || 400;
+    const legHeight = parseFloat(data.legHeight) || 0;
+    const numberOfDoors = parseInt(data.numberOfDoors) || 2;
+    const doorRatio1 = parseInt(data.doorRatio1) || 50;
+    const doorRatio2 = parseInt(data.doorRatio2) || 50;
+    const mirrorShape = data.mirrorShape || '사각형';
+
+    // 기존 캐비닛 파트 제거
+    cabinetParts.forEach((part) => scene.remove(part));
+    cabinetParts = [];
+
+    // 카테고리에 따라 적절한 함수 호출
+    if (category === "하부장" || category === "상부장" || category === "슬라이드") {
+        createStandardCabinet(width, height, depth, legHeight, numberOfDoors);
+    } else if (category === "플랩") {
+        drawFlapCabinet(width, height, depth, numberOfDoors, doorRatio1, doorRatio2);
+    } else if (category === "거울") {
+        drawMirror(width, height, mirrorShape);
+    }
+
+    // 원래 재질 저장
+    originalMaterials = cabinetParts.map((part) => part.material);
+}
+
 function init() {
 	scene = new THREE.Scene();
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -50,6 +80,12 @@ function addEdgesToCabinetParts() {
 
 // 표준 캐비닛 생성 함수 (하부장, 상부장, 슬라이드 공통)
 function createStandardCabinet(width, height, depth, legHeight, numberOfDoors) {
+	console.log('width : ', width);
+	console.log('height : ', height);
+	console.log('depth : ', depth);
+	console.log('legHeight : ', legHeight);
+	console.log('numberOfDoors : ', numberOfDoors);
+	
 	cabinetParts = [];  // 기존 캐비닛 부분 초기화
 
 	const gapBetweenDoors = 10;
@@ -58,13 +94,20 @@ function createStandardCabinet(width, height, depth, legHeight, numberOfDoors) {
 
 	// 문 생성
 	for (let i = 0; i < numberOfDoors; i++) {
-		const doorGeometry = new THREE.PlaneGeometry(doorWidth / 100, height / 100);
-		const door = new THREE.Mesh(doorGeometry, material);
-		const doorXPosition = (i * (doorWidth + gapBetweenDoors)) - (width / 2) + (doorWidth / 2);
-		door.position.set(doorXPosition / 100, 0, depth / 200 - 0.05);
-		cabinetParts.push(door);
-		scene.add(door);
-	}
+        try {
+            const doorGeometry = new THREE.PlaneGeometry(doorWidth / 100, height / 100);
+            const door = new THREE.Mesh(doorGeometry, material);
+            const doorXPosition = (i * (doorWidth + gapBetweenDoors)) - (width / 2) + (doorWidth / 2);
+            door.position.set(doorXPosition / 100, 0, depth / 200 - 0.05);
+            door.name = `Door ${i + 1}`;
+            if (door) {
+                cabinetParts.push(door);
+                scene.add(door);
+            }
+        } catch (error) {
+            console.error(`문 생성 중 오류 발생: ${error.message}`);
+        }
+    }
 
 	// 나머지 캐비닛 구성요소 생성 (뒤, 양쪽, 상하)
 	const backGeometry = new THREE.PlaneGeometry(width / 100, height / 100);
@@ -408,9 +451,8 @@ function animate() {
 	renderer.render(scene, camera);
 }
 
-document.getElementById("drawButton").addEventListener("click", createCabinet);
 init();
-
+createCabinetFromData(selectedData);
 // 문의 비율 유효성 검사 함수
 function updateDoorRatio() {
 	const doorRatio1 = document.getElementById("doorRatio1");

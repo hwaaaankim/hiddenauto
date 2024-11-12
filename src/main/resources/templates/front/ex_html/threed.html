@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>디테일한 세면대 및 캐비닛 모델링</title>
+	<link rel="stylesheet" href="/front/threed/threed.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body>
+	<div class="controls">
+		<div class="category-type">
+			<label><input type="radio" name="category" value="하부장" checked /> 하부장</label>
+			<label><input type="radio" name="category" value="상부장" /> 상부장</label>
+			<label><input type="radio" name="category" value="슬라이드" /> 슬라이드</label>
+			<label><input type="radio" name="category" value="플랩" /> 플랩</label>
+			<label><input type="radio" name="category" value="거울" /> 거울</label>
+		</div>
+
+		<div class="mount-type" id="mountTypeSelection">
+			<label class="mount-option">
+				<input type="radio" name="mountType" id="legged" value="legged" checked />
+				<span>다리형</span>
+			</label>
+			<label class="mount-option">
+				<input type="radio" name="mountType" id="wallMounted" value="wallMounted" />
+				<span>벽걸이형</span>
+			</label>
+		</div>
+
+		<div class="mirror-shape-type" id="mirrorShapeSelection" style="display: none;">
+			<label class="shape-option"><input type="radio" name="mirrorShape" value="트랙" /> 트랙</label>
+			<label class="shape-option"><input type="radio" name="mirrorShape" value="다각" /> 다각</label>
+			<label class="shape-option"><input type="radio" name="mirrorShape" value="타원" /> 타원</label>
+			<label class="shape-option"><input type="radio" name="mirrorShape" value="사각형" /> 사각</label>
+		</div>
+		<label id="depthLabel">
+			Depth(mm):
+			<input type="number" id="depth" value="460" step="1" />
+		</label>
+		<label>
+			Height(mm):
+			<input type="number" id="height" value="800" step="1" />
+		</label>
+		<label>
+			Width(mm):
+			<input type="number" id="width" value="600" step="1" />
+		</label>
+		<label id="numberOfDoorsLabel">
+			Number of Doors:
+			<input type="number" id="numberOfDoors" value="2" step="1" />
+		</label>
+
+		<input type="hidden" id="legHeight" value="150" />
+		<div id="flapDoorRatio" style="display: none;">
+			<label>문의 비율:</label>
+			<div style="display: flex; gap: 10px;">
+				<input type="number" id="doorRatio1" value="50" step="1" min="1" max="99" style="width: 45%;" /> :
+				<input type="number" id="doorRatio2" value="50" step="1" min="1" max="99" style="width: 45%;" />
+			</div>
+		</div>
+		<div style="display:flex;">
+			<button id="viewBlueprintButton">Draw</button>
+		</div>
+	</div>
+
+	<canvas style="width:100vw; height:100vh;" id="modal-canvas"></canvas>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.2.4/fabric.min.js"></script>
+	<script th:inline="javascript">
+	    // 서버에서 전달받은 JSON 데이터를 JavaScript 변수로 사용
+	    const selectedData = /*[[${selectedData}]]*/ 'default';
+	    console.log(selectedData);
+	    // 이후 필요한 로직 추가
+	</script>
+	<script src="/front/threed/threed.js"></script>
+</body>
+
+</html>
