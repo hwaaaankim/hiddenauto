@@ -19,7 +19,7 @@ const initialQuestion = {
 		}
 	}
 };
-
+const flapOptions = {};
 const productFlowSteps = {
 	mirror: [
 		{
@@ -432,17 +432,15 @@ const productFlowSteps = {
 	]
 };
 const sampleDataSet = {
-	"category": "상부장",
-	"middleSort": 2,
-	"product": 332,
-	"color": 2,
-	"size": "넓이: 1200, 높이: 500, 깊이: 100",
-	"door": "add",
-	"numberofdoor": 3,
-	"doorDirection": "좌-우-좌",
-	"handle": "notadd",
-	"led": "notadd",
-	"tissue": "add"
+	"category": "하부장",
+	"middleSort": 5,
+	"product": 466,
+	"color": 4,
+	"form": "wall",
+	"size": 23,
+	"washstand": "three",
+	"positionofwashstand": "center",
+	"door": "add"
 }
 let selectedBigSort = null;    // 1차 카테고리 선택 값
 let selectedMiddleSort = null; // 2차 카테고리 선택 값
@@ -636,6 +634,7 @@ function autoProceed(savedSelections) {
 
 	selectedBigSort = savedSelections.category;
 	const categoryKey = getCategoryKey(selectedBigSort);
+
 	if (!categoryKey) {
 		hideOverlay();
 		return;
@@ -683,13 +682,22 @@ function autoProceed(savedSelections) {
 		}
 
 		// **2. 문의 방향 입력 처리**
-		if (currentStep.step === 'doorDirection' && currentSelection) {
+		if (currentStep.step === 'doorDirection' && currentSelection && categoryKey === 'top') {
+			console.log('doorDirection');
 			const directionInput = document.getElementById('door-direction-input');
 			directionInput.value = currentSelection;
-
 			document.querySelector(`#${currentStep.step}-option button`).click();
 
 			// 다음 단계로 이동
+			moveToNextStep(stepIndex);
+			return;
+		}
+
+		if (currentStep.step === 'doorRatio' && currentSelection) {
+			const [value1, value2] = currentSelection.split(':').map(Number);
+			document.getElementById('door-ratio-input-1').value = value1;
+			document.getElementById('door-ratio-input-2').value = value2;
+			document.querySelector(`#${currentStep.step}-option button`).click();
 			moveToNextStep(stepIndex);
 			return;
 		}
@@ -717,9 +725,23 @@ function autoProceed(savedSelections) {
 	// 다음 단계로 이동하는 함수
 	function moveToNextStep(stepIndex) {
 		const nextStepKey = steps[stepIndex].next;
-		const nextStepIndex = typeof nextStepKey === 'function'
-			? steps.findIndex(step => step.step === nextStepKey(selectedAnswerValue[steps[stepIndex].step]))
-			: steps.findIndex(step => step.step === nextStepKey);
+		let nextStepIndex;
+
+		// 1. 플랩장(flap) 카테고리에서 `next` 함수가 사용될 때
+		if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
+			const currentSelection = selectedAnswerValue[steps[stepIndex].step];
+			const nextKey = nextStepKey(currentSelection, flapProductSelection);
+			nextStepIndex = steps.findIndex(step => step.step === nextKey);
+		}
+		// 2. 일반적인 경우, `next`가 함수일 때
+		else if (typeof nextStepKey === 'function') {
+			const nextKey = nextStepKey(selectedAnswerValue[steps[stepIndex].step]);
+			nextStepIndex = steps.findIndex(step => step.step === nextKey);
+		}
+		// 3. `next`가 문자열일 때
+		else {
+			nextStepIndex = steps.findIndex(step => step.step === nextStepKey);
+		}
 
 		if (nextStepIndex >= 0) {
 			setTimeout(() => proceedWithSelections(nextStepIndex), 500);
@@ -728,22 +750,52 @@ function autoProceed(savedSelections) {
 		}
 	}
 
-	setTimeout(() => proceedWithSelections(0), 500);
+
+	setTimeout(() => proceedWithSelections(0), 1000);
 }
 
+function fetchSizeDataById(sizeId) {
+	return new Promise((resolve, reject) => {
+		$.ajax({
+			url: `/api/size/getSizeById`,
+			method: 'GET',
+			data: { sizeId: sizeId },
+			success: (response) => resolve(response),
+			error: (error) => reject(error)
+		});
+	});
+}
 
-function parseSizeText(sizeText) {
-	const regex = /넓이:\s*(\d+),\s*높이:\s*(\d+)(?:,\s*깊이:\s*(\d+))?/;
-	const match = sizeText.match(regex);
-	if (match) {
-		const width = parseInt(match[1], 10);
-		const height = parseInt(match[2], 10);
-		const depth = match[3] ? parseInt(match[3], 10) : null;
-		return [width, height, depth];
+async function parseSizeText(sizeText) {
+	// `sizeText`가 숫자인 경우, DB에서 사이즈 데이터를 가져옴
+	if (typeof sizeText === 'number') {
+		try {
+			const sizeData = await fetchSizeDataById(sizeText);
+			console.log("DB에서 가져온 사이즈 데이터:", sizeData);
+			if (sizeData) {
+				const { width, height, depth } = sizeData;
+				return [width, height, depth];
+			}
+		} catch (error) {
+			console.error("DB에서 사이즈 데이터를 가져오는 중 오류 발생:", error);
+		}
+		return [null, null, null];
 	}
+
+	// 문자열인 경우 기존 로직 유지
+	if (typeof sizeText === 'string') {
+		const regex = /넓이:\s*(\d+),\s*높이:\s*(\d+)(?:,\s*깊이:\s*(\d+))?/;
+		const match = sizeText.match(regex);
+		if (match) {
+			const width = parseInt(match[1], 10);
+			const height = parseInt(match[2], 10);
+			const depth = match[3] ? parseInt(match[3], 10) : null;
+			return [width, height, depth];
+		}
+	}
+
 	return [null, null, null];
 }
-
 
 // 초기 질문 렌더링 함수
 function renderInitialQuestion() {
@@ -842,6 +894,7 @@ function handleMiddleSortSelection(middleSortId) {
 		success: (productList) => {
 			updateProductFlowOptions(productList);
 			hideLoader();
+
 		},
 		error: (error) => {
 			console.error('제품 목록 조회 실패:', error);
@@ -1154,7 +1207,82 @@ function updateProductOptions(categoryKey, stepIndex) {
 			label.appendChild(directionInput);
 			optionDiv.appendChild(label);
 			optionDiv.appendChild(confirmButton);
-		} else {
+		} else if (step.step === 'doorRatio' && categoryKey === 'flap') {
+			// label과 input 필드 추가
+			const label = document.createElement('label');
+			label.innerHTML = '문 비율 입력: ';
+
+			// 첫 번째 input 필드
+			const input1 = document.createElement('input');
+			input1.type = 'number';
+			input1.id = 'door-ratio-input-1';
+			input1.classList.add('non-standard-input');
+			input1.placeholder = '첫 번째 비율';
+			input1.min = 1; // 최소값 설정
+			input1.required = true;
+
+			// 두 번째 input 필드
+			const input2 = document.createElement('input');
+			input2.type = 'number';
+			input2.id = 'door-ratio-input-2';
+			input2.classList.add('non-standard-input');
+			input2.placeholder = '두 번째 비율';
+			input2.min = 1; // 최소값 설정
+			input2.required = true;
+
+			// 확인 버튼
+			const confirmButton = document.createElement('button');
+			confirmButton.innerText = '확인';
+			confirmButton.classList.add('non-standard-btn');
+
+			// 확인 버튼 클릭 시 검증 로직
+			confirmButton.addEventListener('click', async () => {
+				const value1 = parseInt(input1.value, 10);
+				const value2 = parseInt(input2.value, 10);
+
+				// 유효성 검사: 입력 값이 숫자가 아니거나 0 이하일 때
+				if (isNaN(value1) || isNaN(value2) || value1 <= 0 || value2 <= 0) {
+					alert('모든 비율 값을 올바르게 입력하세요.');
+					input1.value = '';
+					input2.value = '';
+					return;
+				}
+
+				try {
+					// size에서 width 값 가져오기
+					const sizeText = selectedAnswerValue['size'];
+					const [width] = await parseSizeText(sizeText);
+
+					// width 값이 유효한지 검사
+					if (!width) {
+						alert('사이즈 데이터에서 넓이 값을 가져오지 못했습니다.');
+						return;
+					}
+
+					// 입력된 값의 합이 width와 동일한지 검증
+					if (value1 + value2 !== width) {
+						alert(`입력한 비율의 합이 ${width}와 일치해야 합니다.`);
+						input1.value = '';
+						input2.value = '';
+						return;
+					}
+
+					// 검증 통과 시 다음 단계로 이동
+					const ratioText = `${value1}:${value2}`;
+					handleProductSelection(ratioText, categoryKey, step);
+				} catch (error) {
+					console.error("비율 검증 중 오류 발생:", error);
+					alert('비율 검증 중 오류가 발생했습니다.');
+				}
+			});
+
+			// label, input, 버튼을 추가
+			label.appendChild(input1);
+			label.appendChild(input2);
+			optionDiv.appendChild(label);
+			optionDiv.appendChild(confirmButton);
+		}
+		else {
 			step.options.forEach(option => {
 				const button = document.createElement('button');
 				button.innerText = option.label;
@@ -1197,12 +1325,6 @@ function waitForElement(selector, timeout = 3000) {
 
 function renderAnswer(step, product, categoryKey = '') {
 	let answerDiv = document.getElementById(`${step.step}-answer`);
-
-	function getLabelByValue(step, value) {
-		const options = step.options || [];
-		const selectedOption = options.find(option => option.value.toString() === value.toString());
-		return selectedOption ? selectedOption.label : value;
-	}
 
 	// final이 아닌 단계의 answer 처리
 	if (step.step !== 'final') {
@@ -1250,17 +1372,17 @@ function renderAnswer(step, product, categoryKey = '') {
 		finalWrap.style.opacity = '0'; // 초기 상태에서 투명하게 설정
 
 		// low 카테고리인 경우 textarea와 파일 업로드 필드를 추가
-		if (categoryKey === 'low') {
-			const additionalInfo = document.createElement('textarea');
-			additionalInfo.placeholder = '추가 정보 입력';
-			additionalInfo.classList.add('non-standard-textarea');
-			finalWrap.appendChild(additionalInfo);
+		//if (categoryKey === 'low') {
+		const additionalInfo = document.createElement('textarea');
+		additionalInfo.placeholder = '추가 정보 입력';
+		additionalInfo.classList.add('non-standard-textarea');
+		finalWrap.appendChild(additionalInfo);
 
-			const fileUpload = document.createElement('input');
-			fileUpload.type = 'file';
-			fileUpload.classList.add('non-standard-file-upload');
-			finalWrap.appendChild(fileUpload);
-		}
+		const fileUpload = document.createElement('input');
+		fileUpload.type = 'file';
+		fileUpload.classList.add('non-standard-file-upload');
+		finalWrap.appendChild(fileUpload);
+		//}
 
 		const finalMessage = document.createElement('span');
 		finalMessage.innerText = '선택이 완료되었습니다.';
@@ -1323,10 +1445,22 @@ function renderAnswer(step, product, categoryKey = '') {
 	}
 }
 
-
+function getLabelByValue(step, value) {
+	const options = step.options || [];
+	const selectedOption = options.find(option => option.value.toString() === value.toString());
+	return selectedOption ? selectedOption.label : value;
+}
 function handleProductSelection(product, categoryKey, step) {
+	console.log('selectedAnswerValue : ', selectedAnswerValue);
 	if (categoryKey === 'flap' && step.step === 'product') {
-		flapProductSelection = product;
+		// 제품명을 가져오기 위해 `getLabelByValue` 함수 호출
+		const productName = getLabelByValue(step, product);
+		// 제품명에 '복합'이라는 단어가 포함되어 있는지 검사
+		if (productName.includes('복합')) {
+			flapProductSelection = 'complex';
+		} else {
+			flapProductSelection = 'notcomplex';
+		}
 	}
 	selectedAnswerValue[step.step] = product;
 	renderAnswer(step, product, categoryKey); // categoryKey 추가
@@ -1355,14 +1489,19 @@ function handleProductSelection(product, categoryKey, step) {
 		getProductDetails(product)
 			.then((response) => {
 				// 조회된 데이터에서 size와 color 옵션을 업데이트
-				const sizes = response.productSizes.map(size => ({
-					value: size.id,
-					label: size.productSizeText
-				}));
-				const colors = response.productColors.map(color => ({
-					value: color.id,
-					label: color.productColorSubject
-				}));
+				const sizes = response.productSizes.length > 0
+					? response.productSizes.map(size => ({
+						value: size.id,
+						label: size.productSizeText
+					}))
+					: [{ value: 0, label: '선택 가능한 사이즈 없음' }];
+
+				const colors = response.productColors.length > 0
+					? response.productColors.map(color => ({
+						value: color.id,
+						label: color.productColorSubject
+					}))
+					: [{ value: 0, label: '선택 가능한 색상 없음' }];
 
 				// productFlowSteps의 size 및 color 옵션 업데이트
 				productFlowSteps[categoryKey].forEach(stepObj => {
