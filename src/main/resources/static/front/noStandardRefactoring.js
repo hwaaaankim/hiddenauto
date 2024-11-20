@@ -873,353 +873,353 @@ function handleDirectInput(inputValue, categoryKey, step) {
 }
 
 function updateProductOptions(categoryKey, stepIndex) {
-    return new Promise((resolve, reject) => {
-        const steps = productFlowSteps[categoryKey];
-        const step = steps[stepIndex];
-        if (!step) {
-            reject('Invalid step provided.');
-            return;
-        }
+	return new Promise((resolve, reject) => {
+		const steps = productFlowSteps[categoryKey];
+		const step = steps[stepIndex];
+		if (!step) {
+			reject('Invalid step provided.');
+			return;
+		}
 
-        // 1차 카테고리별로 적절한 렌더링 함수 호출
-        switch (categoryKey) {
-            case 'mirror':
-                renderMirrorOptions(step, resolve, reject);
-                break;
-            case 'top':
-                renderTopOptions(step, resolve, reject);
-                break;
-            case 'low':
-                renderLowOptions(step, resolve, reject);
-                break;
-            case 'slide':
-                renderSlideOptions(step, resolve, reject);
-                break;
-            case 'flap':
-                renderFlapOptions(step, resolve, reject);
-                break;
-            default:
-                reject('Unknown categoryKey');
-        }
-    });
+		// 1차 카테고리별로 적절한 렌더링 함수 호출
+		switch (categoryKey) {
+			case 'mirror':
+				renderMirrorOptions(step, resolve, reject);
+				break;
+			case 'top':
+				renderTopOptions(step, resolve, reject);
+				break;
+			case 'low':
+				renderLowOptions(step, resolve, reject);
+				break;
+			case 'slide':
+				renderSlideOptions(step, resolve, reject);
+				break;
+			case 'flap':
+				renderFlapOptions(step, resolve, reject);
+				break;
+			default:
+				reject('Unknown categoryKey');
+		}
+	});
 }
 
 function renderMirrorOptions(step, resolve, reject) {
-    try {
-        const stepWrap = document.createElement('div');
-        stepWrap.id = `${step.step}-wrap`;
-        stepWrap.classList.add('non-standard-wrap');
-        stepWrap.style.opacity = '0';
-        stepWrap.setAttribute('data-aos', 'fade-in');
+	try {
+		const stepWrap = document.createElement('div');
+		stepWrap.id = `${step.step}-wrap`;
+		stepWrap.classList.add('non-standard-wrap');
+		stepWrap.style.opacity = '0';
+		stepWrap.setAttribute('data-aos', 'fade-in');
 
-        const questionDiv = document.createElement('div');
-        questionDiv.id = `${step.step}-question`;
-        questionDiv.classList.add('non-standard-question');
-        questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
-        stepWrap.appendChild(questionDiv);
+		const questionDiv = document.createElement('div');
+		questionDiv.id = `${step.step}-question`;
+		questionDiv.classList.add('non-standard-question');
+		questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
+		stepWrap.appendChild(questionDiv);
 
-        const optionDiv = document.createElement('div');
-        optionDiv.id = `${step.step}-option`;
-        optionDiv.classList.add('non-standard-option');
+		const optionDiv = document.createElement('div');
+		optionDiv.id = `${step.step}-option`;
+		optionDiv.classList.add('non-standard-option');
 
-        step.options.forEach(option => {
-            const button = document.createElement('button');
-            button.innerText = option.label;
-            button.classList.add('non-standard-btn');
-            button.addEventListener('click', () => {
-                handleProductSelection(option.value, 'mirror', step);
-                resolve();
-            });
-            optionDiv.appendChild(button);
-        });
+		step.options.forEach(option => {
+			const button = document.createElement('button');
+			button.innerText = option.label;
+			button.classList.add('non-standard-btn');
+			button.addEventListener('click', () => {
+				handleProductSelection(option.value, 'mirror', step);
+				resolve();
+			});
+			optionDiv.appendChild(button);
+		});
 
-        stepWrap.appendChild(optionDiv);
-        document.getElementById('chat-box').appendChild(stepWrap);
+		stepWrap.appendChild(optionDiv);
+		document.getElementById('chat-box').appendChild(stepWrap);
 
-        setTimeout(() => {
-            stepWrap.style.opacity = '1';
-            AOS.refresh();
-            scrollIfNeeded(stepWrap);
-        }, 10);
-    } catch (error) {
-        reject(error);
-    }
+		setTimeout(() => {
+			stepWrap.style.opacity = '1';
+			AOS.refresh();
+			scrollIfNeeded(stepWrap);
+		}, 10);
+	} catch (error) {
+		reject(error);
+	}
 }
 
 function renderTopOptions(step, resolve, reject) {
-    try {
-        const stepWrap = document.createElement('div');
-        stepWrap.id = `${step.step}-wrap`;
-        stepWrap.classList.add('non-standard-wrap');
-        stepWrap.style.opacity = '0';
-        stepWrap.setAttribute('data-aos', 'fade-in');
+	try {
+		const stepWrap = document.createElement('div');
+		stepWrap.id = `${step.step}-wrap`;
+		stepWrap.classList.add('non-standard-wrap');
+		stepWrap.style.opacity = '0';
+		stepWrap.setAttribute('data-aos', 'fade-in');
 
-        const questionDiv = document.createElement('div');
-        questionDiv.id = `${step.step}-question`;
-        questionDiv.classList.add('non-standard-question');
-        questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
-        stepWrap.appendChild(questionDiv);
+		const questionDiv = document.createElement('div');
+		questionDiv.id = `${step.step}-question`;
+		questionDiv.classList.add('non-standard-question');
+		questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
+		stepWrap.appendChild(questionDiv);
 
-        const optionDiv = document.createElement('div');
-        optionDiv.id = `${step.step}-option`;
-        optionDiv.classList.add('non-standard-option');
+		const optionDiv = document.createElement('div');
+		optionDiv.id = `${step.step}-option`;
+		optionDiv.classList.add('non-standard-option');
 
-        if (step.step === 'size') {
-            const fields = ['width', 'height', 'depth'];
-            fields.forEach(field => {
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.id = `${field}-input`;
-                input.placeholder = field.toUpperCase();
-                input.classList.add('non-standard-input');
-                optionDiv.appendChild(input);
-            });
+		if (step.step === 'size') {
+			const fields = ['width', 'height', 'depth'];
+			fields.forEach(field => {
+				const input = document.createElement('input');
+				input.type = 'number';
+				input.id = `${field}-input`;
+				input.placeholder = field.toUpperCase();
+				input.classList.add('non-standard-input');
+				optionDiv.appendChild(input);
+			});
 
-            const confirmButton = document.createElement('button');
-            confirmButton.innerText = '확인';
-            confirmButton.classList.add('non-standard-btn');
-            confirmButton.addEventListener('click', () => {
-                const width = parseInt(document.getElementById('width-input').value, 10);
-                const height = parseInt(document.getElementById('height-input').value, 10);
-                const depth = parseInt(document.getElementById('depth-input').value, 10);
-                const sizeText = `넓이: ${width}, 높이: ${height}, 깊이: ${depth}`;
-                handleDirectInput(sizeText, 'top', step);
-                resolve();
-            });
-            optionDiv.appendChild(confirmButton);
-        } else {
-            step.options.forEach(option => {
-                const button = document.createElement('button');
-                button.innerText = option.label;
-                button.classList.add('non-standard-btn');
-                button.addEventListener('click', () => {
-                    handleProductSelection(option.value, 'top', step);
-                    resolve();
-                });
-                optionDiv.appendChild(button);
-            });
-        }
+			const confirmButton = document.createElement('button');
+			confirmButton.innerText = '확인';
+			confirmButton.classList.add('non-standard-btn');
+			confirmButton.addEventListener('click', () => {
+				const width = parseInt(document.getElementById('width-input').value, 10);
+				const height = parseInt(document.getElementById('height-input').value, 10);
+				const depth = parseInt(document.getElementById('depth-input').value, 10);
+				const sizeText = `넓이: ${width}, 높이: ${height}, 깊이: ${depth}`;
+				handleDirectInput(sizeText, 'top', step);
+				resolve();
+			});
+			optionDiv.appendChild(confirmButton);
+		} else {
+			step.options.forEach(option => {
+				const button = document.createElement('button');
+				button.innerText = option.label;
+				button.classList.add('non-standard-btn');
+				button.addEventListener('click', () => {
+					handleProductSelection(option.value, 'top', step);
+					resolve();
+				});
+				optionDiv.appendChild(button);
+			});
+		}
 
-        stepWrap.appendChild(optionDiv);
-        document.getElementById('chat-box').appendChild(stepWrap);
+		stepWrap.appendChild(optionDiv);
+		document.getElementById('chat-box').appendChild(stepWrap);
 
-        setTimeout(() => {
-            stepWrap.style.opacity = '1';
-            AOS.refresh();
-            scrollIfNeeded(stepWrap);
-        }, 10);
-    } catch (error) {
-        reject(error);
-    }
+		setTimeout(() => {
+			stepWrap.style.opacity = '1';
+			AOS.refresh();
+			scrollIfNeeded(stepWrap);
+		}, 10);
+	} catch (error) {
+		reject(error);
+	}
 }
 
 function renderFlapOptions(step, resolve, reject) {
-    try {
-        const stepWrap = document.createElement('div');
-        stepWrap.id = `${step.step}-wrap`;
-        stepWrap.classList.add('non-standard-wrap');
-        stepWrap.style.opacity = '0';
-        stepWrap.setAttribute('data-aos', 'fade-in');
+	try {
+		const stepWrap = document.createElement('div');
+		stepWrap.id = `${step.step}-wrap`;
+		stepWrap.classList.add('non-standard-wrap');
+		stepWrap.style.opacity = '0';
+		stepWrap.setAttribute('data-aos', 'fade-in');
 
-        const questionDiv = document.createElement('div');
-        questionDiv.id = `${step.step}-question`;
-        questionDiv.classList.add('non-standard-question');
-        questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
-        stepWrap.appendChild(questionDiv);
+		const questionDiv = document.createElement('div');
+		questionDiv.id = `${step.step}-question`;
+		questionDiv.classList.add('non-standard-question');
+		questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
+		stepWrap.appendChild(questionDiv);
 
-        const optionDiv = document.createElement('div');
-        optionDiv.id = `${step.step}-option`;
-        optionDiv.classList.add('non-standard-option');
+		const optionDiv = document.createElement('div');
+		optionDiv.id = `${step.step}-option`;
+		optionDiv.classList.add('non-standard-option');
 
-        if (step.step === 'doorRatio') {
-            const input1 = document.createElement('input');
-            input1.type = 'number';
-            input1.id = 'door-ratio-input-1';
-            input1.placeholder = '첫 번째 비율';
-            input1.classList.add('non-standard-input');
+		if (step.step === 'doorRatio') {
+			const input1 = document.createElement('input');
+			input1.type = 'number';
+			input1.id = 'door-ratio-input-1';
+			input1.placeholder = '첫 번째 비율';
+			input1.classList.add('non-standard-input');
 
-            const input2 = document.createElement('input');
-            input2.type = 'number';
-            input2.id = 'door-ratio-input-2';
-            input2.placeholder = '두 번째 비율';
-            input2.classList.add('non-standard-input');
+			const input2 = document.createElement('input');
+			input2.type = 'number';
+			input2.id = 'door-ratio-input-2';
+			input2.placeholder = '두 번째 비율';
+			input2.classList.add('non-standard-input');
 
-            const confirmButton = document.createElement('button');
-            confirmButton.innerText = '확인';
-            confirmButton.classList.add('non-standard-btn');
-            confirmButton.addEventListener('click', () => {
-                const value1 = parseInt(input1.value, 10);
-                const value2 = parseInt(input2.value, 10);
-                const ratioText = `${value1}:${value2}`;
-                handleDirectInput(ratioText, 'flap', step);
-                resolve();
-            });
+			const confirmButton = document.createElement('button');
+			confirmButton.innerText = '확인';
+			confirmButton.classList.add('non-standard-btn');
+			confirmButton.addEventListener('click', () => {
+				const value1 = parseInt(input1.value, 10);
+				const value2 = parseInt(input2.value, 10);
+				const ratioText = `${value1}:${value2}`;
+				handleDirectInput(ratioText, 'flap', step);
+				resolve();
+			});
 
-            optionDiv.appendChild(input1);
-            optionDiv.appendChild(input2);
-            optionDiv.appendChild(confirmButton);
-        } else {
-            step.options.forEach(option => {
-                const button = document.createElement('button');
-                button.innerText = option.label;
-                button.classList.add('non-standard-btn');
-                button.addEventListener('click', () => {
-                    handleProductSelection(option.value, 'flap', step);
-                    resolve();
-                });
-                optionDiv.appendChild(button);
-            });
-        }
+			optionDiv.appendChild(input1);
+			optionDiv.appendChild(input2);
+			optionDiv.appendChild(confirmButton);
+		} else {
+			step.options.forEach(option => {
+				const button = document.createElement('button');
+				button.innerText = option.label;
+				button.classList.add('non-standard-btn');
+				button.addEventListener('click', () => {
+					handleProductSelection(option.value, 'flap', step);
+					resolve();
+				});
+				optionDiv.appendChild(button);
+			});
+		}
 
-        stepWrap.appendChild(optionDiv);
-        document.getElementById('chat-box').appendChild(stepWrap);
+		stepWrap.appendChild(optionDiv);
+		document.getElementById('chat-box').appendChild(stepWrap);
 
-        setTimeout(() => {
-            stepWrap.style.opacity = '1';
-            AOS.refresh();
-            scrollIfNeeded(stepWrap);
-        }, 10);
-    } catch (error) {
-        reject(error);
-    }
+		setTimeout(() => {
+			stepWrap.style.opacity = '1';
+			AOS.refresh();
+			scrollIfNeeded(stepWrap);
+		}, 10);
+	} catch (error) {
+		reject(error);
+	}
 }
 
 function renderLowOptions(step, resolve, reject) {
-    try {
-        const stepWrap = document.createElement('div');
-        stepWrap.id = `${step.step}-wrap`;
-        stepWrap.classList.add('non-standard-wrap');
-        stepWrap.style.opacity = '0';
-        stepWrap.setAttribute('data-aos', 'fade-in');
+	try {
+		const stepWrap = document.createElement('div');
+		stepWrap.id = `${step.step}-wrap`;
+		stepWrap.classList.add('non-standard-wrap');
+		stepWrap.style.opacity = '0';
+		stepWrap.setAttribute('data-aos', 'fade-in');
 
-        const questionDiv = document.createElement('div');
-        questionDiv.id = `${step.step}-question`;
-        questionDiv.classList.add('non-standard-question');
-        questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
-        stepWrap.appendChild(questionDiv);
+		const questionDiv = document.createElement('div');
+		questionDiv.id = `${step.step}-question`;
+		questionDiv.classList.add('non-standard-question');
+		questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
+		stepWrap.appendChild(questionDiv);
 
-        const optionDiv = document.createElement('div');
-        optionDiv.id = `${step.step}-option`;
-        optionDiv.classList.add('non-standard-option');
+		const optionDiv = document.createElement('div');
+		optionDiv.id = `${step.step}-option`;
+		optionDiv.classList.add('non-standard-option');
 
-        if (step.step === 'size') {
-            // 사이즈 입력 필드 생성
-            const fields = ['width', 'height', 'depth'];
-            fields.forEach(field => {
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.id = `${field}-input`;
-                input.placeholder = field.toUpperCase();
-                input.classList.add('non-standard-input');
-                optionDiv.appendChild(input);
-            });
+		if (step.step === 'size') {
+			// 사이즈 입력 필드 생성
+			const fields = ['width', 'height', 'depth'];
+			fields.forEach(field => {
+				const input = document.createElement('input');
+				input.type = 'number';
+				input.id = `${field}-input`;
+				input.placeholder = field.toUpperCase();
+				input.classList.add('non-standard-input');
+				optionDiv.appendChild(input);
+			});
 
-            const confirmButton = document.createElement('button');
-            confirmButton.innerText = '확인';
-            confirmButton.classList.add('non-standard-btn');
-            confirmButton.addEventListener('click', () => {
-                const width = parseInt(document.getElementById('width-input').value, 10);
-                const height = parseInt(document.getElementById('height-input').value, 10);
-                const depth = parseInt(document.getElementById('depth-input').value, 10);
-                const sizeText = `넓이: ${width}, 높이: ${height}, 깊이: ${depth}`;
-                handleDirectInput(sizeText, 'low', step);
-                resolve();
-            });
-            optionDiv.appendChild(confirmButton);
-        } else {
-            // 일반적인 버튼 옵션 렌더링
-            step.options.forEach(option => {
-                const button = document.createElement('button');
-                button.innerText = option.label;
-                button.classList.add('non-standard-btn');
-                button.addEventListener('click', () => {
-                    handleProductSelection(option.value, 'low', step);
-                    resolve();
-                });
-                optionDiv.appendChild(button);
-            });
-        }
+			const confirmButton = document.createElement('button');
+			confirmButton.innerText = '확인';
+			confirmButton.classList.add('non-standard-btn');
+			confirmButton.addEventListener('click', () => {
+				const width = parseInt(document.getElementById('width-input').value, 10);
+				const height = parseInt(document.getElementById('height-input').value, 10);
+				const depth = parseInt(document.getElementById('depth-input').value, 10);
+				const sizeText = `넓이: ${width}, 높이: ${height}, 깊이: ${depth}`;
+				handleDirectInput(sizeText, 'low', step);
+				resolve();
+			});
+			optionDiv.appendChild(confirmButton);
+		} else {
+			// 일반적인 버튼 옵션 렌더링
+			step.options.forEach(option => {
+				const button = document.createElement('button');
+				button.innerText = option.label;
+				button.classList.add('non-standard-btn');
+				button.addEventListener('click', () => {
+					handleProductSelection(option.value, 'low', step);
+					resolve();
+				});
+				optionDiv.appendChild(button);
+			});
+		}
 
-        stepWrap.appendChild(optionDiv);
-        document.getElementById('chat-box').appendChild(stepWrap);
+		stepWrap.appendChild(optionDiv);
+		document.getElementById('chat-box').appendChild(stepWrap);
 
-        setTimeout(() => {
-            stepWrap.style.opacity = '1';
-            AOS.refresh();
-            scrollIfNeeded(stepWrap);
-        }, 10);
-    } catch (error) {
-        reject(error);
-    }
+		setTimeout(() => {
+			stepWrap.style.opacity = '1';
+			AOS.refresh();
+			scrollIfNeeded(stepWrap);
+		}, 10);
+	} catch (error) {
+		reject(error);
+	}
 }
 
 function renderSlideOptions(step, resolve, reject) {
-    try {
-        const stepWrap = document.createElement('div');
-        stepWrap.id = `${step.step}-wrap`;
-        stepWrap.classList.add('non-standard-wrap');
-        stepWrap.style.opacity = '0';
-        stepWrap.setAttribute('data-aos', 'fade-in');
+	try {
+		const stepWrap = document.createElement('div');
+		stepWrap.id = `${step.step}-wrap`;
+		stepWrap.classList.add('non-standard-wrap');
+		stepWrap.style.opacity = '0';
+		stepWrap.setAttribute('data-aos', 'fade-in');
 
-        const questionDiv = document.createElement('div');
-        questionDiv.id = `${step.step}-question`;
-        questionDiv.classList.add('non-standard-question');
-        questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
-        stepWrap.appendChild(questionDiv);
+		const questionDiv = document.createElement('div');
+		questionDiv.id = `${step.step}-question`;
+		questionDiv.classList.add('non-standard-question');
+		questionDiv.innerText = step.question || `${step.label}을(를) 선택하세요:`;
+		stepWrap.appendChild(questionDiv);
 
-        const optionDiv = document.createElement('div');
-        optionDiv.id = `${step.step}-option`;
-        optionDiv.classList.add('non-standard-option');
+		const optionDiv = document.createElement('div');
+		optionDiv.id = `${step.step}-option`;
+		optionDiv.classList.add('non-standard-option');
 
-        if (step.step === 'size') {
-            // 사이즈 입력 필드 생성
-            const fields = ['width', 'height', 'depth'];
-            fields.forEach(field => {
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.id = `${field}-input`;
-                input.placeholder = field.toUpperCase();
-                input.classList.add('non-standard-input');
-                optionDiv.appendChild(input);
-            });
+		if (step.step === 'size') {
+			// 사이즈 입력 필드 생성
+			const fields = ['width', 'height', 'depth'];
+			fields.forEach(field => {
+				const input = document.createElement('input');
+				input.type = 'number';
+				input.id = `${field}-input`;
+				input.placeholder = field.toUpperCase();
+				input.classList.add('non-standard-input');
+				optionDiv.appendChild(input);
+			});
 
-            const confirmButton = document.createElement('button');
-            confirmButton.innerText = '확인';
-            confirmButton.classList.add('non-standard-btn');
-            confirmButton.addEventListener('click', () => {
-                const width = parseInt(document.getElementById('width-input').value, 10);
-                const height = parseInt(document.getElementById('height-input').value, 10);
-                const depth = parseInt(document.getElementById('depth-input').value, 10);
-                const sizeText = `넓이: ${width}, 높이: ${height}, 깊이: ${depth}`;
-                handleDirectInput(sizeText, 'slide', step);
-                resolve();
-            });
-            optionDiv.appendChild(confirmButton);
-        } else {
-            // 일반적인 버튼 옵션 렌더링
-            step.options.forEach(option => {
-                const button = document.createElement('button');
-                button.innerText = option.label;
-                button.classList.add('non-standard-btn');
-                button.addEventListener('click', () => {
-                    handleProductSelection(option.value, 'slide', step);
-                    resolve();
-                });
-                optionDiv.appendChild(button);
-            });
-        }
+			const confirmButton = document.createElement('button');
+			confirmButton.innerText = '확인';
+			confirmButton.classList.add('non-standard-btn');
+			confirmButton.addEventListener('click', () => {
+				const width = parseInt(document.getElementById('width-input').value, 10);
+				const height = parseInt(document.getElementById('height-input').value, 10);
+				const depth = parseInt(document.getElementById('depth-input').value, 10);
+				const sizeText = `넓이: ${width}, 높이: ${height}, 깊이: ${depth}`;
+				handleDirectInput(sizeText, 'slide', step);
+				resolve();
+			});
+			optionDiv.appendChild(confirmButton);
+		} else {
+			// 일반적인 버튼 옵션 렌더링
+			step.options.forEach(option => {
+				const button = document.createElement('button');
+				button.innerText = option.label;
+				button.classList.add('non-standard-btn');
+				button.addEventListener('click', () => {
+					handleProductSelection(option.value, 'slide', step);
+					resolve();
+				});
+				optionDiv.appendChild(button);
+			});
+		}
 
-        stepWrap.appendChild(optionDiv);
-        document.getElementById('chat-box').appendChild(stepWrap);
+		stepWrap.appendChild(optionDiv);
+		document.getElementById('chat-box').appendChild(stepWrap);
 
-        setTimeout(() => {
-            stepWrap.style.opacity = '1';
-            AOS.refresh();
-            scrollIfNeeded(stepWrap);
-        }, 10);
-    } catch (error) {
-        reject(error);
-    }
+		setTimeout(() => {
+			stepWrap.style.opacity = '1';
+			AOS.refresh();
+			scrollIfNeeded(stepWrap);
+		}, 10);
+	} catch (error) {
+		reject(error);
+	}
 }
 
 function waitForElement(selector, timeout = 3000) {
@@ -1367,7 +1367,6 @@ function getLabelByValue(step, value) {
 	return selectedOption ? selectedOption.label : value;
 }
 function handleProductSelection(product, categoryKey, step) {
-	console.log('selectedAnswerValue : ', selectedAnswerValue);
 	if (categoryKey === 'flap' && step.step === 'product') {
 		// 제품명을 가져오기 위해 `getLabelByValue` 함수 호출
 		const productName = getLabelByValue(step, product);
@@ -1399,43 +1398,53 @@ function handleProductSelection(product, categoryKey, step) {
 		enableModelingAndThreeDButtons();
 	}
 
-	// 제품을 선택했을 때, step이 'product'인 경우 추가 로직
 	if (step.step === 'product') {
-		// AJAX로 제품 정보를 조회 (Promise 사용)
-		getProductDetails(product)
-			.then((response) => {
-				// 조회된 데이터에서 size와 color 옵션을 업데이트
-				const sizes = response.productSizes.length > 0
-					? response.productSizes.map(size => ({
-						value: size.id,
-						label: size.productSizeText
-					}))
-					: [{ value: 0, label: '선택 가능한 사이즈 없음' }];
+		// preloadedData에서 product 데이터를 찾아 색상 및 사이즈 가져오기
+		const selectedMiddleSort = preloadedData.middleSort.find(
+			middleSort => middleSort.id === selectedAnswerValue['middleSort']
+		);
 
-				const colors = response.productColors.length > 0
-					? response.productColors.map(color => ({
-						value: color.id,
-						label: color.productColorSubject
-					}))
-					: [{ value: 0, label: '선택 가능한 색상 없음' }];
+		if (!selectedMiddleSort) {
+			console.error("middleSort 데이터가 없습니다.");
+			alert("제품 데이터를 가져오는 데 실패했습니다.");
+			return;
+		}
 
-				// productFlowSteps의 size 및 color 옵션 업데이트
-				productFlowSteps[categoryKey].forEach(stepObj => {
-					if (stepObj.step === 'size') {
-						stepObj.options = sizes;
-					}
-					if (stepObj.step === 'color') {
-						stepObj.options = colors;
-					}
-				});
+		const selectedProduct = selectedMiddleSort.products.find(p => p.id === product);
 
-				// 다음 단계로 이동
-				return proceedToNextStep(categoryKey, nextStepKey, product);
-			})
-			.catch((error) => {
-				console.error("제품 정보 조회 실패:", error);
-				alert("제품 정보를 불러오는 데 실패했습니다.");
-			});
+		if (!selectedProduct) {
+			console.error("선택한 product 데이터를 찾을 수 없습니다.");
+			alert("제품 데이터를 가져오는 데 실패했습니다.");
+			return;
+		}
+
+		// productColors와 productSizes를 가져옴
+		const sizes = selectedProduct.productSizes?.length > 0
+			? selectedProduct.productSizes.map(size => ({
+				value: size.id,
+				label: size.productSizeText
+			}))
+			: [{ value: 0, label: '선택 가능한 사이즈 없음' }];
+
+		const colors = selectedProduct.productColors?.length > 0
+			? selectedProduct.productColors.map(color => ({
+				value: color.id,
+				label: color.productColorSubject
+			}))
+			: [{ value: 0, label: '선택 가능한 색상 없음' }];
+
+		// productFlowSteps의 size 및 color 옵션 업데이트
+		productFlowSteps[categoryKey].forEach(stepObj => {
+			if (stepObj.step === 'size') {
+				stepObj.options = sizes;
+			}
+			if (stepObj.step === 'color') {
+				stepObj.options = colors;
+			}
+		});
+
+		// 다음 단계로 이동
+		proceedToNextStep(categoryKey, nextStepKey, product);
 	} else {
 		// 제품 선택이 아닌 경우 바로 다음 단계로 이동
 		proceedToNextStep(categoryKey, nextStepKey, product);
