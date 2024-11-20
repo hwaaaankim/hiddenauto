@@ -192,7 +192,6 @@ public class ProductService {
 		product.setProductCode(dto.getProductCode());
 		product.setTitle(dto.getProductTitle());
 		product.setSubject(dto.getSubject());
-		product.setHandle(dto.getHandle());
 		product.setOrder(dto.getOrder());
 		product.setProductSign(true);
 		product.setUnit("EA");

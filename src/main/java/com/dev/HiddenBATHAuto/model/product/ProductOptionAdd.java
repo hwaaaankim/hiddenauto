@@ -8,22 +8,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 
-
-// 1차 카테고리
 @Entity
+@Table(name="tb_product_option_add")
 @Data
-@Table(name="tb_big_sort")
-public class BigSort {
-	
+public class ProductOptionAdd {
+
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name="BIG_SORT_ID")
+	@Column(name="PRODUCT_OPTION_ADD_ID")
 	private Long id;
 	
-	@Column(name="BIG_SORT_NAME")
-	private String name;
+	@Column(name="PRODUCT_OPTION_ADD_TEXT")
+	private String productOptionAddText;
 	
-	@Column(name="BIG_SORT_INDEX")
-	private int bigSortIndex;
-
 }

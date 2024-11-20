@@ -54,6 +54,7 @@ public class ProductApiController {
 
     @GetMapping("/byMiddleSort")
     public ResponseEntity<List<Product>> getProductsByMiddleSortId(@RequestParam Long middleSortId) {
+    	System.out.println(middleSortId);
         // MiddleSort 조회
         Optional<MiddleSort> middleSortOpt = productMiddleSortRepository.findById(middleSortId);
 
