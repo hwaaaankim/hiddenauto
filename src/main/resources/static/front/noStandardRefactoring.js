@@ -46,7 +46,7 @@ const productFlowSteps = {
 			step: 'color', label: '색상', question: '거울의 색상을 선택하세요.', next: 'size'
 		},
 		{
-			step: 'size', label: '사이즈', question: '거울의 사이즈를 선택하세요.', next: 'led'
+			step: 'size', label: '사이즈', question: '거울의 사이즈를 선택하세요.', next: (productSign) => productSign === true ? 'led' : 'final'
 		},
 		{
 			step: 'led', label: 'LED 추가', question: 'LED를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'ADD' ? 'ledcolor' : 'final'
@@ -1366,6 +1366,7 @@ function getLabelByValue(step, value) {
 	const selectedOption = options.find(option => option.value.toString() === value.toString());
 	return selectedOption ? selectedOption.label : value;
 }
+
 function handleProductSelection(product, categoryKey, step) {
 	if (categoryKey === 'flap' && step.step === 'product') {
 		// 제품명을 가져오기 위해 `getLabelByValue` 함수 호출
@@ -1453,49 +1454,88 @@ function handleProductSelection(product, categoryKey, step) {
 
 // 다음 단계로 이동 처리 함수
 function proceedToNextStep(categoryKey, nextStepKey, product) {
-	return new Promise((resolve, reject) => {
-		let nextStepIndex;
+    return new Promise((resolve, reject) => {
+        let nextStepIndex;
 
-		if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
-			const currentSelections = {};
-			currentFlow.forEach((stepKey) => {
-				const answerDiv = document.getElementById(`${stepKey}-answer`);
-				if (answerDiv) {
-					currentSelections[stepKey] = answerDiv.innerText
-						.replace('을(를) 선택하셨습니다.', '')
-						.replace('[초기화]', '')
-						.trim();
-				}
-			});
-			const nextKey = nextStepKey(product, flapProductSelection);
-			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-			currentFlow.push(nextKey);
-		} else {
-			if (typeof nextStepKey === 'function') {
-				const nextKey = nextStepKey(product);
-				nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-				currentFlow.push(nextKey);
-			} else {
-				nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
-				currentFlow.push(nextStepKey);
-			}
-		}
+        if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
+            const currentSelections = {};
+            currentFlow.forEach((stepKey) => {
+                const answerDiv = document.getElementById(`${stepKey}-answer`);
+                if (answerDiv) {
+                    currentSelections[stepKey] = answerDiv.innerText
+                        .replace('을(를) 선택하셨습니다.', '')
+                        .replace('[초기화]', '')
+                        .trim();
+                }
+            });
+            const nextKey = nextStepKey(product, flapProductSelection);
+            nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+            currentFlow.push(nextKey);
+        } else if (typeof nextStepKey === 'function' && categoryKey === 'mirror' && currentFlow[currentFlow.length - 1] === 'size') {
+            // selectedAnswerValue에서 middleSort와 product ID를 가져옴
+            const middleSortId = selectedAnswerValue['middleSort'];
+            const productId = selectedAnswerValue['product'];
 
-		if (nextStepIndex >= 0) {
-			// 다음 단계로 이동하고 Promise 반환
-			updateProductOptions(categoryKey, nextStepIndex)
-				.then(() => resolve())
-				.catch((error) => {
-					console.error('옵션 업데이트 실패:', error);
-					reject(error);
-				});
-		} else {
-			// 마지막 단계 도달 시
-			renderAnswer({ step: 'final' }, '', categoryKey);
-			resolve();
-		}
-	});
+            // preloadedData에서 해당 middleSort와 product를 찾음
+            const selectedMiddleSort = preloadedData.middleSort.find(
+                middleSort => middleSort.id === middleSortId
+            );
+
+            if (!selectedMiddleSort) {
+                console.error("middleSort 데이터를 찾을 수 없습니다.");
+                reject(new Error("middleSort 데이터가 없습니다."));
+                return;
+            }
+
+            const selectedProduct = selectedMiddleSort.products.find(p => p.id === productId);
+
+            if (!selectedProduct) {
+                console.error("선택한 product 데이터를 찾을 수 없습니다.");
+                reject(new Error("product 데이터를 찾을 수 없습니다."));
+                return;
+            }
+
+            // normalLedSign 값 가져오기
+            const normalLedSign = selectedProduct.normalLedSign;
+
+            if (normalLedSign === undefined) {
+                console.error('normalLedSign 값이 없습니다.');
+                reject(new Error('normalLedSign 값을 찾을 수 없습니다.'));
+                return;
+            }
+
+            // nextStepKey에 normalLedSign 전달
+            const nextKey = nextStepKey(normalLedSign);
+            nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+            console.log(nextKey);
+            currentFlow.push(nextKey);
+        } else {
+            if (typeof nextStepKey === 'function') {
+                const nextKey = nextStepKey(product);
+                nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+                currentFlow.push(nextKey);
+            } else {
+                nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
+                currentFlow.push(nextStepKey);
+            }
+        }
+
+        if (nextStepIndex >= 0) {
+            // 다음 단계로 이동하고 Promise 반환
+            updateProductOptions(categoryKey, nextStepIndex)
+                .then(() => resolve())
+                .catch((error) => {
+                    console.error('옵션 업데이트 실패:', error);
+                    reject(error);
+                });
+        } else {
+            // 마지막 단계 도달 시
+            renderAnswer({ step: 'final' }, '', categoryKey);
+            resolve();
+        }
+    });
 }
+
 
 function getCategoryKey(selectedBigSort) {
 	switch (selectedBigSort) {
