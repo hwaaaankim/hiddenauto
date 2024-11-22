@@ -94,8 +94,8 @@ public class Product {
     @Column(name="LOWLED_ADD_SIGN")
     private Boolean lowLedAddSign;
     
-    @Column(name="CONCENT_ADD_SIGN")
-    private Boolean concentAddSign;
+    @Column(name="OUTLET_ADD_SIGN")
+    private Boolean outletAddSign;
     
     @Column(name="HANDLE_ADD_SIGN")
     private Boolean handleAddSign;
@@ -231,20 +231,20 @@ public class Product {
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
     @JoinTable(
-        name="tb_product_and_concent_add", 
+        name="tb_product_and_outlet_add", 
         joinColumns = @JoinColumn(name="PCA_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PCA_ADD_ID")
     )
-    private List<ProductOptionAdd> productConcentAdds;
+    private List<ProductOptionAdd> productOutletAdds;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
     @JoinTable(
-        name="tb_product_and_concent_position", 
+        name="tb_product_and_outlet_position", 
         joinColumns = @JoinColumn(name="PCP_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PCP_POSITION_ID")
     )
-    private List<ProductOptionPosition> productConcentPositions;
+    private List<ProductOptionPosition> productOutletPositions;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable

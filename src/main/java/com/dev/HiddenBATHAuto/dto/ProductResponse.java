@@ -35,7 +35,7 @@ public class ProductResponse {
     private Boolean tissueAddSign;
     private Boolean dryAddSign;
     private Boolean lowLedAddSign;
-    private Boolean concentAddSign;
+    private Boolean outletAddSign;
     private Boolean handleAddSign;
     private Boolean sizeChangeSign;
     private int widthMinLimit;
@@ -57,8 +57,8 @@ public class ProductResponse {
     private List<ProductOptionPosition> productDryPositions;
     private List<ProductOptionAdd> productLowLedAdds;
     private List<ProductOptionPosition> productLowLedPositions;
-    private List<ProductOptionAdd> productConcentAdds;
-    private List<ProductOptionPosition> productConcentPositions;
+    private List<ProductOptionAdd> productOutletAdds;
+    private List<ProductOptionPosition> productOutletPositions;
     private List<ProductOptionAdd> productHandleAdds;
     private Long middleId;
     private Long bigId;

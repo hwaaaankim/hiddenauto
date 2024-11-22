@@ -20,257 +20,501 @@ const initialQuestion = {
 	}
 };
 
-/**
- * 유저 선택, sign 값, 두 개의 스탭을 받아 다음 단계를 결정하는 함수
- * @param {string} userSelection - 유저의 현재 단계 선택 값
- * @param {boolean} signValue - 현재 단계의 sign 값 (true/false)
- * @param {string} trueStep - sign 값이 true일 때 이동할 단계
- * @param {string} falseStep - sign 값이 false일 때 이동할 단계
- * @returns {string} - 다음 단계 이름
- */
-function determineNextStep(userSelection, signValue, trueStep, falseStep) {
-	// 유저 선택 또는 sign 값을 기반으로 다음 단계를 결정
-	if (userSelection === 'add') {
-		return signValue ? trueStep : falseStep;
-	}
-	return falseStep; // 기본적으로 falseStep 반환
-}
-
 const flapOptions = {};
 const productFlowSteps = {
 	mirror: [
 		{
-			step: 'product', label: '제품', question: '거울의 제품을 선택하세요.', next: 'color'
+			step: 'product',
+			label: '제품',
+			question: '거울의 제품을 선택하세요.',
+			next: 'color'
 		},
 		{
-			step: 'color', label: '색상', question: '거울의 색상을 선택하세요.', next: 'size'
+			step: 'color',
+			label: '색상',
+			question: '거울의 색상을 선택하세요.',
+			next: 'size'
 		},
 		{
-			step: 'size', label: '사이즈', question: '거울의 사이즈를 선택하세요.', next: (productSign) => productSign === true ? 'led' : 'final'
+			step: 'size',
+			label: '사이즈',
+			question: '거울의 사이즈를 선택하세요.',
+			next: 'NEXT' 
 		},
 		{
-			step: 'led', label: 'LED 추가', question: 'LED를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'ADD' ? 'ledcolor' : 'final'
+			step: 'normalled',
+			label: 'LED 추가',
+			question: 'LED를 추가하시겠습니까?',
+			options: [
+				{ value: 'ADD', label: '추가' },
+				{ value: 'NOT_ADD', label: '추가 안 함' }
+			],
+			next: (selectedOption) => selectedOption === 'ADD' ? 'normalledcolor' : 'final' // 선택에 따라 이동
 		},
 		{
-			step: 'ledcolor', label: 'LED 색상', question: 'LED의 색상을 선택하세요.', next: 'final'
+			step: 'normalledcolor',
+			label: 'LED 색상',
+			question: 'LED의 색상을 선택하세요.',
+			next: 'final'
 		}
 	],
 	top: [
-		{
-			step: 'product', label: '제품', question: '상부장의 제품을 선택하세요.', next: 'color'
+		{ 
+			step: 'product', 
+			label: '제품', 
+			question: '상부장의 제품을 선택하세요.', 
+			next: 'color' 
 		},
-		{
-			step: 'color', label: '색상', question: '상부장의 색상을 선택하세요.', next: 'size'
+		{ 
+			step: 'color', 
+			label: '색상', 
+			question: '상부장의 색상을 선택하세요.', 
+			next: 'size' 
 		},
-		{
-			step: 'size', label: '사이즈', question: '상부장의 사이즈를 선택하세요.', next: 'door'
+		{ 
+			step: 'size', 
+			label: '사이즈', 
+			question: '상부장의 사이즈를 선택하세요.', 
+			next: 'door' 
 		},
-		{
-			step: 'door', label: '문 추가', question: '문을 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'handle'
+		{ 
+			step: 'door', 
+			label: '문 추가', 
+			question: '문을 추가하시겠습니까?', 
+			options: [
+				{ value: 'ADD', label: '추가' },
+				{ value: 'NOT_ADD', label: '추가 안 함' }
+				], 
+			next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'NEXT' 
 		},
-		{
-			step: 'numberofdoor', label: '문 수량', question: '문 수량을 선택하세요.', next: 'doorDirection'
+		{ 
+			step: 'numberofdoor', 
+			label: '문 수량', 
+			question: '문 수량을 선택하세요.', 
+			next: 'doorDirection' 
 		},
-		{
-			step: 'doorDirection', label: '문 방향', question: '문의 방향을 선택하세요.', next: 'handle'
+		{ 
+			step: 'doorDirection', 
+			label: '문 방향', 
+			question: '문의 방향을 선택하세요.', 
+			next: 'NEXT' 
 		},
-		{
-			step: 'handle', label: '손잡이 추가', question: '손잡이를 추가하시겠습니까?', next: 'led'
+		{ 
+			step: 'handle', 
+			label: '손잡이 추가', 
+			question: '손잡이를 추가하시겠습니까?', 
+			options: [
+				{ value: 'ADD', label: '추가' }, 
+				{ value: 'NOT_ADD', label: '추가 안 함' }], 
+			next: 'NEXT' 
 		},
-		{
-			step: 'led', label: 'LED 추가 여부', question: 'LED를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'tissue'
+		{ 
+			step: 'led', 
+			label: 'LED 추가 여부', 
+			question: 'LED를 추가하시겠습니까?', 
+			options: [
+				{ value: 'ADD', label: '추가' }, 
+				{ value: 'NOT_ADD', label: '추가 안 함' }], 
+			next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'NEXT' 
 		},
-		{
-			step: 'ledPosition', label: 'LED 위치', question: 'LED의 위치를 선택하세요.', next: 'ledColor'
+		{ 
+			step: 'ledPosition', 
+			label: 'LED 위치', 
+			question: 'LED의 위치를 선택하세요.', 
+			next: 'ledColor' 
 		},
-		{
-			step: 'ledColor', label: 'LED 색상', question: 'LED의 색상을 선택하세요.', next: 'tissue'
+		{ 
+			step: 'ledColor', 
+			label: 'LED 색상', 
+			question: 'LED의 색상을 선택하세요.', 
+			next: 'NEXT' 
 		},
-		{
-			step: 'tissue', label: '휴지걸이 추가', question: '휴지걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'dry'
+		{ 
+			step: 'tissue', 
+			label: '휴지걸이 추가', 
+			question: '휴지걸이를 추가하시겠습니까?', 
+			options: [
+				{ value: 'ADD', label: '추가' }, 
+				{ value: 'NOT_ADD', label: '추가 안 함' }], 
+			next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'NEXT' 
 		},
-		{
-			step: 'tissuePosition', label: '휴지걸이 위치', question: '휴지걸이 위치를 선택하세요', next: 'dry'
+		{ 
+			step: 'tissuePosition', 
+			label: '휴지걸이 위치', 
+			question: '휴지걸이 위치를 선택하세요', 
+			next: 'NEXT' 
 		},
-		{
-			step: 'dry', label: '드라이걸이 추가', question: '드라이걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'outlet'
+		{ 
+			step: 'dry', 
+			label: '드라이걸이 추가', 
+			question: '드라이걸이를 추가하시겠습니까?', 
+			options: [
+				{ value: 'ADD', label: '추가' }, 
+				{ value: 'NOT_ADD', label: '추가 안 함' }], 
+			next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'NEXT' 
 		},
-		{
-			step: 'dryPosition', label: '드라이걸이 방향', question: '드라이걸이의 방향을 선택하세요.', next: 'outlet'
+		{ 
+			step: 'dryPosition', 
+			label: '드라이걸이 방향', 
+			question: '드라이걸이의 방향을 선택하세요.', 
+			next: 'NEXT' 
 		},
-		{
-			step: 'outlet', label: '콘센트 추가', question: '콘센트를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+		{ 
+			step: 'outlet', 
+			label: '콘센트 추가', 
+			question: '콘센트를 추가하시겠습니까?', 
+			options: [
+				{ value: 'ADD', label: '추가' }, 
+				{ value: 'NOT_ADD', label: '추가 안 함' }
+				], 
+			next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final' 
 		},
-		{
-			step: 'outletPosition', label: '콘센트 방향', question: '콘센트의 방향을 선택하세요.', next: 'final'
+		{ 
+			step: 'outletPosition', 
+			label: '콘센트 방향', 
+			question: '콘센트의 방향을 선택하세요.', 
+			next: 'final' 
 		}
 	],
 	low: [
 		{
-			step: 'product', label: '제품', question: '하부장의 제품을 선택하세요.', next: 'color'
+			step: 'product', 
+			label: '제품', 
+			question: '하부장의 제품을 선택하세요.', 
+			next: 'color'
 		},
 		{
-			step: 'color', label: '색상', question: '하부장의 색상을 선택하세요.', next: 'size'
+			step: 'color', 
+			label: '색상', 
+			question: '하부장의 색상을 선택하세요.', 
+			next: 'size'
 		},
 		{
-			step: 'size', label: '사이즈', question: '하부장의 사이즈를 선택하세요.', next: 'form'
+			step: 'size', 
+			label: '사이즈', 
+			question: '하부장의 사이즈를 선택하세요.', 
+			next: 'form'
 		},
 		{
-			step: 'form', label: '형태', question: '하부장의 형태를 선택하세요.', next: 'colorofmarble'
+			step: 'form', 
+			label: '형태', 
+			question: '하부장의 형태를 선택하세요.', 
+			next: 'colorofmarble'
 		},
 		{
-			step: 'colorofmarble', label: '대리석 색상', question: '대리석의 색상을 선택하세요.', next: 'washstand'
+			step: 'colorofmarble', 
+			label: '대리석 색상', 
+			question: '대리석의 색상을 선택하세요.', 
+			next: 'washstand'
 		},
 		{
-			step: 'washstand', label: '세면대', question: '세면대의 개수를 선택하세요.', next: 'positionofwashstand'
+			step: 'washstand', 
+			label: '세면대', 
+			question: '세면대의 개수를 선택하세요.', 
+			options: [
+				{ value: 'one', label: '1개' },
+				{ value: 'two', label: '2개' },
+				{ value: 'three', label: '3개' }
+			],
+			next: 'positionofwashstand'
 		},
 		{
-			step: 'positionofwashstand', label: '세면대 위치', question: '세면대의 위치를 선택하세요.', next: 'door'
+			step: 'positionofwashstand', 
+			label: '세면대 위치', 
+			question: '세면대의 위치를 선택하세요.', 
+			options: [
+				{ value: 'left', label: '좌측' },
+				{ value: 'right', label: '우측' },
+				{ value: 'center', label: '중앙' }
+			], 
+			next: 'door'
 		},
 		{
-			step: 'door', label: '문 추가여부', question: '문을 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'formofdoor' : 'handle'
+			step: 'door', 
+			label: '문 추가여부', 
+			question: '문을 추가하시겠습니까?', 
+			options: [
+				{ value: 'ADD', label: '추가' },
+				{ value: 'NOT_ADD', label: '추가 안 함' }
+				],
+			next: (selectedOption) => selectedOption === 'add' ? 'formofdoor' : 'NEXT'
 		},
 		{
-			step: 'formofdoor', label: '문 형태', question: '문의 형태를 선택하세요.', next: 'numberofdoor'
+			step: 'formofdoor', 
+			label: '문 형태', 
+			question: '문의 형태를 선택하세요.', 
+			options: [
+				{ value: 'one', label: '여닫이' },
+				{ value: 'two', label: '슬라이드' },
+				{ value: 'three', label: '서랍식' },
+				{ value: 'four', label: '혼합식' }
+			],
+			next: 'numberofdoor'
 		},
 		{
-			step: 'numberofdoor', label: '문 수량', question: '문의 수량을 선택하세요.', next: 'handle'
+			step: 'numberofdoor', 
+			label: '문 수량', 
+			question: '문의 수량을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'handle', label: '손잡이 추가', question: '손잡이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'outlet'
+			step: 'handle', 
+			label: '손잡이 추가', 
+			question: '손잡이를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'NEXT'
 		},
 		{
-			step: 'handletype', label: '손잡이 종류', question: '손잡이의 종류를 선택하세요.', next: 'handlecolor'
+			step: 'handletype', 
+			label: '손잡이 종류', 
+			question: '손잡이의 종류를 선택하세요.', 
+			next: 'handlecolor'
 		},
 		{
-			step: 'handlecolor', label: '손잡이 색상', question: '손잡이의 색상을 선택하세요.', next: 'led'
+			step: 'handlecolor', 
+			label: '손잡이 색상', 
+			question: '손잡이의 색상을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'led', label: 'LED 추가 여부', question: 'LED를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'tissue'
+			step: 'led', 
+			label: 'LED 추가 여부', 
+			question: 'LED를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'NEXT'
 		},
 		{
-			step: 'ledPosition', label: 'LED 위치', question: 'LED의 위치를 선택하세요.', next: 'ledColor'
+			step: 'ledPosition', 
+			label: 'LED 위치', 
+			question: 'LED의 위치를 선택하세요.', 
+			next: 'ledColor'
 		},
 		{
-			step: 'ledColor', label: 'LED 색상', question: 'LED의 색상을 선택하세요.', next: 'tissue'
+			step: 'ledColor', 
+			label: 'LED 색상', 
+			question: 'LED의 색상을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'tissue', label: '휴지걸이 추가', question: '휴지걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'dry'
+			step: 'tissue', 
+			label: '휴지걸이 추가', 
+			question: '휴지걸이를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'NEXT'
 		},
 		{
-			step: 'tissuePosition', label: '휴지걸이 위치', question: '휴지걸이 위치를 선택하세요', next: 'dry'
+			step: 'tissuePosition', 
+			label: '휴지걸이 위치', 
+			question: '휴지걸이 위치를 선택하세요', 
+			next: 'NEXT'
 		},
 		{
-			step: 'dry', label: '드라이걸이 추가', question: '드라이걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'outlet'
+			step: 'dry', 
+			label: '드라이걸이 추가', 
+			question: '드라이걸이를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'NEXT'
 		},
 		{
-			step: 'dryPosition', label: '드라이걸이 방향', question: '드라이걸이의 방향을 선택하세요.', next: 'outlet'
+			step: 'dryPosition', 
+			label: '드라이걸이 방향', 
+			question: '드라이걸이의 방향을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'outlet', label: '콘센트 추가', question: '콘센트를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+			step: 'outlet', 
+			label: '콘센트 추가', 
+			question: '콘센트를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
 		},
 		{
-			step: 'outletPosition', label: '콘센트 방향', question: '콘센트의 방향을 선택하세요.', next: 'final'
+			step: 'outletPosition', 
+			label: '콘센트 방향', 
+			question: '콘센트의 방향을 선택하세요.', 
+			next: 'final'
 		}
 	],
 	flap: [
 		{
-			step: 'product', label: '제품', question: '플랩장의 제품을 선택하세요.', next: 'color'
+			step: 'product', 
+			label: '제품',
+			question: '플랩장의 제품을 선택하세요.', 
+			next: 'color'
 		},
 		{
-			step: 'color', label: '색상', question: '플랩장의 색상을 선택하세요.', next: 'size'
+			step: 'color', 
+			label: '색상', 
+			question: '플랩장의 색상을 선택하세요.', 
+			next: 'size'
 		},
 		{
-			step: 'size', label: '사이즈', question: '플랩장의 사이즈를 선택하세요.', next: 'door'
+			step: 'size', 
+			label: '사이즈', 
+			question: '플랩장의 사이즈를 선택하세요.', 
+			next: 'door'
 		},
 		{
-			step: 'door', label: '문 추가', question: '문을 추가하시겠습니까?', next: (selectedOption, currentSelection) => {
-				if (selectedOption === 'notadd') return 'led';
+			step: 'door', 
+			label: '문 추가', 
+			question: '문을 추가하시겠습니까?', 
+			next: (selectedOption, currentSelection) => {
+				if (selectedOption === 'notadd') return 'NEXT';
 				else if (selectedOption === 'add' && currentSelection === 'complex') return 'doorDirection';
-				else return 'led';
+				else return 'NEXT';
 			}
 		},
 		{
-			step: 'doorDirection', label: '문 방향', question: '문의 방향을 선택하세요.', next: 'doorRatio'
+			step: 'doorDirection', 
+			label: '문 방향', 
+			question: '문의 방향을 선택하세요.', 
+			next: 'doorRatio'
 		},
 		{
-			step: 'doorRatio', label: '문 비율', question: '문의 비율을 선택하세요.', next: 'led'
+			step: 'doorRatio', 
+			label: '문 비율', 
+			question: '문의 비율을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'led', label: 'LED 추가 여부', question: 'LED를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'tissue'
+			step: 'led', 
+			label: 'LED 추가 여부', 
+			question: 'LED를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'NEXT'
 		},
 		{
-			step: 'ledPosition', label: 'LED 위치', question: 'LED의 위치를 선택하세요.', next: 'ledColor'
+			step: 'ledPosition', 
+			label: 'LED 위치', 
+			question: 'LED의 위치를 선택하세요.', 
+			next: 'ledColor'
 		},
 		{
-			step: 'ledColor', label: 'LED 색상', question: 'LED의 색상을 선택하세요.', next: 'tissue'
+			step: 'ledColor', 
+			label: 'LED 색상', 
+			question: 'LED의 색상을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'tissue', label: '휴지걸이 추가', question: '휴지걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'dry'
+			step: 'tissue', 
+			label: '휴지걸이 추가', 
+			question: '휴지걸이를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'NEXT'
 		},
 		{
-			step: 'tissuePosition', label: '휴지걸이 위치', question: '휴지걸이 위치를 선택하세요', next: 'dry'
+			step: 'tissuePosition', 
+			label: '휴지걸이 위치', 
+			question: '휴지걸이 위치를 선택하세요', 
+			next: 'NEXT'
 		},
 		{
-			step: 'dry', label: '드라이걸이 추가', question: '드라이걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'outlet'
+			step: 'dry', 
+			label: '드라이걸이 추가', 
+			question: '드라이걸이를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'NEXT'
 		},
 		{
-			step: 'dryPosition', label: '드라이걸이 방향', question: '드라이걸이의 방향을 선택하세요.', next: 'outlet'
+			step: 'dryPosition', 
+			label: '드라이걸이 방향', 
+			question: '드라이걸이의 방향을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'outlet', label: '콘센트 추가', question: '콘센트를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+			step: 'outlet', 
+			label: '콘센트 추가', 
+			question: '콘센트를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
 		},
 		{
-			step: 'outletPosition', label: '콘센트 방향', question: '콘센트의 방향을 선택하세요.', next: 'final'
+			step: 'outletPosition', 
+			label: '콘센트 방향', 
+			question: '콘센트의 방향을 선택하세요.', 
+			next: 'final'
 		}
 	],
 	slide: [
 		{
-			step: 'product', label: '제품', question: '슬라이드장의 제품을 선택하세요.', next: 'color'
+			step: 'product', 
+			label: '제품', 
+			question: '슬라이드장의 제품을 선택하세요.', 
+			next: 'color'
 		},
 		{
-			step: 'color', label: '색상', question: '슬라이드장의 색상을 선택하세요.', next: 'size'
+			step: 'color', 
+			label: '색상', 
+			question: '슬라이드장의 색상을 선택하세요.', 
+			next: 'size'
 		},
 		{
-			step: 'size', label: '사이즈', question: '슬라이드장의 사이즈를 선택하세요.', next: 'door'
+			step: 'size', 
+			label: '사이즈', 
+			question: '슬라이드장의 사이즈를 선택하세요.', 
+			next: 'door'
 		},
 		{
-			step: 'door', label: '문 추가', question: '문을 추가하시겠습니까?', next: 'handle'
+			step: 'door', 
+			label: '문 추가', 
+			question: '문을 추가하시겠습니까?', 
+			next: 'NEXT'
 		},
 		{
-			step: 'handle', label: '손잡이 추가', question: '손잡이를 추가하시겠습니까?', next: 'led'
+			step: 'handle', 
+			label: '손잡이 추가', 
+			question: '손잡이를 추가하시겠습니까?', 
+			next: 'NEXT'
 		},
 		{
-			step: 'led', label: 'LED 추가 여부', question: 'LED를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'tissue'
+			step: 'led', 
+			label: 'LED 추가 여부', 
+			question: 'LED를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'NEXT'
 		},
 		{
-			step: 'ledPosition', label: 'LED 위치', question: 'LED의 위치를 선택하세요.', next: 'ledColor'
+			step: 'ledPosition', 
+			label: 'LED 위치', 
+			question: 'LED의 위치를 선택하세요.', 
+			next: 'ledColor'
 		},
 		{
-			step: 'ledColor', label: 'LED 색상', question: 'LED의 색상을 선택하세요.', next: 'tissue'
+			step: 'ledColor', 
+			label: 'LED 색상', 
+			question: 'LED의 색상을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'tissue', label: '휴지걸이 추가', question: '휴지걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'dry'
+			step: 'tissue', 
+			label: '휴지걸이 추가', 
+			question: '휴지걸이를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'tissueDirection' : 'NEXT'
 		},
 		{
-			step: 'tissuePosition', label: '휴지걸이 위치', question: '휴지걸이 위치를 선택하세요', next: 'dry'
+			step: 'tissuePosition', 
+			label: '휴지걸이 위치', 
+			question: '휴지걸이 위치를 선택하세요', 
+			next: 'NEXT'
 		},
 		{
-			step: 'dry', label: '드라이걸이 추가', question: '드라이걸이를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'outlet'
+			step: 'dry', 
+			label: '드라이걸이 추가', 
+			question: '드라이걸이를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'drydirection' : 'NEXT'
 		},
 		{
-			step: 'dryPosition', label: '드라이걸이 방향', question: '드라이걸이의 방향을 선택하세요.', next: 'outlet'
+			step: 'dryPosition', 
+			label: '드라이걸이 방향', 
+			question: '드라이걸이의 방향을 선택하세요.', 
+			next: 'NEXT'
 		},
 		{
-			step: 'outlet', label: '콘센트 추가', question: '콘센트를 추가하시겠습니까?', next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
+			step: 'outlet', 
+			label: '콘센트 추가', 
+			question: '콘센트를 추가하시겠습니까?', 
+			next: (selectedOption) => selectedOption === 'add' ? 'outletdirection' : 'final'
 		},
 		{
-			step: 'outletPosition', label: '콘센트 방향', question: '콘센트의 방향을 선택하세요.', next: 'final'
+			step: 'outletPosition', 
+			label: '콘센트 방향', 
+			question: '콘센트의 방향을 선택하세요.', 
+			next: 'final'
 		}
 	]
 
 };
-let selectedBigSort = null;    // 1차 카테고리 선택 값
+let selectedBigSort = null; // 1차 카테고리 선택 값
 let selectedMiddleSort = null; // 2차 카테고리 선택 값
 let currentFlow = ['category']; // 기본적으로 category는 포함됨
 let categorySelections = {};
@@ -291,6 +535,93 @@ function getProductDetails(productId) {
 		});
 	});
 }
+
+function assignNextValues(filteredFlow) {
+    const nextValuesQueue = []; // NEXT를 처리할 큐
+    // 1. 고정된 NEXT 처리
+    for (let i = 0; i < filteredFlow.length; i++) {
+        const currentStep = filteredFlow[i];
+        const nextStep = filteredFlow[i + 1] ? filteredFlow[i + 1].step : 'final';
+
+        // NEXT를 처리하고 큐에 저장
+        if (typeof currentStep.next === 'string' && currentStep.next === 'NEXT') {
+            currentStep.next = nextStep;
+            nextValuesQueue.push(nextStep); // 큐에 저장
+        }
+    }
+
+
+    // 2. 함수형 NEXT 처리
+    for (let i = 0; i < filteredFlow.length; i++) {
+        const currentStep = filteredFlow[i];
+
+        if (typeof currentStep.next === 'function') {
+            const originalNext = currentStep.next; // 원래 함수를 저장
+            const calculatedNext = nextValuesQueue.shift(); // 큐에서 다음 값을 가져옴
+
+            // 새로운 함수 생성: NEXT 값을 큐 값으로 대체
+            currentStep.next = (...args) => {
+                const result = originalNext(...args); // 기존 함수 실행
+                return result === 'NEXT' ? calculatedNext : result; // NEXT는 큐 값으로 대체
+            };
+        }
+    }
+
+    // 마지막 단계의 next는 항상 'final'
+    if (filteredFlow.length > 0) {
+        const lastStep = filteredFlow[filteredFlow.length - 1];
+        lastStep.next = 'final';
+    }
+    return filteredFlow;
+}
+
+
+
+function findNextForAdd(filteredFlow, currentIndex) {
+    for (let i = currentIndex + 1; i < filteredFlow.length; i++) {
+        const step = filteredFlow[i];
+        if (typeof step.next === 'string' && step.next !== 'NEXT') {
+            return step.step;
+        }
+    }
+    return 'final';
+}
+
+function filterFlowBySign(product, templateFlow) {
+    const skipKeywords = {
+        normal: !product.normalLedSign,
+        tissue: !product.tissueAddSign,
+        dry: !product.dryAddSign,
+        led: !product.lowLedAddSign,
+        outlet: !product.outletAddSign,
+        handle: !product.handleAddSign,
+    };
+
+    return templateFlow.filter(step => {
+        return !Object.keys(skipKeywords).some(
+            keyword => step.step.includes(keyword) && skipKeywords[keyword]
+        );
+    });
+}
+
+function generateRealFlow(product, templateFlow) {
+    const filteredFlow = filterFlowBySign(product, templateFlow);
+    return assignNextValues(filteredFlow);
+}
+
+// Example Data
+const exampleProduct = {
+	normalLedSign: false,
+    handleAddSign: false,
+    lowLedAddSign: true,
+    tissueAddSign: true,
+    dryAddSign: false,
+    outletAddSign: false,
+};
+
+
+// 실행
+const realFlow = generateRealFlow(exampleProduct, productFlowSteps.low);
 
 // 로더 표시 함수
 function showLoader() {
@@ -337,6 +668,39 @@ function generateDoorDirectionOptions(doorCount) {
 
 	getDirectionCombinations([], 0);
 
+}
+
+function getNextValidStep(currentStepIndex, categoryKey, product, selectedOption = null) {
+	const steps = productFlowSteps[categoryKey];
+
+	for (let i = currentStepIndex + 1; i < steps.length; i++) {
+		const step = steps[i];
+
+		// 1. `condition`이 없거나 조건을 만족하는 경우
+		if (!step.condition || step.condition(product)) {
+
+			// 2. `next`가 함수일 경우 동적 값 반환
+			if (typeof step.next === 'function') {
+				const nextStepKey = step.next(product, selectedOption);
+				const nextStepIndex = steps.findIndex(nextStep => nextStep.step === nextStepKey);
+
+				// 유효한 `next` 단계가 있으면 해당 단계 반환
+				if (nextStepIndex >= 0) {
+					return steps[nextStepIndex].step;
+				}
+			}
+
+			// 3. `next`가 문자열일 경우 다음 단계로 바로 이동
+			if (typeof step.next === 'string') {
+				return step.next;
+			}
+
+			// 4. `next`가 없는 경우 현재 단계 반환
+			return step.step;
+		}
+	}
+
+	return null; // 더 이상 진행할 단계가 없으면 null 반환
 }
 
 
@@ -1443,7 +1807,6 @@ function handleProductSelection(product, categoryKey, step) {
 				stepObj.options = colors;
 			}
 		});
-
 		// 다음 단계로 이동
 		proceedToNextStep(categoryKey, nextStepKey, product);
 	} else {
@@ -1454,86 +1817,86 @@ function handleProductSelection(product, categoryKey, step) {
 
 // 다음 단계로 이동 처리 함수
 function proceedToNextStep(categoryKey, nextStepKey, product) {
-    return new Promise((resolve, reject) => {
-        let nextStepIndex;
+	return new Promise((resolve, reject) => {
+		let nextStepIndex;
 
-        if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
-            const currentSelections = {};
-            currentFlow.forEach((stepKey) => {
-                const answerDiv = document.getElementById(`${stepKey}-answer`);
-                if (answerDiv) {
-                    currentSelections[stepKey] = answerDiv.innerText
-                        .replace('을(를) 선택하셨습니다.', '')
-                        .replace('[초기화]', '')
-                        .trim();
-                }
-            });
-            const nextKey = nextStepKey(product, flapProductSelection);
-            nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-            currentFlow.push(nextKey);
-        } else if (typeof nextStepKey === 'function' && categoryKey === 'mirror' && currentFlow[currentFlow.length - 1] === 'size') {
-            // selectedAnswerValue에서 middleSort와 product ID를 가져옴
-            const middleSortId = selectedAnswerValue['middleSort'];
-            const productId = selectedAnswerValue['product'];
+		if (typeof nextStepKey === 'function' && categoryKey === 'flap') {
+			const currentSelections = {};
+			currentFlow.forEach((stepKey) => {
+				const answerDiv = document.getElementById(`${stepKey}-answer`);
+				if (answerDiv) {
+					currentSelections[stepKey] = answerDiv.innerText
+						.replace('을(를) 선택하셨습니다.', '')
+						.replace('[초기화]', '')
+						.trim();
+				}
+			});
+			const nextKey = nextStepKey(product, flapProductSelection);
+			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+			currentFlow.push(nextKey);
+		} else if (typeof nextStepKey === 'function' && categoryKey === 'mirror' && currentFlow[currentFlow.length - 1] === 'size') {
+			// selectedAnswerValue에서 middleSort와 product ID를 가져옴
+			const middleSortId = selectedAnswerValue['middleSort'];
+			const productId = selectedAnswerValue['product'];
 
-            // preloadedData에서 해당 middleSort와 product를 찾음
-            const selectedMiddleSort = preloadedData.middleSort.find(
-                middleSort => middleSort.id === middleSortId
-            );
+			// preloadedData에서 해당 middleSort와 product를 찾음
+			const selectedMiddleSort = preloadedData.middleSort.find(
+				middleSort => middleSort.id === middleSortId
+			);
 
-            if (!selectedMiddleSort) {
-                console.error("middleSort 데이터를 찾을 수 없습니다.");
-                reject(new Error("middleSort 데이터가 없습니다."));
-                return;
-            }
+			if (!selectedMiddleSort) {
+				console.error("middleSort 데이터를 찾을 수 없습니다.");
+				reject(new Error("middleSort 데이터가 없습니다."));
+				return;
+			}
 
-            const selectedProduct = selectedMiddleSort.products.find(p => p.id === productId);
+			const selectedProduct = selectedMiddleSort.products.find(p => p.id === productId);
 
-            if (!selectedProduct) {
-                console.error("선택한 product 데이터를 찾을 수 없습니다.");
-                reject(new Error("product 데이터를 찾을 수 없습니다."));
-                return;
-            }
+			if (!selectedProduct) {
+				console.error("선택한 product 데이터를 찾을 수 없습니다.");
+				reject(new Error("product 데이터를 찾을 수 없습니다."));
+				return;
+			}
 
-            // normalLedSign 값 가져오기
-            const normalLedSign = selectedProduct.normalLedSign;
+			// normalLedSign 값 가져오기
+			const normalLedSign = selectedProduct.normalLedSign;
 
-            if (normalLedSign === undefined) {
-                console.error('normalLedSign 값이 없습니다.');
-                reject(new Error('normalLedSign 값을 찾을 수 없습니다.'));
-                return;
-            }
+			if (normalLedSign === undefined) {
+				console.error('normalLedSign 값이 없습니다.');
+				reject(new Error('normalLedSign 값을 찾을 수 없습니다.'));
+				return;
+			}
 
-            // nextStepKey에 normalLedSign 전달
-            const nextKey = nextStepKey(normalLedSign);
-            nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-            console.log(nextKey);
-            currentFlow.push(nextKey);
-        } else {
-            if (typeof nextStepKey === 'function') {
-                const nextKey = nextStepKey(product);
-                nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
-                currentFlow.push(nextKey);
-            } else {
-                nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
-                currentFlow.push(nextStepKey);
-            }
-        }
+			// nextStepKey에 normalLedSign 전달
+			const nextKey = nextStepKey(normalLedSign);
+			nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+			console.log(nextKey);
+			currentFlow.push(nextKey);
+		} else {
+			if (typeof nextStepKey === 'function') {
+				const nextKey = nextStepKey(product);
+				nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextKey);
+				currentFlow.push(nextKey);
+			} else {
+				nextStepIndex = productFlowSteps[categoryKey].findIndex(s => s.step === nextStepKey);
+				currentFlow.push(nextStepKey);
+			}
+		}
 
-        if (nextStepIndex >= 0) {
-            // 다음 단계로 이동하고 Promise 반환
-            updateProductOptions(categoryKey, nextStepIndex)
-                .then(() => resolve())
-                .catch((error) => {
-                    console.error('옵션 업데이트 실패:', error);
-                    reject(error);
-                });
-        } else {
-            // 마지막 단계 도달 시
-            renderAnswer({ step: 'final' }, '', categoryKey);
-            resolve();
-        }
-    });
+		if (nextStepIndex >= 0) {
+			// 다음 단계로 이동하고 Promise 반환
+			updateProductOptions(categoryKey, nextStepIndex)
+				.then(() => resolve())
+				.catch((error) => {
+					console.error('옵션 업데이트 실패:', error);
+					reject(error);
+				});
+		} else {
+			// 마지막 단계 도달 시
+			renderAnswer({ step: 'final' }, '', categoryKey);
+			resolve();
+		}
+	});
 }
 
 

@@ -360,7 +360,7 @@ public class ExcelUploadService {
 	                            product.setNormalLedSign(parseBoolean(excelUtils.getCellValue(row.getCell(15))));
 	                            product.setTissueAddSign(parseBoolean(excelUtils.getCellValue(row.getCell(6))));
 	                            product.setDryAddSign(parseBoolean(excelUtils.getCellValue(row.getCell(9))));
-	                            product.setConcentAddSign(parseBoolean(excelUtils.getCellValue(row.getCell(12))));
+	                            product.setOutletAddSign(parseBoolean(excelUtils.getCellValue(row.getCell(12))));
 	                            product.setLowLedAddSign(parseBoolean(excelUtils.getCellValue(row.getCell(17))));
 	                            product.setHandleAddSign(parseBoolean(excelUtils.getCellValue(row.getCell(20))));
 	                            product.setDoorAmountSign(parseBoolean(excelUtils.getCellValue(row.getCell(38))));
@@ -385,8 +385,8 @@ public class ExcelUploadService {
 	                            product.setProductTissuePositions(parseManyToMany(excelUtils.getCellValue(row.getCell(8)), productOptionPositionRepository));
 	                            product.setProductDryAdds(parseManyToMany(excelUtils.getCellValue(row.getCell(10)), productOptionAddRepository));
 	                            product.setProductDryPositions(parseManyToMany(excelUtils.getCellValue(row.getCell(11)), productOptionPositionRepository));
-	                            product.setProductConcentAdds(parseManyToMany(excelUtils.getCellValue(row.getCell(13)), productOptionAddRepository));
-	                            product.setProductConcentPositions(parseManyToMany(excelUtils.getCellValue(row.getCell(14)), productOptionPositionRepository));
+	                            product.setProductOutletAdds(parseManyToMany(excelUtils.getCellValue(row.getCell(13)), productOptionAddRepository));
+	                            product.setProductOutletPositions(parseManyToMany(excelUtils.getCellValue(row.getCell(14)), productOptionPositionRepository));
 	                            product.setProductLowLedAdds(parseManyToMany(excelUtils.getCellValue(row.getCell(18)), productOptionAddRepository));
 	                            product.setProductLowLedPositions(parseManyToMany(excelUtils.getCellValue(row.getCell(19)), productOptionPositionRepository));
 	                            product.setProductHandleAdds(parseManyToMany(excelUtils.getCellValue(row.getCell(21)), productOptionAddRepository));
