@@ -28,6 +28,15 @@ public class ProductSize {
     @Column(name="PRODUCT_SIZE_TEXT")
     private String productSizeText;
     
+    @Column(name="PRODUCT_WIDTH")
+    private String productWidth;
+    
+    @Column(name="PRODUCT_HEIGHT")
+    private String productHeight;
+    
+    @Column(name="PRODUCT_DEPTH")
+    private String productDepth;
+    
     @ManyToMany(mappedBy = "productSizes", fetch = FetchType.EAGER)
     @JsonBackReference
     @JsonIgnore
