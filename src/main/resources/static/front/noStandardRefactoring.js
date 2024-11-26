@@ -14,24 +14,17 @@ let preloadedData = {
 };
 const sampleDataSet = {
     "category": {
-        "label": "플랩장",
-        "value": "flap",
-        "id": 6
+        "label": "상부장",
+        "value": "top",
+        "id": 1
     },
-    "middleSort": 20,
-    "product": 2247,
-    "color": 1,
-    "size": "넓이: 1400, 높이: 250, 깊이: 250",
+    "middleSort": 2,
+    "product": 2195,
+    "color": 2,
+    "size": 19,
     "door": "add",
-    "doorDirection": "left",
-    "doorRatio": "700:700",
-    "led": "add",
-    "ledPosition": 2,
-    "ledColor": "two",
-    "tissue": "add",
-    "tissuePosition": 3,
-    "dry": "not_add",
-    "outlet": "not_add"
+    "numberofdoor": 2,
+    "doorDirection": "좌-우"
 }
 
 AOS.init({
@@ -114,7 +107,6 @@ function generateRealFlow(product, templateFlow) {
 			}));
 		}
 	});
-	console.log(filteredFlow);
 	return assignNextValues(filteredFlow);
 }
 
@@ -287,7 +279,6 @@ function autoProceed(savedSelections) {
 
 			// **1. 사이즈 입력 처리**
 			if (currentStep.step === 'size' && typeof currentSelection === 'string' && currentSelection.includes('넓이')) {
-				console.log('parseSizeText(currentSelection) : ', parseSizeText(currentSelection));
 				const [width, height, depth] = parseSizeText(currentSelection);
 				document.getElementById('width-input').value = width;
 				document.getElementById('height-input').value = height;
@@ -414,11 +405,8 @@ function autoProceed(savedSelections) {
 function parseSizeText(sizeText) {
 	// 문자열인 경우 기존 로직 유지
 	if (typeof sizeText === 'string') {
-		console.log("typeof sizeText === 'string'");
-		console.log('sizeText : ', sizeText);
 		const regex = /넓이:\s*(\d+),\s*높이:\s*(\d+)(?:,\s*깊이:\s*(\d+))?/;
 		const match = sizeText.match(regex);
-		console.log('match : ', match);
 		if (match) {
 			const width = parseInt(match[1], 10);
 			const height = parseInt(match[2], 10);
@@ -642,9 +630,6 @@ function handleDirectInput(inputValue, categoryKey, step) {
 			.flatMap(middleSort => middleSort.products)
 			.find(product => product.id === selectedProductId);
 
-		// 선택된 제품 정보 로그 출력
-		console.log('선택된 제품 정보:', selectedProductInfo);
-
 		// sizeChangeSign 확인
 		if (!selectedProductInfo.sizeChangeSign) {
 			alert('이 제품은 사이즈 변경이 불가능합니다.');
@@ -748,7 +733,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 			.find(product => product.id === selectedProductId);
 
 		// 유저가 선택한 제품 정보 콘솔 출력
-		console.log('선택한 제품 정보:', selectedProductInfo);
 		if (step.step === 'size') {
 
 			// 사이즈 옵션 추가 (기존 코드 유지)
@@ -848,9 +832,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 					resolve();
 				});
 				optionDiv.appendChild(confirmButton);
-			} else {
-				console.log('sizeChangeSign이 false입니다. 입력 필드가 렌더링되지 않습니다.');
-			}
+			} 
 		} else if (step.step === 'numberofdoor' && numberOfOption.length > 0) {
 			numberOfOption.forEach(option => {
 				const button = document.createElement('button');
@@ -958,7 +940,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 				try {
 					// size에서 width 값 가져오기
 					const sizeValue = selectedAnswerValue['size'];
-					console.log('sizeValue : ', sizeValue);
 					let width, height, depth;
 					if(typeof sizeValue === 'string' && sizeValue.includes('넓이')){
 						[width, height, depth] = parseSizeText(sizeValue);
@@ -966,7 +947,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 						size = selectedProductInfo.productSizes.find(size => size.id === sizeValue);
 						width = size.productWidth;
 					}
-					console.log('width : ', width);
 					// width 값이 유효한지 검사
 					if (!width) {
 						alert('사이즈 데이터에서 넓이 값을 가져오지 못했습니다.');
@@ -1038,7 +1018,6 @@ function waitForElement(selector, timeout = 3000) {
 }
 
 function renderAnswer(step, product, categoryKey = '') {
-	console.log(categoryKey);
 	let answerDiv = document.getElementById(`${step.step}-answer`);
 
 	// final이 아닌 단계의 answer 처리
@@ -1166,7 +1145,6 @@ function getLabelByValue(step, value) {
 }
 
 function handleProductSelection(product, categoryKey, step) {
-	console.log(selectedAnswerValue);
 	if (categoryKey === 'flap' && step.step === 'product') {
 		const productName = getLabelByValue(step, product);
 		if (productName.includes('복합')) {
@@ -1237,7 +1215,6 @@ function handleProductSelection(product, categoryKey, step) {
 
 		// **추가 부분: realFlow 생성 및 초기화**
 		realFlow = generateRealFlow(selectedProduct, productFlowSteps[categoryKey]);
-		console.log("realFlow 생성 완료:", realFlow);
 
 		// 다음 단계로 이동
 		proceedToNextStep(categoryKey, realFlow[0].next, product); // realFlow 사용
@@ -1502,8 +1479,8 @@ window.onload = () => {
 	renderInitialQuestion();
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	setTimeout(() => {
+	/* setTimeout(() => {
 		autoProceed(sampleDataSet);
-	}, 500); // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	}, 500); */ // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 
