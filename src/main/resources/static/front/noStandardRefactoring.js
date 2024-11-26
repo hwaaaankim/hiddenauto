@@ -14,17 +14,24 @@ let preloadedData = {
 };
 const sampleDataSet = {
     "category": {
-        "label": "하부장",
-        "value": "low",
-        "id": 2
+        "label": "플랩장",
+        "value": "flap",
+        "id": 6
     },
-    "middleSort": 5,
-    "product": 2329,
-    "color": 3,
-    "size": 23,
-    "form": "one",
-    "colorofmarble": "one",
-    "washstand": "one"
+    "middleSort": 20,
+    "product": 2247,
+    "color": 1,
+    "size": "넓이: 1400, 높이: 250, 깊이: 250",
+    "door": "add",
+    "doorDirection": "left",
+    "doorRatio": "700:700",
+    "led": "add",
+    "ledPosition": 2,
+    "ledColor": "two",
+    "tissue": "add",
+    "tissuePosition": 3,
+    "dry": "not_add",
+    "outlet": "not_add"
 }
 
 AOS.init({
@@ -286,7 +293,7 @@ function autoProceed(savedSelections) {
 				document.getElementById('height-input').value = height;
 				if (depth) document.getElementById('depth-input').value = depth;
 
-				document.querySelector(`#${currentStep.step}-option button`).click();
+				document.querySelector(`#${currentStep.step}-option button.confirm`).click();
 
 				// 다음 단계로 이동
 				moveToNextStep(stepIndex);
@@ -297,7 +304,7 @@ function autoProceed(savedSelections) {
 			if (currentStep.step === 'doorDirection' && currentSelection && categoryKey === 'top') {
 				const directionInput = document.getElementById('door-direction-input');
 				directionInput.value = currentSelection;
-				document.querySelector(`#${currentStep.step}-option button`).click();
+				document.querySelector(`#${currentStep.step}-option button.confirm`).click();
 
 				// 다음 단계로 이동
 				moveToNextStep(stepIndex);
@@ -308,7 +315,7 @@ function autoProceed(savedSelections) {
 				const [value1, value2] = currentSelection.split(':').map(Number);
 				document.getElementById('door-ratio-input-1').value = value1;
 				document.getElementById('door-ratio-input-2').value = value2;
-				document.querySelector(`#${currentStep.step}-option button`).click();
+				document.querySelector(`#${currentStep.step}-option button.confirm`).click();
 				moveToNextStep(stepIndex);
 				return;
 			}
@@ -410,7 +417,7 @@ function parseSizeText(sizeText) {
 		console.log("typeof sizeText === 'string'");
 		console.log('sizeText : ', sizeText);
 		const regex = /넓이:\s*(\d+),\s*높이:\s*(\d+)(?:,\s*깊이:\s*(\d+))?/;
-		const match = "넓이: 600, 높이: 555, 깊이: 800".match(regex);
+		const match = sizeText.match(regex);
 		console.log('match : ', match);
 		if (match) {
 			const width = parseInt(match[1], 10);
@@ -735,14 +742,14 @@ function updateProductOptions(categoryKey, stepIndex) {
 		optionDiv.id = `${step.step}-option`;
 		optionDiv.classList.add('non-standard-option');
 
-		if (step.step === 'size') {
-			const selectedProductId = selectedAnswerValue['product'];
-			const selectedProductInfo = preloadedData.middleSort
-				.flatMap(middleSort => middleSort.products)
-				.find(product => product.id === selectedProductId);
+		const selectedProductId = selectedAnswerValue['product'];
+		const selectedProductInfo = preloadedData.middleSort
+			.flatMap(middleSort => middleSort.products)
+			.find(product => product.id === selectedProductId);
 
-			// 유저가 선택한 제품 정보 콘솔 출력
-			console.log('선택한 제품 정보:', selectedProductInfo);
+		// 유저가 선택한 제품 정보 콘솔 출력
+		console.log('선택한 제품 정보:', selectedProductInfo);
+		if (step.step === 'size') {
 
 			// 사이즈 옵션 추가 (기존 코드 유지)
 			step.options.forEach(option => {
@@ -766,8 +773,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 			// sizeChangeSign 체크 (추가)
 			if (selectedProductInfo.sizeChangeSign) {
-
-
 
 				// 제한값 및 기본값 설정 (추가)
 				const limits = {
@@ -823,7 +828,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				// 확인 버튼 추가 (기존 코드 유지)
 				const confirmButton = document.createElement('button');
 				confirmButton.innerText = '확인';
-				confirmButton.classList.add('non-standard-btn');
+				confirmButton.classList.add('non-standard-btn', 'confirm');
 				confirmButton.addEventListener('click', () => {
 					const width = parseInt(document.getElementById('width-input').value);
 					const height = parseInt(document.getElementById('height-input').value);
@@ -885,7 +890,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 			// 확인 버튼 추가
 			const confirmButton = document.createElement('button');
 			confirmButton.innerText = '확인';
-			confirmButton.classList.add('non-standard-btn');
+			confirmButton.classList.add('non-standard-btn', 'confirm');
 			confirmButton.addEventListener('click', () => {
 				const directionValue = directionInput.value.trim();
 
@@ -935,8 +940,8 @@ function updateProductOptions(categoryKey, stepIndex) {
 			// 확인 버튼
 			const confirmButton = document.createElement('button');
 			confirmButton.innerText = '확인';
-			confirmButton.classList.add('non-standard-btn');
-
+			confirmButton.classList.add('non-standard-btn', 'confirm');
+			
 			// 확인 버튼 클릭 시 검증 로직
 			confirmButton.addEventListener('click', async () => {
 				const value1 = parseInt(input1.value, 10);
@@ -952,9 +957,16 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 				try {
 					// size에서 width 값 가져오기
-					const sizeText = selectedAnswerValue['size'];
-					const [width] = await parseSizeText(sizeText);
-
+					const sizeValue = selectedAnswerValue['size'];
+					console.log('sizeValue : ', sizeValue);
+					let width, height, depth;
+					if(typeof sizeValue === 'string' && sizeValue.includes('넓이')){
+						[width, height, depth] = parseSizeText(sizeValue);
+					}else{
+						size = selectedProductInfo.productSizes.find(size => size.id === sizeValue);
+						width = size.productWidth;
+					}
+					console.log('width : ', width);
 					// width 값이 유효한지 검사
 					if (!width) {
 						alert('사이즈 데이터에서 넓이 값을 가져오지 못했습니다.');
@@ -962,7 +974,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 					}
 
 					// 입력된 값의 합이 width와 동일한지 검증
-					if (value1 + value2 !== width) {
+					if (value1 + value2 !== parseInt(width,10)) {
 						alert(`입력한 비율의 합이 ${width}와 일치해야 합니다.`);
 						input1.value = '';
 						input2.value = '';
