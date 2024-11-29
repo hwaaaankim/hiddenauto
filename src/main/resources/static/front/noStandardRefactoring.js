@@ -12,19 +12,20 @@ let realFlow = []; // 선택된 제품에 맞는 흐름을 저장하는 변수
 let preloadedData = {
 	middleSort: [] // MiddleSort 데이터를 저장할 배열
 };
+
 const sampleDataSet = {
-    "category": {
-        "label": "상부장",
-        "value": "top",
-        "id": 1
-    },
-    "middleSort": 2,
-    "product": 2195,
-    "color": 2,
-    "size": 19,
-    "door": "add",
-    "numberofdoor": 2,
-    "doorDirection": "좌-우"
+	"category": {
+		"label": "상부장",
+		"value": "top",
+		"id": 1
+	},
+	"middleSort": 2,
+	"product": 2195,
+	"color": 2,
+	"size": 19,
+	"door": "add",
+	"numberofdoor": 2,
+	"doorDirection": "좌-우"
 }
 
 AOS.init({
@@ -832,7 +833,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 					resolve();
 				});
 				optionDiv.appendChild(confirmButton);
-			} 
+			}
 		} else if (step.step === 'numberofdoor' && numberOfOption.length > 0) {
 			numberOfOption.forEach(option => {
 				const button = document.createElement('button');
@@ -923,7 +924,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 			const confirmButton = document.createElement('button');
 			confirmButton.innerText = '확인';
 			confirmButton.classList.add('non-standard-btn', 'confirm');
-			
+
 			// 확인 버튼 클릭 시 검증 로직
 			confirmButton.addEventListener('click', async () => {
 				const value1 = parseInt(input1.value, 10);
@@ -941,9 +942,9 @@ function updateProductOptions(categoryKey, stepIndex) {
 					// size에서 width 값 가져오기
 					const sizeValue = selectedAnswerValue['size'];
 					let width, height, depth;
-					if(typeof sizeValue === 'string' && sizeValue.includes('넓이')){
+					if (typeof sizeValue === 'string' && sizeValue.includes('넓이')) {
 						[width, height, depth] = parseSizeText(sizeValue);
-					}else{
+					} else {
 						size = selectedProductInfo.productSizes.find(size => size.id === sizeValue);
 						width = size.productWidth;
 					}
@@ -954,7 +955,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 					}
 
 					// 입력된 값의 합이 width와 동일한지 검증
-					if (value1 + value2 !== parseInt(width,10)) {
+					if (value1 + value2 !== parseInt(width, 10)) {
 						alert(`입력한 비율의 합이 ${width}와 일치해야 합니다.`);
 						input1.value = '';
 						input2.value = '';
@@ -1145,9 +1146,14 @@ function getLabelByValue(step, value) {
 }
 
 function handleProductSelection(product, categoryKey, step) {
+	
 	if (categoryKey === 'flap' && step.step === 'product') {
-		const productName = getLabelByValue(step, product);
-		if (productName.includes('복합')) {
+		let productId = product;
+		const selectedProductInfo = preloadedData.middleSort
+			.flatMap(middleSort => middleSort.products)
+			.find(product => product.id === productId);
+		
+		if (selectedProductInfo.doorRatioSign) {
 			flapProductSelection = 'complex';
 		} else {
 			flapProductSelection = 'notcomplex';
