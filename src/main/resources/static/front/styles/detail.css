@@ -895,6 +895,11 @@ div.content.task-content {
 	bottom: 100px;
 }
 
+.fixed-button.star {
+	right: 50px;
+	bottom: 240px;
+}
+
 /* 호버 효과 */
 .fixed-button a:hover {
 	transform: scale(1.1);
