@@ -49,9 +49,9 @@ public class OrderController {
         return processDataAndReturnView(formData, model, "front/order/modeling");
     }
 
-    @PostMapping("/threed")
-    public String showThreeDView(@RequestParam Map<String, String> formData, Model model) {
-        return processDataAndReturnView(formData, model, "front/order/threed");
+    @PostMapping("/blueprint")
+    public String showBluePrintView(@RequestParam Map<String, String> formData, Model model) {
+        return processDataAndReturnView(formData, model, "front/order/blueprint");
     }
 
     private String processDataAndReturnView(Map<String, String> formData, Model model, String viewName) {

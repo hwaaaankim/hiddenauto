@@ -201,14 +201,17 @@ function hideOverlay() {
 }
 
 // 도면 및 3D 버튼 활성화 함수
-function enableModelingAndThreeDButtons() {
-	const modelingBtn = document.getElementById('modeling-btn');
-	const threeDBtn = document.getElementById('three-d-btn');
-
-	if (modelingBtn && threeDBtn) {
-		modelingBtn.classList.remove('notUsed');
-		threeDBtn.classList.remove('notUsed');
-	}
+function toggleButtonUsage(buttonId, enable) {
+    const button = document.getElementById(buttonId);
+    if (button) {
+        if (enable) {
+            button.classList.remove('notUsed'); // 활성화: notUsed 제거
+        } else {
+            button.classList.add('notUsed'); // 비활성화: notUsed 추가
+        }
+    } else {
+        console.warn(`Button with ID '${buttonId}' not found.`);
+    }
 }
 
 function autoProceed(savedSelections) {
@@ -648,7 +651,8 @@ function handleDirectInput(inputValue, categoryKey, step) {
 		const sizeText = `넓이: ${width}, 높이: ${height}${categoryKey !== 'mirror' ? `, 깊이: ${depth}` : ''}`;
 		selectedAnswerValue[step.step] = sizeText;
 
-		enableModelingAndThreeDButtons();
+		toggleButtonUsage('modeling-btn', true);
+		toggleButtonUsage('three-d-btn', true);
 	}
 
 	// answer를 동적으로 생성
@@ -1146,7 +1150,7 @@ function getLabelByValue(step, value) {
 }
 
 function handleProductSelection(product, categoryKey, step) {
-	
+	console.log(currentFlow);
 	if (categoryKey === 'flap' && step.step === 'product') {
 		let productId = product;
 		const selectedProductInfo = preloadedData.middleSort
@@ -1174,7 +1178,8 @@ function handleProductSelection(product, categoryKey, step) {
 		});
 
 	if (step.step === 'size') {
-		enableModelingAndThreeDButtons();
+		toggleButtonUsage('modeling-btn', true); // modeling-btn 활성화
+		toggleButtonUsage('three-d-btn', true); 
 	}
 
 	if (step.step === 'product') {
@@ -1339,6 +1344,16 @@ function resetStep(step) {
 		fadeOutElement(answerDiv);
 	}
 
+	// 초기화 조건 추가: size 또는 size 이전 단계일 때만 초기화
+	const sizeIndex = currentFlow.indexOf('size');
+	const stepIndex = currentFlow.indexOf(step);
+	if (stepIndex <= sizeIndex) {
+		resetNumberOfOption(); // numberOfOption 초기화
+		doorDirectionOptions = []; // doorDirectionOptions 초기화
+	    toggleButtonUsage('modeling-btn', false); // 비활성화
+        toggleButtonUsage('three-d-btn', false); // 비활성화
+	}
+	
 	// 선택한 단계 이후의 모든 단계 제거
 	const stepsToDelete = currentFlow.slice(currentFlow.indexOf(step) + 1);
 	stepsToDelete.forEach((stepToDelete) => {
@@ -1373,15 +1388,7 @@ function resetStep(step) {
 	if (optionDiv) {
 		optionDiv.classList.remove('disabled-option');
 	}
-
-	// 초기화 조건 추가: size 또는 size 이전 단계일 때만 초기화
-	const sizeIndex = currentFlow.indexOf('size');
-	const stepIndex = currentFlow.indexOf(step);
-	if (stepIndex <= sizeIndex) {
-		resetNumberOfOption(); // numberOfOption 초기화
-		doorDirectionOptions = []; // doorDirectionOptions 초기화
-	}
-
+	
 	// 초기 질문 렌더링
 	if (step === 'category') {
 		renderInitialQuestion();
@@ -1460,6 +1467,7 @@ function postWithForm(url, data) {
 	const form = document.createElement('form');
 	form.method = 'POST';
 	form.action = url;
+	form.target = '_blank'; // 새 탭에서 열리도록 설정
 
 	// JSON 데이터를 하나의 input으로 추가
 	const input = document.createElement('input');
@@ -1470,14 +1478,16 @@ function postWithForm(url, data) {
 
 	document.body.appendChild(form);
 	form.submit();
+	form.remove(); // 폼을 제출한 후 DOM에서 제거 (청결 유지)
 }
+
 
 document.getElementById('modeling-btn').addEventListener('click', () => {
 	postWithForm('/modeling', selectedAnswerValue);
 });
 
 document.getElementById('three-d-btn').addEventListener('click', () => {
-	postWithForm('/threed', selectedAnswerValue);
+	postWithForm('/blueprint', selectedAnswerValue);
 });
 
 window.onload = () => {

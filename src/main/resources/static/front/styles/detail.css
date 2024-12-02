@@ -921,3 +921,88 @@ div.content.task-content {
 	transform: none;
 	background-color: #007bff;
 }
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+}
+
+.switch input {
+    display: none;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 20px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #4caf50;
+}
+
+input:checked + .slider:before {
+    transform: translateX(14px);
+}
+
+.hidden-section {
+    display: none;
+    height: 0;
+    overflow: hidden; /* 내용 잘림 방지 */
+    transition: height 0.3s ease-in-out; /* 부드러운 애니메이션 */
+    margin-top:20px;
+}
+
+.input-style {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background-color: #f9f9f9;
+}
+
+.input-style input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    background: transparent;
+    margin-right: 10px;
+}
+
+.input-style button {
+    white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    background-color: #4caf50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.input-style button:hover {
+    background-color: #45a049;
+}

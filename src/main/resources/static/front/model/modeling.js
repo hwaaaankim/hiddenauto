@@ -18,17 +18,17 @@ function createCabinetFromData(data) {
     const doorRatio1 = parseInt(data.doorRatio1) || 50;
     const doorRatio2 = parseInt(data.doorRatio2) || 50;
     const mirrorShape = data.mirrorShape || '사각형';
-
+	const categoryName = category.label;
     // 기존 캐비닛 파트 제거
     cabinetParts.forEach((part) => scene.remove(part));
     cabinetParts = [];
 
     // 카테고리에 따라 적절한 함수 호출
-    if (category === "하부장" || category === "상부장" || category === "슬라이드") {
+    if (categoryName === "하부장" || categoryName === "상부장" || categoryName === "슬라이드장") {
         createStandardCabinet(width, height, depth, legHeight, numberOfDoors);
-    } else if (category === "플랩") {
+    } else if (categoryName === "플랩장") {
         drawFlapCabinet(width, height, depth, numberOfDoors, doorRatio1, doorRatio2);
-    } else if (category === "거울") {
+    } else if (categoryName === "거울") {
         drawMirror(width, height, mirrorShape);
     }
 
