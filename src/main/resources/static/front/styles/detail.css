@@ -692,6 +692,38 @@ i#bag-icon.active {
 	cursor: pointer;
 	transition: background-color 0.3s ease;
 }
+.non-standard-btn.product-option-btn{
+	background-color:transparent;
+	border:1px solid #ddd;
+	color:black;
+	max-width: calc(20% - 10px);
+	flex: 1 1 calc(20% - 10px);
+	align-items:center;
+	height:	80px;
+	line-height:1.4;
+	display:flex;
+	padding:10px 10px;
+	
+}
+.non-standard-btn.product-option-btn span{
+	width: 50%; /* 텍스트 영역 너비 50% */
+  text-align: center; /* 텍스트 가운데 정렬 */
+  font-size: 13px; /* 텍스트 크기 */
+  font-weight:600;
+  line-height:1.2;
+  margin-left:5px;
+  color: #333; /* 텍스트 색상 */
+  display: flex;
+  align-items: center; /* 세로 가운데 정렬 */
+  justify-content: center; /* 가로 가운데 정렬 */
+}
+.non-standard-btn.product-option-btn img{
+	width: 50%; /* 이미지 너비 50% */
+  height: 100%; /* 이미지 높이 100% */
+  margin-right:5px;
+  object-fit: cover; /* 이미지 비율 유지 */
+  border-right: 1px solid #ddd; /* 이미지와 텍스트 사이 구분선 */
+}
 
 .non-standard-btn:hover {
 	background-color: #0056b3;

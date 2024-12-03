@@ -473,13 +473,16 @@ function updateProductFlowOptions(productList) {
 		if (step.step === 'product') {
 			step.options = productList.map(product => ({
 				value: product.id,
-				label: product.name
+				label: product.name,
+				productRepImageRoad: product.productRepImageRoad // 이미지 경로 추가
 			}));
 		}
 	});
+
 	// 제품 선택 단계로 이동
 	updateProductOptions(categoryKey, 0);
 }
+
 
 function validateDoorDirectionInput(inputValue, numberOfDoors) {
 	// 1. 입력값을 분리 (예: 좌-우-좌 → ['좌', '우', '좌'])
@@ -980,8 +983,33 @@ function updateProductOptions(categoryKey, stepIndex) {
 			label.appendChild(input2);
 			optionDiv.appendChild(label);
 			optionDiv.appendChild(confirmButton);
-		}
-		else {
+		} else if (step.step === 'product') {
+			// product 단계에 이미지를 추가하는 부분
+			step.options.forEach(option => {
+				const button = document.createElement('button');
+				button.classList.add('non-standard-btn', 'product-option-btn');
+
+				// 이미지 추가
+				if (option.productRepImageRoad) {
+					const img = document.createElement('img');
+					img.src = option.productRepImageRoad;
+					img.alt = option.label;
+					button.appendChild(img);
+				}
+
+				// 텍스트 추가
+				const span = document.createElement('span');
+			   span.innerHTML = option.label.split(' ').join('<br>');
+				button.appendChild(span);
+
+				// 클릭 이벤트
+				button.addEventListener('click', () => {
+					handleProductSelection(option.value, categoryKey, step);
+					resolve();
+				});
+				optionDiv.appendChild(button);
+			});
+		} else {
 			step.options.forEach(option => {
 				const button = document.createElement('button');
 				button.innerText = option.label;
