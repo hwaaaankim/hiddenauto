@@ -12,7 +12,6 @@ let realFlow = []; // 선택된 제품에 맞는 흐름을 저장하는 변수
 let preloadedData = {
 	middleSort: [] // MiddleSort 데이터를 저장할 배열
 };
-
 const sampleDataSet = {
 	"category": {
 		"label": "상부장",
@@ -528,8 +527,7 @@ function handleMiddleSortSelection(middleSortId) {
 		currentFlow.push('product');
 	}
 
-	// renderAnswer 호출
-	renderAnswer({ step: 'middleSort' }, middleSortId, categoryKey);
+
 
 	// middleSort-wrap 확인 및 생성
 	let middleSortWrap = document.getElementById('middleSort-wrap');
@@ -544,11 +542,13 @@ function handleMiddleSortSelection(middleSortId) {
 	optionDiv.classList.add('disabled-option');
 
 	selectedAnswerValue['middleSort'] = selectedMiddleSort;
-
 	// 미리 로드된 데이터에서 제품 목록 찾기
 	const selectedMiddleSortData = preloadedData.middleSort.find(
 		middleSort => middleSort.id === middleSortId
 	);
+	
+	// renderAnswer 호출
+	renderAnswer({ step: 'middleSort' }, selectedMiddleSortData.name, categoryKey);
 	if (selectedMiddleSortData) {
 		// 제품 목록 가져오기
 		const productList = selectedMiddleSortData.products || [];

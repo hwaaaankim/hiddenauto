@@ -236,9 +236,8 @@ export const productFlowSteps = {
 			label: '형태',
 			question: '하부장의 형태를 선택하세요.',
 			options: [
-				{ value: 'one', label: '형태01' },
-				{ value: 'two', label: '형태02' },
-				{ value: 'three', label: '형태03' }
+				{ value: 'leg', label: '다리형' },
+				{ value: 'notleg', label: '벽걸이형' }
 			],
 			next: 'colorofmarble'
 		},

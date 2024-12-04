@@ -663,6 +663,7 @@ i#bag-icon.active {
 	margin-bottom: 20px;
 	float: left;
 	clear: both;
+	width:100%;
 	position: relative;
 }
 
@@ -684,9 +685,9 @@ i#bag-icon.active {
 
 /* 버튼 스타일 */
 .non-standard-btn {
-	background-color: #007bff;
-	color: white;
-	border: none;
+	background-color:transparent;
+	border:1px solid #ddd;
+	color:black;
 	border-radius: 5px;
 	padding: 10px 20px;
 	cursor: pointer;
@@ -1038,3 +1039,43 @@ input:checked + .slider:before {
 .input-style button:hover {
     background-color: #45a049;
 }
+
+
+/* 카트 아이콘에 수량 표시 */
+#cart-product-amount {
+    position: absolute;
+    top: 3px; /* 아이콘 위로 약간 이동 */
+    right: 3px; /* 아이콘 오른쪽으로 약간 이동 */
+    background-color: black; /* 검정색 배경 */
+    color: white; /* 하얀 글씨 */
+    font-size: 12px; /* 글씨 크기 조정 */
+    width: 16px; /* 동그라미 크기 */
+    height: 16px; /* 동그라미 크기 */
+    display: flex; /* 내용 중앙 정렬 */
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%; /* 동그라미 모양 */
+    font-weight: bold; /* 글씨 강조 */
+    z-index: 10; /* 다른 요소 위에 표시 */
+}
+
+/* 아이콘 그룹 스타일 조정 */
+#header-icon-4-group {
+    position: relative; /* 자식 요소인 수량 배지 위치 기준 */
+}
+.address-container {
+    margin-left: auto; /* 오른쪽 끝으로 이동 */
+    display: flex;
+    align-items: center; /* 체크박스와 텍스트를 세로로 정렬 */
+    gap: 10px; /* 텍스트와 체크박스 사이 간격 */
+}
+
+.switch-label {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: #333;
+    gap: 8px; /* 텍스트와 스위치 사이 간격 */
+}
+
+

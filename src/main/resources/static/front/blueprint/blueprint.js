@@ -21,7 +21,7 @@ function parseData(data) {
         width: parseFloat(data.width) || 500,
         height: parseFloat(data.height) || 800,
         depth: parseFloat(data.depth) || 400,
-        legHeight: parseFloat(data.legHeight) || 0,
+        legHeight: data.form === 'leg' ? 180 : 0,
         numberOfDoors: parseInt(data.numberOfDoors) || 2,
         doorRatio1: parseInt(data.doorRatio1) || 50,
         doorRatio2: parseInt(data.doorRatio2) || 50,
@@ -45,11 +45,11 @@ function drawCabinetBlueprint({ width, height, depth, legHeight, numberOfDoors, 
     const canvas = new fabric.Canvas('modal-canvas');
 
     const showLegHeight = !(categoryName === "상부장" || categoryName === "슬라이드");
-    const gapBetweenDoors = 10;
+    const gapBetweenDoors = 0;
     const additionalGap = 200;
     const sideMargin = 50;
     const topBottomMargin = 50;
-    const scale = 0.3;
+    const scale = 0.4;
 
     const canvasWidth = canvas.getWidth();
     const canvasHeight = canvas.getHeight();
@@ -427,23 +427,18 @@ function drawMirrorBlueprint({ width, height, mirrorShape }) {
         });
     }
 }
-
 function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doorRatio1 = 50 }) {
     const canvas = new fabric.Canvas('modal-canvas');
 
     // 문 비율 계산
     const doorRatio2 = 100 - doorRatio1;
 
-    // 레이아웃 및 크기 설정
-    const gapBetweenDoors = 10;
+    // 여백 및 스케일
+    const gapBetweenDoors = 0;
     const additionalGap = 200;
     const sideMargin = 50;
     const topBottomMargin = 50;
-    const scale = 0.5;
-
-    // 캔버스 크기
-    const canvasWidth = canvas.getWidth();
-    const canvasHeight = canvas.getHeight();
+    const scale = 0.4;
 
     // 본체 크기
     const bodyWidth = width * scale;
@@ -456,27 +451,46 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
         doorWidths = [bodyWidth];
     } else if (numberOfDoors === 2) {
         doorWidths = [
-            (bodyWidth * (doorRatio1 / 100)),
-            (bodyWidth * (doorRatio2 / 100))
+            bodyWidth * (doorRatio1 / 100),
+            bodyWidth * (doorRatio2 / 100)
         ];
     } else {
         console.error("Invalid number of doors for 플랩장");
         return;
     }
 
-    // 캔버스 시작 위치
-    const startX = (canvasWidth - bodyWidth) / 2;
-    const startY = (canvasHeight - bodyHeight - legHeight * scale) / 2;
+    // 캔버스 크기
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+
+    // 도면의 전체 크기 계산
+    const frontViewWidth = bodyWidth;
+    const totalWidth = frontViewWidth + additionalGap + bodyWidth;
+    const totalHeight = Math.max(bodyHeight + legHeight * scale, topViewHeight);
+
+    // 스케일 조정
+    let scaleFactor = 1;
+    if (totalWidth + sideMargin * 2 > canvasWidth) {
+        scaleFactor = canvasWidth / (totalWidth + sideMargin * 2);
+    }
+    if (totalHeight + topBottomMargin * 2 > canvasHeight) {
+        scaleFactor = Math.min(scaleFactor, canvasHeight / (totalHeight + topBottomMargin * 2));
+    }
+
+    // 중앙 정렬 좌표
+    const startXFrontView = (canvasWidth - (frontViewWidth * scaleFactor + additionalGap * scaleFactor + bodyWidth * scaleFactor)) / 2;
+    const startY = (canvasHeight - (totalHeight * scaleFactor)) / 2;
+    const startXTopView = startXFrontView + frontViewWidth * scaleFactor + additionalGap * scaleFactor;
 
     // 캐비닛 본체 그리기
     const body = new fabric.Rect({
-        left: startX,
+        left: startXFrontView,
         top: startY,
-        width: bodyWidth,
-        height: bodyHeight,
+        width: bodyWidth * scaleFactor,
+        height: bodyHeight * scaleFactor,
         fill: '#D3D3D3',
         stroke: '#000',
-        strokeWidth: 2 * scale,
+        strokeWidth: 2 * scaleFactor,
         selectable: false
     });
     canvas.add(body);
@@ -484,38 +498,38 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
     // 다리 그리기 (있을 경우)
     if (legHeight > 0) {
         const leg = new fabric.Rect({
-            left: startX,
-            top: startY + bodyHeight,
-            width: bodyWidth,
-            height: legHeight * scale,
+            left: startXFrontView,
+            top: startY + bodyHeight * scaleFactor,
+            width: bodyWidth * scaleFactor,
+            height: legHeight * scale * scaleFactor,
             fill: '#A9A9A9',
             stroke: '#000',
-            strokeWidth: 2 * scale,
+            strokeWidth: 2 * scaleFactor,
             selectable: false
         });
         canvas.add(leg);
     }
 
     // 문을 비율에 맞게 그리기
-    let currentX = startX;
+    let currentX = startXFrontView;
     doorWidths.forEach((doorWidth, index) => {
         const door = new fabric.Rect({
             left: currentX,
             top: startY,
-            width: doorWidth,
-            height: bodyHeight,
+            width: doorWidth * scaleFactor,
+            height: bodyHeight * scaleFactor,
             fill: '#FFFFFF',
             stroke: '#000',
-            strokeWidth: 1 * scale,
+            strokeWidth: 1 * scaleFactor,
             selectable: false
         });
         canvas.add(door);
 
-        // 각 문의 길이 표시
+        // 문 너비 표시
         const doorText = new fabric.Text(`문 너비: ${(doorWidth / scale).toFixed(0)}mm`, {
-            left: currentX + doorWidth / 2,
-            top: startY - 20 * scale,
-            fontSize: 16,
+            left: currentX + (doorWidth * scaleFactor) / 2,
+            top: startY - 20 * scaleFactor,
+            fontSize: 16 * scaleFactor,
             fill: '#000',
             selectable: false,
             originX: 'center',
@@ -523,19 +537,19 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
         });
         canvas.add(doorText);
 
-        currentX += doorWidth + gapBetweenDoors * scale;
+        currentX += doorWidth * scaleFactor + gapBetweenDoors * scale * scaleFactor;
     });
 
     // 치수선 그리기 함수
     function drawDimensionLine(x1, y1, x2, y2, text, textOffsetX = 0, textOffsetY = 0) {
         const line = new fabric.Line([x1, y1, x2, y2], {
             stroke: '#000',
-            strokeWidth: 1 * scale,
+            strokeWidth: 1 * scaleFactor,
             selectable: false
         });
         canvas.add(line);
 
-        const arrowSize = 10 * scale;
+        const arrowSize = 10 * scaleFactor;
         const angle = Math.atan2(y2 - y1, x2 - x1);
 
         const arrow1 = new fabric.Line([
@@ -544,7 +558,7 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
             y1 + arrowSize * Math.sin(angle + Math.PI / 6)
         ], {
             stroke: '#000',
-            strokeWidth: 1 * scale,
+            strokeWidth: 1 * scaleFactor,
             selectable: false
         });
         const arrow2 = new fabric.Line([
@@ -553,7 +567,7 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
             y1 + arrowSize * Math.sin(angle - Math.PI / 6)
         ], {
             stroke: '#000',
-            strokeWidth: 1 * scale,
+            strokeWidth: 1 * scaleFactor,
             selectable: false
         });
         const arrow3 = new fabric.Line([
@@ -562,7 +576,7 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
             y2 - arrowSize * Math.sin(angle + Math.PI / 6)
         ], {
             stroke: '#000',
-            strokeWidth: 1 * scale,
+            strokeWidth: 1 * scaleFactor,
             selectable: false
         });
         const arrow4 = new fabric.Line([
@@ -571,19 +585,16 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
             y2 - arrowSize * Math.sin(angle - Math.PI / 6)
         ], {
             stroke: '#000',
-            strokeWidth: 1 * scale,
+            strokeWidth: 1 * scaleFactor,
             selectable: false
         });
 
-        canvas.add(arrow1);
-        canvas.add(arrow2);
-        canvas.add(arrow3);
-        canvas.add(arrow4);
+        canvas.add(arrow1, arrow2, arrow3, arrow4);
 
         const textObj = new fabric.Text(text, {
             left: (x1 + x2) / 2 + textOffsetX,
             top: (y1 + y2) / 2 + textOffsetY,
-            fontSize: 16,
+            fontSize: 16 * scaleFactor,
             fill: '#000',
             selectable: false,
             originX: 'center',
@@ -592,57 +603,59 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
         canvas.add(textObj);
     }
 
-    // 너비 치수선 아랫면으로 이동
+    // 치수선 추가: 너비
     drawDimensionLine(
-        startX,
-        startY + bodyHeight + 20 * scale,
-        startX + bodyWidth,
-        startY + bodyHeight + 20 * scale,
+        startXFrontView,
+        startY + bodyHeight * scaleFactor + 20 * scaleFactor,
+        startXFrontView + bodyWidth * scaleFactor,
+        startY + bodyHeight * scaleFactor + 20 * scaleFactor,
         `너비: ${width}mm`,
-        0, 20 * scale
+        0, 20 * scaleFactor
     );
 
-    // 높이 치수선
+    // 치수선 추가: 높이
     drawDimensionLine(
-        startX - 20 * scale,
+        startXFrontView - 20 * scaleFactor,
         startY,
-        startX - 20 * scale,
-        startY + bodyHeight + legHeight * scale,
+        startXFrontView - 20 * scaleFactor,
+        startY + bodyHeight * scaleFactor + legHeight * scale * scaleFactor,
         `높이: ${height}mm`,
-        -60 * scale, 0
+        -60 * scaleFactor, 0
     );
 
     // 윗면 시점 그리기
     const topView = new fabric.Rect({
-        left: startX + bodyWidth + additionalGap * scale,
+        left: startXTopView,
         top: startY,
-        width: bodyWidth,
-        height: topViewHeight,
+        width: bodyWidth * scaleFactor,
+        height: topViewHeight * scaleFactor,
         fill: '#D3D3D3',
         stroke: '#000',
-        strokeWidth: 2 * scale,
+        strokeWidth: 2 * scaleFactor,
         selectable: false
     });
     canvas.add(topView);
 
-    // 윗면 너비와 깊이 치수선
+    // 윗면 치수선 추가: 너비
     drawDimensionLine(
-        startX + bodyWidth + additionalGap * scale,
-        startY + topViewHeight + 20 * scale,
-        startX + 2 * bodyWidth + additionalGap * scale,
-        startY + topViewHeight + 20 * scale,
+        startXTopView,
+        startY + topViewHeight * scaleFactor + 20 * scaleFactor,
+        startXTopView + bodyWidth * scaleFactor,
+        startY + topViewHeight * scaleFactor + 20 * scaleFactor,
         `너비: ${width}mm`,
-        0, 20 * scale
+        0, 20 * scaleFactor
     );
 
+    // 윗면 치수선 추가: 깊이
     drawDimensionLine(
-        startX + bodyWidth + additionalGap * scale - 20 * scale,
+        startXTopView - 20 * scaleFactor,
         startY,
-        startX + bodyWidth + additionalGap * scale - 20 * scale,
-        startY + topViewHeight,
+        startXTopView - 20 * scaleFactor,
+        startY + topViewHeight * scaleFactor,
         `깊이: ${depth}mm`,
-        -60 * scale, 0
+        -60 * scaleFactor, 0
     );
 }
+
 
 controlDrawBlueprint(selectedData);

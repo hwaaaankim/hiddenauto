@@ -30,8 +30,10 @@ public interface ProductMiddleSortRepository extends JpaRepository<MiddleSort, L
 	Optional<Integer> findFirstIndex();
 	
 	@Query("SELECT ms FROM MiddleSort ms " +
-	           "JOIN FETCH ms.bigSort bs " +
-	           "LEFT JOIN FETCH ms.products p " +
-	           "WHERE bs.id = :bigSortId")
-    List<MiddleSort> findMiddleSortsByBigSortIdWithProducts(@Param("bigSortId") Long bigSortId);
+		       "JOIN FETCH ms.bigSort bs " +
+		       "LEFT JOIN FETCH ms.products p " +
+		       "WHERE bs.id = :bigSortId " +
+		       "AND (p.order = true OR p.order IS NULL)")
+	List<MiddleSort> findMiddleSortsByBigSortIdWithOrderedProducts(@Param("bigSortId") Long bigSortId);
+
 }

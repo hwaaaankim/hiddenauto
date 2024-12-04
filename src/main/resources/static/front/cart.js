@@ -1,8 +1,18 @@
 window.addEventListener('DOMContentLoaded', () => {
 	const cart = JSON.parse(localStorage.getItem('cart')) || [];
 	const bagIcon = document.getElementById('bag-icon');
+	const cartAmount = document.getElementById('cart-product-amount');
 	const cartContainer = document.getElementById('cart-container');
 	const productContainer = document.getElementById('product-container');
+
+	// 카트에 담긴 제품 종류 업데이트 함수
+	function updateCartAmount() {
+		if (cartAmount) {
+			const uniqueProductCount = cart.length; // 제품의 종류 수
+			cartAmount.textContent = uniqueProductCount; // 수량 업데이트
+			cartAmount.style.display = uniqueProductCount > 0 ? 'flex' : 'none'; // 수량 없을 시 숨김 처리
+		}
+	}
 
 	// 장바구니 상태 업데이트 함수
 	function updateBagIcon() {
@@ -11,6 +21,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		} else if (bagIcon) {
 			bagIcon.classList.remove('active');
 		}
+		updateCartAmount(); // 수량 업데이트 호출
 	}
 
 	// 제품 삭제 함수
@@ -18,7 +29,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		cart.splice(index, 1); // 해당 제품 삭제
 		localStorage.setItem('cart', JSON.stringify(cart)); // 장바구니 업데이트
 		renderCartItems(); // 장바구니 다시 렌더링
-		updateBagIcon(); // 아이콘 상태 업데이트
+		updateBagIcon(); // 아이콘 상태 및 수량 업데이트
 	}
 
 	// 수량 변경 처리 함수
@@ -28,7 +39,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
 		cart[index].quantity = newQuantity; // 장바구니 데이터 업데이트
 		localStorage.setItem('cart', JSON.stringify(cart)); // 로컬 스토리지 업데이트
+		updateBagIcon(); // 아이콘 상태 및 수량 업데이트
 	}
+
 
 	function renderCartItem(item, index) {
 		const pricePerItem = item.price || 10000;
@@ -83,8 +96,6 @@ window.addEventListener('DOMContentLoaded', () => {
 		return itemHTML;
 	}
 
-
-
 	// 전체 장바구니 렌더링 함수
 	function renderCartItems() {
 		if (!productContainer || !cartContainer) {
@@ -102,6 +113,7 @@ window.addEventListener('DOMContentLoaded', () => {
                         <p class="mb-0">장바구니에 등록된 제품이 없습니다.</p>
                     </div>
                 </div>`;
+			updateBagIcon(); // 수량 숨김 처리
 			return;
 		}
 
@@ -124,6 +136,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			input.addEventListener('input', handleQuantityChange);
 		});
 
+		updateCartAmount(); // 렌더링 후 수량 업데이트
 	}
 
 	// 초기 로드 시 렌더링 및 아이콘 업데이트

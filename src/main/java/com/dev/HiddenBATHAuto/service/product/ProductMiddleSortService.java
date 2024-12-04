@@ -21,6 +21,6 @@ public class ProductMiddleSortService {
 	}
 	// BigSort ID를 이용해 MiddleSort와 Product 데이터 가져오기
     public List<MiddleSort> getMiddleSortsWithProductsByBigSortId(Long bigSortId) {
-        return productMiddleSortRepository.findMiddleSortsByBigSortIdWithProducts(bigSortId);
+        return productMiddleSortRepository.findMiddleSortsByBigSortIdWithOrderedProducts(bigSortId);
     }
 }
