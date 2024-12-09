@@ -672,7 +672,8 @@ i#bag-icon.active {
 	background-color: #d1e7dd;
 	border-radius: 10px;
 	padding: 10px;
-	max-width: 70%;
+	max-width: 100%;
+	width:100%;
 	text-align: right;
 	margin-bottom: 10px;
 	float: right;
@@ -692,6 +693,25 @@ i#bag-icon.active {
 	padding: 10px 20px;
 	cursor: pointer;
 	transition: background-color 0.3s ease;
+}
+
+.non-standard-btn {
+	background-color:transparent;
+	border:1px solid #ddd;
+	color:black;
+	border-radius: 5px;
+	padding: 10px 20px;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+}
+.non-standard-btn:not(.non-answer-btn){
+	max-width: calc(20% - 10px);
+	flex: 1 1 calc(20% - 10px);
+	align-items:center;
+}
+.non-answer-btn{
+	border:1px solid rgba(0,0,0,0.3);
+	max-width:100%;
 }
 .non-standard-btn.product-option-btn{
 	background-color:transparent;

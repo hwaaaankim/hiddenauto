@@ -13,18 +13,22 @@ let preloadedData = {
 	middleSort: [] // MiddleSort 데이터를 저장할 배열
 };
 const sampleDataSet = {
-	"category": {
-		"label": "상부장",
-		"value": "top",
-		"id": 1
-	},
-	"middleSort": 2,
-	"product": 2195,
-	"color": 2,
-	"size": 19,
-	"door": "add",
-	"numberofdoor": 2,
-	"doorDirection": "좌-우"
+    "category": {
+        "label": "하부장",
+        "value": "low",
+        "id": 2
+    },
+    "middleSort": 5,
+    "product": 187,
+    "color": 1,
+    "size": "넓이: 3000, 높이: 1200, 깊이: 700",
+    "form": "leg",
+    "colorofmarble": "one",
+    "washstand": "one",
+    "positionofwashstand": "left",
+    "door": "add",
+    "numberofdoor": 4,
+    "formofdoor": "one"
 }
 
 AOS.init({
@@ -169,7 +173,7 @@ function determineNumberOfOptions(sizeOrWidth) {
 	} else if (width <= 2000) {
 		numberOfOption = [3, 4, 5];
 	} else {
-		numberOfOption = [];
+		numberOfOption = [4,5,6];
 	}
 }
 
@@ -283,6 +287,7 @@ function autoProceed(savedSelections) {
 			// **1. 사이즈 입력 처리**
 			if (currentStep.step === 'size' && typeof currentSelection === 'string' && currentSelection.includes('넓이')) {
 				const [width, height, depth] = parseSizeText(currentSelection);
+				determineNumberOfOptions(width);
 				document.getElementById('width-input').value = width;
 				document.getElementById('height-input').value = height;
 				if (depth) document.getElementById('depth-input').value = depth;
@@ -290,6 +295,23 @@ function autoProceed(savedSelections) {
 				document.querySelector(`#${currentStep.step}-option button.confirm`).click();
 
 				// 다음 단계로 이동
+				moveToNextStep(stepIndex);
+				return;
+			}
+			if (currentStep.step === 'size' && typeof currentSelection === 'number') {
+				const selectedProductId = selectedAnswerValue['product'];
+				const selectedProductInfo = preloadedData.middleSort
+					.flatMap(middleSort => middleSort.products)
+					.find(product => product.id === selectedProductId);
+			
+				if (selectedProductInfo) {
+					const selectedSize = selectedProductInfo.productSizes.find(size => size.id === currentSelection);
+					if (selectedSize) {
+						// 너비를 기반으로 문의 개수 설정
+						determineNumberOfOptions(selectedSize.productWidth);
+					}
+				}
+				handleProductSelection(currentSelection, categoryKey, currentStep);
 				moveToNextStep(stepIndex);
 				return;
 			}
@@ -419,6 +441,24 @@ function parseSizeText(sizeText) {
 	}
 
 	return [null, null, null];
+}
+
+function updateNextValue(flowSteps, targetValue, newValue) {
+    flowSteps.forEach(step => {
+        if (step.next === targetValue) {
+            step.next = newValue; // next 값을 변경
+        }
+    });
+}
+function changeLowProcess(width) {
+    console.log(realFlow);
+    if(width <= 700){
+		updateNextValue(realFlow, 'CHANGED', 'handle');
+	}else{
+		updateNextValue(realFlow, 'CHANGED', 'formofdoor');
+	}
+	console.log(realFlow);
+    // 여기에 원하는 기능을 추가
 }
 
 // 초기 질문 렌더링 함수
@@ -642,7 +682,8 @@ function handleDirectInput(inputValue, categoryKey, step) {
 			alert('이 제품은 사이즈 변경이 불가능합니다.');
 			return;
 		}
-
+		
+		
 		// width, height, depth 값 가져오기
 		const width = document.getElementById('width-input').value || selectedProductInfo.productSizes[0].productWidth;
 		const height = document.getElementById('height-input').value || selectedProductInfo.productSizes[0].productHeight;
@@ -656,6 +697,11 @@ function handleDirectInput(inputValue, categoryKey, step) {
 
 		toggleButtonUsage('modeling-btn', true);
 		toggleButtonUsage('three-d-btn', true);
+		if (categoryKey === 'low') {
+            console.log('하부장 선택 후 사이즈 입력 완료');
+            changeLowProcess(width); // 원하는 기능 추가
+        }
+
 	}
 
 	// answer를 동적으로 생성
@@ -742,7 +788,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 		// 유저가 선택한 제품 정보 콘솔 출력
 		if (step.step === 'size') {
-
 			// 사이즈 옵션 추가 (기존 코드 유지)
 			step.options.forEach(option => {
 				const button = document.createElement('button');
@@ -1046,7 +1091,7 @@ function waitForElement(selector, timeout = 3000) {
 				clearInterval(interval);
 				reject(new Error(`Element ${selector} not found within timeout`));
 			}
-		}, 100); // 100ms 간격으로 체크
+		}, 200); // 100ms 간격으로 체크
 	});
 }
 
@@ -1076,8 +1121,8 @@ function renderAnswer(step, product, categoryKey = '') {
 		answerDiv.innerText = `${displayValue}을(를) 선택하셨습니다.`;
 		// 초기화 버튼 추가
 		const resetButton = document.createElement('button');
-		resetButton.innerText = '[초기화]';
-		resetButton.classList.add('non-standard-btn');
+		resetButton.innerText = '초기화';
+		resetButton.classList.add('non-standard-btn', 'non-answer-btn');
 		resetButton.onclick = () => resetStep(step.step); // 해당 단계 초기화 처리
 		answerDiv.appendChild(resetButton);
 
@@ -1168,6 +1213,8 @@ function renderAnswer(step, product, categoryKey = '') {
 		// AOS 및 스크롤 처리 추가
 		AOS.refresh();
 		scrollIfNeeded(finalWrap);  // 스크롤 처리
+		console.log(realFlow);
+		console.log(selectedAnswerValue);
 	}
 }
 
@@ -1178,7 +1225,6 @@ function getLabelByValue(step, value) {
 }
 
 function handleProductSelection(product, categoryKey, step) {
-	console.log(currentFlow);
 	if (categoryKey === 'flap' && step.step === 'product') {
 		let productId = product;
 		const selectedProductInfo = preloadedData.middleSort
@@ -1191,7 +1237,7 @@ function handleProductSelection(product, categoryKey, step) {
 			flapProductSelection = 'notcomplex';
 		}
 	}
-
+	
 	selectedAnswerValue[step.step] = product;
 	renderAnswer(step, product, categoryKey);
 
@@ -1208,6 +1254,23 @@ function handleProductSelection(product, categoryKey, step) {
 	if (step.step === 'size') {
 		toggleButtonUsage('modeling-btn', true); // modeling-btn 활성화
 		toggleButtonUsage('three-d-btn', true); 
+		if(categoryKey === 'low'){
+			
+			const selectedMiddleSort = preloadedData.middleSort.find(
+		        middleSort => middleSort.id === selectedAnswerValue['middleSort']
+		    );
+		
+		    const selectedProduct = selectedMiddleSort.products.find(p => p.id === selectedAnswerValue['product']);
+		    if (!selectedProduct) {
+		        console.error("선택한 product 데이터를 찾을 수 없습니다.");
+		        return;
+		    }
+		    console.log(selectedProduct);
+		    console.log(selectedAnswerValue['size']);
+			const productSize= selectedProduct.productSizes.find(size => size.id === selectedAnswerValue['size']);
+			const width = productSize.productWidth;
+			changeLowProcess(width);	
+		}
 	}
 
 	if (step.step === 'product') {
@@ -1523,8 +1586,8 @@ window.onload = () => {
 	renderInitialQuestion();
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	/* setTimeout(() => {
+	setTimeout(() => {
 		autoProceed(sampleDataSet);
-	}, 500); */ // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 

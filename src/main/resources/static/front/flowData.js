@@ -288,7 +288,7 @@ export const productFlowSteps = {
 			step: 'numberofdoor',
 			label: '문 수량',
 			question: '문의 수량을 선택하세요.',
-			next: 'formofdoor'
+			next: 'CHANGED'
 		},
 		{
 			step: 'formofdoor',
