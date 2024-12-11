@@ -99,21 +99,47 @@ const optionMapping = {
 };
 
 function generateRealFlow(product, templateFlow) {
-	const filteredFlow = filterFlowBySign(product, templateFlow);
+	const copiedFlow = deepClone(templateFlow);
+    const filteredFlow = filterFlowBySign(product, copiedFlow);
 
-	// 옵션 데이터를 product에서 가져와 각 단계에 추가
-	filteredFlow.forEach(step => {
-		const mappedKey = optionMapping[step.step];
-		if (mappedKey && product[mappedKey]) {
-			step.options = product[mappedKey].map(option => ({
-				value: option.id,
-				label: option.productOptionPositionText || option.productOptionAddText || option.productOptionText
-			}));
-		}
-	});
-	return assignNextValues(filteredFlow);
+    filteredFlow.forEach(step => {
+        const mappedKey = optionMapping[step.step];
+        if (mappedKey && product[mappedKey]) {
+            step.options = product[mappedKey].map(option => ({
+                value: option.id,
+                label: option.productOptionPositionText || option.productOptionAddText || option.productOptionText
+            }));
+        }
+    });
+    return assignNextValues(filteredFlow);
 }
 
+
+function deepClone(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj; // 기본 타입은 그대로 반환
+    }
+
+    if (obj instanceof Array) {
+        const copy = [];
+        for (let i = 0; i < obj.length; i++) {
+            copy[i] = deepClone(obj[i]);
+        }
+        return copy;
+    }
+
+    if (obj instanceof Object) {
+        const copy = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                copy[key] = deepClone(obj[key]);
+            }
+        }
+        return copy;
+    }
+
+    throw new Error("Unable to copy object! Its type isn't supported.");
+}
 
 // 로더 표시 함수
 function showLoader() {
@@ -450,16 +476,25 @@ function updateNextValue(flowSteps, targetValue, newValue) {
         }
     });
 }
+
 function changeLowProcess(width) {
-    console.log(realFlow);
-    if(width <= 700){
-		updateNextValue(realFlow, 'CHANGED', 'handle');
-	}else{
-		updateNextValue(realFlow, 'CHANGED', 'formofdoor');
-	}
-	console.log(realFlow);
-    // 여기에 원하는 기능을 추가
+    if (width > 700) {
+        // width가 700 초과일 때는 기존 로직 유지
+        updateNextValue(realFlow, 'CHANGED', 'formofdoor');
+    } else {
+        // width가 700 이하일 때, formofdoor 스텝의 next 값을 찾아서 CHANGED에 할당
+        let formofdoorNextValue = 'final'; // 기본값: final
+        realFlow.forEach(step => {
+            if (step.step === 'formofdoor' && step.next) {
+                formofdoorNextValue = step.next; // formofdoor의 next 값을 가져옴
+            }
+        });
+
+        // CHANGED 값을 formofdoor의 next 값으로 업데이트
+        updateNextValue(realFlow, 'CHANGED', formofdoorNextValue);
+    }
 }
+
 
 // 초기 질문 렌더링 함수
 function renderInitialQuestion() {
@@ -509,14 +544,15 @@ function updateProductFlowOptions(productList) {
 
 	// product 단계의 옵션 업데이트
 	productFlowSteps[categoryKey].forEach(step => {
-		if (step.step === 'product') {
-			step.options = productList.map(product => ({
-				value: product.id,
-				label: product.name,
-				productRepImageRoad: product.productRepImageRoad // 이미지 경로 추가
-			}));
-		}
+	    if (step.step === 'product') {
+	        step.options = productList.map(product => ({
+	            value: product.id,
+	            label: product.name,
+	            productRepImageRoad: product.productRepImageRoad
+	        }));
+	    }
 	});
+
 
 	// 제품 선택 단계로 이동
 	updateProductOptions(categoryKey, 0);
@@ -698,7 +734,7 @@ function handleDirectInput(inputValue, categoryKey, step) {
 		toggleButtonUsage('modeling-btn', true);
 		toggleButtonUsage('three-d-btn', true);
 		if (categoryKey === 'low') {
-            console.log('하부장 선택 후 사이즈 입력 완료');
+			console.log(realFlow);
             changeLowProcess(width); // 원하는 기능 추가
         }
 
@@ -1213,8 +1249,6 @@ function renderAnswer(step, product, categoryKey = '') {
 		// AOS 및 스크롤 처리 추가
 		AOS.refresh();
 		scrollIfNeeded(finalWrap);  // 스크롤 처리
-		console.log(realFlow);
-		console.log(selectedAnswerValue);
 	}
 }
 
@@ -1255,7 +1289,7 @@ function handleProductSelection(product, categoryKey, step) {
 		toggleButtonUsage('modeling-btn', true); // modeling-btn 활성화
 		toggleButtonUsage('three-d-btn', true); 
 		if(categoryKey === 'low'){
-			
+			console.log(realFlow);
 			const selectedMiddleSort = preloadedData.middleSort.find(
 		        middleSort => middleSort.id === selectedAnswerValue['middleSort']
 		    );
@@ -1265,8 +1299,6 @@ function handleProductSelection(product, categoryKey, step) {
 		        console.error("선택한 product 데이터를 찾을 수 없습니다.");
 		        return;
 		    }
-		    console.log(selectedProduct);
-		    console.log(selectedAnswerValue['size']);
 			const productSize= selectedProduct.productSizes.find(size => size.id === selectedAnswerValue['size']);
 			const width = productSize.productWidth;
 			changeLowProcess(width);	
@@ -1274,6 +1306,7 @@ function handleProductSelection(product, categoryKey, step) {
 	}
 
 	if (step.step === 'product') {
+		
 		// preloadedData에서 product 정보를 가져오기
 		const selectedMiddleSort = preloadedData.middleSort.find(
 			middleSort => middleSort.id === selectedAnswerValue['middleSort']
@@ -1317,7 +1350,7 @@ function handleProductSelection(product, categoryKey, step) {
 
 		// **추가 부분: realFlow 생성 및 초기화**
 		realFlow = generateRealFlow(selectedProduct, productFlowSteps[categoryKey]);
-
+		console.log(realFlow);
 		// 다음 단계로 이동
 		proceedToNextStep(categoryKey, realFlow[0].next, product); // realFlow 사용
 	} else {
@@ -1406,6 +1439,7 @@ function proceedToNextStep(categoryKey, nextStepKey, product) {
 		} else {
 			// 마지막 단계 도달
 			renderAnswer({ step: 'final' }, '', categoryKey);
+			currentFlow.push('final');
 			resolve();
 		}
 	});
@@ -1456,7 +1490,7 @@ function resetStep(step) {
 	if (step === 'product') {
 		realFlow = []; // 제품 단계에서 realFlow 초기화
 	}
-
+	
 	// 1차, 2차 카테고리 초기화
 	if (step === 'category') {
 		realFlow = [];
@@ -1469,7 +1503,25 @@ function resetStep(step) {
 		realFlow = [];
 		selectedMiddleSort = null;
 	}
+	const productIndex = currentFlow.indexOf('product');
+    if (productIndex !== -1 && stepIndex > productIndex && stepIndex <= sizeIndex) {
+        const selectedMiddleSort = preloadedData.middleSort.find(
+            middleSort => middleSort.id === selectedAnswerValue['middleSort']
+        );
 
+        if (selectedMiddleSort) {
+            const selectedProduct = selectedMiddleSort.products.find(
+                product => product.id === selectedAnswerValue['product']
+            );
+            if (selectedProduct) {
+                realFlow = generateRealFlow(selectedProduct, productFlowSteps[selectedAnswerValue['category'].value]);
+            } else {
+                console.error("선택된 product 데이터를 찾을 수 없습니다.");
+            }
+        } else {
+            console.error("middleSort 데이터를 찾을 수 없습니다.");
+        }
+    }
 	// `currentFlow` 배열 초기화
 	const resetIndex = currentFlow.indexOf(step);
 	currentFlow = currentFlow.slice(0, resetIndex + 1);
@@ -1586,8 +1638,8 @@ window.onload = () => {
 	renderInitialQuestion();
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	setTimeout(() => {
-		autoProceed(sampleDataSet);
-	}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	//setTimeout(() => {
+	//	autoProceed(sampleDataSet);
+	//}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 
