@@ -603,8 +603,6 @@ function handleMiddleSortSelection(middleSortId) {
 		currentFlow.push('product');
 	}
 
-
-
 	// middleSort-wrap 확인 및 생성
 	let middleSortWrap = document.getElementById('middleSort-wrap');
 	if (!middleSortWrap) {

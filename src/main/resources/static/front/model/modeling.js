@@ -13,7 +13,7 @@ function createCabinetFromData(data) {
     const width = parseFloat(data.width) || 500;
     const height = parseFloat(data.height) || 800;
     const depth = parseFloat(data.depth) || 400;
-    const legHeight = 'leg' ? 180 : 0;
+    const legHeight = 'leg' ? 150 : 0;
     const numberOfDoors = parseInt(data.numberOfDoors) || 2;
     const doorRatio1 = parseInt(data.doorRatio1) || 50;
     const doorRatio2 = parseInt(data.doorRatio2) || 50;
