@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.product;
+package com.dev.HiddenBATHAuto.model.standard;
 
 import java.util.List;
 
@@ -27,7 +27,7 @@ import lombok.Data;
 @Entity
 @Table(name="tb_product")
 @Data
-public class Product {
+public class SProduct {
 
     @Id
     @GeneratedValue(strategy=GenerationType.IDENTITY)
@@ -135,7 +135,7 @@ public class Product {
         inverseJoinColumns = @JoinColumn(name="PC_COLOR_ID")
     )
     @JsonManagedReference
-    private List<ProductColor> productColors;
+    private List<SProductColor> productColors;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -145,7 +145,7 @@ public class Product {
         inverseJoinColumns = @JoinColumn(name="PS_SIZE_ID")
     )
     @JsonManagedReference
-    private List<ProductSize> productSizes;
+    private List<SProductSize> productSizes;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -154,7 +154,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PT_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PT_TAG_ID")
     )
-    private List<ProductTag> productTags;
+    private List<SProductTag> productTags;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -163,7 +163,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PO_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PO_OPTION_ID")
     )
-    private List<ProductOption> productOptions;
+    private List<SProductOption> productOptions;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -172,7 +172,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PNA_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PNA_ADD_ID")
     )
-    private List<ProductOptionAdd> productNormalLedAdds;
+    private List<SProductOptionAdd> productNormalLedAdds;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -181,7 +181,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PTA_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PTA_ADD_ID")
     )
-    private List<ProductOptionAdd> productTissueAdds;
+    private List<SProductOptionAdd> productTissueAdds;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -190,7 +190,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PTP_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PTP_POSITION_ID")
     )
-    private List<ProductOptionPosition> productTissuePositions;
+    private List<SProductOptionPosition> productTissuePositions;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -199,7 +199,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PDA_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PDA_ADD_ID")
     )
-    private List<ProductOptionAdd> productDryAdds;
+    private List<SProductOptionAdd> productDryAdds;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -208,7 +208,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PDP_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PDP_POSITION_ID")
     )
-    private List<ProductOptionPosition> productDryPositions;
+    private List<SProductOptionPosition> productDryPositions;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -217,7 +217,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PLA_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PLA_ADD_ID")
     )
-    private List<ProductOptionAdd> productLowLedAdds;
+    private List<SProductOptionAdd> productLowLedAdds;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -226,7 +226,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PLP_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PLP_POSITION_ID")
     )
-    private List<ProductOptionPosition> productLowLedPositions;
+    private List<SProductOptionPosition> productLowLedPositions;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -235,7 +235,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PCA_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PCA_ADD_ID")
     )
-    private List<ProductOptionAdd> productOutletAdds;
+    private List<SProductOptionAdd> productOutletAdds;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -244,7 +244,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PCP_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PCP_POSITION_ID")
     )
-    private List<ProductOptionPosition> productOutletPositions;
+    private List<SProductOptionPosition> productOutletPositions;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -253,7 +253,7 @@ public class Product {
         joinColumns = @JoinColumn(name="PHA_PRODUCT_ID"),
         inverseJoinColumns = @JoinColumn(name="PHA_ADD_ID")
     )
-    private List<ProductOptionAdd> productHandleAdds;
+    private List<SProductOptionAdd> productHandleAdds;
     
     @Transient
     private Long middleId;
@@ -267,7 +267,7 @@ public class Product {
         orphanRemoval = true,
         mappedBy = "productId"
     )
-    private List<ProductImage> images;
+    private List<SProductImage> images;
     
     @OneToMany(
         fetch = FetchType.LAZY, 
@@ -275,19 +275,19 @@ public class Product {
         orphanRemoval = true,
         mappedBy = "productId"
     )
-    private List<ProductFile> files;
+    private List<SProductFile> files;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
         name="PRODUCT_MIDDLE_REFER_ID", referencedColumnName="MIDDLE_SORT_ID"
     )
     @JsonIgnore
-    private MiddleSort middleSort;
+    private SMiddleSort middleSort;
     
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(
         name="PRODUCT_BIG_REFER_ID", referencedColumnName="BIG_SORT_ID"
     )
     @JsonIgnore
-    private BigSort bigSort;
+    private SBigSort bigSort;
 }

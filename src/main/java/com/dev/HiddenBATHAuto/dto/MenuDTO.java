@@ -2,7 +2,7 @@ package com.dev.HiddenBATHAuto.dto;
 
 import java.util.List;
 
-import com.dev.HiddenBATHAuto.model.product.BigSort;
+import com.dev.HiddenBATHAuto.model.nonstandard.BigSort;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

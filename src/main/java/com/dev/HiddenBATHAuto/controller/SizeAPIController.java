@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dev.HiddenBATHAuto.model.product.ProductSize;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductSize;
 import com.dev.HiddenBATHAuto.repository.repository.ProductSizeRepository;
 
 @RestController

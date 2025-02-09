@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.dev.HiddenBATHAuto.model.product.ProductColor;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductColor;
 import com.dev.HiddenBATHAuto.repository.repository.ProductColorRepository;
 
 @Service

@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.product;
+package com.dev.HiddenBATHAuto.model.nonstandard;
 
 import java.util.List;
 

@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.dev.HiddenBATHAuto.model.product.BigSort;
+import com.dev.HiddenBATHAuto.model.nonstandard.BigSort;
 
 @Repository
 public interface ProductBigSortRepository extends JpaRepository<BigSort, Long>{

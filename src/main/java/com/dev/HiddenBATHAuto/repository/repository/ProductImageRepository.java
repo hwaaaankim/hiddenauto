@@ -4,7 +4,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.dev.HiddenBATHAuto.model.product.ProductImage;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductImage;
 
 import jakarta.transaction.Transactional;
 

@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.dev.HiddenBATHAuto.model.product.Product;
-import com.dev.HiddenBATHAuto.model.product.ProductFile;
+import com.dev.HiddenBATHAuto.model.nonstandard.Product;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductFile;
 import com.dev.HiddenBATHAuto.repository.repository.ProductFileRepository;
 
 @Service

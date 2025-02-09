@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.dev.HiddenBATHAuto.model.product.ProductSize;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductSize;
 import com.dev.HiddenBATHAuto.repository.repository.ProductSizeRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -2,14 +2,14 @@ package com.dev.HiddenBATHAuto.dto;
 
 import java.util.List;
 
-import com.dev.HiddenBATHAuto.model.product.ProductColor;
-import com.dev.HiddenBATHAuto.model.product.ProductFile;
-import com.dev.HiddenBATHAuto.model.product.ProductImage;
-import com.dev.HiddenBATHAuto.model.product.ProductOption;
-import com.dev.HiddenBATHAuto.model.product.ProductOptionAdd;
-import com.dev.HiddenBATHAuto.model.product.ProductOptionPosition;
-import com.dev.HiddenBATHAuto.model.product.ProductSize;
-import com.dev.HiddenBATHAuto.model.product.ProductTag;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductColor;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductFile;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductImage;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductOption;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductOptionAdd;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductOptionPosition;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductSize;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductTag;
 
 import lombok.Data;
 

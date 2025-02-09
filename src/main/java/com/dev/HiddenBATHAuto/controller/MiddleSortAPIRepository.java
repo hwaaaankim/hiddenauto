@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dev.HiddenBATHAuto.model.product.MiddleSort;
+import com.dev.HiddenBATHAuto.model.nonstandard.MiddleSort;
 import com.dev.HiddenBATHAuto.repository.repository.ProductBigSortRepository;
 import com.dev.HiddenBATHAuto.repository.repository.ProductMiddleSortRepository;
 

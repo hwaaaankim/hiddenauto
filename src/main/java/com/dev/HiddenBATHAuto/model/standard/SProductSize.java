@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.product;
+package com.dev.HiddenBATHAuto.model.standard;
 
 import java.util.List;
 
@@ -18,7 +18,7 @@ import lombok.Data;
 @Entity
 @Table(name="tb_product_size")
 @Data
-public class ProductSize {
+public class SProductSize {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,5 +40,5 @@ public class ProductSize {
     @ManyToMany(mappedBy = "productSizes", fetch = FetchType.EAGER)
     @JsonBackReference
     @JsonIgnore
-    private List<Product> products;
+    private List<SProduct> products;
 }

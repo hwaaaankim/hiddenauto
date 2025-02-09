@@ -10,9 +10,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.dev.HiddenBATHAuto.model.product.BigSort;
-import com.dev.HiddenBATHAuto.model.product.MiddleSort;
-import com.dev.HiddenBATHAuto.model.product.Product;
+import com.dev.HiddenBATHAuto.model.nonstandard.BigSort;
+import com.dev.HiddenBATHAuto.model.nonstandard.MiddleSort;
+import com.dev.HiddenBATHAuto.model.nonstandard.Product;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long>{

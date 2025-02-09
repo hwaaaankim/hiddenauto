@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.product;
+package com.dev.HiddenBATHAuto.model.standard;
 
 import java.util.Date;
 
@@ -13,7 +13,7 @@ import lombok.Data;
 @Entity
 @Table(name="tb_product_file")
 @Data
-public class ProductFile {
+public class SProductFile {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

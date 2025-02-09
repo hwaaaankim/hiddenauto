@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.product;
+package com.dev.HiddenBATHAuto.model.nonstandard;
 
 import java.util.List;
 
@@ -16,26 +16,29 @@ import jakarta.persistence.Table;
 import lombok.Data;
 
 @Entity
-@Table(name="tb_product_color")
+@Table(name="tb_product_size")
 @Data
-public class ProductColor {
-
+public class ProductSize {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name="PRODUCT_COLOR_ID")
+    @Column(name="PRODUCT_SIZE_ID")
     private Long id;
     
-    @Column(name="PRODUCT_COLOR_SUBJECT")
-    private String productColorSubject;
-
-    @Column(name="PRODUCT_COLOR_ROAD")
-    private String productColorRoad;
+    @Column(name="PRODUCT_SIZE_TEXT")
+    private String productSizeText;
     
-    @Column(name="PRODUCT_COLOR_PATH")
-    private String productColorPath;
+    @Column(name="PRODUCT_WIDTH")
+    private String productWidth;
     
-    @ManyToMany(mappedBy = "productColors", fetch = FetchType.EAGER)
-    @JsonBackReference // 순환 참조 방지
+    @Column(name="PRODUCT_HEIGHT")
+    private String productHeight;
+    
+    @Column(name="PRODUCT_DEPTH")
+    private String productDepth;
+    
+    @ManyToMany(mappedBy = "productSizes", fetch = FetchType.EAGER)
+    @JsonBackReference
     @JsonIgnore
     private List<Product> products;
 }
