@@ -1,15 +1,15 @@
-package com.dev.HiddenBATHAuto.service.product;
+package com.dev.HiddenBATHAuto.service.nonstandard;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.dev.HiddenBATHAuto.repository.repository.ProductBigSortRepository;
+import com.dev.HiddenBATHAuto.repository.nonstandard.ProductProductSortRepository;
 
 @Service
 public class ProductBigSortService {
 
 	@Autowired
-	ProductBigSortRepository productBigSortRepository;
+	ProductProductSortRepository productBigSortRepository;
 	
 	public void deleteProductBigSort(Long[] id) {
 		for(Long i : id) {

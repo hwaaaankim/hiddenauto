@@ -7,7 +7,6 @@ import org.springframework.lang.Nullable;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,10 +17,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import lombok.Data;
 
 @Entity
@@ -34,36 +31,21 @@ public class Product {
     @Column(name="PRODUCT_ID")
     private Long id;
     
-    @Column(name="PRODUCT_CODE")
-    private String productCode;
-
     @Column(name="PRODUCT_NAME")
     private String name;
+
+    @Column(name="PRODUCT_CLICK_COUNT")
+    private int productClickCount;
     
-    @Column(name="PRODUCT_SIGN")
-    private Boolean productSign;
+    @Column(name="PRODUCT_ORDER_COUNT")
+    private int productOrderCount;
     
-    @Column(name="PRODUCT_ROTATION_NUMBER")
-    private int productRotationNumber;
-    
-    @Column(name="PRODUCT_ROTATION_EXTENSION")
-    private String productRotationExtension;
-    
-    @Column(name="PRODUCT_TITLE")
-    private String title;
-    
-    @Column(name="PRODUCT_SUBJECT")
-    private String subject;
-    
-    @Column(name="PRODUCT_ORDER")
-    private Boolean order;
-    
-    @Column(name="PRODUCT_UNIT")
-    private String unit;
+    @Column(name="PRODUCT_PRICE")
+    private int productPrice;
     
     @Column(name="PRODUCT_INDEX")
     private int productIndex;
-    
+
     @Column(name="PRODUCT_REP_IMAGE_NAME")
     private String productRepImageName;
     
@@ -78,12 +60,12 @@ public class Product {
     
     @Column(name="PRODUCT_REP_IMAGE_ROAD")
     private String productRepImageRoad;
+        
+    @Column(name="MIRROR_DIRECTION_SIGN")
+    private Boolean mirrorDirectionSign;
     
-    @Transient
-    private String randomImage;
-   
     @Column(name="NORMALLED_ADD_SIGN")
-    private Boolean normalLedSign;
+    private Boolean normalLedAddSign;
     
     @Column(name="TISSUE_ADD_SIGN")
     private Boolean tissueAddSign;
@@ -103,6 +85,12 @@ public class Product {
     @Column(name="SIZE_CHANGE_SIGN")
     private Boolean sizeChangeSign;
     
+    @Column(name="DOOR_AMOUNT_SIGN")
+    private Boolean doorAmountSign;
+    
+    @Column(name="DOOR_RATIO_SIGN")
+    private Boolean doorRatioSign;
+    
     @Column(name="WIDTH_MIN_LIMIT")
     private int widthMinLimit;
     
@@ -121,11 +109,14 @@ public class Product {
     @Column(name="DEPTH_MAX_LIMIT")
     private int depthMaxLimit;
     
-    @Column(name="DOOR_AMOUNT_SIGN")
-    private Boolean doorAmountSign;
+    @Column(name="BASIC_WIDTH")
+    private int basicWidth;
     
-    @Column(name="DOOR_RATIO_SIGN")
-    private Boolean doorRatioSign;
+    @Column(name="BASIC_HEIGHT")
+    private int basicHeight;
+    
+    @Column(name="BASIC_DEPTH")
+    private int basicDepth;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
@@ -136,35 +127,7 @@ public class Product {
     )
     @JsonManagedReference
     private List<ProductColor> productColors;
-    
-    @ManyToMany(fetch = FetchType.EAGER)
-    @Nullable
-    @JoinTable(
-        name="tb_product_and_size", 
-        joinColumns = @JoinColumn(name="PS_PRODUCT_ID"),
-        inverseJoinColumns = @JoinColumn(name="PS_SIZE_ID")
-    )
-    @JsonManagedReference
-    private List<ProductSize> productSizes;
-    
-    @ManyToMany(fetch = FetchType.EAGER)
-    @Nullable
-    @JoinTable(
-        name="tb_product_and_tag", 
-        joinColumns = @JoinColumn(name="PT_PRODUCT_ID"),
-        inverseJoinColumns = @JoinColumn(name="PT_TAG_ID")
-    )
-    private List<ProductTag> productTags;
-    
-    @ManyToMany(fetch = FetchType.EAGER)
-    @Nullable
-    @JoinTable(
-        name="tb_product_and_option", 
-        joinColumns = @JoinColumn(name="PO_PRODUCT_ID"),
-        inverseJoinColumns = @JoinColumn(name="PO_OPTION_ID")
-    )
-    private List<ProductOption> productOptions;
-    
+
     @ManyToMany(fetch = FetchType.EAGER)
     @Nullable
     @JoinTable(
@@ -255,39 +218,17 @@ public class Product {
     )
     private List<ProductOptionAdd> productHandleAdds;
     
-    @Transient
-    private Long middleId;
-    
-    @Transient
-    private Long bigId;
-        
-    @OneToMany(
-        fetch = FetchType.LAZY, 
-        cascade = CascadeType.ALL,
-        orphanRemoval = true,
-        mappedBy = "productId"
-    )
-    private List<ProductImage> images;
-    
-    @OneToMany(
-        fetch = FetchType.LAZY, 
-        cascade = CascadeType.ALL,
-        orphanRemoval = true,
-        mappedBy = "productId"
-    )
-    private List<ProductFile> files;
-    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
-        name="PRODUCT_MIDDLE_REFER_ID", referencedColumnName="MIDDLE_SORT_ID"
+        name="PRODUCT_SERIES_REFER_ID", referencedColumnName="SERIES_ID"
     )
     @JsonIgnore
-    private MiddleSort middleSort;
+    private Series series;
     
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(
-        name="PRODUCT_BIG_REFER_ID", referencedColumnName="BIG_SORT_ID"
+        name="PRODUCT_PRODUCT_SORT_REFER_ID", referencedColumnName="PRODUCT_SORT_ID"
     )
     @JsonIgnore
-    private BigSort bigSort;
+    private ProductSort productSort;
 }

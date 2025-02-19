@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
-import com.dev.HiddenBATHAuto.service.auth.ExcelUploadService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
+import com.dev.HiddenBATHAuto.service.nonstandard.ExcelUploadService;
 
 @Controller
 @RequestMapping("/api/v1")

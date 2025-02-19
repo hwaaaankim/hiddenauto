@@ -2,7 +2,7 @@ package com.dev.HiddenBATHAuto.dto;
 
 import java.util.List;
 
-import com.dev.HiddenBATHAuto.model.nonstandard.BigSort;
+import com.dev.HiddenBATHAuto.model.nonstandard.ProductSort;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,7 +11,7 @@ import lombok.Data;
 @AllArgsConstructor
 public class MenuDTO {
 
-	private List<BigSort> bigSortList;
+	private List<ProductSort> bigSortList;
 	
 }
 

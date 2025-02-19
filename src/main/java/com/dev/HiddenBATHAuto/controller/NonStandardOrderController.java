@@ -2,29 +2,17 @@ package com.dev.HiddenBATHAuto.controller;
 
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.dev.HiddenBATHAuto.model.nonstandard.ProductSize;
-import com.dev.HiddenBATHAuto.repository.repository.ProductSizeRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Controller
-public class OrderController {
-
-	@Autowired
-    private ProductSizeRepository productSizeRepository;
-	
-	@GetMapping("/standardOrderProduct")
-	public String standardOrderProduct() {
-
-		return "front/order/standardOrderProduct";
-	}
+public class NonStandardOrderController {
 
 	@GetMapping("/nonStandardOrderProduct")
 	public String nonStandardOrderProduct() {
@@ -69,7 +57,7 @@ public class OrderController {
                     processManualSizeInput(sizeValue, dataMap);
                 } else {
                     // DB에서 사이즈 조회
-                    processSizeFromDatabase(sizeValue, dataMap);
+                    // processSizeFromDatabase(sizeValue, dataMap);
                 }
             }
 
@@ -103,28 +91,28 @@ public class OrderController {
         }
     }
 
-    // DB에서 사이즈 조회 및 처리
-    private void processSizeFromDatabase(String sizeId, Map<String, Object> dataMap) {
-        try {
-            Long id = Long.parseLong(sizeId);
-            ProductSize productSize = productSizeRepository.findById(id).orElse(null);
-            if (productSize != null) {
-                String sizeText = productSize.getProductSizeText(); // 예: "1200*500*300"
-                String[] dimensions = sizeText.split("\\*");
-                if (dimensions.length > 0) {
-                    dataMap.put("width", Integer.parseInt(dimensions[0]));
-                }
-                if (dimensions.length > 1) {
-                    dataMap.put("height", Integer.parseInt(dimensions[1]));
-                }
-                if (dimensions.length > 2) {
-                    dataMap.put("depth", Integer.parseInt(dimensions[2]));
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+//    // DB에서 사이즈 조회 및 처리
+//    private void processSizeFromDatabase(String sizeId, Map<String, Object> dataMap) {
+//        try {
+//            Long id = Long.parseLong(sizeId);
+//            ProductSize productSize = productSizeRepository.findById(id).orElse(null);
+//            if (productSize != null) {
+//                String sizeText = productSize.getProductSizeText(); // 예: "1200*500*300"
+//                String[] dimensions = sizeText.split("\\*");
+//                if (dimensions.length > 0) {
+//                    dataMap.put("width", Integer.parseInt(dimensions[0]));
+//                }
+//                if (dimensions.length > 1) {
+//                    dataMap.put("height", Integer.parseInt(dimensions[1]));
+//                }
+//                if (dimensions.length > 2) {
+//                    dataMap.put("depth", Integer.parseInt(dimensions[2]));
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
 	@GetMapping("/productMark")
 	public String productMark() {

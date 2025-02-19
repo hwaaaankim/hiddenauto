@@ -3,7 +3,7 @@ export const initialQuestion = {
 		label: '카테고리',
 		value: 'category'
 	},
-	question: '제품 분를 선택 해 주세요',
+	question: '제품 분류를 선택 해 주세요',
 	options: [
 		{
 			label: '상부장',
@@ -28,7 +28,7 @@ export const initialQuestion = {
 		{
 			label: '플랩장',
 			value: 'flap',
-			id: 6
+			id: 5
 		}
 	],
 	next: (selectedCategoryValue) => {
@@ -60,7 +60,17 @@ export const productFlowSteps = {
 		{
 			step: 'size',
 			label: '사이즈',
-			question: '거울의 사이즈를 선택하세요.',
+			question: '거울의 사이즈를 입력 해 주세요.',
+			next: 'type'
+		},
+		{
+			step: 'type',
+			label: '설치 방향',
+			question: '거울의 설치 방식을 선택 해 주세요.',
+			options: [
+				{ value: 'vertical', label: '세로형' },
+				{ value: 'horizontal', label: '가로형' }
+			],
 			next: 'NEXT'
 		},
 		{
@@ -71,16 +81,27 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'ADD' ? 'normalledcolor' : 'final' // 선택에 따라 이동
+			next: (selectedOption) => selectedOption === 'add' ? 'power' : 'final' // 선택에 따라 이동
+		},
+		{
+			step: 'power',
+			label: '전원 방식 선택',
+			question: '전원 방식을 선택 해 주세요.',
+			options: [
+				{ value: 'touch_three', label: '터치식 3컬러 변환' },
+				{ value: 'direct_one', label: '직결식 단컬러' },
+				{ value: 'touch_one', label: '터치식 단컬러' }
+			],
+			next: (selectedOption) => selectedOption === ['direct_one', 'touch_one'].includes(selectedOption) ? 'normalledcolor' : 'final'
 		},
 		{
 			step: 'normalledcolor',
 			label: 'LED 색상',
 			question: 'LED의 색상을 선택하세요.',
 			options: [
-				{ value: 'one', label: '색상01' },
-				{ value: 'two', label: '색상02' },
-				{ value: 'three', label: '색상03' }
+				{ value: 'one', label: '3000K(전구색/주황색)' },
+				{ value: 'two', label: '4000K(주백색)' },
+				{ value: 'three', label: '5700K(주광색/백색)' }
 			],
 			next: 'final'
 		}
@@ -101,7 +122,7 @@ export const productFlowSteps = {
 		{
 			step: 'size',
 			label: '사이즈',
-			question: '상부장의 사이즈를 선택하세요.',
+			question: '상부장의 사이즈를 입력하세요.',
 			next: 'door'
 		},
 		{
@@ -123,7 +144,7 @@ export const productFlowSteps = {
 		{
 			step: 'doorDirection',
 			label: '문 방향',
-			question: '문의 방향을 선택하세요.',
+			question: '문의 방향을 입력 해 주세요.',
 			next: 'NEXT'
 		},
 		{
@@ -134,7 +155,80 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: 'NEXT'
+			next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'NEXT'
+		},
+		{
+			step: 'handletype',
+			label: '손잡이 종류',
+			question: '손잡이 종류를 선택 해 주세요.',
+			options: [
+				{ value: 'handle_one', label: '히든 돌체 손잡이' },
+				{ value: 'handle_two', label: '히든 D형 손잡이' },
+				{ value: 'handle_three', label: '히든 하프 손잡이' },
+				{ value: 'handle_four', label: '히든 O형 손잡이' },
+				{ value: 'handle_five', label: '원형 손잡이' }
+			],
+			next: (selectedOption) =>
+				selectedOption === 'handle_one' ? 'handle_color_one' :
+				selectedOption === 'handle_two' ? 'handle_color_two' :
+				selectedOption === 'handle_three' ? 'handle_color_three' :
+				selectedOption === 'handle_four' ? 'handle_color_four' :
+				'handle_color_five'
+		},
+		{
+			step: 'handle_color_one',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_two',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_three',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '화이트' },
+				{ value: 'two', label: '크림' },
+				{ value: 'three', label: '그레이' },
+				{ value: 'four', label: '블랙' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_four',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_five',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '실버' },
+				{ value: 'two', label: '골드' }
+			],
+			next: 'NEXT_SAME'
 		},
 		{
 			step: 'led',
@@ -240,7 +334,7 @@ export const productFlowSteps = {
 		{
 			step: 'size',
 			label: '사이즈',
-			question: '하부장의 사이즈를 선택하세요.',
+			question: '하부장의 사이즈를 입력 해 주세요.',
 			next: 'formofwash'
 		},
 		
@@ -270,9 +364,10 @@ export const productFlowSteps = {
 			label: '세면대 종류',
 			question: '세면대의 종류를 선택 해 주세요.',
 			options: [
-				{ value: 'one', label: '타입01' },
-				{ value: 'two', label: '타입02' },
-				{ value: 'three', label: '타입03' }
+				{ value: 'one', label: 'TB-060(비누대 O)' },
+				{ value: 'two', label: 'E-60(비누대 X)' },
+				{ value: 'three', label: 'PL-3040(비누대 O)' },
+				{ value: 'four', label: 'PL-3060(비누대 O)' }
 			],
 			next: 'numberofwash'
 		},
@@ -281,8 +376,8 @@ export const productFlowSteps = {
 			label: '세면대 종류',
 			question: '세면대의 종류를 선택 해 주세요.',
 			options: [
-				{ value: 'one', label: '타입01' },
-				{ value: 'two', label: '타입02' },
+				{ value: 'one', label: 'CL-603(사각)' },
+				{ value: 'two', label: 'CL-509(타원형)' },
 				{ value: 'three', label: '제공 언더볼' }
 			],
 			next: 'numberofwash'
@@ -339,28 +434,6 @@ export const productFlowSteps = {
 			next: 'colorofmarble'
 		},
 		{
-			step: 'backhump',
-			label: '뒷턱 추가여부',
-			question: '뒷턱 추가여부를 선택하세요.',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'directionofbackhump' : ''
-		},
-		{
-			step: 'directionofbackhump',
-			label: '뒷턱 설치방향',
-			question: '뒷턱 설치방향을 선택하세요.',
-			options: [
-				{ value: 'one', label: '후면' },
-				{ value: 'two', label: '후면/좌측면' },
-				{ value: 'three', label: '후면/우측면' },
-				{ value: 'four', label: '후면/좌측면/우측면' },
-			],
-			next: 'board'
-		},
-		{
 			step: 'board',
 			label: '걸레받이 추가여부',
 			question: '걸레받이 추가여부를 선택하세요.',
@@ -382,6 +455,8 @@ export const productFlowSteps = {
 			],
 			next: 'hole'
 		},
+		
+		// 타공 여부 YES인 경우
 		{
 			step: 'hole',
 			label: '타공 추가여부',
@@ -390,7 +465,8 @@ export const productFlowSteps = {
 				{ value: 'add', label: '타공안함' },
 				{ value: 'not_add', label: '타공함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'positionofhole' : ''
+			next: 'door'
+			
 		},
 		{
 			step: 'door',
@@ -400,13 +476,7 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'NEXT'
-		},
-		{
-			step: 'numberofdoor',
-			label: '문 수량',
-			question: '문의 수량을 선택하세요.',
-			next: 'CHANGED'
+			next: (selectedOption) => selectedOption === 'add' ? 'formofdoor' : 'NEXT'
 		},
 		{
 			step: 'formofdoor',
@@ -418,6 +488,12 @@ export const productFlowSteps = {
 				{ value: 'three', label: '서랍식' },
 				{ value: 'four', label: '혼합식' }
 			],
+			next: (selectedOption) => selectedOption === 'two' ? 'CHANGED' : 'numberofdoor'
+		},
+		{
+			step: 'numberofdoor',
+			label: '문 수량',
+			question: '문의 수량을 선택하세요.',
 			next: 'doorDirection'
 		},
 		{
@@ -439,24 +515,75 @@ export const productFlowSteps = {
 		{
 			step: 'handletype',
 			label: '손잡이 종류',
-			question: '손잡이의 종류를 선택하세요.',
+			question: '손잡이 종류를 선택 해 주세요.',
 			options: [
-				{ value: 'one', label: '손잡이01' },
-				{ value: 'two', label: '손잡이02' },
-				{ value: 'three', label: '손잡이03' }
+				{ value: 'handle_one', label: '히든 돌체 손잡이' },
+				{ value: 'handle_two', label: '히든 D형 손잡이' },
+				{ value: 'handle_three', label: '히든 하프 손잡이' },
+				{ value: 'handle_four', label: '히든 O형 손잡이' },
+				{ value: 'handle_five', label: '원형 손잡이' }
 			],
-			next: 'handlecolor'
+			next: (selectedOption) =>
+				selectedOption === 'handle_one' ? 'handle_color_one' :
+				selectedOption === 'handle_two' ? 'handle_color_two' :
+				selectedOption === 'handle_three' ? 'handle_color_three' :
+				selectedOption === 'handle_four' ? 'handle_color_four' :
+				'handle_color_five'
 		},
 		{
-			step: 'handlecolor',
-			label: '손잡이 색상',
-			question: '손잡이의 색상을 선택하세요.',
+			step: 'handle_color_one',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
-				{ value: 'one', label: '색상01' },
-				{ value: 'two', label: '색상02' },
-				{ value: 'three', label: '색상03' }
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
 			],
-			next: 'NEXT'
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_two',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_three',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '화이트' },
+				{ value: 'two', label: '크림' },
+				{ value: 'three', label: '그레이' },
+				{ value: 'four', label: '블랙' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_four',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_five',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '실버' },
+				{ value: 'two', label: '골드' }
+			],
+			next: 'NEXT_SAME'
 		},
 		{
 			step: 'led',

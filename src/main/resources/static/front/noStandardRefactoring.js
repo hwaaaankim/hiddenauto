@@ -644,7 +644,7 @@ function renderMiddleSortQuestion(middleSortList) {
 	// 질문 텍스트 추가
 	const questionDiv = document.createElement('div');
 	questionDiv.classList.add('non-standard-question');
-	questionDiv.innerText = '2차 카테고리를 선택하세요:';
+	questionDiv.innerText = '시리즈를 선택 해 주세요:';
 	middleSortWrap.appendChild(questionDiv);
 
 	const optionDiv = document.createElement('div');

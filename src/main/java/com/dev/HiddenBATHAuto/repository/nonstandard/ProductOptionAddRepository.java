@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.repository.repository;
+package com.dev.HiddenBATHAuto.repository.nonstandard;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

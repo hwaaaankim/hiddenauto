@@ -3,13 +3,8 @@ package com.dev.HiddenBATHAuto.dto;
 import java.util.List;
 
 import com.dev.HiddenBATHAuto.model.nonstandard.ProductColor;
-import com.dev.HiddenBATHAuto.model.nonstandard.ProductFile;
-import com.dev.HiddenBATHAuto.model.nonstandard.ProductImage;
-import com.dev.HiddenBATHAuto.model.nonstandard.ProductOption;
 import com.dev.HiddenBATHAuto.model.nonstandard.ProductOptionAdd;
 import com.dev.HiddenBATHAuto.model.nonstandard.ProductOptionPosition;
-import com.dev.HiddenBATHAuto.model.nonstandard.ProductSize;
-import com.dev.HiddenBATHAuto.model.nonstandard.ProductTag;
 
 import lombok.Data;
 
@@ -47,9 +42,6 @@ public class ProductResponse {
     private Boolean doorAmountSign;
     private Boolean doorRatioSign;
     private List<ProductColor> productColors;
-    private List<ProductSize> productSizes;
-    private List<ProductTag> productTags;
-    private List<ProductOption> productOptions;
     private List<ProductOptionAdd> productNormalLedAdds;
     private List<ProductOptionAdd> productTissueAdds;
     private List<ProductOptionPosition> productTissuePositions;
@@ -62,6 +54,4 @@ public class ProductResponse {
     private List<ProductOptionAdd> productHandleAdds;
     private Long middleId;
     private Long bigId;
-    private List<ProductImage> images;
-    private List<ProductFile> files;
 }

@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.service.product;
+package com.dev.HiddenBATHAuto.service.nonstandard;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,7 +11,7 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.model.nonstandard.ProductColor;
-import com.dev.HiddenBATHAuto.repository.repository.ProductColorRepository;
+import com.dev.HiddenBATHAuto.repository.nonstandard.ProductColorRepository;
 
 @Service
 public class ProductColorService {

@@ -12,18 +12,18 @@ import lombok.Data;
 // 1차 카테고리
 @Entity
 @Data
-@Table(name="tb_big_sort")
-public class BigSort {
+@Table(name="tb_product_sort")
+public class ProductSort {
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name="BIG_SORT_ID")
+	@Column(name="PRODUCT_SORT_ID")
 	private Long id;
 	
-	@Column(name="BIG_SORT_NAME")
+	@Column(name="PRODUCT_SORT_NAME")
 	private String name;
 	
-	@Column(name="BIG_SORT_INDEX")
-	private int bigSortIndex;
+	@Column(name="PRODUCT_SORT_INDEX")
+	private int productSortIndex;
 
 }
