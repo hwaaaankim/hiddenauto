@@ -251,58 +251,28 @@ export const productFlowSteps = {
 			label: 'LED 색상',
 			question: 'LED의 색상을 선택하세요.',
 			options: [
-				{ value: 'one', label: '색상01' },
-				{ value: 'two', label: '색상02' },
-				{ value: 'three', label: '색상03' }
+				{ value: 'one', label: '3000K(전구색/주황색)' },
+				{ value: 'two', label: '4000K(주백색)' },
+				{ value: 'three', label: '5700K(주광색/백색)' }
 			],
 			next: 'NEXT'
-		},
-		{
-			step: 'tissue',
-			label: '휴지걸이 추가',
-			question: '휴지걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'tissuePosition' : 'NEXT'
-		},
-		{
-			step: 'tissuePosition',
-			label: '휴지걸이 위치',
-			question: '휴지걸이 위치를 선택하세요',
-			next: 'NEXT'
-		},
-		{
-			step: 'dry',
-			label: '드라이걸이 추가',
-			question: '드라이걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'dryPosition' : 'NEXT'
-		},
-		{
-			step: 'dryPosition',
-			label: '드라이걸이 방향',
-			question: '드라이걸이의 방향을 선택하세요.',
-			next: 'NEXT'
-		},
-		{
-			step: 'outlet',
-			label: '콘센트 추가',
-			question: '콘센트를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'outletPosition' : 'final'
 		},
 		{
 			step: 'outletPosition',
-			label: '콘센트 방향',
-			question: '콘센트의 방향을 선택하세요.',
+			label: '콘센트 옵션',
+			question: '콘센트의 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'dryPosition',
+			label: '드라이걸이 옵션',
+			question: '드라이걸이 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'tissuePosition',
+			label: '티슈홀캡(타공) 옵션',
+			question: '티슈홀캡(타공) 추가여부 혹은 위치를 선택하세요.',
 			next: 'final'
 		}
 	],
@@ -413,7 +383,7 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'directionofmaguri' : ''
+			next: (selectedOption) => selectedOption === 'add' ? 'directionofmaguri' : 'board'
 		},
 		{
 			step: 'directionofmaguri',
@@ -431,42 +401,18 @@ export const productFlowSteps = {
 			step: 'sizeofmaguri',
 			label: '마구리 사이즈',
 			question: '마구리 사이즈를 입력해주세요.(1 ~ 250mm)',
-			next: 'colorofmarble'
-		},
-		{
-			step: 'board',
-			label: '걸레받이 추가여부',
-			question: '걸레받이 추가여부를 선택하세요.',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'directionofboard' : ''
-		},
-		{
-			step: 'directionofboard',
-			label: '걸레받이 설치방향',
-			question: '걸레받이 설치방향을 선택하세요.',
-			options: [
-				{ value: 'one', label: '전면' },
-				{ value: 'two', label: '전면/좌측면' },
-				{ value: 'three', label: '전면/우측면' },
-				{ value: 'four', label: '전면/좌측면/우측면' },
-			],
 			next: 'hole'
 		},
 		
-		// 타공 여부 YES인 경우
 		{
 			step: 'hole',
-			label: '타공 추가여부',
-			question: '타공 여부를 선택하세요.',
+			label: '상판 타공 유무',
+			question: '상판 타공 유무 유무를 선택하세요.',
 			options: [
 				{ value: 'add', label: '타공안함' },
 				{ value: 'not_add', label: '타공함' }
 			],
 			next: 'door'
-			
 		},
 		{
 			step: 'door',
@@ -476,19 +422,27 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'formofdoor' : 'NEXT'
+			next: (selectedOption) => selectedOption === 'add' ? 'CHANGED_BY_SERIES' : 'NEXT'
 		},
 		{
-			step: 'formofdoor',
+			step: 'formofdoor_slide',
 			label: '문 형태',
 			question: '문의 형태를 선택하세요.',
 			options: [
-				{ value: 'one', label: '여닫이' },
-				{ value: 'two', label: '슬라이드' },
-				{ value: 'three', label: '서랍식' },
-				{ value: 'four', label: '혼합식' }
+				{ value: 'slide', label: '슬라이드' }
 			],
-			next: (selectedOption) => selectedOption === 'two' ? 'CHANGED' : 'numberofdoor'
+			next: 'NEXT'
+		},
+		{
+			step: 'formofdoor_other',
+			label: '문 형태',
+			question: '문의 형태를 선택하세요.',
+			options: [
+				{ value: 'open', label: '여닫이' },
+				{ value: 'drawer', label: '서랍식' },
+				{ value: 'mixed', label: '혼합식' }
+			],
+			next: 'numberofdoor'
 		},
 		{
 			step: 'numberofdoor',
@@ -499,7 +453,7 @@ export const productFlowSteps = {
 		{
 			step: 'doorDirection',
 			label: '문 방향',
-			question: '문의 방향을 선택하세요.',
+			question: '문의 방향을 입력하세요.',
 			next: 'NEXT'
 		},
 		{
@@ -510,7 +464,7 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'NEXT'
+			next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'board'
 		},
 		{
 			step: 'handletype',
@@ -539,7 +493,7 @@ export const productFlowSteps = {
 				{ value: 'two', label: '니켈' },
 				{ value: 'three', label: '골드' }
 			],
-			next: 'NEXT_SAME'
+			next: 'board'
 		},
 		{
 			step: 'handle_color_two',
@@ -550,7 +504,7 @@ export const productFlowSteps = {
 				{ value: 'two', label: '니켈' },
 				{ value: 'three', label: '골드' }
 			],
-			next: 'NEXT_SAME'
+			next: 'board'
 		},
 		{
 			step: 'handle_color_three',
@@ -562,7 +516,7 @@ export const productFlowSteps = {
 				{ value: 'three', label: '그레이' },
 				{ value: 'four', label: '블랙' }
 			],
-			next: 'NEXT_SAME'
+			next: 'board'
 		},
 		{
 			step: 'handle_color_four',
@@ -573,7 +527,7 @@ export const productFlowSteps = {
 				{ value: 'two', label: '니켈' },
 				{ value: 'three', label: '골드' }
 			],
-			next: 'NEXT_SAME'
+			next: 'board'
 		},
 		{
 			step: 'handle_color_five',
@@ -583,7 +537,29 @@ export const productFlowSteps = {
 				{ value: 'one', label: '실버' },
 				{ value: 'two', label: '골드' }
 			],
-			next: 'NEXT_SAME'
+			next: 'board'
+		},
+		{
+			step: 'board',
+			label: '걸레받이 추가여부',
+			question: '걸레받이 추가여부를 선택하세요.',
+			options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'not_add', label: '추가 안함' }
+			],
+			next: (selectedOption) => selectedOption === 'add' ? 'directionofboard' : 'NEXT'
+		},
+		{
+			step: 'directionofboard',
+			label: '걸레받이 설치방향',
+			question: '걸레받이 설치방향을 선택하세요.',
+			options: [
+				{ value: 'one', label: '전면' },
+				{ value: 'two', label: '전면/좌측면' },
+				{ value: 'three', label: '전면/우측면' },
+				{ value: 'four', label: '전면/좌측면/우측면' },
+			],
+			next: 'NEXT'
 		},
 		{
 			step: 'led',
@@ -606,58 +582,28 @@ export const productFlowSteps = {
 			label: 'LED 색상',
 			question: 'LED의 색상을 선택하세요.',
 			options: [
-				{ value: 'one', label: '색상01' },
-				{ value: 'two', label: '색상02' },
-				{ value: 'three', label: '색상03' }
+				{ value: 'one', label: '3000K(전구색/주황색)' },
+				{ value: 'two', label: '4000K(주백색)' },
+				{ value: 'three', label: '5700K(주광색/백색)' }
 			],
 			next: 'NEXT'
-		},
-		{
-			step: 'tissue',
-			label: '휴지걸이 추가',
-			question: '휴지걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'tissuePosition' : 'NEXT'
-		},
-		{
-			step: 'tissuePosition',
-			label: '휴지걸이 위치',
-			question: '휴지걸이 위치를 선택하세요',
-			next: 'NEXT'
-		},
-		{
-			step: 'dry',
-			label: '드라이걸이 추가',
-			question: '드라이걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'dryPosition' : 'NEXT'
-		},
-		{
-			step: 'dryPosition',
-			label: '드라이걸이 방향',
-			question: '드라이걸이의 방향을 선택하세요.',
-			next: 'NEXT'
-		},
-		{
-			step: 'outlet',
-			label: '콘센트 추가',
-			question: '콘센트를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'outletPosition' : 'final'
 		},
 		{
 			step: 'outletPosition',
-			label: '콘센트 방향',
-			question: '콘센트의 방향을 선택하세요.',
+			label: '콘센트 옵션',
+			question: '콘센트의 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'dryPosition',
+			label: '드라이걸이 옵션',
+			question: '드라이걸이 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'tissuePosition',
+			label: '티슈홀캡(타공) 옵션',
+			question: '티슈홀캡(타공) 추가여부 혹은 위치를 선택하세요.',
 			next: 'final'
 		}
 	],
@@ -731,61 +677,32 @@ export const productFlowSteps = {
 			label: 'LED 색상',
 			question: 'LED의 색상을 선택하세요.',
 			options: [
-				{ value: 'one', label: '색상01' },
-				{ value: 'two', label: '색상02' },
-				{ value: 'three', label: '색상03' }
+				{ value: 'one', label: '3000K(전구색/주황색)' },
+				{ value: 'two', label: '4000K(주백색)' },
+				{ value: 'three', label: '5700K(주광색/백색)' }
 			],
 			next: 'NEXT'
-		},
-		{
-			step: 'tissue',
-			label: '휴지걸이 추가',
-			question: '휴지걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'tissuePosition' : 'NEXT'
-		},
-		{
-			step: 'tissuePosition',
-			label: '휴지걸이 위치',
-			question: '휴지걸이 위치를 선택하세요',
-			next: 'NEXT'
-		},
-		{
-			step: 'dry',
-			label: '드라이걸이 추가',
-			question: '드라이걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'dryPosition' : 'NEXT'
-		},
-		{
-			step: 'dryPosition',
-			label: '드라이걸이 방향',
-			question: '드라이걸이의 방향을 선택하세요.',
-			next: 'NEXT'
-		},
-		{
-			step: 'outlet',
-			label: '콘센트 추가',
-			question: '콘센트를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'outletPosition' : 'final'
 		},
 		{
 			step: 'outletPosition',
-			label: '콘센트 방향',
-			question: '콘센트의 방향을 선택하세요.',
+			label: '콘센트 옵션',
+			question: '콘센트의 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'dryPosition',
+			label: '드라이걸이 옵션',
+			question: '드라이걸이 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'tissuePosition',
+			label: '티슈홀캡(타공) 옵션',
+			question: '티슈홀캡(타공) 추가여부 혹은 위치를 선택하세요.',
 			next: 'final'
 		}
 	],
+	// 비고에 바디만인지 혹은 도어변경을 원하는 경우 도어 기재 하도록 안내 메시지 작성
 	slide: [
 		{
 			step: 'product',
@@ -802,26 +719,16 @@ export const productFlowSteps = {
 		{
 			step: 'size',
 			label: '사이즈',
-			question: '슬라이드장의 사이즈를 선택하세요.',
-			next: 'door'
-		},
-		{
-			step: 'door',
-			label: '문 추가',
-			question: '문을 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
+			question: '슬라이드장의 사이즈를 입력하세요.',
 			next: 'NEXT'
 		},
 		{
-			step: 'handle',
-			label: '손잡이 추가',
-			question: '손잡이를 추가하시겠습니까?',
+			step: 'mirrorDirection',
+			label: '거울방향',
+			question: '좌측경 또는 우측경을 선택 해 주세요.',
 			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
+				{ value: 'left', label: '좌측경' },
+				{ value: 'right', label: '우측경' }
 			],
 			next: 'NEXT'
 		},
@@ -846,60 +753,29 @@ export const productFlowSteps = {
 			label: 'LED 색상',
 			question: 'LED의 색상을 선택하세요.',
 			options: [
-				{ value: 'one', label: '색상01' },
-				{ value: 'two', label: '색상02' },
-				{ value: 'three', label: '색상03' }
+				{ value: 'one', label: '3000K(전구색/주황색)' },
+				{ value: 'two', label: '4000K(주백색)' },
+				{ value: 'three', label: '5700K(주광색/백색)' }
 			],
 			next: 'NEXT'
-		},
-		{
-			step: 'tissue',
-			label: '휴지걸이 추가',
-			question: '휴지걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'tissuePosition' : 'NEXT'
-		},
-		{
-			step: 'tissuePosition',
-			label: '휴지걸이 위치',
-			question: '휴지걸이 위치를 선택하세요',
-			next: 'NEXT'
-		},
-		{
-			step: 'dry',
-			label: '드라이걸이 추가',
-			question: '드라이걸이를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'dryPosition' : 'NEXT'
-		},
-		{
-			step: 'dryPosition',
-			label: '드라이걸이 방향',
-			question: '드라이걸이의 방향을 선택하세요.',
-			next: 'NEXT'
-		},
-		{
-			step: 'outlet',
-			label: '콘센트 추가',
-			question: '콘센트를 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'outletPosition' : 'final'
 		},
 		{
 			step: 'outletPosition',
-			label: '콘센트 방향',
-			question: '콘센트의 방향을 선택하세요.',
+			label: '콘센트 옵션',
+			question: '콘센트의 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'dryPosition',
+			label: '드라이걸이 옵션',
+			question: '드라이걸이 추가여부 혹은 위치를 선택하세요.',
+			next: 'NEXT'
+		},
+		{
+			step: 'tissuePosition',
+			label: '티슈홀캡(타공) 옵션',
+			question: '티슈홀캡(타공) 추가여부 혹은 위치를 선택하세요.',
 			next: 'final'
 		}
 	]
-
 };

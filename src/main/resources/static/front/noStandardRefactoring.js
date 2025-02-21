@@ -82,6 +82,7 @@ function filterFlowBySign(product, templateFlow) {
 		led: !product.lowLedAddSign,
 		outlet: !product.outletAddSign,
 		handle: !product.handleAddSign,
+		mirrorDirection: !product.mirrorDirectionSign,
 	};
 
 	return templateFlow.filter(step => {
@@ -823,78 +824,89 @@ function updateProductOptions(categoryKey, stepIndex) {
 		// 유저가 선택한 제품 정보 콘솔 출력
 		if (step.step === 'size') {
 			// 사이즈 옵션 추가 (기존 코드 유지)
-			step.options.forEach(option => {
-				const button = document.createElement('button');
-				button.innerText = option.label;
-				button.classList.add('non-standard-btn');
-				button.addEventListener('click', () => {
-					if (categoryKey === 'top' || categoryKey === 'low') {
-						const selectedSize = selectedProductInfo.productSizes.find(size => size.id === option.value);
-						if (selectedSize) {
-							// determineNumberOfOptions에 productWidth 전달
-							determineNumberOfOptions(selectedSize.productWidth);
-						} else {
-							console.warn('선택한 사이즈 정보를 찾을 수 없습니다:', option.value);
-						}
-					}
-					handleProductSelection(option.value, categoryKey, step);
-				});
-				optionDiv.appendChild(button);
-			});
+			// step.options.forEach(option => {
+			//	const button = document.createElement('button');
+			//	button.innerText = option.label;
+			//	button.classList.add('non-standard-btn');
+			//	button.addEventListener('click', () => {
+			//		if (categoryKey === 'top' || categoryKey === 'low') {
+			//			const selectedSize = selectedProductInfo.productSizes.find(size => size.id === option.value);
+			//			if (selectedSize) {
+			//				// determineNumberOfOptions에 productWidth 전달
+			//				determineNumberOfOptions(selectedSize.productWidth);
+			//			} else {
+			//				console.warn('선택한 사이즈 정보를 찾을 수 없습니다:', option.value);
+			//			}
+			//		}
+			//		handleProductSelection(option.value, categoryKey, step);
+			//	});
+			//	optionDiv.appendChild(button);
+			// });
 
 			// sizeChangeSign 체크 (추가)
 			if (selectedProductInfo.sizeChangeSign) {
 
 				// 제한값 및 기본값 설정 (추가)
 				const limits = {
-					widthMin: selectedProductInfo.widthMinLimit,
-					widthMax: selectedProductInfo.widthMaxLimit,
-					heightMin: selectedProductInfo.heightMinLimit,
-					heightMax: selectedProductInfo.heightMaxLimit,
-					depthMin: selectedProductInfo.depthMinLimit,
-					depthMax: selectedProductInfo.depthMaxLimit,
+				    widthMin: selectedProductInfo.widthMinLimit,
+				    widthMax: selectedProductInfo.widthMaxLimit,
+				    heightMin: selectedProductInfo.heightMinLimit,
+				    heightMax: selectedProductInfo.heightMaxLimit,
+				    depthMin: selectedProductInfo.depthMinLimit,
+				    depthMax: selectedProductInfo.depthMaxLimit,
 				};
-
-				const defaultSize = selectedProductInfo.productSizes[0]; // 기본값
-
-				// 사이즈 입력 필드 추가 (기존 코드 유지 + 추가 사항 반영)
+				
+				// 기본 사이즈를 새로운 `basicWidth`, `basicHeight`, `basicDepth` 필드에서 가져옴
+				const defaultSize = {
+				    width: selectedProductInfo.basicWidth,
+				    height: selectedProductInfo.basicHeight,
+				    depth: selectedProductInfo.basicDepth
+				};
+				
+				// 거울(mirror) 카테고리는 width, height만 사용
 				const fields = categoryKey === 'mirror' ? ['width', 'height'] : ['width', 'height', 'depth'];
+				
 				fields.forEach(field => {
-					const label = document.createElement('label');
-					label.innerHTML = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
-
-					const input = document.createElement('input');
-					input.type = 'number';
-					input.id = `${field}-input`;
-					input.classList.add('non-standard-input');
-
-					// 제한값 설정
-					if (limits[`${field}Min`] !== null) input.min = limits[`${field}Min`];
-					if (limits[`${field}Max`] !== null) input.max = limits[`${field}Max`];
-
-					// 제한값이 0 또는 null인 경우 기본값 설정 및 readonly
-					if (limits[`${field}Min`] === 0 || limits[`${field}Max`] === 0 || limits[`${field}Min`] === null || limits[`${field}Max`] === null) {
-						input.value = defaultSize[`product${field.charAt(0).toUpperCase() + field.slice(1)}`];
-						input.readOnly = true;
-					}
-					// 값 변경 이벤트 (기존 코드 유지)
-					input.addEventListener('change', () => {
-						const minValue = parseInt(input.min);
-						const maxValue = parseInt(input.max);
-						const value = parseInt(input.value);
-
-						if (value < minValue) {
-							input.value = minValue;
-							alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최소 ${minValue} 이상이어야 합니다.`);
-						} else if (value > maxValue) {
-							input.value = maxValue;
-							alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최대 ${maxValue} 이하이어야 합니다.`);
-						}
-					});
-
-					label.appendChild(input);
-					optionDiv.appendChild(label);
+				    const label = document.createElement('label');
+				    label.innerHTML = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
+				
+				    const input = document.createElement('input');
+				    input.type = 'number';
+				    input.id = `${field}-input`;
+				    input.classList.add('non-standard-input');
+				
+				    // 제한값 설정
+				    if (limits[`${field}Min`] !== null) input.min = limits[`${field}Min`];
+				    if (limits[`${field}Max`] !== null) input.max = limits[`${field}Max`];
+				
+				    // 기본값을 `basicWidth`, `basicHeight`, `basicDepth`에서 가져옴
+				    input.value = defaultSize[field];
+				
+				    // 제한값이 0 또는 null이면 readonly 처리
+				    if (limits[`${field}Min`] === 0 || limits[`${field}Max`] === 0 || 
+				        limits[`${field}Min`] === null || limits[`${field}Max`] === null) {
+				        input.readOnly = true;
+				    }
+				
+				    // 값 변경 이벤트 (기존 코드 유지)
+				    input.addEventListener('change', () => {
+				        const minValue = parseInt(input.min);
+				        const maxValue = parseInt(input.max);
+				        const value = parseInt(input.value);
+				
+				        if (value < minValue) {
+				            input.value = minValue;
+				            alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최소 ${minValue} 이상이어야 합니다.`);
+				        } else if (value > maxValue) {
+				            input.value = maxValue;
+				            alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최대 ${maxValue} 이하이어야 합니다.`);
+				        }
+				    });
+				
+				    label.appendChild(input);
+				    optionDiv.appendChild(label);
 				});
+
 
 				// 확인 버튼 추가 (기존 코드 유지)
 				const confirmButton = document.createElement('button');
@@ -1323,12 +1335,12 @@ function handleProductSelection(product, categoryKey, step) {
 		}
 
 		// 기존의 size 및 color 업데이트 유지
-		const sizes = selectedProduct.productSizes?.length > 0
-			? selectedProduct.productSizes.map(size => ({
-				value: size.id,
-				label: size.productSizeText
-			}))
-			: [{ value: 0, label: '선택 가능한 사이즈 없음' }];
+		// const sizes = selectedProduct.productSizes?.length > 0
+		//	? selectedProduct.productSizes.map(size => ({
+		//		value: size.id,
+		//		label: size.productSizeText
+		//	}))
+		//	: [{ value: 0, label: '선택 가능한 사이즈 없음' }];
 
 		const colors = selectedProduct.productColors?.length > 0
 			? selectedProduct.productColors.map(color => ({
@@ -1338,9 +1350,9 @@ function handleProductSelection(product, categoryKey, step) {
 			: [{ value: 0, label: '선택 가능한 색상 없음' }];
 
 		productFlowSteps[categoryKey].forEach(stepObj => {
-			if (stepObj.step === 'size') {
-				stepObj.options = sizes;
-			}
+			//if (stepObj.step === 'size') {
+			//	stepObj.options = sizes;
+			//}
 			if (stepObj.step === 'color') {
 				stepObj.options = colors;
 			}
