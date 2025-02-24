@@ -74,17 +74,17 @@ export const productFlowSteps = {
 			next: 'NEXT'
 		},
 		{
-			step: 'normalled',
+			step: 'normal',
 			label: 'LED 추가',
 			question: 'LED를 추가하시겠습니까?',
 			options: [
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'power' : 'final' // 선택에 따라 이동
+			next: (selectedOption) => selectedOption === 'add' ? 'normalpower' : 'final' // 선택에 따라 이동
 		},
 		{
-			step: 'power',
+			step: 'normalpower',
 			label: '전원 방식 선택',
 			question: '전원 방식을 선택 해 주세요.',
 			options: [
@@ -92,10 +92,13 @@ export const productFlowSteps = {
 				{ value: 'direct_one', label: '직결식 단컬러' },
 				{ value: 'touch_one', label: '터치식 단컬러' }
 			],
-			next: (selectedOption) => selectedOption === ['direct_one', 'touch_one'].includes(selectedOption) ? 'normalledcolor' : 'final'
+			next: (selectedOption) => {
+			    console.log('selectedOption:', selectedOption);
+			    return ['direct_one', 'touch_one'].includes(selectedOption) ? 'normalcolor' : 'final';
+			}
 		},
 		{
-			step: 'normalledcolor',
+			step: 'normalcolor',
 			label: 'LED 색상',
 			question: 'LED의 색상을 선택하세요.',
 			options: [
@@ -299,7 +302,6 @@ export const productFlowSteps = {
 			question: '하부장의 색상을 선택하세요.',
 			next: 'size'
 		},
-		
 		// 사이즈선택시 문의수량과 세면대의 수량, 문의 방향 옵션 확정됨.
 		{
 			step: 'size',
@@ -307,7 +309,6 @@ export const productFlowSteps = {
 			question: '하부장의 사이즈를 입력 해 주세요.',
 			next: 'formofwash'
 		},
-		
 		// 세면대 형태 선택 세면대와 대리석 중 하나로 선택됨.
 		{
 			step: 'formofwash',
@@ -373,6 +374,48 @@ export const productFlowSteps = {
 				{ value: 'two', label: '색상02' },
 				{ value: 'three', label: '색상03' }
 			],
+			next: 'door'
+		},
+		{
+			step: 'door',
+			label: '문 추가여부',
+			question: '문을 추가하시겠습니까?',
+			options: [
+				{ value: 'add', label: '추가' },
+				{ value: 'not_add', label: '추가 안함' }
+			],
+			next: (selectedOption) => selectedOption === 'add' ? 'CHANGED_BY_SERIES' : 'maguri'
+		},
+		{
+			step: 'formofdoor_slide',
+			label: '문 형태',
+			question: '문의 형태를 선택하세요.',
+			options: [
+				{ value: 'slide', label: '슬라이드' }
+			],
+			next: 'maguri'
+		},
+		{
+			step: 'formofdoor_other',
+			label: '문 형태',
+			question: '문의 형태를 선택하세요.',
+			options: [
+				{ value: 'open', label: '여닫이' },
+				{ value: 'drawer', label: '서랍식' },
+				{ value: 'mixed', label: '혼합식' }
+			],
+			next: 'numberofdoor'
+		},
+		{
+			step: 'numberofdoor',
+			label: '문 수량',
+			question: '문의 수량을 선택하세요.',
+			next: 'doorDirection'
+		},
+		{
+			step: 'doorDirection',
+			label: '문 방향',
+			question: '문의 방향을 입력하세요.',
 			next: 'maguri'
 		},
 		{
@@ -403,7 +446,6 @@ export const productFlowSteps = {
 			question: '마구리 사이즈를 입력해주세요.(1 ~ 250mm)',
 			next: 'hole'
 		},
-		
 		{
 			step: 'hole',
 			label: '상판 타공 유무',
@@ -412,48 +454,6 @@ export const productFlowSteps = {
 				{ value: 'add', label: '타공안함' },
 				{ value: 'not_add', label: '타공함' }
 			],
-			next: 'door'
-		},
-		{
-			step: 'door',
-			label: '문 추가여부',
-			question: '문을 추가하시겠습니까?',
-			options: [
-				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
-			],
-			next: (selectedOption) => selectedOption === 'add' ? 'CHANGED_BY_SERIES' : 'NEXT'
-		},
-		{
-			step: 'formofdoor_slide',
-			label: '문 형태',
-			question: '문의 형태를 선택하세요.',
-			options: [
-				{ value: 'slide', label: '슬라이드' }
-			],
-			next: 'NEXT'
-		},
-		{
-			step: 'formofdoor_other',
-			label: '문 형태',
-			question: '문의 형태를 선택하세요.',
-			options: [
-				{ value: 'open', label: '여닫이' },
-				{ value: 'drawer', label: '서랍식' },
-				{ value: 'mixed', label: '혼합식' }
-			],
-			next: 'numberofdoor'
-		},
-		{
-			step: 'numberofdoor',
-			label: '문 수량',
-			question: '문의 수량을 선택하세요.',
-			next: 'doorDirection'
-		},
-		{
-			step: 'doorDirection',
-			label: '문 방향',
-			question: '문의 방향을 입력하세요.',
 			next: 'NEXT'
 		},
 		{
@@ -493,7 +493,7 @@ export const productFlowSteps = {
 				{ value: 'two', label: '니켈' },
 				{ value: 'three', label: '골드' }
 			],
-			next: 'board'
+			next: 'CHANGED_BY_FORM'
 		},
 		{
 			step: 'handle_color_two',
@@ -504,7 +504,7 @@ export const productFlowSteps = {
 				{ value: 'two', label: '니켈' },
 				{ value: 'three', label: '골드' }
 			],
-			next: 'board'
+			next: 'CHANGED_BY_FORM'
 		},
 		{
 			step: 'handle_color_three',
@@ -516,7 +516,7 @@ export const productFlowSteps = {
 				{ value: 'three', label: '그레이' },
 				{ value: 'four', label: '블랙' }
 			],
-			next: 'board'
+			next: 'CHANGED_BY_FORM'
 		},
 		{
 			step: 'handle_color_four',
@@ -527,7 +527,7 @@ export const productFlowSteps = {
 				{ value: 'two', label: '니켈' },
 				{ value: 'three', label: '골드' }
 			],
-			next: 'board'
+			next: 'CHANGED_BY_FORM'
 		},
 		{
 			step: 'handle_color_five',
@@ -537,7 +537,7 @@ export const productFlowSteps = {
 				{ value: 'one', label: '실버' },
 				{ value: 'two', label: '골드' }
 			],
-			next: 'board'
+			next: 'CHANGED_BY_FORM'
 		},
 		{
 			step: 'board',

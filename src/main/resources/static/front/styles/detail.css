@@ -749,6 +749,15 @@ i#bag-icon.active {
 .non-standard-btn:hover {
 	background-color: #0056b3;
 }
+label{
+	height:48px;
+}
+input[readonly] {
+    background-color: #f0f0f0; /* 연한 회색 */
+    cursor: not-allowed; /* 사용 불가능한 커서 표시 */
+    color: #888; /* 글자 색도 흐리게 */
+    border: 1px solid #ccc; /* 테두리 색 변경 */
+}
 
 /* input 스타일 */
 .non-standard-input {

@@ -1,7 +1,7 @@
 # 동작 환경 설정
 spring:
   profiles:
-    active: test
+    active: prod
   application:
     name: HiddenBATHAuto
 server:
@@ -64,9 +64,9 @@ spring:
       on-profile: prod
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://localhost:3306/hidden7557?useUnicode=true&characterEncoding=utf8
-    username: hidden7557
-    password: hidden3660!@
+    url: jdbc:mariadb://203.245.44.21:3306/teriwoo2025?useUnicode=true&characterEncoding=utf8
+    username: teriwoo2025
+    password: ghksrka9274!
     hikari:
       connectionTimeout: 30000
       maximumPoolSize: 10
