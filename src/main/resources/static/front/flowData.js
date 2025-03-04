@@ -151,6 +151,16 @@ export const productFlowSteps = {
 			next: 'NEXT'
 		},
 		{
+			step: 'mirrorDirection',
+			label: '거울방향',
+			question: '좌측경 또는 우측경을 선택 해 주세요.',
+			options: [
+				{ value: 'left', label: '좌측경' },
+				{ value: 'right', label: '우측경' }
+			],
+			next: 'NEXT'
+		},
+		{
 			step: 'handle',
 			label: '손잡이 추가',
 			question: '손잡이를 추가하시겠습니까?',
@@ -414,14 +424,14 @@ export const productFlowSteps = {
 		},
 		{
 			step: 'doorDirection',
-			label: '문 방향',
-			question: '문의 방향을 입력하세요.',
+			label: '경첩 방향',
+			question: '경첩 방향을 입력하세요.',
 			next: 'maguri'
 		},
 		{
 			step: 'maguri',
 			label: '마구리 추가여부',
-			question: '마구리 추가여부를 선택하세요.',
+			question: '마구리 설치 위치를 선택하세요.',
 			options: [
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
