@@ -317,7 +317,7 @@ export const productFlowSteps = {
 			step: 'size',
 			label: '사이즈',
 			question: '하부장의 사이즈를 입력 해 주세요.',
-			next: 'formofwash'
+			next: 'CHANGED_BY_SERIES_ONLY'
 		},
 		// 세면대 형태 선택 세면대와 대리석 중 하나로 선택됨.
 		{
@@ -327,18 +327,21 @@ export const productFlowSteps = {
 			options: [
 				{ value: 'under', label: '언더볼' },
 				{ value: 'dogi', label: '도기매립' },
-				{ value: 'marble', label: '대리석' }
+				{ value: 'marble', label: '대리석' },
+				{ value: 'body', label: '바디만' } // ✅ 새로운 옵션 추가
 			],
 			next: (selectedOption) => {
-		        if (selectedOption === 'under') {
-		            return 'sortofunder'; // 언더볼
-		        } else if (selectedOption === 'dogi') {
-		            return 'sortofdogi'; // 도기매립
-		        } else if (selectedOption === 'marble') {
-		            return 'colorofmarble'; // 대리석
-		        }
-		        return null; // 기본값 (없을 경우)
-		    }
+				if (selectedOption === 'under') {
+					return 'sortofunder'; // 언더볼
+				} else if (selectedOption === 'dogi') {
+					return 'sortofdogi'; // 도기매립
+				} else if (selectedOption === 'marble') {
+					return 'colorofmarble'; // 대리석
+				} else if (selectedOption === 'body') {
+					return 'door'; // ✅ '바디만' 선택 시 door 단계로
+				}
+				return null;
+			}
 		},
 		{
 			step: 'sortofdogi',
@@ -414,7 +417,16 @@ export const productFlowSteps = {
 				{ value: 'drawer', label: '서랍식' },
 				{ value: 'mixed', label: '혼합식' }
 			],
-			next: 'numberofdoor'
+			next: (selectedOption) => {
+				if (selectedOption === 'open') {
+					return 'numberofdoor';       // 여닫이 → numberofdoor
+				} else if (selectedOption === 'drawer') {
+					return 'numberofdrawer';    // 서랍식 → numberofdrawer
+				} else if (selectedOption === 'mixed') {
+					return 'sizeofmaguri';      // 혼합식 → maguri 사이즈 입력
+				}
+				return null; // 기본값
+			}
 		},
 		{
 			step: 'numberofdoor',
@@ -426,6 +438,12 @@ export const productFlowSteps = {
 			step: 'doorDirection',
 			label: '경첩 방향',
 			question: '경첩 방향을 입력하세요.',
+			next: 'maguri'
+		},
+		{
+			step: 'numberofdrawer',
+			label: '서랍 수량',
+			question: '서랍의 수량을 선택하세요.',
 			next: 'maguri'
 		},
 		{

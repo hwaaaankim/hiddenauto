@@ -1,5 +1,6 @@
 import { initialQuestion, productFlowSteps } from './flowData.js';
 
+// 전역 변수 선언
 let selectedBigSort = null; // 1차 카테고리 선택 값
 let selectedMiddleSort = null; // 2차 카테고리 선택 값
 let currentFlow = ['category']; // 기본적으로 category는 포함됨
@@ -9,11 +10,10 @@ let washstandOptions = [];
 let doorDirectionOptions = [];
 let realFlow = []; // 선택된 제품에 맞는 흐름을 저장하는 변수
 let lowDoorDirectionPlaceholder = ''; // Low 카테고리용 placeholder 문자열 저장 변수
-
-// 전역 변수 선언
 let preloadedData = {
 	middleSort: [] // MiddleSort 데이터를 저장할 배열
 };
+let finalMessages = [];  // <p>로 출력될 메시지 배열
 const sampleDataSet = {
     "category": {
         "label": "하부장",
@@ -38,6 +38,14 @@ AOS.init({
 	easing: 'ease-in-out',
 	once: true
 });
+
+function addFinalMessage(step, message) {
+    // 동일한 step과 message가 이미 존재하는지 확인
+    const exists = finalMessages.some(msg => msg.step === step && msg.message === message);
+    if (!exists) {
+        finalMessages.push({ step, message });
+    }
+}
 function getLowDoorDirectionPlaceholder() {
     const formofdoorOtherValue = selectedAnswerValue['formofdoor_other'];
 
@@ -50,6 +58,20 @@ function getLowDoorDirectionPlaceholder() {
     }
     return '';
 }
+
+function determineDoorType(width) {
+	if (width > 800) return;
+
+	// realFlow에서 step이 'formofdoor_other'인 객체 찾기
+	const doorStep = realFlow.find(step => step.step === 'formofdoor_other');
+
+	if (doorStep && Array.isArray(doorStep.options)) {
+		doorStep.options = doorStep.options.filter(option => option.value !== 'mixed');
+	} else {
+		console.warn('⚠️ formofdoor_other 스텝이 존재하지 않거나 옵션이 없습니다.');
+	}
+}
+
 
 function assignModifiedNextValuesToCurrentFlow() {
     const categoryKey = selectedBigSort ? selectedBigSort.value : null;
@@ -90,7 +112,11 @@ function assignModifiedNextValues(flow) {
             }
         }
     });
-
+	flow.forEach(step => {
+        if (step.next === 'CHANGED_BY_SERIES_ONLY') {
+            step.next = (middleSort === 12) ? 'numberofwash' : 'formofwash';
+        }
+    });
     // 2. form 값이 'leg'이면 'CHANGED_BY_FORM' 값을 'board'로 변경
     if (form === 'leg') {
         flow.forEach(step => {
@@ -109,7 +135,6 @@ function assignModifiedNextValues(flow) {
                 boardNextValue = step.next('not_add'); // 기존 'NEXT' 값 가져옴
             }
         });
-
         // 'CHANGED_BY_FORM' 값 변경
         flow.forEach(step => {
             if (step.next === 'CHANGED_BY_FORM') {
@@ -117,10 +142,7 @@ function assignModifiedNextValues(flow) {
             }
         });
     }
-
-    console.log(flow); // 변경된 flow 출력
 }
-
 
 function determineWashstandOptions(sizeOrWidth) {
     let width = parseInt(sizeOrWidth);
@@ -200,6 +222,7 @@ function filterFlowBySign(product, templateFlow) {
 		outlet: !product.outletAddSign,
 		handle: !product.handleAddSign,
 		mirror: !product.mirrorDirectionSign,
+		// numberofdoor: !product.doorAmountSign
 	};
 
 	return templateFlow.filter(step => {
@@ -641,7 +664,13 @@ function renderInitialQuestion() {
 		const button = document.createElement('button');
 		button.innerText = option.label; // label로 버튼 텍스트 설정
 		button.classList.add('non-standard-btn');
-		button.onclick = () => handleCategorySelection(option); // 전체 객체 전달
+		button.onclick = () => {
+			// ✅ 상부장(top) 선택 시 메시지 추가
+			if (option.value === 'top') {
+				addFinalMessage('category', '하부 조명 공간이 필요하신 경우 비고란에 작성 부탁드립니다');
+			}
+			handleCategorySelection(option); // 전체 객체 전달
+		};
 		optionDiv.appendChild(button);
 	});
 
@@ -873,7 +902,7 @@ function handleDirectInput(inputValue, categoryKey, step) {
 	// 초기화 버튼 추가
 	const resetButton = document.createElement('button');
 	resetButton.innerText = '[초기화]';
-	resetButton.classList.add('non-standard-btn'); // 디자인 클래스 추가
+	resetButton.classList.add('non-standard-btn', 'non-answer-btn'); // 디자인 클래스 추가
 	resetButton.onclick = () => resetStep(step.step); // 해당 단계 초기화 처리
 	answerDiv.appendChild(resetButton);
 
@@ -902,7 +931,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 	return new Promise((resolve, reject) => {
 		const flow = realFlow.length > 0 ? realFlow : productFlowSteps[categoryKey]; // realFlow 우선
 		const step = flow[stepIndex];
-
 		if (!step) {
 			reject('Invalid step provided.');
 			return;
@@ -1050,14 +1078,16 @@ function updateProductOptions(categoryKey, stepIndex) {
 					}
 					if (categoryKey === 'low') {
 						determineWashstandOptions(width);
+						determineDoorType(width); 
 					}
 					const sizeText = `넓이: ${width}, 높이: ${height}${categoryKey !== 'mirror' ? `, 깊이: ${depth}` : ''}`;
 					handleDirectInput(sizeText, categoryKey, step);
 					resolve();
 				});
+				
 				optionDiv.appendChild(confirmButton);
 			}
-		} else if (step.step === 'numberofdoor' && numberOfOption.length > 0) {
+		} else if ((step.step === 'numberofdoor' || step.step === 'numberofdrawer') && numberOfOption.length > 0) {
 			numberOfOption.forEach(option => {
 				const button = document.createElement('button');
 				button.innerText = `${option}개`;
@@ -1317,7 +1347,12 @@ function updateProductOptions(categoryKey, stepIndex) {
 						input2.value = '';
 						return;
 					}
-
+					
+					const smaller = Math.min(value1, value2);
+					if (smaller > 500) {
+						alert('문을 여닫이 문으로 변경 원하는 경우에 마지막 단계의 비고란에 작성 부탁드립니다.');
+					}
+					
 					// 검증 통과 시 다음 단계로 이동
 					const ratioText = `${value1}:${value2}`;
 					handleProductSelection(ratioText, categoryKey, step);
@@ -1445,78 +1480,91 @@ function renderAnswer(step, product, categoryKey = '') {
 		finalWrap.id = 'final-wrap';
 		finalWrap.classList.add('non-standard-answer');
 		finalWrap.style.opacity = '0'; // 초기 상태에서 투명하게 설정
-
-		// low 카테고리인 경우 textarea와 파일 업로드 필드를 추가
-		//if (categoryKey === 'low') {
+		
+		// ✅ 1. 안내 메시지 <p> 출력
+		if (finalMessages.length > 0) {
+			const messageContainer = document.createElement('div');
+			messageContainer.classList.add('final-message-container'); // 스타일링용 클래스
+		
+			finalMessages.forEach(({ step, message }) => {
+				const p = document.createElement('p');
+				p.classList.add('final-message-item');
+				p.innerText = message;
+				messageContainer.appendChild(p);
+			});
+		
+			finalWrap.appendChild(messageContainer);
+		}
+		
+		// ✅ 2. textarea
 		const additionalInfo = document.createElement('textarea');
 		additionalInfo.placeholder = '추가 정보 입력';
 		additionalInfo.classList.add('non-standard-textarea');
 		finalWrap.appendChild(additionalInfo);
-
+		
+		// ✅ 3. 파일 업로드
 		const fileUpload = document.createElement('input');
 		fileUpload.type = 'file';
 		fileUpload.classList.add('non-standard-file-upload');
 		finalWrap.appendChild(fileUpload);
-		//}
-
+		
+		// ✅ 4. 메시지
 		const finalMessage = document.createElement('span');
 		finalMessage.innerText = '선택이 완료되었습니다.';
 		finalWrap.appendChild(finalMessage);
-
+		
+		// ✅ 5. 수량 입력
 		const quantityLabel = document.createElement('label');
 		quantityLabel.innerText = '수량: ';
 		finalWrap.appendChild(quantityLabel);
-
+		
 		const quantityInput = document.createElement('input');
 		quantityInput.type = 'number';
 		quantityInput.id = 'final-quantity';
 		quantityInput.value = 1; // 기본값 설정
 		quantityInput.classList.add('non-standard-input');
 		quantityLabel.appendChild(quantityInput);
-
+		
+		// ✅ 6. 장바구니 버튼
 		const cartButton = document.createElement('button');
 		cartButton.id = 'cart-btn';
 		cartButton.innerText = '장바구니';
-		cartButton.classList.add('non-standard-btn');
-		if (cartButton) {
-			cartButton.addEventListener('click', () => {
-				if (confirm('장바구니에 담으시겠습니까?')) {
-					addToCart();
-				}
-			});
-		}
+		cartButton.classList.add('non-standard-btn', 'non-answer-btn');
+		cartButton.addEventListener('click', () => {
+			if (confirm('장바구니에 담으시겠습니까?')) {
+				addToCart();
+			}
+		});
 		finalWrap.appendChild(cartButton);
-
+		
+		// ✅ 7. 발주하기 버튼
 		const orderButton = document.createElement('button');
 		orderButton.id = 'order-btn';
 		orderButton.innerText = '발주하기';
-		orderButton.classList.add('non-standard-btn');
-		if (orderButton) {
-			orderButton.addEventListener('click', () => {
-				if (confirm('발주 하시겠습니까?')) {
-					addToOrder();
-				}
-			});
-		}
-
+		orderButton.classList.add('non-standard-btn', 'non-answer-btn');
+		orderButton.addEventListener('click', () => {
+			if (confirm('발주 하시겠습니까?')) {
+				addToOrder();
+			}
+		});
 		finalWrap.appendChild(orderButton);
+		
+		// ✅ 8. DOM에 삽입
 		const lastStep = currentFlow[currentFlow.length - 2]; // 마지막 이전 단계
 		const lastStepWrap = document.getElementById(`${lastStep}-wrap`);
-
 		if (lastStepWrap) {
 			lastStepWrap.insertAdjacentElement('afterend', finalWrap);
-		} else {
+		} else if (answerDiv) {
 			answerDiv.appendChild(finalWrap);
 		}
-
-		// fadeIn 애니메이션 처리
+		
+		// ✅ 9. 애니메이션 및 스크롤
 		setTimeout(() => {
 			finalWrap.style.opacity = '1';
 		}, 10);
-
-		// AOS 및 스크롤 처리 추가
 		AOS.refresh();
-		scrollIfNeeded(finalWrap);  // 스크롤 처리
+		scrollIfNeeded(finalWrap);
+
 	}
 }
 
@@ -1733,14 +1781,23 @@ function resetStep(step) {
         toggleButtonUsage('three-d-btn', false); // 비활성화
 	}
 	
+	// `currentFlow` 배열 초기화
+	const resetIndex = currentFlow.indexOf(step);
+	currentFlow = currentFlow.slice(0, resetIndex + 1);
 	// 선택한 단계 이후의 모든 단계 제거
 	const stepsToDelete = currentFlow.slice(currentFlow.indexOf(step) + 1);
+	const messagesToDelete = currentFlow.slice(currentFlow.indexOf(step));
 	stepsToDelete.forEach((stepToDelete) => {
 		const wrapDiv = document.getElementById(`${stepToDelete}-wrap`);
 		if (wrapDiv) fadeOutElement(wrapDiv);
 		delete selectedAnswerValue[stepToDelete];
 	});
-
+	delete selectedAnswerValue[step];
+	// ✅ 메시지 배열에서도 해당 스텝 메시지 삭제
+	finalMessages = finalMessages.filter(msg => {
+		return !messagesToDelete.includes(msg.step);
+	});
+	
 	if (step === 'product') {
 		realFlow = []; // 제품 단계에서 realFlow 초기화
 	}
@@ -1758,17 +1815,17 @@ function resetStep(step) {
 		selectedMiddleSort = null;
 	}
 	const productIndex = currentFlow.indexOf('product');
-    if (productIndex !== -1 && stepIndex > productIndex && stepIndex <= sizeIndex) {
+    if (step != 'middleSort' && step != 'category' && step != 'product') {
         const selectedMiddleSort = preloadedData.middleSort.find(
             middleSort => middleSort.id === selectedAnswerValue['middleSort']
         );
-
         if (selectedMiddleSort) {
             const selectedProduct = selectedMiddleSort.products.find(
                 product => product.id === selectedAnswerValue['product']
             );
             if (selectedProduct) {
                 realFlow = generateRealFlow(selectedProduct, productFlowSteps[selectedAnswerValue['category'].value]);
+                assignModifiedNextValuesToCurrentFlow(); 
             } else {
                 console.error("선택된 product 데이터를 찾을 수 없습니다.");
             }
@@ -1776,9 +1833,7 @@ function resetStep(step) {
             console.error("middleSort 데이터를 찾을 수 없습니다.");
         }
     }
-	// `currentFlow` 배열 초기화
-	const resetIndex = currentFlow.indexOf(step);
-	currentFlow = currentFlow.slice(0, resetIndex + 1);
+
 
 	// 옵션 비활성화 해제
 	const optionDiv = document.getElementById(`${step}-option`);
