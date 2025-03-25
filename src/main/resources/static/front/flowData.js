@@ -134,7 +134,7 @@ export const productFlowSteps = {
 			question: '문을 추가하시겠습니까?',
 			options: [
 				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
+				{ value: 'not_add', label: '추가 안함(바디만)' }
 			],
 			next: (selectedOption) => selectedOption === 'add' ? 'numberofdoor' : 'NEXT'
 		},
@@ -176,17 +176,19 @@ export const productFlowSteps = {
 			question: '손잡이 종류를 선택 해 주세요.',
 			options: [
 				{ value: 'handle_one', label: '히든 돌체 손잡이' },
-				{ value: 'handle_two', label: '히든 D형 손잡이' },
+				{ value: 'handle_two', label: '히든 D형(195) 손잡이' },
 				{ value: 'handle_three', label: '히든 하프 손잡이' },
 				{ value: 'handle_four', label: '히든 O형 손잡이' },
-				{ value: 'handle_five', label: '원형 손잡이' }
+				{ value: 'handle_five', label: '원형 손잡이' },
+				{ value: 'handle_six', label: '히든 D형(310) 손잡이' }
 			],
 			next: (selectedOption) =>
 				selectedOption === 'handle_one' ? 'handle_color_one' :
 				selectedOption === 'handle_two' ? 'handle_color_two' :
 				selectedOption === 'handle_three' ? 'handle_color_three' :
 				selectedOption === 'handle_four' ? 'handle_color_four' :
-				'handle_color_five'
+				selectedOption === 'handle_five' ? 'handle_color_five' : 
+				'handle_color_six'
 		},
 		{
 			step: 'handle_color_one',
@@ -240,6 +242,17 @@ export const productFlowSteps = {
 			options: [
 				{ value: 'one', label: '실버' },
 				{ value: 'two', label: '골드' }
+			],
+			next: 'NEXT_SAME'
+		},
+		{
+			step: 'handle_color_six',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
 			],
 			next: 'NEXT_SAME'
 		},
@@ -395,7 +408,7 @@ export const productFlowSteps = {
 			question: '문을 추가하시겠습니까?',
 			options: [
 				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
+				{ value: 'not_add', label: '추가 안함(바디만)' }
 			],
 			next: (selectedOption) => selectedOption === 'add' ? 'CHANGED_BY_SERIES' : 'maguri'
 		},
@@ -500,17 +513,19 @@ export const productFlowSteps = {
 			question: '손잡이 종류를 선택 해 주세요.',
 			options: [
 				{ value: 'handle_one', label: '히든 돌체 손잡이' },
-				{ value: 'handle_two', label: '히든 D형 손잡이' },
+				{ value: 'handle_two', label: '히든 D형(195) 손잡이' },
 				{ value: 'handle_three', label: '히든 하프 손잡이' },
 				{ value: 'handle_four', label: '히든 O형 손잡이' },
-				{ value: 'handle_five', label: '원형 손잡이' }
+				{ value: 'handle_five', label: '원형 손잡이' },
+				{ value: 'handle_six', label: '히든 D형(310) 손잡이' }
 			],
 			next: (selectedOption) =>
 				selectedOption === 'handle_one' ? 'handle_color_one' :
 				selectedOption === 'handle_two' ? 'handle_color_two' :
 				selectedOption === 'handle_three' ? 'handle_color_three' :
 				selectedOption === 'handle_four' ? 'handle_color_four' :
-				'handle_color_five'
+				selectedOption === 'handle_five' ? 'handle_color_five' : 
+				'handle_color_six'
 		},
 		{
 			step: 'handle_color_one',
@@ -564,6 +579,17 @@ export const productFlowSteps = {
 			options: [
 				{ value: 'one', label: '실버' },
 				{ value: 'two', label: '골드' }
+			],
+			next: 'CHANGED_BY_FORM'
+		},
+		{
+			step: 'handle_color_six',
+			label: '손잡의 색상',
+			question: '손잡이 색상을 선택 해 주세요.',
+			options: [
+				{ value: 'one', label: '크롬' },
+				{ value: 'two', label: '니켈' },
+				{ value: 'three', label: '골드' }
 			],
 			next: 'CHANGED_BY_FORM'
 		},
@@ -660,7 +686,7 @@ export const productFlowSteps = {
 			question: '문을 추가하시겠습니까?',
 			options: [
 				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
+				{ value: 'not_add', label: '추가 안함(바디만)' }
 			],
 			next: (selectedOption, currentSelection) => {
 				if (selectedOption === 'not_add') return 'NEXT';

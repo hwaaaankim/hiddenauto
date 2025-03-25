@@ -1814,7 +1814,6 @@ function resetStep(step) {
 		realFlow = [];
 		selectedMiddleSort = null;
 	}
-	const productIndex = currentFlow.indexOf('product');
     if (step != 'middleSort' && step != 'category' && step != 'product') {
         const selectedMiddleSort = preloadedData.middleSort.find(
             middleSort => middleSort.id === selectedAnswerValue['middleSort']
