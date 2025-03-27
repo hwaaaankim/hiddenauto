@@ -1106,5 +1106,43 @@ input:checked + .slider:before {
     color: #333;
     gap: 8px; /* 텍스트와 스위치 사이 간격 */
 }
+.final-message-container{
+	text-align:left;
+	padding-left:5px;
+	margin-bottom:10px;
+}
+.final-message-container .final-message-item{
+	text-align:left;
+	margin-bottom:0px;
+	line-height:1.2;
+	color:darkred;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

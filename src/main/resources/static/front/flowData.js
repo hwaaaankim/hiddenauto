@@ -262,9 +262,10 @@ export const productFlowSteps = {
 			question: 'LED를 추가하시겠습니까?',
 			options: [
 				{ value: 'add', label: '추가' },
-				{ value: 'not_add', label: '추가 안함' }
+				{ value: 'not_add', label: '추가안함(조명공간없음)' },
+				{ value: 'space', label: '추가안함(조명공간추가)' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'ledPosition' : 'NEXT'
+			next: (selectedOption) => ['not_add', 'space'].includes(selectedOption) ? 'NEXT' : 'ledPosition'
 		},
 		{
 			step: 'ledPosition',
@@ -774,6 +775,16 @@ export const productFlowSteps = {
 			step: 'size',
 			label: '사이즈',
 			question: '슬라이드장의 사이즈를 입력하세요.',
+			next: 'door'
+		},
+		{
+			step: 'door',
+			label: '문 추가여부',
+			question: '문을 추가 하시겠습니까?',
+			options: [
+				{ value: 'add', label: '추가함' },
+				{ value: 'not_add', label: '추가하지않음(바디만)' }
+			],
 			next: 'NEXT'
 		},
 		{

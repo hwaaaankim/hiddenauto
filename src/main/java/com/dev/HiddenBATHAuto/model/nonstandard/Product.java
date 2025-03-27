@@ -61,6 +61,9 @@ public class Product {
     @Column(name="PRODUCT_REP_IMAGE_ROAD")
     private String productRepImageRoad;
         
+    @Column(name="SIZE_RATIO_SIGN")
+    private Boolean sizeRatioSign;
+    
     @Column(name="MIRROR_DIRECTION_SIGN")
     private Boolean mirrorDirectionSign;
     

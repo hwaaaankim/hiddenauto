@@ -14,6 +14,9 @@ let preloadedData = {
 	middleSort: [] // MiddleSort 데이터를 저장할 배열
 };
 let finalMessages = [];  // <p>로 출력될 메시지 배열
+// 장바구니, 발주 버튼 클릭 시 localStorage에 데이터 저장 및 flow 초기화 함수
+let selectedAnswerValue = {}; // 선택한 값을 저장할 객체
+
 const sampleDataSet = {
     "category": {
         "label": "하부장",
@@ -667,14 +670,18 @@ function renderInitialQuestion() {
 		button.onclick = () => {
 			// ✅ 상부장(top) 선택 시 메시지 추가
 			if (option.value === 'top') {
-				addFinalMessage('category', '하부 조명 공간이 필요하신 경우 비고란에 작성 부탁드립니다');
+				addFinalMessage('category', '* 하부 조명 공간이 필요하신 경우 비고란에 작성 부탁드립니다.');
+			}
+			if (option.value != 'mirror') {
+				addFinalMessage('category', '* 손잡이의 갯수, 색상에 대한 자세한 사항을 비고란에 작성 부탁드립니다.');
+			}
+			if (option.value === 'slide') {
+				addFinalMessage('category', '* 문 추가없이 바디만인 경우 비고란에 기재 부탁드립니다.');
 			}
 			handleCategorySelection(option); // 전체 객체 전달
 		};
 		optionDiv.appendChild(button);
 	});
-
-
 	categoryWrap.appendChild(optionDiv);
 	chatBox.appendChild(categoryWrap);
 	AOS.refresh(); // AOS 초기화
@@ -978,7 +985,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 		        optionDiv.appendChild(button);
 		    });
         }
-		// 유저가 선택한 제품 정보 콘솔 출력
 		else if (step.step === 'size') {
 			// sizeChangeSign 체크 (추가)
 			if (selectedProductInfo.sizeChangeSign) {
@@ -1026,34 +1032,44 @@ function updateProductOptions(categoryKey, stepIndex) {
 				    }
 				
 				    // 값 변경 이벤트 (최소/최대 값 검토 + A/S 불가능 경고 추가)
-				    input.addEventListener('change', () => {
-				        const minValue = parseInt(input.min);
-				        const maxValue = parseInt(input.max);
-				        const value = parseInt(input.value);
-				
-				        if (value < minValue) {
-				            input.value = minValue;
-				            alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최소 ${minValue} 이상이어야 합니다.`);
-				        } else if (value > maxValue) {
-				            input.value = maxValue;
-				            alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최대 ${maxValue} 이하이어야 합니다.`);
-				        }
-				
-				        // ✅ A/S 불가능 조건 추가
-				        const categoryKey = selectedBigSort ? selectedBigSort.value : null;
-				        const width = parseInt(document.getElementById('width-input').value);
-				        const height = parseInt(document.getElementById('height-input').value);
-				
-				        if (categoryKey === 'top' && (width >= 1800 || height >= 1000)) {
-				            alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
-				        }
-				        if (categoryKey === 'slide' && (width >= 1800 || height >= 1000)) {
-				            alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
-				        }
-				        if (categoryKey === 'flap' && (width >= 1500 || height >= 600)) {
-				            alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
-				        }
-				    });
+				   input.addEventListener('change', () => {
+
+						const minValue = parseInt(input.min);
+						const maxValue = parseInt(input.max);
+						const value = parseInt(input.value);
+					
+						if (value < minValue) {
+							input.value = minValue;
+							alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최소 ${minValue} 이상이어야 합니다.`);
+						} else if (value > maxValue) {
+							input.value = maxValue;
+							alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최대 ${maxValue} 이하이어야 합니다.`);
+						}
+					
+						// ✅ A/S 불가 및 비율 체크 전에 width/height 추출
+						const categoryKey = selectedBigSort ? selectedBigSort.value : null;
+						const width = parseInt(document.getElementById('width-input').value);
+						const height = parseInt(document.getElementById('height-input').value);
+					
+						// ✅ (2) 1:1 비율 검증 (원형일 경우)
+						if (selectedProductInfo.sizeRatioSign) {
+							if (width !== height) {
+								alert('이 제품은 원형 형태이므로, 넓이와 높이는 반드시 같아야 합니다. (1:1 비율)');
+							}
+						}
+					
+						// ✅ (3) A/S 불가능 조건 안내
+						if (categoryKey === 'top' && (width >= 1800 || height >= 1000)) {
+							alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
+						}
+						if (categoryKey === 'slide' && (width >= 1800 || height >= 1000)) {
+							alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
+						}
+						if (categoryKey === 'flap' && (width >= 1500 || height >= 600)) {
+							alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
+						}
+					});
+
 				
 				    label.appendChild(input);
 				    optionDiv.appendChild(label);
@@ -1067,12 +1083,31 @@ function updateProductOptions(categoryKey, stepIndex) {
 					const width = parseInt(document.getElementById('width-input').value);
 					const height = parseInt(document.getElementById('height-input').value);
 					const depth = categoryKey === 'mirror' ? null : parseInt(document.getElementById('depth-input').value);
-
+				
 					if (!width || !height || (categoryKey !== 'mirror' && !depth)) {
 						alert('모든 필드를 입력하세요.');
 						return;
 					}
-
+				
+					// ✅ 클릭 시 검증 추가
+					if (selectedProductInfo.sizeRatioSign && width !== height) {
+						alert('이 제품은 원형 형태이므로, 넓이와 높이는 반드시 같아야 합니다. (1:1 비율)');
+						return;
+					}
+					if (categoryKey === 'top' && (width >= 1800 || height >= 1000)) {
+						alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
+						return;
+					}
+					if (categoryKey === 'slide' && (width >= 1800 || height >= 1000)) {
+						alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
+						return;
+					}
+					if (categoryKey === 'flap' && (width >= 1500 || height >= 600)) {
+						alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
+						return;
+					}
+				
+					// 정상 처리
 					if (categoryKey === 'top' || categoryKey === 'low') {
 						determineNumberOfOptions(width);
 					}
@@ -1084,6 +1119,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 					handleDirectInput(sizeText, categoryKey, step);
 					resolve();
 				});
+
 				
 				optionDiv.appendChild(confirmButton);
 			}
@@ -1141,9 +1177,13 @@ function updateProductOptions(categoryKey, stepIndex) {
 		
 		        button.addEventListener('click', () => {
 		            handleProductSelection(option.value, categoryKey, step);
-		            
 		            // 선택 후 lowDoorDirectionPlaceholder 업데이트
 		            lowDoorDirectionPlaceholder = getLowDoorDirectionPlaceholder();
+		            if (option.value === 'drawer') {
+		                addFinalMessage('formofdoor_other', '* 서랍의 갯수, 위치에 대한 자세한 설명을 비고란에 작성 부탁드립니다.');
+		            } else if (option.value === 'mixed') {
+		                addFinalMessage('formofdoor_other', '* 비고에 문에 대한 자세한 설명을 입력 및 도면 첨부 부탁드립니다.');
+		            }
 		        });
 		        optionDiv.appendChild(button);
 		    });
@@ -1768,7 +1808,7 @@ function getCategoryKey(selectedBigSort) {
 function resetStep(step) {
 	const answerDiv = document.getElementById(`${step}-answer`);
 	if (answerDiv) {
-		fadeOutElement(answerDiv);
+		fadeOutElement(answerDiv); // 답변은 사라져도 됨
 	}
 
 	// 초기화 조건 추가: size 또는 size 이전 단계일 때만 초기화
@@ -1780,28 +1820,37 @@ function resetStep(step) {
 	    toggleButtonUsage('modeling-btn', false); // 비활성화
         toggleButtonUsage('three-d-btn', false); // 비활성화
 	}
-	
-	// `currentFlow` 배열 초기화
-	const resetIndex = currentFlow.indexOf(step);
-	currentFlow = currentFlow.slice(0, resetIndex + 1);
-	// 선택한 단계 이후의 모든 단계 제거
+
+	// ✅ 해당 단계 이후만 삭제하도록 stepsToDelete 재정의
 	const stepsToDelete = currentFlow.slice(currentFlow.indexOf(step) + 1);
-	const messagesToDelete = currentFlow.slice(currentFlow.indexOf(step));
+	const messagesToDelete = [...stepsToDelete];
+
+	// ✅ currentFlow 재정의 (해당 단계까지만 유지)
+	currentFlow = currentFlow.slice(0, currentFlow.indexOf(step) + 1);
+
+	console.log(currentFlow);
+	console.log(stepsToDelete);
+
+	// ✅ 이후 단계 제거
 	stepsToDelete.forEach((stepToDelete) => {
 		const wrapDiv = document.getElementById(`${stepToDelete}-wrap`);
 		if (wrapDiv) fadeOutElement(wrapDiv);
+
+		const answerDiv = document.getElementById(`${stepToDelete}-answer`);
+		if (answerDiv) fadeOutElement(answerDiv);
+
 		delete selectedAnswerValue[stepToDelete];
 	});
-	delete selectedAnswerValue[step];
+
 	// ✅ 메시지 배열에서도 해당 스텝 메시지 삭제
 	finalMessages = finalMessages.filter(msg => {
 		return !messagesToDelete.includes(msg.step);
 	});
-	
+
 	if (step === 'product') {
 		realFlow = []; // 제품 단계에서 realFlow 초기화
 	}
-	
+
 	// 1차, 2차 카테고리 초기화
 	if (step === 'category') {
 		realFlow = [];
@@ -1814,37 +1863,39 @@ function resetStep(step) {
 		realFlow = [];
 		selectedMiddleSort = null;
 	}
-    if (step != 'middleSort' && step != 'category' && step != 'product') {
-        const selectedMiddleSort = preloadedData.middleSort.find(
-            middleSort => middleSort.id === selectedAnswerValue['middleSort']
-        );
-        if (selectedMiddleSort) {
-            const selectedProduct = selectedMiddleSort.products.find(
-                product => product.id === selectedAnswerValue['product']
-            );
-            if (selectedProduct) {
-                realFlow = generateRealFlow(selectedProduct, productFlowSteps[selectedAnswerValue['category'].value]);
-                assignModifiedNextValuesToCurrentFlow(); 
-            } else {
-                console.error("선택된 product 데이터를 찾을 수 없습니다.");
-            }
-        } else {
-            console.error("middleSort 데이터를 찾을 수 없습니다.");
-        }
-    }
 
+	// 제품 흐름 재생성
+	if (step !== 'middleSort' && step !== 'category' && step !== 'product') {
+		const selectedMiddleSort = preloadedData.middleSort.find(
+			middleSort => middleSort.id === selectedAnswerValue['middleSort']
+		);
+		if (selectedMiddleSort) {
+			const selectedProduct = selectedMiddleSort.products.find(
+				product => product.id === selectedAnswerValue['product']
+			);
+			if (selectedProduct) {
+				realFlow = generateRealFlow(selectedProduct, productFlowSteps[selectedAnswerValue['category'].value]);
+				assignModifiedNextValuesToCurrentFlow();
+			} else {
+				console.error("선택된 product 데이터를 찾을 수 없습니다.");
+			}
+		} else {
+			console.error("middleSort 데이터를 찾을 수 없습니다.");
+		}
+	}
 
-	// 옵션 비활성화 해제
+	// ✅ 옵션 비활성화 해제 (삭제하지 않고 유지!)
 	const optionDiv = document.getElementById(`${step}-option`);
 	if (optionDiv) {
 		optionDiv.classList.remove('disabled-option');
 	}
-	
-	// 초기 질문 렌더링
+
+	// ✅ 초기 질문 렌더링
 	if (step === 'category') {
 		renderInitialQuestion();
 	}
 }
+
 
 function scrollIfNeeded(nextOptionsContainer) {
 	const chatBox = document.getElementById('chat-box');
@@ -1868,8 +1919,6 @@ function scrollIfNeeded(nextOptionsContainer) {
 	}
 }
 
-// 장바구니, 발주 버튼 클릭 시 localStorage에 데이터 저장 및 flow 초기화 함수
-let selectedAnswerValue = {}; // 선택한 값을 저장할 객체
 
 // 장바구니에 항목 추가 후 초기화
 function addToCart() {
