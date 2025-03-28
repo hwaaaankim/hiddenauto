@@ -115,7 +115,8 @@ public class ExcelUploadService {
 	                            product.setDoorRatioSign(parseBoolean(excelUtils.getCellValue(row.getCell(22))));
 	                            product.setMirrorDirectionSign(parseBoolean(excelUtils.getCellValue(row.getCell(23))));
 	                            product.setSizeChangeSign(parseBoolean(excelUtils.getCellValue(row.getCell(24))));
-
+	                            product.setSizeRatioSign(parseBoolean(excelUtils.getCellValue(row.getCell(37))));
+	                            
 	                            // BigSort와 MiddleSort 처리
 	                            product.setSeries(productSeriesRepository.findById(parseLong(excelUtils.getCellValue(row.getCell(25))))
 	                            		.orElseThrow(() -> new RuntimeException("Series not found")));

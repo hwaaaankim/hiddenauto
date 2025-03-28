@@ -749,6 +749,15 @@ i#bag-icon.active {
 .non-standard-btn:hover {
 	background-color: #0056b3;
 }
+.non-standard-btn:disabled {
+    background-color: #f0f0f0;
+    color: #aaa;
+    border: 1px solid #ccc;
+    cursor: not-allowed;
+    pointer-events: none; /* hover 효과 차단 */
+    transition: none; /* 애니메이션 제거 */
+}
+
 label{
 	height:48px;
 }
@@ -1119,6 +1128,27 @@ input:checked + .slider:before {
 }
 
 
+/* 가격계산 영수증 디자인 */
+.receipt-style {
+	border: 1px dashed #888;
+	background-color: #fefefe;
+	padding: 15px;
+	margin-top: 20px;
+	border-radius: 8px;
+	box-shadow: 0 0 5px rgba(0,0,0,0.1);
+	font-size: 14px;
+}
+
+.receipt-style h4 {
+	margin-bottom: 10px;
+	font-size: 16px;
+	color: #333;
+}
+
+.receipt-style p {
+	margin: 0px;
+	line-height:1.4;
+}
 
 
 
