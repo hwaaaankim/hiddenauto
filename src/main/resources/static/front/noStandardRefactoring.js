@@ -122,12 +122,27 @@ function assignModifiedNextValues(flow) {
     });
     // 2. form 값이 'leg'이면 'CHANGED_BY_FORM' 값을 'board'로 변경
     if (form === 'leg') {
-        flow.forEach(step => {
-            if (step.next === 'CHANGED_BY_FORM') {
-                step.next = 'board';
-            }
-        });
-    } 
+	    flow.forEach(step => {
+	        // 1. next가 문자열로 CHANGED_BY_FORM이면 직접 대입
+	        if (step.next === 'CHANGED_BY_FORM') {
+	            step.next = 'board';
+	        }
+	
+	        // 2. next가 함수인 경우 함수 내부 문자열을 분석
+	        if (typeof step.next === 'function') {
+	            const fnStr = step.next.toString();
+	            if (fnStr.includes('"CHANGED_BY_FORM"') || fnStr.includes("'CHANGED_BY_FORM'")) {
+	                const args = fnStr.match(/\((.*?)\)/)?.[1] || 'selectedOption';
+	                const body = fnStr
+	                    .replace(/['"]CHANGED_BY_FORM['"]/g, `'board'`)
+	                    .replace(/^.*?=>\s*/, ''); // 화살표 함수에서 본문만 추출
+	
+	                step.next = new Function(args, `return ${body};`);
+	            }
+	        }
+	    });
+	}
+
     // form 값이 'notleg'이면 'board' 스텝의 next 값을 기존 'NEXT' 값으로 변경
 	else if (form === 'notleg') {
 	    let boardNextValue = 'final'; // 기본값
@@ -171,56 +186,72 @@ function determineWashstandOptions(sizeOrWidth) {
         washstandOptions = [1, 2, 3];  // 1개, 2개 또는 3개 가능
     }
 }
+
 function assignNextValues(filteredFlow) {
-    const nextValuesQueue = []; // NEXT를 처리할 큐
-    let lastFixedNextIndex = -1; // 직전 "NEXT"의 인덱스를 저장
+    const nextValuesQueue = []; // NEXT 큐
+    let lastFixedNextIndex = -1; // 마지막 NEXT 인덱스
 
     // 1. 고정된 NEXT 처리
     for (let i = 0; i < filteredFlow.length; i++) {
         const currentStep = filteredFlow[i];
         const nextStep = filteredFlow[i + 1] ? filteredFlow[i + 1].step : 'final';
 
-        // NEXT 처리 (순서 유지)
         if (typeof currentStep.next === 'string' && currentStep.next === 'NEXT') {
             currentStep.next = nextStep;
-            nextValuesQueue.push(nextStep); // 큐에 저장
-            lastFixedNextIndex = nextValuesQueue.length - 1; // 마지막 NEXT 인덱스 저장
+            nextValuesQueue.push(nextStep);
+            lastFixedNextIndex = nextValuesQueue.length - 1;
         }
     }
 
-    // 2. NEXT_SAME 처리
-    let nextSameIndex = 0; // NEXT_SAME이 첫 번째 등장했을 때 참조할 NEXT 인덱스
-
+    // 2. 함수형에서 'NEXT' 문자열 포함 처리
     for (let i = 0; i < filteredFlow.length; i++) {
         const currentStep = filteredFlow[i];
+        if (typeof currentStep.next === 'function') {
+            const fnStr = currentStep.next.toString();
+            if (fnStr.includes("'NEXT'") || fnStr.includes('"NEXT"')) {
+                const currentStepName = currentStep.step;
+                const remaining = filteredFlow.slice(i + 1);
+                const nextRealStep = remaining.find(s => !s.step.includes(currentStepName));
+                const replacement = nextRealStep ? nextRealStep.step : 'final';
 
-        if (typeof currentStep.next === 'string' && currentStep.next === 'NEXT_SAME') {
-            if (nextSameIndex === 0 && lastFixedNextIndex >= 0) {
-                // NEXT_SAME이 처음 등장했을 때, 직전 NEXT 값 가져오기
-                nextSameIndex = lastFixedNextIndex; 
+                const newFnStr = fnStr.replace(/['"]NEXT['"]/g, `'${replacement}'`);
+                const originalArgs = fnStr.match(/\((.*?)\)/)[1]; // 파라미터 추출
+                currentStep.next = new Function(originalArgs, `return (${newFnStr})(${originalArgs});`);
             }
-            // NEXT_SAME을 가장 가까운 NEXT 값과 동일하게 설정
-            currentStep.next = nextValuesQueue[nextSameIndex]; 
         }
     }
 
-    // 3. 함수형 NEXT 처리
+    // 3. NEXT_SAME 처리
+    const nextSameIndices = filteredFlow
+        .map((s, idx) => s.next === 'NEXT_SAME' ? idx : -1)
+        .filter(idx => idx !== -1);
+
+    if (nextSameIndices.length > 0) {
+        const lastIdx = nextSameIndices[nextSameIndices.length - 1];
+        const targetStep = filteredFlow[lastIdx + 1];
+        const replacement = targetStep ? targetStep.step : 'final';
+
+        nextSameIndices.forEach(i => {
+            filteredFlow[i].next = replacement;
+        });
+    }
+
+    // 4. 함수형이지만 NEXT 없는 일반 함수 처리 (기존 유지)
     for (let i = 0; i < filteredFlow.length; i++) {
         const currentStep = filteredFlow[i];
 
         if (typeof currentStep.next === 'function') {
-            const originalNext = currentStep.next; // 원래 함수를 저장
-            const calculatedNext = nextValuesQueue.shift(); // 큐에서 다음 값을 가져옴
+            const originalNext = currentStep.next;
+            const calculatedNext = nextValuesQueue.shift();
 
-            // 새로운 함수 생성: NEXT 값을 큐 값으로 대체
             currentStep.next = (...args) => {
-                const result = originalNext(...args); // 기존 함수 실행
-                return result === 'NEXT' ? calculatedNext : result; // NEXT는 큐 값으로 대체
+                const result = originalNext(...args);
+                return result === 'NEXT' ? calculatedNext : result;
             };
         }
     }
 
-    // 마지막 단계의 next는 항상 'final'
+    // 5. 마지막 스텝은 항상 'final'
     if (filteredFlow.length > 0) {
         const lastStep = filteredFlow[filteredFlow.length - 1];
         lastStep.next = 'final';
@@ -228,7 +259,6 @@ function assignNextValues(filteredFlow) {
 
     return filteredFlow;
 }
-
 
 function filterFlowBySign(product, templateFlow) {
 	const skipKeywords = {
@@ -241,7 +271,6 @@ function filterFlowBySign(product, templateFlow) {
 		mirror: !product.mirrorDirectionSign,
 		// numberofdoor: !product.doorAmountSign
 	};
-
 	return templateFlow.filter(step => {
 		return !Object.keys(skipKeywords).some(
 			keyword => step.step.includes(keyword) && skipKeywords[keyword]
@@ -259,7 +288,7 @@ const optionMapping = {
 function generateRealFlow(product, templateFlow) {
 	const copiedFlow = deepClone(templateFlow);
     const filteredFlow = filterFlowBySign(product, copiedFlow);
-
+	console.log(filteredFlow);
     filteredFlow.forEach(step => {
         const mappedKey = optionMapping[step.step];
         if (mappedKey && product[mappedKey]) {
@@ -983,41 +1012,117 @@ function updateFlowAfterDoorNotAddForTop() {
 	console.log('✅ updateFlowAfterDoorNotAddForTop() 완료');
 }
 
+function updateFlowAfterDoorSelectionForLow(optionValue) {
+	console.log('🚪[도어 선택 처리 시작 - LOW 전용]');
+	const formofwash = selectedAnswerValue.formofwash;
+	const form = selectedAnswerValue.form;
+	const middleSort = selectedAnswerValue.middleSort;
 
-function updateFlowAfterDoorNotAddForLow() {
-	console.log('🚪[도어 not_add 처리 시작 - LOW 전용]');
-	console.log('📌 선택한 category: low');
+	if (optionValue === 'not_add') {
+		// 기존 함수 로직 유지 (handle 전 스텝 next를 board로 바꾸는 기능)
+		if (!realFlow || realFlow.length === 0) {
+			console.warn('❌ realFlow가 존재하지 않거나 비어 있습니다.');
+			return;
+		}
+		const handleIndex = realFlow.findIndex(step => step.step === 'handle');
+		if (handleIndex === -1) {
+			console.warn('❌ realFlow 내에 step: "handle"이 없습니다.');
+			return;
+		}
+		const prevStepIndex = handleIndex - 1;
+		if (prevStepIndex < 0) {
+			console.warn('❌ handle 앞에 step이 없습니다.');
+			return;
+		}
+		realFlow[prevStepIndex].next = 'board';
 
-	if (!realFlow || realFlow.length === 0) {
-		console.warn('❌ realFlow가 존재하지 않거나 비어 있습니다.');
-		return;
+		if (formofwash === 'body') {
+			const doorStep = realFlow.find(s => s.step === 'door');
+			if (form === 'leg') {
+				doorStep.next = 'board';
+				console.log('✅ door.next를 board로 설정 (form: leg)');
+			} else if (form === 'notleg') {
+				const directionStep = realFlow.find(s => s.step === 'directionofboard');
+				if (directionStep) {
+					const nextStepIndex = realFlow.findIndex(s => s.step === 'directionofboard') + 1;
+					const nextStepName = realFlow[nextStepIndex]?.step || 'final';
+					doorStep.next = nextStepName;
+					console.log(`✅ door.next를 '${nextStepName}'로 설정 (form: notleg)`);
+				}
+			}
+		} else if (!formofwash || formofwash !== 'body' || middleSort === 12) {
+			const holeStep = realFlow.find(s => s.step === 'hole');
+			if (form === 'leg') {
+				if (holeStep) {
+					holeStep.next = 'board';
+					console.log('✅ hole.next를 board로 설정 (form: leg)');
+				}
+			} else if (form === 'notleg') {
+				const directionStepIndex = realFlow.findIndex(s => s.step === 'directionofboard');
+				const nextStepName = realFlow[directionStepIndex + 1]?.step || 'final';
+				if (holeStep) {
+					holeStep.next = nextStepName;
+					console.log(`✅ hole.next를 '${nextStepName}'로 설정 (form: notleg)`);
+				}
+			}
+		}
+	} else if (optionValue === 'add') {
+		if (formofwash === 'body') {
+			if (form === 'leg') {
+				realFlow.forEach(stepObj => {
+					if (typeof stepObj.next === 'string' && stepObj.next === 'maguri') {
+						stepObj.next = 'handle';
+					} else if (typeof stepObj.next === 'function') {
+						const fnStr = stepObj.next.toString();
+						if (fnStr.includes('maguri')) {
+							stepObj.next = (selectedOption) => {
+								if (selectedOption === 'open') return 'numberofdoor';
+								if (selectedOption === 'drawer') return 'numberofdrawer';
+								if (selectedOption === 'mixed') return 'handle';
+								return null;
+							};
+						}
+					}
+				});
+			} else if (form === 'notleg') {
+				const directionStepIndex = realFlow.findIndex(s => s.step === 'directionofboard');
+				const nextStepName = realFlow[directionStepIndex + 1]?.step || 'final';
+				realFlow.forEach(stepObj => {
+					if (typeof stepObj.next === 'string' && stepObj.next === 'maguri') {
+						stepObj.next = nextStepName;
+					} else if (typeof stepObj.next === 'function') {
+						const fnStr = stepObj.next.toString();
+						if (fnStr.includes('maguri')) {
+							stepObj.next = (selectedOption) => {
+								if (selectedOption === 'open') return 'numberofdoor';
+								if (selectedOption === 'drawer') return 'numberofdrawer';
+								if (selectedOption === 'mixed') return nextStepName;
+								return null;
+							};
+						}
+					}
+				});
+			}
+		} else if (!formofwash || formofwash !== 'body' || middleSort === 12) {
+			if (form === 'notleg') {
+				const directionStepIndex = realFlow.findIndex(s => s.step === 'directionofboard');
+				const nextStepName = realFlow[directionStepIndex + 1]?.step || 'final';
+				realFlow.forEach(stepObj => {
+					if (typeof stepObj.next === 'string' && stepObj.next === 'board') {
+						stepObj.next = nextStepName;
+					} else if (typeof stepObj.next === 'function') {
+						const fnStr = stepObj.next.toString();
+						if (fnStr.includes('board')) {
+							stepObj.next = (selectedOption) => {
+								return selectedOption === 'add' ? 'directionofboard' : nextStepName;
+							};
+						}
+					}
+				});
+			}
+		}
 	}
-
-	// 🔍 handle 스텝 찾기
-	const handleIndex = realFlow.findIndex(step => step.step === 'handle');
-	if (handleIndex === -1) {
-		console.warn('❌ realFlow 내에 step: "handle"이 없습니다.');
-		return;
-	}
-	console.log('✅ handle step 위치:', handleIndex, realFlow[handleIndex]);
-
-	// ⛳ handle 바로 앞 단계 찾기
-	const prevStepIndex = handleIndex - 1;
-	if (prevStepIndex < 0) {
-		console.warn('❌ handle 앞에 step이 없습니다.');
-		return;
-	}
-	const prevStep = realFlow[prevStepIndex];
-	console.log('🧩 handle 이전 스텝:', prevStep.step);
-
-	// 🎯 next 값을 'board'로 설정
-	prevStep.next = 'board';
-	console.log(`✅ LOW: ${prevStep.step}의 next를 'board'로 설정함`);
-	console.log('🎯 최종 prevStep 상태:', prevStep);
-	console.log('✅ updateFlowAfterDoorNotAddForLow() 완료');
-}
-
-
+}  
 
 function updateProductOptions(categoryKey, stepIndex) {
 	return new Promise((resolve, reject) => {
@@ -1142,7 +1247,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 								alert('이 제품은 원형 형태이므로, 넓이와 높이는 반드시 같아야 합니다. (1:1 비율)');
 							}
 						}
-					
 						// ✅ (3) A/S 불가능 조건 안내
 						if (categoryKey === 'top' && (width >= 1800 || height >= 1000)) {
 							alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
@@ -1154,7 +1258,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 							alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
 						}
 					});
-
 				
 				    label.appendChild(input);
 				    optionDiv.appendChild(label);
@@ -1204,8 +1307,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 					handleDirectInput(sizeText, categoryKey, step);
 					resolve();
 				});
-
-				
 				optionDiv.appendChild(confirmButton);
 			}
 		}else if (
@@ -1230,79 +1331,24 @@ function updateProductOptions(categoryKey, stepIndex) {
 				optionDiv.appendChild(button);
 			});
 		} 
+		// 기존 버튼 렌더링 내부 호출 위치:
 		else if (
-			step.step === 'door' && selectedAnswerValue.category.value === 'low' 
+		  step.step === 'door' && selectedAnswerValue.category.value === 'low'
 		) {
-			step.options.forEach(option => {
-				const formofwash = selectedAnswerValue.formofwash;
-				const form = selectedAnswerValue.form;
-				const button = document.createElement('button');
-				button.innerText = option.label;
-				button.classList.add('non-standard-btn');
-				console.log(form);
-				button.addEventListener('click', () => {
-					if (option.value === 'not_add') {
-						updateFlowAfterDoorNotAddForLow();
+		  console.log(selectedAnswerValue);
+		  step.options.forEach(option => {
+		    const button = document.createElement('button');
+		    button.innerText = option.label;
+		    button.classList.add('non-standard-btn');
 		
-						if (formofwash === 'body') {
-							const doorStep = realFlow.find(s => s.step === 'door');
-							
-							if (form === 'leg') {
-								doorStep.next = 'board';
-								console.log('✅ door.next를 board로 설정 (form: leg)');
-							} else {
-								const directionStep = realFlow.find(s => s.step === 'directionofboard');
-								if (directionStep) {
-									doorStep.next = typeof directionStep.next === 'function'
-										? directionStep.next('')
-										: directionStep.next;
-									console.log(`✅ door.next를 '${doorStep.next}'로 설정 (form: notleg)`);
-								}
-							}
-						}
-					} else {
-						if (formofwash === 'body') {
-							const holeStep = realFlow.find(s => s.step === 'hole');
+		    button.addEventListener('click', () => {
+		      updateFlowAfterDoorSelectionForLow(option.value);
+		      handleProductSelection(option.value, categoryKey, step);
+		      resolve();
+		    });
 		
-							if (!holeStep) {
-								console.warn('❗ hole step이 없습니다.');
-							} else {
-								const holeNextValue = typeof holeStep.next === 'function' ? holeStep.next('') : holeStep.next;
-		
-								realFlow.forEach(stepObj => {
-									// 1. 문자열 형태의 next
-									if (typeof stepObj.next === 'string' && stepObj.next === 'maguri') {
-										stepObj.next = holeNextValue;
-										console.log(`🔁 '${stepObj.step}'의 next (문자열)을 hole의 next로 변경`);
-									}
-		
-									// 2. 함수 형태의 next
-									if (typeof stepObj.next === 'function') {
-										const fnStr = stepObj.next.toString();
-		
-										if (fnStr.includes(`'maguri'`) || fnStr.includes(`"maguri"`)) {
-											// 예: (selectedOption) => selectedOption === 'open' ? 'numberofdoor' : 'maguri'
-											// 'maguri'를 holeNextValue로 교체
-											stepObj.next = (selectedOption) => {
-												if (selectedOption === 'open') return 'numberofdoor';
-												else if (selectedOption === 'drawer') return 'numberofdrawer';
-												else if (selectedOption === 'mixed') return holeNextValue;
-												return null;
-											};
-											console.log(`🔁 '${stepObj.step}'의 next (함수)를 hole의 next로 변경`);
-										}
-									}
-								});
-							}
-						}
-					}
-		
-					handleProductSelection(option.value, categoryKey, step);
-					resolve();
-				});
-		
-				optionDiv.appendChild(button);
-			});
+		    optionDiv.appendChild(button);
+		  });
 		}
 
 		else if ((step.step === 'numberofdoor' || step.step === 'numberofdrawer') && numberOfOption.length > 0) {

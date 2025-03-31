@@ -8,13 +8,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dev.HiddenBATHAuto.dto.calculate.ProductSelectionRequestDTO;
+
 @RestController
 public class CalculateController {
 
 	@PostMapping("/calculate")
 	public ResponseEntity<Map<String, Object>> calculatePrice(
-			@RequestBody Map<String, Object> selectedData
+			@RequestBody ProductSelectionRequestDTO request
 			) {
+		
 		// 임의의 가격 로직 (예: 제품, 사이즈, 색상 등 분석 가능)
 		int mainPrice = (int)(Math.random() * (199999 - 50000 + 1)) + 50000;
 		int variablePrice = (int)(Math.random() * (20000 - 10000 + 1)) + 10000;

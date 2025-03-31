@@ -178,20 +178,18 @@ export const productFlowSteps = {
 				{ value: 'dolche', label: '히든 돌체 손잡이' },
 				{ value: 'd195', label: '히든 D형(195) 손잡이' },
 				{ value: 'half', label: '히든 하프 손잡이' },
-				{ value: 'o', label: '히든 O형 손잡이' },
 				{ value: 'circle', label: '원형 손잡이' },
 				{ value: 'd310', label: '히든 D형(310) 손잡이' }
 			],
 			next: (selectedOption) =>
-				selectedOption === 'dolche' ? 'handle_color_one' :
-				selectedOption === 'd195' ? 'handle_color_two' :
-				selectedOption === 'half' ? 'handle_color_three' :
-				selectedOption === 'o' ? 'handle_color_four' :
-				selectedOption === 'circle' ? 'handle_color_five' : 
-				'handle_color_six'
+				selectedOption === 'dolche' ? 'handle_dolche_color' :
+				selectedOption === 'd195' ? 'handle_d195_color' :
+				selectedOption === 'half' ? 'handle_half_color' :
+				selectedOption === 'circle' ? 'handle_circle_color' : 
+				'handle_d310_color'
 		},
 		{
-			step: 'handle_color_one',
+			step: 'handle_dolche_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -202,7 +200,7 @@ export const productFlowSteps = {
 			next: 'NEXT_SAME'
 		},
 		{
-			step: 'handle_color_two',
+			step: 'handle_d195_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -213,7 +211,7 @@ export const productFlowSteps = {
 			next: 'NEXT_SAME'
 		},
 		{
-			step: 'handle_color_three',
+			step: 'handle_half_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -225,18 +223,7 @@ export const productFlowSteps = {
 			next: 'NEXT_SAME'
 		},
 		{
-			step: 'handle_color_four',
-			label: '손잡의 색상',
-			question: '손잡이 색상을 선택 해 주세요.',
-			options: [
-				{ value: '크롬', label: '크롬' },
-				{ value: '니켈', label: '니켈' },
-				{ value: '골드', label: '골드' }
-			],
-			next: 'NEXT_SAME'
-		},
-		{
-			step: 'handle_color_five',
+			step: 'handle_circle_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -246,7 +233,7 @@ export const productFlowSteps = {
 			next: 'NEXT_SAME'
 		},
 		{
-			step: 'handle_color_six',
+			step: 'handle_d310_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -265,7 +252,9 @@ export const productFlowSteps = {
 				{ value: 'not_add', label: '추가안함(조명공간없음)' },
 				{ value: 'space', label: '추가안함(조명공간추가)' }
 			],
-			next: (selectedOption) => ['not_add', 'space'].includes(selectedOption) ? 'NEXT' : 'ledPosition'
+			next: (selectedOption) => {
+			    return ['not_add', 'space'].includes(selectedOption) ? 'NEXT' : 'ledPosition';
+			}
 		},
 		{
 			step: 'ledPosition',
@@ -481,17 +470,17 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'directionofmaguri' : 'board'
+			next: (selectedOption) => selectedOption === 'add' ? 'directionofmaguri' : 'hole'
 		},
 		{
 			step: 'directionofmaguri',
 			label: '마구리 설치방향',
 			question: '마구리 설치방향을 선택하세요.',
 			options: [
-				{ value: 'one', label: '전면' },
-				{ value: 'two', label: '전면/좌측면' },
-				{ value: 'three', label: '전면/우측면' },
-				{ value: 'four', label: '전면/좌측면/우측면' },
+				{ value: 'front', label: '전면' },
+				{ value: 'front_left', label: '전면/좌측면' },
+				{ value: 'front_right', label: '전면/우측면' },
+				{ value: 'front_left_right', label: '전면/좌측면/우측면' },
 			],
 			next: 'sizeofmaguri'
 		},
@@ -519,7 +508,7 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가' },
 				{ value: 'not_add', label: '추가 안함' }
 			],
-			next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'board'
+			next: (selectedOption) => selectedOption === 'add' ? 'handletype' : 'CHANGED_BY_FORM'
 		},
 		{
 			step: 'handletype',
@@ -529,20 +518,18 @@ export const productFlowSteps = {
 				{ value: 'dolche', label: '히든 돌체 손잡이' },
 				{ value: 'd195', label: '히든 D형(195) 손잡이' },
 				{ value: 'half', label: '히든 하프 손잡이' },
-				{ value: 'o', label: '히든 O형 손잡이' },
 				{ value: 'circle', label: '원형 손잡이' },
 				{ value: 'd310', label: '히든 D형(310) 손잡이' }
 			],
 			next: (selectedOption) =>
-				selectedOption === 'dolche' ? 'handle_color_one' :
-				selectedOption === 'd195' ? 'handle_color_two' :
-				selectedOption === 'half' ? 'handle_color_three' :
-				selectedOption === 'o' ? 'handle_color_four' :
-				selectedOption === 'circle' ? 'handle_color_five' : 
-				'handle_color_six'
+				selectedOption === 'dolche' ? 'handle_dolche_color' :
+				selectedOption === 'd195' ? 'handle_d195_color' :
+				selectedOption === 'half' ? 'handle_half_color' :
+				selectedOption === 'circle' ? 'handle_circle_color' : 
+				'handle_d310_color'
 		},
 		{
-			step: 'handle_color_one',
+			step: 'handle_dolche_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -553,7 +540,7 @@ export const productFlowSteps = {
 			next: 'CHANGED_BY_FORM'
 		},
 		{
-			step: 'handle_color_two',
+			step: 'handle_d195_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -564,7 +551,7 @@ export const productFlowSteps = {
 			next: 'CHANGED_BY_FORM'
 		},
 		{
-			step: 'handle_color_three',
+			step: 'handle_half_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -576,18 +563,7 @@ export const productFlowSteps = {
 			next: 'CHANGED_BY_FORM'
 		},
 		{
-			step: 'handle_color_four',
-			label: '손잡의 색상',
-			question: '손잡이 색상을 선택 해 주세요.',
-			options: [
-				{ value: 'one', label: '크롬' },
-				{ value: 'two', label: '니켈' },
-				{ value: 'three', label: '골드' }
-			],
-			next: 'CHANGED_BY_FORM'
-		},
-		{
-			step: 'handle_color_five',
+			step: 'handle_circle_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -597,7 +573,7 @@ export const productFlowSteps = {
 			next: 'CHANGED_BY_FORM'
 		},
 		{
-			step: 'handle_color_six',
+			step: 'handle_d310_color',
 			label: '손잡의 색상',
 			question: '손잡이 색상을 선택 해 주세요.',
 			options: [
@@ -622,10 +598,10 @@ export const productFlowSteps = {
 			label: '걸레받이 설치방향',
 			question: '걸레받이 설치방향을 선택하세요.',
 			options: [
-				{ value: 'one', label: '전면' },
-				{ value: 'two', label: '전면/좌측면' },
-				{ value: 'three', label: '전면/우측면' },
-				{ value: 'four', label: '전면/좌측면/우측면' },
+				{ value: 'front', label: '전면' },
+				{ value: 'front_left', label: '전면/좌측면' },
+				{ value: 'front_right', label: '전면/우측면' },
+				{ value: 'front_left_right', label: '전면/좌측면/우측면' },
 			],
 			next: 'NEXT'
 		},
