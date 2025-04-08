@@ -17,7 +17,7 @@ public class CalculateController {
 	public ResponseEntity<Map<String, Object>> calculatePrice(
 			@RequestBody ProductSelectionRequestDTO request
 			) {
-		
+		System.out.println("calculate");
 		// 임의의 가격 로직 (예: 제품, 사이즈, 색상 등 분석 가능)
 		int mainPrice = (int)(Math.random() * (199999 - 50000 + 1)) + 50000;
 		int variablePrice = (int)(Math.random() * (20000 - 10000 + 1)) + 10000;
