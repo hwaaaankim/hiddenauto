@@ -1793,8 +1793,6 @@ function renderAnswer(step, product, categoryKey = '') {
 		calcButton.innerText = '가격계산';
 		calcButton.classList.add('non-standard-btn', 'non-answer-btn');
 		calcButton.addEventListener('click', () => {
-
-			// ✅ 서버로 가격 계산 요청
 			fetch('/calculate', {
 				method: 'POST',
 				headers: {
@@ -1804,8 +1802,7 @@ function renderAnswer(step, product, categoryKey = '') {
 			})
 				.then(res => res.json())
 				.then(data => {
-
-					// 기존 영수증이 있다면 제거
+					// 기존 영수증 제거
 					const existingReceipt = document.getElementById('receipt');
 					if (existingReceipt) existingReceipt.remove();
 
@@ -1814,18 +1811,21 @@ function renderAnswer(step, product, categoryKey = '') {
 					receiptDiv.id = 'receipt';
 					receiptDiv.classList.add('receipt-style');
 
-					// 내용 추가
-					receiptDiv.innerHTML = `
-					<h4>📄 가격 계산서</h4>
-					<p><strong>메인 가격:</strong> ${data.mainPrice.toLocaleString()}원</p>
-					<p><strong>변동 가격:</strong> ${data.variablePrice.toLocaleString()}원</p>
-					<hr>
-					<p>📌 ${data.reason1}</p>
-					<p>📌 ${data.reason2}</p>
-					<p>📌 ${data.reason3}</p>
-				`;
+					// ✅ 사유 리스트 처리
+					const reasonsHtml = (data.reasons || [])
+						.map(reason => `<p>📌 ${reason}</p>`)
+						.join("");
 
-					// finalWrap에 삽입
+					// ✅ 내용 추가
+					receiptDiv.innerHTML = `
+				<h4>📄 가격 계산서 - 제품 1개당 가격</h4>
+				<p><strong>메인 가격:</strong> ${data.mainPrice.toLocaleString()}원</p>
+				<p><strong>변동 가격:</strong> ${data.variablePrice.toLocaleString()}원</p>
+				<hr>
+				${reasonsHtml}
+			`;
+
+					// 결과 삽입
 					finalWrap.appendChild(receiptDiv);
 
 					setTimeout(() => {
@@ -2248,8 +2248,8 @@ window.onload = () => {
 	renderInitialQuestion();
 
 	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	setTimeout(() => {
-		autoProceedV2(sampleDataSet);
-	}, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	// setTimeout(() => {
+	//	 autoProceedV2(sampleDataSet);
+	// }, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
 };
 

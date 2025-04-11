@@ -1,6 +1,8 @@
 package com.dev.HiddenBATHAuto.controller;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -8,27 +10,126 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dev.HiddenBATHAuto.dto.calculate.ProductSelectionRequestDTO;
+import com.dev.HiddenBATHAuto.service.calculate.FlapCalculateService;
+import com.dev.HiddenBATHAuto.service.calculate.LowCalculateService;
+import com.dev.HiddenBATHAuto.service.calculate.MirrorCalculateService;
+import com.dev.HiddenBATHAuto.service.calculate.SlideCalculateService;
+import com.dev.HiddenBATHAuto.service.calculate.TopCalculateService;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
+@RequiredArgsConstructor
 public class CalculateController {
 
+	private final LowCalculateService lowService;
+	private final TopCalculateService topService;
+	private final MirrorCalculateService mirrorService;
+	private final FlapCalculateService flapService;
+	private final SlideCalculateService slideService;
+
 	@PostMapping("/calculate")
-	public ResponseEntity<Map<String, Object>> calculatePrice(
-			@RequestBody ProductSelectionRequestDTO request
-			) {
-		System.out.println("calculate");
-		// 임의의 가격 로직 (예: 제품, 사이즈, 색상 등 분석 가능)
-		int mainPrice = (int)(Math.random() * (199999 - 50000 + 1)) + 50000;
-		int variablePrice = (int)(Math.random() * (20000 - 10000 + 1)) + 10000;
+	public ResponseEntity<Map<String, Object>> calculatePrice(@RequestBody Map<String, Object> selection) {
+		System.out.println("📦 받은 선택 데이터: ");
+		selection.forEach((k, v) -> System.out.println(" - " + k + ": " + v));
 
-		Map<String, Object> result = new HashMap<>();
-		result.put("mainPrice", mainPrice);
-		result.put("variablePrice", variablePrice);
-		result.put("reason1", "사이즈에 따른 추가 요금 발생");
-		result.put("reason2", "특수 색상 선택에 따른 변동");
-		result.put("reason3", "옵션 구성에 따른 가격 조정");
+		// category value 추출
+		Object categoryObj = selection.get("category");
+		String categoryValue = "";
 
-		return ResponseEntity.ok(result);
+		if (categoryObj instanceof Map<?, ?> rawMap) {
+			Object valueObj = rawMap.get("value");
+			if (valueObj instanceof String str) {
+				categoryValue = str;
+			}
+		}
+
+		// 결과 초기화
+		int mainPrice = 0;
+		int variablePrice = 0;
+		List<String> reasons = new ArrayList<>();
+
+		// 카테고리 분기
+		switch (categoryValue) {
+		case "low" -> {
+		    Map<String, Object> result = lowService.calculate(selection);
+		    mainPrice = (int) result.get("mainPrice");
+		    variablePrice = (int) result.get("variablePrice");
+
+		    Object reasonsObj = result.get("reasons");
+		    if (reasonsObj instanceof List<?> list) {
+		        for (Object item : list) {
+		            if (item instanceof String str) {
+		                reasons.add(str);
+		            }
+		        }
+		    }
+		}
+		case "top" -> {
+		    Map<String, Object> result = topService.calculate(selection);
+		    mainPrice = (int) result.get("mainPrice");
+		    variablePrice = (int) result.get("variablePrice");
+
+		    Object reasonsObj = result.get("reasons");
+		    if (reasonsObj instanceof List<?> list) {
+		        for (Object item : list) {
+		            if (item instanceof String str) {
+		                reasons.add(str);
+		            }
+		        }
+		    }
+		}
+		case "mirror" -> {
+		    Map<String, Object> result = mirrorService.calculate(selection);
+		    mainPrice = (int) result.get("mainPrice");
+		    variablePrice = (int) result.get("variablePrice");
+
+		    Object reasonsObj = result.get("reasons");
+		    if (reasonsObj instanceof List<?> list) {
+		        for (Object item : list) {
+		            if (item instanceof String str) {
+		                reasons.add(str);
+		            }
+		        }
+		    }
+		}
+		case "flap" -> {
+		    Map<String, Object> result = flapService.calculate(selection);
+		    mainPrice = (int) result.get("mainPrice");
+		    variablePrice = (int) result.get("variablePrice");
+
+		    Object reasonsObj = result.get("reasons");
+		    if (reasonsObj instanceof List<?> list) {
+		        for (Object item : list) {
+		            if (item instanceof String str) {
+		                reasons.add(str);
+		            }
+		        }
+		    }
+		}
+		case "slide" -> {
+		    Map<String, Object> result = slideService.calculate(selection);
+		    mainPrice = (int) result.get("mainPrice");
+		    variablePrice = (int) result.get("variablePrice");
+
+		    Object reasonsObj = result.get("reasons");
+		    if (reasonsObj instanceof List<?> list) {
+		        for (Object item : list) {
+		            if (item instanceof String str) {
+		                reasons.add(str);
+		            }
+		        }
+		    }
+		}
+		default -> throw new IllegalArgumentException("지원하지 않는 category: " + categoryValue);
+		}
+
+		// 응답 구성
+		Map<String, Object> response = new HashMap<>();
+		response.put("mainPrice", mainPrice);
+		response.put("variablePrice", variablePrice);
+		response.put("reasons", reasons); // 💡 JS에서 반복문으로 출력하도록 수정됨
+
+		return ResponseEntity.ok(response);
 	}
 }
