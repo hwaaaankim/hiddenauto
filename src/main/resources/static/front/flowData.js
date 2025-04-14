@@ -351,10 +351,10 @@ export const productFlowSteps = {
 			label: '세면대 종류',
 			question: '세면대의 종류를 선택 해 주세요.',
 			options: [
-				{ value: 'one', label: 'TB-060(비누대 O)' },
-				{ value: 'two', label: 'E-60(비누대 X)' },
-				{ value: 'three', label: 'PL-3040(비누대 O)' },
-				{ value: 'four', label: 'PL-3060(비누대 O)' }
+				{ value: '35', label: 'TB-060(비누대 O)' },
+				{ value: '35', label: 'E-60(비누대 X)' },
+				{ value: '35', label: 'PL-3040(비누대 O)' },
+				{ value: '35', label: 'PL-3060(비누대 O)' }
 			],
 			next: 'numberofwash'
 		},
@@ -363,9 +363,9 @@ export const productFlowSteps = {
 			label: '세면대 종류',
 			question: '세면대의 종류를 선택 해 주세요.',
 			options: [
-				{ value: 'one', label: 'CL-603(사각)' },
-				{ value: 'two', label: 'CL-509(타원형)' },
-				{ value: 'three', label: '제공 언더볼' }
+				{ value: '32', label: 'CL-603(사각)' },
+				{ value: '33', label: 'CL-509(타원형)' },
+				{ value: '34', label: '제공 언더볼' }
 			],
 			next: 'numberofwash'
 		},
@@ -386,22 +386,22 @@ export const productFlowSteps = {
 			label: '대리석 색상',
 			question: '대리석의 색상을 선택하세요.',
 			options: [
-				{ value: '1', label: '페블 프러스트' },
-				{ value: '2', label: '스노우' },
-				{ value: '3', label: '사라토가' },
-				{ value: '4', label: '츄파로사' },
-				{ value: '5', label: '아스펜 그레이' },
-				{ value: '6', label: '페블 에버니' },
-				{ value: '7', label: '라토나' },
-				{ value: '8', label: '퓨어' },
-				{ value: '9', label: '아스펜 페퍼' },
-				{ value: '10', label: '터레인' },
-				{ value: '11', label: '레이니 스카이' },
-				{ value: '12', label: '스카디' },
-				{ value: '13', label: '오로라 블랑' },
-				{ value: '14', label: '오로라 비스크' },
-				{ value: '15', label: '오로라 그레이' },
-				{ value: '16', label: '베네지아' },
+				{ value: '페블 프러스트', label: '페블 프러스트' },
+				{ value: '스노우', label: '스노우' },
+				{ value: '사라토가', label: '사라토가' },
+				{ value: '츄파로사', label: '츄파로사' },
+				{ value: '아스펜 그레이', label: '아스펜 그레이' },
+				{ value: '페블 에버니', label: '페블 에버니' },
+				{ value: '라토나', label: '라토나' },
+				{ value: '퓨어', label: '퓨어' },
+				{ value: '아스펜 페퍼', label: '아스펜 페퍼' },
+				{ value: '터레인', label: '터레인' },
+				{ value: '레이니 스카이', label: '레이니 스카이' },
+				{ value: '스카디', label: '스카디' },
+				{ value: '오로라 블랑', label: '오로라 블랑' },
+				{ value: '오로라 비스크', label: '오로라 비스크' },
+				{ value: '오로라 그레이', label: '오로라 그레이' },
+				{ value: '베네지아', label: '베네지아' },
 			],
 			next: 'door'
 		},
