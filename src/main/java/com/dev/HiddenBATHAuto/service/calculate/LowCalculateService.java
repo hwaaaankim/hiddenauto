@@ -38,7 +38,9 @@ public class LowCalculateService {
 	private final MarbleTypeRepository marbleTypeRepository;
 	private final MarbleLengthPriceRepository marbleLengthPriceRepository;
 	private final OptionPriceRepository optionPriceRepository;
-
+	private final MarbleLowCalculateService marbleLowCalculateService;
+	 
+	 
 	public Map<String, Object> calculate(Map<String, Object> selection) {
 		int mainPrice = 0;
 		int variablePrice = 0;
@@ -203,12 +205,38 @@ public class LowCalculateService {
 			} else {
 				reasons.add("LED 선택 안됨");
 			}
-
+			
 			mainPrice += addOptionFromOptionTable(selection, "outletPosition", "콘센트", reasons);
 			mainPrice += addOptionFromOptionTable(selection, "dryPosition", "드라이걸이", reasons);
 			mainPrice += addOptionFromOptionTable(selection, "tissuePosition", "티슈홀캡", reasons);
+			
+			String door = String.valueOf(selection.get("door"));
+	        if ("add".equals(door)) {
+	            String formSlide = String.valueOf(selection.get("formofdoor_slide"));
+	            String formOther = String.valueOf(selection.get("formofdoor_other"));
+	            String form = (!"null".equals(formSlide) && formSlide != null) ? formSlide : formOther;
+	            reasons.add("문 추가됨 (형태: " + form + ", 수량: " + selection.get("numberofdoor") + ")");
+	        } else {
+	            reasons.add("문 추가 없음");
+	        }
 
+	        String handle = String.valueOf(selection.get("handle"));
+	        if ("add".equals(handle)) {
+	            reasons.add("손잡이 추가됨 (종류: " + selection.get("handletype") + ")");
+	        } else {
+	            reasons.add("손잡이 추가 없음");
+	        }
+
+	        String hole = String.valueOf(selection.get("hole"));
+	        if ("add".equals(hole)) {
+	            reasons.add("상판 타공 있음");
+	        } else {
+	            reasons.add("상판 타공 없음");
+	        }
+			
 			variablePrice = mainPrice;
+		}else if("12".equals(middleSortStr)){
+			return marbleLowCalculateService.calculateForMarbleLow(selection);
 		}
 
 		Map<String, Object> result = new HashMap<>();

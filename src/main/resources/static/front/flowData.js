@@ -495,8 +495,8 @@ export const productFlowSteps = {
 			label: '상판 타공 유무',
 			question: '상판 타공 유무를 선택하세요.',
 			options: [
-				{ value: 'add', label: '타공안함' },
-				{ value: 'not_add', label: '타공함' }
+				{ value: 'add', label: '타공함' },
+				{ value: 'not_add', label: '타공안함' }
 			],
 			next: 'NEXT'
 		},

@@ -7,5 +7,5 @@ import com.dev.HiddenBATHAuto.model.calculate.marble.MarbleLowBasePriceTwo;
 
 @Repository
 public interface MarbleLowBasePriceTwoRepository extends JpaRepository<MarbleLowBasePriceTwo, Long> {
-	
+	MarbleLowBasePriceTwo findByStandardWidth(int standardWidth);
 }

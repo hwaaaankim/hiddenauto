@@ -7,4 +7,5 @@ import com.dev.HiddenBATHAuto.model.calculate.marble.MarbleLowOptionPrice;
 
 @Repository
 public interface MarbleLowOptionPriceRepository extends JpaRepository<MarbleLowOptionPrice, Long> {
+	 MarbleLowOptionPrice findByOptionName(String optionName);
 }

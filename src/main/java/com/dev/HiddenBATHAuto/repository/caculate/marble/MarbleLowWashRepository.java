@@ -7,4 +7,5 @@ import com.dev.HiddenBATHAuto.model.calculate.marble.MarbleLowWash;
 
 @Repository
 public interface MarbleLowWashRepository extends JpaRepository<MarbleLowWash, Long> {
+	MarbleLowWash findByStandardWidth(int standardWidth);
 }

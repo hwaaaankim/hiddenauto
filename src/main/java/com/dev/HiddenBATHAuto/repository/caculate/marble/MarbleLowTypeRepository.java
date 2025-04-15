@@ -7,5 +7,5 @@ import com.dev.HiddenBATHAuto.model.calculate.marble.MarbleLowType;
 
 @Repository
 public interface MarbleLowTypeRepository extends JpaRepository<MarbleLowType, Long> {
-	
+	MarbleLowType findByMarbleName(String marbleName);
 }

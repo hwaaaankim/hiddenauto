@@ -2,7 +2,9 @@ package com.dev.HiddenBATHAuto.controller;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.LowCalculateExcelService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.MarbleLowCalculateExcelService;
+import com.dev.HiddenBATHAuto.service.calculate.excel.TopExcelUploadService;
 import com.dev.HiddenBATHAuto.service.nonstandard.ExcelUploadService;
 
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class APIController {
 	@Autowired
 	ExcelUploadService excelUploadService;
 	
+    private final TopExcelUploadService topExcelUploadService;
 	private final LowCalculateExcelService excelService;
 	private final MarbleLowCalculateExcelService marbleExcelService;
 
@@ -47,6 +51,21 @@ public class APIController {
         }
     }
 	
+    @PostMapping("/topExcelUpload")
+    public ResponseEntity<Map<String, Object>> uploadTopExcel(@RequestParam("file") MultipartFile file) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            topExcelUploadService.uploadTopExcel(file);
+            result.put("success", true);
+            result.put("message", "엑셀 업로드가 성공적으로 완료되었습니다.");
+        } catch (IOException e) {
+            result.put("success", false);
+            result.put("message", "엑셀 파일 처리 중 오류가 발생했습니다: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(result);
+    }
+    
 	@PostMapping("/lowExcelUpload")
     public ResponseEntity<String> uploadExcel(@RequestParam("file") MultipartFile file) {
         try (InputStream inputStream = file.getInputStream()) {

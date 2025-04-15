@@ -156,8 +156,7 @@ public class MarbleLowCalculateExcelService {
 			if (isRowEmpty(r, 1, 2, 3)) continue;
 			MarbleLowWash item = new MarbleLowWash();
 			item.setStandardWidth((int) getCellNumericValue(r, 1));
-			item.setUnder600((int) getCellNumericValue(r, 2));
-			item.setOver600((int) getCellNumericValue(r, 3));
+			item.setPrice((int) getCellNumericValue(r, 2));
 			list.add(item);
 		}
 		return list;

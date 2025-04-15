@@ -7,107 +7,156 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.dev.HiddenBATHAuto.model.calculate.top.TopBasicPrice;
+import com.dev.HiddenBATHAuto.model.calculate.top.TopOptionPrice;
+import com.dev.HiddenBATHAuto.model.nonstandard.Product;
+import com.dev.HiddenBATHAuto.repository.caculate.top.TopBasicPriceRepository;
+import com.dev.HiddenBATHAuto.repository.caculate.top.TopOptionPriceRepository;
+import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
+
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class TopCalculateService {
 
-	public Map<String, Object> calculate(Map<String, Object> selection) {
+	private final ProductRepository productRepository;
+    private final TopBasicPriceRepository topBasicPriceRepository;
+    private final TopOptionPriceRepository topOptionPriceRepository;
+
+    public Map<String, Object> calculate(Map<String, Object> selection) {
         int mainPrice = 0;
-        int variablePrice = 0;
         List<String> reasons = new ArrayList<>();
 
-        // 중분류 ID 및 제품 ID 파싱
-        int middleSort = parseInt(selection.get("middleSort"));
-        int productId = parseInt(selection.get("product"));
-        reasons.add("선택된 제품 ID: " + productId);
+        Long productId = Long.parseLong(String.valueOf(selection.get("product")));
+        Product product = productRepository.findById(productId).orElse(null);
 
-        // 제품 정보 조회 (임시)
-        String productName = getProductNameById(productId);
-        reasons.add("제품명: " + productName);
+        if (product == null) {
+            reasons.add("제품 조회 실패");
+            return Map.of("mainPrice", 0, "variablePrice", 0, "reasons", reasons);
+        }
 
-        // 사이즈 파싱
-        String sizeStr = (String) selection.get("size");
+        String productName = product.getName();
+        int basicWidth = product.getBasicWidth();
+        int basicHeight = product.getBasicHeight();
+        int basicDepth = product.getBasicDepth();
+
+        reasons.add("기본 사이즈: W" + basicWidth + ", H" + basicHeight + ", D" + basicDepth);
+
+        TopBasicPrice basicPrice = topBasicPriceRepository.findByProductName(productName).orElse(null);
+        if (basicPrice == null) {
+            reasons.add("기본 가격 정보 없음: " + productName);
+            return Map.of("mainPrice", 0, "variablePrice", 0, "reasons", reasons);
+        }
+
+        int base = basicPrice.getBasicPrice();
+        reasons.add("기본 가격 조회됨: " + base);
+
         int width = 0, height = 0, depth = 0;
+        String sizeStr = (String) selection.get("size");
         if (sizeStr != null) {
             try {
                 String[] parts = sizeStr.split(",");
                 width = Integer.parseInt(parts[0].replaceAll("[^0-9]", ""));
                 height = Integer.parseInt(parts[1].replaceAll("[^0-9]", ""));
                 depth = Integer.parseInt(parts[2].replaceAll("[^0-9]", ""));
-                mainPrice += 100000; // 임시
-                reasons.add("사이즈 입력됨: " + width + "/" + height + "/" + depth);
             } catch (Exception e) {
                 reasons.add("사이즈 파싱 실패");
             }
         }
 
-        // door 관련 메시지
-        String door = (String) selection.get("door");
-        if ("add".equals(door)) {
-            String formofdoor = (String) selection.get("formofdoor_other");
-            if ("drawer".equals(formofdoor) || "mixed".equals(formofdoor)) {
-                reasons.add("문 옵션: drawer/mixed 에 따라 메시지 추가됨");
-            } else {
-                reasons.add("문 옵션: 처리되지 않음");
-            }
+        int materialWidth = ((basicWidth + 99) / 100) * 100;
+        int inputWidth = ((width + 99) / 100) * 100;
+        int widthDiff = inputWidth - materialWidth;
+
+        if (widthDiff > 0) {
+            int over1500 = Math.max(0, inputWidth - 1500);
+            int under1500 = widthDiff - over1500;
+            int widthCost = (under1500 / 100) * 15000 + (over1500 / 100) * 20000;
+            base += widthCost;
+            reasons.add("넓이 기준: " + materialWidth + " → 입력값: " + width + ", 반올림: " + inputWidth + ", 차이: " + widthDiff + " → 추가금: " + widthCost);
         } else {
-            reasons.add("문 추가 안함 (not_add)");
+            reasons.add("넓이 기준: " + materialWidth + " → 입력값: " + width + ", 반올림: " + inputWidth + ", 초과 없음");
         }
 
-        // 손잡이
-        if ("add".equals(selection.get("handle"))) {
-            reasons.add("손잡이 옵션 선택됨 (임시 메시지)");
+        int materialHeight = ((basicHeight + 99) / 100) * 100;
+        int inputHeight = ((height + 99) / 100) * 100;
+        int heightDiff = inputHeight - materialHeight;
+
+        if (heightDiff > 0) {
+            int heightCost = (heightDiff / 100) * 20000;
+            base += heightCost;
+            reasons.add("높이 기준: " + materialHeight + " → 입력값: " + height + ", 십의자리 올림: " + inputHeight + ", 차이: " + heightDiff + " → 추가금: " + heightCost);
         } else {
-            reasons.add("손잡이 없음");
+            reasons.add("높이 기준: " + materialHeight + " → 입력값: " + height + ", 십의자리 올림: " + inputHeight + ", 초과 없음");
         }
 
-        // LED
+        if (depth > basicDepth) {
+            int increased = (int) Math.round(base * 1.5);
+            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + ", 증가로 1.5배 적용됨");
+            base = increased;
+        } else if (depth < basicDepth) {
+            base += 30000;
+            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + ", 감소로 3만원 추가됨");
+        } else {
+            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + ", 깊이 동일 → 추가금 없음");
+        }
+
+        // 🚪 Door 옵션 적용
+        String door = String.valueOf(selection.get("door"));
+        if ("not_add".equals(door)) {
+            base = (int) Math.round(base * 0.5);
+            reasons.add("문 옵션: 미포함 (기본가격의 50% 적용됨)");
+        } else {
+            reasons.add("문 옵션: 포함됨");
+        }
+
+        int variablePrice = base;
+
         if ("add".equals(selection.get("led"))) {
             String pos = String.valueOf(selection.get("ledPosition"));
             int ledCount = ("5".equals(pos)) ? 2 : 1;
-            variablePrice += ledCount * 15000;
-            reasons.add("LED " + ledCount + "개 추가됨");
+            TopOptionPrice op = topOptionPriceRepository.findByOptionName("하부LED").orElse(null);
+            if (op != null) {
+                int added = ledCount * op.getPrice();
+                variablePrice += added;
+                reasons.add("LED 수량: " + ledCount + ", 단가: " + op.getPrice() + " → 추가금: " + added);
+            }
         } else {
-            reasons.add("LED 없음");
+            reasons.add("LED 선택 안됨");
         }
 
-        // outlet / dry / tissue 처리
-        variablePrice += addIfOptionPresent(selection, "outletPosition", reasons);
-        variablePrice += addIfOptionPresent(selection, "dryPosition", reasons);
-        variablePrice += addIfOptionPresent(selection, "tissuePosition", reasons);
+        variablePrice += addOption(selection, "outletPosition", "콘센트", reasons);
+        variablePrice += addOption(selection, "dryPosition", "드라이걸이", reasons);
+        variablePrice += addOption(selection, "tissuePosition", "티슈홀캡", reasons);
+
+        if ("add".equals(selection.get("handle"))) {
+            String handleType = String.valueOf(selection.get("handletype"));
+            reasons.add("손잡이 추가됨 (종류: " + handleType + ")");
+        } else {
+            reasons.add("손잡이 추가 없음");
+        }
 
         Map<String, Object> result = new HashMap<>();
-        result.put("mainPrice", mainPrice);
+        result.put("mainPrice", variablePrice);
         result.put("variablePrice", variablePrice);
         result.put("reasons", reasons);
-
         return result;
     }
 
-    private int parseInt(Object obj) {
-        try {
-            return Integer.parseInt(String.valueOf(obj));
-        } catch (Exception e) {
+    private int addOption(Map<String, Object> selection, String key, String label, List<String> reasons) {
+        Object val = selection.get(key);
+        if (val == null || "7".equals(String.valueOf(val))) {
+            reasons.add(label + " 선택 안됨");
             return 0;
         }
-    }
-
-    private String getProductNameById(int productId) {
-        // TODO: DB 연동 시 Repository 통해 실제 제품명 조회
-        return productId == 123 ? "TOP 시리즈 제품" : "상부장 기본 제품";
-    }
-
-    private int addIfOptionPresent(Map<String, Object> selection, String key, List<String> reasons) {
-        Object value = selection.get(key);
-        if (value == null) {
-            reasons.add(key + " 정보 없음");
-            return 0;
-        }
-        if (!"7".equals(String.valueOf(value))) {
-            reasons.add(key + " 옵션 선택됨 (임시 비용 추가)");
-            return 10000; // 임시 비용
+        TopOptionPrice op = topOptionPriceRepository.findByOptionName(label).orElse(null);
+        if (op != null) {
+            reasons.add(label + " 가격 적용됨: " + op.getPrice());
+            return op.getPrice();
         } else {
-            reasons.add(key + " 옵션 선택 안됨");
+            reasons.add(label + " 가격 조회 실패");
+            return 0;
         }
-        return 0;
     }
 }

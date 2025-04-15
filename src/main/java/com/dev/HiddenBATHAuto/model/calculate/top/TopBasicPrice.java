@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.calculate.marble;
+package com.dev.HiddenBATHAuto.model.calculate.top;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,19 +8,20 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 
-@Data
+//기본 가격
 @Entity
-@Table(name = "tb_marble_low_wash")
-public class MarbleLowWash {
-    
+@Data
+@Table(name = "tb_top_basic_price")
+public class TopBasicPrice {
+	
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "standard_width")
-    private int standardWidth;
+    @Column(name = "product_name")
+    private String productName;
 
-    @Column(name = "price")
-    private int price;
-
+    @Column(name = "basic_price")
+    private int basicPrice;
+    
 }

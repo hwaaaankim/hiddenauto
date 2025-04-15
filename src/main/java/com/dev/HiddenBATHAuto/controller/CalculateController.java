@@ -52,76 +52,78 @@ public class CalculateController {
 		// 카테고리 분기
 		switch (categoryValue) {
 		case "low" -> {
-		    Map<String, Object> result = lowService.calculate(selection);
-		    mainPrice = (int) result.get("mainPrice");
-		    variablePrice = (int) result.get("variablePrice");
+			Map<String, Object> result = lowService.calculate(selection);
+			mainPrice = (int) result.get("mainPrice");
+			variablePrice = (int) result.get("variablePrice");
 
-		    Object reasonsObj = result.get("reasons");
-		    if (reasonsObj instanceof List<?> list) {
-		        for (Object item : list) {
-		            if (item instanceof String str) {
-		                reasons.add(str);
-		            }
-		        }
-		    }
+			Object reasonsObj = result.get("reasons");
+			if (reasonsObj instanceof List<?> list) {
+				for (Object item : list) {
+					if (item instanceof String str) {
+						reasons.add(str);
+					}
+				}
+			}
 		}
 		case "top" -> {
-		    Map<String, Object> result = topService.calculate(selection);
-		    mainPrice = (int) result.get("mainPrice");
-		    variablePrice = (int) result.get("variablePrice");
+			Map<String, Object> result = topService.calculate(selection);
+			mainPrice = (int) result.get("mainPrice");
+			variablePrice = (int) result.get("variablePrice");
 
-		    Object reasonsObj = result.get("reasons");
-		    if (reasonsObj instanceof List<?> list) {
-		        for (Object item : list) {
-		            if (item instanceof String str) {
-		                reasons.add(str);
-		            }
-		        }
-		    }
+			Object reasonsObj = result.get("reasons");
+			if (reasonsObj instanceof List<?> list) {
+				for (Object item : list) {
+					if (item instanceof String str) {
+						reasons.add(str);
+					}
+				}
+			}
 		}
 		case "mirror" -> {
-		    Map<String, Object> result = mirrorService.calculate(selection);
-		    mainPrice = (int) result.get("mainPrice");
-		    variablePrice = (int) result.get("variablePrice");
+			Map<String, Object> result = mirrorService.calculate(selection);
+			mainPrice = (int) result.get("mainPrice");
+			variablePrice = (int) result.get("variablePrice");
 
-		    Object reasonsObj = result.get("reasons");
-		    if (reasonsObj instanceof List<?> list) {
-		        for (Object item : list) {
-		            if (item instanceof String str) {
-		                reasons.add(str);
-		            }
-		        }
-		    }
+			Object reasonsObj = result.get("reasons");
+			if (reasonsObj instanceof List<?> list) {
+				for (Object item : list) {
+					if (item instanceof String str) {
+						reasons.add(str);
+					}
+				}
+			}
 		}
 		case "flap" -> {
-		    Map<String, Object> result = flapService.calculate(selection);
-		    mainPrice = (int) result.get("mainPrice");
-		    variablePrice = (int) result.get("variablePrice");
+			Map<String, Object> result = flapService.calculate(selection);
+			mainPrice = (int) result.get("mainPrice");
+			variablePrice = (int) result.get("variablePrice");
 
-		    Object reasonsObj = result.get("reasons");
-		    if (reasonsObj instanceof List<?> list) {
-		        for (Object item : list) {
-		            if (item instanceof String str) {
-		                reasons.add(str);
-		            }
-		        }
-		    }
+			Object reasonsObj = result.get("reasons");
+			if (reasonsObj instanceof List<?> list) {
+				for (Object item : list) {
+					if (item instanceof String str) {
+						reasons.add(str);
+					}
+				}
+			}
 		}
 		case "slide" -> {
-		    Map<String, Object> result = slideService.calculate(selection);
-		    mainPrice = (int) result.get("mainPrice");
-		    variablePrice = (int) result.get("variablePrice");
+			Map<String, Object> result = slideService.calculate(selection);
+			mainPrice = (int) result.get("mainPrice");
+			variablePrice = (int) result.get("variablePrice");
 
-		    Object reasonsObj = result.get("reasons");
-		    if (reasonsObj instanceof List<?> list) {
-		        for (Object item : list) {
-		            if (item instanceof String str) {
-		                reasons.add(str);
-		            }
-		        }
-		    }
+			Object reasonsObj = result.get("reasons");
+			if (reasonsObj instanceof List<?> list) {
+				for (Object item : list) {
+					if (item instanceof String str) {
+						reasons.add(str);
+					}
+				}
+			}
 		}
+		
 		default -> throw new IllegalArgumentException("지원하지 않는 category: " + categoryValue);
+		
 		}
 
 		// 응답 구성
