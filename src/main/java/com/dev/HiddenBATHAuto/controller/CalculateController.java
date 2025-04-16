@@ -94,18 +94,18 @@ public class CalculateController {
 			}
 		}
 		case "flap" -> {
-			Map<String, Object> result = flapService.calculate(selection);
-			mainPrice = (int) result.get("mainPrice");
-			variablePrice = (int) result.get("variablePrice");
+		    Map<String, Object> result = flapService.calculate(selection);
+		    mainPrice = (int) result.get("mainPrice");
+		    variablePrice = (int) result.get("variablePrice");
 
-			Object reasonsObj = result.get("reasons");
-			if (reasonsObj instanceof List<?> list) {
-				for (Object item : list) {
-					if (item instanceof String str) {
-						reasons.add(str);
-					}
-				}
-			}
+		    Object reasonsObj = result.get("reasons");
+		    if (reasonsObj instanceof List<?> list) {
+		        for (Object item : list) {
+		            if (item instanceof String str) {
+		                reasons.add(str);
+		            }
+		        }
+		    }
 		}
 		case "slide" -> {
 			Map<String, Object> result = slideService.calculate(selection);

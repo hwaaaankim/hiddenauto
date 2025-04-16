@@ -18,8 +18,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
+import com.dev.HiddenBATHAuto.service.calculate.excel.FlapExcelUploadService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.LowCalculateExcelService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.MarbleLowCalculateExcelService;
+import com.dev.HiddenBATHAuto.service.calculate.excel.MirrorStandardPriceExcelService;
+import com.dev.HiddenBATHAuto.service.calculate.excel.MirrorUnstandardExcelUploadService;
+import com.dev.HiddenBATHAuto.service.calculate.excel.SlideExcelUploadService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.TopExcelUploadService;
 import com.dev.HiddenBATHAuto.service.nonstandard.ExcelUploadService;
 
@@ -39,7 +43,64 @@ public class APIController {
     private final TopExcelUploadService topExcelUploadService;
 	private final LowCalculateExcelService excelService;
 	private final MarbleLowCalculateExcelService marbleExcelService;
+	private final FlapExcelUploadService flapExcelUploadService;
+	private final SlideExcelUploadService slideExcelUplaodService;
+	private final MirrorStandardPriceExcelService mirrorStandardPriceExcelService;
+	private final MirrorUnstandardExcelUploadService mirrorSeriesExcelUploadService;
 
+	@PostMapping("/mirrorSeriesExcelUpload")
+	public ResponseEntity<String> uploadMirrorSeriesExcel(@RequestParam("file") MultipartFile file) {
+	    try {
+	        mirrorSeriesExcelUploadService.uploadExcel(file);
+	        return ResponseEntity.ok("✅ 거울 시리즈 엑셀 업로드 성공");
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        return ResponseEntity.status(500).body("❌ 업로드 실패: " + e.getMessage());
+	    }
+	}
+	
+    @PostMapping("/mirrorStandardExcelUpload")
+    public ResponseEntity<String> upload(@RequestParam("file") MultipartFile file) {
+        try {
+            mirrorStandardPriceExcelService.uploadStandardPriceExcel(file);
+            return ResponseEntity.ok("✅ 거울 규격 가격표 업로드 성공");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("❌ 업로드 실패: " + e.getMessage());
+        }
+    }
+	
+	@PostMapping("/slideExcelUpload")
+	public ResponseEntity<Map<String, Object>> uploadSlideExcel(@RequestParam("file") MultipartFile file) {
+	    Map<String, Object> result = new HashMap<>();
+	    try {
+	    	slideExcelUplaodService.uploadSlideExcel(file);
+	        result.put("success", true);
+	        result.put("message", "✅ 슬라이드장 엑셀 업로드 및 DB 저장 완료");
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        result.put("success", false);
+	        result.put("message", "❌ 업로드 실패: " + e.getMessage());
+	    }
+
+	    return ResponseEntity.ok(result);
+	}
+	
+	@PostMapping("/flapExcelUpload")
+	public ResponseEntity<Map<String, Object>> uploadFlapExcel(@RequestParam("file") MultipartFile file) {
+	    Map<String, Object> result = new HashMap<>();
+	    try {
+	        flapExcelUploadService.uploadFlapExcel(file);
+	        result.put("success", true);
+	        result.put("message", "✅ 플랩장 엑셀 업로드 및 DB 저장 완료");
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        result.put("success", false);
+	        result.put("message", "❌ 업로드 실패: " + e.getMessage());
+	    }
+
+	    return ResponseEntity.ok(result);
+	}
+	
     @PostMapping("/marbleLowExcelUpload")
     public ResponseEntity<String> marbleLowExcelUpload(@RequestParam("file") MultipartFile file) {
         try (InputStream inputStream = file.getInputStream()) {
