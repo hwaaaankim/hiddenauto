@@ -8,4 +8,5 @@ import com.dev.HiddenBATHAuto.model.calculate.mirror.MirrorSeriesOneLed;
 @Repository
 public interface MirrorSeriesOneLedRepository extends JpaRepository<MirrorSeriesOneLed, Long>{
 
+	MirrorSeriesOneLed findByStandardWidth(int standardWidth);
 }

@@ -93,11 +93,13 @@ public class FlapCalculateService {
 
         if (depth > basicDepth) {
             int increased = (int) Math.round(base * 1.5);
-            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + " → 증가로 1.5배 적용됨");
+            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + ", 증가로 1.5배 적용됨");
             base = increased;
-        } else {
+        } else if (depth < basicDepth) {
             base += 30000;
-            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + " → 감소로 3만원 추가됨");
+            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + ", 감소로 3만원 추가됨");
+        } else {
+            reasons.add("깊이 기준: " + basicDepth + " → 입력값: " + depth + ", 깊이 동일 → 추가금 없음");
         }
 
         // Door

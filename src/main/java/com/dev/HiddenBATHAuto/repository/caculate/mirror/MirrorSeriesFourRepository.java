@@ -7,5 +7,5 @@ import com.dev.HiddenBATHAuto.model.calculate.mirror.MirrorSeriesFour;
 
 @Repository
 public interface MirrorSeriesFourRepository extends JpaRepository<MirrorSeriesFour, Long>{
-
+	MirrorSeriesFour findByStandardWidth(int standardWidth);
 }

@@ -7,5 +7,5 @@ import com.dev.HiddenBATHAuto.model.calculate.mirror.MirrorSeriesSixLed;
 
 @Repository
 public interface MirrorSeriesSixLedRepository extends JpaRepository<MirrorSeriesSixLed, Long>{
-
+	MirrorSeriesSixLed findByStandardWidth(int standardWidth);
 }
