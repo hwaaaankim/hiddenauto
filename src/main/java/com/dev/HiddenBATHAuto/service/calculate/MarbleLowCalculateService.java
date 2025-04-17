@@ -30,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MarbleLowCalculateService {
 
-    private final ProductRepository productRepository;
+	private final ProductRepository productRepository;
     private final MarbleLowTypeRepository marbleLowTypeRepository;
     private final MarbleLowBasePriceOneRepository baseOneRepo;
     private final MarbleLowBasePriceTwoRepository baseTwoRepo;
@@ -44,15 +44,17 @@ public class MarbleLowCalculateService {
         int variablePrice;
         List<String> reasons = new ArrayList<>();
 
-        // 1. Product 기준 사이즈 조회
         Long productId = Long.parseLong(String.valueOf(selection.get("product")));
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            reasons.add("제품 정보 조회 실패");
+            reasons.add("❌ 제품 정보 조회 실패");
             return Map.of("mainPrice", 0, "variablePrice", 0, "reasons", reasons);
         }
 
-        // 2. 사이즈 파싱
+        String productName = product.getName();
+        reasons.add("✅ 제품명: " + productName);
+
+        // 사이즈 파싱
         String sizeStr = (String) selection.get("size");
         int width = 0, height = 0, depth = 0;
         if (sizeStr != null) {
@@ -61,22 +63,27 @@ public class MarbleLowCalculateService {
                 width = Integer.parseInt(parts[0].replaceAll("[^0-9]", ""));
                 height = Integer.parseInt(parts[1].replaceAll("[^0-9]", ""));
                 depth = Integer.parseInt(parts[2].replaceAll("[^0-9]", ""));
+                reasons.add("✅ 입력 사이즈: W" + width + ", H" + height + ", D" + depth);
             } catch (Exception e) {
-                reasons.add("사이즈 파싱 실패");
+                reasons.add("❌ 사이즈 파싱 실패");
             }
         }
 
         int targetWidth = mapWidthToStandard(width);
+        reasons.add("📐 기준 W 매핑: " + targetWidth);
 
-        // 3. 대리석 타입 조회
+        // 대리석 종류
         String marbleName = String.valueOf(selection.get("colorofmarble"));
         MarbleLowType marble = marbleLowTypeRepository.findByMarbleName(marbleName);
         if (marble == null) {
-            reasons.add("대리석 타입 조회 실패");
+            reasons.add("❌ 대리석 타입 조회 실패: " + marbleName);
             return Map.of("mainPrice", 0, "variablePrice", 0, "reasons", reasons);
         }
 
         int unitPrice = marble.getUnitPrice();
+        reasons.add("✅ 대리석: " + marbleName + " (등급: " + unitPrice + ")");
+
+        // 기본 가격 조회
         int baseValue = 0;
         switch (unitPrice) {
             case 1 -> {
@@ -92,25 +99,27 @@ public class MarbleLowCalculateService {
                 baseValue = getDepthPrice(b3, depth);
             }
         }
+
         if (height > 800) {
             baseValue += 35000;
-            reasons.add("높이 800 초과로 35000 추가됨");
+            reasons.add("🔺 높이 800mm 초과 → 35,000원 추가");
         }
-        mainPrice += baseValue;
-        reasons.add("대리석 타입: " + marbleName + ", 등급: " + unitPrice + ", 기준 W" + targetWidth + ", D" + depth + " → 기본 가격: " + baseValue);
 
-        // 4. 세면대 수량
+        mainPrice += baseValue;
+        reasons.add("✅ 기본 가격 적용: " + baseValue + "원");
+
+        // 세면대 수량
         Integer numberOfWash = tryParseInt(selection.get("numberofwash"));
         if (numberOfWash != null && numberOfWash >= 2) {
             MarbleLowWash wash = washRepo.findByStandardWidth(targetWidth);
             if (wash != null) {
                 int washPrice = wash.getPrice() * (numberOfWash - 1);
                 mainPrice += washPrice;
-                reasons.add("세면대 수량: " + numberOfWash + ", 기준 너비: " + targetWidth + " → 추가금: " + washPrice);
+                reasons.add("🧼 세면대 추가: " + numberOfWash + "개 → 추가금: " + washPrice + "원");
             }
         }
 
-        // 5. 마구리
+        // 마구리
         if ("add".equals(selection.get("maguri"))) {
             Integer size = tryParseInt(selection.get("sizeofmaguri"));
             if (size != null && size > 150) {
@@ -125,27 +134,27 @@ public class MarbleLowCalculateService {
                         default -> len.getPrice1();
                     } + len.getAdditionalFee();
                     mainPrice += val;
-                    reasons.add("마구리 길이: " + length + "mm → 기준: " + mapped + "mm, 등급: " + unitPrice + " → 금액: " + val);
+                    reasons.add("📏 마구리 방향: " + dir + ", 길이: " + length + "mm → 금액: " + val + "원");
                 }
             } else {
-                reasons.add("마구리 사이즈 150 이하, 추가 없음");
+                reasons.add("ℹ️ 마구리 사이즈 150mm 이하 → 추가 없음");
             }
         } else {
-            reasons.add("마구리 선택 안됨");
+            reasons.add("ℹ️ 마구리 선택 안됨");
         }
 
-        // 6. board
+        // 걸레받이
         if ("add".equals(selection.get("board"))) {
             String dir = String.valueOf(selection.get("directionofboard"));
             int len = calculateLengthByDirection(dir, width, depth);
             int price = len * 20;
             mainPrice += price;
-            reasons.add("걸레받이 방향: " + dir + ", 길이: " + len + "mm → 금액: " + price);
+            reasons.add("🧱 걸레받이 방향: " + dir + ", 길이: " + len + "mm → 금액: " + price);
         } else {
-            reasons.add("걸레받이 선택 안됨");
+            reasons.add("ℹ️ 걸레받이 선택 안됨");
         }
-        
-        // 7. LED
+
+        // LED
         if ("add".equals(selection.get("led"))) {
             String pos = String.valueOf(selection.get("ledPosition"));
             int count = ("5".equals(pos)) ? 2 : 1;
@@ -153,42 +162,44 @@ public class MarbleLowCalculateService {
             if (op != null) {
                 int total = op.getPrice() * count;
                 mainPrice += total;
-                reasons.add("LED 수량: " + count + ", 단가: " + op.getPrice() + " → 총: " + total);
+                reasons.add("💡 LED 수량: " + count + ", 단가: " + op.getPrice() + " → 총: " + total + "원");
             }
         } else {
-            reasons.add("LED 선택 안됨");
+            reasons.add("ℹ️ LED 선택 안됨");
         }
 
-        // 8. 기타 옵션
+        // 기타 옵션
         mainPrice += addOption(selection, "outletPosition", "콘센트", reasons);
         mainPrice += addOption(selection, "dryPosition", "드라이걸이", reasons);
         mainPrice += addOption(selection, "tissuePosition", "티슈홀캡", reasons);
 
-        // 9. 메시지 전용 항목들 (가격 영향 없음)
+        // 문
         String door = String.valueOf(selection.get("door"));
         if ("add".equals(door)) {
             String formSlide = String.valueOf(selection.get("formofdoor_slide"));
             String formOther = String.valueOf(selection.get("formofdoor_other"));
             String form = (!"null".equals(formSlide) && formSlide != null) ? formSlide : formOther;
-            reasons.add("문 추가됨 (형태: " + form + ", 수량: " + selection.get("numberofdoor") + ")");
+            reasons.add("🚪 문 추가됨 (형태: " + form + ", 수량: " + selection.get("numberofdoor") + ")");
         } else {
-            reasons.add("문 추가 없음");
+            reasons.add("🚪 문 추가 없음");
         }
 
+        // 손잡이
         String handle = String.valueOf(selection.get("handle"));
         if ("add".equals(handle)) {
-            reasons.add("손잡이 추가됨 (종류: " + selection.get("handletype") + ")");
+            reasons.add("🖐️ 손잡이 추가됨 (종류: " + selection.get("handletype") + ")");
         } else {
-            reasons.add("손잡이 추가 없음");
+            reasons.add("🖐️ 손잡이 추가 없음");
         }
 
+        // 타공
         String hole = String.valueOf(selection.get("hole"));
         if ("add".equals(hole)) {
-            reasons.add("상판 타공 있음");
+            reasons.add("🔩 상판 타공 있음");
         } else {
-            reasons.add("상판 타공 없음");
+            reasons.add("🔩 상판 타공 없음");
         }
-        
+
         variablePrice = mainPrice;
         Map<String, Object> result = new HashMap<>();
         result.put("mainPrice", mainPrice);
@@ -198,7 +209,7 @@ public class MarbleLowCalculateService {
     }
 
     private int mapWidthToStandard(int width) {
-        return ((width / 100) * 100) + 100;
+        return ((width + 99) / 100) * 100;
     }
 
     private int getDepthPrice(Object base, int depth) {
@@ -229,23 +240,24 @@ public class MarbleLowCalculateService {
     private int addOption(Map<String, Object> selection, String key, String label, List<String> reasons) {
         Object val = selection.get(key);
         if (val == null || "7".equals(String.valueOf(val))) {
-            reasons.add(label + " 선택 안됨");
+            reasons.add("ℹ️ " + label + " 선택 안됨");
             return 0;
         }
         MarbleLowOptionPrice op = optionPriceRepository.findByOptionName(label);
         if (op != null) {
-            reasons.add(label + " 금액 적용: " + op.getPrice());
+            reasons.add("✅ " + label + " 가격 적용됨: " + op.getPrice());
             return op.getPrice();
         } else {
-            reasons.add(label + " 가격 조회 실패");
+            reasons.add("❌ " + label + " 가격 조회 실패");
             return 0;
         }
     }
+
     private Integer tryParseInt(Object value) {
-		try {
-			return Integer.parseInt(String.valueOf(value));
-		} catch (Exception e) {
-			return null;
-		}
-	}
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

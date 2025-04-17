@@ -56,49 +56,64 @@ public class LowCalculateService {
 				reasons.add("제품 정보 조회 실패");
 				return Map.of("mainPrice", 0, "variablePrice", 0, "reasons", reasons);
 			}
+			
 			int basicWidth = product.getBasicWidth();
 			int basicHeight = product.getBasicHeight();
 			int basicDepth = product.getBasicDepth();
-
+			
+			String productName = product.getName();
+			reasons.add("✔️ 제품명: " + productName);
+	        reasons.add("✔️ 제품 기준 사이즈: W" + basicWidth + ", H" + basicHeight + ", D" + basicDepth);
+			
 			String sizeStr = (String) selection.get("size");
 			int width = 0, height = 0, depth = 0;
 			if (sizeStr != null) {
-				try {
-					String[] parts = sizeStr.split(",");
-					width = Integer.parseInt(parts[0].replaceAll("[^0-9]", ""));
-					height = Integer.parseInt(parts[1].replaceAll("[^0-9]", ""));
-					depth = Integer.parseInt(parts[2].replaceAll("[^0-9]", ""));
+			    try {
+			        String[] parts = sizeStr.split(",");
+			        width = Integer.parseInt(parts[0].replaceAll("[^0-9]", ""));
+			        height = Integer.parseInt(parts[1].replaceAll("[^0-9]", ""));
+			        depth = Integer.parseInt(parts[2].replaceAll("[^0-9]", ""));
 
-					int targetWidth = mapWidthToStandard(width);
-					BasePrice base = basePriceRepository.findByStandardWidth(targetWidth);
-					if (base != null) {
-						int baseValue = 0;
-						String usedDepthRange = "";
-						if (depth <= 460) {
-							baseValue = base.getPrice460();
-							usedDepthRange = "<= 460 (price460)";
-						} else if (depth <= 560) {
-							baseValue = base.getPrice560();
-							usedDepthRange = "<= 560 (price560)";
-						} else if (depth <= 620) {
-							baseValue = base.getPrice620();
-							usedDepthRange = "<= 620 (price620)";
-						} else {
-							baseValue = base.getPrice700();
-							usedDepthRange = "> 620 (price700)";
-						}
+			        reasons.add("✔️ 입력 사이즈: W" + width + ", H" + height + ", D" + depth);
 
-						if (height > 800) {
-							baseValue += 35000;
-							reasons.add("높이 800 초과로 35000 추가됨");
-						}
-						mainPrice += baseValue;
-						reasons.add("입력 사이즈: W" + width + ", D" + depth + ", H" + height + " → 기준 사이즈로 W" + targetWidth
-								+ ", " + usedDepthRange + " 적용됨, 금액: " + baseValue);
-					}
-				} catch (Exception e) {
-					reasons.add("사이즈 파싱 오류");
-				}
+			        int targetWidth = mapWidthToStandard(width);
+			        BasePrice base = basePriceRepository.findByStandardWidth(targetWidth);
+
+			        if (base != null) {
+			            int baseValue = 0;
+			            String depthRangeUsed = "";
+
+			            if (depth <= 460) {
+			                baseValue = base.getPrice460();
+			                depthRangeUsed = "≤ 460 (price460)";
+			            } else if (depth <= 560) {
+			                baseValue = base.getPrice560();
+			                depthRangeUsed = "≤ 560 (price560)";
+			            } else if (depth <= 620) {
+			                baseValue = base.getPrice620();
+			                depthRangeUsed = "≤ 620 (price620)";
+			            } else {
+			                baseValue = base.getPrice700();
+			                depthRangeUsed = "> 620 (price700)";
+			            }
+
+			            reasons.add("✔️ 기준 너비 매핑: " + width + " → " + targetWidth);
+			            reasons.add("✔️ 깊이에 따라 적용된 가격 (" + depthRangeUsed + "): " + baseValue + "원");
+
+			            if (height > 800) {
+			                baseValue += 35000;
+			                reasons.add("✔️ 높이 > 800 → 35,000원 추가");
+			            }
+
+			            mainPrice += baseValue;
+			            reasons.add("✔️ 최종 기본 가격 적용: " + baseValue + "원");
+			        } else {
+			            reasons.add("❌ 기준 너비(" + targetWidth + ")에 해당하는 기본 가격 데이터 없음");
+			        }
+
+			    } catch (Exception e) {
+			        reasons.add("❌ 사이즈 파싱 실패 → 입력 문자열: " + sizeStr);
+			    }
 			}
 
 			Long seriesId = Long.parseLong(middleSortStr);
