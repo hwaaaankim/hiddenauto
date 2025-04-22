@@ -261,9 +261,9 @@ public class LowCalculateService {
 		return result;
 	}
 
-	private int mapWidthToStandard(int width) {
-		return ((width / 100) * 100) + 100;
-	}
+	 private int mapWidthToStandard(int width) {
+        return ((width + 99) / 100) * 100;
+    }
 
 	private Integer tryParseInt(Object value) {
 		try {

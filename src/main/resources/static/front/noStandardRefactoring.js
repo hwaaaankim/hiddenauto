@@ -1586,7 +1586,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 					const smaller = Math.min(value1, value2);
 					if (smaller > 500) {
-						alert('문을 여닫이 문으로 변경 원하는 경우에 마지막 단계의 비고란에 작성 부탁드립니다.');
+						alert('여닫이문을 500 이상으로 제작시 무상 AS는 불가능합니다. 문을 2도어 여닫이 문으로 변경 원하는 경우에 마지막 단계의 비고란에 작성 부탁드립니다.');
 					}
 
 					// 검증 통과 시 다음 단계로 이동
