@@ -46,6 +46,26 @@ AOS.init({
 	once: true
 });
 
+// ✅ 버튼 중복 클릭 방지 및 리셋 처리 유틸 함수
+function isButtonClicked(button) {
+	if (button.dataset.clicked === 'true') return true;
+	button.dataset.clicked = 'true';
+	return false;
+}
+
+function resetButtonClickState(button) {
+	button.dataset.clicked = 'false';
+}
+
+function resetStepButtonStates(stepKey) {
+	const optionDiv = document.getElementById(`${stepKey}-option`);
+	if (!optionDiv) return;
+	const buttons = optionDiv.querySelectorAll('button');
+	buttons.forEach(btn => {
+		btn.dataset.clicked = 'false';
+	});
+}
+
 function addFinalMessage(step, message) {
 	// 동일한 step과 message가 이미 존재하는지 확인
 	const exists = finalMessages.some(msg => msg.step === step && msg.message === message);
@@ -1132,6 +1152,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				// ✅ 기존 if 문 유지 + 추가 로직 포함
 				button.addEventListener('click', () => {
 					// ✅ 조건이 만족되면 assignModifiedNextValues 실행
+					if (isButtonClicked(button)) return;
 					handleProductSelection(option.value, categoryKey, step);
 					assignModifiedNextValuesToCurrentFlow(realFlow);
 					resolve();
@@ -1233,33 +1254,40 @@ function updateProductOptions(categoryKey, stepIndex) {
 				confirmButton.innerText = '확인';
 				confirmButton.classList.add('non-standard-btn', 'confirm');
 				confirmButton.addEventListener('click', () => {
+					if (isButtonClicked(confirmButton)) return;
+				
 					const width = parseInt(document.getElementById('width-input').value);
 					const height = parseInt(document.getElementById('height-input').value);
 					const depth = categoryKey === 'mirror' ? null : parseInt(document.getElementById('depth-input').value);
-
+				
 					if (!width || !height || (categoryKey !== 'mirror' && !depth)) {
 						alert('모든 필드를 입력하세요.');
+						resetButtonClickState(confirmButton); // ✅ 추가
 						return;
 					}
-
+				
 					// ✅ 클릭 시 검증 추가
 					if (selectedProductInfo.sizeRatioSign && width !== height) {
 						alert('이 제품은 원형 형태이므로, 넓이와 높이는 반드시 같아야 합니다. (1:1 비율)');
+						resetButtonClickState(confirmButton); // ✅ 추가
 						return;
 					}
 					if (categoryKey === 'top' && (width >= 1800 || height >= 1000)) {
 						alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
+						resetButtonClickState(confirmButton); // ✅ 추가
 						return;
 					}
 					if (categoryKey === 'slide' && (width >= 1800 || height >= 1000)) {
 						alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
+						resetButtonClickState(confirmButton); // ✅ 추가
 						return;
 					}
 					if (categoryKey === 'flap' && (width >= 1500 || height >= 600)) {
 						alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
+						resetButtonClickState(confirmButton); // ✅ 추가
 						return;
 					}
-
+				
 					// 정상 처리
 					if (categoryKey === 'top' || categoryKey === 'low') {
 						determineNumberOfOptions(width);
@@ -1285,6 +1313,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 				// 클릭 이벤트: 기존 기능 + 콘솔 출력 추가
 				button.addEventListener('click', () => {
+					if (isButtonClicked(button)) return;
 					if (option.value === 'not_add') {
 						updateFlowAfterDoorNotAddForTop();
 					}
@@ -1306,7 +1335,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				button.classList.add('non-standard-btn');
 
 				button.addEventListener('click', () => {
-
+					if (isButtonClicked(button)) return;
 					updateFlowAfterDoorSelectionForLow(realFlow, option.value);
 
 					const updatedDoorStep = realFlow.find(s => s.step === 'door');
@@ -1318,13 +1347,13 @@ function updateProductOptions(categoryKey, stepIndex) {
 				optionDiv.appendChild(button);
 			});
 		}
-
 		else if ((step.step === 'numberofdoor' || step.step === 'numberofdrawer') && numberOfOption.length > 0) {
 			numberOfOption.forEach(option => {
 				const button = document.createElement('button');
 				button.innerText = `${option}개`;
 				button.classList.add('non-standard-btn');
 				button.addEventListener('click', () => {
+					if (isButtonClicked(button)) return;
 					handleNumberOfDoorSelection(option, categoryKey);
 					handleProductSelection(option, categoryKey, step);
 					resolve();
@@ -1351,9 +1380,11 @@ function updateProductOptions(categoryKey, stepIndex) {
 			confirmButton.classList.add('non-standard-btn', 'confirm');
 
 			confirmButton.addEventListener('click', () => {
+				if (isButtonClicked(confirmButton)) return;
 				const maguriSize = parseInt(input.value, 10);
 
 				if (isNaN(maguriSize) || maguriSize < 1 || maguriSize > 250) {
+					resetButtonClickState(confirmButton);
 					alert('마구리 사이즈를 입력해 주세요.');
 					return;
 				}
@@ -1372,6 +1403,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				button.classList.add('non-standard-btn');
 
 				button.addEventListener('click', () => {
+					if (isButtonClicked(button)) return;
 					handleProductSelection(option.value, categoryKey, step);
 					// 선택 후 lowDoorDirectionPlaceholder 업데이트
 					lowDoorDirectionPlaceholder = getLowDoorDirectionPlaceholder();
@@ -1404,13 +1436,15 @@ function updateProductOptions(categoryKey, stepIndex) {
 			confirmButton.classList.add('non-standard-btn', 'confirm');
 
 			confirmButton.addEventListener('click', () => {
+				if (isButtonClicked(confirmButton)) return;
+
 				const doorDirection = input.value.trim();
 
 				if (!doorDirection) {
+					resetButtonClickState(confirmButton);
 					alert('경첩 방향을 입력해 주세요.');
 					return;
 				}
-
 				handleProductSelection(doorDirection, categoryKey, step);
 			});
 
@@ -1425,6 +1459,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				button.innerText = `${option}개`;
 				button.classList.add('non-standard-btn');
 				button.addEventListener('click', () => {
+					if (isButtonClicked(button)) return;
 					handleProductSelection(option, categoryKey, step);
 					resolve();
 				});
@@ -1451,17 +1486,14 @@ function updateProductOptions(categoryKey, stepIndex) {
 			confirmButton.classList.add('non-standard-btn', 'confirm');
 
 			confirmButton.addEventListener('click', () => {
+				if (isButtonClicked(confirmButton)) return;
 				const inputValue = input.value.trim();
 				if (!inputValue) {
+					resetButtonClickState(confirmButton); 
 					alert('세면대 위치를 입력 해 주세요.');
 					return;
 				}
-
-				// 선택한 값 저장
-				selectedAnswerValue[step.step] = inputValue;
-
-				// 다음 단계로 이동
-				proceedToNextStep(categoryKey, step.next, inputValue);
+				handleProductSelection(inputValue, categoryKey, step);
 			});
 
 			// label에 input 추가
@@ -1497,9 +1529,11 @@ function updateProductOptions(categoryKey, stepIndex) {
 			confirmButton.innerText = '확인';
 			confirmButton.classList.add('non-standard-btn', 'confirm');
 			confirmButton.addEventListener('click', () => {
+				if (isButtonClicked(confirmButton)) return;
 				const directionValue = directionInput.value.trim();
 
 				if (!directionValue) {
+					resetButtonClickState(confirmButton); 
 					alert('경첩 방향을 입력 해 주세요.');
 					return;
 				}
@@ -1507,6 +1541,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				// 최종 검증
 				const validationResult = validateDoorDirectionInput(directionValue, numberOfDoors);
 				if (!validationResult.isValid) {
+					resetButtonClickState(confirmButton); 
 					alert(validationResult.message); // 검증 실패 메시지 출력
 					return;
 				}
@@ -1549,11 +1584,13 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 			// 확인 버튼 클릭 시 검증 로직
 			confirmButton.addEventListener('click', async () => {
+				if (isButtonClicked(confirmButton)) return;
 				const value1 = parseInt(input1.value, 10);
 				const value2 = parseInt(input2.value, 10);
 
 				// 유효성 검사: 입력 값이 숫자가 아니거나 0 이하일 때
 				if (isNaN(value1) || isNaN(value2) || value1 <= 0 || value2 <= 0) {
+					resetButtonClickState(confirmButton); 
 					alert('모든 비율 값을 올바르게 입력하세요.');
 					input1.value = '';
 					input2.value = '';
@@ -1572,12 +1609,14 @@ function updateProductOptions(categoryKey, stepIndex) {
 					}
 					// width 값이 유효한지 검사
 					if (!width) {
+						resetButtonClickState(confirmButton); 
 						alert('사이즈 데이터에서 넓이 값을 가져오지 못했습니다.');
 						return;
 					}
 
 					// 입력된 값의 합이 width와 동일한지 검증
 					if (value1 + value2 !== parseInt(width, 10)) {
+						resetButtonClickState(confirmButton); 
 						alert(`입력한 비율의 합이 ${width}와 일치해야 합니다.`);
 						input1.value = '';
 						input2.value = '';
@@ -1624,6 +1663,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 				// 클릭 이벤트
 				button.addEventListener('click', () => {
+					if (isButtonClicked(button)) return;
 					handleProductSelection(option.value, categoryKey, step);
 					resolve();
 				});
@@ -1635,6 +1675,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				button.innerText = option.label;
 				button.classList.add('non-standard-btn');
 				button.addEventListener('click', () => {
+					if (isButtonClicked(button)) return;
 					handleProductSelection(option.value, categoryKey, step);
 					resolve();
 				});
@@ -1793,6 +1834,8 @@ function renderAnswer(step, product, categoryKey = '') {
 		calcButton.innerText = '가격계산';
 		calcButton.classList.add('non-standard-btn', 'non-answer-btn');
 		calcButton.addEventListener('click', () => {
+			if (isButtonClicked(calcButton)) return;
+			calcButton.innerText = '계산 중...';
 			fetch('/calculate', {
 				method: 'POST',
 				headers: {
@@ -1839,6 +1882,9 @@ function renderAnswer(step, product, categoryKey = '') {
 				.catch(err => {
 					console.error('가격 계산 실패:', err);
 					alert('가격 계산에 실패했습니다. 다시 시도해주세요.');
+				}).finally(() => {
+					resetButtonClickState(calcButton);
+					calcButton.innerText = '가격계산';
 				});
 		});
 
@@ -2141,7 +2187,10 @@ function resetStep(step) {
 	if (optionDiv) {
 		optionDiv.classList.remove('disabled-option');
 	}
-
+	const optionButtons = document.querySelectorAll(`#${step}-option button`);
+	optionButtons.forEach(button => {
+		resetButtonClickState(button); // 클릭 방지 해제
+	});
 	// ✅ 초기 질문 렌더링
 	if (step === 'category') {
 		renderInitialQuestion();

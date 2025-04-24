@@ -663,7 +663,7 @@ i#bag-icon.active {
 	margin-bottom: 20px;
 	float: left;
 	clear: both;
-	width:100%;
+	width: 100%;
 	position: relative;
 }
 
@@ -673,7 +673,7 @@ i#bag-icon.active {
 	border-radius: 10px;
 	padding: 10px;
 	max-width: 100%;
-	width:100%;
+	width: 100%;
 	text-align: right;
 	margin-bottom: 10px;
 	float: right;
@@ -686,9 +686,9 @@ i#bag-icon.active {
 
 /* 버튼 스타일 */
 .non-standard-btn {
-	background-color:transparent;
-	border:1px solid #ddd;
-	color:black;
+	background-color: transparent;
+	border: 1px solid #ddd;
+	color: black;
 	border-radius: 5px;
 	padding: 10px 20px;
 	cursor: pointer;
@@ -696,76 +696,142 @@ i#bag-icon.active {
 }
 
 .non-standard-btn {
-	background-color:transparent;
-	border:1px solid #ddd;
-	color:black;
+	background-color: transparent;
+	border: 1px solid #ddd;
+	color: black;
 	border-radius: 5px;
 	padding: 10px 20px;
 	cursor: pointer;
 	transition: background-color 0.3s ease;
 }
-.non-standard-btn:not(.non-answer-btn){
+
+.non-standard-btn:not(.non-answer-btn) {
 	max-width: calc(20% - 10px);
 	flex: 1 1 calc(20% - 10px);
-	align-items:center;
+	align-items: center;
 }
-.non-answer-btn{
-	border:1px solid rgba(0,0,0,0.3);
-	max-width:100%;
+
+@media (max-width: 768px) {
+	.non-standard-btn:not(.non-answer-btn) {
+		max-width: calc(50% - 10px);
+		flex: 1 1 calc(50% - 10px);
+	}
 }
-.non-standard-btn.product-option-btn{
-	background-color:transparent;
-	border:1px solid #ddd;
-	color:black;
+
+.non-answer-btn {
+	border: 1px solid rgba(0, 0, 0, 0.3);
+	max-width: 100%;
+}
+
+.non-standard-btn.product-option-btn {
+	background-color: transparent;
+	border: 1px solid #ddd;
+	color: black;
 	max-width: calc(20% - 10px);
 	flex: 1 1 calc(20% - 10px);
-	align-items:center;
-	height:	80px;
-	line-height:1.4;
-	display:flex;
-	padding:10px 10px;
-	
+	align-items: center;
+	height: 80px;
+	line-height: 1.4;
+	display: flex;
+	padding: 10px 10px;
 }
-.non-standard-btn.product-option-btn span{
-	width: 50%; /* 텍스트 영역 너비 50% */
-  text-align: center; /* 텍스트 가운데 정렬 */
-  font-size: 13px; /* 텍스트 크기 */
-  font-weight:600;
-  line-height:1.2;
-  margin-left:5px;
-  color: #333; /* 텍스트 색상 */
-  display: flex;
-  align-items: center; /* 세로 가운데 정렬 */
-  justify-content: center; /* 가로 가운데 정렬 */
+
+@media (max-width: 768px) {
+	.non-standard-btn:not(.non-answer-btn) {
+		max-width: calc(50% - 10px);
+		flex: 1 1 calc(50% - 10px);
+	}
+
+	.non-standard-btn.product-option-btn {
+		max-width: calc(50% - 10px);
+		flex: 1 1 calc(50% - 10px);
+	}
+
+	.non-standard-answer {
+		line-height: 1.3; 
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: nowrap;
+		text-align: left;
+		gap: 10px;
+	}
+
+	.non-standard-answer::before {
+		content: '';
+		display: table;
+		flex-shrink: 0;
+	}
+
+	.non-standard-answer button {
+		flex-shrink: 0;
+		align-self: center;
+		white-space: nowrap;
+		margin-left: auto;
+		margin-top: 0;
+		margin-bottom: 0;
+	}
 }
-.non-standard-btn.product-option-btn img{
-	width: 50%; /* 이미지 너비 50% */
-  height: 100%; /* 이미지 높이 100% */
-  margin-right:5px;
-  object-fit: cover; /* 이미지 비율 유지 */
-  border-right: 1px solid #ddd; /* 이미지와 텍스트 사이 구분선 */
+
+.non-standard-btn.product-option-btn span {
+	width: 50%;
+	/* 텍스트 영역 너비 50% */
+	text-align: center;
+	/* 텍스트 가운데 정렬 */
+	font-size: 13px;
+	/* 텍스트 크기 */
+	font-weight: 600;
+	line-height: 1.2;
+	margin-left: 5px;
+	color: #333;
+	/* 텍스트 색상 */
+	display: flex;
+	align-items: center;
+	/* 세로 가운데 정렬 */
+	justify-content: center;
+	/* 가로 가운데 정렬 */
+}
+
+.non-standard-btn.product-option-btn img {
+	width: 50%;
+	/* 이미지 너비 50% */
+	height: 100%;
+	/* 이미지 높이 100% */
+	margin-right: 5px;
+	object-fit: cover;
+	/* 이미지 비율 유지 */
+	border-right: 1px solid #ddd;
+	/* 이미지와 텍스트 사이 구분선 */
 }
 
 .non-standard-btn:hover {
 	background-color: #0056b3;
 }
+
 .non-standard-btn:disabled {
-    background-color: #f0f0f0;
-    color: #aaa;
-    border: 1px solid #ccc;
-    cursor: not-allowed;
-    pointer-events: none; /* hover 효과 차단 */
-    transition: none; /* 애니메이션 제거 */
+	background-color: #f0f0f0;
+	color: #aaa;
+	border: 1px solid #ccc;
+	cursor: not-allowed;
+	pointer-events: none;
+	/* hover 효과 차단 */
+	transition: none;
+	/* 애니메이션 제거 */
 }
 
-label{
-	height:48px;
+label {
+	height: 48px;
 }
+
 input[readonly] {
-    background-color: #f0f0f0; /* 연한 회색 */
-    cursor: not-allowed; /* 사용 불가능한 커서 표시 */
-    color: #888; /* 글자 색도 흐리게 */
-    border: 1px solid #ccc; /* 테두리 색 변경 */
+	background-color: #f0f0f0;
+	/* 연한 회색 */
+	cursor: not-allowed;
+	/* 사용 불가능한 커서 표시 */
+	color: #888;
+	/* 글자 색도 흐리게 */
+	border: 1px solid #ccc;
+	/* 테두리 색 변경 */
 }
 
 /* input 스타일 */
@@ -992,139 +1058,161 @@ div.content.task-content {
 	transform: none;
 	background-color: #007bff;
 }
+
 .switch {
-    position: relative;
-    display: inline-block;
-    width: 34px;
-    height: 20px;
+	position: relative;
+	display: inline-block;
+	width: 34px;
+	height: 20px;
 }
 
 .switch input {
-    display: none;
+	display: none;
 }
 
 .slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: 0.4s;
-    border-radius: 20px;
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: #ccc;
+	transition: 0.4s;
+	border-radius: 20px;
 }
 
 .slider:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: 0.4s;
-    border-radius: 50%;
+	position: absolute;
+	content: "";
+	height: 14px;
+	width: 14px;
+	left: 3px;
+	bottom: 3px;
+	background-color: white;
+	transition: 0.4s;
+	border-radius: 50%;
 }
 
-input:checked + .slider {
-    background-color: #4caf50;
+input:checked+.slider {
+	background-color: #4caf50;
 }
 
-input:checked + .slider:before {
-    transform: translateX(14px);
+input:checked+.slider:before {
+	transform: translateX(14px);
 }
 
 .hidden-section {
-    display: none;
-    height: 0;
-    overflow: hidden; /* 내용 잘림 방지 */
-    transition: height 0.3s ease-in-out; /* 부드러운 애니메이션 */
-    margin-top:20px;
+	display: none;
+	height: 0;
+	overflow: hidden;
+	/* 내용 잘림 방지 */
+	transition: height 0.3s ease-in-out;
+	/* 부드러운 애니메이션 */
+	margin-top: 20px;
 }
 
 .input-style {
-    display: flex;
-    align-items: center;
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    background-color: #f9f9f9;
+	display: flex;
+	align-items: center;
+	border: 1px solid #ddd;
+	padding: 10px;
+	border-radius: 8px;
+	margin-bottom: 10px;
+	background-color: #f9f9f9;
 }
 
 .input-style input {
-    flex: 1;
-    border: none;
-    outline: none;
-    font-size: 14px;
-    background: transparent;
-    margin-right: 10px;
+	flex: 1;
+	border: none;
+	outline: none;
+	font-size: 14px;
+	background: transparent;
+	margin-right: 10px;
 }
 
 .input-style button {
-    white-space: nowrap;
-    padding: 8px 12px;
-    font-size: 14px;
-    border: none;
-    border-radius: 6px;
-    background-color: #4caf50;
-    color: white;
-    cursor: pointer;
-    transition: background-color 0.3s;
+	white-space: nowrap;
+	padding: 8px 12px;
+	font-size: 14px;
+	border: none;
+	border-radius: 6px;
+	background-color: #4caf50;
+	color: white;
+	cursor: pointer;
+	transition: background-color 0.3s;
 }
 
 .input-style button:hover {
-    background-color: #45a049;
+	background-color: #45a049;
 }
 
 
 /* 카트 아이콘에 수량 표시 */
 #cart-product-amount {
-    position: absolute;
-    top: 3px; /* 아이콘 위로 약간 이동 */
-    right: 3px; /* 아이콘 오른쪽으로 약간 이동 */
-    background-color: black; /* 검정색 배경 */
-    color: white; /* 하얀 글씨 */
-    font-size: 12px; /* 글씨 크기 조정 */
-    width: 16px; /* 동그라미 크기 */
-    height: 16px; /* 동그라미 크기 */
-    display: flex; /* 내용 중앙 정렬 */
-    justify-content: center;
-    align-items: center;
-    border-radius: 50%; /* 동그라미 모양 */
-    font-weight: bold; /* 글씨 강조 */
-    z-index: 10; /* 다른 요소 위에 표시 */
+	position: absolute;
+	top: 3px;
+	/* 아이콘 위로 약간 이동 */
+	right: 3px;
+	/* 아이콘 오른쪽으로 약간 이동 */
+	background-color: black;
+	/* 검정색 배경 */
+	color: white;
+	/* 하얀 글씨 */
+	font-size: 12px;
+	/* 글씨 크기 조정 */
+	width: 16px;
+	/* 동그라미 크기 */
+	height: 16px;
+	/* 동그라미 크기 */
+	display: flex;
+	/* 내용 중앙 정렬 */
+	justify-content: center;
+	align-items: center;
+	border-radius: 50%;
+	/* 동그라미 모양 */
+	font-weight: bold;
+	/* 글씨 강조 */
+	z-index: 10;
+	/* 다른 요소 위에 표시 */
 }
 
 /* 아이콘 그룹 스타일 조정 */
 #header-icon-4-group {
-    position: relative; /* 자식 요소인 수량 배지 위치 기준 */
+	position: relative;
+	/* 자식 요소인 수량 배지 위치 기준 */
 }
+
 .address-container {
-    margin-left: auto; /* 오른쪽 끝으로 이동 */
-    display: flex;
-    align-items: center; /* 체크박스와 텍스트를 세로로 정렬 */
-    gap: 10px; /* 텍스트와 체크박스 사이 간격 */
+	margin-left: auto;
+	/* 오른쪽 끝으로 이동 */
+	display: flex;
+	align-items: center;
+	/* 체크박스와 텍스트를 세로로 정렬 */
+	gap: 10px;
+	/* 텍스트와 체크박스 사이 간격 */
 }
 
 .switch-label {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-    color: #333;
-    gap: 8px; /* 텍스트와 스위치 사이 간격 */
+	display: flex;
+	align-items: center;
+	font-size: 14px;
+	color: #333;
+	gap: 8px;
+	/* 텍스트와 스위치 사이 간격 */
 }
-.final-message-container{
-	text-align:left;
-	padding-left:5px;
-	margin-bottom:10px;
+
+.final-message-container {
+	text-align: left;
+	padding-left: 5px;
+	margin-bottom: 10px;
 }
-.final-message-container .final-message-item{
-	text-align:left;
-	margin-bottom:0px;
-	line-height:1.2;
-	color:darkred;
+
+.final-message-container .final-message-item {
+	text-align: left;
+	margin-bottom: 0px;
+	line-height: 1.2;
+	color: darkred;
 }
 
 
@@ -1135,7 +1223,7 @@ input:checked + .slider:before {
 	padding: 15px;
 	margin-top: 20px;
 	border-radius: 8px;
-	box-shadow: 0 0 5px rgba(0,0,0,0.1);
+	box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 	font-size: 14px;
 	text-align: left;
 }
@@ -1148,32 +1236,5 @@ input:checked + .slider:before {
 
 .receipt-style p {
 	margin: 0px;
-	line-height:1.4;
+	line-height: 1.4;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

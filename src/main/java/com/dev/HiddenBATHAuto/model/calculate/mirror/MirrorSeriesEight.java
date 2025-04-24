@@ -20,6 +20,12 @@ public class MirrorSeriesEight {
     @Column(name = "standard_width")
     private int standardWidth;
 
+    @Column(name = "price200")
+    private int price200;
+    
+    @Column(name = "price300")
+    private int price300;
+    
     @Column(name = "price400")
     private int price400;
 
