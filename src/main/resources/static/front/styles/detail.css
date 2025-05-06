@@ -552,7 +552,7 @@ i#bag-icon.active {
 	align-items: center;
 }
 
-.input-group input[type="text"] {
+.input-group input[type="text"], .input-group input[type="number"]{
 	flex: 1;
 	/* 남는 공간을 채우도록 */
 	padding: 10px;
@@ -568,8 +568,8 @@ i#bag-icon.active {
 	font-size: 16px;
 	background-color: #4CAF50;
 	color: white;
-	border: none;
-	border-radius: 4px;
+	border: 1px solid gray;
+	border-radius: 0px;
 	cursor: pointer;
 	transition: background-color 0.3s ease;
 }
@@ -1237,4 +1237,8 @@ input:checked+.slider:before {
 .receipt-style p {
 	margin: 0px;
 	line-height: 1.4;
+}
+.login-btn-wrap{
+	justify-content: center;
+	display: flex;
 }

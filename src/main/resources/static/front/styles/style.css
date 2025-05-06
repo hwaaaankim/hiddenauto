@@ -2143,7 +2143,7 @@ button {
 
 .card-style {
   overflow: hidden;
-  margin: 0px 16px 30px 16px;
+  margin: 0px 16px 15px 16px;
   border: none;
   border-radius: 10px;
   box-shadow:0px 4px 24px rgba(0,0,0,0.1);

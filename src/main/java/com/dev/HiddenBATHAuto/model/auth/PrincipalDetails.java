@@ -13,9 +13,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
-public class PrincipalDetails implements UserDetails, Serializable  {
+public class PrincipalDetails implements UserDetails, Serializable {
 
 	private static final long serialVersionUID = 2024L;
+
 	private final Member member;
 
 	public PrincipalDetails(Member member) {
@@ -24,28 +25,26 @@ public class PrincipalDetails implements UserDetails, Serializable  {
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
-		
-		ArrayList<GrantedAuthority> auth = new ArrayList<GrantedAuthority>();
-        auth.add(new SimpleGrantedAuthority(member.getRole()));
-        return auth;
+		ArrayList<GrantedAuthority> auth = new ArrayList<>();
+		// Spring Security 권한은 "ROLE_" 접두사 필요
+		auth.add(new SimpleGrantedAuthority("ROLE_" + member.getRole().name()));
+		return auth;
 	}
-	
-	
-    @Override
-    public String getUsername() {
-        return this.member.getUsername();
-    }
 
-    @Override
-    public String getPassword() {
-        return this.member.getPassword();
-    }
+	@Override
+	public String getUsername() {
+		return this.member.getUsername();
+	}
 
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+	@Override
+	public String getPassword() {
+		return this.member.getPassword();
+	}
+
+	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
 	@Override
 	public boolean isAccountNonExpired() {
 		return true;
-		
 	}
 
 	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
@@ -63,6 +62,10 @@ public class PrincipalDetails implements UserDetails, Serializable  {
 	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
 	@Override
 	public boolean isEnabled() {
-		return true;
+		return member.isEnabled(); // 실제 enabled 필드 기반
+	}
+
+	public Member getMember() {
+		return this.member;
 	}
 }

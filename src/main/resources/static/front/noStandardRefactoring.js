@@ -17,29 +17,6 @@ let finalMessages = [];  // <p>로 출력될 메시지 배열
 // 장바구니, 발주 버튼 클릭 시 localStorage에 데이터 저장 및 flow 초기화 함수
 let selectedAnswerValue = {}; // 선택한 값을 저장할 객체
 
-const sampleDataSet = {
-	"category": {
-		"label": "하부장",
-		"value": "low",
-		"id": 2
-	},
-	"middleSort": 10,
-	"product": 175,
-	"form": "leg",
-	"color": 1,
-	"size": "넓이: 630, 높이: 460, 깊이: 700",
-	"formofwash": "under",
-	"sortofunder": "one",
-	"numberofwash": 1,
-	"positionofwash": "1",
-	"colorofmarble": "16",
-	"door": "not_add",
-	"maguri": "not_add",
-	"hole": "add",
-	"board": "add",
-	"directionofboard": "front_left_right"
-}
-
 AOS.init({
 	duration: 500,
 	easing: 'ease-in-out',
@@ -55,15 +32,6 @@ function isButtonClicked(button) {
 
 function resetButtonClickState(button) {
 	button.dataset.clicked = 'false';
-}
-
-function resetStepButtonStates(stepKey) {
-	const optionDiv = document.getElementById(`${stepKey}-option`);
-	if (!optionDiv) return;
-	const buttons = optionDiv.querySelectorAll('button');
-	buttons.forEach(btn => {
-		btn.dataset.clicked = 'false';
-	});
 }
 
 function addFinalMessage(step, message) {
@@ -1811,6 +1779,7 @@ function renderAnswer(step, product, categoryKey = '') {
 		cartButton.addEventListener('click', () => {
 			if (confirm('장바구니에 담으시겠습니까?')) {
 				addToCart();
+				
 			}
 		});
 		finalWrap.appendChild(cartButton);
@@ -2242,18 +2211,22 @@ function addToCart() {
 
 	// 초기화 수행
 	resetSelections();
+	window.updateBagIcon();
 }
 
-// 발주하기에 항목 추가 후 초기화
+// 바로 발주 (단일 제품만 저장, source=order)
 function addToOrder() {
-	const orderData = JSON.parse(localStorage.getItem('order')) || [];
-	const currentOrder = { ...selectedAnswerValue, quantity: parseInt(document.getElementById('final-quantity').value) };
+	const currentOrder = {
+		...selectedAnswerValue,
+		quantity: parseInt(document.getElementById('final-quantity').value)
+	};
 
-	orderData.push(currentOrder);
-	localStorage.setItem('order', JSON.stringify(orderData));
+	localStorage.setItem('direct', JSON.stringify([currentOrder])); // 단일 제품 리스트 형태로 저장
 
-	// 초기화 수행
 	resetSelections();
+
+	// 페이지 이동 시 명시적으로 source를 전달
+	location.href = '/orderConfirm?from=direct';
 }
 
 // 공통 초기화 함수

@@ -30,7 +30,8 @@ public class WebSecurityConfig {
 	private final String[] visitorsUrls = {
 			"/**", 
 			"/administration/**",
-			"/api/v1/**" 
+			"/api/v1/**",
+			"/api/init/**"
 	};
 	
 	private final String[] membersUrls = {

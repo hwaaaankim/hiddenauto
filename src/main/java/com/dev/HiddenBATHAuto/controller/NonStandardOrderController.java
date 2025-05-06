@@ -27,10 +27,16 @@ public class NonStandardOrderController {
 	}
 
 	@GetMapping("/orderConfirm")
-	public String orderConfirm() {
-
-		return "front/order/orderConfirm";
+	public String orderConfirm(@RequestParam(value = "from", required = false) String from, Model model) {
+	    // 직접 주문일 때만 orderSource="direct"로 전달하고, 나머지는 cart 사용
+	    if ("direct".equals(from)) {
+	        model.addAttribute("orderSource", "direct");
+	    } else {
+	        model.addAttribute("orderSource", "cart");
+	    }
+	    return "front/order/orderConfirm";
 	}
+
 
 	@PostMapping("/modeling")
     public String showModelingView(@RequestParam Map<String, String> formData, Model model) {

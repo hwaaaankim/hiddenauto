@@ -64,9 +64,9 @@ spring:
       on-profile: prod
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://203.245.44.21:3306/teriwoo2025?useUnicode=true&characterEncoding=utf8
-    username: teriwoo2025
-    password: ghksrka9274!
+    url: jdbc:mariadb://hidden2025.cafe24.com:3306/hidden2025?useUnicode=true&characterEncoding=utf8
+    username: hidden2025
+    password: hidden3660!@
     hikari:
       connectionTimeout: 30000
       maximumPoolSize: 10

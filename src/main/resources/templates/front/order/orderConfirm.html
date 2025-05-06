@@ -67,15 +67,13 @@
 					<p class="mb-0">보유중이신 포인트를 사용 하시겠습니까? (보유 포인트 : 10,000)</p>
 					<div class="row">
 						<div class="align-self-center w-100">
-							<div class="input-style has-borders validate-field mt-3 input-group">
-								<input type="number" id="point-input"
-									class="form-control validate-name"
-									placeholder="사용하실 포인트를 입력 해 주세요."> <label for="form1"
-									class="color-highlight">ENTER POINTs</label> <i
-									class="fa fa-times disabled invalid color-red-dark"></i> <i
-									class="fa fa-check disabled valid color-green-dark"></i>
-									<button id="apply-button" class="point-btn" type="button">적용</button>
-									<button id="cancel-button" class="point-btn" type="button">취소</button>
+							<div class="input-group mt-3 mb-3">
+								<input 
+								type="text" 
+								placeholder="사용하실 포인트를 입력 해 주세요."
+							    id="point-input"/>
+								<button id="apply-button" type="button">적용</button>
+								<button id="cancel-button" type="button">취소</button>
 							</div>
 						</div>
 					</div>
@@ -111,15 +109,18 @@
 						</div>
 					</div>
 					<div class="divider"></div>
-					<a href="" class="btn btn-full btn-m text-uppercase font-800 rounded-sm">발주하기</a>
+					<a id="orderConfirmButton" class="btn btn-full btn-m text-uppercase font-800 rounded-sm">발주하기</a>
 				</div>
 			</div>
 
-			<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 	</div>
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<script th:inline="javascript">
+    	window.orderSource = /*[[${orderSource}]]*/ "cart"; // 기본값은 "cart"
+	</script>
 	<script src="/front/orderConfirm.js"></script>
 </body>
 
