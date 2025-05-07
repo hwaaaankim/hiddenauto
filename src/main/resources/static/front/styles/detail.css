@@ -32,9 +32,55 @@
 	}
 
 	.process-btn-wrap a {
-		width: 100px;
+		width: 70px;
 		font-size: 12px;
 		margin-bottom: 5px;
+	}
+	.size-span{
+		width:90px;
+		display:inline-block;
+	}
+	/* 수량 row (1행) */
+	.quantity-row {
+	  display: flex;
+	  flex-direction: row;
+	  align-items: center;
+	  gap: 10px;
+	  width: 100%;
+	}
+	
+	/* 수량 span */
+	.quantity-row .size-span {
+	  display: inline-block;
+	  font-weight: bold;
+	  white-space: nowrap;
+	}
+	
+	/* 수량 input은 남는 공간 꽉 채움 */
+	.quantity-row input[type="number"] {
+	  flex: 1;
+	  width: auto;
+	  min-width: 0;
+	  box-sizing: border-box;
+	}
+	
+	/* 버튼 row (2행) */
+	.button-row {
+	  display: flex;
+	  flex-direction: row;
+	  justify-content: space-between;
+	  gap: 8px;
+	  margin-top: 10px;
+	  width: 100%;
+	}
+	
+	.button-row button {
+	  flex: 1;
+	  white-space: nowrap;
+	}
+	#cart-btn, #order-btn, #calculate-price-btn{
+		margin:0;
+		padding:10px 10px;
 	}
 }
 
@@ -552,7 +598,7 @@ i#bag-icon.active {
 	align-items: center;
 }
 
-.input-group input[type="text"], .input-group input[type="number"]{
+.input-group input[type="text"] {
 	flex: 1;
 	/* 남는 공간을 채우도록 */
 	padding: 10px;
@@ -568,8 +614,8 @@ i#bag-icon.active {
 	font-size: 16px;
 	background-color: #4CAF50;
 	color: white;
-	border: 1px solid gray;
-	border-radius: 0px;
+	border: none;
+	border-radius: 4px;
 	cursor: pointer;
 	transition: background-color 0.3s ease;
 }
@@ -735,7 +781,9 @@ i#bag-icon.active {
 	display: flex;
 	padding: 10px 10px;
 }
-
+.quantity-row{
+	margin-bottom:10px;
+}
 @media (max-width: 768px) {
 	.non-standard-btn:not(.non-answer-btn) {
 		max-width: calc(50% - 10px);
@@ -756,7 +804,9 @@ i#bag-icon.active {
 		text-align: left;
 		gap: 10px;
 	}
-
+	#final-wrap.non-standard-answer{
+		flex-direction: column !important;
+	}
 	.non-standard-answer::before {
 		content: '';
 		display: table;
@@ -771,6 +821,34 @@ i#bag-icon.active {
 		margin-top: 0;
 		margin-bottom: 0;
 	}
+	.quantity-row {
+	    display: flex;
+	    flex-direction: row;
+	    align-items: center;
+	    gap: 10px;
+	    width: 100%;
+	    flex-wrap: nowrap;
+	  }
+	
+	  .quantity-row label {
+	    display: flex;
+	    align-items: center;
+	  }
+	
+	  .quantity-row .size-span {
+	    display: inline-block;
+	    width: auto;
+	    font-weight: bold;
+	  }
+	
+	  .quantity-row input[type="number"] {
+	    width: 100%;
+	  }
+	
+	  .quantity-row button {
+	    flex-shrink: 0;
+	    white-space: nowrap;
+	  }
 }
 
 .non-standard-btn.product-option-btn span {
@@ -1025,16 +1103,19 @@ div.content.task-content {
 .fixed-button.drawing {
 	right: 50px;
 	bottom: 170px;
+	display: none;
 }
 
 .fixed-button.three-d {
 	right: 50px;
 	bottom: 100px;
+	display: none;
 }
 
 .fixed-button.star {
 	right: 50px;
 	bottom: 240px;
+	display: none;
 }
 
 /* 호버 효과 */
@@ -1237,8 +1318,4 @@ input:checked+.slider:before {
 .receipt-style p {
 	margin: 0px;
 	line-height: 1.4;
-}
-.login-btn-wrap{
-	justify-content: center;
-	display: flex;
 }

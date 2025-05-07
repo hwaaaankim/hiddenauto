@@ -351,10 +351,10 @@ export const productFlowSteps = {
 			label: '세면대 종류',
 			question: '세면대의 종류를 선택 해 주세요.',
 			options: [
-				{ value: '35', label: 'TB-060(비누대 O)' },
-				{ value: '35', label: 'E-60(비누대 X)' },
-				{ value: '35', label: 'PL-3040(비누대 O)' },
-				{ value: '35', label: 'PL-3060(비누대 O)' }
+				{ value: '4', label: 'TB-060(비누대 O)' },
+				{ value: '4', label: 'E-60(비누대 X)' },
+				{ value: '4', label: 'PL-3040(비누대 O)' },
+				{ value: '4', label: 'PL-3060(비누대 O)' }
 			],
 			next: 'numberofwash'
 		},
@@ -363,9 +363,9 @@ export const productFlowSteps = {
 			label: '세면대 종류',
 			question: '세면대의 종류를 선택 해 주세요.',
 			options: [
-				{ value: '32', label: 'CL-603(사각)' },
-				{ value: '33', label: 'CL-509(타원형)' },
-				{ value: '34', label: '제공 언더볼' }
+				{ value: '1', label: 'CL-603(사각)' },
+				{ value: '2', label: 'CL-509(타원형)' },
+				{ value: '3', label: '제공 언더볼' }
 			],
 			next: 'numberofwash'
 		},
@@ -774,7 +774,7 @@ export const productFlowSteps = {
 				{ value: 'add', label: '추가함' },
 				{ value: 'not_add', label: '추가하지않음(바디만)' }
 			],
-			next: 'NEXT'
+			next: (selectedOption) => selectedOption === 'add' ? 'NEXT' : 'NEXT_ONE'
 		},
 		{
 			step: 'mirrorDirection',

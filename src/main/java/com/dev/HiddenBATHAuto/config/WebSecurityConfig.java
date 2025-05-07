@@ -27,21 +27,20 @@ public class WebSecurityConfig {
 	
 	private final PrincipalDetailsService principalDetailsService;
 	
-	private final String[] visitorsUrls = {
-			"/**", 
-			"/administration/**",
-			"/api/v1/**",
-			"/api/init/**"
-	};
-	
-	private final String[] membersUrls = {
-			"/test/member" 
-	};
-	
-	// 관리자
 	private final String[] adminsUrls = {
 			"/admin/**",
-			"/test/admin"
+	};
+	
+	private final String[] managementUrls = {
+			"/management/**" 
+	};
+	
+	private final String[] teamUrls = {
+			"/team/**"
+	};
+	
+	private final String[] customersUrls = {
+			"/customer/**"
 	};
 	
 	@Bean
@@ -80,8 +79,9 @@ public class WebSecurityConfig {
 			.authorizeHttpRequests((authorizeRequests) -> 
 				authorizeRequests
 					.requestMatchers(adminsUrls).hasAuthority("ROLE_ADMIN")
-					.requestMatchers(membersUrls).hasAuthority("ROLE_MEMBER")
-					.requestMatchers(visitorsUrls).permitAll()
+					.requestMatchers(managementUrls).hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGEMENT")
+					.requestMatchers(teamUrls).hasAuthority("ROLE_INTERNAL_EMPLOYEE")
+					.requestMatchers(customersUrls).hasAnyAuthority("ROLE_CUSTOMER_REPRESENTATIVE", "ROLE_CUSTOMER_EMPLOYEE")
 					.anyRequest().permitAll())
 			.formLogin((formLogin) -> 
 				formLogin

@@ -201,23 +201,46 @@ function assignNextValues(filteredFlow) {
 		}
 	}
 
-	// 2. 함수형에서 'NEXT' 문자열 포함 처리
+	// 2. 함수형에서 'NEXT' 및 'NEXT_ONE' 포함 처리
 	for (let i = 0; i < filteredFlow.length; i++) {
 		const currentStep = filteredFlow[i];
 		if (typeof currentStep.next === 'function') {
 			const fnStr = currentStep.next.toString();
-			if (fnStr.includes("'NEXT'") || fnStr.includes('"NEXT"')) {
+			if (fnStr.includes("'NEXT'") || fnStr.includes('"NEXT"') || fnStr.includes("'NEXT_ONE'") || fnStr.includes('"NEXT_ONE"')) {
 				const currentStepName = currentStep.step;
 				const remaining = filteredFlow.slice(i + 1);
+	
+				// NEXT 대체: 자기 다음 단계
 				const nextRealStep = remaining.find(s => !s.step.includes(currentStepName));
 				const replacement = nextRealStep ? nextRealStep.step : 'final';
-
-				const newFnStr = fnStr.replace(/['"]NEXT['"]/g, `'${replacement}'`);
-				const originalArgs = fnStr.match(/\((.*?)\)/)[1]; // 파라미터 추출
+	
+				// NEXT_ONE 대체: replacement 이후의 단계
+				let nextOneReplacement = 'final';
+				const nextStepIndex = filteredFlow.findIndex(s => s.step === replacement);
+				if (nextStepIndex !== -1 && filteredFlow[nextStepIndex + 1]) {
+					// 예외 처리: replacement가 'mirrorDirection'이면 mirrorDirection 다음 단계 사용
+					if (replacement === 'mirrorDirection') {
+						const mirrorIndex = filteredFlow.findIndex(s => s.step === 'mirrorDirection');
+						if (mirrorIndex !== -1 && filteredFlow[mirrorIndex + 1]) {
+							nextOneReplacement = filteredFlow[mirrorIndex + 1].step;
+						}
+					} else {
+						nextOneReplacement = filteredFlow[nextStepIndex + 1].step;
+					}
+				}
+	
+				// 치환 적용
+				const newFnStr = fnStr
+					.replace(/['"]NEXT['"]/g, `'${replacement}'`)
+					.replace(/['"]NEXT_ONE['"]/g, `'${nextOneReplacement}'`);
+	
+				// 재생성
+				const originalArgs = fnStr.match(/\((.*?)\)/)[1];
 				currentStep.next = new Function(originalArgs, `return (${newFnStr})(${originalArgs});`);
 			}
 		}
 	}
+
 
 	// 3. NEXT_SAME 처리
 	const nextSameIndices = filteredFlow
@@ -1155,7 +1178,10 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 				fields.forEach(field => {
 					const label = document.createElement('label');
-					label.innerHTML = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
+					
+					const span = document.createElement('span');
+					span.innerText = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
+					span.classList.add('size-span');
 
 					const input = document.createElement('input');
 					input.type = 'number';
@@ -1190,29 +1216,8 @@ function updateProductOptions(categoryKey, stepIndex) {
 							alert(`${field.charAt(0).toUpperCase() + field.slice(1)} 값은 최대 ${maxValue} 이하이어야 합니다.`);
 						}
 
-						// ✅ A/S 불가 및 비율 체크 전에 width/height 추출
-						const categoryKey = selectedBigSort ? selectedBigSort.value : null;
-						const width = parseInt(document.getElementById('width-input').value);
-						const height = parseInt(document.getElementById('height-input').value);
-
-						// ✅ (2) 1:1 비율 검증 (원형일 경우)
-						if (selectedProductInfo.sizeRatioSign) {
-							if (width !== height) {
-								alert('이 제품은 원형 형태이므로, 넓이와 높이는 반드시 같아야 합니다. (1:1 비율)');
-							}
-						}
-						// ✅ (3) A/S 불가능 조건 안내
-						if (categoryKey === 'top' && (width >= 1800 || height >= 1000)) {
-							alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
-						}
-						if (categoryKey === 'slide' && (width >= 1800 || height >= 1000)) {
-							alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
-						}
-						if (categoryKey === 'flap' && (width >= 1500 || height >= 600)) {
-							alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
-						}
 					});
-
+					label.appendChild(span);
 					label.appendChild(input);
 					optionDiv.appendChild(label);
 				});
@@ -1243,17 +1248,14 @@ function updateProductOptions(categoryKey, stepIndex) {
 					if (categoryKey === 'top' && (width >= 1800 || height >= 1000)) {
 						alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
 						resetButtonClickState(confirmButton); // ✅ 추가
-						return;
 					}
 					if (categoryKey === 'slide' && (width >= 1800 || height >= 1000)) {
 						alert('넓이 1,800(mm) 이상 또는 높이 1,000(mm) 이상인 경우 A/S가 불가능 합니다.');
 						resetButtonClickState(confirmButton); // ✅ 추가
-						return;
 					}
 					if (categoryKey === 'flap' && (width >= 1500 || height >= 600)) {
 						alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
 						resetButtonClickState(confirmButton); // ✅ 추가
-						return;
 					}
 				
 					// 정상 처리
@@ -1523,27 +1525,35 @@ function updateProductOptions(categoryKey, stepIndex) {
 			optionDiv.appendChild(label);
 			optionDiv.appendChild(confirmButton);
 		} else if (step.step === 'doorRatio' && categoryKey === 'flap') {
-			// label과 input 필드 추가
-			const label = document.createElement('label');
-			label.innerHTML = '문 비율 입력: ';
-
 			// 첫 번째 input 필드
+			const label1 = document.createElement('label');
+			const span1 = document.createElement('span');
+			span1.classList.add('size-span');
+			span1.innerText = '좌측문 비율: ';
 			const input1 = document.createElement('input');
 			input1.type = 'number';
 			input1.id = 'door-ratio-input-1';
 			input1.classList.add('non-standard-input');
-			input1.placeholder = '첫 번째 비율';
-			input1.min = 1; // 최소값 설정
+			input1.placeholder = '좌측문 비율';
+			input1.min = 1;
 			input1.required = true;
-
+			label1.appendChild(span1);
+			label1.appendChild(input1);
+			
 			// 두 번째 input 필드
+			const label2 = document.createElement('label');
+			const span2 = document.createElement('span');
+			span2.classList.add('size-span');
+			span2.innerText = '우측문 비율: ';
 			const input2 = document.createElement('input');
 			input2.type = 'number';
 			input2.id = 'door-ratio-input-2';
 			input2.classList.add('non-standard-input');
-			input2.placeholder = '두 번째 비율';
-			input2.min = 1; // 최소값 설정
+			input2.placeholder = '우측문 비율';
+			input2.min = 1;
 			input2.required = true;
+			label2.appendChild(span2);
+			label2.appendChild(input2);
 
 			// 확인 버튼
 			const confirmButton = document.createElement('button');
@@ -1606,9 +1616,8 @@ function updateProductOptions(categoryKey, stepIndex) {
 			});
 
 			// label, input, 버튼을 추가
-			label.appendChild(input1);
-			label.appendChild(input2);
-			optionDiv.appendChild(label);
+			optionDiv.appendChild(label1);
+			optionDiv.appendChild(label2);
 			optionDiv.appendChild(confirmButton);
 		} else if (step.step === 'product') {
 			// product 단계에 이미지를 추가하는 부분
@@ -1661,7 +1670,6 @@ function updateProductOptions(categoryKey, stepIndex) {
 		}, 10);
 	});
 }
-
 function waitForElement(selector, timeout = 3000) {
 	return new Promise((resolve, reject) => {
 		const startTime = Date.now();
@@ -1759,49 +1767,60 @@ function renderAnswer(step, product, categoryKey = '') {
 		finalWrap.appendChild(finalMessage);
 
 		// ✅ 5. 수량 입력
+		const quantityRow = document.createElement('div');
+		quantityRow.classList.add('quantity-row');
+		
 		const quantityLabel = document.createElement('label');
-		quantityLabel.innerText = '수량: ';
-		finalWrap.appendChild(quantityLabel);
-
+		const quantitySpan = document.createElement('span');
+		quantitySpan.innerText = '수량: ';
+		quantitySpan.classList.add('size-span');
+		quantityLabel.appendChild(quantitySpan);
+		
 		const quantityInput = document.createElement('input');
 		quantityInput.type = 'number';
 		quantityInput.id = 'final-quantity';
-		quantityInput.value = 1; // 기본값 설정
+		quantityInput.value = 1;
 		quantityInput.classList.add('non-standard-input');
+		quantityInput.style.flex = '1'; // JS에서 꽉 차게
 		quantityLabel.appendChild(quantityInput);
+		
+		quantityRow.appendChild(quantityLabel);
 
+		const buttonRow = document.createElement('div');
+		buttonRow.classList.add('button-row');
+		
 		// ✅ 6. 장바구니 버튼
 		const cartButton = document.createElement('button');
 		cartButton.id = 'cart-btn';
 		cartButton.innerText = '장바구니';
 		cartButton.classList.add('non-standard-btn', 'non-answer-btn');
-		cartButton.disabled = true; // ⛔ 초기에는 비활성화
+		cartButton.disabled = true;
 		cartButton.addEventListener('click', () => {
 			if (confirm('장바구니에 담으시겠습니까?')) {
 				addToCart();
 				
 			}
 		});
-		finalWrap.appendChild(cartButton);
 
 		// ✅ 7. 발주하기 버튼
 		const orderButton = document.createElement('button');
 		orderButton.id = 'order-btn';
 		orderButton.innerText = '발주하기';
 		orderButton.classList.add('non-standard-btn', 'non-answer-btn');
-		orderButton.disabled = true; // ⛔ 초기에는 비활성화
+		orderButton.disabled = true;
 		orderButton.addEventListener('click', () => {
 			if (confirm('발주 하시겠습니까?')) {
 				addToOrder();
 			}
 		});
-		finalWrap.appendChild(orderButton);
 
 		// ✅ 8. 가격계산 버튼
 		const calcButton = document.createElement('button');
 		calcButton.id = 'calculate-price-btn';
 		calcButton.innerText = '가격계산';
 		calcButton.classList.add('non-standard-btn', 'non-answer-btn');
+		
+		
 		calcButton.addEventListener('click', () => {
 			if (isButtonClicked(calcButton)) return;
 			calcButton.innerText = '계산 중...';
@@ -1857,8 +1876,11 @@ function renderAnswer(step, product, categoryKey = '') {
 				});
 		});
 
-		finalWrap.appendChild(calcButton);
-
+		buttonRow.appendChild(cartButton);
+		buttonRow.appendChild(orderButton);
+		buttonRow.appendChild(calcButton);
+		finalWrap.appendChild(quantityRow);
+		finalWrap.appendChild(buttonRow);
 		// ✅ 9. DOM에 삽입
 		const lastStep = currentFlow[currentFlow.length - 2]; // 마지막 이전 단계
 		const lastStepWrap = document.getElementById(`${lastStep}-wrap`);
