@@ -1,17 +1,17 @@
 <!DOCTYPE HTML>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" 
+xmlns:th="http://www.thymeleaf.org" 
+xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<head th:replace="fragments/front/common :: autoHead">
+<head th:replace="~{fragments/front/common :: autoHead}">
 </head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
-	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
 
 	<div id="page" class="container">
-		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
 
 		<div class="page-content header-clear-medium sign">
 			<div class="sign-wrap">
@@ -49,8 +49,6 @@
 				</div>
 			</div>
 		</div>
-		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 	</div>
-	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
 </body>

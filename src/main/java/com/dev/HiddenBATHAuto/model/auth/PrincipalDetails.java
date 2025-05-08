@@ -31,6 +31,14 @@ public class PrincipalDetails implements UserDetails, Serializable {
 		return auth;
 	}
 
+	public Long getTeamId() {
+	    return member.getTeam() != null ? member.getTeam().getId() : null;
+	}
+
+	public Long getTeamCategoryId() {
+	    return member.getTeamCategory() != null ? member.getTeamCategory().getId() : null;
+	}
+	
 	public String getTeamName() {
 	    return member.getTeam() != null ? member.getTeam().getName() : null;
 	}

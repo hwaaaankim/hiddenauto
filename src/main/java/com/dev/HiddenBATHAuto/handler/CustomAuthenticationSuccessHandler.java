@@ -1,14 +1,13 @@
 package com.dev.HiddenBATHAuto.handler;
 
 import java.io.IOException;
-import java.util.Set;
 
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import jakarta.servlet.ServletException;
+import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -16,16 +15,34 @@ import jakarta.servlet.http.HttpServletResponse;
 public class CustomAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
-                                        Authentication authentication) throws IOException, ServletException {
-        // 사용자 권한을 확인
-        Set<String> roles = AuthorityUtils.authorityListToSet(authentication.getAuthorities());
+    public void onAuthenticationSuccess(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        Authentication authentication) throws IOException {
 
-        // 권한에 따라 리다이렉트 경로 설정
-        if (roles.contains("ROLE_ADMIN")) {
-            response.sendRedirect("/test/admin");  // 관리자 페이지로 리다이렉트
-        } else {
-            response.sendRedirect("/");  // 일반 사용자 페이지로 리다이렉트
+        PrincipalDetails principal = (PrincipalDetails) authentication.getPrincipal();
+        String role = principal.getMember().getRole().name();
+
+        String redirectUrl;
+        switch (role) {
+            case "ADMIN":
+                redirectUrl = "/admin/test";
+                break;
+            case "MANAGEMENT":
+                redirectUrl = "/management/test";
+                break;
+            case "INTERNAL_EMPLOYEE":
+                redirectUrl = "/internal/test";
+                break;
+            case "CUSTOMER_REPRESENTATIVE":
+                redirectUrl = "/customer/rep/home";
+                break;
+            case "CUSTOMER_EMPLOYEE":
+                redirectUrl = "/customer/emp/home";
+                break;
+            default:
+                redirectUrl = "/loginForm?error=unauthorized";
         }
+
+        response.sendRedirect(redirectUrl);
     }
 }

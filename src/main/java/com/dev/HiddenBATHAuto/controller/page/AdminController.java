@@ -13,7 +13,7 @@ public class AdminController {
 	@ResponseBody
 	public String adminTest() {
 		
-		return "success";
+		return "admin";
 	}
 	
 	@GetMapping("/index")

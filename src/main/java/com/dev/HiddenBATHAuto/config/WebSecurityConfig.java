@@ -78,11 +78,12 @@ public class WebSecurityConfig {
 					.frameOptions(frameOptionsConfig -> frameOptionsConfig.disable()))
 			.authorizeHttpRequests((authorizeRequests) -> 
 				authorizeRequests
+					.requestMatchers("/administration/**", "/front/**", "/favicon.ico").permitAll()
 					.requestMatchers(adminsUrls).hasAuthority("ROLE_ADMIN")
 					.requestMatchers(managementUrls).hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGEMENT")
 					.requestMatchers(teamUrls).hasAuthority("ROLE_INTERNAL_EMPLOYEE")
 					.requestMatchers(customersUrls).hasAnyAuthority("ROLE_CUSTOMER_REPRESENTATIVE", "ROLE_CUSTOMER_EMPLOYEE")
-					.anyRequest().permitAll())
+					.anyRequest().authenticated())
 			.formLogin((formLogin) -> 
 				formLogin
 					.loginPage("/loginForm")
