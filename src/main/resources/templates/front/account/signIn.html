@@ -9,7 +9,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
 
-	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
 	<div id="page" class="container">
 
@@ -50,5 +50,5 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 			</div>
 		</div>
 	</div>
-	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 </body>

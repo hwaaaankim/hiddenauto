@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
@@ -48,6 +49,29 @@ public class TeamController {
         String category = member.getTeamCategory() != null ? member.getTeamCategory().getName() : "부서 없음";
 
         return String.format("팀: %s, 부서: %s", team, category);
+    }
+    
+    @GetMapping("/{memberId}")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
+    public String accessTeamByMemberId(@PathVariable Long memberId) {
+        Member member = memberRepository.findById(memberId)
+            .orElseThrow(() -> new RuntimeException("해당 멤버를 찾을 수 없습니다."));
+
+        String teamName = member.getTeam() != null ? member.getTeam().getName() : "팀 없음";
+        String categoryName = member.getTeamCategory() != null ? member.getTeamCategory().getName() : "카테고리 없음";
+
+        return String.format("회원 ID: %d, 팀: %s, 카테고리: %s", memberId, teamName, categoryName);
+    }
+    
+    @GetMapping("/{teamId}/{teamCategoryId}")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')") // 내부 직원만 접근 가능
+    public String accessTeamWithCategory(@PathVariable Long teamId,
+                                         @PathVariable Long teamCategoryId) {
+
+
+        return String.format("접속한 팀: %s (%d), 카테고리: %s (%d)");
     }
     
  // ✅ 팀별 접근 제한 (Team ID 기준)

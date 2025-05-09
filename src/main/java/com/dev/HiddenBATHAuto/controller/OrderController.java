@@ -26,6 +26,15 @@ public class OrderController {
         @AuthenticationPrincipal PrincipalDetails user,
         @RequestBody List<OrderRequestItemDTO> items
     ) {
+        System.out.println("====== 주문 요청 도착 ======");
+        for (int i = 0; i < items.size(); i++) {
+            var item = items.get(i);
+            System.out.println("▶ 제품 " + (i + 1));
+            System.out.println("수량 : " + item.getQuantity());
+            System.out.println("가격 : " + item.getPrice());
+            System.out.println("옵션 Json : " + item.getOptionJson());
+            System.out.println("----------------------");
+        }
         orderProcessingService.createTaskWithOrders(user.getMember(), items);
         return "OK";
     }

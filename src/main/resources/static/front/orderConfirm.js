@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const orderSource = window.orderSource || 'cart';
     let cart = JSON.parse(localStorage.getItem(orderSource)) || [];
     let appliedPoint = 0;
-
+	console.log(cart);
     // 새로고침 경고: direct만 해당
     if (orderSource === 'direct') {
         window.addEventListener('beforeunload', function (e) {
@@ -50,53 +50,59 @@ document.addEventListener("DOMContentLoaded", () => {
         let orderHTML = "";
 
         cart.forEach((item, index) => {
-            orderHTML += `
-            <div class="mb-4">
-                <div class="row vertical-center" style="gap:20px;">
-                    <div class="col-auto">
-                        <img src="/front/images/pictures/10s.jpg" class="rounded-m shadow-xl" width="80">
-                    </div>
-                    <div class="col-auto">
-                        <span class="font-11">배송 예정일</span>
-                        <p class="mt-n2 mb-1"><strong class="color-theme">0000-00-00</strong></p>
-                    </div>
-                    <div class="col-auto">
-                        <span class="font-11">금액</span>
-                        <p class="mt-n2 mb-1"><strong class="color-theme">${(productPrice * (item.quantity || 1)).toLocaleString()} 원</strong></p>
-                    </div>
-                    <div class="col-auto">
-                        <span class="font-11">수량</span>
-                        <p class="mt-n2 mb-1"><strong class="color-theme">${item.quantity || 1} 개</strong></p>
-                    </div>
-                    <div class="col-auto">
-                        <span class="font-11">제품코드</span>
-                        <p class="mt-n2 mb-1"><strong class="color-theme">${item.code || "CODE"}</strong></p>
-                    </div>
-                    <div class="col-auto">
-                        <span class="font-11">제품명</span>
-                        <p class="mt-n2 mb-1"><strong class="color-theme">${item.product || "NAME"}</strong></p>
-                    </div>
-                    <div class="col-auto address-container">
-                        <label class="switch-label">배송지 별도 입력
-                            <label class="switch">
-                                <input type="checkbox" class="address-toggle" data-index="${index}">
-                                <span class="slider"></span>
-                            </label>
-                        </label>
-                    </div>
-                </div>
-                <div class="hidden-section" id="hidden-section-${index}" style="display:none; overflow:hidden; height:0;">
-                    <div class="input-style">
-                        <input type="text" placeholder="주소 입력">
-                        <button class="btn btn-sm rounded-m text-uppercase font-800">주소검색</button>
-                    </div>
-                    <div class="input-style">
-                        <input type="text" placeholder="상세 주소 입력">
-                    </div>
-                </div>
-                <div class="divider"></div>
-            </div>`;
-        });
+			const { optionJson, quantity, price } = item;
+			const code = optionJson.code || "CODE";
+			const product = optionJson.product || "NAME";
+			const itemPrice = price || 10000;
+			const totalPrice = itemPrice * (quantity || 1);
+		
+			orderHTML += `
+			<div class="mb-4">
+				<div class="row vertical-center" style="gap:20px;">
+					<div class="col-auto">
+						<img src="/front/images/pictures/10s.jpg" class="rounded-m shadow-xl" width="80">
+					</div>
+					<div class="col-auto">
+						<span class="font-11">배송 예정일</span>
+						<p class="mt-n2 mb-1"><strong class="color-theme">0000-00-00</strong></p>
+					</div>
+					<div class="col-auto">
+						<span class="font-11">금액</span>
+						<p class="mt-n2 mb-1"><strong class="color-theme">${totalPrice.toLocaleString()} 원</strong></p>
+					</div>
+					<div class="col-auto">
+						<span class="font-11">수량</span>
+						<p class="mt-n2 mb-1"><strong class="color-theme">${quantity || 1} 개</strong></p>
+					</div>
+					<div class="col-auto">
+						<span class="font-11">제품코드</span>
+						<p class="mt-n2 mb-1"><strong class="color-theme">${code}</strong></p>
+					</div>
+					<div class="col-auto">
+						<span class="font-11">제품명</span>
+						<p class="mt-n2 mb-1"><strong class="color-theme">${product}</strong></p>
+					</div>
+					<div class="col-auto address-container">
+						<label class="switch-label">배송지 별도 입력
+							<label class="switch">
+								<input type="checkbox" class="address-toggle" data-index="${index}">
+								<span class="slider"></span>
+							</label>
+						</label>
+					</div>
+				</div>
+				<div class="hidden-section" id="hidden-section-${index}" style="display:none; overflow:hidden; height:0;">
+					<div class="input-style">
+						<input type="text" placeholder="주소 입력">
+						<button class="btn btn-sm rounded-m text-uppercase font-800">주소검색</button>
+					</div>
+					<div class="input-style">
+						<input type="text" placeholder="상세 주소 입력">
+					</div>
+				</div>
+				<div class="divider"></div>
+			</div>`;
+		});
 
         orderContainer.innerHTML = orderHTML;
 
@@ -161,19 +167,20 @@ document.addEventListener("DOMContentLoaded", () => {
 	if (orderButton) {
 	    orderButton.addEventListener("click", () => {
 	        const orderData = (orderSource === 'direct') ? window.directOrderData : cart;
-	
+			console.log(orderData);
 	        // POST 요청 전송
 	        fetch("/api/order/submit", {
 	            method: "POST",
 	            headers: {
 	                "Content-Type": "application/json"
 	            },
-	            body: JSON.stringify(
-	                orderData.map(item => ({
-	                    selections: { ...item }, // 제품 선택 내용
-	                    quantity: item.quantity || 1
-	                }))
-	            )
+	           body: JSON.stringify(
+				    orderData.map(item => ({
+				        quantity: item.quantity || 1,
+				        price: item.price || 10000,
+				        optionJson: item.optionJson || {}
+				    }))
+				)
 	        })
 	        .then(res => {
 	            if (!res.ok) throw new Error("서버 오류 발생");
@@ -182,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	        .then(msg => {
 	            alert(msg);
 	            if (orderSource === 'cart') {
-	                localStorage.removeItem('cart');
+	                //localStorage.removeItem('cart');
 	            }
 	            location.href = "/index";
 	        })

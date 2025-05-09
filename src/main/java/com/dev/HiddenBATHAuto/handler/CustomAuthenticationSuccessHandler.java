@@ -6,6 +6,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
+import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,24 +21,26 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
                                         Authentication authentication) throws IOException {
 
         PrincipalDetails principal = (PrincipalDetails) authentication.getPrincipal();
+        Member member = principal.getMember();
         String role = principal.getMember().getRole().name();
-
+        
         String redirectUrl;
         switch (role) {
             case "ADMIN":
-                redirectUrl = "/admin/test";
+                redirectUrl = "/admin/index";
                 break;
             case "MANAGEMENT":
-                redirectUrl = "/management/test";
+                redirectUrl = "/management/index";
                 break;
             case "INTERNAL_EMPLOYEE":
-                redirectUrl = "/internal/test";
+                Long memberId = member.getId();
+                redirectUrl = String.format("/team/%d", memberId);
                 break;
             case "CUSTOMER_REPRESENTATIVE":
-                redirectUrl = "/customer/rep/home";
+                redirectUrl = "/index";
                 break;
             case "CUSTOMER_EMPLOYEE":
-                redirectUrl = "/customer/emp/home";
+                redirectUrl = "/index";
                 break;
             default:
                 redirectUrl = "/loginForm?error=unauthorized";

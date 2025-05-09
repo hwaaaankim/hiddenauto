@@ -49,7 +49,10 @@ window.addEventListener('DOMContentLoaded', () => {
 	function renderCartItem(item, index) {
 		const pricePerItem = item.price || 10000;
 		const totalPrice = pricePerItem * item.quantity;
-
+		const option = item.optionJson || {};
+		const productName = option.product || '제품명 없음';
+		const code = option.code || 'CODE';
+	
 		let itemHTML = `
 		<div class="card card-style">
 			<div class="content mb-0">
@@ -58,7 +61,7 @@ window.addEventListener('DOMContentLoaded', () => {
 						<img src="/front/images/pictures/9s.jpg" class="rounded-m shadow-xl" width="130">
 					</div>
 					<div class="ms-3 p-relative">
-						<h5 class="font-600 mb-0">${item.product || '제품명 없음'}</h5>
+						<h5 class="font-600 mb-0">${productName}</h5>
 						<h1 class="pt-0">${totalPrice.toLocaleString()}원</h1>
 						<a href="#" class="cart-remove color-theme opacity-50 font-12" data-index="${index}">
 							<i class="fa fa-times color-red-dark pe-2 pt-3"></i>삭제</a>
@@ -71,22 +74,32 @@ window.addEventListener('DOMContentLoaded', () => {
 								data-index="${index}" data-price="${pricePerItem}" value="${item.quantity}" min="1">
 							<label class="color-blue-dark">수량</label>
 						</div>
-					</div>
-		`;
-
-		for (const [key, value] of Object.entries(item)) {
-			if (['product', 'price', 'quantity'].includes(key)) continue;
+					</div>`;
+	
+		for (const [key, value] of Object.entries(option)) {
+			if (['product', 'code'].includes(key)) continue;
+		
+			let displayValue;
+			if (typeof value === 'object' && value !== null) {
+				// category, middleSort 같은 경우 label 있으면 그걸 표시
+				if ('label' in value) {
+					displayValue = value.label;
+				} else {
+					displayValue = JSON.stringify(value); // fallback
+				}
+			} else {
+				displayValue = value;
+			}
+		
 			itemHTML += `
-			<div class="col-3">
-				<div class="input-style input-style-always-active has-borders no-icon">
-					<label class="color-blue-dark">${key}</label>
-					${Array.isArray(value)
-						? `<select>${value.map((v) => `<option ${v === item[key] ? 'selected' : ''}>${v}</option>`).join('')}</select>`
-						: `<input type="text" value="${value}" readonly>`}
-				</div>
-			</div>`;
+				<div class="col-3">
+					<div class="input-style input-style-always-active has-borders no-icon">
+						<label class="color-blue-dark">${key}</label>
+						<input type="text" value="${displayValue}" readonly>
+					</div>
+				</div>`;
 		}
-
+	
 		itemHTML += `</div></div></div>`;
 		return itemHTML;
 	}

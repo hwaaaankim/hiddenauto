@@ -22,28 +22,34 @@ public class AdminController {
 		return "administration/index";
 	}
 	
+	@GetMapping("/standardOrderList")
+	public String standardOrderList() {
+		
+		return "administration/order/standard/orderList";
+	}
+	
+	@GetMapping("/standardOrderDetail")
+	public String standardOrderDetail() {
+		
+		return "administration/order/standard/orderDetail";
+	}
+	
+	@GetMapping("/nonStandardOrderList")
+	public String nonStandardOrderList() {
+		
+		return "administration/order/nonStandard/orderList";
+	}
+	
+	@GetMapping("/nonStandardOrderDetail")
+	public String nonStandardOrderDetail() {
+		
+		return "administration/order/nonStandard/orderDetail";
+	}
+	
 	@GetMapping("/invoice")
 	public String invoice() {
 		
 		return "administration/paper/invoice";
-	}
-	
-	@GetMapping("/normalOrderList")
-	public String normalOrderList() {
-		
-		return "administration/order/normalOrderList";
-	}
-	
-	@GetMapping("/normalOrderDetail")
-	public String normalOrderDetail() {
-		
-		return "administration/order/normalOrderDetail";
-	}
-	
-	@GetMapping("/normalOrderInsert")
-	public String normalOrderInsert() {
-		
-		return "administration/order/normalOrderInsert";
 	}
 	
 	@GetMapping("/manufactureList")

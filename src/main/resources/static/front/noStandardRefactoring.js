@@ -16,6 +16,12 @@ let preloadedData = {
 let finalMessages = [];  // <p>로 출력될 메시지 배열
 // 장바구니, 발주 버튼 클릭 시 localStorage에 데이터 저장 및 flow 초기화 함수
 let selectedAnswerValue = {}; // 선택한 값을 저장할 객체
+const optionMapping = {
+	tissuePosition: 'productTissuePositions',
+	dryPosition: 'productDryPositions',
+	ledPosition: 'productLowLedPositions',
+	outletPosition: 'productOutletPositions',
+};
 
 AOS.init({
 	duration: 500,
@@ -299,12 +305,6 @@ function filterFlowBySign(product, templateFlow) {
 	});
 }
 
-const optionMapping = {
-	tissuePosition: 'productTissuePositions',
-	dryPosition: 'productDryPositions',
-	ledPosition: 'productLowLedPositions',
-	outletPosition: 'productOutletPositions',
-};
 
 function generateRealFlow(product, templateFlow) {
 	const copiedFlow = deepClone(templateFlow);
@@ -2216,38 +2216,47 @@ function scrollIfNeeded(nextOptionsContainer) {
 // 장바구니에 항목 추가 후 초기화
 function addToCart() {
 	const cartData = JSON.parse(localStorage.getItem('cart')) || [];
-	const currentSelection = { ...selectedAnswerValue, quantity: parseInt(document.getElementById('final-quantity').value) };
+
+	const optionJson = { ...selectedAnswerValue };
+	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
+	const price = 10000; // 또는 선택에 따라 계산되도록 수정 가능
+
 	let itemExists = false;
 
 	cartData.forEach(item => {
-		const isSameProduct = Object.keys(selectedAnswerValue).every(key => item[key] === currentSelection[key]);
-		if (isSameProduct) {
-			item.quantity += currentSelection.quantity;
+		const isSame = JSON.stringify(item.optionJson) === JSON.stringify(optionJson);
+		if (isSame) {
+			item.quantity += quantity;
 			itemExists = true;
 		}
 	});
 
-	if (!itemExists) cartData.push(currentSelection);
+	if (!itemExists) {
+		cartData.push({
+			price,
+			quantity,
+			optionJson
+		});
+	}
 
 	localStorage.setItem('cart', JSON.stringify(cartData));
-
-	// 초기화 수행
 	resetSelections();
 	window.updateBagIcon();
 }
-
 // 바로 발주 (단일 제품만 저장, source=order)
 function addToOrder() {
+	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
+	const price = 10000; // 마찬가지로 실제 가격 로직 반영 가능
+	const optionJson = { ...selectedAnswerValue };
+
 	const currentOrder = {
-		...selectedAnswerValue,
-		quantity: parseInt(document.getElementById('final-quantity').value)
+		price,
+		quantity,
+		optionJson
 	};
 
-	localStorage.setItem('direct', JSON.stringify([currentOrder])); // 단일 제품 리스트 형태로 저장
-
+	localStorage.setItem('direct', JSON.stringify([currentOrder]));
 	resetSelections();
-
-	// 페이지 이동 시 명시적으로 source를 전달
 	location.href = '/orderConfirm?from=direct';
 }
 
@@ -2256,6 +2265,19 @@ function resetSelections() {
 	// selectedAnswerValue와 currentFlow 초기화
 	selectedAnswerValue = {};
 	currentFlow = ['category'];
+	selectedBigSort = null; // 1차 카테고리 선택 값
+	selectedMiddleSort = null; // 2차 카테고리 선택 값
+	currentFlow = ['category']; // 기본적으로 category는 포함됨
+	flapProductSelection = null;
+	numberOfOption = [];
+	washstandOptions = [];
+	doorDirectionOptions = [];
+	realFlow = []; // 선택된 제품에 맞는 흐름을 저장하는 변수
+	lowDoorDirectionPlaceholder = ''; // Low 카테고리용 placeholder 문자열 저장 변수
+	preloadedData = {
+		middleSort: [] // MiddleSort 데이터를 저장할 배열
+	};
+	finalMessages = [];  // <p>로 출력될 메시지 배열
 	document.getElementById('chat-box').innerHTML = ''; // 이전 내용 초기화
 	renderInitialQuestion();
 }

@@ -13,6 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 
+import com.dev.HiddenBATHAuto.handler.CustomAccessDeniedHandler;
 import com.dev.HiddenBATHAuto.handler.CustomAuthenticationSuccessHandler;
 import com.dev.HiddenBATHAuto.service.auth.PrincipalDetailsService;
 
@@ -69,6 +70,11 @@ public class WebSecurityConfig {
 	}
 	
 	@Bean
+	CustomAccessDeniedHandler customAccessDeniedHandler() {
+		return new CustomAccessDeniedHandler();
+	}
+	
+	@Bean
 	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		
 		http.csrf((csrfConfig) ->  
@@ -84,6 +90,7 @@ public class WebSecurityConfig {
 					.requestMatchers(teamUrls).hasAuthority("ROLE_INTERNAL_EMPLOYEE")
 					.requestMatchers(customersUrls).hasAnyAuthority("ROLE_CUSTOMER_REPRESENTATIVE", "ROLE_CUSTOMER_EMPLOYEE")
 					.anyRequest().authenticated())
+			.exceptionHandling((ex -> ex.accessDeniedHandler(customAccessDeniedHandler())))
 			.formLogin((formLogin) -> 
 				formLogin
 					.loginPage("/loginForm")

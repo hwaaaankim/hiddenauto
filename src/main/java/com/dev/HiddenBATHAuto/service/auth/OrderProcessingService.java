@@ -13,6 +13,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.model.task.TaskStatus;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,7 +22,8 @@ import lombok.RequiredArgsConstructor;
 public class OrderProcessingService {
 
     private final TaskRepository taskRepository;
-
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    
     public void createTaskWithOrders(Member member, List<OrderRequestItemDTO> items) {
         Task task = new Task();
         task.setRequestedBy(member);
@@ -35,7 +37,7 @@ public class OrderProcessingService {
             Order order = new Order();
             order.setTask(task);
             order.setQuantity(dto.getQuantity());
-            order.setProductCategory("하부장"); // 예시로 고정
+            order.setProductCategory("하부장"); // 예시
             order.setDeliveryAddress("서울시 강남구 임시주소");
             order.setStatus(OrderStatus.REQUESTED);
 
@@ -43,7 +45,14 @@ public class OrderProcessingService {
             orderItem.setOrder(order);
             orderItem.setProductName("임시 제품명");
             orderItem.setQuantity(dto.getQuantity());
-            orderItem.setOptionJson(dto.getOptionJson());
+
+            // ✅ optionJson: Map → String 변환
+            try {
+                String jsonString = objectMapper.writeValueAsString(dto.getOptionJson());
+                orderItem.setOptionJson(jsonString);
+            } catch (Exception e) {
+                throw new RuntimeException("옵션 변환 실패", e);
+            }
 
             order.setOrderItems(List.of(orderItem));
             orderList.add(order);

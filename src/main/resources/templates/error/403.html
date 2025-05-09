@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>403 접근 거부</title>
+</head>
+<body>
+    <h1>403 - 접근이 거부되었습니다</h1>
+    <p>당신의 권한은: <strong th:text="${userRole}">ROLE</strong></p>
+    <p>요청한 경로는: <strong th:text="${requestedUri}">/some/url</strong></p>
+    <p>해당 자원에 접근할 수 없습니다.</p>
+</body>
+</html>
