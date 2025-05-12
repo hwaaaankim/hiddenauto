@@ -19,7 +19,7 @@ public class OrderImage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String type; // "DELIVERY", "PROOF"
+    private String type; // "DELIVERY", "PROOF", "MANAGEMENT", "CUSTOMER"
     private String filename;
     private String path;
     private String url;

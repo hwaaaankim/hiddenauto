@@ -475,18 +475,17 @@
     var e,
       t,
       a =
-        "/" == location.pathname
-          ? "/index"
-          : location.pathname.substring(0);
-    (a = a.substring(a.lastIndexOf("/") + 1)) &&
+        "/" == location.pathname  ? "/admin/index" : location.pathname.substring(0);
+    (a = location.pathname === "/" ? "/admin/index" : location.pathname) &&
+    console.log(a);
       ("twocolumn-panel" == document.body.className &&
         document
           .getElementById("two-column-menu")
-          .querySelector('[href="/' + a + '"]')
+          .querySelector('[href="' + a + '"]')
           .classList.add("active"),
       (a = document
         .getElementById("navbar-nav")
-        .querySelector('[href="/' + a + '"]'))
+        .querySelector('[href="' + a + '"]'))
         ? (a.classList.add("active"),
           (t = (
             (e = a.closest(".collapse.menu-dropdown")) &&

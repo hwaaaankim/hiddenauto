@@ -6,6 +6,7 @@ import java.util.List;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -32,6 +33,9 @@ public class Task {
     @Enumerated(EnumType.STRING)
     private TaskStatus status = TaskStatus.REQUESTED; // 요청 후 기본값
 
+    @Column(name="total_price")
+    private int totalPrice;
+    
     private String customerNote;
     private String internalNote;
 

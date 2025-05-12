@@ -12,14 +12,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const orderSource = window.orderSource || 'cart';
     let cart = JSON.parse(localStorage.getItem(orderSource)) || [];
     let appliedPoint = 0;
-	console.log(cart);
-    // 새로고침 경고: direct만 해당
-    if (orderSource === 'direct') {
-        window.addEventListener('beforeunload', function (e) {
-            e.preventDefault();
-            e.returnValue = '';
-        });
-    }
+    let unloadConfirm = true;
+
+	if (orderSource === 'direct') {
+	    window.addEventListener('beforeunload', function (e) {
+	        if (unloadConfirm) {
+	            e.preventDefault();
+	            e.returnValue = '';
+	        }
+	    });
+	}
+	
+	// 로더 표시 함수
+	function showPreloader() {
+	    const preloader = document.getElementById("preloader");
+	    if (preloader) preloader.classList.remove("preloader-hide");
+	}
+	
+	// 로더 숨김 함수
+	function hidePreloader() {
+	    const preloader = document.getElementById("preloader");
+	    if (preloader) preloader.classList.add("preloader-hide");
+	}
 
     // direct 데이터는 화면 렌더링 이후 삭제 (단, 임시 변수에 저장해둠)
     if (orderSource === 'direct' && cart.length > 0) {
@@ -167,7 +181,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	if (orderButton) {
 	    orderButton.addEventListener("click", () => {
 	        const orderData = (orderSource === 'direct') ? window.directOrderData : cart;
-			console.log(orderData);
+			showPreloader(); // ✅ 로더 표시
+    		unloadConfirm = false; // 새로고침 경고 제거
 	        // POST 요청 전송
 	        fetch("/api/order/submit", {
 	            method: "POST",
@@ -187,13 +202,15 @@ document.addEventListener("DOMContentLoaded", () => {
 	            return res.text();
 	        })
 	        .then(msg => {
+				hidePreloader();
 	            alert(msg);
 	            if (orderSource === 'cart') {
-	                //localStorage.removeItem('cart');
+	                localStorage.removeItem('cart');
 	            }
 	            location.href = "/index";
 	        })
 	        .catch(err => {
+				hidePreloader();
 	            alert("발주 처리 중 오류 발생: " + err.message);
 	        });
 	    });

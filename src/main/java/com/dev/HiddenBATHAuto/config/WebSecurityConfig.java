@@ -28,8 +28,12 @@ public class WebSecurityConfig {
 	
 	private final PrincipalDetailsService principalDetailsService;
 	
+	private final String[] commonUrls = {
+			"/common/main"
+	};
+	
 	private final String[] adminsUrls = {
-			"/admin/**",
+			"/admin/**"
 	};
 	
 	private final String[] managementUrls = {
@@ -85,6 +89,13 @@ public class WebSecurityConfig {
 			.authorizeHttpRequests((authorizeRequests) -> 
 				authorizeRequests
 					.requestMatchers("/administration/**", "/front/**", "/favicon.ico").permitAll()
+					.requestMatchers(commonUrls).hasAnyAuthority(
+						    "ROLE_ADMIN",
+						    "ROLE_MANAGEMENT",
+						    "ROLE_INTERNAL_EMPLOYEE",
+						    "ROLE_CUSTOMER_REPRESENTATIVE",
+						    "ROLE_CUSTOMER_EMPLOYEE"
+						)
 					.requestMatchers(adminsUrls).hasAuthority("ROLE_ADMIN")
 					.requestMatchers(managementUrls).hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGEMENT")
 					.requestMatchers(teamUrls).hasAuthority("ROLE_INTERNAL_EMPLOYEE")

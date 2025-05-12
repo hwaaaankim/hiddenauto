@@ -35,13 +35,13 @@ public class Member implements Serializable{
     @Enumerated(EnumType.STRING)
     private MemberRole role;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private Company company; // 고객사 소속일 경우
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private Team team; // 내부 직원일 경우
     
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private TeamCategory teamCategory; // 
 
     private String productCategoryScope; // 생산팀: 담당 제품

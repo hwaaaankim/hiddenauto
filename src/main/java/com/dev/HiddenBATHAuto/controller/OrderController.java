@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dev.HiddenBATHAuto.dto.OrderRequestItemDTO;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
-import com.dev.HiddenBATHAuto.service.auth.OrderProcessingService;
+import com.dev.HiddenBATHAuto.service.order.OrderProcessingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,7 +36,7 @@ public class OrderController {
             System.out.println("----------------------");
         }
         orderProcessingService.createTaskWithOrders(user.getMember(), items);
-        return "OK";
+        return "발주가 완료 되었습니다.";
     }
 }
 

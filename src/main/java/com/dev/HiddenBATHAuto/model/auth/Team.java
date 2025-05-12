@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.model.auth;
 
+import java.io.Serializable;
 import java.util.List;
 
 import jakarta.persistence.Entity;
@@ -13,8 +14,8 @@ import lombok.Data;
 @Entity
 @Table(name = "tb_team")
 @Data
-public class Team {
-
+public class Team implements Serializable {
+    private static final long serialVersionUID = 1L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

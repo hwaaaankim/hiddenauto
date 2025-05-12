@@ -686,7 +686,7 @@ export const productFlowSteps = {
 		},
 		{
 			step: 'doorDirection',
-			label: '문 방향',
+			label: '플랩도어 방향',
 			question: '문의 방향을 선택하세요.',
 			options: [
 				{ value: 'left', label: '좌플랩' },

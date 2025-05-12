@@ -22,12 +22,24 @@ const optionMapping = {
 	ledPosition: 'productLowLedPositions',
 	outletPosition: 'productOutletPositions',
 };
-
 AOS.init({
 	duration: 500,
 	easing: 'ease-in-out',
 	once: true
 });
+
+// 로더 표시 함수
+function showPreloader() {
+    const preloader = document.getElementById("preloader");
+    if (preloader) preloader.classList.remove("preloader-hide");
+}
+
+// 로더 숨김 함수
+function hidePreloader() {
+    const preloader = document.getElementById("preloader");
+    if (preloader) preloader.classList.add("preloader-hide");
+}
+
 
 // ✅ 버튼 중복 클릭 방지 및 리셋 처리 유틸 함수
 function isButtonClicked(button) {
@@ -1824,6 +1836,7 @@ function renderAnswer(step, product, categoryKey = '') {
 		calcButton.addEventListener('click', () => {
 			if (isButtonClicked(calcButton)) return;
 			calcButton.innerText = '계산 중...';
+			showPreloader(); // ✅ 로더 표시
 			fetch('/calculate', {
 				method: 'POST',
 				headers: {
@@ -1873,6 +1886,7 @@ function renderAnswer(step, product, categoryKey = '') {
 				}).finally(() => {
 					resetButtonClickState(calcButton);
 					calcButton.innerText = '가격계산';
+					hidePreloader(); // ✅ 로더 숨김
 				});
 		});
 
@@ -2213,11 +2227,48 @@ function scrollIfNeeded(nextOptionsContainer) {
 	}
 }
 
+function convertOptionJsonWithLabels(optionJson) {
+  const parsed = typeof optionJson === 'string' ? JSON.parse(optionJson) : optionJson;
+  const categoryKey = parsed?.category?.value || parsed?.category;
+  const result = {};
+
+  // 기본 항목 라벨 정의
+  const baseLabelMap = {
+    category: initialQuestion.step.label,
+    middleSort: '제품시리즈'
+  };
+
+  // 카테고리 기반 라벨 등록
+  if (categoryKey && productFlowSteps[categoryKey]) {
+    productFlowSteps[categoryKey].forEach(step => {
+      if (step.step && step.label) {
+        baseLabelMap[step.step] = step.label;
+      }
+    });
+  }
+
+  // 라벨로 치환된 객체 생성
+  for (const key in parsed) {
+    const label = baseLabelMap[key] || key;
+    const value = parsed[key];
+    if (key === 'category' && value?.label) {
+      result[label] = value.label;
+    } else if (typeof value === 'object' && value !== null && value.label) {
+      result[label] = value.label;
+    } else {
+      result[label] = value;
+    }
+  }
+
+  return result;
+}
+
 // 장바구니에 항목 추가 후 초기화
 function addToCart() {
 	const cartData = JSON.parse(localStorage.getItem('cart')) || [];
 
 	const optionJson = { ...selectedAnswerValue };
+	const localizedOptionJson = convertOptionJsonWithLabels(optionJson); // 한글 키로 변환
 	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
 	const price = 10000; // 또는 선택에 따라 계산되도록 수정 가능
 
@@ -2235,7 +2286,7 @@ function addToCart() {
 		cartData.push({
 			price,
 			quantity,
-			optionJson
+			optionJson : localizedOptionJson
 		});
 	}
 
@@ -2243,16 +2294,18 @@ function addToCart() {
 	resetSelections();
 	window.updateBagIcon();
 }
+
 // 바로 발주 (단일 제품만 저장, source=order)
 function addToOrder() {
 	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
 	const price = 10000; // 마찬가지로 실제 가격 로직 반영 가능
 	const optionJson = { ...selectedAnswerValue };
-
+	const localizedOptionJson = convertOptionJsonWithLabels(optionJson); // 한글 키로 변환
+	
 	const currentOrder = {
 		price,
 		quantity,
-		optionJson
+		optionJson: localizedOptionJson
 	};
 
 	localStorage.setItem('direct', JSON.stringify([currentOrder]));

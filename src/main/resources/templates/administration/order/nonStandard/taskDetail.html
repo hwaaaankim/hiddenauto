@@ -1,0 +1,502 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="fragments/administration/common :: autoAdminHead">
+</head>
+
+<body>
+
+	<div id="layout-wrapper">
+		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+
+		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
+		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+
+			<div class="page-content">
+				<div class="container-fluid">
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">비규격발주상세</h4>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript: void(0);">발주관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">비규격발주관리</a></li>
+										<li class="breadcrumb-item active">비규격발주상세</li>
+									</ol>
+								</div>
+
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="card mt-n4 mx-n4">
+								<div class="bg-warning-subtle">
+									<div class="card-body pb-0 px-4">
+										<div class="row mb-3">
+											<div class="col-md">
+												<div class="row align-items-center g-3">
+													<div class="col-md-auto">
+														<div class="avatar-md">
+															<div class="avatar-title bg-white rounded-circle">
+																<img src="/administration/assets/images/brands/slack.png"
+																	alt="" class="avatar-xs">
+															</div>
+														</div>
+													</div>
+													<div class="col-md">
+														<div>
+															<h4 class="fw-bold">대리점명</h4>
+															<div class="hstack gap-3 flex-wrap">
+																<!-- 대표자명 | 신청자명 -->
+																<div>
+																	<i class="ri-building-line align-bottom me-1"></i>
+																	<span
+																		th:text="${task.requestedBy.company.name}">대표자명</span>
+																	|
+																	<span th:text="${task.requestedBy.name}">신청자명</span>
+																</div>
+
+																<div class="vr"></div>
+
+																<!-- 발주일 -->
+																<div>
+																	발주일 :
+																	<span class="fw-medium"
+																		th:text="${#temporals.format(task.createdAt, 'yyyy.MM.dd HH:mm:ss')}">00.00.00
+																		00:00:00</span>
+																</div>
+
+																<div class="vr"></div>
+
+																<!-- 총금액 -->
+																<div>
+																	총금액 :
+																	<span class="fw-medium"
+																		th:text="${#numbers.formatInteger(task.totalPrice, 3, 'COMMA') + ' 원'}">120,000
+																		원</span>
+																</div>
+
+																<div class="vr"></div>
+
+																<!-- 상태 -->
+																<div th:switch="${task.status.name()}">
+																	<div th:case="'REQUESTED'"
+																		class="badge rounded-pill bg-info fs-12">대기중
+																	</div>
+																	<div th:case="'COMPLETED'"
+																		class="badge rounded-pill bg-success fs-12">완료
+																	</div>
+																	<div th:case="*"
+																		class="badge rounded-pill bg-secondary fs-12">
+																		알수없음</div>
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<ul class="nav nav-tabs-custom border-bottom-0" role="tablist">
+											<li class="nav-item">
+												<a class="nav-link active fw-bold" data-bs-toggle="tab"
+													href="#project-overview" role="tab">
+													개요
+												</a>
+											</li>
+											<li class="nav-item">
+												<a class="nav-link fw-bold" data-bs-toggle="tab"
+													href="#project-activities" role="tab">
+													처리내역
+												</a>
+											</li>
+											<li class="nav-item">
+												<a class="nav-link fw-bold" data-bs-toggle="tab" href="#sales-team"
+													role="tab">
+													담당영업사원
+												</a>
+											</li>
+										</ul>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<!-- end row -->
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="tab-content text-muted">
+								<div class="tab-pane fade show active" id="project-overview" role="tabpanel">
+									<div class="row">
+										<div class="col-xl-12 col-lg-12">
+											<div class="card">
+												<div class="card-body">
+													<div class="text-muted">
+														<h6 class="mb-3 fw-bold text-uppercase">발주제품</h6>
+
+														<div class="row">
+															<div class="col-xxl-6 col-sm-6 project-card d-flex"
+																th:each="order : ${task.orders}">
+																<div class="card flex-fill h-100">
+																	<div
+																		class="card-body d-flex flex-column justify-content-between h-100">
+
+																		<!-- 상단 헤더 -->
+																		<div>
+																			<div
+																				class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+																				<div class="d-flex align-items-center">
+																					<div class="flex-grow-1">
+																						<h5 class="mb-0 fs-15">
+																							<a href="#"
+																								class="text-body"
+																								th:text="${order.productCategory}">제품군</a>
+																						</h5>
+																					</div>
+																					<div class="flex-shrink-0">
+																						<div
+																							class="d-flex gap-1 align-items-center my-n2">
+																							<div class="dropdown">
+																								<button
+																									class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																									data-bs-toggle="dropdown"
+																									aria-haspopup="true"
+																									aria-expanded="true">
+																									<i data-feather="more-horizontal"
+																										class="icon-sm"></i>
+																								</button>
+																								<div
+																									class="dropdown-menu dropdown-menu-end">
+																									<a class="dropdown-item"
+																									   th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}">
+																									    <i class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기
+																									</a>
+																									<a class="dropdown-item"
+																										href="#"><i
+																											class="ri-check-double-line align-bottom me-2 text-success"></i>승인처리</a>
+																								</div>
+																							</div>
+																						</div>
+																					</div>
+																				</div>
+																			</div>
+
+																			<!-- 생산개요 내용 -->
+																			<div class="py-3">
+																				<div class="flex-grow-1">
+																					<h5 class="mb-1 fs-16"><a href="#"
+																							class="text-body">생산개요</a>
+																					</h5>
+
+																					<div th:if="${order.orderItem != null}">
+																					    <p class="text-muted text-truncate-two-lines mb-3">
+																					        <strong th:text="${order.orderItem.productName}"></strong>
+																					        (수량: <span th:text="${order.orderItem.quantity}"></span>)
+																					    </p>
+																					    <div th:each="entry : ${order.orderItem.parsedOptionMap}">
+																					        <span class="badge bg-light text-dark mb-1"
+																					              th:text="${entry.key} + ' : ' + ${entry.value}"></span><br />
+																					    </div>
+																					</div>
+																				</div>
+																			</div>
+																		</div>
+
+																		<!-- 하단 상태/수량 -->
+																		<div class="row gy-3 mt-3">
+																			<div class="col-6">
+																				<p class="text-muted mb-1">상태</p>
+																				<div class="badge bg-warning-subtle text-warning fs-12"
+																					th:text="${order.status}">상태</div>
+																			</div>
+																			<div class="col-6">
+																				<p class="text-muted mb-1">총 수량</p>
+																				<div class="badge bg-warning-subtle text-warning fs-12"
+																					th:text="${order.quantity}">수량</div>
+																			</div>
+																		</div>
+
+																	</div>
+
+																	<!-- 카드 푸터 (파일 다운로드) -->
+																	<div
+																		class="card-footer bg-transparent border-top-dashed py-2">
+																		<div class="row g-3">
+																			<div class="col-xxl-6 col-lg-6">
+																				<div
+																					class="border rounded border-dashed p-2">
+																					<div
+																						class="d-flex align-items-center">
+																						<div class="flex-shrink-0 me-3">
+																							<div class="avatar-sm">
+																								<div
+																									class="avatar-title bg-light text-secondary rounded fs-24">
+																									<i
+																										class="ri-folder-zip-line"></i>
+																								</div>
+																							</div>
+																						</div>
+																						<div
+																							class="flex-grow-1 overflow-hidden">
+																							<h5 class="fs-15 mb-1">
+																								<a href="#"
+																									class="text-body text-truncate d-block">고객업로드파일.zip</a>
+																							</h5>
+																							<div>2.2MB</div>
+																						</div>
+																						<div class="flex-shrink-0 ms-2">
+																							<button type="button"
+																								class="btn btn-icon text-muted btn-sm fs-18">
+																								<i
+																									class="ri-download-2-line"></i>
+																							</button>
+																						</div>
+																					</div>
+																				</div>
+																			</div>
+
+																			<div class="col-xxl-6 col-lg-6">
+																				<div
+																					class="border rounded border-dashed p-2">
+																					<div
+																						class="d-flex align-items-center">
+																						<div class="flex-shrink-0 me-3">
+																							<div class="avatar-sm">
+																								<div
+																									class="avatar-title bg-light text-secondary rounded fs-24">
+																									<i
+																										class="ri-file-ppt-2-line"></i>
+																								</div>
+																							</div>
+																						</div>
+																						<div
+																							class="flex-grow-1 overflow-hidden">
+																							<h5 class="fs-15 mb-1">
+																								<a href="#"
+																									class="text-body text-truncate d-block">관리자업로드파일.zip</a>
+																							</h5>
+																							<div>2.4MB</div>
+																						</div>
+																						<div class="flex-shrink-0 ms-2">
+																							<button type="button"
+																								class="btn btn-icon text-muted btn-sm fs-18">
+																								<i
+																									class="ri-download-2-line"></i>
+																							</button>
+																						</div>
+																					</div>
+																				</div>
+																			</div>
+																		</div>
+																	</div>
+
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+
+											<div class="card">
+												<div class="card-header align-items-center d-flex">
+													<h4 class="card-title mb-0 flex-grow-1">진행현황</h4>
+												</div>
+												<div class="card-body">
+
+													<div data-simplebar style="height: 400px;" class="px-3 mx-n3 mb-2">
+														<div class="d-flex mb-4">
+															<div class="flex-grow-1 ms-3">
+																<h5 class="fs-14">대리점 <small
+																		class="text-muted ms-2">00.00.00
+																		00:00:00</small></h5>
+																<p class="text-muted">온라인 비규격 접수</p>
+																<a href="javascript: void(0);"
+																	class="badge text-muted bg-light"><i
+																		class="mdi mdi-reply"></i> Detail</a>
+																<div class="d-flex mt-4">
+																	<div class="flex-grow-1 ms-3">
+																		<h5 class="fs-14">담당자 <small
+																				class="text-muted ms-2">00.00.00
+																				00:00:00</small></h5>
+																		<p class="text-muted">접수 확인처리</p>
+																	</div>
+																</div>
+															</div>
+														</div>
+														<div class="d-flex mb-4">
+															<div class="flex-grow-1 ms-3">
+																<h5 class="fs-14">생산팀 <small
+																		class="text-muted ms-2">00.00.00
+																		00:00:00</small></h5>
+																<p class="text-muted">생산지시서 접수</a>.</p>
+																<a href="javascript: void(0);"
+																	class="badge text-muted bg-light"><i
+																		class="mdi mdi-reply"></i> Detail</a>
+															</div>
+														</div>
+														<div class="d-flex">
+															<div class="flex-grow-1 ms-3">
+																<h5 class="fs-14">생산팀 <small
+																		class="text-muted ms-2">00.00.00
+																		00:00:00</small></h5>
+																<p class="text-muted">생산 완료처리</p>
+																<a href="javascript: void(0);"
+																	class="badge text-muted bg-light"><i
+																		class="mdi mdi-reply"></i> Detail</a>
+																<div class="d-flex mt-4">
+																	<div class="flex-grow-1 ms-3">
+																		<h5 class="fs-14">배송팀 <small
+																				class="text-muted ms-2">00.00.00
+																				00:00:00</small></h5>
+																		<p class="text-muted">배송리스트 접수</p>
+																		<a href="javascript: void(0);"
+																			class="badge text-muted bg-light"><i
+																				class="mdi mdi-reply"></i> Detail</a>
+																	</div>
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- end tab pane -->
+								<div class="tab-pane fade" id="project-activities" role="tabpanel">
+									<div class="card">
+										<div class="card-body">
+											<h5 class="card-title">처리내역</h5>
+											<div class="acitivity-timeline py-3">
+												<div class="acitivity-item d-flex">
+													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
+														<div
+															class="avatar-title bg-success-subtle text-success rounded-circle">
+															N
+														</div>
+													</div>
+													<div class="flex-grow-1 ms-3">
+														<h6 class="mb-1">대리점 <span
+																class="badge bg-primary-subtle text-primary align-middle">New</span>
+														</h6>
+														<p class="text-muted mb-2">온라인 비규격 접수</p>
+														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
+													</div>
+												</div>
+												<div class="acitivity-item py-3 d-flex">
+													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
+														<div
+															class="avatar-title bg-success-subtle text-success rounded-circle">
+															C
+														</div>
+													</div>
+													<div class="flex-grow-1 ms-3">
+														<h6 class="mb-1">담당자 <span
+																class="badge bg-secondary-subtle text-secondary align-middle">생산지시</span>
+														</h6>
+														<p class="text-muted mb-2"><i
+																class="ri-file-text-line align-middle ms-2"></i> 접수 확인처리
+														</p>
+														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
+													</div>
+												</div>
+												<div class="acitivity-item py-3 d-flex">
+													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
+														<div
+															class="avatar-title bg-success-subtle text-success rounded-circle">
+															M
+														</div>
+													</div>
+													<div class="flex-grow-1 ms-3">
+														<h6 class="mb-1">생산팀 <span
+																class="badge bg-success-subtle text-success align-middle">생산팀</span>
+														</h6>
+														<p class="text-muted mb-2">생산지시서 접수</p>
+														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
+													</div>
+												</div>
+												<div class="acitivity-item py-3 d-flex">
+													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
+														<div
+															class="avatar-title bg-success-subtle text-success rounded-circle">
+															F
+														</div>
+													</div>
+													<div class="flex-grow-1 ms-3">
+														<h6 class="mb-1">생산팀 </h6>
+														<p class="text-muted mb-2">생산 완료처리</p>
+														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
+													</div>
+												</div>
+
+												<div class="acitivity-item py-3 d-flex">
+													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
+														<div
+															class="avatar-title bg-success-subtle text-success rounded-circle">
+															D
+														</div>
+													</div>
+													<div class="flex-grow-1 ms-3">
+														<h6 class="mb-1">배송팀 </h6>
+														<p class="text-muted mb-2">배송리스트 접수</p>
+														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<div class="tab-pane fade" id="sales-team" role="tabpanel">
+
+									<div class="team-list list-view-filter">
+										<div class="card team-box">
+											<div class="card-body px-4">
+												<div class="row align-items-center team-row">
+													<div class="col-lg-4 col">
+														<div class="team-profile-img">
+															<div class="avatar-lg img-thumbnail">
+																<div class="avatar-title bg-danger-subtle text-danger">
+																	HB
+																</div>
+															</div>
+															<div class="team-content">
+																<a href="#" class="d-block">
+																	<h5 class="fs-16 mb-1">담당자</h5>
+																</a>
+																<p class="text-muted mb-0">담당자직급</p>
+															</div>
+														</div>
+													</div>
+													<div class="col-lg-2 col">
+														<div class="text-end">
+															<a href="#" class="btn btn-light view-btn">상세보기</a>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+		</div>
+	</div>
+
+	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
+	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+	<script src="/administration/assets/js/pages/project-overview.init.js"></script>
+</body>
+
+</html>

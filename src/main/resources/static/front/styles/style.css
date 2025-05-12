@@ -1395,7 +1395,7 @@ img.mx-auto {
 }
 
 .theme-light #preloader {
-  background-color: #FFF;
+  background-color: rgba(0,0,0,0.5);
 }
 
 .theme-dark #preloader {

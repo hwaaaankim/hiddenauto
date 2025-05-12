@@ -2,9 +2,11 @@ package com.dev.HiddenBATHAuto.model.task;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
+import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -17,6 +19,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -35,7 +38,15 @@ public class Order {
     private String productCategory;
     private String deliveryAddress;
     private int quantity;
-
+    private int productCost;                     // 제품비용 (단위: 원)
+    
+    // ✅ 추가 필드
+    private LocalDateTime preferredDeliveryDate; // 배송희망일
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "delivery_method_id") // FK 이름 명시
+    private DeliveryMethod deliveryMethod; // ✅ 배송수단 엔티티 참조
+    
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
@@ -55,18 +66,39 @@ public class Order {
     @JoinColumn(name = "assigned_delivery_handler_id", nullable = true)
     private Member assignedDeliveryHandler;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderItem> orderItems;
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+    private OrderItem orderItem;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderHistory> historyLogs;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderImage> deliveryImages; // 배송 완료 후 이미지 업로드
-
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderImage> proofImages; // 배송 증빙용 사진
+    private List<OrderImage> orderImages; // 배송 완료 후 이미지 업로드
 
     private LocalDateTime createdAt = LocalDateTime.now(); // 주문 등록일
     private LocalDateTime updatedAt;
+    
+    public List<OrderImage> getCustomerUploadedImages() {
+        return orderImages.stream()
+            .filter(img -> "CUSTOMER".equalsIgnoreCase(img.getType()))
+            .collect(Collectors.toList());
+    }
+
+    public List<OrderImage> getAdminUploadedImages() {
+        return orderImages.stream()
+            .filter(img -> "MANAGEMENT".equalsIgnoreCase(img.getType()))
+            .collect(Collectors.toList());
+    }
+
+    public List<OrderImage> getDeliveryImages() {
+        return orderImages.stream()
+            .filter(img -> "DELIVERY".equalsIgnoreCase(img.getType()))
+            .collect(Collectors.toList());
+    }
+
+    public List<OrderImage> getProofImages() {
+        return orderImages.stream()
+            .filter(img -> "PROOF".equalsIgnoreCase(img.getType()))
+            .collect(Collectors.toList());
+    }
 }

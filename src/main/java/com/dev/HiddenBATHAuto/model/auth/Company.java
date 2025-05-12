@@ -1,19 +1,23 @@
 package com.dev.HiddenBATHAuto.model.auth;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 
 @Entity
 @Table(name = "tb_company")
 @Data
-public class Company {
-
+public class Company implements Serializable {
+    private static final long serialVersionUID = 1L;
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -29,4 +33,8 @@ public class Company {
 
     private LocalDateTime createdAt = LocalDateTime.now(); // 회사 등록일
     private LocalDateTime updatedAt; // 회사정보 수정일
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sales_manager_id")
+    private Member salesManager; // ✅ 담당 영업사원
 }

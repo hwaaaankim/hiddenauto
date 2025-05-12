@@ -2,18 +2,26 @@ package com.dev.HiddenBATHAuto.controller.page;
 
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
+import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
+import com.dev.HiddenBATHAuto.model.auth.Team;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.repository.auth.TeamRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class TeamController {
 
 	private final MemberRepository memberRepository;
+	private final TeamRepository teamRepository;
 
     // 방식 1: PathVariable
     @GetMapping("/check-role/{memberId}")
@@ -64,14 +73,221 @@ public class TeamController {
         return String.format("회원 ID: %d, 팀: %s, 카테고리: %s", memberId, teamName, categoryName);
     }
     
-    @GetMapping("/{teamId}/{teamCategoryId}")
-    @ResponseBody
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')") // 내부 직원만 접근 가능
+    @GetMapping("/team/asList/{teamId}/{teamCategoryId}")
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
+    public String accessAsTeamPage(@PathVariable Long teamId,
+                                   @PathVariable Long teamCategoryId,
+                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
+                                   Model model) {
+
+    	Member member = principalDetails.getMember();
+
+        // 팀 존재 여부 확인
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+
+        // 팀 이름 검사
+        if (!"AS팀".equals(team.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
+        }
+
+        // 현재 로그인한 사용자의 팀 일치 여부 검사
+        if (!member.getTeam().getId().equals(teamId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
+        }
+
+        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
+        }
+
+        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
+        model.addAttribute("teamName", team.getName());
+        model.addAttribute("teamCategory", member.getTeamCategory().getName());
+        return "administration/team/as/asList"; // Thymeleaf 템플릿 이름
+    }
+    
+    @GetMapping("/deliveryList/{teamId}/{teamCategoryId}")
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
+    public String accessDeliveryTeamPage(@PathVariable Long teamId,
+                                   @PathVariable Long teamCategoryId,
+                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
+                                   Model model) {
+
+    	Member member = principalDetails.getMember();
+
+        // 팀 존재 여부 확인
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+
+        // 팀 이름 검사
+        if (!"배송팀".equals(team.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
+        }
+
+        // 현재 로그인한 사용자의 팀 일치 여부 검사
+        if (!member.getTeam().getId().equals(teamId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
+        }
+
+        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
+        }
+
+        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
+        model.addAttribute("teamName", team.getName());
+        model.addAttribute("teamCategory", member.getTeamCategory().getName());
+        return "administration/team/delivery/deliveryList"; // Thymeleaf 템플릿 이름
+    }
+    
+    @GetMapping("/deliveryDetail/{teamId}/{teamCategoryId}")
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
+    public String deliveryDetail(@PathVariable Long teamId,
+                                   @PathVariable Long teamCategoryId,
+                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
+                                   Model model) {
+
+    	Member member = principalDetails.getMember();
+
+        // 팀 존재 여부 확인
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+
+        // 팀 이름 검사
+        if (!"배송팀".equals(team.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
+        }
+
+        // 현재 로그인한 사용자의 팀 일치 여부 검사
+        if (!member.getTeam().getId().equals(teamId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
+        }
+
+        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
+        }
+
+        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
+        model.addAttribute("teamName", team.getName());
+        model.addAttribute("teamCategory", member.getTeamCategory().getName());
+        return "administration/team/delivery/deliveryDetail"; // Thymeleaf 템플릿 이름
+    }
+    
+    @GetMapping("/productionListLegacy/{teamId}/{teamCategoryId}")
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
+    public String productionListLegacy(@PathVariable Long teamId,
+                                   @PathVariable Long teamCategoryId,
+                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
+                                   Model model) {
+
+    	Member member = principalDetails.getMember();
+
+        // 팀 존재 여부 확인
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+
+        // 팀 이름 검사
+        if (!"생산팀".equals(team.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
+        }
+
+        // 현재 로그인한 사용자의 팀 일치 여부 검사
+        if (!member.getTeam().getId().equals(teamId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
+        }
+
+        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
+        }
+
+        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
+        model.addAttribute("teamName", team.getName());
+        model.addAttribute("teamCategory", member.getTeamCategory().getName());
+        return "administration/team/production/productionList"; // Thymeleaf 템플릿 이름
+    }
+    
+    @GetMapping("/productionDetailLegacy/{teamId}/{teamCategoryId}")
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
+    public String productionDetailLegacy(@PathVariable Long teamId,
+                                   @PathVariable Long teamCategoryId,
+                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
+                                   Model model) {
+
+    	Member member = principalDetails.getMember();
+
+        // 팀 존재 여부 확인
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+
+        // 팀 이름 검사
+        if (!"생산팀".equals(team.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
+        }
+
+        // 현재 로그인한 사용자의 팀 일치 여부 검사
+        if (!member.getTeam().getId().equals(teamId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
+        }
+
+        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
+        }
+
+        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
+        model.addAttribute("teamName", team.getName());
+        model.addAttribute("teamCategory", member.getTeamCategory().getName());
+        return "administration/team/production/productionDetail"; // Thymeleaf 템플릿 이름
+    }
+    
+    @GetMapping("/productionListNew/{teamId}/{teamCategoryId}")
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
+    public String productionListNew(@PathVariable Long teamId,
+                                   @PathVariable Long teamCategoryId,
+                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
+                                   Model model) {
+
+    	Member member = principalDetails.getMember();
+
+        // 팀 존재 여부 확인
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+
+        // 팀 이름 검사
+        if (!"생산팀".equals(team.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
+        }
+
+        // 현재 로그인한 사용자의 팀 일치 여부 검사
+        if (!member.getTeam().getId().equals(teamId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
+        }
+
+        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
+        }
+
+        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
+        model.addAttribute("teamName", team.getName());
+        model.addAttribute("teamCategory", member.getTeamCategory().getName());
+        return "administration/team/production/productionList"; // Thymeleaf 템플릿 이름
+    }
+    
+    @GetMapping("/team/{teamId}/{teamCategoryId}")
+    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
     public String accessTeamWithCategory(@PathVariable Long teamId,
-                                         @PathVariable Long teamCategoryId) {
+                                         @PathVariable Long teamCategoryId,
+                                         @AuthenticationPrincipal Member member) {
 
+        if (!member.getTeam().getId().equals(teamId)) {
+            throw new AccessDeniedException("팀 접근 권한이 없습니다.");
+        }
 
-        return String.format("접속한 팀: %s (%d), 카테고리: %s (%d)");
+        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
+            throw new AccessDeniedException("카테고리 접근 권한이 없습니다.");
+        }
+
+        return String.format("접속한 팀: %s (%d), 카테고리: %s (%d)",
+                member.getTeam().getName(), teamId,
+                member.getTeamCategory().getName(), teamCategoryId);
     }
     
  // ✅ 팀별 접근 제한 (Team ID 기준)
@@ -100,7 +316,6 @@ public class TeamController {
     }
 
     // ✅ 팀 카테고리별 접근 제한
-
     // 1팀: 1개 카테고리 (예: 설계1팀)
     @GetMapping("/team1/cat1")
     @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 1")

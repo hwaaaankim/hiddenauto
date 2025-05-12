@@ -6,7 +6,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,20 +20,18 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
                                         Authentication authentication) throws IOException {
 
         PrincipalDetails principal = (PrincipalDetails) authentication.getPrincipal();
-        Member member = principal.getMember();
         String role = principal.getMember().getRole().name();
         
         String redirectUrl;
         switch (role) {
             case "ADMIN":
-                redirectUrl = "/admin/index";
+                redirectUrl = "/common/main";
                 break;
             case "MANAGEMENT":
-                redirectUrl = "/management/index";
+                redirectUrl = "/common/main";
                 break;
             case "INTERNAL_EMPLOYEE":
-                Long memberId = member.getId();
-                redirectUrl = String.format("/team/%d", memberId);
+                redirectUrl = "/common/main";
                 break;
             case "CUSTOMER_REPRESENTATIVE":
                 redirectUrl = "/index";
