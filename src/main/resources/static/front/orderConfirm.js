@@ -110,8 +110,20 @@ document.addEventListener("DOMContentLoaded", () => {
 						<input type="text" placeholder="주소 입력">
 						<button class="btn btn-sm rounded-m text-uppercase font-800">주소검색</button>
 					</div>
-					<div class="input-style">
-						<input type="text" placeholder="상세 주소 입력">
+					<div class="input-group">
+						<div class="form-item">
+							<label for="delivery-method">배송수단 선택</label> <select
+								id="delivery-method">
+								<option>=== 배송수단 ===</option>
+								<option>=== 택배(금액 : ___) ===</option>
+								<option>=== 직배송(금액 : ___) ===</option>
+								<option>=== 방문출고(금액 : ___) ===</option>
+							</select>
+						</div>
+						<div class="form-item">
+							<label for="delivery-date">배송 희망일 선택</label> <input type="date"
+								id="delivery-date" />
+						</div>
 					</div>
 				</div>
 				<div class="divider"></div>

@@ -61,30 +61,11 @@
 
 									<div class="row">
 										<div class="col-lg-4">
-											<label class="form-label">제품비용</label>
-											<input type="text" class="form-control" th:value="${order.productCost}"
-												readonly>
-										</div>
-
-										<div class="col-lg-4">
 											<label class="form-label">수량</label>
 											<input type="text" class="form-control" th:value="${order.quantity}"
 												readonly>
 										</div>
-
-										<div class="col-lg-4">
-											<label class="form-label">배송수단</label>
-											<input type="text" class="form-control"
-												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '미지정'}"
-												readonly>
-										</div>
-
-										<div class="col-lg-4">
-											<label class="form-label">배송비용</label>
-											<input type="text" class="form-control"
-												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodPrice : 0}"
-												readonly>
-										</div>
+										
 
 										<div class="col-lg-4">
 											<label class="form-label">발주일</label>
@@ -93,10 +74,29 @@
 										</div>
 
 										<div class="col-lg-4">
+											<label class="form-label">제품비용</label>
+											<input type="text" class="form-control" th:value="${order.productCost}"
+												>
+										</div>
+										<div class="col-lg-4">
+											<label class="form-label">배송수단</label>
+											<input type="text" class="form-control"
+												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '미지정'}"
+												>
+										</div>
+
+										<div class="col-lg-4">
+											<label class="form-label">배송비용</label>
+											<input type="text" class="form-control"
+												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodPrice : 0}"
+												>
+										</div>
+
+										<div class="col-lg-4">
 											<label class="form-label">배송희망일</label>
 											<input type="text" class="form-control"
 												th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"
-												readonly>
+												>
 										</div>
 									</div>
 
@@ -231,8 +231,7 @@
 								</div>
 							</div>
 							<div class="text-end mb-4">
-								<button class="btn btn-danger w-sm">취소</button>
-								<button class="btn btn-success w-sm">등록</button>
+								<button class="btn btn-success w-sm">확인</button>
 							</div>
 						</div>
 
@@ -245,19 +244,20 @@
 									<div class="mb-3">
 										<label class="form-label">발주상태관리</label>
 										<select class="form-select">
-											<option value="Private" selected>확인</option>
-											<option value="Team">완료</option>
+											<option value="Private" selected>요청됨</option>
+											<option value="Team">생산배정</option>
+											<option value="Public">배송중</option>
 											<option value="Public">취소</option>
+											<option value="Public">완료</option>
 										</select>
 									</div>
 									<div>
 										<label class="form-label">배송수단변경</label>
 										<select class="form-select" data-choices data-choices-search-false>
-											<option value="High" selected>거울</option>
-											<option value="Medium">상부장</option>
-											<option value="Low">하부장</option>
-											<option value="Low">플랩장</option>
-											<option value="Low">슬라이드장</option>
+											<option value="High" selected>직배송(금액 : )</option>
+											<option value="Medium">택배(금액 : )</option>
+											<option value="Low">방문출고(금액 : )</option>
+											<option value="Low">기타(금액 : )</option>
 										</select>
 									</div>
 								</div>
@@ -281,7 +281,7 @@
 										</select>
 									</div>
 									<div class="mb-3">
-										<label class="form-label">담당자</label>
+										<label class="form-label">담당영업사원</label>
 										<select class="form-select">
 											<option value="Brent Gonzalez" selected>영업사원명</option>
 											<option value="Darline Williams">영업사원명</option>
@@ -289,6 +289,17 @@
 											<option value="Darline Williams">영업사원명</option>
 											<option value="Darline Williams">영업사원명</option>
 											<option value="Darline Williams">영업사원명</option>
+										</select>
+									</div>
+									<div class="mb-3">
+										<label class="form-label">생산팀</label>
+										<select class="form-select">
+											<option value="Brent Gonzalez" selected>생산팀카테고리</option>
+											<option value="Darline Williams">생산팀카테고리</option>
+											<option value="Darline Williams">생산팀카테고리</option>
+											<option value="Darline Williams">생산팀카테고리</option>
+											<option value="Darline Williams">생산팀카테고리</option>
+											<option value="Darline Williams">생산팀카테고리</option>
 										</select>
 									</div>
 								</div>

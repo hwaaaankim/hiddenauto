@@ -598,7 +598,41 @@ i#bag-icon.active {
 	align-items: center;
 }
 
-.input-group input[type="text"] {
+.input-group {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+}
+
+.form-item {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+}
+
+.form-item label {
+	margin-bottom: 2px;        /* 더 가까이 붙이기 */
+	font-weight: 500;
+	font-size: 14px;           /* 크기 약간 줄이기 */
+	line-height: 1.2;          /* 라벨 간격 줄이기 */
+	height:20px !important;
+	padding-left:5px;
+}
+.same-address {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.same-address label {
+	display: flex;
+	align-items: center;
+	margin: 0;
+	font-size: 14px;
+	line-height: 1;
+}
+
+.input-group input[type="text"], select, .input-group input[type="date"] {
 	flex: 1;
 	/* 남는 공간을 채우도록 */
 	padding: 10px;
