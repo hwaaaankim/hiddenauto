@@ -28,7 +28,12 @@ public class WebSecurityConfig {
 	
 	private final PrincipalDetailsService principalDetailsService;
 	
-	private final String[] commonUrls = {
+	
+	private final String[] visitorsCommonUrls = {
+			"/signUp"
+	};
+	
+	private final String[] adminCommonUrls = {
 			"/common/main"
 	};
 	
@@ -88,8 +93,9 @@ public class WebSecurityConfig {
 					.frameOptions(frameOptionsConfig -> frameOptionsConfig.disable()))
 			.authorizeHttpRequests((authorizeRequests) -> 
 				authorizeRequests
+					.requestMatchers(visitorsCommonUrls).permitAll()
 					.requestMatchers("/administration/**", "/front/**", "/favicon.ico").permitAll()
-					.requestMatchers(commonUrls).hasAnyAuthority(
+					.requestMatchers(adminCommonUrls).hasAnyAuthority(
 						    "ROLE_ADMIN",
 						    "ROLE_MANAGEMENT",
 						    "ROLE_INTERNAL_EMPLOYEE",

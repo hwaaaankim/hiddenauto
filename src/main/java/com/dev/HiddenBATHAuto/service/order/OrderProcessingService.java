@@ -48,7 +48,6 @@ public class OrderProcessingService {
             order.setTask(task);
             order.setQuantity(dto.getQuantity());
             order.setProductCategory("하부장"); // 예시, 실제로는 dto에서 받아야 함
-            order.setDeliveryAddress("서울시 강남구 임시주소");
             order.setStatus(OrderStatus.REQUESTED);
 
             OrderItem orderItem = new OrderItem();

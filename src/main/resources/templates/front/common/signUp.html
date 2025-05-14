@@ -1,0 +1,200 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/front/common :: autoHead}">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+
+		<div class="page-content header-clear-medium sign">
+
+			<div class="sign-wrap">
+				<div class="ps-1 pe-1" id="tab-group-1">
+					<h1 class="text-center font-800 font-40 mb-5">가맹점 회원가입</h1>
+					<div class="tab-controls tabs-small tabs-rounded" data-highlight="bg-highlight">
+						<a href="#" data-active data-bs-toggle="collapse" data-bs-target="#tab-1">회사대표자 회원가입</a>
+						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-2">직원 회원가입</a>
+					</div>
+					<div class="clearfix mb-3"></div>
+					<div data-bs-parent="#tab-group-1" class="collapse show" id="tab-1">
+						<div class="input-style no-borders has-icon">
+							<i class="fa-regular fa-user"></i>
+							<input type="text" class="form-control" placeholder="업체명을 입력 해 주세요.">
+							<label for="form1a" class="color-blue-dark font-10 mt-1">업체명</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon">
+							<i class="fa-regular fa-user"></i>
+							<input type="text" class="form-control" placeholder="성함을 입력 해 주세요.">
+							<label for="form1a" class="color-blue-dark font-10 mt-1">성함</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon">
+							<i class="fa-regular fa-user"></i>
+							<input type="text" class="form-control" placeholder="사용하실 아이디를 입력 해 주세요.">
+							<label for="form1a" class="color-blue-dark font-10 mt-1">아이디</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-solid fa-lock"></i>
+							<input type="password" class="form-control" placeholder="사용하실 비밀번호를 입력 해 주세요.">
+							<label for="form3a" class="color-blue-dark font-10 mt-1">비밀번호</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-solid fa-lock"></i>
+							<input type="password" class="form-control" placeholder="비밀번호를 다시한번 입력 해 주세요.">
+							<label for="form3a1" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-solid fa-phone"></i>
+							<input type="text" class="form-control" placeholder="연락처를 입력 해 주세요.">
+							<label class="color-blue-dark font-10 mt-1">연락처</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-regular fa-envelope"></i>
+							<input type="email" class="form-control" placeholder="이메일을 입력 해 주세요.">
+							<label class="color-blue-dark font-10 mt-1">이메일</label>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-regular fa-address-book"></i>
+							<input type="text" class="form-control" id="searchAddress" placeholder="주소를 검색 해 주세요."><button
+								onclick="execDaumPostcode()">주소검색</button>
+							<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-regular fa-address-book"></i>
+							<input type="text" class="form-control"id="detailAddress" placeholder="상세 주소를 입력 해 주세요.">
+							<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
+							<input type="hidden" name="sido" id="sido">
+							<input type="hidden" name="sigungu" id="sigungu">
+							<input type="hidden" name="bname" id="bname"> <!-- 동/읍/면 등 -->
+							<input type="hidden" name="postcode" id="postcode"> <!-- 우편번호 -->
+						</div>
+						<div class="pb-1">
+							<label class="signUpImageBtn">
+								<input type="file" id="file-upload" class="signUpImageInput" accept="image/*" required>
+								<i class="fa-regular fa-file"></i> 사업자등록증 업로드
+							</label>
+							<span class="required-text">(required)</span>
+
+							<!-- 업로드된 파일 목록 -->
+							<ul id="file-list" class="file-list mt-2"></ul>
+						</div>
+
+						<div class="text-center mb-2 mt-2">
+							<a href="#" class="font-12">이미 회원가입을 하신 사용자의 경우 로그인을 진행 해 주세요.</a>
+						</div>
+						<a href="#"
+							class="back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">회원가입</a>
+					</div>
+					<div data-bs-parent="#tab-group-1" class="collapse" id="tab-2">
+						<div class="input-style no-borders has-icon">
+							<i class="fa-regular fa-user"></i>
+							<input type="text" class="form-control" placeholder="성함을 입력 해 주세요.">
+							<label for="form1a" class="color-blue-dark font-10 mt-1">성함</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon">
+							<i class="fa-regular fa-user"></i>
+							<input type="text" class="form-control" placeholder="사용하실 아이디를 입력 해 주세요.">
+							<label for="form1a" class="color-blue-dark font-10 mt-1">아이디</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-solid fa-lock"></i>
+							<input type="password" class="form-control" placeholder="사용하실 비밀번호를 입력 해 주세요.">
+							<label for="form3a" class="color-blue-dark font-10 mt-1">비밀번호</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-solid fa-lock"></i>
+							<input type="password" class="form-control" placeholder="비밀번호를 다시한번 입력 해 주세요.">
+							<label for="form3a1" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-solid fa-phone"></i>
+							<input type="text" class="form-control" placeholder="연락처를 입력 해 주세요.">
+							<label class="color-blue-dark font-10 mt-1">연락처</label>
+							<em>(required)</em>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-regular fa-envelope"></i>
+							<input type="email" class="form-control" placeholder="이메일을 입력 해 주세요.">
+							<label class="color-blue-dark font-10 mt-1">이메일</label>
+						</div>
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-solid fa-key"></i>
+							<input type="text" class="form-control" placeholder="업체 소속인 경우 업체코드를 입력 해 주세요.">
+							<label for="form1aa" class="color-blue-dark font-10 mt-1">업체코드</label>
+						</div>
+
+						<div class="text-center mb-2 mt-2">
+							<a href="#" class="font-12">이미 회원가입을 하신 사용자의 경우 로그인을 진행 해 주세요.</a>
+						</div>
+						<a href="#"
+							class="back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">회원가입</a>
+					</div>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+	</div>
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+	<script>
+		document.getElementById('file-upload').addEventListener('change', function () {
+			const fileList = document.getElementById('file-list');
+			fileList.innerHTML = ''; // 기존 목록 초기화
+
+			const files = this.files;
+
+			if (files.length > 0) {
+				const fileItem = document.createElement('li');
+				fileItem.innerHTML = `
+      ${files[0].name}
+      <span class="remove-file" onclick="removeSelectedFile()">✕</span>
+    `;
+				fileList.appendChild(fileItem);
+			}
+		});
+
+		function removeSelectedFile() {
+			const input = document.getElementById('file-upload');
+			input.value = ''; // 선택 초기화
+			document.getElementById('file-list').innerHTML = ''; // 목록 제거
+		}
+		function execDaumPostcode() {
+			new daum.Postcode({
+				oncomplete: function (data) {
+					const address = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+
+					// 주소 input에 넣기
+					document.getElementById('searchAddress').value = address;
+
+					// 상세주소 input focus 이동
+					document.getElementById('detailAddress').focus();
+
+					// hidden input 값 세팅
+					document.getElementById('sido').value = data.sido;          // 시 or 도
+					document.getElementById('sigungu').value = data.sigungu;    // 구
+					document.getElementById('bname').value = data.bname;        // 동/읍/면
+					document.getElementById('postcode').value = data.zonecode;  // 우편번호
+				}
+			}).open();
+		}
+
+	</script>
+
+</body>

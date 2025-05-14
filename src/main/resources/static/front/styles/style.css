@@ -3022,7 +3022,7 @@ input[type=range]::-webkit-slider-thumb:after {
   pointer-events: none;
   margin-top: -36px !important;
   text-align: center;
-  color: #FFF;
+  color: #000;
   height: 10px;
   text-transform: uppercase;
   font-weight: 900;

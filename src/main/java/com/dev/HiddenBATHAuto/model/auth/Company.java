@@ -24,7 +24,19 @@ public class Company implements Serializable {
 
     private String name;
     private String businessNo;
-    private String address;
+   
+    // 우편번호
+    private String zipCode;
+
+    // 행정구역
+    private String doName;   // ex: 경기도
+    private String siName;   // ex: 용인시
+    private String guName;   // ex: 수지구
+
+    // 주소
+    private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
+    private String detailAddress;   // ex: 302동 1502호
+    
     private String registrationKey;
 
     private String businessLicenseFilename; // 업로드된 원본 파일명

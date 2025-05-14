@@ -36,7 +36,18 @@ public class Order {
     private Task task;
 
     private String productCategory;
-    private String deliveryAddress;
+    // 우편번호
+    private String zipCode;
+
+    // 행정구역
+    private String doName;   // ex: 경기도
+    private String siName;   // ex: 용인시
+    private String guName;   // ex: 수지구
+
+    // 주소
+    private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
+    private String detailAddress;   // ex: 302동 1502호
+    
     private int quantity;
     private int productCost;                     // 제품비용 (단위: 원)
     

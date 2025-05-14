@@ -27,6 +27,7 @@ public class ManagementController {
 
 	@Autowired
 	private TaskRepository taskRepository;
+	
 	@Autowired
 	private OrderRepository orderRepository;
 	

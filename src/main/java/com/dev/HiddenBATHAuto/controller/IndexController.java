@@ -15,13 +15,13 @@ public class IndexController {
 	@GetMapping("/loginForm")
 	public String loginForm() {
 		
-		return "front/account/signIn";
+		return "front/common/signIn";
 	}
 	
 	@GetMapping("/signUp")
 	public String signUp() {
 		
-		return "front/account/signUp";
+		return "front/common/signUp";
 	}
 	
 }

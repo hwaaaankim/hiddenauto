@@ -51,7 +51,6 @@ public class InitService {
 			Company company = new Company();
 			company.setName(name);
 			company.setBusinessNo(businessNo);
-			company.setAddress("임시주소");
 			company.setRegistrationKey("KEY-" + name);
 			companyRepository.save(company);
 		}
@@ -89,7 +88,6 @@ public class InitService {
 
 				// 🔍 팀 유형에 따른 스코프 세팅
 				if ("배송팀".equals(team.getName()) || "AS팀".equals(team.getName())) {
-					member.setAddressScope(teamCategoryName); // 예: "서울", "경기"
 				} else if ("생산팀".equals(team.getName())) {
 					member.setProductCategoryScope(teamCategoryName); // 예: "하부장", "거울"
 				}

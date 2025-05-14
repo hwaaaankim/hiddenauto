@@ -192,7 +192,7 @@ h3#auto-modal-title {
 }
 
 .sign {
-	height: 100vh;
+	min-height: 100vh;
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -1352,4 +1352,48 @@ input:checked+.slider:before {
 .receipt-style p {
 	margin: 0px;
 	line-height: 1.4;
+}
+.signUpImageBtn {
+  display: inline-block;
+  padding: 10px 16px;
+  background-color: #007bff;
+  color: white;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.signUpImageBtn i {
+  margin-right: 6px;
+}
+
+.signUpImageInput {
+  display: none;
+}
+
+.required-text {
+  margin-left: 10px;
+  font-size: 12px;
+  color: red;
+  vertical-align: middle;
+}
+
+.file-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 10px;
+}
+
+.file-list li {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.file-list li .remove-file {
+  margin-left: 10px;
+  color: #ff4d4f;
+  cursor: pointer;
+  font-weight: bold;
 }
