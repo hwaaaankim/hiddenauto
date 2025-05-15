@@ -53,11 +53,6 @@ public class Member implements Serializable{
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<MemberRegion> addressScopes = new ArrayList<>();
 
-    private String zipCode;
-    private String roadAddress;
-    private String jibunAddress;
-    private String detailAddress; // 카카오 주소검색 API 활용용
-
     private boolean enabled = true;
     private LocalDateTime createdAt = LocalDateTime.now(); // 회원가입일
     private LocalDateTime updatedAt; // 최근 회원정보 수정일

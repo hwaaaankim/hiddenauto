@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.model.auth;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -22,8 +23,8 @@ public class Company implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name;
-    private String businessNo;
+	@Column(name="name")
+    private String companyName;
    
     // 우편번호
     private String zipCode;

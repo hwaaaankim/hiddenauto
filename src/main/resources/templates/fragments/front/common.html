@@ -33,7 +33,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 				class="fa-brands fa-product-hunt"></i><span>발주관리</span></a>
 		<a href="#" data-menu="bottombar-as"><i class="fa-solid fa-screwdriver-wrench"></i><span>AS관리</span></a>
 		<a href="#" data-menu="bottombar-account"><i class="fa-solid fa-id-card"></i><span>계정관리</span></a>
-		<a href="/search"><i class="fa fa-search"></i><span>제품검색</span></a>
+		<!--<a href="/search"><i class="fa fa-search"></i><span>제품검색</span></a>-->
 	</div>
 </th:block>
 <th:block th:fragment="autoHeaderMenu">
@@ -48,6 +48,11 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 				<i id="bag-icon" class="font-18 fa-solid fa-bag-shopping"></i><span id="cart-product-amount">1</span>
 			</a>
 		</div>
+	</div>
+</th:block>
+<th:block th:fragment="beforeHeaderMenu">
+	<div class="header header-demo header-logo-center mb-3">
+		<a href="/index" class="header-logo">HIDDEN BATH</a>
 	</div>
 </th:block>
 <th:block th:fragment="autoScript">
@@ -71,7 +76,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="/memberList">
+				<a href="/memberList" sec:authorize="hasAuthority('CUSTOMER_REPRESENTATIVE')">
 					<span>직원리스트</span>
 					<strong>직원에 대한 관리 기능을 제공합니다.</strong>
 					<i class="fa fa-angle-right"></i>
@@ -132,11 +137,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="#">
-					<span>DP용 제품 발주</span>
-					<strong>매장 DP용 제품 발주를 신청할 수 있습니다.</strong>
-					<i class="fa fa-angle-right"></i>
-				</a>
 				<a href="/taskList">
 					<span>업무 관리</span>
 					<strong>히든바스 AUTO TASK를 통해 진행된 업무 현황을 파악할 수 있습니다.</strong>
@@ -194,27 +194,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 					<span>AS접수</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="#" class="border-0">
-					<i class="fa font-14 fa-image color-teal-dark"></i>
-					<span>문의하기</span>
-					<i class="fa fa-angle-right"></i>
-				</a>
-			</div>
-		</div>
-
-		<div class="me-3 ms-3 mt-4">
-			<span class="text-uppercase font-900 font-11 opacity-30">페이지</span>
-			<div class="list-group list-custom-small list-icon-0">
-				<a href="/signin">
-					<i class="fa font-14 fa-cog color-brown-dark"></i>
-					<span>로그인</span>
-					<i class="fa fa-link"></i>
-				</a>
-				<a href="/signup">
-					<i class="fa font-14 fa-cog color-brown-dark"></i>
-					<span>회원가입</span>
-					<i class="fa fa-link"></i>
-				</a>
 			</div>
 		</div>
 
@@ -223,12 +202,17 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 			<div class="list-group list-custom-small list-icon-0">
 				<a href="/account">
 					<i class="fa font-14 fa-cog color-brown-dark"></i>
-					<span>계정</span>
+					<span>계정관리</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="/memberList" class="border-0">
+				<a href="/memberList" class="border-0"  sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
 					<i class="fa font-14 fa-cog color-brown-dark"></i>
 					<span>직원관리</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+				<a href="/logout" class="border-0">
+					<i class="fa font-14 fa-cog color-brown-dark"></i>
+					<span>로그아웃</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
 			</div>
@@ -238,13 +222,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <th:block th:fragment="autoFooter">
 	<div class="footer">
-		<div class="text-center mb-3">
-			<a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-facebook"><i class="fab fa-facebook-f"></i></a>
-			<a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-instagram"><i class="fab fa-instagram"></i></a>
-			<a href="#" class="icon icon-xs rounded-sm shadow-l me-1 bg-phone"><i class="fa fa-phone"></i></a>
-			<a href="#" class="back-to-top icon icon-xs rounded-sm shadow-l bg-dark-light"><i
-					class="fa fa-angle-up"></i></a>
-		</div>
 		<p class="footer-copyright">Copyright &copy; Enabled <span id="copyright-year"></span>. All Rights Reserved.</p>
 		<p class="footer-links"><a href="#">Privacy Policy</a> | <a href="#">Terms and Conditions</a> | <a href="#"
 				class="back-to-top color-highlight"> Back to Top</a></p>

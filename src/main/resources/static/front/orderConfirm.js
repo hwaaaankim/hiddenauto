@@ -1,236 +1,377 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const orderContainer = document.getElementById("orderContainer");
-    const totalAmountElem = document.getElementById("total-amount");
-    const pointUsageElem = document.getElementById("point-usage");
-    const finalAmountElem = document.getElementById("final-amount");
-    const pointInput = document.getElementById("point-input");
-    const applyButton = document.getElementById("apply-button");
-    const cancelButton = document.getElementById("cancel-button");
+	const orderContainer = document.getElementById("orderContainer");
+	const totalAmountElem = document.getElementById("total-amount");
+	const pointUsageElem = document.getElementById("point-usage");
+	const finalAmountElem = document.getElementById("final-amount");
+	const pointInput = document.getElementById("point-input");
+	const applyButton = document.getElementById("apply-button");
+	const cancelButton = document.getElementById("cancel-button");
 
-    const pointLimit = 10000;
-    const productPrice = 10000;
-    const orderSource = window.orderSource || 'cart';
-    let cart = JSON.parse(localStorage.getItem(orderSource)) || [];
-    let appliedPoint = 0;
-    let unloadConfirm = true;
+	const pointLimit = 10000;
+	const productPrice = 10000;
+	const orderSource = window.orderSource || 'cart';
+	let cart = JSON.parse(localStorage.getItem(orderSource)) || [];
+	let appliedPoint = 0;
+	let unloadConfirm = true;
+
+	const mainAddr = document.getElementById("main-address");
+	const detailAddr = document.getElementById("main-detail");
+	const doInput = document.getElementById("main-do");
+	const siInput = document.getElementById("main-si");
+	const guInput = document.getElementById("main-gu");
+	const zipInput = document.getElementById("main-zipcode");
+	const deliverySelect = document.getElementById("delivery-method");
+	const deliveryDate = document.getElementById("delivery-date");
 
 	if (orderSource === 'direct') {
-	    window.addEventListener('beforeunload', function (e) {
-	        if (unloadConfirm) {
-	            e.preventDefault();
-	            e.returnValue = '';
-	        }
-	    });
-	}
-	
-	// 로더 표시 함수
-	function showPreloader() {
-	    const preloader = document.getElementById("preloader");
-	    if (preloader) preloader.classList.remove("preloader-hide");
-	}
-	
-	// 로더 숨김 함수
-	function hidePreloader() {
-	    const preloader = document.getElementById("preloader");
-	    if (preloader) preloader.classList.add("preloader-hide");
+		window.addEventListener('beforeunload', (e) => {
+			if (unloadConfirm) {
+				e.preventDefault();
+				e.returnValue = '';
+			}
+		});
 	}
 
-    // direct 데이터는 화면 렌더링 이후 삭제 (단, 임시 변수에 저장해둠)
-    if (orderSource === 'direct' && cart.length > 0) {
-        window.directOrderData = JSON.parse(JSON.stringify(cart));
-        localStorage.removeItem('direct');
-    }
+	if (orderSource === 'direct' && cart.length > 0) {
+		window.directOrderData = JSON.parse(JSON.stringify(cart));
+		localStorage.removeItem('direct');
+	}
 
-    function calculateTotalAmount() {
-        return cart.reduce((sum, item) => sum + (item.quantity || 1) * productPrice, 0);
-    }
+	function getCategoryLabel(optionJson) {
+		return optionJson?.category?.label || optionJson["카테고리"] || '';
+	}
 
-    function updateAmounts(pointUsage = appliedPoint) {
-        const totalAmount = calculateTotalAmount();
-        const finalAmount = totalAmount - pointUsage;
+	function getDateAfter(days) {
+		const d = new Date();
+		d.setDate(d.getDate() + days);
+		const y = d.getFullYear();
+		const m = String(d.getMonth() + 1).padStart(2, '0');
+		const dd = String(d.getDate()).padStart(2, '0');
+		return `${y}-${m}-${dd}`;
+	}
 
-        totalAmountElem.innerText = `${totalAmount.toLocaleString()} 원`;
-        pointUsageElem.innerText = `${pointUsage.toLocaleString()} 원`;
-        finalAmountElem.innerText = `${Math.max(finalAmount, 0).toLocaleString()} 원`;
-    }
+	function calculateTotalAmount() {
+		return cart.reduce((sum, item) => sum + (item.quantity || 1) * productPrice, 0);
+	}
 
-    function renderOrderItems() {
-        if (!cart.length) {
-            alert('발주 정보가 없습니다. 주문을 시작 해 주세요.');
-            location.href = '/index';
-            return;
-        }
+	function updateAmounts(pointUsage = appliedPoint) {
+		const totalAmount = calculateTotalAmount();
+		const finalAmount = totalAmount - pointUsage;
+		totalAmountElem.innerText = `${totalAmount.toLocaleString()} 원`;
+		pointUsageElem.innerText = `${pointUsage.toLocaleString()} 원`;
+		finalAmountElem.innerText = `${Math.max(finalAmount, 0).toLocaleString()} 원`;
+	}
 
-        let orderHTML = "";
+	function handlePointInput() {
+		const value = pointInput.value;
+		if (!/^\d*$/.test(value)) {
+			alert("숫자만 입력 가능합니다.");
+			pointInput.value = value.replace(/\D/g, "");
+		}
+	}
 
-        cart.forEach((item, index) => {
+	function applyPointUsage() {
+		let pointUsage = parseInt(pointInput.value, 10) || 0;
+		if (pointUsage > pointLimit) {
+			alert(`최대 ${pointLimit} 포인트까지 사용할 수 있습니다.`);
+			pointUsage = pointLimit;
+		}
+		const totalAmount = calculateTotalAmount();
+		if (pointUsage > totalAmount) pointUsage = totalAmount;
+		appliedPoint = pointUsage;
+		updateAmounts(appliedPoint);
+	}
+
+	function resetPointUsage() {
+		pointInput.value = "";
+		appliedPoint = 0;
+		updateAmounts(0);
+	}
+
+	function renderDeliveryMethods() {
+		deliverySelect.innerHTML = `<option value="">=== 배송수단 선택 ===</option>`;
+		deliveryMethods.forEach(method => {
+			const opt = document.createElement("option");
+			opt.value = method.id;
+			opt.text = `${method.methodName} (금액: ${method.methodPrice})`;
+			deliverySelect.appendChild(opt);
+		});
+	}
+
+	function setGlobalDeliveryMinDate() {
+		let maxLeadTime = 0;
+		cart.forEach(item => {
+			const label = getCategoryLabel(item.optionJson);
+			const leadTime = label.includes("거울") ? 1 : 2;
+			if (leadTime > maxLeadTime) maxLeadTime = leadTime;
+		});
+		deliveryDate.min = getDateAfter(maxLeadTime);
+	}
+
+	function renderOrderItems() {
+		if (!cart.length) {
+			alert('발주 정보가 없습니다. 주문을 시작 해 주세요.');
+			location.href = '/index';
+			return;
+		}
+
+		let orderHTML = "";
+		cart.forEach((item, index) => {
 			const { optionJson, quantity, price } = item;
-			const code = optionJson.code || "CODE";
-			const product = optionJson.product || "NAME";
 			const itemPrice = price || 10000;
 			const totalPrice = itemPrice * (quantity || 1);
-		
+			const categoryLabel = getCategoryLabel(optionJson);
+			const minDate = categoryLabel.includes("거울") ? getDateAfter(1) : getDateAfter(2);
+
 			orderHTML += `
-			<div class="mb-4">
-				<div class="row vertical-center" style="gap:20px;">
-					<div class="col-auto">
-						<img src="/front/images/pictures/10s.jpg" class="rounded-m shadow-xl" width="80">
-					</div>
-					<div class="col-auto">
-						<span class="font-11">배송 예정일</span>
-						<p class="mt-n2 mb-1"><strong class="color-theme">0000-00-00</strong></p>
-					</div>
-					<div class="col-auto">
-						<span class="font-11">금액</span>
-						<p class="mt-n2 mb-1"><strong class="color-theme">${totalPrice.toLocaleString()} 원</strong></p>
-					</div>
-					<div class="col-auto">
-						<span class="font-11">수량</span>
-						<p class="mt-n2 mb-1"><strong class="color-theme">${quantity || 1} 개</strong></p>
-					</div>
-					<div class="col-auto">
-						<span class="font-11">제품코드</span>
-						<p class="mt-n2 mb-1"><strong class="color-theme">${code}</strong></p>
-					</div>
-					<div class="col-auto">
-						<span class="font-11">제품명</span>
-						<p class="mt-n2 mb-1"><strong class="color-theme">${product}</strong></p>
-					</div>
-					<div class="col-auto address-container">
-						<label class="switch-label">배송지 별도 입력
-							<label class="switch">
-								<input type="checkbox" class="address-toggle" data-index="${index}">
-								<span class="slider"></span>
+				<div class="mb-4">
+					<div class="row vertical-center" style="gap:20px;">
+						<div class="col-auto">
+							<img src="/front/images/pictures/10s.jpg" class="rounded-m shadow-xl" width="80">
+						</div>
+						<div class="col-auto">
+							<span class="font-11">제품분류</span>
+							<p class="mt-n2 mb-1"><strong class="color-theme">${categoryLabel}</strong></p>
+						</div>
+						<div class="col-auto">
+							<span class="font-11">수량</span>
+							<p class="mt-n2 mb-1"><strong class="color-theme">${quantity || 1} 개</strong></p>
+						</div>
+						<div class="col-auto">
+							<span class="font-11">제품금액</span>
+							<p class="mt-n2 mb-1"><strong class="color-theme">${itemPrice.toLocaleString()} 원</strong></p>
+						</div>
+						<div class="col-auto">
+							<span class="font-11">총 금액</span>
+							<p class="mt-n2 mb-1"><strong class="color-theme total-amount-with-shipping" id="total-with-shipping-${index}">${totalPrice.toLocaleString()} 원</strong></p>
+						</div>
+						<div class="col-auto address-container">
+							<label class="switch-label">배송지 별도 입력
+								<label class="switch">
+									<input type="checkbox" class="address-toggle" data-index="${index}">
+									<span class="slider"></span>
+								</label>
 							</label>
-						</label>
-					</div>
-				</div>
-				<div class="hidden-section" id="hidden-section-${index}" style="display:none; overflow:hidden; height:0;">
-					<div class="input-style">
-						<input type="text" placeholder="주소 입력">
-						<button class="btn btn-sm rounded-m text-uppercase font-800">주소검색</button>
-					</div>
-					<div class="input-group">
-						<div class="form-item">
-							<label for="delivery-method">배송수단 선택</label> <select
-								id="delivery-method">
-								<option>=== 배송수단 ===</option>
-								<option>=== 택배(금액 : ___) ===</option>
-								<option>=== 직배송(금액 : ___) ===</option>
-								<option>=== 방문출고(금액 : ___) ===</option>
-							</select>
-						</div>
-						<div class="form-item">
-							<label for="delivery-date">배송 희망일 선택</label> <input type="date"
-								id="delivery-date" />
 						</div>
 					</div>
-				</div>
-				<div class="divider"></div>
-			</div>`;
+					<div class="hidden-section" id="hidden-section-${index}" style="display:none; overflow:hidden; height:0;">
+						<div class="input-group">
+							<input type="text" placeholder="주소를 검색해 주세요." class="address-input" id="addr-main-${index}" readonly />
+							<button type="button" class="addr-search-btn" data-index="${index}">주소검색</button>
+						</div>
+						<div class="input-group mt-1">
+							<input type="text" placeholder="상세주소를 입력 해 주세요." class="detail-address-input" id="addr-detail-${index}" />
+						</div>
+						<input type="hidden" class="do-input" id="addr-do-${index}" />
+						<input type="hidden" class="si-input" id="addr-si-${index}" />
+						<input type="hidden" class="gu-input" id="addr-gu-${index}" />
+						<input type="hidden" class="zipcode-input" id="addr-zipcode-${index}" />
+						<div class="input-group mt-2">
+							<div class="form-item">
+								<label>배송수단 선택</label>
+								<select class="delivery-method-select" id="delivery-method-${index}">
+									<option value="">=== 배송수단 선택 ===</option>
+									${deliveryMethods.map(method => `<option value="${method.id}">${method.methodName} (금액: ${method.methodPrice})</option>`).join('')}
+								</select>
+							</div>
+							<div class="form-item">
+								<label>배송 희망일 선택</label>
+								<input type="date" id="delivery-date-${index}" min="${minDate}" />
+							</div>
+						</div>
+					</div>
+					<div class="divider"></div>
+				</div>`;
 		});
+		orderContainer.innerHTML = orderHTML;
 
-        orderContainer.innerHTML = orderHTML;
-
-        document.querySelectorAll(".address-toggle").forEach((toggle) => {
-            toggle.addEventListener("change", (e) => {
-                const index = e.target.getAttribute("data-index");
-                const hiddenSection = document.getElementById(`hidden-section-${index}`);
-                if (e.target.checked) {
-                    hiddenSection.style.display = "block";
-                    const height = hiddenSection.scrollHeight;
-                    hiddenSection.style.height = `${height}px`;
-                } else {
-                    hiddenSection.style.height = `${hiddenSection.scrollHeight}px`;
-                    setTimeout(() => {
-                        hiddenSection.style.height = "0";
-                    }, 10);
-                }
-            });
-        });
-
-        document.querySelectorAll(".hidden-section").forEach((section) => {
-            section.addEventListener("transitionend", () => {
-                if (section.style.height === "0px") {
-                    section.style.display = "none";
-                } else {
-                    section.style.height = "auto";
-                }
-            });
-        });
-
-        updateAmounts();
-    }
-
-    function handlePointInput() {
-        const value = pointInput.value;
-        if (!/^\d*$/.test(value)) {
-            alert("숫자만 입력 가능합니다.");
-            pointInput.value = value.replace(/\D/g, "");
-        }
-    }
-
-    function applyPointUsage() {
-        let pointUsage = parseInt(pointInput.value, 10) || 0;
-        if (pointUsage > pointLimit) {
-            alert(`최대 ${pointLimit} 포인트까지 사용할 수 있습니다.`);
-            pointUsage = pointLimit;
-        }
-        const totalAmount = calculateTotalAmount();
-        if (pointUsage > totalAmount) pointUsage = totalAmount;
-        appliedPoint = pointUsage;
-        updateAmounts(appliedPoint);
-    }
-
-    function resetPointUsage() {
-        pointInput.value = "";
-        appliedPoint = 0;
-        updateAmounts(0);
-    }
-
-    // 발주하기 버튼 처리
-    const orderButton = document.getElementById("orderConfirmButton");
-	if (orderButton) {
-	    orderButton.addEventListener("click", () => {
-	        const orderData = (orderSource === 'direct') ? window.directOrderData : cart;
-			showPreloader(); // ✅ 로더 표시
-    		unloadConfirm = false; // 새로고침 경고 제거
-	        // POST 요청 전송
-	        fetch("/api/order/submit", {
-	            method: "POST",
-	            headers: {
-	                "Content-Type": "application/json"
-	            },
-	           body: JSON.stringify(
-				    orderData.map(item => ({
-				        quantity: item.quantity || 1,
-				        price: item.price || 10000,
-				        optionJson: item.optionJson || {}
-				    }))
-				)
-	        })
-	        .then(res => {
-	            if (!res.ok) throw new Error("서버 오류 발생");
-	            return res.text();
-	        })
-	        .then(msg => {
-				hidePreloader();
-	            alert(msg);
-	            if (orderSource === 'cart') {
-	                localStorage.removeItem('cart');
-	            }
-	            location.href = "/index";
-	        })
-	        .catch(err => {
-				hidePreloader();
-	            alert("발주 처리 중 오류 발생: " + err.message);
-	        });
-	    });
+		// 바인딩
+		bindAddressToggles();
+		bindAddressSearches();
+		bindDeliverySelects();
 	}
 
-    pointInput.addEventListener("input", handlePointInput);
-    applyButton.addEventListener("click", applyPointUsage);
-    cancelButton.addEventListener("click", resetPointUsage);
+	function updatePaymentInfoSectionVisibility() {
+		const allToggles = [...document.querySelectorAll('.address-toggle')];
+		const allChecked = allToggles.every(input => input.checked);
+		const someChecked = allToggles.some(input => input.checked);
+		const paymentSection = document.querySelector('.payment-check-container');
 
-    renderOrderItems();
+		if (allChecked) {
+			paymentSection.style.display = 'none';
+		} else {
+			paymentSection.style.display = 'block';
+		}
+	}
+
+	function bindAddressToggles() {
+		document.querySelectorAll(".address-toggle").forEach(toggle => {
+			toggle.addEventListener("change", (e) => {
+				const index = e.target.dataset.index;
+				const section = document.getElementById(`hidden-section-${index}`);
+				if (e.target.checked) {
+					section.style.display = "block";
+					section.style.height = section.scrollHeight + "px";
+				} else {
+					section.style.height = section.scrollHeight + "px";
+					setTimeout(() => section.style.height = "0", 10);
+				}
+				updatePaymentInfoSectionVisibility();
+			});
+		});
+		document.querySelectorAll(".hidden-section").forEach(section => {
+			section.addEventListener("transitionend", () => {
+				if (section.style.height === "0px") section.style.display = "none";
+				else section.style.height = "auto";
+			});
+		});
+	}
+
+	function bindAddressSearches() {
+		document.querySelectorAll(".addr-search-btn").forEach(btn => {
+			btn.addEventListener("click", (e) => {
+				const index = e.target.dataset.index;
+				new daum.Postcode({
+					oncomplete: function(data) {
+						document.getElementById(`addr-main-${index}`).value = data.roadAddress || data.jibunAddress || "";
+						document.getElementById(`addr-detail-${index}`).value = "";
+						document.getElementById(`addr-do-${index}`).value = data.sido || "";
+						document.getElementById(`addr-si-${index}`).value = data.sigungu || "";
+						document.getElementById(`addr-gu-${index}`).value = data.bname || "";
+						document.getElementById(`addr-zipcode-${index}`).value = data.zonecode || "";
+					}
+				}).open();
+			});
+		});
+	}
+
+	// 로더 표시 함수
+	function showPreloader() {
+		const preloader = document.getElementById("preloader");
+		if (preloader) preloader.classList.remove("preloader-hide");
+	}
+
+	// 로더 숨김 함수
+	function hidePreloader() {
+		const preloader = document.getElementById("preloader");
+		if (preloader) preloader.classList.add("preloader-hide");
+	}
+
+	function bindDeliverySelects() {
+		document.querySelectorAll(".delivery-method-select").forEach(select => {
+			select.addEventListener("change", (e) => {
+				const index = e.target.id.split("-").pop();
+				const method = deliveryMethods.find(m => m.id.toString() === e.target.value);
+				const item = cart[index];
+				const base = (item.quantity || 1) * (item.price || 10000);
+				document.getElementById(`total-with-shipping-${index}`).innerText = `${(base + (method?.methodPrice || 0)).toLocaleString()} 원`;
+			});
+		});
+	}
+
+	// 초기 실행
+	pointInput.addEventListener("input", handlePointInput);
+	applyButton.addEventListener("click", applyPointUsage);
+	cancelButton.addEventListener("click", resetPointUsage);
+
+	document.getElementById("same-address").addEventListener("change", function() {
+		if (this.checked) {
+			mainAddr.value = companyAddress.main;
+			detailAddr.value = companyAddress.detail;
+			doInput.value = companyAddress.doName;
+			siInput.value = companyAddress.siName;
+			guInput.value = companyAddress.guName;
+			zipInput.value = companyAddress.zipCode;
+		} else {
+			mainAddr.value = "";
+			detailAddr.value = "";
+			doInput.value = "";
+			siInput.value = "";
+			guInput.value = "";
+			zipInput.value = "";
+		}
+	});
+	document.getElementById("main-addr-search").addEventListener("click", () => {
+		new daum.Postcode({
+			oncomplete: function(data) {
+				mainAddr.value = data.roadAddress || data.jibunAddress || "";
+				detailAddr.value = "";
+				doInput.value = data.sido || "";
+				siInput.value = data.sigungu || "";
+				guInput.value = data.bname || "";
+				zipInput.value = data.zonecode || "";
+			}
+		}).open();
+	});
+	document.getElementById("orderConfirmButton").addEventListener("click", () => {
+		const getDateVal = id => document.getElementById(id)?.value || "";
+		const allToggles = [...document.querySelectorAll('.address-toggle')];
+		const useCommon = allToggles.some(input => !input.checked); // 일부만 배송지 별도 입력
+		const orderData = [];
+
+		cart.forEach((item, index) => {
+			const isSeparate = document.querySelector(`#addr-main-${index}`)?.closest('.hidden-section')?.style.display === 'block';
+			const getVal = id => document.getElementById(id)?.value || "";
+			const getSelectedMethodId = id => document.getElementById(id)?.value || null;
+
+			const methodSelectId = isSeparate ? `delivery-method-${index}` : `delivery-method`;
+
+			const addressInfo = {
+				preferredDeliveryDate: getDateVal(isSeparate ? `delivery-date-${index}` : `delivery-date`),
+				mainAddress: getVal(isSeparate ? `addr-main-${index}` : `main-address`),
+				detailAddress: getVal(isSeparate ? `addr-detail-${index}` : `main-detail`),
+				zipCode: getVal(isSeparate ? `addr-zipcode-${index}` : `main-zipcode`),
+				doName: getVal(isSeparate ? `addr-do-${index}` : `main-do`),
+				siName: getVal(isSeparate ? `addr-si-${index}` : `main-si`),
+				guName: getVal(isSeparate ? `addr-gu-${index}` : `main-gu`),
+				deliveryMethodId: getSelectedMethodId(methodSelectId),
+				deliveryPrice: getDeliveryPrice(methodSelectId)
+			};
+			console.log(addressInfo.deliveryMethodId);
+			orderData.push({
+				quantity: item.quantity || 1,
+				price: item.price || 10000,
+				optionJson: item.optionJson || {},
+				...addressInfo
+			});
+		});
+
+		showPreloader();
+		unloadConfirm = false;
+
+		fetch("/api/order/submit", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(orderData)
+		})
+			.then(res => {
+				if (!res.ok) throw new Error("서버 오류 발생");
+				return res.text();
+			})
+			.then(msg => {
+				hidePreloader();
+				alert(msg);
+				// if (orderSource === 'cart') localStorage.removeItem('cart');
+				location.href = "/index";
+			})
+			.catch(err => {
+				hidePreloader();
+				alert("발주 처리 중 오류 발생: " + err.message);
+			});
+	});
+
+	function getDeliveryPrice(selectId) {
+		const selectedId = document.getElementById(selectId)?.value;
+		const method = deliveryMethods.find(m => m.id.toString() === selectedId);
+		return method?.methodPrice || 0;
+	}
+
+	function getDeliveryMethodId(selectId) {
+		const selectedId = document.getElementById(selectId)?.value;
+		return selectedId ? parseInt(selectedId, 10) : null;
+	}
+	renderOrderItems();
+	renderDeliveryMethods();
+	setGlobalDeliveryMinDate();
+	updatePaymentInfoSectionVisibility();
 });

@@ -27,9 +27,14 @@ public class MemberRegion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String doName;   // ex: 서울특별시, 경기도
-    private String siName;   // ex: 용인시, 수원시
-    private String guName;   // ex: 수지구, 분당구, 강남구
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    private Province province;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    private City city; // optional: 시 선택 안할 수도 있음
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    private District district; // optional: 구 선택 안할 수도 있음
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id")

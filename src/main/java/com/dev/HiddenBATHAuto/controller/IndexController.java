@@ -11,17 +11,5 @@ public class IndexController {
 		
 		return "front/index";
 	}
-	
-	@GetMapping("/loginForm")
-	public String loginForm() {
-		
-		return "front/common/signIn";
-	}
-	
-	@GetMapping("/signUp")
-	public String signUp() {
-		
-		return "front/common/signUp";
-	}
-	
+
 }

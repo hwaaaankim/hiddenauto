@@ -47,10 +47,9 @@ public class InitService {
 	}
 
 	public void createCompany(String name, String businessNo) {
-		if (companyRepository.findByName(name) == null) {
+		if (companyRepository.findByCompanyName(name) == null) {
 			Company company = new Company();
-			company.setName(name);
-			company.setBusinessNo(businessNo);
+			company.setCompanyName(name);
 			company.setRegistrationKey("KEY-" + name);
 			companyRepository.save(company);
 		}
@@ -73,10 +72,6 @@ public class InitService {
 		member.setPhone("010-0000-0000");
 		member.setEmail(username + "@test.com");
 		member.setTelephone("02-000-0000");
-		member.setZipCode("00000");
-		member.setRoadAddress("도로명주소");
-		member.setJibunAddress("지번주소");
-		member.setDetailAddress("상세주소");
 
 		if (teamName != null) {
 			Team team = teamRepository.findByName(teamName);
@@ -95,7 +90,7 @@ public class InitService {
 		}
 
 		if (companyName != null) {
-			Company company = companyRepository.findByName(companyName);
+			Company company = companyRepository.findByCompanyName(companyName);
 			member.setCompany(company);
 		}
 

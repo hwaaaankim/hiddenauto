@@ -42,9 +42,9 @@ public class CustomerController {
 
         switch (member.getRole()) {
             case CUSTOMER_REPRESENTATIVE:
-                return "고객사 대표입니다. (회사: " + member.getCompany().getName() + ")";
+                return "고객사 대표입니다. (회사: " + member.getCompany().getCompanyName() + ")";
             case CUSTOMER_EMPLOYEE:
-                return "고객사 직원입니다. (회사: " + member.getCompany().getName() + ")";
+                return "고객사 직원입니다. (회사: " + member.getCompany().getCompanyName() + ")";
             default:
                 return "고객사 소속이 아닙니다.";
         }

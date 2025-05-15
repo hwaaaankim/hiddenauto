@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
+import com.dev.HiddenBATHAuto.service.auth.RegionExcelService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.FlapExcelUploadService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.LowCalculateExcelService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.MarbleLowCalculateExcelService;
@@ -39,6 +40,9 @@ public class APIController {
 	
 	@Autowired
 	ExcelUploadService excelUploadService;
+	
+	@Autowired
+	RegionExcelService regionExcelService;
 	
     private final TopExcelUploadService topExcelUploadService;
 	private final LowCalculateExcelService excelService;
@@ -151,4 +155,28 @@ public class APIController {
 	    return excelUploadService.uploadExcel(file);
 	}
 	
+	@PostMapping("/regionExcelUpload")
+	public ResponseEntity<String> regionExcelUpload(@RequestParam("file") MultipartFile file) {
+        try {
+            regionExcelService.uploadRegionExcel(file);
+            return ResponseEntity.ok("엑셀 업로드 및 저장 완료");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("업로드 실패: " + e.getMessage());
+        }
+    }
+	
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

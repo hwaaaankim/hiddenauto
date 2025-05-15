@@ -2,18 +2,18 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org"
 	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<head th:replace="fragments/front/common :: autoHead">
+<head th:replace="~{fragments/front/common :: autoHead}">
 </head>
 
 <body class="theme-light" data-highlight="highlight-red"
 	data-gradient="body-default">
 
 
-	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
-	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
 	<div id="page" class="container">
-		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
 		<div class="page-content header-clear-medium">
 			<div class="card card-style preload-img"
 				data-src="/front/images/pictures/18.jpg" data-card-height="130">
@@ -42,34 +42,38 @@
 								<p>배송 주소를 정확하게 확인 해 주시기 바랍니다.</p>
 							</div>
 							<div class="same-address">
-								<input class="form-check-input" type="checkbox"
-									id="same-address" /> <label for="same-address">회원 주소랑
-									동일</label>
+								<input class="form-check-input" type="checkbox" id="same-address" />
+								<label for="same-address">회원 주소랑 동일</label>
 							</div>
 						</div>
-
+						
 						<div class="payment-inputs">
 							<div class="input-group">
-								<input type="text" placeholder="주소" />
-								<button type="button">주소검색</button>
+								<input type="text" id="main-address" placeholder="주소를 검색 해 주세요." readonly />
+								<button type="button" id="main-addr-search">주소검색</button>
 							</div>
 							<div class="input-group">
+								<input type="text" id="main-detail" placeholder="상세 주소를 입력 해 주세요." />
+							</div>
+						
+							<!-- Hidden 행정구역 필드 -->
+							<input type="hidden" id="main-do" />
+							<input type="hidden" id="main-si" />
+							<input type="hidden" id="main-gu" />
+							<input type="hidden" id="main-zipcode" />
+						
+							<div class="input-group">
 								<div class="form-item">
-									<label for="delivery-method">배송수단 선택</label> <select
-										id="delivery-method">
-										<option>=== 배송수단 ===</option>
-										<option>=== 택배(금액 : ___) ===</option>
-										<option>=== 직배송(금액 : ___) ===</option>
-										<option>=== 방문출고(금액 : ___) ===</option>
-									</select>
+									<label for="delivery-method">배송수단 선택</label>
+									<select id="delivery-method"></select>
 								</div>
 								<div class="form-item">
-									<label for="delivery-date">배송 희망일 선택</label> <input type="date"
-										id="delivery-date" />
+									<label for="delivery-date">배송 희망일 선택</label>
+									<input type="date" id="delivery-date" />
 								</div>
 							</div>
-
 						</div>
+
 					</div>
 
 				</div>
@@ -126,13 +130,25 @@
 			</div>
 
 		</div>
-		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
-	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
-	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+	
 	<script th:inline="javascript">
+		const deliveryMethods = /*[[${deliveryMethods}]]*/ [];
+		const companyAddress = {
+			main: /*[[${mainAddress}]]*/ "",
+			detail : /*[[${detailAddress}]]*/ "",
+			doName: /*[[${doName}]]*/ "",
+			siName: /*[[${siName}]]*/ "",
+			guName: /*[[${guName}]]*/ "",
+			zipCode: /*[[${zipCode}]]*/ ""
+		};
 		window.orderSource = /*[[${orderSource}]]*/"cart"; // 기본값은 "cart"
 	</script>
+
 	<script src="/front/orderConfirm.js"></script>
 </body>
 

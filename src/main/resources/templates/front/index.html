@@ -1,17 +1,17 @@
 <!DOCTYPE HTML>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<head th:replace="fragments/front/common :: autoHead">
+<head th:replace="~{fragments/front/common :: autoHead}">
 </head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
 
-	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
-	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 	
 	<div id="page" class="container">
-		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
 
 		<div class="page-content header-clear-medium">
 			<div class="card card-style mb-5">
@@ -212,11 +212,11 @@
 					</div>
 				</div>
 			</div>
-			<th:block th:replace="fragments/front/common :: autoFooter"></th:block>
+			<th:block th:replace="~{fragments/front/common :: autoFooter}"></th:block>
 		</div>
-		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
-	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
 	<!-- Modal -->
 	<div id="auto-modal" class="auto-modal">
 		<div class="auto-modal-content">
@@ -226,7 +226,7 @@
 		</div>
 	</div>
 	
-	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 	<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
 	<script src="/front/calendar.js"></script>
 	

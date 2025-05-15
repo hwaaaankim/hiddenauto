@@ -30,6 +30,28 @@ public class PrincipalDetails implements UserDetails, Serializable {
 		auth.add(new SimpleGrantedAuthority("ROLE_" + member.getRole().name()));
 		return auth;
 	}
+	
+	public String getFullAddress() {
+	    Company company = member.getCompany();
+	    if (company == null) return "";
+	    return company.getRoadAddress() + " " + company.getDetailAddress();
+	}
+
+	public String getZipCode() {
+	    return member.getCompany() != null ? member.getCompany().getZipCode() : "";
+	}
+
+	public String getDoName() {
+	    return member.getCompany() != null ? member.getCompany().getDoName() : "";
+	}
+
+	public String getSiName() {
+	    return member.getCompany() != null ? member.getCompany().getSiName() : "";
+	}
+
+	public String getGuName() {
+	    return member.getCompany() != null ? member.getCompany().getGuName() : "";
+	}
 
 	public Team getTeam() {
 		return member.getTeam();

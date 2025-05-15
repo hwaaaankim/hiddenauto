@@ -2,18 +2,27 @@ package com.dev.HiddenBATHAuto.controller;
 
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
+import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Controller
 public class NonStandardOrderController {
 
+	
+	@Autowired
+	DeliveryMethodRepository deliveryMethodRepository;
+	
 	@GetMapping("/nonStandardOrderProduct")
 	public String nonStandardOrderProduct() {
 
@@ -27,17 +36,40 @@ public class NonStandardOrderController {
 	}
 
 	@GetMapping("/orderConfirm")
-	public String orderConfirm(@RequestParam(value = "from", required = false) String from, Model model) {
-	    // 직접 주문일 때만 orderSource="direct"로 전달하고, 나머지는 cart 사용
+	public String orderConfirm(
+	        @RequestParam(value = "from", required = false) String from, 
+	        @AuthenticationPrincipal PrincipalDetails principalDetails,
+	        Model model) {
+
+	    // orderSource 설정
 	    if ("direct".equals(from)) {
 	        model.addAttribute("orderSource", "direct");
 	    } else {
 	        model.addAttribute("orderSource", "cart");
 	    }
+
+	    // 로그인한 유저의 회사 주소 정보 주입
+	    Company company = principalDetails.getMember().getCompany();
+	    if (company != null) {
+	        model.addAttribute("mainAddress", company.getRoadAddress() );
+	        model.addAttribute("detailAddress", company.getDetailAddress());
+	        model.addAttribute("zipCode", company.getZipCode());
+	        model.addAttribute("doName", company.getDoName());
+	        model.addAttribute("siName", company.getSiName());
+	        model.addAttribute("guName", company.getGuName());
+	    } else {
+	    	model.addAttribute("mainAddress", "");
+		    model.addAttribute("detailAddress", "");
+	        model.addAttribute("zipCode", "");
+	        model.addAttribute("doName", "");
+	        model.addAttribute("siName", "");
+	        model.addAttribute("guName", "");
+	    }
+	    
+	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
 	    return "front/order/orderConfirm";
 	}
-
-
+	
 	@PostMapping("/modeling")
     public String showModelingView(@RequestParam Map<String, String> formData, Model model) {
         return processDataAndReturnView(formData, model, "front/order/modeling");
