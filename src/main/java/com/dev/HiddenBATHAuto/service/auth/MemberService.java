@@ -50,7 +50,7 @@ public class MemberService {
         // 2. registrationKey 생성
         String registrationKey = UUID.randomUUID().toString().substring(0, 8);
         company.setRegistrationKey(registrationKey);
-
+        company.setPoint(0);      
         // 3. 주소 가공 처리 (siName → si + gu 분리)
         refineAddressFields(company);
 

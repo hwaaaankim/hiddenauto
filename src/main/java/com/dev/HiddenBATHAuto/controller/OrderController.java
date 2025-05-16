@@ -1,14 +1,13 @@
 package com.dev.HiddenBATHAuto.controller;
 
-import java.util.List;
-
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dev.HiddenBATHAuto.dto.OrderRequestItemDTO;
+import com.dev.HiddenBATHAuto.dto.OrderSubmitRequestDTO;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.service.order.OrderProcessingService;
 
@@ -22,13 +21,13 @@ public class OrderController {
 	private final OrderProcessingService orderProcessingService;
 
     @PostMapping("/submit")
-    public String submitOrder(
+    public ResponseEntity<String> submitOrder(
         @AuthenticationPrincipal PrincipalDetails user,
-        @RequestBody List<OrderRequestItemDTO> items
+        @RequestBody OrderSubmitRequestDTO request
     ) {
     	System.out.println("====== 주문 요청 도착 ======");
-        for (int i = 0; i < items.size(); i++) {
-            var item = items.get(i);
+        for (int i = 0; i < request.getItems().size(); i++) {
+            var item = request.getItems().get(i);
             System.out.println("▶ 제품 " + (i + 1));
             System.out.println("수량 : " + item.getQuantity());
             System.out.println("가격 : " + item.getPrice());
@@ -40,8 +39,14 @@ public class OrderController {
             System.out.println("옵션 Json : " + item.getOptionJson());
             System.out.println("----------------------");
         }
-        orderProcessingService.createTaskWithOrders(user.getMember(), items);
-        return "발주가 완료 되었습니다.";
+        try {
+            String result = orderProcessingService.createTaskWithOrders(user.getMember(), request.getItems(), request.getPointUsed());
+            return ResponseEntity.ok(result);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
+        }
     }
 }
 

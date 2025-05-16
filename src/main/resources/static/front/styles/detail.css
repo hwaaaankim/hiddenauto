@@ -19,7 +19,12 @@
 	justify-content: center;
 	align-items: center;
 }
-
+.login-btn-wrap{
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	display: flex;
+}
 .process-btn-wrap a {
 	width: 200px;
 	margin-right: 5px;

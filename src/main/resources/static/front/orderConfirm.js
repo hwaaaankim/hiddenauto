@@ -6,9 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	const pointInput = document.getElementById("point-input");
 	const applyButton = document.getElementById("apply-button");
 	const cancelButton = document.getElementById("cancel-button");
-
-	const pointLimit = 10000;
-	const productPrice = 10000;
+	const shippingAmountElem = document.getElementById("shipping-amount");
 	const orderSource = window.orderSource || 'cart';
 	let cart = JSON.parse(localStorage.getItem(orderSource)) || [];
 	let appliedPoint = 0;
@@ -22,6 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	const zipInput = document.getElementById("main-zipcode");
 	const deliverySelect = document.getElementById("delivery-method");
 	const deliveryDate = document.getElementById("delivery-date");
+	const pointLimit = typeof userPoint !== 'undefined' ? userPoint : 10000;
+	document.getElementById("user-point-view").innerText = `${pointLimit.toLocaleString()} 원`;
 
 	if (orderSource === 'direct') {
 		window.addEventListener('beforeunload', (e) => {
@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function getCategoryLabel(optionJson) {
-		return optionJson?.category?.label || optionJson["카테고리"] || '';
+		return optionJson["카테고리"] || optionJson?.category?.label || '';
 	}
 
 	function getDateAfter(days) {
@@ -51,15 +51,41 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function calculateTotalAmount() {
-		return cart.reduce((sum, item) => sum + (item.quantity || 1) * productPrice, 0);
+		return cart.reduce((sum, item) => sum + (item.quantity || 1) * (item.price || 10000), 0);
 	}
 
 	function updateAmounts(pointUsage = appliedPoint) {
 		const totalAmount = calculateTotalAmount();
-		const finalAmount = totalAmount - pointUsage;
+		const shippingAmount = calculateTotalShipping();
+		const finalAmount = totalAmount - pointUsage + shippingAmount;
+	
 		totalAmountElem.innerText = `${totalAmount.toLocaleString()} 원`;
 		pointUsageElem.innerText = `${pointUsage.toLocaleString()} 원`;
+		shippingAmountElem.innerText = `${shippingAmount.toLocaleString()} 원`;
 		finalAmountElem.innerText = `${Math.max(finalAmount, 0).toLocaleString()} 원`;
+	}
+
+	function calculateTotalShipping() {
+		let totalShipping = 0;
+		const allToggles = [...document.querySelectorAll('.address-toggle')];
+		const useCommon = allToggles.some(input => !input.checked);
+	
+		allToggles.forEach((toggle, index) => {
+			if (toggle.checked) {
+				// 개별 배송 수단
+				const methodId = document.getElementById(`delivery-method-${index}`)?.value;
+				const method = deliveryMethods.find(m => m.id.toString() === methodId);
+				if (method) totalShipping += method.methodPrice || 0;
+			}
+		});
+	
+		if (useCommon) {
+			const commonMethodId = document.getElementById("delivery-method")?.value;
+			const method = deliveryMethods.find(m => m.id.toString() === commonMethodId);
+			if (method) totalShipping += method.methodPrice || 0;
+		}
+	
+		return totalShipping;
 	}
 
 	function handlePointInput() {
@@ -72,15 +98,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	function applyPointUsage() {
 		let pointUsage = parseInt(pointInput.value, 10) || 0;
+
 		if (pointUsage > pointLimit) {
-			alert(`최대 ${pointLimit} 포인트까지 사용할 수 있습니다.`);
+			alert(`최대 ${pointLimit.toLocaleString()} 포인트까지 사용할 수 있습니다.`);
 			pointUsage = pointLimit;
+			pointInput.value = pointLimit; // ✅ 강제 조정
 		}
+
 		const totalAmount = calculateTotalAmount();
-		if (pointUsage > totalAmount) pointUsage = totalAmount;
+		if (pointUsage > totalAmount) {
+			pointUsage = totalAmount;
+			pointInput.value = totalAmount; // ✅ 금액 초과 시 자동 조정
+		}
+
 		appliedPoint = pointUsage;
 		updateAmounts(appliedPoint);
 	}
+
 
 	function resetPointUsage() {
 		pointInput.value = "";
@@ -265,9 +299,19 @@ document.addEventListener("DOMContentLoaded", () => {
 				const item = cart[index];
 				const base = (item.quantity || 1) * (item.price || 10000);
 				document.getElementById(`total-with-shipping-${index}`).innerText = `${(base + (method?.methodPrice || 0)).toLocaleString()} 원`;
+				updateAmounts(); // ✅ 배송비 변경 시 반영
 			});
 		});
+	
+		// 공통 배송수단
+		const commonSelect = document.getElementById("delivery-method");
+		if (commonSelect) {
+			commonSelect.addEventListener("change", () => {
+				updateAmounts(); // ✅ 반영
+			});
+		}
 	}
+
 
 	// 초기 실행
 	pointInput.addEventListener("input", handlePointInput);
@@ -304,6 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		}).open();
 	});
 	document.getElementById("orderConfirmButton").addEventListener("click", () => {
+		if (!validateDeliveryInputs()) return; // ✅ 배송지 검증 추가
 		const getDateVal = id => document.getElementById(id)?.value || "";
 		const allToggles = [...document.querySelectorAll('.address-toggle')];
 		const useCommon = allToggles.some(input => !input.checked); // 일부만 배송지 별도 입력
@@ -327,22 +372,26 @@ document.addEventListener("DOMContentLoaded", () => {
 				deliveryMethodId: getSelectedMethodId(methodSelectId),
 				deliveryPrice: getDeliveryPrice(methodSelectId)
 			};
-			console.log(addressInfo.deliveryMethodId);
 			orderData.push({
 				quantity: item.quantity || 1,
 				price: item.price || 10000,
 				optionJson: item.optionJson || {},
+				pointUsed: appliedPoint,
 				...addressInfo
 			});
 		});
 
 		showPreloader();
 		unloadConfirm = false;
-
+		const payload = {
+		    items: orderData,
+		    pointUsed: appliedPoint
+		};
+		
 		fetch("/api/order/submit", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(orderData)
+			body: JSON.stringify(payload)
 		})
 			.then(res => {
 				if (!res.ok) throw new Error("서버 오류 발생");
@@ -351,7 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			.then(msg => {
 				hidePreloader();
 				alert(msg);
-				// if (orderSource === 'cart') localStorage.removeItem('cart');
+				if (orderSource === 'cart') localStorage.removeItem('cart');
 				location.href = "/index";
 			})
 			.catch(err => {
@@ -366,6 +415,57 @@ document.addEventListener("DOMContentLoaded", () => {
 		return method?.methodPrice || 0;
 	}
 
+	function validateDeliveryInputs() {
+		const allToggles = [...document.querySelectorAll('.address-toggle')];
+		const hasCommonInput = allToggles.some(input => !input.checked);
+		const totalOrders = allToggles.length;
+
+		// ✅ 1. 오더별 별도 입력 검증
+		for (let index = 0; index < totalOrders; index++) {
+			const toggle = allToggles[index];
+			if (!toggle.checked) continue; // 별도 입력 아님 → 건너뜀
+
+			const requiredFields = [
+				{ id: `addr-main-${index}`, label: '주소' },
+				{ id: `addr-detail-${index}`, label: '상세주소' },
+				{ id: `addr-zipcode-${index}`, label: '우편번호' },
+				{ id: `delivery-method-${index}`, label: '배송수단' },
+				{ id: `delivery-date-${index}`, label: '배송희망일' }
+			];
+
+			for (const field of requiredFields) {
+				const el = document.getElementById(field.id);
+				if (!el || !el.value?.trim()) {
+					alert(`오더 ${index + 1}의 ${field.label}를 입력해주세요.`);
+					el?.focus();
+					return false;
+				}
+			}
+		}
+
+		// ✅ 2. 공통입력 검증 (배송지 직접입력 아닌 오더가 1개 이상 있을 때)
+		if (hasCommonInput) {
+			const commonFields = [
+				{ id: 'main-address', label: '공통 주소' },
+				{ id: 'main-detail', label: '공통 상세주소' },
+				{ id: 'main-zipcode', label: '공통 우편번호' },
+				{ id: 'delivery-method', label: '공통 배송수단' },
+				{ id: 'delivery-date', label: '공통 배송희망일' }
+			];
+
+			for (const field of commonFields) {
+				const el = document.getElementById(field.id);
+				if (!el || !el.value?.trim()) {
+					alert(`${field.label}를 입력해주세요.`);
+					el?.focus();
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
 	function getDeliveryMethodId(selectId) {
 		const selectedId = document.getElementById(selectId)?.value;
 		return selectedId ? parseInt(selectedId, 10) : null;
@@ -374,4 +474,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	renderDeliveryMethods();
 	setGlobalDeliveryMinDate();
 	updatePaymentInfoSectionVisibility();
+	updateAmounts();
+	hidePreloader();
 });

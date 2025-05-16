@@ -32,6 +32,30 @@ public class CommonController {
 		return "front/common/signUp";
 	}
 	
+	@GetMapping("/findUsername")
+	public String findUsername() {
+		
+		return "front/common/findUsername";
+	}
+	
+	@PostMapping("/findUsernameProcess")
+	public String findUsernameProcess() {
+		
+		return "front/common/findUsername";
+	}
+	
+	@GetMapping("/findPassword")
+	public String findPassword() {
+		
+		return "front/common/findPassword";
+	}
+	
+	@PostMapping("/findPasswordProcess")
+	public String findPasswordProcess() {
+		
+		return "front/common/findPassword";
+	}
+	
 	@PostMapping("/signUpProcess")
 	public String signUpProcess(
 	        @ModelAttribute Company company,

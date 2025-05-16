@@ -14,8 +14,8 @@ let preloadedData = {
 	middleSort: [] // MiddleSort 데이터를 저장할 배열
 };
 let finalMessages = [];  // <p>로 출력될 메시지 배열
-// 장바구니, 발주 버튼 클릭 시 localStorage에 데이터 저장 및 flow 초기화 함수
 let selectedAnswerValue = {}; // 선택한 값을 저장할 객체
+let calculatedMainPrice = null;
 const optionMapping = {
 	tissuePosition: 'productTissuePositions',
 	dryPosition: 'productDryPositions',
@@ -1875,7 +1875,7 @@ function renderAnswer(step, product, categoryKey = '') {
 					setTimeout(() => {
 						finalWrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
 					}, 300);
-
+					calculatedMainPrice = data.mainPrice;
 					// 버튼 활성화
 					cartButton.disabled = false;
 					orderButton.disabled = false;
@@ -2270,10 +2270,10 @@ function addToCart() {
 	const optionJson = { ...selectedAnswerValue };
 	const localizedOptionJson = convertOptionJsonWithLabels(optionJson); // 한글 키로 변환
 	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
-	const price = 10000; // 또는 선택에 따라 계산되도록 수정 가능
-
+	const price = calculatedMainPrice || 10000; // ✅ 계산된 가격 우선 적용
 	let itemExists = false;
-
+	console.log(price);
+	
 	cartData.forEach(item => {
 		const isSame = JSON.stringify(item.optionJson) === JSON.stringify(optionJson);
 		if (isSame) {
@@ -2298,10 +2298,10 @@ function addToCart() {
 // 바로 발주 (단일 제품만 저장, source=order)
 function addToOrder() {
 	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
-	const price = 10000; // 마찬가지로 실제 가격 로직 반영 가능
+	const price = calculatedMainPrice || 10000; // ✅ 계산된 가격 우선 적용
 	const optionJson = { ...selectedAnswerValue };
 	const localizedOptionJson = convertOptionJsonWithLabels(optionJson); // 한글 키로 변환
-	
+	console.log(price);
 	const currentOrder = {
 		price,
 		quantity,

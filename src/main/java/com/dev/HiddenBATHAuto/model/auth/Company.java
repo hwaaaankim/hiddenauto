@@ -26,9 +26,12 @@ public class Company implements Serializable {
 	@Column(name="name")
     private String companyName;
    
+	@Column(name="point")
+	private int point;
+	
     // 우편번호
     private String zipCode;
-
+    
     // 행정구역
     private String doName;   // ex: 경기도
     private String siName;   // ex: 용인시

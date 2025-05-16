@@ -7,6 +7,7 @@ import lombok.Data;
 
 @Data
 public class OrderRequestItemDTO {
+	private int pointUsed;
 	private int quantity;
     private int price;
     private int deliveryPrice;

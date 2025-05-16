@@ -57,6 +57,7 @@ public class NonStandardOrderController {
 	        model.addAttribute("doName", company.getDoName());
 	        model.addAttribute("siName", company.getSiName());
 	        model.addAttribute("guName", company.getGuName());
+	        model.addAttribute("point", company.getPoint());
 	    } else {
 	    	model.addAttribute("mainAddress", "");
 		    model.addAttribute("detailAddress", "");
@@ -64,6 +65,7 @@ public class NonStandardOrderController {
 	        model.addAttribute("doName", "");
 	        model.addAttribute("siName", "");
 	        model.addAttribute("guName", "");
+	        model.addAttribute("point", "");
 	    }
 	    
 	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());

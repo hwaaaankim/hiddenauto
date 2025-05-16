@@ -71,6 +71,24 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
     </script>
 	<script src="/front/socket.js"></script>
 </th:block>
+
+<th:block th:fragment="autoCartScript">
+	<script type="text/javascript" src="/front/scripts/bootstrap.min.js"></script>
+	<script type="text/javascript" src="/front/scripts/nonLoader.js"></script>
+	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+	<script src="/front/scripts/script.js"></script>
+	<script src="/front/cart.js" type="module"></script>
+	<script src="/webjars/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="/webjars/stomp-websocket/2.3.4/stomp.min.js"></script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        // 로그인 여부를 Spring Security를 통해 설정
+        var isGuest = /*[[${#authentication.principal == null}]]*/ true;
+        /*]]>*/
+    </script>
+	<script src="/front/socket.js"></script>
+</th:block>
+
 <th:block th:fragment="autoBottomMenu">
 	<div id="bottombar-account" class="menu menu-box-bottom menu-box-detached">
 		<div class="divider divider-margins mb-n2"></div>
