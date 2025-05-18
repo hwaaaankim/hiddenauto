@@ -1,0 +1,251 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style">
+				<div class="content mt-0 mb-0">
+					<div class="list-group list-custom-large list-icon-0">
+						<a data-trigger-switch="smsSwitch" href="#">
+							<i class="fa font-14 fa-envelope rounded-s color-blue-dark"></i>
+							<span>문자 수신</span>
+							<strong>문자 수신여부를 선택할 수 있습니다.</strong>
+							<div class="custom-control scale-switch ios-switch">
+								<input type="checkbox" class="ios-input" id="smsSwitch">
+								<label class="custom-control-label" for="smsSwitch"></label>
+							</div>
+							<i class="fa fa-chevron-right opacity-30"></i>
+						</a>
+						<a data-trigger-switch="emailSwitch" href="#">
+							<i class="fa-solid fa-square-envelope font-14 rounded-s color-blue-dark"></i>
+							<span>이메일 수신</span>
+							<strong>이메일 수신여부를 선택할 수 있습니다.</strong>
+							<div class="custom-control scale-switch ios-switch">
+								<input type="checkbox" class="ios-input" id="emailSwitch">
+								<label class="custom-control-label" for="emailSwitch"></label>
+							</div>
+							<i class="fa fa-chevron-right opacity-30"></i>
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<div class="card card-style">
+				<div class="content mb-0">
+					<h2>계정정보</h2>
+					<p class="mb-4">아이디는 변경할 수 없습니다.</p>
+					<form method="POST" action="/customer/myInfoUpdate" enctype="multipart/form-data">
+						<!-- 사용자 성함 -->
+						<div class="input-style input-style-always-active has-borders has-icon">
+							<i class="fa fa-user font-12"></i>
+							<input type="text" class="form-control" name="name" th:value="${member.name}"
+								placeholder="성함" required>
+							<label class="color-blue-dark font-13">성함</label>
+						</div>
+
+						<!-- 연락처 -->
+						<div class="input-style input-style-always-active has-borders has-icon mt-4">
+							<i class="fa fa-phone font-12"></i>
+							<input type="text" class="form-control" name="phone" th:value="${member.phone}"
+								placeholder="연락처" required>
+							<label class="color-blue-dark font-13">연락처</label>
+						</div>
+
+						<!-- 이메일 -->
+						<div class="input-style input-style-always-active has-borders has-icon mt-4">
+							<i class="fa-solid fa-inbox font-12"></i>
+							<input type="email" class="form-control" name="email" th:value="${member.email}"
+								placeholder="이메일">
+							<label class="color-blue-dark font-13">이메일</label>
+						</div>
+
+						<hr class="my-4" />
+
+						<h2>회사 정보</h2>
+
+						<!-- 회사명 -->
+						<div class="input-style input-style-always-active has-borders has-icon mt-3">
+							<i class="fa-regular fa-building font-12"></i>
+							<input type="text" class="form-control" name="companyName" th:value="${company.companyName}"
+								placeholder="대리점명" th:readonly="${!isRepresentative}">
+							<label class="color-blue-dark font-13">대리점명</label>
+						</div>
+
+						<!-- 주소 검색 영역 -->
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-regular fa-address-book"></i>
+							<input type="text" class="form-control" id="searchAddress" name="roadAddress" required
+								placeholder="주소를 검색 해 주세요." autocomplete="off" th:value="${company.roadAddress}">
+							<button type="button" onclick="execDaumPostcode()">주소검색</button>
+							<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
+						</div>
+
+						<!-- 상세주소 + hidden 행정구역 -->
+						<div class="input-style no-borders has-icon mt-1">
+							<i class="fa-regular fa-address-book"></i>
+							<input type="text" class="form-control" id="detailAddress" name="detailAddress" required
+								placeholder="상세 주소를 입력 해 주세요." autocomplete="off" th:value="${company.detailAddress}">
+							<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
+
+							<input type="hidden" name="doName" id="doName" th:value="${company.doName}">
+							<input type="hidden" name="siName" id="siName" th:value="${company.siName}">
+							<input type="hidden" name="guName" id="guName" th:value="${company.guName}">
+							<input type="hidden" name="zipCode" id="zipCode" th:value="${company.zipCode}">
+						</div>
+						<div class="pb-1">
+							<label class="signUpImageBtn">
+								<input type="file" id="file-upload" name="businessLicenseFile" class="signUpImageInput"
+									accept="image/*" required>
+								<i class="fa-regular fa-file"></i> 사업자등록증 업로드
+							</label>
+
+							<!-- 업로드된 파일 목록 -->
+							<ul id="file-list" class="file-list mt-2"></ul>
+						</div>
+
+						<!-- 수정 버튼 -->
+						<div class="mt-4 mb-2">
+							<button type="submit"
+								class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l font-900">
+								변경사항 저장
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<div class="card card-style">
+				<div class="content mb-0">
+					<h2>대리점코드</h2>
+					<p class="mb-4">
+						직원 등록시 대리점 코드 입력이 필수입니다.
+					</p>
+					<div class="input-style input-style-always-active has-borders has-icon">
+						<i class="fa-solid fa-key font-12"></i>
+						<input type="text" class="form-control" placeholder="대리점코드">
+						<label class="color-blue-dark font-13">대리점코드</label>
+					</div>
+					<a href="#"
+						class="btn btn-full bg-green-dark btn-m text-uppercase rounded-sm shadow-l mb-3 mt-4 font-900">코드생성</a>
+				</div>
+			</div>
+			<div class="card card-style">
+				<div class="content mb-0">
+					<h2 class="mb-0">비밀번호</h2>
+					<p class="mb-4">
+						비밀번호 변경을 진행할 수 있습니다.
+					</p>
+					<div class="input-style input-style-always-active has-borders no-icon">
+						<input type="password" class="form-control" placeholder="">
+						<label class="color-blue-dark font-12">기존 비밀번호</label>
+						<em>(required)</em>
+					</div>
+					<div class="input-style input-style-always-active has-borders no-icon ">
+						<input type="password" class="form-control" placeholder="">
+						<label class="color-blue-dark font-12">새로운 비밀번호</label>
+						<em>(required)</em>
+					</div>
+					<div class="input-style input-style-always-active has-borders no-icon">
+						<input type="password" class="form-control" placeholder="">
+						<label class="color-blue-dark font-12">비밀번호 확인</label>
+						<em>(required)</em>
+					</div>
+					<a href="#"
+						class="btn btn-full bg-green-dark btn-m text-uppercase rounded-sm shadow-l mb-3 mt-4 font-900">Save
+						Password</a>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+	<script>
+		document.addEventListener("DOMContentLoaded", function () {
+			const fileInput = document.getElementById("file-upload");
+			const fileList = document.getElementById("file-list");
+
+			fileInput.addEventListener("change", function () {
+				// 기존 새 파일 미리보기 삭제
+				fileList.querySelectorAll('.new-preview').forEach(el => el.remove());
+
+				Array.from(fileInput.files).forEach(file => {
+					const reader = new FileReader();
+					reader.onload = function (e) {
+						const li = document.createElement("li");
+						li.className = "new-preview";
+
+						const link = document.createElement("span");
+						link.textContent = file.name;
+
+						const btn = document.createElement("button");
+						btn.type = "button";
+						btn.textContent = "×";
+						btn.className = "remove-file-btn";
+						btn.onclick = function () {
+							fileInput.value = ""; // 새 파일 제거
+							li.remove();
+						};
+
+						li.appendChild(link);
+						li.appendChild(btn);
+						fileList.appendChild(li);
+					};
+					reader.readAsDataURL(file);
+				});
+			});
+		});
+
+		function removeExistingFile() {
+			const li = document.querySelector(".existing-file");
+			if (li) li.remove();
+			document.getElementById("removeBusinessLicense").value = "true";
+		}
+		function execDaumPostcode() {
+			new daum.Postcode({
+				oncomplete: function (data) {
+					const fullRoadAddr = data.roadAddress;
+					const zonecode = data.zonecode;
+
+					const addrParts = fullRoadAddr.split(" ");
+					const doName = addrParts[0] || "";
+					let siName = "";
+					let guName = "";
+
+					if (addrParts.length >= 2) {
+						if (addrParts[1].endsWith("시") || addrParts[1].endsWith("군")) {
+							siName = addrParts[1];
+							guName = addrParts[2] || "";
+						} else {
+							siName = "";
+							guName = addrParts[1] || "";
+						}
+					}
+
+					document.getElementById("searchAddress").value = fullRoadAddr;
+					document.getElementById("zipCode").value = zonecode;
+					document.getElementById("doName").value = doName;
+					document.getElementById("siName").value = siName;
+					document.getElementById("guName").value = guName;
+
+					// 상세주소로 포커스
+					document.getElementById("detailAddress").focus();
+				}
+			}).open();
+		}
+	</script>
+
+</body>
+
+</html>

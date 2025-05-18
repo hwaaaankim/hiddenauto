@@ -38,7 +38,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 </th:block>
 <th:block th:fragment="autoHeaderMenu">
 	<div class="header header-demo header-logo-center mb-3">
-		<a href="#" class="header-icon header-icon-1"><i class="fas font-18 fa-arrow-left"></i></a>
 		<a href="/index" class="header-logo">HIDDEN BATH</a>
 		<div id="header-icon-4-group">
 			<a class="header-icon header-icon-4" data-menu="menu-sidebar-left-4" href="#">
@@ -94,12 +93,12 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="/memberList" sec:authorize="hasAuthority('CUSTOMER_REPRESENTATIVE')">
+				<a href="/memberList" sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
 					<span>직원리스트</span>
 					<strong>직원에 대한 관리 기능을 제공합니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="/account">
+				<a href="/customer/myInfo">
 					<span>계정정보</span>
 					<strong>내 계정 정보를 확인할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
@@ -138,14 +137,9 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="#">
+				<a href="/customer/asRequest">
 					<span>AS신청</span>
 					<strong>AS를 신청할 수 있습니다.</strong>
-					<i class="fa fa-angle-right"></i>
-				</a>
-				<a href="#">
-					<span>AS 내역확인</span>
-					<strong>신청한 AS의 처리 내용을 확인할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
 			</div>
@@ -155,8 +149,13 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="/taskList">
-					<span>업무 관리</span>
+				<a th:href="@{/customer/taskList}">
+					<span>발주 관리</span>
+					<strong>히든바스 AUTO TASK를 통해 진행된 업무 현황을 파악할 수 있습니다.</strong>
+					<i class="fa fa-angle-right"></i>
+				</a>
+				<a th:href="@{/customer/asList}">
+					<span>AS 관리</span>
 					<strong>히든바스 AUTO TASK를 통해 진행된 업무 현황을 파악할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
@@ -166,18 +165,12 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 </th:block>
 <th:block th:fragment="autoSideBar">
 	<div id="menu-sidebar-left-4" class="bg-white menu menu-box-left" data-menu-width="310">
-		<div class="d-flex">
-			<a href="#" class="flex-fill icon icon-m text-center color-facebook border-right"><i
-					class="fab font-12 fa-facebook-f"></i></a>
-			<a href="#" class="flex-fill icon icon-m text-center color-instagram border-right"><i
-					class="fab font-12 fa-instagram"></i></a>
-		</div>
 		<div class="divider mb-3"></div>
 		<div class="ps-3 pe-3 pt-2 mb-4">
 			<div class="d-flex">
 				<div class="flex-grow-1 align-self-center ps-2">
-					<h1 class="font-20 font-700 mb-0">김환</h1>
-					<p class="mt-n2 mb-0 font-10 font-400">김환 타일 대리점</p>
+					<h1 class="font-20 font-700 mb-0" th:text="${#authentication.principal.name}">회원명</h1>
+					<p class="mt-n2 mb-0 font-10 font-400" th:text="${#authentication.principal.company.companyName}">회사명</p>
 				</div>
 			</div>
 		</div>
@@ -218,7 +211,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="me-3 ms-3 mt-4 pt-2">
 			<span class="text-uppercase font-900 font-11 opacity-30">계정관리</span>
 			<div class="list-group list-custom-small list-icon-0">
-				<a href="/account">
+				<a href="/customer/myInfo">
 					<i class="fa font-14 fa-cog color-brown-dark"></i>
 					<span>계정관리</span>
 					<i class="fa fa-angle-right"></i>

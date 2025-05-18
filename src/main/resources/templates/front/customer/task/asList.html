@@ -1,0 +1,137 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+				<div class="card-center ms-3">
+					<h1 class="color-white mb-0">업무 리스트</h1>
+					<p class="color-white mt-n1 mb-0">히든바스 AUTO TASK를 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
+				</div>
+				<div class="card-center me-3">
+					<a href="/index" data-back-button
+						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+				</div>
+				<div class="card-overlay bg-black opacity-80"></div>
+			</div>
+			<div class="card card-style">
+				<div class="content mb-0">
+					<h3>검색 FILTER</h3>
+					<p>
+						다양한 조건을 통해 데이터를 조회할 수 있습니다.
+					</p>
+					<div class="row">
+						<div class="input-style has-borders no-icon mb-4 col-3">
+							<input type="date" value="2030-12-31" class="form-control validate-text">
+							<label for="form6" class="color-highlight">Select Date</label>
+							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
+							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
+						</div>
+						<div class="input-style has-borders no-icon mb-4 col-3">
+							<input type="date" value="2030-12-31" class="form-control validate-text">
+							<label for="form6" class="color-highlight">Select Date</label>
+							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
+							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="card card-style" th:each="asTask, i : ${asTaskPage.content}">
+				<div class="accordion" th:id="'accordion-as-' + ${i.index}">
+					<div class="mb-0">
+						<button class="btn accordion-btn no-effect" data-bs-toggle="collapse"
+							th:attr="data-bs-target='#as-'+${i.index}">
+							<div class="content">
+								<h3 class="mb-1" th:text="'AS-' + ${asTask.id}">AS TITLE</h3>
+								<p class="font-11 mt-n2 mb-0 opacity-50">제품 AS신청</p>
+								<div class="row mb-n2 color-theme">
+									<div class="col-6 font-10 text-start">
+										<span class="badge bg-black color-white font-10 mt-2">AS</span>
+										<span class="badge bg-black color-white font-10 mt-2"
+											th:text="${asTask.status}">처리상태</span>
+									</div>
+									<div class="col-6 font-10 text-end opacity-30">
+										<i class="fa fa-calendar pe-2"></i>
+										<span th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd')}"></span>
+									</div>
+								</div>
+							</div>
+						</button>
+						<div th:id="'as-' + ${i.index}" class="collapse"
+							th:attr="data-bs-parent='#accordion-as-' + ${i.index}">
+							<div class="pt-1 pb-2 ps-3 pe-3">
+								<div class="content task-content">
+									<div class="row">
+										<div class="col-lg-3 col-md-6">
+											<strong class="color-theme">AS 신청일 :</strong>
+											<p class="font-12"
+												th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd HH:mm:ss')}">
+											</p>
+										</div>
+										<div class="col-lg-3 col-md-6">
+											<strong class="color-theme">AS 처리일 :</strong>
+											<p class="font-12"
+												th:text="${asTask.updatedAt != null ? #temporals.format(asTask.updatedAt, 'yyyy.MM.dd HH:mm:ss') : '-'}">
+											</p>
+										</div>
+										<div class="col-lg-3 col-md-6">
+											<strong class="color-theme">AS 처리금액 :</strong>
+											<p class="font-12"
+												th:text="${#numbers.formatInteger(asTask.price, 3, 'COMMA')} + ' 원'">
+											</p>
+										</div>
+										<div class="col-lg-3 col-md-6">
+											<strong class="color-theme">AS 처리담당자 :</strong>
+											<p class="font-12"
+												th:text="${asTask.assignedHandler != null ? asTask.assignedHandler.name : '-'}">
+											</p>
+										</div>
+										<div class="col-12 mt-2">
+											<strong class="color-theme">AS 신청 이미지 :</strong>
+											<div class="d-flex flex-wrap gap-2 mt-2">
+												<a th:each="img : ${asTask.requestImages}" th:href="${img.url}"
+													download>
+													<img th:src="${img.url}" class="rounded" width="80">
+												</a>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
+				<ul class="pagination">
+					<li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
+						<a class="page-link" th:href="@{${pageableUrl}(page=${asTaskPage.number - 1})}">이전</a>
+					</li>
+					<li class="page-item" th:each="i : ${#numbers.sequence(0, asTaskPage.totalPages - 1)}"
+						th:classappend="${asTaskPage.number == i} ? 'active'">
+						<a class="page-link" th:href="@{${pageableUrl}(page=${i})}" th:text="${i + 1}">1</a>
+					</li>
+					<li class="page-item" th:classappend="${asTaskPage.hasNext()} ? '' : 'disabled'">
+						<a class="page-link" th:href="@{${pageableUrl}(page=${asTaskPage.number + 1})}">다음</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+
+</body>
+
+</html>

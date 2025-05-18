@@ -1,0 +1,116 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+				<div class="card-center ms-3">
+					<h1 class="color-white mb-0">발주 상세</h1>
+					<p class="color-white mt-n1 mb-0">발주 상세 내용을 확인할 수 있습니다.</p>
+				</div>
+				<div class="card-center me-3">
+					<a href="/index" data-back-button
+						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+				</div>
+				<div class="card-overlay bg-black opacity-80"></div>
+			</div>
+			<!-- 상단 Task 정보 카드 -->
+			<div class="card card-style">
+				<div class="content">
+					<div class="row mb-2 mt-n2">
+						<div class="col-6 text-start">
+							<h4 class="font-700 text-uppercase font-12 opacity-50 mt-1">발주 상세</h4>
+						</div>
+						<div class="col-6 text-end">
+							<a href="#" data-menu="menu-manage" class="font-14 color-theme icon icon-xxs">
+								<i class="fa fa-cog fa-spin"></i>
+							</a>
+						</div>
+					</div>
+					<div class="divider mb-3"></div>
+
+					<div class="d-flex">
+						<div class="w-25 ps-3">
+							<h4>주문번호</h4>
+							<p class="color-blue-dark font-11 mb-0" th:text="'#ORDER_ID_' + ${task.id}">#ORDER_ID_1</p>
+						</div>
+						<div class="w-25 ps-3">
+							<h4>상태</h4>
+							<p class="color-blue-dark font-11 mb-0" th:text="${task.status}">REQUESTED</p>
+
+						</div>
+						<div class="w-25 ps-3">
+
+							<h4>총 금액</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${#numbers.formatInteger(task.totalPrice, 3, 'COMMA')} + '원'">0원</p>
+
+						</div>
+						<div class="w-25 ps-3">
+
+							<h4>고객 메모</h4>
+							<p class="color-blue-dark font-11 mb-0" th:text="${task.customerNote}">-</p>
+						</div>
+						<div class="w-25 ps-3">
+
+							<h4>작성일</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${#temporals.format(task.createdAt, 'yyyy.MM.dd HH:mm')}">-</p>
+
+						</div>
+						<div class="w-25 ps-3">
+							<h4>최근 수정일</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${task.updatedAt != null ? #temporals.format(task.updatedAt, 'yyyy.MM.dd HH:mm') : '없음'}">
+								-</p>
+						</div>
+					</div>
+					<div class="divider mt-4 mb-3"></div>
+				</div>
+			</div>
+
+			<!-- 반복되는 주문 리스트 카드 -->
+			<a class="card card-style mb-3" th:each="order : ${task.orders}"
+				th:href="@{'/customer/orderDetail/' + ${order.id}}">
+				<div class="content">
+					<h3 th:text="${order.productCategory}">카테고리</h3>
+					<p class="font-11 mt-n2 mb-0 opacity-50">
+						배송 희망일:
+						<span
+							th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy.MM.dd') : '미지정'}"></span>
+					</p>
+
+					<div class="row mb-n2 color-theme mt-2">
+						<div class="col-6 font-10 text-start">
+							<span class="badge bg-highlight color-white font-10 mt-2"
+								th:text="'수량: ' + ${order.quantity} + '개'">수량</span>
+							<span class="badge bg-black color-white font-10 mt-2"
+								th:text="'상태: ' + ${order.status}">상태</span>
+						</div>
+						<div class="col-6 font-10 text-end opacity-30">
+							<i class="fa fa-calendar pe-2"></i>
+							<span th:text="${#temporals.format(order.createdAt, 'yyyy.MM.dd')}">날짜</span>
+						</div>
+					</div>
+				</div>
+			</a>
+
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+
+</body>
+
+</html>

@@ -29,10 +29,23 @@ public class AsTask {
 
     @ManyToOne
     private Member requestedBy;
+    
+    private String subject;
+    // 우편번호
+    private String zipCode;
 
-    private String address;
+    // 행정구역
+    private String doName;   // ex: 경기도
+    private String siName;   // ex: 용인시
+    private String guName;   // ex: 수지구
+
+    // 주소
+    private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
+    private String detailAddress;   // ex: 302동 1502호
+    
     private String reason;
-
+    private int price;
+    
     @Enumerated(EnumType.STRING)
     private AsStatus status;
 

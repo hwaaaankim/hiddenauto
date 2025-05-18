@@ -22,6 +22,18 @@ public class PrincipalDetails implements UserDetails, Serializable {
 	public PrincipalDetails(Member member) {
 		this.member = member;
 	}
+	
+	public Long getId() {
+	    return member.getId();
+	}
+	
+	public String getName() {
+	    return member.getName();
+	}
+
+	public Company getCompany() {
+	    return member.getCompany();
+	}
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {

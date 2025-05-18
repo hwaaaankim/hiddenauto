@@ -1,0 +1,152 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+				<div class="card-center ms-3">
+					<h1 class="color-white mb-0">오더 상세페이지</h1>
+					<p class="color-white mt-n1 mb-0">주문의 상세 사항을 확인할 수 있습니다.</p>
+				</div>
+				<div class="card-center me-3">
+					<a href="/index" data-back-button
+						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+				</div>
+				<div class="card-overlay bg-black opacity-80"></div>
+			</div>
+			<div class="card card-overflow card-style">
+				<div class="content">
+					<!-- 주문 기본 정보 -->
+					<div class="d-flex flex-wrap">
+						<div class="w-25 ps-3">
+							<h4>주문번호</h4>
+							<p class="color-blue-dark font-11 mb-0" th:text="'#ORDER_ID_' + ${order.id}">#ORDER_ID_1</p>
+						</div>
+
+						<div class="w-25 ps-3">
+							<h4>상태</h4>
+							<p class="color-blue-dark font-11 mb-0" th:text="${order.status}">REQUESTED</p>
+						</div>
+
+						<div class="w-25 ps-3">
+							<h4>제품 금액</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${#numbers.formatInteger(order.productCost, 3, 'COMMA')} + '원'">10,000원</p>
+						</div>
+
+						<div class="w-25 ps-3">
+							<h4>제품 수량</h4>
+							<p class="color-blue-dark font-11 mb-0" th:text="${order.quantity} + '개'">1개</p>
+						</div>
+
+						<div class="w-25 ps-3">
+							<h4>배송 희망일</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy.MM.dd') : '미지정'}">
+								-</p>
+						</div>
+
+						<div class="w-25 ps-3">
+							<h4>작성일</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${#temporals.format(order.createdAt, 'yyyy.MM.dd HH:mm')}">-</p>
+						</div>
+
+						<div class="w-25 ps-3">
+							<h4>최근 수정일</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy.MM.dd HH:mm') : '없음'}">
+								-</p>
+						</div>
+
+						<div class="w-25 ps-3">
+							<h4>배송지</h4>
+							<p class="color-blue-dark font-11 mb-0"
+								th:text="${order.roadAddress + ' ' + order.detailAddress}">주소</p>
+						</div>
+					</div>
+
+					<!-- 옵션 정보 -->
+					<div class="divider mt-3 mb-2"></div>
+					<h4 class="font-16 mb-2">주문 옵션 정보</h4>
+					<ul class="list-group mb-3" th:if="${order.orderItem != null}">
+						<li class="list-group-item" th:each="entry : ${order.orderItem.parsedOptionMap}">
+							<strong th:text="${entry.key}">옵션명</strong>: <span th:text="${entry.value}">옵션값</span>
+						</li>
+					</ul>
+
+					<!-- 이미지 정보 -->
+					<div class="divider mt-4 mb-2"></div>
+					<h4 class="font-16">업로드된 이미지</h4>
+
+					<!-- 이미지 블럭 반복 -->
+					<div class="mb-3" th:if="${order.getCustomerUploadedImages().size() > 0}">
+						<h5 class="font-13 mt-2 mb-2">고객 업로드</h5>
+						<div class="row g-2">
+							<div class="col-4" th:each="img : ${order.getCustomerUploadedImages()}">
+								<a th:href="@{${img.url}}" target="_blank">
+									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="customer-upload">
+								</a>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3" th:if="${order.getAdminUploadedImages().size() > 0}">
+						<h5 class="font-13 mt-2 mb-2">관리자 업로드</h5>
+						<div class="row g-2">
+							<div class="col-4" th:each="img : ${order.getAdminUploadedImages()}">
+								<a th:href="@{${img.url}}" target="_blank">
+									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="admin-upload">
+								</a>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3" th:if="${order.getDeliveryImages().size() > 0}">
+						<h5 class="font-13 mt-2 mb-2">배송 사진</h5>
+						<div class="row g-2">
+							<div class="col-4" th:each="img : ${order.getDeliveryImages()}">
+								<a th:href="@{${img.url}}" target="_blank">
+									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="delivery">
+								</a>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3" th:if="${order.getProofImages().size() > 0}">
+						<h5 class="font-13 mt-2 mb-2">증빙 자료</h5>
+						<div class="row g-2">
+							<div class="col-4" th:each="img : ${order.getProofImages()}">
+								<a th:href="@{${img.url}}" target="_blank">
+									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="proof">
+								</a>
+							</div>
+						</div>
+					</div>
+
+					<div class="divider mt-4"></div>
+
+					<a href="#" data-toast="snackbar-cart"
+						class="btn btn-full btn-m font-900 text-uppercase rounded-sm shadow-l bg-red-dark">주문취소 요청</a>
+				</div>
+			</div>
+
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+
+</body>
+
+</html>

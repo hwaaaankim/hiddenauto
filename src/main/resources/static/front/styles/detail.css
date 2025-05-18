@@ -19,12 +19,14 @@
 	justify-content: center;
 	align-items: center;
 }
-.login-btn-wrap{
+
+.login-btn-wrap {
 	align-items: center;
 	justify-content: center;
 	text-align: center;
 	display: flex;
 }
+
 .process-btn-wrap a {
 	width: 200px;
 	margin-right: 5px;
@@ -41,51 +43,56 @@
 		font-size: 12px;
 		margin-bottom: 5px;
 	}
-	.size-span{
-		width:90px;
-		display:inline-block;
+
+	.size-span {
+		width: 90px;
+		display: inline-block;
 	}
+
 	/* 수량 row (1행) */
 	.quantity-row {
-	  display: flex;
-	  flex-direction: row;
-	  align-items: center;
-	  gap: 10px;
-	  width: 100%;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
 	}
-	
+
 	/* 수량 span */
 	.quantity-row .size-span {
-	  display: inline-block;
-	  font-weight: bold;
-	  white-space: nowrap;
+		display: inline-block;
+		font-weight: bold;
+		white-space: nowrap;
 	}
-	
+
 	/* 수량 input은 남는 공간 꽉 채움 */
 	.quantity-row input[type="number"] {
-	  flex: 1;
-	  width: auto;
-	  min-width: 0;
-	  box-sizing: border-box;
+		flex: 1;
+		width: auto;
+		min-width: 0;
+		box-sizing: border-box;
 	}
-	
+
 	/* 버튼 row (2행) */
 	.button-row {
-	  display: flex;
-	  flex-direction: row;
-	  justify-content: space-between;
-	  gap: 8px;
-	  margin-top: 10px;
-	  width: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		gap: 8px;
+		margin-top: 10px;
+		width: 100%;
 	}
-	
+
 	.button-row button {
-	  flex: 1;
-	  white-space: nowrap;
+		flex: 1;
+		white-space: nowrap;
 	}
-	#cart-btn, #order-btn, #calculate-price-btn{
-		margin:0;
-		padding:10px 10px;
+
+	#cart-btn,
+	#order-btn,
+	#calculate-price-btn {
+		margin: 0;
+		padding: 10px 10px;
 	}
 }
 
@@ -616,13 +623,17 @@ i#bag-icon.active {
 }
 
 .form-item label {
-	margin-bottom: 2px;        /* 더 가까이 붙이기 */
+	margin-bottom: 2px;
+	/* 더 가까이 붙이기 */
 	font-weight: 500;
-	font-size: 14px;           /* 크기 약간 줄이기 */
-	line-height: 1.2;          /* 라벨 간격 줄이기 */
-	height:20px !important;
-	padding-left:5px;
+	font-size: 14px;
+	/* 크기 약간 줄이기 */
+	line-height: 1.2;
+	/* 라벨 간격 줄이기 */
+	height: 20px !important;
+	padding-left: 5px;
 }
+
 .same-address {
 	display: flex;
 	align-items: center;
@@ -637,7 +648,9 @@ i#bag-icon.active {
 	line-height: 1;
 }
 
-.input-group input[type="text"], select, .input-group input[type="date"] {
+.input-group input[type="text"],
+select,
+.input-group input[type="date"] {
 	flex: 1;
 	/* 남는 공간을 채우도록 */
 	padding: 10px;
@@ -820,9 +833,11 @@ i#bag-icon.active {
 	display: flex;
 	padding: 10px 10px;
 }
-.quantity-row{
-	margin-bottom:10px;
+
+.quantity-row {
+	margin-bottom: 10px;
 }
+
 @media (max-width: 768px) {
 	.non-standard-btn:not(.non-answer-btn) {
 		max-width: calc(50% - 10px);
@@ -835,7 +850,7 @@ i#bag-icon.active {
 	}
 
 	.non-standard-answer {
-		line-height: 1.3; 
+		line-height: 1.3;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -843,9 +858,11 @@ i#bag-icon.active {
 		text-align: left;
 		gap: 10px;
 	}
-	#final-wrap.non-standard-answer{
+
+	#final-wrap.non-standard-answer {
 		flex-direction: column !important;
 	}
+
 	.non-standard-answer::before {
 		content: '';
 		display: table;
@@ -860,34 +877,35 @@ i#bag-icon.active {
 		margin-top: 0;
 		margin-bottom: 0;
 	}
+
 	.quantity-row {
-	    display: flex;
-	    flex-direction: row;
-	    align-items: center;
-	    gap: 10px;
-	    width: 100%;
-	    flex-wrap: nowrap;
-	  }
-	
-	  .quantity-row label {
-	    display: flex;
-	    align-items: center;
-	  }
-	
-	  .quantity-row .size-span {
-	    display: inline-block;
-	    width: auto;
-	    font-weight: bold;
-	  }
-	
-	  .quantity-row input[type="number"] {
-	    width: 100%;
-	  }
-	
-	  .quantity-row button {
-	    flex-shrink: 0;
-	    white-space: nowrap;
-	  }
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		flex-wrap: nowrap;
+	}
+
+	.quantity-row label {
+		display: flex;
+		align-items: center;
+	}
+
+	.quantity-row .size-span {
+		display: inline-block;
+		width: auto;
+		font-weight: bold;
+	}
+
+	.quantity-row input[type="number"] {
+		width: 100%;
+	}
+
+	.quantity-row button {
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
 }
 
 .non-standard-btn.product-option-btn span {
@@ -1358,47 +1376,100 @@ input:checked+.slider:before {
 	margin: 0px;
 	line-height: 1.4;
 }
+
 .signUpImageBtn {
-  display: inline-block;
-  padding: 10px 16px;
-  background-color: #007bff;
-  color: white;
-  font-size: 14px;
-  border-radius: 6px;
-  cursor: pointer;
+	display: inline-block;
+	padding: 10px 16px;
+	background-color: #007bff;
+	color: white;
+	font-size: 14px;
+	border-radius: 6px;
+	cursor: pointer;
 }
 
 .signUpImageBtn i {
-  margin-right: 6px;
+	margin-right: 6px;
 }
 
 .signUpImageInput {
-  display: none;
+	display: none;
 }
 
 .required-text {
-  margin-left: 10px;
-  font-size: 12px;
-  color: red;
-  vertical-align: middle;
+	margin-left: 10px;
+	font-size: 12px;
+	color: red;
+	vertical-align: middle;
 }
 
 .file-list {
-  list-style: none;
-  padding-left: 0;
-  margin-top: 10px;
+	list-style: none;
+	padding-left: 0;
+	margin-top: 10px;
 }
 
 .file-list li {
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  margin-bottom: 5px;
+	display: flex;
+	align-items: center;
+	font-size: 14px;
+	margin-bottom: 5px;
 }
 
 .file-list li .remove-file {
-  margin-left: 10px;
-  color: #ff4d4f;
-  cursor: pointer;
-  font-weight: bold;
+	margin-left: 10px;
+	color: #ff4d4f;
+	cursor: pointer;
+	font-weight: bold;
+}
+
+button:disabled,
+button[disabled] {
+	background-color: #ccc !important;
+	/* 회색 배경 */
+	color: #888 !important;
+	/* 글자색 연하게 */
+	border: 1px solid #bbb !important;
+	/* 테두리 연하게 */
+	cursor: default !important;
+	/* 마우스 커서 일반 */
+	pointer-events: none;
+	/* 호버 방지 */
+	box-shadow: none !important;
+	/* 그림자 제거 */
+	transition: none !important;
+	/* 애니메이션 제거 */
+}
+
+.preview-item {
+	position: relative;
+	width: 80px;
+	height: 80px;
+	border: 1px solid #ccc;
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.preview-item img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.preview-item .remove-btn {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	background: rgba(0, 0, 0, 0.6);
+	color: #fff;
+	border: none;
+	border-radius: 50%;
+	width: 20px;
+	height: 20px;
+	font-size: 14px;
+	line-height: 20px;
+	text-align: center;
+	cursor: pointer;
+}
+.mb-0{
+	margin-bottom:0px;
 }
