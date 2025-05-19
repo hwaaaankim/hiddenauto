@@ -1,11 +1,13 @@
 package com.dev.HiddenBATHAuto.controller;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.service.auth.InitService;
+import com.dev.HiddenBATHAuto.service.auth.RegionTeamInitService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -15,7 +17,14 @@ import lombok.RequiredArgsConstructor;
 public class InitController {
 
 	private final InitService initService;
-
+	private final RegionTeamInitService regionTeamInitService;
+	
+	@GetMapping("/regionMember")
+    public ResponseEntity<String> initRegionMembers() {
+        String result = regionTeamInitService.initRegionMembers();
+        return ResponseEntity.ok(result);
+    }
+	
 	@GetMapping("/teams")
     public void createTeams() {
         initService.createTeam("관리팀");

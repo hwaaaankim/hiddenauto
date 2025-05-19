@@ -400,7 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			.then(msg => {
 				hidePreloader();
 				alert(msg);
-				if (orderSource === 'cart') localStorage.removeItem('cart');
+				// if (orderSource === 'cart') localStorage.removeItem('cart');
 				location.href = "/index";
 			})
 			.catch(err => {

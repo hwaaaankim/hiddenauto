@@ -1,23 +1,33 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import java.time.LocalDate;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
+import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
+import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -27,9 +37,16 @@ public class ManagementController {
 
 	@Autowired
 	private TaskRepository taskRepository;
-	
 	@Autowired
 	private OrderRepository orderRepository;
+	@Autowired
+	private MemberRepository memberRepository;
+	@Autowired
+	private DeliveryMethodRepository deliveryMethodRepository;
+	@Autowired
+	private TeamCategoryRepository teamCategoryRepository;
+	@Autowired
+	private OrderUpdateService orderUpdateService;
 	
 	@GetMapping("/admin-only")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
@@ -104,27 +121,53 @@ public class ManagementController {
 	public String nonStandardOrderItemDetail(@PathVariable Long orderId, Model model) {
 	    Order order = orderRepository.findById(orderId).orElseThrow();
 
+	    // 옵션 파싱
 	    if (order.getOrderItem() != null) {
 	        try {
 	            ObjectMapper objectMapper = new ObjectMapper();
 	            Map<String, String> parsed = objectMapper.readValue(order.getOrderItem().getOptionJson(), new TypeReference<>() {});
-	            model.addAttribute("optionMap", parsed); // ✅ Map<String, String>으로 바로 전달
+	            model.addAttribute("optionMap", parsed);
 	        } catch (Exception e) {
 	            System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
-	            model.addAttribute("optionMap", Map.of()); // 빈 값 전달
+	            model.addAttribute("optionMap", Map.of());
 	        }
 	    }
 
+	    // 이미지 타입 맵
 	    Map<String, String> imageTypeMap = Map.of(
-	    	    "고객 업로드", "CUSTOMER",
-	    	    "관리자 업로드", "MANAGEMENT",
-	    	    "배송 완료", "DELIVERY",
-	    	    "배송 증빙", "PROOF"
-	    	);
-    	
+	        "고객 업로드", "CUSTOMER",
+	        "관리자 업로드", "MANAGEMENT",
+	        "배송 완료", "DELIVERY",
+	        "배송 증빙", "PROOF"
+	    );
 	    model.addAttribute("imageTypeMap", imageTypeMap);
+
+	    // ✅ 추가 데이터
 	    model.addAttribute("order", order);
+	    model.addAttribute("orderStatuses", OrderStatus.values());
+	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+	    model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
+	    model.addAttribute("productionTeamMembers", memberRepository.findByTeamName("생산팀"));
+	    model.addAttribute("productionTeamCategories",
+	    	    teamCategoryRepository.findByTeamName("생산팀"));
+
 	    return "administration/order/nonStandard/orderItemDetail";
+	}
+	
+	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
+	public String updateNonStandardOrderItem(
+	        @PathVariable Long orderId,
+	        @RequestParam("productCost") int productCost,
+	        @RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
+	        @RequestParam("status") String statusStr,
+	        @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
+	        @RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
+	        @RequestParam("productCategoryId") Optional<Long> productCategoryId) {
+
+	    orderUpdateService.updateOrder(orderId, productCost, preferredDeliveryDate,
+	                                   statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId);
+
+	    return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
 	}
 	
 }

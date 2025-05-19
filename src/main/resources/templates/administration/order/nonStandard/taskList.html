@@ -282,7 +282,7 @@
 													<td class="project_name">
 														<a th:href="@{'/management/agency/' + ${task.requestedBy.company.id}}"
 															class="fw-medium link-primary"
-															th:text="${task.requestedBy.company.name}">대리점명</a>
+															th:text="${task.requestedBy.company.companyName}">대리점명</a>
 													</td>
 
 													<!-- 신청자명 (Member.name) -->
@@ -293,8 +293,12 @@
 
 													<!-- 담당영업사원 (Company.salesManager.name) -->
 													<td class="assignedto">
-														<a th:href="@{'/management/employee/' + ${task.requestedBy.company.salesManager.id}}"
+														<a th:if="${task.requestedBy.company?.salesManager != null}"
+															th:href="@{'/management/employee/' + ${task.requestedBy.company.salesManager.id}}"
 															th:text="${task.requestedBy.company.salesManager.name}">담당영업사원</a>
+														<span th:if="${task.requestedBy.company?.salesManager == null}"
+															class="text-muted">미지정</span>
+
 													</td>
 
 													<!-- 발주일 -->
@@ -337,30 +341,30 @@
 													<li class="page-item"
 														th:classappend="${1 == tasks.pageable.pageNumber+1} ? 'disabled'">
 														<a class="page-link" href="#"
-														th:href="@{/management/nonStandardTaskList(page=0, size=${param.size})}"
-														tabindex="-1" aria-disabled="true">First</a>
+															th:href="@{/management/nonStandardTaskList(page=0, size=${param.size})}"
+															tabindex="-1" aria-disabled="true">First</a>
 													</li>
 													<li class="page-item"
 														th:classappend="${1 == tasks.pageable.pageNumber+1} ? 'disabled'">
 														<a class="page-link" href="#"
-														th:href="@{/management/nonStandardTaskList(page=${tasks.pageable.pageNumber - 1}, size=${param.size})}"
-														tabindex="-1" aria-disabled="true">Previous</a>
+															th:href="@{/management/nonStandardTaskList(page=${tasks.pageable.pageNumber - 1}, size=${param.size})}"
+															tabindex="-1" aria-disabled="true">Previous</a>
 													</li>
 													<li class="page-item"
 														th:classappend="${i == tasks.pageable.pageNumber+1} ? 'disabled'"
 														th:each="i : ${#numbers.sequence(startPage, endPage)}">
-														<a	class="page-link" href="#" th:text=${i}
-														th:href="@{/management/nonStandardTaskList(page=${i-1}, size=${param.size})}">1</a>
+														<a class="page-link" href="#" th:text=${i}
+															th:href="@{/management/nonStandardTaskList(page=${i-1}, size=${param.size})}">1</a>
 													</li>
 													<li class="page-item"
 														th:classappend="${tasks.totalPages == tasks.pageable.pageNumber + 1} ? 'disabled'">
 														<a class="page-link" href="#"
-														th:href="@{/management/nonStandardTaskList(page=${tasks.pageable.pageNumber + 1}, size=${param.size})}">Next</a>
+															th:href="@{/management/nonStandardTaskList(page=${tasks.pageable.pageNumber + 1}, size=${param.size})}">Next</a>
 													</li>
 													<li class="page-item"
 														th:classappend="${tasks.totalPages == tasks.pageable.pageNumber + 1} ? 'disabled'">
 														<a class="page-link" href="#"
-														th:href="@{/management/nonStandardTaskList(page=${tasks.totalPages-1}, size=${param.size})}">Last</a>
+															th:href="@{/management/nonStandardTaskList(page=${tasks.totalPages-1}, size=${param.size})}">Last</a>
 													</li>
 												</ul>
 											</nav>

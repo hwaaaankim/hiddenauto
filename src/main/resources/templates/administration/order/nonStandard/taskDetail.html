@@ -57,7 +57,7 @@
 																<div>
 																	<i class="ri-building-line align-bottom me-1"></i>
 																	<span
-																		th:text="${task.requestedBy.company.name}">대표자명</span>
+																		th:text="${task.requestedBy.company.companyName}">대표자명</span>
 																	|
 																	<span th:text="${task.requestedBy.name}">신청자명</span>
 																</div>
@@ -156,7 +156,7 @@
 																						<h5 class="mb-0 fs-15">
 																							<a href="#"
 																								class="text-body"
-																								th:text="${order.productCategory}">제품군</a>
+																								th:text="${order.productCategory.name}">제품군</a>
 																						</h5>
 																					</div>
 																					<div class="flex-shrink-0">

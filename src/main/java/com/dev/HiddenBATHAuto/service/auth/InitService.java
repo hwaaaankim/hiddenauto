@@ -34,7 +34,7 @@ public class InitService {
 	}
 
 	public void createTeamCategory(String name, String teamName) {
-		Team team = teamRepository.findByName(teamName);
+		Team team = teamRepository.findByName(teamName).get();
 		if (team == null)
 			return;
 
@@ -74,11 +74,11 @@ public class InitService {
 		member.setTelephone("02-000-0000");
 
 		if (teamName != null) {
-			Team team = teamRepository.findByName(teamName);
+			Team team = teamRepository.findByName(teamName).get();
 			member.setTeam(team);
 
 			if (teamCategoryName != null) {
-				TeamCategory category = teamCategoryRepository.findByNameAndTeam(teamCategoryName, team);
+				TeamCategory category = teamCategoryRepository.findByNameAndTeam(teamCategoryName, team).get();
 				member.setTeamCategory(category);
 
 				// 🔍 팀 유형에 따른 스코프 세팅

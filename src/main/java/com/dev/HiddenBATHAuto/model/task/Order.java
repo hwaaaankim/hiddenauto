@@ -35,7 +35,9 @@ public class Order {
     @ManyToOne
     private Task task;
 
-    private String productCategory;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_category_id")
+    private TeamCategory productCategory;
     // 우편번호
     private String zipCode;
 

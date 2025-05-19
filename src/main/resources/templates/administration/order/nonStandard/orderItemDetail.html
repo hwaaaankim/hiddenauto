@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="fragments/administration/common :: autoAdminHead">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
 <body>
@@ -10,10 +10,10 @@
 	<!-- Begin page -->
 	<div id="layout-wrapper">
 
-		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 
-		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
-		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
 		<div class="main-content">
 
@@ -37,285 +37,263 @@
 						</div>
 					</div>
 
-					<div class="row">
-						<div class="col-lg-10">
-							<div class="card">
-								<div class="card-body">
-									<div class="mb-3">
-										<label class="form-label">대리점명</label>
-										<input type="text" class="form-control"
-											th:value="${order.task.requestedBy.name}" readonly>
-									</div>
+					<form th:action="@{'/management/nonStandardOrderItemUpdate/' + ${order.id}}" method="POST">
+						<div class="row">
+							<div class="col-lg-10">
+								<div class="card">
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">대리점명</label>
+											<input type="text" class="form-control"
+												th:value="${order.task.requestedBy.name}" readonly>
+										</div>
 
-									<div class="mb-3">
-										<label class="form-label">신청자명</label>
-										<input type="text" class="form-control"
-											th:value="${order.task.requestedBy.username}" readonly>
-									</div>
+										<div class="mb-3">
+											<label class="form-label">신청자명</label>
+											<input type="text" class="form-control"
+												th:value="${order.task.requestedBy.username}" readonly>
+										</div>
 
-									<div class="mb-3">
-										<label class="form-label">배송주소</label>
-										<input type="text" class="form-control" th:value="${order.deliveryAddress}"
-											readonly>
-									</div>
-
-									<div class="row">
-										<div class="col-lg-4">
-											<label class="form-label">수량</label>
-											<input type="text" class="form-control" th:value="${order.quantity}"
+										<div class="mb-3">
+											<label class="form-label">배송주소</label>
+											<input type="text" class="form-control"
+												th:value="|(${order.zipCode}) ${order.doName} ${order.siName} ${order.guName} ${order.roadAddress} ${order.detailAddress}|"
 												readonly>
-										</div>
-										
-
-										<div class="col-lg-4">
-											<label class="form-label">발주일</label>
-											<input type="text" class="form-control"
-												th:value="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}" readonly>
-										</div>
-
-										<div class="col-lg-4">
-											<label class="form-label">제품비용</label>
-											<input type="text" class="form-control" th:value="${order.productCost}"
-												>
-										</div>
-										<div class="col-lg-4">
-											<label class="form-label">배송수단</label>
-											<input type="text" class="form-control"
-												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '미지정'}"
-												>
-										</div>
-
-										<div class="col-lg-4">
-											<label class="form-label">배송비용</label>
-											<input type="text" class="form-control"
-												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodPrice : 0}"
-												>
-										</div>
-
-										<div class="col-lg-4">
-											<label class="form-label">배송희망일</label>
-											<input type="text" class="form-control"
-												th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"
-												>
-										</div>
-									</div>
-
-									<div class="row mt-3">
-										<div class="col-12">
-											<label class="form-label">제품 옵션</label>
 										</div>
 
 										<div class="row">
-											<div class="col-lg-2" th:each="entry : ${optionMap}">
-												<div>
-													<label class="form-label" th:text="${entry.key}">옵션명</label>
-													<input type="text" class="form-control" th:value="${entry.value}"
-														readonly>
+											<div class="col-lg-4">
+												<label class="form-label">수량</label>
+												<input type="text" class="form-control" th:value="${order.quantity}"
+													readonly>
+											</div>
+											<div class="col-lg-4">
+												<label class="form-label">발주일</label>
+												<input type="text" class="form-control"
+													th:value="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}"
+													readonly>
+											</div>
+
+											<div class="col-lg-4">
+												<label class="form-label">제품비용</label>
+												<input type="text" class="form-control" name="productCost"
+													th:value="${order.productCost}">
+											</div>
+
+											<div class="col-lg-4">
+												<label class="form-label">배송희망일</label>
+												<input type="date" class="form-control" name="preferredDeliveryDate"
+													th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}" />
+											</div>
+										</div>
+
+										<div class="row mt-3">
+											<div class="col-12">
+												<label class="form-label">제품 옵션</label>
+											</div>
+
+											<div class="row">
+												<div class="col-lg-2" th:each="entry : ${optionMap}">
+													<div>
+														<label class="form-label" th:text="${entry.key}">옵션명</label>
+														<input type="text" class="form-control"
+															th:value="${entry.value}" readonly>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="row mt-4">
+											<div class="col-12">
+												<label class="form-label">이미지 첨부 파일</label>
+											</div>
+
+											<div class="col-12">
+												<div class="row g-2">
+													<!-- 반복: 이미지 타입별 구간 -->
+													<div th:each="entry : ${imageTypeMap}">
+														<div class="col-12 mt-3">
+															<h6 th:text="${entry.key}"></h6>
+															<div class="row g-2">
+																<!-- 실제 업로드된 이미지들 -->
+																<div class="col-lg-2"
+																	th:each="img : ${order.orderImages.?[type == entry.value]}">
+																	<div
+																		class="border rounded p-2 d-flex justify-content-between align-items-center">
+																		<span th:text="${img.filename}"
+																			class="text-truncate"
+																			style="max-width: 80%;"></span>
+																		<a th:href="@{${img.url}}" download>
+																			<i
+																				class="ri-download-2-line fs-18 text-primary"></i>
+																		</a>
+																	</div>
+																</div>
+
+																<!-- 샘플 예시 (이미지가 없을 경우) -->
+																<div class="col-lg-2"
+																	th:if="${#lists.isEmpty(order.orderImages.?[type == entry.value])}">
+																	<div
+																		class="border rounded p-2 d-flex justify-content-between align-items-center">
+																		<span class="text-truncate"
+																			style="max-width: 80%;">sample.png</span>
+																		<a href="/sample/sample.png" download>
+																			<i
+																				class="ri-download-2-line fs-18 text-muted"></i>
+																		</a>
+																	</div>
+																</div>
+
+																<div class="col-lg-2"
+																	th:if="${#lists.isEmpty(order.orderImages.?[type == entry.value])}">
+																	<div
+																		class="border rounded p-2 d-flex justify-content-between align-items-center">
+																		<span class="text-truncate"
+																			style="max-width: 80%;">example.jpg</span>
+																		<a href="/sample/example.jpg" download>
+																			<i
+																				class="ri-download-2-line fs-18 text-muted"></i>
+																		</a>
+																	</div>
+																</div>
+															</div>
+														</div>
+													</div> <!-- /end image type entry -->
 												</div>
 											</div>
 										</div>
 									</div>
-									<div class="row mt-4">
-										<div class="col-12">
-											<label class="form-label">이미지 첨부 파일</label>
-										</div>
+								</div>
 
-										<div class="col-12">
-											<div class="row g-2">
-												<!-- 반복: 이미지 타입별 구간 -->
-												<div th:each="entry : ${imageTypeMap}">
-													<div class="col-12 mt-3">
-														<h6 th:text="${entry.key}"></h6>
-														<div class="row g-2">
-															<!-- 실제 업로드된 이미지들 -->
-															<div class="col-lg-2"
-																th:each="img : ${order.orderImages.?[type == entry.value]}">
-																<div
-																	class="border rounded p-2 d-flex justify-content-between align-items-center">
-																	<span th:text="${img.filename}"
-																		class="text-truncate"
-																		style="max-width: 80%;"></span>
-																	<a th:href="@{${img.url}}" download>
-																		<i
-																			class="ri-download-2-line fs-18 text-primary"></i>
-																	</a>
+
+								<div class="card">
+									<div class="card-header">
+										<h5 class="card-title mb-0">첨부파일</h5>
+									</div>
+									<div class="card-body">
+										<div>
+											<p class="text-muted">첨부파일을 업로드 해 주세요.</p>
+
+											<div class="dropzone">
+												<div class="fallback">
+													<input name="file" type="file" multiple="multiple">
+												</div>
+												<div class="dz-message needsclick">
+													<div class="mb-3">
+														<i class="display-4 text-muted ri-upload-cloud-2-fill"></i>
+													</div>
+
+													<h5>Drop files here or click to upload.</h5>
+												</div>
+											</div>
+
+											<ul class="list-unstyled mb-0" id="dropzone-preview">
+												<li class="mt-2" id="dropzone-preview-list">
+													<div class="border rounded">
+														<div class="d-flex p-2">
+															<div class="flex-shrink-0 me-3">
+																<div class="avatar-sm bg-light rounded">
+																	<img src="#" alt="Project-Image" data-dz-thumbnail
+																		class="img-fluid rounded d-block" />
 																</div>
 															</div>
-
-															<!-- 샘플 예시 (이미지가 없을 경우) -->
-															<div class="col-lg-2"
-																th:if="${#lists.isEmpty(order.orderImages.?[type == entry.value])}">
-																<div
-																	class="border rounded p-2 d-flex justify-content-between align-items-center">
-																	<span class="text-truncate"
-																		style="max-width: 80%;">sample.png</span>
-																	<a href="/sample/sample.png" download>
-																		<i
-																			class="ri-download-2-line fs-18 text-muted"></i>
-																	</a>
+															<div class="flex-grow-1">
+																<div class="pt-1">
+																	<h5 class="fs-14 mb-1" data-dz-name>&nbsp;</h5>
+																	<p class="fs-13 text-muted mb-0" data-dz-size></p>
+																	<strong class="error text-danger"
+																		data-dz-errormessage></strong>
 																</div>
 															</div>
-
-															<div class="col-lg-2"
-																th:if="${#lists.isEmpty(order.orderImages.?[type == entry.value])}">
-																<div
-																	class="border rounded p-2 d-flex justify-content-between align-items-center">
-																	<span class="text-truncate"
-																		style="max-width: 80%;">example.jpg</span>
-																	<a href="/sample/example.jpg" download>
-																		<i
-																			class="ri-download-2-line fs-18 text-muted"></i>
-																	</a>
-																</div>
+															<div class="flex-shrink-0 ms-3">
+																<button data-dz-remove
+																	class="btn btn-sm btn-danger">Delete</button>
 															</div>
 														</div>
 													</div>
-												</div> <!-- /end image type entry -->
-											</div>
+												</li>
+											</ul>
 										</div>
 									</div>
-
-
+								</div>
+								<div class="text-end mb-4">
+									<button class="btn btn-success w-sm">확인</button>
 								</div>
 							</div>
 
+							<div class="col-lg-2">
+								<div class="card">
+									<div class="card-header">
+										<h5 class="card-title mb-0">상태</h5>
+									</div>
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">발주상태관리</label>
+											<select class="form-select" name="status">
+												<option th:each="status : ${orderStatuses}" th:value="${status.name()}"
+													th:text="${status.name()}"
+													th:selected="${order.status?.name() == status.name()}">
+												</option>
+											</select>
 
-							<div class="card">
-								<div class="card-header">
-									<h5 class="card-title mb-0">첨부파일</h5>
-								</div>
-								<div class="card-body">
-									<div>
-										<p class="text-muted">첨부파일을 업로드 해 주세요.</p>
-
-										<div class="dropzone">
-											<div class="fallback">
-												<input name="file" type="file" multiple="multiple">
-											</div>
-											<div class="dz-message needsclick">
-												<div class="mb-3">
-													<i class="display-4 text-muted ri-upload-cloud-2-fill"></i>
-												</div>
-
-												<h5>Drop files here or click to upload.</h5>
-											</div>
 										</div>
-
-										<ul class="list-unstyled mb-0" id="dropzone-preview">
-											<li class="mt-2" id="dropzone-preview-list">
-												<div class="border rounded">
-													<div class="d-flex p-2">
-														<div class="flex-shrink-0 me-3">
-															<div class="avatar-sm bg-light rounded">
-																<img src="#" alt="Project-Image" data-dz-thumbnail
-																	class="img-fluid rounded d-block" />
-															</div>
-														</div>
-														<div class="flex-grow-1">
-															<div class="pt-1">
-																<h5 class="fs-14 mb-1" data-dz-name>&nbsp;</h5>
-																<p class="fs-13 text-muted mb-0" data-dz-size></p>
-																<strong class="error text-danger"
-																	data-dz-errormessage></strong>
-															</div>
-														</div>
-														<div class="flex-shrink-0 ms-3">
-															<button data-dz-remove
-																class="btn btn-sm btn-danger">Delete</button>
-														</div>
-													</div>
-												</div>
-											</li>
-										</ul>
+										<div>
+											<label class="form-label">배송수단</label>
+											<select class="form-select" name="deliveryMethodId">
+												<option value="" th:selected="${order.deliveryMethod == null}">미지정
+												</option>
+												<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
+													th:text="${method.methodName + ' (금액: ' + method.methodPrice + ')'}"
+													th:selected="${order.deliveryMethod?.id == method.id}">
+												</option>
+											</select>
+										</div>
 									</div>
 								</div>
-							</div>
-							<div class="text-end mb-4">
-								<button class="btn btn-success w-sm">확인</button>
-							</div>
-						</div>
-
-						<div class="col-lg-2">
-							<div class="card">
-								<div class="card-header">
-									<h5 class="card-title mb-0">상태</h5>
-								</div>
-								<div class="card-body">
-									<div class="mb-3">
-										<label class="form-label">발주상태관리</label>
-										<select class="form-select">
-											<option value="Private" selected>요청됨</option>
-											<option value="Team">생산배정</option>
-											<option value="Public">배송중</option>
-											<option value="Public">취소</option>
-											<option value="Public">완료</option>
-										</select>
-									</div>
-									<div>
-										<label class="form-label">배송수단변경</label>
-										<select class="form-select" data-choices data-choices-search-false>
-											<option value="High" selected>직배송(금액 : )</option>
-											<option value="Medium">택배(금액 : )</option>
-											<option value="Low">방문출고(금액 : )</option>
-											<option value="Low">기타(금액 : )</option>
-										</select>
-									</div>
-								</div>
-							</div>
 
 
-							<div class="card">
-								<div class="card-header">
-									<h5 class="card-title mb-0">담당자</h5>
-								</div>
-								<div class="card-body">
-									<div class="mb-3">
-										<label class="form-label">배송팀</label>
-										<select class="form-select">
-											<option value="Brent Gonzalez" selected>배송팀직원명</option>
-											<option value="Darline Williams">배송팀직원명</option>
-											<option value="Darline Williams">배송팀직원명</option>
-											<option value="Darline Williams">배송팀직원명</option>
-											<option value="Darline Williams">배송팀직원명</option>
-											<option value="Darline Williams">배송팀직원명</option>
-										</select>
+								<div class="card">
+									<div class="card-header">
+										<h5 class="card-title mb-0">담당자</h5>
 									</div>
-									<div class="mb-3">
-										<label class="form-label">담당영업사원</label>
-										<select class="form-select">
-											<option value="Brent Gonzalez" selected>영업사원명</option>
-											<option value="Darline Williams">영업사원명</option>
-											<option value="Darline Williams">영업사원명</option>
-											<option value="Darline Williams">영업사원명</option>
-											<option value="Darline Williams">영업사원명</option>
-											<option value="Darline Williams">영업사원명</option>
-										</select>
-									</div>
-									<div class="mb-3">
-										<label class="form-label">생산팀</label>
-										<select class="form-select">
-											<option value="Brent Gonzalez" selected>생산팀카테고리</option>
-											<option value="Darline Williams">생산팀카테고리</option>
-											<option value="Darline Williams">생산팀카테고리</option>
-											<option value="Darline Williams">생산팀카테고리</option>
-											<option value="Darline Williams">생산팀카테고리</option>
-											<option value="Darline Williams">생산팀카테고리</option>
-										</select>
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">배송팀</label>
+											<select class="form-select" name="assignedDeliveryHandlerId">
+												<option value="" th:selected="${order.assignedDeliveryHandler == null}">
+													배정 필요함</option>
+												<option th:each="member : ${deliveryTeamMembers}"
+													th:value="${member.id}" th:text="${member.name}"
+													th:selected="${order.assignedDeliveryHandler?.id == member.id}">
+												</option>
+											</select>
+
+										</div>
+										<div class="mb-3">
+											<label class="form-label">생산팀</label>
+											<select class="form-select" name="productCategoryId">
+												<option value="" th:selected="${order.productCategory == null}">배정 필요함
+												</option>
+												<option th:each="category : ${productionTeamCategories}"
+													th:value="${category.id}" th:text="${category.name}"
+													th:selected="${order.productCategory.id == category.id}">
+												</option>
+											</select>
+										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-					</div>
+					</form>
 				</div>
 			</div>
 
-			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
 
 
-	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
-	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 	<script src="/administration/assets/libs/dropzone/dropzone-min.js"></script>
 	<script src="/administration/assets/js/pages/project-create.init.js"></script>
 </body>
