@@ -1,8 +1,13 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,379 +16,175 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
-import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
-import com.dev.HiddenBATHAuto.model.auth.Team;
-import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
-import com.dev.HiddenBATHAuto.repository.auth.TeamRepository;
+import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
+import com.dev.HiddenBATHAuto.model.task.AsTask;
+import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderItem;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
+import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
+import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequestMapping("/team")
+@PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
 @RequiredArgsConstructor
 public class TeamController {
 
-	private final MemberRepository memberRepository;
-	private final TeamRepository teamRepository;
+	private final TeamTaskService teamTaskService;
+	private final TeamCategoryRepository teamCategoryRepository;
+	private final OrderRepository orderRepository;
 
-    // 방식 1: PathVariable
-    @GetMapping("/check-role/{memberId}")
-    public String checkTeamInfoByPath(@PathVariable Long memberId) {
-        return checkTeamInfo(memberId);
-    }
+	@GetMapping("/productionList")
+	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate preferredDate,
+			@RequestParam(required = false) Long productCategoryId, Pageable pageable, Model model) {
 
-    // 방식 2: RequestBody
-    @PostMapping("/check-role")
-    public String checkTeamInfoByBody(@RequestBody Map<String, Long> body) {
-        Long memberId = body.get("memberId");
-        return checkTeamInfo(memberId);
-    }
+		Member member = principal.getMember();
 
-    private String checkTeamInfo(Long memberId) {
-        Member member = memberRepository.findById(memberId)
-            .orElseThrow(() -> new RuntimeException("해당 회원이 존재하지 않습니다."));
+		if (!"생산팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+		}
 
-        if (member.getRole() != MemberRole.INTERNAL_EMPLOYEE) {
-            return "내부 직원이 아닙니다.";
-        }
+		Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
+		if (preferredDate == null) {
+			preferredDate = LocalDate.now().plusDays(1);
+		}
 
-        String team = member.getTeam() != null ? member.getTeam().getName() : "팀 없음";
-        String category = member.getTeamCategory() != null ? member.getTeamCategory().getName() : "부서 없음";
+		Page<Order> orderPage = teamTaskService.getProductionOrders(
+				List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE),
+				targetCategoryId, preferredDate, pageable);
 
-        return String.format("팀: %s, 부서: %s", team, category);
-    }
-    
-    @GetMapping("/{memberId}")
-    @ResponseBody
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String accessTeamByMemberId(@PathVariable Long memberId) {
-        Member member = memberRepository.findById(memberId)
-            .orElseThrow(() -> new RuntimeException("해당 멤버를 찾을 수 없습니다."));
+		List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
 
-        String teamName = member.getTeam() != null ? member.getTeam().getName() : "팀 없음";
-        String categoryName = member.getTeamCategory() != null ? member.getTeamCategory().getName() : "카테고리 없음";
+		model.addAttribute("orders", orderPage.getContent());
+		model.addAttribute("page", orderPage);
+		model.addAttribute("productCategoryId", productCategoryId);
+		model.addAttribute("preferredDate", preferredDate);
+		model.addAttribute("productCategories", productCategories);
 
-        return String.format("회원 ID: %d, 팀: %s, 카테고리: %s", memberId, teamName, categoryName);
-    }
-    
-    @GetMapping("/team/asList/{teamId}/{teamCategoryId}")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String accessAsTeamPage(@PathVariable Long teamId,
-                                   @PathVariable Long teamCategoryId,
-                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
-                                   Model model) {
+		return "administration/team/production/productionList";
+	}
 
-    	Member member = principalDetails.getMember();
+	@GetMapping("/productionDetail/{orderId}")
+	public String getProductionDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,
+			Model model) {
+		// 주문 조회
+		Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
 
-        // 팀 존재 여부 확인
-        Team team = teamRepository.findById(teamId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+		// 옵션 파싱
+		OrderItem orderItem = order.getOrderItem();
+		if (orderItem != null && orderItem.getOptionJson() != null) {
+			try {
+				ObjectMapper mapper = new ObjectMapper();
+				Map<String, String> parsedMap = mapper.readValue(orderItem.getOptionJson(), new TypeReference<>() {
+				});
+				orderItem.setParsedOptionMap(parsedMap);
+			} catch (Exception e) {
+				e.printStackTrace(); // 또는 로그 처리
+			}
+		}
 
-        // 팀 이름 검사
-        if (!"AS팀".equals(team.getName())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
-        }
+		// 로그인한 멤버의 팀카테고리와 주문의 제품분류 일치 여부
+		Member loginMember = principal.getMember();
+		boolean canChangeStatus = false;
 
-        // 현재 로그인한 사용자의 팀 일치 여부 검사
-        if (!member.getTeam().getId().equals(teamId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
-        }
+		if (loginMember.getTeamCategory() != null && order.getProductCategory() != null
+				&& loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())
+				&& order.getStatus() == OrderStatus.CONFIRMED) {
+			canChangeStatus = true;
+		}
 
-        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
-        }
+		model.addAttribute("order", order);
+		model.addAttribute("orderItem", orderItem);
+		model.addAttribute("canChangeStatus", canChangeStatus);
 
-        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
-        model.addAttribute("teamName", team.getName());
-        model.addAttribute("teamCategory", member.getTeamCategory().getName());
-        return "administration/team/as/asList"; // Thymeleaf 템플릿 이름
-    }
-    
-    @GetMapping("/deliveryList/{teamId}/{teamCategoryId}")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String accessDeliveryTeamPage(@PathVariable Long teamId,
-                                   @PathVariable Long teamCategoryId,
-                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
-                                   Model model) {
+		return "administration/team/production/productionDetail";
+	}
 
-    	Member member = principalDetails.getMember();
+	@PostMapping("/updateStatus/{orderId}")
+	public String updateProductionStatus(@PathVariable Long orderId, @RequestParam("status") OrderStatus newStatus,
+			@AuthenticationPrincipal PrincipalDetails principal, RedirectAttributes redirectAttributes) {
+		// 1. 로그인한 멤버 확인
+		Member loginMember = principal.getMember();
 
-        // 팀 존재 여부 확인
-        Team team = teamRepository.findById(teamId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+		// 2. 오더 조회
+		Order order = orderRepository.findById(orderId)
+				.orElseThrow(() -> new IllegalArgumentException("주문이 존재하지 않습니다."));
 
-        // 팀 이름 검사
-        if (!"배송팀".equals(team.getName())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
-        }
+		// 3. 권한 체크: 로그인한 멤버의 팀 카테고리와 오더의 제품 카테고리가 같아야 함
+		if (!loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())) {
+			redirectAttributes.addFlashAttribute("errorMessage", "상태 변경 권한이 없습니다.");
+			return "redirect:/team/productionDetail/" + orderId;
+		}
 
-        // 현재 로그인한 사용자의 팀 일치 여부 검사
-        if (!member.getTeam().getId().equals(teamId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
-        }
+		// 4. 상태 변경 허용 조건 확인
+		if (order.getStatus() != OrderStatus.CONFIRMED || newStatus != OrderStatus.PRODUCTION_DONE) {
+			redirectAttributes.addFlashAttribute("errorMessage", "변경 가능한 상태가 아닙니다.");
+			return "redirect:/team/productionDetail/" + orderId;
+		}
 
-        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
-        }
+		// 5. 상태 변경
+		order.setStatus(OrderStatus.PRODUCTION_DONE);
+		order.setUpdatedAt(LocalDateTime.now());
+		orderRepository.save(order);
 
-        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
-        model.addAttribute("teamName", team.getName());
-        model.addAttribute("teamCategory", member.getTeamCategory().getName());
-        return "administration/team/delivery/deliveryList"; // Thymeleaf 템플릿 이름
-    }
-    
-    @GetMapping("/deliveryDetail/{teamId}/{teamCategoryId}")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String deliveryDetail(@PathVariable Long teamId,
-                                   @PathVariable Long teamCategoryId,
-                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
-                                   Model model) {
+		redirectAttributes.addFlashAttribute("successMessage", "상태가 성공적으로 변경되었습니다.");
+		return "redirect:/team/productionDetail/" + orderId;
+	}
 
-    	Member member = principalDetails.getMember();
+	@GetMapping("/deliveryList")
+	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
+	        Pageable pageable, Model model) {
 
-        // 팀 존재 여부 확인
-        Team team = teamRepository.findById(teamId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+	    Member member = principal.getMember();
 
-        // 팀 이름 검사
-        if (!"배송팀".equals(team.getName())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
-        }
+	    // 1. 배송팀만 접근 가능
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
 
-        // 현재 로그인한 사용자의 팀 일치 여부 검사
-        if (!member.getTeam().getId().equals(teamId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
-        }
+	    // 2. 기본 조회일은 '내일'
+	    if (preferredDate == null) {
+	        preferredDate = LocalDate.now().plusDays(1);
+	    }
 
-        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
-        }
+	    // 3. 날짜 범위: 00:00:00 ~ 23:59:59
+	    LocalDateTime startDate = preferredDate.atStartOfDay();
+	    LocalDateTime endDate = preferredDate.plusDays(1).atStartOfDay().minusNanos(1);
 
-        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
-        model.addAttribute("teamName", team.getName());
-        model.addAttribute("teamCategory", member.getTeamCategory().getName());
-        return "administration/team/delivery/deliveryDetail"; // Thymeleaf 템플릿 이름
-    }
-    
-    @GetMapping("/productionListLegacy/{teamId}/{teamCategoryId}")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String productionListLegacy(@PathVariable Long teamId,
-                                   @PathVariable Long teamCategoryId,
-                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
-                                   Model model) {
+	    // 4. 대상 상태
+	    List<OrderStatus> targetStatuses = List.of(OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
 
-    	Member member = principalDetails.getMember();
+	    // 5. 조회
+	    Page<Order> orders = orderRepository.findDeliveryOrdersByHandlerAndStatusAndDateRange(
+	        member.getId(), targetStatuses, startDate, endDate, pageable);
 
-        // 팀 존재 여부 확인
-        Team team = teamRepository.findById(teamId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
+	    // 6. 모델 설정
+	    model.addAttribute("orders", orders);
+	    model.addAttribute("preferredDate", preferredDate);
+	    model.addAttribute("page", orders);
 
-        // 팀 이름 검사
-        if (!"생산팀".equals(team.getName())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
-        }
+	    return "administration/team/delivery/deliveryList"; // 뷰 템플릿 경로
+	}
 
-        // 현재 로그인한 사용자의 팀 일치 여부 검사
-        if (!member.getTeam().getId().equals(teamId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
-        }
 
-        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
-        }
-
-        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
-        model.addAttribute("teamName", team.getName());
-        model.addAttribute("teamCategory", member.getTeamCategory().getName());
-        return "administration/team/production/productionList"; // Thymeleaf 템플릿 이름
-    }
-    
-    @GetMapping("/productionDetailLegacy/{teamId}/{teamCategoryId}")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String productionDetailLegacy(@PathVariable Long teamId,
-                                   @PathVariable Long teamCategoryId,
-                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
-                                   Model model) {
-
-    	Member member = principalDetails.getMember();
-
-        // 팀 존재 여부 확인
-        Team team = teamRepository.findById(teamId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
-
-        // 팀 이름 검사
-        if (!"생산팀".equals(team.getName())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
-        }
-
-        // 현재 로그인한 사용자의 팀 일치 여부 검사
-        if (!member.getTeam().getId().equals(teamId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
-        }
-
-        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
-        }
-
-        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
-        model.addAttribute("teamName", team.getName());
-        model.addAttribute("teamCategory", member.getTeamCategory().getName());
-        return "administration/team/production/productionDetail"; // Thymeleaf 템플릿 이름
-    }
-    
-    @GetMapping("/productionListNew/{teamId}/{teamCategoryId}")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String productionListNew(@PathVariable Long teamId,
-                                   @PathVariable Long teamCategoryId,
-                                   @AuthenticationPrincipal PrincipalDetails principalDetails,
-                                   Model model) {
-
-    	Member member = principalDetails.getMember();
-
-        // 팀 존재 여부 확인
-        Team team = teamRepository.findById(teamId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 팀입니다."));
-
-        // 팀 이름 검사
-        if (!"생산팀".equals(team.getName())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AS팀이 아닌 팀입니다.");
-        }
-
-        // 현재 로그인한 사용자의 팀 일치 여부 검사
-        if (!member.getTeam().getId().equals(teamId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 팀이 사용자 팀과 일치하지 않습니다.");
-        }
-
-        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근하려는 카테고리가 사용자 정보와 일치하지 않습니다.");
-        }
-
-        // 통과했으면 해당 뷰로 이동 (또는 필요한 데이터 추가)
-        model.addAttribute("teamName", team.getName());
-        model.addAttribute("teamCategory", member.getTeamCategory().getName());
-        return "administration/team/production/productionList"; // Thymeleaf 템플릿 이름
-    }
-    
-    @GetMapping("/team/{teamId}/{teamCategoryId}")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE')")
-    public String accessTeamWithCategory(@PathVariable Long teamId,
-                                         @PathVariable Long teamCategoryId,
-                                         @AuthenticationPrincipal Member member) {
-
-        if (!member.getTeam().getId().equals(teamId)) {
-            throw new AccessDeniedException("팀 접근 권한이 없습니다.");
-        }
-
-        if (member.getTeamCategory() == null || !member.getTeamCategory().getId().equals(teamCategoryId)) {
-            throw new AccessDeniedException("카테고리 접근 권한이 없습니다.");
-        }
-
-        return String.format("접속한 팀: %s (%d), 카테고리: %s (%d)",
-                member.getTeam().getName(), teamId,
-                member.getTeamCategory().getName(), teamCategoryId);
-    }
-    
- // ✅ 팀별 접근 제한 (Team ID 기준)
-    @GetMapping("/team1")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamId == 1")
-    public String accessTeam1() {
-        return "1팀 전용 페이지";
-    }
-
-    @GetMapping("/team2")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamId == 2")
-    public String accessTeam2() {
-        return "2팀 전용 페이지";
-    }
-
-    @GetMapping("/team3")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamId == 3")
-    public String accessTeam3() {
-        return "3팀 전용 페이지";
-    }
-
-    @GetMapping("/team4")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamId == 4")
-    public String accessTeam4() {
-        return "4팀 전용 페이지";
-    }
-
-    // ✅ 팀 카테고리별 접근 제한
-    // 1팀: 1개 카테고리 (예: 설계1팀)
-    @GetMapping("/team1/cat1")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 1")
-    public String accessTeam1Cat1() {
-        return "1팀 - 1번 카테고리 접근";
-    }
-
-    // 2팀: 6개 카테고리 (예: 하부장, 상부장, 슬라이드 등)
-    @GetMapping("/team2/cat1")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 2")
-    public String accessTeam2Cat1() {
-        return "2팀 - 1번 카테고리 접근";
-    }
-
-    @GetMapping("/team2/cat2")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 3")
-    public String accessTeam2Cat2() {
-        return "2팀 - 2번 카테고리 접근";
-    }
-
-    @GetMapping("/team2/cat3")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 4")
-    public String accessTeam2Cat3() {
-        return "2팀 - 3번 카테고리 접근";
-    }
-
-    @GetMapping("/team2/cat4")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 5")
-    public String accessTeam2Cat4() {
-        return "2팀 - 4번 카테고리 접근";
-    }
-
-    @GetMapping("/team2/cat5")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 6")
-    public String accessTeam2Cat5() {
-        return "2팀 - 5번 카테고리 접근";
-    }
-
-    @GetMapping("/team2/cat6")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 7")
-    public String accessTeam2Cat6() {
-        return "2팀 - 6번 카테고리 접근";
-    }
-
-    // 3팀: 2개 카테고리
-    @GetMapping("/team3/cat1")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 8")
-    public String accessTeam3Cat1() {
-        return "3팀 - 1번 카테고리 접근";
-    }
-
-    @GetMapping("/team3/cat2")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 9")
-    public String accessTeam3Cat2() {
-        return "3팀 - 2번 카테고리 접근";
-    }
-
-    // 4팀: 2개 카테고리
-    @GetMapping("/team4/cat1")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 10")
-    public String accessTeam4Cat1() {
-        return "4팀 - 1번 카테고리 접근";
-    }
-
-    @GetMapping("/team4/cat2")
-    @PreAuthorize("hasAuthority('ROLE_INTERNAL_EMPLOYEE') and #authentication.principal.teamCategoryId == 11")
-    public String accessTeam4Cat2() {
-        return "4팀 - 2번 카테고리 접근";
-    }
-	
+	@GetMapping("/asList")
+	public Page<AsTask> getAsTasks(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asDate,
+			Pageable pageable) {
+		Member member = principal.getMember();
+		return teamTaskService.getAsTasks(member, asDate, pageable);
+	}
 }

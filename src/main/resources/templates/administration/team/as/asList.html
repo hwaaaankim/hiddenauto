@@ -1,0 +1,343 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="fragments/administration/common :: autoAdminHead">
+</head>
+
+<body>
+
+	<!-- Begin page -->
+	<div id="layout-wrapper">
+
+		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+
+		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
+		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+
+			<div class="page-content">
+				<div class="container-fluid">
+
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">배송리스트</h4>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript: void(0);">팀별업무관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">배송팀</a></li>
+										<li class="breadcrumb-item active">배송리스트</li>
+									</ol>
+								</div>
+
+							</div>
+						</div>
+					</div>
+					<form method="get" th:action="@{/team/}" class="row">
+						<div class="col-lg-6">
+							<div class="row g-4 mb-3">
+								<div class="col-lg-8">
+									<label class="form-label">출고일 조회</label>
+									<input type="text" name="preferredDate" class="form-control"
+										placeholder="YYYY-MM-DD" data-provider="flatpickr"
+										th:value="${param.preferredDate}">
+								</div>
+								<div class="col-lg-4">
+									<label class="form-label">조회</label>
+									<button type="submit" class="btn btn-primary">검색하기</button>
+								</div>
+							</div>
+						</div>
+					</form>
+					<div class="row">
+						<div class="col-lg-10">
+							<div class="row">
+								<div class="col-lg-12">
+									<div class="card">
+										<div class="card-header">
+											<h4 class="card-title mb-0">배송리스트</h4>
+										</div><!-- end card header -->
+
+										<div class="card-body">
+											<p class="text-muted mb-0">마우스 드래그 앤 드랍을 통해 배송 순서를 변경할 수 있습니다.</p>
+											<p class="text-muted">드래그 앤 드랍을 통해 순서 변경 후에는 반드시 '확정' 버튼을 클릭해주시기 바랍니다.</p>
+											<div class="list-group col nested-list nested-sortable">
+												<div class="list-group-item nested-1 draggable-item">
+													<div class="item-content">
+														<div class="text-section">
+															<div><strong>업체명:</strong> 현대가구</div>
+															<div><strong>주소:</strong> 서울시 송파구 법원로 128</div>
+															<div class="ellipsis"><strong>제품 상세:</strong> 고급 하부장 세트 (사이즈
+																1200 x 800 x 500) 색상: 월넛 브라운 외</div>
+														</div>
+														<div class="action-btn-group">
+															<a class="action-btn"
+																th:href="@{'/team/deliveryDetail/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}">
+																상세보기
+															</a>
+															<button type="button" class="action-btn"
+																data-bs-toggle="modal"
+																data-bs-target="#zoomInModal">완료처리</button>
+														</div>
+													</div>
+												</div>
+												<div class="list-group-item nested-1 draggable-item">
+													<div class="item-content">
+														<div class="text-section">
+															<div><strong>업체명:</strong> 현대가구</div>
+															<div><strong>주소:</strong> 서울시 송파구 법원로 128</div>
+															<div class="ellipsis"><strong>제품 상세:</strong> 고급 하부장 세트 (사이즈
+																1200 x 800 x 500) 색상: 월넛 브라운 외</div>
+														</div>
+														<div class="action-btn-group">
+															<a class="action-btn"
+																th:href="@{'/team/deliveryDetail/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}">
+																상세보기
+															</a>
+															<a class="action-btn">완료처리</a>
+														</div>
+													</div>
+												</div>
+												<div class="list-group-item nested-1 draggable-item">
+													<div class="item-content">
+														<div class="text-section">
+															<div><strong>업체명:</strong> 현대가구</div>
+															<div><strong>주소:</strong> 서울시 송파구 법원로 128</div>
+															<div class="ellipsis"><strong>제품 상세:</strong> 고급 하부장 세트 (사이즈
+																1200 x 800 x 500) 색상: 월넛 브라운 외</div>
+														</div>
+														<div class="action-btn-group">
+															<a class="action-btn"
+																th:href="@{'/team/deliveryDetail/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}">
+																상세보기
+															</a>
+															<a class="action-btn">완료처리</a>
+														</div>
+													</div>
+												</div>
+												<div class="list-group-item nested-1 draggable-item">
+													<div class="item-content">
+														<div class="text-section">
+															<div><strong>업체명:</strong> 현대가구</div>
+															<div><strong>주소:</strong> 서울시 송파구 법원로 128</div>
+															<div class="ellipsis"><strong>제품 상세:</strong> 고급 하부장 세트 (사이즈
+																1200 x 800 x 500) 색상: 월넛 브라운 외</div>
+														</div>
+														<div class="action-btn-group">
+															<a class="action-btn"
+																th:href="@{'/team/deliveryDetail/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}">
+																상세보기
+															</a>
+															<a class="action-btn">완료처리</a>
+														</div>
+													</div>
+												</div>
+												<div class="list-group-item nested-1 draggable-item">
+													<div class="item-content">
+														<div class="text-section">
+															<div><strong>업체명:</strong> 현대가구</div>
+															<div><strong>주소:</strong> 서울시 송파구 법원로 128</div>
+															<div class="ellipsis"><strong>제품 상세:</strong> 고급 하부장 세트 (사이즈
+																1200 x 800 x 500) 색상: 월넛 브라운 외</div>
+														</div>
+														<div class="action-btn-group">
+															<a class="action-btn"
+																th:href="@{'/team/deliveryDetail/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}">
+																상세보기
+															</a>
+															<a class="action-btn">완료처리</a>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-2">
+							<div class="row g-4 mb-3">
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">게시물 출력수</label>
+										<select class="form-control w-md">
+											<option value="All">30개</option>
+											<option value="Today">50개</option>
+											<option value="Yesterday">100개</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">상태</label>
+										<select class="form-control w-md">
+											<option value="All">배송완료</option>
+											<option value="Today">배송전</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">검색조건</label>
+										<select class="form-control w-md">
+											<option value="All">대리점</option>
+											<option value="Today">담당자</option>
+											<option value="Yesterday">지역</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<label for="datepicker-deadline-input" class="form-label">검색어</label>
+									<div class="search-box">
+										<input type="text" class="form-control" placeholder="검색어를 입력 해 주세요.">
+										<i class="ri-search-line search-icon"></i>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">생산부서</label>
+										<select class="form-control w-md">
+											<option value="All">상부장</option>
+											<option value="Today">하부장</option>
+											<option value="Yesterday">슬라이드장</option>
+											<option value="Today">플랩장</option>
+											<option value="Yesterday">거울</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">시작일</label>
+										<input type="text" class="form-control" placeholder="Enter due date"
+											data-provider="flatpickr">
+									</div>
+								</div>
+								<div class="col-lg-12">
+									<div>
+										<label for="datepicker-deadline-input" class="form-label">마감일</label>
+										<input type="text" class="form-control" placeholder="Enter due date"
+											data-provider="flatpickr">
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row g-0 text-center text-sm-start align-items-end mb-4">
+						<div class="col-sm-6">
+							<div>
+								<p class="mb-sm-0 text-muted">Showing <span class="fw-semibold">1</span> to <span
+										class="fw-semibold">10</span> of <span
+										class="fw-semibold text-decoration-underline">12</span> entries</p>
+							</div>
+						</div>
+						<div class="col-sm-6">
+							<ul
+								class="pagination pagination-separated justify-content-center justify-content-sm-end mb-sm-0">
+								<li class="page-item disabled">
+									<a href="#" class="page-link">Previous</a>
+								</li>
+								<li class="page-item active">
+									<a href="#" class="page-link">1</a>
+								</li>
+								<li class="page-item ">
+									<a href="#" class="page-link">2</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">3</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">4</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">5</a>
+								</li>
+								<li class="page-item">
+									<a href="#" class="page-link">Next</a>
+								</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+		</div>
+	</div>
+	<div id="zoomInModal" class="modal fade zoomIn" tabindex="-1" aria-labelledby="zoomInModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title fw-bold" id="zoomInModalLabel">배송완료</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<p class="text-muted"># 배송완료 처리를 위한 이미지 업로드 후 완료 버튼을 클릭 해 주세요.</p>
+
+					<div class="delivery-finish-preview-container">
+						<!-- JS가 이미지 미리보기를 여기에 추가함 -->
+					</div>
+
+					<input class="form-control delivery-finish-file-input mt-3" type="file" id="delivery-finish-files"
+						multiple accept="image/*">
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
+					<button type="button" class="btn btn-primary">완료</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
+	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
+
+	<!-- nestable init js -->
+	<script src="/administration/assets/js/pages/nestable.init.js"></script>
+	<script src="/administration/assets/libs/prismjs/prism.js"></script>
+	<script src="https://cdn.lordicon.com/libs/mssddfmo/lord-icon-2.1.0.js"></script>
+	<script src="/administration/assets/js/pages/modal.init.js"></script>
+	<script>
+		document.getElementById('delivery-finish-files').addEventListener('change', function (e) {
+			const container = document.querySelector('.delivery-finish-preview-container');
+			const files = Array.from(e.target.files);
+			container.innerHTML = ''; // 초기화
+
+			files.forEach((file, index) => {
+				const reader = new FileReader();
+				reader.onload = function (e) {
+					const img = document.createElement('img');
+					img.src = e.target.result;
+					img.className = 'delivery-finish-preview-image';
+					img.title = '클릭하여 제거';
+					img.dataset.index = index;
+
+					img.addEventListener('click', function () {
+						img.remove();
+						removeFile(index);
+					});
+
+					container.appendChild(img);
+				};
+				reader.readAsDataURL(file);
+			});
+
+			// 파일 제거용 (input에서 완전히 제거하려면 FileList 대체 필요)
+			function removeFile(idx) {
+				const dt = new DataTransfer();
+				const newFiles = Array.from(document.getElementById('delivery-finish-files').files)
+					.filter((_, i) => i !== idx);
+
+				newFiles.forEach(file => dt.items.add(file));
+				document.getElementById('delivery-finish-files').files = dt.files;
+			}
+		});
+	</script>
+
+</body>
+
+</html>

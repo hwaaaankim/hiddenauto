@@ -57,6 +57,7 @@ public class AsTask {
 
     private LocalDateTime requestedAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
+    private LocalDateTime asProcessDate;
 
     @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
     private List<AsHistory> historyLogs;

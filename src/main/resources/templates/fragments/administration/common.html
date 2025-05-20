@@ -542,7 +542,7 @@ data-preloader="disable">
 										<div class="collapse menu-dropdown" id="sidebarDeliveryTaskManager">
 											<ul class="nav nav-sm flex-column">
 												<li class="nav-item">
-													<a th:href="@{'/team/deliveryList/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}"
+													<a href="/team/deliveryList"
 													 class="nav-link" data-key="t-salesteam">
 														배송 리스트 </a>
 												</li>
@@ -558,12 +558,9 @@ data-preloader="disable">
 										<div class="collapse menu-dropdown" id="sidebarProductionTaskManager">
 											<ul class="nav nav-sm flex-column">
 												<li class="nav-item">
-													<a th:href="@{'/team/productionListLegacy/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}"
+													<a href="/team/productionList"
 													 class="nav-link" data-key="t-salesteam">
-														생산관리리스트_기존 </a>
-													<a th:href="@{'/team/productionListNew/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}"
-													 class="nav-link" data-key="t-salesteam">
-														생산관리리스트_신규 </a>	
+														생산관리리스트 </a>
 												</li>
 											</ul>
 										</div>
@@ -576,7 +573,7 @@ data-preloader="disable">
 										<div class="collapse menu-dropdown" id="sidebarASTaskManager">
 											<ul class="nav nav-sm flex-column">
 												<li class="nav-item">
-													<a th:href="@{'/team/asList/' + ${#authentication.principal.team.id} + '/' + ${#authentication.principal.member.teamCategory.id}}"
+													<a href="/team/asList"
 													 class="nav-link" data-key="t-salesteam">
 														AS리스트 </a>
 												</li>
