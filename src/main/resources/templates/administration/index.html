@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="fragments/administration/common :: autoAdminHead">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
 <body>
@@ -10,10 +10,10 @@
 	<!-- Begin page -->
 	<div id="layout-wrapper">
 
-		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 
-		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
-		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
 		<div class="main-content">
 
@@ -492,13 +492,13 @@
 				</div>
 			</div>
 
-			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
 
 
-	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
-	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 </body>
 
 </html>

@@ -22,19 +22,14 @@ import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 @Transactional
 public class OrderUpdateService {
 
-	@Autowired
-	private OrderRepository orderRepository;
-	
-	@Autowired
-	private DeliveryMethodRepository deliveryMethodRepository;
-	
-	@Autowired
-	private MemberRepository memberRepository;
-	
-	@Autowired
-	private TeamCategoryRepository teamCategoryRepository;
-	
-	public void updateOrder(Long orderId, 
+	@Autowired private OrderRepository orderRepository;
+	@Autowired private DeliveryMethodRepository deliveryMethodRepository;
+	@Autowired private MemberRepository memberRepository;
+	@Autowired private TeamCategoryRepository teamCategoryRepository;
+	@Autowired private DeliveryOrderIndexService deliveryOrderIndexService;
+
+	public void updateOrder(
+			Long orderId, 
 			int productCost, 
 			LocalDate preferredDeliveryDate, 
 			String statusStr,
@@ -47,7 +42,6 @@ public class OrderUpdateService {
 
 		order.setProductCost(productCost);
 		order.setPreferredDeliveryDate(preferredDeliveryDate.atStartOfDay());
-
 		order.setStatus(OrderStatus.valueOf(statusStr));
 
 		deliveryMethodId.ifPresentOrElse(id -> {
@@ -69,6 +63,9 @@ public class OrderUpdateService {
 		}, () -> order.setProductCategory(null));
 
 		order.setUpdatedAt(LocalDateTime.now());
+
+		// ✅ 배송담당자 및 날짜가 설정되어 있을 경우, 인덱스 자동 처리
+		deliveryOrderIndexService.ensureIndex(order);
 	}
 
 }

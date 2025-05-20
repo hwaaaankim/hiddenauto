@@ -24,10 +24,12 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
+import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
+import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -44,6 +46,7 @@ public class TeamController {
 	private final TeamTaskService teamTaskService;
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final OrderRepository orderRepository;
+	private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
 
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
@@ -144,41 +147,38 @@ public class TeamController {
 	}
 
 	@GetMapping("/deliveryList")
-	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
+	public String getDeliveryOrders(
+	        @AuthenticationPrincipal PrincipalDetails principal,
 	        @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
-	        Pageable pageable, Model model) {
+	        Pageable pageable,
+	        Model model) {
 
 	    Member member = principal.getMember();
 
-	    // 1. 배송팀만 접근 가능
+	    // 1. 접근 제한: 배송팀만 접근 가능
 	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
 	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
 	    }
 
-	    // 2. 기본 조회일은 '내일'
+	    // 2. 기본 조회일은 내일
 	    if (preferredDate == null) {
 	        preferredDate = LocalDate.now().plusDays(1);
 	    }
 
-	    // 3. 날짜 범위: 00:00:00 ~ 23:59:59
-	    LocalDateTime startDate = preferredDate.atStartOfDay();
-	    LocalDateTime endDate = preferredDate.plusDays(1).atStartOfDay().minusNanos(1);
+	    // 3. 조회 대상 상태
+	    List<OrderStatus> statuses = List.of(OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
 
-	    // 4. 대상 상태
-	    List<OrderStatus> targetStatuses = List.of(OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
+	    // 4. 인덱스 기준 정렬된 배송리스트 조회
+	    Page<DeliveryOrderIndex> page = deliveryOrderIndexRepository
+	            .findByHandlerAndDateAndStatusIn(member.getId(), preferredDate, statuses, pageable);
 
-	    // 5. 조회
-	    Page<Order> orders = orderRepository.findDeliveryOrdersByHandlerAndStatusAndDateRange(
-	        member.getId(), targetStatuses, startDate, endDate, pageable);
+	    // 5. 모델에 데이터 전달
+	    model.addAttribute("orders", page.getContent()); // 실제 리스트
+	    model.addAttribute("page", page); // 페이지네이션을 위한 Page 객체
+	    model.addAttribute("preferredDate", preferredDate); // 날짜 필터 값
 
-	    // 6. 모델 설정
-	    model.addAttribute("orders", orders);
-	    model.addAttribute("preferredDate", preferredDate);
-	    model.addAttribute("page", orders);
-
-	    return "administration/team/delivery/deliveryList"; // 뷰 템플릿 경로
+	    return "administration/team/delivery/deliveryList";
 	}
-
 
 	@GetMapping("/asList")
 	public Page<AsTask> getAsTasks(@AuthenticationPrincipal PrincipalDetails principal,

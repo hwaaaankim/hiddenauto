@@ -2,14 +2,14 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="fragments/administration/common :: autoAdminHead">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
 <body>
 	<div id="layout-wrapper">
-		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
-		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
-		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
 		<div class="main-content">
 			<div class="page-content">
@@ -25,83 +25,149 @@
 										<li class="breadcrumb-item"><a href="javascript: void(0);">배송팀</a></li>
 										<li class="breadcrumb-item active">배송리스트</li>
 									</ol>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<form method="get" th:action="@{/team/deliveryList}" class="row">
-					<div class="col-lg-6">
-						<div class="row g-4 mb-3">
-							<div class="col-lg-8">
-								<label class="form-label">출고일 조회</label>
-								<input type="text" name="preferredDate" class="form-control" placeholder="YYYY-MM-DD" data-provider="flatpickr"
-									th:value="${preferredDate}">
-							</div>
-							<div class="col-lg-4">
-								<label class="form-label">조회</label>
-								<button type="submit" class="btn btn-primary w-100">검색하기</button>
+					<form method="get" th:action="@{/team/deliveryList}" class="row">
+						<div class="col-lg-6">
+							<div class="row g-4 mb-3">
+								<div class="col-lg-8">
+									<label class="form-label">출고일 조회</label>
+									<input type="text" name="preferredDate" class="form-control"
+										placeholder="YYYY-MM-DD" data-provider="flatpickr" th:value="${preferredDate}">
+								</div>
+								<div class="col-lg-4">
+									<label class="form-label">조회</label>
+									<button type="submit" class="btn btn-primary w-100">검색하기</button>
+								</div>
 							</div>
 						</div>
-					</div>
-				</form>
+					</form>
 
-				<div class="row">
-					<div class="col-lg-12">
-						<div class="card">
-							<div class="card-header">
-								<h4 class="card-title mb-0">배송리스트</h4>
-							</div>
-							<div class="card-body">
-								<div class="list-group col nested-list nested-sortable">
-									<div class="list-group-item nested-1 draggable-item" th:each="order : ${orders.content}">
-										<div class="item-content">
-											<div class="text-section">
-												<div><strong>업체명:</strong> <span th:text="${order.task.requestedBy.company.companyName}"></span></div>
-												<div><strong>주소:</strong> <span th:text="${order.roadAddress + ' ' + order.detailAddress}"></span></div>
-												<div class="ellipsis">
-													<strong>제품 상세:</strong>
-													<span th:text="${order.orderItem.productName}"></span>
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="card">
+								<div class="card-header">
+									<h4 class="card-title mb-0">배송리스트</h4>
+								</div>
+								<div class="card-body">
+									<div class="list-group col nested-list nested-sortable">
+										<div class="list-group-item nested-1 draggable-item"
+											th:each="order : ${orders}">
+											<div class="item-content">
+												<div class="text-section">
+													<div>
+														<strong>업체명:</strong>
+														<span
+															th:text="${order.order.task.requestedBy.company.companyName}"></span>
+													</div>
+													<div>
+														<strong>주소:</strong>
+														<span
+															th:text="${order.order.roadAddress + ' ' + order.order.detailAddress}"></span>
+													</div>
+													<div class="ellipsis">
+														<strong>제품 상세:</strong>
+														<span th:text="${order.order.orderItem.productName}"></span>
+
+													</div>
 												</div>
-											</div>
-											<div class="action-btn-group">
-												<a class="action-btn" th:href="@{'/team/deliveryDetail/' + ${order.id}}">상세보기</a>
-												<button type="button" class="action-btn" data-bs-toggle="modal" data-bs-target="#zoomInModal">완료처리</button>
+												<div class="action-btn-group">
+													<a class="action-btn"
+														th:href="@{'/team/deliveryDetail/' + ${order.order.id}}">상세보기</a>
+													<button type="button" class="action-btn" data-bs-toggle="modal"
+														data-bs-target="#zoomInModal">완료처리</button>
+												</div>
 											</div>
 										</div>
 									</div>
-								</div>
-								<div class="row g-0 text-center text-sm-start align-items-end mt-4">
-									<div class="col-sm-12">
-										<ul class="pagination pagination-separated justify-content-center justify-content-sm-end mb-sm-0">
-											<li th:classappend="${orders.first} ? 'disabled'" class="page-item">
-												<a class="page-link" th:href="@{|/team/deliveryList?page=0&preferredDate=${preferredDate}|}">FIRST</a>
-											</li>
-											<li th:classappend="${orders.first} ? 'disabled'" class="page-item">
-												<a class="page-link" th:href="@{|/team/deliveryList?page=${orders.number - 1}&preferredDate=${preferredDate}|}">PREV</a>
-											</li>
-											<li th:each="i : ${#numbers.sequence(0, orders.totalPages - 1)}" th:classappend="${orders.number == i} ? 'active'" class="page-item">
-												<a class="page-link" th:href="@{|/team/deliveryList?page=${i}&preferredDate=${preferredDate}|}" th:text="${i + 1}"></a>
-											</li>
-											<li th:classappend="${orders.last} ? 'disabled'" class="page-item">
-												<a class="page-link" th:href="@{|/team/deliveryList?page=${orders.number + 1}&preferredDate=${preferredDate}|}">NEXT</a>
-											</li>
-											<li th:classappend="${orders.last} ? 'disabled'" class="page-item">
-												<a class="page-link" th:href="@{|/team/deliveryList?page=${orders.totalPages - 1}&preferredDate=${preferredDate}|}">LAST</a>
-											</li>
-										</ul>
+
+									<div class="row g-0 text-center text-sm-start align-items-end mt-4">
+										<div class="col-sm-12">
+											<ul
+												class="pagination pagination-separated justify-content-center justify-content-sm-end mb-sm-0">
+												<li th:classappend="${page.first} ? 'disabled'" class="page-item">
+													<a class="page-link"
+														th:href="@{|/team/deliveryList?page=0&preferredDate=${preferredDate}|}">FIRST</a>
+												</li>
+												<li th:classappend="${page.first} ? 'disabled'" class="page-item">
+													<a class="page-link"
+														th:href="@{|/team/deliveryList?page=${page.number - 1}&preferredDate=${preferredDate}|}">PREV</a>
+												</li>
+												<li th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
+													th:classappend="${page.number == i} ? 'active'" class="page-item">
+													<a class="page-link"
+														th:href="@{|/team/deliveryList?page=${i}&preferredDate=${preferredDate}|}"
+														th:text="${i + 1}"></a>
+												</li>
+												<li th:classappend="${page.last} ? 'disabled'" class="page-item">
+													<a class="page-link"
+														th:href="@{|/team/deliveryList?page=${page.number + 1}&preferredDate=${preferredDate}|}">NEXT</a>
+												</li>
+												<li th:classappend="${page.last} ? 'disabled'" class="page-item">
+													<a class="page-link"
+														th:href="@{|/team/deliveryList?page=${page.totalPages - 1}&preferredDate=${preferredDate}|}">LAST</a>
+												</li>
+											</ul>
+										</div>
 									</div>
+
 								</div>
 							</div>
 						</div>
 					</div>
 				</div>
+				<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 			</div>
-			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
 		</div>
 	</div>
-	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
-	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
+
+	<!-- nestable init js -->
+	<script src="/administration/assets/js/pages/nestable.init.js"></script>
+	<script src="/administration/assets/libs/prismjs/prism.js"></script>
+	<script src="https://cdn.lordicon.com/libs/mssddfmo/lord-icon-2.1.0.js"></script>
+	<script src="/administration/assets/js/pages/modal.init.js"></script>
+	<script>
+		document.getElementById('delivery-finish-files').addEventListener('change', function (e) {
+			const container = document.querySelector('.delivery-finish-preview-container');
+			const files = Array.from(e.target.files);
+			container.innerHTML = ''; // 초기화
+
+			files.forEach((file, index) => {
+				const reader = new FileReader();
+				reader.onload = function (e) {
+					const img = document.createElement('img');
+					img.src = e.target.result;
+					img.className = 'delivery-finish-preview-image';
+					img.title = '클릭하여 제거';
+					img.dataset.index = index;
+
+					img.addEventListener('click', function () {
+						img.remove();
+						removeFile(index);
+					});
+
+					container.appendChild(img);
+				};
+				reader.readAsDataURL(file);
+			});
+
+			// 파일 제거용 (input에서 완전히 제거하려면 FileList 대체 필요)
+			function removeFile(idx) {
+				const dt = new DataTransfer();
+				const newFiles = Array.from(document.getElementById('delivery-finish-files').files)
+					.filter((_, i) => i !== idx);
+
+				newFiles.forEach(file => dt.items.add(file));
+				document.getElementById('delivery-finish-files').files = dt.files;
+			}
+		});
+	</script>
 </body>
 
 </html>
