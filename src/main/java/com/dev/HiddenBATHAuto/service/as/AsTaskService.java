@@ -11,7 +11,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.model.auth.District;
@@ -25,6 +28,7 @@ import com.dev.HiddenBATHAuto.repository.as.AsImageRepository;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRegionRepository;
+import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,9 +40,44 @@ public class AsTaskService {
 	private final AsImageRepository asImageRepository;
 	private final DistrictRepository districtRepository;
 	private final MemberRegionRepository memberRegionRepository;
-
+	private final MemberRepository memberRepository;
+	
 	@Value("${spring.upload.path}")
 	private String uploadPath;
+	
+	public Page<AsTask> getAsList(Pageable pageable) {
+        return asTaskRepository.findAllByOrderByRequestedAtDesc(pageable);
+    }
+
+	@Transactional
+    public void updateAsTask(Long id, Integer price, String statusStr, Long assignedHandlerId) {
+        AsTask asTask = getAsDetail(id);
+
+        // ✅ 상태 파싱
+        AsStatus status = AsStatus.valueOf(statusStr);
+
+        // ✅ 비용이 null인 경우 0 처리
+        asTask.setPrice(price == null ? 0 : price);
+
+        // ✅ 담당자 지정 필수
+        if (assignedHandlerId == null) {
+            throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
+        }
+
+        Member handler = memberRepository.findById(assignedHandlerId)
+                .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 담당자입니다."));
+
+        asTask.setAssignedHandler(handler);
+        asTask.setStatus(status);
+        asTask.setUpdatedAt(LocalDateTime.now());
+
+        asTaskRepository.save(asTask);
+    }	
+	
+    public AsTask getAsDetail(Long id) {
+        return asTaskRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 AS 요청을 찾을 수 없습니다. ID: " + id));
+    }
 
 	public AsTask submitAsTask(AsTask task, List<MultipartFile> images, Member member) throws IOException {
 		task.setRequestedBy(member);

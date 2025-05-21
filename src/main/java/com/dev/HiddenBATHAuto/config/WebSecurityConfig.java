@@ -54,7 +54,7 @@ public class WebSecurityConfig {
 	};
 	
 	private final String[] customersUrls = {
-			"/customer/**"
+			"/customer/**", "/", "/index"
 	};
 	
 	@Bean
@@ -118,7 +118,6 @@ public class WebSecurityConfig {
 					.usernameParameter("username")
 					.passwordParameter("password")
 					.loginProcessingUrl("/signinProcess")
-//					.defaultSuccessUrl("/", false))
 					.successHandler(customAuthenticationSuccessHandler())
 					.permitAll())
 			.rememberMe((remember) -> 

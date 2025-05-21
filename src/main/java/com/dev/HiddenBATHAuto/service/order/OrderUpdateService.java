@@ -16,33 +16,37 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
+import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 
 @Service
 @Transactional
 public class OrderUpdateService {
 
-	@Autowired private OrderRepository orderRepository;
-	@Autowired private DeliveryMethodRepository deliveryMethodRepository;
-	@Autowired private MemberRepository memberRepository;
-	@Autowired private TeamCategoryRepository teamCategoryRepository;
-	@Autowired private DeliveryOrderIndexService deliveryOrderIndexService;
+	@Autowired
+	private OrderRepository orderRepository;
+	@Autowired
+	private DeliveryMethodRepository deliveryMethodRepository;
+	@Autowired
+	private MemberRepository memberRepository;
+	@Autowired
+	private TeamCategoryRepository teamCategoryRepository;
+	@Autowired
+	private DeliveryOrderIndexService deliveryOrderIndexService;
+	@Autowired
+	private DeliveryOrderIndexRepository deliveryOrderIndexRepository;
 
-	public void updateOrder(
-			Long orderId, 
-			int productCost, 
-			LocalDate preferredDeliveryDate, 
-			String statusStr,
-			Optional<Long> deliveryMethodId, 
-			Optional<Long> deliveryHandlerId, 
-			Optional<Long> productCategoryId) {
+	public void updateOrder(Long orderId, int productCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId) {
 
 		Order order = orderRepository.findById(orderId)
 				.orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
+		OrderStatus status = OrderStatus.valueOf(statusStr);
+
 		order.setProductCost(productCost);
 		order.setPreferredDeliveryDate(preferredDeliveryDate.atStartOfDay());
-		order.setStatus(OrderStatus.valueOf(statusStr));
+		order.setStatus(status);
 
 		deliveryMethodId.ifPresentOrElse(id -> {
 			DeliveryMethod method = deliveryMethodRepository.findById(id)
@@ -64,8 +68,13 @@ public class OrderUpdateService {
 
 		order.setUpdatedAt(LocalDateTime.now());
 
-		// ✅ 배송담당자 및 날짜가 설정되어 있을 경우, 인덱스 자동 처리
-		deliveryOrderIndexService.ensureIndex(order);
+		if (status == OrderStatus.CANCELED) {
+			// 🔥 상태가 취소인 경우, 인덱스 삭제
+			deliveryOrderIndexRepository.findByOrder(order).ifPresent(deliveryOrderIndexRepository::delete);
+		} else {
+			// ✅ 그 외 상태는 기존 로직 유지
+			deliveryOrderIndexService.ensureIndex(order);
+		}
 	}
 
 }

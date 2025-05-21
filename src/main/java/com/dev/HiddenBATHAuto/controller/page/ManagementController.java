@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -9,7 +10,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.task.AsStatus;
+import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
@@ -27,6 +30,7 @@ import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,20 +51,8 @@ public class ManagementController {
 	private TeamCategoryRepository teamCategoryRepository;
 	@Autowired
 	private OrderUpdateService orderUpdateService;
-	
-	@GetMapping("/admin-only")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public String adminOnlyInManagement() {
-        return "관리자만 접근 가능한 페이지입니다.";
-    }
-
-    // 관리자 또는 매니저 모두 접근 가능
-    @GetMapping("/shared")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_MANAGEMENT')")
-    public String adminOrManagerAccess() {
-    	
-        return "관리자 또는 매니저가 접근 가능한 페이지입니다.";
-    }
+	@Autowired
+    private AsTaskService asTaskService;
 	
     @GetMapping("/standardOrderList")
 	public String standardOrderList() {
@@ -170,4 +162,34 @@ public class ManagementController {
 	    return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
 	}
 	
+	@GetMapping("/asList")
+    public String asList(Model model, Pageable pageable) {
+        Page<AsTask> asPage = asTaskService.getAsList(pageable);
+        model.addAttribute("asPage", asPage);
+        return "administration/as/asList"; // Thymeleaf 경로 예시
+    }
+
+	@GetMapping("/asDetail/{id}")
+	public String asDetail(@PathVariable Long id, Model model) {
+	    AsTask asTask = asTaskService.getAsDetail(id);
+
+	    model.addAttribute("asTask", asTask);
+	    model.addAttribute("asStatuses", AsStatus.values());
+
+	    // ✅ 필요 시 서비스 통해 AS팀 멤버 조회
+	    model.addAttribute("asTeamMembers", memberRepository.findByTeamName("AS팀"));
+
+	    return "administration/as/asDetail";
+	}
+
+	@PostMapping("/asUpdate/{id}")
+    public String updateAsTask(@PathVariable Long id,
+                               @RequestParam(required = false) Integer price,
+                               @RequestParam String status,
+                               @RequestParam(required = false) Long assignedHandlerId) {
+
+        asTaskService.updateAsTask(id, price, status, assignedHandlerId);
+
+        return "redirect:/management/asDetail/" + id;
+    }
 }

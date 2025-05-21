@@ -510,6 +510,26 @@ data-preloader="disable">
 											</ul>
 										</div>
 									</li>
+									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
+										<a 
+											href="#sidebarAdminAsManager" 
+											class="nav-link" 
+											data-bs-toggle="collapse" 
+											role="button"
+											aria-expanded="false" 
+											aria-controls="sidebarAdminAsManager" 
+											data-key="t-ordermanager">
+											관리자-AS관리
+										</a>
+										<div class="collapse menu-dropdown" id="sidebarAdminAsManager">
+											<ul class="nav nav-sm flex-column">
+												<li class="nav-item">
+													<a href="/management/asList" class="nav-link" data-key="t-orderadd">
+														AS 관리 </a>
+												</li>
+											</ul>
+										</div>
+									</li>
 									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'MANAGEMENT'}">
 										<a 
 											href="#sidebarManagementManager" 

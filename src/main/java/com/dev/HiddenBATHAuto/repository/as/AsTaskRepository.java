@@ -16,6 +16,8 @@ import com.dev.HiddenBATHAuto.model.task.AsTask;
 @Repository
 public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 
+	Page<AsTask> findAllByOrderByRequestedAtDesc(Pageable pageable);
+	
 	@Query("SELECT a FROM AsTask a WHERE a.requestedBy.company.id = :companyId")
 	Page<AsTask> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
 

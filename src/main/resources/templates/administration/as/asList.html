@@ -1,0 +1,291 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="fragments/administration/common :: autoAdminHead">
+</head>
+
+<body>
+
+	<!-- Begin page -->
+	<div id="layout-wrapper">
+
+		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+
+		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
+		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+
+			<div class="page-content">
+				<div class="container-fluid">
+					<!-- start page title -->
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">AS관리</h4>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript: void(0);">AS관리</a></li>
+										<li class="breadcrumb-item active">AS리스트</li>
+									</ol>
+								</div>
+
+							</div>
+						</div>
+					</div>
+					<!-- end page title -->
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="card" id="tasksList">
+								<div class="card-header border-0">
+									<div class="d-flex align-items-center">
+										<h5 class="card-title mb-0 flex-grow-1">AS MANAGER</h5>
+										<div class="flex-shrink-0">
+											<div class="d-flex flex-wrap gap-2">
+												<button onclick="javascript:location.href='/normalOrderInsert'"
+													class="btn btn-warning add-btn"><i class="fa-solid fa-plus"></i>
+													Excel</button>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="card-body border border-dashed border-end-0 border-start-0">
+									<form>
+										<div class="row g-3">
+											<div class="col-xxl-4 col-sm-12">
+												<div class="search-box">
+													<input type="text" class="form-control search bg-light border-light"
+														placeholder="검색어를 입력 해 주세요.">
+													<i class="ri-search-line search-icon"></i>
+												</div>
+											</div>
+
+											<div class="col-xxl-3 col-sm-4">
+												<input type="text" class="form-control bg-light border-light"
+													id="demo-datepicker" data-provider="flatpickr"
+													data-date-format="d M, Y" data-range-date="true"
+													placeholder="Select date range">
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">제품</option>
+														<option value="all" selected>All</option>
+														<option value="New">상부장</option>
+														<option value="Pending">하부장</option>
+														<option value="Inprogress">슬라이드장</option>
+														<option value="Completed">플랩장</option>
+														<option value="Completed">거울</option>
+													</select>
+												</div>
+											</div>
+
+											<!--end col-->
+											<div class="col-xxl-1 col-sm-4">
+												<button type="button" class="btn btn-primary w-100">
+													<i class="fa-solid fa-magnifying-glass"></i>
+													검색
+												</button>
+											</div>
+											<div class="col-xxl-1 col-sm-4">
+												<button type="button" class="btn btn-danger w-100"> <i
+														class="fa-solid fa-filter"></i>
+													상세검색
+												</button>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">상태</option>
+														<option value="all" selected>All</option>
+														<option value="New">대기중</option>
+														<option value="Pending">진행중</option>
+														<option value="Inprogress">완료</option>
+														<option value="Completed">취소</option>
+													</select>
+												</div>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">담당직원</option>
+														<option value="all" selected>All</option>
+														<option value="New">직원명</option>
+														<option value="Pending">직원명</option>
+														<option value="Inprogress">직원명</option>
+														<option value="Completed">직원명</option>
+													</select>
+												</div>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">담당배송직원</option>
+														<option value="all" selected>직원명</option>
+														<option value="New">직원명</option>
+														<option value="Pending">직원명</option>
+														<option value="Inprogress">직원명</option>
+														<option value="Completed">직원명</option>
+													</select>
+												</div>
+											</div>
+											<div class="col-xxl-3 col-sm-4">
+												<div class="input-light">
+													<select class="form-control" data-choices data-choices-search-false
+														name="choices-single-default">
+														<option value="">배송방식</option>
+														<option value="all" selected>All</option>
+														<option value="New">직배송</option>
+														<option value="Pending">택배</option>
+														<option value="Inprogress">용달</option>
+														<option value="Completed">기타</option>
+													</select>
+												</div>
+											</div>
+										</div>
+									</form>
+								</div>
+								<!--end card-body-->
+								<div class="card-body">
+									<div class="table-responsive table-card mb-4">
+										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
+											<thead class="table-light text-muted">
+												<tr>
+													<th scope="col" style="width: 40px;">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																id="checkAll" value="option">
+														</div>
+													</th>
+													<th class="sort">ID</th>
+													<th class="sort">대리점명</th>
+													<th class="sort">신청자</th>
+													<th class="sort">담당AS사원</th>
+													<th class="sort">신청일</th>
+													<th class="sort">최근수정일</th>
+													<th class="sort">상태</th>
+												</tr>
+											</thead>
+											<tbody class="list form-check-all">
+												<tr th:each="as : ${asPage.content}">
+													<th scope="row">
+														<div class="form-check">
+															<input class="form-check-input" type="checkbox"
+																name="chk_child" />
+														</div>
+													</th>
+
+													<!-- Task ID -->
+													<td>
+														<a th:href="@{/management/asDetail/{id}(id=${as.id})}"
+														   class="fw-medium link-primary"
+														   th:text="${'AS_TASK_#' + as.id}">AS_TASK_0</a>
+													</td>
+
+													<!-- 대리점명 -->
+													<td class="project_name">
+														<a href="#" class="fw-medium link-primary"
+															th:text="${as.requestedBy != null and as.requestedBy.company != null ? as.requestedBy.company.companyName : '미지정'}">
+															대리점명</a>
+													</td>
+
+													<!-- 신청자명 -->
+													<td>
+														<a href="#"
+															th:text="${as.requestedBy != null ? as.requestedBy.name : '미지정'}">신청자명</a>
+													</td>
+
+													<!-- 담당AS사원 -->
+													<td class="assignedto">
+														<span th:if="${as.assignedHandler != null}"
+															th:text="${as.assignedHandler.name}">사원이름</span>
+														<span class="text-muted"
+															th:if="${as.assignedHandler == null}">미지정</span>
+													</td>
+
+													<!-- 신청일 -->
+													<td
+														th:text="${#temporals.format(as.requestedAt, 'yyyy-MM-dd HH:mm')}">
+														00:00</td>
+
+													<!-- 최근수정일 -->
+													<td
+														th:text="${#temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm')}">
+														00:00</td>
+
+													<!-- 상태 -->
+													<td class="status">
+														<span class="badge text-uppercase" th:classappend="|bg-${
+					  as.status.name() == 'REQUESTED' ? 'secondary-subtle text-secondary' :
+					  as.status.name() == 'IN_PROGRESS' ? 'warning-subtle text-warning' :
+					  as.status.name() == 'COMPLETED' ? 'success-subtle text-success' : 'light'
+				  }|" th:text="${as.status.name()}">상태</span>
+													</td>
+												</tr>
+											</tbody>
+										</table>
+
+										<div class="noresult" style="display: none">
+											<div class="text-center">
+												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
+													colors="primary:#121331,secondary:#08a88a"
+													style="width:75px;height:75px"></lord-icon>
+												<h5 class="mt-2">결과가 존재하지않습니다.</h5>
+												<p class="text-muted mb-0">다른 조건으로 검색을 진행 해 주시기 바랍니다.</p>
+											</div>
+										</div>
+									</div>
+									<div class="d-flex justify-content-end mt-2">
+										<div class="pagination-wrap hstack gap-2">
+											<nav aria-label="navigation" style="text-align: center;">
+												<ul class="pagination justify-content-center">
+													<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/asList(page=0)}">First</a>
+													</li>
+													<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/asList(page=${asPage.number - 1})}">Previous</a>
+													</li>
+
+													<!-- 페이지 번호 반복 -->
+													<li class="page-item"
+														th:each="pageNum : ${#numbers.sequence(0, asPage.totalPages - 1)}"
+														th:classappend="${asPage.number == pageNum} ? 'active'">
+														<a class="page-link"
+															th:href="@{/management/asList(page=${pageNum})}"
+															th:text="${pageNum + 1}">1</a>
+													</li>
+
+													<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/asList(page=${asPage.number + 1})}">Next</a>
+													</li>
+													<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/asList(page=${asPage.totalPages - 1})}">Last</a>
+													</li>
+												</ul>
+											</nav>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+		</div>
+	</div>
+	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
+	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+</body>
+
+</html>
