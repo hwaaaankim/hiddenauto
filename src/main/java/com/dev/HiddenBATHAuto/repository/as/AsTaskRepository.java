@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.repository.as;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -29,5 +30,36 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	    ORDER BY a.asProcessDate ASC
 	""")
 	Page<AsTask> findByAssignedHandlerAndStatusInAndDate(Long memberId, List<AsStatus> statuses, LocalDate asDate, Pageable pageable);
+	
+	@Query("""
+		    SELECT a FROM AsTask a
+		    WHERE (:statuses IS NULL OR a.status = :statuses)
+		      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
+		      AND (:asDate IS NULL OR a.requestedAt BETWEEN :asDate AND :asDatePlusOne)
+		    ORDER BY a.requestedAt DESC
+		""")
+	Page<AsTask> findByFilter(
+	    @Param("memberId") Long memberId,
+	    @Param("statuses") AsStatus statuses,
+	    @Param("asDate") LocalDate asDate,
+	    @Param("asDatePlusOne") LocalDate asDatePlusOne,
+	    Pageable pageable
+	);
+	@Query("""
+		    SELECT a FROM AsTask a
+		    WHERE (:statuses IS NULL OR a.status = :statuses)
+		      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
+		      AND (:asDateStart IS NULL OR a.requestedAt >= :asDateStart)
+		      AND (:asDateEnd IS NULL OR a.requestedAt < :asDateEnd)
+		    ORDER BY a.requestedAt DESC
+		""")
+	Page<AsTask> findByFilterWithDateRange(
+	    @Param("memberId") Long memberId,
+	    @Param("statuses") AsStatus statuses,
+	    @Param("asDateStart") LocalDateTime asDateStart,
+	    @Param("asDateEnd") LocalDateTime asDateEnd,
+	    Pageable pageable
+	);
+
 
 }

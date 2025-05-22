@@ -87,66 +87,6 @@ data-preloader="disable">
 							</div>
 						</div>
 
-						<div class="dropdown topbar-head-dropdown ms-1 header-item">
-							<button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle"
-								data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								<i class='bx bx-category-alt fs-22'></i>
-							</button>
-							<div class="dropdown-menu dropdown-menu-lg p-0 dropdown-menu-end">
-								<div class="p-3 border-top-0 border-start-0 border-end-0 border-dashed border">
-									<div class="row align-items-center">
-										<div class="col">
-											<h6 class="m-0 fw-semibold fs-15"> 즐겨찾기페이지 </h6>
-										</div>
-									</div>
-								</div>
-
-								<div class="p-2">
-									<div class="row g-0">
-										<div class="col">
-											<a class="dropdown-icon-item" href="#">
-												<img src="/administration/assets/images/brands/github.png" alt="Github">
-												<span>PAGE NAME</span>
-											</a>
-										</div>
-										<div class="col">
-											<a class="dropdown-icon-item" href="#">
-												<img src="/administration/assets/images/brands/github.png" alt="Github">
-												<span>PAGE NAME</span>
-											</a>
-										</div>
-										<div class="col">
-											<a class="dropdown-icon-item" href="#">
-												<img src="/administration/assets/images/brands/github.png" alt="Github">
-												<span>PAGE NAME</span>
-											</a>
-										</div>
-									</div>
-
-									<div class="row g-0">
-										<div class="col">
-											<a class="dropdown-icon-item" href="#">
-												<img src="/administration/assets/images/brands/github.png" alt="Github">
-												<span>PAGE NAME</span>
-											</a>
-										</div>
-										<div class="col">
-											<a class="dropdown-icon-item" href="#">
-												<img src="/administration/assets/images/brands/github.png" alt="Github">
-												<span>PAGE NAME</span>
-											</a>
-										</div>
-										<div class="col">
-											<a class="dropdown-icon-item" href="#">
-												<img src="/administration/assets/images/brands/github.png" alt="Github">
-												<span>PAGE NAME</span>
-											</a>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-
 						<div class="dropdown topbar-head-dropdown ms-1 header-item" id="notificationDropdown">
 							<button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle"
 								id="page-header-notifications-dropdown" data-bs-toggle="dropdown"
@@ -354,9 +294,6 @@ data-preloader="disable">
 								<a class="dropdown-item" href="#"><i
 										class="mdi mdi-account-circle text-muted fs-16 align-middle me-1"></i> <span
 										class="align-middle">내 정보</span></a>
-								<a class="dropdown-item" href="#"><i
-										class="mdi mdi-message-text-outline text-muted fs-16 align-middle me-1"></i>
-									<span class="align-middle">업무 현황</span></a>
 								<div class="dropdown-divider"></div>
 								<a class="dropdown-item" href="#"><i
 										class="mdi mdi-logout text-muted fs-16 align-middle me-1"></i> <span
@@ -448,11 +385,11 @@ data-preloader="disable">
 										<div class="collapse menu-dropdown" id="sidebarMemberManager">
 											<ul class="nav nav-sm flex-column">
 												<li class="nav-item">
-													<a href="#" class="nav-link" data-key="t-memberlist">
+													<a href="/management/employeeList" class="nav-link" data-key="t-memberlist">
 														직원리스트 </a>
 												</li>
 												<li class="nav-item">
-													<a href="#" class="nav-link" data-key="t-memberadd">
+													<a href="/management/employeeInsertForm" class="nav-link" data-key="t-memberadd">
 														직원등록 </a>
 												</li>
 											</ul>
@@ -466,12 +403,8 @@ data-preloader="disable">
 										<div class="collapse menu-dropdown" id="sidebarAgencyManager">
 											<ul class="nav nav-sm flex-column">
 												<li class="nav-item">
-													<a href="#" class="nav-link" data-key="t-agencylist">
+													<a href="/management/clientList" class="nav-link" data-key="t-agencylist">
 														대리점리스트 </a>
-												</li>
-												<li class="nav-item">
-													<a href="#" class="nav-link" data-key="t-agencyadd">
-														대리점등록 </a>
 												</li>
 											</ul>
 										</div>
@@ -526,6 +459,46 @@ data-preloader="disable">
 												<li class="nav-item">
 													<a href="/management/asList" class="nav-link" data-key="t-orderadd">
 														AS 관리 </a>
+												</li>
+											</ul>
+										</div>
+									</li>
+									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
+										<a 
+											href="#sidebarAdminDeliveryManager" 
+											class="nav-link" 
+											data-bs-toggle="collapse" 
+											role="button"
+											aria-expanded="false" 
+											aria-controls="sidebarAdminDeliveryManager" 
+											data-key="t-ordermanager">
+											관리자-배송관리
+										</a>
+										<div class="collapse menu-dropdown" id="sidebarAdminDeliveryManager">
+											<ul class="nav nav-sm flex-column">
+												<li class="nav-item">
+													<a href="/management/deliveryList" class="nav-link" data-key="t-orderadd">
+														배송 관리 </a>
+												</li>
+											</ul>
+										</div>
+									</li>
+									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
+										<a 
+											href="#sidebarAdminProductionManager" 
+											class="nav-link" 
+											data-bs-toggle="collapse" 
+											role="button"
+											aria-expanded="false" 
+											aria-controls="sidebarAdminProductionManager" 
+											data-key="t-ordermanager">
+											관리자-생산관리
+										</a>
+										<div class="collapse menu-dropdown" id="sidebarAdminProductionManager">
+											<ul class="nav nav-sm flex-column">
+												<li class="nav-item">
+													<a href="/management/productionList" class="nav-link" data-key="t-orderadd">
+														생산관리 </a>
 												</li>
 											</ul>
 										</div>

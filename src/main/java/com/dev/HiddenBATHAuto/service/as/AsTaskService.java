@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -48,6 +49,16 @@ public class AsTaskService {
 	public Page<AsTask> getAsList(Pageable pageable) {
         return asTaskRepository.findAllByOrderByRequestedAtDesc(pageable);
     }
+	
+	public Page<AsTask> getFilteredAsList(Long memberId, AsStatus statuses, LocalDate asDate, Pageable pageable) {
+	    if (asDate != null) {
+	        LocalDateTime startOfDay = asDate.atStartOfDay();
+	        LocalDateTime endOfDay = asDate.plusDays(1).atStartOfDay();
+	        return asTaskRepository.findByFilterWithDateRange(memberId, statuses, startOfDay, endOfDay, pageable);
+	    } else {
+	        return asTaskRepository.findByFilterWithDateRange(memberId, statuses, null, null, pageable);
+	    }
+	}
 
 	@Transactional
     public void updateAsTask(Long id, Integer price, String statusStr, Long assignedHandlerId) {

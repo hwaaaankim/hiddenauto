@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.repository.auth;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,7 +14,11 @@ import com.dev.HiddenBATHAuto.model.auth.Province;
 
 @Repository
 public interface DistrictRepository extends JpaRepository<District, Long> {
-	
+
+	List<District> findByProvinceIdAndCityIsNull(Long provinceId);
+    List<District> findByCityId(Long cityId);
+    
+    
 	Optional<District> findByNameAndProvinceAndCity(String name, Province province, City city);
 	Optional<District> findByNameAndProvince_NameAndCity_Name(String guName, String doName, String siName);
 	Optional<District> findByNameAndProvince_Name(String guName, String doName); // 시 없는 경우

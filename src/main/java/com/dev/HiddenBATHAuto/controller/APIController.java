@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +19,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.model.auth.City;
+import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
+import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductColorRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductOptionPositionRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
@@ -63,7 +69,27 @@ public class APIController {
 	private final ProductRepository productRepo;
 	private final ProductColorRepository colorRepo;
 	private final ProductOptionPositionRepository optionRepo;
+    private final CityRepository cityRepository;
+    private final DistrictRepository districtRepository;
 
+    @GetMapping("/province/{provinceId}/cities")
+    @ResponseBody
+    public List<City> getCitiesByProvince(@PathVariable Long provinceId) {
+        return cityRepository.findByProvinceId(provinceId);
+    }
+
+    @GetMapping("/province/{provinceId}/districts")
+    @ResponseBody
+    public List<District> getDistrictsByProvince(@PathVariable Long provinceId) {
+        return districtRepository.findByProvinceIdAndCityIsNull(provinceId);
+    }
+
+    @GetMapping("/city/{cityId}/districts")
+    @ResponseBody
+    public List<District> getDistrictsByCity(@PathVariable Long cityId) {
+        return districtRepository.findByCityId(cityId);
+    }
+	
 	@PostMapping("/mirrorSeriesExcelUpload")
 	public ResponseEntity<String> uploadMirrorSeriesExcel(@RequestParam("file") MultipartFile file) {
 		try {

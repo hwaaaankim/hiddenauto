@@ -1,0 +1,179 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}">
+</head>
+
+<body>
+
+	<!-- Begin page -->
+	<div id="layout-wrapper">
+
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+
+			<div class="page-content">
+				<div class="container-fluid">
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">AS상세</h4>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript: void(0);">AS관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">AS리스트</a></li>
+										<li class="breadcrumb-item active">AS상세</li>
+									</ol>
+								</div>
+
+							</div>
+						</div>
+					</div>
+
+					<!-- 상단 생략 -->
+					<form th:action="@{/management/asUpdate/{id}(id=${asTask.id})}" method="POST">
+						<div class="row">
+							<div class="col-lg-10">
+								<div class="card">
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">대리점명</label>
+											<input type="text" class="form-control" th:value="${asTask.requestedBy != null && asTask.requestedBy.company != null 
+									? asTask.requestedBy.company.companyName : '미지정'}" readonly>
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">신청자명</label>
+											<input type="text" class="form-control"
+												th:value="${asTask.requestedBy != null ? asTask.requestedBy.name : '미지정'}"
+												readonly>
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">AS 사유</label>
+											<textarea class="form-control" rows="3" readonly
+												th:text="${asTask.reason}"></textarea>
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">AS 주소</label>
+											<input type="text" class="form-control"
+												th:value="|(${asTask.zipCode}) ${asTask.doName} ${asTask.siName} ${asTask.guName} ${asTask.roadAddress} ${asTask.detailAddress}|"
+												readonly>
+										</div>
+
+										<div class="row">
+											<div class="col-lg-4">
+												<label class="form-label">AS 신청일</label>
+												<input type="text" class="form-control"
+													th:value="${#temporals.format(asTask.requestedAt, 'yyyy-MM-dd HH:mm')}"
+													readonly>
+											</div>
+
+											<div class="col-lg-4">
+												<label class="form-label">진행일자</label>
+												<input type="text" class="form-control"
+													th:value="${#temporals.format(asTask.asProcessDate, 'yyyy-MM-dd HH:mm')}"
+													readonly>
+											</div>
+
+											<div class="col-lg-4">
+												<label class="form-label">AS 비용</label>
+												<input type="text" class="form-control" th:value="${asTask.price}">
+											</div>
+										</div>
+
+										<div class="row mt-4">
+											<div class="col-12">
+												<label class="form-label">고객 요청 이미지</label>
+												<div class="row g-2">
+													<div class="col-lg-2" th:each="img : ${asTask.requestImages}">
+														<div
+															class="border rounded p-2 d-flex justify-content-between align-items-center">
+															<span class="text-truncate"
+																th:text="${img.filename}"></span>
+															<a th:href="@{${img.url}}" download><i
+																	class="ri-download-2-line text-primary"></i></a>
+														</div>
+													</div>
+													<div th:if="${#lists.isEmpty(asTask.requestImages)}">
+														<p class="text-muted">이미지가 없습니다.</p>
+													</div>
+												</div>
+											</div>
+											<div class="col-12 mt-3">
+												<label class="form-label">AS 결과 이미지</label>
+												<div class="row g-2">
+													<div class="col-lg-2" th:each="img : ${asTask.resultImages}">
+														<div
+															class="border rounded p-2 d-flex justify-content-between align-items-center">
+															<span class="text-truncate"
+																th:text="${img.filename}"></span>
+															<a th:href="@{${img.url}}" download><i
+																	class="ri-download-2-line text-success"></i></a>
+														</div>
+													</div>
+													<div th:if="${#lists.isEmpty(asTask.resultImages)}">
+														<p class="text-muted">이미지가 없습니다.</p>
+													</div>
+												</div>
+											</div>
+										</div>
+
+									</div>
+								</div>
+
+								<!-- 상태 변경 및 담당자 지정 카드 -->
+								<div class="text-end mb-4">
+									<button class="btn btn-success w-sm">저장</button>
+								</div>
+							</div>
+							<div class="col-lg-2">
+								<div class="card">
+									<div class="card-header">
+										<h5 class="card-title mb-0">AS 상태 / 담당자</h5>
+									</div>
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">AS 상태</label>
+											<select class="form-select" name="status">
+												<option th:each="s : ${asStatuses}" th:value="${s.name()}"
+													th:text="${s.name()}"
+													th:selected="${asTask.status.name() == s.name()}"></option>
+											</select>
+										</div>
+										<div class="mb-3">
+											<label class="form-label">담당자</label>
+											<select class="form-select" name="assignedHandlerId">
+												<option value="">미지정</option>
+												<option th:each="m : ${asTeamMembers}" th:value="${m.id}"
+													th:text="${m.name}"
+													th:selected="${asTask.assignedHandler != null && asTask.assignedHandler.id == m.id}">
+												</option>
+											</select>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+	<script src="/administration/assets/libs/dropzone/dropzone-min.js"></script>
+	<script src="/administration/assets/js/pages/project-create.init.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,303 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}">
+</head>
+
+<body>
+
+	<!-- Begin page -->
+	<div id="layout-wrapper">
+
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+
+			<div class="page-content">
+				<div class="container-fluid">
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">직원관리</h4>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript: void(0);">직원관리</a></li>
+										<li class="breadcrumb-item active">직원등록</li>
+									</ol>
+								</div>
+
+							</div>
+						</div>
+					</div>
+
+					<!-- 상단 생략 -->
+					<form action="/management/employeeInsert" method="POST">
+						<div class="row">
+							<div class="col-lg-6">
+								<div class="card">
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">아이디</label>
+											<input type="text" class="form-control" name="username">
+											<input type="hidden" name="regionJson" id="regionJsonInput">
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">비밀번호</label>
+											<input type="text" class="form-control" name="password">
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">이름</label>
+											<input type="text" class="form-control" name="name">
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">연락처</label>
+											<input type="text" class="form-control" name="phone">
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">이메일</label>
+											<input type="text" class="form-control" name="email">
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">권한</label>
+											<select class="form-select" name="role">
+												<option value="MANAGEMENT">관리팀</option>
+												<option value="INTERNAL_EMPLOYEE">현장팀</option>
+											</select>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-lg-6">
+								<div class="card">
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">팀</label>
+											<select class="form-select" id="teamSelect" name="teamId">
+												<option value="">팀 선택</option>
+												<option th:each="team : ${teams}" th:value="${team.id}"
+													th:text="${team.name}"></option>
+											</select>
+										</div>
+										<!-- 생산팀 카테고리 (JS로 동적 표시) -->
+										<div class="mb-3" id="teamCategoryWrapper" style="display:none">
+											<label class="form-label">카테고리</label>
+											<select class="form-select" id="teamCategorySelect" name="teamCategoryId">
+												<option value="">카테고리 선택</option>
+												<option th:each="category : ${teamCategories}"
+													th:data-team-id="${category.team.id}" th:value="${category.id}"
+													th:text="${category.name}"></option>
+											</select>
+										</div>
+
+										<!-- 주소 선택 Province-City-District (JS로 동적 연결) -->
+										<div class="mb-3" id="provinceWrapper" style="display:none">
+											<label class="form-label">도 선택</label>
+											<select id="provinceSelect" class="form-select">
+												<option value="">도 선택</option>
+												<option th:each="province : ${provinces}" th:value="${province.id}"
+													th:text="${province.name}"></option>
+											</select>
+										</div>
+
+										<div class="mb-3" id="cityWrapper" style="display:none">
+											<label class="form-label">시 선택</label>
+											<select id="citySelect" class="form-select"></select>
+										</div>
+
+										<div class="mb-3" id="districtWrapper" style="display:none">
+											<label class="form-label">구 선택</label>
+											<select id="districtSelect" class="form-select"></select>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="text-end mb-4">
+								<button class="btn btn-success w-sm">저장</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+	<script src="/administration/assets/libs/dropzone/dropzone-min.js"></script>
+	<script src="/administration/assets/js/pages/project-create.init.js"></script>
+	<script>
+		document.addEventListener("DOMContentLoaded", function () {
+			const teamSelect = document.getElementById("teamSelect");
+			const categoryWrapper = document.getElementById("teamCategoryWrapper");
+			const categorySelect = document.getElementById("teamCategorySelect");
+			const provinceWrapper = document.getElementById("provinceWrapper");
+			const provinceSelect = document.getElementById("provinceSelect");
+			const cityWrapper = document.getElementById("cityWrapper");
+			const citySelect = document.getElementById("citySelect");
+			const districtWrapper = document.getElementById("districtWrapper");
+			const districtSelect = document.getElementById("districtSelect");
+
+			const regionListContainer = document.createElement('div');
+			regionListContainer.id = 'regionListContainer';
+			districtWrapper.insertAdjacentElement('afterend', regionListContainer);
+
+			const districtRegisterButton = document.createElement('button');
+			districtRegisterButton.className = 'btn btn-outline-primary btn-sm mt-2 mb-2';
+			districtRegisterButton.type = 'button';
+			districtRegisterButton.innerText = '지역 등록';
+
+			const selectedRegions = [];
+			const regionInput = document.getElementById('regionJsonInput');
+
+			// ✅ 이 함수는 항상 최신 selectedRegions 값을 input에 넣어줌
+			const updateRegionInput = () => {
+			    regionInput.value = JSON.stringify(selectedRegions);
+			    console.log("📦 현재 지역 JSON:", regionInput.value);
+			};
+
+				
+			const renderRegionList = () => {
+				regionListContainer.innerHTML = '';
+				selectedRegions.forEach((region, index) => {
+					const regionRow = document.createElement('div');
+					regionRow.className = 'd-flex justify-content-between align-items-center border p-2 mb-2';
+					regionRow.innerHTML = `
+        <span>${region.provinceName} ${region.cityName || ''} ${region.districtName || ''}</span>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-index="${index}">삭제</button>
+      `;
+					regionRow.querySelector('button').addEventListener('click', () => {
+						selectedRegions.splice(index, 1);
+						renderRegionList();
+						updateRegionInput();
+					});
+					regionListContainer.appendChild(regionRow);
+				});
+			};
+
+			teamSelect.addEventListener("change", function () {
+				const selectedTeamName = this.options[this.selectedIndex].text;
+
+				// 초기화
+				categoryWrapper.style.display = "none";
+				provinceWrapper.style.display = "none";
+				cityWrapper.style.display = "none";
+				districtWrapper.style.display = "none";
+				regionListContainer.innerHTML = '';
+				selectedRegions.length = 0;
+
+				provinceSelect.value = "";
+				citySelect.innerHTML = "";
+				districtSelect.innerHTML = "";
+
+				// 버튼 제거 후 다시 붙이기 방지
+				if (districtRegisterButton.parentElement) {
+					districtRegisterButton.remove();
+				}
+
+				if (selectedTeamName === "생산팀") {
+					categoryWrapper.style.display = "block";
+				} else if (selectedTeamName === "AS팀" || selectedTeamName === "배송팀") {
+					provinceWrapper.style.display = "block";
+
+					// 버튼은 마지막에 붙임
+					setTimeout(() => {
+						districtWrapper.insertAdjacentElement('afterend', districtRegisterButton);
+					}, 100);
+				}
+			});
+
+			provinceSelect.addEventListener("change", function () {
+				const provinceId = this.value;
+				if (!provinceId) return;
+
+				fetch(`/api/v1/province/${provinceId}/cities`)
+					.then(res => res.json())
+					.then(cities => {
+						if (cities.length > 0) {
+							citySelect.innerHTML = '<option value="">시 선택</option>';
+							cities.forEach(city => {
+								citySelect.innerHTML += `<option value="${city.id}" data-name="${city.name}">${city.name}</option>`;
+							});
+							cityWrapper.style.display = "block";
+							districtWrapper.style.display = "none";
+							districtSelect.innerHTML = '';
+						} else {
+							fetch(`/api/v1/province/${provinceId}/districts`)
+								.then(res => res.json())
+								.then(districts => {
+									districtSelect.innerHTML = '<option value="">구 선택</option>';
+									districts.forEach(d => {
+										districtSelect.innerHTML += `<option value="${d.id}" data-name="${d.name}">${d.name}</option>`;
+									});
+									cityWrapper.style.display = "none";
+									districtWrapper.style.display = "block";
+								});
+						}
+					});
+			});
+
+			citySelect.addEventListener("change", function () {
+				const cityId = this.value;
+				if (!cityId) return;
+
+				fetch(`/api/v1/city/${cityId}/districts`)
+					.then(res => res.json())
+					.then(data => {
+						districtSelect.innerHTML = '<option value="">구 선택</option>';
+						data.forEach(d => {
+							districtSelect.innerHTML += `<option value="${d.id}" data-name="${d.name}">${d.name}</option>`;
+						});
+						districtWrapper.style.display = "block";
+					});
+			});
+
+
+			districtRegisterButton.addEventListener('click', () => {
+				
+				const provinceName = provinceSelect.options[provinceSelect.selectedIndex]?.text;
+				const provinceId = provinceSelect.value;
+				const cityName = citySelect.options[citySelect.selectedIndex]?.text || null;
+				const cityId = citySelect.value || null;
+				const districtName = districtSelect.options[districtSelect.selectedIndex]?.text || null;
+				const districtId = districtSelect.value || null;
+
+				if (!provinceId || !provinceName) return alert("도는 반드시 선택해야 합니다.");
+
+				const isDuplicate = selectedRegions.some(r => {
+					return r.provinceId === provinceId &&
+						(r.cityId === cityId || r.cityId === null || cityId === null) &&
+						(r.districtId === districtId || r.districtId === null || districtId === null);
+				});
+
+				if (isDuplicate) return alert("이미 추가된 지역입니다.");
+
+				selectedRegions.push({provinceId, cityId, districtId, provinceName, cityName, districtName});
+				renderRegionList();
+				updateRegionInput(); 
+				
+				// ✅ 등록 후 셀렉트 초기화
+				provinceSelect.value = '';
+				citySelect.innerHTML = '';
+				districtSelect.innerHTML = '';
+				cityWrapper.style.display = 'none';
+				districtWrapper.style.display = 'none';
+				console.log(selectedRegions);
+			});
+			
+			
+			
+		});
+	</script>
+</body>
+
+</html>

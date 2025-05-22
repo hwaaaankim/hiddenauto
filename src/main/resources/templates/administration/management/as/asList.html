@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="fragments/administration/common :: autoAdminHead">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
 <body>
@@ -10,10 +10,10 @@
 	<!-- Begin page -->
 	<div id="layout-wrapper">
 
-		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 
-		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
-		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
 		<div class="main-content">
 
@@ -52,104 +52,51 @@
 									</div>
 								</div>
 								<div class="card-body border border-dashed border-end-0 border-start-0">
-									<form>
+									<form method="get" action="/management/asList">
 										<div class="row g-3">
-											<div class="col-xxl-4 col-sm-12">
-												<div class="search-box">
-													<input type="text" class="form-control search bg-light border-light"
-														placeholder="검색어를 입력 해 주세요.">
-													<i class="ri-search-line search-icon"></i>
-												</div>
+											<!-- 상태 -->
+											<div class="col-md-3">
+												<label class="form-label">AS 상태</label>
+												<select class="form-select" name="status">
+												    <option value="">전체</option>
+												    <option th:each="status : ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).values()}"
+												            th:value="${status}"
+												            th:text="${status}"
+												            th:selected="${selectedStatus != null and selectedStatus == status}">
+												    </option>
+												</select>
 											</div>
 
-											<div class="col-xxl-3 col-sm-4">
-												<input type="text" class="form-control bg-light border-light"
-													id="demo-datepicker" data-provider="flatpickr"
-													data-date-format="d M, Y" data-range-date="true"
-													placeholder="Select date range">
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">제품</option>
-														<option value="all" selected>All</option>
-														<option value="New">상부장</option>
-														<option value="Pending">하부장</option>
-														<option value="Inprogress">슬라이드장</option>
-														<option value="Completed">플랩장</option>
-														<option value="Completed">거울</option>
-													</select>
-												</div>
+											<!-- 담당자 -->
+											<div class="col-md-3">
+												<label class="form-label">AS 담당자</label>
+												<select class="form-select" name="handlerId">
+													<option value="" th:selected="${selectedHandlerId == null}">전체
+													</option>
+													<option th:each="handler : ${asHandlers}" th:value="${handler.id}"
+														th:text="${handler.name}"
+														th:selected="${selectedHandlerId == handler.id}">
+													</option>
+												</select>
 											</div>
 
-											<!--end col-->
-											<div class="col-xxl-1 col-sm-4">
-												<button type="button" class="btn btn-primary w-100">
-													<i class="fa-solid fa-magnifying-glass"></i>
-													검색
+											<!-- 날짜 -->
+											<div class="col-md-3">
+												<label class="form-label">날짜선택</label>
+												<input type="date" class="form-control" name="date"
+													th:value="${#temporals.format(selectedDate, 'yyyy-MM-dd')}">
+											</div>
+
+											<!-- 검색 버튼 -->
+											<div class="col-md-3">
+												<label class="form-label">조회</label>
+												<button type="submit" class="btn btn-primary w-100">
+													<i class="fa-solid fa-magnifying-glass"></i> 검색
 												</button>
-											</div>
-											<div class="col-xxl-1 col-sm-4">
-												<button type="button" class="btn btn-danger w-100"> <i
-														class="fa-solid fa-filter"></i>
-													상세검색
-												</button>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">상태</option>
-														<option value="all" selected>All</option>
-														<option value="New">대기중</option>
-														<option value="Pending">진행중</option>
-														<option value="Inprogress">완료</option>
-														<option value="Completed">취소</option>
-													</select>
-												</div>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">담당직원</option>
-														<option value="all" selected>All</option>
-														<option value="New">직원명</option>
-														<option value="Pending">직원명</option>
-														<option value="Inprogress">직원명</option>
-														<option value="Completed">직원명</option>
-													</select>
-												</div>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">담당배송직원</option>
-														<option value="all" selected>직원명</option>
-														<option value="New">직원명</option>
-														<option value="Pending">직원명</option>
-														<option value="Inprogress">직원명</option>
-														<option value="Completed">직원명</option>
-													</select>
-												</div>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">배송방식</option>
-														<option value="all" selected>All</option>
-														<option value="New">직배송</option>
-														<option value="Pending">택배</option>
-														<option value="Inprogress">용달</option>
-														<option value="Completed">기타</option>
-													</select>
-												</div>
 											</div>
 										</div>
 									</form>
+
 								</div>
 								<!--end card-body-->
 								<div class="card-body">
@@ -169,6 +116,7 @@
 													<th class="sort">담당AS사원</th>
 													<th class="sort">신청일</th>
 													<th class="sort">최근수정일</th>
+													<th class="sort">처리일</th>
 													<th class="sort">상태</th>
 												</tr>
 											</thead>
@@ -184,8 +132,8 @@
 													<!-- Task ID -->
 													<td>
 														<a th:href="@{/management/asDetail/{id}(id=${as.id})}"
-														   class="fw-medium link-primary"
-														   th:text="${'AS_TASK_#' + as.id}">AS_TASK_0</a>
+															class="fw-medium link-primary"
+															th:text="${'AS_TASK_#' + as.id}">AS_TASK_0</a>
 													</td>
 
 													<!-- 대리점명 -->
@@ -218,7 +166,9 @@
 													<td
 														th:text="${#temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm')}">
 														00:00</td>
-
+													<td
+														th:text="${#temporals.format(as.asProcessDate, 'yyyy-MM-dd HH:mm')}">
+														00:00</td>
 													<!-- 상태 -->
 													<td class="status">
 														<span class="badge text-uppercase" th:classappend="|bg-${
@@ -281,11 +231,11 @@
 					</div>
 				</div>
 			</div>
-			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
-	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
-	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 </body>
 
 </html>
