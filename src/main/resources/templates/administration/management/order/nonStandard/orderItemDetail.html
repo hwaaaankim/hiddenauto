@@ -273,10 +273,12 @@
 											<select class="form-select" name="productCategoryId">
 												<option value="" th:selected="${order.productCategory == null}">배정 필요함
 												</option>
+
 												<option th:each="category : ${productionTeamCategories}"
 													th:value="${category.id}" th:text="${category.name}"
-													th:selected="${order.productCategory.id == category.id}">
+													th:selected="${order.productCategory != null and order.productCategory.id == category.id}">
 												</option>
+
 											</select>
 										</div>
 									</div>

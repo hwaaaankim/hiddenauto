@@ -22,13 +22,13 @@
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">AS상세</h4>
+								<h4 class="mb-sm-0">대리점 상세</h4>
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">AS관리</a></li>
-										<li class="breadcrumb-item"><a href="javascript: void(0);">AS리스트</a></li>
-										<li class="breadcrumb-item active">AS상세</li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">대리점 관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">대리점 리스트</a></li>
+										<li class="breadcrumb-item active">대리점 상세</li>
 									</ol>
 								</div>
 
@@ -36,133 +36,248 @@
 						</div>
 					</div>
 
-					<!-- 상단 생략 -->
-					<form th:action="@{/management/asUpdate/{id}(id=${asTask.id})}" method="POST">
-						<div class="row">
-							<div class="col-lg-10">
-								<div class="card">
-									<div class="card-body">
-										<div class="mb-3">
-											<label class="form-label">대리점명</label>
-											<input type="text" class="form-control" th:value="${asTask.requestedBy != null && asTask.requestedBy.company != null 
-									? asTask.requestedBy.company.companyName : '미지정'}" readonly>
-										</div>
-
-										<div class="mb-3">
-											<label class="form-label">신청자명</label>
-											<input type="text" class="form-control"
-												th:value="${asTask.requestedBy != null ? asTask.requestedBy.name : '미지정'}"
-												readonly>
-										</div>
-
-										<div class="mb-3">
-											<label class="form-label">AS 사유</label>
-											<textarea class="form-control" rows="3" readonly
-												th:text="${asTask.reason}"></textarea>
-										</div>
-
-										<div class="mb-3">
-											<label class="form-label">AS 주소</label>
-											<input type="text" class="form-control"
-												th:value="|(${asTask.zipCode}) ${asTask.doName} ${asTask.siName} ${asTask.guName} ${asTask.roadAddress} ${asTask.detailAddress}|"
-												readonly>
-										</div>
-
-										<div class="row">
-											<div class="col-lg-4">
-												<label class="form-label">AS 신청일</label>
-												<input type="text" class="form-control"
-													th:value="${#temporals.format(asTask.requestedAt, 'yyyy-MM-dd HH:mm')}"
-													readonly>
-											</div>
-
-											<div class="col-lg-4">
-												<label class="form-label">진행일자</label>
-												<input type="text" class="form-control"
-													th:value="${#temporals.format(asTask.asProcessDate, 'yyyy-MM-dd HH:mm')}"
-													readonly>
-											</div>
-
-											<div class="col-lg-4">
-												<label class="form-label">AS 비용</label>
-												<input type="text" class="form-control" th:value="${asTask.price}">
-											</div>
-										</div>
-
-										<div class="row mt-4">
-											<div class="col-12">
-												<label class="form-label">고객 요청 이미지</label>
-												<div class="row g-2">
-													<div class="col-lg-2" th:each="img : ${asTask.requestImages}">
-														<div
-															class="border rounded p-2 d-flex justify-content-between align-items-center">
-															<span class="text-truncate"
-																th:text="${img.filename}"></span>
-															<a th:href="@{${img.url}}" download><i
-																	class="ri-download-2-line text-primary"></i></a>
-														</div>
-													</div>
-													<div th:if="${#lists.isEmpty(asTask.requestImages)}">
-														<p class="text-muted">이미지가 없습니다.</p>
-													</div>
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="row">
+								<div class="col-xxl-3 col-sm-6">
+									<div class="card card-animate">
+										<div class="card-body">
+											<div class="d-flex justify-content-between">
+												<div>
+													<p class="fw-semibold text-muted mb-0">총 발주</p>
+													<h2 class="mt-4 ff-secondary fw-semibold"><span
+															class="counter-value" data-target="234">234</span>회</h2>
 												</div>
-											</div>
-											<div class="col-12 mt-3">
-												<label class="form-label">AS 결과 이미지</label>
-												<div class="row g-2">
-													<div class="col-lg-2" th:each="img : ${asTask.resultImages}">
-														<div
-															class="border rounded p-2 d-flex justify-content-between align-items-center">
-															<span class="text-truncate"
-																th:text="${img.filename}"></span>
-															<a th:href="@{${img.url}}" download><i
-																	class="ri-download-2-line text-success"></i></a>
-														</div>
-													</div>
-													<div th:if="${#lists.isEmpty(asTask.resultImages)}">
-														<p class="text-muted">이미지가 없습니다.</p>
+												<div>
+													<div class="avatar-sm flex-shrink-0">
+														<span
+															class="avatar-title bg-info-subtle text-info rounded-circle fs-4">
+															<i class="ri-ticket-2-line"></i>
+														</span>
 													</div>
 												</div>
 											</div>
 										</div>
-
 									</div>
 								</div>
-
-								<!-- 상태 변경 및 담당자 지정 카드 -->
-								<div class="text-end mb-4">
-									<button class="btn btn-success w-sm">저장</button>
-								</div>
-							</div>
-							<div class="col-lg-2">
-								<div class="card">
-									<div class="card-header">
-										<h5 class="card-title mb-0">AS 상태 / 담당자</h5>
-									</div>
-									<div class="card-body">
-										<div class="mb-3">
-											<label class="form-label">AS 상태</label>
-											<select class="form-select" name="status">
-												<option th:each="s : ${asStatuses}" th:value="${s.name()}"
-													th:text="${s.name()}"
-													th:selected="${asTask.status.name() == s.name()}"></option>
-											</select>
+								<div class="col-xxl-3 col-sm-6">
+									<div class="card card-animate">
+										<div class="card-body">
+											<div class="d-flex justify-content-between">
+												<div>
+													<p class="fw-semibold text-muted mb-0">대기중</p>
+													<h2 class="mt-4 ff-secondary fw-semibold"><span
+															class="counter-value" data-target="14">14</span>회</h2>
+												</div>
+												<div>
+													<div class="avatar-sm flex-shrink-0">
+														<span
+															class="avatar-title bg-warning-subtle text-warning rounded-circle fs-4">
+															<i class="mdi mdi-timer-sand"></i>
+														</span>
+													</div>
+												</div>
+											</div>
 										</div>
-										<div class="mb-3">
-											<label class="form-label">담당자</label>
-											<select class="form-select" name="assignedHandlerId">
-												<option value="">미지정</option>
-												<option th:each="m : ${asTeamMembers}" th:value="${m.id}"
-													th:text="${m.name}"
-													th:selected="${asTask.assignedHandler != null && asTask.assignedHandler.id == m.id}">
-												</option>
-											</select>
+									</div>
+								</div>
+
+								<div class="col-xxl-3 col-sm-6">
+									<div class="card card-animate">
+										<div class="card-body">
+											<div class="d-flex justify-content-between">
+												<div>
+													<p class="fw-semibold text-muted mb-0">진행중</p>
+													<h2 class="mt-4 ff-secondary fw-semibold"><span
+															class="counter-value" data-target="224">224</span>회</h2>
+												</div>
+												<div>
+													<div class="avatar-sm flex-shrink-0">
+														<span
+															class="avatar-title bg-info-subtle text-info rounded-circle fs-4">
+															<i class="ri-ticket-2-line"></i>
+														</span>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-xxl-3 col-sm-6">
+									<div class="card card-animate">
+										<div class="card-body">
+											<div class="d-flex justify-content-between">
+												<div>
+													<p class="fw-semibold text-muted mb-0">발주취소</p>
+													<h2 class="mt-4 ff-secondary fw-semibold"><span
+															class="counter-value" data-target="34">34</span>회</h2>
+												</div>
+												<div>
+													<div class="avatar-sm flex-shrink-0">
+														<span
+															class="avatar-title bg-danger-subtle text-danger rounded-circle fs-4">
+															<i class="ri-delete-bin-line"></i>
+														</span>
+													</div>
+												</div>
+											</div>
 										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-					</form>
+
+					</div>
+					<div class="row">
+						<div class="col-lg-6">
+							<div class="card mb-3">
+								<div class="card-body">
+
+									<div class="table-card">
+										<table class="table mb-0">
+											<tbody>
+												<tr>
+													<td class="fw-medium">업체명</td>
+													<td th:text="${company.companyName}"></td>
+												</tr>
+												<tr>
+													<td class="fw-medium">적립금</td>
+													<td th:text="${company.point} + 'P'"></td>
+												</tr>
+												<tr>
+													<td class="fw-medium">주소</td>
+													<td
+														th:text="|${company.doName} ${company.siName} ${company.guName} ${company.roadAddress} ${company.detailAddress}|">
+													</td>
+												</tr>
+												<tr>
+													<td class="fw-medium">우편번호</td>
+													<td th:text="${company.zipCode}"></td>
+												</tr>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-6">
+							<div class="card mb-3">
+								<div class="card-body">
+
+									<div class="table-card">
+										<table class="table mb-0">
+											<tbody>
+												<tr>
+													<td class="fw-medium">사업자등록증</td>
+													<td>
+														<a th:if="${company.businessLicenseUrl != null}"
+															th:href="${company.businessLicenseUrl}"
+															target="_blank">열람하기</a>
+														<span th:if="${company.businessLicenseUrl == null}">없음</span>
+													</td>
+												</tr>
+												<tr>
+													<td class="fw-medium">등록일</td>
+													<td
+														th:text="${#temporals.format(company.createdAt, 'yyyy-MM-dd HH:mm')}">
+													</td>
+												</tr>
+												<tr>
+													<td class="fw-medium">수정일</td>
+													<td
+														th:text="${company.updatedAt != null ? #temporals.format(company.updatedAt, 'yyyy-MM-dd HH:mm') : '—'}">
+													</td>
+												</tr>
+												<tr>
+													<td class="fw-medium">대표자</td>
+													<td
+														th:text="${members.?[role.name() == 'CUSTOMER_REPRESENTATIVE']?.get(0)?.name ?: '없음'}">
+													</td>
+												</tr>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-xxl-4 col-sm-6 project-card" th:each="member : ${members}">
+							<div class="card">
+								<div class="card-body">
+									<!-- 카드 상단 영역 (타이틀 + 아이콘) -->
+									<div class="p-3 mt-n3 mx-n3 bg-primary-subtle rounded-top">
+										<div class="d-flex align-items-center">
+											<div class="flex-grow-1">
+												<h5 class="mb-0 fs-15">
+													<a href="#" class="text-body" th:text="${member.name}">이름</a>
+												</h5>
+											</div>
+											<div class="flex-shrink-0">
+												<div class="d-flex gap-1 align-items-center my-n2">
+													<button type="button"
+														class="btn avatar-xs p-0 favourite-btn active">
+														<span class="avatar-title bg-transparent fs-15">
+															<i class="ri-star-fill"></i>
+														</span>
+													</button>
+													<div class="dropdown">
+														<button
+															class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+															data-bs-toggle="dropdown" aria-haspopup="true"
+															aria-expanded="true">
+															<i data-feather="more-horizontal" class="icon-sm"></i>
+														</button>
+														<div class="dropdown-menu dropdown-menu-end">
+															<a class="dropdown-item" href="#" data-bs-toggle="modal"
+																data-bs-target="#removeProjectModal">
+																<i
+																	class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
+																접속금지
+															</a>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- 카드 내용 -->
+									<div class="py-3">
+										<div class="row gy-3">
+											<div class="col-6">
+												<p class="text-muted mb-1">아이디</p>
+												<h5 class="fs-14" th:text="${member.username}"></h5>
+											</div>
+											<div class="col-6">
+												<p class="text-muted mb-1">연락처</p>
+												<h5 class="fs-14" th:text="${member.phone}"></h5>
+											</div>
+											<div class="col-6">
+												<p class="text-muted mb-1">이메일</p>
+												<h5 class="fs-14" th:text="${member.email}"></h5>
+											</div>
+											<div class="col-6">
+												<p class="text-muted mb-1">역할</p>
+												<h5 class="fs-14" th:text="${member.role.name()}"></h5>
+											</div>
+										</div>
+										<div class="row gy-3 mt-2">
+											<div class="col-6">
+												<p class="text-muted mb-1">가입일</p>
+												<h5 class="fs-14"
+													th:text="${#temporals.format(member.createdAt, 'yyyy-MM-dd')}"></h5>
+											</div>
+											<div class="col-6">
+												<p class="text-muted mb-1">최근 로그인</p>
+												<h5 class="fs-14"
+													th:text="${member.lastLoginAt != null ? #temporals.format(member.lastLoginAt, 'yyyy-MM-dd HH:mm') : '—'}">
+												</h5>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>

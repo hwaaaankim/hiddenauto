@@ -8,6 +8,7 @@ import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,10 +17,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
@@ -31,6 +35,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,6 +52,7 @@ public class TeamController {
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final OrderRepository orderRepository;
 	private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+	private final DeliveryOrderIndexService deliveryOrderIndexService;
 
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
@@ -173,6 +179,7 @@ public class TeamController {
 	            .findByHandlerAndDateAndStatusIn(member.getId(), preferredDate, statuses, pageable);
 
 	    // 5. 모델에 데이터 전달
+	    model.addAttribute("deliveryHandlerId", member.getId());
 	    model.addAttribute("orders", page.getContent()); // 실제 리스트
 	    model.addAttribute("page", page); // 페이지네이션을 위한 Page 객체
 	    model.addAttribute("preferredDate", preferredDate); // 날짜 필터 값
@@ -180,6 +187,13 @@ public class TeamController {
 	    return "administration/team/delivery/deliveryList";
 	}
 
+	@PostMapping("/updateOrderIndex")
+	@ResponseBody
+	public ResponseEntity<?> updateOrderIndex(@RequestBody DeliveryOrderIndexUpdateRequest request) {
+	    deliveryOrderIndexService.updateIndexes(request);
+	    return ResponseEntity.ok().build();
+	}
+	
 	@GetMapping("/asList")
 	public Page<AsTask> getAsTasks(@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asDate,

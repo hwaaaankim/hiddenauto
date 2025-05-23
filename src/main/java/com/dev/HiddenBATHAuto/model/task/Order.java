@@ -52,6 +52,7 @@ public class Order {
     
     private int quantity;
     private int productCost;                     // 제품비용 (단위: 원)
+    private String orderComment;
     
     // ✅ 추가 필드
     private LocalDateTime preferredDeliveryDate; // 배송희망일

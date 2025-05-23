@@ -52,5 +52,8 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 	    @Param("statuses") List<OrderStatus> statuses,
 	    Pageable pageable
 	);
+    
+    Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
+            Long handlerId, LocalDate deliveryDate, Long orderId);
 
 }

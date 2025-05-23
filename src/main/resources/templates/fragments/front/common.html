@@ -60,12 +60,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 	<script src="/front/scripts/script.js"></script>
 	<script src="/front/cart.js" type="module"></script>
-	<!--<script src="/webjars/sockjs-client/1.5.1/sockjs.min.js"></script>
-    <script src="/webjars/stomp-websocket/2.3.4/stomp.min.js"></script>
-	<script th:inline="javascript">
-        var isGuest = /*[[${#authentication.principal == null}]]*/ true;
-    </script>
-	<script src="/front/socket.js"></script>-->
 </th:block>
 
 <th:block th:fragment="autoCartScript">
@@ -74,12 +68,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 	<script src="/front/scripts/script.js"></script>
 	<script src="/front/cart.js" type="module"></script>
-	<!--<script src="/webjars/sockjs-client/1.5.1/sockjs.min.js"></script>
-    <script src="/webjars/stomp-websocket/2.3.4/stomp.min.js"></script>
-	<script th:inline="javascript">
-        var isGuest = /*[[${#authentication.principal == null}]]*/ true;
-    </script>
-	<script src="/front/socket.js"></script>-->
 </th:block>
 
 <th:block th:fragment="autoBottomMenu">
@@ -205,12 +193,12 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="me-3 ms-3 mt-4 pt-2">
 			<span class="text-uppercase font-900 font-11 opacity-30">계정관리</span>
 			<div class="list-group list-custom-small list-icon-0">
-				<a href="/customer/myInfo">
+				<a href="/customer/myInfo" class="border-0">
 					<i class="fa font-14 fa-cog color-brown-dark"></i>
 					<span>계정관리</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="/memberList" class="border-0"  sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
+				<a href="/customer/memberList" class="border-0"  sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
 					<i class="fa font-14 fa-cog color-brown-dark"></i>
 					<span>직원관리</span>
 					<i class="fa fa-angle-right"></i>

@@ -1,0 +1,117 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/front/common :: autoHead}">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style">
+				<div class="content mt-0 mb-0">
+					<div class="list-group list-custom-large list-icon-0">
+						<a href="#" onclick="toggleEnabled()" data-trigger-switch="smsSwitch">
+							<span>접속허용</span>
+							<strong>계정 접속 허용 여부를 선택할 수 있습니다.</strong>
+							<div class="custom-control scale-switch ios-switch">
+								<input type="checkbox" class="ios-input" id="smsSwitch"
+									th:checked="${member.enabled}" />
+								<label class="custom-control-label" for="smsSwitch"></label>
+							</div>
+							<i class="fa fa-chevron-right opacity-30"></i>
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<div class="card card-style">
+				<div class="content mb-0">
+					<h2>계정정보</h2>
+					<p class="mb-4">아이디는 변경할 수 없습니다.</p>
+
+					<div class="input-style input-style-always-active has-borders has-icon">
+						<i class="fa fa-user font-12"></i>
+						<input type="text" class="form-control" th:value="${member.name}" readonly>
+						<label class="color-blue-dark font-13">성함</label>
+					</div>
+
+					<div class="input-style input-style-always-active has-borders has-icon">
+						<i class="fa-regular fa-building font-12"></i>
+						<input type="text" class="form-control" th:value="${member.company.companyName}" readonly>
+						<label class="color-blue-dark font-13">대리점명</label>
+					</div>
+
+					<div class="input-style input-style-always-active has-borders has-icon mt-4">
+						<i class="fa fa-map-marker font-12"></i>
+						<input type="text" class="form-control"
+							th:value="${member.company.roadAddress + ' ' + member.company.detailAddress}" readonly>
+						<label class="color-blue-dark font-13">주소</label>
+					</div>
+
+					<div class="input-style input-style-always-active has-borders has-icon mt-4">
+						<i class="fa fa-phone font-12"></i>
+						<input type="text" class="form-control" th:value="${member.phone}" readonly>
+						<label class="color-blue-dark font-13">연락처</label>
+					</div>
+
+					<div class="input-style input-style-always-active has-borders has-icon mt-4">
+						<i class="fa-solid fa-inbox font-12"></i>
+						<input type="email" class="form-control" th:value="${member.email}" readonly>
+						<label class="color-blue-dark font-13">이메일</label>
+					</div>
+
+					<div class="input-style input-style-always-active has-borders has-icon mt-4">
+						<i class="fa-solid fa-fax font-12"></i>
+						<input type="text" class="form-control" th:value="${member.telephone}" readonly>
+						<label class="color-blue-dark font-13">매장번호</label>
+					</div>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+	</div>
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+	<script th:inline="javascript">
+		/*<![CDATA[*/
+		const memberId = /*[[${member.id}]]*/ 0;
+		/*]]>*/
+	</script>
+	<script>
+		function toggleEnabled() {
+			const isChecked = document.getElementById("smsSwitch").checked;
+			const newEnabled = !isChecked; // ✅ 반전해서 전송
+			
+			fetch('/customer/toggleMemberEnabled', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					memberId: memberId,
+					enabled: newEnabled
+				})
+			})
+
+				.then(res => {
+					if (!res.ok) throw new Error("변경 실패");
+					return res.json();
+				})
+				.then(data => {
+					alert(data.message);
+				})
+				.catch(err => {
+					alert("에러 발생: " + err.message);
+				});
+		}
+	</script>
+
+</body>
+
+</html>

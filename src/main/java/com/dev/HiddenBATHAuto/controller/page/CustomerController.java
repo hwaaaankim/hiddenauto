@@ -14,13 +14,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -41,6 +45,7 @@ import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
+import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.utils.FileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -54,78 +59,78 @@ public class CustomerController {
 
 	@Value("${spring.upload.path}")
 	private String uploadPath;
-	
+
 	private final MemberRepository memberRepository;
 	private final AsTaskService asTaskService;
 	private final TaskRepository taskRepository;
 	private final AsTaskRepository asTaskRepository;
 	private final OrderRepository orderRepository;
 	private final ObjectMapper objectMapper;
-	private final CompanyRepository companyRepository; 
-	
+	private final CompanyRepository companyRepository;
+	private final PasswordEncoder passwordEncoder;
+	private final MemberService memberService;
+
 	@GetMapping("/taskList")
 	public String taskList(@AuthenticationPrincipal PrincipalDetails principal,
-	                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-	                       Model model) {
-	    Long companyId = principal.getMember().getCompany().getId();
-	    Page<Task> taskPage = taskRepository.findByCompanyId(companyId, pageable);
-	    model.addAttribute("taskPage", taskPage);
-	    return "front/customer/task/taskList";
+			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+			Model model) {
+		Long companyId = principal.getMember().getCompany().getId();
+		Page<Task> taskPage = taskRepository.findByCompanyId(companyId, pageable);
+		model.addAttribute("taskPage", taskPage);
+		return "front/customer/task/taskList";
 	}
 
 	@GetMapping("/taskDetail/{taskId}")
-	public String taskDetail(@PathVariable Long taskId,
-	                         @AuthenticationPrincipal PrincipalDetails principal,
-	                         Model model) {
-	    Task task = taskRepository.findById(taskId)
-	        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+	public String taskDetail(@PathVariable Long taskId, @AuthenticationPrincipal PrincipalDetails principal,
+			Model model) {
+		Task task = taskRepository.findById(taskId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
-	    if (!principal.getMember().getCompany().getId()
-	        .equals(task.getRequestedBy().getCompany().getId())) {
-	        throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-	    }
+		if (!principal.getMember().getCompany().getId().equals(task.getRequestedBy().getCompany().getId())) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+		}
 
-	    model.addAttribute("task", task);
-	    return "front/customer/task/taskDetail";
+		model.addAttribute("task", task);
+		return "front/customer/task/taskDetail";
 	}
-	
+
 	@GetMapping("/orderDetail/{orderId}")
-    public String orderDetail(@PathVariable Long orderId,
-                              @AuthenticationPrincipal PrincipalDetails principal,
-                              Model model) {
+	public String orderDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,
+			Model model) {
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 주문을 찾을 수 없습니다."));
+		Order order = orderRepository.findById(orderId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 주문을 찾을 수 없습니다."));
 
-        Long memberCompanyId = principal.getMember().getCompany().getId();
-        Long orderCompanyId = order.getTask().getRequestedBy().getCompany().getId();
+		Long memberCompanyId = principal.getMember().getCompany().getId();
+		Long orderCompanyId = order.getTask().getRequestedBy().getCompany().getId();
 
-        if (!memberCompanyId.equals(orderCompanyId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "해당 주문에 접근할 수 없습니다.");
-        }
+		if (!memberCompanyId.equals(orderCompanyId)) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "해당 주문에 접근할 수 없습니다.");
+		}
 
-        OrderItem item = order.getOrderItem();
-        if (item != null && item.getOptionJson() != null) {
-            try {
-                Map<String, String> parsedMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {});
-                item.setParsedOptionMap(parsedMap);
-            } catch (IOException e) {
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "옵션 데이터를 파싱할 수 없습니다.");
-            }
-        }
+		OrderItem item = order.getOrderItem();
+		if (item != null && item.getOptionJson() != null) {
+			try {
+				Map<String, String> parsedMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {
+				});
+				item.setParsedOptionMap(parsedMap);
+			} catch (IOException e) {
+				throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "옵션 데이터를 파싱할 수 없습니다.");
+			}
+		}
 
-        model.addAttribute("order", order);
-        return "front/customer/task/orderDetail";
-    }
-	
+		model.addAttribute("order", order);
+		return "front/customer/task/orderDetail";
+	}
+
 	@GetMapping("/asList")
 	public String asList(@AuthenticationPrincipal PrincipalDetails principal,
-	                     @PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
-	                     Model model) {
-	    Long companyId = principal.getMember().getCompany().getId();
-	    Page<AsTask> asTaskPage = asTaskRepository.findByCompanyId(companyId, pageable);
-	    model.addAttribute("asTaskPage", asTaskPage);
-	    return "front/customer/task/asList";
+			@PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
+			Model model) {
+		Long companyId = principal.getMember().getCompany().getId();
+		Page<AsTask> asTaskPage = asTaskRepository.findByCompanyId(companyId, pageable);
+		model.addAttribute("asTaskPage", asTaskPage);
+		return "front/customer/task/asList";
 	}
 
 	@GetMapping("/asRequest")
@@ -144,24 +149,21 @@ public class CustomerController {
 
 	@PostMapping("/asSubmit")
 	@ResponseBody
-	public Map<String, Object> submitAsTask(
-	        @AuthenticationPrincipal PrincipalDetails principal,
-	        @ModelAttribute AsTask task,
-	        @RequestParam("images") List<MultipartFile> images
-	) {
-	    Map<String, Object> result = new HashMap<>();
-	    try {
-	        AsTask saved = asTaskService.submitAsTask(task, images, principal.getMember());
-	        result.put("success", true);
-	        result.put("message", "AS 신청이 완료되었습니다.");
-	        result.put("redirectUrl", "/index");
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	        result.put("success", false);
-	        result.put("message", "AS 신청 중 오류가 발생했습니다.");
-	        result.put("redirectUrl", "/customer/asRequest");
-	    }
-	    return result;
+	public Map<String, Object> submitAsTask(@AuthenticationPrincipal PrincipalDetails principal,
+			@ModelAttribute AsTask task, @RequestParam("images") List<MultipartFile> images) {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			AsTask saved = asTaskService.submitAsTask(task, images, principal.getMember());
+			result.put("success", true);
+			result.put("message", "AS 신청이 완료되었습니다.");
+			result.put("redirectUrl", "/index");
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("success", false);
+			result.put("message", "AS 신청 중 오류가 발생했습니다.");
+			result.put("redirectUrl", "/customer/asRequest");
+		}
+		return result;
 	}
 
 	@GetMapping("/myInfo")
@@ -179,76 +181,137 @@ public class CustomerController {
 		return "front/customer/info/myInfo";
 	}
 
-	
 	@PostMapping("/myInfoUpdate")
-	public String updateMyInfo(@AuthenticationPrincipal PrincipalDetails principal,
-	                           @RequestParam String name,
-	                           @RequestParam String phone,
-	                           @RequestParam String email,
-	                           @RequestParam(required = false) String companyName,
-	                           @RequestParam String roadAddress,
-	                           @RequestParam String detailAddress,
-	                           @RequestParam String doName,
-	                           @RequestParam String siName,
-	                           @RequestParam String guName,
-	                           @RequestParam String zipCode,
-	                           @RequestParam(defaultValue = "false") boolean removeBusinessLicense,
-	                           @RequestParam(required = false) MultipartFile businessLicenseFile) {
+	public String updateMyInfo(@AuthenticationPrincipal PrincipalDetails principal, @RequestParam String name,
+			@RequestParam String phone, @RequestParam String email, @RequestParam(required = false) String companyName,
+			@RequestParam String roadAddress, @RequestParam String detailAddress, @RequestParam String doName,
+			@RequestParam String siName, @RequestParam String guName, @RequestParam String zipCode,
+			@RequestParam(defaultValue = "false") boolean removeBusinessLicense,
+			@RequestParam(required = false) MultipartFile businessLicenseFile) {
 
+		Member member = principal.getMember();
+		Company company = member.getCompany();
+
+		// 멤버 정보
+		member.setName(name);
+		member.setPhone(phone);
+		member.setEmail(email);
+		member.setUpdatedAt(LocalDateTime.now());
+
+		// 대표만 회사 정보 수정 가능
+		if (principal.getMember().getRole() == MemberRole.CUSTOMER_REPRESENTATIVE) {
+			if (companyName != null)
+				company.setCompanyName(companyName);
+			company.setRoadAddress(roadAddress);
+			company.setDetailAddress(detailAddress);
+			company.setDoName(doName);
+			company.setSiName(siName);
+			company.setGuName(guName);
+			company.setZipCode(zipCode);
+			company.setUpdatedAt(LocalDateTime.now());
+
+			String baseDir = uploadPath + "/license/" + company.getId(); // spring.upload.path 사용
+
+			// 새 파일 업로드 시 기존 삭제 후 저장
+			if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
+				FileUtil.deleteIfExists(company.getBusinessLicensePath());
+
+				String originalName = businessLicenseFile.getOriginalFilename();
+				String savedName = UUID.randomUUID() + "_" + originalName;
+				String fullPath = baseDir + "/" + savedName;
+
+				FileUtil.createDirIfNotExists(baseDir);
+
+				try {
+					businessLicenseFile.transferTo(new File(fullPath));
+					company.setBusinessLicenseFilename(originalName);
+					company.setBusinessLicensePath(fullPath);
+					company.setBusinessLicenseUrl("/files/license/" + company.getId() + "/" + savedName);
+				} catch (IOException e) {
+					throw new RuntimeException("파일 저장 실패", e);
+				}
+			}
+
+			// 파일 삭제만 요청한 경우
+			if (removeBusinessLicense) {
+				FileUtil.deleteIfExists(company.getBusinessLicensePath());
+				company.setBusinessLicenseFilename(null);
+				company.setBusinessLicensePath(null);
+				company.setBusinessLicenseUrl(null);
+			}
+			companyRepository.save(company);
+		}
+
+		memberRepository.save(member);
+
+		return "redirect:/customer/myInfo";
+	}
+
+	@PostMapping("/generateRegistrationKey")
+	@ResponseBody
+	public Map<String, String> generateRegistrationKey(@AuthenticationPrincipal PrincipalDetails principal) {
+		Member member = principal.getMember();
+		if (member.getRole() != MemberRole.CUSTOMER_REPRESENTATIVE) {
+			throw new AccessDeniedException("권한 없음");
+		}
+
+		Company company = member.getCompany();
+		String newKey = UUID.randomUUID().toString().substring(0, 8); // 혹은 원하는 규칙
+		company.setRegistrationKey(newKey);
+		companyRepository.save(company);
+
+		return Map.of("key", newKey);
+	}
+
+	
+	@PostMapping("/changePassword")
+	public String changePassword(@AuthenticationPrincipal PrincipalDetails principal,
+	                             @RequestParam String newPassword) {
 	    Member member = principal.getMember();
-	    Company company = member.getCompany();
-
-	    // 멤버 정보
-	    member.setName(name);
-	    member.setPhone(phone);
-	    member.setEmail(email);
-	    member.setUpdatedAt(LocalDateTime.now());
-
-	    // 대표만 회사 정보 수정 가능
-	    if (principal.getMember().getRole() == MemberRole.CUSTOMER_REPRESENTATIVE) {
-	        if (companyName != null) company.setCompanyName(companyName);
-	        company.setRoadAddress(roadAddress);
-	        company.setDetailAddress(detailAddress);
-	        company.setDoName(doName);
-	        company.setSiName(siName);
-	        company.setGuName(guName);
-	        company.setZipCode(zipCode);
-	        company.setUpdatedAt(LocalDateTime.now());
-
-	        String baseDir = uploadPath + "/license/" + company.getId(); // spring.upload.path 사용
-
-	        // 새 파일 업로드 시 기존 삭제 후 저장
-	        if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
-	            FileUtil.deleteIfExists(company.getBusinessLicensePath());
-
-	            String originalName = businessLicenseFile.getOriginalFilename();
-	            String savedName = UUID.randomUUID() + "_" + originalName;
-	            String fullPath = baseDir + "/" + savedName;
-
-	            FileUtil.createDirIfNotExists(baseDir);
-
-	            try {
-	                businessLicenseFile.transferTo(new File(fullPath));
-	                company.setBusinessLicenseFilename(originalName);
-	                company.setBusinessLicensePath(fullPath);
-	                company.setBusinessLicenseUrl("/files/license/" + company.getId() + "/" + savedName);
-	            } catch (IOException e) {
-	                throw new RuntimeException("파일 저장 실패", e);
-	            }
-	        }
-
-	        // 파일 삭제만 요청한 경우
-	        if (removeBusinessLicense) {
-	            FileUtil.deleteIfExists(company.getBusinessLicensePath());
-	            company.setBusinessLicenseFilename(null);
-	            company.setBusinessLicensePath(null);
-	            company.setBusinessLicenseUrl(null);
-	        }
-	    }
-
+	    String encoded = passwordEncoder.encode(newPassword);
+	    member.setPassword(encoded);
 	    memberRepository.save(member);
-	    companyRepository.save(company);
 
 	    return "redirect:/customer/myInfo";
 	}
+	
+	@PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
+    @GetMapping("/memberList")
+    public String memberList(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
+        Member loginMember = principal.getMember();
+        List<Member> employees = memberService.getCompanyEmployees(loginMember.getCompany());
+
+        model.addAttribute("employees", employees);
+        return "front/customer/member/memberList";
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
+    @GetMapping("/memberManager/{id}")
+    public String memberManager(@PathVariable Long id, Model model) {
+        Member member = memberService.getMemberById(id);
+        model.addAttribute("member", member);
+        return "front/customer/member/memberManager";
+    }
+    
+    @PostMapping("/toggleMemberEnabled")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
+    public Map<String, String> toggleMemberEnabled(@RequestBody Map<String, Object> payload,
+                                                   @AuthenticationPrincipal PrincipalDetails principal) {
+    	Long memberId = Long.valueOf(payload.get("memberId").toString());
+    	Boolean enabled = Boolean.valueOf(payload.get("enabled").toString());
+
+    	Member member = memberService.getMemberById(memberId);
+
+    	// 소속 검증
+    	if (!member.getCompany().getId().equals(principal.getMember().getCompany().getId())) {
+    		throw new AccessDeniedException("해당 직원은 당신 회사 소속이 아닙니다.");
+    	}
+
+    	member.setEnabled(enabled);
+    	memberRepository.save(member);
+
+    	return Map.of("message", enabled ? "접속이 허용되었습니다." : "접속이 차단되었습니다.");
+    }
+
 }

@@ -1,17 +1,17 @@
 <!DOCTYPE HTML>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<head th:replace="fragments/front/common :: autoHead">
+<head th:replace="~{fragments/front/common :: autoHead}">
 </head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
 
-	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
-	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
 	<div id="page" class="container">
-		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
 		<div class="page-content header-clear-medium">
 			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
 				<div class="card-center ms-3">
@@ -83,7 +83,7 @@
 			<a class="card card-style mb-3" th:each="order : ${task.orders}"
 				th:href="@{'/customer/orderDetail/' + ${order.id}}">
 				<div class="content">
-					<h3 th:text="${order.productCategory}">카테고리</h3>
+					<h3 th:text="${order.productCategory.name}">카테고리</h3>
 					<p class="font-11 mt-n2 mb-0 opacity-50">
 						배송 희망일:
 						<span
@@ -106,10 +106,10 @@
 			</a>
 
 		</div>
-		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
-	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
-	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 
 </body>
 

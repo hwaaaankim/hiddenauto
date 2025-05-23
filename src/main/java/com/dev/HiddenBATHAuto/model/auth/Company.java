@@ -2,6 +2,9 @@ package com.dev.HiddenBATHAuto.model.auth;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,8 +14,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.ToString;
 
 @Entity
 @Table(name = "tb_company")
@@ -28,6 +33,11 @@ public class Company implements Serializable {
    
 	@Column(name="point")
 	private int point;
+	
+	@JsonManagedReference
+	@ToString.Exclude
+	@OneToMany(mappedBy = "company", fetch = FetchType.LAZY)
+	private List<Member> members;
 	
     // 우편번호
     private String zipCode;

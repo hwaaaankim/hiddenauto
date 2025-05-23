@@ -1,0 +1,54 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/front/common :: autoHead}">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+		<div class="page-content header-clear-medium">
+			<div th:each="member : ${employees}" class="card card-style">
+				<div class="content">
+					<div class="memberList-wrap">
+						<h2 th:text="'성함 : ' + ${member.name}">성함 : </h2>
+
+						<p th:if="${member.createdAt != null}"
+							th:text="'가입일 : ' + ${#temporals.format(member.createdAt, 'yyyy.MM.dd HH:mm:ss')}">
+							가입일 :
+						</p>
+						<p th:if="${member.lastLoginAt != null}"
+							th:text="'최근접속일 : ' + ${#temporals.format(member.lastLoginAt, 'yyyy.MM.dd HH:mm:ss')}">
+							최근접속일 :
+						</p>
+						<p th:if="${member.phone != null}" th:text="'연락처 : ' + ${member.phone}">연락처 :</p>
+						<p th:if="${member.telephone != null}" th:text="'매장전화 : ' + ${member.telephone}">팩스 :</p>
+						<p th:if="${member.email != null}" th:text="'이메일 : ' + ${member.email}">이메일 :</p>
+						<p th:text="'상태 : ' + (${member.enabled} ? '활성' : '비활성')"></p>
+
+					</div>
+					<div class="memberList-btn-wrap">
+						<a th:href="'tel:' + ${member.phone}" class="call-btn default-link btn btn-sm">
+							<i class="fa-solid fa-phone"></i>전화걸기
+						</a>
+						<a th:href="@{/customer/memberManager/{id}(id=${member.id})}"
+							class="detail-btn default-link btn btn-sm">
+							<i class="fa-solid fa-circle-info"></i>상세정보
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+	</div>
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+</body>
+
+</html>

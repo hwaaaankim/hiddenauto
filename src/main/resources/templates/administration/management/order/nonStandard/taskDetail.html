@@ -156,7 +156,8 @@
 																						<h5 class="mb-0 fs-15">
 																							<a href="#"
 																								class="text-body"
-																								th:text="${order.productCategory.name}">제품군</a>
+																								th:text="${order.productCategory != null ? order.productCategory.name : '미지정'}">제품군</a>
+
 																						</h5>
 																					</div>
 																					<div class="flex-shrink-0">
@@ -174,8 +175,9 @@
 																								<div
 																									class="dropdown-menu dropdown-menu-end">
 																									<a class="dropdown-item"
-																									   th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}">
-																									    <i class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기
+																										th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}">
+																										<i
+																											class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기
 																									</a>
 																									<a class="dropdown-item"
 																										href="#"><i
@@ -194,15 +196,21 @@
 																							class="text-body">생산개요</a>
 																					</h5>
 
-																					<div th:if="${order.orderItem != null}">
-																					    <p class="text-muted text-truncate-two-lines mb-3">
-																					        <strong th:text="${order.orderItem.productName}"></strong>
-																					        (수량: <span th:text="${order.orderItem.quantity}"></span>)
-																					    </p>
-																					    <div th:each="entry : ${order.orderItem.parsedOptionMap}">
-																					        <span class="badge bg-light text-dark mb-1"
-																					              th:text="${entry.key} + ' : ' + ${entry.value}"></span><br />
-																					    </div>
+																					<div
+																						th:if="${order.orderItem != null}">
+																						<p
+																							class="text-muted text-truncate-two-lines mb-3">
+																							<strong
+																								th:text="${order.orderItem.productName}"></strong>
+																							(수량: <span
+																								th:text="${order.orderItem.quantity}"></span>)
+																						</p>
+																						<div
+																							th:each="entry : ${order.orderItem.parsedOptionMap}">
+																							<span
+																								class="badge bg-light text-dark mb-1"
+																								th:text="${entry.key} + ' : ' + ${entry.value}"></span><br />
+																						</div>
 																					</div>
 																				</div>
 																			</div>

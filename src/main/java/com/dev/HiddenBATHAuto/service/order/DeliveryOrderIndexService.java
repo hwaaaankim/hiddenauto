@@ -1,20 +1,27 @@
 package com.dev.HiddenBATHAuto.service.order;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.time.LocalDate;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
+import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class DeliveryOrderIndexService {
 
-    @Autowired
-    private DeliveryOrderIndexRepository deliveryOrderIndexRepository;
-
+    private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private final MemberRepository memberRepository;
+    
     public void ensureIndex(Order order) {
         if (order.getAssignedDeliveryHandler() == null || order.getPreferredDeliveryDate() == null) return;
 
@@ -42,6 +49,22 @@ public class DeliveryOrderIndexService {
             newIndex.setDeliveryHandler(order.getAssignedDeliveryHandler());
             newIndex.setOrderIndex(maxIndex == null ? 1 : maxIndex + 1);
             deliveryOrderIndexRepository.save(newIndex);
+        }
+    }
+    
+    public void updateIndexes(DeliveryOrderIndexUpdateRequest request) {
+        Member handler = memberRepository.findById(request.getDeliveryHandlerId())
+                .orElseThrow(() -> new IllegalArgumentException("배송 담당자 없음"));
+
+        LocalDate date = LocalDate.parse(request.getDeliveryDate());
+
+        for (DeliveryOrderIndexUpdateRequest.OrderIndexDto dto : request.getOrderList()) {
+            DeliveryOrderIndex index = deliveryOrderIndexRepository
+                    .findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
+                            handler.getId(), date, dto.getOrderId())
+                    .orElseThrow(() -> new IllegalStateException("해당 주문 인덱스 없음"));
+
+            index.setOrderIndex(dto.getOrderIndex());
         }
     }
 }

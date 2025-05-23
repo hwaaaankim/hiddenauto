@@ -6,10 +6,13 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -53,10 +56,24 @@ public class MemberService {
 	private final CityRepository cityRepository;
 	private final DistrictRepository districtRepository;
 	private final ObjectMapper objectMapper;
-
+	
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 
+	public Page<Member> searchEmployees(String name, String team, Pageable pageable) {
+	    List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
+	    return memberRepository.searchByRolesAndNameAndTeam(
+	        roles,
+	        name == null || name.isBlank() ? null : name,
+	        team == null || team.isBlank() ? null : team,
+	        pageable
+	    );
+	}
+	
+	public Optional<Member> findById(Long id) {
+	    return memberRepository.findById(id);
+	}
+	
 	public Member insertMember(Member member) {
 		String encodedPassword = passwordEncoder.encode(member.getPassword());
 		member.setPassword(encodedPassword);
@@ -251,4 +268,13 @@ public class MemberService {
 		private String cityId;
 		private String districtId;
 	}
+	
+	public List<Member> getCompanyEmployees(Company company) {
+        return memberRepository.findByCompanyAndRole(company, MemberRole.CUSTOMER_EMPLOYEE);
+    }
+
+    public Member getMemberById(Long id) {
+        return memberRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("해당 직원을 찾을 수 없습니다."));
+    }
 }

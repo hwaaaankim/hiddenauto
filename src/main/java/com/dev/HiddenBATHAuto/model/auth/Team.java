@@ -10,10 +10,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.ToString;
 
 @Entity
 @Table(name = "tb_team")
 @Data
+@ToString(exclude = "teamCategories")
 public class Team implements Serializable {
     private static final long serialVersionUID = 1L;
     @Id

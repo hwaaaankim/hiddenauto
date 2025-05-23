@@ -45,6 +45,7 @@ public class AsTask {
     
     private String reason;
     private int price;
+    private String asComment;
     
     @Enumerated(EnumType.STRING)
     private AsStatus status;

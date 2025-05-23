@@ -35,8 +35,9 @@
 							<div class="row g-4 mb-3">
 								<div class="col-lg-8">
 									<label class="form-label">출고일 조회</label>
-									<input type="text" name="preferredDate" class="form-control"
+									<input type="text" name="preferredDate" id="deliveryDate" class="form-control"
 										placeholder="YYYY-MM-DD" data-provider="flatpickr" th:value="${preferredDate}">
+
 								</div>
 								<div class="col-lg-4">
 									<label class="form-label">조회</label>
@@ -50,12 +51,13 @@
 						<div class="col-lg-12">
 							<div class="card">
 								<div class="card-header">
-									<h4 class="card-title mb-0">배송리스트</h4>
+									<button type="button" class="btn btn-success" id="saveOrderIndexBtn" disabled>순서
+										저장</button>
 								</div>
 								<div class="card-body">
 									<div class="list-group col nested-list nested-sortable">
-										<div class="list-group-item nested-1 draggable-item"
-											th:each="order : ${orders}">
+										<div class="list-group-item nested-1 draggable-item" th:each="order : ${orders}"
+											th:attr="data-order-id=${order.order.id}">
 											<div class="item-content">
 												<div class="text-section">
 													<div>
@@ -122,50 +124,77 @@
 				<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 			</div>
 		</div>
+		<input type="hidden" id="deliveryHandlerId" th:value="${deliveryHandlerId}">
 	</div>
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 
 	<!-- nestable init js -->
-	<script src="/administration/assets/js/pages/nestable.init.js"></script>
 	<script src="/administration/assets/libs/prismjs/prism.js"></script>
 	<script src="https://cdn.lordicon.com/libs/mssddfmo/lord-icon-2.1.0.js"></script>
 	<script src="/administration/assets/js/pages/modal.init.js"></script>
 	<script>
-		document.getElementById('delivery-finish-files').addEventListener('change', function (e) {
-			const container = document.querySelector('.delivery-finish-preview-container');
-			const files = Array.from(e.target.files);
-			container.innerHTML = ''; // 초기화
+		document.addEventListener("DOMContentLoaded", function () {
+			const orders = Array.from(document.querySelectorAll(".draggable-item"));
+			const deliveryDate = document.getElementById("deliveryDate")?.value || "(날짜 미지정)";
+			console.log("=== [초기 로드 시 인덱스 출력] ===");
+			orders.forEach((el, idx) => {
+				const orderId = el.getAttribute("data-order-id");
+				console.log(`[${deliveryDate}] Order ID: ${orderId}, Index: ${idx + 1}`);
+			});
+		});
 
-			files.forEach((file, index) => {
-				const reader = new FileReader();
-				reader.onload = function (e) {
-					const img = document.createElement('img');
-					img.src = e.target.result;
-					img.className = 'delivery-finish-preview-image';
-					img.title = '클릭하여 제거';
-					img.dataset.index = index;
+		const saveButton = document.getElementById("saveOrderIndexBtn");
 
-					img.addEventListener('click', function () {
-						img.remove();
-						removeFile(index);
-					});
+		// ✅ 드래그앤드랍 초기화 및 버튼 활성화
+		const sortable = new Sortable(document.querySelector(".nested-sortable"), {
+			group: "nested",
+			animation: 150,
+			fallbackOnBody: true,
+			swapThreshold: 0.65,
+			onEnd: () => {
+				saveButton.disabled = false;
+			}
+		});
 
-					container.appendChild(img);
+		// ✅ 저장 버튼 클릭 시 변경된 인덱스를 콘솔로 출력 + 서버로 전송
+		saveButton.addEventListener("click", () => {
+			const orders = Array.from(document.querySelectorAll(".draggable-item"));
+			const orderedIds = orders.map((el, idx) => {
+				return {
+					orderId: el.getAttribute("data-order-id"),
+					orderIndex: idx + 1
 				};
-				reader.readAsDataURL(file);
 			});
 
-			// 파일 제거용 (input에서 완전히 제거하려면 FileList 대체 필요)
-			function removeFile(idx) {
-				const dt = new DataTransfer();
-				const newFiles = Array.from(document.getElementById('delivery-finish-files').files)
-					.filter((_, i) => i !== idx);
+			const deliveryHandlerId = document.getElementById("deliveryHandlerId").value;
+			const deliveryDate = document.getElementById("deliveryDate").value;
 
-				newFiles.forEach(file => dt.items.add(file));
-				document.getElementById('delivery-finish-files').files = dt.files;
-			}
+			console.log("=== [버튼 클릭 시 변경된 인덱스 출력] ===");
+			orderedIds.forEach((item) => {
+				console.log(`[${deliveryDate}] Order ID: ${item.orderId}, Index: ${item.orderIndex}`);
+			});
+
+			fetch("/team/updateOrderIndex", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					deliveryHandlerId: deliveryHandlerId,
+					deliveryDate: deliveryDate,
+					orderList: orderedIds
+				})
+			})
+				.then(res => {
+					if (res.ok) {
+						alert("순서가 저장되었습니다.");
+						saveButton.disabled = true;
+					} else {
+						alert("순서 저장 실패");
+					}
+				});
 		});
 	</script>
 </body>

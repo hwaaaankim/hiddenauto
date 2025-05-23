@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,6 +22,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
+import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.model.auth.Team;
@@ -31,6 +35,7 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
@@ -39,6 +44,7 @@ import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
+import com.dev.HiddenBATHAuto.service.auth.CompanyService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
 import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
@@ -63,7 +69,9 @@ public class ManagementController {
 	private final TeamRepository teamRepository;
 	private final ProvinceRepository provinceRepository;
 	private final MemberService memberService;
-
+	private final CompanyService companyService;
+	private final CompanyRepository companyRepository;
+	
 	@GetMapping("/standardOrderList")
 	public String standardOrderList() {
 
@@ -166,7 +174,7 @@ public class ManagementController {
 			@RequestParam(required = false) Long handlerId, @RequestParam(required = false) AsStatus status,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 			Pageable pageable, Model model) {
-		LocalDate targetDate = (date != null) ? date : LocalDate.now().plusDays(1);
+		LocalDate targetDate = (date != null) ? date : LocalDate.now();
 		Long memberId = handlerId != null ? handlerId : null;
 
 		Page<AsTask> asPage = asTaskService.getFilteredAsList(memberId, status, targetDate, pageable);
@@ -307,16 +315,31 @@ public class ManagementController {
 	}
 
 	@GetMapping("/clientList")
-	public String clientList() {
+	public String clientList(@RequestParam(required = false) String keyword,
+	                         @RequestParam(required = false, defaultValue = "company") String searchType,
+	                         @PageableDefault(size=10) Pageable pageable,
+	                         Model model) {
 
-		return "administration/member/client/clientList";
+	    Page<Company> companies = companyService.getCompanyList(keyword, searchType, pageable);
+	    model.addAttribute("companies", companies);
+	    model.addAttribute("keyword", keyword);
+	    model.addAttribute("searchType", searchType);
+	    return "administration/member/client/clientList";
 	}
 
 	@GetMapping("/clientDetail/{id}")
-	public String clientDetail(@PathVariable Long id) {
+	public String clientDetail(@PathVariable Long id, Model model) {
+	    Company company = companyRepository.findById(id)
+	        .orElseThrow(() -> new IllegalArgumentException("해당 대리점이 존재하지 않습니다. ID=" + id));
 
-		return "administration/member/client/clientDetail";
+	    List<Member> memberList = memberRepository.findByCompany(companyRepository.findById(id).get());
+
+	    model.addAttribute("company", company);
+	    model.addAttribute("members", memberList);
+
+	    return "administration/member/client/clientDetail";
 	}
+
 
 	@PostMapping("/clientUpdate")
 	@ResponseBody
@@ -326,16 +349,34 @@ public class ManagementController {
 	}
 
 	@GetMapping("/employeeList")
-	public String employeeList() {
+	public String employeeList(
+	        @RequestParam(value = "name", required = false) String name,
+	        @RequestParam(value = "team", required = false) String team,
+	        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+	        Model model) {
 
-		return "administration/member/employee/employeeList";
+	    Page<Member> employeePage = memberService.searchEmployees(name, team, pageable);
+
+	    model.addAttribute("employeePage", employeePage);
+	    model.addAttribute("name", name);
+	    model.addAttribute("team", team);
+	    return "administration/member/employee/employeeList";
 	}
 
 	@GetMapping("/employeeDetail/{id}")
-	public String employeeDetail(@PathVariable Long id) {
+	public String employeeDetail(@PathVariable Long id, Model model) {
+	    Member member = memberRepository.findById(id)
+	            .orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
 
-		return "administration/member/employee/employeeDetail";
+	    // 권한 체크 (INTERNAL_EMPLOYEE 또는 MANAGEMENT만 허용)
+	    if (!(member.getRole() == MemberRole.INTERNAL_EMPLOYEE || member.getRole() == MemberRole.MANAGEMENT)) {
+	        throw new IllegalArgumentException("직원만 조회 가능합니다.");
+	    }
+
+	    model.addAttribute("member", member);
+	    return "administration/member/employee/employeeDetail";
 	}
+
 
 	@GetMapping("/employeeInsertForm")
 	public String employeeInsertForm(Model model) {
