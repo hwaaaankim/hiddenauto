@@ -61,5 +61,86 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	    Pageable pageable
 	);
 
+	
+	@Query("""
+		    SELECT a FROM AsTask a
+		    WHERE (:statuses IS NULL OR a.status = :statuses)
+		      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
+		      AND (:asDateStart IS NULL OR a.requestedAt >= :asDateStart)
+		      AND (:asDateEnd IS NULL OR a.requestedAt < :asDateEnd)
+		    ORDER BY a.requestedAt DESC
+		""")
+	List<AsTask> findByFilterWithDateRangeNonPageable(
+	    @Param("memberId") Long memberId,
+	    @Param("statuses") AsStatus statuses,
+	    @Param("asDateStart") LocalDateTime asDateStart,
+	    @Param("asDateEnd") LocalDateTime asDateEnd
+	);
+
+	@Query("""
+		    SELECT a FROM AsTask a
+		    WHERE a.assignedHandler.id = :handlerId
+		      AND a.requestedAt >= :start
+		      AND a.requestedAt < :end
+		    ORDER BY a.requestedAt DESC
+		""")
+	Page<AsTask> findByAssignedHandlerAndDate(
+	    @Param("handlerId") Long handlerId,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end,
+	    Pageable pageable
+	);
+	
+	@Query("""
+		    SELECT a FROM AsTask a
+		    WHERE a.assignedHandler.id = :handlerId
+		      AND (:status IS NULL OR a.status = :status)
+		      AND (
+		           (:dateType = 'requested' AND a.requestedAt BETWEEN :start AND :end)
+		        OR (:dateType = 'processed' AND a.asProcessDate BETWEEN :start AND :end)
+		      )
+		    ORDER BY a.requestedAt DESC
+		""")
+	Page<AsTask> findAsTasksByFilter(
+	    @Param("handlerId") Long handlerId,
+	    @Param("status") AsStatus status,
+	    @Param("dateType") String dateType, // "requested" or "processed"
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end,
+	    Pageable pageable
+	);
+	
+	@Query("""
+	    SELECT a FROM AsTask a
+	    WHERE a.assignedHandler.id = :handlerId
+	      AND (:status IS NULL OR a.status = :status)
+	      AND a.requestedAt BETWEEN :start AND :end
+	    ORDER BY a.requestedAt DESC
+	""")
+	Page<AsTask> findByRequestedDate(
+	    @Param("handlerId") Long handlerId,
+	    @Param("status") AsStatus status,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end,
+	    Pageable pageable
+	);
+
+	@Query("""
+	    SELECT a FROM AsTask a
+	    WHERE a.assignedHandler.id = :handlerId
+	      AND (:status IS NULL OR a.status = :status)
+	      AND a.asProcessDate BETWEEN :start AND :end
+	    ORDER BY a.requestedAt DESC
+	""")
+	Page<AsTask> findByProcessedDate(
+	    @Param("handlerId") Long handlerId,
+	    @Param("status") AsStatus status,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end,
+	    Pageable pageable
+	);
+
+
+
 
 }

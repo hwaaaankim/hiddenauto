@@ -1,10 +1,22 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -51,6 +63,7 @@ import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -71,7 +84,8 @@ public class ManagementController {
 	private final MemberService memberService;
 	private final CompanyService companyService;
 	private final CompanyRepository companyRepository;
-	
+	private final ObjectMapper objectMapper; // com.fasterxml.jackson.databind.ObjectMapper
+
 	@GetMapping("/standardOrderList")
 	public String standardOrderList() {
 
@@ -200,6 +214,101 @@ public class ManagementController {
 		return "administration/management/as/asDetail";
 	}
 
+	@GetMapping("/asList/excel")
+	public void downloadAsListExcel(
+	        @RequestParam(required = false) Long handlerId,
+	        @RequestParam(required = false) AsStatus status,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+	        HttpServletResponse response
+	) throws IOException {
+
+	    LocalDate targetDate = (date != null) ? date : LocalDate.now();
+	    Long memberId = (handlerId != null) ? handlerId : null;
+
+	    List<AsTask> asTasks = asTaskService.getFilteredAsList(memberId, status, targetDate); // List 기반 메서드 필요
+
+	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+	    response.setHeader("Content-Disposition", "attachment; filename=as_task_list.xlsx");
+
+	    try (Workbook workbook = new XSSFWorkbook()) {
+	        Sheet sheet = workbook.createSheet("AS 목록");
+
+	        // 스타일 설정
+	        CellStyle headerStyle = workbook.createCellStyle();
+	        Font boldFont = workbook.createFont();
+	        boldFont.setBold(true);
+	        headerStyle.setFont(boldFont);
+	        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+	        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+	        headerStyle.setBorderTop(BorderStyle.THIN);
+	        headerStyle.setBorderBottom(BorderStyle.THIN);
+	        headerStyle.setBorderLeft(BorderStyle.THIN);
+	        headerStyle.setBorderRight(BorderStyle.THIN);
+
+	        CellStyle borderedStyle = workbook.createCellStyle();
+	        borderedStyle.setBorderTop(BorderStyle.THIN);
+	        borderedStyle.setBorderBottom(BorderStyle.THIN);
+	        borderedStyle.setBorderLeft(BorderStyle.THIN);
+	        borderedStyle.setBorderRight(BorderStyle.THIN);
+
+	        CellStyle wrapStyle = workbook.createCellStyle();
+	        wrapStyle.cloneStyleFrom(borderedStyle);
+	        wrapStyle.setWrapText(true);
+
+	        // 헤더 생성
+	        Row header = sheet.createRow(0);
+	        String[] titles = {"대리점명", "요청자", "제목", "요청일", "상태", "배정팀", "담당자", "주소", "요청사유", "금액", "비고"};
+	        for (int i = 0; i < titles.length; i++) {
+	            Cell cell = header.createCell(i);
+	            cell.setCellValue(titles[i]);
+	            cell.setCellStyle(headerStyle);
+	            sheet.setColumnWidth(i, (i == 7 || i == 8 || i == 10) ? 10000 : 5000);
+	        }
+
+	        // 데이터 행 출력
+	        int rowIdx = 1;
+	        for (AsTask task : asTasks) {
+	            Row row = sheet.createRow(rowIdx++);
+	            row.setHeightInPoints(60);
+
+	            row.createCell(0).setCellValue(task.getRequestedBy().getCompany().getCompanyName());
+	            row.getCell(0).setCellStyle(borderedStyle);
+
+	            row.createCell(1).setCellValue(task.getRequestedBy().getName());
+	            row.getCell(1).setCellStyle(borderedStyle);
+
+	            row.createCell(2).setCellValue(task.getSubject());
+	            row.getCell(2).setCellStyle(borderedStyle);
+
+	            row.createCell(3).setCellValue(task.getRequestedAt() != null ? task.getRequestedAt().toString() : "");
+	            row.getCell(3).setCellStyle(borderedStyle);
+
+	            row.createCell(4).setCellValue(task.getStatus() != null ? task.getStatus().name() : "");
+	            row.getCell(4).setCellStyle(borderedStyle);
+
+	            row.createCell(5).setCellValue(task.getAssignedTeam() != null ? task.getAssignedTeam().getName() : "");
+	            row.getCell(5).setCellStyle(borderedStyle);
+
+	            row.createCell(6).setCellValue(task.getAssignedHandler() != null ? task.getAssignedHandler().getName() : "");
+	            row.getCell(6).setCellStyle(borderedStyle);
+
+	            row.createCell(7).setCellValue(task.getRoadAddress() + " " + task.getDetailAddress());
+	            row.getCell(7).setCellStyle(wrapStyle);
+
+	            row.createCell(8).setCellValue(task.getReason() != null ? task.getReason() : "");
+	            row.getCell(8).setCellStyle(wrapStyle);
+
+	            row.createCell(9).setCellValue(task.getPrice());
+	            row.getCell(9).setCellStyle(borderedStyle);
+
+	            row.createCell(10).setCellValue(task.getAsComment() != null ? task.getAsComment() : "");
+	            row.getCell(10).setCellStyle(wrapStyle);
+	        }
+
+	        workbook.write(response.getOutputStream());
+	    }
+	}
+	
 	@PostMapping("/asUpdate/{id}")
 	public String updateAsTask(@PathVariable Long id, @RequestParam(required = false) Integer price,
 			@RequestParam String status, @RequestParam(required = false) Long assignedHandlerId) {
@@ -245,6 +354,152 @@ public class ManagementController {
 		return "administration/management/production/productionList";
 	}
 
+	@GetMapping("/productionList/excel")
+	public void downloadProductionListExcel(@RequestParam(required = false) Long categoryId,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+			HttpServletResponse response) throws IOException {
+
+		TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
+		LocalDate targetDate = (date != null) ? date : LocalDate.now().plusDays(1);
+
+		OrderStatus parsedStatus = null;
+		if (status != null && !status.isBlank()) {
+			try {
+				parsedStatus = OrderStatus.valueOf(status);
+			} catch (IllegalArgumentException ignored) {
+			}
+		}
+
+		List<Order> orders = orderStatusService.getAllOrders(targetDate, category, parsedStatus);
+
+		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+		response.setHeader("Content-Disposition", "attachment; filename=production_task_orders.xlsx");
+
+		try (Workbook workbook = new XSSFWorkbook()) {
+			Sheet sheet = workbook.createSheet("Production Orders");
+
+			// 스타일 정의
+			CellStyle headerStyle = workbook.createCellStyle();
+			Font boldFont = workbook.createFont();
+			boldFont.setBold(true);
+			headerStyle.setFont(boldFont);
+			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+			headerStyle.setBorderTop(BorderStyle.THIN);
+			headerStyle.setBorderBottom(BorderStyle.THIN);
+			headerStyle.setBorderLeft(BorderStyle.THIN);
+			headerStyle.setBorderRight(BorderStyle.THIN);
+
+			CellStyle borderedStyle = workbook.createCellStyle();
+			borderedStyle.setBorderTop(BorderStyle.THIN);
+			borderedStyle.setBorderBottom(BorderStyle.THIN);
+			borderedStyle.setBorderLeft(BorderStyle.THIN);
+			borderedStyle.setBorderRight(BorderStyle.THIN);
+
+			CellStyle wrapStyle = workbook.createCellStyle();
+			wrapStyle.cloneStyleFrom(borderedStyle);
+			wrapStyle.setWrapText(true);
+
+			int rowIdx = 0;
+			Long lastTaskId = null;
+
+			for (Order order : orders) {
+				Task task = order.getTask();
+
+				if (task != null && !task.getId().equals(lastTaskId)) {
+					// Task 구분 행 (병합)
+					Row labelRow = sheet.createRow(rowIdx++);
+					labelRow.setHeightInPoints(20);
+					Cell labelCell = labelRow.createCell(0);
+					labelCell
+							.setCellValue("[대리점명] " + task.getRequestedBy().getCompany().getCompanyName() + " / [요청자명] "
+									+ task.getRequestedBy().getName() + " / [발주일] " + task.getCreatedAt().toString());
+					labelCell.setCellStyle(headerStyle);
+					sheet.addMergedRegion(new CellRangeAddress(rowIdx - 1, rowIdx - 1, 0, 6));
+
+					// Order 테이블 헤더
+					Row header = sheet.createRow(rowIdx++);
+					String[] titles = { "배송지 주소", "수량", "가격", "배송희망일", "배송수단", "배송담당자", "상세사항" };
+					for (int i = 0; i < titles.length; i++) {
+						Cell cell = header.createCell(i);
+						cell.setCellValue(titles[i]);
+						cell.setCellStyle(headerStyle);
+						sheet.setColumnWidth(i, (i == 6) ? 12000 : 5000);
+					}
+
+					lastTaskId = task.getId();
+				}
+
+				// Order 내용 행
+				Row row = sheet.createRow(rowIdx++);
+				row.setHeightInPoints(100);
+
+				row.createCell(0).setCellValue(order.getRoadAddress() + " " + order.getDetailAddress());
+				row.getCell(0).setCellStyle(borderedStyle);
+
+				row.createCell(1).setCellValue(order.getQuantity());
+				row.getCell(1).setCellStyle(borderedStyle);
+
+				row.createCell(2).setCellValue(order.getProductCost());
+				row.getCell(2).setCellStyle(borderedStyle);
+
+				row.createCell(3).setCellValue(
+						order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
+				row.getCell(3).setCellStyle(borderedStyle);
+
+				row.createCell(4)
+						.setCellValue(order.getDeliveryMethod() != null ? order.getDeliveryMethod().getMethodName() : "");
+				row.getCell(4).setCellStyle(borderedStyle);
+
+				row.createCell(5).setCellValue(
+						order.getAssignedDeliveryHandler() != null ? order.getAssignedDeliveryHandler().getName() : "");
+				row.getCell(5).setCellStyle(borderedStyle);
+
+				// 상세사항 구성
+				OrderItem item = order.getOrderItem();
+				StringBuilder detail = new StringBuilder();
+
+				if (order.getProductCategory() != null) {
+					detail.append("카테고리: ").append(order.getProductCategory().getName()).append("\n");
+				}
+
+				if (item != null) {
+					detail.append("제품명: ").append(item.getProductName()).append("\n");
+
+					if (item.getOptionJson() != null && !item.getOptionJson().isBlank()) {
+						try {
+							Map<String, String> optionMap = objectMapper.readValue(item.getOptionJson(),
+									new TypeReference<>() {
+									});
+							int count = 0;
+							for (Map.Entry<String, String> entry : optionMap.entrySet()) {
+								detail.append(entry.getKey()).append(": ").append(entry.getValue());
+								count++;
+								if (count % 5 == 0) {
+									detail.append("\n");
+								} else {
+									detail.append(" / ");
+								}
+							}
+							if (!detail.toString().endsWith("\n")) {
+								detail.setLength(detail.length() - 3); // 마지막 " / " 제거
+							}
+						} catch (Exception e) {
+							detail.append("[옵션 파싱 실패]");
+						}
+					}
+				}
+
+				Cell detailCell = row.createCell(6);
+				detailCell.setCellValue(detail.toString().trim());
+				detailCell.setCellStyle(wrapStyle);
+			}
+
+			workbook.write(response.getOutputStream());
+		}
+	}
+
 	@GetMapping("/productionDetail/{id}")
 	public String productionDetail(@PathVariable Long id, Model model) {
 		Order order = orderRepository.findById(id).orElseThrow();
@@ -279,7 +534,8 @@ public class ManagementController {
 	}
 
 	@GetMapping("/deliveryList")
-	public String deliveryListPage(@RequestParam(required = false) Long categoryId,
+	public String deliveryListPage(
+			@RequestParam(required = false) Long categoryId,
 			@RequestParam(required = false) String status,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 			Pageable pageable, Model model) {
@@ -308,38 +564,166 @@ public class ManagementController {
 		model.addAttribute("categoryId", categoryId);
 		model.addAttribute("status", status); // 문자열 그대로 전달
 		model.addAttribute("date", targetDate);
-		model.addAttribute("categories", teamCategoryRepository.findByTeamName("배송팀"));
+		model.addAttribute("categories", memberRepository.findByTeamName("배송팀"));
 		model.addAttribute("orderStatusList", OrderStatus.values());
 
 		return "administration/management/delivery/deliveryList";
 	}
 
+	@GetMapping("/deliveryList/excel")
+	public void downloadDeliveryListExcel(
+	        @RequestParam(required = false) Long categoryId,
+	        @RequestParam(required = false) String status,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+	        HttpServletResponse response
+	) throws IOException {
+
+	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
+	    LocalDate targetDate = (date != null) ? date : LocalDate.now().plusDays(1);
+
+	    OrderStatus parsedStatus = null;
+	    if (status != null && !status.isBlank()) {
+	        try {
+	            parsedStatus = OrderStatus.valueOf(status);
+	        } catch (IllegalArgumentException ignored) {
+	        }
+	    } else {
+	        parsedStatus = OrderStatus.PRODUCTION_DONE;
+	    }
+
+	    List<Order> orders = orderStatusService.getAllOrders(targetDate, category, parsedStatus); // 리스트로 조회
+
+	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+	    response.setHeader("Content-Disposition", "attachment; filename=delivery_list.xlsx");
+
+	    try (Workbook workbook = new XSSFWorkbook()) {
+	        Sheet sheet = workbook.createSheet("배송 리스트");
+
+	        // 스타일 설정
+	        CellStyle headerStyle = workbook.createCellStyle();
+	        Font boldFont = workbook.createFont();
+	        boldFont.setBold(true);
+	        headerStyle.setFont(boldFont);
+	        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+	        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+	        headerStyle.setBorderTop(BorderStyle.THIN);
+	        headerStyle.setBorderBottom(BorderStyle.THIN);
+	        headerStyle.setBorderLeft(BorderStyle.THIN);
+	        headerStyle.setBorderRight(BorderStyle.THIN);
+
+	        CellStyle borderedStyle = workbook.createCellStyle();
+	        borderedStyle.setBorderTop(BorderStyle.THIN);
+	        borderedStyle.setBorderBottom(BorderStyle.THIN);
+	        borderedStyle.setBorderLeft(BorderStyle.THIN);
+	        borderedStyle.setBorderRight(BorderStyle.THIN);
+
+	        CellStyle wrapStyle = workbook.createCellStyle();
+	        wrapStyle.cloneStyleFrom(borderedStyle);
+	        wrapStyle.setWrapText(true);
+
+	        // 헤더
+	        Row header = sheet.createRow(0);
+	        String[] titles = {"대리점명", "요청자", "배송지", "수량", "가격", "배송희망일", "배송상태", "제품정보"};
+	        for (int i = 0; i < titles.length; i++) {
+	            Cell cell = header.createCell(i);
+	            cell.setCellValue(titles[i]);
+	            cell.setCellStyle(headerStyle);
+	            sheet.setColumnWidth(i, (i == 7) ? 12000 : 5000);
+	        }
+
+	        // 데이터
+	        int rowIdx = 1;
+	        for (Order order : orders) {
+	            Row row = sheet.createRow(rowIdx++);
+	            row.setHeightInPoints(80);
+
+	            row.createCell(0).setCellValue(order.getTask().getRequestedBy().getCompany().getCompanyName());
+	            row.getCell(0).setCellStyle(borderedStyle);
+
+	            row.createCell(1).setCellValue(order.getTask().getRequestedBy().getName());
+	            row.getCell(1).setCellStyle(borderedStyle);
+
+	            row.createCell(2).setCellValue(order.getRoadAddress() + " " + order.getDetailAddress());
+	            row.getCell(2).setCellStyle(borderedStyle);
+
+	            row.createCell(3).setCellValue(order.getQuantity());
+	            row.getCell(3).setCellStyle(borderedStyle);
+
+	            row.createCell(4).setCellValue(order.getProductCost());
+	            row.getCell(4).setCellStyle(borderedStyle);
+
+	            row.createCell(5).setCellValue(order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
+	            row.getCell(5).setCellStyle(borderedStyle);
+
+	            row.createCell(6).setCellValue(order.getStatus().name());
+	            row.getCell(6).setCellStyle(borderedStyle);
+
+	            // 제품정보 (카테고리 + 제품명 + 옵션 파싱)
+	            StringBuilder detail = new StringBuilder();
+	            if (order.getProductCategory() != null) {
+	                detail.append("카테고리: ").append(order.getProductCategory().getName()).append("\n");
+	            }
+
+	            OrderItem item = order.getOrderItem();
+	            if (item != null) {
+	                detail.append("제품명: ").append(item.getProductName()).append("\n");
+
+	                if (item.getOptionJson() != null && !item.getOptionJson().isBlank()) {
+	                    try {
+	                        Map<String, String> optionMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {});
+	                        int count = 0;
+	                        for (Map.Entry<String, String> entry : optionMap.entrySet()) {
+	                            detail.append(entry.getKey()).append(": ").append(entry.getValue());
+	                            count++;
+	                            if (count % 5 == 0) {
+	                                detail.append("\n");
+	                            } else {
+	                                detail.append(" / ");
+	                            }
+	                        }
+	                        if (!detail.toString().endsWith("\n")) {
+	                            detail.setLength(detail.length() - 3); // 마지막 " / " 제거
+	                        }
+	                    } catch (Exception e) {
+	                        detail.append("[옵션 파싱 실패]");
+	                    }
+	                }
+	            }
+
+	            Cell detailCell = row.createCell(7);
+	            detailCell.setCellValue(detail.toString().trim());
+	            detailCell.setCellStyle(wrapStyle);
+	        }
+
+	        workbook.write(response.getOutputStream());
+	    }
+	}
+
+	
 	@GetMapping("/clientList")
 	public String clientList(@RequestParam(required = false) String keyword,
-	                         @RequestParam(required = false, defaultValue = "company") String searchType,
-	                         @PageableDefault(size=10) Pageable pageable,
-	                         Model model) {
+			@RequestParam(required = false, defaultValue = "company") String searchType,
+			@PageableDefault(size = 10) Pageable pageable, Model model) {
 
-	    Page<Company> companies = companyService.getCompanyList(keyword, searchType, pageable);
-	    model.addAttribute("companies", companies);
-	    model.addAttribute("keyword", keyword);
-	    model.addAttribute("searchType", searchType);
-	    return "administration/member/client/clientList";
+		Page<Company> companies = companyService.getCompanyList(keyword, searchType, pageable);
+		model.addAttribute("companies", companies);
+		model.addAttribute("keyword", keyword);
+		model.addAttribute("searchType", searchType);
+		return "administration/member/client/clientList";
 	}
 
 	@GetMapping("/clientDetail/{id}")
 	public String clientDetail(@PathVariable Long id, Model model) {
-	    Company company = companyRepository.findById(id)
-	        .orElseThrow(() -> new IllegalArgumentException("해당 대리점이 존재하지 않습니다. ID=" + id));
+		Company company = companyRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("해당 대리점이 존재하지 않습니다. ID=" + id));
 
-	    List<Member> memberList = memberRepository.findByCompany(companyRepository.findById(id).get());
+		List<Member> memberList = memberRepository.findByCompany(companyRepository.findById(id).get());
 
-	    model.addAttribute("company", company);
-	    model.addAttribute("members", memberList);
+		model.addAttribute("company", company);
+		model.addAttribute("members", memberList);
 
-	    return "administration/member/client/clientDetail";
+		return "administration/member/client/clientDetail";
 	}
-
 
 	@PostMapping("/clientUpdate")
 	@ResponseBody
@@ -349,34 +733,32 @@ public class ManagementController {
 	}
 
 	@GetMapping("/employeeList")
-	public String employeeList(
-	        @RequestParam(value = "name", required = false) String name,
-	        @RequestParam(value = "team", required = false) String team,
-	        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-	        Model model) {
+	public String employeeList(@RequestParam(value = "name", required = false) String name,
+			@RequestParam(value = "team", required = false) String team,
+			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+			Model model) {
 
-	    Page<Member> employeePage = memberService.searchEmployees(name, team, pageable);
+		Page<Member> employeePage = memberService.searchEmployees(name, team, pageable);
 
-	    model.addAttribute("employeePage", employeePage);
-	    model.addAttribute("name", name);
-	    model.addAttribute("team", team);
-	    return "administration/member/employee/employeeList";
+		model.addAttribute("employeePage", employeePage);
+		model.addAttribute("name", name);
+		model.addAttribute("team", team);
+		return "administration/member/employee/employeeList";
 	}
 
 	@GetMapping("/employeeDetail/{id}")
 	public String employeeDetail(@PathVariable Long id, Model model) {
-	    Member member = memberRepository.findById(id)
-	            .orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
+		Member member = memberRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
 
-	    // 권한 체크 (INTERNAL_EMPLOYEE 또는 MANAGEMENT만 허용)
-	    if (!(member.getRole() == MemberRole.INTERNAL_EMPLOYEE || member.getRole() == MemberRole.MANAGEMENT)) {
-	        throw new IllegalArgumentException("직원만 조회 가능합니다.");
-	    }
+		// 권한 체크 (INTERNAL_EMPLOYEE 또는 MANAGEMENT만 허용)
+		if (!(member.getRole() == MemberRole.INTERNAL_EMPLOYEE || member.getRole() == MemberRole.MANAGEMENT)) {
+			throw new IllegalArgumentException("직원만 조회 가능합니다.");
+		}
 
-	    model.addAttribute("member", member);
-	    return "administration/member/employee/employeeDetail";
+		model.addAttribute("member", member);
+		return "administration/member/employee/employeeDetail";
 	}
-
 
 	@GetMapping("/employeeInsertForm")
 	public String employeeInsertForm(Model model) {
@@ -397,11 +779,8 @@ public class ManagementController {
 	}
 
 	@PostMapping("/employeeInsert")
-	public String employeeInsert(
-			@ModelAttribute MemberSaveDTO request
-			) {
-		
-		
+	public String employeeInsert(@ModelAttribute MemberSaveDTO request) {
+
 		memberService.saveMember(request);
 		return "redirect:/management/employeeInsertForm";
 	}

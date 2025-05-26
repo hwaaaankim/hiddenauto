@@ -44,9 +44,13 @@
 										<h5 class="card-title mb-0 flex-grow-1">PRODUCTION MANAGER</h5>
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
-												<button onclick="javascript:location.href='#'"
-													class="btn btn-warning add-btn"><i class="fa-solid fa-plus"></i>
-													Excel</button>
+												<a class="btn btn-success" th:href="@{/management/productionList/excel(
+        categoryId=${categoryId},
+        status=${status},
+        date=${#temporals.format(date, 'yyyy-MM-dd')}
+   )}">
+													<i class="fa-solid fa-download"></i> 엑셀 다운로드
+												</a>
 											</div>
 										</div>
 									</div>
@@ -117,9 +121,9 @@
 
 													<!-- Order ID -->
 													<td class="id">
-													    <a th:href="@{/management/productionDetail/{id}(id=${order.id})}"
-													       class="fw-medium link-primary"
-													       th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
+														<a th:href="@{/management/productionDetail/{id}(id=${order.id})}"
+															class="fw-medium link-primary"
+															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
 													</td>
 
 

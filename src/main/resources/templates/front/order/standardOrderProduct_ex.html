@@ -1,0 +1,135 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="fragments/front/common :: autoHead">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
+	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+		<div class="page-content header-clear-medium" style="padding-top:0px !important;">
+
+			<div class="card card-style" style="border-radius: 0px !important;">
+				<div class="chat-container" id="chat-container">
+					<div class="search-box search-header bg-theme mb-3">
+						<i class="fa fa-search"></i>
+						<input type="text" class="border-0" placeholder="What are you looking for? " data-search=""
+							data-listener-added_01756997="true">
+						<a href="#" class="clear-search mt-0 disabled"><i class="fa fa-times color-red-dark"></i></a>
+					</div>
+					<div class="chat-box" id="chat-box">
+						<div class="non-standard-wrap">
+							<div class="non-standard-question">제품 분류를 선택하세요:</div>
+							<div class="non-standard-option">
+								<button class="non-standard-btn">하부장</button>
+								<button class="non-standard-btn">거울</button>
+							</div>
+							<div class="non-standard-answer">하부장을 선택하셨습니다.</div>
+						</div>
+
+						<!-- 시리즈 -->
+						<div class="non-standard-wrap">
+							<div class="non-standard-question">시리즈를 선택하세요:</div>
+							<div class="non-standard-option">
+								<button class="non-standard-btn">모던화이트</button>
+								<button class="non-standard-btn">우드 클래식</button>
+							</div>
+							<div class="non-standard-answer">모던화이트를 선택하셨습니다.</div>
+						</div>
+
+						<!-- 제품 -->
+						<div class="non-standard-wrap">
+							<div class="non-standard-question">제품을 선택하세요:</div>
+							<div class="non-standard-option">
+								<button class="non-standard-btn">
+									<img src="/front/images/1.png" alt="제품 이미지" style="height: 60px;"><br>
+									슬림형 세면대
+								</button>
+								<button class="non-standard-btn">
+									<img src="/front/images/1.png" alt="제품 이미지" style="height: 60px;"><br>
+									와이드형 세면대
+								</button>
+							</div>
+							<div class="non-standard-answer">슬림형 세면대를 선택하셨습니다.</div>
+						</div>
+
+						<!-- 색상 -->
+						<div class="non-standard-wrap">
+							<div class="non-standard-question">색상을 선택하세요:</div>
+							<div class="non-standard-option">
+								<button class="non-standard-btn">화이트</button>
+								<button class="non-standard-btn">블랙</button>
+							</div>
+							<div class="non-standard-answer">화이트를 선택하셨습니다.</div>
+						</div>
+
+						<!-- 옵션1 -->
+						<div class="non-standard-wrap">
+							<div class="non-standard-question">손잡이 유형을 선택하세요:</div>
+							<div class="non-standard-option">
+								<button class="non-standard-btn">ㄱ자형</button>
+								<button class="non-standard-btn">ㄷ자형</button>
+							</div>
+							<div class="non-standard-answer">ㄱ자형을 선택하셨습니다.</div>
+						</div>
+
+						<!-- 옵션2 -->
+						<div class="non-standard-wrap">
+							<div class="non-standard-question">LED 추가 여부:</div>
+							<div class="non-standard-option">
+								<button class="non-standard-btn">추가</button>
+								<button class="non-standard-btn">미추가</button>
+							</div>
+							<div class="non-standard-answer">추가를 선택하셨습니다.</div>
+						</div>
+
+						<!-- 옵션3 -->
+						<div class="non-standard-wrap">
+							<div class="non-standard-question">수납 방식 선택:</div>
+							<div class="non-standard-option">
+								<button class="non-standard-btn">여닫이문</button>
+								<button class="non-standard-btn">서랍형</button>
+							</div>
+							<div class="non-standard-answer">서랍형을 선택하셨습니다.</div>
+						</div>
+
+						<!-- Final -->
+						<div class="non-standard-wrap">
+							<div class="final-message-container">
+								<p class="final-message-item">* 손잡이 색상 변경 시 비고란에 작성해주세요.</p>
+								<p class="final-message-item">* LED는 색상 변경이 불가합니다.</p>
+							</div>
+
+							<textarea class="non-standard-textarea" placeholder="추가 요청 사항을 입력하세요."></textarea>
+							<input type="file" class="non-standard-file-upload" />
+
+							<span>선택이 완료되었습니다.</span>
+
+							<div class="quantity-row">
+								<span class="size-span">수량:</span>
+								<input type="number" value="1" class="non-standard-input" />
+							</div>
+
+							<div class="button-row">
+								<button class="non-standard-btn">가격계산</button>
+								<button class="non-standard-btn">장바구니</button>
+								<button class="non-standard-btn">발주하기</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
+	</div>
+	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
+</body>
+
+</html>

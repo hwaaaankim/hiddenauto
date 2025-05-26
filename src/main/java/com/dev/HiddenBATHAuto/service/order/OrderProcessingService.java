@@ -85,22 +85,24 @@ public class OrderProcessingService {
 			DeliveryMethod method = deliveryMethodRepository.findById(dto.getDeliveryMethodId())
 					.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 배송수단 ID: " + dto.getDeliveryMethodId()));
 			order.setDeliveryMethod(method);
-			
+
 			String categoryName = dto.getOptionJson().get("카테고리").toString();
 
 			// ✅ "거울" + LED 여부 → 팀카테고리명 분기
 			if ("거울".equals(categoryName)) {
-			    String ledOption = Optional.ofNullable(dto.getOptionJson().get("LED 추가"))
-			                               .map(Object::toString)
-			                               .orElse("");
-			    System.out.println(ledOption);
-			    categoryName = "add".equals(ledOption) ? "LED거울" : "거울";
+				String ledOption = Optional.ofNullable(dto.getOptionJson().get("LED 추가")).map(Object::toString)
+						.orElse("");
+				System.out.println(ledOption);
+				categoryName = "add".equals(ledOption) ? "LED거울" : "거울";
 			}
 
 			// ✅ 팀카테고리 조회 or '배정없음' 처리
-			TeamCategory productCategory = teamCategoryRepository.findByName(categoryName)
-			    .orElseGet(() -> teamCategoryRepository.findByName("배정없음")
-			        .orElseThrow(() -> new IllegalStateException("기본 TeamCategory '배정없음'이 DB에 없습니다.")));
+			TeamCategory productCategory = teamCategoryRepository.findByName(categoryName).orElse(null);
+
+			if (productCategory == null) {
+				productCategory = teamCategoryRepository.findByName("배정없음")
+						.orElseThrow(() -> new IllegalStateException("기본 TeamCategory '배정없음'이 DB에 없습니다."));
+			}
 
 			order.setProductCategory(productCategory);
 			order.setStatus(OrderStatus.REQUESTED);
@@ -217,27 +219,30 @@ public class OrderProcessingService {
 			List<MemberRegion> matchedRegions = memberRegionRepository.findByDistrict(district);
 			System.out.println("🔎 MemberRegion 조회 결과: " + matchedRegions.size() + "개");
 
+			List<Member> deliveryCandidates = new ArrayList<>();
 			for (MemberRegion region : matchedRegions) {
 				Member m = region.getMember();
-				String teamName = m.getTeam() != null ? m.getTeam().getName() : "null";
+				String teamName = m.getTeam() != null ? m.getTeam().getName() : null;
 
 				System.out.println("➡️ 후보자: " + m.getUsername() + ", 팀: " + teamName);
 
 				if (m.getRole() == MemberRole.INTERNAL_EMPLOYEE && "배송팀".equals(teamName)) {
-					order.setAssignedDeliveryHandler(m);
-					order.setAssignedDeliveryTeam(m.getTeamCategory());
-
-					System.out.println("✅ 배송 담당자 배정됨 → " + m.getUsername());
-					return;
+					deliveryCandidates.add(m);
 				}
 			}
 
-			System.out.println("❌ 배송 담당자 배정 실패 (배송팀 조건 불일치)");
+			if (!deliveryCandidates.isEmpty()) {
+				Member selected = deliveryCandidates.get((int) (Math.random() * deliveryCandidates.size()));
+				order.setAssignedDeliveryHandler(selected);
+				order.setAssignedDeliveryTeam(selected.getTeamCategory());
+				System.out.println("✅ 배송 담당자 랜덤 배정됨 → " + selected.getUsername());
+			} else {
+				System.out.println("❌ 배송 담당자 배정 실패 (배송팀 조건 불일치)");
+			}
 
 		} catch (Exception e) {
 			System.out.println("❌ 예외 발생: " + e.getMessage());
 			e.printStackTrace();
 		}
 	}
-
 }

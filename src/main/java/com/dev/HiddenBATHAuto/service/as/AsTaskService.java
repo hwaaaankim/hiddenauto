@@ -46,10 +46,17 @@ public class AsTaskService {
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 	
-	public Page<AsTask> getAsList(Pageable pageable) {
-        return asTaskRepository.findAllByOrderByRequestedAtDesc(pageable);
-    }
-	
+	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDate date, AsStatus status, Pageable pageable) {
+	    LocalDateTime start = (date != null ? date : LocalDate.now()).atStartOfDay();
+	    LocalDateTime end = start.plusDays(1);
+
+	    if ("requested".equalsIgnoreCase(dateType)) {
+	        return asTaskRepository.findByRequestedDate(handler.getId(), status, start, end, pageable);
+	    } else {
+	        return asTaskRepository.findByProcessedDate(handler.getId(), status, start, end, pageable);
+	    }
+	}
+
 	public Page<AsTask> getFilteredAsList(Long memberId, AsStatus statuses, LocalDate asDate, Pageable pageable) {
 	    if (asDate != null) {
 	        LocalDateTime startOfDay = asDate.atStartOfDay();
@@ -60,6 +67,18 @@ public class AsTaskService {
 	    }
 	}
 
+	public List<AsTask> getFilteredAsList(Long handlerId, AsStatus status, LocalDate date) {
+	    LocalDateTime start = date.atStartOfDay();
+	    LocalDateTime end = date.plusDays(1).atStartOfDay();
+
+	    return asTaskRepository.findByFilterWithDateRangeNonPageable(
+	            handlerId,
+	            status,
+	            start,
+	            end
+	    );
+	}
+	
 	@Transactional
     public void updateAsTask(Long id, Integer price, String statusStr, Long assignedHandlerId) {
         AsTask asTask = getAsDetail(id);

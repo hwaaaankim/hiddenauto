@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.service.order;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,5 +26,12 @@ public class OrderStatusService {
 	    LocalDateTime start = date.atStartOfDay();
 	    LocalDateTime end = date.atTime(LocalTime.MAX);
 	    return orderRepository.findOrdersByConditions(category, status, start, end, pageable);
+	}
+	
+	public List<Order> getAllOrders(LocalDate date, TeamCategory category, OrderStatus status) {
+	    LocalDateTime start = date.atStartOfDay();
+	    LocalDateTime end = date.plusDays(1).atStartOfDay(); // inclusive
+
+	    return orderRepository.findAllByConditions(category, status, start, end);
 	}
 }

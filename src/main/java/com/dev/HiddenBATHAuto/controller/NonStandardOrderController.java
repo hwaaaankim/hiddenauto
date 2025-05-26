@@ -131,29 +131,6 @@ public class NonStandardOrderController {
         }
     }
 
-//    // DB에서 사이즈 조회 및 처리
-//    private void processSizeFromDatabase(String sizeId, Map<String, Object> dataMap) {
-//        try {
-//            Long id = Long.parseLong(sizeId);
-//            ProductSize productSize = productSizeRepository.findById(id).orElse(null);
-//            if (productSize != null) {
-//                String sizeText = productSize.getProductSizeText(); // 예: "1200*500*300"
-//                String[] dimensions = sizeText.split("\\*");
-//                if (dimensions.length > 0) {
-//                    dataMap.put("width", Integer.parseInt(dimensions[0]));
-//                }
-//                if (dimensions.length > 1) {
-//                    dataMap.put("height", Integer.parseInt(dimensions[1]));
-//                }
-//                if (dimensions.length > 2) {
-//                    dataMap.put("depth", Integer.parseInt(dimensions[2]));
-//                }
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
-
 	@GetMapping("/productMark")
 	public String productMark() {
 

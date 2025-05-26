@@ -53,14 +53,34 @@ public class TeamTaskService {
         );
     }
 
-    public Page<AsTask> getAsTasks(Member member, LocalDate asDate, Pageable pageable) {
-        if (!"AS팀".equals(member.getTeam().getName())) throw new AccessDeniedException("접근 불가");
+    public Page<AsTask> getFilteredAsTasks(
+    	    Member handler,
+    	    AsStatus status,
+    	    String dateType,
+    	    LocalDate baseDate,
+    	    Pageable pageable
+    	) {
+    	    LocalDateTime start = (baseDate != null ? baseDate : LocalDate.now()).atStartOfDay();
+    	    LocalDateTime end = start.plusDays(1);
 
-        return asTaskRepository.findByAssignedHandlerAndStatusInAndDate(
-            member.getId(),
-            List.of(AsStatus.IN_PROGRESS, AsStatus.COMPLETED),
-            asDate,
-            pageable
+    	    return asTaskRepository.findAsTasksByFilter(
+    	        handler.getId(),
+    	        status,
+    	        (dateType != null && dateType.equals("requested")) ? "requested" : "processed", // default "processed"
+    	        start,
+    	        end,
+    	        pageable
+    	    );
+    	}
+
+    
+    public Page<AsTask> getAsTasks(Member handler, LocalDate asDate, Pageable pageable) {
+        LocalDateTime start = asDate.atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+
+        return asTaskRepository.findByAssignedHandlerAndDate(
+            handler.getId(), start, end, pageable
         );
     }
+
 }

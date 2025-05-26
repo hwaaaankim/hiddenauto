@@ -44,9 +44,14 @@
 										<h5 class="card-title mb-0 flex-grow-1">AS MANAGER</h5>
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
-												<button onclick="javascript:location.href='/normalOrderInsert'"
-													class="btn btn-warning add-btn"><i class="fa-solid fa-plus"></i>
-													Excel</button>
+												<a th:href="@{/management/asList/excel(
+												    handlerId=${selectedHandlerId},
+												    status=${selectedStatuses},
+												    date=${#temporals.format(selectedDate, 'yyyy-MM-dd')}
+												)}"
+												   class="btn btn-success">
+												   <i class="fa-solid fa-download"></i> 엑셀 다운로드
+												</a>
 											</div>
 										</div>
 									</div>

@@ -41,13 +41,18 @@ document.addEventListener("DOMContentLoaded", () => {
 		return optionJson["카테고리"] || optionJson?.category?.label || '';
 	}
 
-	function getDateAfter(days) {
-		const d = new Date();
-		d.setDate(d.getDate() + days);
-		const y = d.getFullYear();
-		const m = String(d.getMonth() + 1).padStart(2, '0');
-		const dd = String(d.getDate()).padStart(2, '0');
-		return `${y}-${m}-${dd}`;
+
+	function getAdjustedLeadDate() {
+		const now = new Date();
+		const currentHour = now.getHours();
+		const leadTime = currentHour < 14 ? 2 : 3;
+	
+		now.setDate(now.getDate() + leadTime);
+	
+		const y = now.getFullYear();
+		const m = String(now.getMonth() + 1).padStart(2, '0');
+		const d = String(now.getDate()).padStart(2, '0');
+		return `${y}-${m}-${d}`;
 	}
 
 	function calculateTotalAmount() {
@@ -133,13 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function setGlobalDeliveryMinDate() {
-		let maxLeadTime = 0;
-		cart.forEach(item => {
-			const label = getCategoryLabel(item.optionJson);
-			const leadTime = label.includes("거울") ? 1 : 2;
-			if (leadTime > maxLeadTime) maxLeadTime = leadTime;
-		});
-		deliveryDate.min = getDateAfter(maxLeadTime);
+		deliveryDate.min = getAdjustedLeadDate(); // ✅ 현재 시간 기준으로 리드타임 반영
 	}
 
 	function renderOrderItems() {
@@ -155,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			const itemPrice = price || 10000;
 			const totalPrice = itemPrice * (quantity || 1);
 			const categoryLabel = getCategoryLabel(optionJson);
-			const minDate = categoryLabel.includes("거울") ? getDateAfter(1) : getDateAfter(2);
+			const minDate = getAdjustedLeadDate(); // ✅ 현재 시간 기준
 
 			orderHTML += `
 				<div class="mb-4">

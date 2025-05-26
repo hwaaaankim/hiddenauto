@@ -44,9 +44,10 @@
 										<h5 class="card-title mb-0 flex-grow-1">DELIVERY MANAGER</h5>
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
-												<button onclick="javascript:location.href='#'"
-													class="btn btn-warning add-btn"><i class="fa-solid fa-plus"></i>
-													Excel</button>
+												<a th:href="@{/management/deliveryList/excel(categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}"
+												   class="btn btn-success">
+												   <i class="fa-solid fa-download"></i> 엑셀 다운로드
+												</a>
 											</div>
 										</div>
 									</div>

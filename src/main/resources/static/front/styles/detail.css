@@ -1473,3 +1473,6 @@ button[disabled] {
 .mb-0{
 	margin-bottom:0px;
 }
+.p-0{
+	padding:0px !important;	
+}

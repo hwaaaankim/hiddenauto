@@ -94,6 +94,20 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    WHERE o.id = :id
 	""")
 	Optional<Order> findWithFullRelationsById(@Param("id") Long id);
+	
+	@Query("""
+		    SELECT o FROM Order o
+		    WHERE (:category IS NULL OR o.productCategory = :category)
+		      AND (:status IS NULL OR o.status = :status)
+		      AND o.preferredDeliveryDate BETWEEN :start AND :end
+		""")
+	List<Order> findAllByConditions(
+	    @Param("category") TeamCategory category,
+	    @Param("status") OrderStatus status,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end
+	);
+
 }
 
 

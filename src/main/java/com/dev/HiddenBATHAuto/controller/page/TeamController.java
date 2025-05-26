@@ -27,6 +27,7 @@ import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
+import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
@@ -35,6 +36,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -53,6 +55,7 @@ public class TeamController {
 	private final OrderRepository orderRepository;
 	private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
+	private final AsTaskService asTaskService;
 
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
@@ -195,10 +198,49 @@ public class TeamController {
 	}
 	
 	@GetMapping("/asList")
-	public Page<AsTask> getAsTasks(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asDate,
-			Pageable pageable) {
-		Member member = principal.getMember();
-		return teamTaskService.getAsTasks(member, asDate, pageable);
+	public String getAsList(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam(required = false, defaultValue = "processed") String dateType,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+	        @RequestParam(required = false) AsStatus status,
+	        Pageable pageable,
+	        Model model
+	) {
+	    Member member = principal.getMember();
+
+	    if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
+	    }
+
+	    Page<AsTask> asPage = asTaskService.getAsTasks(member, dateType, date, status, pageable);
+
+	    model.addAttribute("asPage", asPage);
+	    model.addAttribute("preferredDate", date != null ? date : LocalDate.now());
+	    model.addAttribute("dateType", dateType);
+	    model.addAttribute("selectedStatus", status);
+
+	    return "administration/team/as/asList";
 	}
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
