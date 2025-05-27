@@ -8,7 +8,15 @@ document.addEventListener("DOMContentLoaded", () => {
 	const cancelButton = document.getElementById("cancel-button");
 	const shippingAmountElem = document.getElementById("shipping-amount");
 	const orderSource = window.orderSource || 'cart';
-	let cart = JSON.parse(localStorage.getItem(orderSource)) || [];
+	let cart;
+	if (orderSource === 'cart') {
+		cart = JSON.parse(localStorage.getItem('pendingCart')) || [];
+	} else if (orderSource === 'direct') {
+		cart = JSON.parse(localStorage.getItem('direct')) || [];
+	} else {
+		cart = [];
+	}
+
 	let appliedPoint = 0;
 	let unloadConfirm = true;
 
@@ -24,17 +32,26 @@ document.addEventListener("DOMContentLoaded", () => {
 	document.getElementById("user-point-view").innerText = `${pointLimit.toLocaleString()} 원`;
 
 	if (orderSource === 'direct') {
+		// direct 주문은 페이지 나가기 경고
 		window.addEventListener('beforeunload', (e) => {
 			if (unloadConfirm) {
 				e.preventDefault();
 				e.returnValue = '';
 			}
 		});
+		if (cart.length > 0) {
+			window.directOrderData = JSON.parse(JSON.stringify(cart));
+			localStorage.removeItem('direct');
+		}
 	}
-
-	if (orderSource === 'direct' && cart.length > 0) {
-		window.directOrderData = JSON.parse(JSON.stringify(cart));
-		localStorage.removeItem('direct');
+	
+	if (orderSource === 'cart') {
+		if (cart.length > 0) {
+			window.pendingOrderData = JSON.parse(JSON.stringify(cart));
+			window.addEventListener('beforeunload', () => {
+				localStorage.removeItem('pendingCart'); // cart는 confirm 없음
+			});
+		}
 	}
 
 	function getCategoryLabel(optionJson) {
@@ -399,7 +416,25 @@ document.addEventListener("DOMContentLoaded", () => {
 			.then(msg => {
 				hidePreloader();
 				alert(msg);
-				// if (orderSource === 'cart') localStorage.removeItem('cart');
+			
+				if (orderSource === 'direct') {
+					localStorage.removeItem('direct');
+				} else if (orderSource === 'cart') {
+					// 주문 완료 시만 cart에서 제거
+					const fullCart = JSON.parse(localStorage.getItem('cart')) || [];
+					const pending = window.pendingOrderData || [];
+			
+					const isSameOption = (a, b) =>
+						JSON.stringify(a.optionJson) === JSON.stringify(b.optionJson);
+			
+					const updatedCart = fullCart.filter(cartItem =>
+						!pending.some(pendingItem => isSameOption(cartItem, pendingItem))
+					);
+			
+					localStorage.setItem('cart', JSON.stringify(updatedCart));
+					localStorage.removeItem('pendingCart');
+				}
+			
 				location.href = "/index";
 			})
 			.catch(err => {

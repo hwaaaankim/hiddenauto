@@ -60,51 +60,57 @@ window.addEventListener('DOMContentLoaded', () => {
 
 	// 제품 1개 렌더링 함수
 	function renderCartItem(item, index) {
-	const pricePerItem = item.price || 10000;
-	const totalPrice = pricePerItem * item.quantity;
-	const option = item.localizedOption || item.optionJson || {};
-
-	const productName = `${option["카테고리"] || ''} - ${option["제품"] || '제품명 없음'}`;
-	const code = option.code || 'CODE';
-
-	let itemHTML = `
-	<div class="card card-style">
-		<div class="content mb-0">
-			<div class="d-flex mb-4">
-				<div style="width: 50%;">
-					<img src="/front/images/pictures/9s.jpg" class="rounded-m shadow-xl" width="130">
-				</div>
-				<div class="ms-3 p-relative">
-					<h5 class="font-600 mb-0">${productName}</h5>
-					<h1 class="pt-0">${totalPrice.toLocaleString()}원</h1>
-					<a href="#" class="cart-remove color-theme opacity-50 font-12" data-index="${index}">
-						<i class="fa fa-times color-red-dark pe-2 pt-3"></i>삭제</a>
-				</div>
-			</div>
-			<div class="row mb-0">
-				<div class="col-3">
-					<div class="input-style input-style-always-active has-borders no-icon">
-						<input required type="number" class="quantity-input form-control focus-color focus-blue"
-							data-index="${index}" data-price="${pricePerItem}" value="${item.quantity}" min="1">
-						<label class="color-blue-dark">수량</label>
+		const pricePerItem = item.price || 10000;
+		const totalPrice = pricePerItem * item.quantity;
+		const option = item.localizedOption || item.optionJson || {};
+	
+		const productName = `${option["카테고리"] || ''} - ${option["제품"] || '제품명 없음'}`;
+		const code = option.code || 'CODE';
+	
+		let itemHTML = `
+		<div class="card card-style">
+			<div class="content mb-0">
+				<div class="form-check icon-check">
+	                <input class="form-check-input product-checkbox" id="product-checkbox-${index}" type="checkbox" data-index="${index}" checked >
+	                <label class="form-check-label" for="product-checkbox-${index}">선택</label>
+	                <i class="icon-check-1 fa fa-square color-gray-dark font-16"></i>
+	                <i class="icon-check-2 fa fa-check-square font-16 color-highlight"></i>
+	            </div>
+				<div class="d-flex mb-4">
+					<div style="width: 50%;">
+						<img src="/front/images/pictures/9s.jpg" class="rounded-m shadow-xl" width="130">
 					</div>
-				</div>`;
-
-	for (const [key, value] of Object.entries(option)) {
-		if (['제품', 'code'].includes(key)) continue;
-
-		itemHTML += `
-		<div class="col-3">
-			<div class="input-style input-style-always-active has-borders no-icon">
-				<label class="color-blue-dark">${key}</label>
-				<input type="text" value="${value}" readonly>
-			</div>
-		</div>`;
+					<div class="ms-3 p-relative">
+						<h5 class="font-600 mb-0">${productName}</h5>
+						<h1 class="pt-0">${totalPrice.toLocaleString()}원</h1>
+						<a href="#" class="cart-remove color-theme opacity-50 font-12" data-index="${index}">
+							<i class="fa fa-times color-red-dark pe-2 pt-3"></i>삭제</a>
+					</div>
+				</div>
+				<div class="row mb-0">
+					<div class="col-3">
+						<div class="input-style input-style-always-active has-borders no-icon">
+							<input required type="number" class="quantity-input form-control focus-color focus-blue"
+								data-index="${index}" data-price="${pricePerItem}" value="${item.quantity}" min="1">
+							<label class="color-blue-dark">수량</label>
+						</div>
+					</div>`;
+	
+		for (const [key, value] of Object.entries(option)) {
+			if (['제품', 'code'].includes(key)) continue;
+	
+			itemHTML += `
+			<div class="col-3">
+				<div class="input-style input-style-always-active has-borders no-icon">
+					<label class="color-blue-dark">${key}</label>
+					<input type="text" value="${value}" readonly>
+				</div>
+			</div>`;
+		}
+	
+		itemHTML += `</div></div></div>`;
+		return itemHTML;
 	}
-
-	itemHTML += `</div></div></div>`;
-	return itemHTML;
-}
 
 
 	// 전체 장바구니 렌더링 함수
@@ -166,6 +172,28 @@ window.addEventListener('DOMContentLoaded', () => {
 	function hidePreloader() {
 		const preloader = document.getElementById("preloader");
 		if (preloader) preloader.classList.add("preloader-hide");
+	}
+	
+	const goToOrderBtn = document.getElementById('go-to-order');
+	if (goToOrderBtn) {
+		goToOrderBtn.addEventListener('click', () => {
+			const cart = JSON.parse(localStorage.getItem('cart')) || [];
+	
+			const checkedIndexes = [...document.querySelectorAll('.product-checkbox')]
+				.filter(cb => cb.checked)
+				.map(cb => parseInt(cb.dataset.index));
+	
+			if (checkedIndexes.length === 0) {
+				alert('발주할 제품을 한 개 이상 선택해주세요.');
+				return;
+			}
+	
+			if (!confirm('선택된 제품으로 발주하시겠습니까?')) return;
+	
+			const selectedItems = checkedIndexes.map(idx => cart[idx]);
+			localStorage.setItem('pendingCart', JSON.stringify(selectedItems));
+			location.href = '/orderConfirm?from=cart';
+		});
 	}
 
 	// 초기 로드 시
