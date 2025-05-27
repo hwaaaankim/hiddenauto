@@ -107,8 +107,8 @@ public class OptionTranslator {
 					    "notleg", "벽걸이형"
 					)),
 				Map.entry("세면대 종류",
-						Map.of("1", "CL-603(사각)", "2", "CL-509(타원형)", "3", "제공 언더볼", "4",
-								"TB-060 / E-60 / PL-3040 / PL-3060")),
+						Map.of("1", "CL-603(사각)", "2", "CL-509(타원형)", "3", "제공 언더볼", "4", "TB-060", "5",
+								 "E-60" , "6", "PL-3040", "7", "PL-3060")),
 				Map.entry("문 추가여부", Map.of("add", "추가", "not_add", "추가 안함(바디만)")),
 				Map.entry("문 형태", Map.of("slide", "슬라이드", "open", "여닫이", "drawer", "서랍식", "mixed", "혼합식")),
 				Map.entry("마구리 추가여부", Map.of("add", "추가", "not_add", "추가 안함")),

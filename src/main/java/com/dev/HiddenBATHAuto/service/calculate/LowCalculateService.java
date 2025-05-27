@@ -144,12 +144,16 @@ public class LowCalculateService {
 
 				    if (sortIdObj != null && numberOf != null) {
 				        try {
-				            Long sortId = Long.parseLong(String.valueOf(sortIdObj));
+				            Long originalSortId = Long.parseLong(String.valueOf(sortIdObj));
+				            Long sortId = (originalSortId == 4 || originalSortId == 5 || originalSortId == 6 || originalSortId == 7)
+				                ? 4L
+				                : originalSortId;
+
 				            WashPrice wp = washPriceRepository.findById(sortId).orElse(null);
 				            if (wp != null) {
 				                int washPrice = (wp.getBasePrice() + wp.getAdditionalFee()) * numberOf;
 				                mainPrice += washPrice;
-				                reasons.add("세면대 ID: " + sortId + ", 수량: " + numberOf + ", 총 금액: " + washPrice);
+				                reasons.add("세면대 ID: " + originalSortId + " (조회 ID: " + sortId + "), 수량: " + numberOf + ", 총 금액: " + washPrice);
 				            } else {
 				                reasons.add("세면대 ID로 WashPrice 조회 실패: " + sortId);
 				            }

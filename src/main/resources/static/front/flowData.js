@@ -352,9 +352,9 @@ export const productFlowSteps = {
 			question: '세면대의 종류를 선택 해 주세요.',
 			options: [
 				{ value: '4', label: 'TB-060(비누대 O)' },
-				{ value: '4', label: 'E-60(비누대 X)' },
-				{ value: '4', label: 'PL-3040(비누대 O)' },
-				{ value: '4', label: 'PL-3060(비누대 O)' }
+				{ value: '5', label: 'E-60(비누대 X)' },
+				{ value: '6', label: 'PL-3040(비누대 O)' },
+				{ value: '7', label: 'PL-3060(비누대 O)' }
 			],
 			next: 'numberofwash'
 		},
