@@ -53,9 +53,11 @@ spring:
           auth: true
           starttls:
             enable: true
-  upload.path: D:/hiddenauto
+  upload.path: D:/hiddenauto/
   upload.env: local
 
+# 배포 환경
+--- 
 # 배포 환경
 --- 
 spring:
@@ -94,7 +96,16 @@ spring:
           auth: true
           starttls:
             enable: true
-  upload.path: /home/hosting_users/hidden7557/tomcat/webapps
+  upload.path: /home/ubuntu/hiddenauto/files/
   upload.env: prod
+
+logging:
+  file:
+    name: /home/ubuntu/hiddenauto/log/hiddenauto.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: /home/ubuntu/hiddenauto/log/hiddenauto-%d{yyyy-MM-dd}.log
+      max-history: 30
+
 
 
