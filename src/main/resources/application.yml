@@ -112,9 +112,4 @@ spring:
     env: prod
 
 logging:
-  file:
-    name: /home/ubuntu/hiddenauto/log/hiddenauto.log
-  logback:
-    rollingpolicy:
-      file-name-pattern: /home/ubuntu/hiddenauto/log/hiddenauto-%d{yyyy-MM-dd}.log
-      max-history: 30
+  config: classpath:logback-spring.xml

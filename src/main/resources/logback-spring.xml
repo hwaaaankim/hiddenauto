@@ -8,6 +8,7 @@
                 <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
             </encoder>
         </appender>
+
         <root level="INFO">
             <appender-ref ref="STDOUT" />
         </root>
@@ -16,20 +17,28 @@
     <!-- 운영 환경: 콘솔 + 파일 로그 저장 -->
     <springProfile name="prod">
         <property name="LOG_PATH" value="/home/ubuntu/hiddenauto/log" />
-        
-        <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <!-- 고정 이름 파일 (계속 덮어쓰이는 로그) -->
+        <appender name="FILE" class="ch.qos.logback.core.FileAppender">
             <file>${LOG_PATH}/hiddenauto.log</file>
-
-            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-                <fileNamePattern>${LOG_PATH}/hiddenauto-%d{yyyy-MM-dd}.log</fileNamePattern>
-                <maxHistory>30</maxHistory>
-            </rollingPolicy>
-
+            <append>true</append>
             <encoder>
                 <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
             </encoder>
         </appender>
 
+        <!-- 날짜별 파일 저장 -->
+        <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_PATH}/hiddenauto-%d{yyyy-MM-dd}.log</fileNamePattern>
+                <maxHistory>30</maxHistory>
+            </rollingPolicy>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <!-- 콘솔 출력 -->
         <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
@@ -37,8 +46,10 @@
         </appender>
 
         <root level="INFO">
-            <appender-ref ref="ROLLING_FILE"/>
             <appender-ref ref="STDOUT"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ROLLING_FILE"/>
         </root>
     </springProfile>
+
 </configuration>
