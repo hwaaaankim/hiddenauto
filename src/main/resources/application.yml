@@ -1,27 +1,28 @@
-# 동작 환경 설정
+# 공통 설정
 spring:
   profiles:
     active: prod
   application:
     name: HiddenBATHAuto
+
 server:
   port: 8080
   servlet:
     session:
-      timeout: 43200m       # ✅ 30일 = 1440분 * 30 (Spring Boot는 'm' 지원됨)
+      timeout: 43200m       # 30일 = 1440m * 30
       cookie:
-        max-age: 2592000    # ✅ 초 단위: 60s * 60m * 24h * 30d
+        max-age: 2592000    # 30일 = 60 * 60 * 24 * 30
         name: SID
         http-only: true
         secure: false
 
-
 # 개발 환경
---- 
+---
 spring:
   config:
-    activate: 
+    activate:
       on-profile: test
+
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
     url: jdbc:mariadb://hidden2025.cafe24.com:3306/hidden2025?useUnicode=true&characterEncoding=utf8
@@ -34,15 +35,19 @@ spring:
       poolName: HikariCP
       readOnly: false
       connectionTestQuery: SELECT 1
+
   h2:
     console:
       enabled: true
+
   jpa:
     database-platform: org.hibernate.dialect.MariaDBDialect
+
   servlet:
     multipart:
       maxFileSize: 5000MB
       maxRequestSize: -1
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -54,16 +59,18 @@ spring:
           auth: true
           starttls:
             enable: true
-  upload.path: D:/hiddenauto/
-  upload.env: local
 
+  upload:
+    path: D:/hiddenauto/
+    env: local
 
 # 배포 환경
---- 
+---
 spring:
   config:
-    activate: 
+    activate:
       on-profile: prod
+
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
     url: jdbc:mariadb://localhost:3306/hiddenauto?useUnicode=true&characterEncoding=utf8
@@ -76,15 +83,19 @@ spring:
       poolName: HikariCP
       readOnly: false
       connectionTestQuery: SELECT 1
+
   h2:
     console:
       enabled: true
+
   jpa:
     database-platform: org.hibernate.dialect.MariaDBDialect
+
   servlet:
     multipart:
       maxFileSize: 5000MB
       maxRequestSize: -1
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -96,8 +107,9 @@ spring:
           auth: true
           starttls:
             enable: true
-  upload.path: /home/ubuntu/hiddenauto/files/
-  upload.env: prod
+  upload:
+    path: /home/ubuntu/hiddenauto/files/
+    env: prod
 
 logging:
   file:
@@ -106,6 +118,3 @@ logging:
     rollingpolicy:
       file-name-pattern: /home/ubuntu/hiddenauto/log/hiddenauto-%d{yyyy-MM-dd}.log
       max-history: 30
-
-
-
