@@ -8,12 +8,13 @@ server:
   port: 8080
   servlet:
     session:
-      timeout: 1440m    # 60m * 24h * 30d
+      timeout: 43200m       # ✅ 30일 = 1440분 * 30 (Spring Boot는 'm' 지원됨)
       cookie:
-        max-age: 1440m    # 60m * 24h * 30d
+        max-age: 2592000    # ✅ 초 단위: 60s * 60m * 24h * 30d
         name: SID
         http-only: true
-        secure: true
+        secure: false
+
 
 # 개발 환경
 --- 
@@ -56,8 +57,7 @@ spring:
   upload.path: D:/hiddenauto/
   upload.env: local
 
-# 배포 환경
---- 
+
 # 배포 환경
 --- 
 spring:
