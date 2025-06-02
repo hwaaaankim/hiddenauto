@@ -25,8 +25,8 @@ spring:
 
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://hidden2025.cafe24.com:3306/hidden2025?useUnicode=true&characterEncoding=utf8
-    username: hidden2025
+    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto?useUnicode=true&characterEncoding=utf8
+    username: root
     password: hidden3660!@
     hikari:
       connectionTimeout: 30000
