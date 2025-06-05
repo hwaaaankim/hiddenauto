@@ -39,7 +39,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
 
                 // ❗ WebSocket 등 잘못된 URL 혹은 권한 없는 경로로 요청한 경우 차단
                 if (isInvalidRedirectUrl(requestedUrl) || !isAccessibleByRole(role, requestedUrl)) {
-                    redirectUrl = getDefaultRedirectUrl(role);
+                	redirectUrl = getDefaultRedirectUrl(role, principal);
                 } else {
                     redirectUrl = requestedUrl;
                 }
@@ -48,19 +48,29 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
 
         // ❗ 저장된 요청이 없거나 세션 없음
         if (redirectUrl == null) {
-            redirectUrl = getDefaultRedirectUrl(role);
+        	redirectUrl = getDefaultRedirectUrl(role, principal);
         }
 
         redirectStrategy.sendRedirect(request, response, redirectUrl);
     }
 
-    private String getDefaultRedirectUrl(String role) {
+    private String getDefaultRedirectUrl(String role, PrincipalDetails principal) {
         return switch (role) {
-            case "ADMIN", "MANAGEMENT", "INTERNAL_EMPLOYEE" -> "/common/main";
+            case "ADMIN", "MANAGEMENT" -> "/common/main";
+            case "INTERNAL_EMPLOYEE" -> {
+                String teamName = principal.getMember().getTeam().getName();
+                yield switch (teamName) {
+                    case "생산팀" -> "/team/productionList";
+                    case "배송팀" -> "/team/deliveryList";
+                    case "AS팀" -> "/team/asList";
+                    default -> "/common/main"; // 기본 fallback
+                };
+            }
             case "CUSTOMER_REPRESENTATIVE", "CUSTOMER_EMPLOYEE" -> "/index";
             default -> "/loginForm?error=unauthorized";
         };
     }
+
 
     private boolean isInvalidRedirectUrl(String url) {
         return url.contains("/ws/") || !url.startsWith("/");

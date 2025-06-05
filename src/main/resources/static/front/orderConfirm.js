@@ -64,13 +64,29 @@ document.addEventListener("DOMContentLoaded", () => {
 		const currentHour = now.getHours();
 		const leadTime = currentHour < 14 ? 2 : 3;
 	
-		now.setDate(now.getDate() + leadTime);
+		let addedDays = 0;
+		let deliveryDate = new Date();
 	
-		const y = now.getFullYear();
-		const m = String(now.getMonth() + 1).padStart(2, '0');
-		const d = String(now.getDate()).padStart(2, '0');
+		while (addedDays < leadTime) {
+			deliveryDate.setDate(deliveryDate.getDate() + 1);
+			const day = deliveryDate.getDay();
+			if (day !== 0 && day !== 6) {
+				// 평일만 카운트
+				addedDays++;
+			}
+		}
+	
+		// 마지막 도착일이 주말이면 다시 평일로 밀기
+		while (deliveryDate.getDay() === 0 || deliveryDate.getDay() === 6) {
+			deliveryDate.setDate(deliveryDate.getDate() + 1);
+		}
+	
+		const y = deliveryDate.getFullYear();
+		const m = String(deliveryDate.getMonth() + 1).padStart(2, '0');
+		const d = String(deliveryDate.getDate()).padStart(2, '0');
 		return `${y}-${m}-${d}`;
 	}
+
 
 	function calculateTotalAmount() {
 		return cart.reduce((sum, item) => sum + (item.quantity || 1) * (item.price || 10000), 0);
