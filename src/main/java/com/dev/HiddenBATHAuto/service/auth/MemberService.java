@@ -56,24 +56,20 @@ public class MemberService {
 	private final CityRepository cityRepository;
 	private final DistrictRepository districtRepository;
 	private final ObjectMapper objectMapper;
-	
+
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 
 	public Page<Member> searchEmployees(String name, String team, Pageable pageable) {
-	    List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
-	    return memberRepository.searchByRolesAndNameAndTeam(
-	        roles,
-	        name == null || name.isBlank() ? null : name,
-	        team == null || team.isBlank() ? null : team,
-	        pageable
-	    );
+		List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
+		return memberRepository.searchByRolesAndNameAndTeam(roles, name == null || name.isBlank() ? null : name,
+				team == null || team.isBlank() ? null : team, pageable);
 	}
-	
+
 	public Optional<Member> findById(Long id) {
-	    return memberRepository.findById(id);
+		return memberRepository.findById(id);
 	}
-	
+
 	public Member insertMember(Member member) {
 		String encodedPassword = passwordEncoder.encode(member.getPassword());
 		member.setPassword(encodedPassword);
@@ -91,10 +87,11 @@ public class MemberService {
 		String registrationKey = UUID.randomUUID().toString().substring(0, 8);
 		company.setRegistrationKey(registrationKey);
 		company.setPoint(0);
-		// 3. 주소 가공 처리 (siName → si + gu 분리)
+
+		// 3. 주소 필드 가공
 		refineAddressFields(company);
 
-		// 4. 필수 주소값 유효성 검사
+		// 4. 주소 유효성 검사
 		if (company.getDoName() == null || company.getDoName().isBlank()) {
 			throw new IllegalArgumentException("도 이름(doName)이 누락되었습니다.");
 		}
@@ -102,7 +99,7 @@ public class MemberService {
 			throw new IllegalArgumentException("주소 정보가 누락되었습니다.");
 		}
 
-		// 5. Company 저장
+		// 5. Company 저장 (ID 확보용)
 		Company savedCompany = companyRepository.save(company);
 
 		// 6. 사업자등록증 파일 저장
@@ -110,22 +107,29 @@ public class MemberService {
 			try {
 				String originalFilename = file.getOriginalFilename();
 				String username = member.getUsername();
-				String saveDir = uploadPath + "/" + username + "/signUp/licence";
-				File dir = new File(saveDir);
-				if (!dir.exists())
-					dir.mkdirs();
 
+				// 저장 디렉토리 구성
+				String relativePath = username + "/signUp/licence";
+				String saveDir = Paths.get(uploadPath, relativePath).toString();
+
+				File dir = new File(saveDir);
+				if (!dir.exists()) {
+					dir.mkdirs();
+				}
+
+				// 저장 파일 경로
 				Path filePath = Paths.get(saveDir, originalFilename);
 				file.transferTo(filePath.toFile());
 
+				// DB에 저장할 경로 및 URL
 				savedCompany.setBusinessLicenseFilename(originalFilename);
-				savedCompany.setBusinessLicensePath(filePath.toString());
-				savedCompany.setBusinessLicenseUrl("/files/" + username + "/signUp/licence/" + originalFilename);
+				savedCompany.setBusinessLicensePath(filePath.toString()); // 실제 물리 경로
+				savedCompany.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalFilename); // 브라우저 접근 URL
 
 				companyRepository.save(savedCompany);
 
 			} catch (Exception e) {
-				throw new RuntimeException("파일 업로드 실패: " + e.getMessage());
+				throw new RuntimeException("파일 업로드 실패: " + e.getMessage(), e);
 			}
 		}
 
@@ -134,6 +138,7 @@ public class MemberService {
 		member.setPassword(encodedPassword);
 		member.setCompany(savedCompany);
 		member.setEnabled(true);
+
 		memberRepository.save(member);
 	}
 
@@ -268,13 +273,12 @@ public class MemberService {
 		private String cityId;
 		private String districtId;
 	}
-	
-	public List<Member> getCompanyEmployees(Company company) {
-        return memberRepository.findByCompanyAndRole(company, MemberRole.CUSTOMER_EMPLOYEE);
-    }
 
-    public Member getMemberById(Long id) {
-        return memberRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("해당 직원을 찾을 수 없습니다."));
-    }
+	public List<Member> getCompanyEmployees(Company company) {
+		return memberRepository.findByCompanyAndRole(company, MemberRole.CUSTOMER_EMPLOYEE);
+	}
+
+	public Member getMemberById(Long id) {
+		return memberRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("해당 직원을 찾을 수 없습니다."));
+	}
 }

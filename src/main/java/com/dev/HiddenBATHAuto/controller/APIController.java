@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -29,6 +28,7 @@ import com.dev.HiddenBATHAuto.repository.nonstandard.ProductOptionPositionReposi
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductSeriesRepository;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
+import com.dev.HiddenBATHAuto.service.auth.MemberValidationService;
 import com.dev.HiddenBATHAuto.service.auth.RegionExcelService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.FlapExcelUploadService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.LowCalculateExcelService;
@@ -49,15 +49,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class APIController {
 
-	@Autowired
-	MemberService memberService;
-
-	@Autowired
-	ExcelUploadService excelUploadService;
-
-	@Autowired
-	RegionExcelService regionExcelService;
-
+	private final MemberService memberService;
+	private final ExcelUploadService excelUploadService;
+	private final RegionExcelService regionExcelService;
+	private final MemberValidationService memberValidationService;
 	private final TopExcelUploadService topExcelUploadService;
 	private final LowCalculateExcelService excelService;
 	private final MarbleLowCalculateExcelService marbleExcelService;
@@ -213,4 +208,23 @@ public class APIController {
 		return OptionTranslator.getLocalizedOptionMap(json, seriesRepo, productRepo, colorRepo, optionRepo);
 	}
 
+	@GetMapping("/validate/username")
+	@ResponseBody
+    public Map<String, Boolean> checkUsernameDuplicate(@RequestParam String username) {
+        boolean duplicate = memberValidationService.isUsernameDuplicate(username);
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("duplicate", duplicate);
+        return response;
+    }
+
+    @GetMapping("/validate/phone")
+    @ResponseBody
+    public Map<String, Boolean> checkPhoneDuplicate(@RequestParam String phone) {
+        boolean duplicate = memberValidationService.isPhoneDuplicate(phone);
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("duplicate", duplicate);
+        return response;
+    }
+	
+	
 }

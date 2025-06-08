@@ -1,7 +1,8 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -182,10 +183,18 @@ public class CustomerController {
 	}
 
 	@PostMapping("/myInfoUpdate")
-	public String updateMyInfo(@AuthenticationPrincipal PrincipalDetails principal, @RequestParam String name,
-			@RequestParam String phone, @RequestParam String email, @RequestParam(required = false) String companyName,
-			@RequestParam String roadAddress, @RequestParam String detailAddress, @RequestParam String doName,
-			@RequestParam String siName, @RequestParam String guName, @RequestParam String zipCode,
+	public String updateMyInfo(
+			@AuthenticationPrincipal PrincipalDetails principal, 
+			@RequestParam String name,
+			@RequestParam String phone, 
+			@RequestParam String email, 
+			@RequestParam(required = false) String companyName,
+			@RequestParam String roadAddress,
+			@RequestParam String detailAddress, 
+			@RequestParam String doName,
+			@RequestParam String siName, 
+			@RequestParam String guName, 
+			@RequestParam String zipCode,
 			@RequestParam(defaultValue = "false") boolean removeBusinessLicense,
 			@RequestParam(required = false) MultipartFile businessLicenseFile) {
 
@@ -210,23 +219,25 @@ public class CustomerController {
 			company.setZipCode(zipCode);
 			company.setUpdatedAt(LocalDateTime.now());
 
-			String baseDir = uploadPath + "/license/" + company.getId(); // spring.upload.path 사용
-
 			// 새 파일 업로드 시 기존 삭제 후 저장
 			if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
 				FileUtil.deleteIfExists(company.getBusinessLicensePath());
 
 				String originalName = businessLicenseFile.getOriginalFilename();
-				String savedName = UUID.randomUUID() + "_" + originalName;
-				String fullPath = baseDir + "/" + savedName;
+				String username = member.getUsername();
 
-				FileUtil.createDirIfNotExists(baseDir);
+				// 동일한 경로로 변경 (회원가입과 일치)
+				String relativePath = username + "/signUp/licence";
+				String saveDir = Paths.get(uploadPath, relativePath).toString();
+				FileUtil.createDirIfNotExists(saveDir);
 
+				Path filePath = Paths.get(saveDir, originalName);
 				try {
-					businessLicenseFile.transferTo(new File(fullPath));
+					businessLicenseFile.transferTo(filePath.toFile());
+
 					company.setBusinessLicenseFilename(originalName);
-					company.setBusinessLicensePath(fullPath);
-					company.setBusinessLicenseUrl("/files/license/" + company.getId() + "/" + savedName);
+					company.setBusinessLicensePath(filePath.toString()); // 물리 경로
+					company.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalName); // 브라우저 접근용 URL
 				} catch (IOException e) {
 					throw new RuntimeException("파일 저장 실패", e);
 				}
