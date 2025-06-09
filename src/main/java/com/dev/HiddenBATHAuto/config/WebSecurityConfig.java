@@ -32,6 +32,7 @@ public class WebSecurityConfig {
 	private final String[] visitorsCommonUrls = {
 			"/signUp",
 			"/api/v1/**",
+			"/api/v2/**",
 			"/signUpProcess",
 			"/findPassword",
 			"/findUsername"

@@ -23,6 +23,11 @@ public class CustomErrorController {
         return "error/404";
     }
 
+    @GetMapping("/405")
+    public String error405() {
+        return "error/405";
+    }
+    
     @GetMapping("/500")
     public String error500() {
         return "error/500";

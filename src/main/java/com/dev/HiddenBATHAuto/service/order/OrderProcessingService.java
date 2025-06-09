@@ -1,10 +1,19 @@
 package com.dev.HiddenBATHAuto.service.order;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +25,10 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRegion;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
+import com.dev.HiddenBATHAuto.model.task.Cart;
+import com.dev.HiddenBATHAuto.model.task.CartImage;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
@@ -30,8 +42,11 @@ import com.dev.HiddenBATHAuto.repository.nonstandard.ProductColorRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductOptionPositionRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductSeriesRepository;
+import com.dev.HiddenBATHAuto.repository.order.CartRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.utils.OptionTranslator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -52,97 +67,173 @@ public class OrderProcessingService {
 	private final DistrictRepository districtRepository;
 	private final MemberRegionRepository memberRegionRepository;
 	private final TeamCategoryRepository teamCategoryRepository;
+	private final CartRepository cartRepository;
 
-	public String createTaskWithOrders(Member member, List<OrderRequestItemDTO> items, int pointUsed) {
-		Task task = new Task();
-		task.setRequestedBy(member);
-		task.setStatus(TaskStatus.REQUESTED);
-		task.setCustomerNote("임시 고객 메모");
-		task.setInternalNote("임시 내부 메모");
+	@Value("${spring.upload.path}")
+	private String uploadRootPath;
+	
+	public String createTaskWithOrders(Member member, List<OrderRequestItemDTO> items, int pointUsed) throws JsonProcessingException {
+	    System.out.println("📥 createTaskWithOrders 시작");
+	    System.out.println("➡ 주문 수 : " + items.size());
+	    System.out.println("➡ 포인트 사용 : " + pointUsed);
+	    
+	    Task task = new Task();
+	    task.setRequestedBy(member);
+	    task.setStatus(TaskStatus.REQUESTED);
+	    task.setCustomerNote("임시 고객 메모");
+	    task.setInternalNote("임시 내부 메모");
 
-		List<Order> orderList = new ArrayList<>();
-		int totalPrice = 0;
+	    List<Order> orderList = new ArrayList<>();
+	    int totalPrice = 0;
 
-		for (OrderRequestItemDTO dto : items) {
-			Order order = new Order();
-			order.setTask(task);
+	    for (OrderRequestItemDTO dto : items) {
+	        System.out.println("🚚 주문 처리 시작 → Cart ID: " + dto.getCartId());
 
-			int quantity = dto.getQuantity();
-			int productCost = dto.getPrice();
-			int deliveryPrice = dto.getDeliveryPrice();
-			int singleOrderTotal = quantity * productCost + deliveryPrice;
-			totalPrice += singleOrderTotal;
+	        Cart cart = cartRepository.findById(dto.getCartId())
+	            .orElseThrow(() -> {
+	                System.out.println("❌ 존재하지 않는 카트 ID: " + dto.getCartId());
+	                return new IllegalArgumentException("존재하지 않는 카트 ID: " + dto.getCartId());
+	            });
 
-			order.setQuantity(quantity);
-			order.setProductCost(productCost);
-			order.setZipCode(dto.getZipCode());
-			order.setRoadAddress(dto.getMainAddress());
-			order.setDetailAddress(dto.getDetailAddress());
-			order.setPreferredDeliveryDate(dto.getPreferredDeliveryDate().atStartOfDay());
-			refineAddressFromFullRoad(order);
-			assignDeliveryHandlerIfPossible(order); // 파싱한 주소로 배송 담당자 배정
+	        Order order = new Order();
+	        order.setTask(task);
 
-			DeliveryMethod method = deliveryMethodRepository.findById(dto.getDeliveryMethodId())
-					.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 배송수단 ID: " + dto.getDeliveryMethodId()));
-			order.setDeliveryMethod(method);
+	        int quantity = cart.getQuantity();
+	        int productCost = cart.getPrice();
+	        int deliveryPrice = dto.getDeliveryPrice();
+	        int singleOrderTotal = quantity * productCost + deliveryPrice;
+	        totalPrice += singleOrderTotal;
 
-			String categoryName = dto.getOptionJson().get("카테고리").toString();
+	        System.out.printf("  - 수량: %d, 제품단가: %d, 배송비: %d, 합계: %d\n", quantity, productCost, deliveryPrice, singleOrderTotal);
 
-			// ✅ "거울" + LED 여부 → 팀카테고리명 분기
-			if ("거울".equals(categoryName)) {
-				String ledOption = Optional.ofNullable(dto.getOptionJson().get("LED 추가")).map(Object::toString)
-						.orElse("");
-				System.out.println(ledOption);
-				categoryName = "add".equals(ledOption) ? "LED거울" : "거울";
-			}
+	        order.setQuantity(quantity);
+	        order.setProductCost(productCost);
+	        order.setZipCode(dto.getZipCode());
+	        order.setRoadAddress(dto.getMainAddress());
+	        order.setDetailAddress(dto.getDetailAddress());
+	        order.setPreferredDeliveryDate(dto.getPreferredDeliveryDate().atStartOfDay());
+	        refineAddressFromFullRoad(order);
+	        assignDeliveryHandlerIfPossible(order);
 
-			// ✅ 팀카테고리 조회 or '배정없음' 처리
-			TeamCategory productCategory = teamCategoryRepository.findByName(categoryName).orElse(null);
+	        DeliveryMethod method = deliveryMethodRepository.findById(dto.getDeliveryMethodId())
+	            .orElseThrow(() -> {
+	                System.out.println("❌ 존재하지 않는 배송수단 ID: " + dto.getDeliveryMethodId());
+	                return new IllegalArgumentException("존재하지 않는 배송수단 ID: " + dto.getDeliveryMethodId());
+	            });
+	        order.setDeliveryMethod(method);
 
-			if (productCategory == null) {
-				productCategory = teamCategoryRepository.findByName("배정없음")
-						.orElseThrow(() -> new IllegalStateException("기본 TeamCategory '배정없음'이 DB에 없습니다."));
-			}
+	        Map<String, Object> localizedOptionMap = objectMapper.readValue(cart.getLocalizedOptionJson(), new TypeReference<>() {});
+	        String categoryName = Optional.ofNullable(localizedOptionMap.get("카테고리"))
+	            .map(Object::toString)
+	            .orElseThrow(() -> new IllegalArgumentException("카테고리 정보가 없습니다."));
 
-			order.setProductCategory(productCategory);
-			order.setStatus(OrderStatus.REQUESTED);
+	        if ("거울".equals(categoryName)) {
+	            String ledOption = Optional.ofNullable(localizedOptionMap.get("LED 추가")).map(Object::toString).orElse("");
+	            categoryName = "add".equals(ledOption) ? "LED거울" : "거울";
+	        }
 
-			OrderItem orderItem = new OrderItem();
-			orderItem.setOrder(order);
-			orderItem.setProductName("임시 제품명");
-			orderItem.setQuantity(quantity);
+	        System.out.println("📦 제품 카테고리: " + categoryName);
 
-			try {
-				Map<String, String> localizedMap = OptionTranslator.getLocalizedOptionMap(
-						objectMapper.writeValueAsString(dto.getOptionJson()), productSeriesRepository,
-						productRepository, productColorRepository, productOptionPositionRepository);
-				String convertedJson = objectMapper.writeValueAsString(localizedMap);
-				orderItem.setOptionJson(convertedJson);
-			} catch (Exception e) {
-				throw new RuntimeException("옵션 변환 실패", e);
-			}
+	        TeamCategory productCategory = teamCategoryRepository.findByName(categoryName).orElse(null);
+	        if (productCategory == null) {
+	            System.out.println("⚠ 기본 카테고리 사용: 배정없음");
+	            productCategory = teamCategoryRepository.findByName("배정없음")
+	                .orElseThrow(() -> new IllegalStateException("기본 TeamCategory '배정없음'이 DB에 없습니다."));
+	        }
+	        order.setProductCategory(productCategory);
+	        order.setStatus(OrderStatus.REQUESTED);
 
-			order.setOrderItem(orderItem);
-			orderList.add(order);
-		}
+	        OrderItem orderItem = new OrderItem();
+	        orderItem.setOrder(order);
+	        orderItem.setProductName("임시 제품명");
+	        orderItem.setQuantity(quantity);
 
-		Company company = companyRepository.findById(member.getCompany().getId())
-				.orElseThrow(() -> new IllegalArgumentException("회사 정보를 찾을 수 없습니다."));
+	        try {
+	            Map<String, String> localizedMap = OptionTranslator.getLocalizedOptionMap(
+	                cart.getLocalizedOptionJson(),
+	                productSeriesRepository,
+	                productRepository,
+	                productColorRepository,
+	                productOptionPositionRepository
+	            );
+	            String convertedJson = objectMapper.writeValueAsString(localizedMap);
+	            orderItem.setOptionJson(convertedJson);
+	        } catch (Exception e) {
+	            System.out.println("❌ 옵션 변환 실패: " + e.getMessage());
+	            throw new RuntimeException("옵션 변환 실패", e);
+	        }
 
-		int currentPoint = company.getPoint();
-		int remainingPoint = currentPoint - pointUsed;
-		if (remainingPoint < 0) {
-			throw new IllegalStateException("사용 가능한 포인트가 부족합니다. 현재 보유: " + currentPoint + "P");
-		}
+	        order.setOrderItem(orderItem);
 
-		int rewardPoint = (int) (totalPrice * 0.01);
-		company.setPoint(remainingPoint + rewardPoint); // ✅ 변경 감지됨
+	        List<OrderImage> orderImages = new ArrayList<>();
+	        String today = LocalDate.now().toString();
+	        Long memberId = member.getId();
+	        String destDir = String.format("order/order/%d/%s", memberId, today);
+	        File destFolder = Paths.get(uploadRootPath, destDir).toFile();
+	        if (!destFolder.exists()) destFolder.mkdirs();
 
-		task.setOrders(orderList);
-		task.setTotalPrice(totalPrice);
-		taskRepository.save(task);
+	        for (CartImage cartImg : cart.getImages()) {
+	            try {
+	                Path imagePath = Paths.get(cartImg.getImagePath());
+	                Path fullSourcePath = imagePath.isAbsolute()
+	                    ? imagePath
+	                    : Paths.get(uploadRootPath, cartImg.getImagePath());
 
-		return "발주가 완료되었습니다.";
+	                File source = fullSourcePath.toFile();
+
+	                if (!source.exists()) {
+	                    System.err.println("❌ 원본 이미지 없음: " + cartImg.getImagePath());
+	                    continue;
+	                }
+
+	                String newFilename = UUID.randomUUID() + "_" + imagePath.getFileName().toString();
+	                File target = Paths.get(destFolder.getPath(), newFilename).toFile();
+
+	                Files.copy(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+	                OrderImage newImg = new OrderImage();
+	                newImg.setOrder(order);
+	                newImg.setType("CUSTOMER");
+	                newImg.setFilename(newFilename);
+	                newImg.setPath(destDir);
+	                newImg.setUrl("/upload/" + destDir.replace("\\", "/") + "/" + newFilename);
+	                newImg.setUploadedAt(cartImg.getUploadedAt());
+	                orderImages.add(newImg);
+	                System.out.println("🖼 이미지 복사 완료: " + newFilename);
+
+	            } catch (IOException e) {
+	                System.err.println("❌ 이미지 복사 실패: " + e.getMessage());
+	                e.printStackTrace();
+	            }
+	        }
+
+
+	        order.setOrderImages(orderImages);
+	        orderList.add(order);
+	        cartRepository.delete(cart);
+	        System.out.println("✅ 주문 항목 저장 완료");
+	    }
+
+	    Company company = companyRepository.findById(member.getCompany().getId())
+	        .orElseThrow(() -> new IllegalArgumentException("회사 정보를 찾을 수 없습니다."));
+
+	    int currentPoint = company.getPoint();
+	    int remainingPoint = currentPoint - pointUsed;
+	    if (remainingPoint < 0) {
+	        System.out.println("❌ 포인트 부족: 보유=" + currentPoint + ", 사용=" + pointUsed);
+	        throw new IllegalStateException("사용 가능한 포인트가 부족합니다. 현재 보유: " + currentPoint + "P");
+	    }
+
+	    int rewardPoint = (int) (totalPrice * 0.01);
+	    company.setPoint(remainingPoint + rewardPoint);
+	    System.out.printf("💰 총금액: %d원, 보유포인트: %d → 잔여포인트: %d, 적립예정: %dP\n", totalPrice, currentPoint, remainingPoint, rewardPoint);
+
+	    task.setOrders(orderList);
+	    task.setTotalPrice(totalPrice);
+	    taskRepository.save(task);
+
+	    System.out.println("🎉 발주 저장 완료!");
+	    return "발주가 완료되었습니다.";
 	}
 
 	private void refineAddressFromFullRoad(Order order) {

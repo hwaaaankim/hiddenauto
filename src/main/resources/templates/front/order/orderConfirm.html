@@ -147,6 +147,8 @@
 	
 	<script th:inline="javascript">
 		const deliveryMethods = /*[[${deliveryMethods}]]*/ [];
+		window.cart = /*[[${orderList}]]*/ [];
+		const orderSource = /*[[${from}]]*/ 'direct';
 		const companyAddress = {
 			main: /*[[${mainAddress}]]*/ "",
 			detail : /*[[${detailAddress}]]*/ "",
@@ -156,7 +158,6 @@
 			zipCode: /*[[${zipCode}]]*/ ""
 		};
 		const userPoint = /*[[${point}]]*/ 0; // ✅ 사용자 포인트 전달
-		window.orderSource = /*[[${orderSource}]]*/"cart"; // 기본값은 "cart"
 	</script>
 
 	<script src="/front/orderConfirm.js"></script>

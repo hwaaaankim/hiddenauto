@@ -1761,18 +1761,65 @@ function renderAnswer(step, product, categoryKey = '') {
 			finalWrap.appendChild(messageContainer);
 		}
 
-		// ✅ 2. textarea
+		// textarea
 		const additionalInfo = document.createElement('textarea');
+		additionalInfo.id = 'final-additional-info'; // ✅ ID 추가
 		additionalInfo.placeholder = '추가 정보 입력';
 		additionalInfo.classList.add('non-standard-textarea');
 		finalWrap.appendChild(additionalInfo);
-
-		// ✅ 3. 파일 업로드
+		
+		// file input
 		const fileUpload = document.createElement('input');
+		fileUpload.id = 'final-upload'; // ✅ ID 추가
 		fileUpload.type = 'file';
+		fileUpload.accept = 'image/*'; // ✅ 이미지 전용
+		fileUpload.multiple = true;    // ✅ 다중 업로드
 		fileUpload.classList.add('non-standard-file-upload');
 		finalWrap.appendChild(fileUpload);
-
+		
+		// 업로드된 이미지 미리보기 리스트
+		const imagePreviewList = document.createElement('div');
+		imagePreviewList.id = 'upload-preview-list';
+		imagePreviewList.classList.add('preview-list');
+		finalWrap.appendChild(imagePreviewList);
+		
+		// 업로드 이벤트 핸들링
+		fileUpload.addEventListener('change', (e) => {
+			const files = Array.from(e.target.files);
+			imagePreviewList.innerHTML = ''; // 초기화
+		
+			files.forEach((file, index) => {
+				if (!file.type.startsWith('image/')) return;
+		
+				const reader = new FileReader();
+				reader.onload = function (event) {
+					const previewItem = document.createElement('div');
+					previewItem.classList.add('preview-item');
+		
+					const img = document.createElement('img');
+					img.src = event.target.result;
+		
+					const removeBtn = document.createElement('button');
+					removeBtn.innerText = '✕';
+					removeBtn.classList.add('remove-btn');
+					removeBtn.onclick = () => {
+						// file input에서 해당 파일 제거
+						const dt = new DataTransfer();
+						files.forEach((f, i) => {
+							if (i !== index) dt.items.add(f);
+						});
+						fileUpload.files = dt.files;
+						fileUpload.dispatchEvent(new Event('change'));
+					};
+		
+					previewItem.appendChild(img);
+					previewItem.appendChild(removeBtn);
+					imagePreviewList.appendChild(previewItem);
+				};
+				reader.readAsDataURL(file);
+			});
+		});
+		
 		// ✅ 4. 메시지
 		const finalMessage = document.createElement('span');
 		finalMessage.innerText = '선택이 완료되었습니다.';
@@ -2263,54 +2310,87 @@ function convertOptionJsonWithLabels(optionJson) {
   return result;
 }
 
-// 장바구니에 항목 추가 후 초기화
-function addToCart() {
-	const cartData = JSON.parse(localStorage.getItem('cart')) || [];
 
-	const optionJson = { ...selectedAnswerValue };
-	const localizedOptionJson = convertOptionJsonWithLabels(optionJson); // 한글 키로 변환
+async function addToCart() {
 	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
-	const price = calculatedMainPrice || 10000; // ✅ 계산된 가격 우선 적용
-	let itemExists = false;
-	console.log(price);
-	
-	cartData.forEach(item => {
-		const isSame = JSON.stringify(item.optionJson) === JSON.stringify(optionJson);
-		if (isSame) {
-			item.quantity += quantity;
-			itemExists = true;
-		}
+	const price = calculatedMainPrice || 10000;
+	const optionJson = { ...selectedAnswerValue };
+	const localizedOptionJson = convertOptionJsonWithLabels(optionJson);
+	const additionalInfo = document.getElementById('final-additional-info')?.value || null;
+	const uploadInput = document.getElementById('final-upload');
+	const files = uploadInput?.files ? Array.from(uploadInput.files) : [];
+
+	// ✅ FormData 생성
+	const formData = new FormData();
+	formData.append('quantity', quantity);
+	formData.append('price', price);
+	formData.append('optionJson', JSON.stringify(optionJson));
+	formData.append('localizedOptionJson', JSON.stringify(localizedOptionJson));
+	if (additionalInfo) formData.append('additionalInfo', additionalInfo);
+
+	files.forEach(file => {
+		formData.append('files', file);
 	});
 
-	if (!itemExists) {
-		cartData.push({
-			price,
-			quantity,
-			optionJson : localizedOptionJson
+	try {
+		const response = await fetch('/api/v2/insertCart', {
+			method: 'POST',
+			body: formData
 		});
-	}
 
-	localStorage.setItem('cart', JSON.stringify(cartData));
-	resetSelections();
-	window.updateBagIcon();
+		if (!response.ok) throw new Error('서버 오류 발생');
+
+		alert('장바구니에 담겼습니다.');
+		resetSelections();
+		window.updateBagIcon();
+	} catch (err) {
+		console.error('🛑 장바구니 저장 실패:', err);
+		alert('장바구니 저장에 실패했습니다. 다시 시도해주세요.');
+	}
 }
 
-// 바로 발주 (단일 제품만 저장, source=order)
-function addToOrder() {
-	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
-	const price = calculatedMainPrice || 10000; // ✅ 계산된 가격 우선 적용
-	const optionJson = { ...selectedAnswerValue };
-	const localizedOptionJson = convertOptionJsonWithLabels(optionJson); // 한글 키로 변환
-	console.log(price);
-	const currentOrder = {
-		price,
-		quantity,
-		optionJson: localizedOptionJson
-	};
 
-	localStorage.setItem('direct', JSON.stringify([currentOrder]));
-	resetSelections();
-	location.href = '/orderConfirm?from=direct';
+// 바로 발주 (단일 제품만 저장, source=order)
+async function addToOrder() {
+	const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
+	const price = calculatedMainPrice || 10000;
+	const optionJson = { ...selectedAnswerValue };
+	const localizedOptionJson = convertOptionJsonWithLabels(optionJson);
+	const additionalInfo = document.getElementById('final-additional-info')?.value || null;
+	const uploadInput = document.getElementById('final-upload');
+	const files = uploadInput?.files ? Array.from(uploadInput.files) : [];
+
+	// ✅ FormData 구성
+	const formData = new FormData();
+	formData.append('from', 'direct');
+	formData.append('quantity', quantity);
+	formData.append('price', price);
+	formData.append('optionJson', JSON.stringify(optionJson));
+	formData.append('localizedOptionJson', JSON.stringify(localizedOptionJson));
+	if (additionalInfo) formData.append('additionalInfo', additionalInfo);
+
+	files.forEach(file => {
+		formData.append('files', file);
+	});
+
+	try {
+		const response = await fetch('/orderConfirm', {
+			method: 'POST',
+			body: formData
+		});
+
+		if (!response.ok) throw new Error('서버 오류 발생');
+
+		// 서버가 redirect 안 하고 뷰 리턴 시 → 이거 동작 안함
+		const html = await response.text();
+		document.open();
+		document.write(html);
+		document.close();
+
+	} catch (err) {
+		console.error('🛑 바로 주문 실패:', err);
+		alert('발주 처리 중 오류가 발생했습니다.');
+	}
 }
 
 // 공통 초기화 함수

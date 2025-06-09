@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.dev.HiddenBATHAuto.model.task.Cart;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -56,6 +58,10 @@ public class Member implements Serializable{
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<MemberRegion> addressScopes = new ArrayList<>();
 
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference // ✅ 무한 재귀 방지
+    private List<Cart> carts = new ArrayList<>();
+    
     private boolean enabled = true;
     private LocalDateTime createdAt = LocalDateTime.now(); // 회원가입일
     private LocalDateTime updatedAt; // 최근 회원정보 수정일
