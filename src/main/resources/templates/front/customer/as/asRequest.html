@@ -25,7 +25,7 @@
 				</div>
 				<div class="card-overlay bg-black opacity-80"></div>
 			</div>
-			<form action="/customer/asSubmit" enctype="multipart/form-data" method="POST"> 
+			<form action="/customer/asSubmit" enctype="multipart/form-data" method="POST">
 				<div class="card card-style">
 					<div class="content">
 						<div class="payment-title">
@@ -45,7 +45,8 @@
 							<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
 						</div>
 						<div class="input-style no-borders no-icon mb-4">
-							<input type="text" class="form-control" name="detailAddress" id="detailAddress" placeholder="상세 주소를 작성 해 주세요.">
+							<input type="text" class="form-control" name="detailAddress" id="detailAddress"
+								placeholder="상세 주소를 작성 해 주세요.">
 							<input type="hidden" name="doName" id="doName">
 							<input type="hidden" name="siName" id="siName">
 							<input type="hidden" name="guName" id="guName"> <!-- 동/읍/면 등 -->
@@ -54,9 +55,36 @@
 							<em>(required)</em>
 						</div>
 						<div class="input-style no-borders no-icon mb-4">
-							<input type="text" class="form-control" name="detailAddress" id="detailAddress" placeholder="상세 주소를 작성 해 주세요.">
+							<input type="text" class="form-control" name="detailAddress" id="detailAddress" required
+								placeholder="상세 주소를 작성 해 주세요.">
 							<em>(required)</em>
 						</div>
+						<!-- content 블록 안 적절한 위치에 삽입 -->
+						<div class="input-style has-borders no-icon mb-4">
+							<input type="text" id="productName" name="productName" class="form-control" required
+								placeholder="제품명을 입력해주세요.">
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4">
+							<input type="text" id="productSize" name="productSize" class="form-control" required
+								placeholder="사이즈를 입력 해 주세요. 예) 600x800">
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4">
+							<input type="text" id="productColor" name="productColor" class="form-control" required
+								placeholder="색상을 입력 해 주세요. 예) 화이트">
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4">
+							<input type="text" id="productOptions" name="productOptions" class="form-control" required
+								placeholder="옵션 여부를 입력 해 주세요. 예) LED, 손잡이 없음">
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4">
+							<input type="text" id="onsiteContact" name="onsiteContact" class="form-control" required
+								placeholder="현장연락처를 입력 해 주세요. 예) 010-xxxx-xxxx">
+						</div>
+
 						<div class="input-style has-borders no-icon validate-field mb-4">
 							<textarea type="text" class="form-control" id="reason" name="reason"
 								placeholder="기타 필요하신 내용을 입력 해 주세요."></textarea>
@@ -80,12 +108,8 @@
 							<em></em>
 						</div>
 						<div class="file-data pb-1">
-							<input 
-							type="file" 
-							id="file-upload" 
-							name="images"
-							class="upload-file bg-highlight shadow-s rounded-s"
-							accept="image/*" multiple>
+							<input type="file" id="file-upload" name="images" required
+								class="upload-file bg-highlight shadow-s rounded-s" accept="image/*" multiple>
 							<p id="custom-upload-button" class="upload-file-text color-white" style="cursor: pointer;">
 								사진 첨부
 							</p>

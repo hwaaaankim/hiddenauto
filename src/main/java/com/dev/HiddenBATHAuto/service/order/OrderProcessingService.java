@@ -112,6 +112,7 @@ public class OrderProcessingService {
 	        order.setRoadAddress(dto.getMainAddress());
 	        order.setDetailAddress(dto.getDetailAddress());
 	        order.setPreferredDeliveryDate(dto.getPreferredDeliveryDate().atStartOfDay());
+	        order.setOrderComment(cart.getAdditionalInfo());
 	        refineAddressFromFullRoad(order);
 	        assignDeliveryHandlerIfPossible(order);
 
@@ -168,7 +169,7 @@ public class OrderProcessingService {
 	        List<OrderImage> orderImages = new ArrayList<>();
 	        String today = LocalDate.now().toString();
 	        Long memberId = member.getId();
-	        String destDir = String.format("order/order/%d/%s", memberId, today);
+	        String destDir = String.format("order/order/%d/%s/request", memberId, today);
 	        File destFolder = Paths.get(uploadRootPath, destDir).toFile();
 	        if (!destFolder.exists()) destFolder.mkdirs();
 

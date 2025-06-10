@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.Team;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -46,6 +47,13 @@ public class AsTask {
     private String reason;
     private int price;
     private String asComment;
+    // 신규 필드 추가
+    private String productName;
+    private String productSize;
+    private String productColor;
+    private String productOptions;   // JSON 문자열로 저장하거나 단일 문자열로 처리
+    private String onsiteContact;
+    
     
     @Enumerated(EnumType.STRING)
     private AsStatus status;
@@ -63,9 +71,23 @@ public class AsTask {
     @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
     private List<AsHistory> historyLogs;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
-    private List<AsImage> requestImages; // 고객 요청 시 업로드된 이미지
+    private List<AsImage> images; // 모든 이미지 (type 구분 포함)
 
-    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
-    private List<AsImage> resultImages; // AS 완료 후 업로드 이미지
+    // type = "REQUEST" 인 이미지만 반환
+    public List<AsImage> getRequestImages() {
+        if (images == null) return List.of();
+        return images.stream()
+                     .filter(img -> "REQUEST".equalsIgnoreCase(img.getType()))
+                     .toList();
+    }
+
+    // type = "RESULT" 인 이미지만 반환
+    public List<AsImage> getResultImages() {
+        if (images == null) return List.of();
+        return images.stream()
+                     .filter(img -> "RESULT".equalsIgnoreCase(img.getType()))
+                     .toList();
+    }
 }

@@ -1,9 +1,9 @@
 window.addEventListener('DOMContentLoaded', () => {
+
 	const bagIcon = document.getElementById('bag-icon');
 	const cartAmount = document.getElementById('cart-product-amount');
 	const cartContainer = document.getElementById('cart-container');
 	const productContainer = document.getElementById('product-container');
-
 	function fetchLocalizedOption(optionJson) {
 		return fetch('/api/v1/translate', {
 			method: 'POST',
@@ -19,17 +19,20 @@ window.addEventListener('DOMContentLoaded', () => {
 			});
 	}
 
-	// ✅ 서버 기준으로 수량 업데이트
 	async function updateCartAmount() {
 		const cart = await fetchCartFromServer();
 		if (cartAmount) {
 			const uniqueProductCount = cart.length;
 			cartAmount.textContent = uniqueProductCount;
-			cartAmount.style.display = uniqueProductCount > 0 ? 'flex' : 'none';
+
+			if (uniqueProductCount > 0) {
+				cartAmount.style.display = 'flex';
+			} else {
+				cartAmount.style.display = 'none';
+			}
 		}
 	}
 
-	// ✅ 서버 기준으로 장바구니 아이콘 상태 업데이트
 	async function updateBagIcon() {
 		const cart = await fetchCartFromServer();
 		if (cart.length && bagIcon) {
@@ -40,14 +43,16 @@ window.addEventListener('DOMContentLoaded', () => {
 		await updateCartAmount();
 	}
 
-	// ❗ 수량 변경은 localStorage 에만 반영 (서버 반영은 아님)
 	function handleQuantityChange(event) {
 		const index = event.target.getAttribute('data-index');
 		const newQuantity = parseInt(event.target.value) || 1;
 
 		const cart = JSON.parse(localStorage.getItem('cart')) || [];
-		cart.find(item => String(item.id) === index).quantity = newQuantity;
-		localStorage.setItem('cart', JSON.stringify(cart));
+		const item = cart.find(item => String(item.id) === index);
+		if (item) {
+			item.quantity = newQuantity;
+			localStorage.setItem('cart', JSON.stringify(cart));
+		}
 	}
 
 	async function fetchCartFromServer() {
@@ -131,21 +136,17 @@ window.addEventListener('DOMContentLoaded', () => {
 				</div>`;
 		}
 
-
 		itemHTML += `</div></div></div>`;
 		return itemHTML;
 	}
 
 	async function renderCartItems() {
-		showPreloader();
-
-		const cartList = await fetchCartFromServer();
-
 		if (!productContainer || !cartContainer) {
-			console.error('장바구니 관련 요소를 찾을 수 없습니다.');
-			hidePreloader();
 			return;
 		}
+
+		showPreloader();
+		const cartList = await fetchCartFromServer();
 
 		productContainer.innerHTML = '';
 
@@ -164,9 +165,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 		for (let i = 0; i < cartList.length; i++) {
 			const item = cartList[i];
-
 			const parsedOption = JSON.parse(item.localizedOptionJson || '{}');
-			item.localizedOption = await fetchLocalizedOption(parsedOption); // ✅ 한글화 적용
+			item.localizedOption = await fetchLocalizedOption(parsedOption);
 			productContainer.innerHTML += renderCartItem(item);
 		}
 
@@ -219,14 +219,12 @@ window.addEventListener('DOMContentLoaded', () => {
 			form.action = '/orderConfirm';
 			form.style.display = 'none';
 
-			// JSON 문자열
 			const ordersInput = document.createElement('input');
 			ordersInput.type = 'hidden';
 			ordersInput.name = 'ordersJson';
 			ordersInput.value = JSON.stringify(orderList);
 			form.appendChild(ordersInput);
 
-			// 출처 정보
 			const fromInput = document.createElement('input');
 			fromInput.type = 'hidden';
 			fromInput.name = 'from';
@@ -238,13 +236,13 @@ window.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 
-	// ✅ 초기 렌더 시 서버 기반으로 처리
-	renderCartItems();
+	// ✅ 초기 실행 분리
+	if (productContainer && cartContainer) {
+		renderCartItems();
+	}
 
-	// ✅ 서버 기준으로 장바구니 아이콘 초기화
 	updateBagIcon();
 
-	// 전역 등록
 	window.updateCartAmount = updateCartAmount;
 	window.updateBagIcon = updateBagIcon;
 	window.renderCartItems = renderCartItems;

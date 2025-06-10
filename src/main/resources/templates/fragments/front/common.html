@@ -44,7 +44,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 				<i class="font-18 fas fa-bars"></i>
 			</a>
 			<a class="header-icon header-icon-3" href="/cart">
-				<i id="bag-icon" class="font-18 fa-solid fa-bag-shopping"></i><span id="cart-product-amount">1</span>
+				<i id="bag-icon" class="font-18 fa-solid fa-bag-shopping"></i><span id="cart-product-amount"></span>
 			</a>
 		</div>
 	</div>
@@ -59,7 +59,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<script type="text/javascript" src="/front/scripts/custom.js"></script>
 	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 	<script src="/front/scripts/script.js"></script>
-	<script src="/front/cart.js" type="module"></script>
+	<script src="/front/cart.js"></script>
 </th:block>
 
 <th:block th:fragment="autoCartScript">
@@ -67,9 +67,14 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<script type="text/javascript" src="/front/scripts/nonLoader.js"></script>
 	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 	<script src="/front/scripts/script.js"></script>
-	<script src="/front/cart.js" type="module"></script>
+	<script src="/front/cart.js"></script>
 </th:block>
-
+<th:block th:fragment="beforeLoginScript">
+	<script type="text/javascript" src="/front/scripts/bootstrap.min.js"></script>
+	<script type="text/javascript" src="/front/scripts/custom.js"></script>
+	<script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+	<script src="/front/scripts/script.js"></script>
+</th:block>
 <th:block th:fragment="autoBottomMenu">
 	<div id="bottombar-account" class="menu menu-box-bottom menu-box-detached">
 		<div class="divider divider-margins mb-n2"></div>

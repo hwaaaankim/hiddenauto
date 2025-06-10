@@ -1520,3 +1520,6 @@ button[disabled] {
 		height: auto;
 	}
 }
+#cart-product-amount{
+	display:none;
+}

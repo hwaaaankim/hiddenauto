@@ -21,6 +21,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Data;
 
 @Entity
@@ -115,4 +116,12 @@ public class Order {
             .filter(img -> "PROOF".equalsIgnoreCase(img.getType()))
             .collect(Collectors.toList());
     }
+    @Transient
+    public List<OrderImage> getImagesByType(String type) {
+        if (orderImages == null) return List.of();
+        return orderImages.stream()
+            .filter(img -> type != null && type.equalsIgnoreCase(img.getType()))
+            .collect(Collectors.toList());
+    }
+
 }

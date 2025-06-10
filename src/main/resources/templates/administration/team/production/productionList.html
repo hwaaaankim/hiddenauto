@@ -37,7 +37,7 @@
                                     <option value="">전체</option>
                                     <option th:each="category : ${productCategories}"
                                             th:value="${category.id}"
-                                            th:text="${category.name}" th:selected="${param.productCategoryId == category.id}">
+                                            th:text="${category.name}" th:selected="${productCategoryId == category.id}">
                                     </option>
                                 </select>
                             </div>

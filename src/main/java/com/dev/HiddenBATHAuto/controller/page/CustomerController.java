@@ -150,8 +150,10 @@ public class CustomerController {
 
 	@PostMapping("/asSubmit")
 	@ResponseBody
-	public Map<String, Object> submitAsTask(@AuthenticationPrincipal PrincipalDetails principal,
-			@ModelAttribute AsTask task, @RequestParam("images") List<MultipartFile> images) {
+	public Map<String, Object> submitAsTask(
+			@AuthenticationPrincipal PrincipalDetails principal,
+			@ModelAttribute AsTask task, 
+			@RequestParam("images") List<MultipartFile> images) {
 		Map<String, Object> result = new HashMap<>();
 		try {
 			AsTask saved = asTaskService.submitAsTask(task, images, principal.getMember());

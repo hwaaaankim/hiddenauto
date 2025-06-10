@@ -2,32 +2,33 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="fragments/administration/common :: autoAdminHead">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
 <body>
 
+	<!-- Begin page -->
 	<div id="layout-wrapper">
-		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
 
-		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
-		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
 		<div class="main-content">
 
 			<div class="page-content">
 				<div class="container-fluid">
-
-					<!-- start page title -->
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">팀별업무관리</h4>
+								<h4 class="mb-sm-0">AS상세</h4>
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">배송팀</a></li>
-										<li class="breadcrumb-item active">배송물품상세</li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">AS관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">AS리스트</a></li>
+										<li class="breadcrumb-item active">AS상세</li>
 									</ol>
 								</div>
 
@@ -35,228 +36,280 @@
 						</div>
 					</div>
 
-					<div class="row">
-						<div class="col-lg-10">
-							<div class="card">
-								<div class="card-body">
-									<div class="row gx-lg-5">
+					<!-- 상단 생략 -->
+					<form th:action="@{/team/asUpdate/{id}(id=${asTask.id})}" method="POST"
+						enctype="multipart/form-data">
 
-										<div class="col-xl-12">
-											<div class="mt-xl-0 mt-5">
-												<div class="d-flex">
-													<div class="flex-grow-1">
-														<h4>제품명</h4>
-														<div class="hstack gap-3 flex-wrap">
-															<div><a href="#" class="text-primary d-block">대리점명</a></div>
-															<div class="vr"></div>
-															<div class="text-muted">신청자 : <span
-																	class="text-body fw-medium">신청자명</span>
-															</div>
-															<div class="vr"></div>
-															<div class="text-muted">발주일 : <span
-																	class="text-body fw-medium">2025-05-01</span>
-															</div>
-															<div class="vr"></div>
-															<div class="text-muted">배정일 : <span
-																	class="text-body fw-medium">2025-05-02</span>
-															</div>
-															<div class="vr"></div>
-															<div class="text-muted">배송일 : <span
-																	class="text-body fw-medium">2025-05-07</span>
-															</div>
+						<div class="row">
+							<div class="col-lg-12">
+								<div class="card">
+									<div class="card-body">
+										<div class="mb-3">
+											<label class="form-label">대리점명</label>
+											<input type="text" class="form-control" th:value="${asTask.requestedBy != null && asTask.requestedBy.company != null 
+									? asTask.requestedBy.company.companyName : '미지정'}" disabled>
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">신청자명</label>
+											<input type="text" class="form-control"
+												th:value="${asTask.requestedBy != null ? asTask.requestedBy.name : '미지정'}"
+												disabled>
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">AS 사유</label>
+											<textarea class="form-control" rows="3" disabled
+												th:text="${asTask.reason}"></textarea>
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">AS 주소</label>
+											<input type="text" class="form-control"
+												th:value="|(${asTask.zipCode}) ${asTask.doName} ${asTask.siName} ${asTask.guName} ${asTask.roadAddress} ${asTask.detailAddress}|"
+												disabled>
+										</div>
+										<div class="row">
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">제품명</label>
+												<input type="text" class="form-control" th:value="${asTask.productName}"
+													disabled>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">사이즈</label>
+												<input type="text" class="form-control" th:value="${asTask.productSize}"
+													disabled>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">색상</label>
+												<input type="text" class="form-control"
+													th:value="${asTask.productColor}" disabled>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">옵션</label>
+												<input type="text" class="form-control"
+													th:value="${asTask.productOptions}" disabled>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">현장 연락처</label>
+												<input type="text" class="form-control"
+													th:value="${asTask.onsiteContact}" disabled>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">AS 신청일</label>
+												<input type="text" class="form-control"
+													th:value="${#temporals.format(asTask.requestedAt, 'yyyy-MM-dd HH:mm')}"
+													disabled>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">진행일자</label>
+												<input type="text" class="form-control"
+													th:value="${#temporals.format(asTask.asProcessDate, 'yyyy-MM-dd HH:mm')}"
+													disabled>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">AS 비용</label>
+												<input type="text" class="form-control" th:value="${asTask.price}"
+													disabled name="price">
+											</div>
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">AS 상태관리</label>
+
+												<!-- ✅ 상태가 COMPLETED이면 select 비활성화 -->
+												<select class="form-select" name="status" disabled
+													th:if="${asTask.status.name() == 'COMPLETED'}">
+													<option value="COMPLETED" selected>COMPLETED</option>
+												</select>
+
+												<!-- ✅ 상태가 IN_PROGRESS이면 COMPLETED로 변경 가능 -->
+												<select class="form-select" name="status"
+													th:if="${asTask.status.name() == 'IN_PROGRESS'}">
+													<option value="IN_PROGRESS"
+														th:selected="${asTask.status.name() == 'IN_PROGRESS'}">
+														IN_PROGRESS</option>
+													<option value="COMPLETED"
+														th:selected="${asTask.status.name() == 'COMPLETED'}">COMPLETED
+													</option>
+												</select>
+											</div>
+
+
+										</div>
+										<div class="col-12 mb-3">
+											<label class="form-label">AS 결과 이미지 업로드</label>
+											<div>
+												<!-- ✅ 파일 선택 input -->
+												<input type="file" id="resultImageUpload" name="resultImages"
+													accept="image/*" multiple style="display: none;" />
+
+												<!-- ✅ 사용자 클릭 유도 버튼 -->
+												<button type="button" class="btn btn-outline-primary"
+													id="triggerUpload">
+													이미지 업로드
+												</button>
+
+												<!-- ✅ 미리보기 리스트 -->
+												<div id="resultPreviewList" class="mt-3 d-flex flex-wrap gap-2"></div>
+											</div>
+										</div>
+
+										<div class="row mb-3">
+											<!-- ✅ 고객 요청 이미지 -->
+											<div class="col-6 mt-3">
+												<label class="form-label">고객 요청 이미지</label>
+												<div class="row g-2">
+													<!-- 이미지가 있는 경우 -->
+													<div class="col-lg-2" th:each="img : ${asTask.requestImages}">
+														<div
+															class="border rounded p-2 d-flex flex-column align-items-center text-center">
+															<img th:src="@{${img.url}}" class="img-fluid mb-2"
+																style="max-height: 120px;" />
+															<span class="text-truncate small" th:text="${img.filename}"
+																style="max-width: 100%;"></span>
+															<a th:href="@{${img.url}}" download class="mt-1">
+																<i class="ri-download-2-line fs-18 text-primary"></i>
+															</a>
 														</div>
 													</div>
-												</div>
 
-												<div class="row">
-													<div class="col-xl-6">
-														<div class="mt-4">
-															<h5 class="fs-15">사이즈 :</h5>
-															<div class="d-flex flex-wrap gap-2">
-																<div data-bs-toggle="tooltip" data-bs-trigger="hover"
-																	data-bs-placement="top" title="Out of Stock">
-																	<input type="radio" class="btn-check"
-																		name="productsize-radio" id="productsize-radio1"
-																		disabled>
-																	<label
-																		class="btn btn-soft-primary align-items-center"
-																		for="productsize-radio1">1200 * 800 *
-																		600</label>
-																</div>
-															</div>
-														</div>
-													</div>
-
-													<div class="col-xl-6">
-														<div class=" mt-4">
-															<h5 class="fs-15">색상 :</h5>
-															<div class="d-flex flex-wrap gap-2">
-																<div data-bs-toggle="tooltip" data-bs-trigger="hover"
-																	data-bs-placement="top" title="Out of Stock">
-																	<button type="button"
-																		class="btn avatar-xs p-0 d-flex align-items-center justify-content-center border rounded-circle fs-20 text-primary"
-																		disabled>
-																		<i class="ri-checkbox-blank-circle-fill"></i>
-																	</button>
-																</div>
-															</div>
-														</div>
-													</div>
-												</div>
-
-												<div class="mt-4 text-muted">
-													<h5 class="fs-15">고객 남김말 :</h5>
-													<p>고객 남김말 영역</p>
-												</div>
-
-												<div class="row">
-													<div class="col-sm-6">
-														<div class="mt-3">
-															<h5 class="fs-15">상세스펙 및 옵션 :</h5>
-															<ul class="list-unstyled">
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	제품분류 : 상부장</li>
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	옵션 KEY : 옵션 VALUE</li>
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	옵션 KEY : 옵션 VALUE</li>
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	옵션 KEY : 옵션 VALUE</li>
-															</ul>
-														</div>
-													</div>
-													<div class="col-sm-6">
-														<div class="mt-3">
-															<ul class="list-unstyled product-desc-list">
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	제품분류 : 상부장</li>
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	옵션 KEY : 옵션 VALUE</li>
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	옵션 KEY : 옵션 VALUE</li>
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	옵션 KEY : 옵션 VALUE</li>
-															</ul>
-														</div>
-													</div>
-												</div>
-
-
-												<div class="product-content mt-5">
-													<h5 class="fs-15 mb-3">제품첨부파일 :</h5>
-													<nav>
-														<ul class="nav nav-tabs nav-tabs-custom nav-success"
-															id="nav-tab" role="tablist">
-															<li class="nav-item">
-																<a class="nav-link active" id="nav-speci-tab"
-																	data-bs-toggle="tab" href="#nav-speci" role="tab"
-																	aria-controls="nav-speci"
-																	aria-selected="true">고객업로드이미지</a>
-															</li>
-															<li class="nav-item">
-																<a class="nav-link" id="nav-detail-tab"
-																	data-bs-toggle="tab" href="#nav-detail" role="tab"
-																	aria-controls="nav-detail"
-																	aria-selected="false">관리자업로드이미지</a>
-															</li>
-														</ul>
-													</nav>
-													<div class="tab-content border border-top-0 p-4"
-														id="nav-tabContent">
-														<div class="tab-pane fade show active" id="nav-speci"
-															role="tabpanel" aria-labelledby="nav-speci-tab">
-															<img src="/administration/assets/images/products/img-8.png"
-																alt="" class="img-fluid d-block">
-														</div>
-														<div class="tab-pane fade" id="nav-detail" role="tabpanel"
-															aria-labelledby="nav-detail-tab">
-															<img src="/administration/assets/images/products/img-8.png"
-																alt="" class="img-fluid d-block">
-														</div>
+													<!-- 이미지가 없을 경우 -->
+													<div class="col-12" th:if="${#lists.isEmpty(asTask.requestImages)}">
+														<p class="text-muted">이미지가 없습니다.</p>
 													</div>
 												</div>
 											</div>
+
+											<!-- ✅ AS 결과 이미지 -->
+											<div class="col-6 mt-3">
+												<label class="form-label">AS 결과 이미지</label>
+												<div class="row g-2">
+													<!-- 이미지가 있는 경우 -->
+													<div class="col-lg-2 position-relative"
+														th:each="img : ${asTask.resultImages}">
+														<div
+															class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
+															<!-- 삭제 버튼 -->
+															<button type="button"
+																class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
+																th:attr="data-id=${img.id}"
+																onclick="confirmDeleteImage(this)">
+																&times;
+															</button>
+
+															<img th:src="@{${img.url}}" class="img-fluid mb-2"
+																style="max-height: 120px;" />
+															<span class="text-truncate small" th:text="${img.filename}"
+																style="max-width: 100%;"></span>
+															<a th:href="@{${img.url}}" download class="mt-1">
+																<i class="ri-download-2-line fs-18 text-primary"></i>
+															</a>
+														</div>
+													</div>
+
+													<!-- 이미지가 없을 경우 -->
+													<div class="col-12" th:if="${#lists.isEmpty(asTask.resultImages)}">
+														<p class="text-muted">이미지가 없습니다.</p>
+													</div>
+												</div>
+											</div>
+
 										</div>
 									</div>
 								</div>
-							</div>
-						</div>
-						<div class="col-lg-2">
-							<div class="row g-4 mb-3">
-								<div class="col-lg-12">
-									<div>
-										<label for="datepicker-deadline-input" class="form-label">배송상태</label>
-										<select class="form-control w-md">
-											<option value="All">배송중</option>
-											<option value="Today">배송완료</option>
-										</select>
-									</div>
-								</div>
-								<div class="col-lg-12">
-									<div>
-										<label for="datepicker-deadline-input" class="form-label">상태</label>
-										<select class="form-control w-md">
-											<option value="All">전체</option>
-											<option value="Today">대기중</option>
-											<option value="Today">제작중</option>
-											<option value="Yesterday">완료</option>
-										</select>
-									</div>
-								</div>
-								<div class="col-lg-12">
-									<label for="datepicker-deadline-input" class="form-label">대리점명/신청자명 검색</label>
-									<div class="search-box">
-										<input type="text" class="form-control" placeholder="검색어를 입력 해 주세요.">
-										<i class="ri-search-line search-icon"></i>
-									</div>
-								</div>
-								<div class="col-lg-12">
-									<div>
-										<label for="datepicker-deadline-input" class="form-label">생산부서</label>
-										<select class="form-control w-md">
-											<option value="All">상부장</option>
-											<option value="Today">하부장</option>
-											<option value="Yesterday">슬라이드장</option>
-											<option value="Today">플랩장</option>
-											<option value="Yesterday">거울</option>
-										</select>
-									</div>
-								</div>
-								<div class="col-lg-12">
-									<div>
-										<label for="datepicker-deadline-input" class="form-label">발주일</label>
-										<input type="text" class="form-control" placeholder="Enter due date"
-											data-provider="flatpickr">
-									</div>
-								</div>
-								<div class="col-lg-12">
-									<div>
-										<label for="datepicker-deadline-input" class="form-label">배송일</label>
-										<input type="text" class="form-control" placeholder="Enter due date"
-											data-provider="flatpickr">
-									</div>
+
+								<!-- 상태 변경 및 담당자 지정 카드 -->
+								<div class="text-end mb-4">
+									<button class="btn btn-success w-sm">저장</button>
 								</div>
 							</div>
 						</div>
-					</div>
+					</form>
 				</div>
 			</div>
-			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+	<script src="/administration/assets/js/pages/project-create.init.js"></script>
+	<script>
+		document.addEventListener("DOMContentLoaded", () => {
+			const fileInput = document.getElementById("resultImageUpload");
+			const triggerBtn = document.getElementById("triggerUpload");
+			const previewList = document.getElementById("resultPreviewList");
 
-	
-	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
-	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
-	<script src="/administration/assets/js/pages/project-overview.init.js"></script>
+			// ✅ 모바일 카메라/갤러리 선택
+			triggerBtn.addEventListener("click", () => {
+				const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+				if (isMobile) {
+					const useCamera = confirm("사진을 촬영하시겠습니까?\n취소를 누르면 갤러리에서 선택합니다.");
+					if (useCamera) {
+						fileInput.setAttribute("capture", "environment");
+					} else {
+						fileInput.removeAttribute("capture");
+					}
+				}
+				fileInput.click();
+			});
+
+			// ✅ 파일 변경 시 미리보기 표시
+			fileInput.addEventListener("change", () => {
+				previewList.innerHTML = ""; // 초기화
+				Array.from(fileInput.files).forEach((file, index) => {
+					const reader = new FileReader();
+					reader.onload = (e) => {
+						const item = document.createElement("div");
+						item.className = "preview-item position-relative";
+
+						item.innerHTML = `
+					<img src="${e.target.result}" class="rounded" style="width: 120px; height: auto;" />
+					<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 me-1 mt-1"
+							data-index="${index}">×</button>
+				`;
+						previewList.appendChild(item);
+					};
+					reader.readAsDataURL(file);
+				});
+			});
+
+			// ✅ X 버튼으로 제거
+			previewList.addEventListener("click", (e) => {
+				if (e.target.tagName === "BUTTON" && e.target.dataset.index !== undefined) {
+					const indexToRemove = parseInt(e.target.dataset.index);
+					const dt = new DataTransfer();
+					Array.from(fileInput.files).forEach((file, index) => {
+						if (index !== indexToRemove) dt.items.add(file);
+					});
+					fileInput.files = dt.files;
+					fileInput.dispatchEvent(new Event("change"));
+				}
+			});
+		});
+		function confirmDeleteImage(btn) {
+			const imageId = btn.getAttribute('data-id');
+			if (confirm("이 이미지를 삭제하시겠습니까?")) {
+				fetch(`/team/asImageDelete/${imageId}`, {
+					method: 'DELETE'
+				})
+					.then(res => {
+						if (res.ok) {
+							alert("삭제되었습니다.");
+							location.reload(); // 또는 해당 엘리먼트만 제거
+						} else {
+							alert("삭제 실패");
+						}
+					});
+			}
+		}
+	</script>
+
 </body>
 
 </html>

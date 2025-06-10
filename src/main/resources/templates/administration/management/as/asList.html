@@ -65,10 +65,10 @@
 												<select class="form-select" name="status">
 												    <option value="">전체</option>
 												    <option th:each="status : ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).values()}"
-												            th:value="${status}"
-												            th:text="${status}"
-												            th:selected="${selectedStatus != null and selectedStatus == status}">
-												    </option>
+													        th:value="${status}"
+													        th:text="${status}"
+													        th:selected="${selectedStatus != null and selectedStatus.name() == status.name()}">
+													</option>
 												</select>
 											</div>
 
@@ -76,18 +76,18 @@
 											<div class="col-md-3">
 												<label class="form-label">AS 담당자</label>
 												<select class="form-select" name="handlerId">
-													<option value="" th:selected="${selectedHandlerId == null}">전체
-													</option>
-													<option th:each="handler : ${asHandlers}" th:value="${handler.id}"
-														th:text="${handler.name}"
-														th:selected="${selectedHandlerId == handler.id}">
-													</option>
+												    <option value="" th:selected="${selectedHandlerId == null}">전체</option>
+												    <option th:each="handler : ${asHandlers}"
+												            th:value="${handler.id}"
+												            th:text="${handler.name}"
+												            th:selected="${selectedHandlerId != null and selectedHandlerId == handler.id}">
+												    </option>
 												</select>
 											</div>
 
 											<!-- 날짜 -->
 											<div class="col-md-3">
-												<label class="form-label">날짜선택</label>
+												<label class="form-label">신청일</label>
 												<input type="date" class="form-control" name="date"
 													th:value="${#temporals.format(selectedDate, 'yyyy-MM-dd')}">
 											</div>

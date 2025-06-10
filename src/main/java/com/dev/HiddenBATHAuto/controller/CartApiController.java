@@ -65,6 +65,7 @@ public class CartApiController {
      */
     @GetMapping("/cartSelect")
     public ResponseEntity<List<Cart>> selectCart(@AuthenticationPrincipal PrincipalDetails principalDetails) {
+    	System.out.println("cart 조회");
     	Member member = principalDetails.getMember();
         if (member == null) {
             return ResponseEntity.status(401).build();
@@ -83,6 +84,21 @@ public class CartApiController {
             return ResponseEntity.status(401).build();
         }
         cartService.deleteCartById(cartId, member);
+        return ResponseEntity.ok().build();
+    }
+    
+    @PostMapping("/cartDeleteAll")
+    public ResponseEntity<Void> deleteAllCarts(@RequestBody List<Long> cartIds,
+                                               @AuthenticationPrincipal PrincipalDetails principalDetails) {
+        Member member = principalDetails.getMember();
+        if (member == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        for (Long cartId : cartIds) {
+            cartService.deleteCartById(cartId, member);
+        }
+
         return ResponseEntity.ok().build();
     }
     

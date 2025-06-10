@@ -107,6 +107,67 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("start") LocalDateTime start,
 	    @Param("end") LocalDateTime end
 	);
+	
+	Page<Order> findAllByOrderByPreferredDeliveryDateDesc(Pageable pageable);
+	@Query("""
+		    SELECT o FROM Order o
+		    WHERE 
+		        (:keyword IS NULL OR 
+		            LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR 
+		            LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+		        AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+		        AND (:status IS NULL OR o.status = :status)
+		        AND (:deliveryMethodId IS NULL OR o.deliveryMethod.id = :deliveryMethodId)
+		        AND (
+		            (:dateCriteria = 'order' AND 
+		                (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND 
+		                (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
+		            OR (:dateCriteria = 'delivery' AND 
+		                (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND 
+		                (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
+		            OR :dateCriteria = 'all'
+		        )
+		    ORDER BY o.preferredDeliveryDate DESC
+		""")
+		Page<Order> findFilteredOrders(
+		    @Param("keyword") String keyword,
+		    @Param("dateCriteria") String dateCriteria,
+		    @Param("startDateTime") LocalDateTime startDateTime,
+		    @Param("endDateTime") LocalDateTime endDateTime,
+		    @Param("productCategoryId") Long productCategoryId,
+		    @Param("status") OrderStatus status,
+		    @Param("deliveryMethodId") Long deliveryMethodId,
+		    Pageable pageable
+		);
+	@Query("""
+		    SELECT o FROM Order o
+		    WHERE 
+		        (:keyword IS NULL OR 
+		            LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR 
+		            LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+		        AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+		        AND (:status IS NULL OR o.status = :status)
+		        AND (:deliveryMethodId IS NULL OR o.deliveryMethod.id = :deliveryMethodId)
+		        AND (
+		            (:dateCriteria = 'order' AND 
+		                (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND 
+		                (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
+		            OR (:dateCriteria = 'delivery' AND 
+		                (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND 
+		                (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
+		            OR :dateCriteria = 'all'
+		        )
+		    ORDER BY o.preferredDeliveryDate DESC
+		""")
+		List<Order> findFilteredOrdersForExcel(
+		    @Param("keyword") String keyword,
+		    @Param("dateCriteria") String dateCriteria,
+		    @Param("startDateTime") LocalDateTime startDateTime,
+		    @Param("endDateTime") LocalDateTime endDateTime,
+		    @Param("productCategoryId") Long productCategoryId,
+		    @Param("status") OrderStatus status,
+		    @Param("deliveryMethodId") Long deliveryMethodId
+		);
 
 }
 

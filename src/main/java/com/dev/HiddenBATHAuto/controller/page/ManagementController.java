@@ -1,10 +1,16 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -22,9 +28,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +40,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
 import com.dev.HiddenBATHAuto.model.auth.Company;
@@ -44,6 +53,7 @@ import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
@@ -53,6 +63,7 @@ import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
+import com.dev.HiddenBATHAuto.repository.order.OrderImageRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
@@ -85,7 +96,8 @@ public class ManagementController {
 	private final CompanyService companyService;
 	private final CompanyRepository companyRepository;
 	private final ObjectMapper objectMapper; // com.fasterxml.jackson.databind.ObjectMapper
-
+	private final OrderImageRepository orderImageRepository;
+	
 	@GetMapping("/standardOrderList")
 	public String standardOrderList() {
 
@@ -99,42 +111,273 @@ public class ManagementController {
 	}
 
 	@GetMapping("/nonStandardTaskList")
-	public String nonStandardTaskList(Model model, @PageableDefault(size = 10) Pageable pageable) {
-		Page<Task> tasks = taskRepository.findAllByOrderByIdDesc(pageable);
+	public String nonStandardTaskList(
+	        @RequestParam(required = false, defaultValue = "") String keyword,
+	        @RequestParam(required = false, defaultValue = "all") String dateCriteria,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	        @RequestParam(required = false, defaultValue = "all") String productCategoryId,
+	        @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+	        @RequestParam(required = false, defaultValue = "all") String deliveryMethodId,
+	        @PageableDefault(size = 10) Pageable pageable,
+	        Model model
+	) {
+		LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
+		LocalDateTime endDateTime = endDate != null ? endDate.atTime(LocalTime.MAX) : null;
 
-		int startPage = Math.max(1, tasks.getPageable().getPageNumber() - 4);
-		int endPage = Math.min(tasks.getTotalPages(), tasks.getPageable().getPageNumber() + 4);
+	    Page<Order> orders = orderRepository.findFilteredOrders(
+	            keyword.isBlank() ? null : keyword,
+	            dateCriteria,
+	            startDateTime,
+	            endDateTime,
+	            productCategoryId.equals("all") ? null : Long.parseLong(productCategoryId),
+	            orderStatus.equals("all") ? null : OrderStatus.valueOf(orderStatus),
+	            deliveryMethodId.equals("all") ? null : Long.parseLong(deliveryMethodId),
+	            pageable
+	    );
 
-		model.addAttribute("startPage", startPage);
-		model.addAttribute("endPage", endPage);
-		model.addAttribute("tasks", tasks);
+	    int startPage = Math.max(1, orders.getPageable().getPageNumber() - 4);
+	    int endPage = Math.min(orders.getTotalPages(), orders.getPageable().getPageNumber() + 4);
 
-		return "administration/management/order/nonStandard/taskList";
+	    model.addAttribute("orders", orders);
+	    model.addAttribute("startPage", startPage);
+	    model.addAttribute("endPage", endPage);
+
+	    // 필터용 데이터
+	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+	    model.addAttribute("orderStatuses", OrderStatus.values());
+
+	    // 🔁 필터 유지용 바인딩
+	    model.addAttribute("keyword", keyword);
+	    model.addAttribute("dateCriteria", dateCriteria);
+	    model.addAttribute("startDate", startDate);
+	    model.addAttribute("endDate", endDate);
+	    model.addAttribute("productCategoryId", productCategoryId);
+	    model.addAttribute("orderStatus", orderStatus);
+	    model.addAttribute("deliveryMethodId", deliveryMethodId);
+
+	    return "administration/management/order/nonStandard/taskList";
 	}
 
+	@GetMapping("/nonStandardOrder/excel")
+	public void downloadNonStandardOrderExcel(
+	        @RequestParam(required = false) String keyword,
+	        @RequestParam(required = false) String dateCriteria,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	        @RequestParam(required = false) String orderStatus,
+	        @RequestParam(required = false) String deliveryMethodId,
+	        @RequestParam(required = false) String productCategoryId,
+	        HttpServletResponse response
+	) throws IOException {
+
+	    // ✅ 날짜 변환
+	    LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
+	    LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+
+	    // ✅ 타입 변환
+	    Long categoryId = (productCategoryId == null || "all".equals(productCategoryId)) ? null : Long.valueOf(productCategoryId);
+	    OrderStatus status = (orderStatus == null || "all".equals(orderStatus)) ? null : OrderStatus.valueOf(orderStatus);
+	    Long deliveryId = (deliveryMethodId == null || "all".equals(deliveryMethodId)) ? null : Long.valueOf(deliveryMethodId);
+
+	    // ✅ 데이터 조회
+	    List<Order> orderList = orderRepository.findFilteredOrdersForExcel(
+	            keyword,
+	            dateCriteria,
+	            startDateTime,
+	            endDateTime,
+	            categoryId,
+	            status,
+	            deliveryId
+	    );
+
+	    // ✅ 응답 설정
+	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+	    response.setHeader("Content-Disposition", "attachment; filename=non_standard_orders.xlsx");
+
+	    try (Workbook workbook = new XSSFWorkbook()) {
+	        Sheet sheet = workbook.createSheet("비규격발주");
+
+	        // ✅ 스타일
+	        CellStyle headerStyle = workbook.createCellStyle();
+	        Font boldFont = workbook.createFont();
+	        boldFont.setBold(true);
+	        headerStyle.setFont(boldFont);
+	        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+	        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+	        headerStyle.setBorderTop(BorderStyle.THIN);
+	        headerStyle.setBorderBottom(BorderStyle.THIN);
+	        headerStyle.setBorderLeft(BorderStyle.THIN);
+	        headerStyle.setBorderRight(BorderStyle.THIN);
+
+	        CellStyle borderedStyle = workbook.createCellStyle();
+	        borderedStyle.setBorderTop(BorderStyle.THIN);
+	        borderedStyle.setBorderBottom(BorderStyle.THIN);
+	        borderedStyle.setBorderLeft(BorderStyle.THIN);
+	        borderedStyle.setBorderRight(BorderStyle.THIN);
+
+	        CellStyle wrapStyle = workbook.createCellStyle();
+	        wrapStyle.cloneStyleFrom(borderedStyle);
+	        wrapStyle.setWrapText(true);
+
+	        // ✅ 헤더 작성
+	        String[] headers = {
+	            "대리점명", "신청자", "신청일", "배송희망일",
+	            "우편번호", "도", "시", "구", "도로명주소", "상세주소",
+	            "수량", "제품비용", "주문메모", "팀카테고리", "배송수단", "배송담당자", "옵션 정보"
+	        };
+
+	        Row header = sheet.createRow(0);
+	        for (int i = 0; i < headers.length; i++) {
+	            Cell cell = header.createCell(i);
+	            cell.setCellValue(headers[i]);
+	            cell.setCellStyle(headerStyle);
+	            sheet.setColumnWidth(i, 5000);
+	        }
+
+	        ObjectMapper objectMapper = new ObjectMapper();
+	        int rowIdx = 1;
+
+	        // ✅ 데이터 작성
+	        for (Order order : orderList) {
+	            Row row = sheet.createRow(rowIdx++);
+	            row.setHeightInPoints(60);
+
+	            OrderItem item = order.getOrderItem();
+
+	            // null 방어
+	            String agencyName = safe(() -> order.getTask().getRequestedBy().getCompany().getCompanyName(), "미지정");
+	            String requester = safe(() -> order.getTask().getRequestedBy().getName(), "미지정");
+	            String createdAt = order.getCreatedAt() != null ? order.getCreatedAt().toString() : "";
+	            String deliveryDate = order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "";
+
+	            String zip = defaultIfNull(order.getZipCode());
+	            String doName = defaultIfNull(order.getDoName());
+	            String siName = defaultIfNull(order.getSiName());
+	            String guName = defaultIfNull(order.getGuName());
+	            String road = defaultIfNull(order.getRoadAddress());
+	            String detail = defaultIfNull(order.getDetailAddress());
+
+	            int quantity = order.getQuantity() != 0 ? order.getQuantity() : 0;
+	            int productCost = order.getProductCost();
+	            String comment = defaultIfNull(order.getOrderComment());
+
+	            String category = safe(() -> order.getProductCategory().getName(), "미지정");
+	            String deliveryMethod = safe(() -> order.getDeliveryMethod().getMethodName(), "미지정");
+	            String handler = safe(() -> order.getAssignedDeliveryHandler().getName(), "미지정");
+
+	            // 작성
+	            row.createCell(0).setCellValue(agencyName);
+	            row.createCell(1).setCellValue(requester);
+	            row.createCell(2).setCellValue(createdAt);
+	            row.createCell(3).setCellValue(deliveryDate);
+
+	            row.createCell(4).setCellValue(zip);
+	            row.createCell(5).setCellValue(doName);
+	            row.createCell(6).setCellValue(siName);
+	            row.createCell(7).setCellValue(guName);
+	            row.createCell(8).setCellValue(road);
+	            row.createCell(9).setCellValue(detail);
+
+	            row.createCell(10).setCellValue(quantity);
+	            row.createCell(11).setCellValue(productCost);
+	            row.createCell(12).setCellValue(comment);
+	            row.createCell(13).setCellValue(category);
+	            row.createCell(14).setCellValue(deliveryMethod);
+	            row.createCell(15).setCellValue(handler);
+
+	            // 옵션 정보
+	            StringBuilder optionsText = new StringBuilder();
+	            Map<String, String> parsedOptionMap = (item != null) ? item.getParsedOptionMap() : null;
+
+	            if ((parsedOptionMap == null || parsedOptionMap.isEmpty()) && item != null && item.getOptionJson() != null) {
+	                try {
+	                    parsedOptionMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {});
+	                } catch (Exception e) {
+	                    parsedOptionMap = Map.of("오류", "옵션 파싱 실패");
+	                }
+	            }
+
+	            if (parsedOptionMap != null) {
+	                int count = 0;
+	                for (Map.Entry<String, String> entry : parsedOptionMap.entrySet()) {
+	                    optionsText.append(entry.getKey()).append(": ").append(entry.getValue());
+	                    count++;
+	                    if (count % 3 == 0) {
+	                        optionsText.append("\n");
+	                    } else {
+	                        optionsText.append(" / ");
+	                    }
+	                }
+	            }
+
+	            Cell optionCell = row.createCell(16);
+	            optionCell.setCellValue(optionsText.toString());
+	            optionCell.setCellStyle(wrapStyle);
+	        }
+
+	        workbook.write(response.getOutputStream());
+	    }
+	}
+	
+	// Null-safe getter
+	private <T> String safe(Supplier<T> getter, String defaultValue) {
+	    try {
+	        T value = getter.get();
+	        return value != null ? value.toString() : defaultValue;
+	    } catch (Exception e) {
+	        return defaultValue;
+	    }
+	}
+
+	private String defaultIfNull(String value) {
+	    return (value != null) ? value : "";
+	}
+
+	
 	@GetMapping("/nonStandardTaskDetail/{id}")
 	public String nonStandardTaskDetail(@PathVariable Long id, Model model) {
-		Task task = taskRepository.findById(id).orElseThrow();
+	    Task task = taskRepository.findById(id).orElseThrow();
 
-		// 이미 저장된 optionJson은 한글이므로 그대로 파싱해서 사용
-		for (Order order : task.getOrders()) {
-			OrderItem item = order.getOrderItem();
-			if (item != null) {
-				try {
-					ObjectMapper objectMapper = new ObjectMapper();
-					Map<String, String> parsed = objectMapper.readValue(item.getOptionJson(),
-							new com.fasterxml.jackson.core.type.TypeReference<>() {
-							});
-					item.setParsedOptionMap(parsed);
-				} catch (Exception e) {
-					System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
-				}
-			}
-		}
+	    ObjectMapper objectMapper = new ObjectMapper();
 
-		model.addAttribute("task", task);
-		return "administration/management/order/nonStandard/taskDetail";
+	    for (Order order : task.getOrders()) {
+	        // 1. OrderItem optionJson → parsedOptionMap
+	        OrderItem item = order.getOrderItem();
+	        if (item != null) {
+	            try {
+	                Map<String, String> parsed = objectMapper.readValue(
+	                        item.getOptionJson(),
+	                        new com.fasterxml.jackson.core.type.TypeReference<>() {});
+	                item.setParsedOptionMap(parsed);
+	            } catch (Exception e) {
+	                System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
+	            }
+	        }
+
+	        // 2. OrderImage 파일 사이즈 계산
+	        List<OrderImage> images = order.getOrderImages();
+	        if (images != null) {
+	            for (OrderImage image : images) {
+	                if (image.getPath() != null) {
+	                    File file = new File(image.getPath());
+	                    if (file.exists() && file.isFile()) {
+	                        image.setFileSizeKb(file.length() / 1024); // KB 단위 저장
+	                    } else {
+	                        image.setFileSizeKb(0L); // 없으면 0 처리
+	                    }
+	                } else {
+	                    image.setFileSizeKb(0L);
+	                }
+	            }
+	        }
+	    }
+
+	    model.addAttribute("task", task);
+	    return "administration/management/order/nonStandard/taskDetail";
 	}
+
 
 	@GetMapping("/nonStandardOrderItemDetail/{orderId}")
 	public String nonStandardOrderItemDetail(@PathVariable Long orderId, Model model) {
@@ -154,11 +397,6 @@ public class ManagementController {
 			}
 		}
 
-		// 이미지 타입 맵
-		Map<String, String> imageTypeMap = Map.of("고객 업로드", "CUSTOMER", "관리자 업로드", "MANAGEMENT", "배송 완료", "DELIVERY",
-				"배송 증빙", "PROOF");
-		model.addAttribute("imageTypeMap", imageTypeMap);
-
 		// ✅ 추가 데이터
 		model.addAttribute("order", order);
 		model.addAttribute("orderStatuses", OrderStatus.values());
@@ -171,35 +409,61 @@ public class ManagementController {
 	}
 
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
-	public String updateNonStandardOrderItem(@PathVariable Long orderId, @RequestParam("productCost") int productCost,
-			@RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
-			@RequestParam("status") String statusStr, @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
+	public String updateNonStandardOrderItem(
+			@PathVariable Long orderId, 
+			@RequestParam("productCost") int productCost,
+			@RequestParam("preferredDeliveryDate") 
+			@DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
+			@RequestParam("status") String statusStr, 
+			@RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
 			@RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
-			@RequestParam("productCategoryId") Optional<Long> productCategoryId) {
+			@RequestParam("productCategoryId") Optional<Long> productCategoryId,
+			@RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages) {
 
 		orderUpdateService.updateOrder(orderId, productCost, preferredDeliveryDate, statusStr, deliveryMethodId,
-				deliveryHandlerId, productCategoryId);
+				deliveryHandlerId, productCategoryId, adminImages);
 
 		return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
 	}
 
-	@GetMapping("/asList")
-	public String asList(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) Long handlerId, @RequestParam(required = false) AsStatus status,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-			Pageable pageable, Model model) {
-		LocalDate targetDate = (date != null) ? date : LocalDate.now();
-		Long memberId = handlerId != null ? handlerId : null;
+	@DeleteMapping("/order-image/delete/{id}")
+	@ResponseBody
+	public ResponseEntity<Void> deleteOrderImage(@PathVariable Long id) {
+	    OrderImage image = orderImageRepository.findById(id)
+	            .orElseThrow(() -> new IllegalArgumentException("해당 이미지가 존재하지 않습니다."));
+	    try {
+	        Files.deleteIfExists(Paths.get(image.getPath())); // ✅ 실제 파일 삭제
+	    } catch (IOException e) {
+	        throw new RuntimeException("파일 삭제 실패", e);
+	    }
+	    orderImageRepository.delete(image); // ✅ DB 삭제
+	    return ResponseEntity.ok().build();
+	}
 
-		Page<AsTask> asPage = asTaskService.getFilteredAsList(memberId, status, targetDate, pageable);
+	
+	@GetMapping("/asList")
+	public String asList(
+			@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) Long handlerId,
+			@RequestParam(required = false) AsStatus status,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+			Pageable pageable,
+			Model model) {
+
+		LocalDate targetDate = (date != null) ? date : LocalDate.now();
+
+		Page<AsTask> asPage = asTaskService.getFilteredAsList(handlerId, status, targetDate, pageable);
+
+		// ✅ 정확한 이름으로 model에 추가
 		model.addAttribute("asPage", asPage);
 		model.addAttribute("asHandlers", memberRepository.findByTeamName("AS팀"));
 		model.addAttribute("selectedDate", targetDate);
-		model.addAttribute("selectedStatuses", status);
+		model.addAttribute("selectedStatus", status); // ✅ 단수형 명칭으로 수정
 		model.addAttribute("selectedHandlerId", handlerId);
 
 		return "administration/management/as/asList";
 	}
+
 
 	@GetMapping("/asDetail/{id}")
 	public String asDetail(@PathVariable Long id, Model model) {
@@ -699,6 +963,38 @@ public class ManagementController {
 	    }
 	}
 
+	@GetMapping("/deliveryDetail/{id}")
+	public String deliveryDetail(@PathVariable Long id, Model model) {
+		Order order = orderRepository.findById(id).orElseThrow();
+
+		// 옵션 파싱
+		if (order.getOrderItem() != null) {
+			try {
+				ObjectMapper objectMapper = new ObjectMapper();
+				Map<String, String> parsed = objectMapper.readValue(order.getOrderItem().getOptionJson(),
+						new TypeReference<>() {
+						});
+				model.addAttribute("optionMap", parsed);
+			} catch (Exception e) {
+				System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
+				model.addAttribute("optionMap", Map.of());
+			}
+		}
+
+		// 이미지 타입 맵
+		Map<String, String> imageTypeMap = Map.of("고객 업로드", "CUSTOMER", "관리자 업로드", "MANAGEMENT", "배송 완료", "DELIVERY",
+				"배송 증빙", "PROOF");
+		model.addAttribute("imageTypeMap", imageTypeMap);
+
+		// ✅ 추가 데이터
+		model.addAttribute("order", order);
+		model.addAttribute("orderStatuses", OrderStatus.values());
+		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+		model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
+		model.addAttribute("productionTeamMembers", memberRepository.findByTeamName("생산팀"));
+		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		return "administration/management/delivery/deliveryDetail";
+	}
 	
 	@GetMapping("/clientList")
 	public String clientList(@RequestParam(required = false) String keyword,

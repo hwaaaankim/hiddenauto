@@ -67,65 +67,109 @@
 												th:value="|(${asTask.zipCode}) ${asTask.doName} ${asTask.siName} ${asTask.guName} ${asTask.roadAddress} ${asTask.detailAddress}|"
 												readonly>
 										</div>
-
 										<div class="row">
-											<div class="col-lg-4">
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">제품명</label>
+												<input type="text" class="form-control" th:value="${asTask.productName}"
+													readonly>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">사이즈</label>
+												<input type="text" class="form-control" th:value="${asTask.productSize}"
+													readonly>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">색상</label>
+												<input type="text" class="form-control"
+													th:value="${asTask.productColor}" readonly>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">옵션</label>
+												<input type="text" class="form-control"
+													th:value="${asTask.productOptions}" readonly>
+											</div>
+
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">현장 연락처</label>
+												<input type="text" class="form-control"
+													th:value="${asTask.onsiteContact}" readonly>
+											</div>
+
+											<div class="col-lg-4 mb-3">
 												<label class="form-label">AS 신청일</label>
 												<input type="text" class="form-control"
 													th:value="${#temporals.format(asTask.requestedAt, 'yyyy-MM-dd HH:mm')}"
 													readonly>
 											</div>
 
-											<div class="col-lg-4">
+											<div class="col-lg-4 mb-3">
 												<label class="form-label">진행일자</label>
 												<input type="text" class="form-control"
 													th:value="${#temporals.format(asTask.asProcessDate, 'yyyy-MM-dd HH:mm')}"
 													readonly>
 											</div>
 
-											<div class="col-lg-4">
+											<div class="col-lg-4 mb-3">
 												<label class="form-label">AS 비용</label>
-												<input type="text" class="form-control" th:value="${asTask.price}" name="price">
+												<input type="text" class="form-control" th:value="${asTask.price}"
+													name="price">
 											</div>
 										</div>
-
 										<div class="row mt-4">
-											<div class="col-12">
+											<!-- ✅ 고객 요청 이미지 -->
+											<div class="col-12 mt-3">
 												<label class="form-label">고객 요청 이미지</label>
 												<div class="row g-2">
+													<!-- 이미지가 있는 경우 -->
 													<div class="col-lg-2" th:each="img : ${asTask.requestImages}">
 														<div
-															class="border rounded p-2 d-flex justify-content-between align-items-center">
-															<span class="text-truncate"
-																th:text="${img.filename}"></span>
-															<a th:href="@{${img.url}}" download><i
-																	class="ri-download-2-line text-primary"></i></a>
+															class="border rounded p-2 d-flex flex-column align-items-center text-center">
+															<img th:src="@{${img.url}}" class="img-fluid mb-2"
+																style="max-height: 120px;" />
+															<span class="text-truncate small" th:text="${img.filename}"
+																style="max-width: 100%;"></span>
+															<a th:href="@{${img.url}}" download class="mt-1">
+																<i class="ri-download-2-line fs-18 text-primary"></i>
+															</a>
 														</div>
 													</div>
-													<div th:if="${#lists.isEmpty(asTask.requestImages)}">
+
+													<!-- 이미지가 없을 경우 -->
+													<div class="col-12" th:if="${#lists.isEmpty(asTask.requestImages)}">
 														<p class="text-muted">이미지가 없습니다.</p>
 													</div>
 												</div>
 											</div>
+
+											<!-- ✅ AS 결과 이미지 -->
 											<div class="col-12 mt-3">
 												<label class="form-label">AS 결과 이미지</label>
 												<div class="row g-2">
+													<!-- 이미지가 있는 경우 -->
 													<div class="col-lg-2" th:each="img : ${asTask.resultImages}">
 														<div
-															class="border rounded p-2 d-flex justify-content-between align-items-center">
-															<span class="text-truncate"
-																th:text="${img.filename}"></span>
-															<a th:href="@{${img.url}}" download><i
-																	class="ri-download-2-line text-success"></i></a>
+															class="border rounded p-2 d-flex flex-column align-items-center text-center">
+															<img th:src="@{${img.url}}" class="img-fluid mb-2"
+																style="max-height: 120px;" />
+															<span class="text-truncate small" th:text="${img.filename}"
+																style="max-width: 100%;"></span>
+															<a th:href="@{${img.url}}" download class="mt-1">
+																<i class="ri-download-2-line fs-18 text-success"></i>
+															</a>
 														</div>
 													</div>
-													<div th:if="${#lists.isEmpty(asTask.resultImages)}">
+
+													<!-- 이미지가 없을 경우 -->
+													<div class="col-12" th:if="${#lists.isEmpty(asTask.resultImages)}">
 														<p class="text-muted">이미지가 없습니다.</p>
 													</div>
 												</div>
 											</div>
-										</div>
 
+										</div>
 									</div>
 								</div>
 
@@ -172,7 +216,6 @@
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
-	<script src="/administration/assets/libs/dropzone/dropzone-min.js"></script>
 	<script src="/administration/assets/js/pages/project-create.init.js"></script>
 </body>
 

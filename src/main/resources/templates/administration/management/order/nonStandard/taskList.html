@@ -130,114 +130,118 @@
 										<h5 class="card-title mb-0 flex-grow-1">ORDER MANAGER</h5>
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
-												<button
-													onclick="window.location.href='/productionList/excel?categoryId=...&status=...&date=...'"
-													class="btn btn-success">
+												<a th:href="@{/management/nonStandardOrder/excel(
+													keyword=${keyword},
+													dateCriteria=${dateCriteria},
+													startDate=${startDate},
+													endDate=${endDate},
+													productCategoryId=${productCategoryId},
+													orderStatus=${orderStatus},
+													deliveryMethodId=${deliveryMethodId}
+												)}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
-												</button>
+												</a>
 											</div>
 										</div>
 									</div>
 								</div>
 								<div class="card-body border border-dashed border-end-0 border-start-0">
-									<form>
+									<form method="get" th:action="@{/management/nonStandardTaskList}">
 										<div class="row g-3">
-											<div class="col-xxl-4 col-sm-12">
+											<!-- 🔍 키워드 -->
+											<div class="col-xxl-3 col-sm-12">
+												<label class="form-label">키워드 검색</label>
 												<div class="search-box">
 													<input type="text" class="form-control search bg-light border-light"
-														placeholder="검색어를 입력 해 주세요.">
+														placeholder="대리점명 또는 발주자명을 검색 해 주세요." name="keyword"
+														th:value="${keyword}">
 													<i class="ri-search-line search-icon"></i>
 												</div>
 											</div>
 
-											<div class="col-xxl-3 col-sm-4">
-												<input type="text" class="form-control bg-light border-light"
-													id="demo-datepicker" data-provider="flatpickr"
-													data-date-format="d M, Y" data-range-date="true"
-													placeholder="Select date range">
+											<!-- 📅 기준일 선택 -->
+											<div class="col-md-3">
+												<label class="form-label">기준일선택</label>
+												<select class="form-select" name="dateCriteria" id="dateCriteria">
+													<option value="all" th:selected="${dateCriteria == 'all'}">전체
+													</option>
+													<option value="order" th:selected="${dateCriteria == 'order'}">발주일
+														기준</option>
+													<option value="delivery"
+														th:selected="${dateCriteria == 'delivery'}">출고일 기준</option>
+												</select>
 											</div>
+
+											<!-- 📅 시작일 -->
+											<div class="col-xxl-3 col-sm-6">
+												<label class="form-label">시작일</label>
+												<input type="date" id="startDate" name="startDate"
+													class="form-control bg-light border-light"
+													th:attr="disabled=${dateCriteria == 'all'}" th:value="${startDate}">
+											</div>
+
+											<!-- 📅 종료일 -->
+											<div class="col-xxl-3 col-sm-6">
+												<label class="form-label">종료일</label>
+												<input type="date" id="endDate" name="endDate"
+													class="form-control bg-light border-light"
+													th:attr="disabled=${dateCriteria == 'all'}" th:value="${endDate}">
+											</div>
+
+											<!-- 🛠 제품 -->
 											<div class="col-xxl-3 col-sm-4">
+												<label class="form-label">제품</label>
 												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">제품</option>
-														<option value="all" selected>All</option>
-														<option value="New">상부장</option>
-														<option value="Pending">하부장</option>
-														<option value="Inprogress">슬라이드장</option>
-														<option value="Completed">플랩장</option>
-														<option value="Completed">거울</option>
+													<select class="form-control" name="productCategoryId">
+														<option value="all" th:selected="${productCategoryId == 'all'}">
+															All</option>
+														<option th:each="category : ${productionTeamCategories}"
+															th:value="${category.id}" th:text="${category.name}"
+															th:selected="${productCategoryId == category.id.toString()}">
+															제품</option>
 													</select>
 												</div>
 											</div>
 
-											<!--end col-->
-											<div class="col-xxl-1 col-sm-4">
-												<button type="button" class="btn btn-primary w-100">
-													<i class="fa-solid fa-magnifying-glass"></i>
-													검색
+											<!-- 📦 발주상태 -->
+											<div class="col-xxl-3 col-sm-4">
+												<label class="form-label">발주상태</label>
+												<div class="input-light">
+													<select class="form-control" name="orderStatus">
+														<option value="all" th:selected="${orderStatus == 'all'}">All
+														</option>
+														<option th:each="status : ${orderStatuses}"
+															th:value="${status.name()}" th:text="${status.label}"
+															th:selected="${orderStatus == status.name()}">상태</option>
+													</select>
+												</div>
+											</div>
+
+											<!-- 🚚 배송방식 -->
+											<div class="col-xxl-3 col-sm-4">
+												<label class="form-label">배송방식</label>
+												<div class="input-light">
+													<select class="form-control" name="deliveryMethodId">
+														<option value="all" th:selected="${deliveryMethodId == 'all'}">
+															All</option>
+														<option th:each="method : ${deliveryMethods}"
+															th:value="${method.id}" th:text="${method.methodName}"
+															th:selected="${deliveryMethodId == method.id.toString()}">
+															배송방식</option>
+													</select>
+												</div>
+											</div>
+
+											<!-- 🔍 조회 버튼 -->
+											<div class="col-xxl-3 col-sm-4">
+												<label class="form-label">조회</label>
+												<button type="submit" class="btn btn-primary w-100">
+													<i class="fa-solid fa-magnifying-glass"></i> 검색
 												</button>
-											</div>
-											<div class="col-xxl-1 col-sm-4">
-												<button type="button" class="btn btn-danger w-100"> <i
-														class="fa-solid fa-filter"></i>
-													상세검색
-												</button>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">상태</option>
-														<option value="all" selected>All</option>
-														<option value="New">대기중</option>
-														<option value="Pending">진행중</option>
-														<option value="Inprogress">완료</option>
-														<option value="Completed">취소</option>
-													</select>
-												</div>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">담당직원</option>
-														<option value="all" selected>All</option>
-														<option value="New">직원명</option>
-														<option value="Pending">직원명</option>
-														<option value="Inprogress">직원명</option>
-														<option value="Completed">직원명</option>
-													</select>
-												</div>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">담당배송직원</option>
-														<option value="all" selected>직원명</option>
-														<option value="New">직원명</option>
-														<option value="Pending">직원명</option>
-														<option value="Inprogress">직원명</option>
-														<option value="Completed">직원명</option>
-													</select>
-												</div>
-											</div>
-											<div class="col-xxl-3 col-sm-4">
-												<div class="input-light">
-													<select class="form-control" data-choices data-choices-search-false
-														name="choices-single-default">
-														<option value="">배송방식</option>
-														<option value="all" selected>All</option>
-														<option value="New">직배송</option>
-														<option value="Pending">택배</option>
-														<option value="Inprogress">용달</option>
-														<option value="Completed">기타</option>
-													</select>
-												</div>
 											</div>
 										</div>
 									</form>
+
 								</div>
 								<!--end card-body-->
 								<div class="card-body">
@@ -251,63 +255,71 @@
 																id="checkAll" value="option">
 														</div>
 													</th>
-													<th class="sort">ID</th>
+													<th class="sort">업무ID</th>
+													<th class="sort">오더ID</th>
 													<th class="sort">대리점명</th>
 													<th class="sort">신청자</th>
 													<th class="sort">담당영업사원</th>
 													<th class="sort">발주일</th>
-													<th class="sort">최근수정일</th>
+													<th class="sort">배송희망일</th>
 													<th class="sort">상태</th>
 												</tr>
 											</thead>
 											<tbody class="list form-check-all">
-												<tr th:each="task : ${tasks.content}">
+												<tr th:each="order : ${orders.content}">
 													<th scope="row">
 														<div class="form-check">
 															<input class="form-check-input" type="checkbox"
-																name="chk_child" th:value="${task.id}" />
+																name="chk_child" th:value="${order.id}" />
 														</div>
 													</th>
 
 													<!-- Task ID -->
 													<td class="id">
-														<a th:href="@{'/management/nonStandardTaskDetail/' + ${task.id}}"
-															class="fw-medium link-primary"
-															th:text="'#ORDER_' + ${task.id}">#ORDER_ID</a>
+														<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${order.task.id})}"
+															class="fw-medium link-secondary"
+															th:text="'#TASK_' + ${order.task.id}">#TASK_ID</a>
 													</td>
 
-													<!-- 대리점명 (Company.name) -->
+													<!-- Order ID -->
+													<td class="id">
+														<a th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}"
+															class="fw-medium link-primary"
+															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
+													</td>
+
+													<!-- 대리점명 -->
 													<td class="project_name">
-														<a th:href="@{'/management/agency/' + ${task.requestedBy.company.id}}"
+														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
 															class="fw-medium link-primary"
-															th:text="${task.requestedBy.company.companyName}">대리점명</a>
+															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
 													</td>
 
-													<!-- 신청자명 (Member.name) -->
+													<!-- 신청자 -->
 													<td class="client_name">
-														<a th:href="@{'/management/customer/' + ${task.requestedBy.id}}"
-															th:text="${task.requestedBy.name}">신청자명</a>
+														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
+															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
-													<!-- 담당영업사원 (Company.salesManager.name) -->
+													<!-- 담당영업사원 -->
 													<td class="assignedto">
-														<a th:if="${task.requestedBy.company?.salesManager != null}"
-															th:href="@{'/management/employee/' + ${task.requestedBy.company.salesManager.id}}"
-															th:text="${task.requestedBy.company.salesManager.name}">담당영업사원</a>
-														<span th:if="${task.requestedBy.company?.salesManager == null}"
+														<a th:if="${order.task.requestedBy.company?.salesManager != null}"
+															th:href="@{'/management/employee/' + ${order.task.requestedBy.company.salesManager.id}}"
+															th:text="${order.task.requestedBy.company.salesManager.name}">담당영업사원</a>
+														<span
+															th:if="${order.task.requestedBy.company?.salesManager == null}"
 															class="text-muted">미지정</span>
-
 													</td>
 
 													<!-- 발주일 -->
 													<td class="due_date"
-														th:text="${#temporals.format(task.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
+														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 
-													<!-- 최근수정일 -->
+													<!-- 배송희망일 (preferredDeliveryDate로 대체됨) -->
 													<td class="due_date"
-														th:text="${#temporals.format(task.updatedAt, 'yyyy-MM-dd HH:mm:ss')}">
+														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 
@@ -315,10 +327,11 @@
 													<td class="status">
 														<span
 															class="badge bg-secondary-subtle text-secondary text-uppercase"
-															th:text="${task.status}">대기중</span>
+															th:text="${order.status}">대기중</span>
 													</td>
 												</tr>
 											</tbody>
+
 
 										</table>
 
@@ -336,213 +349,63 @@
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
+													<!-- First -->
 													<li class="page-item"
-														th:classappend="${1 == tasks.pageable.pageNumber+1} ? 'disabled'">
-														<a class="page-link" href="#"
-															th:href="@{/management/nonStandardTaskList(page=0, size=${param.size})}"
-															tabindex="-1" aria-disabled="true">First</a>
+														th:classappend="${orders.pageable.pageNumber == 0} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/nonStandardTaskList(page=0, size=${orders.size},
+					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">First</a>
 													</li>
+
+													<!-- Previous -->
 													<li class="page-item"
-														th:classappend="${1 == tasks.pageable.pageNumber+1} ? 'disabled'">
-														<a class="page-link" href="#"
-															th:href="@{/management/nonStandardTaskList(page=${tasks.pageable.pageNumber - 1}, size=${param.size})}"
-															tabindex="-1" aria-disabled="true">Previous</a>
+														th:classappend="${orders.pageable.pageNumber == 0} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber - 1}, size=${orders.size},
+					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">Previous</a>
 													</li>
+
+													<!-- Page Numbers -->
 													<li class="page-item"
-														th:classappend="${i == tasks.pageable.pageNumber+1} ? 'disabled'"
-														th:each="i : ${#numbers.sequence(startPage, endPage)}">
-														<a class="page-link" href="#" th:text=${i}
-															th:href="@{/management/nonStandardTaskList(page=${i-1}, size=${param.size})}">1</a>
+														th:each="i : ${#numbers.sequence(startPage, endPage)}"
+														th:classappend="${i == orders.pageable.pageNumber + 1} ? 'active'">
+														<a class="page-link" th:text="${i}"
+															th:href="@{/management/nonStandardTaskList(page=${i - 1}, size=${orders.size},
+					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">1</a>
 													</li>
+
+													<!-- Next -->
 													<li class="page-item"
-														th:classappend="${tasks.totalPages == tasks.pageable.pageNumber + 1} ? 'disabled'">
-														<a class="page-link" href="#"
-															th:href="@{/management/nonStandardTaskList(page=${tasks.pageable.pageNumber + 1}, size=${param.size})}">Next</a>
+														th:classappend="${orders.pageable.pageNumber + 1 == orders.totalPages} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber + 1}, size=${orders.size},
+					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">Next</a>
 													</li>
+
+													<!-- Last -->
 													<li class="page-item"
-														th:classappend="${tasks.totalPages == tasks.pageable.pageNumber + 1} ? 'disabled'">
-														<a class="page-link" href="#"
-															th:href="@{/management/nonStandardTaskList(page=${tasks.totalPages-1}, size=${param.size})}">Last</a>
+														th:classappend="${orders.pageable.pageNumber + 1 == orders.totalPages} ? 'disabled'">
+														<a class="page-link"
+															th:href="@{/management/nonStandardTaskList(page=${orders.totalPages - 1}, size=${orders.size},
+					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">Last</a>
 													</li>
 												</ul>
 											</nav>
 										</div>
 									</div>
-								</div>
-							</div>
-						</div>
-					</div>
 
-					<div class="modal fade flip" id="deleteOrder" tabindex="-1" aria-hidden="true">
-						<div class="modal-dialog modal-dialog-centered">
-							<div class="modal-content">
-								<div class="modal-body p-5 text-center">
-									<lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
-										colors="primary:#405189,secondary:#f06548"
-										style="width:90px;height:90px"></lord-icon>
-									<div class="mt-4 text-center">
-										<h4>발주 삭제</h4>
-										<p class="text-muted fs-14 mb-4">해당 발주를 삭제 하시겠습니까?</p>
-										<div class="hstack gap-2 justify-content-center remove">
-											<button
-												class="btn btn-link btn-ghost-success fw-medium text-decoration-none"
-												id="deleteRecord-close" data-bs-dismiss="modal"><i
-													class="ri-close-line me-1 align-middle"></i> 닫기</button>
-											<button class="btn btn-danger" id="delete-record"> 삭제</button>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
 
-					<div class="modal fade zoomIn" id="showModal" tabindex="-1" aria-labelledby="exampleModalLabel"
-						aria-hidden="true">
-						<div class="modal-dialog modal-dialog-centered modal-lg">
-							<div class="modal-content border-0">
-								<div class="modal-header p-3 bg-info-subtle">
-									<h5 class="modal-title" id="exampleModalLabel">발주수정</h5>
-									<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-										id="close-modal"></button>
 								</div>
-								<form class="tablelist-form" autocomplete="off">
-									<div class="modal-body">
-										<input type="hidden" id="tasksId" />
-										<div class="row g-3">
-											<div class="col-lg-12">
-												<label for="projectName-field" class="form-label">대리점명</label>
-												<input type="text" id="projectName-field" class="form-control"
-													placeholder="Agency" required />
-											</div>
-											<div class="col-lg-12">
-												<div>
-													<label for="tasksTitle-field" class="form-label">대표자명</label>
-													<input type="text" id="tasksTitle-field" class="form-control"
-														placeholder="Client" required />
-												</div>
-											</div>
-											<div class="col-lg-12">
-												<label for="clientName-field" class="form-label">신청제품</label>
-												<input type="text" id="clientName-field" class="form-control"
-													placeholder="Product" required />
-											</div>
-											<div class="col-lg-12">
-												<label for="clientName-field" class="form-label">배송지</label>
-												<input type="text" class="form-control" placeholder="Address"
-													required />
-											</div>
-											<div class="col-lg-12">
-												<label class="form-label">담당 배송직원</label>
-												<div data-simplebar style="height: 95px;">
-													<ul class="list-unstyled vstack gap-2 mb-0">
-														<li>
-															<div class="form-check d-flex align-items-center">
-																<input class="form-check-input me-3" type="checkbox"
-																	name="assignedTo[]" value="avatar-2.jpg">
-																<label
-																	class="form-check-label d-flex align-items-center"
-																	for="james-forbes">
-																	<span class="flex-shrink-0">
-																		<img src="/administration/assets/images/users/avatar-2.jpg"
-																			alt="" class="avatar-xxs rounded-circle">
-																	</span>
-																	<span class="flex-grow-1 ms-2">직원명</span>
-																</label>
-															</div>
-														</li>
-														<li>
-															<div class="form-check d-flex align-items-center">
-																<input class="form-check-input me-3" type="checkbox"
-																	name="assignedTo[]" value="avatar-2.jpg">
-																<label
-																	class="form-check-label d-flex align-items-center"
-																	for="james-forbes">
-																	<span class="flex-shrink-0">
-																		<img src="/administration/assets/images/users/avatar-2.jpg"
-																			alt="" class="avatar-xxs rounded-circle">
-																	</span>
-																	<span class="flex-grow-1 ms-2">직원명</span>
-																</label>
-															</div>
-														</li>
-													</ul>
-												</div>
-											</div>
-											<div class="col-lg-12">
-												<label class="form-label">담당영업사원</label>
-												<div data-simplebar style="height: 95px;">
-													<ul class="list-unstyled vstack gap-2 mb-0">
-														<li>
-															<div class="form-check d-flex align-items-center">
-																<input class="form-check-input me-3" type="checkbox"
-																	name="assignedTo[]" value="avatar-2.jpg">
-																<label
-																	class="form-check-label d-flex align-items-center"
-																	for="james-forbes">
-																	<span class="flex-shrink-0">
-																		<img src="/administration/assets/images/users/avatar-2.jpg"
-																			alt="" class="avatar-xxs rounded-circle">
-																	</span>
-																	<span class="flex-grow-1 ms-2">직원명</span>
-																</label>
-															</div>
-														</li>
-														<li>
-															<div class="form-check d-flex align-items-center">
-																<input class="form-check-input me-3" type="checkbox"
-																	name="assignedTo[]" value="avatar-3.jpg">
-																<label
-																	class="form-check-label d-flex align-items-center"
-																	for="john-robles">
-																	<span class="flex-shrink-0">
-																		<img src="/administration/assets/images/users/avatar-3.jpg"
-																			alt="" class="avatar-xxs rounded-circle">
-																	</span>
-																	<span class="flex-grow-1 ms-2">직원명</span>
-																</label>
-															</div>
-														</li>
-													</ul>
-												</div>
-											</div>
-											<!--end col-->
-											<div class="col-lg-6">
-												<label for="duedate-field" class="form-label">신청일</label>
-												<input type="text" class="form-control" data-provider="flatpickr"
-													placeholder="00.00.00 00:00:00" required />
-											</div>
-											<div class="col-lg-6">
-												<label for="duedate-field" class="form-label">배송(예정)일</label>
-												<input type="text" class="form-control" data-provider="flatpickr"
-													placeholder="00.00.00 00:00:00" required />
-											</div>
-											<!--end col-->
-											<div class="col-lg-12">
-												<label for="ticket-status" class="form-label">상태</label>
-												<select class="form-control" id="ticket-status">
-													<option value="">대기중</option>
-													<option value="New">완료</option>
-													<option value="Inprogress">확인</option>
-													<option value="Pending">진행</option>
-												</select>
-											</div>
-										</div>
-									</div>
-									<div class="modal-footer">
-										<div class="hstack gap-2 justify-content-end">
-											<button type="button" class="btn btn-light" id="close-modal"
-												data-bs-dismiss="modal">닫기</button>
-											<button type="submit" class="btn btn-success" id="add-btn">발주수정</button>
-											<!-- <button type="button" class="btn btn-success" id="edit-btn">Update Task</button> -->
-										</div>
-									</div>
-								</form>
 							</div>
 						</div>
 					</div>
 				</div>
 			</div>
-
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
@@ -550,6 +413,28 @@
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+	<script>
+		document.addEventListener("DOMContentLoaded", function () {
+			const dateCriteriaSelect = document.getElementById("dateCriteria");
+			const startDateInput = document.getElementById("startDate");
+			const endDateInput = document.getElementById("endDate");
+
+			function updateDateInputs() {
+				const selectedValue = dateCriteriaSelect.value;
+				const shouldEnable = selectedValue === "order" || selectedValue === "delivery";
+
+				startDateInput.disabled = !shouldEnable;
+				endDateInput.disabled = !shouldEnable;
+			}
+
+			// 초기 실행
+			updateDateInputs();
+
+			// 셀렉트 변경 시
+			dateCriteriaSelect.addEventListener("change", updateDateInputs);
+		});
+	</script>
+
 </body>
 
 </html>

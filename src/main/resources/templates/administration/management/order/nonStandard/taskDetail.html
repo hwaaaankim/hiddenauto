@@ -51,7 +51,9 @@
 													</div>
 													<div class="col-md">
 														<div>
-															<h4 class="fw-bold">대리점명</h4>
+															<h4 class="fw-bold"
+																th:text="${task.requestedBy.company.companyName}">대리점명
+															</h4>
 															<div class="hstack gap-3 flex-wrap">
 																<!-- 대표자명 | 신청자명 -->
 																<div>
@@ -235,75 +237,105 @@
 																	<!-- 카드 푸터 (파일 다운로드) -->
 																	<div
 																		class="card-footer bg-transparent border-top-dashed py-2">
-																		<div class="row g-3">
-																			<div class="col-xxl-6 col-lg-6">
-																				<div
-																					class="border rounded border-dashed p-2">
-																					<div
-																						class="d-flex align-items-center">
-																						<div class="flex-shrink-0 me-3">
-																							<div class="avatar-sm">
+																		<!-- 파일 영역 -->
+																		<div class="row mt-3">
+																			<!-- 고객 업로드 파일 리스트 -->
+																			<div class="col-6 mt-3">
+																				<h6 class="fw-semibold">고객 업로드 파일</h6>
+																				<div class="row row-cols-1 g-2">
+																					<div th:each="img : ${order.customerUploadedImages}"
+																						class="col">
+																						<div
+																							class="border rounded border-dashed p-2">
+																							<div
+																								class="d-flex align-items-center">
 																								<div
-																									class="avatar-title bg-light text-secondary rounded fs-24">
-																									<i
-																										class="ri-folder-zip-line"></i>
+																									class="flex-shrink-0 me-3">
+																									<div
+																										class="avatar-sm">
+																										<div
+																											class="avatar-title bg-light text-secondary rounded fs-24">
+																											<i
+																												class="ri-folder-zip-line"></i>
+																										</div>
+																									</div>
+																								</div>
+																								<div
+																									class="flex-grow-1 overflow-hidden">
+																									<h5
+																										class="fs-15 mb-1">
+																										<a th:href="@{${img.url}}"
+																											class="text-body text-truncate d-block"
+																											th:text="${img.filename}">고객파일</a>
+																									</h5>
+																									<div
+																										th:text="${img.fileSizeKb} + ' KB'">
+																										파일크기</div>
+																								</div>
+																								<div
+																									class="flex-shrink-0 ms-2">
+																									<a th:href="@{${img.url}}"
+																										class="btn btn-icon text-muted btn-sm fs-18">
+																										<i
+																											class="ri-download-2-line"></i>
+																									</a>
 																								</div>
 																							</div>
-																						</div>
-																						<div
-																							class="flex-grow-1 overflow-hidden">
-																							<h5 class="fs-15 mb-1">
-																								<a href="#"
-																									class="text-body text-truncate d-block">고객업로드파일.zip</a>
-																							</h5>
-																							<div>2.2MB</div>
-																						</div>
-																						<div class="flex-shrink-0 ms-2">
-																							<button type="button"
-																								class="btn btn-icon text-muted btn-sm fs-18">
-																								<i
-																									class="ri-download-2-line"></i>
-																							</button>
 																						</div>
 																					</div>
 																				</div>
 																			</div>
 
-																			<div class="col-xxl-6 col-lg-6">
-																				<div
-																					class="border rounded border-dashed p-2">
-																					<div
-																						class="d-flex align-items-center">
-																						<div class="flex-shrink-0 me-3">
-																							<div class="avatar-sm">
+																			<!-- 관리자 업로드 파일 리스트 -->
+																			<div class="col-6 mt-3">
+																				<h6 class="fw-semibold">관리자 업로드 파일</h6>
+																				<div class="row row-cols-1 g-2">
+																					<div th:each="img : ${order.adminUploadedImages}"
+																						class="col">
+																						<div
+																							class="border rounded border-dashed p-2">
+																							<div
+																								class="d-flex align-items-center">
 																								<div
-																									class="avatar-title bg-light text-secondary rounded fs-24">
-																									<i
-																										class="ri-file-ppt-2-line"></i>
+																									class="flex-shrink-0 me-3">
+																									<div
+																										class="avatar-sm">
+																										<div
+																											class="avatar-title bg-light text-secondary rounded fs-24">
+																											<i
+																												class="ri-file-ppt-2-line"></i>
+																										</div>
+																									</div>
+																								</div>
+																								<div
+																									class="flex-grow-1 overflow-hidden">
+																									<h5
+																										class="fs-15 mb-1">
+																										<a th:href="@{${img.url}}"
+																											class="text-body text-truncate d-block"
+																											th:text="${img.filename}">관리자파일</a>
+																									</h5>
+																									<div
+																										th:text="${img.fileSizeKb} + ' KB'">
+																										파일크기</div>
+																								</div>
+																								<div
+																									class="flex-shrink-0 ms-2">
+																									<a th:href="@{${img.url}}"
+																										class="btn btn-icon text-muted btn-sm fs-18">
+																										<i
+																											class="ri-download-2-line"></i>
+																									</a>
 																								</div>
 																							</div>
-																						</div>
-																						<div
-																							class="flex-grow-1 overflow-hidden">
-																							<h5 class="fs-15 mb-1">
-																								<a href="#"
-																									class="text-body text-truncate d-block">관리자업로드파일.zip</a>
-																							</h5>
-																							<div>2.4MB</div>
-																						</div>
-																						<div class="flex-shrink-0 ms-2">
-																							<button type="button"
-																								class="btn btn-icon text-muted btn-sm fs-18">
-																								<i
-																									class="ri-download-2-line"></i>
-																							</button>
 																						</div>
 																					</div>
 																				</div>
 																			</div>
 																		</div>
-																	</div>
 
+
+																	</div>
 																</div>
 															</div>
 														</div>

@@ -22,14 +22,13 @@
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">비규격발주제품 상세</h4>
+								<h4 class="mb-sm-0">팀관리</h4>
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">발주관리</a></li>
-										<li class="breadcrumb-item"><a href="javascript: void(0);">비규격발주관리</a></li>
-										<li class="breadcrumb-item"><a href="javascript: void(0);">비규격발주상세</a></li>
-										<li class="breadcrumb-item active">비규격발주제품 상세</li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">팀관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript: void(0);">배송팀관리</a></li>
+										<li class="breadcrumb-item active">배송업무상세</li>
 									</ol>
 								</div>
 
@@ -37,253 +36,207 @@
 						</div>
 					</div>
 
-					<form th:action="@{'/management/nonStandardOrderItemUpdate/' + ${order.id}}" method="POST">
-						<div class="row">
-							<div class="col-lg-10">
-								<div class="card">
-									<div class="card-body">
-										<div class="mb-3">
-											<label class="form-label">대리점명</label>
-											<input type="text" class="form-control"
-												th:value="${order.task.requestedBy.name}" readonly>
-										</div>
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="card">
+								<div class="card-body">
+									<div class="mb-3">
+										<label class="form-label">대리점명</label>
+										<input type="text" class="form-control"
+											th:value="${order.task.requestedBy.name}" readonly>
+									</div>
 
-										<div class="mb-3">
-											<label class="form-label">신청자명</label>
-											<input type="text" class="form-control"
-												th:value="${order.task.requestedBy.username}" readonly>
-										</div>
+									<div class="mb-3">
+										<label class="form-label">신청자명</label>
+										<input type="text" class="form-control"
+											th:value="${order.task.requestedBy.username}" readonly>
+									</div>
 
-										<div class="mb-3">
-											<label class="form-label">배송주소</label>
-											<input type="text" class="form-control"
-												th:value="|(${order.zipCode}) ${order.doName} ${order.siName} ${order.guName} ${order.roadAddress} ${order.detailAddress}|"
+									<div class="mb-3">
+										<label class="form-label">배송주소</label>
+										<input type="text" class="form-control"
+											th:value="|(${order.zipCode}) ${order.doName} ${order.siName} ${order.guName} ${order.roadAddress} ${order.detailAddress}|"
+											readonly>
+									</div>
+
+									<div class="row">
+										<div class="col-lg-4">
+											<label class="form-label">수량</label>
+											<input type="text" class="form-control" th:value="${order.quantity}"
 												readonly>
+										</div>
+										<div class="col-lg-4">
+											<label class="form-label">발주일</label>
+											<input type="text" class="form-control"
+												th:value="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}" readonly>
+										</div>
+
+										<div class="col-lg-4">
+											<label class="form-label">제품비용</label>
+											<input type="text" class="form-control" name="productCost" readonly
+												th:value="${order.productCost}">
+										</div>
+
+										<div class="col-lg-4">
+											<label class="form-label">배송희망일</label>
+											<input type="date" class="form-control" name="preferredDeliveryDate"
+												readonly
+												th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}" />
+										</div>
+										<div class="col-lg-4">
+											<label class="form-label">배송희망일</label>
+											<input type="date" class="form-control" name="preferredDeliveryDate"
+												th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"
+												readonly />
+										</div>
+
+										<div class="col-lg-4">
+											<label class="form-label">배송수단</label>
+											<input type="text" class="form-control" readonly
+												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '미지정'}">
+										</div>
+
+										<div class="col-lg-4">
+											<label class="form-label">배송금액</label>
+											<input type="text" class="form-control" readonly
+												th:value="${order.deliveryMethod != null ? order.deliveryMethod.methodPrice : '미지정'}">
+										</div>
+
+										<div class="col-lg-4">
+											<label class="form-label">배송팀</label>
+											<input type="text" class="form-control" readonly
+												th:value="${order.assignedDeliveryHandler != null ? order.assignedDeliveryHandler.name : '배정 필요함'}">
+										</div>
+
+										<div class="col-lg-4">
+											<label class="form-label">생산팀</label>
+											<input type="text" class="form-control" readonly
+												th:value="${order.productCategory != null ? order.productCategory.name : '배정 필요함'}">
+										</div>
+
+									</div>
+
+									<div class="row mt-3">
+										<div class="col-12">
+											<label class="form-label">제품 옵션</label>
 										</div>
 
 										<div class="row">
-											<div class="col-lg-4">
-												<label class="form-label">수량</label>
-												<input type="text" class="form-control" th:value="${order.quantity}"
-													readonly>
-											</div>
-											<div class="col-lg-4">
-												<label class="form-label">발주일</label>
-												<input type="text" class="form-control"
-													th:value="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}"
-													readonly>
-											</div>
-
-											<div class="col-lg-4">
-												<label class="form-label">제품비용</label>
-												<input type="text" class="form-control" name="productCost"
-													th:value="${order.productCost}">
-											</div>
-
-											<div class="col-lg-4">
-												<label class="form-label">배송희망일</label>
-												<input type="date" class="form-control" name="preferredDeliveryDate"
-													th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}" />
-											</div>
-										</div>
-
-										<div class="row mt-3">
-											<div class="col-12">
-												<label class="form-label">제품 옵션</label>
-											</div>
-
-											<div class="row">
-												<div class="col-lg-2" th:each="entry : ${optionMap}">
-													<div>
-														<label class="form-label" th:text="${entry.key}">옵션명</label>
-														<input type="text" class="form-control"
-															th:value="${entry.value}" readonly>
-													</div>
-												</div>
-											</div>
-										</div>
-										<div class="row mt-4">
-											<div class="col-12">
-												<label class="form-label">이미지 첨부 파일</label>
-											</div>
-
-											<div class="col-12">
-												<div class="row g-2">
-													<!-- 반복: 이미지 타입별 구간 -->
-													<div th:each="entry : ${imageTypeMap}">
-														<div class="col-12 mt-3">
-															<h6 th:text="${entry.key}"></h6>
-															<div class="row g-2">
-																<!-- 실제 업로드된 이미지들 -->
-																<div class="col-lg-2"
-																	th:each="img : ${order.orderImages.?[type == entry.value]}">
-																	<div
-																		class="border rounded p-2 d-flex justify-content-between align-items-center">
-																		<span th:text="${img.filename}"
-																			class="text-truncate"
-																			style="max-width: 80%;"></span>
-																		<a th:href="@{${img.url}}" download>
-																			<i
-																				class="ri-download-2-line fs-18 text-primary"></i>
-																		</a>
-																	</div>
-																</div>
-
-																<!-- 샘플 예시 (이미지가 없을 경우) -->
-																<div class="col-lg-2"
-																	th:if="${#lists.isEmpty(order.orderImages.?[type == entry.value])}">
-																	<div
-																		class="border rounded p-2 d-flex justify-content-between align-items-center">
-																		<span class="text-truncate"
-																			style="max-width: 80%;">sample.png</span>
-																		<a href="/sample/sample.png" download>
-																			<i
-																				class="ri-download-2-line fs-18 text-muted"></i>
-																		</a>
-																	</div>
-																</div>
-
-																<div class="col-lg-2"
-																	th:if="${#lists.isEmpty(order.orderImages.?[type == entry.value])}">
-																	<div
-																		class="border rounded p-2 d-flex justify-content-between align-items-center">
-																		<span class="text-truncate"
-																			style="max-width: 80%;">example.jpg</span>
-																		<a href="/sample/example.jpg" download>
-																			<i
-																				class="ri-download-2-line fs-18 text-muted"></i>
-																		</a>
-																	</div>
-																</div>
-															</div>
-														</div>
-													</div> <!-- /end image type entry -->
+											<div class="col-lg-2" th:each="entry : ${optionMap}">
+												<div>
+													<label class="form-label" th:text="${entry.key}">옵션명</label>
+													<input type="text" class="form-control" th:value="${entry.value}"
+														readonly>
 												</div>
 											</div>
 										</div>
 									</div>
-								</div>
+									<div class="row mt-4">
+										<div class="col-12">
+											<label class="form-label">이미지 첨부 파일</label>
+										</div>
 
-
-								<div class="card">
-									<div class="card-header">
-										<h5 class="card-title mb-0">첨부파일</h5>
-									</div>
-									<div class="card-body">
-										<div>
-											<p class="text-muted">첨부파일을 업로드 해 주세요.</p>
-
-											<div class="dropzone">
-												<div class="fallback">
-													<input name="file" type="file" multiple="multiple">
-												</div>
-												<div class="dz-message needsclick">
-													<div class="mb-3">
-														<i class="display-4 text-muted ri-upload-cloud-2-fill"></i>
-													</div>
-
-													<h5>Drop files here or click to upload.</h5>
-												</div>
-											</div>
-
-											<ul class="list-unstyled mb-0" id="dropzone-preview">
-												<li class="mt-2" id="dropzone-preview-list">
-													<div class="border rounded">
-														<div class="d-flex p-2">
-															<div class="flex-shrink-0 me-3">
-																<div class="avatar-sm bg-light rounded">
-																	<img src="#" alt="Project-Image" data-dz-thumbnail
-																		class="img-fluid rounded d-block" />
-																</div>
-															</div>
-															<div class="flex-grow-1">
-																<div class="pt-1">
-																	<h5 class="fs-14 mb-1" data-dz-name>&nbsp;</h5>
-																	<p class="fs-13 text-muted mb-0" data-dz-size></p>
-																	<strong class="error text-danger"
-																		data-dz-errormessage></strong>
-																</div>
-															</div>
-															<div class="flex-shrink-0 ms-3">
-																<button data-dz-remove
-																	class="btn btn-sm btn-danger">Delete</button>
+										<div class="col-12">
+											<div class="row g-2">
+												<!-- 고객 업로드 이미지 -->
+												<div th:if="${!#lists.isEmpty(order.customerUploadedImages)}"
+													class="col-12 mt-3">
+													<h6>고객 업로드</h6>
+													<div class="row g-2">
+														<div class="col-lg-2"
+															th:each="img : ${order.customerUploadedImages}">
+															<div
+																class="border rounded p-2 d-flex flex-column align-items-center text-center">
+																<img th:src="${img.url}" class="img-fluid mb-2"
+																	style="max-height: 120px;" />
+																<span class="text-truncate small"
+																	th:text="${img.filename}"
+																	style="max-width: 100%;"></span>
+																<a th:href="${img.url}" download class="mt-1">
+																	<i
+																		class="ri-download-2-line fs-18 text-primary"></i>
+																</a>
 															</div>
 														</div>
 													</div>
-												</li>
-											</ul>
-										</div>
-									</div>
-								</div>
-								<div class="text-end mb-4">
-									<button class="btn btn-success w-sm">확인</button>
-								</div>
-							</div>
+												</div>
 
-							<div class="col-lg-2">
-								<div class="card">
-									<div class="card-header">
-										<h5 class="card-title mb-0">상태</h5>
-									</div>
-									<div class="card-body">
-										<div class="mb-3">
-											<label class="form-label">발주상태관리</label>
-											<select class="form-select" name="status">
-												<option th:each="status : ${orderStatuses}" th:value="${status.name()}"
-													th:text="${status.name()}"
-													th:selected="${order.status?.name() == status.name()}">
-												</option>
-											</select>
+												<!-- 관리자 업로드 이미지 -->
+												<div th:if="${!#lists.isEmpty(order.adminUploadedImages)}"
+													class="col-12 mt-3">
+													<h6>관리자 업로드</h6>
+													<div class="row g-2" id="admin-uploaded-list">
+														<div class="col-lg-2"
+															th:each="img : ${order.adminUploadedImages}"
+															th:attr="data-id=${img.id}">
+															<div
+																class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
+																<button type="button"
+																	class="btn-close position-absolute top-0 end-0 delete-uploaded-img"
+																	th:data-id="${img.id}" aria-label="삭제"></button>
+																<img th:src="${img.url}" class="img-fluid mb-2"
+																	style="max-height: 120px;" />
+																<span class="text-truncate small"
+																	th:text="${img.filename}"
+																	style="max-width: 100%;"></span>
+																<a th:href="${img.url}" download class="mt-1">
+																	<i
+																		class="ri-download-2-line fs-18 text-primary"></i>
+																</a>
+															</div>
+														</div>
+													</div>
+												</div>
 
-										</div>
-										<div>
-											<label class="form-label">배송수단</label>
-											<select class="form-select" name="deliveryMethodId">
-												<option value="" th:selected="${order.deliveryMethod == null}">미지정
-												</option>
-												<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
-													th:text="${method.methodName + ' (금액: ' + method.methodPrice + ')'}"
-													th:selected="${order.deliveryMethod?.id == method.id}">
-												</option>
-											</select>
-										</div>
-									</div>
-								</div>
+												<!-- 배송 완료 이미지 -->
+												<div th:if="${!#lists.isEmpty(order.deliveryImages)}"
+													class="col-12 mt-3">
+													<h6>배송 완료</h6>
+													<div class="row g-2">
+														<div class="col-lg-2" th:each="img : ${order.deliveryImages}">
+															<div
+																class="border rounded p-2 d-flex flex-column align-items-center text-center">
+																<img th:src="${img.url}" class="img-fluid mb-2"
+																	style="max-height: 120px;" />
+																<span class="text-truncate small"
+																	th:text="${img.filename}"
+																	style="max-width: 100%;"></span>
+																<a th:href="${img.url}" download class="mt-1">
+																	<i
+																		class="ri-download-2-line fs-18 text-primary"></i>
+																</a>
+															</div>
+														</div>
+													</div>
+												</div>
 
-
-								<div class="card">
-									<div class="card-header">
-										<h5 class="card-title mb-0">담당자</h5>
-									</div>
-									<div class="card-body">
-										<div class="mb-3">
-											<label class="form-label">배송팀</label>
-											<select class="form-select" name="assignedDeliveryHandlerId">
-												<option value="" th:selected="${order.assignedDeliveryHandler == null}">
-													배정 필요함</option>
-												<option th:each="member : ${deliveryTeamMembers}"
-													th:value="${member.id}" th:text="${member.name}"
-													th:selected="${order.assignedDeliveryHandler?.id == member.id}">
-												</option>
-											</select>
-
-										</div>
-										<div class="mb-3">
-											<label class="form-label">생산팀</label>
-											<select class="form-select" name="productCategoryId">
-												<option value="" th:selected="${order.productCategory == null}">배정 필요함
-												</option>
-												<option th:each="category : ${productionTeamCategories}"
-													th:value="${category.id}" th:text="${category.name}"
-													th:selected="${order.productCategory.id == category.id}">
-												</option>
-											</select>
+												<!-- 배송 증빙 이미지 -->
+												<div th:if="${!#lists.isEmpty(order.proofImages)}" class="col-12 mt-3">
+													<h6>배송 증빙</h6>
+													<div class="row g-2">
+														<div class="col-lg-2" th:each="img : ${order.proofImages}">
+															<div
+																class="border rounded p-2 d-flex flex-column align-items-center text-center">
+																<img th:src="${img.url}" class="img-fluid mb-2"
+																	style="max-height: 120px;" />
+																<span class="text-truncate small"
+																	th:text="${img.filename}"
+																	style="max-width: 100%;"></span>
+																<a th:href="${img.url}" download class="mt-1">
+																	<i
+																		class="ri-download-2-line fs-18 text-primary"></i>
+																</a>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
 										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-					</form>
+					</div>
 				</div>
 			</div>
 

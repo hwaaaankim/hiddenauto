@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Data;
 
 @Entity
@@ -24,6 +25,9 @@ public class OrderImage {
     private String path;
     private String url;
 
+    @Transient
+    private Long fileSizeKb;
+    
     @ManyToOne
     private Order order;
 

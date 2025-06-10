@@ -30,13 +30,12 @@
 					</div>
 
 					<form th:action="@{/team/updateStatus/{orderId}(orderId=${order.id})}" method="post" class="row">
-	                    <div class="col-lg-4">
-	                        <div class="row g-4 mb-3">
-	                            <div class="col-lg-8">
-	                                <label class="form-label">생산 상태관리</label>
+						<div class="col-lg-4">
+							<div class="row g-4 mb-3">
+								<div class="col-lg-8">
+									<label class="form-label">생산 상태관리</label>
 									<select class="form-select" name="status" th:disabled="${!canChangeStatus}">
-										<option value="CONFIRMED"
-											th:selected="${order.status.name() == 'CONFIRMED'}"
+										<option value="CONFIRMED" th:selected="${order.status.name() == 'CONFIRMED'}"
 											th:if="${order.status.name() == 'CONFIRMED'}">
 											관리자 승인됨
 										</option>
@@ -50,14 +49,15 @@
 											배송 완료
 										</option>
 									</select>
-	                            </div>
-	                            <div class="col-lg-4">
+								</div>
+								<div class="col-lg-4">
 									<label class="form-label">액션</label>
-			                        <button type="submit" class="btn btn-success w-100" th:disabled="${!canChangeStatus}">상태변경</button>
-			                    </div>
-	                        </div>
-	                    </div>
-	                </form>
+									<button type="submit" class="btn btn-success w-100"
+										th:disabled="${!canChangeStatus}">상태변경</button>
+								</div>
+							</div>
+						</div>
+					</form>
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card">
@@ -67,10 +67,10 @@
 											<div class="mt-xl-0 mt-5">
 												<div class="d-flex">
 													<div class="flex-grow-1">
-														<h4 th:text="${orderItem.productName}">제품명</h4>
 														<div class="hstack gap-3 flex-wrap">
-															<div><a href="#" class="text-primary d-block"
-																	th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
+															<div class="text-muted">대리점명 : <span
+																	class="text-body fw-medium"
+																	th:text="${order.task.requestedBy.company.companyName}">신청자명</span>
 															</div>
 															<div class="vr"></div>
 															<div class="text-muted">신청자 : <span
@@ -97,7 +97,7 @@
 												</div>
 												<div class="mt-4 text-muted">
 													<h5 class="fs-15">고객 남김말 :</h5>
-													<p th:text="${order.task.customerNote}">고객 남김말 영역</p>
+													<p th:text="${order.orderComment}">고객 남김말 영역</p>
 												</div>
 
 												<div class="row">
@@ -121,13 +121,38 @@
 														</div>
 													</div>
 												</div>
-												<div class="product-content mt-5">
-													<h5 class="fs-15 mb-3">제품첨부파일 :</h5>
-													<div class="border border-top-1 p-4">
-														<div class="tab-pane" id="nav-detail" role="tabpanel"
-															aria-labelledby="nav-detail-tab">
-															<img th:each="img : ${order.adminUploadedImages}"
-																th:src="@{${img.url}}" class="img-fluid d-block mb-2">
+												<div class="row mt-4">
+													<div class="col-12">
+														<label class="form-label">이미지 첨부 파일</label>
+													</div>
+
+													<div class="col-12">
+														<div class="row g-2">
+
+															<!-- 관리자 업로드 이미지 -->
+															<div th:if="${!#lists.isEmpty(order.adminUploadedImages)}"
+																class="col-12 mt-3">
+																<div class="row g-2">
+																	<div class="col-lg-2"
+																		th:each="img : ${order.adminUploadedImages}"
+																		th:attr="data-id=${img.id}">
+																		<div
+																			class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
+																			<img th:src="${img.url}"
+																				class="img-fluid mb-2"
+																				style="max-height: 120px;" />
+																			<span class="text-truncate small"
+																				th:text="${img.filename}"
+																				style="max-width: 100%;"></span>
+																			<a th:href="${img.url}" download
+																				class="mt-1">
+																				<i
+																					class="ri-download-2-line fs-18 text-primary"></i>
+																			</a>
+																		</div>
+																	</div>
+																</div>
+															</div>
 														</div>
 													</div>
 												</div>

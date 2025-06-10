@@ -23,19 +23,35 @@ document.addEventListener("DOMContentLoaded", () => {
 	const deliverySelect = document.getElementById("delivery-method");
 	const deliveryDate = document.getElementById("delivery-date");
 	const pointLimit = typeof userPoint !== 'undefined' ? userPoint : 10000;
+	
 	document.getElementById("user-point-view").innerText = `${pointLimit.toLocaleString()} 원`;
+	
 	function getCategoryLabel(optionJson) {
 		return optionJson["카테고리"] || optionJson?.category?.label || '';
 	}
 
 	if (orderSource === 'direct' || orderSource === 'cart') {
+		// 1. 사용자에게 이탈 경고
 		window.addEventListener('beforeunload', (e) => {
 			if (unloadConfirm) {
 				e.preventDefault();
 				e.returnValue = '';
 			}
 		});
+		if(orderSource === 'direct'){
+			// 2. 실제로 페이지 나갈 때만 실행 (자동으로 경고 확인 후 실행됨)
+			window.addEventListener('unload', () => {
+				if (!unloadConfirm) return; // 발주 완료 시 false로 바뀜
+		
+				const cartIds = (window.cart || []).map(item => item.id);
+				if (cartIds.length > 0) {
+					const blob = new Blob([JSON.stringify(cartIds)], { type: 'application/json' });
+					navigator.sendBeacon('/api/v2/cartDeleteAll', blob);
+				}
+			});
+		}
 	}
+
 
 	function getAdjustedLeadDate() {
 		const now = new Date();
@@ -484,4 +500,29 @@ document.addEventListener("DOMContentLoaded", () => {
 	updatePaymentInfoSectionVisibility();
 	updateAmounts();
 	hidePreloader();
+	
+	const cartIds = (window.cart || []).map(item => item.id);
+
+	// ✅ 이미 세션에 저장된 cartId가 있다면 비교
+	const stored = sessionStorage.getItem("lastCartIds");
+	if (stored) {
+		const lastCartIds = JSON.parse(stored);
+	
+		// 배열 동일 여부 확인
+		const isSame = cartIds.length === lastCartIds.length &&
+		               lastCartIds.every(id => cartIds.includes(id));
+	
+		if (isSame) {
+			alert("해당 장바구니 정보는 만료되었습니다.\n다시 발주를 진행해주세요.");
+			sessionStorage.removeItem("lastCartIds");
+			location.href = "/cart"; // 또는 다른 리디렉션 경로
+			return;
+		}
+	}
+	
+	// ✅ 현재 cartId들을 세션에 저장
+	if (cartIds.length > 0) {
+		sessionStorage.setItem("lastCartIds", JSON.stringify(cartIds));
+	}
+
 });

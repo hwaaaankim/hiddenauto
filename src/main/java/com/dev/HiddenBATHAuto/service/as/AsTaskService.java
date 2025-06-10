@@ -109,44 +109,50 @@ public class AsTaskService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 AS 요청을 찾을 수 없습니다. ID: " + id));
     }
 
-	public AsTask submitAsTask(AsTask task, List<MultipartFile> images, Member member) throws IOException {
-		task.setRequestedBy(member);
-		task.setRequestedAt(LocalDateTime.now());
-		task.setStatus(AsStatus.REQUESTED);
+    public AsTask submitAsTask(AsTask task, List<MultipartFile> images, Member member) throws IOException {
+        task.setRequestedBy(member);
+        task.setRequestedAt(LocalDateTime.now());
+        task.setStatus(AsStatus.REQUESTED);
 
-		// 주소 파싱 → 도/시/구 세팅
-		refineAddressFromRoad(task);
+        // 주소 파싱
+        refineAddressFromRoad(task);
 
-		// 담당자 자동 배정
-		assignAsHandlerIfPossible(task);
+        // 담당자 자동 배정
+        assignAsHandlerIfPossible(task);
 
-		AsTask savedTask = asTaskRepository.save(task);
+        // DB 저장
+        AsTask savedTask = asTaskRepository.save(task);
 
-		// 이미지 저장
-		String dateStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-		Path dir = Paths.get(uploadPath, "as", String.valueOf(member.getId()), dateStr);
-		Files.createDirectories(dir);
+        // 업로드 디렉토리 구성: /{uploadPath}/as/{memberId}/{yyyy-MM-dd}/request
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        Path saveDir = Paths.get(uploadPath, "as", String.valueOf(member.getId()), dateStr, "request");
+        Files.createDirectories(saveDir); // 디렉토리 없으면 생성
 
-		for (MultipartFile file : images) {
-			if (file.isEmpty())
-				continue;
+        for (MultipartFile file : images) {
+            if (file.isEmpty()) continue;
 
-			String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-			Path filePath = dir.resolve(filename);
-			file.transferTo(filePath.toFile());
+            String originalName = file.getOriginalFilename();
+            String filename = UUID.randomUUID() + "_" + originalName;
+            Path filePath = saveDir.resolve(filename);
 
-			AsImage image = new AsImage();
-			image.setAsTask(savedTask);
-			image.setFilename(filename);
-			image.setPath(filePath.toString());
-			image.setUrl("/uploads/as/" + member.getId() + "/" + dateStr + "/" + filename);
-			image.setType("REQUEST");
+            file.transferTo(filePath.toFile());
 
-			asImageRepository.save(image);
-		}
+            // URL은 /upload/as/...
+            String url = "/upload/as/" + member.getId() + "/" + dateStr + "/request/" + filename;
 
-		return savedTask;
-	}
+            AsImage image = new AsImage();
+            image.setAsTask(savedTask);
+            image.setFilename(filename);
+            image.setPath(filePath.toString());
+            image.setUrl(url);
+            image.setType("REQUEST");
+
+            asImageRepository.save(image);
+        }
+
+        return savedTask;
+    }
+
 
 	private void refineAddressFromRoad(AsTask task) {
 		String full = task.getRoadAddress();
@@ -210,5 +216,53 @@ public class AsTaskService {
 		}
 
 		System.out.println("❌ AS 담당자 배정 실패 (AS팀 조건 불일치)");
+	}
+	
+	@Transactional
+	public void updateAsTaskByHandler(Long id, AsStatus updatedStatus, List<MultipartFile> resultImages) throws IOException {
+	    AsTask task = asTaskRepository.findById(id)
+	            .orElseThrow(() -> new IllegalArgumentException("AS 요청이 존재하지 않습니다."));
+
+	    boolean shouldSave = false;
+
+	    // ✅ 상태 변경 조건
+	    if (updatedStatus != null && task.getStatus() == AsStatus.IN_PROGRESS && updatedStatus == AsStatus.COMPLETED) {
+	        task.setStatus(AsStatus.COMPLETED);
+	        task.setAsProcessDate(LocalDateTime.now());
+	        shouldSave = true;
+	    }
+
+	    // ✅ 이미지 업로드 처리
+	    if (resultImages != null && !resultImages.isEmpty()) {
+	        Long requesterId = task.getRequestedBy().getId();
+	        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+
+	        Path saveDir = Paths.get(uploadPath, "as", String.valueOf(requesterId), dateStr, "result");
+	        Files.createDirectories(saveDir);
+
+	        for (MultipartFile file : resultImages) {
+	            if (file.isEmpty()) continue;
+
+	            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+	            Path filePath = saveDir.resolve(filename);
+	            file.transferTo(filePath.toFile());
+
+	            AsImage image = new AsImage();
+	            image.setAsTask(task);
+	            image.setFilename(filename);
+	            image.setPath(filePath.toString());
+	            image.setUrl("/upload/as/" + requesterId + "/" + dateStr + "/result/" + filename);
+	            image.setType("RESULT");
+
+	            asImageRepository.save(image);
+	        }
+
+	        shouldSave = true;
+	    }
+
+	    if (shouldSave) {
+	        task.setUpdatedAt(LocalDateTime.now());
+	        asTaskRepository.save(task);
+	    }
 	}
 }
