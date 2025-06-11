@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.standard;
+package com.dev.HiddenBATHAuto.model.standardBackUp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

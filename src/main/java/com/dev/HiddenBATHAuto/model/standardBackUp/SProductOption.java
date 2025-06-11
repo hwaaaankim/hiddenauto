@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.model.standard;
+package com.dev.HiddenBATHAuto.model.standardBackUp;
 
 import java.util.List;
 
@@ -15,20 +15,19 @@ import jakarta.persistence.Table;
 import lombok.Data;
 
 @Entity
-@Table(name="tb_product_tag")
+@Table(name="tb_product_option")
 @Data
-public class SProductTag {
+public class SProductOption {
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name="PRODUCT_TAG_ID")
+	@Column(name="PRODUCT_OPTION_ID")
 	private Long id;
 	
-	@Column(name="PRODUCT_TAG_TEXT")
-	private String productTagText;
+	@Column(name="PRODUCT_OPTION_TEXT")
+	private String productOptionText;
 	
-	@ManyToMany(mappedBy = "productTags", fetch = FetchType.EAGER)
+	@ManyToMany(mappedBy = "productOptions", fetch = FetchType.EAGER)
 	@JsonIgnore
     private List<SProduct> products;
-	
 }
