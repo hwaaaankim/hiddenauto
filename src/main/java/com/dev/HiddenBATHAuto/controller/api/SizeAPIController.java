@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.controller;
+package com.dev.HiddenBATHAuto.controller.api;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

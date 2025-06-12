@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.controller;
+package com.dev.HiddenBATHAuto.controller.api;
 
 import java.util.List;
 
@@ -15,7 +15,7 @@ import com.dev.HiddenBATHAuto.repository.nonstandard.ProductSeriesRepository;
 
 @RestController
 @RequestMapping("/api/series")
-public class SeriesAPIRepository {
+public class SeriesAPIController {
 
 	@Autowired
 	private ProductSeriesRepository productMiddleSortRepository;

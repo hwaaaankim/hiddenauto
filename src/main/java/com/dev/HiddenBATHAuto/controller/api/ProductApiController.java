@@ -1,4 +1,4 @@
-package com.dev.HiddenBATHAuto.controller;
+package com.dev.HiddenBATHAuto.controller.api;
 
 import java.util.List;
 import java.util.Map;

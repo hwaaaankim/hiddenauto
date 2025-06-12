@@ -1470,18 +1470,22 @@ button[disabled] {
 	text-align: center;
 	cursor: pointer;
 }
-.mb-0{
-	margin-bottom:0px;
+
+.mb-0 {
+	margin-bottom: 0px;
 }
-.p-0{
-	padding:0px !important;	
+
+.p-0 {
+	padding: 0px !important;
 }
+
 .preview-list {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 10px;
 	margin-top: 10px;
 }
+
 .preview-item {
 	position: relative;
 	width: 100px;
@@ -1490,12 +1494,14 @@ button[disabled] {
 	border-radius: 8px;
 	border: 1px solid #ccc;
 }
+
 .preview-item img {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
 	border-radius: 8px;
 }
+
 .remove-btn {
 	position: absolute;
 	top: 2px;
@@ -1511,15 +1517,179 @@ button[disabled] {
 	line-height: 20px;
 	text-align: center;
 }
+
 @media (max-width: 630px) {
 	.preview-list {
 		flex-direction: column;
 	}
+
 	.preview-item {
 		width: 100%;
 		height: auto;
 	}
 }
-#cart-product-amount{
-	display:none;
+
+#cart-product-amount {
+	display: none;
+}
+
+.standard-detail-container {
+	padding: 20px;
+}
+
+.standard-detail-info {
+	display: flex;
+	gap: 20px;
+	align-items: center;
+	flex-wrap: wrap;
+	margin-bottom: 24px;
+}
+
+.standard-detail-image {
+	flex: 0 0 150px;
+}
+
+.standard-detail-image img {
+	max-width: 100%;
+	border-radius: 12px;
+}
+
+.standard-detail-text {
+	flex: 1;
+}
+
+.standard-detail-options {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.standard-detail-section {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.standard-detail-title {
+	font-weight: 600;
+	font-size: 1rem;
+}
+
+.standard-detail-radio-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.standard-detail-radio input[type="radio"]:checked+span {
+	background-color: #f87171;
+	color: #fff;
+	font-weight: bold;
+}
+
+.standard-detail-radio {
+	display: inline-block;
+	cursor: pointer;
+}
+
+.standard-detail-radio span {
+	display: inline-block;
+	padding: 8px 16px;
+	border: 1px solid #ccc;
+	border-radius: 8px;
+	background-color: #fff;
+	transition: all 0.2s ease;
+}
+
+.standard-detail-radio span:hover {
+	background-color: #f3f4f6;
+}
+
+@media (max-width: 600px) {
+	.standard-detail-info {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.standard-detail-image {
+		width: 100%;
+	}
+}
+
+/* 전체 영역 */
+.standard-detail-final-section {
+	padding-top:20px;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* textarea 전체 너비 */
+.standard-detail-textarea {
+	width: 100%;
+	min-height: 100px;
+	resize: vertical;
+	padding: 12px;
+	font-size: 14px;
+	border-radius: 8px;
+	border: 1px solid #ccc;
+	box-sizing: border-box;
+	margin-bottom: 16px;
+}
+
+/* 버튼 정렬 */
+.standard-detail-button-group {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+/* 버튼 공통 스타일 */
+.standard-detail-button-group button {
+	padding: 10px 20px;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	font-weight: bold;
+	transition: background-color 0.2s ease;
+}
+
+.standard-detail-btn-cart {
+	background-color: #6c757d;
+	color: white;
+}
+
+.standard-detail-btn-order {
+	background-color: #007bff;
+	color: white;
+}
+
+.standard-detail-btn-calculate {
+	background-color: #28a745;
+	color: white;
+}
+
+.standard-detail-button-group button:hover {
+	opacity: 0.85;
+}
+/* disabled 버튼 스타일 */
+.standard-detail-button-group button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 가격 결과 영역 */
+.standard-detail-price-result {
+  margin-top: 16px;
+  background-color: #f9f9f9;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 16px;
+}
+.standard-detail-price-result p{
+	margin-bottom:0px;
+	line-height:1.4;
+	font-size:14px;
 }

@@ -1,0 +1,140 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/front/common :: autoHead}">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+		<div class="page-content header-clear-medium" style="padding-top:0px !important;">
+
+			<div class="card card-style" style="border-radius: 0px !important;">
+				<div class="chat-container" id="chat-container">
+					<div class="standard-detail-container">
+
+						<!-- 제품 기본 정보 -->
+						<div class="standard-detail-info">
+							<div class="standard-detail-image">
+								<img src="/front/images/1.png" alt="제품 이미지">
+							</div>
+							<div class="standard-detail-text">
+								<h3 th:text="${product.name}">제품명</h3>
+								<p>제품 코드: <span th:text="${product.productCode}"></span></p>
+								<input type="hidden" name="productId" th:value="${product.id}">
+							</div>
+						</div>
+
+						<!-- 선택 옵션 -->
+						<div class="standard-detail-options">
+							<!-- 사이즈 -->
+							<div class="standard-detail-section">
+								<div class="standard-detail-title">사이즈</div>
+								<div class="standard-detail-radio-group">
+									<label th:each="size : ${product.sizes}" class="standard-detail-radio">
+										<input type="radio" name="sizeId" th:value="${size.id}" hidden>
+										<span th:text="${size.title}"></span>
+									</label>
+								</div>
+								<div th:if="${#lists.isEmpty(product.sizes)}">선택 가능한 옵션이 없습니다.</div>
+							</div>
+
+							<!-- 색상 -->
+							<div class="standard-detail-section">
+								<div class="standard-detail-title">색상</div>
+								<div class="standard-detail-radio-group">
+									<label th:each="color : ${product.colors}" class="standard-detail-radio">
+										<input type="radio" name="colorId" th:value="${color.id}" hidden>
+										<span th:text="${color.nameKr}"></span>
+									</label>
+								</div>
+								<div th:if="${#lists.isEmpty(product.colors)}">선택 가능한 옵션이 없습니다.</div>
+							</div>
+
+							<!-- 위치 옵션들 -->
+							<div th:if="${product.hasTissueCap}" class="standard-detail-section">
+								<div class="standard-detail-title">티슈 위치</div>
+								<div class="standard-detail-radio-group">
+									<label th:each="pos : ${product.productTissuePositions}"
+										class="standard-detail-radio">
+										<input type="radio" name="tissuePositionId" th:value="${pos.id}" hidden>
+										<span th:text="${pos.nameKr}"></span>
+									</label>
+								</div>
+								<div th:if="${#lists.isEmpty(product.productTissuePositions)}">선택 가능한 옵션이 없습니다.</div>
+							</div>
+
+							<div th:if="${product.hasDryHolder}" class="standard-detail-section">
+								<div class="standard-detail-title">드라이 위치</div>
+								<div class="standard-detail-radio-group">
+									<label th:each="pos : ${product.productDryPositions}" class="standard-detail-radio">
+										<input type="radio" name="dryPositionId" th:value="${pos.id}" hidden>
+										<span th:text="${pos.nameKr}"></span>
+									</label>
+								</div>
+								<div th:if="${#lists.isEmpty(product.productDryPositions)}">선택 가능한 옵션이 없습니다.</div>
+							</div>
+
+							<div th:if="${product.hasOutlet}" class="standard-detail-section">
+								<div class="standard-detail-title">콘센트 위치</div>
+								<div class="standard-detail-radio-group">
+									<label th:each="pos : ${product.productOutletPositions}"
+										class="standard-detail-radio">
+										<input type="radio" name="outletPositionId" th:value="${pos.id}" hidden>
+										<span th:text="${pos.nameKr}"></span>
+									</label>
+								</div>
+								<div th:if="${#lists.isEmpty(product.productOutletPositions)}">선택 가능한 옵션이 없습니다.</div>
+							</div>
+
+							<div th:if="${product.hasLed}" class="standard-detail-section">
+								<div class="standard-detail-title">LED 위치</div>
+								<div class="standard-detail-radio-group">
+									<label th:each="pos : ${product.productLedPositions}" class="standard-detail-radio">
+										<input type="radio" name="ledPositionId" th:value="${pos.id}" hidden>
+										<span th:text="${pos.nameKr}"></span>
+									</label>
+								</div>
+								<div th:if="${#lists.isEmpty(product.productLedPositions)}">선택 가능한 옵션이 없습니다.</div>
+							</div>
+							<div class="standard-detail-section">
+								<div class="standard-detail-title">수량</div>
+								<div class="standard-detail-radio-group">
+									<input type="number" id="quantity" min="1" step="1" value="1"
+										style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 8px;">
+								</div>
+							</div>
+						</div>
+						
+						<div class="standard-detail-final-section">
+							<textarea class="standard-detail-textarea" placeholder="추가 요청사항을 입력하세요"></textarea>
+
+							<!-- 버튼 영역 -->
+							<div class="standard-detail-button-group">
+								<button class="standard-detail-btn-cart" disabled>장바구니</button>
+								<button class="standard-detail-btn-order" disabled>발주하기</button>
+								<button class="standard-detail-btn-calculate">가격계산</button>
+							</div>
+
+							<!-- 가격 결과 영역 -->
+							<div class="standard-detail-price-result" style="display: none;">
+								<hr>
+								<p><strong>계산된 가격:</strong> <span id="calculated-price">-</span> 원</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+		</div>
+		<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+		<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+		<script src="/front/standardOrder/standardOrderDetail.js"></script>
+</body>
+
+</html>

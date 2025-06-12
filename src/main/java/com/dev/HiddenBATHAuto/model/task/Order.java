@@ -9,6 +9,7 @@ import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -36,6 +37,9 @@ public class Order {
     @ManyToOne
     private Task task;
 
+    @Column(nullable = false)
+    private boolean standard = false; // 규격 제품 주문 여부 (기본값 false)
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_category_id")
     private TeamCategory productCategory;

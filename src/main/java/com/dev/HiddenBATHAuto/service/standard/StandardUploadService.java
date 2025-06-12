@@ -15,6 +15,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.model.standard.StandardCategory;
@@ -32,6 +33,8 @@ import com.dev.HiddenBATHAuto.repository.standard.StandardProductRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardProductSeriesRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardProductSizeRepository;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -121,7 +124,12 @@ public class StandardUploadService {
 		}
 	}
 
+	@PersistenceContext
+    private EntityManager em;
+	
+	@Transactional
 	public void uploadProductInfo(MultipartFile file) throws IOException {
+		deleteAllProductData();
 		Workbook workbook = WorkbookFactory.create(file.getInputStream());
 
 		// 1. 마스터 테이블 캐시
@@ -194,26 +202,39 @@ public class StandardUploadService {
 				continue;
 
 			String productCode = getStringValue(row.getCell(1));
-			Long sizeId = parseId(row.getCell(3));
-			Long colorId = parseId(row.getCell(6));
+			Long sizeId = parseId(row.getCell(3));      // null 허용
+			Long colorId = parseId(row.getCell(6));     // null 허용
 			Integer price = parseInteger(row.getCell(8));
-			
-			if (productCode == null || sizeId == null || colorId == null) continue;
+
+			if (productCode == null) continue;          // 제품코드는 필수
 			if (price == null) price = 99999;
 
 			StandardProduct product = productCodeMap.get(productCode);
-			if (product == null)
-				continue;
+			if (product == null) continue;
 
 			StandardProductPrice pp = new StandardProductPrice();
 			pp.setProduct(product);
-			pp.setSize(sizeMap.get(sizeId));
-			pp.setColor(colorMap.get(colorId));
+			pp.setSize(sizeMap.get(sizeId));            // null 허용
+			pp.setColor(colorMap.get(colorId));         // null 허용
 			pp.setPrice(price);
+
 			priceRepository.save(pp);
 		}
+
 	}
 
+	@Transactional
+    public void deleteAllProductData() {
+        em.createNativeQuery("DELETE FROM tb_standard_product_and_led_position").executeUpdate();
+        em.createNativeQuery("DELETE FROM tb_standard_product_and_outlet_position").executeUpdate();
+        em.createNativeQuery("DELETE FROM tb_standard_product_and_dry_position").executeUpdate();
+        em.createNativeQuery("DELETE FROM tb_standard_product_and_tissue_position").executeUpdate();
+        em.createNativeQuery("DELETE FROM tb_standard_product_color_map").executeUpdate();
+        em.createNativeQuery("DELETE FROM tb_standard_product_size_map").executeUpdate();
+        em.createNativeQuery("DELETE FROM tb_standard_product_price").executeUpdate();
+        em.createNativeQuery("DELETE FROM tb_standard_product").executeUpdate();
+    }
+	
 	private String getStringValue(Cell cell) {
 		return (cell == null) ? null : cell.toString().trim();
 	}

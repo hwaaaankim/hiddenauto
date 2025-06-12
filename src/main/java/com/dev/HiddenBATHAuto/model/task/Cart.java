@@ -36,6 +36,9 @@ public class Cart {
 
     private Integer price;
 
+    @Column(nullable = false)
+    private boolean standard = false; // 규격 제품 주문 여부 (기본값 false)
+    
     @Lob
     private String optionJson; // 원본 key:value
 

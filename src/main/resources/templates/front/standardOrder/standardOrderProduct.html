@@ -1,0 +1,104 @@
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/front/common :: autoHead}">
+</head>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+		<div class="page-content header-clear-medium" style="padding-top:0px !important;">
+
+			<div class="card card-style" style="border-radius: 0px !important;">
+				<div class="chat-container" id="chat-container">
+					<div class="d-flex">
+						<div class="input-style has-borders no-icon mb-3 col-lg-4 p-0">
+							<select id="category-select" class="form-select">
+							    <option value="">제품 분류 선택</option>
+							    <th:block th:each="category : ${categoryList}">
+							        <option th:value="${category.id}" th:text="${category.name}"></option>
+							    </th:block>
+							</select>
+						</div>
+						<div class="input-style has-borders no-icon mb-3 col-lg-4 p-0">
+							<select id="series-select" class="form-select" disabled>
+							    <option value="">제품 중분류 선택</option>
+							</select>
+						</div>
+						<div class="search-box has-borders search-header bg-theme mb-3 col-lg-4">
+							<i class="fa fa-search"></i>
+							<input type="text" class="border-0" placeholder="제품명을 검색 해 주세요." data-search=""
+								data-listener-added_01756997="true">
+							<a href="#" class="clear-search mt-0 disabled"><i
+									class="fa fa-times color-red-dark"></i></a>
+						</div>
+					</div>
+					<div class="chat-box" id="chat-box">
+						<div class="search-page">
+
+							<div class="search-results disabled-search-list">
+								<div class="content">
+									<th:block th:each="product : ${productList}">
+							            <div class="search-result-list"
+							                 data-filter-item
+							                 th:attr="data-filter-name=${product.name + ' ' + product.productCode},
+							                          data-filter-category=${product.category.id},
+							                          data-filter-series=${product.productSeries.id}">
+							                
+							                <img class="preload-img"
+							                     src="/front/images/1.png"
+							                     alt="img" />
+							
+							                <h1 th:text="${product.name}">제품명</h1>
+							
+							                <p class="mb-0">
+							                    가능한 사이즈:
+							                    <th:block th:each="size, stat : ${product.sizes}">
+							                        <span th:text="${size.title}"></span><span th:if="${!stat.last}"> / </span>
+							                    </th:block>
+							                </p>
+							
+							                <p>
+							                    가능한 색상:
+							                    <th:block th:each="color, stat : ${product.colors}">
+							                        <span th:text="${color.nameKr}"></span><span th:if="${!stat.last}"> / </span>
+							                    </th:block>
+							                </p>
+							
+							                <a th:href="@{'/standardOrderSelect/' + ${product.id}}"
+											   class="bg-highlight product-select"
+											   th:attr="data-product-id=${product.id}">제품선택</a>
+							            </div>
+							        </th:block>
+									<div class="search-no-results disabled">
+										<h3 class="bold top-10">검색 결과가 없습니다.</h3>
+										<span class="under-heading font-11 opacity-70 color-theme">
+											입력하신 사항과 일치하는 제품이 존재하지 않습니다.
+										</span>
+									</div>
+								</div>
+							</div>
+							<div class="search-trending">
+								<div class="content mb-2">
+									<h3>규격제품 주문 페이지</h3>
+									<p class="font-11 mt-n2">원하는 제품 선택 후 옵션 선택 페이지로 이동합니다.</p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+	</div>
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+	<script src="/front/standardOrder/standardOrderPage.js"></script>
+</body>
+
+</html>
