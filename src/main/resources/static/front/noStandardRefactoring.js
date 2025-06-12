@@ -2324,6 +2324,7 @@ async function addToCart() {
 	const formData = new FormData();
 	formData.append('quantity', quantity);
 	formData.append('price', price);
+	formData.append('standard', false);
 	formData.append('optionJson', JSON.stringify(optionJson));
 	formData.append('localizedOptionJson', JSON.stringify(localizedOptionJson));
 	if (additionalInfo) formData.append('additionalInfo', additionalInfo);
@@ -2364,6 +2365,7 @@ async function addToOrder() {
 	const formData = new FormData();
 	formData.append('from', 'direct');
 	formData.append('quantity', quantity);
+	formData.append('standard', false);
 	formData.append('price', price);
 	formData.append('optionJson', JSON.stringify(optionJson));
 	formData.append('localizedOptionJson', JSON.stringify(localizedOptionJson));

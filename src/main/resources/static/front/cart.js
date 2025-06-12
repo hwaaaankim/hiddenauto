@@ -4,6 +4,7 @@ window.addEventListener('DOMContentLoaded', () => {
 	const cartAmount = document.getElementById('cart-product-amount');
 	const cartContainer = document.getElementById('cart-container');
 	const productContainer = document.getElementById('product-container');
+
 	function fetchLocalizedOption(optionJson) {
 		return fetch('/api/v1/translate', {
 			method: 'POST',
@@ -80,60 +81,60 @@ window.addEventListener('DOMContentLoaded', () => {
 		const totalPrice = pricePerItem * item.quantity;
 		const option = item.localizedOption || {};
 
-		const productName = `${option["카테고리"] || ''} - ${option["제품"] || '제품명 없음'}`;
+		const productName = option["제품명"] || option["제품"] || '제품명 없음';
 
 		let itemHTML = `
-	<div class="card card-style">
-		<div class="content mb-0">
-			<div class="form-check icon-check">
-				<input class="form-check-input product-checkbox" id="product-checkbox-${item.id}" type="checkbox" data-id="${item.id}" checked>
-				<label class="form-check-label" for="product-checkbox-${item.id}">선택</label>
-				<i class="icon-check-1 fa fa-square color-gray-dark font-16"></i>
-				<i class="icon-check-2 fa fa-check-square font-16 color-highlight"></i>
-			</div>
-			<div class="d-flex mb-4 preview-list">
-				<div style="width: 50%;" class="preview-list">`;
+		<div class="card card-style">
+			<div class="content mb-0">
+				<div class="form-check icon-check">
+					<input class="form-check-input product-checkbox" id="product-checkbox-${item.id}" type="checkbox" data-id="${item.id}" checked>
+					<label class="form-check-label" for="product-checkbox-${item.id}">선택</label>
+					<i class="icon-check-1 fa fa-square color-gray-dark font-16"></i>
+					<i class="icon-check-2 fa fa-check-square font-16 color-highlight"></i>
+				</div>
+				<div class="d-flex mb-4 preview-list">
+					<div style="width: 50%;" class="preview-list">`;
 
 		if (item.images && item.images.length > 0) {
 			item.images.forEach(image => {
 				itemHTML += `
-					<div class="preview-item">
-						<img src="${image.imageUrl}" width="100">
-					</div>`;
+						<div class="preview-item">
+							<img src="${image.imageUrl}" width="100">
+						</div>`;
 			});
 		} else {
 			itemHTML += `
-					<div class="preview-item">
-						<img src="/front/images/pictures/9s.jpg" width="130">
-					</div>`;
+						<div class="preview-item">
+							<img src="/front/images/pictures/9s.jpg" width="130">
+						</div>`;
 		}
 
 		itemHTML += `</div>
-				<div class="ms-3 p-relative">
-					<h5 class="font-600 mb-0">${productName}</h5>
-					<h1 class="pt-0">${totalPrice.toLocaleString()}원</h1>
-					<a href="#" class="cart-remove color-theme opacity-50 font-12" data-id="${item.id}">
-						<i class="fa fa-times color-red-dark pe-2 pt-3"></i>삭제</a>
-				</div>
-			</div>
-			<div class="row mb-0">
-				<div class="col-3">
-					<div class="input-style input-style-always-active has-borders no-icon">
-						<input required type="number" class="quantity-input form-control focus-color focus-blue"
-							data-index="${item.id}" data-price="${pricePerItem}" value="${item.quantity}" min="1">
-						<label class="color-blue-dark">수량</label>
+					<div class="ms-3 p-relative">
+						<h5 class="font-600 mb-0">${productName}</h5>
+						<h1 class="pt-0">${totalPrice.toLocaleString()}원</h1>
+						<a href="#" class="cart-remove color-theme opacity-50 font-12" data-id="${item.id}">
+							<i class="fa fa-times color-red-dark pe-2 pt-3"></i>삭제</a>
 					</div>
-				</div>`;
+				</div>
+				<div class="row mb-0">
+					<div class="col-3">
+						<div class="input-style input-style-always-active has-borders no-icon">
+							<input required type="number" class="quantity-input form-control focus-color focus-blue"
+								data-index="${item.id}" data-price="${pricePerItem}" value="${item.quantity}" min="1">
+							<label class="color-blue-dark">수량</label>
+						</div>
+					</div>`;
 
 		for (const [key, value] of Object.entries(option)) {
-			if (['제품', 'code'].includes(key)) continue;
+			if (['제품', '제품명', 'code'].includes(key)) continue;
 			itemHTML += `
-				<div class="col-3">
-					<div class="input-style input-style-always-active has-borders no-icon">
-						<label class="color-blue-dark">${key}</label>
-						<input type="text" value="${value}" readonly>
-					</div>
-				</div>`;
+					<div class="col-3">
+						<div class="input-style input-style-always-active has-borders no-icon">
+							<label class="color-blue-dark">${key}</label>
+							<input type="text" value="${value}" readonly>
+						</div>
+					</div>`;
 		}
 
 		itemHTML += `</div></div></div>`;
@@ -141,23 +142,20 @@ window.addEventListener('DOMContentLoaded', () => {
 	}
 
 	async function renderCartItems() {
-		if (!productContainer || !cartContainer) {
-			return;
-		}
+		if (!productContainer || !cartContainer) return;
 
 		showPreloader();
 		const cartList = await fetchCartFromServer();
-
 		productContainer.innerHTML = '';
 
 		if (cartList.length === 0) {
 			cartContainer.innerHTML = `
-		<div class="card card-style">
-			<div class="content mb-2">
-				<h3>제품이 없습니다.</h3>
-				<p class="mb-0">장바구니에 등록된 제품이 없습니다.</p>
-			</div>
-		</div>`;
+				<div class="card card-style">
+					<div class="content mb-2">
+						<h3>제품이 없습니다.</h3>
+						<p class="mb-0">장바구니에 등록된 제품이 없습니다.</p>
+					</div>
+				</div>`;
 			await updateBagIcon();
 			hidePreloader();
 			return;
@@ -166,7 +164,14 @@ window.addEventListener('DOMContentLoaded', () => {
 		for (let i = 0; i < cartList.length; i++) {
 			const item = cartList[i];
 			const parsedOption = JSON.parse(item.localizedOptionJson || '{}');
-			item.localizedOption = await fetchLocalizedOption(parsedOption);
+
+			// ✅ 규격 제품 여부에 따른 처리
+			if (item.standard === true) {
+				item.localizedOption = parsedOption;
+			} else {
+				item.localizedOption = await fetchLocalizedOption(parsedOption);
+			}
+
 			productContainer.innerHTML += renderCartItem(item);
 		}
 
@@ -204,7 +209,6 @@ window.addEventListener('DOMContentLoaded', () => {
 				alert('발주할 제품을 한 개 이상 선택해주세요.');
 				return;
 			}
-
 			if (!confirm('선택된 제품으로 발주하시겠습니까?')) return;
 
 			const orderList = checkedCheckboxes.map(cb => {
@@ -236,7 +240,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 
-	// ✅ 초기 실행 분리
+	// 초기 실행
 	if (productContainer && cartContainer) {
 		renderCartItems();
 	}

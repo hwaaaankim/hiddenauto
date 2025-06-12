@@ -26,7 +26,8 @@
 							<div class="standard-detail-text">
 								<h3 th:text="${product.name}">제품명</h3>
 								<p>제품 코드: <span th:text="${product.productCode}"></span></p>
-								<input type="hidden" name="productId" th:value="${product.id}">
+								<input type="hidden" name="productId" th:value="${product.id}" th:attr="data-code=${product.productCode}">
+								<input type="hidden" name="categoryName" th:value="${product.category.name}">
 							</div>
 						</div>
 
@@ -106,13 +107,13 @@
 								<div class="standard-detail-title">수량</div>
 								<div class="standard-detail-radio-group">
 									<input type="number" id="quantity" min="1" step="1" value="1"
-										style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 8px;">
+										style="width: 130px; padding: 8px 16px; border: 1px solid #ccc; border-radius: 8px;">
 								</div>
 							</div>
 						</div>
 						
 						<div class="standard-detail-final-section">
-							<textarea class="standard-detail-textarea" placeholder="추가 요청사항을 입력하세요"></textarea>
+							<textarea class="standard-detail-textarea" id="final-additional-info" placeholder="추가 요청사항을 입력하세요"></textarea>
 
 							<!-- 버튼 영역 -->
 							<div class="standard-detail-button-group">

@@ -67,7 +67,7 @@ public class NonStandardOrderController {
 	        @RequestParam String from,
 	        @AuthenticationPrincipal PrincipalDetails principalDetails,
 	        Model model,
-
+	        @RequestParam(required = false) Boolean standard,
 	        @RequestParam(required = false) String ordersJson, // from=cart
 	        @RequestParam(required = false) String optionJson, // from=direct
 	        @RequestParam(required = false) String localizedOptionJson,
@@ -115,7 +115,7 @@ public class NonStandardOrderController {
 	        cart.setLocalizedOptionJson(localizedOptionJson);
 	        cart.setAdditionalInfo(additionalInfo);
 	        cart.setDirectOrder(true); // 필요시 유지
-
+	        cart.setStandard(standard); 
 	        List<CartImage> imageList = new ArrayList<>();
 	        if (files != null) {
 	            for (MultipartFile file : files) {

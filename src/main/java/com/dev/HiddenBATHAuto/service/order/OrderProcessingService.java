@@ -97,7 +97,8 @@ public class OrderProcessingService {
 
 	        Order order = new Order();
 	        order.setTask(task);
-
+	        order.setStandard(cart.isStandard());
+	        
 	        int quantity = cart.getQuantity();
 	        int productCost = cart.getPrice();
 	        int deliveryPrice = dto.getDeliveryPrice();

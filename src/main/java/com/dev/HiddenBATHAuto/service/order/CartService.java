@@ -46,7 +46,7 @@ public class CartService {
     }
     
 	public void saveCart(Member member, int quantity, int price, String optionJson, String localizedOptionJson,
-						 String additionalInfo, List<MultipartFile> files) throws IOException {
+						 String additionalInfo, List<MultipartFile> files, Boolean standard) throws IOException {
 
 		LocalDate today = LocalDate.now();
 		String datePath = today.toString(); // yyyy-MM-dd
@@ -63,7 +63,8 @@ public class CartService {
 		cart.setLocalizedOptionJson(localizedOptionJson);
 		cart.setAdditionalInfo(additionalInfo);
 		cart.setDirectOrder(false); // 장바구니 저장
-
+		cart.setStandard(standard); // ✅ 프론트에서 받은 값 사용
+		
 		List<CartImage> imageList = new ArrayList<>();
 		if (files != null) {
 			for (MultipartFile file : files) {

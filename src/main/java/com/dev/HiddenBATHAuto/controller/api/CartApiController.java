@@ -42,6 +42,7 @@ public class CartApiController {
 		@RequestParam int price,
 		@RequestParam String optionJson,
 		@RequestParam String localizedOptionJson,
+		@RequestParam boolean standard,
 		@RequestParam(required = false) String additionalInfo,
 		@RequestParam(required = false) List<MultipartFile> files,
 		@AuthenticationPrincipal PrincipalDetails principalDetails
@@ -52,7 +53,7 @@ public class CartApiController {
 		    }
 
 		    Member member = principalDetails.getMember();
-			cartService.saveCart(member, quantity, price, optionJson, localizedOptionJson, additionalInfo, files);
+			cartService.saveCart(member, quantity, price, optionJson, localizedOptionJson, additionalInfo, files, standard);
 			return ResponseEntity.ok().build();
 		} catch (Exception e) {
 			e.printStackTrace();

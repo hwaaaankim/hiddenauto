@@ -1594,11 +1594,14 @@ button[disabled] {
 
 .standard-detail-radio span {
 	display: inline-block;
+	text-align: center;
 	padding: 8px 16px;
+	font-size:13px;
 	border: 1px solid #ccc;
 	border-radius: 8px;
 	background-color: #fff;
 	transition: all 0.2s ease;
+	min-width:130px;
 }
 
 .standard-detail-radio span:hover {
