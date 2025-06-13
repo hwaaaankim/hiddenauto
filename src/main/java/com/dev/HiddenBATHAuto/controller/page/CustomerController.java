@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -39,10 +40,12 @@ import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
+import com.dev.HiddenBATHAuto.model.task.ProductMark;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.repository.nonstandard.ProductMarkRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
@@ -70,7 +73,31 @@ public class CustomerController {
 	private final CompanyRepository companyRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final MemberService memberService;
+	private final ProductMarkRepository productMarkRepository;
 
+	@GetMapping("/productMarkList")
+	public String productMarkList(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails) throws Exception {
+	    Member member = principalDetails.getMember();
+	    List<ProductMark> markList = productMarkRepository.findByMember(member);
+
+	    ObjectMapper mapper = new ObjectMapper();
+
+	    // JSON → Map으로 파싱된 리스트 준비
+	    List<Map<String, String>> localizedMapList = markList.stream()
+	            .map(mark -> {
+	                try {
+	                    return mapper.readValue(mark.getLocalizedOptionJson(), new TypeReference<Map<String, String>>() {});
+	                } catch (Exception e) {
+	                    return new HashMap<String, String>(); // fallback
+	                }
+	            })
+	            .collect(Collectors.toList());
+
+	    model.addAttribute("markList", markList);
+	    model.addAttribute("localizedOptionMapList", localizedMapList);
+	    return "front/order/productMarkList"; // 렌더할 HTML
+	}
+	
 	@GetMapping("/taskList")
 	public String taskList(@AuthenticationPrincipal PrincipalDetails principal,
 			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
