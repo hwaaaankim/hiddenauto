@@ -16,6 +16,18 @@ canvasContainer.style.height = height + "px";
 
 function parseData(data) {
     const category = data.category || { label: '하부장', value: 'low' };
+
+    let doorRatio1 = 50;
+    let doorRatio2 = 50;
+
+    if (category.label === '플랩장' && typeof data.doorRatio === 'string' && data.doorRatio.includes(':')) {
+        const [val1, val2] = data.doorRatio.split(':').map(v => parseInt(v.trim()));
+        if (!isNaN(val1) && !isNaN(val2)) {
+            doorRatio1 = val1; // 💡 mm 단위 그대로
+            doorRatio2 = val2;
+        }
+    }
+
     return {
         categoryName: category.label,
         width: parseFloat(data.width) || 500,
@@ -23,8 +35,8 @@ function parseData(data) {
         depth: parseFloat(data.depth) || 400,
         legHeight: data.form === 'leg' ? 180 : 0,
         numberOfDoors: parseInt(data.numberOfDoors) || 2,
-        doorRatio1: parseInt(data.doorRatio1) || 50,
-        doorRatio2: parseInt(data.doorRatio2) || 50,
+        doorRatio1: doorRatio1,
+        doorRatio2: doorRatio2,
         mirrorShape: data.mirrorShape || '사각형'
     };
 }
@@ -94,19 +106,46 @@ function drawCabinetBlueprint({ width, height, depth, legHeight, numberOfDoors, 
     });
     canvas.add(body);
 
-    if (showLegHeight && legHeight > 0) {
-        const leg = new fabric.Rect({
-            left: startXFrontView,
-            top: startY + bodyHeight * scaleFactor,
-            width: bodyWidth * scaleFactor,
-            height: legHeight * scale * scaleFactor,
-            fill: '#A9A9A9',
-            stroke: '#000',
-            strokeWidth: 2 * scaleFactor,
-            selectable: false
-        });
-        canvas.add(leg);
-    }
+    if (showLegHeight && legHeight > 0 && categoryName === '하부장') {
+	    const legWidth = 20 * scale * scaleFactor;
+	    const legHeightScaled = legHeight * scale * scaleFactor;
+	    const bodyLeft = startXFrontView;
+	    const bodyRight = startXFrontView + bodyWidth * scaleFactor;
+	    const legY = startY + bodyHeight * scaleFactor;
+	
+	    const legs = [
+	        bodyLeft,
+	        bodyRight - legWidth
+	    ];
+	
+	    legs.forEach(x => {
+	        // 왼쪽 세로선
+	        canvas.add(new fabric.Line([x, legY, x, legY + legHeightScaled], {
+	            stroke: '#000',
+	            strokeWidth: 2 * scaleFactor,
+	            selectable: false
+	        }));
+	        // 오른쪽 세로선
+	        canvas.add(new fabric.Line([x + legWidth, legY, x + legWidth, legY + legHeightScaled], {
+	            stroke: '#000',
+	            strokeWidth: 2 * scaleFactor,
+	            selectable: false
+	        }));
+	        // 윗변
+	        canvas.add(new fabric.Line([x, legY, x + legWidth, legY], {
+	            stroke: '#000',
+	            strokeWidth: 2 * scaleFactor,
+	            selectable: false
+	        }));
+	        // ✅ 추가: 아랫변
+	        canvas.add(new fabric.Line([x, legY + legHeightScaled, x + legWidth, legY + legHeightScaled], {
+	            stroke: '#000',
+	            strokeWidth: 2 * scaleFactor,
+	            selectable: false
+	        }));
+	    });
+	}
+
 
     const doorWidth = (width - gapBetweenDoors * (numberOfDoors - 1)) / numberOfDoors * scale * scaleFactor;
     const doorTextOffsetY = 15 * scaleFactor;
@@ -427,11 +466,9 @@ function drawMirrorBlueprint({ width, height, mirrorShape }) {
         });
     }
 }
-function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doorRatio1 = 50 }) {
-    const canvas = new fabric.Canvas('modal-canvas');
+function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doorRatio1 = 50, doorRatio2 = 50 }) {
 
-    // 문 비율 계산
-    const doorRatio2 = 100 - doorRatio1;
+    const canvas = new fabric.Canvas('modal-canvas');
 
     // 여백 및 스케일
     const gapBetweenDoors = 0;
@@ -448,12 +485,15 @@ function drawFlapBlueprint({ width, height, depth, legHeight, numberOfDoors, doo
     // 문 갯수에 따른 너비 설정
     let doorWidths;
     if (numberOfDoors === 1) {
-        doorWidths = [bodyWidth];
+        doorWidths = [width];
     } else if (numberOfDoors === 2) {
-        doorWidths = [
-            bodyWidth * (doorRatio1 / 100),
-            bodyWidth * (doorRatio2 / 100)
-        ];
+        const total = doorRatio1 + doorRatio2;
+        if (total > 0) {
+            doorWidths = [
+                width * (doorRatio1 / total),
+                width * (doorRatio2 / total)
+            ].map(w => w * 0.4); // scale 적용
+        }
     } else {
         console.error("Invalid number of doors for 플랩장");
         return;

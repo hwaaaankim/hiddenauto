@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.dev.HiddenBATHAuto.model.task.Cart;
+import com.dev.HiddenBATHAuto.model.task.ProductMark;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
@@ -61,6 +62,10 @@ public class Member implements Serializable{
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference // ✅ 무한 재귀 방지
     private List<Cart> carts = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<ProductMark> productMarks = new ArrayList<>();
     
     private boolean enabled = true;
     private LocalDateTime createdAt = LocalDateTime.now(); // 회원가입일

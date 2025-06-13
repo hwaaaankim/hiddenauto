@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +26,9 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.task.Cart;
 import com.dev.HiddenBATHAuto.model.task.CartImage;
+import com.dev.HiddenBATHAuto.model.task.ProductMark;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
+import com.dev.HiddenBATHAuto.repository.nonstandard.ProductMarkRepository;
 import com.dev.HiddenBATHAuto.repository.order.CartRepository;
 import com.dev.HiddenBATHAuto.service.order.CartService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -49,10 +52,26 @@ public class NonStandardOrderController {
 	@Autowired
 	private CartService cartService;
 	
+	@Autowired
+	private ProductMarkRepository productMarkRepository;
+	
 	@GetMapping("/nonStandardOrderProduct")
-	public String nonStandardOrderProduct() {
+	public String nonStandardOrderPage(
+	    @RequestParam(value = "markId", required = false) Long markId,
+	    Model model
+	) throws Exception {
+	    if (markId != null) {
+	        Optional<ProductMark> optionalMark = productMarkRepository.findById(markId);
+	        if (optionalMark.isPresent()) {
+	            ProductMark mark = optionalMark.get();
+	            ObjectMapper mapper = new ObjectMapper();
 
-		return "front/order/nonStandardOrderProduct";
+	            // 🚨 문자열이 아니라 Map으로 바꾸기
+	            Map<String, Object> parsedMap = mapper.readValue(mark.getOptionJson(), new TypeReference<>() {});
+	            model.addAttribute("preloadedDataSet", parsedMap);
+	        }
+	    }
+	    return "front/order/nonStandardOrderProduct";
 	}
 
 	@GetMapping("/cart")

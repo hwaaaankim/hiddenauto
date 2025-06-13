@@ -1160,19 +1160,16 @@ div.content.task-content {
 .fixed-button.drawing {
 	right: 50px;
 	bottom: 170px;
-	display: none;
 }
 
 .fixed-button.three-d {
 	right: 50px;
 	bottom: 100px;
-	display: none;
 }
 
 .fixed-button.star {
 	right: 50px;
 	bottom: 240px;
-	display: none;
 }
 
 /* 호버 효과 */

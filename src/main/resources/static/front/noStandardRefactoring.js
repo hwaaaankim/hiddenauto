@@ -1740,6 +1740,7 @@ function renderAnswer(step, product, categoryKey = '') {
 		scrollIfNeeded(answerDiv);  // 스크롤 처리
 
 	} else {
+		console.log(selectedAnswerValue);
 		// final 단계 처리
 		const finalWrap = document.createElement('div');
 		finalWrap.id = 'final-wrap';
@@ -1950,6 +1951,8 @@ function renderAnswer(step, product, categoryKey = '') {
 		} else if (answerDiv) {
 			answerDiv.appendChild(finalWrap);
 		}
+		// ✅ star-btn 버튼 활성화 (3D/도면 버튼처럼 notUsed 제거)
+		toggleButtonUsage('star-btn', true);
 
 		// ✅ 9. 애니메이션 및 스크롤
 		setTimeout(() => {
@@ -2435,6 +2438,38 @@ function postWithForm(url, data) {
 	form.remove(); // 폼을 제출한 후 DOM에서 제거 (청결 유지)
 }
 
+async function sendFavoriteMark(selectedAnswerValue) {
+	if (!selectedAnswerValue || typeof selectedAnswerValue !== 'object') {
+		console.error("selectedAnswerValue가 유효하지 않습니다.");
+		return;
+	}
+
+	const optionJson = { ...selectedAnswerValue };
+	const localizedOptionJson = convertOptionJsonWithLabels(optionJson);
+
+	try {
+		const response = await fetch('/api/v2/insertMark', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				optionJson: optionJson,
+				localizedOptionJson: localizedOptionJson
+			})
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			alert('즐겨찾기 저장에 실패했습니다: ' + errorText);
+		} else {
+			alert('즐겨찾기에 추가되었습니다.');
+		}
+	} catch (error) {
+		console.error('즐겨찾기 저장 중 오류 발생:', error);
+		alert('서버 오류가 발생했습니다.');
+	}
+}
 
 document.getElementById('modeling-btn').addEventListener('click', () => {
 	postWithForm('/modeling', selectedAnswerValue);
@@ -2444,13 +2479,21 @@ document.getElementById('three-d-btn').addEventListener('click', () => {
 	postWithForm('/blueprint', selectedAnswerValue);
 });
 
+// star 버튼 클릭 시
+document.getElementById('star-btn').addEventListener('click', () => {
+    const confirmSave = confirm('즐겨찾기를 추가하시겠습니까?');
+    if (confirmSave) {
+        sendFavoriteMark(selectedAnswerValue);
+    }
+});
 window.onload = () => {
-	// 초기 질문을 렌더링하고 나서 autoProceed 호출
 	renderInitialQuestion();
 
-	// renderInitialQuestion이 완료된 후 autoProceed 실행
-	// setTimeout(() => {
-	//	 autoProceedV2(sampleDataSet);
-	// }, 500);  // 약간의 지연을 추가하여 DOM이 렌더링되는 시간을 확보
+	const datasetFromServer = window.preloadedDataSet;
+	if (datasetFromServer) {
+		setTimeout(() => {
+			autoProceedV2(datasetFromServer);
+		}, 1000);
+	}
 };
 

@@ -8,32 +8,40 @@ let originalMaterials = [];
 
 
 function createCabinetFromData(data) {
-    // 데이터 파싱
-    const category = data.category || '하부장';
-    const width = parseFloat(data.width) || 500;
-    const height = parseFloat(data.height) || 800;
-    const depth = parseFloat(data.depth) || 400;
-    const legHeight = 'leg' ? 150 : 0;
-    const numberOfDoors = parseInt(data.numberOfDoors) || 2;
-    const doorRatio1 = parseInt(data.doorRatio1) || 50;
-    const doorRatio2 = parseInt(data.doorRatio2) || 50;
-    const mirrorShape = data.mirrorShape || '사각형';
+	// 데이터 파싱
+	const category = data.category || '하부장';
+	const width = parseFloat(data.width) || 500;
+	const height = parseFloat(data.height) || 800;
+	const depth = parseFloat(data.depth) || 400;
+	const legHeight = 'leg' ? 150 : 0;
+	const numberOfDoors = parseInt(data.numberOfDoors) || 2;
+	let doorRatio1 = 50;
+	let doorRatio2 = 50;
+
+	if (data.doorRatio && typeof data.doorRatio === 'string' && data.doorRatio.includes(':')) {
+		const [r1, r2] = data.doorRatio.split(':').map(v => parseInt(v.trim()));
+		if (!isNaN(r1) && !isNaN(r2)) {
+			doorRatio1 = r1;
+			doorRatio2 = r2;
+		}
+	}
+	const mirrorShape = data.mirrorShape || '사각형';
 	const categoryName = category.label;
-    // 기존 캐비닛 파트 제거
-    cabinetParts.forEach((part) => scene.remove(part));
-    cabinetParts = [];
+	// 기존 캐비닛 파트 제거
+	cabinetParts.forEach((part) => scene.remove(part));
+	cabinetParts = [];
 
-    // 카테고리에 따라 적절한 함수 호출
-    if (categoryName === "하부장" || categoryName === "상부장" || categoryName === "슬라이드장") {
-        createStandardCabinet(width, height, depth, legHeight, numberOfDoors);
-    } else if (categoryName === "플랩장") {
-        drawFlapCabinet(width, height, depth, numberOfDoors, doorRatio1, doorRatio2);
-    } else if (categoryName === "거울") {
-        drawMirror(width, height, mirrorShape);
-    }
+	// 카테고리에 따라 적절한 함수 호출
+	if (categoryName === "하부장" || categoryName === "상부장" || categoryName === "슬라이드장") {
+		createStandardCabinet(width, height, depth, legHeight, numberOfDoors);
+	} else if (categoryName === "플랩장") {
+		drawFlapCabinet(width, height, depth, numberOfDoors, doorRatio1, doorRatio2);
+	} else if (categoryName === "거울") {
+		drawMirror(width, height, mirrorShape);
+	}
 
-    // 원래 재질 저장
-    originalMaterials = cabinetParts.map((part) => part.material);
+	// 원래 재질 저장
+	originalMaterials = cabinetParts.map((part) => part.material);
 }
 
 function init() {
@@ -85,7 +93,7 @@ function createStandardCabinet(width, height, depth, legHeight, numberOfDoors) {
 	console.log('depth : ', depth);
 	console.log('legHeight : ', legHeight);
 	console.log('numberOfDoors : ', numberOfDoors);
-	
+
 	cabinetParts = [];  // 기존 캐비닛 부분 초기화
 
 	const gapBetweenDoors = 10;
@@ -94,20 +102,20 @@ function createStandardCabinet(width, height, depth, legHeight, numberOfDoors) {
 
 	// 문 생성
 	for (let i = 0; i < numberOfDoors; i++) {
-        try {
-            const doorGeometry = new THREE.PlaneGeometry(doorWidth / 100, height / 100);
-            const door = new THREE.Mesh(doorGeometry, material);
-            const doorXPosition = (i * (doorWidth + gapBetweenDoors)) - (width / 2) + (doorWidth / 2);
-            door.position.set(doorXPosition / 100, 0, depth / 200 - 0.05);
-            door.name = `Door ${i + 1}`;
-            if (door) {
-                cabinetParts.push(door);
-                scene.add(door);
-            }
-        } catch (error) {
-            console.error(`문 생성 중 오류 발생: ${error.message}`);
-        }
-    }
+		try {
+			const doorGeometry = new THREE.PlaneGeometry(doorWidth / 100, height / 100);
+			const door = new THREE.Mesh(doorGeometry, material);
+			const doorXPosition = (i * (doorWidth + gapBetweenDoors)) - (width / 2) + (doorWidth / 2);
+			door.position.set(doorXPosition / 100, 0, depth / 200 - 0.05);
+			door.name = `Door ${i + 1}`;
+			if (door) {
+				cabinetParts.push(door);
+				scene.add(door);
+			}
+		} catch (error) {
+			console.error(`문 생성 중 오류 발생: ${error.message}`);
+		}
+	}
 
 	// 나머지 캐비닛 구성요소 생성 (뒤, 양쪽, 상하)
 	const backGeometry = new THREE.PlaneGeometry(width / 100, height / 100);
@@ -209,20 +217,20 @@ function createEllipseGeometry(width, height) {
 }
 
 function createPentagonGeometry(width, height) {
-    const shape = new THREE.Shape();
-    const outerRadiusX = width / 2;
-    const outerRadiusY = height / 2;
-    const points = 5; // 오각형
+	const shape = new THREE.Shape();
+	const outerRadiusX = width / 2;
+	const outerRadiusY = height / 2;
+	const points = 5; // 오각형
 
-    for (let i = 0; i < points; i++) {
-        const angle = (i * 2 * Math.PI) / points + Math.PI / 2; // +90도 회전하여 하단을 향하도록 설정
-        const x = outerRadiusX * Math.cos(angle);
-        const y = outerRadiusY * Math.sin(angle);
-        i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y);
-    }
-    shape.closePath();
+	for (let i = 0; i < points; i++) {
+		const angle = (i * 2 * Math.PI) / points + Math.PI / 2; // +90도 회전하여 하단을 향하도록 설정
+		const x = outerRadiusX * Math.cos(angle);
+		const y = outerRadiusY * Math.sin(angle);
+		i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y);
+	}
+	shape.closePath();
 
-    return new THREE.ShapeGeometry(shape);
+	return new THREE.ShapeGeometry(shape);
 }
 
 
@@ -286,22 +294,28 @@ function drawFlapCabinet(width, height, depth, numberOfDoors, doorRatio1, doorRa
 		cabinetParts.push(door);
 		scene.add(door);
 	} else if (numberOfDoors === 2) {
-		// 문의 개수가 2인 경우 - 비율 적용
-		const doorWidth1 = (width * (doorRatio1 / 100) - gapBetweenDoors / 2) / 100;
-		const doorWidth2 = (width * (doorRatio2 / 100) - gapBetweenDoors / 2) / 100;
+		const totalRatio = doorRatio1 + doorRatio2;
+		if (totalRatio > 0) {
+			const actualDoorWidth1 = (width * doorRatio1) / totalRatio;
+			const actualDoorWidth2 = (width * doorRatio2) / totalRatio;
 
-		const doorGeometry1 = new THREE.PlaneGeometry(doorWidth1, height / 100);
-		const door1 = new THREE.Mesh(doorGeometry1, material);
-		door1.position.set(-doorWidth2 / 2 - gapBetweenDoors / 200, 0, depth / 200 - 0.05);
-		cabinetParts.push(door1);
-		scene.add(door1);
+			const doorWidth1 = actualDoorWidth1 / 100;
+			const doorWidth2 = actualDoorWidth2 / 100;
 
-		const doorGeometry2 = new THREE.PlaneGeometry(doorWidth2, height / 100);
-		const door2 = new THREE.Mesh(doorGeometry2, material);
-		door2.position.set(doorWidth1 / 2 + gapBetweenDoors / 200, 0, depth / 200 - 0.05);
-		cabinetParts.push(door2);
-		scene.add(door2);
+			const doorGeometry1 = new THREE.PlaneGeometry(doorWidth1, height / 100);
+			const door1 = new THREE.Mesh(doorGeometry1, material);
+			door1.position.set(-doorWidth2 / 2 - gapBetweenDoors / 200, 0, depth / 200 - 0.05);
+			cabinetParts.push(door1);
+			scene.add(door1);
+
+			const doorGeometry2 = new THREE.PlaneGeometry(doorWidth2, height / 100);
+			const door2 = new THREE.Mesh(doorGeometry2, material);
+			door2.position.set(doorWidth1 / 2 + gapBetweenDoors / 200, 0, depth / 200 - 0.05);
+			cabinetParts.push(door2);
+			scene.add(door2);
+		}
 	}
+
 
 	// 나머지 캐비닛 구성요소 생성 (뒤, 양쪽, 상하)
 	const backGeometry = new THREE.PlaneGeometry(width / 100, height / 100);
@@ -452,4 +466,5 @@ function animate() {
 }
 
 init();
+console.log(selectedData);
 createCabinetFromData(selectedData);
