@@ -148,7 +148,64 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	    Pageable pageable
 	);
 
+	@Query("""
+			SELECT a FROM AsTask a
+			WHERE (:statuses IS NULL OR a.status = :statuses)
+			  AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
+			  AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+			  AND (:endDate IS NULL OR a.requestedAt < :endDate)
+			ORDER BY a.requestedAt DESC
+		""")
+	Page<AsTask> findByRequestedDateRange(
+		@Param("memberId") Long memberId,
+		@Param("statuses") AsStatus statuses,
+		@Param("startDate") LocalDateTime startDate,
+		@Param("endDate") LocalDateTime endDate,
+		Pageable pageable);
 
+	@Query("""
+			SELECT a FROM AsTask a
+			WHERE (:statuses IS NULL OR a.status = :statuses)
+			  AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
+			  AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+			  AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+			ORDER BY a.asProcessDate DESC
+		""")
+	Page<AsTask> findByProcessedDateRange(
+		@Param("memberId") Long memberId,
+		@Param("statuses") AsStatus statuses,
+		@Param("startDate") LocalDateTime startDate,
+		@Param("endDate") LocalDateTime endDate,
+		Pageable pageable);
 
+	@Query("""
+	    SELECT a FROM AsTask a
+	    WHERE (:statuses IS NULL OR a.status = :statuses)
+	      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
+	      AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+	      AND (:endDate IS NULL OR a.requestedAt < :endDate)
+	    ORDER BY a.requestedAt DESC
+	""")
+	List<AsTask> findByRequestedDateRangeList(
+	    @Param("memberId") Long memberId,
+	    @Param("statuses") AsStatus statuses,
+	    @Param("startDate") LocalDateTime startDate,
+	    @Param("endDate") LocalDateTime endDate
+	);
+
+	@Query("""
+	    SELECT a FROM AsTask a
+	    WHERE (:statuses IS NULL OR a.status = :statuses)
+	      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
+	      AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+	      AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+	    ORDER BY a.asProcessDate DESC
+	""")
+	List<AsTask> findByProcessedDateRangeList(
+	    @Param("memberId") Long memberId,
+	    @Param("statuses") AsStatus statuses,
+	    @Param("startDate") LocalDateTime startDate,
+	    @Param("endDate") LocalDateTime endDate
+	);
 
 }

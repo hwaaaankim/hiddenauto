@@ -22,16 +22,35 @@ public class OrderStatusService {
 
 	private final OrderRepository orderRepository;
 
-	public Page<Order> getOrders(LocalDate date, TeamCategory category, OrderStatus status, Pageable pageable) {
-	    LocalDateTime start = date.atStartOfDay();
-	    LocalDateTime end = date.atTime(LocalTime.MAX);
-	    return orderRepository.findOrdersByConditions(category, status, start, end, pageable);
+	public Page<Order> getOrders(LocalDateTime start, LocalDateTime end, TeamCategory category, OrderStatus status,
+			String dateType, Pageable pageable) {
+		if ("created".equals(dateType)) {
+			return orderRepository.findByCreatedDateRange(category, status, start, end, pageable);
+		} else {
+			return orderRepository.findByPreferredDateRange(category, status, start, end, pageable);
+		}
 	}
-	
-	public List<Order> getAllOrders(LocalDate date, TeamCategory category, OrderStatus status) {
-	    LocalDateTime start = date.atStartOfDay();
-	    LocalDateTime end = date.plusDays(1).atStartOfDay(); // inclusive
 
-	    return orderRepository.findAllByConditions(category, status, start, end);
+	public Page<Order> getOrders(LocalDate date, TeamCategory category, OrderStatus status, Pageable pageable) {
+		LocalDateTime start = date.atStartOfDay();
+		LocalDateTime end = date.atTime(LocalTime.MAX);
+		return orderRepository.findOrdersByConditions(category, status, start, end, pageable);
 	}
+
+	public List<Order> getAllOrders(LocalDate date, TeamCategory category, OrderStatus status) {
+		LocalDateTime start = date.atStartOfDay();
+		LocalDateTime end = date.plusDays(1).atStartOfDay(); // inclusive
+
+		return orderRepository.findAllByConditions(category, status, start, end);
+	}
+
+	public List<Order> getAllOrders(LocalDateTime start, LocalDateTime end, TeamCategory category, OrderStatus status,
+			String dateType) {
+		if ("created".equals(dateType)) {
+			return orderRepository.findAllByCreatedDateRange(category, status, start, end);
+		} else {
+			return orderRepository.findAllByPreferredDateRange(category, status, start, end);
+		}
+	}
+
 }

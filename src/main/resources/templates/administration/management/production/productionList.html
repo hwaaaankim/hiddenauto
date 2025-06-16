@@ -45,10 +45,12 @@
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
 												<a class="btn btn-success" th:href="@{/management/productionList/excel(
-        categoryId=${categoryId},
-        status=${status},
-        date=${#temporals.format(date, 'yyyy-MM-dd')}
-   )}">
+												        categoryId=${categoryId},
+												        status=${status},
+												        startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+												        endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
+												        dateType=${dateType}
+												)}">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
 											</div>
@@ -58,7 +60,7 @@
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" th:action="@{/management/productionList}"
 										class="row g-3 align-items-end">
-										<div class="col-md-3">
+										<div class="col-md-2">
 											<label class="form-label">제품 카테고리</label>
 											<select class="form-select" name="categoryId">
 												<option value="" th:selected="${status == null or status == ''}">전체
@@ -67,7 +69,7 @@
 													th:text="${c.name}" th:selected="${c.id == categoryId}"></option>
 											</select>
 										</div>
-										<div class="col-md-3">
+										<div class="col-md-2">
 											<label class="form-label">오더 상태</label>
 											<select class="form-select" name="status">
 												<option value="" th:selected="${status == null or status == ''}">전체
@@ -77,12 +79,32 @@
 												</option>
 											</select>
 										</div>
-										<div class="col-md-3">
-											<label class="form-label">배송희망일</label>
-											<input type="date" class="form-control" name="date"
-												th:value="${#temporals.format(date, 'yyyy-MM-dd')}" />
+										<!-- 날짜 기준 선택 -->
+										<div class="col-md-2">
+											<label class="form-label">날짜 기준</label>
+											<select class="form-select" name="dateType">
+												<option value="preferred"
+													th:selected="${dateType == null or dateType == 'preferred'}">배송희망일
+												</option>
+												<option value="created" th:selected="${dateType == 'created'}">신청일
+												</option>
+											</select>
 										</div>
-										<div class="col-md-3">
+
+										<!-- 시작일 -->
+										<div class="col-md-2">
+											<label class="form-label">시작일</label>
+											<input type="date" class="form-control" name="startDate"
+												th:value="${#temporals.format(startDate, 'yyyy-MM-dd')}" />
+										</div>
+
+										<!-- 종료일 -->
+										<div class="col-md-2">
+											<label class="form-label">종료일</label>
+											<input type="date" class="form-control" name="endDate"
+												th:value="${#temporals.format(endDate, 'yyyy-MM-dd')}" />
+										</div>
+										<div class="col-md-2">
 											<button type="submit" class="btn btn-primary w-100">
 												<i class="fa-solid fa-magnifying-glass me-1"></i> 검색
 											</button>
@@ -104,9 +126,10 @@
 													<th class="sort">ID</th>
 													<th class="sort">대리점명</th>
 													<th class="sort">신청자</th>
-													<th class="sort">담당영업사원</th>
+													<!-- 신청일 -->
 													<th class="sort">발주일</th>
-													<th class="sort">최근수정일</th>
+													<th class="sort">배송일</th>
+													<th class="sort">수정일</th>
 													<th class="sort">상태</th>
 												</tr>
 											</thead>
@@ -140,19 +163,14 @@
 															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
-													<!-- 담당영업사원 -->
-													<td class="assignedto">
-														<a th:if="${order.task.requestedBy.company?.salesManager != null}"
-															th:href="@{'/management/employee/' + ${order.task.requestedBy.company.salesManager.id}}"
-															th:text="${order.task.requestedBy.company.salesManager.name}">담당영업사원</a>
-														<span
-															th:if="${order.task.requestedBy.company?.salesManager == null}"
-															class="text-muted">미지정</span>
-													</td>
-
-													<!-- 발주일 -->
+													<!-- 신청일 -->
 													<td class="due_date"
 														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
+														00:00:00
+													</td>
+													<!-- 발주일 -->
+													<td class="due_date"
+														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 

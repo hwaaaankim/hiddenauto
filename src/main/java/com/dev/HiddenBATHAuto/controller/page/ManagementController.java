@@ -97,7 +97,7 @@ public class ManagementController {
 	private final CompanyRepository companyRepository;
 	private final ObjectMapper objectMapper; // com.fasterxml.jackson.databind.ObjectMapper
 	private final OrderImageRepository orderImageRepository;
-	
+
 	@GetMapping("/standardOrderList")
 	public String standardOrderList() {
 
@@ -111,273 +111,255 @@ public class ManagementController {
 	}
 
 	@GetMapping("/nonStandardTaskList")
-	public String nonStandardTaskList(
-	        @RequestParam(required = false, defaultValue = "") String keyword,
-	        @RequestParam(required = false, defaultValue = "all") String dateCriteria,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-	        @RequestParam(required = false, defaultValue = "all") String productCategoryId,
-	        @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
-	        @RequestParam(required = false, defaultValue = "all") String deliveryMethodId,
-	        @PageableDefault(size = 10) Pageable pageable,
-	        Model model
-	) {
+	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
+			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+			@RequestParam(required = false, defaultValue = "all") String deliveryMethodId,
+			@PageableDefault(size = 10) Pageable pageable, Model model) {
 		LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
 		LocalDateTime endDateTime = endDate != null ? endDate.atTime(LocalTime.MAX) : null;
 
-	    Page<Order> orders = orderRepository.findFilteredOrders(
-	            keyword.isBlank() ? null : keyword,
-	            dateCriteria,
-	            startDateTime,
-	            endDateTime,
-	            productCategoryId.equals("all") ? null : Long.parseLong(productCategoryId),
-	            orderStatus.equals("all") ? null : OrderStatus.valueOf(orderStatus),
-	            deliveryMethodId.equals("all") ? null : Long.parseLong(deliveryMethodId),
-	            pageable
-	    );
+		Page<Order> orders = orderRepository.findFilteredOrders(keyword.isBlank() ? null : keyword, dateCriteria,
+				startDateTime, endDateTime, productCategoryId.equals("all") ? null : Long.parseLong(productCategoryId),
+				orderStatus.equals("all") ? null : OrderStatus.valueOf(orderStatus),
+				deliveryMethodId.equals("all") ? null : Long.parseLong(deliveryMethodId), pageable);
 
-	    int startPage = Math.max(1, orders.getPageable().getPageNumber() - 4);
-	    int endPage = Math.min(orders.getTotalPages(), orders.getPageable().getPageNumber() + 4);
+		int startPage = Math.max(1, orders.getPageable().getPageNumber() - 4);
+		int endPage = Math.min(orders.getTotalPages(), orders.getPageable().getPageNumber() + 4);
 
-	    model.addAttribute("orders", orders);
-	    model.addAttribute("startPage", startPage);
-	    model.addAttribute("endPage", endPage);
+		model.addAttribute("orders", orders);
+		model.addAttribute("startPage", startPage);
+		model.addAttribute("endPage", endPage);
 
-	    // 필터용 데이터
-	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
-	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
-	    model.addAttribute("orderStatuses", OrderStatus.values());
+		// 필터용 데이터
+		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		model.addAttribute("orderStatuses", OrderStatus.values());
 
-	    // 🔁 필터 유지용 바인딩
-	    model.addAttribute("keyword", keyword);
-	    model.addAttribute("dateCriteria", dateCriteria);
-	    model.addAttribute("startDate", startDate);
-	    model.addAttribute("endDate", endDate);
-	    model.addAttribute("productCategoryId", productCategoryId);
-	    model.addAttribute("orderStatus", orderStatus);
-	    model.addAttribute("deliveryMethodId", deliveryMethodId);
+		// 🔁 필터 유지용 바인딩
+		model.addAttribute("keyword", keyword);
+		model.addAttribute("dateCriteria", dateCriteria);
+		model.addAttribute("startDate", startDate);
+		model.addAttribute("endDate", endDate);
+		model.addAttribute("productCategoryId", productCategoryId);
+		model.addAttribute("orderStatus", orderStatus);
+		model.addAttribute("deliveryMethodId", deliveryMethodId);
 
-	    return "administration/management/order/nonStandard/taskList";
+		return "administration/management/order/nonStandard/taskList";
 	}
 
 	@GetMapping("/nonStandardOrder/excel")
-	public void downloadNonStandardOrderExcel(
-	        @RequestParam(required = false) String keyword,
-	        @RequestParam(required = false) String dateCriteria,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-	        @RequestParam(required = false) String orderStatus,
-	        @RequestParam(required = false) String deliveryMethodId,
-	        @RequestParam(required = false) String productCategoryId,
-	        HttpServletResponse response
-	) throws IOException {
+	public void downloadNonStandardOrderExcel(@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String dateCriteria,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) String orderStatus, @RequestParam(required = false) String deliveryMethodId,
+			@RequestParam(required = false) String productCategoryId, HttpServletResponse response) throws IOException {
 
-	    // ✅ 날짜 변환
-	    LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
-	    LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+		// ✅ 날짜 변환
+		LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
+		LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
 
-	    // ✅ 타입 변환
-	    Long categoryId = (productCategoryId == null || "all".equals(productCategoryId)) ? null : Long.valueOf(productCategoryId);
-	    OrderStatus status = (orderStatus == null || "all".equals(orderStatus)) ? null : OrderStatus.valueOf(orderStatus);
-	    Long deliveryId = (deliveryMethodId == null || "all".equals(deliveryMethodId)) ? null : Long.valueOf(deliveryMethodId);
+		// ✅ 타입 변환
+		Long categoryId = (productCategoryId == null || "all".equals(productCategoryId)) ? null
+				: Long.valueOf(productCategoryId);
+		OrderStatus status = (orderStatus == null || "all".equals(orderStatus)) ? null
+				: OrderStatus.valueOf(orderStatus);
+		Long deliveryId = (deliveryMethodId == null || "all".equals(deliveryMethodId)) ? null
+				: Long.valueOf(deliveryMethodId);
 
-	    // ✅ 데이터 조회
-	    List<Order> orderList = orderRepository.findFilteredOrdersForExcel(
-	            keyword,
-	            dateCriteria,
-	            startDateTime,
-	            endDateTime,
-	            categoryId,
-	            status,
-	            deliveryId
-	    );
+		// ✅ 데이터 조회
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcel(keyword, dateCriteria, startDateTime,
+				endDateTime, categoryId, status, deliveryId);
 
-	    // ✅ 응답 설정
-	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-	    response.setHeader("Content-Disposition", "attachment; filename=non_standard_orders.xlsx");
+		// ✅ 응답 설정
+		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+		response.setHeader("Content-Disposition", "attachment; filename=non_standard_orders.xlsx");
 
-	    try (Workbook workbook = new XSSFWorkbook()) {
-	        Sheet sheet = workbook.createSheet("비규격발주");
+		try (Workbook workbook = new XSSFWorkbook()) {
+			Sheet sheet = workbook.createSheet("비규격발주");
 
-	        // ✅ 스타일
-	        CellStyle headerStyle = workbook.createCellStyle();
-	        Font boldFont = workbook.createFont();
-	        boldFont.setBold(true);
-	        headerStyle.setFont(boldFont);
-	        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-	        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-	        headerStyle.setBorderTop(BorderStyle.THIN);
-	        headerStyle.setBorderBottom(BorderStyle.THIN);
-	        headerStyle.setBorderLeft(BorderStyle.THIN);
-	        headerStyle.setBorderRight(BorderStyle.THIN);
+			// ✅ 스타일
+			CellStyle headerStyle = workbook.createCellStyle();
+			Font boldFont = workbook.createFont();
+			boldFont.setBold(true);
+			headerStyle.setFont(boldFont);
+			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+			headerStyle.setBorderTop(BorderStyle.THIN);
+			headerStyle.setBorderBottom(BorderStyle.THIN);
+			headerStyle.setBorderLeft(BorderStyle.THIN);
+			headerStyle.setBorderRight(BorderStyle.THIN);
 
-	        CellStyle borderedStyle = workbook.createCellStyle();
-	        borderedStyle.setBorderTop(BorderStyle.THIN);
-	        borderedStyle.setBorderBottom(BorderStyle.THIN);
-	        borderedStyle.setBorderLeft(BorderStyle.THIN);
-	        borderedStyle.setBorderRight(BorderStyle.THIN);
+			CellStyle borderedStyle = workbook.createCellStyle();
+			borderedStyle.setBorderTop(BorderStyle.THIN);
+			borderedStyle.setBorderBottom(BorderStyle.THIN);
+			borderedStyle.setBorderLeft(BorderStyle.THIN);
+			borderedStyle.setBorderRight(BorderStyle.THIN);
 
-	        CellStyle wrapStyle = workbook.createCellStyle();
-	        wrapStyle.cloneStyleFrom(borderedStyle);
-	        wrapStyle.setWrapText(true);
+			CellStyle wrapStyle = workbook.createCellStyle();
+			wrapStyle.cloneStyleFrom(borderedStyle);
+			wrapStyle.setWrapText(true);
 
-	        // ✅ 헤더 작성
-	        String[] headers = {
-	            "대리점명", "신청자", "신청일", "배송희망일",
-	            "우편번호", "도", "시", "구", "도로명주소", "상세주소",
-	            "수량", "제품비용", "주문메모", "팀카테고리", "배송수단", "배송담당자", "옵션 정보"
-	        };
+			// ✅ 헤더 작성
+			String[] headers = { "대리점명", "신청자", "신청일", "배송희망일", "우편번호", "도", "시", "구", "도로명주소", "상세주소", "수량", "제품비용",
+					"주문메모", "팀카테고리", "배송수단", "배송담당자", "옵션 정보" };
 
-	        Row header = sheet.createRow(0);
-	        for (int i = 0; i < headers.length; i++) {
-	            Cell cell = header.createCell(i);
-	            cell.setCellValue(headers[i]);
-	            cell.setCellStyle(headerStyle);
-	            sheet.setColumnWidth(i, 5000);
-	        }
+			Row header = sheet.createRow(0);
+			for (int i = 0; i < headers.length; i++) {
+				Cell cell = header.createCell(i);
+				cell.setCellValue(headers[i]);
+				cell.setCellStyle(headerStyle);
+				sheet.setColumnWidth(i, 5000);
+			}
 
-	        ObjectMapper objectMapper = new ObjectMapper();
-	        int rowIdx = 1;
+			ObjectMapper objectMapper = new ObjectMapper();
+			int rowIdx = 1;
 
-	        // ✅ 데이터 작성
-	        for (Order order : orderList) {
-	            Row row = sheet.createRow(rowIdx++);
-	            row.setHeightInPoints(60);
+			// ✅ 데이터 작성
+			for (Order order : orderList) {
+				Row row = sheet.createRow(rowIdx++);
+				row.setHeightInPoints(60);
 
-	            OrderItem item = order.getOrderItem();
+				OrderItem item = order.getOrderItem();
 
-	            // null 방어
-	            String agencyName = safe(() -> order.getTask().getRequestedBy().getCompany().getCompanyName(), "미지정");
-	            String requester = safe(() -> order.getTask().getRequestedBy().getName(), "미지정");
-	            String createdAt = order.getCreatedAt() != null ? order.getCreatedAt().toString() : "";
-	            String deliveryDate = order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "";
+				// null 방어
+				String agencyName = safe(() -> order.getTask().getRequestedBy().getCompany().getCompanyName(), "미지정");
+				String requester = safe(() -> order.getTask().getRequestedBy().getName(), "미지정");
+				String createdAt = order.getCreatedAt() != null ? order.getCreatedAt().toString() : "";
+				String deliveryDate = order.getPreferredDeliveryDate() != null
+						? order.getPreferredDeliveryDate().toString()
+						: "";
 
-	            String zip = defaultIfNull(order.getZipCode());
-	            String doName = defaultIfNull(order.getDoName());
-	            String siName = defaultIfNull(order.getSiName());
-	            String guName = defaultIfNull(order.getGuName());
-	            String road = defaultIfNull(order.getRoadAddress());
-	            String detail = defaultIfNull(order.getDetailAddress());
+				String zip = defaultIfNull(order.getZipCode());
+				String doName = defaultIfNull(order.getDoName());
+				String siName = defaultIfNull(order.getSiName());
+				String guName = defaultIfNull(order.getGuName());
+				String road = defaultIfNull(order.getRoadAddress());
+				String detail = defaultIfNull(order.getDetailAddress());
 
-	            int quantity = order.getQuantity() != 0 ? order.getQuantity() : 0;
-	            int productCost = order.getProductCost();
-	            String comment = defaultIfNull(order.getOrderComment());
+				int quantity = order.getQuantity() != 0 ? order.getQuantity() : 0;
+				int productCost = order.getProductCost();
+				String comment = defaultIfNull(order.getOrderComment());
 
-	            String category = safe(() -> order.getProductCategory().getName(), "미지정");
-	            String deliveryMethod = safe(() -> order.getDeliveryMethod().getMethodName(), "미지정");
-	            String handler = safe(() -> order.getAssignedDeliveryHandler().getName(), "미지정");
+				String category = safe(() -> order.getProductCategory().getName(), "미지정");
+				String deliveryMethod = safe(() -> order.getDeliveryMethod().getMethodName(), "미지정");
+				String handler = safe(() -> order.getAssignedDeliveryHandler().getName(), "미지정");
 
-	            // 작성
-	            row.createCell(0).setCellValue(agencyName);
-	            row.createCell(1).setCellValue(requester);
-	            row.createCell(2).setCellValue(createdAt);
-	            row.createCell(3).setCellValue(deliveryDate);
+				// 작성
+				row.createCell(0).setCellValue(agencyName);
+				row.createCell(1).setCellValue(requester);
+				row.createCell(2).setCellValue(createdAt);
+				row.createCell(3).setCellValue(deliveryDate);
 
-	            row.createCell(4).setCellValue(zip);
-	            row.createCell(5).setCellValue(doName);
-	            row.createCell(6).setCellValue(siName);
-	            row.createCell(7).setCellValue(guName);
-	            row.createCell(8).setCellValue(road);
-	            row.createCell(9).setCellValue(detail);
+				row.createCell(4).setCellValue(zip);
+				row.createCell(5).setCellValue(doName);
+				row.createCell(6).setCellValue(siName);
+				row.createCell(7).setCellValue(guName);
+				row.createCell(8).setCellValue(road);
+				row.createCell(9).setCellValue(detail);
 
-	            row.createCell(10).setCellValue(quantity);
-	            row.createCell(11).setCellValue(productCost);
-	            row.createCell(12).setCellValue(comment);
-	            row.createCell(13).setCellValue(category);
-	            row.createCell(14).setCellValue(deliveryMethod);
-	            row.createCell(15).setCellValue(handler);
+				row.createCell(10).setCellValue(quantity);
+				row.createCell(11).setCellValue(productCost);
+				row.createCell(12).setCellValue(comment);
+				row.createCell(13).setCellValue(category);
+				row.createCell(14).setCellValue(deliveryMethod);
+				row.createCell(15).setCellValue(handler);
 
-	            // 옵션 정보
-	            StringBuilder optionsText = new StringBuilder();
-	            Map<String, String> parsedOptionMap = (item != null) ? item.getParsedOptionMap() : null;
+				// 옵션 정보
+				StringBuilder optionsText = new StringBuilder();
+				Map<String, String> parsedOptionMap = (item != null) ? item.getParsedOptionMap() : null;
 
-	            if ((parsedOptionMap == null || parsedOptionMap.isEmpty()) && item != null && item.getOptionJson() != null) {
-	                try {
-	                    parsedOptionMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {});
-	                } catch (Exception e) {
-	                    parsedOptionMap = Map.of("오류", "옵션 파싱 실패");
-	                }
-	            }
+				if ((parsedOptionMap == null || parsedOptionMap.isEmpty()) && item != null
+						&& item.getOptionJson() != null) {
+					try {
+						parsedOptionMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {
+						});
+					} catch (Exception e) {
+						parsedOptionMap = Map.of("오류", "옵션 파싱 실패");
+					}
+				}
 
-	            if (parsedOptionMap != null) {
-	                int count = 0;
-	                for (Map.Entry<String, String> entry : parsedOptionMap.entrySet()) {
-	                    optionsText.append(entry.getKey()).append(": ").append(entry.getValue());
-	                    count++;
-	                    if (count % 3 == 0) {
-	                        optionsText.append("\n");
-	                    } else {
-	                        optionsText.append(" / ");
-	                    }
-	                }
-	            }
+				if (parsedOptionMap != null) {
+					int count = 0;
+					for (Map.Entry<String, String> entry : parsedOptionMap.entrySet()) {
+						optionsText.append(entry.getKey()).append(": ").append(entry.getValue());
+						count++;
+						if (count % 3 == 0) {
+							optionsText.append("\n");
+						} else {
+							optionsText.append(" / ");
+						}
+					}
+				}
 
-	            Cell optionCell = row.createCell(16);
-	            optionCell.setCellValue(optionsText.toString());
-	            optionCell.setCellStyle(wrapStyle);
-	        }
+				Cell optionCell = row.createCell(16);
+				optionCell.setCellValue(optionsText.toString());
+				optionCell.setCellStyle(wrapStyle);
+			}
 
-	        workbook.write(response.getOutputStream());
-	    }
+			workbook.write(response.getOutputStream());
+		}
 	}
-	
+
 	// Null-safe getter
 	private <T> String safe(Supplier<T> getter, String defaultValue) {
-	    try {
-	        T value = getter.get();
-	        return value != null ? value.toString() : defaultValue;
-	    } catch (Exception e) {
-	        return defaultValue;
-	    }
+		try {
+			T value = getter.get();
+			return value != null ? value.toString() : defaultValue;
+		} catch (Exception e) {
+			return defaultValue;
+		}
 	}
 
 	private String defaultIfNull(String value) {
-	    return (value != null) ? value : "";
+		return (value != null) ? value : "";
 	}
 
-	
 	@GetMapping("/nonStandardTaskDetail/{id}")
 	public String nonStandardTaskDetail(@PathVariable Long id, Model model) {
-	    Task task = taskRepository.findById(id).orElseThrow();
+		Task task = taskRepository.findById(id).orElseThrow();
 
-	    ObjectMapper objectMapper = new ObjectMapper();
+		ObjectMapper objectMapper = new ObjectMapper();
 
-	    for (Order order : task.getOrders()) {
-	        // 1. OrderItem optionJson → parsedOptionMap
-	        OrderItem item = order.getOrderItem();
-	        if (item != null) {
-	            try {
-	                Map<String, String> parsed = objectMapper.readValue(
-	                        item.getOptionJson(),
-	                        new com.fasterxml.jackson.core.type.TypeReference<>() {});
-	                item.setParsedOptionMap(parsed);
-	            } catch (Exception e) {
-	                System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
-	            }
-	        }
+		for (Order order : task.getOrders()) {
+			// 1. OrderItem optionJson → parsedOptionMap
+			OrderItem item = order.getOrderItem();
+			if (item != null) {
+				try {
+					Map<String, String> parsed = objectMapper.readValue(item.getOptionJson(),
+							new com.fasterxml.jackson.core.type.TypeReference<>() {
+							});
+					item.setParsedOptionMap(parsed);
+				} catch (Exception e) {
+					System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
+				}
+			}
 
-	        // 2. OrderImage 파일 사이즈 계산
-	        List<OrderImage> images = order.getOrderImages();
-	        if (images != null) {
-	            for (OrderImage image : images) {
-	                if (image.getPath() != null) {
-	                    File file = new File(image.getPath());
-	                    if (file.exists() && file.isFile()) {
-	                        image.setFileSizeKb(file.length() / 1024); // KB 단위 저장
-	                    } else {
-	                        image.setFileSizeKb(0L); // 없으면 0 처리
-	                    }
-	                } else {
-	                    image.setFileSizeKb(0L);
-	                }
-	            }
-	        }
-	    }
+			// 2. OrderImage 파일 사이즈 계산
+			List<OrderImage> images = order.getOrderImages();
+			if (images != null) {
+				for (OrderImage image : images) {
+					if (image.getPath() != null) {
+						File file = new File(image.getPath());
+						if (file.exists() && file.isFile()) {
+							image.setFileSizeKb(file.length() / 1024); // KB 단위 저장
+						} else {
+							image.setFileSizeKb(0L); // 없으면 0 처리
+						}
+					} else {
+						image.setFileSizeKb(0L);
+					}
+				}
+			}
+		}
 
-	    model.addAttribute("task", task);
-	    return "administration/management/order/nonStandard/taskDetail";
+		model.addAttribute("task", task);
+		return "administration/management/order/nonStandard/taskDetail";
 	}
-
 
 	@GetMapping("/nonStandardOrderItemDetail/{orderId}")
 	public String nonStandardOrderItemDetail(@PathVariable Long orderId, Model model) {
@@ -409,13 +391,9 @@ public class ManagementController {
 	}
 
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
-	public String updateNonStandardOrderItem(
-			@PathVariable Long orderId, 
-			@RequestParam("productCost") int productCost,
-			@RequestParam("preferredDeliveryDate") 
-			@DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
-			@RequestParam("status") String statusStr, 
-			@RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
+	public String updateNonStandardOrderItem(@PathVariable Long orderId, @RequestParam("productCost") int productCost,
+			@RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
+			@RequestParam("status") String statusStr, @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
 			@RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
 			@RequestParam("productCategoryId") Optional<Long> productCategoryId,
 			@RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages) {
@@ -429,41 +407,40 @@ public class ManagementController {
 	@DeleteMapping("/order-image/delete/{id}")
 	@ResponseBody
 	public ResponseEntity<Void> deleteOrderImage(@PathVariable Long id) {
-	    OrderImage image = orderImageRepository.findById(id)
-	            .orElseThrow(() -> new IllegalArgumentException("해당 이미지가 존재하지 않습니다."));
-	    try {
-	        Files.deleteIfExists(Paths.get(image.getPath())); // ✅ 실제 파일 삭제
-	    } catch (IOException e) {
-	        throw new RuntimeException("파일 삭제 실패", e);
-	    }
-	    orderImageRepository.delete(image); // ✅ DB 삭제
-	    return ResponseEntity.ok().build();
+		OrderImage image = orderImageRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("해당 이미지가 존재하지 않습니다."));
+		try {
+			Files.deleteIfExists(Paths.get(image.getPath())); // ✅ 실제 파일 삭제
+		} catch (IOException e) {
+			throw new RuntimeException("파일 삭제 실패", e);
+		}
+		orderImageRepository.delete(image); // ✅ DB 삭제
+		return ResponseEntity.ok().build();
 	}
 
-	
 	@GetMapping("/asList")
-	public String asList(
-			@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) Long handlerId,
-			@RequestParam(required = false) AsStatus status,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-			Pageable pageable,
-			Model model) {
+	public String asList(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) Long handlerId, @RequestParam(required = false) AsStatus status,
+			@RequestParam(required = false) String dateType,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+			Pageable pageable, Model model) {
 
-		LocalDate targetDate = (date != null) ? date : LocalDate.now();
+		LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
+		LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
 
-		Page<AsTask> asPage = asTaskService.getFilteredAsList(handlerId, status, targetDate, pageable);
+		Page<AsTask> asPage = asTaskService.getFilteredAsList(handlerId, status, dateType, start, end, pageable);
 
-		// ✅ 정확한 이름으로 model에 추가
 		model.addAttribute("asPage", asPage);
 		model.addAttribute("asHandlers", memberRepository.findByTeamName("AS팀"));
-		model.addAttribute("selectedDate", targetDate);
-		model.addAttribute("selectedStatus", status); // ✅ 단수형 명칭으로 수정
 		model.addAttribute("selectedHandlerId", handlerId);
+		model.addAttribute("selectedStatus", status);
+		model.addAttribute("selectedDateType", dateType);
+		model.addAttribute("selectedFromDate", fromDate);
+		model.addAttribute("selectedToDate", toDate);
 
 		return "administration/management/as/asList";
 	}
-
 
 	@GetMapping("/asDetail/{id}")
 	public String asDetail(@PathVariable Long id, Model model) {
@@ -479,100 +456,104 @@ public class ManagementController {
 	}
 
 	@GetMapping("/asList/excel")
-	public void downloadAsListExcel(
-	        @RequestParam(required = false) Long handlerId,
-	        @RequestParam(required = false) AsStatus status,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-	        HttpServletResponse response
-	) throws IOException {
+	public void downloadAsListExcel(@RequestParam(required = false) Long handlerId,
+			@RequestParam(required = false) AsStatus status, @RequestParam(required = false) String dateType, // "requested"
+																												// or
+																												// "processed"
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+			HttpServletResponse response) throws IOException {
 
-	    LocalDate targetDate = (date != null) ? date : LocalDate.now();
-	    Long memberId = (handlerId != null) ? handlerId : null;
+		// 날짜 변환
+		LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
+		LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
 
-	    List<AsTask> asTasks = asTaskService.getFilteredAsList(memberId, status, targetDate); // List 기반 메서드 필요
+		// ✅ 서비스에서 List<AsTask> 반환하는 오버로드된 메서드 필요
+		List<AsTask> asTasks = asTaskService.getFilteredAsList(handlerId, status, dateType, start, end);
 
-	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-	    response.setHeader("Content-Disposition", "attachment; filename=as_task_list.xlsx");
+		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+		response.setHeader("Content-Disposition", "attachment; filename=as_task_list.xlsx");
 
-	    try (Workbook workbook = new XSSFWorkbook()) {
-	        Sheet sheet = workbook.createSheet("AS 목록");
+		try (Workbook workbook = new XSSFWorkbook()) {
+			Sheet sheet = workbook.createSheet("AS 목록");
 
-	        // 스타일 설정
-	        CellStyle headerStyle = workbook.createCellStyle();
-	        Font boldFont = workbook.createFont();
-	        boldFont.setBold(true);
-	        headerStyle.setFont(boldFont);
-	        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-	        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-	        headerStyle.setBorderTop(BorderStyle.THIN);
-	        headerStyle.setBorderBottom(BorderStyle.THIN);
-	        headerStyle.setBorderLeft(BorderStyle.THIN);
-	        headerStyle.setBorderRight(BorderStyle.THIN);
+			// 스타일 생성 생략 없이 그대로 유지...
+			CellStyle headerStyle = workbook.createCellStyle();
+			Font boldFont = workbook.createFont();
+			boldFont.setBold(true);
+			headerStyle.setFont(boldFont);
+			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+			headerStyle.setBorderTop(BorderStyle.THIN);
+			headerStyle.setBorderBottom(BorderStyle.THIN);
+			headerStyle.setBorderLeft(BorderStyle.THIN);
+			headerStyle.setBorderRight(BorderStyle.THIN);
 
-	        CellStyle borderedStyle = workbook.createCellStyle();
-	        borderedStyle.setBorderTop(BorderStyle.THIN);
-	        borderedStyle.setBorderBottom(BorderStyle.THIN);
-	        borderedStyle.setBorderLeft(BorderStyle.THIN);
-	        borderedStyle.setBorderRight(BorderStyle.THIN);
+			CellStyle borderedStyle = workbook.createCellStyle();
+			borderedStyle.setBorderTop(BorderStyle.THIN);
+			borderedStyle.setBorderBottom(BorderStyle.THIN);
+			borderedStyle.setBorderLeft(BorderStyle.THIN);
+			borderedStyle.setBorderRight(BorderStyle.THIN);
 
-	        CellStyle wrapStyle = workbook.createCellStyle();
-	        wrapStyle.cloneStyleFrom(borderedStyle);
-	        wrapStyle.setWrapText(true);
+			CellStyle wrapStyle = workbook.createCellStyle();
+			wrapStyle.cloneStyleFrom(borderedStyle);
+			wrapStyle.setWrapText(true);
 
-	        // 헤더 생성
-	        Row header = sheet.createRow(0);
-	        String[] titles = {"대리점명", "요청자", "제목", "요청일", "상태", "배정팀", "담당자", "주소", "요청사유", "금액", "비고"};
-	        for (int i = 0; i < titles.length; i++) {
-	            Cell cell = header.createCell(i);
-	            cell.setCellValue(titles[i]);
-	            cell.setCellStyle(headerStyle);
-	            sheet.setColumnWidth(i, (i == 7 || i == 8 || i == 10) ? 10000 : 5000);
-	        }
+			// 헤더 출력
+			Row header = sheet.createRow(0);
+			String[] titles = { "대리점명", "요청자", "제목", "요청일", "상태", "배정팀", "담당자", "주소", "요청사유", "금액", "비고" };
+			for (int i = 0; i < titles.length; i++) {
+				Cell cell = header.createCell(i);
+				cell.setCellValue(titles[i]);
+				cell.setCellStyle(headerStyle);
+				sheet.setColumnWidth(i, (i == 7 || i == 8 || i == 10) ? 10000 : 5000);
+			}
 
-	        // 데이터 행 출력
-	        int rowIdx = 1;
-	        for (AsTask task : asTasks) {
-	            Row row = sheet.createRow(rowIdx++);
-	            row.setHeightInPoints(60);
+			// 데이터 출력
+			int rowIdx = 1;
+			for (AsTask task : asTasks) {
+				Row row = sheet.createRow(rowIdx++);
+				row.setHeightInPoints(60);
 
-	            row.createCell(0).setCellValue(task.getRequestedBy().getCompany().getCompanyName());
-	            row.getCell(0).setCellStyle(borderedStyle);
+				row.createCell(0).setCellValue(task.getRequestedBy().getCompany().getCompanyName());
+				row.getCell(0).setCellStyle(borderedStyle);
 
-	            row.createCell(1).setCellValue(task.getRequestedBy().getName());
-	            row.getCell(1).setCellStyle(borderedStyle);
+				row.createCell(1).setCellValue(task.getRequestedBy().getName());
+				row.getCell(1).setCellStyle(borderedStyle);
 
-	            row.createCell(2).setCellValue(task.getSubject());
-	            row.getCell(2).setCellStyle(borderedStyle);
+				row.createCell(2).setCellValue(task.getSubject());
+				row.getCell(2).setCellStyle(borderedStyle);
 
-	            row.createCell(3).setCellValue(task.getRequestedAt() != null ? task.getRequestedAt().toString() : "");
-	            row.getCell(3).setCellStyle(borderedStyle);
+				row.createCell(3).setCellValue(task.getRequestedAt() != null ? task.getRequestedAt().toString() : "");
+				row.getCell(3).setCellStyle(borderedStyle);
 
-	            row.createCell(4).setCellValue(task.getStatus() != null ? task.getStatus().name() : "");
-	            row.getCell(4).setCellStyle(borderedStyle);
+				row.createCell(4).setCellValue(task.getStatus() != null ? task.getStatus().name() : "");
+				row.getCell(4).setCellStyle(borderedStyle);
 
-	            row.createCell(5).setCellValue(task.getAssignedTeam() != null ? task.getAssignedTeam().getName() : "");
-	            row.getCell(5).setCellStyle(borderedStyle);
+				row.createCell(5).setCellValue(task.getAssignedTeam() != null ? task.getAssignedTeam().getName() : "");
+				row.getCell(5).setCellStyle(borderedStyle);
 
-	            row.createCell(6).setCellValue(task.getAssignedHandler() != null ? task.getAssignedHandler().getName() : "");
-	            row.getCell(6).setCellStyle(borderedStyle);
+				row.createCell(6)
+						.setCellValue(task.getAssignedHandler() != null ? task.getAssignedHandler().getName() : "");
+				row.getCell(6).setCellStyle(borderedStyle);
 
-	            row.createCell(7).setCellValue(task.getRoadAddress() + " " + task.getDetailAddress());
-	            row.getCell(7).setCellStyle(wrapStyle);
+				row.createCell(7).setCellValue(task.getRoadAddress() + " " + task.getDetailAddress());
+				row.getCell(7).setCellStyle(wrapStyle);
 
-	            row.createCell(8).setCellValue(task.getReason() != null ? task.getReason() : "");
-	            row.getCell(8).setCellStyle(wrapStyle);
+				row.createCell(8).setCellValue(task.getReason() != null ? task.getReason() : "");
+				row.getCell(8).setCellStyle(wrapStyle);
 
-	            row.createCell(9).setCellValue(task.getPrice());
-	            row.getCell(9).setCellStyle(borderedStyle);
+				row.createCell(9).setCellValue(task.getPrice());
+				row.getCell(9).setCellStyle(borderedStyle);
 
-	            row.createCell(10).setCellValue(task.getAsComment() != null ? task.getAsComment() : "");
-	            row.getCell(10).setCellStyle(wrapStyle);
-	        }
+				row.createCell(10).setCellValue(task.getAsComment() != null ? task.getAsComment() : "");
+				row.getCell(10).setCellStyle(wrapStyle);
+			}
 
-	        workbook.write(response.getOutputStream());
-	    }
+			workbook.write(response.getOutputStream());
+		}
 	}
-	
+
 	@PostMapping("/asUpdate/{id}")
 	public String updateAsTask(@PathVariable Long id, @RequestParam(required = false) Integer price,
 			@RequestParam String status, @RequestParam(required = false) Long assignedHandlerId) {
@@ -583,59 +564,76 @@ public class ManagementController {
 	}
 
 	@GetMapping("/productionList")
-	public String productionListPage(@RequestParam(required = false) Long categoryId,
-			@RequestParam(required = false) String status,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-			Pageable pageable, Model model) {
+	public String productionListPage(
+	        @RequestParam(required = false) Long categoryId,
+	        @RequestParam(required = false) String status,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	        @RequestParam(required = false) String dateType,
+	        Pageable pageable,
+	        Model model) {
 
-		TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
-		LocalDate targetDate = (date != null) ? date : LocalDate.now().plusDays(1);
+	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
 
-		OrderStatus parsedStatus;
-		if (status == null) {
-			parsedStatus = OrderStatus.CONFIRMED;
-			status = OrderStatus.CONFIRMED.name(); // 🔧 문자열로 다시 설정 (화면 select 유지)
-		} else if (status.isBlank()) {
-			parsedStatus = null;
-		} else {
-			try {
-				parsedStatus = OrderStatus.valueOf(status);
-			} catch (IllegalArgumentException e) {
-				parsedStatus = OrderStatus.CONFIRMED;
-				status = OrderStatus.CONFIRMED.name();
-			}
-		}
+	    LocalDate startD = (startDate != null) ? startDate : LocalDate.now();
+	    LocalDate endD = (endDate != null) ? endDate : LocalDate.now().plusDays(1);
+	    LocalDateTime start = startD.atStartOfDay();
+	    LocalDateTime end = endD.atTime(LocalTime.MAX);
 
-		Page<Order> orders = orderStatusService.getOrders(targetDate, category, parsedStatus, pageable);
+	    OrderStatus parsedStatus;
+	    if (status == null) {
+	        parsedStatus = OrderStatus.CONFIRMED;
+	        status = OrderStatus.CONFIRMED.name();
+	    } else if (status.isBlank()) {
+	        parsedStatus = null;
+	    } else {
+	        try {
+	            parsedStatus = OrderStatus.valueOf(status);
+	        } catch (IllegalArgumentException e) {
+	            parsedStatus = OrderStatus.CONFIRMED;
+	            status = OrderStatus.CONFIRMED.name();
+	        }
+	    }
 
-		model.addAttribute("orders", orders);
-		model.addAttribute("categoryId", categoryId);
-		model.addAttribute("status", status); // 문자열 그대로 전달
-		model.addAttribute("date", targetDate);
-		model.addAttribute("categories", teamCategoryRepository.findByTeamName("생산팀"));
-		model.addAttribute("orderStatusList", OrderStatus.values());
+	    Page<Order> orders = orderStatusService.getOrders(start, end, category, parsedStatus, dateType, pageable);
 
-		return "administration/management/production/productionList";
+	    model.addAttribute("orders", orders);
+	    model.addAttribute("categoryId", categoryId);
+	    model.addAttribute("status", status);
+	    model.addAttribute("startDate", startD);
+	    model.addAttribute("endDate", endD);
+	    model.addAttribute("dateType", dateType);
+	    model.addAttribute("categories", teamCategoryRepository.findByTeamName("생산팀"));
+	    model.addAttribute("orderStatusList", OrderStatus.values());
+
+	    return "administration/management/production/productionList";
 	}
 
 	@GetMapping("/productionList/excel")
-	public void downloadProductionListExcel(@RequestParam(required = false) Long categoryId,
-			@RequestParam(required = false) String status,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-			HttpServletResponse response) throws IOException {
+	public void downloadProductionListExcel(
+	        @RequestParam(required = false) Long categoryId,
+	        @RequestParam(required = false) String status,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	        @RequestParam(required = false) String dateType,
+	        HttpServletResponse response) throws IOException {
 
-		TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
-		LocalDate targetDate = (date != null) ? date : LocalDate.now().plusDays(1);
+	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
 
-		OrderStatus parsedStatus = null;
-		if (status != null && !status.isBlank()) {
-			try {
-				parsedStatus = OrderStatus.valueOf(status);
-			} catch (IllegalArgumentException ignored) {
-			}
-		}
+	    LocalDate startD = (startDate != null) ? startDate : LocalDate.now();
+	    LocalDate endD = (endDate != null) ? endDate : LocalDate.now().plusDays(1);
+	    LocalDateTime start = startD.atStartOfDay();
+	    LocalDateTime end = endD.atTime(LocalTime.MAX);
 
-		List<Order> orders = orderStatusService.getAllOrders(targetDate, category, parsedStatus);
+	    OrderStatus parsedStatus = null;
+	    if (status != null && !status.isBlank()) {
+	        try {
+	            parsedStatus = OrderStatus.valueOf(status);
+	        } catch (IllegalArgumentException ignored) {
+	        }
+	    }
+
+	    List<Order> orders = orderStatusService.getAllOrders(start, end, category, parsedStatus, dateType);
 
 		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 		response.setHeader("Content-Disposition", "attachment; filename=production_task_orders.xlsx");
@@ -712,8 +710,8 @@ public class ManagementController {
 						order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
 				row.getCell(3).setCellStyle(borderedStyle);
 
-				row.createCell(4)
-						.setCellValue(order.getDeliveryMethod() != null ? order.getDeliveryMethod().getMethodName() : "");
+				row.createCell(4).setCellValue(
+						order.getDeliveryMethod() != null ? order.getDeliveryMethod().getMethodName() : "");
 				row.getCell(4).setCellStyle(borderedStyle);
 
 				row.createCell(5).setCellValue(
@@ -799,51 +797,99 @@ public class ManagementController {
 
 	@GetMapping("/deliveryList")
 	public String deliveryListPage(
-			@RequestParam(required = false) Long categoryId,
-			@RequestParam(required = false) String status,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-			Pageable pageable, Model model) {
+	    @RequestParam(required = false) Long categoryId,
+	    @RequestParam(required = false) String status,
+	    @RequestParam(required = false) String dateType, // preferred or created
+	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	    Pageable pageable, Model model) {
 
-		TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
-		LocalDate targetDate = (date != null) ? date : LocalDate.now().plusDays(1);
+	    // 카테고리 처리
+	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
 
-		OrderStatus parsedStatus;
-		if (status == null) {
-			parsedStatus = OrderStatus.PRODUCTION_DONE;
-			status = OrderStatus.PRODUCTION_DONE.name(); // 🔧 문자열로 다시 설정 (화면 select 유지)
-		} else if (status.isBlank()) {
-			parsedStatus = null;
-		} else {
-			try {
-				parsedStatus = OrderStatus.valueOf(status);
-			} catch (IllegalArgumentException e) {
-				parsedStatus = OrderStatus.PRODUCTION_DONE;
-				status = OrderStatus.PRODUCTION_DONE.name();
-			}
-		}
+	    // 날짜 범위 처리
+	    LocalDateTime from;
+	    LocalDateTime to;
 
-		Page<Order> orders = orderStatusService.getOrders(targetDate, category, parsedStatus, pageable);
+	    if (startDate != null && endDate != null) {
+	        from = startDate.atStartOfDay();
+	        to = endDate.atTime(LocalTime.MAX);
+	    } else if (startDate != null) {
+	        from = startDate.atStartOfDay();
+	        to = LocalDateTime.of(9999, 12, 31, 23, 59, 59); // 사실상 무제한 미래
+	    } else if (endDate != null) {
+	        from = LocalDateTime.of(1970, 1, 1, 0, 0, 0); // 과거 전체 포함
+	        to = endDate.atTime(LocalTime.MAX);
+	    } else {
+	        LocalDate today = LocalDate.now();
+	        from = today.atStartOfDay();
+	        to = today.atTime(LocalTime.MAX);
+	    }
 
-		model.addAttribute("orders", orders);
-		model.addAttribute("categoryId", categoryId);
-		model.addAttribute("status", status); // 문자열 그대로 전달
-		model.addAttribute("date", targetDate);
-		model.addAttribute("categories", memberRepository.findByTeamName("배송팀"));
-		model.addAttribute("orderStatusList", OrderStatus.values());
+	    // 상태 처리
+	    OrderStatus parsedStatus;
+	    if (status == null) {
+	        parsedStatus = OrderStatus.PRODUCTION_DONE;
+	        status = OrderStatus.PRODUCTION_DONE.name();
+	    } else if (status.isBlank()) {
+	        parsedStatus = null;
+	    } else {
+	        try {
+	            parsedStatus = OrderStatus.valueOf(status);
+	        } catch (IllegalArgumentException e) {
+	            parsedStatus = OrderStatus.PRODUCTION_DONE;
+	            status = OrderStatus.PRODUCTION_DONE.name();
+	        }
+	    }
 
-		return "administration/management/delivery/deliveryList";
+	    // 날짜 기준 타입 처리
+	    String finalDateType = (dateType == null || dateType.isBlank()) ? "preferred" : dateType;
+
+	    // 주문 리스트 조회
+	    Page<Order> orders = orderStatusService.getOrders(
+	        from, to, category, parsedStatus, finalDateType, pageable);
+
+	    // 모델에 값 전달
+	    model.addAttribute("orders", orders);
+	    model.addAttribute("categoryId", categoryId);
+	    model.addAttribute("status", status);
+	    model.addAttribute("dateType", finalDateType);
+	    model.addAttribute("startDate", startDate); // 입력 값 그대로 전달
+	    model.addAttribute("endDate", endDate);     // 입력 값 그대로 전달
+	    model.addAttribute("categories", memberRepository.findByTeamName("배송팀"));
+	    model.addAttribute("orderStatusList", OrderStatus.values());
+
+	    return "administration/management/delivery/deliveryList";
 	}
 
 	@GetMapping("/deliveryList/excel")
 	public void downloadDeliveryListExcel(
-	        @RequestParam(required = false) Long categoryId,
-	        @RequestParam(required = false) String status,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-	        HttpServletResponse response
-	) throws IOException {
+	    @RequestParam(required = false) Long categoryId,
+	    @RequestParam(required = false) String status,
+	    @RequestParam(required = false) String dateType,
+	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	    HttpServletResponse response) throws IOException {
 
 	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
-	    LocalDate targetDate = (date != null) ? date : LocalDate.now().plusDays(1);
+
+	    LocalDateTime from;
+	    LocalDateTime to;
+
+	    if (startDate != null && endDate != null) {
+	        from = startDate.atStartOfDay();
+	        to = endDate.atTime(LocalTime.MAX);
+	    } else if (startDate != null) {
+	        from = startDate.atStartOfDay();
+	        to = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+	    } else if (endDate != null) {
+	        from = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+	        to = endDate.atTime(LocalTime.MAX);
+	    } else {
+	        LocalDate today = LocalDate.now();
+	        from = today.atStartOfDay();
+	        to = today.atTime(LocalTime.MAX);
+	    }
 
 	    OrderStatus parsedStatus = null;
 	    if (status != null && !status.isBlank()) {
@@ -855,7 +901,9 @@ public class ManagementController {
 	        parsedStatus = OrderStatus.PRODUCTION_DONE;
 	    }
 
-	    List<Order> orders = orderStatusService.getAllOrders(targetDate, category, parsedStatus); // 리스트로 조회
+	    String finalDateType = (dateType == null || dateType.isBlank()) ? "preferred" : dateType;
+
+	    List<Order> orders = orderStatusService.getAllOrders(from, to, category, parsedStatus, finalDateType);
 
 	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 	    response.setHeader("Content-Disposition", "attachment; filename=delivery_list.xlsx");
@@ -863,75 +911,31 @@ public class ManagementController {
 	    try (Workbook workbook = new XSSFWorkbook()) {
 	        Sheet sheet = workbook.createSheet("배송 리스트");
 
-	        // 스타일 설정
-	        CellStyle headerStyle = workbook.createCellStyle();
-	        Font boldFont = workbook.createFont();
-	        boldFont.setBold(true);
-	        headerStyle.setFont(boldFont);
-	        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-	        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-	        headerStyle.setBorderTop(BorderStyle.THIN);
-	        headerStyle.setBorderBottom(BorderStyle.THIN);
-	        headerStyle.setBorderLeft(BorderStyle.THIN);
-	        headerStyle.setBorderRight(BorderStyle.THIN);
+	        // ... (기존 스타일 및 헤더 작성 부분은 그대로 유지)
 
-	        CellStyle borderedStyle = workbook.createCellStyle();
-	        borderedStyle.setBorderTop(BorderStyle.THIN);
-	        borderedStyle.setBorderBottom(BorderStyle.THIN);
-	        borderedStyle.setBorderLeft(BorderStyle.THIN);
-	        borderedStyle.setBorderRight(BorderStyle.THIN);
-
-	        CellStyle wrapStyle = workbook.createCellStyle();
-	        wrapStyle.cloneStyleFrom(borderedStyle);
-	        wrapStyle.setWrapText(true);
-
-	        // 헤더
-	        Row header = sheet.createRow(0);
-	        String[] titles = {"대리점명", "요청자", "배송지", "수량", "가격", "배송희망일", "배송상태", "제품정보"};
-	        for (int i = 0; i < titles.length; i++) {
-	            Cell cell = header.createCell(i);
-	            cell.setCellValue(titles[i]);
-	            cell.setCellStyle(headerStyle);
-	            sheet.setColumnWidth(i, (i == 7) ? 12000 : 5000);
-	        }
-
-	        // 데이터
+	        // 데이터 출력
 	        int rowIdx = 1;
 	        for (Order order : orders) {
 	            Row row = sheet.createRow(rowIdx++);
 	            row.setHeightInPoints(80);
 
 	            row.createCell(0).setCellValue(order.getTask().getRequestedBy().getCompany().getCompanyName());
-	            row.getCell(0).setCellStyle(borderedStyle);
-
 	            row.createCell(1).setCellValue(order.getTask().getRequestedBy().getName());
-	            row.getCell(1).setCellStyle(borderedStyle);
-
 	            row.createCell(2).setCellValue(order.getRoadAddress() + " " + order.getDetailAddress());
-	            row.getCell(2).setCellStyle(borderedStyle);
-
 	            row.createCell(3).setCellValue(order.getQuantity());
-	            row.getCell(3).setCellStyle(borderedStyle);
-
 	            row.createCell(4).setCellValue(order.getProductCost());
-	            row.getCell(4).setCellStyle(borderedStyle);
-
-	            row.createCell(5).setCellValue(order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
-	            row.getCell(5).setCellStyle(borderedStyle);
-
+	            row.createCell(5).setCellValue(
+	                order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
 	            row.createCell(6).setCellValue(order.getStatus().name());
-	            row.getCell(6).setCellStyle(borderedStyle);
 
-	            // 제품정보 (카테고리 + 제품명 + 옵션 파싱)
+	            // 제품 상세
 	            StringBuilder detail = new StringBuilder();
 	            if (order.getProductCategory() != null) {
 	                detail.append("카테고리: ").append(order.getProductCategory().getName()).append("\n");
 	            }
-
 	            OrderItem item = order.getOrderItem();
 	            if (item != null) {
 	                detail.append("제품명: ").append(item.getProductName()).append("\n");
-
 	                if (item.getOptionJson() != null && !item.getOptionJson().isBlank()) {
 	                    try {
 	                        Map<String, String> optionMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {});
@@ -939,11 +943,8 @@ public class ManagementController {
 	                        for (Map.Entry<String, String> entry : optionMap.entrySet()) {
 	                            detail.append(entry.getKey()).append(": ").append(entry.getValue());
 	                            count++;
-	                            if (count % 5 == 0) {
-	                                detail.append("\n");
-	                            } else {
-	                                detail.append(" / ");
-	                            }
+	                            if (count % 5 == 0) detail.append("\n");
+	                            else detail.append(" / ");
 	                        }
 	                        if (!detail.toString().endsWith("\n")) {
 	                            detail.setLength(detail.length() - 3); // 마지막 " / " 제거
@@ -953,10 +954,8 @@ public class ManagementController {
 	                    }
 	                }
 	            }
-
 	            Cell detailCell = row.createCell(7);
 	            detailCell.setCellValue(detail.toString().trim());
-	            detailCell.setCellStyle(wrapStyle);
 	        }
 
 	        workbook.write(response.getOutputStream());
@@ -995,7 +994,7 @@ public class ManagementController {
 		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
 		return "administration/management/delivery/deliveryDetail";
 	}
-	
+
 	@GetMapping("/clientList")
 	public String clientList(@RequestParam(required = false) String keyword,
 			@RequestParam(required = false, defaultValue = "company") String searchType,

@@ -45,12 +45,14 @@
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
 												<a th:href="@{/management/asList/excel(
-												    handlerId=${selectedHandlerId},
-												    status=${selectedStatuses},
-												    date=${#temporals.format(selectedDate, 'yyyy-MM-dd')}
+													handlerId=${selectedHandlerId},
+													status=${selectedStatus},
+													dateType=${selectedDateType},
+													fromDate=${#temporals.format(selectedFromDate, 'yyyy-MM-dd')},
+													toDate=${#temporals.format(selectedToDate, 'yyyy-MM-dd')}
 												)}"
-												   class="btn btn-success">
-												   <i class="fa-solid fa-download"></i> 엑셀 다운로드
+												class="btn btn-success">
+													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
 											</div>
 										</div>
@@ -60,40 +62,59 @@
 									<form method="get" action="/management/asList">
 										<div class="row g-3">
 											<!-- 상태 -->
-											<div class="col-md-3">
+											<div class="col-md-2">
 												<label class="form-label">AS 상태</label>
 												<select class="form-select" name="status">
-												    <option value="">전체</option>
-												    <option th:each="status : ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).values()}"
-													        th:value="${status}"
-													        th:text="${status}"
-													        th:selected="${selectedStatus != null and selectedStatus.name() == status.name()}">
+													<option value="">전체</option>
+													<option
+														th:each="status : ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).values()}"
+														th:value="${status}" th:text="${status}"
+														th:selected="${selectedStatus != null and selectedStatus.name() == status.name()}">
 													</option>
 												</select>
 											</div>
 
 											<!-- 담당자 -->
-											<div class="col-md-3">
+											<div class="col-md-2">
 												<label class="form-label">AS 담당자</label>
 												<select class="form-select" name="handlerId">
-												    <option value="" th:selected="${selectedHandlerId == null}">전체</option>
-												    <option th:each="handler : ${asHandlers}"
-												            th:value="${handler.id}"
-												            th:text="${handler.name}"
-												            th:selected="${selectedHandlerId != null and selectedHandlerId == handler.id}">
-												    </option>
+													<option value="" th:selected="${selectedHandlerId == null}">전체
+													</option>
+													<option th:each="handler : ${asHandlers}" th:value="${handler.id}"
+														th:text="${handler.name}"
+														th:selected="${selectedHandlerId != null and selectedHandlerId == handler.id}">
+													</option>
 												</select>
 											</div>
 
-											<!-- 날짜 -->
-											<div class="col-md-3">
-												<label class="form-label">신청일</label>
-												<input type="date" class="form-control" name="date"
-													th:value="${#temporals.format(selectedDate, 'yyyy-MM-dd')}">
+											<!-- 날짜 기준 타입 선택 -->
+											<div class="col-md-2">
+												<label class="form-label">날짜 기준</label>
+												<select class="form-select" name="dateType">
+													<option value="requested"
+														th:selected="${selectedDateType == 'requested'}">신청일 기준</option>
+													<option value="processed"
+														th:selected="${selectedDateType == 'processed'}">처리일 기준</option>
+												</select>
 											</div>
 
+											<!-- 시작 날짜 -->
+											<div class="col-md-2">
+												<label class="form-label">시작일</label>
+												<input type="date" class="form-control" name="fromDate"
+													th:value="${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''}">
+											</div>
+
+											<!-- 종료 날짜 -->
+											<div class="col-md-2">
+												<label class="form-label">종료일</label>
+												<input type="date" class="form-control" name="toDate"
+													th:value="${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}">
+											</div>
+
+
 											<!-- 검색 버튼 -->
-											<div class="col-md-3">
+											<div class="col-md-2">
 												<label class="form-label">조회</label>
 												<button type="submit" class="btn btn-primary w-100">
 													<i class="fa-solid fa-magnifying-glass"></i> 검색

@@ -46,6 +46,16 @@ public class AsTaskService {
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 	
+	public List<AsTask> getFilteredAsList(Long memberId, AsStatus status, String dateType,
+	            LocalDateTime start, LocalDateTime end) {
+		if ("processed".equals(dateType)) {
+		return asTaskRepository.findByProcessedDateRangeList(memberId, status, start, end);
+		} else {
+		return asTaskRepository.findByRequestedDateRangeList(memberId, status, start, end);
+		}
+	}
+
+	
 	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDate date, AsStatus status, Pageable pageable) {
 	    LocalDateTime start = (date != null ? date : LocalDate.now()).atStartOfDay();
 	    LocalDateTime end = start.plusDays(1);
@@ -57,15 +67,18 @@ public class AsTaskService {
 	    }
 	}
 
-	public Page<AsTask> getFilteredAsList(Long memberId, AsStatus statuses, LocalDate asDate, Pageable pageable) {
-	    if (asDate != null) {
-	        LocalDateTime startOfDay = asDate.atStartOfDay();
-	        LocalDateTime endOfDay = asDate.plusDays(1).atStartOfDay();
-	        return asTaskRepository.findByFilterWithDateRange(memberId, statuses, startOfDay, endOfDay, pageable);
-	    } else {
-	        return asTaskRepository.findByFilterWithDateRange(memberId, statuses, null, null, pageable);
-	    }
-	}
+	public Page<AsTask> getFilteredAsList(
+			Long memberId, AsStatus statuses, String dateType,
+			LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+			
+			if ("processed".equals(dateType)) {
+				return asTaskRepository.findByProcessedDateRange(memberId, statuses, startDate, endDate, pageable);
+			} else {
+				// 기본값 또는 'requested'
+				return asTaskRepository.findByRequestedDateRange(memberId, statuses, startDate, endDate, pageable);
+			}
+		}
+
 
 	public List<AsTask> getFilteredAsList(Long handlerId, AsStatus status, LocalDate date) {
 	    LocalDateTime start = date.atStartOfDay();
