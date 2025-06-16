@@ -1,49 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <property name="LOG_PATH" value="logs"/>
-    <property name="APP_NAME" value="hiddenauto"/>
+    <!-- 운영서버에서만 적용될 속성 -->
+    <springProfile name="prod">
+        <property name="LOG_PATH" value="/home/ubuntu/hiddenauto/log"/>
+        <property name="APP_NAME" value="hiddenauto"/>
 
-    <!-- 콘솔 -->
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
-        </encoder>
-    </appender>
+        <appender name="ALL_LOG" class="ch.qos.logback.core.FileAppender">
+            <file>${LOG_PATH}/${APP_NAME}.log</file>
+            <append>true</append>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+            </encoder>
+        </appender>
 
-    <!-- 전체 로그 누적 -->
-    <appender name="ALL_LOG" class="ch.qos.logback.core.FileAppender">
-        <file>${LOG_PATH}/${APP_NAME}.log</file>
-        <append>true</append> <!-- ✅ 누적 -->
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
-        </encoder>
-    </appender>
+        <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_PATH}/${APP_NAME}.rolling.log</file>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_PATH}/${APP_NAME}.rolling.%d{yyyy-MM-dd}.log</fileNamePattern>
+                <maxHistory>30</maxHistory>
+            </rollingPolicy>
+        </appender>
 
-    <!-- 날짜별 롤링 로그 -->
-    <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH}/${APP_NAME}.rolling.log</file>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
-        </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/${APP_NAME}.rolling.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>30</maxHistory>
-        </rollingPolicy>
-    </appender>
+        <logger name="com.dev.HiddenBATHAuto" level="DEBUG"/>
+        <logger name="org.hibernate" level="INFO"/>
+        <logger name="org.springframework" level="INFO"/>
 
-    <!-- 📌 내가 작성한 코드만 DEBUG -->
-    <logger name="com.dev.HiddenBATHAuto" level="DEBUG"/>
+        <root level="INFO">
+            <appender-ref ref="ALL_LOG"/>
+            <appender-ref ref="ROLLING_FILE"/>
+        </root>
+    </springProfile>
 
-    <!-- 📌 Hibernate 및 Spring은 INFO로 제한 -->
-    <logger name="org.hibernate" level="INFO"/>
-    <logger name="org.springframework" level="INFO"/>
+    <!-- 로컬 개발환경 (콘솔 출력만) -->
+    <springProfile name="default">
+        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+            </encoder>
+        </appender>
 
-    <!-- 기타 루트 로거는 INFO -->
-    <root level="INFO">
-        <appender-ref ref="STDOUT"/>
-        <appender-ref ref="ALL_LOG"/>
-        <appender-ref ref="ROLLING_FILE"/>
-    </root>
+        <logger name="com.dev.HiddenBATHAuto" level="DEBUG"/>
+        <logger name="org.hibernate" level="INFO"/>
+        <logger name="org.springframework" level="INFO"/>
+
+        <root level="INFO">
+            <appender-ref ref="STDOUT"/>
+        </root>
+    </springProfile>
 
 </configuration>
