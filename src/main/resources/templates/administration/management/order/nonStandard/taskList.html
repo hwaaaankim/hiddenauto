@@ -37,92 +37,6 @@
 					<!-- end page title -->
 
 					<div class="row">
-						<div class="col-xxl-3 col-sm-6">
-							<div class="card card-animate">
-								<div class="card-body">
-									<div class="d-flex justify-content-between">
-										<div>
-											<p class="fw-semibold text-muted mb-0">총 발주</p>
-											<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
-													data-target="234">234</span>회</h2>
-										</div>
-										<div>
-											<div class="avatar-sm flex-shrink-0">
-												<span class="avatar-title bg-info-subtle text-info rounded-circle fs-4">
-													<i class="ri-ticket-2-line"></i>
-												</span>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-						<div class="col-xxl-3 col-sm-6">
-							<div class="card card-animate">
-								<div class="card-body">
-									<div class="d-flex justify-content-between">
-										<div>
-											<p class="fw-semibold text-muted mb-0">대기중</p>
-											<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
-													data-target="14">14</span>회</h2>
-										</div>
-										<div>
-											<div class="avatar-sm flex-shrink-0">
-												<span
-													class="avatar-title bg-warning-subtle text-warning rounded-circle fs-4">
-													<i class="mdi mdi-timer-sand"></i>
-												</span>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<div class="col-xxl-3 col-sm-6">
-							<div class="card card-animate">
-								<div class="card-body">
-									<div class="d-flex justify-content-between">
-										<div>
-											<p class="fw-semibold text-muted mb-0">진행중</p>
-											<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
-													data-target="224">224</span>회</h2>
-										</div>
-										<div>
-											<div class="avatar-sm flex-shrink-0">
-												<span class="avatar-title bg-info-subtle text-info rounded-circle fs-4">
-													<i class="ri-ticket-2-line"></i>
-												</span>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-						<div class="col-xxl-3 col-sm-6">
-							<div class="card card-animate">
-								<div class="card-body">
-									<div class="d-flex justify-content-between">
-										<div>
-											<p class="fw-semibold text-muted mb-0">발주취소</p>
-											<h2 class="mt-4 ff-secondary fw-semibold"><span class="counter-value"
-													data-target="34">34</span>회</h2>
-										</div>
-										<div>
-											<div class="avatar-sm flex-shrink-0">
-												<span
-													class="avatar-title bg-danger-subtle text-danger rounded-circle fs-4">
-													<i class="ri-delete-bin-line"></i>
-												</span>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<div class="row">
 						<div class="col-lg-12">
 							<div class="card" id="tasksList">
 								<div class="card-header border-0">
@@ -259,7 +173,7 @@
 													<th class="sort">오더ID</th>
 													<th class="sort">대리점명</th>
 													<th class="sort">신청자</th>
-													<th class="sort">담당영업사원</th>
+													<th class="sort">규격/비규격</th>
 													<th class="sort">발주일</th>
 													<th class="sort">배송희망일</th>
 													<th class="sort">상태</th>
@@ -301,14 +215,10 @@
 															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
-													<!-- 담당영업사원 -->
+													<!-- 규격/비규격 구분 -->
 													<td class="assignedto">
-														<a th:if="${order.task.requestedBy.company?.salesManager != null}"
-															th:href="@{'/management/employee/' + ${order.task.requestedBy.company.salesManager.id}}"
-															th:text="${order.task.requestedBy.company.salesManager.name}">담당영업사원</a>
-														<span
-															th:if="${order.task.requestedBy.company?.salesManager == null}"
-															class="text-muted">미지정</span>
+													    <span th:if="${order.standard}" class="badge bg-success-subtle text-success">규격</span>
+													    <span th:if="${!order.standard}" class="badge bg-primary-subtle text-primary">비규격</span>
 													</td>
 
 													<!-- 발주일 -->
