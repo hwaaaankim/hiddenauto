@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 
@@ -19,6 +20,13 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 
 	Page<AsTask> findAllByOrderByRequestedAtDesc(Pageable pageable);
 	
+	List<AsTask> findByRequestedBy(Member member);
+
+	List<AsTask> findByRequestedByAndAsProcessDateBetween(Member member, LocalDateTime start, LocalDateTime end);
+	
+	// AsTaskRepository
+	List<AsTask> findByRequestedByAndRequestedAtBetween(Member member, LocalDateTime start, LocalDateTime end);
+
 	@Query("SELECT a FROM AsTask a WHERE a.requestedBy.company.id = :companyId")
 	Page<AsTask> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
 

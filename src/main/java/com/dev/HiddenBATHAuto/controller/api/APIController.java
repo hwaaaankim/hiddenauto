@@ -2,11 +2,18 @@ package com.dev.HiddenBATHAuto.controller.api;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,15 +25,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.dto.CalendarEventDTO;
+import com.dev.HiddenBATHAuto.dto.TaskDetailDTO;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
+import com.dev.HiddenBATHAuto.model.task.AsTask;
+import com.dev.HiddenBATHAuto.model.task.Task;
+import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductColorRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductOptionPositionRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductSeriesRepository;
+import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.auth.MemberValidationService;
 import com.dev.HiddenBATHAuto.service.auth.RegionExcelService;
@@ -43,10 +57,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Controller
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Slf4j
 public class APIController {
 
 	private final MemberService memberService;
@@ -64,27 +80,29 @@ public class APIController {
 	private final ProductRepository productRepo;
 	private final ProductColorRepository colorRepo;
 	private final ProductOptionPositionRepository optionRepo;
-    private final CityRepository cityRepository;
-    private final DistrictRepository districtRepository;
+	private final CityRepository cityRepository;
+	private final DistrictRepository districtRepository;
+	private final AsTaskRepository asTaskRepository;
+	private final TaskRepository taskRepository;
 
-    @GetMapping("/province/{provinceId}/cities")
-    @ResponseBody
-    public List<City> getCitiesByProvince(@PathVariable Long provinceId) {
-        return cityRepository.findByProvinceId(provinceId);
-    }
+	@GetMapping("/province/{provinceId}/cities")
+	@ResponseBody
+	public List<City> getCitiesByProvince(@PathVariable Long provinceId) {
+		return cityRepository.findByProvinceId(provinceId);
+	}
 
-    @GetMapping("/province/{provinceId}/districts")
-    @ResponseBody
-    public List<District> getDistrictsByProvince(@PathVariable Long provinceId) {
-        return districtRepository.findByProvinceIdAndCityIsNull(provinceId);
-    }
+	@GetMapping("/province/{provinceId}/districts")
+	@ResponseBody
+	public List<District> getDistrictsByProvince(@PathVariable Long provinceId) {
+		return districtRepository.findByProvinceIdAndCityIsNull(provinceId);
+	}
 
-    @GetMapping("/city/{cityId}/districts")
-    @ResponseBody
-    public List<District> getDistrictsByCity(@PathVariable Long cityId) {
-        return districtRepository.findByCityId(cityId);
-    }
-	
+	@GetMapping("/city/{cityId}/districts")
+	@ResponseBody
+	public List<District> getDistrictsByCity(@PathVariable Long cityId) {
+		return districtRepository.findByCityId(cityId);
+	}
+
 	@PostMapping("/mirrorSeriesExcelUpload")
 	public ResponseEntity<String> uploadMirrorSeriesExcel(@RequestParam("file") MultipartFile file) {
 		try {
@@ -210,21 +228,91 @@ public class APIController {
 
 	@GetMapping("/validate/username")
 	@ResponseBody
-    public Map<String, Boolean> checkUsernameDuplicate(@RequestParam String username) {
-        boolean duplicate = memberValidationService.isUsernameDuplicate(username);
-        Map<String, Boolean> response = new HashMap<>();
-        response.put("duplicate", duplicate);
-        return response;
-    }
+	public Map<String, Boolean> checkUsernameDuplicate(@RequestParam String username) {
+		boolean duplicate = memberValidationService.isUsernameDuplicate(username);
+		Map<String, Boolean> response = new HashMap<>();
+		response.put("duplicate", duplicate);
+		return response;
+	}
 
-    @GetMapping("/validate/phone")
-    @ResponseBody
-    public Map<String, Boolean> checkPhoneDuplicate(@RequestParam String phone) {
-        boolean duplicate = memberValidationService.isPhoneDuplicate(phone);
-        Map<String, Boolean> response = new HashMap<>();
-        response.put("duplicate", duplicate);
-        return response;
-    }
-	
-	
+	@GetMapping("/validate/phone")
+	@ResponseBody
+	public Map<String, Boolean> checkPhoneDuplicate(@RequestParam String phone) {
+		boolean duplicate = memberValidationService.isPhoneDuplicate(phone);
+		Map<String, Boolean> response = new HashMap<>();
+		response.put("duplicate", duplicate);
+		return response;
+	}
+
+	@GetMapping("/calendar/events")
+	@ResponseBody
+	public List<CalendarEventDTO> getCalendarEvents(@AuthenticationPrincipal PrincipalDetails principalDetails) {
+		
+		Member member = principalDetails.getMember(); // 또는 getUser() 등 실제 메서드명 확인
+		log.info("[CalendarEvents] 요청자: {}", member != null ? member.getUsername() : "비로그인");
+
+		List<AsTask> asTasks = asTaskRepository.findByRequestedBy(member);
+		List<Task> tasks = taskRepository.findByRequestedBy(member);
+
+		log.info("조회된 AS 태스크 수: {}", asTasks.size());
+		log.info("조회된 주문 태스크 수: {}", tasks.size());
+
+		Map<LocalDate, List<AsTask>> asMap = asTasks.stream()
+				.collect(Collectors.groupingBy(task -> task.getRequestedAt().toLocalDate()));
+
+		Map<LocalDate, List<Task>> taskMap = tasks.stream()
+				.collect(Collectors.groupingBy(task -> task.getCreatedAt().toLocalDate()));
+
+		Set<LocalDate> allDates = new HashSet<>();
+		allDates.addAll(asMap.keySet());
+		allDates.addAll(taskMap.keySet());
+
+		log.info("모든 날짜 수: {}", allDates.size());
+
+		List<CalendarEventDTO> result = new ArrayList<>();
+		for (LocalDate date : allDates) {
+			int asCount = asMap.getOrDefault(date, List.of()).size();
+			int taskCount = taskMap.getOrDefault(date, List.of()).size();
+			result.add(new CalendarEventDTO(date.toString(), asCount, taskCount));
+
+			log.info("📅 {}: AS {}건 / 주문 {}건", date, asCount, taskCount);
+		}
+
+		return result;
+	}
+
+	@GetMapping("/calendar/tasks")
+	@ResponseBody
+	public List<TaskDetailDTO> getTasksByDate(@AuthenticationPrincipal PrincipalDetails principalDetails, @RequestParam String date) {
+		
+		Member member = principalDetails.getMember(); // 또는 getUser() 등 실제 메서드명 확인
+		log.info("[TaskDetail] 날짜: {}, 요청자: {}", date, member != null ? member.getUsername() : "비로그인");
+
+		LocalDate targetDate = LocalDate.parse(date);
+
+		List<AsTask> asTasks = asTaskRepository.findByRequestedByAndRequestedAtBetween(member,
+				targetDate.atStartOfDay(), targetDate.atTime(LocalTime.MAX));
+
+		List<Task> tasks = taskRepository.findByRequestedByAndCreatedAtBetween(member, targetDate.atStartOfDay(),
+				targetDate.atTime(LocalTime.MAX));
+
+		log.info("해당 날짜의 AS 태스크 수: {}", asTasks.size());
+		log.info("해당 날짜의 주문 태스크 수: {}", tasks.size());
+
+		List<TaskDetailDTO> result = new ArrayList<>();
+		for (AsTask task : asTasks) {
+			TaskDetailDTO dto = TaskDetailDTO.fromAsTask(task);
+			log.debug("AS → {}", dto);
+			result.add(dto);
+		}
+
+		for (Task task : tasks) {
+			TaskDetailDTO dto = TaskDetailDTO.fromTask(task);
+			log.debug("TASK → {}", dto);
+			result.add(dto);
+		}
+
+		return result;
+	}
+
 }

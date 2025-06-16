@@ -80,7 +80,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="/memberList" sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
+				<a href="/customer/memberList" sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
 					<span>직원리스트</span>
 					<strong>직원에 대한 관리 기능을 제공합니다.</strong>
 					<i class="fa fa-angle-right"></i>
@@ -110,11 +110,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 				<a href="/customer/productMarkList">
 					<span>즐겨찾기</span>
 					<strong>즐겨찾기 해둔 제품을 빠르게 발주할 수 있습니다.</strong>
-					<i class="fa fa-angle-right"></i>
-				</a>
-				<a href="/cart">
-					<span>장바구니</span>
-					<strong>진행중인 발주 현황을 빠르게 확인할 수 있습니다.</strong>
 					<i class="fa fa-angle-right"></i>
 				</a>
 			</div>
@@ -171,12 +166,6 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 					<span>메인</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="/taskList">
-					<i class="fa font-14 fa-cog color-blue-dark"></i>
-					<span>업무관리</span>
-					<span class="badge bg-red-dark">NEW</span>
-					<i class="fa fa-angle-right"></i>
-				</a>
 				<a href="/standardOrderProduct">
 					<i class="fa font-14 fa-file color-brown-dark"></i>
 					<span>규격제품발주</span>
@@ -187,7 +176,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 					<span>비규격제품발주</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="#">
+				<a href="/customer/asRequest">
 					<i class="fa font-14 fa-camera color-green-dark"></i>
 					<span>AS접수</span>
 					<i class="fa fa-angle-right"></i>
@@ -221,8 +210,5 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <th:block th:fragment="autoFooter">
 	<div class="footer">
 		<p class="footer-copyright">Copyright &copy; Enabled <span id="copyright-year"></span>. All Rights Reserved.</p>
-		<p class="footer-links"><a href="#">Privacy Policy</a> | <a href="#">Terms and Conditions</a> | <a href="#"
-				class="back-to-top color-highlight"> Back to Top</a></p>
-		<div class="clear"></div>
 	</div>
 </th:block>

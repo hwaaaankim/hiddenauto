@@ -1,10 +1,33 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <title>500</title>
+<!DOCTYPE HTML>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head th:replace="~{fragments/front/common :: autoHead}">
 </head>
-<body>
-    <h1>500</h1>
-    <p>서버 에러.</p>
+
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+
+
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+
+	<div id="page" class="container">
+		<th:block th:replace="~{fragments/front/common :: beforeHeaderMenu}"></th:block>
+		<div class="page-content header-clear-medium sign">
+			<div class="sign-wrap">
+				<div class="ps-5 pe-5">
+					<h1 class="text-center font-800 font-40 mb-5">서버 에러</h1>
+					<div class="mt-1 mb-5 error-text-wrap">
+						<p>* 서버에러가 발생 하였습니다.</p>
+						<p>* 동일한 증상이 반복적으로 에러가 발생하는 경우</p>
+						<p>* 관리자에게 문의 부탁드립니다.</p>
+					</div>
+					<div class="login-btn-wrap">
+						<a
+						href="/index" 
+						class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-700 bg-highlight">HOME으로 돌아가기</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}"></th:block>
 </body>
-</html>

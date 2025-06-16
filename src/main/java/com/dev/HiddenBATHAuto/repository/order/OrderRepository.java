@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
@@ -19,6 +20,8 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long>{
 
+	List<Order> findByTask_RequestedByAndPreferredDeliveryDateBetween(Member member, LocalDateTime start, LocalDateTime end);
+	
 	@Query("""
 		    SELECT o FROM Order o
 		    WHERE o.status IN :statuses

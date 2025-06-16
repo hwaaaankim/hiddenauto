@@ -17,9 +17,11 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
-    boolean existsByPhone(String phone);
-	
+    Optional<Member> findByPhone(String phone);
+    
 	Optional<Member> findByUsername(String username);
+
+	boolean existsByPhone(String phone);
 
 	boolean existsByUsername(String username);
 

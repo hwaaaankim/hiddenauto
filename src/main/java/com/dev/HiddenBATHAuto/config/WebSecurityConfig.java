@@ -34,7 +34,9 @@ public class WebSecurityConfig {
 			"/api/v1/**",
 			"/api/v2/**",
 			"/signUpProcess",
+			"/findPasswordProcess",
 			"/findPassword",
+			"/findUsernameProcess",
 			"/findUsername",
 			"/api/excel/**",
 			"/api/standard/**"
@@ -57,8 +59,27 @@ public class WebSecurityConfig {
 	};
 	
 	private final String[] customersUrls = {
-			"/customer/**", "/", "/index"
+		"/", 
+		"/index",
+	    "/customer/**",
+	    "/orderConfirm",
+	    "/api/v2/cartDelete",
+	    "/api/v2/insertCart",
+	    "/api/v2/cartSelect",
+	    "/api/v2/cartDeleteAll",
+	    "/api/v2/insertMark",
+	    "/api/v1/translate",
+	    "/api/v1/calendar/events",
+	    "/api/v1/calendar/tasks",
+	    "/api/order/submit",
+	    "/modeling",
+	    "/blueprint",
+	    "/calculate",
+	    "/standardOrderProduct",
+	    "/nonStandardOrderProduct",
+	    "/cart"
 	};
+
 	
 	@Bean
 	HttpSessionEventPublisher httpSessionEventPublisher() {

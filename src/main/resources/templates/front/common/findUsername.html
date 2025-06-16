@@ -20,9 +20,11 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 					<form action="/findUsernameProcess" method="post">
 						<div class="input-style no-borders has-icon">
 							<i class="fa fa-phone"></i>
-							<input type="text" 
+							<input 
+							type="text" 
 							name="phone"
-							class="form-control" placeholder="가입시 입력한 휴대폰 번호를 입력 해 주세요.">
+							class="form-control" 
+							placeholder="가입시 입력한 휴대폰 번호를 입력 해 주세요.('-' 제외 숫자만입력)">
 							<label class="color-blue-dark font-10 mt-1">PHONE</label>
 							<em>(required)</em>
 						</div>
@@ -43,4 +45,5 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		</div>
 	</div>
 	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}"></th:block>
+	<script src="/front/find.js"></script>
 </body>

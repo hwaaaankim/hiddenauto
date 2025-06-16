@@ -97,111 +97,6 @@
 }
 
 
-/* 달력 스타일 */
-#auto-calendar {
-	margin: 0px auto;
-}
-
-.fc-daygrid-day {
-	transition: background-color 0.3s ease;
-	cursor: pointer;
-}
-
-/* 날짜 hover 효과 추가 */
-.fc-daygrid-day:hover {
-	background-color: rgb(177, 219, 224, 0.7);
-}
-
-/* 달력 스타일 */
-#auto-calendar {
-	margin: 0px auto;
-}
-
-/* 이벤트 타이틀이 길 경우 줄임표 처리 */
-.fc-event-title {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 100%;
-}
-
-/* 모달 스타일 */
-.auto-modal {
-	display: none;
-	position: fixed;
-	z-index: 999;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	background-color: rgba(0, 0, 0, 0.5);
-	/* 어두운 배경이 화면 전체에 적용 */
-
-}
-
-.auto-modal-content {
-	background-color: white;
-	margin: 10% auto;
-	padding: 20px;
-	position: relative;
-	border-radius: 10px;
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-	width: 90%;
-	max-width: 600px;
-	font-family: Arial, sans-serif;
-}
-
-.auto-modal-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding-bottom: 10px;
-	border-bottom: 1px solid #ddd;
-}
-
-.auto-modal-body {
-	margin-top: 20px;
-	max-height: 400px;
-	overflow-y: auto;
-	font-size: 16px;
-	line-height: 1.5;
-}
-
-/* 개별 이벤트 항목 */
-.event-item {
-	margin-bottom: 15px;
-	padding-bottom: 10px;
-	border-bottom: 1px solid #eee;
-}
-
-.event-item p {
-	margin-bottom: 0px;
-	line-height: 1.4;
-}
-
-/* 닫기 버튼 */
-#auto-close {
-	position: absolute;
-	right: 10px;
-	top: 15px;
-	font-size: 30px;
-	font-weight: 600;
-	cursor: pointer;
-	color: #333;
-}
-
-#auto-close:hover {
-	color: red;
-}
-
-/* 모바일에서도 달력이 스크롤 없이 높이가 자동 조정되도록 */
-.fc-daygrid {
-	height: auto !important;
-}
-
-h3#auto-modal-title {
-	margin-bottom: 30px;
-}
 
 .sign {
 	min-height: 100vh;
@@ -1692,4 +1587,169 @@ button[disabled] {
 	margin-bottom:0px;
 	line-height:1.4;
 	font-size:14px;
+}
+.error-text-wrap p{
+	margin-bottom:0px;
+	line-height:1.4;
+}
+.calendar-task {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #f9f9f9;
+}
+
+.calendar-task-as {
+    border-left: 4px solid #007bff;
+}
+
+.calendar-task-task {
+    border-left: 4px solid #dc3545;
+}
+
+.calendar-task-order {
+    background: white;
+    border: 1px dashed #ddd;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.calendar-task span {
+    display: inline-block;
+    width: 100px;
+    color: #666;
+    font-weight: 500;
+}
+
+.calendar-task-empty {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+}
+
+/* 달력 스타일 */
+#auto-calendar {
+	margin: 0px auto;
+}
+
+.fc-daygrid-day {
+	transition: background-color 0.3s ease;
+	cursor: pointer;
+}
+
+/* 날짜 hover 효과 추가 */
+.fc-daygrid-day:hover {
+	background-color: rgb(177, 219, 224, 0.7);
+}
+
+/* 달력 스타일 */
+#auto-calendar {
+	margin: 0px auto;
+}
+
+/* 이벤트 타이틀이 길 경우 줄임표 처리 */
+.fc-event-title {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
+}
+
+/* 모달 스타일 */
+.auto-modal {
+	display: none;
+	position: fixed;
+	z-index: 999;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.5);
+	/* 어두운 배경이 화면 전체에 적용 */
+
+}
+
+.auto-modal-content {
+	background-color: white;
+	margin: 5% auto;
+	padding: 20px;
+	position: relative;
+	border-radius: 10px;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+	width: 90%;
+	max-width: 600px;
+	max-height: 80vh; /* 💡 모달 높이 고정 */
+	display: flex;
+	flex-direction: column;
+}
+
+#auto-modal-body {
+	margin-top: 20px;
+	overflow-y: auto;
+	font-size: 16px;
+	line-height: 1.5;
+	flex: 1 1 auto; /* 💡 남은 공간만큼 차지 */
+}
+
+
+.auto-modal-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #ddd;
+}
+
+/* 개별 이벤트 항목 */
+.event-item {
+	margin-bottom: 15px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #eee;
+}
+
+.event-item p {
+	margin-bottom: 0px;
+	line-height: 1.4;
+}
+
+/* 닫기 버튼 */
+#auto-close {
+	position: absolute;
+	right: 10px;
+	top: 15px;
+	font-size: 30px;
+	font-weight: 600;
+	cursor: pointer;
+	color: #333;
+}
+
+#auto-close:hover {
+	color: red;
+}
+
+/* 모바일에서도 달력이 스크롤 없이 높이가 자동 조정되도록 */
+.fc-daygrid {
+	height: auto !important;
+}
+
+h3#auto-modal-title {
+	margin-bottom: 30px;
+}
+.calendar-task-order p, .calendar-task-as p{
+	margin-bottom:0px;
+}
+.web-mb-5{
+	margin-bottom:3rem !important;
+}
+@media(max-width:670px){
+	.web-mb-5{
+		margin-bottom:0.5rem !important;
+	}	
+	.footer {
+	    padding: 10px 30px 10px 30px;
+	    margin-bottom: 0px !important;
+	    z-index: 11;
+	}
 }

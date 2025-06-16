@@ -54,7 +54,6 @@ public class AsTask {
     private String productOptions;   // JSON 문자열로 저장하거나 단일 문자열로 처리
     private String onsiteContact;
     
-    
     @Enumerated(EnumType.STRING)
     private AsStatus status;
 
