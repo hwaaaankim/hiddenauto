@@ -9,32 +9,32 @@
             </encoder>
         </appender>
 
-        <root level="INFO">
-            <appender-ref ref="STDOUT" />
+        <root level="DEBUG">
+            <appender-ref ref="STDOUT"/>
         </root>
     </springProfile>
 
     <!-- 운영 환경: 콘솔 + 파일 로그 저장 -->
     <springProfile name="prod">
-        <property name="LOG_PATH" value="/home/ubuntu/hiddenauto/log" />
+        <property name="LOG_PATH" value="/home/ubuntu/hiddenauto/log"/>
 
-        <!-- 고정 이름 파일 (계속 덮어쓰이는 로그) -->
-        <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <!-- 💾 전체 로그 누적용 -->
+        <appender name="ALL_LOG" class="ch.qos.logback.core.FileAppender">
             <file>${LOG_PATH}/hiddenauto.log</file>
-            <append>true</append>
+            <append>true</append> <!-- 누적 저장 -->
             <encoder>
-                <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
             </encoder>
         </appender>
 
-        <!-- 날짜별 파일 저장 -->
+        <!-- 📆 날짜별 로그 파일 (최근 30일 보관) -->
         <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
             <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
                 <fileNamePattern>${LOG_PATH}/hiddenauto-%d{yyyy-MM-dd}.log</fileNamePattern>
                 <maxHistory>30</maxHistory>
             </rollingPolicy>
             <encoder>
-                <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
             </encoder>
         </appender>
 
@@ -45,10 +45,11 @@
             </encoder>
         </appender>
 
-        <root level="INFO">
+        <!-- ✅ 모든 로그를 출력 -->
+        <root level="DEBUG">
             <appender-ref ref="STDOUT"/>
-            <appender-ref ref="FILE"/>
-            <appender-ref ref="ROLLING_FILE"/>
+            <appender-ref ref="ALL_LOG"/>        <!-- 누적 -->
+            <appender-ref ref="ROLLING_FILE"/>   <!-- 날짜별 -->
         </root>
     </springProfile>
 
