@@ -36,7 +36,7 @@
 					</div>
 
 					<!-- 상단 생략 -->
-					<form action="/management/employeeInsert" method="POST">
+					<form action="/management/employeeInsert" method="POST" onsubmit="return validateRegionBeforeSubmit()">
 						<div class="row">
 							<div class="col-lg-6">
 								<div class="card">
@@ -137,6 +137,7 @@
 	<script src="/administration/assets/js/pages/project-create.init.js"></script>
 	<script>
 		document.addEventListener("DOMContentLoaded", function () {
+			
 			const teamSelect = document.getElementById("teamSelect");
 			const categoryWrapper = document.getElementById("teamCategoryWrapper");
 			const categorySelect = document.getElementById("teamCategorySelect");
@@ -294,9 +295,18 @@
 				console.log(selectedRegions);
 			});
 			
-			
-			
 		});
+		function validateRegionBeforeSubmit() {
+			const json = document.getElementById('regionJsonInput').value;
+			if (!json || json === "[]" || json.trim() === "") {
+				const teamName = document.getElementById("teamSelect").selectedOptions[0].text;
+				if (teamName === "배송팀" || teamName === "AS팀") {
+					alert("지역이 등록되지 않았습니다. 반드시 [지역 등록] 버튼을 눌러야 합니다.");
+					return false;
+				}
+			}
+			return true;
+		}
 	</script>
 </body>
 

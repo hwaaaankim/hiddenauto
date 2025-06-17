@@ -34,6 +34,7 @@ import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamRepository;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -268,11 +269,17 @@ public class MemberService {
 
 	@Getter
 	@Setter
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class MemberRegionDto {
 		private String provinceId;
 		private String cityId;
 		private String districtId;
+		// 아래는 없어도 되고, 있으면 더 활용 가능
+		private String provinceName;
+		private String cityName;
+		private String districtName;
 	}
+
 
 	public List<Member> getCompanyEmployees(Company company) {
 		return memberRepository.findByCompanyAndRole(company, MemberRole.CUSTOMER_EMPLOYEE);

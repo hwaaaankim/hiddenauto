@@ -1075,6 +1075,7 @@ public class ManagementController {
 
 	@PostMapping("/employeeInsert")
 	public String employeeInsert(@ModelAttribute MemberSaveDTO request) {
+		System.out.println("📥 regionJson 수신: " + request.getRegionJson());
 
 		memberService.saveMember(request);
 		return "redirect:/management/employeeInsertForm";
