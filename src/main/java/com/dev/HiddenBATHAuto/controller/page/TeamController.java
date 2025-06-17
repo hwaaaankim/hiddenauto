@@ -72,7 +72,7 @@ public class TeamController {
 	public String getProductionOrders(
 	        @AuthenticationPrincipal PrincipalDetails principal,
 	        @RequestParam(required = false) Long productCategoryId,
-	        @RequestParam(required = false) String dateType,
+	        @RequestParam(required = false, defaultValue = "preferred") String dateType,
 	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
 	        Pageable pageable,
@@ -95,7 +95,7 @@ public class TeamController {
 	    if (endDate != null) {
 	        end = endDate.plusDays(1).atStartOfDay(); // end 포함 범위로
 	    }
-
+	    System.out.println(dateType);
 	    Page<Order> orderPage = teamTaskService.getProductionOrdersByDateType(
 	            List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE),
 	            targetCategoryId,

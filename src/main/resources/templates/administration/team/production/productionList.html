@@ -44,14 +44,13 @@
 									<label class="form-label">날짜 기준</label>
 									<select name="dateType" class="form-control">
 										<option value="preferred"
-											th:selected="${param.dateType == null or param.dateType == 'preferred'}">
-											배송희망일</option>
-										<option value="created" th:selected="${param.dateType == 'created'}">발주일
-										</option>
+											th:selected="${dateType == null or dateType == 'preferred'}">배송희망일</option>
+										<option value="created" th:selected="${dateType == 'created'}">발주일</option>
 									</select>
+
 								</div>
 								<div class="col-lg-4">
-									<label class="form-label">출고일 조회</label>
+									<label class="form-label">날짜조회</label>
 									<div class="d-flex gap-2">
 										<input type="date" name="startDate" class="form-control" placeholder="시작일"
 											th:value="${param.startDate}">
