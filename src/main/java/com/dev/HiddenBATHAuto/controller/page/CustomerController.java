@@ -180,10 +180,10 @@ public class CustomerController {
 	public Map<String, Object> submitAsTask(
 			@AuthenticationPrincipal PrincipalDetails principal,
 			@ModelAttribute AsTask task, 
-			@RequestParam("images") List<MultipartFile> images) {
+			@RequestParam("imageFile") List<MultipartFile> imageFile) {
 		Map<String, Object> result = new HashMap<>();
 		try {
-			AsTask saved = asTaskService.submitAsTask(task, images, principal.getMember());
+			AsTask saved = asTaskService.submitAsTask(task, imageFile, principal.getMember());
 			result.put("success", true);
 			result.put("message", "AS 신청이 완료되었습니다.");
 			result.put("redirectUrl", "/index");
