@@ -26,6 +26,22 @@ public class TeamTaskService {
 	private final OrderRepository orderRepository;
     private final AsTaskRepository asTaskRepository;
 
+    public Page<Order> getProductionOrdersByDateType(
+            List<OrderStatus> statuses,
+            Long categoryId,
+            String dateType,
+            LocalDateTime start,
+            LocalDateTime end,
+            Pageable pageable) {
+
+        if ("created".equalsIgnoreCase(dateType)) {
+            return orderRepository.findByCreatedDateRangeFlexible(statuses, categoryId, start, end, pageable);
+        } else {
+            // 기본값은 preferred (배송희망일)
+            return orderRepository.findByPreferredDateRangeFlexible(statuses, categoryId, start, end, pageable);
+        }
+    }
+    
     public Page<Order> getProductionOrders(List<OrderStatus> statuses, Long categoryId, LocalDate preferredDate, Pageable pageable) {
 
         LocalDateTime startOfDay = preferredDate.atStartOfDay();

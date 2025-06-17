@@ -50,9 +50,8 @@
 												    dateType=${dateType},
 												    startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
 												    endDate=${#temporals.format(endDate, 'yyyy-MM-dd')}
-												)}"
-												class="btn btn-success">
-												    <i class="fa-solid fa-download"></i> 엑셀 다운로드
+												)}" class="btn btn-success">
+													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
 											</div>
 										</div>
@@ -82,25 +81,28 @@
 										</div>
 										<!-- 날짜 기준 선택 -->
 										<div class="col-md-2">
-										    <label class="form-label">날짜 기준</label>
-										    <select class="form-select" name="dateType">
-										        <option value="preferred" th:selected="${dateType == null or dateType == 'preferred'}">배송희망일</option>
-										        <option value="created" th:selected="${dateType == 'created'}">신청일</option>
-										    </select>
+											<label class="form-label">날짜 기준</label>
+											<select class="form-select" name="dateType">
+												<option value="preferred"
+													th:selected="${dateType == null or dateType == 'preferred'}">배송희망일
+												</option>
+												<option value="created" th:selected="${dateType == 'created'}">신청일
+												</option>
+											</select>
 										</div>
-										
+
 										<!-- 시작일 -->
 										<div class="col-md-2">
-										    <label class="form-label">시작일</label>
-										    <input type="date" class="form-control" name="startDate"
-										           th:value="${#temporals.format(startDate, 'yyyy-MM-dd')}" />
+											<label class="form-label">시작일</label>
+											<input type="date" class="form-control" name="startDate"
+												th:value="${#temporals.format(startDate, 'yyyy-MM-dd')}" />
 										</div>
-										
+
 										<!-- 종료일 -->
 										<div class="col-md-2">
-										    <label class="form-label">종료일</label>
-										    <input type="date" class="form-control" name="endDate"
-										           th:value="${#temporals.format(endDate, 'yyyy-MM-dd')}" />
+											<label class="form-label">종료일</label>
+											<input type="date" class="form-control" name="endDate"
+												th:value="${#temporals.format(endDate, 'yyyy-MM-dd')}" />
 										</div>
 
 										<div class="col-md-2">
@@ -202,29 +204,68 @@
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=0, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">First</a>
+														<a class="page-link" th:href="@{/management/deliveryList(
+				page=0,
+				size=${orders.size},
+				categoryId=${categoryId},
+				status=${status},
+				dateType=${dateType},
+				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
+				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+			)}">First</a>
 													</li>
+
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${orders.number - 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">Previous</a>
+														<a class="page-link" th:href="@{/management/deliveryList(
+				page=${orders.number - 1},
+				size=${orders.size},
+				categoryId=${categoryId},
+				status=${status},
+				dateType=${dateType},
+				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
+				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+			)}">Previous</a>
 													</li>
+
 													<li class="page-item"
 														th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
 														th:classappend="${i == orders.number + 1} ? 'active'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${i - 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}"
-															th:text="${i}">1</a>
+														<a class="page-link" th:href="@{/management/deliveryList(
+				page=${i - 1},
+				size=${orders.size},
+				categoryId=${categoryId},
+				status=${status},
+				dateType=${dateType},
+				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
+				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+			)}" th:text="${i}">1</a>
 													</li>
+
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${orders.number + 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">Next</a>
+														<a class="page-link" th:href="@{/management/deliveryList(
+				page=${orders.number + 1},
+				size=${orders.size},
+				categoryId=${categoryId},
+				status=${status},
+				dateType=${dateType},
+				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
+				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+			)}">Next</a>
 													</li>
+
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${orders.totalPages - 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">Last</a>
+														<a class="page-link" th:href="@{/management/deliveryList(
+				page=${orders.totalPages - 1},
+				size=${orders.size},
+				categoryId=${categoryId},
+				status=${status},
+				dateType=${dateType},
+				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
+				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+			)}">Last</a>
 													</li>
 												</ul>
+
 											</nav>
 										</div>
 									</div>

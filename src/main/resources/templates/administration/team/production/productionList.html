@@ -1,157 +1,204 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
-      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body>
-<div id="layout-wrapper">
-    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
-    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
-    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
-    <div class="vertical-overlay"></div>
-    <div class="main-content">
-        <div class="page-content">
-            <div class="container-fluid">
+	<div id="layout-wrapper">
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+			<div class="page-content">
+				<div class="container-fluid">
 
-                <div class="row">
-                    <div class="col-12">
-                        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                            <h4 class="mb-sm-0">생산팀업무현황</h4>
-                            <div class="page-title-right">
-                                <ol class="breadcrumb m-0">
-                                    <li class="breadcrumb-item"><a href="#">팀별업무관리</a></li>
-                                    <li class="breadcrumb-item active">생산팀</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">생산팀업무현황</h4>
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="#">팀별업무관리</a></li>
+										<li class="breadcrumb-item active">생산팀</li>
+									</ol>
+								</div>
+							</div>
+						</div>
+					</div>
 
-                <form method="get" th:action="@{/team/productionList}" class="row">
-                    <div class="col-lg-6">
-                        <div class="row g-4 mb-3">
-                            <div class="col-lg-5">
-                                <label class="form-label">제품분류</label>
-                                <select name="productCategoryId" class="form-control w-md">
-                                    <option value="">전체</option>
-                                    <option th:each="category : ${productCategories}"
-                                            th:value="${category.id}"
-                                            th:text="${category.name}" th:selected="${productCategoryId == category.id}">
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="col-lg-5">
-                                <label class="form-label">출고일 조회</label>
-                                <input type="text" name="preferredDate" class="form-control" placeholder="YYYY-MM-DD"
-                                       data-provider="flatpickr" th:value="${param.preferredDate}">
-                            </div>
-                            <div class="col-lg-2">
-								<label class="form-label">조회</label>
-		                        <button type="submit" class="btn btn-primary">검색하기</button>
-		                    </div>
-                        </div>
-                    </div>
-                </form>
+					<form method="get" th:action="@{/team/productionList}" class="row">
+						<div class="col-lg-8">
+							<div class="row g-4 mb-3">
+								<div class="col-lg-3">
+									<label class="form-label">제품분류</label>
+									<select name="productCategoryId" class="form-control w-md">
+										<option value="">전체</option>
+										<option th:each="category : ${productCategories}" th:value="${category.id}"
+											th:text="${category.name}"
+											th:selected="${productCategoryId == category.id}"></option>
+									</select>
+								</div>
+								<div class="col-lg-3">
+									<label class="form-label">날짜 기준</label>
+									<select name="dateType" class="form-control">
+										<option value="preferred"
+											th:selected="${param.dateType == null or param.dateType == 'preferred'}">
+											배송희망일</option>
+										<option value="created" th:selected="${param.dateType == 'created'}">발주일
+										</option>
+									</select>
+								</div>
+								<div class="col-lg-4">
+									<label class="form-label">출고일 조회</label>
+									<div class="d-flex gap-2">
+										<input type="date" name="startDate" class="form-control" placeholder="시작일"
+											th:value="${param.startDate}">
+										<input type="date" name="endDate" class="form-control" placeholder="종료일"
+											th:value="${param.endDate}">
+									</div>
+								</div>
+								<div class="col-lg-2">
+									<label class="form-label">조회</label>
+									<button type="submit" class="btn btn-primary w-100">검색하기</button>
+								</div>
+							</div>
+						</div>
+					</form>
 
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="row">
-                            <div class="col-xxl-3 col-sm-6 project-card" th:if="${orders.size() > 0}" th:each="order : ${orders}">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
-                                            <div class="d-flex align-items-center">
-                                                <div class="flex-grow-1">
-                                                    <h5 class="mb-0 fs-15">
-                                                        <a th:href="@{'/team/productionDetail/' + ${order.id}}"
-                                                           th:text="${order.productCategory.name}" class="text-body"></a>
-                                                    </h5>
-                                                </div>
-                                                <div class="flex-shrink-0">
-                                                    <div class="d-flex gap-1 align-items-center my-n2">
-                                                        <div class="dropdown">
-                                                            <button class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
-                                                                    data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                                                                <i data-feather="more-horizontal" class="icon-sm"></i>
-                                                            </button>
-                                                            <div class="dropdown-menu dropdown-menu-end">
-                                                                <a class="dropdown-item" th:href="@{'/team/productionDetail/' + ${order.id}}">
-                                                                    <i class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기</a>
-                                                                <a class="dropdown-item" href="#">
-                                                                    <i class="ri-check-line align-bottom me-2 text-success"></i>생산완료처리</a>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="py-3">
-                                            <h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
-                                            <div class="row gy-3">
-                                                <div class="col-6">
-                                                    <p class="text-muted mb-1">상태</p>
-                                                    <div class="badge bg-warning-subtle text-warning fs-12" th:text="${order.status}">상태</div>
-                                                </div>
-                                                <div class="col-6">
-                                                    <p class="text-muted mb-1">발주일</p>
-                                                    <h5 class="fs-14" th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}"></h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="card-footer bg-transparent border-top-dashed py-2">
-                                        <div class="d-flex align-items-center">
-                                            <div class="flex-grow-1">
-                                                <p class="text-muted mb-1">배정일</p>
-                                                <i class="ri-calendar-event-fill me-1 align-bottom"></i>
-                                                <span th:text="${#temporals.format(order.updatedAt, 'yyyy-MM-dd')}"></span>
-                                            </div>
-                                            <div class="flex-shrink-0">
-                                                <p class="text-muted mb-1">배송일</p>
-                                                <i class="ri-calendar-event-fill me-1 align-bottom"></i>
-                                                <span th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div th:if="${orders.size() == 0}" class="text-center mt-5">
-                            <p class="text-muted">조회된 생산 주문이 없습니다.</p>
-                        </div>
-                    </div>
-                </div>
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="row">
+								<div class="col-xxl-3 col-sm-6 project-card" th:if="${orders.size() > 0}"
+									th:each="order : ${orders}">
+									<div class="card">
+										<div class="card-body">
+											<div class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
+												<div class="d-flex align-items-center">
+													<div class="flex-grow-1">
+														<h5 class="mb-0 fs-15">
+															<a th:href="@{'/team/productionDetail/' + ${order.id}}"
+																th:text="${order.productCategory.name}"
+																class="text-body"></a>
+														</h5>
+													</div>
+													<div class="flex-shrink-0">
+														<div class="d-flex gap-1 align-items-center my-n2">
+															<div class="dropdown">
+																<button
+																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+																	data-bs-toggle="dropdown" aria-haspopup="true"
+																	aria-expanded="true">
+																	<i data-feather="more-horizontal"
+																		class="icon-sm"></i>
+																</button>
+																<div class="dropdown-menu dropdown-menu-end">
+																	<a class="dropdown-item"
+																		th:href="@{'/team/productionDetail/' + ${order.id}}">
+																		<i
+																			class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기</a>
+																	<a class="dropdown-item" href="#">
+																		<i
+																			class="ri-check-line align-bottom me-2 text-success"></i>생산완료처리</a>
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="py-3">
+												<h5 class="mb-1 fs-16"><a href="#" class="text-body">생산개요</a></h5>
+												<div class="row gy-3">
+													<div class="col-6">
+														<p class="text-muted mb-1">상태</p>
+														<div class="badge bg-warning-subtle text-warning fs-12"
+															th:text="${order.status}">상태</div>
+													</div>
+													<div class="col-6">
+														<p class="text-muted mb-1">발주일</p>
+														<h5 class="fs-14"
+															th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}">
+														</h5>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div class="card-footer bg-transparent border-top-dashed py-2">
+											<div class="d-flex align-items-center">
+												<div class="flex-grow-1">
+													<p class="text-muted mb-1">배정일</p>
+													<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+													<span
+														th:text="${#temporals.format(order.updatedAt, 'yyyy-MM-dd')}"></span>
+												</div>
+												<div class="flex-shrink-0">
+													<p class="text-muted mb-1">배송일</p>
+													<i class="ri-calendar-event-fill me-1 align-bottom"></i>
+													<span
+														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"></span>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div th:if="${orders.size() == 0}" class="text-center mt-5">
+								<p class="text-muted">조회된 생산 주문이 없습니다.</p>
+							</div>
+						</div>
+					</div>
 
-                <div class="row g-0 justify-content-center mt-4 production-pagination">
-                    <div class="col-auto">
-                        <ul class="pagination pagination-separated">
-                            <li th:classappend="${page.first} ? 'disabled' : ''" class="page-item">
-                                <a th:href="@{|/team/productionList?page=0|}" class="page-link">FIRST</a>
-                            </li>
-                            <li th:classappend="${page.first} ? 'disabled' : ''" class="page-item">
-                                <a th:href="@{|/team/productionList?page=${page.number - 1}|}" class="page-link">PREVIOUS</a>
-                            </li>
-                            <li th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
-                                th:classappend="${page.number == i} ? 'active' : ''" class="page-item">
-                                <a th:href="@{|/team/productionList?page=${i}|}" class="page-link" th:text="${i + 1}">1</a>
-                            </li>
-                            <li th:classappend="${page.last} ? 'disabled' : ''" class="page-item">
-                                <a th:href="@{|/team/productionList?page=${page.number + 1}|}" class="page-link">NEXT</a>
-                            </li>
-                            <li th:classappend="${page.last} ? 'disabled' : ''" class="page-item">
-                                <a th:href="@{|/team/productionList?page=${page.totalPages - 1}|}" class="page-link">LAST</a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
-    </div>
-</div>
-<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
-<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+					<div class="row g-0 justify-content-center mt-4 production-pagination">
+						<div class="col-auto">
+							<ul class="pagination pagination-separated">
+								<li th:classappend="${page.first} ? 'disabled' : ''" class="page-item">
+									<a th:href="@{|/team/productionList?page=0
+					&productCategoryId=${productCategoryId}
+					&dateType=${dateType}
+					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}|}" class="page-link">FIRST</a>
+								</li>
+								<li th:classappend="${page.first} ? 'disabled' : ''" class="page-item">
+									<a th:href="@{|/team/productionList?page=${page.number - 1}
+					&productCategoryId=${productCategoryId}
+					&dateType=${dateType}
+					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}|}" class="page-link">PREVIOUS</a>
+								</li>
+								<li th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
+									th:classappend="${page.number == i} ? 'active' : ''" class="page-item">
+									<a th:href="@{|/team/productionList?page=${i}
+					&productCategoryId=${productCategoryId}
+					&dateType=${dateType}
+					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}|}" class="page-link"
+										th:text="${i + 1}">1</a>
+								</li>
+								<li th:classappend="${page.last} ? 'disabled' : ''" class="page-item">
+									<a th:href="@{|/team/productionList?page=${page.number + 1}
+					&productCategoryId=${productCategoryId}
+					&dateType=${dateType}
+					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}|}" class="page-link">NEXT</a>
+								</li>
+								<li th:classappend="${page.last} ? 'disabled' : ''" class="page-item">
+									<a th:href="@{|/team/productionList?page=${page.totalPages - 1}
+					&productCategoryId=${productCategoryId}
+					&dateType=${dateType}
+					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}|}" class="page-link">LAST</a>
+								</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 </body>
+
 </html>

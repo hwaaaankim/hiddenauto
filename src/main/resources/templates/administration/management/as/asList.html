@@ -50,8 +50,7 @@
 													dateType=${selectedDateType},
 													fromDate=${#temporals.format(selectedFromDate, 'yyyy-MM-dd')},
 													toDate=${#temporals.format(selectedToDate, 'yyyy-MM-dd')}
-												)}"
-												class="btn btn-success">
+												)}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
 											</div>
@@ -222,32 +221,63 @@
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
 													<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/asList(page=0)}">First</a>
-													</li>
-													<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/asList(page=${asPage.number - 1})}">Previous</a>
+														<a class="page-link" th:href="@{/management/asList(
+				page=0,
+				handlerId=${selectedHandlerId},
+				status=${selectedStatus},
+				dateType=${selectedDateType},
+				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+			)}">First</a>
 													</li>
 
-													<!-- 페이지 번호 반복 -->
+													<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+														<a class="page-link" th:href="@{/management/asList(
+				page=${asPage.number - 1},
+				handlerId=${selectedHandlerId},
+				status=${selectedStatus},
+				dateType=${selectedDateType},
+				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+			)}">Previous</a>
+													</li>
+
 													<li class="page-item"
 														th:each="pageNum : ${#numbers.sequence(0, asPage.totalPages - 1)}"
 														th:classappend="${asPage.number == pageNum} ? 'active'">
-														<a class="page-link"
-															th:href="@{/management/asList(page=${pageNum})}"
-															th:text="${pageNum + 1}">1</a>
+														<a class="page-link" th:href="@{/management/asList(
+				page=${pageNum},
+				handlerId=${selectedHandlerId},
+				status=${selectedStatus},
+				dateType=${selectedDateType},
+				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+			)}" th:text="${pageNum + 1}">1</a>
 													</li>
 
 													<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/asList(page=${asPage.number + 1})}">Next</a>
+														<a class="page-link" th:href="@{/management/asList(
+				page=${asPage.number + 1},
+				handlerId=${selectedHandlerId},
+				status=${selectedStatus},
+				dateType=${selectedDateType},
+				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+			)}">Next</a>
 													</li>
+
 													<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/asList(page=${asPage.totalPages - 1})}">Last</a>
+														<a class="page-link" th:href="@{/management/asList(
+				page=${asPage.totalPages - 1},
+				handlerId=${selectedHandlerId},
+				status=${selectedStatus},
+				dateType=${selectedDateType},
+				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+			)}">Last</a>
 													</li>
 												</ul>
+
 											</nav>
 										</div>
 									</div>

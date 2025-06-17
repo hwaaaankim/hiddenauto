@@ -202,35 +202,89 @@
 									</div>
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
-											<nav aria-label="navigation" style="text-align: center;">
+											<nav aria-label="Page navigation">
 												<ul class="pagination justify-content-center">
+													<!-- 처음 페이지 -->
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=0, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">First</a>
+														<a class="page-link" th:href="@{/management/productionList(
+                            page=0,
+                            size=${orders.size},
+                            categoryId=${categoryId},
+                            status=${status},
+                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
+                            dateType=${dateType}
+                        )}">
+															처음
+														</a>
 													</li>
+
+													<!-- 이전 페이지 -->
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${orders.number - 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">Previous</a>
+														<a class="page-link" th:href="@{/management/productionList(
+                            page=${orders.number - 1},
+                            size=${orders.size},
+                            categoryId=${categoryId},
+                            status=${status},
+                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
+                            dateType=${dateType}
+                        )}">
+															이전
+														</a>
 													</li>
+
+													<!-- 숫자 페이지 -->
 													<li class="page-item"
 														th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
 														th:classappend="${i == orders.number + 1} ? 'active'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${i - 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}"
-															th:text="${i}">1</a>
+														<a class="page-link" th:href="@{/management/productionList(
+                            page=${i - 1},
+                            size=${orders.size},
+                            categoryId=${categoryId},
+                            status=${status},
+                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
+                            dateType=${dateType}
+                        )}" th:text="${i}">
+															1
+														</a>
 													</li>
+
+													<!-- 다음 페이지 -->
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${orders.number + 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">Next</a>
+														<a class="page-link" th:href="@{/management/productionList(
+                            page=${orders.number + 1},
+                            size=${orders.size},
+                            categoryId=${categoryId},
+                            status=${status},
+                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
+                            dateType=${dateType}
+                        )}">
+															다음
+														</a>
 													</li>
+
+													<!-- 마지막 페이지 -->
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/productionList(page=${orders.totalPages - 1}, size=${orders.size}, categoryId=${categoryId}, status=${status}, date=${#temporals.format(date, 'yyyy-MM-dd')})}">Last</a>
+														<a class="page-link" th:href="@{/management/productionList(
+                            page=${orders.totalPages - 1},
+                            size=${orders.size},
+                            categoryId=${categoryId},
+                            status=${status},
+                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
+                            dateType=${dateType}
+                        )}">
+															마지막
+														</a>
 													</li>
 												</ul>
 											</nav>
 										</div>
 									</div>
+
 								</div>
 							</div>
 						</div>

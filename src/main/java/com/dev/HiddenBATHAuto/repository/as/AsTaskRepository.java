@@ -137,6 +137,39 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	    SELECT a FROM AsTask a
 	    WHERE a.assignedHandler.id = :handlerId
 	      AND (:status IS NULL OR a.status = :status)
+	      AND (:start IS NULL OR a.requestedAt >= :start)
+	      AND (:end IS NULL OR a.requestedAt < :end)
+	    ORDER BY a.requestedAt DESC
+	""")
+	Page<AsTask> findByRequestedDateFlexible(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	@Query("""
+	    SELECT a FROM AsTask a
+	    WHERE a.assignedHandler.id = :handlerId
+	      AND (:status IS NULL OR a.status = :status)
+	      AND (:start IS NULL OR a.asProcessDate >= :start)
+	      AND (:end IS NULL OR a.asProcessDate < :end)
+	    ORDER BY a.asProcessDate DESC
+	""")
+	Page<AsTask> findByProcessedDateFlexible(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	
+	@Query("""
+	    SELECT a FROM AsTask a
+	    WHERE a.assignedHandler.id = :handlerId
+	      AND (:status IS NULL OR a.status = :status)
 	      AND a.asProcessDate BETWEEN :start AND :end
 	    ORDER BY a.requestedAt DESC
 	""")

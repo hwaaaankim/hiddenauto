@@ -75,6 +75,71 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	);
 	
 	@Query("""
+	    SELECT o FROM Order o
+	    WHERE o.status IN :statuses
+	      AND o.productCategory.id = :categoryId
+	      AND o.preferredDeliveryDate >= :start
+	      AND o.preferredDeliveryDate < :end
+	    ORDER BY o.preferredDeliveryDate ASC
+	""")
+	Page<Order> findByPreferredDateRange(
+	        @Param("statuses") List<OrderStatus> statuses,
+	        @Param("categoryId") Long categoryId,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	@Query("""
+	    SELECT o FROM Order o
+	    WHERE o.status IN :statuses
+	      AND o.productCategory.id = :categoryId
+	      AND o.createdAt >= :start
+	      AND o.createdAt < :end
+	    ORDER BY o.createdAt ASC
+	""")
+	Page<Order> findByCreatedDateRange(
+	        @Param("statuses") List<OrderStatus> statuses,
+	        @Param("categoryId") Long categoryId,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	@Query("""
+	    SELECT o FROM Order o
+	    WHERE o.status IN :statuses
+	      AND o.productCategory.id = :categoryId
+	      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+	      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+	    ORDER BY o.preferredDeliveryDate ASC
+	""")
+	Page<Order> findByPreferredDateRangeFlexible(
+	        @Param("statuses") List<OrderStatus> statuses,
+	        @Param("categoryId") Long categoryId,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	@Query("""
+	    SELECT o FROM Order o
+	    WHERE o.status IN :statuses
+	      AND o.productCategory.id = :categoryId
+	      AND (:start IS NULL OR o.createdAt >= :start)
+	      AND (:end IS NULL OR o.createdAt < :end)
+	    ORDER BY o.createdAt ASC
+	""")
+	Page<Order> findByCreatedDateRangeFlexible(
+	        @Param("statuses") List<OrderStatus> statuses,
+	        @Param("categoryId") Long categoryId,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	
+	@Query("""
 		    SELECT o FROM Order o
 		    WHERE (:category IS NULL OR o.productCategory = :category)
 		      AND (:status IS NULL OR o.status = :status)

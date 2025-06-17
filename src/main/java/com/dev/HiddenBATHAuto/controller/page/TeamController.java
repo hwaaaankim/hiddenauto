@@ -70,37 +70,51 @@ public class TeamController {
 	
 	@GetMapping("/productionList")
 	public String getProductionOrders(
-			@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) 
-			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate preferredDate,
-			@RequestParam(required = false) Long productCategoryId, 
-			Pageable pageable, 
-			Model model) {
-	
-		Member member = principal.getMember();
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam(required = false) Long productCategoryId,
+	        @RequestParam(required = false) String dateType,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	        Pageable pageable,
+	        Model model) {
 
-		if (!"생산팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
-		}
+	    Member member = principal.getMember();
 
-		Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
-		if (preferredDate == null) {
-			preferredDate = LocalDate.now().plusDays(1);
-		}
+	    if (!"생산팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+	    }
 
-		Page<Order> orderPage = teamTaskService.getProductionOrders(
-				List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE),
-				targetCategoryId, preferredDate, pageable);
+	    Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
 
-		List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
+	    LocalDateTime start = null;
+	    LocalDateTime end = null;
+	    System.out.println(targetCategoryId);
+	    if (startDate != null) {
+	        start = startDate.atStartOfDay();
+	    }
+	    if (endDate != null) {
+	        end = endDate.plusDays(1).atStartOfDay(); // end 포함 범위로
+	    }
 
-		model.addAttribute("orders", orderPage.getContent());
-		model.addAttribute("page", orderPage);
-		model.addAttribute("productCategoryId", productCategoryId);
-		model.addAttribute("preferredDate", preferredDate);
-		model.addAttribute("productCategories", productCategories);
+	    Page<Order> orderPage = teamTaskService.getProductionOrdersByDateType(
+	            List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE),
+	            targetCategoryId,
+	            dateType,
+	            start,
+	            end,
+	            pageable
+	    );
 
-		return "administration/team/production/productionList";
+	    List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
+	    model.addAttribute("orders", orderPage.getContent());
+	    model.addAttribute("page", orderPage);
+	    model.addAttribute("productCategoryId", targetCategoryId);
+	    model.addAttribute("dateType", dateType);
+	    model.addAttribute("startDate", startDate);
+	    model.addAttribute("endDate", endDate);
+	    model.addAttribute("productCategories", productCategories);
+
+	    return "administration/team/production/productionList";
 	}
 
 	@GetMapping("/productionDetail/{orderId}")
@@ -260,7 +274,8 @@ public class TeamController {
 	public String getAsList(
 	        @AuthenticationPrincipal PrincipalDetails principal,
 	        @RequestParam(required = false, defaultValue = "processed") String dateType,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
 	        @RequestParam(required = false) AsStatus status,
 	        Pageable pageable,
 	        Model model
@@ -271,10 +286,14 @@ public class TeamController {
 	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
 	    }
 
-	    Page<AsTask> asPage = asTaskService.getAsTasks(member, dateType, date, status, pageable);
+	    LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+	    LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+
+	    Page<AsTask> asPage = asTaskService.getAsTasks(member, dateType, start, end, status, pageable);
 
 	    model.addAttribute("asPage", asPage);
-	    model.addAttribute("preferredDate", date != null ? date : LocalDate.now());
+	    model.addAttribute("startDate", startDate);
+	    model.addAttribute("endDate", endDate);
 	    model.addAttribute("dateType", dateType);
 	    model.addAttribute("selectedStatus", status);
 

@@ -46,6 +46,15 @@ public class AsTaskService {
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 	
+	
+	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end, AsStatus status, Pageable pageable) {
+	    if ("requested".equalsIgnoreCase(dateType)) {
+	        return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end, pageable);
+	    } else {
+	        return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end, pageable);
+	    }
+	}
+
 	public List<AsTask> getFilteredAsList(Long memberId, AsStatus status, String dateType,
 	            LocalDateTime start, LocalDateTime end) {
 		if ("processed".equals(dateType)) {
@@ -54,7 +63,6 @@ public class AsTaskService {
 		return asTaskRepository.findByRequestedDateRangeList(memberId, status, start, end);
 		}
 	}
-
 	
 	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDate date, AsStatus status, Pageable pageable) {
 	    LocalDateTime start = (date != null ? date : LocalDate.now()).atStartOfDay();
