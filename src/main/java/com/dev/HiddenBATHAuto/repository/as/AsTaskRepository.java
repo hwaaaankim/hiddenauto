@@ -40,6 +40,18 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	Page<AsTask> findByAssignedHandlerAndStatusInAndDate(Long memberId, List<AsStatus> statuses, LocalDate asDate, Pageable pageable);
 	
 	@Query("""
+	    SELECT a FROM AsTask a 
+	    WHERE a.requestedBy.company.id = :companyId
+	      AND (:start IS NULL OR a.requestedAt >= :start)
+	      AND (:end IS NULL OR a.requestedAt <= :end)
+	""")
+	Page<AsTask> findByCompanyIdAndRequestedAtBetween(
+	        @Param("companyId") Long companyId,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable);
+	
+	@Query("""
 		    SELECT a FROM AsTask a
 		    WHERE (:statuses IS NULL OR a.status = :statuses)
 		      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)

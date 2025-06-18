@@ -60,31 +60,47 @@
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" th:action="@{/management/deliveryList}"
 										class="row g-3 align-items-end">
-										<div class="col-md-2">
-											<label class="form-label">제품 카테고리</label>
-											<select class="form-select" name="categoryId">
-												<option value="" th:selected="${status == null or status == ''}">전체
-												</option>
-												<option th:each="c : ${categories}" th:value="${c.id}"
-													th:text="${c.name}" th:selected="${c.id == categoryId}"></option>
-											</select>
-										</div>
+
+										<!-- 오더 상태 -->
 										<div class="col-md-2">
 											<label class="form-label">오더 상태</label>
 											<select class="form-select" name="status">
 												<option value="" th:selected="${status == null or status == ''}">전체
 												</option>
-												<option th:each="s : ${orderStatusList}" th:value="${s}" th:text="${s}"
-													th:selected="${s.name() == status}">
+												<option th:each="s : ${orderStatusList}" th:value="${s.name()}"
+													th:text="${s.label}" th:selected="${s.name() == status}">
 												</option>
 											</select>
 										</div>
-										<!-- 날짜 기준 선택 -->
+
+										<!-- 제품 카테고리 (생산팀) -->
 										<div class="col-md-2">
+											<label class="form-label">제품 카테고리</label>
+											<select class="form-select" name="categoryId">
+												<option value="" th:selected="${categoryId == null}">전체</option>
+												<option th:each="c : ${categories}" th:value="${c.id}"
+													th:text="${c.name}" th:selected="${c.id == categoryId}">
+												</option>
+											</select>
+										</div>
+
+										<!-- 담당자 (배송 담당자) -->
+										<div class="col-md-2">
+											<label class="form-label">담당자</label>
+											<select class="form-select" name="assignedMemberId">
+												<option value="" th:selected="${assignedMemberId == null}">전체</option>
+												<option th:each="m : ${assignees}" th:value="${m.id}"
+													th:text="${m.name}" th:selected="${m.id == assignedMemberId}">
+												</option>
+											</select>
+										</div>
+
+										<!-- 날짜 기준 -->
+										<div class="col-md-1">
 											<label class="form-label">날짜 기준</label>
 											<select class="form-select" name="dateType">
 												<option value="preferred"
-													th:selected="${dateType == null or dateType == 'preferred'}">배송희망일
+													th:selected="${dateType == null or dateType == 'preferred'}">출고일
 												</option>
 												<option value="created" th:selected="${dateType == 'created'}">신청일
 												</option>
@@ -95,17 +111,18 @@
 										<div class="col-md-2">
 											<label class="form-label">시작일</label>
 											<input type="date" class="form-control" name="startDate"
-												th:value="${#temporals.format(startDate, 'yyyy-MM-dd')}" />
+												th:value="${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}" />
 										</div>
 
 										<!-- 종료일 -->
 										<div class="col-md-2">
 											<label class="form-label">종료일</label>
 											<input type="date" class="form-control" name="endDate"
-												th:value="${#temporals.format(endDate, 'yyyy-MM-dd')}" />
+												th:value="${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}" />
 										</div>
 
-										<div class="col-md-2">
+										<!-- 검색 버튼 -->
+										<div class="col-md-1">
 											<button type="submit" class="btn btn-primary w-100">
 												<i class="fa-solid fa-magnifying-glass me-1"></i> 검색
 											</button>
@@ -203,79 +220,75 @@
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
+
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-				page=0,
-				size=${orders.size},
-				categoryId=${categoryId},
-				status=${status},
-				dateType=${dateType},
-				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
-				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-			)}">First</a>
+														<a class="page-link" th:href="@{/management/deliveryList(page=0,
+							size=${orders.size},
+							categoryId=${categoryId},
+							assignedMemberId=${assignedMemberId},
+							status=${status},
+							dateType=${dateType},
+							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">First</a>
 													</li>
 
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-				page=${orders.number - 1},
-				size=${orders.size},
-				categoryId=${categoryId},
-				status=${status},
-				dateType=${dateType},
-				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
-				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-			)}">Previous</a>
+														<a class="page-link" th:href="@{/management/deliveryList(page=${orders.number - 1},
+							size=${orders.size},
+							categoryId=${categoryId},
+							assignedMemberId=${assignedMemberId},
+							status=${status},
+							dateType=${dateType},
+							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">Previous</a>
 													</li>
 
 													<li class="page-item"
 														th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
 														th:classappend="${i == orders.number + 1} ? 'active'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-				page=${i - 1},
-				size=${orders.size},
-				categoryId=${categoryId},
-				status=${status},
-				dateType=${dateType},
-				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
-				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-			)}" th:text="${i}">1</a>
+														<a class="page-link" th:href="@{/management/deliveryList(page=${i - 1},
+							size=${orders.size},
+							categoryId=${categoryId},
+							assignedMemberId=${assignedMemberId},
+							status=${status},
+							dateType=${dateType},
+							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}" th:text="${i}">1</a>
 													</li>
 
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-				page=${orders.number + 1},
-				size=${orders.size},
-				categoryId=${categoryId},
-				status=${status},
-				dateType=${dateType},
-				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
-				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-			)}">Next</a>
+														<a class="page-link" th:href="@{/management/deliveryList(page=${orders.number + 1},
+							size=${orders.size},
+							categoryId=${categoryId},
+							assignedMemberId=${assignedMemberId},
+							status=${status},
+							dateType=${dateType},
+							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">Next</a>
 													</li>
 
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-				page=${orders.totalPages - 1},
-				size=${orders.size},
-				categoryId=${categoryId},
-				status=${status},
-				dateType=${dateType},
-				startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''},
-				endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-			)}">Last</a>
+														<a class="page-link" th:href="@{/management/deliveryList(page=${orders.totalPages - 1},
+							size=${orders.size},
+							categoryId=${categoryId},
+							assignedMemberId=${assignedMemberId},
+							status=${status},
+							dateType=${dateType},
+							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
+							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">Last</a>
 													</li>
+
 												</ul>
-
 											</nav>
 										</div>
 									</div>
+
 								</div>
 							</div>
 						</div>
 					</div>
 				</div>
 			</div>
-
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>

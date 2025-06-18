@@ -24,25 +24,25 @@
 				</div>
 				<div class="card-overlay bg-black opacity-80"></div>
 			</div>
+			<!-- 날짜 필터 -->
 			<div class="card card-style">
 				<div class="content mb-0">
-					<h3>날짜필터</h3>
-					<div class="row">
-						<div class="input-style has-borders no-icon mb-4 col-3">
-							<input type="date" value="2030-12-31" class="form-control validate-text">
-							<label for="form6" class="color-highlight">Select Date</label>
-							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
-							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
+					<form method="get" th:action="@{/customer/taskList}" class="row">
+						<div class="row">
+							<div class="input-style no-borders has-icon mt-1 col-6">
+								<input type="date" name="startDate" th:value="${startDate}"
+									class="form-control validate-text">
+							</div>
+							<div class="input-style no-borders has-icon mt-1 col-6">
+								<input type="date" class="form-control" name="endDate" th:value="${endDate}">
+								<button type="submit">검색</button>
+							</div>
+
 						</div>
-						<div class="input-style has-borders no-icon mb-4 col-3">
-							<input type="date" value="2030-12-31" class="form-control validate-text">
-							<label for="form6" class="color-highlight">Select Date</label>
-							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
-							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
-						</div>
-					</div>
+					</form>
 				</div>
 			</div>
+
 			<div class="card card-style" th:each="task : ${taskPage.content}">
 				<a th:href="@{'/customer/taskDetail/' + ${task.id}}">
 					<div class="content">
@@ -64,15 +64,43 @@
 			</div>
 			<div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
 				<ul class="pagination">
-					<li class="page-item" th:classappend="${taskPage.hasPrevious()} ? '' : 'disabled'">
-						<a class="page-link" th:href="@{${pageableUrl}(page=${taskPage.number - 1})}">이전</a>
+
+					<!-- FIRST -->
+					<li class="page-item" th:classappend="${taskPage.first} ? 'disabled'">
+						<a class="page-link"
+							th:href="@{${pageableUrl}(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
 					</li>
+
+					<!-- PREVIOUS -->
+					<li class="page-item" th:classappend="${taskPage.hasPrevious()} ? '' : 'disabled'">
+						<a class="page-link"
+							th:href="@{${pageableUrl}(page=${taskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
+							PREVIOUS
+						</a>
+					</li>
+
+					<!-- PAGE NUMBERS -->
 					<li class="page-item" th:each="i : ${#numbers.sequence(0, taskPage.totalPages - 1)}"
 						th:classappend="${taskPage.number == i} ? 'active'">
-						<a class="page-link" th:href="@{${pageableUrl}(page=${i})}" th:text="${i + 1}">1</a>
+						<a class="page-link"
+							th:href="@{${pageableUrl}(page=${i}, startDate=${startDate}, endDate=${endDate})}"
+							th:text="${i + 1}">1</a>
 					</li>
+
+					<!-- NEXT -->
 					<li class="page-item" th:classappend="${taskPage.hasNext()} ? '' : 'disabled'">
-						<a class="page-link" th:href="@{${pageableUrl}(page=${taskPage.number + 1})}">다음</a>
+						<a class="page-link"
+							th:href="@{${pageableUrl}(page=${taskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
+							NEXT
+						</a>
+					</li>
+
+					<!-- LAST -->
+					<li class="page-item" th:classappend="${taskPage.last} ? 'disabled'">
+						<a class="page-link"
+							th:href="@{${pageableUrl}(page=${taskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
+							LAST
+						</a>
 					</li>
 				</ul>
 			</div>

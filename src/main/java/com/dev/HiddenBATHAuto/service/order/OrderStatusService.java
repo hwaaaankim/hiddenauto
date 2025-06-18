@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
@@ -21,6 +22,17 @@ import lombok.RequiredArgsConstructor;
 public class OrderStatusService {
 
 	private final OrderRepository orderRepository;
+
+	public Page<Order> getOrders(LocalDateTime start, LocalDateTime end, TeamCategory category,
+			Member assignedDeliveryHandler, OrderStatus status, String dateType, Pageable pageable) {
+		if ("created".equals(dateType)) {
+			return orderRepository.findByCreatedDateRange(category, assignedDeliveryHandler, status, start, end,
+					pageable);
+		} else {
+			return orderRepository.findByPreferredDateRange(category, assignedDeliveryHandler, status, start, end,
+					pageable);
+		}
+	}
 
 	public Page<Order> getOrders(LocalDateTime start, LocalDateTime end, TeamCategory category, OrderStatus status,
 			String dateType, Pageable pageable) {
@@ -50,6 +62,15 @@ public class OrderStatusService {
 			return orderRepository.findAllByCreatedDateRange(category, status, start, end);
 		} else {
 			return orderRepository.findAllByPreferredDateRange(category, status, start, end);
+		}
+	}
+
+	public List<Order> getAllOrders(LocalDateTime start, LocalDateTime end, TeamCategory category, OrderStatus status,
+			Long assignedMemberId, String dateType) {
+		if ("created".equals(dateType)) {
+			return orderRepository.findAllByCreatedDateRange(category, status, assignedMemberId, start, end);
+		} else {
+			return orderRepository.findAllByPreferredDateRange(category, status, assignedMemberId, start, end);
 		}
 	}
 

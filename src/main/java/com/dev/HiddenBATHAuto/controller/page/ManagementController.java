@@ -111,21 +111,33 @@ public class ManagementController {
 	}
 
 	@GetMapping("/nonStandardTaskList")
-	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
+	public String nonStandardTaskList(
+			@RequestParam(required = false, defaultValue = "") String keyword,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
 			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
-			@RequestParam(required = false, defaultValue = "all") String deliveryMethodId,
+			@RequestParam(required = false, defaultValue = "all") String standard,
 			@PageableDefault(size = 10) Pageable pageable, Model model) {
+
 		LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
 		LocalDateTime endDateTime = endDate != null ? endDate.atTime(LocalTime.MAX) : null;
 
-		Page<Order> orders = orderRepository.findFilteredOrders(keyword.isBlank() ? null : keyword, dateCriteria,
-				startDateTime, endDateTime, productCategoryId.equals("all") ? null : Long.parseLong(productCategoryId),
-				orderStatus.equals("all") ? null : OrderStatus.valueOf(orderStatus),
-				deliveryMethodId.equals("all") ? null : Long.parseLong(deliveryMethodId), pageable);
+		Boolean standardBool = null;
+		if ("true".equals(standard)) standardBool = true;
+		else if ("false".equals(standard)) standardBool = false;
+
+		Page<Order> orders = orderRepository.findFilteredOrders(
+			keyword.isBlank() ? null : keyword,
+			dateCriteria,
+			startDateTime,
+			endDateTime,
+			productCategoryId.equals("all") ? null : Long.parseLong(productCategoryId),
+			orderStatus.equals("all") ? null : OrderStatus.valueOf(orderStatus),
+			standardBool,
+			pageable
+		);
 
 		int startPage = Math.max(1, orders.getPageable().getPageNumber() - 4);
 		int endPage = Math.min(orders.getTotalPages(), orders.getPageable().getPageNumber() + 4);
@@ -134,46 +146,49 @@ public class ManagementController {
 		model.addAttribute("startPage", startPage);
 		model.addAttribute("endPage", endPage);
 
-		// 필터용 데이터
-		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+		// 필터 데이터
 		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
 		model.addAttribute("orderStatuses", OrderStatus.values());
 
-		// 🔁 필터 유지용 바인딩
+		// 필터 유지
 		model.addAttribute("keyword", keyword);
 		model.addAttribute("dateCriteria", dateCriteria);
 		model.addAttribute("startDate", startDate);
 		model.addAttribute("endDate", endDate);
 		model.addAttribute("productCategoryId", productCategoryId);
 		model.addAttribute("orderStatus", orderStatus);
-		model.addAttribute("deliveryMethodId", deliveryMethodId);
+		model.addAttribute("standard", standard);
 
 		return "administration/management/order/nonStandard/taskList";
 	}
 
+
 	@GetMapping("/nonStandardOrder/excel")
-	public void downloadNonStandardOrderExcel(@RequestParam(required = false) String keyword,
+	public void downloadNonStandardOrderExcel(
+			@RequestParam(required = false) String keyword,
 			@RequestParam(required = false) String dateCriteria,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-			@RequestParam(required = false) String orderStatus, @RequestParam(required = false) String deliveryMethodId,
-			@RequestParam(required = false) String productCategoryId, HttpServletResponse response) throws IOException {
+			@RequestParam(required = false) String orderStatus,
+			@RequestParam(required = false) String productCategoryId,
+			@RequestParam(required = false) String standard, // ✅ 추가됨
+			HttpServletResponse response) throws IOException {
 
-		// ✅ 날짜 변환
 		LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
 		LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
 
-		// ✅ 타입 변환
-		Long categoryId = (productCategoryId == null || "all".equals(productCategoryId)) ? null
-				: Long.valueOf(productCategoryId);
-		OrderStatus status = (orderStatus == null || "all".equals(orderStatus)) ? null
-				: OrderStatus.valueOf(orderStatus);
-		Long deliveryId = (deliveryMethodId == null || "all".equals(deliveryMethodId)) ? null
-				: Long.valueOf(deliveryMethodId);
+		Long categoryId = (productCategoryId == null || "all".equals(productCategoryId)) ? null : Long.valueOf(productCategoryId);
+		OrderStatus status = (orderStatus == null || "all".equals(orderStatus)) ? null : OrderStatus.valueOf(orderStatus);
+		Boolean isStandard = null;
+		if ("true".equals(standard)) {
+			isStandard = Boolean.TRUE;
+		} else if ("false".equals(standard)) {
+			isStandard = Boolean.FALSE;
+		}
 
-		// ✅ 데이터 조회
-		List<Order> orderList = orderRepository.findFilteredOrdersForExcel(keyword, dateCriteria, startDateTime,
-				endDateTime, categoryId, status, deliveryId);
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcel(
+			keyword, dateCriteria, startDateTime, endDateTime, categoryId, status, isStandard
+		);
 
 		// ✅ 응답 설정
 		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -798,35 +813,30 @@ public class ManagementController {
 	@GetMapping("/deliveryList")
 	public String deliveryListPage(
 	    @RequestParam(required = false) Long categoryId,
+	    @RequestParam(required = false) Long assignedMemberId,
 	    @RequestParam(required = false) String status,
-	    @RequestParam(required = false) String dateType, // preferred or created
+	    @RequestParam(required = false) String dateType,
 	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-	    Pageable pageable, Model model) {
+	    Pageable pageable, Model model
+	) {
+	    // ✅ 날짜 기준 처리
+		LocalDateTime from = null;
+		LocalDateTime to = null;
 
-	    // 카테고리 처리
-	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
+		if (startDate != null && endDate != null) {
+		    from = startDate.atStartOfDay();
+		    to = endDate.atTime(LocalTime.MAX);
+		} else if (startDate != null) {
+		    from = startDate.atStartOfDay();
+		    to = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+		} else if (endDate != null) {
+		    from = LocalDateTime.of(1970, 1, 1, 0, 0);
+		    to = endDate.atTime(LocalTime.MAX);
+		}
+		// ✅ else 없애서 null 그대로 전달 (→ 레포지토리 쿼리에서 조건 없이 조회됨)
 
-	    // 날짜 범위 처리
-	    LocalDateTime from;
-	    LocalDateTime to;
-
-	    if (startDate != null && endDate != null) {
-	        from = startDate.atStartOfDay();
-	        to = endDate.atTime(LocalTime.MAX);
-	    } else if (startDate != null) {
-	        from = startDate.atStartOfDay();
-	        to = LocalDateTime.of(9999, 12, 31, 23, 59, 59); // 사실상 무제한 미래
-	    } else if (endDate != null) {
-	        from = LocalDateTime.of(1970, 1, 1, 0, 0, 0); // 과거 전체 포함
-	        to = endDate.atTime(LocalTime.MAX);
-	    } else {
-	        LocalDate today = LocalDate.now();
-	        from = today.atStartOfDay();
-	        to = today.atTime(LocalTime.MAX);
-	    }
-
-	    // 상태 처리
+	    // ✅ 상태 처리 (기본: PRODUCTION_DONE)
 	    OrderStatus parsedStatus;
 	    if (status == null) {
 	        parsedStatus = OrderStatus.PRODUCTION_DONE;
@@ -842,21 +852,27 @@ public class ManagementController {
 	        }
 	    }
 
-	    // 날짜 기준 타입 처리
+	    // ✅ 날짜 기준 필드 설정
 	    String finalDateType = (dateType == null || dateType.isBlank()) ? "preferred" : dateType;
 
-	    // 주문 리스트 조회
-	    Page<Order> orders = orderStatusService.getOrders(
-	        from, to, category, parsedStatus, finalDateType, pageable);
+	    // ✅ 카테고리, 담당자 처리
+	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
+	    Member assigned = (assignedMemberId != null) ? memberRepository.findById(assignedMemberId).orElse(null) : null;
 
-	    // 모델에 값 전달
+	    // ✅ 조회
+	    Page<Order> orders = orderStatusService.getOrders(from, to, category, assigned, parsedStatus, finalDateType, pageable);
+
+	    // ✅ 모델 등록 (모든 값 그대로 반영)
 	    model.addAttribute("orders", orders);
 	    model.addAttribute("categoryId", categoryId);
-	    model.addAttribute("status", status);
+	    model.addAttribute("assignedMemberId", assignedMemberId);
+	    model.addAttribute("status", status); // 반드시 필요
 	    model.addAttribute("dateType", finalDateType);
-	    model.addAttribute("startDate", startDate); // 입력 값 그대로 전달
-	    model.addAttribute("endDate", endDate);     // 입력 값 그대로 전달
-	    model.addAttribute("categories", memberRepository.findByTeamName("배송팀"));
+	    model.addAttribute("startDate", startDate); // 그대로 반영
+	    model.addAttribute("endDate", endDate);
+
+	    model.addAttribute("categories", teamCategoryRepository.findByTeamName("생산팀"));
+	    model.addAttribute("assignees", memberRepository.findByTeamName("배송팀"));
 	    model.addAttribute("orderStatusList", OrderStatus.values());
 
 	    return "administration/management/delivery/deliveryList";
@@ -867,43 +883,26 @@ public class ManagementController {
 	    @RequestParam(required = false) Long categoryId,
 	    @RequestParam(required = false) String status,
 	    @RequestParam(required = false) String dateType,
+	    @RequestParam(required = false) Long assignedMemberId,
 	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 	    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
 	    HttpServletResponse response) throws IOException {
 
 	    TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
 
-	    LocalDateTime from;
-	    LocalDateTime to;
-
-	    if (startDate != null && endDate != null) {
-	        from = startDate.atStartOfDay();
-	        to = endDate.atTime(LocalTime.MAX);
-	    } else if (startDate != null) {
-	        from = startDate.atStartOfDay();
-	        to = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
-	    } else if (endDate != null) {
-	        from = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-	        to = endDate.atTime(LocalTime.MAX);
-	    } else {
-	        LocalDate today = LocalDate.now();
-	        from = today.atStartOfDay();
-	        to = today.atTime(LocalTime.MAX);
-	    }
+	    LocalDateTime from = (startDate != null) ? startDate.atStartOfDay() : LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+	    LocalDateTime to = (endDate != null) ? endDate.atTime(LocalTime.MAX) : LocalDateTime.of(9999, 12, 31, 23, 59, 59);
 
 	    OrderStatus parsedStatus = null;
 	    if (status != null && !status.isBlank()) {
 	        try {
 	            parsedStatus = OrderStatus.valueOf(status);
-	        } catch (IllegalArgumentException ignored) {
-	        }
-	    } else {
-	        parsedStatus = OrderStatus.PRODUCTION_DONE;
+	        } catch (IllegalArgumentException ignored) {}
 	    }
 
 	    String finalDateType = (dateType == null || dateType.isBlank()) ? "preferred" : dateType;
 
-	    List<Order> orders = orderStatusService.getAllOrders(from, to, category, parsedStatus, finalDateType);
+	    List<Order> orders = orderStatusService.getAllOrders(from, to, category, parsedStatus, assignedMemberId, finalDateType);
 
 	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 	    response.setHeader("Content-Disposition", "attachment; filename=delivery_list.xlsx");
@@ -911,9 +910,12 @@ public class ManagementController {
 	    try (Workbook workbook = new XSSFWorkbook()) {
 	        Sheet sheet = workbook.createSheet("배송 리스트");
 
-	        // ... (기존 스타일 및 헤더 작성 부분은 그대로 유지)
+	        Row header = sheet.createRow(0);
+	        String[] headers = { "대리점명", "신청자", "주소", "수량", "제품가격", "배송일", "상태", "담당자", "제품 상세" };
+	        for (int i = 0; i < headers.length; i++) {
+	            header.createCell(i).setCellValue(headers[i]);
+	        }
 
-	        // 데이터 출력
 	        int rowIdx = 1;
 	        for (Order order : orders) {
 	            Row row = sheet.createRow(rowIdx++);
@@ -924,15 +926,16 @@ public class ManagementController {
 	            row.createCell(2).setCellValue(order.getRoadAddress() + " " + order.getDetailAddress());
 	            row.createCell(3).setCellValue(order.getQuantity());
 	            row.createCell(4).setCellValue(order.getProductCost());
-	            row.createCell(5).setCellValue(
-	                order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
+	            row.createCell(5).setCellValue(order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
 	            row.createCell(6).setCellValue(order.getStatus().name());
+	            Member deliveryHandler = order.getAssignedDeliveryHandler();
+	            row.createCell(7).setCellValue(deliveryHandler != null ? deliveryHandler.getName() : "");
 
-	            // 제품 상세
 	            StringBuilder detail = new StringBuilder();
 	            if (order.getProductCategory() != null) {
 	                detail.append("카테고리: ").append(order.getProductCategory().getName()).append("\n");
 	            }
+
 	            OrderItem item = order.getOrderItem();
 	            if (item != null) {
 	                detail.append("제품명: ").append(item.getProductName()).append("\n");
@@ -947,15 +950,15 @@ public class ManagementController {
 	                            else detail.append(" / ");
 	                        }
 	                        if (!detail.toString().endsWith("\n")) {
-	                            detail.setLength(detail.length() - 3); // 마지막 " / " 제거
+	                            detail.setLength(detail.length() - 3);
 	                        }
 	                    } catch (Exception e) {
 	                        detail.append("[옵션 파싱 실패]");
 	                    }
 	                }
 	            }
-	            Cell detailCell = row.createCell(7);
-	            detailCell.setCellValue(detail.toString().trim());
+
+	            row.createCell(8).setCellValue(detail.toString().trim());
 	        }
 
 	        workbook.write(response.getOutputStream());

@@ -207,6 +207,38 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 		    @Param("deliveryMethodId") Long deliveryMethodId,
 		    Pageable pageable
 		);
+	
+	@Query("""
+		SELECT o FROM Order o
+		WHERE 
+			(:keyword IS NULL OR 
+				LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR 
+				LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+			AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+			AND (:status IS NULL OR o.status = :status)
+			AND (:standard IS NULL OR o.standard = :standard)
+			AND (
+				(:dateCriteria = 'order' AND 
+					(:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND 
+					(:endDateTime IS NULL OR o.createdAt <= :endDateTime))
+				OR (:dateCriteria = 'delivery' AND 
+					(:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND 
+					(:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
+				OR :dateCriteria = 'all'
+			)
+		ORDER BY o.preferredDeliveryDate DESC
+	""")
+	Page<Order> findFilteredOrders(
+		@Param("keyword") String keyword,
+		@Param("dateCriteria") String dateCriteria,
+		@Param("startDateTime") LocalDateTime startDateTime,
+		@Param("endDateTime") LocalDateTime endDateTime,
+		@Param("productCategoryId") Long productCategoryId,
+		@Param("status") OrderStatus status,
+		@Param("standard") Boolean standard,
+		Pageable pageable
+	);
+
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE 
@@ -235,6 +267,36 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("productCategoryId") Long productCategoryId,
 	    @Param("status") OrderStatus status,
 	    @Param("deliveryMethodId") Long deliveryMethodId
+	);
+
+	@Query("""
+		SELECT o FROM Order o
+		WHERE 
+			(:keyword IS NULL OR 
+				LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR 
+				LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+			AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+			AND (:status IS NULL OR o.status = :status)
+			AND (:standard IS NULL OR o.standard = :standard)
+			AND (
+				(:dateCriteria = 'order' AND 
+					(:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND 
+					(:endDateTime IS NULL OR o.createdAt <= :endDateTime))
+				OR (:dateCriteria = 'delivery' AND 
+					(:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND 
+					(:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
+				OR :dateCriteria = 'all'
+			)
+		ORDER BY o.preferredDeliveryDate DESC
+	""")
+	List<Order> findFilteredOrdersForExcel(
+		@Param("keyword") String keyword,
+		@Param("dateCriteria") String dateCriteria,
+		@Param("startDateTime") LocalDateTime startDateTime,
+		@Param("endDateTime") LocalDateTime endDateTime,
+		@Param("productCategoryId") Long productCategoryId,
+		@Param("status") OrderStatus status,
+		@Param("standard") Boolean standard // ✅ 변경된 필드
 	);
 
 	
@@ -292,7 +354,83 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("end") LocalDateTime end
 	);
 
+	// preferredDeliveryDate 기준
+	@Query("""
+	    SELECT o FROM Order o
+	    WHERE (:category IS NULL OR o.productCategory = :category)
+	      AND (:assigned IS NULL OR o.assignedDeliveryHandler = :assigned)
+	      AND (:status IS NULL OR o.status = :status)
+	      AND (
+	        (:start IS NULL OR o.preferredDeliveryDate >= :start)
+	        AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+	      )
+	    ORDER BY o.preferredDeliveryDate DESC
+	""")
+	Page<Order> findByPreferredDateRange(
+	    @Param("category") TeamCategory category,
+	    @Param("assigned") Member assigned,
+	    @Param("status") OrderStatus status,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end,
+	    Pageable pageable
+	);
 
+
+
+	// createdAt 기준
+	@Query("""
+	    SELECT o FROM Order o
+	    WHERE (:category IS NULL OR o.productCategory = :category)
+	      AND (:assigned IS NULL OR o.assignedDeliveryHandler = :assigned)
+	      AND (:status IS NULL OR o.status = :status)
+	      AND (
+	        (:start IS NULL OR o.createdAt >= :start)
+	        AND (:end IS NULL OR o.createdAt <= :end)
+	      )
+	    ORDER BY o.createdAt DESC
+	""")
+	Page<Order> findByCreatedDateRange(
+	    @Param("category") TeamCategory category,
+	    @Param("assigned") Member assigned,
+	    @Param("status") OrderStatus status,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end,
+	    Pageable pageable
+	);
+
+	@Query("""
+	    SELECT o FROM Order o
+	    WHERE (:category IS NULL OR o.productCategory = :category)
+	      AND (:status IS NULL OR o.status = :status)
+	      AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+	      AND o.preferredDeliveryDate BETWEEN :start AND :end
+	    ORDER BY o.preferredDeliveryDate DESC
+	""")
+	List<Order> findAllByPreferredDateRange(
+	    @Param("category") TeamCategory category,
+	    @Param("status") OrderStatus status,
+	    @Param("assignedMemberId") Long assignedMemberId,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end
+	);
+
+
+
+	@Query("""
+	    SELECT o FROM Order o
+	    WHERE (:category IS NULL OR o.productCategory = :category)
+	      AND (:status IS NULL OR o.status = :status)
+	      AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+	      AND o.createdAt BETWEEN :start AND :end
+	    ORDER BY o.createdAt DESC
+	""")
+	List<Order> findAllByCreatedDateRange(
+	    @Param("category") TeamCategory category,
+	    @Param("status") OrderStatus status,
+	    @Param("assignedMemberId") Long assignedMemberId,
+	    @Param("start") LocalDateTime start,
+	    @Param("end") LocalDateTime end
+	);
 }
 
 

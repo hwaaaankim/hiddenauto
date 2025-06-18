@@ -51,7 +51,7 @@
 													endDate=${endDate},
 													productCategoryId=${productCategoryId},
 													orderStatus=${orderStatus},
-													deliveryMethodId=${deliveryMethodId}
+													standard=${standard}
 												)}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
@@ -133,15 +133,15 @@
 
 											<!-- 🚚 배송방식 -->
 											<div class="col-xxl-3 col-sm-4">
-												<label class="form-label">배송방식</label>
+												<label class="form-label">규격 여부</label>
 												<div class="input-light">
-													<select class="form-control" name="deliveryMethodId">
-														<option value="all" th:selected="${deliveryMethodId == 'all'}">
-															All</option>
-														<option th:each="method : ${deliveryMethods}"
-															th:value="${method.id}" th:text="${method.methodName}"
-															th:selected="${deliveryMethodId == method.id.toString()}">
-															배송방식</option>
+													<select class="form-control" name="standard">
+														<option value="all" th:selected="${standard == 'all'}">전체
+														</option>
+														<option value="true" th:selected="${standard == 'true'}">규격
+														</option>
+														<option value="false" th:selected="${standard == 'false'}">비규격
+														</option>
 													</select>
 												</div>
 											</div>
@@ -217,8 +217,10 @@
 
 													<!-- 규격/비규격 구분 -->
 													<td class="assignedto">
-													    <span th:if="${order.standard}" class="badge bg-success-subtle text-success">규격</span>
-													    <span th:if="${!order.standard}" class="badge bg-primary-subtle text-primary">비규격</span>
+														<span th:if="${order.standard}"
+															class="badge bg-success-subtle text-success">규격</span>
+														<span th:if="${!order.standard}"
+															class="badge bg-primary-subtle text-primary">비규격</span>
 													</td>
 
 													<!-- 발주일 -->
@@ -260,56 +262,51 @@
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
 													<!-- First -->
+													<!-- First -->
 													<li class="page-item"
 														th:classappend="${orders.pageable.pageNumber == 0} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/nonStandardTaskList(page=0, size=${orders.size},
-					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">First</a>
+														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=0, size=${orders.size},
+		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">First</a>
 													</li>
 
 													<!-- Previous -->
 													<li class="page-item"
 														th:classappend="${orders.pageable.pageNumber == 0} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber - 1}, size=${orders.size},
-					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">Previous</a>
+														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber - 1}, size=${orders.size},
+		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">Previous</a>
 													</li>
 
 													<!-- Page Numbers -->
 													<li class="page-item"
 														th:each="i : ${#numbers.sequence(startPage, endPage)}"
 														th:classappend="${i == orders.pageable.pageNumber + 1} ? 'active'">
-														<a class="page-link" th:text="${i}"
-															th:href="@{/management/nonStandardTaskList(page=${i - 1}, size=${orders.size},
-					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">1</a>
+														<a class="page-link" th:text="${i}" th:href="@{/management/nonStandardTaskList(page=${i - 1}, size=${orders.size},
+		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">1</a>
 													</li>
 
 													<!-- Next -->
 													<li class="page-item"
 														th:classappend="${orders.pageable.pageNumber + 1 == orders.totalPages} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber + 1}, size=${orders.size},
-					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">Next</a>
+														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber + 1}, size=${orders.size},
+		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">Next</a>
 													</li>
 
 													<!-- Last -->
 													<li class="page-item"
 														th:classappend="${orders.pageable.pageNumber + 1 == orders.totalPages} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/nonStandardTaskList(page=${orders.totalPages - 1}, size=${orders.size},
-					    keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-					    productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, deliveryMethodId=${deliveryMethodId})}">Last</a>
+														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=${orders.totalPages - 1}, size=${orders.size},
+		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
+		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">Last</a>
 													</li>
+
 												</ul>
 											</nav>
 										</div>
 									</div>
-
-
 								</div>
 							</div>
 						</div>

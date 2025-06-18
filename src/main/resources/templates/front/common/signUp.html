@@ -35,8 +35,12 @@
 							<input type="hidden" name="role" value="CUSTOMER_REPRESENTATIVE">
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" name="companyName" id="repCompanyName" required
-									placeholder="업체명을 입력 해 주세요.">
+								<input 
+								type="text" 
+								class="form-control" 
+								name="companyName" 
+								id="repCompanyName" required
+								placeholder="업체명을 입력 해 주세요.">
 								<label for="companyName" class="color-blue-dark font-10 mt-1">업체명</label>
 								<em>(required)</em>
 							</div>
@@ -49,53 +53,89 @@
 							</div>
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" name="username" id="repUsername" required
-									placeholder="사용하실 아이디를 입력 해 주세요.">
+								<input 
+								type="text" 
+								class="form-control" 
+								name="username" 
+								id="repUsername" 
+								required
+								placeholder="사용하실 아이디를 입력 해 주세요.">
 								<label for="username" class="color-blue-dark font-10 mt-1">아이디</label>
 								<em>(required)</em>
 							</div>
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-lock"></i>
-								<input type="password" class="form-control" name="password" id="repPassword" required
-									placeholder="사용하실 비밀번호를 입력 해 주세요.">
+								<input 
+								type="password" 
+								class="form-control" 
+								name="password" 
+								id="repPassword" 
+								required
+								placeholder="사용하실 비밀번호를 입력 해 주세요.">
 								<label for="password" class="color-blue-dark font-10 mt-1">비밀번호</label>
 								<em>(required)</em>
 							</div>
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-lock"></i>
-								<input type="password" 
+								<input 
+								type="password" 
 								class="form-control" 
-								id="repPasswordCheck" name="passwordCheck" required
-									placeholder="비밀번호를 다시한번 입력 해 주세요.">
+								id="repPasswordCheck" 
+								name="passwordCheck" 
+								required
+								placeholder="비밀번호를 다시한번 입력 해 주세요.">
 								<label for="passwordCheck" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
 								<em>(required)</em>
 							</div>
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-phone"></i>
-								<input type="text" class="form-control" id="repPhone" name="phone" required
-									placeholder="연락처를 입력 해 주세요."autocomplete="off">
+								<input 
+								type="text" 
+								class="form-control" 
+								id="repPhone" 
+								name="phone" 
+								required
+								placeholder="연락처를 입력 해 주세요."
+								autocomplete="off">
 								<label for="phone" class="color-blue-dark font-10 mt-1">연락처</label>
 								<em>(required)</em>
 							</div>
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-envelope"></i>
-								<input type="email" class="form-control" id="repEmail" name="email"
-									placeholder="이메일을 입력 해 주세요.">
+								<input 
+								type="email" 
+								class="form-control" 
+								id="repEmail" 
+								name="email"
+								required
+								placeholder="이메일을 입력 해 주세요.">
 								<label for="email" class="color-blue-dark font-10 mt-1">이메일</label>
 							</div>
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-address-book"></i>
-								<input type="text" class="form-control" id="searchAddress" name="roadAddress" required
-									placeholder="주소를 검색 해 주세요."autocomplete="off">
+								<input 
+								type="text" 
+								class="form-control" 
+								id="searchAddress" 
+								name="roadAddress" 
+								required
+								placeholder="주소를 검색 해 주세요."
+								autocomplete="off">
 								<button onclick="execDaumPostcode()">주소검색</button>
 								<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
 							</div>
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-address-book"></i>
-								<input type="text" class="form-control" id="detailAddress" name="detailAddress" required
-									placeholder="상세 주소를 입력 해 주세요."autocomplete="off">
+								<input 
+								type="text" 
+								class="form-control" 
+								id="detailAddress"
+								name="detailAddress" 
+								required
+								placeholder="상세 주소를 입력 해 주세요."
+								autocomplete="off">
 								<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
-								<input type="hidden" name="doName" id="doName">
+								<input type="hidden" name="doName" id="doName" required>
 								<input type="hidden" name="siName" id="siName">
 								<input type="hidden" name="guName" id="guName"> <!-- 동/읍/면 등 -->
 								<input type="hidden" name="zipCode" id="zipCode"> <!-- 우편번호 -->
@@ -129,8 +169,13 @@
 							<input type="hidden" name="role" value="CUSTOMER_EMPLOYEE">
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" id="empName" name="name" required
-									placeholder="성함을 입력 해 주세요.">
+								<input 
+								type="text" 
+								class="form-control" 
+								id="empName" 
+								name="name" 
+								required
+								placeholder="성함을 입력 해 주세요.">
 								<label for="name" class="color-blue-dark font-10 mt-1">성함</label>
 								<em>(required)</em>
 							</div>
@@ -164,7 +209,7 @@
 							</div>
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-envelope"></i>
-								<input type="email" class="form-control" name="email" id="empEmail"
+								<input type="email" class="form-control" name="email" id="empEmail" required
 									placeholder="이메일을 입력 해 주세요.">
 								<label for="email" class="color-blue-dark font-10 mt-1">이메일</label>
 							</div>

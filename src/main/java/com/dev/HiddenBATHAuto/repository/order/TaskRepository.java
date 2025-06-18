@@ -25,4 +25,17 @@ public interface TaskRepository extends JpaRepository<Task, Long>{
 
 	List<Task> findByRequestedByAndCreatedAtBetween(Member member, LocalDateTime start, LocalDateTime end);
 	
+	@Query("""
+	    SELECT t FROM Task t 
+	    WHERE t.requestedBy.company.id = :companyId
+	      AND (:start IS NULL OR t.createdAt >= :start)
+	      AND (:end IS NULL OR t.createdAt <= :end)
+	""")
+	Page<Task> findByCompanyIdAndCreatedAtBetween(
+	        @Param("companyId") Long companyId,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+	
 }

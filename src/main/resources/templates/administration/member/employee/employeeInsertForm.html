@@ -36,30 +36,31 @@
 					</div>
 
 					<!-- 상단 생략 -->
-					<form action="/management/employeeInsert" method="POST" onsubmit="return validateRegionBeforeSubmit()">
+					<form action="/management/employeeInsert" method="POST"
+						onsubmit="return validateRegionBeforeSubmit()">
 						<div class="row">
 							<div class="col-lg-6">
 								<div class="card">
 									<div class="card-body">
 										<div class="mb-3">
 											<label class="form-label">아이디</label>
-											<input type="text" class="form-control" name="username">
+											<input type="text" class="form-control" name="username" required>
 											<input type="hidden" name="regionJson" id="regionJsonInput">
 										</div>
 
 										<div class="mb-3">
 											<label class="form-label">비밀번호</label>
-											<input type="text" class="form-control" name="password">
+											<input type="text" class="form-control" name="password" required>
 										</div>
 
 										<div class="mb-3">
 											<label class="form-label">이름</label>
-											<input type="text" class="form-control" name="name">
+											<input type="text" class="form-control" name="name" required>
 										</div>
 
 										<div class="mb-3">
 											<label class="form-label">연락처</label>
-											<input type="text" class="form-control" name="phone">
+											<input type="text" class="form-control" name="phone" required>
 										</div>
 
 										<div class="mb-3">
@@ -69,9 +70,10 @@
 
 										<div class="mb-3">
 											<label class="form-label">권한</label>
-											<select class="form-select" name="role">
-												<option value="MANAGEMENT">관리팀</option>
-												<option value="INTERNAL_EMPLOYEE">현장팀</option>
+											<select class="form-select" name="role" required>
+												<option value="">권한선택</option>
+												<option value="MANAGEMENT">관리직</option>
+												<option value="INTERNAL_EMPLOYEE">현장직</option>
 											</select>
 										</div>
 									</div>
@@ -82,7 +84,7 @@
 									<div class="card-body">
 										<div class="mb-3">
 											<label class="form-label">팀</label>
-											<select class="form-select" id="teamSelect" name="teamId">
+											<select class="form-select" id="teamSelect" name="teamId" required>
 												<option value="">팀 선택</option>
 												<option th:each="team : ${teams}" th:value="${team.id}"
 													th:text="${team.name}"></option>
@@ -137,7 +139,7 @@
 	<script src="/administration/assets/js/pages/project-create.init.js"></script>
 	<script>
 		document.addEventListener("DOMContentLoaded", function () {
-			
+
 			const teamSelect = document.getElementById("teamSelect");
 			const categoryWrapper = document.getElementById("teamCategoryWrapper");
 			const categorySelect = document.getElementById("teamCategorySelect");
@@ -162,11 +164,11 @@
 
 			// ✅ 이 함수는 항상 최신 selectedRegions 값을 input에 넣어줌
 			const updateRegionInput = () => {
-			    regionInput.value = JSON.stringify(selectedRegions);
-			    console.log("📦 현재 지역 JSON:", regionInput.value);
+				regionInput.value = JSON.stringify(selectedRegions);
+				console.log("📦 현재 지역 JSON:", regionInput.value);
 			};
 
-				
+
 			const renderRegionList = () => {
 				regionListContainer.innerHTML = '';
 				selectedRegions.forEach((region, index) => {
@@ -264,7 +266,7 @@
 
 
 			districtRegisterButton.addEventListener('click', () => {
-				
+
 				const provinceName = provinceSelect.options[provinceSelect.selectedIndex]?.text;
 				const provinceId = provinceSelect.value;
 				const cityName = citySelect.options[citySelect.selectedIndex]?.text || null;
@@ -284,8 +286,8 @@
 
 				selectedRegions.push({provinceId, cityId, districtId, provinceName, cityName, districtName});
 				renderRegionList();
-				updateRegionInput(); 
-				
+				updateRegionInput();
+
 				// ✅ 등록 후 셀렉트 초기화
 				provinceSelect.value = '';
 				citySelect.innerHTML = '';
@@ -294,19 +296,39 @@
 				districtWrapper.style.display = 'none';
 				console.log(selectedRegions);
 			});
-			
+
 		});
 		function validateRegionBeforeSubmit() {
-			const json = document.getElementById('regionJsonInput').value;
-			if (!json || json === "[]" || json.trim() === "") {
-				const teamName = document.getElementById("teamSelect").selectedOptions[0].text;
-				if (teamName === "배송팀" || teamName === "AS팀") {
+			const teamSelect = document.getElementById("teamSelect");
+			const teamValue = teamSelect.value;
+			const teamName = teamSelect.selectedOptions[0]?.text || "";
+
+			if (!teamValue) {
+				alert("팀을 선택해주세요.");
+				return false;
+			}
+
+			// 생산팀이면 카테고리 선택 필수
+			if (teamName === "생산팀") {
+				const categoryValue = document.getElementById("teamCategorySelect").value;
+				if (!categoryValue) {
+					alert("생산팀은 카테고리 선택이 필수입니다.");
+					return false;
+				}
+			}
+
+			// AS팀 또는 배송팀이면 지역 등록 필수
+			if (teamName === "배송팀" || teamName === "AS팀") {
+				const json = document.getElementById('regionJsonInput').value;
+				if (!json || json === "[]" || json.trim() === "") {
 					alert("지역이 등록되지 않았습니다. 반드시 [지역 등록] 버튼을 눌러야 합니다.");
 					return false;
 				}
 			}
+
 			return true;
 		}
+
 	</script>
 </body>
 

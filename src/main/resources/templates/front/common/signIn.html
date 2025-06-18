@@ -20,16 +20,23 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 					<form action="/signinProcess" method="post">
 						<div class="input-style no-borders has-icon">
 							<i class="fa fa-user"></i>
-							<input type="text" 
+							<input 
+							type="text" 
 							name="username"
-							class="form-control" placeholder="아이디를 입력 해 주세요.">
+							required
+							class="form-control" 
+							placeholder="아이디를 입력 해 주세요.">
 							<label class="color-blue-dark font-10 mt-1">USERNAME</label>
 							<em>(required)</em>
 						</div>
 						<div class="input-style no-borders has-icon mt-4">
 							<i class="fa fa-lock"></i>
-							<input type="password" class="form-control" name="password"
-								placeholder="비밀번호를 입력 해 주세요.">
+							<input 
+							type="password" 
+							class="form-control" 
+							name="password"
+							required
+							placeholder="비밀번호를 입력 해 주세요.">
 							<label class="color-blue-dark font-10 mt-1">PASSWORD</label>
 							<em>(required)</em>
 						</div>

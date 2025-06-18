@@ -38,7 +38,7 @@
 						<!-- 이메일 -->
 						<div class="input-style input-style-always-active has-borders has-icon mt-4">
 							<i class="fa-solid fa-inbox font-12"></i>
-							<input type="email" class="form-control" name="email" th:value="${member.email}"
+							<input type="email" class="form-control" required name="email" th:value="${member.email}"
 								placeholder="이메일">
 							<label class="color-blue-dark font-13">이메일</label>
 						</div>
@@ -78,7 +78,7 @@
 								placeholder="상세 주소를 입력 해 주세요." autocomplete="off" th:value="${company.detailAddress}">
 							<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
 
-							<input type="hidden" name="doName" id="doName" th:value="${company.doName}">
+							<input type="hidden" name="doName" id="doName" th:value="${company.doName}" required>
 							<input type="hidden" name="siName" id="siName" th:value="${company.siName}">
 							<input type="hidden" name="guName" id="guName" th:value="${company.guName}">
 							<input type="hidden" name="zipCode" id="zipCode" required th:value="${company.zipCode}">
@@ -119,7 +119,7 @@
 					</p>
 					<div class="input-style input-style-always-active has-borders has-icon">
 						<i class="fa-solid fa-key font-12"></i>
-						<input type="text" class="form-control" placeholder="대리점코드"
+						<input type="text" class="form-control" placeholder="대리점코드" readonly
 							th:value="${company.registrationKey}">
 						<label class="color-blue-dark font-13">대리점코드</label>
 					</div>
@@ -137,7 +137,7 @@
 					</p>
 					<form method="POST" id="passwordForm" action="/customer/changePassword">
 						<div class="input-style input-style-always-active has-borders no-icon">
-							<input type="password" name="newPassword" class="form-control" placeholder="새로운 비밀번호 입력">
+							<input type="password" name="newPassword" class="form-control" required placeholder="새로운 비밀번호 입력">
 							<label class="color-blue-dark font-12">새로운 비밀번호</label>
 							<em>(required)</em>
 						</div>

@@ -3,7 +3,9 @@ package com.dev.HiddenBATHAuto.controller.page;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -99,13 +102,25 @@ public class CustomerController {
 	}
 	
 	@GetMapping("/taskList")
-	public String taskList(@AuthenticationPrincipal PrincipalDetails principal,
-			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-			Model model) {
-		Long companyId = principal.getMember().getCompany().getId();
-		Page<Task> taskPage = taskRepository.findByCompanyId(companyId, pageable);
-		model.addAttribute("taskPage", taskPage);
-		return "front/customer/task/taskList";
+	public String taskList(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+	        Model model) {
+
+	    Long companyId = principal.getMember().getCompany().getId();
+
+	    LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+	    LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+
+	    Page<Task> taskPage = taskRepository.findByCompanyIdAndCreatedAtBetween(companyId, start, end, pageable);
+
+	    model.addAttribute("taskPage", taskPage);
+	    model.addAttribute("startDate", startDate);
+	    model.addAttribute("endDate", endDate);
+
+	    return "front/customer/task/taskList";
 	}
 
 	@GetMapping("/taskDetail/{taskId}")
@@ -152,13 +167,24 @@ public class CustomerController {
 	}
 
 	@GetMapping("/asList")
-	public String asList(@AuthenticationPrincipal PrincipalDetails principal,
-			@PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
-			Model model) {
-		Long companyId = principal.getMember().getCompany().getId();
-		Page<AsTask> asTaskPage = asTaskRepository.findByCompanyId(companyId, pageable);
-		model.addAttribute("asTaskPage", asTaskPage);
-		return "front/customer/task/asList";
+	public String asList(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+	        @PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
+	        Model model) {
+
+	    Long companyId = principal.getMember().getCompany().getId();
+	    LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+	    LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+
+	    Page<AsTask> asTaskPage = asTaskRepository.findByCompanyIdAndRequestedAtBetween(companyId, start, end, pageable);
+
+	    model.addAttribute("asTaskPage", asTaskPage);
+	    model.addAttribute("startDate", startDate);
+	    model.addAttribute("endDate", endDate);
+
+	    return "front/customer/task/asList";
 	}
 
 	@GetMapping("/asRequest")

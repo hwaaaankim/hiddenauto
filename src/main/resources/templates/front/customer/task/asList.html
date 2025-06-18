@@ -26,24 +26,19 @@
 			</div>
 			<div class="card card-style">
 				<div class="content mb-0">
-					<h3>검색 FILTER</h3>
-					<p>
-						다양한 조건을 통해 데이터를 조회할 수 있습니다.
-					</p>
-					<div class="row">
-						<div class="input-style has-borders no-icon mb-4 col-3">
-							<input type="date" value="2030-12-31" class="form-control validate-text">
-							<label for="form6" class="color-highlight">Select Date</label>
-							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
-							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
+					<form method="get" th:action="@{/customer/asList}" class="row">
+						<div class="row">
+							<div class="input-style no-borders has-icon mt-1 col-6">
+								<input type="date" name="startDate" th:value="${startDate}"
+									class="form-control validate-text">
+							</div>
+							<div class="input-style no-borders has-icon mt-1 col-6">
+								<input type="date" class="form-control" name="endDate" th:value="${endDate}">
+								<button type="submit">검색</button>
+							</div>
+
 						</div>
-						<div class="input-style has-borders no-icon mb-4 col-3">
-							<input type="date" value="2030-12-31" class="form-control validate-text">
-							<label for="form6" class="color-highlight">Select Date</label>
-							<i class="fa fa-check disabled valid me-4 pe-3 font-12 color-green-dark"></i>
-							<i class="fa fa-check disabled invalid me-4 pe-3 font-12 color-red-dark"></i>
-						</div>
-					</div>
+					</form>
 				</div>
 			</div>
 			<div class="card card-style" th:each="asTask, i : ${asTaskPage.content}">
@@ -112,20 +107,50 @@
 					</div>
 				</div>
 			</div>
+			<!-- 페이지네이션 -->
 			<div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
 				<ul class="pagination">
-					<li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
-						<a class="page-link" th:href="@{${pageableUrl}(page=${asTaskPage.number - 1})}">이전</a>
+
+					<!-- FIRST -->
+					<li class="page-item" th:classappend="${asTaskPage.first} ? 'disabled'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
 					</li>
+
+					<!-- PREVIOUS -->
+					<li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${asTaskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
+							PREVIOUS
+						</a>
+					</li>
+
+					<!-- PAGE NUMBERS -->
 					<li class="page-item" th:each="i : ${#numbers.sequence(0, asTaskPage.totalPages - 1)}"
 						th:classappend="${asTaskPage.number == i} ? 'active'">
-						<a class="page-link" th:href="@{${pageableUrl}(page=${i})}" th:text="${i + 1}">1</a>
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${i}, startDate=${startDate}, endDate=${endDate})}"
+							th:text="${i + 1}">1</a>
 					</li>
+
+					<!-- NEXT -->
 					<li class="page-item" th:classappend="${asTaskPage.hasNext()} ? '' : 'disabled'">
-						<a class="page-link" th:href="@{${pageableUrl}(page=${asTaskPage.number + 1})}">다음</a>
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${asTaskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
+							NEXT
+						</a>
+					</li>
+
+					<!-- LAST -->
+					<li class="page-item" th:classappend="${asTaskPage.last} ? 'disabled'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${asTaskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
+							LAST
+						</a>
 					</li>
 				</ul>
 			</div>
+
 		</div>
 		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
