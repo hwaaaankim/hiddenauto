@@ -1,15 +1,13 @@
 <!DOCTYPE HTML>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<head th:replace="~{fragments/front/common :: autoHead}">
-</head>
+<head th:replace="~{fragments/front/common :: autoHead}"></head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
-	
+
 	<div id="page" class="container">
 		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
 
@@ -23,8 +21,10 @@
 		</div>
 		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
+
 	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
-	<!-- Modal -->
+
+	<!-- 기존 모달 -->
 	<div id="auto-modal" class="auto-modal">
 		<div class="auto-modal-content">
 			<span id="auto-close">&times;</span>
@@ -32,10 +32,55 @@
 			<div id="auto-modal-body"></div>
 		</div>
 	</div>
-	
+
+	<!-- =======================
+	     팝업(오버레이 + 모달 + Swiper)
+	     prefix: index-popup-
+	     ======================= -->
+	<div id="index-popup-overlay" class="index-popup-overlay" style="display:none;"
+		th:if="${popups != null and !#lists.isEmpty(popups)}">
+		<div id="index-popup-modal" class="index-popup-modal" role="dialog" aria-modal="true" aria-label="공지 팝업"
+			onclick="event.stopPropagation();">
+			<!-- 닫기(X) -->
+			<button type="button" class="index-popup-close" aria-label="닫기">&times;</button>
+
+			<!-- 슬라이더 -->
+			<div class="index-popup-swiper" id="index-popup-swiper">
+				<div class="swiper-wrapper">
+					<div class="swiper-slide" th:each="p : ${popups}" th:attr="data-id=${p.id}">
+						<div class="index-popup-slide">
+							<div class="index-popup-media">
+								<img th:src="${p.imageUrl}" alt="popup image">
+							</div>
+							<div class="index-popup-link" th:if="${p.linkEnabled}">
+								<a class="index-popup-link-btn" th:href="${p.linkUrl}" target="_blank"
+									rel="noopener">이동하기</a>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- ✅ 네비게이션(좌/우)만 사용. Swiper 기본 아이콘을 쓰기 위해 기본 클래스도 함께 부여 -->
+				<div class="indexpop-button-prev swiper-button-prev"></div>
+				<div class="indexpop-button-next swiper-button-next"></div>
+			</div>
+
+			<!-- 하단 바: 다시 보지 않기 + 닫기 -->
+			<div class="index-popup-footer">
+				<label class="index-popup-nosee">
+					<input type="checkbox" id="index-popup-hide7">
+					<span>7일간 보지 않기</span>
+				</label>
+				<button type="button" id="index-popup-closebtn" class="index-popup-hide-btn">닫기</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- 공용 스크립트 -->
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 	<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
 	<script src="/front/calendar.js"></script>
-	
+	<script src="/front/index-popup.js"></script>
 </body>
+
 </html>

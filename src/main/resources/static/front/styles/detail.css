@@ -1488,12 +1488,12 @@ button[disabled] {
 	display: inline-block;
 	text-align: center;
 	padding: 8px 16px;
-	font-size:13px;
+	font-size: 13px;
 	border: 1px solid #ccc;
 	border-radius: 8px;
 	background-color: #fff;
 	transition: all 0.2s ease;
-	min-width:130px;
+	min-width: 130px;
 }
 
 .standard-detail-radio span:hover {
@@ -1513,7 +1513,7 @@ button[disabled] {
 
 /* 전체 영역 */
 .standard-detail-final-section {
-	padding-top:20px;
+	padding-top: 20px;
 	width: 100%;
 	box-sizing: border-box;
 }
@@ -1567,66 +1567,70 @@ button[disabled] {
 .standard-detail-button-group button:hover {
 	opacity: 0.85;
 }
+
 /* disabled 버튼 스타일 */
 .standard-detail-button-group button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-  opacity: 0.6;
+	background-color: #cccccc;
+	cursor: not-allowed;
+	opacity: 0.6;
 }
 
 /* 가격 결과 영역 */
 .standard-detail-price-result {
-  margin-top: 16px;
-  background-color: #f9f9f9;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 16px;
+	margin-top: 16px;
+	background-color: #f9f9f9;
+	padding: 12px;
+	border-radius: 8px;
+	border: 1px solid #ddd;
+	font-size: 16px;
 }
-.standard-detail-price-result p{
-	margin-bottom:0px;
-	line-height:1.4;
-	font-size:14px;
+
+.standard-detail-price-result p {
+	margin-bottom: 0px;
+	line-height: 1.4;
+	font-size: 14px;
 }
-.error-text-wrap p{
-	margin-bottom:0px;
-	line-height:1.4;
+
+.error-text-wrap p {
+	margin-bottom: 0px;
+	line-height: 1.4;
 }
+
 .calendar-task {
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 15px;
-    background-color: #f9f9f9;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	padding: 15px;
+	margin-bottom: 15px;
+	background-color: #f9f9f9;
 }
 
 .calendar-task-as {
-    border-left: 4px solid #007bff;
+	border-left: 4px solid #007bff;
 }
 
 .calendar-task-task {
-    border-left: 4px solid #dc3545;
+	border-left: 4px solid #dc3545;
 }
 
 .calendar-task-order {
-    background: white;
-    border: 1px dashed #ddd;
-    margin-top: 10px;
-    padding: 10px;
-    border-radius: 6px;
+	background: white;
+	border: 1px dashed #ddd;
+	margin-top: 10px;
+	padding: 10px;
+	border-radius: 6px;
 }
 
 .calendar-task span {
-    display: inline-block;
-    width: 100px;
-    color: #666;
-    font-weight: 500;
+	display: inline-block;
+	width: 100px;
+	color: #666;
+	font-weight: 500;
 }
 
 .calendar-task-empty {
-    padding: 20px;
-    text-align: center;
-    color: #888;
+	padding: 20px;
+	text-align: center;
+	color: #888;
 }
 
 /* 달력 스타일 */
@@ -1680,7 +1684,8 @@ button[disabled] {
 	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 	width: 90%;
 	max-width: 600px;
-	max-height: 80vh; /* 💡 모달 높이 고정 */
+	max-height: 80vh;
+	/* 💡 모달 높이 고정 */
 	display: flex;
 	flex-direction: column;
 }
@@ -1690,7 +1695,8 @@ button[disabled] {
 	overflow-y: auto;
 	font-size: 16px;
 	line-height: 1.5;
-	flex: 1 1 auto; /* 💡 남은 공간만큼 차지 */
+	flex: 1 1 auto;
+	/* 💡 남은 공간만큼 차지 */
 }
 
 
@@ -1737,19 +1743,343 @@ button[disabled] {
 h3#auto-modal-title {
 	margin-bottom: 30px;
 }
-.calendar-task-order p, .calendar-task-as p{
-	margin-bottom:0px;
+
+.calendar-task-order p,
+.calendar-task-as p {
+	margin-bottom: 0px;
 }
-.web-mb-5{
-	margin-bottom:3rem !important;
+
+.web-mb-5 {
+	margin-bottom: 3rem !important;
 }
-@media(max-width:670px){
-	.web-mb-5{
-		margin-bottom:0.5rem !important;
-	}	
-	.footer {
-	    padding: 10px 30px 10px 30px;
-	    margin-bottom: 0px !important;
-	    z-index: 11;
+
+@media(max-width:670px) {
+	.web-mb-5 {
+		margin-bottom: 0.5rem !important;
 	}
+
+	.footer {
+		padding: 10px 30px 10px 30px;
+		margin-bottom: 0px !important;
+		z-index: 11;
+	}
+}
+
+/* ============ index-popup.css ============ */
+/* 오버레이 */
+.index-popup-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 9999;
+	opacity: 1;
+	transition: opacity .3s ease;
+}
+
+/* 모달 박스 */
+.index-popup-modal {
+	position: relative;
+	background: #fff;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	width: 600px;
+	/* PC 기준 가로 */
+	height: 800px;
+	/* PC 기준 세로 */
+	max-width: 95vw;
+}
+
+/* 모바일: 가로 90%, 높이 500px (가로 우선, 높이 고정) */
+@media (max-width: 768px) {
+	.index-popup-modal {
+		width: 90vw;
+		height: 500px;
+	}
+}
+
+/* 닫기(X) */
+.index-popup-close {
+	position: absolute;
+	top: 6px;
+	right: 10px;
+	width: 32px;
+	height: 32px;
+	border: 0;
+	background: transparent;
+	font-size: 28px;
+	line-height: 32px;
+	cursor: pointer;
+	color: #999;
+	z-index: 2;
+}
+
+.index-popup-close:hover {
+	color: #333;
+}
+
+/* 슬라이더 영역: 모달의 남은 공간을 채움 */
+.index-popup-swiper {
+	flex: 1 1 auto;
+	min-height: 0;
+	/* swiper overflow 대응 */
+}
+
+/* 슬라이드 콘텐츠 */
+.index-popup-slide {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+/* 이미지 박스: 남은 공간을 꽉 채우되 아래 버튼/푸터 공간 고려 */
+.index-popup-media {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #f9f9f9;
+	overflow: hidden;
+	padding: 10px;
+}
+
+.index-popup-media img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+/* link 버튼 (있을 때만) */
+.index-popup-link {
+	padding: 10px 0px 0px 0px;
+}
+
+.index-popup-link-btn {
+	display: inline-block;
+	width: 100%;
+	text-align: center;
+	padding: 10px 12px;
+	border: 1px solid #ddd;
+	background: #222;
+	color: #fff;
+	text-decoration: none;
+	font-weight: 600;
+}
+
+/* 하단: 다시 보지 않기 + 닫기 */
+.index-popup-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px 14px 14px;
+	border-top: 1px solid #f0f0f0;
+	background: #fff;
+}
+
+.index-popup-nosee {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 14px;
+	color: #333;
+}
+
+.index-popup-hide-btn {
+	padding: 8px 14px;
+	border-radius: 10px;
+	border: 1px solid #ddd;
+	background: #fff;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+/* 페이드아웃 효과 */
+.index-popup-overlay.index-popup-fadeout {
+	opacity: 0;
+}
+
+/* Swiper arrows color 대비 */
+.swiper-button-prev,
+.swiper-button-next {
+	color: #333;
+}
+
+.swiper-pagination-bullet-active {
+	background: #333;
+}
+
+/* Swiper 높이/레이아웃 보강 */
+.index-popup-swiper {
+	height: 100%;
+}
+
+.index-popup-swiper .swiper-wrapper {
+	height: 100%;
+}
+
+.index-popup-swiper .swiper-slide {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Swiper 네비게이션 가시성/위치 보강 */
+.index-popup-swiper .swiper-button-prev,
+.index-popup-swiper .swiper-button-next {
+	color: #333;
+	/* 아이콘 컬러 */
+	width: 34px;
+	height: 34px;
+	z-index: 3;
+	/* 모달/이미지 위로 */
+}
+
+.index-popup-swiper .swiper-button-prev {
+	left: 8px;
+}
+
+.index-popup-swiper .swiper-button-next {
+	right: 8px;
+}
+
+/* 페이징 점 보강 */
+.index-popup-swiper .swiper-pagination {
+	bottom: 10px;
+}
+
+.index-popup-swiper .swiper-pagination-bullet-active {
+	background: #333;
+}
+
+/* 컨테이너 스코프 안에서만 Swiper UI 스타일링 */
+#index-popup-swiper .indexpop-button-prev,
+#index-popup-swiper .indexpop-button-next {
+	color: #333;
+	width: 34px;
+	height: 34px;
+	z-index: 3;
+}
+
+#index-popup-swiper .indexpop-button-prev {
+	left: 8px;
+}
+
+#index-popup-swiper .indexpop-button-next {
+	right: 8px;
+}
+
+#index-popup-swiper .indexpop-pagination {
+	bottom: 10px;
+}
+
+/* 기존 규칙 유지 */
+.index-popup-swiper {
+	height: 100%;
+}
+
+.index-popup-swiper .swiper-wrapper {
+	height: 100%;
+}
+
+.index-popup-swiper .swiper-slide {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* ============================
+ * 팝업 푸터 - 체크박스 고정 & 정렬
+ * ============================ */
+
+/* 1) 어떤 전역 hover 규칙에도 숨겨지지 않도록 강제 */
+#index-popup-overlay .index-popup-footer .index-popup-nosee input[type="checkbox"] {
+	display: inline-block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	position: static !important;
+	transform: none !important;
+	margin: 0 6px 0 0 !important;
+	/* 텍스트와 간격 */
+	width: 16px;
+	height: 16px;
+	vertical-align: middle;
+	/* 인라인 흐름에서 수직 가운데 */
+	accent-color: #222 !important;
+	/* 체크 색 (원하시면 변경) */
+}
+
+/* hover 시에도 절대 숨기지 않도록 재확인 */
+#index-popup-overlay .index-popup-footer .index-popup-nosee:hover input[type="checkbox"] {
+	display: inline-block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	accent-color: #222 !important;
+	transform: none !important;
+}
+
+/* 2) 라벨 자체를 수직 가운데 정렬 */
+#index-popup-overlay .index-popup-footer .index-popup-nosee {
+	display: inline-flex !important;
+	align-items: center !important;
+	/* 아이템 수직 정렬 */
+	gap: 6px !important;
+	line-height: 1.2;
+}
+
+/* 3) 텍스트도 미세 정렬 */
+#index-popup-overlay .index-popup-footer .index-popup-nosee span {
+	line-height: 1.2;
+	display: inline-block;
+}
+
+/* 기본 모양 제거 후 커스텀 */
+#index-popup-overlay .index-popup-footer .index-popup-nosee input[type="checkbox"] {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 16px;
+	height: 16px;
+	border: 2px solid #222;
+	/* 테두리 색 */
+	border-radius: 4px;
+	/* 모서리 */
+	background: #fff;
+	/* 바탕색 */
+	display: inline-block;
+	position: relative;
+	cursor: pointer;
+	margin: 0 6px 0 0;
+	vertical-align: middle;
+}
+
+#index-popup-overlay .index-popup-footer .index-popup-nosee input[type="checkbox"]:hover {
+	box-shadow: 0 0 0 3px rgba(34, 34, 34, .12);
+}
+
+#index-popup-overlay .index-popup-footer .index-popup-nosee input[type="checkbox"]:focus {
+	outline: none;
+	box-shadow: 0 0 0 3px rgba(34, 34, 34, .18);
+}
+
+/* 체크되었을 때 내부 채움색 */
+#index-popup-overlay .index-popup-footer .index-popup-nosee input[type="checkbox"]:checked {
+	background: #222;
+	/* 채움색 */
+	border-color: #222;
+}
+
+/* 체크 아이콘(✓) */
+#index-popup-overlay .index-popup-footer .index-popup-nosee input[type="checkbox"]:checked::after {
+	content: "";
+	position: absolute;
+	left: 4px;
+	top: 0px;
+	width: 4px;
+	height: 8px;
+	border: solid #fff;
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
 }

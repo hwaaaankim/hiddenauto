@@ -98,18 +98,6 @@ public class ManagementController {
 	private final ObjectMapper objectMapper; // com.fasterxml.jackson.databind.ObjectMapper
 	private final OrderImageRepository orderImageRepository;
 
-	@GetMapping("/standardOrderList")
-	public String standardOrderList() {
-
-		return "administration/order/standard/orderList";
-	}
-
-	@GetMapping("/standardOrderDetail")
-	public String standardOrderDetail() {
-
-		return "administration/order/standard/orderDetail";
-	}
-
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(
 			@RequestParam(required = false, defaultValue = "") String keyword,

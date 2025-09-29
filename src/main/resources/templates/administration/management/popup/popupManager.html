@@ -1,0 +1,257 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body>
+	<div id="layout-wrapper">
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+
+		<div class="main-content">
+			<div class="page-content">
+				<div class="container-fluid">
+					<!-- title -->
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<h4 class="mb-sm-0">팝업관리</h4>
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="javascript:void(0);">관리</a></li>
+										<li class="breadcrumb-item active">팝업관리</li>
+									</ol>
+								</div>
+							</div>
+						</div>
+					</div>
+					<!-- /title -->
+
+					<div class="row">
+						<div class="col-lg-12">
+							<div class="card" id="tasksList">
+								<div class="card-header border-0">
+									<div class="d-flex align-items-center">
+										<h5 class="card-title mb-0 flex-grow-1">팝업관리</h5>
+									</div>
+								</div>
+
+								<div class="popupManager-wrap">
+									<!-- ===== 등록 폼 ===== -->
+									<div class="popupManager-section mb-4">
+										<form class="popupManager-form" th:action="@{/management/popupInsert}"
+											method="post" enctype="multipart/form-data">
+											<div class="row g-3 popupManager-row align-items-stretch">
+												<!-- 4등분: 이미지 / 시작일 / 종료일 / 연결URL -->
+												<!-- 이미지 -->
+												<div class="col-12 col-lg-3 popupManager-col">
+													<div class="popupManager-field">
+														<div class="pm-inline-head">
+															<label class="form-label pm-label">이미지 <span
+																	class="text-danger">*</span></label>
+														</div>
+														<input class="form-control pm-control popupManager-image-input"
+															type="file" name="image" accept="image/*" required>
+														<div class="pm-thumbbox">
+															<div class="pm-thumb"><img
+																	class="pm-thumb-img popupManager-thumb-img" src=""
+																	alt=""></div>
+															<button type="button"
+																class="btn btn-sm btn-outline-secondary pm-thumb-remove popupManager-thumb-remove">X</button>
+														</div>
+														<div class="form-text">등록 시 100×140 미리보기가 표시됩니다.</div>
+													</div>
+												</div>
+
+												<!-- 게시 시작일 -->
+												<div class="col-12 col-lg-3 popupManager-col">
+													<div class="popupManager-field">
+														<div class="pm-inline-head">
+															<label class="form-label pm-label">게시 시작일</label>
+														</div>
+														<input class="form-control pm-control popupManager-input"
+															type="datetime-local" name="startAt" required>
+													</div>
+												</div>
+
+												<!-- 게시 종료일 -->
+												<div class="col-12 col-lg-3 popupManager-col">
+													<div class="popupManager-field">
+														<div class="pm-inline-head">
+															<label class="form-label pm-label">게시 종료일</label>
+														</div>
+														<input class="form-control pm-control popupManager-input"
+															type="datetime-local" name="endAt" required>
+													</div>
+												</div>
+
+												<!-- 연결 URL -->
+												<div class="col-12 col-lg-3 popupManager-col">
+													<div class="popupManager-field">
+														<!-- 라벨 + 체크박스 한 줄, 동일 높이 -->
+														<div class="pm-inline-head">
+															<label class="form-label pm-label mb-0">연결 URL 사용</label>
+															<div class="form-check pm-check mb-0">
+																<input class="form-check-input popupManager-link-toggle"
+																	type="checkbox" id="popupManager-link-enabled"
+																	name="linkEnabled" value="true">
+																<label class="form-check-label"
+																	for="popupManager-link-enabled">사용</label>
+															</div>
+														</div>
+														<!-- 체크 시 노출(공간은 항상 동일) -->
+														<div class="pm-link-wrap popupManager-link-wrap">
+															<input
+																class="form-control pm-control popupManager-link-input"
+																type="url" name="linkUrl"
+																placeholder="https://example.com/landing">
+														</div>
+													</div>
+												</div>
+
+												<!-- 등록 버튼 (우측 정렬) -->
+												<div class="col-12 popupManager-col">
+													<div class="popupManager-field pm-submitbox">
+														<button type="submit"
+															class="btn btn-primary popupManager-insert-btn">등록</button>
+													</div>
+												</div>
+											</div>
+										</form>
+									</div>
+
+									<hr class="my-4" />
+									<!-- ===== 카드 리스트 (정렬/저장 도구 포함) ===== -->
+									<div class="popupManager-tools d-flex justify-content-end align-items-center mb-2">
+										<button type="button" id="popupManager-order-save"
+											class="btn btn-outline-primary btn-sm" disabled>순서변경 저장</button>
+									</div>
+
+									<div class="popupManager-list row g-3" data-sortable="true">
+										<div class="col-lg-3 col-md-4 col-sm-6 col-xs-12" th:each="p : ${popups}">
+											<!-- 카드 래퍼: data-id는 정렬/저장용 -->
+											<div class="card h-100 popupManager-card" th:attr="data-id=${p.id}">
+												<div class="card-body d-flex flex-column">
+
+													<!-- 상단: 번호 + 드래그 핸들 -->
+													<div class="mb-2 d-flex align-items-center justify-content-between">
+														<strong th:text="'#' + ${p.dispOrder}">#1</strong>
+														<span class="popupManager-drag-handle" title="드래그하여 순서 변경"
+															style="cursor: move;">⠿</span>
+													</div>
+
+													<!-- 이미지 -->
+													<div class="mb-2 text-center">
+														<img th:src="${p.imageUrl}" alt="popup image"
+															class="img-fluid border"
+															style="max-height:200px;object-fit:contain;">
+													</div>
+
+													<!-- ===== 인라인 편집 (수정 폼) ===== -->
+													<form th:action="@{/management/popupUpdate}" method="post"
+														enctype="multipart/form-data"
+														class="popupManager-card-form d-flex flex-column gap-2 mt-auto">
+														<input type="hidden" name="id" th:value="${p.id}" />
+														<!-- (선택) CSRF -->
+
+														<!-- 이미지 변경 -->
+														<div>
+															<label class="form-label">이미지 변경</label>
+															<input
+																class="form-control form-control-sm popupManager-card-image"
+																type="file" name="image" accept="image/*">
+															<div class="form-text">이미지는 필수 항목입니다. 삭제 상태로는 수정 불가.</div>
+														</div>
+
+														<!-- 연결 URL 토글/입력 -->
+														<div>
+															<div class="pm-inline-head pm-inline-head--card d-flex align-items-center justify-content-between"
+																style="min-height:32px;">
+																<label class="form-label mb-0">연결 URL 사용</label>
+																<div class="form-check pm-check pm-check--card mb-0 d-flex align-items-center"
+																	style="min-height:32px;">
+																	<input
+																		class="form-check-input popupManager-card-link-toggle"
+																		type="checkbox" th:checked="${p.linkEnabled}"
+																		name="linkEnabled" value="true"
+																		th:id="'popupManager-card-link-'+${p.id}">
+																	<label class="form-check-label ms-2"
+																		th:for="'popupManager-card-link-'+${p.id}">사용</label>
+																</div>
+															</div>
+
+															<div class="pm-link-wrap pm-link-wrap--card popupManager-card-link-wrap"
+																th:classappend="${p.linkEnabled} ? ' show' : ''"
+																style="min-height:32px;">
+																<input
+																	class="form-control form-control-sm popupManager-card-link-input"
+																	type="url" name="linkUrl"
+																	placeholder="https://example.com/landing"
+																	th:value="${p.linkUrl}">
+															</div>
+														</div>
+
+														<!-- 시작/종료일 -->
+														<div class="row g-2">
+															<div class="col-6">
+																<label class="form-label">시작일</label>
+																<input
+																	class="form-control form-control-sm popupManager-card-start"
+																	type="datetime-local" name="startAt"
+																	th:value="${#temporals.format(p.startAt, 'yyyy-MM-dd''T''HH:mm')}">
+															</div>
+															<div class="col-6">
+																<label class="form-label">종료일</label>
+																<input
+																	class="form-control form-control-sm popupManager-card-end"
+																	type="datetime-local" name="endAt"
+																	th:value="${#temporals.format(p.endAt, 'yyyy-MM-dd''T''HH:mm')}">
+															</div>
+														</div>
+
+														<!-- 하단 버튼(수정) -->
+														<div class="d-flex justify-content-between mt-2">
+															<span></span>
+															<button type="submit"
+																class="btn btn-secondary btn-sm popupManager-card-update"
+																disabled>수정</button>
+														</div>
+													</form>
+													<!-- ===== /수정 폼 ===== -->
+
+													<!-- ✅ 삭제는 별도 폼(수정 폼 바깥, 형제 요소) -->
+													<form th:action="@{/management/popupDelete}" method="post"
+														class="m-0 p-0 mt-2 popupManager-delete-form"
+														onsubmit="return confirm('삭제하시겠습니까?');">
+														<input type="hidden" name="id" th:value="${p.id}" />
+														<!-- (선택) CSRF -->
+														<button type="submit"
+															class="btn btn-outline-danger btn-sm">삭제</button>
+													</form>
+
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+				</div>
+			</div>
+
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+	<script src="/administration/assets/js/pages/popupManager.js"></script>
+	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
+</body>
+
+</html>

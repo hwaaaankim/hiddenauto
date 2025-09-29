@@ -1,7 +1,242 @@
-/*
-Template Name: Velzon - Admin & Dashboard Template
-Author: Themesbrand
-Website: https://themesbrand.com/
-Contact: support@themesbrand.com
-File: Custom Css File
-*/
+/* ==========================================================================
+ * Popup Manager – 단일 CSS
+ * 접두사: popupManager-, pm-
+ * 목표: 4개 필드 동일 너비, 라벨/컨트롤 높이 통일, 토글 시 레이아웃 유지
+ * ========================================================================== */
+
+:root {
+	/* 부트스트랩 form-control 기본 높이 기준 */
+	--pm-control-h: calc(2.5rem + 2px);
+	--pm-border: 1px solid #e9ecef;
+	--pm-radius: .75rem;
+	--pm-thumb-w: 100px;
+	--pm-thumb-h: 140px;
+}
+
+/* ===== 레이아웃 공통 ===== */
+.popupManager-wrap {}
+
+.popupManager-row {
+	display: flex !important;
+	flex-wrap: wrap !important;
+	align-items: stretch !important;
+	margin-left: -0.5rem !important;
+	margin-right: -0.5rem !important;
+}
+
+.popupManager-col {
+	display: flex !important;
+	flex-direction: column !important;
+	padding-left: .5rem !important;
+	padding-right: .5rem !important;
+}
+
+.popupManager-form {
+	padding-left: 20px;
+	padding-right: 20px;
+}
+
+.popupManager-field {
+	display: flex !important;
+	flex-direction: column !important;
+	gap: .5rem !important;
+	height: 100% !important;
+}
+
+/* ===== 공통 형태(라벨/컨트롤 높이 통일) ===== */
+.pm-label {
+	font-weight: 600 !important;
+	margin: 0 !important;
+	line-height: 1 !important;
+	min-height: var(--pm-control-h) !important;
+	height: var(--pm-control-h) !important;
+	display: flex !important;
+	align-items: center !important;
+}
+
+.pm-control {
+	height: var(--pm-control-h) !important;
+}
+
+/* 라벨 + 우측 부가요소(체크박스 등)를 한 줄로, 동일 높이 */
+.pm-inline-head {
+	display: flex !important;
+	align-items: center !important;
+	gap: 10px !important;
+	height: var(--pm-control-h) !important;
+}
+
+/* 체크박스 그룹(부트스트랩 기본 padding-left 제거) */
+.pm-check {
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 6px !important;
+	margin: 0 !important;
+	padding-left: 0 !important;
+	height: var(--pm-control-h) !important;
+}
+
+.pm-check .form-check-input {
+	width: 1.1rem;
+	height: 1.1rem;
+	margin: 0 !important;
+}
+
+.pm-check .form-check-label {
+	margin: 0 !important;
+	line-height: 1 !important;
+	display: flex;
+	align-items: center;
+	height: var(--pm-control-h) !important;
+}
+
+/* ===== 파일 미리보기 ===== */
+.pm-thumbbox {
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+}
+
+.pm-thumb {
+	width: var(--pm-thumb-w);
+	height: var(--pm-thumb-h);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	background: #f8f9fa;
+	border: var(--pm-border);
+	border-radius: .5rem;
+}
+
+.pm-thumb-img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	display: none;
+}
+
+.pm-thumb-remove {
+	display: none;
+	min-width: 2rem;
+}
+
+/* ===== 링크 입력 영역 (토글) — 공간 유지 ===== */
+.pm-link-wrap {
+	min-height: var(--pm-control-h) !important;
+	display: block !important;
+	visibility: hidden;
+	/* 공간은 유지, 내용만 숨김 */
+}
+
+.pm-link-wrap.show {
+	visibility: visible;
+}
+.popupManager-list{
+	padding-left:20px;
+	padding-right:20px;
+	padding-bottom:20px;
+}
+/* ===== 카드 스타일 ===== */
+.popupManager-wrap .popupManager-list .card {
+	border: var(--pm-border) !important;
+	border-radius: var(--pm-radius) !important;
+}
+
+/* ===== 제출 버튼 박스 ===== */
+.pm-submitbox {
+	display: flex;
+	justify-content: flex-end;
+	align-items: flex-end;
+}
+
+/* ===== 반응형 ===== */
+@media (max-width: 991.98px) {
+	.popupManager-form {
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+
+	.pm-submitbox .popupManager-insert-btn {
+		width: 100%;
+	}
+}
+
+/* ===== 높이 기준: 일반/카드(form-control-sm) ===== */
+:root {
+	--pm-control-h: calc(2.5rem + 2px);
+	/* 일반 인풋 높이 */
+	--pm-control-sm-h: calc(2.0rem + 2px);
+	/* 카드(form-control-sm) 높이 */
+}
+
+/* ---------- 일반(이미 적용 중) ---------- */
+.pm-inline-head {
+	display: flex !important;
+	align-items: center !important;
+	gap: 10px !important;
+	height: var(--pm-control-h) !important;
+}
+
+.pm-check {
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 6px !important;
+	margin: 0 !important;
+	padding-left: 0 !important;
+	height: var(--pm-control-h) !important;
+}
+
+.pm-check .form-check-input {
+	width: 1.1rem;
+	height: 1.1rem;
+	margin: 0 !important;
+}
+
+.pm-check .form-check-label {
+	margin: 0 !important;
+	line-height: 1 !important;
+	display: flex;
+	align-items: center;
+	height: var(--pm-control-h) !important;
+}
+
+.pm-link-wrap {
+	min-height: var(--pm-control-h) !important;
+	display: block !important;
+	visibility: hidden;
+}
+
+.pm-link-wrap.show {
+	visibility: visible;
+}
+
+/* ---------- 카드 전용(등록리스트) ---------- */
+.pm-inline-head--card {
+	height: var(--pm-control-sm-h) !important;
+}
+
+.pm-check--card {
+	height: var(--pm-control-sm-h) !important;
+}
+
+.pm-check--card .form-check-label {
+	height: var(--pm-control-sm-h) !important;
+}
+
+.pm-link-wrap--card {
+	min-height: var(--pm-control-sm-h) !important;
+}
+
+/* 라벨도 세로 중앙(일반/카드 공통) */
+.pm-inline-head .form-label,
+.pm-inline-head--card .form-label {
+	display: flex !important;
+	align-items: center !important;
+	margin: 0 !important;
+	line-height: 1 !important;
+	height: 100% !important;
+}
+.popupManager-tools{
+	padding-right:20px;
+}
