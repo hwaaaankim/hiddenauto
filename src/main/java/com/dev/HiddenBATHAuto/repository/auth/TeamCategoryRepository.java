@@ -20,5 +20,7 @@ public interface TeamCategoryRepository extends JpaRepository<TeamCategory, Long
 	
 	@Query("SELECT tc FROM TeamCategory tc WHERE tc.team.name = :teamName")
 	List<TeamCategory> findByTeamName(@Param("teamName") String teamName);
+	
+	List<TeamCategory> findByTeamId(Long teamId);
 
 }

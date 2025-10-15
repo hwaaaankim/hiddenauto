@@ -2,6 +2,8 @@ package com.dev.HiddenBATHAuto.model.auth;
 
 import java.io.Serializable;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -25,5 +27,6 @@ public class TeamCategory implements Serializable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")
+    @JsonBackReference("team-teamCategory")
     private Team team;
 }

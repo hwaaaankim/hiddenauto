@@ -57,6 +57,7 @@ public class Member implements Serializable{
     private String productCategoryScope; // 생산팀: 담당 제품
     
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference("member-memberRegion")   
     private List<MemberRegion> addressScopes = new ArrayList<>();
 
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)

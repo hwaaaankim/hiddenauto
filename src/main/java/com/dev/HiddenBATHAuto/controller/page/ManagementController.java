@@ -37,13 +37,21 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.dto.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionBulkSaveRequest;
+import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
@@ -68,6 +76,7 @@ import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.auth.CompanyService;
+import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
 import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
@@ -95,9 +104,10 @@ public class ManagementController {
 	private final MemberService memberService;
 	private final CompanyService companyService;
 	private final CompanyRepository companyRepository;
-	private final ObjectMapper objectMapper; // com.fasterxml.jackson.databind.ObjectMapper
+	private final ObjectMapper objectMapper; 
 	private final OrderImageRepository orderImageRepository;
-
+	private final MemberManagementService memberMgmtService;
+	
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(
 			@RequestParam(required = false, defaultValue = "") String keyword,
@@ -1019,18 +1029,25 @@ public class ManagementController {
 	}
 
 	@GetMapping("/employeeList")
-	public String employeeList(@RequestParam(value = "name", required = false) String name,
-			@RequestParam(value = "team", required = false) String team,
-			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-			Model model) {
+    public String employeeList(@RequestParam(value = "name", required = false) String name,
+                               @RequestParam(value = "teamId", required = false) Long teamId,
+                               @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+                               Model model) {
 
-		Page<Member> employeePage = memberService.searchEmployees(name, team, pageable);
+        // 1) 팀 목록(이름 오름차순) 조회하여 셀렉트 옵션으로 사용
+        List<Team> teams = teamRepository.findAllOrderedByName();
 
-		model.addAttribute("employeePage", employeePage);
-		model.addAttribute("name", name);
-		model.addAttribute("team", team);
-		return "administration/member/employee/employeeList";
-	}
+        // 2) 팀 ID 기준으로 직원 검색 (이름 + 팀ID 모두 선택적)
+        Page<Member> employeePage = memberService.searchEmployees(name, teamId, pageable);
+
+        // 3) 모델 바인딩
+        model.addAttribute("teams", teams);
+        model.addAttribute("employeePage", employeePage);
+        model.addAttribute("name", name);
+        model.addAttribute("teamId", teamId);
+
+        return "administration/member/employee/employeeList";
+    }
 
 	@GetMapping("/employeeDetail/{id}")
 	public String employeeDetail(@PathVariable Long id, Model model) {
@@ -1072,10 +1089,77 @@ public class ManagementController {
 		return "redirect:/management/employeeInsertForm";
 	}
 
-	@PostMapping("/employeeUpdate")
-	@ResponseBody
-	public String employeeUpdate() {
+	// ===== 직원 정보 업데이트 =====
+    @PostMapping("/employeeUpdate")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> employeeUpdate(@RequestBody EmployeeUpdateRequest req) {
+        memberMgmtService.updateEmployee(req);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
 
-		return "success";
-	}
+    // ===== 선택지 조회 =====
+    @GetMapping("/teams")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<Team>>> teams() {
+        return ResponseEntity.ok(ApiResponse.ok(memberMgmtService.getTeams()));
+    }
+
+    @GetMapping("/teamCategories")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<TeamCategory>>> teamCategories(@RequestParam Long teamId) {
+        return ResponseEntity.ok(ApiResponse.ok(memberMgmtService.getTeamCategories(teamId)));
+    }
+
+    @GetMapping("/memberRoles")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<String>>> memberRoles() {
+        return ResponseEntity.ok(ApiResponse.ok(memberMgmtService.getMemberRoles()));
+    }
+
+    // ===== 행정구역 조회 =====
+    @GetMapping("/regions/provinces")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<Province>>> provinces() {
+        return ResponseEntity.ok(ApiResponse.ok(memberMgmtService.getProvinces()));
+    }
+
+    @GetMapping("/regions/cities")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<City>>> cities(@RequestParam Long provinceId) {
+        return ResponseEntity.ok(ApiResponse.ok(memberMgmtService.getCities(provinceId)));
+    }
+
+    @GetMapping("/regions/districts")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<District>>> districts(@RequestParam Long provinceId,
+                                                                 @RequestParam(required = false) Long cityId) {
+        return ResponseEntity.ok(ApiResponse.ok(memberMgmtService.getDistricts(provinceId, cityId)));
+    }
+
+    // ManagementController.java (일부)
+    @GetMapping(value = "/member/{memberId}/regions", produces = "application/json;charset=UTF-8")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<MemberRegionSimpleDTO>>> memberRegions(@PathVariable Long memberId) {
+        List<MemberRegionSimpleDTO> list = memberMgmtService.getMemberRegionsSimple(memberId);
+        return ResponseEntity.ok(ApiResponse.ok(list));
+    }
+
+    @DeleteMapping("/member/{memberId}/regions/{memberRegionId}")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> deleteMemberRegion(@PathVariable Long memberId,
+                                                                @PathVariable Long memberRegionId) {
+        memberMgmtService.deleteMemberRegion(memberId, memberRegionId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    // ===== 멤버 담당구역 일괄 저장(충돌 검증) =====
+    @PostMapping("/member/regions/bulk")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<ConflictDTO>>> saveMemberRegions(@RequestBody RegionBulkSaveRequest req) {
+        List<ConflictDTO> conflicts = memberMgmtService.saveMemberRegions(req);
+        if (!conflicts.isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.fail("중복된 담당 구역이 있어 저장되지 않았습니다.", conflicts));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
 }

@@ -57,11 +57,13 @@
 											<!-- 팀 필터 -->
 											<div class="col-md-4">
 												<label class="form-label">팀별 검색</label>
-												<select class="form-select" name="team">
+												<select class="form-select" name="teamId">
 													<option value="">모든 팀</option>
-													<option th:each="t : ${teams}" th:value="${t.name}"
+													<option th:each="t : ${teams}" th:value="${t.id}"
 														th:text="${t.name}"
-														th:selected="${team != null and team == t.name}">팀명</option>
+														th:selected="${teamId != null and teamId == t.id}">
+														팀명
+													</option>
 												</select>
 											</div>
 
@@ -81,6 +83,7 @@
 											</div>
 										</div>
 									</form>
+
 								</div>
 								<!--end card-body-->
 								<div class="card-body">
@@ -112,15 +115,13 @@
 													</td>
 
 													<!-- ID -->
-													<td>
-														<a th:href="@{/management/employeeDetail/{id}(id=${emp.id})}"
-															class="fw-medium link-primary" th:text="${emp.id}">1</a>
-													</td>
+													<td th:text="${emp.id}"></td>
 
 													<!-- 이름 -->
-													<td th:text="${emp.name}">홍길동</td>
-
-													<!-- 팀 -->
+													<td ><a th:href="@{/management/employeeDetail/{id}(id=${emp.id})}"
+															class="fw-medium link-primary"th:text="${emp.name}">1</a>
+													</td>
+															
 													<td th:text="${emp.team != null ? emp.team.name : '—'}">영업1팀</td>
 
 													<!-- 팀카테고리 -->

@@ -17,7 +17,7 @@ public interface DistrictRepository extends JpaRepository<District, Long> {
 
 	List<District> findByProvinceIdAndCityIsNull(Long provinceId);
     List<District> findByCityId(Long cityId);
-    
+    List<District> findByProvinceId(Long provinceId);
     
 	Optional<District> findByNameAndProvinceAndCity(String name, Province province, City city);
 	Optional<District> findByNameAndProvince_NameAndCity_Name(String guName, String doName, String siName);

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionSelectionDTO;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.District;
@@ -57,10 +60,15 @@ public class MemberService {
 	private final CityRepository cityRepository;
 	private final DistrictRepository districtRepository;
 	private final ObjectMapper objectMapper;
+	private final MemberManagementService memberManagementService;
 
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 
+	 public Page<Member> searchEmployees(String name, Long teamId, Pageable pageable) {
+        return memberRepository.searchEmployees(name, teamId, pageable);
+    }
+	
 	public Page<Member> searchEmployees(String name, String team, Pageable pageable) {
 		List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
 		return memberRepository.searchByRolesAndNameAndTeam(roles, name == null || name.isBlank() ? null : name,
@@ -219,22 +227,13 @@ public class MemberService {
 		member.setCreatedAt(LocalDateTime.now());
 
 		// 지역 등록 처리
+		List<MemberRegion> addressScopes = new ArrayList<>();
 		if (dto.getRegionJson() != null && !dto.getRegionJson().isBlank()) {
 			try {
-				System.out.println("▶ Region JSON 수신값:");
-				System.out.println(dto.getRegionJson());
-
 				List<MemberRegionDto> regions = objectMapper.readValue(dto.getRegionJson(),
-						new TypeReference<List<MemberRegionDto>>() {
-						});
+						new TypeReference<List<MemberRegionDto>>() {});
 
-				System.out.println("▶ 파싱된 region 개수: " + regions.size());
-
-				List<MemberRegion> addressScopes = new ArrayList<>();
 				for (MemberRegionDto r : regions) {
-					System.out.printf("⮕ provinceId: %s, cityId: %s, districtId: %s%n", r.getProvinceId(),
-							r.getCityId(), r.getDistrictId());
-
 					Province province = provinceRepository.findById(Long.parseLong(r.getProvinceId()))
 							.orElseThrow(() -> new IllegalArgumentException("도 없음"));
 
@@ -246,24 +245,44 @@ public class MemberService {
 							? districtRepository.findById(Long.parseLong(r.getDistrictId())).orElse(null)
 							: null;
 
-					MemberRegion mr = MemberRegion.builder().province(province).city(city).district(district)
-							.member(member).build();
+					MemberRegion mr = MemberRegion.builder()
+							.province(province)
+							.city(city)
+							.district(district)
+							.member(member)
+							.build();
 
 					addressScopes.add(mr);
-
-					System.out.printf("✅ 생성된 MemberRegion: province=%s, city=%s, district=%s%n", province.getName(),
-							city != null ? city.getName() : "null", district != null ? district.getName() : "null");
 				}
 
-				member.setAddressScopes(addressScopes);
-				System.out.println("📦 최종 member.addressScopes 수: " + member.getAddressScopes().size());
-
 			} catch (Exception e) {
-				e.printStackTrace();
 				throw new RuntimeException("지역 JSON 파싱 오류", e);
 			}
 		}
 
+		// === 서버측 2차 방어: 팀 기준 충돌 검사 (배송/AS만)
+		if ("배송팀".equals(team.getName()) || "AS팀".equals(team.getName())) {
+			// RegionSelectionDTO 목록으로 변환
+			List<RegionSelectionDTO> selections = addressScopes.stream().map(mr -> {
+				RegionSelectionDTO s = new RegionSelectionDTO();
+				s.setProvinceId(mr.getProvince() != null ? mr.getProvince().getId() : null);
+				s.setCityId(mr.getCity() != null ? mr.getCity().getId() : null);
+				s.setDistrictId(mr.getDistrict() != null ? mr.getDistrict().getId() : null);
+				return s;
+			}).toList();
+
+			List<ConflictDTO> conflicts =
+					memberManagementService.checkRegionConflictsForNewMember(team.getId(), selections);
+
+			if (!conflicts.isEmpty()) {
+				String msg = conflicts.stream()
+						.map(c -> "[" + c.getConflictMemberName() + "] " + c.getConflictPath())
+						.collect(Collectors.joining(", "));
+				throw new IllegalStateException("담당구역 충돌: " + msg);
+			}
+		}
+
+		member.setAddressScopes(addressScopes);
 		memberRepository.save(member);
 	}
 

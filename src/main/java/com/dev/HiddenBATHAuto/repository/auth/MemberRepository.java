@@ -51,5 +51,16 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	    @Param("name") String name,
 	    @Param("team") String team,
 	    Pageable pageable);
+	
+	@Query("""
+        select m
+          from Member m
+         where (:name is null or trim(:name) = '' or lower(m.name) like lower(concat('%', :name, '%')))
+           and (:teamId is null or m.team.id = :teamId)
+    """)
+    Page<Member> searchEmployees(@Param("name") String name,
+                                 @Param("teamId") Long teamId,
+                                 Pageable pageable);
+
 
 }

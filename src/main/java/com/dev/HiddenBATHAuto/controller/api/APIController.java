@@ -27,6 +27,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.CalendarEventDTO;
 import com.dev.HiddenBATHAuto.dto.TaskDetailDTO;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
+import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionSelectionDTO;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -41,6 +43,7 @@ import com.dev.HiddenBATHAuto.repository.nonstandard.ProductOptionPositionReposi
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductSeriesRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.auth.MemberValidationService;
 import com.dev.HiddenBATHAuto.service.auth.RegionExcelService;
@@ -56,6 +59,7 @@ import com.dev.HiddenBATHAuto.utils.OptionTranslator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -85,6 +89,20 @@ public class APIController {
 	private final AsTaskRepository asTaskRepository;
 	private final TaskRepository taskRepository;
 
+	private final MemberManagementService memberManagementService;
+
+    @PostMapping("/region/conflicts/check-new")
+    public ResponseEntity<List<ConflictDTO>> checkRegionConflictsForNewMember(@RequestBody NewMemberRegionCheckRequest req) {
+        List<ConflictDTO> conflicts = memberManagementService.checkRegionConflictsForNewMember(req.getTeamId(), req.getSelections());
+        return ResponseEntity.ok(conflicts);
+    }
+
+    @Data
+    public static class NewMemberRegionCheckRequest {
+        private Long teamId;
+        private List<RegionSelectionDTO> selections;
+    }
+	
 	@GetMapping("/province/{provinceId}/cities")
 	@ResponseBody
 	public List<City> getCitiesByProvince(@PathVariable Long provinceId) {

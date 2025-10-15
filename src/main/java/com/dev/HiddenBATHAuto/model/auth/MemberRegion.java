@@ -1,5 +1,7 @@
 package com.dev.HiddenBATHAuto.model.auth;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -38,5 +40,6 @@ public class MemberRegion {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id")
+    @JsonBackReference("member-memberRegion")   
     private Member member;
 }
