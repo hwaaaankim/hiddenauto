@@ -8,21 +8,24 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.dto.OrderRequestItemDTO;
+import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRegion;
-import com.dev.HiddenBATHAuto.model.auth.MemberRole;
+import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.model.task.Cart;
@@ -33,9 +36,11 @@ import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.model.task.TaskStatus;
+import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRegionRepository;
+import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductColorRepository;
@@ -64,13 +69,16 @@ public class OrderProcessingService {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private final DeliveryMethodRepository deliveryMethodRepository;
 	private final CompanyRepository companyRepository;
-	private final DistrictRepository districtRepository;
+	private final ProvinceRepository provinceRepository;
+    private final CityRepository cityRepository;
+    private final DistrictRepository districtRepository;
 	private final MemberRegionRepository memberRegionRepository;
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final CartRepository cartRepository;
 
 	@Value("${spring.upload.path}")
 	private String uploadRootPath;
+	private static final String DELIVERY_TEAM_NAME = "배송팀";
 	
 	public String createTaskWithOrders(Member member, List<OrderRequestItemDTO> items, int pointUsed) throws JsonProcessingException {
 	    System.out.println("📥 createTaskWithOrders 시작");
@@ -277,65 +285,192 @@ public class OrderProcessingService {
 		order.setGuName(guName);
 	}
 
-	private void assignDeliveryHandlerIfPossible(Order order) {
-		String doName = order.getDoName();
-		String siName = order.getSiName();
-		String guName = order.getGuName();
+	/**
+     * 주소 문자열을 토대로 provinceId/cityId/districtId 를 유연하게 해석하고,
+     * 포함 매칭(구→시→도) 우선순위로 배송 담당자를 배정합니다.
+     *
+     * - 구(guName)가 없어도 배정 진행 (도/시만으로도 가능)
+     * - "강원도" vs "강원특별자치도" 등 명칭 차이를 정규화하여 동일 도로 인식
+     */
+    private void assignDeliveryHandlerIfPossible(Order order) {
+        final String doName = order.getDoName();
+        final String siName = order.getSiName();
+        final String guName = order.getGuName();
 
-		System.out.println("📦 [주소 파싱 결과]");
-		System.out.println("- 도 : " + doName);
-		System.out.println("- 시 : " + siName);
-		System.out.println("- 구 : " + guName);
+        System.out.println("📦 [주소 파싱 결과]");
+        System.out.println("- 도 : " + doName);
+        System.out.println("- 시 : " + siName);
+        System.out.println("- 구 : " + guName);
 
-		if (guName == null || doName == null) {
-			System.out.println("❌ 구 또는 도 정보 부족. 배정 중단");
-			return;
-		}
+        if (doName == null || doName.isBlank()) {
+            System.out.println("❌ 도 정보 부족. 배정 중단");
+            return;
+        }
 
-		String siKeyword = (siName == null || siName.isBlank()) ? null : siName;
+        try {
+            // 1) 도/시/구를 각각 해석하여 키(id) 도출 (구가 없어도 계속 진행)
+            RegionKey key = resolveRegionKey(doName, siName, guName);
+            if (key.provinceId == null) {
+                System.out.println("❌ Province 매칭 실패. 배정 중단");
+                return;
+            }
 
-		try {
-			Optional<District> districtOpt = districtRepository.findByAddressPartsSingleNative(guName, doName,
-					siKeyword);
+            System.out.println("✅ 해석된 RegionKey: provinceId=" + key.provinceId
+                    + ", cityId=" + key.cityId + ", districtId=" + key.districtId);
 
-			if (districtOpt.isEmpty()) {
-				System.out.println("❌ 지역 일치 실패. 배송 담당자 배정 불가");
-				return;
-			}
+            // 2) 후보 MemberRegion 조회 (배송팀 한정 + 포함 매칭)
+            List<MemberRegion> matches = memberRegionRepository.findDeliveryRegionMatches(
+                    DELIVERY_TEAM_NAME, key.provinceId, key.cityId, key.districtId
+            );
+            System.out.println("🔎 포함 매칭 후보(MemberRegion) 수: " + matches.size());
 
-			District district = districtOpt.get();
+            if (matches.isEmpty()) {
+                System.out.println("❌ 배송 담당자 후보 없음");
+                return;
+            }
 
-			System.out.println("✅ 매칭된 District: " + district.getName() + ", Province: "
-					+ (district.getProvince() != null ? district.getProvince().getName() : "null") + ", City: "
-					+ (district.getCity() != null ? district.getCity().getName() : "null"));
+            // 3) 후보를 우선순위(구=3, 시=2, 도=1)로 스코어링하여 최상위만 선별
+            Map<Member, Integer> bestScopePerMember = new HashMap<>();
+            for (MemberRegion mr : matches) {
+                Member m = mr.getMember();
+                int scope = scopeScore(mr); // district=3, city=2, province=1
+                bestScopePerMember.merge(m, scope, Math::max);
+            }
 
-			List<MemberRegion> matchedRegions = memberRegionRepository.findByDistrict(district);
-			System.out.println("🔎 MemberRegion 조회 결과: " + matchedRegions.size() + "개");
+            int topScope = bestScopePerMember.values().stream().mapToInt(i -> i).max().orElse(1);
+            List<Member> topCandidates = bestScopePerMember.entrySet().stream()
+                    .filter(e -> e.getValue() == topScope)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toList());
 
-			List<Member> deliveryCandidates = new ArrayList<>();
-			for (MemberRegion region : matchedRegions) {
-				Member m = region.getMember();
-				String teamName = m.getTeam() != null ? m.getTeam().getName() : null;
+            System.out.println("🏅 최고 우선순위: " + topScope + " → 후보 수: " + topCandidates.size());
+            if (topCandidates.isEmpty()) {
+                System.out.println("❌ 최고 우선순위 후보 없음");
+                return;
+            }
 
-				System.out.println("➡️ 후보자: " + m.getUsername() + ", 팀: " + teamName);
+            // 4) 동순위 다수면 랜덤(원하시면 라운드로빈/최소작업 우선 등으로 교체 가능)
+            Member selected = topCandidates.get((int) (Math.random() * topCandidates.size()));
+            order.setAssignedDeliveryHandler(selected);
+            order.setAssignedDeliveryTeam(selected.getTeamCategory());
 
-				if (m.getRole() == MemberRole.INTERNAL_EMPLOYEE && "배송팀".equals(teamName)) {
-					deliveryCandidates.add(m);
-				}
-			}
+            System.out.println("✅ 배송 담당자 배정 완료 → " + selected.getUsername()
+                    + " (scope=" + topScope + ")");
 
-			if (!deliveryCandidates.isEmpty()) {
-				Member selected = deliveryCandidates.get((int) (Math.random() * deliveryCandidates.size()));
-				order.setAssignedDeliveryHandler(selected);
-				order.setAssignedDeliveryTeam(selected.getTeamCategory());
-				System.out.println("✅ 배송 담당자 랜덤 배정됨 → " + selected.getUsername());
-			} else {
-				System.out.println("❌ 배송 담당자 배정 실패 (배송팀 조건 불일치)");
-			}
+        } catch (Exception e) {
+            System.out.println("❌ 예외 발생: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
-		} catch (Exception e) {
-			System.out.println("❌ 예외 발생: " + e.getMessage());
-			e.printStackTrace();
-		}
-	}
+    /** 구(3) > 시(2) > 도(1) 점수 */
+    private int scopeScore(MemberRegion mr) {
+        if (mr.getDistrict() != null) return 3;
+        if (mr.getCity() != null) return 2;
+        return 1; // province-only
+    }
+
+    // =========================
+    //        헬퍼 메서드
+    // =========================
+
+    /** 도/시/구 명칭을 정규화(접미사 제거)하여 비교할 '베이스명'으로 변환 */
+    private String normalizeBase(String s) {
+        if (s == null) return null;
+        String trimmed = s.trim();
+        // 흔한 접미사 제거: 도/특별자치도/광역시/특별시/자치시/시/군/구 (뒤에서부터 최대 1회)
+        String[] suffixes = {"특별자치도", "광역시", "특별시", "자치시", "자치구", "자치군", "도", "시", "군", "구"};
+        for (String suf : suffixes) {
+            if (trimmed.endsWith(suf)) {
+                trimmed = trimmed.substring(0, trimmed.length() - suf.length());
+                break;
+            }
+        }
+        return trimmed;
+    }
+
+    /** Province/City/District ID를 유연하게 해석 (구가 없어도 OK) */
+    private RegionKey resolveRegionKey(String doName, String siName, String guName) {
+        String pBase = normalizeBase(doName);
+        String cBase = siName != null ? normalizeBase(siName) : null;
+        String dBase = guName != null ? normalizeBase(guName) : null;
+
+        // 1) Province 찾기: 이름에 base 포함(양방향 contains)로 완화
+        List<Province> provinces = provinceRepository.findAll();
+        Province province = pickByBase(provinces, Province::getName, pBase);
+
+        if (province == null) {
+            // 강원특별자치도/제주특별자치도 같은 케이스 더 보수적으로 재시도
+            // (예: 입력이 "강원도"이고 DB가 "강원특별자치도"인 경우/그 반대)
+            province = pickByRelaxed(provinces, Province::getName, pBase);
+        }
+
+        Long provinceId = (province != null ? province.getId() : null);
+        if (provinceId == null) {
+            return new RegionKey(null, null, null);
+        }
+
+        // 2) City 찾기 (선택)
+        Long cityId = null;
+        City city = null;
+        if (cBase != null && !cBase.isBlank()) {
+            List<City> cities = cityRepository.findByProvinceId(provinceId);
+            city = pickByBase(cities, City::getName, cBase);
+            if (city == null) {
+                city = pickByRelaxed(cities, City::getName, cBase);
+            }
+            cityId = (city != null ? city.getId() : null);
+        }
+
+        // 3) District 찾기 (선택)
+        Long districtId = null;
+        if (dBase != null && !dBase.isBlank()) {
+            List<District> districts;
+            if (cityId != null) {
+                districts = districtRepository.findByCityId(cityId);
+            } else {
+                // 서울/세종처럼 City 없이 District가 직접 Province에 매달린 케이스
+                districts = districtRepository.findByProvinceId(provinceId);
+            }
+            District dist = pickByBase(districts, District::getName, dBase);
+            if (dist == null) {
+                dist = pickByRelaxed(districts, District::getName, dBase);
+            }
+            districtId = (dist != null ? dist.getId() : null);
+        }
+
+        return new RegionKey(provinceId, cityId, districtId);
+    }
+
+    /** 베이스명 비교: normalize 후 (A contains B) OR (B contains A) */
+    private <T> T pickByBase(List<T> list, java.util.function.Function<T, String> nameFn, String base) {
+        if (base == null || base.isBlank()) return null;
+        String b = normalizeBase(base);
+        for (T t : list) {
+            String n = nameFn.apply(t);
+            String nb = normalizeBase(n);
+            if (nb != null && (nb.contains(b) || b.contains(nb))) {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    /** 완화된 비교: 공백 제거/한글 자모 구분 최소화 등을 추가 여지 (지금은 toString contains 로 재시도) */
+    private <T> T pickByRelaxed(List<T> list, java.util.function.Function<T, String> nameFn, String keyword) {
+        if (keyword == null || keyword.isBlank()) return null;
+        String k = keyword.replaceAll("\\s+", "");
+        for (T t : list) {
+            String n = nameFn.apply(t);
+            if (n == null) continue;
+            String nn = n.replaceAll("\\s+", "");
+            if (nn.contains(k) || k.contains(nn)) {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    /** provinceId / cityId / districtId 묶음 */
+    private record RegionKey(Long provinceId, Long cityId, Long districtId) { }
 }

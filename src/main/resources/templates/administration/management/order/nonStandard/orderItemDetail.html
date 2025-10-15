@@ -43,17 +43,31 @@
 							<div class="col-lg-10">
 								<div class="card">
 									<div class="card-body">
+										<!-- 대리점명 -->
 										<div class="mb-3">
 											<label class="form-label">대리점명</label>
-											<input type="text" class="form-control"
-												th:value="${order.task.requestedBy.name}" readonly>
+											<select class="form-select" name="companyId" id="companyId">
+												<option value="">대리점 선택</option>
+												<option th:each="c : ${companies}" th:value="${c.id}"
+													th:text="${c.companyName}"
+													th:selected="${selectedCompanyId != null and selectedCompanyId == c.id}">
+												</option>
+											</select>
 										</div>
 
+										<!-- 신청자명 -->
 										<div class="mb-3">
 											<label class="form-label">신청자명</label>
-											<input type="text" class="form-control"
-												th:value="${order.task.requestedBy.username}" readonly>
+											<select class="form-select" name="requesterMemberId" id="requesterMemberId">
+												<option value="">신청자 선택</option>
+												<!-- 초기 렌더용(현재 회사의 멤버들) -->
+												<option th:each="m : ${companyMembers}" th:value="${m.id}"
+													th:text="${m.name + ' (' + m.username + ')'}"
+													th:selected="${selectedMemberId != null and selectedMemberId == m.id}">
+												</option>
+											</select>
 										</div>
+
 
 										<div class="mb-3">
 											<label class="form-label">배송주소</label>
@@ -314,77 +328,7 @@
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
-	<script src="/administration/assets/js/pages/project-create.init.js"></script>
-	<script>
-		document.addEventListener("DOMContentLoaded", () => {
-			const input = document.getElementById("adminImages");
-			const previewArea = document.getElementById("preview-area");
-			let fileList = [];
-
-			input.addEventListener("change", (e) => {
-				const newFiles = Array.from(e.target.files);
-				fileList.push(...newFiles);
-
-				// input 파일 초기화 후 새로 설정
-				updateFileInput();
-				renderPreviews();
-			});
-
-			function updateFileInput() {
-				const dataTransfer = new DataTransfer();
-				fileList.forEach(file => dataTransfer.items.add(file));
-				input.files = dataTransfer.files;
-			}
-
-			function renderPreviews() {
-				previewArea.innerHTML = "";
-
-				fileList.forEach((file, index) => {
-					const reader = new FileReader();
-					reader.onload = e => {
-						const div = document.createElement("div");
-						div.className = "col-lg-2 position-relative";
-
-						div.innerHTML = `
-					<div class="border rounded p-2 d-flex flex-column align-items-center text-center">
-						<button type="button" class="btn-close position-absolute top-0 end-0" aria-label="삭제" data-index="${index}"></button>
-						<img src="${e.target.result}" class="img-fluid mb-2" style="max-height: 120px;" />
-						<span class="text-truncate small">${file.name}</span>
-					</div>
-				`;
-
-						div.querySelector(".btn-close").addEventListener("click", () => {
-							fileList.splice(index, 1);
-							updateFileInput();
-							renderPreviews();
-						});
-
-						previewArea.appendChild(div);
-					};
-					reader.readAsDataURL(file);
-				});
-			}
-
-			// ✅ 관리자 업로드 이미지 삭제 (DB + 서버파일)
-			document.querySelectorAll(".delete-uploaded-img").forEach(btn => {
-				btn.addEventListener("click", () => {
-					const imageId = btn.getAttribute("data-id");
-					if (!confirm("이미지를 삭제하시겠습니까?")) return;
-			
-					fetch(`/management/order-image/delete/${imageId}`, {
-						method: "DELETE"
-					})
-					.then(res => {
-						if (res.ok) {
-							location.reload(); // ✅ 삭제 성공 시 페이지 새로고침
-						} else {
-							alert("삭제 실패");
-						}
-					});
-				});
-			});
-		});
-	</script>
+	<script src="/administration/assets/js/pages/orderItemDetail.js"></script>
 
 </body>
 

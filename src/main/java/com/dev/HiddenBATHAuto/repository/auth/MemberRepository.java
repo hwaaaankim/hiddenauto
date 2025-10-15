@@ -37,7 +37,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	List<Member> findByCompanyAndRole(Company company, MemberRole role);
 	
 	List<Member> findByCompany(Company company);
-	
+
+	List<Member> findByCompany_Id(Long companyId); // ✅ 회사 소속 멤버 조회
+
 	List<Member> findByRoleIn(List<MemberRole> roles);
 	
 	@Query("""

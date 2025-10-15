@@ -376,45 +376,73 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardOrderItemDetail/{orderId}")
 	public String nonStandardOrderItemDetail(@PathVariable Long orderId, Model model) {
-		Order order = orderRepository.findById(orderId).orElseThrow();
+	    Order order = orderRepository.findById(orderId).orElseThrow();
 
-		// 옵션 파싱
-		if (order.getOrderItem() != null) {
-			try {
-				ObjectMapper objectMapper = new ObjectMapper();
-				Map<String, String> parsed = objectMapper.readValue(order.getOrderItem().getOptionJson(),
-						new TypeReference<>() {
-						});
-				model.addAttribute("optionMap", parsed);
-			} catch (Exception e) {
-				System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
-				model.addAttribute("optionMap", Map.of());
-			}
-		}
+	    // 옵션 파싱
+	    if (order.getOrderItem() != null) {
+	        try {
+	            ObjectMapper objectMapper = new ObjectMapper();
+	            Map<String, String> parsed = objectMapper.readValue(
+	                order.getOrderItem().getOptionJson(),
+	                new TypeReference<Map<String, String>>() {}
+	            );
+	            model.addAttribute("optionMap", parsed);
+	        } catch (Exception e) {
+	            System.out.println("❌ 옵션 파싱 실패: " + e.getMessage());
+	            model.addAttribute("optionMap", Map.of());
+	        }
+	    }
 
-		// ✅ 추가 데이터
-		model.addAttribute("order", order);
-		model.addAttribute("orderStatuses", OrderStatus.values());
-		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
-		model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
-		model.addAttribute("productionTeamMembers", memberRepository.findByTeamName("생산팀"));
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+	    // ✅ 추가 데이터 (기존)
+	    model.addAttribute("order", order);
+	    model.addAttribute("orderStatuses", OrderStatus.values());
+	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+	    model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
+	    model.addAttribute("productionTeamMembers", memberRepository.findByTeamName("생산팀"));
+	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
 
-		return "administration/management/order/nonStandard/orderItemDetail";
+	    // ✅ 대리점/신청자 드롭다운용 데이터
+	    // 현재 신청자
+	    Member currentRequester = order.getTask() != null ? order.getTask().getRequestedBy() : null;
+	    Long selectedMemberId = (currentRequester != null) ? currentRequester.getId() : null;
+	    Long selectedCompanyId = (currentRequester != null && currentRequester.getCompany() != null)
+	        ? currentRequester.getCompany().getId()
+	        : null;
+
+	    // 모든 회사 목록
+	    List<Company> companies = companyRepository.findAll();
+
+	    // 현재 선택된 회사의 멤버 목록(초기 렌더용)
+	    List<Member> companyMembers = (selectedCompanyId != null)
+	        ? memberRepository.findByCompany_Id(selectedCompanyId)
+	        : List.of();
+
+	    model.addAttribute("companies", companies);
+	    model.addAttribute("companyMembers", companyMembers);
+	    model.addAttribute("selectedCompanyId", selectedCompanyId);
+	    model.addAttribute("selectedMemberId", selectedMemberId);
+
+	    return "administration/management/order/nonStandard/orderItemDetail";
 	}
 
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
-	public String updateNonStandardOrderItem(@PathVariable Long orderId, @RequestParam("productCost") int productCost,
-			@RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
-			@RequestParam("status") String statusStr, @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
-			@RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
-			@RequestParam("productCategoryId") Optional<Long> productCategoryId,
-			@RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages) {
+	public String updateNonStandardOrderItem(
+	        @PathVariable Long orderId,
+	        @RequestParam("productCost") int productCost,
+	        @RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
+	        @RequestParam("status") String statusStr,
+	        @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
+	        @RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
+	        @RequestParam("productCategoryId") Optional<Long> productCategoryId,
+	        @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+	        @RequestParam(value = "requesterMemberId", required = false) Optional<Long> requesterMemberId,
+	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages
+	) {
+	    orderUpdateService.updateOrder(orderId, productCost, preferredDeliveryDate, statusStr,
+	            deliveryMethodId, deliveryHandlerId, productCategoryId,
+	            companyId, requesterMemberId, adminImages);
 
-		orderUpdateService.updateOrder(orderId, productCost, preferredDeliveryDate, statusStr, deliveryMethodId,
-				deliveryHandlerId, productCategoryId, adminImages);
-
-		return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
+	    return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
 	}
 
 	@DeleteMapping("/order-image/delete/{id}")

@@ -7,9 +7,12 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -18,18 +21,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRegion;
-import com.dev.HiddenBATHAuto.model.auth.MemberRole;
+import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.model.task.AsImage;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.repository.as.AsImageRepository;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
+import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRegionRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,80 +43,76 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AsTaskService {
 
-	private final AsTaskRepository asTaskRepository;
-	private final AsImageRepository asImageRepository;
-	private final DistrictRepository districtRepository;
-	private final MemberRegionRepository memberRegionRepository;
-	private final MemberRepository memberRepository;
-	
-	@Value("${spring.upload.path}")
-	private String uploadPath;
-	
-	
-	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end, AsStatus status, Pageable pageable) {
-	    if ("requested".equalsIgnoreCase(dateType)) {
-	        return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end, pageable);
-	    } else {
-	        return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end, pageable);
-	    }
-	}
+    private final AsTaskRepository asTaskRepository;
+    private final AsImageRepository asImageRepository;
 
-	public List<AsTask> getFilteredAsList(Long memberId, AsStatus status, String dateType,
-	            LocalDateTime start, LocalDateTime end) {
-		if ("processed".equals(dateType)) {
-		return asTaskRepository.findByProcessedDateRangeList(memberId, status, start, end);
-		} else {
-		return asTaskRepository.findByRequestedDateRangeList(memberId, status, start, end);
-		}
-	}
-	
-	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDate date, AsStatus status, Pageable pageable) {
-	    LocalDateTime start = (date != null ? date : LocalDate.now()).atStartOfDay();
-	    LocalDateTime end = start.plusDays(1);
+    // ===== 기존 주입 =====
+    private final DistrictRepository districtRepository;
+    private final MemberRegionRepository memberRegionRepository;
+    private final MemberRepository memberRepository;
 
-	    if ("requested".equalsIgnoreCase(dateType)) {
-	        return asTaskRepository.findByRequestedDate(handler.getId(), status, start, end, pageable);
-	    } else {
-	        return asTaskRepository.findByProcessedDate(handler.getId(), status, start, end, pageable);
-	    }
-	}
+    // ===== 추가 주입: 유연한 도/시/구 해석을 위한 Repository =====
+    private final ProvinceRepository provinceRepository;
+    private final CityRepository cityRepository;
 
-	public Page<AsTask> getFilteredAsList(
-			Long memberId, AsStatus statuses, String dateType,
-			LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
-			
-			if ("processed".equals(dateType)) {
-				return asTaskRepository.findByProcessedDateRange(memberId, statuses, startDate, endDate, pageable);
-			} else {
-				// 기본값 또는 'requested'
-				return asTaskRepository.findByRequestedDateRange(memberId, statuses, startDate, endDate, pageable);
-			}
-		}
+    @Value("${spring.upload.path}")
+    private String uploadPath;
 
+    private static final String AS_TEAM_NAME = "AS팀";
 
-	public List<AsTask> getFilteredAsList(Long handlerId, AsStatus status, LocalDate date) {
-	    LocalDateTime start = date.atStartOfDay();
-	    LocalDateTime end = date.plusDays(1).atStartOfDay();
+    // ==============================
+    // 기존 기능 유지: 목록/조회/업데이트
+    // ==============================
+    public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end, AsStatus status, Pageable pageable) {
+        if ("requested".equalsIgnoreCase(dateType)) {
+            return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end, pageable);
+        } else {
+            return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end, pageable);
+        }
+    }
 
-	    return asTaskRepository.findByFilterWithDateRangeNonPageable(
-	            handlerId,
-	            status,
-	            start,
-	            end
-	    );
-	}
-	
-	@Transactional
+    public List<AsTask> getFilteredAsList(Long memberId, AsStatus status, String dateType,
+                                          LocalDateTime start, LocalDateTime end) {
+        if ("processed".equals(dateType)) {
+            return asTaskRepository.findByProcessedDateRangeList(memberId, status, start, end);
+        } else {
+            return asTaskRepository.findByRequestedDateRangeList(memberId, status, start, end);
+        }
+    }
+
+    public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDate date, AsStatus status, Pageable pageable) {
+        LocalDateTime start = (date != null ? date : LocalDate.now()).atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+
+        if ("requested".equalsIgnoreCase(dateType)) {
+            return asTaskRepository.findByRequestedDate(handler.getId(), status, start, end, pageable);
+        } else {
+            return asTaskRepository.findByProcessedDate(handler.getId(), status, start, end, pageable);
+        }
+    }
+
+    public Page<AsTask> getFilteredAsList(Long memberId, AsStatus statuses, String dateType,
+                                          LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+        if ("processed".equals(dateType)) {
+            return asTaskRepository.findByProcessedDateRange(memberId, statuses, startDate, endDate, pageable);
+        } else {
+            return asTaskRepository.findByRequestedDateRange(memberId, statuses, startDate, endDate, pageable);
+        }
+    }
+
+    public List<AsTask> getFilteredAsList(Long handlerId, AsStatus status, LocalDate date) {
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
+        return asTaskRepository.findByFilterWithDateRangeNonPageable(handlerId, status, start, end);
+    }
+
+    @Transactional
     public void updateAsTask(Long id, Integer price, String statusStr, Long assignedHandlerId) {
         AsTask asTask = getAsDetail(id);
 
-        // ✅ 상태 파싱
         AsStatus status = AsStatus.valueOf(statusStr);
-
-        // ✅ 비용이 null인 경우 0 처리
         asTask.setPrice(price == null ? 0 : price);
 
-        // ✅ 담당자 지정 필수
         if (assignedHandlerId == null) {
             throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
         }
@@ -123,22 +125,25 @@ public class AsTaskService {
         asTask.setUpdatedAt(LocalDateTime.now());
 
         asTaskRepository.save(asTask);
-    }	
-	
+    }
+
     public AsTask getAsDetail(Long id) {
         return asTaskRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 AS 요청을 찾을 수 없습니다. ID: " + id));
     }
 
+    // ==============================
+    // 기존 기능 유지 + 이미지 저장
+    // ==============================
     public AsTask submitAsTask(AsTask task, List<MultipartFile> images, Member member) throws IOException {
         task.setRequestedBy(member);
         task.setRequestedAt(LocalDateTime.now());
         task.setStatus(AsStatus.REQUESTED);
 
-        // 주소 파싱
+        // 주소 파싱(기존)
         refineAddressFromRoad(task);
 
-        // 담당자 자동 배정
+        // 담당자 자동 배정(포함 매칭/정규화 추가)
         assignAsHandlerIfPossible(task);
 
         // DB 저장
@@ -150,9 +155,9 @@ public class AsTaskService {
         Files.createDirectories(saveDir); // 디렉토리 없으면 생성
 
         for (MultipartFile file : images) {
-            if (file.isEmpty()) continue;
+            if (file == null || file.isEmpty()) continue;
 
-            String originalName = file.getOriginalFilename();
+            String originalName = Optional.ofNullable(file.getOriginalFilename()).orElse("image");
             String filename = UUID.randomUUID() + "_" + originalName;
             Path filePath = saveDir.resolve(filename);
 
@@ -174,70 +179,199 @@ public class AsTaskService {
         return savedTask;
     }
 
+    // ==============================
+    // 주소 파싱 (기존 유지)
+    // ==============================
+    private void refineAddressFromRoad(AsTask task) {
+        String full = task.getRoadAddress();
+        if (full == null || full.isBlank()) return;
 
-	private void refineAddressFromRoad(AsTask task) {
-		String full = task.getRoadAddress();
-		if (full == null || full.isBlank())
-			return;
+        String[] tokens = full.trim().split("\\s+");
+        String doName = "", siName = "", guName = "";
 
-		String[] tokens = full.trim().split("\\s+");
-		String doName = "", siName = "", guName = "";
+        if (tokens.length >= 1) doName = tokens[0];
 
-		if (tokens.length >= 1)
-			doName = tokens[0];
+        for (int i = 1; i < tokens.length; i++) {
+            String word = tokens[i];
+            if (word.endsWith("시") && siName.isBlank()) siName = word;
+            else if (word.endsWith("구") && guName.isBlank()) guName = word;
+            if (!siName.isBlank() && !guName.isBlank()) break;
+        }
 
-		for (int i = 1; i < tokens.length; i++) {
-			String word = tokens[i];
-			if (word.endsWith("시") && siName.isBlank())
-				siName = word;
-			else if (word.endsWith("구") && guName.isBlank())
-				guName = word;
-			if (!siName.isBlank() && !guName.isBlank())
-				break;
-		}
+        if (siName.isBlank() && guName.isBlank() && tokens.length >= 2)
+            guName = tokens[1];
 
-		if (siName.isBlank() && guName.isBlank() && tokens.length >= 2)
-			guName = tokens[1];
+        task.setDoName(doName);
+        task.setSiName(siName);
+        task.setGuName(guName);
+    }
 
-		task.setDoName(doName);
-		task.setSiName(siName);
-		task.setGuName(guName);
-	}
+    // ==============================
+    // AS 담당자 자동 배정 (업그레이드)
+    // - 도/시/구 유연 해석(명칭 정규화 포함)
+    // - 포함 매칭(구→시→도) 우선순위
+    // - 동순위 다수 시 무작위
+    // ==============================
+    private void assignAsHandlerIfPossible(AsTask task) {
+        final String doName = task.getDoName();
+        final String siName = task.getSiName();
+        final String guName = task.getGuName();
 
-	private void assignAsHandlerIfPossible(AsTask task) {
-		String doName = task.getDoName();
-		String siName = task.getSiName();
-		String guName = task.getGuName();
+        System.out.println("🛠 [AS 주소 파싱]");
+        System.out.println("- 도 : " + doName);
+        System.out.println("- 시 : " + siName);
+        System.out.println("- 구 : " + guName);
 
-		if (guName == null || doName == null) {
-			System.out.println("❌ 구 또는 도 정보 부족. 배정 중단");
-			return;
-		}
+        if (doName == null || doName.isBlank()) {
+            System.out.println("❌ 도 정보 부족. AS 배정 중단");
+            return;
+        }
 
-		String siKeyword = (siName == null || siName.isBlank()) ? null : siName;
+        try {
+            // 1) 도/시/구를 유연하게 해석해 키 산출 (구 없어도 진행)
+            RegionKey key = resolveRegionKey(doName, siName, guName);
+            if (key.provinceId == null) {
+                System.out.println("❌ Province 매칭 실패. AS 배정 중단");
+                return;
+            }
+            System.out.println("✅ 해석된 RegionKey: provinceId=" + key.provinceId
+                    + ", cityId=" + key.cityId + ", districtId=" + key.districtId);
 
-		Optional<District> districtOpt = districtRepository.findByAddressPartsSingleNative(guName, doName, siKeyword);
-		if (districtOpt.isEmpty()) {
-			System.out.println("❌ 지역 일치 실패. AS 담당자 배정 불가");
-			return;
-		}
+            // 2) 포함 매칭 후보 조회 (팀명=AS팀)
+            //    👉 주의: 아래 메서드는 앞서 제공한 JPQL(@Query) 메서드명과 시그니처가 일치해야 합니다.
+            //       기존에 findDeliveryRegionMatches(...) 로 구현해 두셨다면 동일 시그니처/동일 JPQL로 사용 가능합니다.
+            List<MemberRegion> matches = memberRegionRepository.findDeliveryRegionMatches(
+                    AS_TEAM_NAME, key.provinceId, key.cityId, key.districtId
+            );
 
-		District district = districtOpt.get();
-		List<MemberRegion> matchedRegions = memberRegionRepository.findByDistrict(district);
+            System.out.println("🔎 AS 포함 매칭 후보 수: " + matches.size());
+            if (matches.isEmpty()) {
+                System.out.println("❌ AS 담당자 후보 없음");
+                return;
+            }
 
-		for (MemberRegion region : matchedRegions) {
-			Member m = region.getMember();
-			if (m.getRole() == MemberRole.INTERNAL_EMPLOYEE && "AS팀".equals(m.getTeam().getName())) {
-				task.setAssignedHandler(m);
-				task.setAssignedTeam(m.getTeam());
+            // 3) 우선순위 스코어링 (구=3, 시=2, 도=1)
+            Map<Member, Integer> bestScopePerMember = new HashMap<>();
+            for (MemberRegion mr : matches) {
+                Member m = mr.getMember();
+                int scope = scopeScore(mr);
+                bestScopePerMember.merge(m, scope, Math::max);
+            }
 
-				System.out.println("✅ AS 담당자 배정 완료: " + m.getUsername());
-				return;
-			}
-		}
+            int topScope = bestScopePerMember.values().stream().mapToInt(i -> i).max().orElse(1);
+            List<Member> topCandidates = bestScopePerMember.entrySet().stream()
+                    .filter(e -> e.getValue() == topScope)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toList());
 
-		System.out.println("❌ AS 담당자 배정 실패 (AS팀 조건 불일치)");
-	}
+            System.out.println("🏅 최고 우선순위: " + topScope + ", 후보: " + topCandidates.size());
+            if (topCandidates.isEmpty()) {
+                System.out.println("❌ 동순위 후보 없음");
+                return;
+            }
+
+            // 4) 동순위 다수 → 무작위 (원하시면 라운드로빈/최소작업 우선 등으로 교체 가능)
+            Member selected = topCandidates.get((int) (Math.random() * topCandidates.size()));
+            task.setAssignedHandler(selected);
+            task.setAssignedTeam(selected.getTeam());
+
+            System.out.println("✅ AS 담당자 배정 완료 → " + selected.getUsername()
+                    + " (scope=" + topScope + ")");
+
+        } catch (Exception e) {
+            System.out.println("❌ AS 배정 예외: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /** 구(3) > 시(2) > 도(1) */
+    private int scopeScore(MemberRegion mr) {
+        if (mr.getDistrict() != null) return 3;
+        if (mr.getCity() != null) return 2;
+        return 1;
+    }
+
+    // ==============================
+    //        해석/정규화 헬퍼
+    // ==============================
+    /** 접미사 제거로 베이스명 산출 (특별자치도/광역시/특별시/자치시/자치구/자치군/도/시/군/구 1회 제거) */
+    private String normalizeBase(String s) {
+        if (s == null) return null;
+        String trimmed = s.trim();
+        String[] suffixes = {"특별자치도", "광역시", "특별시", "자치시", "자치구", "자치군", "도", "시", "군", "구"};
+        for (String suf : suffixes) {
+            if (trimmed.endsWith(suf)) {
+                trimmed = trimmed.substring(0, trimmed.length() - suf.length());
+                break;
+            }
+        }
+        return trimmed;
+    }
+
+    /** provinceId/cityId/districtId를 유연하게 산출 (구 없어도 OK) */
+    private RegionKey resolveRegionKey(String doName, String siName, String guName) {
+        String pBase = normalizeBase(doName);
+        String cBase = (siName != null ? normalizeBase(siName) : null);
+        String dBase = (guName != null ? normalizeBase(guName) : null);
+
+        // Province
+        List<Province> provinces = provinceRepository.findAll();
+        Province province = pickByBase(provinces, Province::getName, pBase);
+        if (province == null) province = pickByRelaxed(provinces, Province::getName, pBase);
+        Long provinceId = (province != null ? province.getId() : null);
+        if (provinceId == null) return new RegionKey(null, null, null);
+
+        // City (optional)
+        Long cityId = null;
+        City city = null;
+        if (cBase != null && !cBase.isBlank()) {
+            List<City> cities = cityRepository.findByProvinceId(provinceId);
+            city = pickByBase(cities, City::getName, cBase);
+            if (city == null) city = pickByRelaxed(cities, City::getName, cBase);
+            cityId = (city != null ? city.getId() : null);
+        }
+
+        // District (optional)
+        Long districtId = null;
+        if (dBase != null && !dBase.isBlank()) {
+            List<District> districts = (cityId != null)
+                    ? districtRepository.findByCityId(cityId)
+                    : districtRepository.findByProvinceId(provinceId); // 서울/세종 등
+            District dist = pickByBase(districts, District::getName, dBase);
+            if (dist == null) dist = pickByRelaxed(districts, District::getName, dBase);
+            districtId = (dist != null ? dist.getId() : null);
+        }
+
+        return new RegionKey(provinceId, cityId, districtId);
+    }
+
+    /** 베이스명 비교: normalize 후 상호 포함 */
+    private <T> T pickByBase(List<T> list, java.util.function.Function<T, String> nameFn, String base) {
+        if (base == null || base.isBlank()) return null;
+        String b = normalizeBase(base);
+        for (T t : list) {
+            String n = nameFn.apply(t);
+            String nb = normalizeBase(n);
+            if (nb != null && (nb.contains(b) || b.contains(nb))) return t;
+        }
+        return null;
+    }
+
+    /** 완화 비교: 공백 제거 후 상호 포함 */
+    private <T> T pickByRelaxed(List<T> list, java.util.function.Function<T, String> nameFn, String keyword) {
+        if (keyword == null || keyword.isBlank()) return null;
+        String k = keyword.replaceAll("\\s+", "");
+        for (T t : list) {
+            String n = nameFn.apply(t);
+            if (n == null) continue;
+            String nn = n.replaceAll("\\s+", "");
+            if (nn.contains(k) || k.contains(nn)) return t;
+        }
+        return null;
+    }
+
+    /** provinceId / cityId / districtId 묶음 */
+    private record RegionKey(Long provinceId, Long cityId, Long districtId) { }
 	
 	@Transactional
 	public void updateAsTaskByHandler(Long id, AsStatus updatedStatus, List<MultipartFile> resultImages) throws IOException {

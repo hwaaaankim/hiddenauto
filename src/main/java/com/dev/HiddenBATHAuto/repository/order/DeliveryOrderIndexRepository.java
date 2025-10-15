@@ -20,40 +20,41 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrderIndex, Long> {
 
     List<DeliveryOrderIndex> findByDeliveryHandlerAndDeliveryDateOrderByOrderIndex(Member handler, LocalDate date);
-    
+
     Optional<DeliveryOrderIndex> findByOrder_Id(Long orderId);
-    
+    Optional<DeliveryOrderIndex> findByOrder(Order order);
+
     int countByDeliveryHandlerAndDeliveryDate(Member handler, LocalDate date);
 
     boolean existsByOrder_Id(Long orderId);
-    
     boolean existsByOrder(Order order);
-
-    Optional<DeliveryOrderIndex> findByOrder(Order order);
 
     @Query("""
         SELECT MAX(d.orderIndex)
-        FROM DeliveryOrderIndex d
-        WHERE d.deliveryHandler.id = :handlerId
-        AND d.deliveryDate = :date
+          FROM DeliveryOrderIndex d
+         WHERE d.deliveryHandler.id = :handlerId
+           AND d.deliveryDate = :date
     """)
     Integer findMaxIndexByHandlerAndDate(@Param("handlerId") Long handlerId, @Param("date") LocalDate date);
-    
-    @Query("""
-    	    SELECT doi FROM DeliveryOrderIndex doi
-    	    WHERE doi.deliveryHandler.id = :handlerId
-    	      AND doi.deliveryDate = :deliveryDate
-    	      AND doi.order.status IN :statuses
-    	    ORDER BY doi.orderIndex ASC
-    	""")
-	Page<DeliveryOrderIndex> findByHandlerAndDateAndStatusIn(
-	    @Param("handlerId") Long handlerId,
-	    @Param("deliveryDate") LocalDate deliveryDate,
-	    @Param("statuses") List<OrderStatus> statuses,
-	    Pageable pageable
-	);
-    
-    Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
-            Long handlerId, LocalDate deliveryDate, Long orderId);
 
+    @Query("""
+        SELECT doi
+          FROM DeliveryOrderIndex doi
+         WHERE doi.deliveryHandler.id = :handlerId
+           AND doi.deliveryDate = :deliveryDate
+           AND doi.order.status IN :statuses
+      ORDER BY doi.orderIndex ASC
+    """)
+    Page<DeliveryOrderIndex> findByHandlerAndDateAndStatusIn(
+        @Param("handlerId") Long handlerId,
+        @Param("deliveryDate") LocalDate deliveryDate,
+        @Param("statuses") List<OrderStatus> statuses,
+        Pageable pageable
+    );
+
+    Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
+        Long handlerId, LocalDate deliveryDate, Long orderId);
+
+    // (D) 담당자/날짜 해제 시 제거용
+    void deleteByOrder(Order order);
 }

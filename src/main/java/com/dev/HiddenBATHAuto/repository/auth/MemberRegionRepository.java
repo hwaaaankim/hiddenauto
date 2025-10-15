@@ -58,4 +58,46 @@ public interface MemberRegionRepository extends JpaRepository<MemberRegion, Long
             @Param("provinceId") Long provinceId,
             @Param("teamName") String teamName
     );
+    
+    @Query("""
+        select mr
+          from MemberRegion mr
+          join mr.member m
+          join m.team t
+         where m.enabled = true
+           and t.name = :teamName
+           and mr.province.id = :provinceId
+           and (
+                   (mr.city is null and mr.district is null)
+                or (:cityId is not null and mr.city is not null and mr.city.id = :cityId and mr.district is null)
+                or (:districtId is not null and mr.district is not null and mr.district.id = :districtId)
+           )
+    """)
+    List<MemberRegion> findDeliveryRegionMatches(
+            @Param("teamName") String teamName,
+            @Param("provinceId") Long provinceId,
+            @Param("cityId") Long cityId,
+            @Param("districtId") Long districtId
+    );
+    
+    @Query("""
+        select mr
+          from MemberRegion mr
+          join mr.member m
+          join m.team t
+         where m.enabled = true
+           and t.name = :teamName
+           and mr.province.id = :provinceId
+           and (
+                   (mr.city is null and mr.district is null)
+                or (:cityId is not null and mr.city is not null and mr.city.id = :cityId and mr.district is null)
+                or (:districtId is not null and mr.district is not null and mr.district.id = :districtId)
+           )
+    """)
+    List<MemberRegion> findRegionMatchesByTeamName(
+            @Param("teamName") String teamName,
+            @Param("provinceId") Long provinceId,
+            @Param("cityId") Long cityId,
+            @Param("districtId") Long districtId
+    );
 }
