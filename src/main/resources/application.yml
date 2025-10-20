@@ -1,7 +1,7 @@
 # 공통 설정
 spring:
   profiles:
-    active: prod
+    active: test
   application:
     name: HiddenBATHAuto
 
@@ -61,7 +61,7 @@ spring:
             enable: true
 
   upload:
-    path: D:/hiddenauto/
+    path: "${user.home}/Downloads/hiddenauto/"  
     env: local
 
 # 배포 환경

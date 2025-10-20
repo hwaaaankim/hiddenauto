@@ -1,5 +1,7 @@
 package com.dev.HiddenBATHAuto.config;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
@@ -9,20 +11,19 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.lang.NonNull;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import jakarta.annotation.PostConstruct;
+
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Value("${spring.upload.env}")
-    private String env;
-
-    @Value("${spring.upload.path}")
-    private String uploadPath;
+  
 
     private final Environment environment;
 
@@ -30,15 +31,47 @@ public class WebMvcConfig implements WebMvcConfigurer {
         this.environment = environment;
     }
 
+    @Value("${spring.upload.path}")
+    private String uploadPath;
+
+    @Value("${spring.upload.env}")
+    private String env;
+
+    /** 애플리케이션 기동 시 업로드 폴더가 없으면 생성 */
+    @PostConstruct
+    public void ensureUploadDir() {
+        try {
+            String normalized = normalizeDir(uploadPath);
+            Path p = Paths.get(normalized);
+            if (Files.notExists(p)) {
+                Files.createDirectories(p);
+            }
+            System.out.println("[WebMvcConfig] Ensured upload dir: " + p.toAbsolutePath());
+        } catch (Exception e) {
+            System.err.println("[WebMvcConfig] Failed to create upload dir: " + e.getMessage());
+        }
+    }
+
     @Override
     public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
-        String resourcePath = Paths.get(uploadPath).toUri().toString();
+        String normalized = normalizeDir(uploadPath);
+        String location = "file:" + normalized; // file: 프리픽스가 가장 명확합니다.
 
         System.out.println("[WebMvcConfig] Active profile: " + String.join(",", environment.getActiveProfiles()));
-        System.out.println("[WebMvcConfig] Upload path for profile '" + env + "': " + resourcePath);
+        System.out.println("[WebMvcConfig] Upload env: " + env);
+        System.out.println("[WebMvcConfig] Upload path: " + normalized);
+        System.out.println("[WebMvcConfig] Resource location: " + location);
 
         registry.addResourceHandler("/upload/**")
-                .addResourceLocations(resourcePath);
+                .addResourceLocations(location);
+    }
+
+    /** 디렉터리 경로를 OS별로 안전하게 정규화(마지막에 / 보장) */
+    private String normalizeDir(String dir) {
+        if (!StringUtils.hasText(dir)) return dir;
+        String d = dir.replace("\\", "/");
+        if (!d.endsWith("/")) d = d + "/";
+        return d;
     }
     
     @Override
