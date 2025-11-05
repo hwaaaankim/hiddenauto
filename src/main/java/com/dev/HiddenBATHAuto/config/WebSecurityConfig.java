@@ -39,7 +39,8 @@ public class WebSecurityConfig {
 			"/findUsernameProcess",
 			"/findUsername",
 			"/api/excel/**",
-			"/api/standard/**"
+			"/api/standard/**",
+			"/excelConvert"
 	};
 	
 	private final String[] adminCommonUrls = {

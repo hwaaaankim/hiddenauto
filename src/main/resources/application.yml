@@ -1,4 +1,4 @@
-# 공통 설정
+# ===================== 공통 설정 =====================
 spring:
   profiles:
     active: test
@@ -15,8 +15,15 @@ server:
         name: SID
         http-only: true
         secure: false
+kakao:
+  rest:
+    api-key: "0daa583a542a7c7639b42072873d05b9"   # <-- 제공해주신 키(예시). 실제 운영에선 환경변수로 주입 권장.
+  throttle-ms: 120
+  
+logging:
+  config: classpath:logback-spring.xml
 
-# 개발 환경
+# ===================== 테스트(Windows) =====================
 ---
 spring:
   config:
@@ -61,10 +68,60 @@ spring:
             enable: true
 
   upload:
-    path: "${user.home}/Downloads/hiddenauto/"  
-    env: local
+    # Windows: D 드라이브 고정. 역슬래시 대신 슬래시 사용해도 WebMvcConfig가 정규화합니다.
+    path: "D:/hiddenauto/"
+    env: windows
 
-# 배포 환경
+# ===================== 맥(mac) =====================
+---
+spring:
+  config:
+    activate:
+      on-profile: mac
+
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto?useUnicode=true&characterEncoding=utf8
+    username: root
+    password: hidden3660!@
+    hikari:
+      connectionTimeout: 30000
+      maximumPoolSize: 10
+      maxLifetime: 1800000
+      poolName: HikariCP
+      readOnly: false
+      connectionTestQuery: SELECT 1
+
+  h2:
+    console:
+      enabled: true
+
+  jpa:
+    database-platform: org.hibernate.dialect.MariaDBDialect
+
+  servlet:
+    multipart:
+      maxFileSize: 5000MB
+      maxRequestSize: -1
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: 'admin@hiddenbath.co.kr'
+    password: 'hfdpehjnemsxvhre'
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  upload:
+    # 기존에 쓰시던 맥 전용 경로 그대로 유지
+    path: "${user.home}/Downloads/hiddenauto/"
+    env: mac
+
+# ===================== 배포(prod) =====================
 ---
 spring:
   config:
@@ -107,9 +164,7 @@ spring:
           auth: true
           starttls:
             enable: true
+
   upload:
     path: /home/ubuntu/hiddenauto/files/
     env: prod
-
-logging:
-  config: classpath:logback-spring.xml

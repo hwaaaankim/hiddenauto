@@ -34,6 +34,12 @@ public class CommonController {
 	private final SMSService smsService;
 	private final PasswordEncoder passwordEncoder;
 
+	@GetMapping("/excelConvert")
+	public String excelConvert() {
+		
+		return "front/excelConvert";
+	}
+	
 	@GetMapping("/loginForm")
 	public String loginForm() {
 

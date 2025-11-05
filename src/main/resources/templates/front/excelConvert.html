@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>주소 엑셀 변환 업로드</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 32px; }
+    form { border: 1px solid #ddd; padding: 20px; border-radius: 12px; max-width: 520px; }
+    button { padding: 10px 16px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+    .row { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h1>주소 엑셀 변환</h1>
+  <form action="/api/v1/address/convert-excel" method="post" enctype="multipart/form-data">
+    <div class="row">
+      <label>엑셀 파일: <input type="file" name="file" accept=".xlsx,.xls" required></label>
+    </div>
+    <button type="submit">변환 후 다운로드</button>
+  </form>
+</body>
+</html>
