@@ -47,9 +47,10 @@ public class CompanyExcelConvertService {
             SXSSFSheet sx = (SXSSFSheet) outSheet;
             sx.trackAllColumnsForAutoSizing();
 
-            // ★ 지번주소 컬럼을 도로명 바로 오른쪽에 추가 (열 순서 고정)
+            // ★ 회사명 컬럼을 2개로 분리: 회사명(원본), 회사명(지역삭제)
+            //    id, 회사명(원본), 회사명(지역삭제), 대표자명, ...
             final String[] headers = {
-                    "id(사업자번호숫자)", "회사명", "대표자명", "사업자등록번호(하이픈)",
+                    "id(사업자번호숫자)", "회사명(원본)", "회사명(지역삭제)", "대표자명", "사업자등록번호(하이픈)",
                     "우편번호", "도", "시", "구", "도로명", "지번주소", "상세주소",
                     "tel", "phone", "email"
             };
@@ -64,21 +65,29 @@ public class CompanyExcelConvertService {
             while (it.hasNext()) {
                 Row row = it.next();
 
-                String companyName = getCell(row, 0, fmt);
-                String brnDashedIn = getCell(row, 1, fmt);
-                String ceoNameIn   = getCell(row, 2, fmt);
-                String rawAddress  = getCell(row, 3, fmt);
-                String telIn       = getCell(row, 4, fmt);
-                String phoneIn     = getCell(row, 5, fmt);
-                String emailIn     = getCell(row, 6, fmt);
+                String companyNameIn = getCell(row, 0, fmt);
+                String brnDashedIn   = getCell(row, 1, fmt);
+                String ceoNameIn     = getCell(row, 2, fmt);
+                String rawAddress    = getCell(row, 3, fmt);
+                String telIn         = getCell(row, 4, fmt);
+                String phoneIn       = getCell(row, 5, fmt);
+                String emailIn       = getCell(row, 6, fmt);
 
+                // ===== 회사명 처리 =====
+                // 회사명(원본)
+                String companyOriginalOut = orEopseum(companyNameIn);
+                // 회사명(지역삭제) : 슬래시가 있는 경우, 슬래시 포함 앞부분 제거
+                String companyRegionRemoved = stripRegionPrefix(companyNameIn);
+                String companyRegionRemovedOut = orEopseum(companyRegionRemoved);
+
+                // ===== 사업자번호 처리 =====
                 String brnDigits    = onlyDigits(brnDashedIn);
                 String brnDashedFmt = formatBrnDashed(brnDigits);
-                String companyOut   = orEopseum(companyName);
-                String ceoOut       = orDefault(ceoNameIn, "익명");
-                String telOut       = orEopseum(telIn);
-                String phoneOut     = orEopseum(phoneIn);
-                String emailOut     = orDefault(emailIn, "이메일없음");
+
+                String ceoOut   = orDefault(ceoNameIn, "익명");
+                String telOut   = orEopseum(telIn);
+                String phoneOut = orEopseum(phoneIn);
+                String emailOut = orDefault(emailIn, "이메일없음");
 
                 // ===== 주소 전처리 =====
                 String cleaned     = AddressPreprocessor.clean(rawAddress);
@@ -117,13 +126,13 @@ public class CompanyExcelConvertService {
                 if (best != null) {
                     zip = AddressNormalizer.getZip(best);
 
-                    // 규칙 기반 분리 (보강된 splitAdmin 사용)
+                    // 규칙 기반 분리
                     AddressNormalizer.AdminParts parts = AddressNormalizer.splitAdmin(best);
                     doName = parts.getDoName();
                     siName = parts.getSiName();
                     guName = parts.getGuName();
 
-                    // ★ 도로명/지번을 확실히 구분해서 추출
+                    // 도로명 / 지번 구분 추출
                     roadAddress  = AddressNormalizer.getRoadFull(best);
                     jibunAddress = AddressNormalizer.getJibunFull(best);
                 } else if (na != null) {
@@ -138,34 +147,50 @@ public class CompanyExcelConvertService {
                 detailAddr = AddressNormalizer.mergeDetails(parenDetail, extraDetail, noise);
 
                 // 출력 안전값
-                String roadOut    = orDefault(roadAddress, "주소없음");
-                String jibunOut   = orEopseum(jibunAddress);
-                String zipOut     = orEopseum(zip);
-                String doOut      = orEopseum(doName);
-                String siOut      = orEopseum(siName);
-                String guOut      = orEopseum(guName);
-                String detailOut  = orEopseum(detailAddr);
+                String roadOut   = orDefault(roadAddress, "주소없음");
+                String jibunOut  = orEopseum(jibunAddress);
+                String zipOut    = orEopseum(zip);
+                String doOut     = orEopseum(doName);
+                String siOut     = orEopseum(siName);
+                String guOut     = orEopseum(guName);
+                String detailOut = orEopseum(detailAddr);
 
-                // ===== 쓰기 (열 순서 고정: 도로명 → 지번 → 상세) =====
+                // ===== 쓰기 =====
+                // 0: id(사업자번호숫자)
+                // 1: 회사명(원본)
+                // 2: 회사명(지역삭제)
+                // 3: 대표자명
+                // 4: 사업자등록번호(하이픈)
+                // 5: 우편번호
+                // 6: 도
+                // 7: 시
+                // 8: 구
+                // 9: 도로명
+                // 10: 지번주소
+                // 11: 상세주소
+                // 12: tel
+                // 13: phone
+                // 14: email
                 Row out = outSheet.createRow(outRowIdx++);
                 write(out, 0,  brnDigits);
-                write(out, 1,  companyOut);
-                write(out, 2,  ceoOut);
-                write(out, 3,  brnDashedFmt);
-                write(out, 4,  zipOut);
-                write(out, 5,  doOut);
-                write(out, 6,  siOut);
-                write(out, 7,  guOut);
-                write(out, 8,  roadOut);    // 도로명
-                write(out, 9,  jibunOut);   // 지번주소 (바로 옆)
-                write(out, 10, detailOut);  // 상세주소 (그 다음)
-                write(out, 11, telOut);
-                write(out, 12, phoneOut);
-                write(out, 13, emailOut);
+                write(out, 1,  companyOriginalOut);
+                write(out, 2,  companyRegionRemovedOut);
+                write(out, 3,  ceoOut);
+                write(out, 4,  brnDashedFmt);
+                write(out, 5,  zipOut);
+                write(out, 6,  doOut);
+                write(out, 7,  siOut);
+                write(out, 8,  guOut);
+                write(out, 9,  roadOut);    // 도로명
+                write(out, 10, jibunOut);   // 지번주소
+                write(out, 11, detailOut);  // 상세주소
+                write(out, 12, telOut);
+                write(out, 13, phoneOut);
+                write(out, 14, emailOut);
             }
 
             // 컬럼 폭 자동 조정
-            for (int c = 0; c <= 13; c++) {
+            for (int c = 0; c <= 14; c++) {
                 outSheet.autoSizeColumn(c);
             }
 
@@ -208,7 +233,7 @@ public class CompanyExcelConvertService {
         }
         String d = digitsOrEopseum.trim();
         if (d.length() == 10) {
-            return d.substring(0,3) + "-" + d.substring(3,5) + "-" + d.substring(5);
+            return d.substring(0, 3) + "-" + d.substring(3, 5) + "-" + d.substring(5);
         }
         return d;
     }
@@ -219,5 +244,31 @@ public class CompanyExcelConvertService {
 
     private static String orEopseum(String v) {
         return orDefault(v, "없음");
+    }
+
+    /**
+     * 회사명에서 "지역/상호명" 구조일 때, "지역/" 포함 앞부분 제거.
+     * 예)
+     *  - "춘천/광동타일"           -> "광동타일"
+     *  - "(블랙)인천/이레종합타일" -> "이레종합타일"
+     *  - "케이론"                 -> "케이론" (슬래시 없음, 그대로)
+     */
+    private static String stripRegionPrefix(String v) {
+        if (v == null) return null;
+        String s = v.trim();
+        if (s.isEmpty()) return null;
+
+        int idx = s.indexOf('/');
+        if (idx < 0) {
+            // 슬래시 없으면 그대로 반환
+            return s;
+        }
+
+        String after = s.substring(idx + 1).trim();
+        if (after.isEmpty()) {
+            // "지역/"만 있고 뒤가 없으면, 안전하게 원본 유지
+            return s;
+        }
+        return after;
     }
 }
