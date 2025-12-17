@@ -18635,3 +18635,226 @@ span.flatpickr-weekday {
 	transform: scale(1.05);
 	opacity: 0.7;
 }
+
+
+/* /administration/team/as/asManagement.css */
+
+/* ===== Card ===== */
+.as-calendar-card {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* ===== Calendar container ===== */
+#as-calendar-calendar {
+  min-height: 720px;
+}
+
+/* ===== Right task list ===== */
+.as-calendar-tasklist {
+  max-height: 820px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.as-calendar-task-card {
+  margin-bottom: 10px;
+}
+
+.as-calendar-task-card-inner {
+  border-radius: 12px;
+  padding: 10px 10px;
+  border: 2px solid transparent;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+
+.as-calendar-task-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.as-calendar-task-meta {
+  font-size: 0.78rem;
+  color: #6c757d;
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+.as-calendar-label {
+  font-weight: 700;
+  margin-right: 6px;
+  color: #495057;
+}
+
+.as-calendar-task-addr {
+  font-size: 0.80rem;
+  color: #343a40;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.as-calendar-drag-hint {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+/* ===== 3가지 상태 border 구분 ===== */
+/* 등록 가능 */
+.as-calendar-task-available {
+  border-color: #0d6efd;
+}
+
+/* 이미 등록됨 */
+.as-calendar-task-registered {
+  border-color: #20c997;
+}
+.as-calendar-task-registered .as-calendar-drag-hint {
+  color: #20c997;
+}
+
+/* 등록 불가(완료/취소) */
+.as-calendar-task-disabled {
+  border-color: #adb5bd;
+  background: #f8f9fa;
+  opacity: 0.85;
+}
+.as-calendar-task-disabled .as-calendar-drag-hint {
+  color: #6c757d;
+}
+
+/* 드래그 가능한 카드만 커서 */
+.as-calendar-task-draggable {
+  cursor: grab;
+}
+.as-calendar-task-draggable:active {
+  cursor: grabbing;
+}
+
+/* ===== Modal overlay ===== */
+.as-calendar-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.as-calendar-modal {
+  width: min(920px, 92vw);
+  max-height: 86vh;
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.as-calendar-modal-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.as-calendar-modal-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.as-calendar-modal-sub {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+.as-calendar-modal-body {
+  padding: 14px 16px;
+  overflow: auto;
+}
+
+.as-calendar-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Modal list items */
+.as-calendar-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.as-calendar-modal-item {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 10px 10px;
+  background: #fff;
+}
+
+.as-calendar-modal-drag-handle {
+  width: 32px;
+  min-width: 32px;
+  border-radius: 10px;
+  background: #f1f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+  font-weight: 800;
+  color: #495057;
+}
+
+.as-calendar-modal-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.as-calendar-modal-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.as-calendar-modal-company {
+  font-weight: 800;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.as-calendar-modal-row2 {
+  margin-top: 6px;
+  font-size: 0.80rem;
+  color: #6c757d;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.as-calendar-modal-addr {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #343a40;
+  line-height: 1.35;
+}
+
+.as-calendar-sort-ghost {
+  opacity: 0.6;
+}

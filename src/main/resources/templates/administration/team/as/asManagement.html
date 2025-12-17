@@ -1,0 +1,240 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body>
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid">
+
+                <!-- 타이틀 -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                            <h4 class="mb-sm-0">AS팀업무현황</h4>
+                            <div class="page-title-right">
+                                <ol class="breadcrumb m-0">
+                                    <li class="breadcrumb-item"><a href="#">팀별업무관리</a></li>
+                                    <li class="breadcrumb-item active">AS팀</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ 검색 폼 -->
+                <form method="get" th:action="@{/team/asManagement}" class="row">
+                    <div class="col-lg-12">
+                        <div class="row g-4 mb-3">
+
+                            <!-- 상태 -->
+                            <div class="col-lg-1">
+                                <label class="form-label">상태</label>
+                                <select name="status" class="form-select">
+                                    <option value="" th:selected="${selectedStatus == null}">전체</option>
+                                    <option value="REQUESTED" th:selected="${selectedStatus?.name() == 'REQUESTED'}">요청됨</option>
+                                    <option value="IN_PROGRESS" th:selected="${selectedStatus?.name() == 'IN_PROGRESS'}">진행중</option>
+                                    <option value="COMPLETED" th:selected="${selectedStatus?.name() == 'COMPLETED'}">완료</option>
+                                    <option value="CANCELED" th:selected="${selectedStatus?.name() == 'CANCELED'}">취소</option>
+                                </select>
+                            </div>
+
+                            <!-- 조회조건 -->
+                            <div class="col-lg-1">
+                                <label class="form-label">조회조건</label>
+                                <select name="dateType" class="form-select">
+                                    <option value="requested" th:selected="${dateType == null || dateType == 'requested'}">신청일</option>
+                                    <option value="processed" th:selected="${dateType == 'processed'}">처리일</option>
+                                    <option value="scheduled" th:selected="${dateType == 'scheduled'}">업무등록일</option>
+                                </select>
+                            </div>
+
+                            <!-- 시작일 -->
+                            <div class="col-lg-2">
+                                <label class="form-label">시작일</label>
+                                <input type="date" name="startDate"
+                                       th:value="${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}"
+                                       class="form-control">
+                            </div>
+
+                            <!-- 종료일 -->
+                            <div class="col-lg-2">
+                                <label class="form-label">종료일</label>
+                                <input type="date" name="endDate"
+                                       th:value="${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}"
+                                       class="form-control">
+                            </div>
+
+                            <!-- 업체명 -->
+                            <div class="col-lg-2">
+                                <label class="form-label">업체명</label>
+                                <input type="text" name="companyKeyword" class="form-control"
+                                       placeholder="업체명 검색"
+                                       th:value="${companyKeyword}">
+                            </div>
+
+                            <!-- Province -->
+                            <div class="col-lg-1">
+                                <label class="form-label">도/광역시</label>
+                                <select name="provinceId" id="as-province-select" class="form-select">
+                                    <option value="">전체</option>
+                                    <option th:each="p : ${provinces}"
+                                            th:value="${p.id}"
+                                            th:text="${p.name}"
+                                            th:selected="${provinceId != null && provinceId == p.id}">
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- City/District 영역(기존 유지) -->
+                            <div class="col-lg-1" id="as-child-wrapper" style="display:none;">
+                                <label class="form-label" id="as-child-label">시/군</label>
+                                <select name="cityId" id="as-city-select" class="form-select" style="display:none;">
+                                    <option value="">전체</option>
+                                </select>
+                                <select id="as-district-direct-select" class="form-select" style="display:none;">
+                                    <option value="">전체</option>
+                                </select>
+                            </div>
+
+                            <div class="col-lg-1" id="as-district-wrapper" style="display:none;">
+                                <label class="form-label">구/읍/면</label>
+                                <select id="as-district-select" class="form-select" style="display:none;">
+                                    <option value="">전체</option>
+                                </select>
+                            </div>
+
+                            <div class="col-lg-1">
+                                <label class="form-label">조회</label>
+                                <button type="submit" class="btn btn-primary w-100">검색하기</button>
+                            </div>
+
+                            <input type="hidden" name="districtId" id="as-district-hidden"
+                                   th:value="${districtId != null ? districtId : ''}"/>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- ✅ 본문: 좌 캘린더(10) / 우 리스트(2) -->
+                <div class="row g-3">
+                    <div class="col-lg-10">
+                        <div class="card as-calendar-card">
+                            <div class="card-body">
+                                <div id="as-calendar-calendar"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-2">
+                        <div class="card as-calendar-card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold">업무 리스트</span>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    - 등록 가능: 요청됨/진행중<br/>
+                                    - 등록 불가: 완료/취소<br/>
+                                    - 이미 등록됨: 등록일 표시
+                                </div>
+                            </div>
+                            <div class="card-body as-calendar-tasklist" id="as-calendar-external-list">
+                                <div th:if="${asPage == null || asPage.content == null || #lists.isEmpty(asPage.content)}"
+                                     class="text-muted small">
+                                    조회 결과가 없습니다.
+                                </div>
+
+                                <div th:each="t : ${asPage.content}"
+                                     class="as-calendar-task-card"
+                                     th:attr="
+                                        data-task-id=${t.taskId},
+                                        data-company=${t.companyName},
+                                        data-status=${t.status},
+                                        data-scheduled-date=${t.scheduledDate != null ? #temporals.format(t.scheduledDate, 'yyyy-MM-dd') : ''}">
+
+                                    <div class="as-calendar-task-card-inner"
+                                         th:classappend="
+                                            ${t.status == 'COMPLETED' || t.status == 'CANCELED'} ? ' as-calendar-task-disabled' :
+                                            (${t.scheduledDate != null} ? ' as-calendar-task-registered' : ' as-calendar-task-available')
+                                         ">
+                                        <div class="as-calendar-task-title" th:text="${t.companyName}">업체명</div>
+
+                                        <div class="as-calendar-task-meta">
+                                            <div>
+                                                <span class="as-calendar-label">신청일</span>
+                                                <span th:text="${t.requestedAt != null ? #temporals.format(t.requestedAt, 'yyyy-MM-dd') : '-'}">-</span>
+                                            </div>
+                                            <div>
+                                                <span class="as-calendar-label">처리일</span>
+                                                <span th:text="${t.asProcessDate != null ? #temporals.format(t.asProcessDate, 'yyyy-MM-dd') : '-'}">-</span>
+                                            </div>
+
+                                            <div th:if="${t.scheduledDate != null}">
+                                                <span class="as-calendar-label">등록일</span>
+                                                <span th:text="${#temporals.format(t.scheduledDate, 'yyyy-MM-dd')}">-</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="as-calendar-task-addr" th:text="${t.address}">주소</div>
+
+                                        <!-- 드래그 가능한 엘리먼트 표시용 -->
+                                        <div class="as-calendar-drag-hint"
+                                             th:if="${t.status == 'REQUESTED' || t.status == 'IN_PROGRESS'}"
+                                             th:text="${t.scheduledDate != null ? '이미 등록됨' : '드래그하여 달력에 등록'}">
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ 모달 -->
+                <div class="as-calendar-modal-overlay" id="as-calendar-modal-overlay" style="display:none;">
+                    <div class="as-calendar-modal" role="dialog" aria-modal="true">
+                        <div class="as-calendar-modal-header">
+                            <div>
+                                <div class="as-calendar-modal-title">해당 날짜 배정 업무</div>
+                                <div class="as-calendar-modal-sub" id="as-calendar-modal-date-text">-</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-light" id="as-calendar-modal-close">닫기</button>
+                        </div>
+
+                        <div class="as-calendar-modal-body">
+                            <div id="as-calendar-modal-list" class="as-calendar-modal-list">
+                                <!-- JS로 채움 -->
+                            </div>
+                        </div>
+
+                        <div class="as-calendar-modal-footer">
+                            <button type="button" class="btn btn-primary" id="as-calendar-modal-save-order">순서변경</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+<!-- FullCalendar / Sortable -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
+
+<script src="/administration/assets/js/page/asManagement.js"></script>
+
+</body>
+</html>

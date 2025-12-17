@@ -5,8 +5,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -18,11 +20,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.dto.CompanyDeliveryAddressRequest;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionSelectionDTO;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRegion;
@@ -31,6 +35,7 @@ import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.model.auth.Team;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyDeliveryAddressRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
@@ -61,7 +66,8 @@ public class MemberService {
 	private final DistrictRepository districtRepository;
 	private final ObjectMapper objectMapper;
 	private final MemberManagementService memberManagementService;
-
+	private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
+	
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 
@@ -87,86 +93,152 @@ public class MemberService {
 
 	}
 
-	public void registerCustomerRepresentative(Company company, Member member, String role, MultipartFile file) {
-		// 1. MemberRole 설정
-		MemberRole memberRole = MemberRole.valueOf(role);
-		member.setRole(memberRole);
+	public void registerCustomerRepresentative(
+            Company company,
+            Member member,
+            String role,
+            MultipartFile file,
+            String deliveryAddressesJson
+    ) {
+        // 1) Role
+        MemberRole memberRole = MemberRole.valueOf(role);
+        member.setRole(memberRole);
 
-		// 2. registrationKey 생성
-		String registrationKey = UUID.randomUUID().toString().substring(0, 8);
-		company.setRegistrationKey(registrationKey);
-		company.setPoint(0);
+        // 2) registrationKey 생성
+        String registrationKey = UUID.randomUUID().toString().substring(0, 8);
+        company.setRegistrationKey(registrationKey);
+        company.setPoint(0);
 
-		// 3. 주소 필드 가공
-		refineAddressFields(company);
+        // ✅ 2-1) 사업자등록번호 검증/중복
+        String bizNo = (company.getBusinessNumber() == null) ? "" : company.getBusinessNumber().replaceAll("\\D", "");
+        if (bizNo.isBlank()) {
+            throw new IllegalArgumentException("사업자등록번호를 입력해야 합니다.");
+        }
+        if (bizNo.length() != 10) {
+            throw new IllegalArgumentException("사업자등록번호는 숫자 10자리로 입력해야 합니다.");
+        }
+        if (companyRepository.existsByBusinessNumber(bizNo)) {
+            throw new IllegalArgumentException("이미 등록된 사업자등록번호입니다.");
+        }
+        company.setBusinessNumber(bizNo);
 
-		// 4. 주소 유효성 검사
-		if (company.getDoName() == null || company.getDoName().isBlank()) {
-			throw new IllegalArgumentException("도 이름(doName)이 누락되었습니다.");
-		}
-		if (company.getRoadAddress() == null || company.getRoadAddress().isBlank()) {
-			throw new IllegalArgumentException("주소 정보가 누락되었습니다.");
-		}
+        // 3) 주소 필드 가공
+        refineAddressFields(company);
 
-		// 5. Company 저장 (ID 확보용)
-		Company savedCompany = companyRepository.save(company);
+        // 4) 주소 유효성 검사
+        if (company.getDoName() == null || company.getDoName().isBlank()) {
+            throw new IllegalArgumentException("도 이름(doName)이 누락되었습니다.");
+        }
+        if (company.getRoadAddress() == null || company.getRoadAddress().isBlank()) {
+            throw new IllegalArgumentException("주소 정보가 누락되었습니다.");
+        }
 
-		// 6. 사업자등록증 파일 저장
-		if (file != null && !file.isEmpty()) {
-			try {
-				String originalFilename = file.getOriginalFilename();
-				String username = member.getUsername();
+        // 5) Company 저장
+        Company savedCompany = companyRepository.save(company);
 
-				// 저장 디렉토리 구성
-				String relativePath = username + "/signUp/licence";
-				String saveDir = Paths.get(uploadPath, relativePath).toString();
+        // 6) 사업자등록증 파일 저장
+        if (file != null && !file.isEmpty()) {
+            try {
+                String originalFilename = file.getOriginalFilename();
+                String username = member.getUsername();
 
-				File dir = new File(saveDir);
-				if (!dir.exists()) {
-					dir.mkdirs();
-				}
+                String relativePath = username + "/signUp/licence";
+                String saveDir = Paths.get(uploadPath, relativePath).toString();
 
-				// 저장 파일 경로
-				Path filePath = Paths.get(saveDir, originalFilename);
-				file.transferTo(filePath.toFile());
+                File dir = new File(saveDir);
+                if (!dir.exists()) dir.mkdirs();
 
-				// DB에 저장할 경로 및 URL
-				savedCompany.setBusinessLicenseFilename(originalFilename);
-				savedCompany.setBusinessLicensePath(filePath.toString()); // 실제 물리 경로
-				savedCompany.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalFilename); // 브라우저 접근 URL
+                Path filePath = Paths.get(saveDir, originalFilename);
+                file.transferTo(filePath.toFile());
 
-				companyRepository.save(savedCompany);
+                savedCompany.setBusinessLicenseFilename(originalFilename);
+                savedCompany.setBusinessLicensePath(filePath.toString());
+                savedCompany.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalFilename);
 
-			} catch (Exception e) {
-				throw new RuntimeException("파일 업로드 실패: " + e.getMessage(), e);
-			}
-		}
+                companyRepository.save(savedCompany);
 
-		// 7. Member 설정 및 저장
-		String encodedPassword = passwordEncoder.encode(member.getPassword());
-		member.setPassword(encodedPassword);
-		member.setCompany(savedCompany);
-		member.setEnabled(true);
+            } catch (Exception e) {
+                throw new RuntimeException("파일 업로드 실패: " + e.getMessage(), e);
+            }
+        }
 
-		memberRepository.save(member);
-	}
+        // 7) Member 저장
+        String encodedPassword = passwordEncoder.encode(member.getPassword());
+        member.setPassword(encodedPassword);
+        member.setCompany(savedCompany);
+        member.setEnabled(true);
 
-	public void registerCustomerEmployee(Member member, String registrationKey) {
-		if (registrationKey == null || registrationKey.isBlank()) {
-			throw new IllegalArgumentException("업체코드를 입력해야 합니다.");
-		}
+        memberRepository.save(member);
 
-		Company company = companyRepository.findByRegistrationKey(registrationKey)
-				.orElseThrow(() -> new IllegalArgumentException("입력한 업체코드에 해당하는 회사가 존재하지 않습니다."));
+        // ✅ 8) 추가 배송지 저장(0개여도 가능)
+        saveDeliveryAddressesIfAny(savedCompany, deliveryAddressesJson);
+    }
 
-		String encodedPassword = passwordEncoder.encode(member.getPassword());
-		member.setPassword(encodedPassword);
-		member.setCompany(company);
-		member.setRole(MemberRole.CUSTOMER_EMPLOYEE);
-		member.setEnabled(true);
+    public void registerCustomerEmployee(Member member, String registrationKey, String deliveryAddressesJson) {
+        if (registrationKey == null || registrationKey.isBlank()) {
+            throw new IllegalArgumentException("업체코드를 입력해야 합니다.");
+        }
 
-		memberRepository.save(member);
-	}
+        Company company = companyRepository.findByRegistrationKey(registrationKey)
+                .orElseThrow(() -> new IllegalArgumentException("입력한 업체코드에 해당하는 회사가 존재하지 않습니다."));
+
+        String encodedPassword = passwordEncoder.encode(member.getPassword());
+        member.setPassword(encodedPassword);
+        member.setCompany(company);
+        member.setRole(MemberRole.CUSTOMER_EMPLOYEE);
+        member.setEnabled(true);
+
+        memberRepository.save(member);
+
+        // ✅ 직원도 추가 배송지 저장 가능(0개 가능)
+        saveDeliveryAddressesIfAny(company, deliveryAddressesJson);
+    }
+
+    private void saveDeliveryAddressesIfAny(Company company, String deliveryAddressesJson) {
+        if (deliveryAddressesJson == null || deliveryAddressesJson.isBlank()) return;
+
+        try {
+            List<CompanyDeliveryAddressRequest> list = objectMapper.readValue(
+                    deliveryAddressesJson,
+                    new TypeReference<List<CompanyDeliveryAddressRequest>>() {}
+            );
+
+            if (list == null || list.isEmpty()) return;
+
+            // 간단 중복 제거(road+detail 기준)
+            Set<String> seen = new HashSet<>();
+            for (CompanyDeliveryAddressRequest req : list) {
+                if (req == null) continue;
+
+                String road = (req.getRoadAddress() == null) ? "" : req.getRoadAddress().trim();
+                String detail = (req.getDetailAddress() == null) ? "" : req.getDetailAddress().trim();
+                if (road.isBlank()) continue;
+
+                String key = road + "||" + detail;
+                if (seen.contains(key)) continue;
+                seen.add(key);
+
+                CompanyDeliveryAddress addr = new CompanyDeliveryAddress();
+                addr.setCompany(company);
+                addr.setZipCode(safe(req.getZipCode()));
+                addr.setDoName(safe(req.getDoName()));
+                addr.setSiName(safe(req.getSiName()));
+                addr.setGuName(safe(req.getGuName()));
+                addr.setRoadAddress(road);
+                addr.setDetailAddress(detail);
+                addr.setCreatedAt(LocalDateTime.now());
+
+                companyDeliveryAddressRepository.save(addr);
+            }
+
+        } catch (Exception e) {
+            throw new IllegalArgumentException("추가 배송지 데이터 처리에 실패했습니다. (형식 오류)");
+        }
+    }
+
+    private String safe(String v) {
+        return (v == null) ? "" : v.trim();
+    }
 
 	/**
 	 * 주소에서 siName/guName을 분리하거나 보정함

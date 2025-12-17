@@ -46,10 +46,10 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
       ORDER BY doi.orderIndex ASC
     """)
     Page<DeliveryOrderIndex> findByHandlerAndDateAndStatusIn(
-        @Param("handlerId") Long handlerId,
-        @Param("deliveryDate") LocalDate deliveryDate,
-        @Param("statuses") List<OrderStatus> statuses,
-        Pageable pageable
+            @Param("handlerId") Long handlerId,
+            @Param("deliveryDate") LocalDate deliveryDate,
+            @Param("statuses") List<OrderStatus> statuses,
+            Pageable pageable
     );
 
     Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(

@@ -1,23 +1,23 @@
 <!DOCTYPE HTML>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<head th:replace="fragments/front/common :: autoHead">
-</head>
+<head th:replace="fragments/front/common :: autoHead"></head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
-
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
 	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
 
 	<div id="page" class="container">
 		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+
 		<div class="page-content header-clear-medium">
 
 			<div class="card card-style">
 				<div class="content mb-0">
 					<h2>계정정보</h2>
 					<p class="mb-4">아이디는 변경할 수 없습니다.</p>
+
 					<form method="POST" action="/customer/myInfoUpdate" enctype="multipart/form-data">
 						<!-- 사용자 성함 -->
 						<div class="input-style input-style-always-active has-borders has-icon">
@@ -47,7 +47,7 @@
 
 						<h2>회사 정보</h2>
 
-						<!-- 회사명 -->
+						<!-- 회사명 (대표만 수정 가능) -->
 						<div class="input-style input-style-always-active has-borders has-icon mt-3">
 							<i class="fa-regular fa-building font-12"></i>
 							<input type="text" class="form-control" name="companyName" th:value="${company.companyName}"
@@ -55,27 +55,37 @@
 							<label class="color-blue-dark font-13">대리점명</label>
 						</div>
 
-						<!-- 회사명 -->
+						<!-- ✅ 사업자등록번호 (추가) : disabled 표시, 변경 불가 -->
+						<div class="input-style input-style-always-active has-borders has-icon mt-3">
+							<i class="fa-solid fa-receipt font-12"></i>
+							<input type="text" class="form-control" th:value="${company.businessNumber}" disabled>
+							<label class="color-blue-dark font-13">사업자등록번호</label>
+						</div>
+
+						<!-- 포인트 -->
 						<div class="input-style input-style-always-active has-borders has-icon mt-3">
 							<i class="fa-regular fa-building font-12"></i>
 							<input type="text" class="form-control" th:value="${company.point}" readonly>
 							<label class="color-blue-dark font-13">포인트</label>
 						</div>
 
-						<!-- 주소 검색 영역 -->
+						<!-- 주소 검색 영역 (대표만 수정 가능) -->
 						<div class="input-style no-borders has-icon mt-1">
 							<i class="fa-regular fa-address-book"></i>
 							<input type="text" class="form-control" id="searchAddress" name="roadAddress" required
-								placeholder="주소를 검색 해 주세요." autocomplete="off" th:value="${company.roadAddress}" th:readonly="${!isRepresentative}">
-							<button type="button" onclick="execDaumPostcode()" th:disabled="${!isRepresentative}">주소검색</button>
+								placeholder="주소를 검색 해 주세요." autocomplete="off" th:value="${company.roadAddress}"
+								th:readonly="${!isRepresentative}">
+							<button type="button" onclick="execDaumPostcode()"
+								th:disabled="${!isRepresentative}">주소검색</button>
 							<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
 						</div>
 
-						<!-- 상세주소 + hidden 행정구역 -->
+						<!-- 상세주소 + hidden 행정구역 (대표만 수정 가능) -->
 						<div class="input-style no-borders has-icon mt-1">
 							<i class="fa-regular fa-address-book"></i>
-							<input type="text" class="form-control" id="detailAddress" name="detailAddress" required  th:readonly="${!isRepresentative}"
-								placeholder="상세 주소를 입력 해 주세요." autocomplete="off" th:value="${company.detailAddress}">
+							<input type="text" class="form-control" id="detailAddress" name="detailAddress" required
+								placeholder="상세 주소를 입력 해 주세요." autocomplete="off" th:value="${company.detailAddress}"
+								th:readonly="${!isRepresentative}">
 							<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
 
 							<input type="hidden" name="doName" id="doName" th:value="${company.doName}" required>
@@ -83,19 +93,52 @@
 							<input type="hidden" name="guName" id="guName" th:value="${company.guName}">
 							<input type="hidden" name="zipCode" id="zipCode" required th:value="${company.zipCode}">
 						</div>
+
+						<!-- =========================
+						     ✅ 추가 배송지 영역 (대표/직원 공통)
+						     - 리스트: "경기도 용인시 ... X"
+						     - +배송지 추가 버튼
+						     - hidden JSON으로 서버 전송
+						     ========================= -->
+						<hr class="my-4" />
+						<h2>추가 배송지</h2>
+						<p class="mb-3">회사에 등록된 추가 배송지를 관리할 수 있습니다.</p>
+
+						<div class="mb-3">
+							<a href="javascript:void(0);" id="companyAddDeliveryBtn"
+								class="btn btn-full bg-blue-dark btn-m text-uppercase rounded-sm shadow-l font-900">
+								+ 배송지 추가
+							</a>
+						</div>
+
+						<!-- 리스트 표시 -->
+						<div id="companyDeliveryList" class="mb-3"></div>
+
+						<!-- 서버 전송용 JSON -->
+						<input type="hidden" id="companyDeliveryAddressesJson" name="companyDeliveryAddressesJson"
+							value="" />
+
+						<!-- =========================
+						     사업자등록증(대표만)
+						     ========================= -->
+				     	<h2>사업자등록증</h2>
+				     	<p class="mb-3">사업자등록증은 필수 항목입니다.</p>
 						<div class="pb-1" th:if="${isRepresentative}">
 							<label class="signUpImageBtn">
 								<input type="file" id="file-upload" name="businessLicenseFile" class="signUpImageInput"
 									accept="image/*">
 								<i class="fa-regular fa-file"></i> 사업자등록증 업로드
 							</label>
+
 							<ul id="file-list" class="file-list mt-2">
 								<li class="existing-file" th:if="${company.businessLicenseFilename != null}">
 									<a th:href="@{${company.businessLicenseUrl}}"
 										th:text="${company.businessLicenseFilename}" target="_blank"></a>
-									<button type="button" class="remove-file-btn" onclick="removeExistingFile()">×</button>
+									<button type="button" class="remove-file-btn"
+										onclick="removeExistingFile()">×</button>
 								</li>
 							</ul>
+
 							<input type="hidden" id="removeBusinessLicense" name="removeBusinessLicense"
 								value="false" />
 						</div>
@@ -108,15 +151,14 @@
 							</button>
 						</div>
 					</form>
+
 				</div>
 			</div>
 
 			<div class="card card-style" th:if="${isRepresentative}">
 				<div class="content mb-0">
 					<h2>대리점코드</h2>
-					<p class="mb-4">
-						직원 등록시 대리점 코드 입력이 필수입니다.
-					</p>
+					<p class="mb-4">직원 등록시 대리점 코드 입력이 필수입니다.</p>
 					<div class="input-style input-style-always-active has-borders has-icon">
 						<i class="fa-solid fa-key font-12"></i>
 						<input type="text" class="form-control" placeholder="대리점코드" readonly
@@ -129,114 +171,276 @@
 					</a>
 				</div>
 			</div>
+
 			<div class="card card-style">
 				<div class="content mb-0">
 					<h2 class="mb-0">비밀번호</h2>
-					<p class="mb-4">
-						비밀번호 변경을 진행할 수 있습니다.
-					</p>
+					<p class="mb-4">비밀번호 변경을 진행할 수 있습니다.</p>
 					<form method="POST" id="passwordForm" action="/customer/changePassword">
 						<div class="input-style input-style-always-active has-borders no-icon">
-							<input type="password" name="newPassword" class="form-control" required placeholder="새로운 비밀번호 입력">
+							<input type="password" name="newPassword" class="form-control" required
+								placeholder="새로운 비밀번호 입력">
 							<label class="color-blue-dark font-12">새로운 비밀번호</label>
 							<em>(required)</em>
 						</div>
-						<button 
-						type="submit" 
-						class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l mb-3 mt-4 font-900">비밀번호
-							변경</button>
-					</form>	
+						<button type="submit"
+							class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l mb-3 mt-4 font-900">
+							비밀번호 변경
+						</button>
+					</form>
 				</div>
 			</div>
+
 		</div>
+
 		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 	</div>
+
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+
+	<!-- ✅ 배송지/파일/주소 스크립트 -->
+	<script th:inline="javascript">
+		// 서버에서 내려온 배송지 목록(DTO)
+		window.__COMPANY_DELIVERY_ADDRESSES__ = /*[[${deliveryAddresses}]]*/[];
+	</script>
+
 	<script>
-		document.addEventListener("DOMContentLoaded", function () {
-			const fileInput = document.getElementById("file-upload");
-			const fileList = document.getElementById("file-list");
+		/* global daum */
+		(function () {
+			'use strict';
 
-			fileInput.addEventListener("change", function () {
-				// 기존 새 파일 미리보기 삭제
-				fileList.querySelectorAll('.new-preview').forEach(el => el.remove());
+			// =========================
+			// 공통 유틸
+			// =========================
+			function qs(id) {return document.getElementById(id);}
 
-				Array.from(fileInput.files).forEach(file => {
-					const reader = new FileReader();
-					reader.onload = function (e) {
-						const li = document.createElement("li");
-						li.className = "new-preview";
-
-						const link = document.createElement("span");
-						link.textContent = file.name;
-
-						const btn = document.createElement("button");
-						btn.type = "button";
-						btn.textContent = "×";
-						btn.className = "remove-file-btn";
-						btn.onclick = function () {
-							fileInput.value = ""; // 새 파일 제거
-							li.remove();
-						};
-
-						li.appendChild(link);
-						li.appendChild(btn);
-						fileList.appendChild(li);
-					};
-					reader.readAsDataURL(file);
+			function escapeHtml(s) {
+				return (s || '').toString().replace(/[&<>"']/g, function (m) {
+					switch (m) {
+						case '&': return '&amp;';
+						case '<': return '&lt;';
+						case '>': return '&gt;';
+						case '"': return '&quot;';
+						case "'": return '&#39;';
+						default: return m;
+					}
 				});
+			}
+
+			// =========================
+			// 1) 사업자등록증 파일 표시/삭제 (기존 유지 + removeBusinessLicense true 반영)
+			// =========================
+			document.addEventListener("DOMContentLoaded", function () {
+				var fileInput = qs("file-upload");
+				var fileList = qs("file-list");
+
+				if (fileInput && fileList) {
+					fileInput.addEventListener("change", function () {
+						fileList.querySelectorAll('.new-preview').forEach(function (el) {el.remove();});
+
+						Array.from(fileInput.files).forEach(function (file) {
+							var li = document.createElement("li");
+							li.className = "new-preview";
+
+							var link = document.createElement("span");
+							link.textContent = file.name;
+
+							var btn = document.createElement("button");
+							btn.type = "button";
+							btn.textContent = "×";
+							btn.className = "remove-file-btn";
+							btn.onclick = function () {
+								fileInput.value = "";
+								li.remove();
+							};
+
+							li.appendChild(link);
+							li.appendChild(btn);
+							fileList.appendChild(li);
+						});
+					});
+				}
 			});
-		});
 
-		function removeExistingFile() {
-			const li = document.querySelector(".existing-file");
-			if (li) li.remove();
-			// document.getElementById("removeBusinessLicense").value = "true";
-		}
-		function execDaumPostcode() {
-			new daum.Postcode({
-				oncomplete: function (data) {
-					const fullRoadAddr = data.roadAddress;
-					const zonecode = data.zonecode;
+			window.removeExistingFile = function removeExistingFile() {
+				var li = document.querySelector(".existing-file");
+				if (li) li.remove();
 
-					const addrParts = fullRoadAddr.split(" ");
-					const doName = addrParts[0] || "";
-					let siName = "";
-					let guName = "";
+				var hidden = qs("removeBusinessLicense");
+				if (hidden) hidden.value = "true"; // ✅ 삭제 반영되도록 true
+			};
 
-					if (addrParts.length >= 2) {
-						if (addrParts[1].endsWith("시") || addrParts[1].endsWith("군")) {
-							siName = addrParts[1];
-							guName = addrParts[2] || "";
-						} else {
-							siName = "";
-							guName = addrParts[1] || "";
+			// =========================
+			// 2) 다음 주소(대표 기본주소)
+			// =========================
+			window.execDaumPostcode = function execDaumPostcode() {
+				new daum.Postcode({
+					oncomplete: function (data) {
+						var fullRoadAddr = data.roadAddress;
+						var zonecode = data.zonecode;
+
+						var addrParts = (fullRoadAddr || '').split(" ");
+						var doName = addrParts[0] || "";
+						var siName = "";
+						var guName = "";
+
+						if (addrParts.length >= 2) {
+							if (addrParts[1].endsWith("시") || addrParts[1].endsWith("군")) {
+								siName = addrParts[1];
+								guName = addrParts[2] || "";
+							} else {
+								siName = "";
+								guName = addrParts[1] || "";
+							}
 						}
+
+						qs("searchAddress").value = fullRoadAddr || '';
+						qs("zipCode").value = zonecode || '';
+						qs("doName").value = doName;
+						qs("siName").value = siName;
+						qs("guName").value = guName;
+
+						qs("detailAddress").focus();
+					}
+				}).open();
+			};
+
+			// =========================
+			// 3) ✅ 추가 배송지 UI (대표/직원 공통)
+			//    - 리스트: "경기도 용인시 ... X"
+			//    - +배송지 추가(daum.postcode + prompt)
+			//    - hidden(JSON)로 서버 전송
+			// =========================
+			function setupCompanyDeliveryUI() {
+				var addBtn = qs('companyAddDeliveryBtn');
+				var listEl = qs('companyDeliveryList');
+				var hiddenEl = qs('companyDeliveryAddressesJson');
+				if (!addBtn || !listEl || !hiddenEl) return;
+
+				// 초기값(서버 데이터)
+				var items = Array.isArray(window.__COMPANY_DELIVERY_ADDRESSES__)
+					? window.__COMPANY_DELIVERY_ADDRESSES__.map(function (x) {
+						return {
+							id: x.id || null,
+							zipCode: x.zipCode || '',
+							doName: x.doName || '',
+							siName: x.siName || '',
+							guName: x.guName || '',
+							roadAddress: x.roadAddress || '',
+							detailAddress: x.detailAddress || ''
+						};
+					})
+					: [];
+
+				function syncHidden() {
+					hiddenEl.value = JSON.stringify(items);
+				}
+
+				function render() {
+					listEl.innerHTML = '';
+
+					if (!items.length) {
+						var empty = document.createElement('div');
+						empty.className = 'p-2 border rounded-sm';
+						empty.textContent = '등록된 추가 배송지가 없습니다.';
+						listEl.appendChild(empty);
+						return;
 					}
 
-					document.getElementById("searchAddress").value = fullRoadAddr;
-					document.getElementById("zipCode").value = zonecode;
-					document.getElementById("doName").value = doName;
-					document.getElementById("siName").value = siName;
-					document.getElementById("guName").value = guName;
+					items.forEach(function (it, idx) {
+						var wrap = document.createElement('div');
+						wrap.className = 'd-flex align-items-center justify-content-between p-2 mb-1 rounded-sm border';
 
-					// 상세주소로 포커스
-					document.getElementById("detailAddress").focus();
+						var left = document.createElement('div');
+						left.className = 'me-2';
+						var text = (it.roadAddress || '');
+						if (it.detailAddress) text += ' ' + it.detailAddress;
+
+						// "경기도 용인시 ___" 형태로 보이도록 구성(도로주소 기반이므로 do/si/gu도 같이 보여줌)
+						var prefix = [it.doName, it.siName, it.guName].filter(Boolean).join(' ');
+						var display = (prefix ? (prefix + ' ') : '') + text;
+
+						left.innerHTML = '<div class="font-600">' + escapeHtml(display) + '</div>';
+
+						var right = document.createElement('button');
+						right.type = 'button';
+						right.className = 'btn btn-sm btn-outline-danger';
+						right.textContent = 'X';
+						right.addEventListener('click', function () {
+							items.splice(idx, 1);
+							syncHidden();
+							render();
+						});
+
+						wrap.appendChild(left);
+						wrap.appendChild(right);
+						listEl.appendChild(wrap);
+					});
 				}
-			}).open();
-		}
-		function generateKey() {
-			fetch("/customer/generateRegistrationKey", {
-				method: "POST"
-			})
-				.then(res => res.json())
-				.then(data => {
-					alert("새 코드가 생성되었습니다: " + data.key);
-					location.reload(); // 필요시 동적으로 업데이트
-				});
-		}
+
+				function openDaumAndAdd() {
+					new daum.Postcode({
+						oncomplete: function (data) {
+							var road = (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress;
+
+							var detail = window.prompt('상세 주소를 입력해 주세요. (없으면 비워도 됩니다)', '') || '';
+							detail = detail.trim();
+
+							var newItem = {
+								id: null,
+								zipCode: data.zonecode || '',
+								doName: data.sido || '',
+								siName: data.sigungu || '',
+								guName: data.bname || '',
+								roadAddress: road || '',
+								detailAddress: detail
+							};
+
+							if (!newItem.roadAddress) return;
+
+							// 중복 방지(road+detail이 같으면 막기)
+							var dup = items.some(function (x) {
+								return (x.roadAddress === newItem.roadAddress) && (x.detailAddress === newItem.detailAddress);
+							});
+							if (dup) {
+								alert('이미 추가된 배송지입니다.');
+								return;
+							}
+
+							items.push(newItem);
+							syncHidden();
+							render();
+						}
+					}).open();
+				}
+
+				addBtn.addEventListener('click', openDaumAndAdd);
+
+				// 초기 동기화
+				syncHidden();
+				render();
+			}
+
+			document.addEventListener('DOMContentLoaded', function () {
+				setupCompanyDeliveryUI();
+			});
+
+			// =========================
+			// 4) 대표 코드 생성(기존)
+			// =========================
+			window.generateKey = function generateKey() {
+				fetch("/customer/generateRegistrationKey", {method: "POST"})
+					.then(function (res) {return res.json();})
+					.then(function (data) {
+						alert("새 코드가 생성되었습니다: " + data.key);
+						location.reload();
+					});
+			};
+
+		})();
 	</script>
 
 </body>

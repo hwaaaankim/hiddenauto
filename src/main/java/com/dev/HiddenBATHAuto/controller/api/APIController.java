@@ -37,6 +37,7 @@ import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductColorRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductOptionPositionRepository;
@@ -91,6 +92,26 @@ public class APIController {
 
 	private final MemberManagementService memberManagementService;
 
+	private final CompanyRepository companyRepository;
+
+    @GetMapping("/validate/businessNumber")
+    public ResponseEntity<Map<String, Object>> validateBusinessNumber(@RequestParam("businessNumber") String businessNumber) {
+        String digits = (businessNumber == null) ? "" : businessNumber.replaceAll("\\D", "");
+
+        Map<String, Object> result = new HashMap<>();
+        // ✅ 형식이 아예 틀리면 duplicate=false로 내려주고 프론트에서 길이검증
+        if (digits.length() != 10) {
+            result.put("duplicate", false);
+            result.put("normalized", digits);
+            return ResponseEntity.ok(result);
+        }
+
+        boolean duplicate = companyRepository.existsByBusinessNumber(digits);
+        result.put("duplicate", duplicate);
+        result.put("normalized", digits);
+        return ResponseEntity.ok(result);
+    }
+	
     @PostMapping("/region/conflicts/check-new")
     public ResponseEntity<List<ConflictDTO>> checkRegionConflictsForNewMember(@RequestBody NewMemberRegionCheckRequest req) {
         List<ConflictDTO> conflicts = memberManagementService.checkRegionConflictsForNewMember(req.getTeamId(), req.getSelections());

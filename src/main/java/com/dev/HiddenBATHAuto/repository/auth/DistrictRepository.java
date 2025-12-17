@@ -40,6 +40,9 @@ public interface DistrictRepository extends JpaRepository<District, Long> {
         @Param("doKeyword") String doKeyword,
         @Param("siKeyword") String siKeyword
     );
+	
+	List<District> findByProvinceIdAndCityIsNullOrderByNameAsc(Long provinceId); // 서울/세종 등
+    List<District> findByCityIdOrderByNameAsc(Long cityId); // 일반 케이스
 
 
 }

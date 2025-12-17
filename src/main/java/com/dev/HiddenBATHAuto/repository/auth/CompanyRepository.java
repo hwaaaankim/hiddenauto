@@ -19,15 +19,18 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
 	Optional<Company> findByRegistrationKey(String registrationKey);
 
 	@Query("""
-	        SELECT DISTINCT c FROM Company c
-	        LEFT JOIN FETCH c.salesManager
-	        LEFT JOIN c.members m
-	        WHERE (:keyword IS NULL OR
-	              (:searchType = 'company' AND c.companyName LIKE CONCAT('%', :keyword, '%')) OR
-	              (:searchType = 'member' AND m.name LIKE CONCAT('%', :keyword, '%')))
-	        """)
-	    Page<Company> findWithSearch(@Param("keyword") String keyword,
-	                                 @Param("searchType") String searchType,
-	                                 Pageable pageable);
+        SELECT DISTINCT c FROM Company c
+        LEFT JOIN FETCH c.salesManager
+        LEFT JOIN c.members m
+        WHERE (:keyword IS NULL OR
+              (:searchType = 'company' AND c.companyName LIKE CONCAT('%', :keyword, '%')) OR
+              (:searchType = 'member' AND m.name LIKE CONCAT('%', :keyword, '%')))
+        """)
+    Page<Company> findWithSearch(@Param("keyword") String keyword,
+                                 @Param("searchType") String searchType,
+                                 Pageable pageable);
 
+    boolean existsByBusinessNumber(String businessNumber);
+
+    Optional<Company> findByBusinessNumber(String businessNumber);
 }

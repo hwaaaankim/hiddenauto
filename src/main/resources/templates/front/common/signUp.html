@@ -6,7 +6,6 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
 	<div id="page" class="container">
@@ -17,33 +16,49 @@
 			<div class="sign-wrap">
 				<div class="ps-1 pe-1" id="tab-group-1">
 					<h1 class="text-center font-800 font-40 mb-5">가맹점 회원가입</h1>
+
 					<div th:if="${successMessage}" class="alert alert-success">
-					    <span style="width:100% !important;" th:text="${successMessage}"></span>
+						<span style="width:100% !important;" th:text="${successMessage}"></span>
 					</div>
-					
+
 					<!-- 실패 메시지 -->
 					<div th:if="${errorMessage}" class="alert alert-danger">
-					    <span style="width:100% !important;" th:text="${errorMessage}"></span>
+						<span style="width:100% !important;" th:text="${errorMessage}"></span>
 					</div>
+
 					<div class="tab-controls tabs-small tabs-rounded" data-highlight="bg-highlight">
 						<a href="#" data-active data-bs-toggle="collapse" data-bs-target="#tab-1">회사대표자 회원가입</a>
 						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-2">직원 회원가입</a>
 					</div>
+
 					<div class="clearfix mb-3"></div>
+
+					<!-- =========================
+					     1) 대표 회원가입
+					     ========================= -->
 					<div data-bs-parent="#tab-group-1" class="collapse show" id="tab-1">
-						<form action="/signUpProcess" method="post" enctype="multipart/form-data">
+
+						<form action="/signUpProcess" method="post" enctype="multipart/form-data" id="repSignUpForm">
+
 							<input type="hidden" name="role" value="CUSTOMER_REPRESENTATIVE">
+
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
-								<input 
-								type="text" 
-								class="form-control" 
-								name="companyName" 
-								id="repCompanyName" required
-								placeholder="업체명을 입력 해 주세요.">
+								<input type="text" class="form-control" name="companyName" id="repCompanyName" required
+									placeholder="업체명을 입력 해 주세요.">
 								<label for="companyName" class="color-blue-dark font-10 mt-1">업체명</label>
 								<em>(required)</em>
 							</div>
+
+							<!-- ✅ 사업자등록번호 추가(대표만) -->
+							<div class="input-style no-borders has-icon">
+								<i class="fa-solid fa-briefcase"></i>
+								<input type="text" class="form-control" name="businessNumber" id="repBusinessNumber"
+									required placeholder="사업자등록번호(숫자 10자리)를 입력 해 주세요." autocomplete="off">
+								<label for="repBusinessNumber" class="color-blue-dark font-10 mt-1">사업자등록번호</label>
+								<em>(required)</em>
+							</div>
+
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
 								<input type="text" class="form-control" id="repName" name="name" required
@@ -51,104 +66,70 @@
 								<label for="name" class="color-blue-dark font-10 mt-1">성함</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
-								<input 
-								type="text" 
-								class="form-control" 
-								name="username" 
-								id="repUsername" 
-								required
-								placeholder="사용하실 아이디를 입력 해 주세요.">
+								<input type="text" class="form-control" name="username" id="repUsername" required
+									placeholder="사용하실 아이디를 입력 해 주세요.">
 								<label for="username" class="color-blue-dark font-10 mt-1">아이디</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-lock"></i>
-								<input 
-								type="password" 
-								class="form-control" 
-								name="password" 
-								id="repPassword" 
-								required
-								placeholder="사용하실 비밀번호를 입력 해 주세요.">
+								<input type="password" class="form-control" name="password" id="repPassword" required
+									placeholder="사용하실 비밀번호를 입력 해 주세요.">
 								<label for="password" class="color-blue-dark font-10 mt-1">비밀번호</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-lock"></i>
-								<input 
-								type="password" 
-								class="form-control" 
-								id="repPasswordCheck" 
-								name="passwordCheck" 
-								required
-								placeholder="비밀번호를 다시한번 입력 해 주세요.">
+								<input type="password" class="form-control" id="repPasswordCheck" name="passwordCheck"
+									required placeholder="비밀번호를 다시한번 입력 해 주세요.">
 								<label for="passwordCheck" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-phone"></i>
-								<input 
-								type="text" 
-								class="form-control" 
-								id="repPhone" 
-								name="phone" 
-								required
-								placeholder="연락처를 입력 해 주세요."
-								autocomplete="off">
+								<input type="text" class="form-control" id="repPhone" name="phone" required
+									placeholder="연락처를 입력 해 주세요." autocomplete="off">
 								<label for="phone" class="color-blue-dark font-10 mt-1">연락처</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-envelope"></i>
-								<input 
-								type="email" 
-								class="form-control" 
-								id="repEmail" 
-								name="email"
-								required
-								placeholder="이메일을 입력 해 주세요.">
+								<input type="email" class="form-control" id="repEmail" name="email" required
+									placeholder="이메일을 입력 해 주세요.">
 								<label for="email" class="color-blue-dark font-10 mt-1">이메일</label>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-address-book"></i>
-								<input 
-								type="text" 
-								class="form-control" 
-								id="searchAddress" 
-								name="roadAddress" 
-								required
-								placeholder="주소를 검색 해 주세요."
-								autocomplete="off">
-								<button onclick="execDaumPostcode()">주소검색</button>
+								<input type="text" class="form-control" id="searchAddress" name="roadAddress" required
+									placeholder="주소를 검색 해 주세요." autocomplete="off">
+								<button type="button" onclick="execDaumPostcode()">주소검색</button>
 								<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-address-book"></i>
-								<input 
-								type="text" 
-								class="form-control" 
-								id="detailAddress"
-								name="detailAddress" 
-								required
-								placeholder="상세 주소를 입력 해 주세요."
-								autocomplete="off">
+								<input type="text" class="form-control" id="detailAddress" name="detailAddress" required
+									placeholder="상세 주소를 입력 해 주세요." autocomplete="off">
 								<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
+
 								<input type="hidden" name="doName" id="doName" required>
 								<input type="hidden" name="siName" id="siName">
-								<input type="hidden" name="guName" id="guName"> <!-- 동/읍/면 등 -->
-								<input type="hidden" name="zipCode" id="zipCode"> <!-- 우편번호 -->
+								<input type="hidden" name="guName" id="guName">
+								<input type="hidden" name="zipCode" id="zipCode">
 							</div>
+
 							<div class="pb-1">
 								<label class="signUpImageBtn">
-									<input 
-									type="file" 
-									id="file-upload" 
-									name="businessLicenseFile"
-									class="signUpImageInput" 
-									accept="image/*"
-									required>
+									<input type="file" id="file-upload" name="businessLicenseFile"
+										class="signUpImageInput" accept="image/*" required>
 									<i class="fa-regular fa-file"></i> 사업자등록증 업로드
 								</label>
 								<span class="required-text">(required)</span>
@@ -157,28 +138,50 @@
 								<ul id="file-list" class="file-list mt-2"></ul>
 							</div>
 
+							<!-- ✅ 추가 배송지(대표도 사용) -->
+							<div class="mt-2">
+								<div class="d-flex align-items-center justify-content-between">
+									<div class="font-700">추가 배송지</div>
+									<button type="button" class="btn btn-sm btn-outline-primary"
+										id="repAddDeliveryBtn">+ 배송지 추가</button>
+								</div>
+
+								<!-- 배송지 목록(요구사항: 버튼 위쪽에 쌓이도록 -> 여기 위치가 버튼 아래지만, 시각적으로는 동일 영역이며 목록이 위로 쌓이는 형태로 render 합니다) -->
+								<div id="repDeliveryList" class="mt-2"></div>
+
+								<!-- 서버로 보낼 JSON -->
+								<input type="hidden" name="deliveryAddressesJson" id="repDeliveryAddressesJson"
+									value="">
+							</div>
+
 							<div class="text-center mb-1 mt-1">
 								<a href="/loginForm" class="font-12">이미 회원가입을 하신 사용자의 경우 로그인을 진행 해 주세요.</a>
 							</div>
+
 							<button type="submit"
-								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">회원가입</button>
+								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">
+								회원가입
+							</button>
 						</form>
 					</div>
+
+					<!-- =========================
+					     2) 직원 회원가입
+					     ========================= -->
 					<div data-bs-parent="#tab-group-1" class="collapse" id="tab-2">
-						<form action="/signUpProcess" method="post">
+
+						<form action="/signUpProcess" method="post" id="empSignUpForm">
+
 							<input type="hidden" name="role" value="CUSTOMER_EMPLOYEE">
+
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
-								<input 
-								type="text" 
-								class="form-control" 
-								id="empName" 
-								name="name" 
-								required
-								placeholder="성함을 입력 해 주세요.">
+								<input type="text" class="form-control" id="empName" name="name" required
+									placeholder="성함을 입력 해 주세요.">
 								<label for="name" class="color-blue-dark font-10 mt-1">성함</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon">
 								<i class="fa-regular fa-user"></i>
 								<input type="text" class="form-control" name="username" id="empUsername" required
@@ -186,6 +189,7 @@
 								<label for="username" class="color-blue-dark font-10 mt-1">아이디</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-lock"></i>
 								<input type="password" class="form-control" name="password" id="empPassword" required
@@ -193,13 +197,15 @@
 								<label for="password" class="color-blue-dark font-10 mt-1">비밀번호</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-lock"></i>
-								<input type="password" class="form-control" id="empPasswordCheck" name="passwordCheck" required
-									placeholder="비밀번호를 다시한번 입력 해 주세요.">
+								<input type="password" class="form-control" id="empPasswordCheck" name="passwordCheck"
+									required placeholder="비밀번호를 다시한번 입력 해 주세요.">
 								<label for="passwordCheck" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-phone"></i>
 								<input type="text" class="form-control" name="phone" id="empPhone" required
@@ -207,32 +213,57 @@
 								<label for="phone" class="color-blue-dark font-10 mt-1">연락처</label>
 								<em>(required)</em>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-regular fa-envelope"></i>
 								<input type="email" class="form-control" name="email" id="empEmail" required
 									placeholder="이메일을 입력 해 주세요.">
 								<label for="email" class="color-blue-dark font-10 mt-1">이메일</label>
 							</div>
+
 							<div class="input-style no-borders has-icon mt-1">
 								<i class="fa-solid fa-key"></i>
-								<input type="text" class="form-control" id="registrationKey" name="registrationKey" required
-									placeholder="업체 소속인 경우 업체코드를 입력 해 주세요.">
+								<input type="text" class="form-control" id="registrationKey" name="registrationKey"
+									required placeholder="업체 소속인 경우 업체코드를 입력 해 주세요.">
 								<label for="registrationKey" class="color-blue-dark font-10 mt-1">업체코드</label>
+							</div>
+
+							<!-- ✅ 추가 배송지(직원도 사용) -->
+							<div class="mt-2">
+								<div class="d-flex align-items-center justify-content-between">
+									<div class="font-700">추가 배송지</div>
+									<button type="button" class="btn btn-sm btn-outline-primary"
+										id="empAddDeliveryBtn">+ 배송지 추가</button>
+								</div>
+
+								<div id="empDeliveryList" class="mt-2"></div>
+
+								<input type="hidden" name="deliveryAddressesJson" id="empDeliveryAddressesJson"
+									value="">
 							</div>
 
 							<div class="text-center mb-1 mt-1">
 								<a href="/loginForm" class="font-12">이미 회원가입을 하신 사용자의 경우 로그인을 진행 해 주세요.</a>
 							</div>
+
 							<button
-								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">회원가입</button>
+								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">
+								회원가입
+							</button>
 						</form>
 					</div>
+
 				</div>
 			</div>
+
 		</div>
 	</div>
+
 	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}"></th:block>
+
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<script src="/front/signUp.js"></script>
 
 </body>
+
+</html>

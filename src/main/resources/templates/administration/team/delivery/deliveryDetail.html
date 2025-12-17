@@ -34,34 +34,60 @@
 							<div class="row g-4 mb-3 align-items-end">
 								<div class="col-lg-3">
 									<label class="form-label">배송 상태</label>
-									<!-- ✅ 상태가 PRODUCTION_DONE이면 배송 완료로 변경 가능 -->
+
+									<!-- ✅ 1) 생산완료: 배송완료로 변경 가능 -->
 									<th:block th:if="${order.status.name() == 'PRODUCTION_DONE'}">
 										<select class="form-select" name="status">
-											<option value="PRODUCTION_DONE"
-												th:selected="${order.status.name() == 'PRODUCTION_DONE'}" disabled>
-												생산 완료
-											</option>
+											<option value="PRODUCTION_DONE" selected disabled>생산 완료</option>
 											<option value="DELIVERY_DONE">배송 완료</option>
 										</select>
 									</th:block>
 
-									<!-- ✅ 상태가 DELIVERY_DONE이면 비활성화된 select + hidden input -->
+									<!-- ✅ 2) 배송완료: 비활성 + hidden 유지 -->
 									<th:block th:if="${order.status.name() == 'DELIVERY_DONE'}">
 										<input type="hidden" name="status" value="DELIVERY_DONE" />
-										<select class="form-select" name="status" disabled>
-											<option value="DELIVERY_DONE" selected>배송 완료</option>
+										<select class="form-select" disabled>
+											<option selected>배송 완료</option>
+										</select>
+									</th:block>
+
+									<!-- ✅ 3) 관리자승인(컨펌): 상태 표시는 하되 완전 비활성 -->
+									<!-- TODO: 'CONFIRMED' 를 실제 enum 이름으로 바꾸세요 -->
+									<th:block th:if="${order.status.name() == 'CONFIRMED'}">
+										<!-- 서버로 값이 넘어가지 않게 name 제거(또는 disabled) -->
+										<select class="form-select" disabled>
+											<option selected>관리자승인-생산전</option>
+										</select>
+									</th:block>
+
+									<!-- ✅ (선택) 혹시 모르는 기타 상태는 안전하게 표시만 -->
+									<th:block th:if="${order.status.name() != 'PRODUCTION_DONE'
+                   and order.status.name() != 'DELIVERY_DONE'
+                   and order.status.name() != 'CONFIRMED'}">
+										<select class="form-select" disabled>
+											<option selected th:text="${order.status}">상태</option>
 										</select>
 									</th:block>
 								</div>
+
 								<div class="col-lg-3">
 									<label class="form-label">배송 증빙 이미지</label>
+
+									<!-- ✅ 컨펌상태에서는 업로드 막기 -->
 									<input id="delivery-images" class="form-control" type="file" name="files" multiple
-										accept="image/*" capture="environment">
+										accept="image/*" capture="environment"
+										th:disabled="${order.status.name() == 'CONFIRMED'}">
 								</div>
+
 								<div class="col-lg-2">
-									<button type="submit" class="btn btn-success w-100">배송 완료 처리</button>
+									<!-- ✅ 컨펌상태에서는 버튼 막기 -->
+									<button type="submit" class="btn btn-success w-100"
+										th:disabled="${order.status.name() == 'CONFIRMED'}">
+										배송 완료 처리
+									</button>
 								</div>
 							</div>
+
 						</div>
 						<div id="preview-container" class="row g-2 mt-3"></div>
 					</form>

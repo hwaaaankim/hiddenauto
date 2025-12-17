@@ -1,15 +1,18 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
@@ -57,6 +61,7 @@ import com.dev.HiddenBATHAuto.utils.FileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -223,95 +228,252 @@ public class CustomerController {
 	}
 
 	@GetMapping("/myInfo")
-	public String myInfoPage(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
-		Long memberId = principal.getMember().getId();
-		Member freshMember = memberRepository.findById(memberId)
-				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+    public String myInfoPage(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
 
-		Company company = freshMember.getCompany();
+        Long memberId = principal.getMember().getId();
 
-		model.addAttribute("member", freshMember);
-		model.addAttribute("company", company);
-		model.addAttribute("isRepresentative", freshMember.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
+        Member freshMember = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-		return "front/customer/info/myInfo";
-	}
+        Company company = freshMember.getCompany();
+        if (company == null) {
+            throw new IllegalStateException("회사 정보가 없습니다.");
+        }
 
-	@PostMapping("/myInfoUpdate")
-	public String updateMyInfo(
-			@AuthenticationPrincipal PrincipalDetails principal, 
-			@RequestParam String name,
-			@RequestParam String phone, 
-			@RequestParam String email, 
-			@RequestParam(required = false) String companyName,
-			@RequestParam String roadAddress,
-			@RequestParam String detailAddress, 
-			@RequestParam String doName,
-			@RequestParam String siName, 
-			@RequestParam String guName, 
-			@RequestParam String zipCode,
-			@RequestParam(defaultValue = "false") boolean removeBusinessLicense,
-			@RequestParam(required = false) MultipartFile businessLicenseFile) {
+        // ✅ 배송지 목록 DTO 변환(엔티티 직접 노출 방지)
+        List<CompanyDeliveryAddressDto> deliveryAddresses = company.getDeliveryAddresses() == null
+                ? new ArrayList<>()
+                : company.getDeliveryAddresses().stream()
+                    .sorted(Comparator.comparing(CompanyDeliveryAddress::getId, Comparator.nullsLast(Long::compareTo)))
+                    .map(CompanyDeliveryAddressDto::from)
+                    .collect(Collectors.toList());
 
-		Member member = principal.getMember();
-		Company company = member.getCompany();
+        model.addAttribute("member", freshMember);
+        model.addAttribute("company", company);
+        model.addAttribute("deliveryAddresses", deliveryAddresses);
 
-		// 멤버 정보
-		member.setName(name);
-		member.setPhone(phone);
-		member.setEmail(email);
-		member.setUpdatedAt(LocalDateTime.now());
+        model.addAttribute("isRepresentative",
+                freshMember.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
 
-		// 대표만 회사 정보 수정 가능
-		if (principal.getMember().getRole() == MemberRole.CUSTOMER_REPRESENTATIVE) {
-			if (companyName != null)
-				company.setCompanyName(companyName);
-			company.setRoadAddress(roadAddress);
-			company.setDetailAddress(detailAddress);
-			company.setDoName(doName);
-			company.setSiName(siName);
-			company.setGuName(guName);
-			company.setZipCode(zipCode);
-			company.setUpdatedAt(LocalDateTime.now());
+        return "front/customer/info/myInfo";
+    }
 
-			// 새 파일 업로드 시 기존 삭제 후 저장
-			if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
-				FileUtil.deleteIfExists(company.getBusinessLicensePath());
+	// =========================
+    // 3) /myInfoUpdate (POST) 배송지 추가/삭제/변경 반영
+    //    - 대표/직원 모두 배송지 변경은 회사에 반영
+    //    - 대표만 회사 기본정보(회사명/대표주소/파일 등) 수정 가능
+    // =========================
+    @PostMapping("/myInfoUpdate")
+    public String updateMyInfo(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam String name,
+            @RequestParam String phone,
+            @RequestParam String email,
 
-				String originalName = businessLicenseFile.getOriginalFilename();
-				String username = member.getUsername();
+            @RequestParam(required = false) String companyName,
+            @RequestParam String roadAddress,
+            @RequestParam String detailAddress,
+            @RequestParam String doName,
+            @RequestParam String siName,
+            @RequestParam String guName,
+            @RequestParam String zipCode,
 
-				// 동일한 경로로 변경 (회원가입과 일치)
-				String relativePath = username + "/signUp/licence";
-				String saveDir = Paths.get(uploadPath, relativePath).toString();
-				FileUtil.createDirIfNotExists(saveDir);
+            // ✅ 추가 배송지 JSON(대표/직원 공통 반영)
+            @RequestParam(required = false) String companyDeliveryAddressesJson,
 
-				Path filePath = Paths.get(saveDir, originalName);
-				try {
-					businessLicenseFile.transferTo(filePath.toFile());
+            @RequestParam(defaultValue = "false") boolean removeBusinessLicense,
+            @RequestParam(required = false) MultipartFile businessLicenseFile
+    ) {
+        Long memberId = principal.getMember().getId();
 
-					company.setBusinessLicenseFilename(originalName);
-					company.setBusinessLicensePath(filePath.toString()); // 물리 경로
-					company.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalName); // 브라우저 접근용 URL
-				} catch (IOException e) {
-					throw new RuntimeException("파일 저장 실패", e);
-				}
-			}
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-			// 파일 삭제만 요청한 경우
-			if (removeBusinessLicense) {
-				FileUtil.deleteIfExists(company.getBusinessLicensePath());
-				company.setBusinessLicenseFilename(null);
-				company.setBusinessLicensePath(null);
-				company.setBusinessLicenseUrl(null);
-			}
-			companyRepository.save(company);
-		}
+        Company company = member.getCompany();
+        if (company == null) {
+            throw new IllegalStateException("회사 정보가 없습니다.");
+        }
 
-		memberRepository.save(member);
+        // ===== 1) 멤버 정보 =====
+        member.setName(name);
+        member.setPhone(phone);
+        member.setEmail(email);
+        member.setUpdatedAt(LocalDateTime.now());
 
-		return "redirect:/customer/myInfo";
-	}
+        // ===== 2) 추가 배송지: 대표/직원 공통으로 회사에 반영 =====
+        applyCompanyDeliveryAddresses(company, companyDeliveryAddressesJson);
+
+        // ===== 3) 회사 기본 정보: 대표만 수정 가능 =====
+        if (member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE) {
+
+            if (companyName != null) {
+                company.setCompanyName(companyName);
+            }
+
+            company.setRoadAddress(roadAddress);
+            company.setDetailAddress(detailAddress);
+            company.setDoName(doName);
+            company.setSiName(siName);
+            company.setGuName(guName);
+            company.setZipCode(zipCode);
+            company.setUpdatedAt(LocalDateTime.now());
+
+            // ===== 4) 사업자등록증 파일 =====
+            if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
+                FileUtil.deleteIfExists(company.getBusinessLicensePath());
+
+                String originalName = businessLicenseFile.getOriginalFilename();
+                String username = member.getUsername();
+
+                String relativePath = username + "/signUp/licence";
+                String saveDir = java.nio.file.Paths.get(uploadPath, relativePath).toString();
+                FileUtil.createDirIfNotExists(saveDir);
+
+                java.nio.file.Path filePath = java.nio.file.Paths.get(saveDir, originalName);
+                try {
+                    businessLicenseFile.transferTo(filePath.toFile());
+
+                    company.setBusinessLicenseFilename(originalName);
+                    company.setBusinessLicensePath(filePath.toString());
+                    company.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalName);
+                } catch (java.io.IOException e) {
+                    throw new RuntimeException("파일 저장 실패", e);
+                }
+            }
+
+            // 파일 삭제만 요청한 경우(대표만 버튼 노출되므로 대표만 들어옴)
+            if (removeBusinessLicense) {
+                FileUtil.deleteIfExists(company.getBusinessLicensePath());
+                company.setBusinessLicenseFilename(null);
+                company.setBusinessLicensePath(null);
+                company.setBusinessLicenseUrl(null);
+            }
+
+            companyRepository.save(company);
+        } else {
+            // 대표가 아니어도 배송지 변경은 company에 반영되어야 하므로 저장 필요
+            companyRepository.save(company);
+        }
+
+        memberRepository.save(member);
+
+        return "redirect:/customer/myInfo";
+    }
+
+    /**
+     * ✅ 회사 배송지 목록을 JSON 기반으로 "추가/삭제/수정" 동기화합니다.
+     * - 기존 id가 있으면 업데이트
+     * - id가 없으면 신규 추가
+     * - 요청에 없는 기존 항목은 제거(orphanRemoval로 DB 삭제)
+     */
+    private void applyCompanyDeliveryAddresses(Company company, String json) {
+        List<CompanyDeliveryAddressInput> incoming = parseDeliveryJson(json);
+
+        if (company.getDeliveryAddresses() == null) {
+            company.setDeliveryAddresses(new ArrayList<>());
+        }
+
+        // 기존 주소들을 id 기준 맵으로
+        Map<Long, CompanyDeliveryAddress> existingById = company.getDeliveryAddresses().stream()
+                .filter(x -> x.getId() != null)
+                .collect(Collectors.toMap(CompanyDeliveryAddress::getId, Function.identity(), (a, b) -> a));
+
+        Set<Long> incomingIds = incoming.stream()
+                .map(CompanyDeliveryAddressInput::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // 1) 제거: incoming에 없는 기존 id는 삭제
+        company.getDeliveryAddresses().removeIf(addr ->
+                addr.getId() != null && !incomingIds.contains(addr.getId())
+        );
+
+        // 2) 업데이트/추가
+        for (CompanyDeliveryAddressInput in : incoming) {
+            if (in.getRoadAddress() == null || in.getRoadAddress().trim().isEmpty()) {
+                continue;
+            }
+
+            if (in.getId() != null && existingById.containsKey(in.getId())) {
+                CompanyDeliveryAddress target = existingById.get(in.getId());
+                target.setZipCode(nvl(in.getZipCode()));
+                target.setDoName(nvl(in.getDoName()));
+                target.setSiName(nvl(in.getSiName()));
+                target.setGuName(nvl(in.getGuName()));
+                target.setRoadAddress(nvl(in.getRoadAddress()));
+                target.setDetailAddress(nvl(in.getDetailAddress()));
+                target.setUpdatedAt(LocalDateTime.now());
+            } else {
+                CompanyDeliveryAddress created = new CompanyDeliveryAddress();
+                created.setCompany(company);
+                created.setZipCode(nvl(in.getZipCode()));
+                created.setDoName(nvl(in.getDoName()));
+                created.setSiName(nvl(in.getSiName()));
+                created.setGuName(nvl(in.getGuName()));
+                created.setRoadAddress(nvl(in.getRoadAddress()));
+                created.setDetailAddress(nvl(in.getDetailAddress()));
+                created.setCreatedAt(LocalDateTime.now());
+                created.setUpdatedAt(null);
+
+                company.getDeliveryAddresses().add(created);
+            }
+        }
+
+        // 회사 수정일
+        company.setUpdatedAt(LocalDateTime.now());
+    }
+
+    private List<CompanyDeliveryAddressInput> parseDeliveryJson(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<CompanyDeliveryAddressInput>>() {});
+        } catch (Exception e) {
+            throw new IllegalArgumentException("추가 배송지 JSON 파싱 실패", e);
+        }
+    }
+
+    private String nvl(String v) {
+        return v == null ? "" : v.trim();
+    }
+
+    // =========================
+    // DTO들
+    // =========================
+    @Data
+    public static class CompanyDeliveryAddressDto {
+        private Long id;
+        private String zipCode;
+        private String doName;
+        private String siName;
+        private String guName;
+        private String roadAddress;
+        private String detailAddress;
+
+        public static CompanyDeliveryAddressDto from(CompanyDeliveryAddress e) {
+            CompanyDeliveryAddressDto d = new CompanyDeliveryAddressDto();
+            d.setId(e.getId());
+            d.setZipCode(e.getZipCode());
+            d.setDoName(e.getDoName());
+            d.setSiName(e.getSiName());
+            d.setGuName(e.getGuName());
+            d.setRoadAddress(e.getRoadAddress());
+            d.setDetailAddress(e.getDetailAddress());
+            return d;
+        }
+    }
+
+    @Data
+    public static class CompanyDeliveryAddressInput {
+        private Long id; // 기존 항목은 id 포함, 신규는 null
+        private String zipCode;
+        private String doName;
+        private String siName;
+        private String guName;
+        private String roadAddress;
+        private String detailAddress;
+    }
 
 	@PostMapping("/generateRegistrationKey")
 	@ResponseBody

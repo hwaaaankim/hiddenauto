@@ -2,8 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="~{fragments/administration/common :: autoAdminHead}">
-</head>
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body>
 	<div id="layout-wrapper">
@@ -11,6 +10,7 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
+
 		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
@@ -30,19 +30,35 @@
 						</div>
 					</div>
 
+					<!-- ✅ 필터 폼 -->
 					<form method="get" th:action="@{/team/deliveryList}" class="row">
-						<div class="col-lg-6">
+						<div class="col-lg-10">
 							<div class="row g-4 mb-3">
-								<div class="col-lg-8">
+
+								<div class="col-lg-4">
 									<label class="form-label">출고일 조회</label>
 									<input type="text" name="preferredDate" id="deliveryDate" class="form-control"
 										placeholder="YYYY-MM-DD" data-provider="flatpickr" th:value="${preferredDate}">
-
 								</div>
+
+								<!-- ✅ 상태 필터 추가 -->
 								<div class="col-lg-4">
+									<label class="form-label">상태</label>
+									<select class="form-select" name="status">
+										<!-- ALL: 파라미터 빈 값이면 컨트롤러에서 null로 받도록 -->
+										<option value="" th:selected="${status == null}">전체(승인/생산완료/배송완료)</option>
+										<option th:each="st : ${availableStatuses}" th:value="${st}"
+											th:text="${st.label}"
+											th:selected="${status != null and status.name() == st.name()}">
+										</option>
+									</select>
+								</div>
+
+								<div class="col-lg-2">
 									<label class="form-label">조회</label>
 									<button type="submit" class="btn btn-primary w-100">검색하기</button>
 								</div>
+
 							</div>
 						</div>
 					</form>
@@ -54,7 +70,9 @@
 									<button type="button" class="btn btn-success" id="saveOrderIndexBtn" disabled>순서
 										저장</button>
 								</div>
+
 								<div class="card-body">
+
 									<div class="list-group col nested-list nested-sortable">
 										<div class="list-group-item nested-1 draggable-item" th:each="order : ${orders}"
 											th:attr="data-order-id=${order.order.id}">
@@ -73,9 +91,13 @@
 													<div class="ellipsis">
 														<strong>제품 상세:</strong>
 														<span th:text="${order.order.orderItem.productName}"></span>
-
+													</div>
+													<div class="mt-1">
+														<strong>상태:</strong>
+														<span th:text="${order.order.status.label}"></span>
 													</div>
 												</div>
+
 												<div class="action-btn-group">
 													<a class="action-btn"
 														th:href="@{'/team/deliveryDetail/' + ${order.order.id}}">상세보기</a>
@@ -86,54 +108,64 @@
 										</div>
 									</div>
 
+									<!-- ✅ 페이지네이션 (status 유지) -->
 									<div class="row g-0 text-center text-sm-start align-items-end mt-4">
 										<div class="col-sm-12">
 											<ul
 												class="pagination pagination-separated justify-content-center justify-content-sm-end mb-sm-0">
+
 												<li th:classappend="${page.first} ? 'disabled'" class="page-item">
 													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=0&preferredDate=${preferredDate}|}">FIRST</a>
+														th:href="@{|/team/deliveryList?page=0&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">FIRST</a>
 												</li>
+
 												<li th:classappend="${page.first} ? 'disabled'" class="page-item">
 													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${page.number - 1}&preferredDate=${preferredDate}|}">PREV</a>
+														th:href="@{|/team/deliveryList?page=${page.number - 1}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">PREV</a>
 												</li>
+
 												<li th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
 													th:classappend="${page.number == i} ? 'active'" class="page-item">
 													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${i}&preferredDate=${preferredDate}|}"
+														th:href="@{|/team/deliveryList?page=${i}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}"
 														th:text="${i + 1}"></a>
 												</li>
+
 												<li th:classappend="${page.last} ? 'disabled'" class="page-item">
 													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${page.number + 1}&preferredDate=${preferredDate}|}">NEXT</a>
+														th:href="@{|/team/deliveryList?page=${page.number + 1}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">NEXT</a>
 												</li>
+
 												<li th:classappend="${page.last} ? 'disabled'" class="page-item">
 													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${page.totalPages - 1}&preferredDate=${preferredDate}|}">LAST</a>
+														th:href="@{|/team/deliveryList?page=${page.totalPages - 1}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">LAST</a>
 												</li>
+
 											</ul>
 										</div>
 									</div>
 
-								</div>
+								</div> <!-- card-body -->
 							</div>
 						</div>
 					</div>
+
 				</div>
 				<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 			</div>
 		</div>
+
 		<input type="hidden" id="deliveryHandlerId" th:value="${deliveryHandlerId}">
 	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
-	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 
-	<!-- nestable init js -->
+	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 	<script src="/administration/assets/libs/prismjs/prism.js"></script>
 	<script src="https://cdn.lordicon.com/libs/mssddfmo/lord-icon-2.1.0.js"></script>
 	<script src="/administration/assets/js/pages/modal.init.js"></script>
+
 	<script>
 		document.addEventListener("DOMContentLoaded", function () {
 			const orders = Array.from(document.querySelectorAll(".draggable-item"));
@@ -147,7 +179,6 @@
 
 		const saveButton = document.getElementById("saveOrderIndexBtn");
 
-		// ✅ 드래그앤드랍 초기화 및 버튼 활성화
 		const sortable = new Sortable(document.querySelector(".nested-sortable"), {
 			group: "nested",
 			animation: 150,
@@ -158,7 +189,6 @@
 			}
 		});
 
-		// ✅ 저장 버튼 클릭 시 변경된 인덱스를 콘솔로 출력 + 서버로 전송
 		saveButton.addEventListener("click", () => {
 			const orders = Array.from(document.querySelectorAll(".draggable-item"));
 			const orderedIds = orders.map((el, idx) => {

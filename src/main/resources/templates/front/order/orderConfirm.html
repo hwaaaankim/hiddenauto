@@ -8,13 +8,14 @@
 <body class="theme-light" data-highlight="highlight-red"
 	data-gradient="body-default">
 
-
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
 	<div id="page" class="container">
 		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+
 		<div class="page-content header-clear-medium">
+
 			<div class="card card-style preload-img"
 				data-src="/front/images/pictures/18.jpg" data-card-height="130">
 				<div class="card-center ms-3">
@@ -27,12 +28,15 @@
 				</div>
 				<div class="card-overlay bg-black opacity-80"></div>
 			</div>
+
+			<!-- ✅ 제품 목록(주소 입력 없음) -->
 			<div class="card card-style">
 				<div class="content" id="orderContainer">
 					<!-- 제품 정보는 JavaScript에서 동적으로 추가됩니다. -->
 				</div>
 			</div>
 
+			<!-- ✅ 공통 배송/주소 입력(= 모든 상품에 동일하게 적용) -->
 			<div class="card card-style">
 				<div class="content">
 					<div class="payment-check-container">
@@ -46,7 +50,7 @@
 								<label for="same-address">회원 주소랑 동일</label>
 							</div>
 						</div>
-						
+
 						<div class="payment-inputs">
 							<div class="input-group">
 								<input type="text" id="main-address" placeholder="주소를 검색 해 주세요." readonly />
@@ -55,13 +59,13 @@
 							<div class="input-group">
 								<input type="text" id="main-detail" placeholder="상세 주소를 입력 해 주세요." />
 							</div>
-						
+
 							<!-- Hidden 행정구역 필드 -->
 							<input type="hidden" id="main-do" />
 							<input type="hidden" id="main-si" />
 							<input type="hidden" id="main-gu" />
 							<input type="hidden" id="main-zipcode" />
-						
+
 							<div class="input-group">
 								<div class="form-item">
 									<label for="delivery-method">배송수단 선택</label>
@@ -76,11 +80,13 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- 포인트 -->
 			<div class="card card-style">
 				<div class="content mb-2">
 					<h3>포인트사용</h3>
 					<p class="mb-0">
-						보유중이신 포인트를 사용 하시겠습니까? (보유 포인트 : 
+						보유중이신 포인트를 사용 하시겠습니까? (보유 포인트 :
 						<span id="user-point-view"></span>)
 					</p>
 					<div class="row">
@@ -95,6 +101,8 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- 합계 -->
 			<div class="card card-style">
 				<div class="content">
 					<div class="d-flex mb-0">
@@ -102,66 +110,71 @@
 							<p class="mb-0">총 금액</p>
 						</div>
 						<div class="ms-auto">
-							<h5 id="total-amount">123,000 원</h5>
-							<!-- 총 금액 -->
+							<h5 id="total-amount">0 원</h5>
 						</div>
 					</div>
+
 					<div class="d-flex mb-2">
 						<div>
 							<p class="mb-0">배송비</p>
 						</div>
 						<div class="ms-auto">
-							<h5 id="shipping-amount">0 원</h5> 
+							<h5 id="shipping-amount">0 원</h5>
 						</div>
 					</div>
+
 					<div class="d-flex mb-2">
 						<div>
 							<p class="mb-0">포인트 사용</p>
 						</div>
 						<div class="ms-auto">
 							<h5 id="point-usage">0 원</h5>
-							<!-- 포인트 사용 금액 -->
 						</div>
 					</div>
+
 					<div class="d-flex mb-3">
 						<div>
 							<h4 class="font-700">최종 금액</h4>
 						</div>
 						<div class="ms-auto">
-							<h3 id="final-amount">118,000 원</h3>
-							<!-- 최종 금액 -->
+							<h3 id="final-amount">0 원</h3>
 						</div>
 					</div>
+
 					<div class="divider"></div>
+
 					<a id="orderConfirmButton"
 						class="btn btn-full btn-m text-uppercase font-800 rounded-sm">발주하기</a>
 				</div>
 			</div>
 
 		</div>
+
 		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
+
 	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
-	
+
 	<script th:inline="javascript">
 		const deliveryMethods = /*[[${deliveryMethods}]]*/ [];
 		window.cart = /*[[${orderList}]]*/ [];
 		const orderSource = /*[[${from}]]*/ 'direct';
+
 		const companyAddress = {
 			main: /*[[${mainAddress}]]*/ "",
-			detail : /*[[${detailAddress}]]*/ "",
+			detail: /*[[${detailAddress}]]*/ "",
 			doName: /*[[${doName}]]*/ "",
 			siName: /*[[${siName}]]*/ "",
 			guName: /*[[${guName}]]*/ "",
 			zipCode: /*[[${zipCode}]]*/ ""
 		};
+
 		const userPoint = /*[[${point}]]*/ 0; // ✅ 사용자 포인트 전달
 	</script>
 
 	<script src="/front/orderConfirm.js"></script>
 
 </body>
-
 </html>

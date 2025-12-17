@@ -1,211 +1,317 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
-	data-sidebar-image="none" data-preloader="disable">
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body>
-	<div id="layout-wrapper">
-		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
-		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
-		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
-		<div class="vertical-overlay"></div>
-		<div class="main-content">
-			<div class="page-content">
-				<div class="container-fluid">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
 
-					<div class="row">
-						<div class="col-12">
-							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">AS팀업무현황</h4>
-								<div class="page-title-right">
-									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="#">팀별업무관리</a></li>
-										<li class="breadcrumb-item active">AS팀</li>
-									</ol>
-								</div>
-							</div>
-						</div>
-					</div>
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid">
 
-					<form method="get" th:action="@{/team/asList}" class="row">
-						<div class="col-lg-8">
-							<div class="row g-4 mb-3">
-								<div class="col-lg-2">
-									<label class="form-label">상태</label>
-									<select name="status" class="form-select">
-										<option value="" th:selected="${selectedStatus == null}">전체</option>
-										<option value="IN_PROGRESS"
-											th:selected="${selectedStatus?.name() == 'IN_PROGRESS'}">처리중</option>
-										<option value="COMPLETED"
-											th:selected="${selectedStatus?.name() == 'COMPLETED'}">처리완료</option>
-									</select>
-								</div>
-								<div class="col-lg-2">
-									<label class="form-label">조회조건</label>
-									<select name="dateType" class="form-select">
-										<option value="requested" th:selected="${dateType == 'requested'}">신청일</option>
-										<option value="processed" th:selected="${dateType == 'processed'}">처리일</option>
-									</select>
-								</div>
-								<div class="col-lg-3">
-									<label class="form-label">시작일</label>
-									<input type="date" name="startDate"
-										th:value="${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}"
-										class="form-control">
-								</div>
-								<div class="col-lg-3">
-									<label class="form-label">종료일</label>
-									<input type="date" name="endDate"
-										th:value="${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}"
-										class="form-control">
-								</div>
-								<div class="col-lg-2">
-									<label class="form-label">조회</label>
-									<button type="submit" class="btn btn-primary w-100">검색하기</button>
-								</div>
-							</div>
-						</div>
-					</form>
-					<div class="row">
-						<div class="col-lg-12">
-							<div class="row">
-								<div class="col-xxl-3 col-sm-6 project-card" th:if="${asPage.totalElements > 0}"
-									th:each="task : ${asPage.content}">
-									<div class="card">
-										<div class="card-body">
-											<div class="p-3 mt-n3 mx-n3 bg-info-subtle rounded-top">
-												<div class="d-flex align-items-center">
-													<div class="flex-grow-1">
-														<h5 class="mb-0 fs-15" th:text="${task.subject}">AS 제목</h5>
-													</div>
-													<div class="flex-shrink-0">
-														<div class="d-flex gap-1 align-items-center my-n2">
-															<div class="dropdown">
-																<button
-																	class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
-																	data-bs-toggle="dropdown" aria-haspopup="true"
-																	aria-expanded="true">
-																	<i data-feather="more-horizontal"
-																		class="icon-sm"></i>
-																</button>
-																<div class="dropdown-menu dropdown-menu-end">
-																	<a class="dropdown-item"
-																		th:href="@{'/team/asDetail/' + ${task.id}}">
-																		<i
-																			class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기</a>
-																	<a class="dropdown-item" href="#">
-																		<i
-																			class="ri-check-line align-bottom me-2 text-success"></i>AS
-																		완료처리</a>
-																</div>
-															</div>
-														</div>
-													</div>
-												</div>
-											</div>
-											<div class="py-3">
-												<h5 class="mb-1 fs-16 text-body">요청 정보</h5>
-												<div class="row gy-3">
-													<div class="col-6">
-														<p class="text-muted mb-1">상태</p>
-														<div class="badge bg-warning-subtle text-warning fs-12"
-															th:text="${task.status}">처리상태</div>
-													</div>
-													<div class="col-6">
-														<p class="text-muted mb-1">신청자</p>
-														<h5 class="fs-14" th:text="${task.requestedBy.name}">홍길동</h5>
-													</div>
-													<div class="col-12">
-														<p class="text-muted mb-1">주소</p>
-														<h5 class="fs-14"
-															th:text="${task.roadAddress + ' ' + task.detailAddress}">주소
-														</h5>
-													</div>
-													<div class="col-12">
-														<p class="text-muted mb-1">비고</p>
-														<h5 class="fs-14" th:text="${task.asComment}">비고</h5>
-													</div>
-												</div>
-											</div>
-										</div>
-										<div class="card-footer bg-transparent border-top-dashed py-2">
-											<div class="d-flex align-items-center">
-												<div class="flex-grow-1">
-													<p class="text-muted mb-1">신청일</p>
-													<i class="ri-calendar-event-fill me-1 align-bottom"></i>
-													<span
-														th:text="${#temporals.format(task.requestedAt, 'yyyy-MM-dd')}"></span>
-												</div>
-												<div class="flex-shrink-0">
-													<p class="text-muted mb-1">처리일</p>
-													<i class="ri-calendar-event-fill me-1 align-bottom"></i>
-													<span
-														th:text="${task.asProcessDate != null ? #temporals.format(task.asProcessDate, 'yyyy-MM-dd') : '-'}"></span>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div th:if="${asPage.totalElements == 0}" class="text-center mt-5">
-								<p class="text-muted">조회된 AS 업무가 없습니다.</p>
-							</div>
-						</div>
-					</div>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                            <h4 class="mb-sm-0">AS팀업무현황</h4>
+                            <div class="page-title-right">
+                                <ol class="breadcrumb m-0">
+                                    <li class="breadcrumb-item"><a href="#">팀별업무관리</a></li>
+                                    <li class="breadcrumb-item active">AS팀</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-					<div class="row g-0 justify-content-center mt-4 production-pagination">
-						<div class="col-auto">
-							<ul class="pagination pagination-separated">
-								<li th:classappend="${asPage.first} ? 'disabled'" class="page-item">
-									<a th:href="@{|/team/asList?page=0
-					&dateType=${dateType}
-					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-					&status=${selectedStatus}|}" class="page-link">FIRST</a>
-								</li>
-								<li th:classappend="${asPage.first} ? 'disabled'" class="page-item">
-									<a th:href="@{|/team/asList?page=${asPage.number - 1}
-					&dateType=${dateType}
-					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-					&status=${selectedStatus}|}" class="page-link">PREV</a>
-								</li>
+                <!-- ✅ 검색 폼 -->
+                <form method="get" th:action="@{/team/asList}" class="row">
+                    <div class="col-lg-12">
+                        <div class="row g-4 mb-3">
 
-								<li th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
-									th:classappend="${asPage.number == i} ? 'active'" class="page-item">
-									<a th:href="@{|/team/asList?page=${i}
-					&dateType=${dateType}
-					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-					&status=${selectedStatus}|}" class="page-link" th:text="${i + 1}">1</a>
-								</li>
+                            <!-- 상태 -->
+                            <div class="col-lg-1">
+                                <label class="form-label">상태</label>
+                                <select name="status" class="form-select">
+                                    <option value="" th:selected="${selectedStatus == null}">전체</option>
+                                    <option value="REQUESTED" th:selected="${selectedStatus?.name() == 'REQUESTED'}">요청됨</option>
+                                    <option value="IN_PROGRESS" th:selected="${selectedStatus?.name() == 'IN_PROGRESS'}">진행중</option>
+                                    <option value="COMPLETED" th:selected="${selectedStatus?.name() == 'COMPLETED'}">완료</option>
+                                    <option value="CANCELED" th:selected="${selectedStatus?.name() == 'CANCELED'}">취소</option>
+                                </select>
+                            </div>
 
-								<li th:classappend="${asPage.last} ? 'disabled'" class="page-item">
-									<a th:href="@{|/team/asList?page=${asPage.number + 1}
-					&dateType=${dateType}
-					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-					&status=${selectedStatus}|}" class="page-link">NEXT</a>
-								</li>
-								<li th:classappend="${asPage.last} ? 'disabled'" class="page-item">
-									<a th:href="@{|/team/asList?page=${asPage.totalPages - 1}
-					&dateType=${dateType}
-					&startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-					&endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-					&status=${selectedStatus}|}" class="page-link">LAST</a>
-								</li>
-							</ul>
-						</div>
-					</div>
+                            <!-- 조회조건 -->
+                            <div class="col-lg-1">
+                                <label class="form-label">조회조건</label>
+                                <select name="dateType" class="form-select">
+                                    <option value="requested" th:selected="${dateType == null || dateType == 'requested'}">신청일</option>
+                                    <option value="processed" th:selected="${dateType == 'processed'}">처리일</option>
+                                </select>
+                            </div>
 
-				</div>
-			</div>
-			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
-		</div>
-	</div>
-	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
-	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+                            <!-- 시작일 -->
+                            <div class="col-lg-2">
+                                <label class="form-label">시작일</label>
+                                <input type="date" name="startDate"
+                                       th:value="${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}"
+                                       class="form-control">
+                            </div>
+
+                            <!-- 종료일 -->
+                            <div class="col-lg-2">
+                                <label class="form-label">종료일</label>
+                                <input type="date" name="endDate"
+                                       th:value="${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}"
+                                       class="form-control">
+                            </div>
+
+                            <!-- ✅ 업체명 검색 -->
+                            <div class="col-lg-2">
+                                <label class="form-label">업체명</label>
+                                <input type="text" name="companyKeyword" class="form-control"
+                                       placeholder="업체명 검색"
+                                       th:value="${companyKeyword}">
+                            </div>
+
+                           
+                            <!-- ✅ Province -->
+                            <div class="col-lg-1">
+                                <label class="form-label">도/광역시</label>
+                                <select name="provinceId" id="as-province-select" class="form-select">
+                                    <option value="">전체</option>
+                                    <option th:each="p : ${provinces}"
+                                            th:value="${p.id}"
+                                            th:text="${p.name}"
+                                            th:selected="${provinceId != null && provinceId == p.id}">
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- ✅ City/District(직접) : label도 같이 토글 -->
+                            <div class="col-lg-1" id="as-child-wrapper" style="display:none;">
+                                <label class="form-label" id="as-child-label">시/군</label>
+
+                                <select name="cityId" id="as-city-select" class="form-select" style="display:none;">
+                                    <option value="">전체</option>
+                                </select>
+
+                                <!-- ⚠️ name 제거(중복 전송 방지). 실제 전송은 hidden districtId로만 -->
+                                <select id="as-district-direct-select" class="form-select" style="display:none;">
+                                    <option value="">전체</option>
+                                </select>
+                            </div>
+
+                            <!-- ✅ District (City 선택 후) : label도 같이 토글 -->
+                            <div class="col-lg-1" id="as-district-wrapper" style="display:none;">
+                                <label class="form-label">구/읍/면</label>
+
+                                <!-- ⚠️ name 제거(중복 전송 방지). 실제 전송은 hidden districtId로만 -->
+                                <select id="as-district-select" class="form-select" style="display:none;">
+                                    <option value="">전체</option>
+                                </select>
+                            </div>
+                             <!-- 검색 버튼 -->
+                            <div class="col-lg-1">
+                                <label class="form-label">조회</label>
+                                <button type="submit" class="btn btn-primary w-100">검색하기</button>
+                            </div>
+
+                            <!-- ✅ districtId는 hidden input 하나로만 전송 -->
+                            <input type="hidden" name="districtId" id="as-district-hidden" th:value="${districtId != null ? districtId : ''}"/>
+
+                        </div>
+                    </div>
+                </form>
+
+                <!-- ✅ 리스트 -->
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="row">
+                            <div class="col-xxl-3 col-sm-6 project-card" th:if="${asPage.totalElements > 0}"
+                                 th:each="task : ${asPage.content}">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="p-3 mt-n3 mx-n3 bg-info-subtle rounded-top">
+                                            <div class="d-flex align-items-center">
+                                                <div class="flex-grow-1">
+                                                    <h5 class="mb-0 fs-15" th:text="${task.subject}">AS 제목</h5>
+                                                </div>
+                                                <div class="flex-shrink-0">
+                                                    <div class="d-flex gap-1 align-items-center my-n2">
+                                                        <div class="dropdown">
+                                                            <button class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
+                                                                    data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                                                <i data-feather="more-horizontal" class="icon-sm"></i>
+                                                            </button>
+                                                            <div class="dropdown-menu dropdown-menu-end">
+                                                                <a class="dropdown-item" th:href="@{'/team/asDetail/' + ${task.id}}">
+                                                                    <i class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기</a>
+                                                                <a class="dropdown-item" href="#">
+                                                                    <i class="ri-check-line align-bottom me-2 text-success"></i>AS 완료처리</a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="py-3">
+                                            <h5 class="mb-1 fs-16 text-body">요청 정보</h5>
+                                            <div class="row gy-3">
+                                                <div class="col-6">
+                                                    <p class="text-muted mb-1">상태</p>
+
+                                                    <!-- 상태 라벨(한국어) -->
+                                                    <div class="badge bg-warning-subtle text-warning fs-12"
+                                                         th:text="${
+                                                             task.status?.name() == 'REQUESTED' ? '요청됨' :
+                                                             task.status?.name() == 'IN_PROGRESS' ? '진행중' :
+                                                             task.status?.name() == 'COMPLETED' ? '완료' :
+                                                             task.status?.name() == 'CANCELED' ? '취소' : task.status
+                                                         }">처리상태</div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <p class="text-muted mb-1">신청자</p>
+                                                    <h5 class="fs-14" th:text="${task.requestedBy.name}">홍길동</h5>
+                                                </div>
+                                                <div class="col-12">
+                                                    <p class="text-muted mb-1">주소</p>
+                                                    <h5 class="fs-14"
+                                                        th:text="${task.roadAddress + ' ' + task.detailAddress}">주소</h5>
+                                                </div>
+                                                <div class="col-12">
+                                                    <p class="text-muted mb-1">비고</p>
+                                                    <h5 class="fs-14" th:text="${task.asComment}">비고</h5>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card-footer bg-transparent border-top-dashed py-2">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <p class="text-muted mb-1">신청일</p>
+                                                <i class="ri-calendar-event-fill me-1 align-bottom"></i>
+                                                <span th:text="${#temporals.format(task.requestedAt, 'yyyy-MM-dd')}"></span>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <p class="text-muted mb-1">처리일</p>
+                                                <i class="ri-calendar-event-fill me-1 align-bottom"></i>
+                                                <span th:text="${task.asProcessDate != null ? #temporals.format(task.asProcessDate, 'yyyy-MM-dd') : '-'}"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div th:if="${asPage.totalElements == 0}" class="text-center mt-5">
+                            <p class="text-muted">조회된 AS 업무가 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ 페이지네이션: 신규 파라미터까지 전부 유지 -->
+                <div class="row g-0 justify-content-center mt-4 production-pagination">
+                    <div class="col-auto">
+                        <ul class="pagination pagination-separated">
+
+                            <li th:classappend="${asPage.first} ? 'disabled'" class="page-item">
+                                <a class="page-link" th:href="@{|/team/asList?page=0
+                                    &dateType=${dateType}
+                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+                                    &status=${selectedStatus}
+                                    &companyKeyword=${companyKeyword}
+                                    &provinceId=${provinceId}
+                                    &cityId=${cityId}
+                                    &districtId=${districtId}
+                                |}">FIRST</a>
+                            </li>
+
+                            <li th:classappend="${asPage.first} ? 'disabled'" class="page-item">
+                                <a class="page-link" th:href="@{|/team/asList?page=${asPage.number - 1}
+                                    &dateType=${dateType}
+                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+                                    &status=${selectedStatus}
+                                    &companyKeyword=${companyKeyword}
+                                    &provinceId=${provinceId}
+                                    &cityId=${cityId}
+                                    &districtId=${districtId}
+                                |}">PREV</a>
+                            </li>
+
+                            <li th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
+                                th:classappend="${asPage.number == i} ? 'active'" class="page-item">
+                                <a class="page-link" th:text="${i + 1}"
+                                   th:href="@{|/team/asList?page=${i}
+                                    &dateType=${dateType}
+                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+                                    &status=${selectedStatus}
+                                    &companyKeyword=${companyKeyword}
+                                    &provinceId=${provinceId}
+                                    &cityId=${cityId}
+                                    &districtId=${districtId}
+                                |}">1</a>
+                            </li>
+
+                            <li th:classappend="${asPage.last} ? 'disabled'" class="page-item">
+                                <a class="page-link" th:href="@{|/team/asList?page=${asPage.number + 1}
+                                    &dateType=${dateType}
+                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+                                    &status=${selectedStatus}
+                                    &companyKeyword=${companyKeyword}
+                                    &provinceId=${provinceId}
+                                    &cityId=${cityId}
+                                    &districtId=${districtId}
+                                |}">NEXT</a>
+                            </li>
+
+                            <li th:classappend="${asPage.last} ? 'disabled'" class="page-item">
+                                <a class="page-link" th:href="@{|/team/asList?page=${asPage.totalPages - 1}
+                                    &dateType=${dateType}
+                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+                                    &status=${selectedStatus}
+                                    &companyKeyword=${companyKeyword}
+                                    &provinceId=${provinceId}
+                                    &cityId=${cityId}
+                                    &districtId=${districtId}
+                                |}">LAST</a>
+                            </li>
+
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+<!-- ✅ JS: 행정구역 동적 셀렉트 -->
+<script th:inline="javascript">
+    window.__AS_SELECTED__ = {
+        provinceId: /*[[${provinceId}]]*/ null,
+        cityId: /*[[${cityId}]]*/ null,
+        districtId: /*[[${districtId}]]*/ null
+    };
+</script>
+<script src="/administration/assets/js/page/asList.js"></script>
+
 </body>
-
 </html>

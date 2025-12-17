@@ -16,11 +16,13 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.dto.as.AsTaskCardDto;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -29,8 +31,10 @@ import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.model.task.AsImage;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
+import com.dev.HiddenBATHAuto.model.task.AsTaskSchedule;
 import com.dev.HiddenBATHAuto.repository.as.AsImageRepository;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
+import com.dev.HiddenBATHAuto.repository.as.AsTaskScheduleRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRegionRepository;
@@ -45,6 +49,7 @@ public class AsTaskService {
 
     private final AsTaskRepository asTaskRepository;
     private final AsImageRepository asImageRepository;
+    private final AsTaskScheduleRepository scheduleRepository;
 
     // ===== 기존 주입 =====
     private final DistrictRepository districtRepository;
@@ -55,21 +60,87 @@ public class AsTaskService {
     private final ProvinceRepository provinceRepository;
     private final CityRepository cityRepository;
 
+    private final RegionLookupService regionLookupService;
+    
     @Value("${spring.upload.path}")
     private String uploadPath;
 
     private static final String AS_TEAM_NAME = "AS팀";
 
-    // ==============================
-    // 기존 기능 유지: 목록/조회/업데이트
-    // ==============================
-    public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end, AsStatus status, Pageable pageable) {
-        if ("requested".equalsIgnoreCase(dateType)) {
-            return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end, pageable);
-        } else {
-            return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end, pageable);
+    @Transactional(readOnly = true)
+    public Page<AsTask> getAsTasks(
+            Member handler,
+            String dateType,
+            LocalDateTime start,
+            LocalDateTime end,
+            AsStatus status,
+            String companyKeyword,
+            Long provinceId,
+            Long cityId,
+            Long districtId,
+            Pageable pageable
+    ) {
+        // ===== 행정구역 name 변환 =====
+        String provinceName = regionLookupService.getProvinceName(provinceId);
+        String cityName = regionLookupService.getCityName(cityId);
+        String districtName = regionLookupService.getDistrictName(districtId);
+
+        List<String> provinceNames = regionLookupService.getProvinceAliases(provinceName);
+
+        // ⚠️ [중요] IN () 방지: 빈 리스트면 null 처리
+        if (provinceNames != null && provinceNames.isEmpty()) {
+            provinceNames = null;
         }
+
+        // ===== 업무등록일(달력 등록일) 기준 =====
+        if ("scheduled".equalsIgnoreCase(dateType)) {
+
+            LocalDate startDate = (start != null) ? start.toLocalDate() : null;
+            LocalDate endDate = (end != null) ? end.toLocalDate() : null;
+            // end는 컨트롤러에서 이미 +1day 되어 들어오므로 그대로 사용
+
+            return asTaskRepository.findByScheduledDateFlexible(
+                    handler.getId(),
+                    status,
+                    startDate,
+                    endDate,
+                    companyKeyword,
+                    provinceNames,
+                    cityName,
+                    districtName,
+                    pageable
+            );
+        }
+
+        // ===== 신청일 기준 =====
+        if ("requested".equalsIgnoreCase(dateType)) {
+            return asTaskRepository.findByRequestedDateFlexible(
+                    handler.getId(),
+                    status,
+                    start,
+                    end,
+                    companyKeyword,
+                    provinceNames,
+                    cityName,
+                    districtName,
+                    pageable
+            );
+        }
+
+        // ===== 처리일 기준 =====
+        return asTaskRepository.findByProcessedDateFlexible(
+                handler.getId(),
+                status,
+                start,
+                end,
+                companyKeyword,
+                provinceNames,
+                cityName,
+                districtName,
+                pageable
+        );
     }
+
 
     public List<AsTask> getFilteredAsList(Long memberId, AsStatus status, String dateType,
                                           LocalDateTime start, LocalDateTime end) {
@@ -420,4 +491,80 @@ public class AsTaskService {
 	        asTaskRepository.save(task);
 	    }
 	}
+	
+
+
+    @Transactional(readOnly = true)
+    public Page<AsTaskCardDto> getAsTasksForCalendar(
+            Member member,
+            String dateType,
+            LocalDateTime start,
+            LocalDateTime end,
+            AsStatus status,
+            String companyKeyword,
+            Long provinceId,
+            Long cityId,
+            Long districtId,
+            Pageable pageable
+    ) {
+        // ⚠️ 아래는 “회사명/상태/날짜” 중심 예시입니다.
+        // 실제로 province/city/district 조건을 이미 getAsTasks에서 쓰고 있다면
+        // 그 스펙 그대로 JPQL/Specification에 합치셔야 합니다.
+
+        Page<AsTask> page;
+
+        if ("scheduled".equals(dateType)) {
+            LocalDate s = (start != null) ? start.toLocalDate() : null;
+            LocalDate e = (end != null) ? end.toLocalDate() : null;
+            page = asTaskRepository.searchByScheduledDate(status, companyKeyword, s, e, pageable);
+        } else {
+            // requested/processed는 기존 로직에 맞춰 교체 가능
+            page = asTaskRepository.searchBase(status, companyKeyword, pageable);
+
+            // 날짜필터 적용(예시)
+            if (start != null || end != null) {
+                List<AsTask> filtered = page.getContent().stream().filter(t -> {
+                    LocalDateTime base =
+                            "processed".equals(dateType) ? t.getAsProcessDate() : t.getRequestedAt();
+                    if (base == null) return false;
+                    if (start != null && base.isBefore(start)) return false;
+                    if (end != null && !base.isBefore(end)) return false;
+                    return true;
+                }).toList();
+
+                page = new PageImpl<>(filtered, pageable, filtered.size());
+            }
+        }
+
+        // schedule 정보(등록된 날짜) 합치기
+        List<Long> taskIds = page.getContent().stream().map(AsTask::getId).toList();
+        Map<Long, LocalDate> scheduledMap = scheduleRepository.findByTaskIds(taskIds).stream()
+                .collect(Collectors.toMap(s -> s.getAsTask().getId(), AsTaskSchedule::getScheduledDate));
+
+        List<AsTaskCardDto> dtoList = page.getContent().stream().map(t -> {
+            String companyName = (t.getRequestedBy() != null && t.getRequestedBy().getCompany() != null)
+                    ? t.getRequestedBy().getCompany().getCompanyName()
+                    : "(업체없음)";
+
+            String address = String.join(" ",
+                    Optional.ofNullable(t.getDoName()).orElse(""),
+                    Optional.ofNullable(t.getSiName()).orElse(""),
+                    Optional.ofNullable(t.getGuName()).orElse(""),
+                    Optional.ofNullable(t.getRoadAddress()).orElse(""),
+                    Optional.ofNullable(t.getDetailAddress()).orElse("")
+            ).trim();
+
+            return AsTaskCardDto.builder()
+                    .taskId(t.getId())
+                    .companyName(companyName)
+                    .requestedAt(t.getRequestedAt())
+                    .asProcessDate(t.getAsProcessDate())
+                    .address(address)
+                    .status(t.getStatus().name())
+                    .scheduledDate(scheduledMap.get(t.getId()))
+                    .build();
+        }).toList();
+
+        return new PageImpl<>(dtoList, pageable, page.getTotalElements());
+    }
 }

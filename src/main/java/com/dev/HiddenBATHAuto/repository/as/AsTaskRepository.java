@@ -151,6 +151,18 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	      AND (:status IS NULL OR a.status = :status)
 	      AND (:start IS NULL OR a.requestedAt >= :start)
 	      AND (:end IS NULL OR a.requestedAt < :end)
+
+	      AND (
+	            :companyKeyword IS NULL OR :companyKeyword = '' OR
+	            (a.requestedBy.company IS NOT NULL AND a.requestedBy.company.companyName LIKE CONCAT('%', :companyKeyword, '%'))
+	      )
+
+	      AND (
+	            :provinceNames IS NULL OR a.doName IN :provinceNames
+	      )
+	      AND (:cityName IS NULL OR :cityName = '' OR a.siName = :cityName)
+	      AND (:districtName IS NULL OR :districtName = '' OR a.guName = :districtName)
+
 	    ORDER BY a.requestedAt DESC
 	""")
 	Page<AsTask> findByRequestedDateFlexible(
@@ -158,15 +170,34 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	        @Param("status") AsStatus status,
 	        @Param("start") LocalDateTime start,
 	        @Param("end") LocalDateTime end,
+	        @Param("companyKeyword") String companyKeyword,
+	        @Param("provinceNames") List<String> provinceNames,
+	        @Param("cityName") String cityName,
+	        @Param("districtName") String districtName,
 	        Pageable pageable
 	);
+
 
 	@Query("""
 	    SELECT a FROM AsTask a
 	    WHERE a.assignedHandler.id = :handlerId
+	      AND a.asProcessDate IS NOT NULL
+
 	      AND (:status IS NULL OR a.status = :status)
 	      AND (:start IS NULL OR a.asProcessDate >= :start)
 	      AND (:end IS NULL OR a.asProcessDate < :end)
+
+	      AND (
+	            :companyKeyword IS NULL OR :companyKeyword = '' OR
+	            (a.requestedBy.company IS NOT NULL AND a.requestedBy.company.companyName LIKE CONCAT('%', :companyKeyword, '%'))
+	      )
+
+	      AND (
+	            :provinceNames IS NULL OR a.doName IN :provinceNames
+	      )
+	      AND (:cityName IS NULL OR :cityName = '' OR a.siName = :cityName)
+	      AND (:districtName IS NULL OR :districtName = '' OR a.guName = :districtName)
+
 	    ORDER BY a.asProcessDate DESC
 	""")
 	Page<AsTask> findByProcessedDateFlexible(
@@ -174,10 +205,53 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	        @Param("status") AsStatus status,
 	        @Param("start") LocalDateTime start,
 	        @Param("end") LocalDateTime end,
+	        @Param("companyKeyword") String companyKeyword,
+	        @Param("provinceNames") List<String> provinceNames,
+	        @Param("cityName") String cityName,
+	        @Param("districtName") String districtName,
 	        Pageable pageable
 	);
 
 	
+	@Query("""
+	    SELECT a
+	    FROM AsTaskSchedule s
+	    JOIN s.asTask a
+	    WHERE a.assignedHandler.id = :handlerId
+
+	      AND (:status IS NULL OR a.status = :status)
+
+	      AND (:startDate IS NULL OR s.scheduledDate >= :startDate)
+	      AND (:endDate IS NULL OR s.scheduledDate < :endDate)
+
+	      AND (
+	            :companyKeyword IS NULL OR :companyKeyword = '' OR
+	            (a.requestedBy.company IS NOT NULL 
+	             AND a.requestedBy.company.companyName LIKE CONCAT('%', :companyKeyword, '%'))
+	      )
+
+	      AND (
+	            :provinceNames IS NULL OR a.doName IN :provinceNames
+	      )
+	      AND (:cityName IS NULL OR :cityName = '' OR a.siName = :cityName)
+	      AND (:districtName IS NULL OR :districtName = '' OR a.guName = :districtName)
+
+	    ORDER BY s.scheduledDate DESC, s.orderIndex ASC
+	""")
+	Page<AsTask> findByScheduledDateFlexible(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+
+	        @Param("startDate") LocalDate startDate,
+	        @Param("endDate") LocalDate endDate,
+
+	        @Param("companyKeyword") String companyKeyword,
+	        @Param("provinceNames") List<String> provinceNames,
+	        @Param("cityName") String cityName,
+	        @Param("districtName") String districtName,
+	        Pageable pageable
+	);
+
 	@Query("""
 	    SELECT a FROM AsTask a
 	    WHERE a.assignedHandler.id = :handlerId
@@ -253,4 +327,36 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 	    @Param("endDate") LocalDateTime endDate
 	);
 
+	 // requested/processed 조회용(기존이 있다면 그걸 사용)
+    @Query("""
+      select t from AsTask t
+      left join t.requestedBy rb
+      left join rb.company c
+      where (:status is null or t.status = :status)
+        and (:companyKeyword is null or :companyKeyword = '' or c.companyName like concat('%', :companyKeyword, '%'))
+    """)
+    Page<AsTask> searchBase(
+            @Param("status") AsStatus status,
+            @Param("companyKeyword") String companyKeyword,
+            Pageable pageable
+    );
+
+    // scheduled 조회: 스케줄에 등록된 것만
+    @Query("""
+      select t from AsTaskSchedule s
+      join s.asTask t
+      left join t.requestedBy rb
+      left join rb.company c
+      where (:status is null or t.status = :status)
+        and (:companyKeyword is null or :companyKeyword = '' or c.companyName like concat('%', :companyKeyword, '%'))
+        and (:startDate is null or s.scheduledDate >= :startDate)
+        and (:endDate is null or s.scheduledDate < :endDate) 
+    """)
+    Page<AsTask> searchByScheduledDate(
+            @Param("status") AsStatus status,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("startDate") java.time.LocalDate startDate,
+            @Param("endDate") java.time.LocalDate endDate,
+            Pageable pageable
+    );
 }
