@@ -47,8 +47,8 @@
 												<a class="btn btn-success" th:href="@{/management/productionList/excel(
 												        categoryId=${categoryId},
 												        status=${status},
-												        startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-												        endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
+												        startDate=${startDateStr},
+												        endDate=${endDateStr},
 												        dateType=${dateType}
 												)}">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
@@ -57,18 +57,22 @@
 										</div>
 									</div>
 								</div>
+
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" th:action="@{/management/productionList}"
 										class="row g-3 align-items-end">
+
 										<div class="col-md-2">
 											<label class="form-label">제품 카테고리</label>
 											<select class="form-select" name="categoryId">
-												<option value="" th:selected="${status == null or status == ''}">전체
-												</option>
+												<!-- ✅ categoryId 기준으로 전체 selected -->
+												<option value="" th:selected="${categoryId == null}">전체</option>
 												<option th:each="c : ${categories}" th:value="${c.id}"
-													th:text="${c.name}" th:selected="${c.id == categoryId}"></option>
+													th:text="${c.name}" th:selected="${c.id == categoryId}">
+												</option>
 											</select>
 										</div>
+
 										<div class="col-md-2">
 											<label class="form-label">오더 상태</label>
 											<select class="form-select" name="status">
@@ -79,12 +83,12 @@
 												</option>
 											</select>
 										</div>
+
 										<!-- 날짜 기준 선택 -->
 										<div class="col-md-2">
 											<label class="form-label">날짜 기준</label>
 											<select class="form-select" name="dateType">
-												<option value="preferred"
-													th:selected="${dateType == null or dateType == 'preferred'}">배송희망일
+												<option value="preferred" th:selected="${dateType == 'preferred'}">배송희망일
 												</option>
 												<option value="created" th:selected="${dateType == 'created'}">신청일
 												</option>
@@ -95,23 +99,26 @@
 										<div class="col-md-2">
 											<label class="form-label">시작일</label>
 											<input type="date" class="form-control" name="startDate"
-												th:value="${#temporals.format(startDate, 'yyyy-MM-dd')}" />
+												th:value="${startDateStr}" />
 										</div>
 
 										<!-- 종료일 -->
 										<div class="col-md-2">
 											<label class="form-label">종료일</label>
 											<input type="date" class="form-control" name="endDate"
-												th:value="${#temporals.format(endDate, 'yyyy-MM-dd')}" />
+												th:value="${endDateStr}" />
 										</div>
+
 										<div class="col-md-2">
 											<button type="submit" class="btn btn-primary w-100">
 												<i class="fa-solid fa-magnifying-glass me-1"></i> 검색
 											</button>
 										</div>
+
 									</form>
 								</div>
 								<!--end card-body-->
+
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
@@ -126,13 +133,13 @@
 													<th class="sort">ID</th>
 													<th class="sort">대리점명</th>
 													<th class="sort">신청자</th>
-													<!-- 신청일 -->
-													<th class="sort">발주일</th>
-													<th class="sort">배송일</th>
+													<th class="sort">신청일</th>
+													<th class="sort">배송희망일</th>
 													<th class="sort">수정일</th>
 													<th class="sort">상태</th>
 												</tr>
 											</thead>
+
 											<tbody class="list form-check-all">
 												<tr th:each="order : ${orders.content}">
 													<th scope="row">
@@ -142,45 +149,38 @@
 														</div>
 													</th>
 
-													<!-- Order ID -->
 													<td class="id">
 														<a th:href="@{/management/productionDetail/{id}(id=${order.id})}"
 															class="fw-medium link-primary"
 															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
 													</td>
 
-
-													<!-- 대리점명 (Order → Task → Member → Company) -->
 													<td class="project_name">
 														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
 															class="fw-medium link-primary"
 															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
 													</td>
 
-													<!-- 신청자명 -->
 													<td class="client_name">
 														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
 															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
-													<!-- 신청일 -->
 													<td class="due_date"
 														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
-													<!-- 발주일 -->
+
 													<td class="due_date"
-														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss')}">
+														th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss') : ''}">
 														00:00:00
 													</td>
 
-													<!-- 최근수정일 -->
 													<td class="due_date"
 														th:text="${#temporals.format(order.updatedAt, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 
-													<!-- 상태 -->
 													<td class="status">
 														<span
 															class="badge bg-secondary-subtle text-secondary text-uppercase"
@@ -199,87 +199,76 @@
 												<p class="text-muted mb-0">다른 조건으로 검색을 진행 해 주시기 바랍니다.</p>
 											</div>
 										</div>
+
 									</div>
+
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="Page navigation">
 												<ul class="pagination justify-content-center">
-													<!-- 처음 페이지 -->
+
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-                            page=0,
-                            size=${orders.size},
-                            categoryId=${categoryId},
-                            status=${status},
-                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
-                            dateType=${dateType}
-                        )}">
-															처음
-														</a>
+															page=0,
+															size=${orders.size},
+															categoryId=${categoryId},
+															status=${status},
+															startDate=${startDateStr},
+															endDate=${endDateStr},
+															dateType=${dateType}
+														)}">처음</a>
 													</li>
 
-													<!-- 이전 페이지 -->
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-                            page=${orders.number - 1},
-                            size=${orders.size},
-                            categoryId=${categoryId},
-                            status=${status},
-                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
-                            dateType=${dateType}
-                        )}">
-															이전
-														</a>
+															page=${orders.number - 1},
+															size=${orders.size},
+															categoryId=${categoryId},
+															status=${status},
+															startDate=${startDateStr},
+															endDate=${endDateStr},
+															dateType=${dateType}
+														)}">이전</a>
 													</li>
 
-													<!-- 숫자 페이지 -->
 													<li class="page-item"
 														th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
 														th:classappend="${i == orders.number + 1} ? 'active'">
 														<a class="page-link" th:href="@{/management/productionList(
-                            page=${i - 1},
-                            size=${orders.size},
-                            categoryId=${categoryId},
-                            status=${status},
-                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
-                            dateType=${dateType}
-                        )}" th:text="${i}">
-															1
-														</a>
+															page=${i - 1},
+															size=${orders.size},
+															categoryId=${categoryId},
+															status=${status},
+															startDate=${startDateStr},
+															endDate=${endDateStr},
+															dateType=${dateType}
+														)}" th:text="${i}">1</a>
 													</li>
 
-													<!-- 다음 페이지 -->
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-                            page=${orders.number + 1},
-                            size=${orders.size},
-                            categoryId=${categoryId},
-                            status=${status},
-                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
-                            dateType=${dateType}
-                        )}">
-															다음
-														</a>
+															page=${orders.number + 1},
+															size=${orders.size},
+															categoryId=${categoryId},
+															status=${status},
+															startDate=${startDateStr},
+															endDate=${endDateStr},
+															dateType=${dateType}
+														)}">다음</a>
 													</li>
 
-													<!-- 마지막 페이지 -->
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-                            page=${orders.totalPages - 1},
-                            size=${orders.size},
-                            categoryId=${categoryId},
-                            status=${status},
-                            startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-                            endDate=${#temporals.format(endDate, 'yyyy-MM-dd')},
-                            dateType=${dateType}
-                        )}">
-															마지막
-														</a>
+															page=${orders.totalPages - 1},
+															size=${orders.size},
+															categoryId=${categoryId},
+															status=${status},
+															startDate=${startDateStr},
+															endDate=${endDateStr},
+															dateType=${dateType}
+														)}">마지막</a>
 													</li>
+
 												</ul>
 											</nav>
 										</div>
@@ -289,12 +278,14 @@
 							</div>
 						</div>
 					</div>
+
 				</div>
 			</div>
 
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 </body>

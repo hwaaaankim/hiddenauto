@@ -23,12 +23,12 @@
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">비규격발주관리</h4>
+								<h4 class="mb-sm-0">발주관리</h4>
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
 										<li class="breadcrumb-item"><a href="javascript: void(0);">발주관리</a></li>
-										<li class="breadcrumb-item active">비규격발주관리</li>
+										<li class="breadcrumb-item active">발주관리</li>
 									</ol>
 								</div>
 							</div>
@@ -45,16 +45,14 @@
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
 												<a th:href="@{/management/nonStandardOrder/excel(
-													keyword=${keyword},
-													dateCriteria=${dateCriteria},
-													startDate=${startDate},
-													endDate=${endDate},
-													productCategoryId=${productCategoryId},
-													orderStatus=${orderStatus},
-													standard=${standard}
-												)}" class="btn btn-success">
-													<i class="fa-solid fa-download"></i> 엑셀 다운로드
-												</a>
+												    keyword=${keyword},
+												    dateCriteria=${dateCriteria},
+												    startDate=${startDateStr},
+												    endDate=${endDateStr},
+												    productCategoryId=${productCategoryId},
+												    orderStatus=${orderStatus},
+												    standard=${standard}
+												)}" class="btn btn-success"><i class="fa-solid fa-download"></i> 엑셀 다운로드</a>
 											</div>
 										</div>
 									</div>
@@ -90,16 +88,18 @@
 											<div class="col-xxl-3 col-sm-6">
 												<label class="form-label">시작일</label>
 												<input type="date" id="startDate" name="startDate"
-													class="form-control bg-light border-light"
-													th:attr="disabled=${dateCriteria == 'all'}" th:value="${startDate}">
+												    class="form-control bg-light border-light"
+												    th:attr="disabled=${dateCriteria == 'all'}"
+												    th:value="${startDateStr}">
 											</div>
 
 											<!-- 📅 종료일 -->
 											<div class="col-xxl-3 col-sm-6">
 												<label class="form-label">종료일</label>
 												<input type="date" id="endDate" name="endDate"
-													class="form-control bg-light border-light"
-													th:attr="disabled=${dateCriteria == 'all'}" th:value="${endDate}">
+											    class="form-control bg-light border-light"
+											    th:attr="disabled=${dateCriteria == 'all'}"
+											    th:value="${endDateStr}">
 											</div>
 
 											<!-- 🛠 제품 -->
@@ -261,49 +261,116 @@
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
-													<!-- First -->
-													<!-- First -->
-													<li class="page-item"
-														th:classappend="${orders.pageable.pageNumber == 0} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=0, size=${orders.size},
-		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">First</a>
-													</li>
-
-													<!-- Previous -->
-													<li class="page-item"
-														th:classappend="${orders.pageable.pageNumber == 0} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber - 1}, size=${orders.size},
-		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">Previous</a>
-													</li>
-
-													<!-- Page Numbers -->
-													<li class="page-item"
-														th:each="i : ${#numbers.sequence(startPage, endPage)}"
-														th:classappend="${i == orders.pageable.pageNumber + 1} ? 'active'">
-														<a class="page-link" th:text="${i}" th:href="@{/management/nonStandardTaskList(page=${i - 1}, size=${orders.size},
-		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">1</a>
-													</li>
-
-													<!-- Next -->
-													<li class="page-item"
-														th:classappend="${orders.pageable.pageNumber + 1 == orders.totalPages} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=${orders.pageable.pageNumber + 1}, size=${orders.size},
-		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">Next</a>
-													</li>
-
-													<!-- Last -->
-													<li class="page-item"
-														th:classappend="${orders.pageable.pageNumber + 1 == orders.totalPages} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/nonStandardTaskList(page=${orders.totalPages - 1}, size=${orders.size},
-		keyword=${keyword}, dateCriteria=${dateCriteria}, startDate=${startDate}, endDate=${endDate},
-		productCategoryId=${productCategoryId}, orderStatus=${orderStatus}, standard=${standard})}">Last</a>
-													</li>
-
+												    <!-- ✅ 계산용 변수 (0건/마지막 페이지 안전) -->
+												    <th:block
+												        th:with="
+												            totalPages=${orders.totalPages},
+												            lastPage=${(orders.totalPages > 0) ? (orders.totalPages - 1) : 0},
+												            currentPage=${orders.pageable.pageNumber},
+												            prevPage=${(orders.pageable.pageNumber > 0) ? (orders.pageable.pageNumber - 1) : 0},
+												            nextPage=${(orders.pageable.pageNumber + 1 < lastPage + 1) ? (orders.pageable.pageNumber + 1) : lastPage}
+												        ">
+												
+												        <!-- First -->
+												        <li class="page-item"
+												            th:classappend="${totalPages == 0 || currentPage == 0} ? 'disabled'">
+												            <a class="page-link"
+												               th:href="@{/management/nonStandardTaskList(
+												                    page=0,
+												                    size=${orders.size},
+												                    keyword=${keyword},
+												                    dateCriteria=${dateCriteria},
+												                    startDate=${startDate},
+												                    endDate=${endDate},
+												                    productCategoryId=${productCategoryId},
+												                    orderStatus=${orderStatus},
+												                    standard=${standard}
+												                )}">
+												                First
+												            </a>
+												        </li>
+												
+												        <!-- Previous -->
+												        <li class="page-item"
+												            th:classappend="${totalPages == 0 || currentPage == 0} ? 'disabled'">
+												            <a class="page-link"
+												               th:href="@{/management/nonStandardTaskList(
+												                    page=${prevPage},
+												                    size=${orders.size},
+												                    keyword=${keyword},
+												                    dateCriteria=${dateCriteria},
+												                    startDate=${startDate},
+												                    endDate=${endDate},
+												                    productCategoryId=${productCategoryId},
+												                    orderStatus=${orderStatus},
+												                    standard=${standard}
+												                )}">
+												                Previous
+												            </a>
+												        </li>
+												
+												        <!-- Page Numbers -->
+												        <li class="page-item"
+												            th:each="i : ${#numbers.sequence(startPage, endPage)}"
+												            th:classappend="${i == currentPage + 1} ? 'active'">
+												            <a class="page-link"
+												               th:text="${i}"
+												               th:href="@{/management/nonStandardTaskList(
+												                    page=${i - 1},
+												                    size=${orders.size},
+												                    keyword=${keyword},
+												                    dateCriteria=${dateCriteria},
+												                    startDate=${startDate},
+												                    endDate=${endDate},
+												                    productCategoryId=${productCategoryId},
+												                    orderStatus=${orderStatus},
+												                    standard=${standard}
+												                )}">
+												                1
+												            </a>
+												        </li>
+												
+												        <!-- Next -->
+												        <li class="page-item"
+												            th:classappend="${totalPages == 0 || currentPage >= lastPage} ? 'disabled'">
+												            <a class="page-link"
+												               th:href="@{/management/nonStandardTaskList(
+												                    page=${nextPage},
+												                    size=${orders.size},
+												                    keyword=${keyword},
+												                    dateCriteria=${dateCriteria},
+												                    startDate=${startDate},
+												                    endDate=${endDate},
+												                    productCategoryId=${productCategoryId},
+												                    orderStatus=${orderStatus},
+												                    standard=${standard}
+												                )}">
+												                Next
+												            </a>
+												        </li>
+												
+												        <!-- Last -->
+												        <li class="page-item"
+												            th:classappend="${totalPages == 0 || currentPage >= lastPage} ? 'disabled'">
+												            <a class="page-link"
+												               th:href="@{/management/nonStandardTaskList(
+												                    page=${lastPage},
+												                    size=${orders.size},
+												                    keyword=${keyword},
+												                    dateCriteria=${dateCriteria},
+												                    startDate=${startDate},
+												                    endDate=${endDate},
+												                    productCategoryId=${productCategoryId},
+												                    orderStatus=${orderStatus},
+												                    standard=${standard}
+												                )}">
+												                Last
+												            </a>
+												        </li>
+												
+												    </th:block>
 												</ul>
+
 											</nav>
 										</div>
 									</div>

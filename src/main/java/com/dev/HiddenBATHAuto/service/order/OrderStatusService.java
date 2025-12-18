@@ -90,13 +90,21 @@ public class OrderStatusService {
 		}
 	}
 
-	public Page<Order> getOrders(LocalDateTime start, LocalDateTime end, TeamCategory category, OrderStatus status,
-			String dateType, Pageable pageable) {
-		if ("created".equals(dateType)) {
-			return orderRepository.findByCreatedDateRange(category, status, start, end, pageable);
-		} else {
-			return orderRepository.findByPreferredDateRange(category, status, start, end, pageable);
-		}
+	public Page<Order> getOrders(
+	        LocalDateTime start,
+	        LocalDateTime end,
+	        TeamCategory category,
+	        OrderStatus status,
+	        String dateType,
+	        Pageable pageable
+	) {
+	    String dt = (dateType == null) ? "" : dateType.trim();
+
+	    if ("created".equalsIgnoreCase(dt)) {
+	        return orderRepository.findByCreatedDateRange(category, status, start, end, pageable);
+	    }
+	    // 기본값: preferred
+	    return orderRepository.findByPreferredDateRange(category, status, start, end, pageable);
 	}
 
 	public Page<Order> getOrders(LocalDate date, TeamCategory category, OrderStatus status, Pageable pageable) {

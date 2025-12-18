@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,11 +17,13 @@ import java.util.function.Supplier;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -114,28 +117,35 @@ public class ManagementController {
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) String startDate, // ✅ String (빈값 안전)
+			@RequestParam(required = false) String endDate, // ✅ String (빈값 안전)
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
 			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
 			@RequestParam(required = false, defaultValue = "all") String standard,
 			@PageableDefault(size = 10) Pageable pageable, Model model) {
+		// 1) dateCriteria 정규화
+		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
-		LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
-		LocalDateTime endDateTime = endDate != null ? endDate.atTime(LocalTime.MAX) : null;
+		// 2) 날짜 범위 (dateCriteria=all 이면 날짜필터 미적용)
+		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
-		Boolean standardBool = null;
-		if ("true".equals(standard))
-			standardBool = true;
-		else if ("false".equals(standard))
-			standardBool = false;
+		// 3) standard 파싱 (all/true/false)
+		Boolean standardBool = parseStandardOrNull(standard);
 
-		Page<Order> orders = orderRepository.findFilteredOrders(keyword.isBlank() ? null : keyword, dateCriteria,
-				startDateTime, endDateTime, productCategoryId.equals("all") ? null : Long.parseLong(productCategoryId),
-				orderStatus.equals("all") ? null : OrderStatus.valueOf(orderStatus), standardBool, pageable);
+		// 4) category/status 파싱 (all/오류 안전)
+		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
 
-		int startPage = Math.max(1, orders.getPageable().getPageNumber() - 4);
-		int endPage = Math.min(orders.getTotalPages(), orders.getPageable().getPageNumber() + 4);
+		// 5) keyword 정리
+		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+
+		Page<Order> orders = orderRepository.findFilteredOrders(finalKeyword, finalDateCriteria, range.getStart(),
+				range.getEnd(), categoryId, statusEnum, standardBool, pageable);
+
+		// ✅ 페이지네이션 계산 (현재 HTML이 1-based로 렌더링하므로 이에 맞춤)
+		int currentPage1 = orders.getPageable().getPageNumber() + 1; // 1-based
+		int startPage = Math.max(1, currentPage1 - 4);
+		int endPage = Math.min(orders.getTotalPages(), currentPage1 + 4);
 
 		model.addAttribute("orders", orders);
 		model.addAttribute("startPage", startPage);
@@ -145,53 +155,49 @@ public class ManagementController {
 		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
 		model.addAttribute("orderStatuses", OrderStatus.values());
 
-		// 필터 유지
-		model.addAttribute("keyword", keyword);
-		model.addAttribute("dateCriteria", dateCriteria);
-		model.addAttribute("startDate", startDate);
-		model.addAttribute("endDate", endDate);
-		model.addAttribute("productCategoryId", productCategoryId);
-		model.addAttribute("orderStatus", orderStatus);
-		model.addAttribute("standard", standard);
+		// 필터 유지 (HTML 그대로 유지 가능)
+		model.addAttribute("keyword", (keyword == null) ? "" : keyword);
+		model.addAttribute("dateCriteria", finalDateCriteria);
+		model.addAttribute("startDate", range.getStartDateStr()); // ✅ String 유지
+		model.addAttribute("endDate", range.getEndDateStr()); // ✅ String 유지
+		model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
+		model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
+		model.addAttribute("standard", (standard == null) ? "all" : standard);
 
 		return "administration/management/order/nonStandard/taskList";
 	}
 
 	@GetMapping("/nonStandardOrder/excel")
 	public void downloadNonStandardOrderExcel(@RequestParam(required = false) String keyword,
-			@RequestParam(required = false) String dateCriteria,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) String dateCriteria, @RequestParam(required = false) String startDate, // ✅
+																													// String
+																													// (빈값
+																													// 안전)
+			@RequestParam(required = false) String endDate, // ✅ String (빈값 안전)
 			@RequestParam(required = false) String orderStatus,
-			@RequestParam(required = false) String productCategoryId, @RequestParam(required = false) String standard, // ✅
-																														// 추가됨
+			@RequestParam(required = false) String productCategoryId, @RequestParam(required = false) String standard,
 			HttpServletResponse response) throws IOException {
 
-		LocalDateTime startDateTime = (startDate != null) ? startDate.atStartOfDay() : null;
-		LocalDateTime endDateTime = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
+		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
-		Long categoryId = (productCategoryId == null || "all".equals(productCategoryId)) ? null
-				: Long.valueOf(productCategoryId);
-		OrderStatus status = (orderStatus == null || "all".equals(orderStatus)) ? null
-				: OrderStatus.valueOf(orderStatus);
-		Boolean isStandard = null;
-		if ("true".equals(standard)) {
-			isStandard = Boolean.TRUE;
-		} else if ("false".equals(standard)) {
-			isStandard = Boolean.FALSE;
-		}
+		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null); // excel은 기본 강제 안함(넘어온 값 기준)
+		// └ 기존 코드도 null/all이면 전체였으니 동작 유지
+		Boolean isStandard = parseStandardOrNull(standard);
 
-		List<Order> orderList = orderRepository.findFilteredOrdersForExcel(keyword, dateCriteria, startDateTime,
-				endDateTime, categoryId, status, isStandard);
+		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-		// ✅ 응답 설정
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcel(finalKeyword, finalDateCriteria,
+				range.getStart(), range.getEnd(), categoryId, status, isStandard);
+
 		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 		response.setHeader("Content-Disposition", "attachment; filename=non_standard_orders.xlsx");
 
 		try (Workbook workbook = new XSSFWorkbook()) {
 			Sheet sheet = workbook.createSheet("비규격발주");
 
-			// ✅ 스타일
+			// 스타일
 			CellStyle headerStyle = workbook.createCellStyle();
 			Font boldFont = workbook.createFont();
 			boldFont.setBold(true);
@@ -213,7 +219,7 @@ public class ManagementController {
 			wrapStyle.cloneStyleFrom(borderedStyle);
 			wrapStyle.setWrapText(true);
 
-			// ✅ 헤더 작성
+			// 헤더
 			String[] headers = { "대리점명", "신청자", "신청일", "배송희망일", "우편번호", "도", "시", "구", "도로명주소", "상세주소", "수량", "제품비용",
 					"주문메모", "팀카테고리", "배송수단", "배송담당자", "옵션 정보" };
 
@@ -225,21 +231,18 @@ public class ManagementController {
 				sheet.setColumnWidth(i, 5000);
 			}
 
-			ObjectMapper objectMapper = new ObjectMapper();
 			int rowIdx = 1;
 
-			// ✅ 데이터 작성
 			for (Order order : orderList) {
 				Row row = sheet.createRow(rowIdx++);
 				row.setHeightInPoints(60);
 
 				OrderItem item = order.getOrderItem();
 
-				// null 방어
 				String agencyName = safe(() -> order.getTask().getRequestedBy().getCompany().getCompanyName(), "미지정");
 				String requester = safe(() -> order.getTask().getRequestedBy().getName(), "미지정");
-				String createdAt = order.getCreatedAt() != null ? order.getCreatedAt().toString() : "";
-				String deliveryDate = order.getPreferredDeliveryDate() != null
+				String createdAt = (order.getCreatedAt() != null) ? order.getCreatedAt().toString() : "";
+				String deliveryDate = (order.getPreferredDeliveryDate() != null)
 						? order.getPreferredDeliveryDate().toString()
 						: "";
 
@@ -250,7 +253,7 @@ public class ManagementController {
 				String road = defaultIfNull(order.getRoadAddress());
 				String detail = defaultIfNull(order.getDetailAddress());
 
-				int quantity = order.getQuantity() != 0 ? order.getQuantity() : 0;
+				int quantity = order.getQuantity();
 				int productCost = order.getProductCost();
 				String comment = defaultIfNull(order.getOrderComment());
 
@@ -258,7 +261,6 @@ public class ManagementController {
 				String deliveryMethod = safe(() -> order.getDeliveryMethod().getMethodName(), "미지정");
 				String handler = safe(() -> order.getAssignedDeliveryHandler().getName(), "미지정");
 
-				// 작성
 				row.createCell(0).setCellValue(agencyName);
 				row.createCell(1).setCellValue(requester);
 				row.createCell(2).setCellValue(createdAt);
@@ -278,40 +280,119 @@ public class ManagementController {
 				row.createCell(14).setCellValue(deliveryMethod);
 				row.createCell(15).setCellValue(handler);
 
-				// 옵션 정보
-				StringBuilder optionsText = new StringBuilder();
-				Map<String, String> parsedOptionMap = (item != null) ? item.getParsedOptionMap() : null;
-
-				if ((parsedOptionMap == null || parsedOptionMap.isEmpty()) && item != null
-						&& item.getOptionJson() != null) {
-					try {
-						parsedOptionMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {
-						});
-					} catch (Exception e) {
-						parsedOptionMap = Map.of("오류", "옵션 파싱 실패");
-					}
-				}
-
-				if (parsedOptionMap != null) {
-					int count = 0;
-					for (Map.Entry<String, String> entry : parsedOptionMap.entrySet()) {
-						optionsText.append(entry.getKey()).append(": ").append(entry.getValue());
-						count++;
-						if (count % 3 == 0) {
-							optionsText.append("\n");
-						} else {
-							optionsText.append(" / ");
-						}
-					}
-				}
+				// ✅ 옵션: 줄바꿈 없이 " / "로만 + 끝 찌꺼기 없음
+				String optionsText = buildOptionsTextNoTrailing(item);
 
 				Cell optionCell = row.createCell(16);
-				optionCell.setCellValue(optionsText.toString());
+				optionCell.setCellValue(optionsText);
 				optionCell.setCellStyle(wrapStyle);
+
+				// 기본 테두리 적용(기존 borderedStyle 의도 유지)
+				for (int i = 0; i <= 15; i++) {
+					Cell c = row.getCell(i);
+					if (c != null)
+						c.setCellStyle(borderedStyle);
+				}
 			}
 
 			workbook.write(response.getOutputStream());
 		}
+	}
+
+	// 1) dateCriteria 정규화 (all/order/delivery만 허용)
+	private String normalizeDateCriteria(String dateCriteria) {
+		if (dateCriteria == null || dateCriteria.isBlank())
+			return "all";
+		String v = dateCriteria.trim().toLowerCase();
+		if ("order".equals(v) || "delivery".equals(v))
+			return v;
+		return "all";
+	}
+
+	// 2) dateCriteria=all이면 날짜필터 미적용(null/null) 처리
+	private DateRange buildDateRangeForCriteria(String dateCriteria, String startDateStr, String endDateStr) {
+		String dc = normalizeDateCriteria(dateCriteria);
+		if ("all".equals(dc)) {
+			// 날짜 입력값은 뷰 유지용으로만 넘기고, 조회는 null/null로 (날짜필터 미적용)
+			String s = (startDateStr == null) ? "" : startDateStr.trim();
+			String e = (endDateStr == null) ? "" : endDateStr.trim();
+			return new DateRange(null, null, s, e);
+		}
+		// 기존 buildDateRange 재사용 (yyyy-MM-dd)
+		return buildDateRange(startDateStr, endDateStr);
+	}
+
+	// 3) productCategoryId: all/빈값/오류 -> null
+	private Long parseLongOrNullAllowAll(String v) {
+		if (v == null)
+			return null;
+		String s = v.trim();
+		if (s.isEmpty() || "all".equalsIgnoreCase(s))
+			return null;
+		try {
+			return Long.valueOf(s);
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
+	// 4) orderStatus: all/빈값 -> null, 잘못된 값 -> defaultValue (defaultValue도 null 가능)
+	private OrderStatus parseOrderStatusOrNullWithDefault(String v, OrderStatus defaultValue) {
+		if (v == null)
+			return defaultValue;
+		String s = v.trim();
+		if (s.isEmpty() || "all".equalsIgnoreCase(s))
+			return null;
+		try {
+			return OrderStatus.valueOf(s);
+		} catch (IllegalArgumentException e) {
+			return defaultValue;
+		}
+	}
+
+	// 5) standard: all/빈값/오류 -> null
+	private Boolean parseStandardOrNull(String standard) {
+		if (standard == null)
+			return null;
+		String s = standard.trim().toLowerCase();
+		if (s.isEmpty() || "all".equals(s))
+			return null;
+		if ("true".equals(s))
+			return Boolean.TRUE;
+		if ("false".equals(s))
+			return Boolean.FALSE;
+		return null;
+	}
+
+	// 6) 옵션 텍스트: " / "로 join (끝 찌꺼기/줄바꿈 없음)
+	private String buildOptionsTextNoTrailing(OrderItem item) {
+		if (item == null)
+			return "";
+
+		Map<String, String> parsedOptionMap = item.getParsedOptionMap();
+
+		if ((parsedOptionMap == null || parsedOptionMap.isEmpty()) && item.getOptionJson() != null
+				&& !item.getOptionJson().isBlank()) {
+			try {
+				parsedOptionMap = objectMapper.readValue(item.getOptionJson(),
+						new TypeReference<Map<String, String>>() {
+						});
+			} catch (Exception e) {
+				return "오류: 옵션 파싱 실패";
+			}
+		}
+
+		if (parsedOptionMap == null || parsedOptionMap.isEmpty())
+			return "";
+
+		StringBuilder sb = new StringBuilder();
+		int i = 0;
+		for (Map.Entry<String, String> entry : parsedOptionMap.entrySet()) {
+			if (i++ > 0)
+				sb.append(" / ");
+			sb.append(entry.getKey()).append(": ").append(entry.getValue());
+		}
+		return sb.toString();
 	}
 
 	// Null-safe getter
@@ -629,198 +710,332 @@ public class ManagementController {
 		return "redirect:/management/asDetail/" + id;
 	}
 
+	// =========================
+	// 1) 리스트 페이지
+	// =========================
 	@GetMapping("/productionList")
 	public String productionListPage(@RequestParam(required = false) Long categoryId,
-			@RequestParam(required = false) String status,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) String status, @RequestParam(required = false) String startDate, // ✅
+																												// String으로
+																												// 변경(빈값
+																												// 안전)
+			@RequestParam(required = false) String endDate, // ✅ String으로 변경(빈값 안전)
 			@RequestParam(required = false) String dateType, Pageable pageable, Model model) {
-
+		// 1) 카테고리
 		TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
 
-		LocalDate startD = (startDate != null) ? startDate : LocalDate.now();
-		LocalDate endD = (endDate != null) ? endDate : LocalDate.now().plusDays(1);
+		// 2) dateType 정규화 (null/이상값 방지)
+		String finalDateType = normalizeDateType(dateType);
+
+		// 3) 날짜 파싱 (빈값/오류 안전)
+		LocalDate startD = parseLocalDateOrDefault(startDate, LocalDate.now());
+		LocalDate endD = parseLocalDateOrDefault(endDate, LocalDate.now());
+
+		// end < start 방지 (사용자 입력 실수 방어)
+		if (endD.isBefore(startD)) {
+			LocalDate tmp = startD;
+			startD = endD;
+			endD = tmp;
+		}
+
 		LocalDateTime start = startD.atStartOfDay();
 		LocalDateTime end = endD.atTime(LocalTime.MAX);
 
-		OrderStatus parsedStatus;
-		if (status == null) {
-			parsedStatus = OrderStatus.CONFIRMED;
-			status = OrderStatus.CONFIRMED.name();
-		} else if (status.isBlank()) {
-			parsedStatus = null;
-		} else {
-			try {
-				parsedStatus = OrderStatus.valueOf(status);
-			} catch (IllegalArgumentException e) {
-				parsedStatus = OrderStatus.CONFIRMED;
-				status = OrderStatus.CONFIRMED.name();
-			}
-		}
+		// 4) status 정규화
+		StatusNormalizeResult statusResult = normalizeStatus(status, OrderStatus.CONFIRMED);
+		OrderStatus parsedStatus = statusResult.parsedStatus;
+		String finalStatusParam = statusResult.statusParam; // 화면/링크에 유지할 status 문자열
 
-		Page<Order> orders = orderStatusService.getOrders(start, end, category, parsedStatus, dateType, pageable);
+		// 5) 조회 (AND 조건은 서비스에서 처리: 날짜범위 + 팀카테고리 + 상태 + dateType)
+		Page<Order> orders = orderStatusService.getOrders(start, end, category, parsedStatus, finalDateType, pageable);
 
+		// 6) View Model
 		model.addAttribute("orders", orders);
 		model.addAttribute("categoryId", categoryId);
-		model.addAttribute("status", status);
-		model.addAttribute("startDate", startD);
-		model.addAttribute("endDate", endD);
-		model.addAttribute("dateType", dateType);
+		model.addAttribute("status", finalStatusParam);
+
+		// ✅ 템플릿은 String으로 받게 변경
+		model.addAttribute("startDateStr", startD.format(DateTimeFormatter.ISO_DATE));
+		model.addAttribute("endDateStr", endD.format(DateTimeFormatter.ISO_DATE));
+
+		model.addAttribute("dateType", finalDateType);
+
+		// 팀 카테고리 목록
 		model.addAttribute("categories", teamCategoryRepository.findByTeamName("생산팀"));
 		model.addAttribute("orderStatusList", OrderStatus.values());
 
 		return "administration/management/production/productionList";
 	}
 
+	// =========================
+	// 2) 엑셀 다운로드
+	// =========================
 	@GetMapping("/productionList/excel")
 	public void downloadProductionListExcel(@RequestParam(required = false) Long categoryId,
-			@RequestParam(required = false) String status,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) String status, @RequestParam(required = false) String startDate, // ✅
+																												// String으로
+																												// 변경(빈값
+																												// 안전)
+			@RequestParam(required = false) String endDate, // ✅ String으로 변경(빈값 안전)
 			@RequestParam(required = false) String dateType, HttpServletResponse response) throws IOException {
 
+		// 1) 카테고리
 		TeamCategory category = (categoryId != null) ? teamCategoryRepository.findById(categoryId).orElse(null) : null;
 
-		LocalDate startD = (startDate != null) ? startDate : LocalDate.now();
-		LocalDate endD = (endDate != null) ? endDate : LocalDate.now().plusDays(1);
+		// 2) dateType 정규화 (리스트와 동일)
+		String finalDateType = normalizeDateType(dateType);
+
+		// 3) 날짜 파싱 (리스트와 동일)
+		LocalDate startD = parseLocalDateOrDefault(startDate, LocalDate.now());
+		LocalDate endD = parseLocalDateOrDefault(endDate, LocalDate.now());
+
+		if (endD.isBefore(startD)) {
+			LocalDate tmp = startD;
+			startD = endD;
+			endD = tmp;
+		}
+
 		LocalDateTime start = startD.atStartOfDay();
 		LocalDateTime end = endD.atTime(LocalTime.MAX);
 
-		OrderStatus parsedStatus = null;
-		if (status != null && !status.isBlank()) {
-			try {
-				parsedStatus = OrderStatus.valueOf(status);
-			} catch (IllegalArgumentException ignored) {
-			}
-		}
+		// 4) status 정규화 (리스트와 동일)
+		StatusNormalizeResult statusResult = normalizeStatus(status, OrderStatus.CONFIRMED);
+		OrderStatus parsedStatus = statusResult.parsedStatus;
 
-		List<Order> orders = orderStatusService.getAllOrders(start, end, category, parsedStatus, dateType);
+		// 5) 전체 조회 (리스트와 동일 조건)
+		List<Order> orders = orderStatusService.getAllOrders(start, end, category, parsedStatus, finalDateType);
 
+		// 6) 응답 헤더
 		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 		response.setHeader("Content-Disposition", "attachment; filename=production_task_orders.xlsx");
 
+		// 7) 엑셀 생성
 		try (Workbook workbook = new XSSFWorkbook()) {
 			Sheet sheet = workbook.createSheet("Production Orders");
 
-			// 스타일 정의
+			// ===== 스타일 =====
+			DataFormat df = workbook.createDataFormat();
+
 			CellStyle headerStyle = workbook.createCellStyle();
 			Font boldFont = workbook.createFont();
 			boldFont.setBold(true);
 			headerStyle.setFont(boldFont);
 			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
 			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-			headerStyle.setBorderTop(BorderStyle.THIN);
-			headerStyle.setBorderBottom(BorderStyle.THIN);
-			headerStyle.setBorderLeft(BorderStyle.THIN);
-			headerStyle.setBorderRight(BorderStyle.THIN);
+			setThinBorder(headerStyle);
+			headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
 			CellStyle borderedStyle = workbook.createCellStyle();
-			borderedStyle.setBorderTop(BorderStyle.THIN);
-			borderedStyle.setBorderBottom(BorderStyle.THIN);
-			borderedStyle.setBorderLeft(BorderStyle.THIN);
-			borderedStyle.setBorderRight(BorderStyle.THIN);
+			setThinBorder(borderedStyle);
+			borderedStyle.setVerticalAlignment(VerticalAlignment.TOP);
 
 			CellStyle wrapStyle = workbook.createCellStyle();
 			wrapStyle.cloneStyleFrom(borderedStyle);
 			wrapStyle.setWrapText(true);
 
+			CellStyle moneyStyle = workbook.createCellStyle();
+			moneyStyle.cloneStyleFrom(borderedStyle);
+			moneyStyle.setDataFormat(df.getFormat("#,##0"));
+
+			// 라벨행(대리점/요청자/발주일)은 헤더스타일 그대로 쓰되 wrap만 켬
+			CellStyle labelStyle = workbook.createCellStyle();
+			labelStyle.cloneStyleFrom(headerStyle);
+			labelStyle.setWrapText(true);
+
+			// ===== 컬럼 폭(고정) =====
+			// 주소 / 수량 / 가격 / 배송희망일 / 배송수단 / 배송담당자 / 상세사항
+			sheet.setColumnWidth(0, 14000);
+			sheet.setColumnWidth(1, 4000);
+			sheet.setColumnWidth(2, 6000);
+			sheet.setColumnWidth(3, 8000);
+			sheet.setColumnWidth(4, 7000);
+			sheet.setColumnWidth(5, 7000);
+			sheet.setColumnWidth(6, 20000);
+
 			int rowIdx = 0;
 			Long lastTaskId = null;
+
+			// 보기 편하게 상단 고정(첫 번째 헤더가 만들어지면 freeze)
+			boolean freezeApplied = false;
 
 			for (Order order : orders) {
 				Task task = order.getTask();
 
-				if (task != null && !task.getId().equals(lastTaskId)) {
-					// Task 구분 행 (병합)
+				// Task 구분 블록 시작
+				if (task != null && (lastTaskId == null || !task.getId().equals(lastTaskId))) {
+
+					// (1) 라벨 행 (병합)
 					Row labelRow = sheet.createRow(rowIdx++);
-					labelRow.setHeightInPoints(20);
+					labelRow.setHeightInPoints(28);
+
 					Cell labelCell = labelRow.createCell(0);
-					labelCell
-							.setCellValue("[대리점명] " + task.getRequestedBy().getCompany().getCompanyName() + " / [요청자명] "
-									+ task.getRequestedBy().getName() + " / [발주일] " + task.getCreatedAt().toString());
-					labelCell.setCellStyle(headerStyle);
+
+					String companyName = (task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null)
+							? task.getRequestedBy().getCompany().getCompanyName()
+							: "";
+
+					String requesterName = (task.getRequestedBy() != null) ? task.getRequestedBy().getName() : "";
+
+					String taskCreatedAt = (task.getCreatedAt() != null) ? task.getCreatedAt().toString() : "";
+
+					// ✅ 라벨도 줄바꿈 최소화: " / " 기준
+					labelCell.setCellValue(
+							"[대리점명] " + companyName + " / [요청자명] " + requesterName + " / [발주일] " + taskCreatedAt);
+					labelCell.setCellStyle(labelStyle);
+
+					// 0~6 병합
 					sheet.addMergedRegion(new CellRangeAddress(rowIdx - 1, rowIdx - 1, 0, 6));
 
-					// Order 테이블 헤더
+					// (2) Order 테이블 헤더
 					Row header = sheet.createRow(rowIdx++);
+					header.setHeightInPoints(20);
+
 					String[] titles = { "배송지 주소", "수량", "가격", "배송희망일", "배송수단", "배송담당자", "상세사항" };
 					for (int i = 0; i < titles.length; i++) {
 						Cell cell = header.createCell(i);
 						cell.setCellValue(titles[i]);
 						cell.setCellStyle(headerStyle);
-						sheet.setColumnWidth(i, (i == 6) ? 12000 : 5000);
+					}
+
+					// 첫 헤더 기준 상단 고정
+					if (!freezeApplied) {
+						// 헤더 아래부터 스크롤: 현재 rowIdx 위치가 '데이터 시작행'이므로 그 위까지 고정
+						sheet.createFreezePane(0, rowIdx);
+						freezeApplied = true;
 					}
 
 					lastTaskId = task.getId();
 				}
 
-				// Order 내용 행
+				// (3) Order 내용 행
 				Row row = sheet.createRow(rowIdx++);
-				row.setHeightInPoints(100);
+				row.setHeightInPoints(90);
 
-				row.createCell(0).setCellValue(order.getRoadAddress() + " " + order.getDetailAddress());
-				row.getCell(0).setCellStyle(borderedStyle);
+				// 주소 (wrap)
+				String addr = safe(order.getRoadAddress()) + " " + safe(order.getDetailAddress());
+				Cell c0 = row.createCell(0);
+				c0.setCellValue(addr.trim());
+				c0.setCellStyle(wrapStyle);
 
-				row.createCell(1).setCellValue(order.getQuantity());
-				row.getCell(1).setCellStyle(borderedStyle);
+				// 수량
+				Cell c1 = row.createCell(1);
+				c1.setCellValue(order.getQuantity());
+				c1.setCellStyle(borderedStyle);
 
-				row.createCell(2).setCellValue(order.getProductCost());
-				row.getCell(2).setCellStyle(borderedStyle);
+				// 가격 (money format)
+				Cell c2 = row.createCell(2);
+				c2.setCellValue(order.getProductCost());
+				c2.setCellStyle(moneyStyle);
 
-				row.createCell(3).setCellValue(
+				// 배송희망일
+				Cell c3 = row.createCell(3);
+				c3.setCellValue(
 						order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
-				row.getCell(3).setCellStyle(borderedStyle);
+				c3.setCellStyle(borderedStyle);
 
-				row.createCell(4).setCellValue(
-						order.getDeliveryMethod() != null ? order.getDeliveryMethod().getMethodName() : "");
-				row.getCell(4).setCellStyle(borderedStyle);
+				// 배송수단
+				Cell c4 = row.createCell(4);
+				c4.setCellValue(
+						order.getDeliveryMethod() != null ? safe(order.getDeliveryMethod().getMethodName()) : "");
+				c4.setCellStyle(borderedStyle);
 
-				row.createCell(5).setCellValue(
-						order.getAssignedDeliveryHandler() != null ? order.getAssignedDeliveryHandler().getName() : "");
-				row.getCell(5).setCellStyle(borderedStyle);
+				// 배송담당자
+				Cell c5 = row.createCell(5);
+				c5.setCellValue(
+						order.getAssignedDeliveryHandler() != null ? safe(order.getAssignedDeliveryHandler().getName())
+								: "");
+				c5.setCellStyle(borderedStyle);
 
-				// 상세사항 구성
+				// 상세사항 (✅ 줄바꿈 없이 " / "로만 구성)
 				OrderItem item = order.getOrderItem();
 				StringBuilder detail = new StringBuilder();
 
 				if (order.getProductCategory() != null) {
-					detail.append("카테고리: ").append(order.getProductCategory().getName()).append("\n");
+					detail.append("카테고리: ").append(safe(order.getProductCategory().getName()));
 				}
 
 				if (item != null) {
-					detail.append("제품명: ").append(item.getProductName()).append("\n");
+					if (detail.length() > 0)
+						detail.append(" / ");
+					detail.append("제품명: ").append(safe(item.getProductName()));
 
 					if (item.getOptionJson() != null && !item.getOptionJson().isBlank()) {
 						try {
 							Map<String, String> optionMap = objectMapper.readValue(item.getOptionJson(),
-									new TypeReference<>() {
+									new TypeReference<Map<String, String>>() {
 									});
-							int count = 0;
+
 							for (Map.Entry<String, String> entry : optionMap.entrySet()) {
-								detail.append(entry.getKey()).append(": ").append(entry.getValue());
-								count++;
-								if (count % 5 == 0) {
-									detail.append("\n");
-								} else {
-									detail.append(" / ");
-								}
-							}
-							if (!detail.toString().endsWith("\n")) {
-								detail.setLength(detail.length() - 3); // 마지막 " / " 제거
+								detail.append(" / ").append(safe(entry.getKey())).append(": ")
+										.append(safe(entry.getValue()));
 							}
 						} catch (Exception e) {
-							detail.append("[옵션 파싱 실패]");
+							detail.append(" / [옵션 파싱 실패]");
 						}
 					}
 				}
 
-				Cell detailCell = row.createCell(6);
-				detailCell.setCellValue(detail.toString().trim());
-				detailCell.setCellStyle(wrapStyle);
+				Cell c6 = row.createCell(6);
+				c6.setCellValue(detail.toString().trim());
+				c6.setCellStyle(wrapStyle);
 			}
 
 			workbook.write(response.getOutputStream());
 		}
+	}
+
+	// =========================
+	// Helper
+	// =========================
+
+	private static class StatusNormalizeResult {
+		final OrderStatus parsedStatus; // null이면 "전체"
+		final String statusParam; // 화면/링크 유지용(전체면 "")
+
+		StatusNormalizeResult(OrderStatus parsedStatus, String statusParam) {
+			this.parsedStatus = parsedStatus;
+			this.statusParam = statusParam;
+		}
+	}
+
+	/**
+	 * status 파라미터 정규화 정책: - null: 기본값(defaultStatus) 적용 + statusParam도
+	 * defaultStatus.name() - blank(""): 전체(null) + statusParam="" - 그 외: Enum 파싱 성공
+	 * 시 해당값, 실패 시 defaultStatus
+	 */
+	private static StatusNormalizeResult normalizeStatus(String status, OrderStatus defaultStatus) {
+		if (status == null) {
+			return new StatusNormalizeResult(defaultStatus, defaultStatus.name());
+		}
+		if (status.isBlank()) {
+			return new StatusNormalizeResult(null, "");
+		}
+		try {
+			OrderStatus parsed = OrderStatus.valueOf(status.trim());
+			return new StatusNormalizeResult(parsed, parsed.name());
+		} catch (IllegalArgumentException e) {
+			return new StatusNormalizeResult(defaultStatus, defaultStatus.name());
+		}
+	}
+
+	private static LocalDate parseLocalDateOrDefault(String v, LocalDate def) {
+		if (v == null)
+			return def;
+		String s = v.trim();
+		if (s.isEmpty())
+			return def;
+		try {
+			return LocalDate.parse(s, DateTimeFormatter.ISO_DATE);
+		} catch (DateTimeParseException e) {
+			return def;
+		}
+	}
+
+	private static void setThinBorder(CellStyle style) {
+		style.setBorderTop(BorderStyle.THIN);
+		style.setBorderBottom(BorderStyle.THIN);
+		style.setBorderLeft(BorderStyle.THIN);
+		style.setBorderRight(BorderStyle.THIN);
 	}
 
 	@GetMapping("/productionDetail/{id}")
