@@ -67,6 +67,33 @@ public class AsTaskService {
 
     private static final String AS_TEAM_NAME = "AS팀";
 
+    public Page<AsTask> getFilteredAsListPage(
+            Long handlerId,
+            AsStatus status,
+            String dateType,
+            LocalDateTime start,
+            LocalDateTime end,
+            Pageable pageable
+    ) {
+        if ("processed".equals(dateType)) {
+            return asTaskRepository.findByProcessedDateRangePage(handlerId, status, start, end, pageable);
+        }
+        return asTaskRepository.findByRequestedDateRangePage(handlerId, status, start, end, pageable);
+    }
+
+    public List<AsTask> getFilteredAsListAll(
+            Long handlerId,
+            AsStatus status,
+            String dateType,
+            LocalDateTime start,
+            LocalDateTime end
+    ) {
+        if ("processed".equals(dateType)) {
+            return asTaskRepository.findByProcessedDateRangeList(handlerId, status, start, end);
+        }
+        return asTaskRepository.findByRequestedDateRangeList(handlerId, status, start, end);
+    }
+    
     @Transactional(readOnly = true)
     public Page<AsTask> getAsTasks(
             Member handler,

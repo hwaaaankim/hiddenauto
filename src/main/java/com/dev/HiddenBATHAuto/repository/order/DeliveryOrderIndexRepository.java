@@ -22,20 +22,11 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
     List<DeliveryOrderIndex> findByDeliveryHandlerAndDeliveryDateOrderByOrderIndex(Member handler, LocalDate date);
 
     Optional<DeliveryOrderIndex> findByOrder_Id(Long orderId);
-    Optional<DeliveryOrderIndex> findByOrder(Order order);
 
     int countByDeliveryHandlerAndDeliveryDate(Member handler, LocalDate date);
 
     boolean existsByOrder_Id(Long orderId);
     boolean existsByOrder(Order order);
-
-    @Query("""
-        SELECT MAX(d.orderIndex)
-          FROM DeliveryOrderIndex d
-         WHERE d.deliveryHandler.id = :handlerId
-           AND d.deliveryDate = :date
-    """)
-    Integer findMaxIndexByHandlerAndDate(@Param("handlerId") Long handlerId, @Param("date") LocalDate date);
 
     @Query("""
         SELECT doi
@@ -52,9 +43,54 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
             Pageable pageable
     );
 
-    Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
-        Long handlerId, LocalDate deliveryDate, Long orderId);
-
     // (D) 담당자/날짜 해제 시 제거용
     void deleteByOrder(Order order);
+    
+    
+    @Query("""
+        SELECT doi
+          FROM DeliveryOrderIndex doi
+         WHERE doi.deliveryHandler.id = :handlerId
+           AND doi.deliveryDate = :deliveryDate
+           AND doi.order.status IN :statuses
+      ORDER BY
+           CASE WHEN doi.order.status = com.dev.HiddenBATHAuto.model.task.OrderStatus.DELIVERY_DONE THEN 1 ELSE 0 END ASC,
+           doi.orderIndex ASC
+    """)
+    List<DeliveryOrderIndex> findListByHandlerAndDateAndStatusIn(
+            @Param("handlerId") Long handlerId,
+            @Param("deliveryDate") LocalDate deliveryDate,
+            @Param("statuses") List<OrderStatus> statuses
+    );
+
+    java.util.Optional<DeliveryOrderIndex> findByOrder(Order order);
+
+    @Query("""
+        SELECT MAX(doi.orderIndex)
+          FROM DeliveryOrderIndex doi
+         WHERE doi.deliveryHandler.id = :handlerId
+           AND doi.deliveryDate = :deliveryDate
+    """)
+    Integer findMaxIndexByHandlerAndDate(@Param("handlerId") Long handlerId,
+                                        @Param("deliveryDate") LocalDate deliveryDate);
+
+    @Query("""
+        SELECT doi
+          FROM DeliveryOrderIndex doi
+         WHERE doi.deliveryHandler.id = :handlerId
+           AND doi.deliveryDate = :deliveryDate
+      ORDER BY
+           CASE WHEN doi.order.status = com.dev.HiddenBATHAuto.model.task.OrderStatus.DELIVERY_DONE THEN 1 ELSE 0 END ASC,
+           doi.orderIndex ASC
+    """)
+    List<DeliveryOrderIndex> findAllByHandlerAndDateForGuard(
+            @Param("handlerId") Long handlerId,
+            @Param("deliveryDate") LocalDate deliveryDate
+    );
+
+    java.util.Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
+            Long handlerId,
+            LocalDate deliveryDate,
+            Long orderId
+    );
 }

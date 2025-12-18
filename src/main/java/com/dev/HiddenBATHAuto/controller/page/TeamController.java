@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -73,87 +74,85 @@ public class TeamController {
 	private final ProvinceRepository provinceRepository;
 
 	@GetMapping("/productionList")
-    public String getProductionOrders(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam(required = false) Long productCategoryId,
-            @RequestParam(required = false, defaultValue = "preferred") String dateType,
-            @RequestParam(required = false, defaultValue = "IN_PROGRESS") String productionFilter,
-            @RequestParam(required = false, defaultValue = "10") int size,
-            @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            Model model
-    ) {
+	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) Long productCategoryId,
+			@RequestParam(required = false, defaultValue = "preferred") String dateType,
+			@RequestParam(required = false, defaultValue = "IN_PROGRESS") String productionFilter,
+			@RequestParam(required = false, defaultValue = "10") int size,
+			@RequestParam(required = false, defaultValue = "0") int page,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			Model model) {
 
-        Member member = principal.getMember();
+		Member member = principal.getMember();
 
-        if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
-            throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
-        }
+		if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+		}
 
-        Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
+		Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
 
-        LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-        LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+		LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+		LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
 
-        if (size != 10 && size != 30 && size != 50 && size != 100) size = 10;
-        if (page < 0) page = 0;
+		if (size != 10 && size != 30 && size != 50 && size != 100)
+			size = 10;
+		if (page < 0)
+			page = 0;
 
-        Pageable pageable = PageRequest.of(page, size);
+		Pageable pageable = PageRequest.of(page, size);
 
-        List<OrderStatus> baseStatuses = List.of(
-                OrderStatus.CONFIRMED,
-                OrderStatus.PRODUCTION_DONE,
-                OrderStatus.DELIVERY_DONE
-        );
+		List<OrderStatus> baseStatuses = List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE,
+				OrderStatus.DELIVERY_DONE);
 
-        Page<Order> orderPage = teamTaskService.getProductionOrdersByDateTypeAndProductionFilter(
-                baseStatuses, targetCategoryId, dateType, productionFilter, start, end, pageable
-        );
+		Page<Order> orderPage = teamTaskService.getProductionOrdersByDateTypeAndProductionFilter(baseStatuses,
+				targetCategoryId, dateType, productionFilter, start, end, pageable);
 
-        // ✅ 하부장팀 제한(기존 로직 유지)
-        boolean isSubLeaderTeam = (member.getTeamCategory() != null && "하부장".equals(member.getTeamCategory().getName()));
-        boolean canBulkComplete = true;
-        if (isSubLeaderTeam) {
-            canBulkComplete = member.getTeamCategory() != null && member.getTeamCategory().getId().equals(targetCategoryId);
-        }
+		// ✅ 하부장팀 제한(기존 로직 유지)
+		boolean isSubLeaderTeam = (member.getTeamCategory() != null
+				&& "하부장".equals(member.getTeamCategory().getName()));
+		boolean canBulkComplete = true;
+		if (isSubLeaderTeam) {
+			canBulkComplete = member.getTeamCategory() != null
+					&& member.getTeamCategory().getId().equals(targetCategoryId);
+		}
 
-        // ✅ 업체명 맵: Order -> Task -> Member -> Company -> companyName
-        Map<Long, String> orderCompanyNameMap = new HashMap<>();
-        for (Order o : orderPage.getContent()) {
-            String companyName = "-";
-            try {
-                if (o.getTask() != null
-                        && o.getTask().getRequestedBy() != null
-                        && o.getTask().getRequestedBy().getCompany() != null) {
+		// ✅ 업체명 맵: Order -> Task -> Member -> Company -> companyName
+		Map<Long, String> orderCompanyNameMap = new HashMap<>();
+		for (Order o : orderPage.getContent()) {
+			String companyName = "-";
+			try {
+				if (o.getTask() != null && o.getTask().getRequestedBy() != null
+						&& o.getTask().getRequestedBy().getCompany() != null) {
 
-                    String n = o.getTask().getRequestedBy().getCompany().getCompanyName();
-                    if (n != null && !n.isBlank()) companyName = n;
-                }
-            } catch (Exception ignore) {
-                companyName = "-";
-            }
-            orderCompanyNameMap.put(o.getId(), companyName);
-        }
+					String n = o.getTask().getRequestedBy().getCompany().getCompanyName();
+					if (n != null && !n.isBlank())
+						companyName = n;
+				}
+			} catch (Exception ignore) {
+				companyName = "-";
+			}
+			orderCompanyNameMap.put(o.getId(), companyName);
+		}
 
-        List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
+		List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
 
-        model.addAttribute("orders", orderPage.getContent());
-        model.addAttribute("page", orderPage);
+		model.addAttribute("orders", orderPage.getContent());
+		model.addAttribute("page", orderPage);
 
-        model.addAttribute("productCategoryId", targetCategoryId);
-        model.addAttribute("dateType", dateType);
-        model.addAttribute("productionFilter", productionFilter);
-        model.addAttribute("size", size);
-        model.addAttribute("startDate", startDate);
-        model.addAttribute("endDate", endDate);
-        model.addAttribute("productCategories", productCategories);
+		model.addAttribute("productCategoryId", targetCategoryId);
+		model.addAttribute("dateType", dateType);
+		model.addAttribute("productionFilter", productionFilter);
+		model.addAttribute("size", size);
+		model.addAttribute("startDate", startDate);
+		model.addAttribute("endDate", endDate);
+		model.addAttribute("productCategories", productCategories);
 
-        model.addAttribute("canBulkComplete", canBulkComplete);
-        model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
+		model.addAttribute("canBulkComplete", canBulkComplete);
+		model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
 
-        return "administration/team/production/productionList";
-    }
+		return "administration/team/production/productionList";
+	}
 
 	@GetMapping("/productionDetail/{orderId}")
 	public String getProductionDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,
@@ -225,43 +224,98 @@ public class TeamController {
 	@GetMapping("/deliveryList")
 	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
-			@RequestParam(required = false) OrderStatus status, // ✅ 추가: 상태 필터(선택)
-			Pageable pageable, Model model) {
-
+			@RequestParam(required = false) OrderStatus status, Model model) {
 		Member member = principal.getMember();
 
-		// 1. 접근 제한: 배송팀만 접근 가능
+		// 1) 배송팀만 접근
 		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
 			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
 		}
 
-		// 2. 기본 조회일은 내일
+		// 2) 기본 조회일: 내일
 		if (preferredDate == null) {
 			preferredDate = LocalDate.now().plusDays(1);
 		}
 
-		// 3. 조회 대상 상태
-		// ✅ status가 지정되면 그 단일 상태만 조회
-		// ✅ status가 없으면 기본(전체조회 개념)으로 CONFIRMED 포함 3개 상태 조회
+		// 3) 상태 필터: status 없으면 3개 기본
 		List<OrderStatus> statuses = (status != null) ? List.of(status)
 				: List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
 
-		// 4. 인덱스 기준 정렬된 배송리스트 조회
-		Page<DeliveryOrderIndex> page = deliveryOrderIndexRepository.findByHandlerAndDateAndStatusIn(member.getId(),
-				preferredDate, statuses, pageable);
+		// 4) 전체 조회(페이지네이션 제거)
+		// ✅ ORDER BY: (배송완료는 뒤로) + orderIndex ASC
+		List<DeliveryOrderIndex> all = deliveryOrderIndexRepository.findListByHandlerAndDateAndStatusIn(member.getId(),
+				preferredDate, statuses);
 
-		// 5. 모델에 데이터 전달
+		// 5) 섹션 분리
+		List<DeliveryOrderIndex> pendingOrders = all.stream()
+				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
+				.collect(Collectors.toList());
+
+		List<DeliveryOrderIndex> doneOrders = all.stream()
+				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+				.collect(Collectors.toList());
+
+		// 6) 모델
 		model.addAttribute("deliveryHandlerId", member.getId());
-		model.addAttribute("orders", page.getContent());
-		model.addAttribute("page", page);
 		model.addAttribute("preferredDate", preferredDate);
 
-		// ✅ 화면에 상태 선택값 유지용
+		model.addAttribute("pendingOrders", pendingOrders);
+		model.addAttribute("doneOrders", doneOrders);
+
 		model.addAttribute("status", status);
 		model.addAttribute("availableStatuses",
 				List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
 
 		return "administration/team/delivery/deliveryList";
+	}
+
+	@PostMapping("/updateOrderIndex")
+	@ResponseBody
+	public org.springframework.http.ResponseEntity<?> updateOrderIndex(
+			@AuthenticationPrincipal PrincipalDetails principal, @RequestBody DeliveryOrderIndexUpdateRequest request) {
+		// ✅ 배송팀 권한 체크(프론트 조작 방어)
+		Member member = principal.getMember();
+		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+		}
+
+		// ✅ 자기 자신(해당 배송팀 직원)만 저장 가능하게 강제
+		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+			return org.springframework.http.ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+		}
+
+		deliveryOrderIndexService.updateIndexesWithDoneGuard(request);
+		return org.springframework.http.ResponseEntity.ok().build();
+	}
+
+	@PostMapping("/deliveryStatus/{orderId}")
+	public String updateDeliveryStatusAndUploadImages(@AuthenticationPrincipal PrincipalDetails principal,
+			@PathVariable Long orderId, @RequestParam(value = "status", required = false) String status,
+			@RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
+			org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
+		try {
+			Member member = principal.getMember();
+			if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+				throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+			}
+
+			Order order = orderRepository.findById(orderId)
+					.orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+
+			// CONFIRMED 상태 변경 차단(기존 요구)
+			if (order.getStatus() == OrderStatus.CONFIRMED) {
+				throw new IllegalStateException("관리자승인(생산 전) 상태에서는 배송완료 처리 및 증빙 업로드가 불가능합니다.");
+			}
+
+			orderService.updateDeliveryStatusAndImages(orderId, status, files);
+
+			redirectAttributes.addFlashAttribute("successMessage", "배송 상태가 변경되었습니다.");
+		} catch (Exception e) {
+			e.printStackTrace();
+			redirectAttributes.addFlashAttribute("errorMessage", "배송 상태 변경 실패: " + e.getMessage());
+		}
+
+		return "redirect:/team/deliveryDetail/" + orderId;
 	}
 
 	@GetMapping("/deliveryDetail/{id}")
@@ -286,46 +340,6 @@ public class TeamController {
 		model.addAttribute("orderItem", orderItem);
 
 		return "administration/team/delivery/deliveryDetail"; // 뷰 이름
-	}
-
-	@PostMapping("/updateOrderIndex")
-	@ResponseBody
-	public ResponseEntity<?> updateOrderIndex(@RequestBody DeliveryOrderIndexUpdateRequest request) {
-		deliveryOrderIndexService.updateIndexes(request);
-		return ResponseEntity.ok().build();
-	}
-
-	@PostMapping("/deliveryStatus/{orderId}")
-	public String updateDeliveryStatusAndUploadImages(@AuthenticationPrincipal PrincipalDetails principal,
-			@PathVariable Long orderId, @RequestParam(value = "status", required = false) String status,
-			@RequestParam(value = "files", required = false) List<MultipartFile> files,
-			RedirectAttributes redirectAttributes) {
-
-		try {
-			// ✅ (권한) 배송팀만
-			Member member = principal.getMember();
-			if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-				throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-			}
-
-			// ✅ (안전장치) 컨펌 상태면 아예 막기
-			Order order = orderRepository.findById(orderId)
-					.orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
-
-			// TODO: ADMIN_CONFIRMED 를 실제 enum으로 치환
-			if (order.getStatus() == OrderStatus.CONFIRMED) {
-				throw new IllegalStateException("관리자승인(생산 전) 상태에서는 배송완료 처리 및 증빙 업로드가 불가능합니다.");
-			}
-
-			orderService.updateDeliveryStatusAndImages(orderId, status, files);
-
-			redirectAttributes.addFlashAttribute("successMessage", "배송 상태가 변경되었습니다.");
-		} catch (Exception e) {
-			e.printStackTrace();
-			redirectAttributes.addFlashAttribute("errorMessage", "배송 상태 변경 실패: " + e.getMessage());
-		}
-
-		return "redirect:/team/deliveryDetail/" + orderId;
 	}
 
 	@GetMapping("/asList")

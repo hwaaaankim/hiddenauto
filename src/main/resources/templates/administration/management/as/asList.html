@@ -1,6 +1,6 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
-	data-sidebar-image="none" data-preloader="disable">
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+	data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
@@ -15,10 +15,11 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
-		<div class="main-content">
 
+		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
+
 					<!-- start page title -->
 					<div class="row">
 						<div class="col-12">
@@ -36,9 +37,11 @@
 						</div>
 					</div>
 					<!-- end page title -->
+
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card" id="tasksList">
+
 								<div class="card-header border-0">
 									<div class="d-flex align-items-center">
 										<h5 class="card-title mb-0 flex-grow-1">AS MANAGER</h5>
@@ -48,8 +51,8 @@
 													handlerId=${selectedHandlerId},
 													status=${selectedStatus},
 													dateType=${selectedDateType},
-													fromDate=${#temporals.format(selectedFromDate, 'yyyy-MM-dd')},
-													toDate=${#temporals.format(selectedToDate, 'yyyy-MM-dd')}
+													fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+													toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
 												)}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
@@ -57,18 +60,19 @@
 										</div>
 									</div>
 								</div>
+
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" action="/management/asList">
 										<div class="row g-3">
+
 											<!-- 상태 -->
 											<div class="col-md-2">
 												<label class="form-label">AS 상태</label>
 												<select class="form-select" name="status">
 													<option value="">전체</option>
-													<option
-														th:each="status : ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).values()}"
-														th:value="${status}" th:text="${status}"
-														th:selected="${selectedStatus != null and selectedStatus.name() == status.name()}">
+													<option th:each="st : ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).values()}"
+														th:value="${st}" th:text="${st}"
+														th:selected="${selectedStatus != null and selectedStatus.name() == st.name()}">
 													</option>
 												</select>
 											</div>
@@ -77,9 +81,9 @@
 											<div class="col-md-2">
 												<label class="form-label">AS 담당자</label>
 												<select class="form-select" name="handlerId">
-													<option value="" th:selected="${selectedHandlerId == null}">전체
-													</option>
-													<option th:each="handler : ${asHandlers}" th:value="${handler.id}"
+													<option value="" th:selected="${selectedHandlerId == null}">전체</option>
+													<option th:each="handler : ${asHandlers}"
+														th:value="${handler.id}"
 														th:text="${handler.name}"
 														th:selected="${selectedHandlerId != null and selectedHandlerId == handler.id}">
 													</option>
@@ -111,7 +115,6 @@
 													th:value="${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}">
 											</div>
 
-
 											<!-- 검색 버튼 -->
 											<div class="col-md-2">
 												<label class="form-label">조회</label>
@@ -119,11 +122,11 @@
 													<i class="fa-solid fa-magnifying-glass"></i> 검색
 												</button>
 											</div>
+
 										</div>
 									</form>
-
 								</div>
-								<!--end card-body-->
+
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
@@ -131,8 +134,7 @@
 												<tr>
 													<th scope="col" style="width: 40px;">
 														<div class="form-check">
-															<input class="form-check-input" type="checkbox"
-																id="checkAll" value="option">
+															<input class="form-check-input" type="checkbox" id="checkAll" value="option">
 														</div>
 													</th>
 													<th class="sort">ID</th>
@@ -145,153 +147,153 @@
 													<th class="sort">상태</th>
 												</tr>
 											</thead>
+
 											<tbody class="list form-check-all">
 												<tr th:each="as : ${asPage.content}">
 													<th scope="row">
 														<div class="form-check">
-															<input class="form-check-input" type="checkbox"
-																name="chk_child" />
+															<input class="form-check-input" type="checkbox" name="chk_child" />
 														</div>
 													</th>
 
-													<!-- Task ID -->
 													<td>
 														<a th:href="@{/management/asDetail/{id}(id=${as.id})}"
 															class="fw-medium link-primary"
 															th:text="${'AS_TASK_#' + as.id}">AS_TASK_0</a>
 													</td>
 
-													<!-- 대리점명 -->
 													<td class="project_name">
 														<a href="#" class="fw-medium link-primary"
 															th:text="${as.requestedBy != null and as.requestedBy.company != null ? as.requestedBy.company.companyName : '미지정'}">
 															대리점명</a>
 													</td>
 
-													<!-- 신청자명 -->
 													<td>
-														<a href="#"
-															th:text="${as.requestedBy != null ? as.requestedBy.name : '미지정'}">신청자명</a>
+														<a href="#" th:text="${as.requestedBy != null ? as.requestedBy.name : '미지정'}">신청자명</a>
 													</td>
 
-													<!-- 담당AS사원 -->
 													<td class="assignedto">
-														<span th:if="${as.assignedHandler != null}"
-															th:text="${as.assignedHandler.name}">사원이름</span>
-														<span class="text-muted"
-															th:if="${as.assignedHandler == null}">미지정</span>
+														<span th:if="${as.assignedHandler != null}" th:text="${as.assignedHandler.name}">사원이름</span>
+														<span class="text-muted" th:if="${as.assignedHandler == null}">미지정</span>
 													</td>
 
-													<!-- 신청일 -->
-													<td
-														th:text="${#temporals.format(as.requestedAt, 'yyyy-MM-dd HH:mm')}">
-														00:00</td>
+													<td th:text="${as.requestedAt != null ? #temporals.format(as.requestedAt, 'yyyy-MM-dd HH:mm') : '-'}">00:00</td>
+													<td th:text="${as.updatedAt != null ? #temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm') : '-'}">00:00</td>
+													<td th:text="${as.asProcessDate != null ? #temporals.format(as.asProcessDate, 'yyyy-MM-dd HH:mm') : '-'}">00:00</td>
 
-													<!-- 최근수정일 -->
-													<td
-														th:text="${#temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm')}">
-														00:00</td>
-													<td
-														th:text="${#temporals.format(as.asProcessDate, 'yyyy-MM-dd HH:mm')}">
-														00:00</td>
-													<!-- 상태 -->
 													<td class="status">
-														<span class="badge text-uppercase" th:classappend="|bg-${
-					  as.status.name() == 'REQUESTED' ? 'secondary-subtle text-secondary' :
-					  as.status.name() == 'IN_PROGRESS' ? 'warning-subtle text-warning' :
-					  as.status.name() == 'COMPLETED' ? 'success-subtle text-success' : 'light'
-				  }|" th:text="${as.status.name()}">상태</span>
+														<span class="badge text-uppercase"
+															th:classappend="|bg-${
+																as.status != null and as.status.name() == 'REQUESTED' ? 'secondary-subtle text-secondary' :
+																as.status != null and as.status.name() == 'IN_PROGRESS' ? 'warning-subtle text-warning' :
+																as.status != null and as.status.name() == 'COMPLETED' ? 'success-subtle text-success' : 'light'
+															}|"
+															th:text="${as.status != null ? as.status.name() : 'UNKNOWN'}">상태</span>
 													</td>
 												</tr>
 											</tbody>
+
 										</table>
 
-										<div class="noresult" style="display: none">
+										<div class="noresult" th:if="${asPage.totalElements == 0}">
 											<div class="text-center">
 												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
-													colors="primary:#121331,secondary:#08a88a"
-													style="width:75px;height:75px"></lord-icon>
+													colors="primary:#121331,secondary:#08a88a" style="width:75px;height:75px"></lord-icon>
 												<h5 class="mt-2">결과가 존재하지않습니다.</h5>
 												<p class="text-muted mb-0">다른 조건으로 검색을 진행 해 주시기 바랍니다.</p>
 											</div>
 										</div>
+
 									</div>
+
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
+
 													<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/asList(
-				page=0,
-				handlerId=${selectedHandlerId},
-				status=${selectedStatus},
-				dateType=${selectedDateType},
-				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
-			)}">First</a>
+														<a class="page-link"
+															th:href="@{/management/asList(
+																page=0,
+																handlerId=${selectedHandlerId},
+																status=${selectedStatus},
+																dateType=${selectedDateType},
+																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+															)}">First</a>
 													</li>
 
 													<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/asList(
-				page=${asPage.number - 1},
-				handlerId=${selectedHandlerId},
-				status=${selectedStatus},
-				dateType=${selectedDateType},
-				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
-			)}">Previous</a>
+														<a class="page-link"
+															th:href="@{/management/asList(
+																page=${asPage.number - 1},
+																handlerId=${selectedHandlerId},
+																status=${selectedStatus},
+																dateType=${selectedDateType},
+																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+															)}">Previous</a>
 													</li>
 
 													<li class="page-item"
 														th:each="pageNum : ${#numbers.sequence(0, asPage.totalPages - 1)}"
 														th:classappend="${asPage.number == pageNum} ? 'active'">
-														<a class="page-link" th:href="@{/management/asList(
-				page=${pageNum},
-				handlerId=${selectedHandlerId},
-				status=${selectedStatus},
-				dateType=${selectedDateType},
-				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
-			)}" th:text="${pageNum + 1}">1</a>
+														<a class="page-link"
+															th:href="@{/management/asList(
+																page=${pageNum},
+																handlerId=${selectedHandlerId},
+																status=${selectedStatus},
+																dateType=${selectedDateType},
+																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+															)}"
+															th:text="${pageNum + 1}">1</a>
 													</li>
 
 													<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/asList(
-				page=${asPage.number + 1},
-				handlerId=${selectedHandlerId},
-				status=${selectedStatus},
-				dateType=${selectedDateType},
-				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
-			)}">Next</a>
+														<a class="page-link"
+															th:href="@{/management/asList(
+																page=${asPage.number + 1},
+																handlerId=${selectedHandlerId},
+																status=${selectedStatus},
+																dateType=${selectedDateType},
+																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+															)}">Next</a>
 													</li>
 
 													<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/asList(
-				page=${asPage.totalPages - 1},
-				handlerId=${selectedHandlerId},
-				status=${selectedStatus},
-				dateType=${selectedDateType},
-				fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-				toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
-			)}">Last</a>
+														<a class="page-link"
+															th:href="@{/management/asList(
+																page=${asPage.totalPages - 1},
+																handlerId=${selectedHandlerId},
+																status=${selectedStatus},
+																dateType=${selectedDateType},
+																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+															)}">Last</a>
 													</li>
+
 												</ul>
-
 											</nav>
 										</div>
 									</div>
+
 								</div>
+
 							</div>
 						</div>
 					</div>
+
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
-</body>
 
+</body>
 </html>

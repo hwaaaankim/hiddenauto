@@ -41,11 +41,9 @@
 										placeholder="YYYY-MM-DD" data-provider="flatpickr" th:value="${preferredDate}">
 								</div>
 
-								<!-- ✅ 상태 필터 추가 -->
 								<div class="col-lg-4">
 									<label class="form-label">상태</label>
 									<select class="form-select" name="status">
-										<!-- ALL: 파라미터 빈 값이면 컨트롤러에서 null로 받도록 -->
 										<option value="" th:selected="${status == null}">전체(승인/생산완료/배송완료)</option>
 										<option th:each="st : ${availableStatuses}" th:value="${st}"
 											th:text="${st.label}"
@@ -66,82 +64,146 @@
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card">
-								<div class="card-header">
-									<button type="button" class="btn btn-success" id="saveOrderIndexBtn" disabled>순서
-										저장</button>
+								<div class="card-header d-flex align-items-center justify-content-between">
+									<div class="d-flex align-items-center gap-2">
+										<button type="button" class="btn btn-success" id="saveOrderIndexBtn" disabled>
+											순서 저장
+										</button>
+										<small class="text-muted">
+											※ 미완료(승인/생산완료)만 순서 변경 가능하며, 배송완료는 하단 고정입니다.
+										</small>
+									</div>
+
+									<div>
+										<span class="badge bg-warning-subtle text-warning me-1">미완료</span>
+										<span class="badge bg-success-subtle text-success">배송완료</span>
+									</div>
 								</div>
 
 								<div class="card-body">
 
-									<div class="list-group col nested-list nested-sortable">
-										<div class="list-group-item nested-1 draggable-item" th:each="order : ${orders}"
-											th:attr="data-order-id=${order.order.id}">
-											<div class="item-content">
-												<div class="text-section">
-													<div>
-														<strong>업체명:</strong>
-														<span
-															th:text="${order.order.task.requestedBy.company.companyName}"></span>
+									<!-- ✅ 미완료 섹션 -->
+									<div class="mb-3">
+										<h5 class="mb-2">미완료</h5>
+
+										<div id="pendingList" class="list-group col nested-list nested-sortable">
+											<!-- pendingOrders -->
+											<div class="list-group-item nested-1 draggable-item delivery-card"
+												th:each="wrap : ${pendingOrders}" th:with="o=${wrap.order}"
+												th:attr="data-order-id=${o.id}"
+												th:classappend="${o.status.name() == 'PRODUCTION_DONE'} ? ' border border-warning' : ' border border-secondary'">
+
+												<div class="item-content">
+													<div class="text-section">
+														<div class="d-flex align-items-center gap-2 mb-1">
+															<strong>업체명:</strong>
+															<span
+																th:text="${o.task.requestedBy.company.companyName}"></span>
+
+															<!-- 상태 배지 -->
+															<span class="badge" th:classappend="${o.status.name() == 'CONFIRMED'} ? ' bg-secondary' :
+																			   (${o.status.name() == 'PRODUCTION_DONE'} ? ' bg-warning' : ' bg-light')"
+																th:text="${o.status.label}">
+															</span>
+
+															<!-- 안내 메시지 -->
+															<small class="text-muted"
+																th:if="${o.status.name() == 'CONFIRMED'}">
+																(승인 상태: 상태변경 불가)
+															</small>
+															<small class="text-muted"
+																th:if="${o.status.name() == 'PRODUCTION_DONE'}">
+																(완료처리 가능)
+															</small>
+														</div>
+
+														<div>
+															<strong>주소:</strong>
+															<span
+																th:text="${o.roadAddress + ' ' + o.detailAddress}"></span>
+														</div>
+
+														<div class="ellipsis">
+															<strong>제품 상세:</strong>
+															<span th:text="${o.orderItem.productName}"></span>
+														</div>
 													</div>
-													<div>
-														<strong>주소:</strong>
-														<span
-															th:text="${order.order.roadAddress + ' ' + order.order.detailAddress}"></span>
-													</div>
-													<div class="ellipsis">
-														<strong>제품 상세:</strong>
-														<span th:text="${order.order.orderItem.productName}"></span>
-													</div>
-													<div class="mt-1">
-														<strong>상태:</strong>
-														<span th:text="${order.order.status.label}"></span>
+
+													<div class="action-btn-group">
+														<a class="action-btn"
+															th:href="@{'/team/deliveryDetail/' + ${o.id}}">
+															상세보기
+														</a>
+
+														<!-- ✅ 완료처리 버튼은 PRODUCTION_DONE일 때만 -->
+														<button type="button" class="action-btn btn-complete"
+															th:if="${o.status.name() == 'PRODUCTION_DONE'}"
+															th:attr="data-order-id=${o.id}">
+															완료처리
+														</button>
+
+														<!-- CONFIRMED는 상태변경 불가 -->
+														<button type="button" class="action-btn action-btn-disabled"
+															disabled th:if="${o.status.name() == 'CONFIRMED'}">
+															상태변경불가
+														</button>
 													</div>
 												</div>
 
-												<div class="action-btn-group">
-													<a class="action-btn"
-														th:href="@{'/team/deliveryDetail/' + ${order.order.id}}">상세보기</a>
-													<button type="button" class="action-btn" data-bs-toggle="modal"
-														data-bs-target="#zoomInModal">완료처리</button>
-												</div>
 											</div>
 										</div>
 									</div>
 
-									<!-- ✅ 페이지네이션 (status 유지) -->
-									<div class="row g-0 text-center text-sm-start align-items-end mt-4">
-										<div class="col-sm-12">
-											<ul
-												class="pagination pagination-separated justify-content-center justify-content-sm-end mb-sm-0">
+									<!-- ✅ 배송완료 섹션 -->
+									<div class="mt-4">
+										<h5 class="mb-2">배송완료</h5>
 
-												<li th:classappend="${page.first} ? 'disabled'" class="page-item">
-													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=0&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">FIRST</a>
-												</li>
+										<div id="doneList" class="list-group col nested-list">
+											<!-- doneOrders -->
+											<div class="list-group-item nested-1 draggable-item delivery-card is-done border border-success"
+												th:each="wrap : ${doneOrders}" th:with="o=${wrap.order}"
+												th:attr="data-order-id=${o.id}">
 
-												<li th:classappend="${page.first} ? 'disabled'" class="page-item">
-													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${page.number - 1}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">PREV</a>
-												</li>
+												<div class="item-content">
+													<div class="text-section">
+														<div class="d-flex align-items-center gap-2 mb-1">
+															<strong>업체명:</strong>
+															<span
+																th:text="${o.task.requestedBy.company.companyName}"></span>
 
-												<li th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
-													th:classappend="${page.number == i} ? 'active'" class="page-item">
-													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${i}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}"
-														th:text="${i + 1}"></a>
-												</li>
+															<span class="badge bg-success"
+																th:text="${o.status.label}"></span>
 
-												<li th:classappend="${page.last} ? 'disabled'" class="page-item">
-													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${page.number + 1}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">NEXT</a>
-												</li>
+															<small class="text-success">
+																(배송완료: 순서/상태 변경 불가)
+															</small>
+														</div>
 
-												<li th:classappend="${page.last} ? 'disabled'" class="page-item">
-													<a class="page-link"
-														th:href="@{|/team/deliveryList?page=${page.totalPages - 1}&preferredDate=${preferredDate}${status != null ? '&status=' + status : ''}|}">LAST</a>
-												</li>
+														<div>
+															<strong>주소:</strong>
+															<span
+																th:text="${o.roadAddress + ' ' + o.detailAddress}"></span>
+														</div>
 
-											</ul>
+														<div class="ellipsis">
+															<strong>제품 상세:</strong>
+															<span th:text="${o.orderItem.productName}"></span>
+														</div>
+													</div>
+
+													<div class="action-btn-group">
+														<a class="action-btn"
+															th:href="@{'/team/deliveryDetail/' + ${o.id}}">
+															상세보기
+														</a>
+														<button type="button" class="action-btn action-btn-disabled"
+															disabled>
+															완료됨
+														</button>
+													</div>
+												</div>
+
+											</div>
 										</div>
 									</div>
 
@@ -166,66 +228,142 @@
 	<script src="https://cdn.lordicon.com/libs/mssddfmo/lord-icon-2.1.0.js"></script>
 	<script src="/administration/assets/js/pages/modal.init.js"></script>
 
+	<style>
+		/* hover 시 버튼 노출 유지(현재 구조 그대로) + 비활성 버튼 스타일 */
+		.action-btn-disabled {
+			opacity: 0.6;
+			cursor: not-allowed;
+		}
+
+		.delivery-card.is-done {
+			background: rgba(25, 135, 84, 0.04);
+		}
+	</style>
+
 	<script>
-		document.addEventListener("DOMContentLoaded", function () {
-			const orders = Array.from(document.querySelectorAll(".draggable-item"));
-			const deliveryDate = document.getElementById("deliveryDate")?.value || "(날짜 미지정)";
-			console.log("=== [초기 로드 시 인덱스 출력] ===");
-			orders.forEach((el, idx) => {
-				const orderId = el.getAttribute("data-order-id");
-				console.log(`[${deliveryDate}] Order ID: ${orderId}, Index: ${idx + 1}`);
+		(function () {
+			'use strict';
+
+			const saveButton = document.getElementById("saveOrderIndexBtn");
+			const pendingListEl = document.getElementById("pendingList");
+			const doneListEl = document.getElementById("doneList");
+
+			// CSRF
+			const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+			const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+
+			// ✅ 초기 로드 로그(디버그)
+			document.addEventListener("DOMContentLoaded", function () {
+				const deliveryDate = document.getElementById("deliveryDate")?.value || "(날짜 미지정)";
+				const pendingIds = Array.from(pendingListEl.querySelectorAll(".draggable-item")).map(x => x.getAttribute("data-order-id"));
+				const doneIds = Array.from(doneListEl.querySelectorAll(".draggable-item")).map(x => x.getAttribute("data-order-id"));
+				console.log("=== [초기 로드] ===");
+				console.log(`[${deliveryDate}] pendingIds=`, pendingIds);
+				console.log(`[${deliveryDate}] doneIds=`, doneIds);
 			});
-		});
 
-		const saveButton = document.getElementById("saveOrderIndexBtn");
+			// ✅ Sortable은 "미완료 섹션"에만 적용
+			const sortable = new Sortable(pendingListEl, {
+				group: "pending",
+				animation: 150,
+				fallbackOnBody: true,
+				swapThreshold: 0.65,
+				onEnd: () => {
+					saveButton.disabled = false;
+				}
+			});
 
-		const sortable = new Sortable(document.querySelector(".nested-sortable"), {
-			group: "nested",
-			animation: 150,
-			fallbackOnBody: true,
-			swapThreshold: 0.65,
-			onEnd: () => {
-				saveButton.disabled = false;
-			}
-		});
+			// ✅ "완료처리" 버튼 동작: confirm -> POST /team/deliveryStatus/{orderId}?status=DELIVERY_DONE -> reload
+			document.addEventListener("click", async (e) => {
+				const btn = e.target.closest(".btn-complete");
+				if (!btn) return;
 
-		saveButton.addEventListener("click", () => {
-			const orders = Array.from(document.querySelectorAll(".draggable-item"));
-			const orderedIds = orders.map((el, idx) => {
-				return {
-					orderId: el.getAttribute("data-order-id"),
+				const orderId = btn.getAttribute("data-order-id");
+				if (!orderId) return;
+
+				const ok = confirm("완료 처리 하시겠습니까?");
+				if (!ok) return;
+
+				try {
+					const url = `/team/deliveryStatus/${orderId}?status=DELIVERY_DONE`;
+
+					const headers = {};
+					if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
+
+					const res = await fetch(url, {
+						method: "POST",
+						headers
+					});
+
+					if (!res.ok) {
+						const text = await res.text().catch(() => "");
+						alert("완료처리 실패\n" + (text || ("HTTP " + res.status)));
+						return;
+					}
+
+					// 성공 시 리프레시
+					location.reload();
+				} catch (err) {
+					console.error(err);
+					alert("완료처리 중 오류가 발생했습니다.");
+				}
+			});
+
+			// ✅ 저장: pending + done 합쳐서 DOM 순서대로 1..N 전체 인덱스 재부여(충돌 방지)
+			saveButton.addEventListener("click", async () => {
+				const deliveryHandlerId = document.getElementById("deliveryHandlerId")?.value;
+				const deliveryDate = document.getElementById("deliveryDate")?.value;
+
+				if (!deliveryHandlerId) {
+					alert("담당자 정보가 없습니다.");
+					return;
+				}
+				if (!deliveryDate) {
+					alert("날짜를 선택해주세요.");
+					return;
+				}
+
+				const pendingItems = Array.from(pendingListEl.querySelectorAll(".draggable-item"));
+				const doneItems = Array.from(doneListEl.querySelectorAll(".draggable-item"));
+
+				// ✅ 최종 노출 순서 = pending(드래그된 순서) + done(고정)
+				const allItems = pendingItems.concat(doneItems);
+
+				const orderedIds = allItems.map((el, idx) => ({
+					orderId: Number(el.getAttribute("data-order-id")),
 					orderIndex: idx + 1
-				};
-			});
+				}));
 
-			const deliveryHandlerId = document.getElementById("deliveryHandlerId").value;
-			const deliveryDate = document.getElementById("deliveryDate").value;
+				console.log("=== [순서 저장 payload] ===");
+				console.log({deliveryHandlerId, deliveryDate, orderList: orderedIds});
 
-			console.log("=== [버튼 클릭 시 변경된 인덱스 출력] ===");
-			orderedIds.forEach((item) => {
-				console.log(`[${deliveryDate}] Order ID: ${item.orderId}, Index: ${item.orderIndex}`);
-			});
+				try {
+					const headers = {"Content-Type": "application/json"};
+					if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
 
-			fetch("/team/updateOrderIndex", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify({
-					deliveryHandlerId: deliveryHandlerId,
-					deliveryDate: deliveryDate,
-					orderList: orderedIds
-				})
-			})
-				.then(res => {
+					const res = await fetch("/team/updateOrderIndex", {
+						method: "POST",
+						headers,
+						body: JSON.stringify({
+							deliveryHandlerId: Number(deliveryHandlerId),
+							deliveryDate: deliveryDate,
+							orderList: orderedIds
+						})
+					});
+
 					if (res.ok) {
 						alert("순서가 저장되었습니다.");
 						saveButton.disabled = true;
 					} else {
-						alert("순서 저장 실패");
+						const text = await res.text().catch(() => "");
+						alert("순서 저장 실패\n" + (text || ("HTTP " + res.status)));
 					}
-				});
-		});
+				} catch (err) {
+					console.error(err);
+					alert("순서 저장 중 오류가 발생했습니다.");
+				}
+			});
+		})();
 	</script>
 </body>
 

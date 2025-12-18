@@ -45,12 +45,13 @@
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
 												<a th:href="@{/management/deliveryList/excel(
-												    categoryId=${categoryId}, 
-												    status=${status}, 
-												    dateType=${dateType},
-												    startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-												    endDate=${#temporals.format(endDate, 'yyyy-MM-dd')}
-												)}" class="btn btn-success">
+													    categoryId=${categoryId},
+													    assignedMemberId=${assignedMemberId},
+													    status=${status},
+													    dateType=${dateType},
+													    startDate=${startDate},
+													    endDate=${endDate}
+													)}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
 											</div>
@@ -110,15 +111,13 @@
 										<!-- 시작일 -->
 										<div class="col-md-2">
 											<label class="form-label">시작일</label>
-											<input type="date" class="form-control" name="startDate"
-												th:value="${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}" />
+											<input type="date" class="form-control" name="startDate" th:value="${startDate}" />
 										</div>
 
 										<!-- 종료일 -->
 										<div class="col-md-2">
 											<label class="form-label">종료일</label>
-											<input type="date" class="form-control" name="endDate"
-												th:value="${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}" />
+											<input type="date" class="form-control" name="endDate" th:value="${endDate}" />
 										</div>
 
 										<!-- 검색 버튼 -->
@@ -220,65 +219,86 @@
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
-
-													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(page=0,
-							size=${orders.size},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">First</a>
-													</li>
-
-													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(page=${orders.number - 1},
-							size=${orders.size},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">Previous</a>
-													</li>
-
-													<li class="page-item"
-														th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
-														th:classappend="${i == orders.number + 1} ? 'active'">
-														<a class="page-link" th:href="@{/management/deliveryList(page=${i - 1},
-							size=${orders.size},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}" th:text="${i}">1</a>
-													</li>
-
-													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(page=${orders.number + 1},
-							size=${orders.size},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">Next</a>
-													</li>
-
-													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(page=${orders.totalPages - 1},
-							size=${orders.size},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${#temporals.format(startDate, 'yyyy-MM-dd')},
-							endDate=${#temporals.format(endDate, 'yyyy-MM-dd')})}">Last</a>
-													</li>
-
+												    <!-- First -->
+												    <li class="page-item" th:classappend="${orders.first} ? 'disabled'">
+												        <a class="page-link"
+												           th:href="@{/management/deliveryList(
+												                page=0,
+												                size=${orders.size},
+												                categoryId=${categoryId},
+												                assignedMemberId=${assignedMemberId},
+												                status=${status},
+												                dateType=${dateType},
+												                startDate=${startDate},
+												                endDate=${endDate}
+												           )}">First</a>
+												    </li>
+												
+												    <!-- Previous -->
+												    <li class="page-item" th:classappend="${orders.first} ? 'disabled'">
+												        <a class="page-link"
+												           th:href="@{/management/deliveryList(
+												                page=${orders.number - 1},
+												                size=${orders.size},
+												                categoryId=${categoryId},
+												                assignedMemberId=${assignedMemberId},
+												                status=${status},
+												                dateType=${dateType},
+												                startDate=${startDate},
+												                endDate=${endDate}
+												           )}">Previous</a>
+												    </li>
+												
+												    <!-- Pages -->
+												    <li class="page-item"
+												        th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
+												        th:classappend="${i == orders.number + 1} ? 'active'">
+												        <a class="page-link"
+												           th:href="@{/management/deliveryList(
+												                page=${i - 1},
+												                size=${orders.size},
+												                categoryId=${categoryId},
+												                assignedMemberId=${assignedMemberId},
+												                status=${status},
+												                dateType=${dateType},
+												                startDate=${startDate},
+												                endDate=${endDate}
+												           )}"
+												           th:text="${i}">1</a>
+												    </li>
+												
+												    <!-- Next -->
+												    <li class="page-item" th:classappend="${orders.last} ? 'disabled'">
+												        <a class="page-link"
+												           th:href="@{/management/deliveryList(
+												                page=${orders.number + 1},
+												                size=${orders.size},
+												                categoryId=${categoryId},
+												                assignedMemberId=${assignedMemberId},
+												                status=${status},
+												                dateType=${dateType},
+												                startDate=${startDate},
+												                endDate=${endDate}
+												           )}">Next</a>
+												    </li>
+												
+												    <!-- Last -->
+												    <li class="page-item" th:classappend="${orders.last} ? 'disabled'">
+												        <a class="page-link"
+												           th:href="@{/management/deliveryList(
+												                page=${orders.totalPages - 1},
+												                size=${orders.size},
+												                categoryId=${categoryId},
+												                assignedMemberId=${assignedMemberId},
+												                status=${status},
+												                dateType=${dateType},
+												                startDate=${startDate},
+												                endDate=${endDate}
+												           )}">Last</a>
+												    </li>
+												
 												</ul>
+
 											</nav>
 										</div>
 									</div>

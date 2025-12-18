@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -297,36 +298,73 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 		@Param("endDate") LocalDateTime endDate,
 		Pageable pageable);
 
-	@Query("""
-	    SELECT a FROM AsTask a
-	    WHERE (:statuses IS NULL OR a.status = :statuses)
-	      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
-	      AND (:startDate IS NULL OR a.requestedAt >= :startDate)
-	      AND (:endDate IS NULL OR a.requestedAt < :endDate)
-	    ORDER BY a.requestedAt DESC
-	""")
-	List<AsTask> findByRequestedDateRangeList(
-	    @Param("memberId") Long memberId,
-	    @Param("statuses") AsStatus statuses,
-	    @Param("startDate") LocalDateTime startDate,
-	    @Param("endDate") LocalDateTime endDate
-	);
+	 // ========= 신청일 기준 (엑셀 전체) =========
+    @EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+    @Query("""
+        SELECT a FROM AsTask a
+        WHERE (:status IS NULL OR a.status = :status)
+          AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+        ORDER BY a.requestedAt DESC
+    """)
+    List<AsTask> findByRequestedDateRangeList(
+            @Param("handlerId") Long handlerId,
+            @Param("status") AsStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 
-	@Query("""
-	    SELECT a FROM AsTask a
-	    WHERE (:statuses IS NULL OR a.status = :statuses)
-	      AND (:memberId IS NULL OR a.assignedHandler.id = :memberId)
-	      AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
-	      AND (:endDate IS NULL OR a.asProcessDate < :endDate)
-	    ORDER BY a.asProcessDate DESC
-	""")
-	List<AsTask> findByProcessedDateRangeList(
-	    @Param("memberId") Long memberId,
-	    @Param("statuses") AsStatus statuses,
-	    @Param("startDate") LocalDateTime startDate,
-	    @Param("endDate") LocalDateTime endDate
-	);
+    // ========= 처리일 기준 (엑셀 전체) =========
+    @EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+    @Query("""
+        SELECT a FROM AsTask a
+        WHERE (:status IS NULL OR a.status = :status)
+          AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+        ORDER BY a.asProcessDate DESC
+    """)
+    List<AsTask> findByProcessedDateRangeList(
+            @Param("handlerId") Long handlerId,
+            @Param("status") AsStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 
+    // ========= 신청일 기준 (화면 페이지) =========
+    @EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+    @Query("""
+        SELECT a FROM AsTask a
+        WHERE (:status IS NULL OR a.status = :status)
+          AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+    """)
+    Page<AsTask> findByRequestedDateRangePage(
+            @Param("handlerId") Long handlerId,
+            @Param("status") AsStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    // ========= 처리일 기준 (화면 페이지) =========
+    @EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+    @Query("""
+        SELECT a FROM AsTask a
+        WHERE (:status IS NULL OR a.status = :status)
+          AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+    """)
+    Page<AsTask> findByProcessedDateRangePage(
+            @Param("handlerId") Long handlerId,
+            @Param("status") AsStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable
+    );
 	 // requested/processed 조회용(기존이 있다면 그걸 사용)
     @Query("""
       select t from AsTask t

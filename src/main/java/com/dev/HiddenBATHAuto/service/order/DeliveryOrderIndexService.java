@@ -1,6 +1,12 @@
 package com.dev.HiddenBATHAuto.service.order;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,6 +15,7 @@ import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 
@@ -86,6 +93,94 @@ public class DeliveryOrderIndexService {
                     .orElseThrow(() -> new IllegalStateException("해당 주문 인덱스 없음"));
             index.setOrderIndex(dto.getOrderIndex());
             // save 호출은 트랜잭션 커밋 시 플러시되므로 생략 가능(JPA dirty checking)
+        }
+    }
+    
+    /**
+     * 요구사항 반영:
+     * - 화면에서는 미완료만 드래그 가능, 배송완료는 하단 고정
+     * - 저장 시에는 "미완료(드래그된 순서) + 배송완료(기존 순서)"를 합친 DOM 순서를 그대로 1..N 인덱스로 저장
+     * - 혹시 API를 직접 호출해 배송완료의 상대순서를 바꾸려는 경우 서버에서 차단
+     */
+    @Transactional
+    public void updateIndexesWithDoneGuard(DeliveryOrderIndexUpdateRequest request) {
+        if (request == null) throw new IllegalArgumentException("요청이 비어있습니다.");
+        if (request.getDeliveryHandlerId() == null) throw new IllegalArgumentException("담당자 ID가 없습니다.");
+        if (request.getDeliveryDate() == null || request.getDeliveryDate().isBlank())
+            throw new IllegalArgumentException("날짜가 없습니다.");
+        if (request.getOrderList() == null) throw new IllegalArgumentException("orderList가 없습니다.");
+
+        Member handler = memberRepository.findById(request.getDeliveryHandlerId())
+                .orElseThrow(() -> new IllegalArgumentException("배송 담당자 없음"));
+
+        LocalDate date;
+        try {
+            date = LocalDate.parse(request.getDeliveryDate());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("날짜 형식이 올바르지 않습니다. yyyy-MM-dd");
+        }
+
+        // 1) 현재 DB 기준(정상 규칙) 순서 조회
+        List<DeliveryOrderIndex> current = deliveryOrderIndexRepository
+                .findAllByHandlerAndDateForGuard(handler.getId(), date);
+
+        // 2) 현재 done 순서(상대순서) 추출
+        List<Long> currentDoneOrderIds = current.stream()
+                .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+                .map(x -> x.getOrder().getId())
+                .collect(Collectors.toList());
+
+        // 3) 요청된 done 순서 추출(요청 orderList 중에서 현재 done에 해당하는 것만 뽑아서 순서 유지)
+        Set<Long> doneSet = new HashSet<>(currentDoneOrderIds);
+
+        List<Long> requestedDoneOrderIds = request.getOrderList().stream()
+                .map(DeliveryOrderIndexUpdateRequest.OrderIndexDto::getOrderId)
+                .filter(Objects::nonNull)
+                .filter(doneSet::contains)
+                .collect(Collectors.toList());
+
+        // 4) 서버 검증: 배송완료 상대순서가 바뀌면 차단
+        // - UI에서는 doneList가 고정이라 정상이라면 항상 동일해야 함
+        if (!currentDoneOrderIds.equals(requestedDoneOrderIds)) {
+            throw new IllegalStateException("배송완료 항목의 순서는 변경할 수 없습니다.");
+        }
+
+        // 5) 요청 orderId 중복/누락 방지(기본 방어)
+        List<Long> reqIds = request.getOrderList().stream()
+                .map(DeliveryOrderIndexUpdateRequest.OrderIndexDto::getOrderId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        long distinctCount = reqIds.stream().distinct().count();
+        if (distinctCount != reqIds.size()) {
+            throw new IllegalArgumentException("중복된 orderId가 존재합니다.");
+        }
+
+        // 6) 현재 존재하는 인덱스 맵
+        Map<Long, DeliveryOrderIndex> indexByOrderId = current.stream()
+                .filter(x -> x.getOrder() != null)
+                .collect(Collectors.toMap(
+                        x -> x.getOrder().getId(),
+                        x -> x,
+                        (a, b) -> a
+                ));
+
+        // 7) 요청에 들어온 orderId는 현재 목록에 모두 있어야 함(누락/조작 방어)
+        for (Long oid : reqIds) {
+            if (!indexByOrderId.containsKey(oid)) {
+                throw new IllegalArgumentException("해당 주문 인덱스 없음: orderId=" + oid);
+            }
+        }
+
+        // 8) 핵심 저장: 요청 순서대로 1..N 재부여(유니크 제약/충돌 방지)
+        //    orderIndexDto.orderIndex 값은 신뢰하지 않고, request의 리스트 순서 자체를 기준으로 재계산합니다.
+        int newIndex = 1;
+        for (DeliveryOrderIndexUpdateRequest.OrderIndexDto dto : request.getOrderList()) {
+            if (dto == null || dto.getOrderId() == null) continue;
+
+            DeliveryOrderIndex idx = indexByOrderId.get(dto.getOrderId());
+            idx.setOrderIndex(newIndex++);
+            // dirty checking
         }
     }
 }

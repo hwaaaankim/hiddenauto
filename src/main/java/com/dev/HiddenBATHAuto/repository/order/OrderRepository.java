@@ -506,6 +506,121 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("start") LocalDateTime start,
 	    @Param("end") LocalDateTime end
 	);
+	
+	
+	// =========================
+    // preferredDeliveryDate 기준 (Page)
+    // =========================
+    @EntityGraph(attributePaths = {
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company",
+            "productCategory",
+            "assignedDeliveryHandler",
+            "orderItem"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+          AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+        ORDER BY o.preferredDeliveryDate DESC
+    """)
+    Page<Order> findByPreferredDateRange(
+            @Param("categoryId") Long categoryId,
+            @Param("assignedMemberId") Long assignedMemberId,
+            @Param("status") OrderStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+
+    // =========================
+    // createdAt 기준 (Page)
+    // =========================
+    @EntityGraph(attributePaths = {
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company",
+            "productCategory",
+            "assignedDeliveryHandler",
+            "orderItem"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.createdAt >= :start)
+          AND (:end IS NULL OR o.createdAt <= :end)
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Order> findByCreatedDateRange(
+            @Param("categoryId") Long categoryId,
+            @Param("assignedMemberId") Long assignedMemberId,
+            @Param("status") OrderStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+
+    // =========================
+    // preferredDeliveryDate 기준 (Excel/List)
+    // =========================
+    @EntityGraph(attributePaths = {
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company",
+            "productCategory",
+            "assignedDeliveryHandler",
+            "orderItem"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+          AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+        ORDER BY o.preferredDeliveryDate DESC
+    """)
+    List<Order> findAllByPreferredDateRange(
+            @Param("categoryId") Long categoryId,
+            @Param("assignedMemberId") Long assignedMemberId,
+            @Param("status") OrderStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
+    // =========================
+    // createdAt 기준 (Excel/List)
+    // =========================
+    @EntityGraph(attributePaths = {
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company",
+            "productCategory",
+            "assignedDeliveryHandler",
+            "orderItem"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.createdAt >= :start)
+          AND (:end IS NULL OR o.createdAt <= :end)
+        ORDER BY o.createdAt DESC
+    """)
+    List<Order> findAllByCreatedDateRange(
+            @Param("categoryId") Long categoryId,
+            @Param("assignedMemberId") Long assignedMemberId,
+            @Param("status") OrderStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 }
 
 
