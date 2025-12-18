@@ -5,24 +5,22 @@ import java.io.InputStream;
 import java.util.Iterator;
 
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.constant.KakaoAddressClient;
-import com.dev.HiddenBATHAuto.dto.excel.KakaoDocument;
-import com.dev.HiddenBATHAuto.dto.excel.KakaoKeywordDoc;
-import com.dev.HiddenBATHAuto.dto.excel.KakaoKeywordResponse;
-import com.dev.HiddenBATHAuto.dto.excel.KakaoResponse;
-import com.dev.HiddenBATHAuto.utils.AddressNormalizer;
-import com.dev.HiddenBATHAuto.utils.AddressPreprocessor;
+import com.dev.HiddenBATHAuto.dto.address.AddressPickResult;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,245 +28,180 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CompanyExcelConvertService {
 
-    private final KakaoAddressClient kakaoAddressClient;
+	private final KakaoAddressClient kakaoAddressClient;
 
-    /**
-     * 업로드 엑셀 → 변환 엑셀 바이트
-     */
-    public byte[] convertToExcelBytes(MultipartFile file) throws Exception {
-        try (InputStream in = file.getInputStream();
-             Workbook inWb = new XSSFWorkbook(in);
-             SXSSFWorkbook outWb = new SXSSFWorkbook(200);
-             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+	public byte[] convertToExcelBytes(MultipartFile file) throws Exception {
+		if (file == null || file.isEmpty()) {
+			throw new IllegalArgumentException("업로드 파일이 비어있습니다.");
+		}
 
-            Sheet inSheet = inWb.getSheetAt(0);
-            Sheet outSheet = outWb.createSheet("converted");
+		try (InputStream in = file.getInputStream();
+				Workbook inWb = WorkbookFactory.create(in);
+				SXSSFWorkbook outWb = new SXSSFWorkbook(200);
+				ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-            SXSSFSheet sx = (SXSSFSheet) outSheet;
-            sx.trackAllColumnsForAutoSizing();
+			Sheet inSheet = inWb.getSheetAt(0);
+			Sheet outSheet = outWb.createSheet("converted");
 
-            // ★ 회사명 컬럼을 2개로 분리: 회사명(원본), 회사명(지역삭제)
-            //    id, 회사명(원본), 회사명(지역삭제), 대표자명, ...
-            final String[] headers = {
-                    "id(사업자번호숫자)", "회사명(원본)", "회사명(지역삭제)", "대표자명", "사업자등록번호(하이픈)",
-                    "우편번호", "도", "시", "구", "도로명", "지번주소", "상세주소",
-                    "tel", "phone", "email"
-            };
-            writeHeader(outSheet, headers);
+			SXSSFSheet sx = (SXSSFSheet) outSheet;
+			sx.trackAllColumnsForAutoSizing();
 
-            DataFormatter fmt = new DataFormatter();
-            int outRowIdx = 1;
+			CellStylePack styles = createStyles(outWb);
 
-            Iterator<Row> it = inSheet.iterator();
-            if (it.hasNext()) it.next(); // 입력 헤더 스킵
+			final String[] headers = { "코드", "거래처명(원본)", "거래처명(지역삭제)", "유형", "사업자번호", "대표자명", "업태", "업종", "주소(원본)",
+					"우편번호", "도", "시", "구", "도로명주소", "지번주소", "상세주소", "전화", "핸드폰", "팩스", "이메일" };
+			writeHeader(outSheet, headers);
 
-            while (it.hasNext()) {
-                Row row = it.next();
+			DataFormatter fmt = new DataFormatter();
+			int outRowIdx = 1;
 
-                String companyNameIn = getCell(row, 0, fmt);
-                String brnDashedIn   = getCell(row, 1, fmt);
-                String ceoNameIn     = getCell(row, 2, fmt);
-                String rawAddress    = getCell(row, 3, fmt);
-                String telIn         = getCell(row, 4, fmt);
-                String phoneIn       = getCell(row, 5, fmt);
-                String emailIn       = getCell(row, 6, fmt);
+			Iterator<Row> it = inSheet.iterator();
+			if (it.hasNext())
+				it.next(); // 입력 헤더 스킵
 
-                // ===== 회사명 처리 =====
-                // 회사명(원본)
-                String companyOriginalOut = orEopseum(companyNameIn);
-                // 회사명(지역삭제) : 슬래시가 있는 경우, 슬래시 포함 앞부분 제거
-                String companyRegionRemoved = stripRegionPrefix(companyNameIn);
-                String companyRegionRemovedOut = orEopseum(companyRegionRemoved);
+			while (it.hasNext()) {
+				Row row = it.next();
 
-                // ===== 사업자번호 처리 =====
-                String brnDigits    = onlyDigits(brnDashedIn);
-                String brnDashedFmt = formatBrnDashed(brnDigits);
+				String codeIn = getCell(row, 0, fmt);
+				String companyIn = getCell(row, 1, fmt);
+				String typeIn = getCell(row, 2, fmt);
+				String brnIn = getCell(row, 3, fmt);
+				String ceoIn = getCell(row, 4, fmt);
+				String bizTypeIn = getCell(row, 5, fmt);
+				String bizItemIn = getCell(row, 6, fmt);
+				String addressIn = getCell(row, 7, fmt);
+				String telIn = getCell(row, 8, fmt);
+				String phoneIn = getCell(row, 9, fmt);
+				String faxIn = getCell(row, 10, fmt);
+				String emailIn = getCell(row, 11, fmt);
 
-                String ceoOut   = orDefault(ceoNameIn, "익명");
-                String telOut   = orEopseum(telIn);
-                String phoneOut = orEopseum(phoneIn);
-                String emailOut = orDefault(emailIn, "이메일없음");
+				String companyRegionRemoved = stripRegionPrefix(companyIn);
 
-                // ===== 주소 전처리 =====
-                String cleaned     = AddressPreprocessor.clean(rawAddress);
-                String parenDetail = AddressPreprocessor.extractParenDetail(cleaned);
-                String stripped    = AddressPreprocessor.stripParen(cleaned);
-                String extraDetail = AddressPreprocessor.extractCommaTailDetail(stripped);
-                String baseQuery   = AddressPreprocessor.stripAfterComma(stripped);
+				String zip = "", doName = "", siName = "", guName = "";
+				String roadAddress = "", jibunAddress = "", detailAddr = "";
 
-                String q1    = AddressPreprocessor.normalizeRoadSpacing(baseQuery);
-                String noise = AddressPreprocessor.extractNoiseToDetail(q1);
-                String q2    = AddressPreprocessor.stripNoise(q1);
-                String q3    = AddressPreprocessor.ensureProvince(q2);
+				if (!isBlank(addressIn)) {
+					AddressPickResult res;
+					try {
+						res = kakaoAddressClient.resolve(addressIn);
+					} catch (Exception ex) {
+						// ✅ 한 행에서 실패해도 전체 변환이 죽지 않게
+						res = AddressPickResult.empty("");
+					}
 
-                // ===== 카카오 검색 =====
-                KakaoResponse resp = kakaoAddressClient.searchAddress(q3);
-                KakaoDocument best = AddressNormalizer.pickBest(resp, q3);
+					if (res != null && res.isSuccess()) {
+						zip = safe(res.getZip());
+						doName = safe(res.getDoName());
+						siName = safe(res.getSiName());
+						guName = safe(res.getGuName());
+						roadAddress = safe(res.getRoadAddress());
+						jibunAddress = safe(res.getJibunAddress());
+						detailAddr = safe(res.getDetailAddress());
+					} else {
+						detailAddr = (res == null) ? "" : safe(res.getDetailAddress());
+					}
+				}
 
-                if (best == null && !baseQuery.equals(q3)) {
-                    KakaoResponse resp2 = kakaoAddressClient.searchAddress(baseQuery);
-                    best = AddressNormalizer.pickBest(resp2, baseQuery);
-                }
+				Row out = outSheet.createRow(outRowIdx++);
 
-                AddressNormalizer.NormalizedAddress na = null;
-                if (best == null) {
-                    KakaoKeywordResponse kresp = kakaoAddressClient.searchKeyword(q3);
-                    if (kresp.getDocuments() != null && !kresp.getDocuments().isEmpty()) {
-                        KakaoKeywordDoc kd = kresp.getDocuments().get(0);
-                        na = AddressNormalizer.fromKeyword(kd);
-                    }
-                }
+				writeOrNullRed(out, 0, codeIn, styles);
+				writeOrNullRed(out, 1, companyIn, styles);
+				writeOrNullRed(out, 2, companyRegionRemoved, styles);
+				writeOrNullRed(out, 3, typeIn, styles);
+				writeOrNullRed(out, 4, brnIn, styles);
+				writeOrNullRed(out, 5, ceoIn, styles);
+				writeOrNullRed(out, 6, bizTypeIn, styles);
+				writeOrNullRed(out, 7, bizItemIn, styles);
 
-                // ===== 결과 필드 =====
-                String zip = "", doName = "", siName = "", guName = "";
-                String roadAddress = "", jibunAddress = "", detailAddr = "";
+				writeOrNullRed(out, 8, addressIn, styles);
 
-                if (best != null) {
-                    zip = AddressNormalizer.getZip(best);
+				writeOrNullRed(out, 9, zip, styles);
+				writeOrNullRed(out, 10, doName, styles);
+				writeOrNullRed(out, 11, siName, styles);
+				writeOrNullRed(out, 12, guName, styles);
+				writeOrNullRed(out, 13, roadAddress, styles);
+				writeOrNullRed(out, 14, jibunAddress, styles);
+				writeOrNullRed(out, 15, detailAddr, styles);
+				writeOrNullRed(out, 16, telIn, styles);
+				writeOrNullRed(out, 17, phoneIn, styles);
+				writeOrNullRed(out, 18, faxIn, styles);
+				writeOrNullRed(out, 19, emailIn, styles);
+			}
 
-                    // 규칙 기반 분리
-                    AddressNormalizer.AdminParts parts = AddressNormalizer.splitAdmin(best);
-                    doName = parts.getDoName();
-                    siName = parts.getSiName();
-                    guName = parts.getGuName();
+			for (int c = 0; c <= 19; c++)
+				outSheet.autoSizeColumn(c);
 
-                    // 도로명 / 지번 구분 추출
-                    roadAddress  = AddressNormalizer.getRoadFull(best);
-                    jibunAddress = AddressNormalizer.getJibunFull(best);
-                } else if (na != null) {
-                    zip          = na.getZipCode() == null ? "" : na.getZipCode();
-                    doName       = na.getDoName();
-                    siName       = na.getSiName();
-                    guName       = na.getGuName();
-                    roadAddress  = na.getRoadAddress();
-                    jibunAddress = na.getJibunAddress();
-                }
+			outWb.write(baos);
+			outWb.dispose();
+			return baos.toByteArray();
+		}
+	}
 
-                detailAddr = AddressNormalizer.mergeDetails(parenDetail, extraDetail, noise);
+	private static class CellStylePack {
+		private final CellStyle nullRedStyle;
 
-                // 출력 안전값
-                String roadOut   = orDefault(roadAddress, "주소없음");
-                String jibunOut  = orEopseum(jibunAddress);
-                String zipOut    = orEopseum(zip);
-                String doOut     = orEopseum(doName);
-                String siOut     = orEopseum(siName);
-                String guOut     = orEopseum(guName);
-                String detailOut = orEopseum(detailAddr);
+		CellStylePack(CellStyle nullRedStyle) {
+			this.nullRedStyle = nullRedStyle;
+		}
+	}
 
-                // ===== 쓰기 =====
-                // 0: id(사업자번호숫자)
-                // 1: 회사명(원본)
-                // 2: 회사명(지역삭제)
-                // 3: 대표자명
-                // 4: 사업자등록번호(하이픈)
-                // 5: 우편번호
-                // 6: 도
-                // 7: 시
-                // 8: 구
-                // 9: 도로명
-                // 10: 지번주소
-                // 11: 상세주소
-                // 12: tel
-                // 13: phone
-                // 14: email
-                Row out = outSheet.createRow(outRowIdx++);
-                write(out, 0,  brnDigits);
-                write(out, 1,  companyOriginalOut);
-                write(out, 2,  companyRegionRemovedOut);
-                write(out, 3,  ceoOut);
-                write(out, 4,  brnDashedFmt);
-                write(out, 5,  zipOut);
-                write(out, 6,  doOut);
-                write(out, 7,  siOut);
-                write(out, 8,  guOut);
-                write(out, 9,  roadOut);    // 도로명
-                write(out, 10, jibunOut);   // 지번주소
-                write(out, 11, detailOut);  // 상세주소
-                write(out, 12, telOut);
-                write(out, 13, phoneOut);
-                write(out, 14, emailOut);
-            }
+	private static CellStylePack createStyles(Workbook wb) {
+		CellStyle nullStyle = wb.createCellStyle();
+		Font redFont = wb.createFont();
+		redFont.setColor(IndexedColors.RED.getIndex());
+		nullStyle.setFont(redFont);
+		return new CellStylePack(nullStyle);
+	}
 
-            // 컬럼 폭 자동 조정
-            for (int c = 0; c <= 14; c++) {
-                outSheet.autoSizeColumn(c);
-            }
+	private static void writeHeader(Sheet sh, String[] headers) {
+		Row hr = sh.createRow(0);
+		for (int i = 0; i < headers.length; i++) {
+			Cell c = hr.createCell(i, CellType.STRING);
+			c.setCellValue(headers[i]);
+		}
+	}
 
-            outWb.write(baos);
-            outWb.dispose();
-            return baos.toByteArray();
-        }
-    }
+	private static String getCell(Row r, int col, DataFormatter fmt) {
+		if (r == null)
+			return "";
+		Cell c = r.getCell(col);
+		if (c == null)
+			return "";
+		return fmt.formatCellValue(c).trim();
+	}
 
-    // ===================== 유틸 =====================
+	private static void writeOrNullRed(Row r, int col, String v, CellStylePack styles) {
+		Cell c = r.createCell(col, CellType.STRING);
+		if (isBlank(v)) {
+			c.setCellValue("NULL");
+			c.setCellStyle(styles.nullRedStyle);
+		} else {
+			c.setCellValue(v.trim());
+		}
+	}
 
-    private static void writeHeader(Sheet sh, String[] headers) {
-        Row hr = sh.createRow(0);
-        for (int i = 0; i < headers.length; i++) {
-            Cell c = hr.createCell(i, CellType.STRING);
-            c.setCellValue(headers[i]);
-        }
-    }
+	private static boolean isBlank(String s) {
+		return s == null || s.trim().isEmpty();
+	}
 
-    private static String getCell(Row r, int col, DataFormatter fmt) {
-        if (r == null) return "";
-        Cell c = r.getCell(col);
-        if (c == null) return "";
-        return fmt.formatCellValue(c).trim();
-    }
+	private static String safe(String s) {
+		return s == null ? "" : s.trim();
+	}
 
-    private static void write(Row r, int col, String v) {
-        Cell c = r.createCell(col, CellType.STRING);
-        c.setCellValue(v == null ? "" : v);
-    }
+	private static String stripRegionPrefix(String v) {
+		if (v == null)
+			return null;
+		String s = v.trim();
+		if (s.isEmpty())
+			return null;
 
-    private static String onlyDigits(String s) {
-        String d = (s == null) ? "" : s.replaceAll("\\D+", "");
-        return d.isBlank() ? "없음" : d;
-    }
+		int idx = s.indexOf('/');
+		if (idx < 0)
+			return s;
 
-    private static String formatBrnDashed(String digitsOrEopseum) {
-        if (digitsOrEopseum == null || digitsOrEopseum.isBlank() || "없음".equals(digitsOrEopseum)) {
-            return "없음";
-        }
-        String d = digitsOrEopseum.trim();
-        if (d.length() == 10) {
-            return d.substring(0, 3) + "-" + d.substring(3, 5) + "-" + d.substring(5);
-        }
-        return d;
-    }
-
-    private static String orDefault(String v, String def) {
-        return (v == null || v.isBlank()) ? def : v.trim();
-    }
-
-    private static String orEopseum(String v) {
-        return orDefault(v, "없음");
-    }
-
-    /**
-     * 회사명에서 "지역/상호명" 구조일 때, "지역/" 포함 앞부분 제거.
-     * 예)
-     *  - "춘천/광동타일"           -> "광동타일"
-     *  - "(블랙)인천/이레종합타일" -> "이레종합타일"
-     *  - "케이론"                 -> "케이론" (슬래시 없음, 그대로)
-     */
-    private static String stripRegionPrefix(String v) {
-        if (v == null) return null;
-        String s = v.trim();
-        if (s.isEmpty()) return null;
-
-        int idx = s.indexOf('/');
-        if (idx < 0) {
-            // 슬래시 없으면 그대로 반환
-            return s;
-        }
-
-        String after = s.substring(idx + 1).trim();
-        if (after.isEmpty()) {
-            // "지역/"만 있고 뒤가 없으면, 안전하게 원본 유지
-            return s;
-        }
-        return after;
-    }
+		String after = s.substring(idx + 1).trim();
+		if (after.isEmpty())
+			return s;
+		return after;
+	}
 }

@@ -16,6 +16,7 @@ server:
         http-only: true
         secure: false
 kakao:
+  base-url: https://dapi.kakao.com
   rest:
     api-key: "0daa583a542a7c7639b42072873d05b9"   # <-- 제공해주신 키(예시). 실제 운영에선 환경변수로 주입 권장.
   throttle-ms: 120
