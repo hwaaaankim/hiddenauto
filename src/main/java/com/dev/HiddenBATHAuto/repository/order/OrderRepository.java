@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,6 +22,80 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 public interface OrderRepository extends JpaRepository<Order, Long>{
 
 	List<Order> findByTask_RequestedByAndPreferredDeliveryDateBetween(Member member, LocalDateTime start, LocalDateTime end);
+	
+	@EntityGraph(attributePaths = {
+            "orderItem",
+            "productCategory",
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE o.status IN :statuses
+          AND o.productCategory.id = :categoryId
+          AND (
+                :productionFilter = 'ALL'
+             OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
+             OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
+          )
+          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+          AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+        ORDER BY
+          CASE
+            WHEN o.status = 'CONFIRMED' THEN 0
+            WHEN o.status = 'PRODUCTION_DONE' THEN 1
+            WHEN o.status = 'DELIVERY_DONE' THEN 2
+            ELSE 9
+          END ASC,
+          o.preferredDeliveryDate ASC,
+          o.id DESC
+    """)
+    Page<Order> findProductionListByPreferredRange(
+            @Param("statuses") List<OrderStatus> statuses,
+            @Param("categoryId") Long categoryId,
+            @Param("productionFilter") String productionFilter,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = {
+            "orderItem",
+            "productCategory",
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE o.status IN :statuses
+          AND o.productCategory.id = :categoryId
+          AND (
+                :productionFilter = 'ALL'
+             OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
+             OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
+          )
+          AND (:start IS NULL OR o.createdAt >= :start)
+          AND (:end IS NULL OR o.createdAt < :end)
+        ORDER BY
+          CASE
+            WHEN o.status = 'CONFIRMED' THEN 0
+            WHEN o.status = 'PRODUCTION_DONE' THEN 1
+            WHEN o.status = 'DELIVERY_DONE' THEN 2
+            ELSE 9
+          END ASC,
+          o.createdAt ASC,
+          o.id DESC
+    """)
+    Page<Order> findProductionListByCreatedRange(
+            @Param("statuses") List<OrderStatus> statuses,
+            @Param("categoryId") Long categoryId,
+            @Param("productionFilter") String productionFilter,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
 	
 	@Query("""
 		    SELECT o FROM Order o

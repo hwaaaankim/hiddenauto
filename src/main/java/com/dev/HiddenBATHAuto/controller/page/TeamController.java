@@ -5,11 +5,13 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -71,46 +73,87 @@ public class TeamController {
 	private final ProvinceRepository provinceRepository;
 
 	@GetMapping("/productionList")
-	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) Long productCategoryId,
-			@RequestParam(required = false, defaultValue = "preferred") String dateType,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-			Pageable pageable, Model model) {
+    public String getProductionOrders(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) Long productCategoryId,
+            @RequestParam(required = false, defaultValue = "preferred") String dateType,
+            @RequestParam(required = false, defaultValue = "IN_PROGRESS") String productionFilter,
+            @RequestParam(required = false, defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            Model model
+    ) {
 
-		Member member = principal.getMember();
+        Member member = principal.getMember();
 
-		if (!"생산팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
-		}
+        if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+        }
 
-		Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
+        Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
 
-		LocalDateTime start = null;
-		LocalDateTime end = null;
-		System.out.println(targetCategoryId);
-		if (startDate != null) {
-			start = startDate.atStartOfDay();
-		}
-		if (endDate != null) {
-			end = endDate.plusDays(1).atStartOfDay(); // end 포함 범위로
-		}
-		System.out.println(dateType);
-		Page<Order> orderPage = teamTaskService.getProductionOrdersByDateType(
-				List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE),
-				targetCategoryId, dateType, start, end, pageable);
+        LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+        LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
 
-		List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
-		model.addAttribute("orders", orderPage.getContent());
-		model.addAttribute("page", orderPage);
-		model.addAttribute("productCategoryId", targetCategoryId);
-		model.addAttribute("dateType", dateType);
-		model.addAttribute("startDate", startDate);
-		model.addAttribute("endDate", endDate);
-		model.addAttribute("productCategories", productCategories);
+        if (size != 10 && size != 30 && size != 50 && size != 100) size = 10;
+        if (page < 0) page = 0;
 
-		return "administration/team/production/productionList";
-	}
+        Pageable pageable = PageRequest.of(page, size);
+
+        List<OrderStatus> baseStatuses = List.of(
+                OrderStatus.CONFIRMED,
+                OrderStatus.PRODUCTION_DONE,
+                OrderStatus.DELIVERY_DONE
+        );
+
+        Page<Order> orderPage = teamTaskService.getProductionOrdersByDateTypeAndProductionFilter(
+                baseStatuses, targetCategoryId, dateType, productionFilter, start, end, pageable
+        );
+
+        // ✅ 하부장팀 제한(기존 로직 유지)
+        boolean isSubLeaderTeam = (member.getTeamCategory() != null && "하부장".equals(member.getTeamCategory().getName()));
+        boolean canBulkComplete = true;
+        if (isSubLeaderTeam) {
+            canBulkComplete = member.getTeamCategory() != null && member.getTeamCategory().getId().equals(targetCategoryId);
+        }
+
+        // ✅ 업체명 맵: Order -> Task -> Member -> Company -> companyName
+        Map<Long, String> orderCompanyNameMap = new HashMap<>();
+        for (Order o : orderPage.getContent()) {
+            String companyName = "-";
+            try {
+                if (o.getTask() != null
+                        && o.getTask().getRequestedBy() != null
+                        && o.getTask().getRequestedBy().getCompany() != null) {
+
+                    String n = o.getTask().getRequestedBy().getCompany().getCompanyName();
+                    if (n != null && !n.isBlank()) companyName = n;
+                }
+            } catch (Exception ignore) {
+                companyName = "-";
+            }
+            orderCompanyNameMap.put(o.getId(), companyName);
+        }
+
+        List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
+
+        model.addAttribute("orders", orderPage.getContent());
+        model.addAttribute("page", orderPage);
+
+        model.addAttribute("productCategoryId", targetCategoryId);
+        model.addAttribute("dateType", dateType);
+        model.addAttribute("productionFilter", productionFilter);
+        model.addAttribute("size", size);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+        model.addAttribute("productCategories", productCategories);
+
+        model.addAttribute("canBulkComplete", canBulkComplete);
+        model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
+
+        return "administration/team/production/productionList";
+    }
 
 	@GetMapping("/productionDetail/{orderId}")
 	public String getProductionDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,

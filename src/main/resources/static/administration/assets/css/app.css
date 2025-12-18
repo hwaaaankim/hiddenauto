@@ -18858,3 +18858,46 @@ span.flatpickr-weekday {
 .as-calendar-sort-ghost {
   opacity: 0.6;
 }
+
+/* /administration/assets/team/production/productionList.css */
+
+.team-production-table .team-production-thead .team-production-th {
+	font-weight: 800;
+	font-size: 15px;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.team-production-table .team-production-td {
+	text-align: left;
+	vertical-align: top;
+}
+
+.team-production-addr,
+.team-production-product {
+	line-height: 1.35;
+	word-break: break-word;
+	white-space: normal;
+}
+
+.team-production-option {
+	white-space: normal;
+	word-break: break-word;
+}
+
+/* 체크박스 열은 중앙정렬 */
+.team-production-table td:last-child,
+.team-production-table th:last-child {
+	text-align: center;
+	vertical-align: middle;
+}
+
+/* 헤더 */
+.team-production-table th {
+	vertical-align: middle !important;
+}
+
+/* 바디 셀 */
+.team-production-table td {
+	vertical-align: middle !important;
+}

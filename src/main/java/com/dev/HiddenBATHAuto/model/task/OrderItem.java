@@ -29,7 +29,14 @@ public class OrderItem {
 
     @Column(columnDefinition = "TEXT")
     private String optionJson; // JSON 문자열로 비규격 옵션 저장
-    
+
     @Transient
     private Map<String, String> parsedOptionMap;
+
+    // ✅ 목록/상세에서 깔끔 출력용(키:값 <br>)
+    @Transient
+    private String formattedOptionHtml;
+    
+    @Transient
+    private String formattedOptionText; // ✅ "카테고리 / 제품명 / 사이즈 / 색상" 같은 한 줄 요약
 }

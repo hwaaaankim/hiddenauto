@@ -2,7 +2,11 @@ package com.dev.HiddenBATHAuto.service.team;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,9 +17,12 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,7 +32,103 @@ public class TeamTaskService {
 
 	private final OrderRepository orderRepository;
     private final AsTaskRepository asTaskRepository;
+    private final ObjectMapper objectMapper;
 
+    public Page<Order> getProductionOrdersByDateTypeAndProductionFilter(
+			List<OrderStatus> statuses,
+			Long categoryId,
+			String dateType,
+			String productionFilter,
+			LocalDateTime start,
+			LocalDateTime end,
+			Pageable pageable
+	) {
+		boolean useCreated = "created".equalsIgnoreCase(dateType);
+		String pf = (productionFilter == null || productionFilter.isBlank()) ? "IN_PROGRESS" : productionFilter;
+
+		Page<Order> page = useCreated
+				? orderRepository.findProductionListByCreatedRange(statuses, categoryId, pf, start, end, pageable)
+				: orderRepository.findProductionListByPreferredRange(statuses, categoryId, pf, start, end, pageable);
+
+		// ✅ 옵션 한줄 요약 세팅
+		for (Order o : page.getContent()) {
+			OrderItem item = o.getOrderItem();
+			if (item == null) continue;
+
+			// 원하신 순서: 카테고리/제품명/사이즈/색상 ...
+			item.setFormattedOptionText(buildOptionSummarySingleLine(o, item));
+		}
+
+		return page;
+	}
+
+	/**
+	 * "카테고리 / 제품명 / 사이즈 / 색상" 처럼 줄바꿈 없이 한 줄로 생성
+	 */
+	private String buildOptionSummarySingleLine(Order order, OrderItem item) {
+
+		// 1) optionJson 파싱
+		Map<String, Object> map = parseJsonToMap(item.getOptionJson());
+
+		// 2) 우선순위대로 값 뽑기 (키는 프로젝트마다 다를 수 있어서 후보키 목록 제공)
+		String category = safeText(
+				// order에 이미 productCategory(TeamCategory)가 있으니 그걸 우선 사용
+				(order != null && order.getProductCategory() != null) ? order.getProductCategory().getName() : null
+		);
+
+		// 제품명은 OrderItem.productName을 우선
+		String productName = safeText(item.getProductName());
+
+		String size = pickFirstValue(map, List.of("사이즈", "size", "Size", "옵션_사이즈", "옵션사이즈"));
+		String color = pickFirstValue(map, List.of("색상", "color", "Color", "컬러", "옵션_색상", "옵션색상"));
+
+		// 필요 시 추가 확장(예: 재질/타입/마감/옵션명 등)
+		String type = pickFirstValue(map, List.of("타입", "type", "Type", "옵션", "option"));
+
+		// 3) 출력용 토큰 구성 (값 있는 것만)
+		List<String> tokens = new ArrayList<>();
+		if (!category.isBlank()) tokens.add(category);
+		if (!productName.isBlank()) tokens.add(productName);
+		if (!size.isBlank()) tokens.add("사이즈:" + size);
+		if (!color.isBlank()) tokens.add("색상:" + color);
+		if (!type.isBlank()) tokens.add(type); // 라벨 원하시면 "타입:" 붙이셔도 됩니다.
+
+		// 4) 슬래시 구분으로 한 줄 생성
+		return String.join(" / ", tokens);
+	}
+
+	private Map<String, Object> parseJsonToMap(String json) {
+		if (json == null || json.isBlank()) return Collections.emptyMap();
+		try {
+			// 순서 유지 위해 LinkedHashMap
+			return objectMapper.readValue(json, new TypeReference<LinkedHashMap<String, Object>>() {});
+		} catch (Exception e) {
+			return Collections.emptyMap();
+		}
+	}
+
+	private String pickFirstValue(Map<String, Object> map, List<String> keys) {
+		if (map == null || map.isEmpty() || keys == null) return "";
+		for (String k : keys) {
+			if (k == null) continue;
+			Object v = map.get(k);
+			String s = safeText(v);
+			if (!s.isBlank()) return s;
+		}
+		return "";
+	}
+
+	private String safeText(Object v) {
+		if (v == null) return "";
+		String s = String.valueOf(v);
+
+		// 줄바꿈/탭 제거 + 다중 공백 정리
+		s = s.replace("\r", " ").replace("\n", " ").replace("\t", " ");
+		s = s.replaceAll("\\s{2,}", " ").trim();
+
+		return s;
+	}
+    
     public Page<Order> getProductionOrdersByDateType(
             List<OrderStatus> statuses,
             Long categoryId,
