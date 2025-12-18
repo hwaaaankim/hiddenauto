@@ -1,4 +1,4 @@
-/* global daum */
+/* global daum, bootstrap */
 
 (function() {
 	'use strict';
@@ -175,7 +175,6 @@
 	var repBizLastCheckedValue = '';   // 마지막으로 서버 검증한 10자리 값
 
 	function focusLater(el) {
-		// blur 핸들러 안에서 즉시 focus() 하지 않고 tick을 넘김
 		setTimeout(function() {
 			if (el) el.focus();
 		}, 0);
@@ -213,7 +212,6 @@
 			if (digits.length !== 10) {
 				repBizOk = false;
 
-				// ✅ 여기서 focus()를 바로 주면 blur/검증이 꼬일 수 있어서 suppress + focusLater
 				alert('사업자등록번호는 숫자 10자리로 입력해 주세요.');
 				repBizSuppressBlur = true;
 				focusLater(this);
@@ -270,10 +268,77 @@
 	}
 
 	// =========================
-	// 7) ✅ 추가 배송지 (대표/직원 공통)
-	//    - 버튼 클릭 -> daum.postcode -> 선택 -> 상세주소 prompt -> 리스트 쌓기 -> X 삭제
+	// 7) ✅ 추가 배송지 (대표/직원 공통) - 모달 방식
+	//    - 버튼 클릭 -> daum.postcode -> 선택 -> 모달 상세주소 입력 -> 리스트 쌓기 -> X 삭제
 	//    - hidden input(JSON)로 서버 전송
 	// =========================
+
+	// --- 모달 엘리먼트/인스턴스 준비 (공통 1개)
+	var deliveryModalEl = qs('deliveryDetailModal');
+	var deliverySelectedAddressEl = qs('deliverySelectedAddress');
+	var deliveryDetailInputEl = qs('deliveryDetailInput');
+	var deliverySaveBtnEl = qs('deliveryDetailSaveBtn');
+
+	var deliveryModalInstance = null;
+	if (deliveryModalEl && window.bootstrap && bootstrap.Modal) {
+		deliveryModalInstance = bootstrap.Modal.getOrCreateInstance(deliveryModalEl, {
+			backdrop: 'static',
+			keyboard: true
+		});
+	}
+
+	// 어떤 UI(대표/직원)가 모달을 열었는지 구분하기 위한 pending 컨텍스트
+	// pending = { ownerKey, item, addFn }
+	var deliveryPending = null;
+
+	function openDeliveryDetailModal(pending) {
+		deliveryPending = pending;
+
+		// 선택한 주소 표시
+		if (deliverySelectedAddressEl) {
+			var it = pending.item || {};
+			var base = (it.roadAddress || '');
+			deliverySelectedAddressEl.innerHTML = escapeHtml(base);
+		}
+
+		// 입력 초기화
+		if (deliveryDetailInputEl) deliveryDetailInputEl.value = '';
+
+		// 모달 오픈
+		if (deliveryModalInstance) {
+			deliveryModalInstance.show();
+			setTimeout(function() {
+				if (deliveryDetailInputEl) deliveryDetailInputEl.focus();
+			}, 150);
+			return;
+		}
+
+		// bootstrap 모달이 없다면(테마/스크립트 누락), 안전하게 안내
+		alert('모달 라이브러리가 로드되지 않아 상세주소 입력창을 열 수 없습니다. (bootstrap 미로드)');
+	}
+
+	// 저장 버튼 핸들러(공통)
+	if (deliverySaveBtnEl) {
+		deliverySaveBtnEl.addEventListener('click', function() {
+			if (!deliveryPending || !deliveryPending.addFn) return;
+
+			var detail = deliveryDetailInputEl ? (deliveryDetailInputEl.value || '').trim() : '';
+			deliveryPending.addFn(detail);
+
+			if (deliveryModalInstance) deliveryModalInstance.hide();
+		});
+	}
+
+	// 모달 닫히면 pending 초기화 (취소 포함)
+	if (deliveryModalEl) {
+		deliveryModalEl.addEventListener('hidden.bs.modal', function() {
+			deliveryPending = null;
+			if (deliveryDetailInputEl) deliveryDetailInputEl.value = '';
+			if (deliverySelectedAddressEl) deliverySelectedAddressEl.innerHTML = '';
+		});
+	}
+
+	// 실제 배송지 UI(대표/직원 각각) 구성
 	function setupDeliveryUI(opts) {
 		var addBtn = qs(opts.addBtnId);
 		var listEl = qs(opts.listElId);
@@ -314,38 +379,55 @@
 			});
 		}
 
+		function addItemWithDetail(baseItem, detailText) {
+			var newItem = {
+				zipCode: baseItem.zipCode || '',
+				doName: baseItem.doName || '',
+				siName: baseItem.siName || '',
+				guName: baseItem.guName || '',
+				roadAddress: baseItem.roadAddress || '',
+				detailAddress: (detailText || '').trim()
+			};
+
+			if (!newItem.roadAddress) return;
+
+			// 중복 방지(같은 road+detail이면 추가 막기)
+			var dup = items.some(function(x) {
+				return (x.roadAddress === newItem.roadAddress) && (x.detailAddress === newItem.detailAddress);
+			});
+			if (dup) {
+				alert('이미 추가된 배송지입니다.');
+				return;
+			}
+
+			items.push(newItem);
+			syncHidden();
+			render();
+		}
+
 		function openDaumAndAdd() {
 			new daum.Postcode({
 				oncomplete: function(data) {
 					var road = (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress;
 
-					// 상세주소는 요구사항상 "____" 형태라 prompt로 받습니다(0개 가능/비어도 허용)
-					var detail = window.prompt('상세 주소를 입력해 주세요. (없으면 비워도 됩니다)', '') || '';
-					detail = detail.trim();
-
-					var newItem = {
+					var baseItem = {
 						zipCode: data.zonecode || '',
 						doName: data.sido || '',
 						siName: data.sigungu || '',
 						guName: data.bname || '',
-						roadAddress: road || '',
-						detailAddress: detail
+						roadAddress: road || ''
 					};
 
-					if (!newItem.roadAddress) return;
+					if (!baseItem.roadAddress) return;
 
-					// 중복 방지(같은 road+detail이면 추가 막기)
-					var dup = items.some(function(x) {
-						return (x.roadAddress === newItem.roadAddress) && (x.detailAddress === newItem.detailAddress);
+					// ✅ prompt 대신 모달
+					openDeliveryDetailModal({
+						ownerKey: opts.hiddenInputId,
+						item: baseItem,
+						addFn: function(detailText) {
+							addItemWithDetail(baseItem, detailText);
+						}
 					});
-					if (dup) {
-						alert('이미 추가된 배송지입니다.');
-						return;
-					}
-
-					items.push(newItem);
-					syncHidden();
-					render();
 				}
 			}).open();
 		}

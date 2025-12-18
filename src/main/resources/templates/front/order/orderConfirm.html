@@ -45,9 +45,14 @@
 								<h2 class="mb-0">결제 정보 확인</h2>
 								<p>배송 주소를 정확하게 확인 해 주시기 바랍니다.</p>
 							</div>
-							<div class="same-address">
-								<input class="form-check-input" type="checkbox" id="same-address" />
-								<label for="same-address">회원 주소랑 동일</label>
+
+							<!-- ✅ 기존 체크박스 삭제 → 버튼으로 변경 -->
+							<div class="order-confirm-added-address-select-wrap">
+								<button type="button"
+									id="order-confirm-added-open-address-modal"
+									class="btn btn-s rounded-s shadow-l bg-highlight text-uppercase font-800">
+									등록 배송지 선택
+								</button>
 							</div>
 						</div>
 
@@ -154,6 +159,121 @@
 	</div>
 
 	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+
+	<!-- ✅ 모달 오버레이 + 모달 -->
+	<div id="order-confirm-added-modal-overlay" class="order-confirm-added-modal-overlay" aria-hidden="true">
+		<div id="order-confirm-added-modal" class="order-confirm-added-modal" role="dialog" aria-modal="true">
+			<div class="order-confirm-added-modal-header">
+				<div class="order-confirm-added-modal-title">등록 배송지 선택</div>
+				<button type="button" id="order-confirm-added-modal-close" class="order-confirm-added-modal-close" aria-label="닫기">×</button>
+			</div>
+			<div id="order-confirm-added-address-list" class="order-confirm-added-address-list">
+				<!-- JS에서 렌더링 -->
+			</div>
+		</div>
+	</div>
+
+	<!-- ✅ 모달 전용 CSS (기존 CSS 영향 최소화: 접두사 사용) -->
+	<style>
+		#order-confirm-added-open-address-modal{
+			border-radius: 0px !important;
+			background-color: white !important;
+			border: 1px solid #DA4453 !important;;
+			color: #DA4453 !important;;
+		}
+		.order-confirm-added-modal-overlay{
+			position: fixed;
+			inset: 0;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			background: rgba(0,0,0,0.7);
+			z-index: 9999;
+			padding: 16px;
+		}
+		.order-confirm-added-modal-overlay.order-confirm-added-open{
+			display: flex;
+		}
+		.order-confirm-added-modal{
+			width: 450px;
+			max-width: 92vw;
+			max-height: 90vh;
+			overflow: auto;
+			background: #fff;
+			border-radius: 14px;
+			box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+		}
+		.order-confirm-added-modal-header{
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 14px 14px 10px 14px;
+			border-bottom: 1px solid rgba(0,0,0,0.08);
+		}
+		.order-confirm-added-modal-title{
+			font-weight: 800;
+			font-size: 15px;
+		}
+		.order-confirm-added-modal-close{
+			border: 0;
+			background: transparent;
+			font-size: 22px;
+			line-height: 1;
+			cursor: pointer;
+			padding: 6px 10px;
+			border-radius: 10px;
+		}
+		.order-confirm-added-address-list{
+			padding: 10px 14px 14px 14px;
+		}
+		.order-confirm-added-address-item{
+			display: flex;
+			gap: 10px;
+			align-items: flex-start;
+			padding: 12px 0;
+			border-bottom: 1px solid rgba(0,0,0,0.08);
+		}
+		.order-confirm-added-address-item:last-child{
+			border-bottom: 0;
+		}
+		.order-confirm-added-address-text{
+			flex: 1;
+			min-width: 0;
+		}
+		.order-confirm-added-address-line1{
+			font-weight: 800;
+			font-size: 13px;
+			color: #111;
+			word-break: break-word;
+		}
+		.order-confirm-added-address-line2{
+			line-height: 1.4;
+			margin-top: 4px;
+			font-size: 12px;
+			color: rgba(0,0,0,0.65);
+			word-break: break-word;
+		}
+		.order-confirm-added-address-badge sup{
+			font-size: 10px;
+			font-weight: 800;
+			color: rgba(0,0,0,0.55);
+			margin-left: 6px;
+		}
+		.order-confirm-added-address-select-btn{
+			flex: 0 0 auto;
+			border: 0;
+			padding: 8px 10px;
+			border-radius: 10px;
+			cursor: pointer;
+			background: rgba(0,0,0,0.06);
+			font-weight: 800;
+			font-size: 12px;
+		}
+		.order-confirm-added-address-select-btn:active{
+			transform: translateY(1px);
+		}
+	</style>
+
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 
@@ -170,6 +290,10 @@
 			guName: /*[[${guName}]]*/ "",
 			zipCode: /*[[${zipCode}]]*/ ""
 		};
+
+		// ✅ 추가 배송지 리스트 (CompanyDeliveryAddress)
+		// 컨트롤러에서 model.addAttribute("companyDeliveryAddresses", company.getDeliveryAddresses());
+		const companyDeliveryAddresses = /*[[${companyDeliveryAddresses}]]*/ [];
 
 		const userPoint = /*[[${point}]]*/ 0; // ✅ 사용자 포인트 전달
 	</script>

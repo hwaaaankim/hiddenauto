@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/order")
 @RequiredArgsConstructor
-public class OrderController {
+public class OrderAPIController {
 
 	private final OrderProcessingService orderProcessingService;
 	private final CartRepository cartRepository;

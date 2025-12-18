@@ -27,6 +27,19 @@ document.addEventListener("DOMContentLoaded", () => {
 	const pointLimit = typeof userPoint !== 'undefined' ? userPoint : 0;
 	const dmList = (typeof deliveryMethods !== 'undefined' && Array.isArray(deliveryMethods)) ? deliveryMethods : [];
 
+	// =========================
+	// ✅ 추가: 배송지 선택 모달 DOM
+	// =========================
+	const $openAddressModalBtn = document.getElementById("order-confirm-added-open-address-modal");
+	const $modalOverlay = document.getElementById("order-confirm-added-modal-overlay");
+	const $modal = document.getElementById("order-confirm-added-modal");
+	const $modalClose = document.getElementById("order-confirm-added-modal-close");
+	const $addressList = document.getElementById("order-confirm-added-address-list");
+
+	const deliveryAddresses = (typeof companyDeliveryAddresses !== 'undefined' && Array.isArray(companyDeliveryAddresses))
+		? companyDeliveryAddresses
+		: [];
+
 	document.getElementById("user-point-view").innerText = `${Number(pointLimit || 0).toLocaleString()} 원`;
 
 	function getCategoryLabel(optionJson) {
@@ -239,35 +252,157 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// =========================
-	// 공통 주소 입력 바인딩
+	// ✅ 주소 세팅(서버 검증 통과용 필드 정확히 채움)
 	// =========================
-	document.getElementById("same-address").addEventListener("change", function () {
-		if (this.checked) {
-			mainAddr.value = (companyAddress && companyAddress.main) ? companyAddress.main : "";
-			detailAddr.value = (companyAddress && companyAddress.detail) ? companyAddress.detail : "";
-			doInput.value = (companyAddress && companyAddress.doName) ? companyAddress.doName : "";
-			siInput.value = (companyAddress && companyAddress.siName) ? companyAddress.siName : "";
-			guInput.value = (companyAddress && companyAddress.guName) ? companyAddress.guName : "";
-			zipInput.value = (companyAddress && companyAddress.zipCode) ? companyAddress.zipCode : "";
-		} else {
-			mainAddr.value = "";
-			detailAddr.value = "";
-			doInput.value = "";
-			siInput.value = "";
-			guInput.value = "";
-			zipInput.value = "";
-		}
-	});
+	function applyAddressToInputs(addr) {
+		// addr = { roadAddress, detailAddress, zipCode, doName, siName, guName }
+		mainAddr.value = addr.roadAddress || "";
+		detailAddr.value = addr.detailAddress || "";
+		zipInput.value = addr.zipCode || "";
+		doInput.value = addr.doName || "";
+		siInput.value = addr.siName || "";
+		guInput.value = addr.guName || "";
+	}
 
+	// =========================
+	// ✅ 배송지 선택 모달 렌더
+	//  - 첫 번째 항목: 회원 주소(= 회사 기본 주소) + sup 표시
+	//  - 나머지: CompanyDeliveryAddress 목록
+	// =========================
+	function renderAddressModalList() {
+		if (!$addressList) return;
+
+		const base = {
+			id: "member",
+			label: "회원 주소",
+			roadAddress: (companyAddress && companyAddress.main) ? companyAddress.main : "",
+			detailAddress: (companyAddress && companyAddress.detail) ? companyAddress.detail : "",
+			zipCode: (companyAddress && companyAddress.zipCode) ? companyAddress.zipCode : "",
+			doName: (companyAddress && companyAddress.doName) ? companyAddress.doName : "",
+			siName: (companyAddress && companyAddress.siName) ? companyAddress.siName : "",
+			guName: (companyAddress && companyAddress.guName) ? companyAddress.guName : ""
+		};
+
+		const list = [base].concat(
+			deliveryAddresses.map(a => ({
+				id: a.id,
+				label: "등록 배송지",
+				roadAddress: a.roadAddress || "",
+				detailAddress: a.detailAddress || "",
+				zipCode: a.zipCode || "",
+				doName: a.doName || "",
+				siName: a.siName || "",
+				guName: a.guName || ""
+			}))
+		);
+
+		$addressList.innerHTML = "";
+
+		list.forEach(item => {
+			const line1 = item.roadAddress || "";
+			const line2Parts = [];
+
+			if (item.zipCode) line2Parts.push(`(${item.zipCode})`);
+			if (item.doName || item.siName || item.guName) line2Parts.push(`${item.doName || ""} ${item.siName || ""} ${item.guName || ""}`.trim());
+			if (item.detailAddress) line2Parts.push(item.detailAddress);
+
+			const line2 = line2Parts.join(" · ");
+
+			const wrap = document.createElement("div");
+			wrap.className = "order-confirm-added-address-item";
+
+			const text = document.createElement("div");
+			text.className = "order-confirm-added-address-text";
+
+			const t1 = document.createElement("div");
+			t1.className = "order-confirm-added-address-line1 order-confirm-added-address-badge";
+			if (item.id === "member") {
+				t1.innerHTML = `${escapeHtml(line1)} <sup>회원 주소</sup>`;
+			} else {
+				t1.textContent = line1;
+			}
+
+			const t2 = document.createElement("div");
+			t2.className = "order-confirm-added-address-line2";
+			t2.textContent = line2;
+
+			text.appendChild(t1);
+			text.appendChild(t2);
+
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "order-confirm-added-address-select-btn";
+			btn.textContent = "선택";
+			btn.addEventListener("click", () => {
+				applyAddressToInputs(item);
+				closeAddressModal();
+			});
+
+			wrap.appendChild(text);
+			wrap.appendChild(btn);
+
+			$addressList.appendChild(wrap);
+		});
+	}
+
+	// XSS 방지용(회원주소 sup를 위해 line1만 escape)
+	function escapeHtml(s) {
+		return String(s ?? "")
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&#039;");
+	}
+
+	// =========================
+	// ✅ 모달 열기/닫기 + 오버레이 클릭 닫기
+	// =========================
+	function openAddressModal() {
+		if (!$modalOverlay) return;
+		renderAddressModalList();
+		$modalOverlay.classList.add("order-confirm-added-open");
+		$modalOverlay.setAttribute("aria-hidden", "false");
+	}
+
+	function closeAddressModal() {
+		if (!$modalOverlay) return;
+		$modalOverlay.classList.remove("order-confirm-added-open");
+		$modalOverlay.setAttribute("aria-hidden", "true");
+	}
+
+	if ($openAddressModalBtn) {
+		$openAddressModalBtn.addEventListener("click", openAddressModal);
+	}
+
+	if ($modalClose) {
+		$modalClose.addEventListener("click", closeAddressModal);
+	}
+
+	if ($modalOverlay) {
+		$modalOverlay.addEventListener("click", (e) => {
+			// 오버레이 영역 클릭 시에만 닫기 (모달 내부 클릭은 무시)
+			if (e.target === $modalOverlay) closeAddressModal();
+		});
+	}
+
+	// =========================
+	// ✅ 주소검색(daum.post) 유지 + 값 정확히 갱신
+	// =========================
 	document.getElementById("main-addr-search").addEventListener("click", () => {
 		new daum.Postcode({
 			oncomplete: function (data) {
-				mainAddr.value = data.roadAddress || data.jibunAddress || "";
-				detailAddr.value = "";
-				doInput.value = data.sido || "";
-				siInput.value = data.sigungu || "";
-				guInput.value = data.bname || "";
-				zipInput.value = data.zonecode || "";
+				const road = data.roadAddress || data.jibunAddress || "";
+				applyAddressToInputs({
+					roadAddress: road,
+					detailAddress: "", // 상세주소는 사용자가 입력
+					doName: data.sido || "",
+					siName: data.sigungu || "",
+					guName: data.bname || "",
+					zipCode: data.zonecode || ""
+				});
+				// 상세주소 포커스(기존 UX 자연스럽게)
+				detailAddr.focus();
 			}
 		}).open();
 	});

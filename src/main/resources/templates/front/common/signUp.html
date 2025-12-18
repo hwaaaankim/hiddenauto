@@ -146,10 +146,8 @@
 										id="repAddDeliveryBtn">+ 배송지 추가</button>
 								</div>
 
-								<!-- 배송지 목록(요구사항: 버튼 위쪽에 쌓이도록 -> 여기 위치가 버튼 아래지만, 시각적으로는 동일 영역이며 목록이 위로 쌓이는 형태로 render 합니다) -->
 								<div id="repDeliveryList" class="mt-2"></div>
 
-								<!-- 서버로 보낼 JSON -->
 								<input type="hidden" name="deliveryAddressesJson" id="repDeliveryAddressesJson"
 									value="">
 							</div>
@@ -256,6 +254,37 @@
 				</div>
 			</div>
 
+		</div>
+	</div>
+
+	<!-- ✅ 추가 배송지 상세주소 입력 모달 (대표/직원 공통 1개) -->
+	<div class="modal fade" id="deliveryDetailModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content rounded-lg">
+				<div class="modal-header">
+					<h5 class="modal-title">추가 배송지 상세주소</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="mb-3">
+						<div class="font-600 mb-1">선택한 주소</div>
+						<div id="deliverySelectedAddress" class="p-2 border rounded-sm"></div>
+					</div>
+
+					<div class="mb-3">
+						<label for="deliveryDetailInput" class="form-label font-600">상세 주소</label>
+						<input type="text" class="form-control" id="deliveryDetailInput"
+							placeholder="상세 주소를 입력해 주세요. (예: 101동 1203호)">
+						<div class="form-text">상세 주소가 없으면 비워도 됩니다.</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary" id="deliveryDetailSaveBtn">저장</button>
+				</div>
+			</div>
 		</div>
 	</div>
 

@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -21,12 +21,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.CartOrderRequestDTO;
+import com.dev.HiddenBATHAuto.dto.CompanyDeliveryAddressViewDTO;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.task.Cart;
 import com.dev.HiddenBATHAuto.model.task.CartImage;
 import com.dev.HiddenBATHAuto.model.task.ProductMark;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductMarkRepository;
 import com.dev.HiddenBATHAuto.repository.order.CartRepository;
@@ -34,26 +36,22 @@ import com.dev.HiddenBATHAuto.service.order.CartService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Controller
 @Slf4j
+@RequiredArgsConstructor
 public class NonStandardOrderController {
 
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 	
-	@Autowired
-	private DeliveryMethodRepository deliveryMethodRepository;
-	
-	@Autowired
-	private CartRepository cartRepository;
-	
-	@Autowired
-	private CartService cartService;
-	
-	@Autowired
-	private ProductMarkRepository productMarkRepository;
+	private final DeliveryMethodRepository deliveryMethodRepository;
+	private final CartRepository cartRepository;
+	private final CartService cartService;
+	private final ProductMarkRepository productMarkRepository;
+	private final CompanyRepository companyRepository;
 	
 	@GetMapping("/nonStandardOrderProduct")
 	public String nonStandardOrderPage(
@@ -163,16 +161,30 @@ public class NonStandardOrderController {
 	        orderList.add(cart);
 	    }
 
-	    // ✅ 3. 회사 주소 정보
 	    Company company = member.getCompany();
 	    if (company != null) {
-	        model.addAttribute("mainAddress", company.getRoadAddress());
-	        model.addAttribute("detailAddress", company.getDetailAddress());
-	        model.addAttribute("zipCode", company.getZipCode());
-	        model.addAttribute("doName", company.getDoName());
-	        model.addAttribute("siName", company.getSiName());
-	        model.addAttribute("guName", company.getGuName());
-	        model.addAttribute("point", company.getPoint());
+
+	        // ✅ 배송지까지 포함해서 다시 로딩 (OSIV 없어도 안전)
+	        Company companyFetched = companyRepository
+	                .findWithDeliveryAddressesById(company.getId())
+	                .orElseThrow(() -> new IllegalArgumentException("회사 없음: " + company.getId()));
+
+	        model.addAttribute("mainAddress", companyFetched.getRoadAddress());
+	        model.addAttribute("detailAddress", companyFetched.getDetailAddress());
+	        model.addAttribute("zipCode", companyFetched.getZipCode());
+	        model.addAttribute("doName", companyFetched.getDoName());
+	        model.addAttribute("siName", companyFetched.getSiName());
+	        model.addAttribute("guName", companyFetched.getGuName());
+	        model.addAttribute("point", companyFetched.getPoint());
+
+	        // ✅ JS로 내려줄 배송지 리스트는 DTO로 변환해서 안전하게 전달
+	        List<CompanyDeliveryAddressViewDTO> addrDtos = companyFetched.getDeliveryAddresses()
+	                .stream()
+	                .map(CompanyDeliveryAddressViewDTO::fromEntity)
+	                .collect(Collectors.toList());
+
+	        model.addAttribute("companyDeliveryAddresses", addrDtos);
+
 	    } else {
 	        model.addAttribute("mainAddress", "");
 	        model.addAttribute("detailAddress", "");
@@ -180,7 +192,9 @@ public class NonStandardOrderController {
 	        model.addAttribute("doName", "");
 	        model.addAttribute("siName", "");
 	        model.addAttribute("guName", "");
-	        model.addAttribute("point", "");
+	        model.addAttribute("point", 0);
+
+	        model.addAttribute("companyDeliveryAddresses", List.of());
 	    }
 
 	    // ✅ 4. 현재 요청에 의해 만들어진 Cart 데이터만 전달
@@ -191,7 +205,6 @@ public class NonStandardOrderController {
 	    return "front/order/orderConfirm";
 	}
 
-	
 	@PostMapping("/modeling")
     public String showModelingView(@RequestParam Map<String, String> formData, Model model) {
         return processDataAndReturnView(formData, model, "front/order/modeling");

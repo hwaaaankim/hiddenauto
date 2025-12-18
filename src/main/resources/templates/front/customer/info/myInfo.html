@@ -207,15 +207,48 @@
 		window.__COMPANY_DELIVERY_ADDRESSES__ = /*[[${deliveryAddresses}]]*/[];
 	</script>
 
+	<!-- =========================
+	     ✅ 추가 배송지 상세주소 입력 모달 (Bootstrap 5 기준)
+	     ========================= -->
+	<div class="modal fade" id="companyDeliveryDetailModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content rounded-lg">
+				<div class="modal-header">
+					<h5 class="modal-title">추가 배송지 상세주소</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="mb-3">
+						<div class="font-600 mb-1">선택한 주소</div>
+						<div id="companyDeliverySelectedAddress" class="p-2 border rounded-sm"></div>
+					</div>
+
+					<div class="mb-3">
+						<label for="companyDeliveryDetailInput" class="form-label font-600">상세 주소</label>
+						<input type="text" class="form-control" id="companyDeliveryDetailInput"
+							placeholder="상세 주소를 입력해 주세요. (예: 101동 1203호)">
+						<div class="form-text">상세 주소가 없으면 비워도 됩니다.</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary" id="companyDeliveryDetailSaveBtn">저장</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<script>
-		/* global daum */
+		/* global daum, bootstrap */
 		(function () {
 			'use strict';
 
 			// =========================
 			// 공통 유틸
 			// =========================
-			function qs(id) {return document.getElementById(id);}
+			function qs(id) { return document.getElementById(id); }
 
 			function escapeHtml(s) {
 				return (s || '').toString().replace(/[&<>"']/g, function (m) {
@@ -239,7 +272,7 @@
 
 				if (fileInput && fileList) {
 					fileInput.addEventListener("change", function () {
-						fileList.querySelectorAll('.new-preview').forEach(function (el) {el.remove();});
+						fileList.querySelectorAll('.new-preview').forEach(function (el) { el.remove(); });
 
 						Array.from(fileInput.files).forEach(function (file) {
 							var li = document.createElement("li");
@@ -309,16 +342,31 @@
 			};
 
 			// =========================
-			// 3) ✅ 추가 배송지 UI (대표/직원 공통)
-			//    - 리스트: "경기도 용인시 ... X"
-			//    - +배송지 추가(daum.postcode + prompt)
-			//    - hidden(JSON)로 서버 전송
+			// 3) ✅ 추가 배송지 UI (대표/직원 공통) - 모달 방식
 			// =========================
 			function setupCompanyDeliveryUI() {
 				var addBtn = qs('companyAddDeliveryBtn');
 				var listEl = qs('companyDeliveryList');
 				var hiddenEl = qs('companyDeliveryAddressesJson');
 				if (!addBtn || !listEl || !hiddenEl) return;
+
+				// 모달 관련 엘리먼트
+				var modalEl = qs('companyDeliveryDetailModal');
+				var selectedAddrEl = qs('companyDeliverySelectedAddress');
+				var detailInputEl = qs('companyDeliveryDetailInput');
+				var saveBtn = qs('companyDeliveryDetailSaveBtn');
+
+				// bootstrap 모달 인스턴스
+				var modalInstance = null;
+				if (modalEl && window.bootstrap && bootstrap.Modal) {
+					modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
+						backdrop: 'static',
+						keyboard: true
+					});
+				}
+
+				// 주소 선택 후 임시 저장(상세주소 입력 전)
+				var pending = null;
 
 				// 초기값(서버 데이터)
 				var items = Array.isArray(window.__COMPANY_DELIVERY_ADDRESSES__)
@@ -356,10 +404,10 @@
 
 						var left = document.createElement('div');
 						left.className = 'me-2';
+
 						var text = (it.roadAddress || '');
 						if (it.detailAddress) text += ' ' + it.detailAddress;
 
-						// "경기도 용인시 ___" 형태로 보이도록 구성(도로주소 기반이므로 do/si/gu도 같이 보여줌)
 						var prefix = [it.doName, it.siName, it.guName].filter(Boolean).join(' ');
 						var display = (prefix ? (prefix + ' ') : '') + text;
 
@@ -381,40 +429,105 @@
 					});
 				}
 
+				function openDetailModal(pendingItem) {
+					pending = pendingItem;
+
+					// 화면 표시(선택한 주소)
+					if (selectedAddrEl) {
+						var prefix = [pending.doName, pending.siName, pending.guName].filter(Boolean).join(' ');
+						var base = (prefix ? (prefix + ' ') : '') + (pending.roadAddress || '');
+						selectedAddrEl.innerHTML = escapeHtml(base);
+					}
+
+					// 입력 초기화
+					if (detailInputEl) detailInputEl.value = '';
+
+					// 모달 오픈
+					if (modalInstance) {
+						modalInstance.show();
+						// 포커스
+						setTimeout(function () {
+							if (detailInputEl) detailInputEl.focus();
+						}, 150);
+						return;
+					}
+
+					// bootstrap 미존재 시 fallback (최소 동작)
+					alert('모달 라이브러리가 없어 상세주소 모달을 열 수 없습니다. (bootstrap 미로드)');
+				}
+
+				function addPendingToItems(detailText) {
+					if (!pending) return;
+
+					var newItem = {
+						id: null,
+						zipCode: pending.zipCode || '',
+						doName: pending.doName || '',
+						siName: pending.siName || '',
+						guName: pending.guName || '',
+						roadAddress: pending.roadAddress || '',
+						detailAddress: (detailText || '').trim()
+					};
+
+					if (!newItem.roadAddress) {
+						pending = null;
+						return;
+					}
+
+					// 중복 방지(road+detail이 같으면 막기)
+					var dup = items.some(function (x) {
+						return (x.roadAddress === newItem.roadAddress) && (x.detailAddress === newItem.detailAddress);
+					});
+					if (dup) {
+						alert('이미 추가된 배송지입니다.');
+						pending = null;
+						return;
+					}
+
+					items.push(newItem);
+					pending = null;
+					syncHidden();
+					render();
+				}
+
 				function openDaumAndAdd() {
 					new daum.Postcode({
 						oncomplete: function (data) {
 							var road = (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress;
 
-							var detail = window.prompt('상세 주소를 입력해 주세요. (없으면 비워도 됩니다)', '') || '';
-							detail = detail.trim();
-
-							var newItem = {
-								id: null,
+							var pendingItem = {
 								zipCode: data.zonecode || '',
 								doName: data.sido || '',
 								siName: data.sigungu || '',
 								guName: data.bname || '',
-								roadAddress: road || '',
-								detailAddress: detail
+								roadAddress: road || ''
 							};
 
-							if (!newItem.roadAddress) return;
+							if (!pendingItem.roadAddress) return;
 
-							// 중복 방지(road+detail이 같으면 막기)
-							var dup = items.some(function (x) {
-								return (x.roadAddress === newItem.roadAddress) && (x.detailAddress === newItem.detailAddress);
-							});
-							if (dup) {
-								alert('이미 추가된 배송지입니다.');
-								return;
-							}
-
-							items.push(newItem);
-							syncHidden();
-							render();
+							// ✅ 주소 선택 후 모달로 상세주소 입력
+							openDetailModal(pendingItem);
 						}
 					}).open();
+				}
+
+				// 저장 버튼
+				if (saveBtn) {
+					saveBtn.addEventListener('click', function () {
+						var detailText = detailInputEl ? detailInputEl.value : '';
+						addPendingToItems(detailText);
+
+						if (modalInstance) modalInstance.hide();
+					});
+				}
+
+				// 모달 닫힐 때 pending 초기화(취소 대비)
+				if (modalEl) {
+					modalEl.addEventListener('hidden.bs.modal', function () {
+						pending = null;
+						if (detailInputEl) detailInputEl.value = '';
+						if (selectedAddrEl) selectedAddrEl.innerHTML = '';
+					});
 				}
 
 				addBtn.addEventListener('click', openDaumAndAdd);
@@ -432,8 +545,8 @@
 			// 4) 대표 코드 생성(기존)
 			// =========================
 			window.generateKey = function generateKey() {
-				fetch("/customer/generateRegistrationKey", {method: "POST"})
-					.then(function (res) {return res.json();})
+				fetch("/customer/generateRegistrationKey", { method: "POST" })
+					.then(function (res) { return res.json(); })
 					.then(function (data) {
 						alert("새 코드가 생성되었습니다: " + data.key);
 						location.reload();
