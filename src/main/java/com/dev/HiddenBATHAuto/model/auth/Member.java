@@ -21,56 +21,68 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-@Data
+@Getter
+@Setter
+@ToString(onlyExplicitlyIncluded = true) // ✅ 필요한 필드만 포함
+@EqualsAndHashCode(onlyExplicitlyIncluded = true) // ✅ 필요한 필드만 포함
 @Entity
 @Table(name="tb_member")
-public class Member implements Serializable{
+public class Member implements Serializable {
 
-	private static final long serialVersionUID = 1L;
-	
+    private static final long serialVersionUID = 1L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
+    @ToString.Include
     private Long id;
 
+    @ToString.Include
     private String username;
+
     private String password;
     private String name;
     private String phone;
     private String email;
     private String telephone;
-    
+
     @Enumerated(EnumType.STRING)
     private MemberRole role;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JsonBackReference
-    private Company company; // 고객사 소속일 경우
+    private Company company;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    private Team team; // 내부 직원일 경우
-    
-    @ManyToOne(fetch = FetchType.EAGER)
-    private TeamCategory teamCategory; // 
+    private Team team;
 
-    private String productCategoryScope; // 생산팀: 담당 제품
-    
+    @ManyToOne(fetch = FetchType.EAGER)
+    private TeamCategory teamCategory;
+
+    private String productCategoryScope;
+
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonManagedReference("member-memberRegion")   
+    @JsonManagedReference("member-memberRegion")
+    @ToString.Exclude
     private List<MemberRegion> addressScopes = new ArrayList<>();
 
-    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference // ✅ 무한 재귀 방지
-    private List<Cart> carts = new ArrayList<>();
-    
-    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
+    @ToString.Exclude
+    private List<Cart> carts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    @ToString.Exclude
     private List<ProductMark> productMarks = new ArrayList<>();
-    
+
     private boolean enabled = true;
-    private LocalDateTime createdAt = LocalDateTime.now(); // 회원가입일
-    private LocalDateTime updatedAt; // 최근 회원정보 수정일
-    private LocalDateTime lastLoginAt; // 마지막 로그인 시각
-	
+    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime updatedAt;
+    private LocalDateTime lastLoginAt;
 }

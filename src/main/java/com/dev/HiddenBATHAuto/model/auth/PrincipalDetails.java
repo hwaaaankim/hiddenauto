@@ -1,8 +1,8 @@
 package com.dev.HiddenBATHAuto.model.auth;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -10,121 +10,176 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.ToString;
 
-@Data
+@Getter
+@ToString(onlyExplicitlyIncluded = true)
 public class PrincipalDetails implements UserDetails, Serializable {
 
-	private static final long serialVersionUID = 2024L;
+    private static final long serialVersionUID = 2024L;
 
-	private final Member member;
+    /**
+     * ✅ 엔티티를 그대로 들고가되,
+     * - toString()에서 제외하여 Lazy 컬렉션 접근으로 예외가 터지는 것을 방지
+     * - equals/hashCode 생성 자체를 하지 않아(= @Data 제거) 세션 저장/로그 출력 시 위험 감소
+     */
+    @ToString.Exclude
+    private final Member member;
 
-	public PrincipalDetails(Member member) {
-		this.member = member;
-	}
-	
-	public Long getId() {
-	    return member.getId();
-	}
-	
-	public String getName() {
-	    return member.getName();
-	}
+    /**
+     * ✅ getAuthorities()가 자주 호출되어도 매번 새 객체 생성하지 않도록 캐시
+     */
+    private final Collection<? extends GrantedAuthority> authorities;
 
-	public Company getCompany() {
-	    return member.getCompany();
-	}
+    /**
+     * ✅ 로그/디버깅 시 최소 정보만 안전하게 노출
+     */
+    @ToString.Include
+    private final Long id;
 
-	@Override
-	public Collection<? extends GrantedAuthority> getAuthorities() {
-		ArrayList<GrantedAuthority> auth = new ArrayList<>();
-		// Spring Security 권한은 "ROLE_" 접두사 필요
-		auth.add(new SimpleGrantedAuthority("ROLE_" + member.getRole().name()));
-		return auth;
-	}
-	
-	public String getFullAddress() {
-	    Company company = member.getCompany();
-	    if (company == null) return "";
-	    return company.getRoadAddress() + " " + company.getDetailAddress();
-	}
+    @ToString.Include
+    private final String username;
 
-	public String getZipCode() {
-	    return member.getCompany() != null ? member.getCompany().getZipCode() : "";
-	}
+    @ToString.Include
+    private final String role;
 
-	public String getDoName() {
-	    return member.getCompany() != null ? member.getCompany().getDoName() : "";
-	}
+    public PrincipalDetails(Member member) {
+        this.member = member;
+        this.id = (member != null ? member.getId() : null);
+        this.username = (member != null ? member.getUsername() : null);
+        this.role = (member != null && member.getRole() != null ? member.getRole().name() : null);
 
-	public String getSiName() {
-	    return member.getCompany() != null ? member.getCompany().getSiName() : "";
-	}
+        // ROLE_ 접두사는 유지
+        if (member != null && member.getRole() != null) {
+            this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + member.getRole().name()));
+        } else {
+            this.authorities = List.of();
+        }
+    }
 
-	public String getGuName() {
-	    return member.getCompany() != null ? member.getCompany().getGuName() : "";
-	}
+    // ===============================
+    // ✅ 기존 코드와 동일한 편의 메서드들
+    // (다른 곳 호출 깨지지 않게 유지)
+    // ===============================
 
-	public Team getTeam() {
-		return member.getTeam();
-	}
-	
-	public TeamCategory getTeamCategory() {
-		
-		return member.getTeamCategory();
-	}
-	
-	public Long getTeamId() {
-	    return member.getTeam() != null ? member.getTeam().getId() : null;
-	}
+    public Long getId() {
+        return member != null ? member.getId() : null;
+    }
 
-	public Long getTeamCategoryId() {
-	    return member.getTeamCategory() != null ? member.getTeamCategory().getId() : null;
-	}
-	
-	public String getTeamName() {
-	    return member.getTeam() != null ? member.getTeam().getName() : null;
-	}
+    public String getName() {
+        return member != null ? member.getName() : null;
+    }
 
-	public String getTeamCategoryName() {
-	    return member.getTeamCategory() != null ? member.getTeamCategory().getName() : null;
-	}
-	
-	@Override
-	public String getUsername() {
-		return this.member.getUsername();
-	}
+    public Company getCompany() {
+        return member != null ? member.getCompany() : null;
+    }
 
-	@Override
-	public String getPassword() {
-		return this.member.getPassword();
-	}
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return authorities;
+    }
 
-	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-	@Override
-	public boolean isAccountNonExpired() {
-		return true;
-	}
+    public String getFullAddress() {
+        Company company = (member != null ? member.getCompany() : null);
+        if (company == null) return "";
+        String road = company.getRoadAddress() != null ? company.getRoadAddress() : "";
+        String detail = company.getDetailAddress() != null ? company.getDetailAddress() : "";
+        String merged = (road + " " + detail).trim();
+        return merged;
+    }
 
-	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-	@Override
-	public boolean isAccountNonLocked() {
-		return true;
-	}
+    public String getZipCode() {
+        Company company = (member != null ? member.getCompany() : null);
+        return company != null && company.getZipCode() != null ? company.getZipCode() : "";
+    }
 
-	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-	@Override
-	public boolean isCredentialsNonExpired() {
-		return true;
-	}
+    public String getDoName() {
+        Company company = (member != null ? member.getCompany() : null);
+        return company != null && company.getDoName() != null ? company.getDoName() : "";
+    }
 
-	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-	@Override
-	public boolean isEnabled() {
-		return member.isEnabled(); // 실제 enabled 필드 기반
-	}
+    public String getSiName() {
+        Company company = (member != null ? member.getCompany() : null);
+        return company != null && company.getSiName() != null ? company.getSiName() : "";
+    }
 
-	public Member getMember() {
-		return this.member;
-	}
+    public String getGuName() {
+        Company company = (member != null ? member.getCompany() : null);
+        return company != null && company.getGuName() != null ? company.getGuName() : "";
+    }
+
+    public Team getTeam() {
+        return member != null ? member.getTeam() : null;
+    }
+
+    public TeamCategory getTeamCategory() {
+        return member != null ? member.getTeamCategory() : null;
+    }
+
+    public Long getTeamId() {
+        Team team = (member != null ? member.getTeam() : null);
+        return team != null ? team.getId() : null;
+    }
+
+    public Long getTeamCategoryId() {
+        TeamCategory tc = (member != null ? member.getTeamCategory() : null);
+        return tc != null ? tc.getId() : null;
+    }
+
+    public String getTeamName() {
+        Team team = (member != null ? member.getTeam() : null);
+        return team != null ? team.getName() : null;
+    }
+
+    public String getTeamCategoryName() {
+        TeamCategory tc = (member != null ? member.getTeamCategory() : null);
+        return tc != null ? tc.getName() : null;
+    }
+
+    // ===============================
+    // ✅ UserDetails 필수 구현
+    // ===============================
+
+    @Override
+    public String getUsername() {
+        return this.username; // member.getUsername() 직접 호출 대신 캐시 사용
+    }
+
+    @Override
+    public String getPassword() {
+        return member != null ? member.getPassword() : null;
+    }
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Override
+    public boolean isEnabled() {
+        return member != null && member.isEnabled();
+    }
+
+    /**
+     * ✅ 기존 코드 호환 유지용
+     * (외부에서 principal.getMember() 쓰는 코드가 많다면 유지하는 게 안전합니다)
+     */
+    public Member getMember() {
+        return this.member;
+    }
 }
