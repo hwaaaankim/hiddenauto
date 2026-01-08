@@ -621,6 +621,18 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
+    
+    @Query("""
+        select distinct o
+        from Order o
+        left join fetch o.orderItem oi
+        left join fetch o.productCategory pc
+        left join fetch o.task t
+        left join fetch t.requestedBy rb
+        left join fetch rb.company c
+        where o.id in :ids
+    """)
+    List<Order> findAllForStickerPrint(@Param("ids") List<Long> ids);
 }
 
 

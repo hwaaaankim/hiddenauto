@@ -100,6 +100,12 @@
 									<button type="button" class="btn btn-success w-100"
 										id="team-production-bulk-done-btn" disabled>생산완료</button>
 								</div>
+								<!-- (기존) 생산완료 버튼 col-lg-1 바로 뒤에 추가 -->
+								<div class="col-lg-1">
+									<label class="form-label">&nbsp;</label>
+									<button type="button" class="btn btn-info w-100"
+										id="team-production-sticker-print-btn" disabled>스티커출력</button>
+								</div>
 
 							</div>
 						</div>
@@ -294,6 +300,7 @@
 
 	<!-- team-production 전용 CSS/JS (경로는 프로젝트 규칙에 맞게 배치) -->
 	<script th:src="@{/administration/assets/team/production/productionList.js}"></script>
+	<script th:src="@{/administration/assets/team/production/productionPrint.js}"></script>
 </body>
 
 </html>

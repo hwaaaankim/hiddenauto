@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
@@ -434,4 +436,38 @@ public class TeamController {
 		return ResponseEntity.ok().build();
 	}
 
+	@PostMapping("/productionStickerPrint")
+	public String productionStickerPrint(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam("orderIds") List<Long> orderIds, Model model) {
+		Member member = principal.getMember();
+
+		if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+		}
+
+		if (orderIds == null || orderIds.isEmpty()) {
+			model.addAttribute("pages", List.of());
+			model.addAttribute("totalCount", 0);
+			return "administration/team/production/productionStickerPrint";
+		}
+
+		// ✅ 하부장팀 제한을 “출력”에도 적용할지 여부가 중요합니다.
+		// 아래는 "목록에서의 제한과 동일하게" 적용하는 방식(권장).
+		boolean isSubLeaderTeam = (member.getTeamCategory() != null
+				&& "하부장".equals(member.getTeamCategory().getName()));
+		Long allowedCategoryId = isSubLeaderTeam ? member.getTeamCategory().getId() : null;
+
+		List<StickerPrintDto> items = teamTaskService.getStickerPrintItems(orderIds, allowedCategoryId);
+
+		// 4개씩 페이지 분할
+		List<List<StickerPrintDto>> pages = new ArrayList<>();
+		for (int i = 0; i < items.size(); i += 4) {
+			pages.add(items.subList(i, Math.min(i + 4, items.size())));
+		}
+
+		model.addAttribute("pages", pages);
+		model.addAttribute("totalCount", items.size());
+
+		return "administration/team/production/productionStickerPrint";
+	}
 }

@@ -18597,8 +18597,6 @@ span.flatpickr-weekday {
 	}
 }
 .production-pagination {
-	position: absolute;
-	bottom: 80px;
 	/* footer 높이 고려해서 조정 */
 	width: 80%;
 	padding: 16px 24px;

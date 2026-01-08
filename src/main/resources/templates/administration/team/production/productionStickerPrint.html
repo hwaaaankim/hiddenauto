@@ -1,0 +1,292 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<title>스티커 출력</title>
+
+	<style>
+		/* ==================================================
+		   ✅ 인쇄 미세조정 포인트 (mm 단위로 여기만 조절)
+		   ================================================== */
+		:root {
+			/* 프린터 전체 여백(가장 중요) */
+			--page-mt: 6mm;
+			--page-mr: 6mm;
+			--page-mb: 6mm;
+			--page-ml: 6mm;
+
+			/* 라벨(각 1/4 영역) 내부 여백 */
+			--label-pad: 5mm;
+
+			/* 라벨 구분선 */
+			--divider: 1px dashed #b8b8b8;
+
+			/* 폰트 크기 */
+			--font-base: 10.5pt;
+			--font-small: 9.5pt;
+			--font-title: 13pt;
+
+			/* 라인 높이 */
+			--line: 1.22;
+			--line-tight: 1.16;
+
+			/* 굵기 */
+			--weight-strong: 800;
+			--weight-key: 800;
+		}
+
+		@page {
+			size: A4 portrait;
+			margin: var(--page-mt) var(--page-mr) var(--page-mb) var(--page-ml);
+		}
+
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+			font-size: var(--font-base);
+			line-height: var(--line);
+			color: #111;
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
+		}
+
+		/* ✅ A4 인쇄 가능 영역(=margin 제외) */
+		.sheet {
+			width: calc(210mm - (var(--page-ml) + var(--page-mr)));
+			height: calc(297mm - (var(--page-mt) + var(--page-mb)));
+			box-sizing: border-box;
+
+			/* ✅ 십자가 형태 2×2 */
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			grid-template-rows: 1fr 1fr;
+
+			/* ✅ 구분선(십자가) */
+			border: var(--divider);
+
+			/* 페이지 분리 */
+			page-break-after: always;
+		}
+
+		/* 각 칸(라벨) */
+		.label {
+			box-sizing: border-box;
+			padding: var(--label-pad);
+			overflow: hidden;
+
+			/* ✅ 칸 내부 중앙 정렬 */
+			display: flex;
+			align-items: center;    /* 수직 중앙 */
+			justify-content: center;/* 수평 중앙 */
+		}
+
+		/* ✅ 중앙 정렬된 내용 박스(너무 좁거나 넓지 않게) */
+		.label-inner {
+			width: 100%;
+			max-width: 92%;
+			/* 가운데 정렬 유지 */
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			/* 칸 높이 내에서 균형 */
+			gap: 3mm;
+		}
+
+		/* ✅ 십자가 구분선: grid 셀마다 내부선 */
+		/* 4칸 모두 border를 주면 가운데가 2겹이 될 수 있어 한쪽만 줍니다 */
+		.label {
+			border-right: var(--divider);
+			border-bottom: var(--divider);
+		}
+		/* 오른쪽 열은 border-right 제거 */
+		.sheet > .label:nth-child(2n) {
+			border-right: none;
+		}
+		/* 아래 행은 border-bottom 제거 */
+		.sheet > .label:nth-child(n+3) {
+			border-bottom: none;
+		}
+
+		/* 상단 헤더(주문번호 + 상태) */
+		.top {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			gap: 6mm;
+		}
+
+		.order-id {
+			font-size: var(--font-title);
+			font-weight: var(--weight-strong);
+			letter-spacing: 0.2px;
+			white-space: nowrap;
+		}
+
+		.status {
+			font-size: var(--font-small);
+			font-weight: 800;
+			border: 1px solid #222;
+			border-radius: 3mm;
+			padding: 1mm 2.5mm;
+			white-space: nowrap;
+		}
+
+		/* 본문: Key-Value Grid */
+		.kv {
+			display: grid;
+			grid-template-columns: 19mm 1fr;
+			column-gap: 3mm;
+			row-gap: 1.8mm;
+			align-items: start;
+		}
+
+		.k {
+			font-size: var(--font-small);
+			font-weight: var(--weight-key);
+			white-space: nowrap;
+			color: #111;
+		}
+
+		.k::before {
+			content: "★ ";
+			font-weight: 900;
+		}
+
+		.v {
+			font-size: var(--font-small);
+			color: #111;
+			word-break: keep-all;
+			overflow-wrap: anywhere;
+		}
+
+		.v.tight {
+			line-height: var(--line-tight);
+		}
+
+		.strong {
+			font-weight: var(--weight-strong);
+		}
+
+		.muted {
+			color: #555;
+		}
+
+		.addr-line {
+			margin: 0;
+		}
+
+		.bottom {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-end;
+			gap: 6mm;
+			font-size: var(--font-small);
+			color: #444;
+			margin-top: 2mm;
+		}
+
+		/* 마지막 페이지 빈 칸 */
+		.label.empty {
+			color: transparent;
+		}
+
+		@media screen {
+			body {
+				background: #f2f2f2;
+				padding: 10px;
+			}
+
+			.sheet {
+				background: #fff;
+				margin: 0 auto 14px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+			}
+		}
+
+		@media print {
+			a {
+				text-decoration: none;
+				color: inherit;
+			}
+		}
+	</style>
+</head>
+
+<body>
+
+	<div th:if="${totalCount == 0}" style="padding: 20px;">
+		출력할 항목이 없습니다.
+	</div>
+
+	<div th:each="pageItems, pStat : ${pages}" class="sheet">
+
+		<!-- ✅ 실제 출력 라벨 (2×2 = 4개까지) -->
+		<div th:each="item, iStat : ${pageItems}" class="label">
+
+			<div class="label-inner">
+				<div class="top">
+					<div class="order-id">
+						주문 <span th:text="${item.orderId}">0</span>
+					</div>
+					<div class="status" th:text="${item.status}">STATUS</div>
+				</div>
+
+				<div class="kv">
+					<div class="k">배송일</div>
+					<div class="v strong"
+						th:text="${item.preferredDeliveryDate != null ? #temporals.format(item.preferredDeliveryDate,'yyyy-MM-dd') : '-'}">
+						-</div>
+
+					<div class="k">업체</div>
+					<div class="v strong" th:text="${item.companyName}">-</div>
+
+					<div class="k">주소</div>
+					<div class="v tight">
+						<div class="addr-line" th:text="${item.roadAddress}">도로명</div>
+						<div class="addr-line" th:if="${item.detailAddress != null and item.detailAddress != ''}"
+							th:text="${item.detailAddress}">상세</div>
+						<div class="addr-line muted" th:text="${item.regionText}">지역(우편)</div>
+					</div>
+
+					<div class="k">제품</div>
+					<div class="v">
+						<span class="strong" th:text="${item.productName}">-</span>
+					</div>
+
+					<div class="k">수량</div>
+					<div class="v strong" th:text="${item.quantity}">0</div>
+
+					<div class="k" th:if="${item.optionSummary != null and item.optionSummary != ''}">옵션</div>
+					<div class="v tight" th:if="${item.optionSummary != null and item.optionSummary != ''}"
+						th:text="${item.optionSummary}">옵션요약</div>
+				</div>
+
+				<div class="bottom">
+					<div class="muted"></div>
+					<div class="muted"></div>
+				</div>
+			</div>
+
+		</div>
+
+		<!-- ✅ 마지막 페이지에서 4칸이 안 차면 빈 라벨로 채움 -->
+		<div th:if="${pageItems.size() < 4}" th:each="x : ${#numbers.sequence(1, 4 - pageItems.size())}"
+			class="label empty">
+			<div class="label-inner">.</div>
+		</div>
+
+	</div>
+
+	<script>
+		window.addEventListener('load', function () {
+			window.print();
+			// window.onafterprint = function(){ window.close(); };
+		});
+	</script>
+
+</body>
+
+</html>
