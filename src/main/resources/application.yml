@@ -4,7 +4,14 @@ spring:
     active: test
   application:
     name: HiddenBATHAuto
-
+as:
+  sms:
+    reminder:
+      template: |
+        [히든바스]
+        내일({date}) 신청하신 AS에 대한 기사님이 방문하실 예정입니다.
+        기사님 성함 : {engineerName}
+        기사님 연락처 : {engineerPhone}
 server:
   port: 8080
   servlet:

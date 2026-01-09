@@ -54,6 +54,7 @@ import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.order.OrderService;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
+import com.dev.HiddenBATHAuto.utils.OrderItemOptionJsonUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -225,50 +226,59 @@ public class TeamController {
 
 	@GetMapping("/deliveryList")
 	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
-			@RequestParam(required = false) OrderStatus status, Model model) {
-		Member member = principal.getMember();
+	        @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
+	        @RequestParam(required = false) OrderStatus status, Model model) {
 
-		// 1) 배송팀만 접근
-		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-		}
+	    Member member = principal.getMember();
 
-		// 2) 기본 조회일: 내일
-		if (preferredDate == null) {
-			preferredDate = LocalDate.now().plusDays(1);
-		}
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
 
-		// 3) 상태 필터: status 없으면 3개 기본
-		List<OrderStatus> statuses = (status != null) ? List.of(status)
-				: List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
+	    if (preferredDate == null) {
+	        preferredDate = LocalDate.now().plusDays(1);
+	    }
 
-		// 4) 전체 조회(페이지네이션 제거)
-		// ✅ ORDER BY: (배송완료는 뒤로) + orderIndex ASC
-		List<DeliveryOrderIndex> all = deliveryOrderIndexRepository.findListByHandlerAndDateAndStatusIn(member.getId(),
-				preferredDate, statuses);
+	    List<OrderStatus> statuses = (status != null) ? List.of(status)
+	            : List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
 
-		// 5) 섹션 분리
-		List<DeliveryOrderIndex> pendingOrders = all.stream()
-				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
-				.collect(Collectors.toList());
+	    List<DeliveryOrderIndex> all = deliveryOrderIndexRepository
+	            .findListByHandlerAndDateAndStatusIn(member.getId(), preferredDate, statuses);
 
-		List<DeliveryOrderIndex> doneOrders = all.stream()
-				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
-				.collect(Collectors.toList());
+	    List<DeliveryOrderIndex> pendingOrders = all.stream()
+	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
+	            .collect(Collectors.toList());
 
-		// 6) 모델
-		model.addAttribute("deliveryHandlerId", member.getId());
-		model.addAttribute("preferredDate", preferredDate);
+	    List<DeliveryOrderIndex> doneOrders = all.stream()
+	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+	            .collect(Collectors.toList());
 
-		model.addAttribute("pendingOrders", pendingOrders);
-		model.addAttribute("doneOrders", doneOrders);
+	    // ✅ 여기서 optionJson 파싱해서 formattedOptionText 채우기
+	    enrichOrderItems(pendingOrders);
+	    enrichOrderItems(doneOrders);
 
-		model.addAttribute("status", status);
-		model.addAttribute("availableStatuses",
-				List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
+	    model.addAttribute("deliveryHandlerId", member.getId());
+	    model.addAttribute("preferredDate", preferredDate);
 
-		return "administration/team/delivery/deliveryList";
+	    model.addAttribute("pendingOrders", pendingOrders);
+	    model.addAttribute("doneOrders", doneOrders);
+
+	    model.addAttribute("status", status);
+	    model.addAttribute("availableStatuses",
+	            List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
+
+	    return "administration/team/delivery/deliveryList";
+	}
+
+	private void enrichOrderItems(List<DeliveryOrderIndex> list) {
+	    if (list == null) return;
+	    for (DeliveryOrderIndex doi : list) {
+	        if (doi == null || doi.getOrder() == null) continue;
+	        OrderItem item = doi.getOrder().getOrderItem();
+	        if (item == null) continue;
+
+	        OrderItemOptionJsonUtil.enrich(item);
+	    }
 	}
 
 	@PostMapping("/updateOrderIndex")

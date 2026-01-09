@@ -1,7 +1,89 @@
 document.addEventListener("DOMContentLoaded", function() {
 	const form = document.querySelector("form");
+
+	// =========================================================
+	// ✅ 현장 연락처(onsiteContact) 숫자만 허용 + 자동 하이픈 포맷
+	// =========================================================
+	const onsiteContactInput = document.getElementById("onsiteContact");
+
+	// 숫자만 추출
+	function onlyDigits(v) {
+		return String(v || "").replace(/\D/g, "");
+	}
+
+	/**
+	 * 휴대폰 번호 포맷
+	 * - 입력은 숫자만 받되, 화면 표시/전송은 010-1234-5678 형태로 맞춥니다.
+	 * - 기본적으로 010xxxxxxxx(11자리)을 정상 케이스로 보며,
+	 *   010xxxxxxx(10자리)도 010-123-4567 형태로 자연스럽게 표시됩니다.
+	 */
+	function formatKoreanMobile(digits) {
+		digits = onlyDigits(digits);
+
+		// 010으로 시작하지 않는 경우도 입력은 허용하되, 제출 검증에서 걸러냅니다.
+		// 입력 단계에서는 최대 11자리까지만 유지
+		if (digits.length > 11) digits = digits.slice(0, 11);
+
+		// 길이에 따라 하이픈 위치 결정
+		if (digits.length <= 3) {
+			return digits;
+		}
+		if (digits.length <= 7) {
+			// 010-1234 (또는 010-123)
+			return digits.slice(0, 3) + "-" + digits.slice(3);
+		}
+		if (digits.length === 10) {
+			// 010-123-4567
+			return digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6);
+		}
+		// 11자리(정상): 010-1234-5678
+		return digits.slice(0, 3) + "-" + digits.slice(3, 7) + "-" + digits.slice(7);
+	}
+
+	// 커서 위치 보정(사용성 개선)
+	function setCaretToEnd(el) {
+		try {
+			const len = el.value.length;
+			el.setSelectionRange(len, len);
+		} catch (e) {
+			// 일부 환경에서 setSelectionRange가 실패할 수 있어 무시
+		}
+	}
+
+	// 입력 중 숫자만 + 자동 포맷
+	onsiteContactInput.addEventListener("input", function() {
+		const digits = onlyDigits(onsiteContactInput.value);
+		onsiteContactInput.value = formatKoreanMobile(digits);
+		setCaretToEnd(onsiteContactInput);
+	});
+
+	// 붙여넣기 시에도 숫자만 반영
+	onsiteContactInput.addEventListener("paste", function() {
+		// paste 직후 input 이벤트가 다시 발생하므로 여기서는 별도 처리 불필요
+	});
+
+	// 제출 직전 최종 검증
+	function isValidMobileFormatted(v) {
+		// 최종적으로는 010-1234-5678 또는 010-123-4567 형태를 허용
+		// (원하시면 11자리만 강제도 가능합니다)
+		const s = String(v || "").trim();
+		const r11 = /^010-\d{4}-\d{4}$/;
+		const r10 = /^010-\d{3}-\d{4}$/;
+		return r11.test(s) || r10.test(s);
+	}
+
 	form.addEventListener("submit", function(e) {
 		e.preventDefault();
+
+		// 연락처 강제 포맷/정리 후 검증
+		const formatted = formatKoreanMobile(onsiteContactInput.value);
+		onsiteContactInput.value = formatted;
+
+		if (!isValidMobileFormatted(formatted)) {
+			alert("현장연락처를 '- 없이 숫자만' 입력해 주세요.\n예) 01012345678");
+			onsiteContactInput.focus();
+			return;
+		}
 
 		const formData = new FormData(form);
 

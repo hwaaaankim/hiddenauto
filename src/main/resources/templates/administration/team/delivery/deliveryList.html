@@ -125,7 +125,10 @@
 
 														<div class="ellipsis">
 															<strong>제품 상세:</strong>
-															<span th:text="${o.orderItem.productName}"></span>
+															<span th:text="${#strings.isEmpty(o.orderItem.formattedOptionText) 
+															    ? o.orderItem.productName 
+															    : o.orderItem.formattedOptionText}">
+															</span>
 														</div>
 													</div>
 

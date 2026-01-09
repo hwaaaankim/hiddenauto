@@ -36,7 +36,8 @@ public class OrderItem {
     // ✅ 목록/상세에서 깔끔 출력용(키:값 <br>)
     @Transient
     private String formattedOptionHtml;
-    
+
+    // ✅ "카테고리: ... / 제품명: ... / ..." 한 줄 요약
     @Transient
-    private String formattedOptionText; // ✅ "카테고리 / 제품명 / 사이즈 / 색상" 같은 한 줄 요약
+    private String formattedOptionText;
 }
