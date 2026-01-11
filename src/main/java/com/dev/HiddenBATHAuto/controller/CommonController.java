@@ -40,6 +40,12 @@ public class CommonController {
 		return "front/excelConvert";
 	}
 	
+	@GetMapping("/excelMemberInsertForm")
+	public String excelMemberInsertForm() {
+		
+		return "front/excelMemberInsertForm";
+	}
+	
 	@GetMapping("/loginForm")
 	public String loginForm() {
 

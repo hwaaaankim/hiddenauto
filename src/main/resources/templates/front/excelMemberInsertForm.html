@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="utf-8">
+	<title>회원 엑셀 업로드</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+		body {
+			font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+			padding: 24px;
+		}
+
+		.box {
+			max-width: 900px;
+			border: 1px solid #e5e5e5;
+			border-radius: 12px;
+			padding: 18px;
+		}
+
+		.row {
+			display: flex;
+			gap: 10px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+
+		input[type=file] {
+			padding: 8px;
+			border: 1px solid #ddd;
+			border-radius: 10px;
+		}
+
+		button {
+			padding: 10px 14px;
+			border-radius: 10px;
+			border: 1px solid #111;
+			background: #111;
+			color: #fff;
+			cursor: pointer;
+		}
+
+		button:disabled {
+			opacity: .5;
+			cursor: not-allowed;
+		}
+
+		.hint {
+			margin-top: 8px;
+			color: #555;
+			font-size: 13px;
+			line-height: 1.4;
+		}
+
+		.result {
+			margin-top: 16px;
+			padding: 12px;
+			border: 1px solid #ddd;
+			border-radius: 10px;
+			background: #fafafa;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 8px;
+		}
+
+		.k {
+			color: #666;
+			font-size: 12px;
+		}
+
+		.v {
+			font-weight: 700;
+		}
+
+		.errors {
+			margin-top: 14px;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+		}
+
+		th,
+		td {
+			border: 1px solid #e2e2e2;
+			padding: 8px;
+			font-size: 13px;
+		}
+
+		th {
+			background: #f2f2f2;
+			text-align: left;
+		}
+
+		.ok {
+			color: #0a7a2f;
+			font-weight: 700;
+		}
+
+		.bad {
+			color: #b00020;
+			font-weight: 700;
+		}
+
+		.small {
+			font-size: 12px;
+			color: #666;
+		}
+	</style>
+</head>
+
+<body>
+
+	<div class="box">
+		<h2 style="margin:0 0 10px;">회원 엑셀 업로드</h2>
+
+		<div class="row">
+			<input id="file" type="file" accept=".xlsx,.xls" />
+			<button id="btnUpload">업로드 & 등록</button>
+			<span id="status" class="small"></span>
+		</div>
+
+		<div class="hint">
+			<div>• 엑셀 0행은 헤더로 간주하고 1행부터 처리합니다.</div>
+			<div>• 사업자등록번호는 '-' 제거 후 저장되며, username은 사업자등록번호(하이픈 제거)로 저장됩니다.</div>
+			<div>• 신규 Member 비밀번호는 모두 12345(인코딩 저장), role은 CUSTOMER_REPRESENTATIVE 입니다.</div>
+			<div>• Company.salesManager는 Member ID=1로 고정됩니다.</div>
+			<div>• 엑셀 값이 비었거나 'NULL'이면 '-'로 저장합니다.</div>
+		</div>
+
+		<div id="result" class="result" style="display:none;">
+			<div class="grid">
+				<div>
+					<div class="k">처리 대상 행(헤더 제외)</div>
+					<div class="v" id="rTotal">0</div>
+				</div>
+				<div>
+					<div class="k">성공</div>
+					<div class="v ok" id="rSuccess">0</div>
+				</div>
+				<div>
+					<div class="k">실패</div>
+					<div class="v bad" id="rFail">0</div>
+				</div>
+
+				<div>
+					<div class="k">신규 Member</div>
+					<div class="v" id="rCreatedM">0</div>
+				</div>
+				<div>
+					<div class="k">갱신 Member</div>
+					<div class="v" id="rUpdatedM">0</div>
+				</div>
+				<div>
+					<div class="k">신규 Company</div>
+					<div class="v" id="rCreatedC">0</div>
+				</div>
+
+				<div>
+					<div class="k">갱신 Company</div>
+					<div class="v" id="rUpdatedC">0</div>
+				</div>
+				<div></div>
+				<div></div>
+			</div>
+
+			<div class="errors">
+				<h3 style="margin:12px 0 8px;">실패 목록</h3>
+				<table>
+					<thead>
+						<tr>
+							<th style="width:120px;">행(rowIndex)</th>
+							<th>메시지</th>
+						</tr>
+					</thead>
+					<tbody id="errorBody">
+						<tr>
+							<td colspan="2" class="small">실패가 없으면 표시되지 않습니다.</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+	</div>
+
+	<script>
+		(function () {
+			'use strict';
+
+			const fileEl = document.getElementById('file');
+			const btn = document.getElementById('btnUpload');
+			const statusEl = document.getElementById('status');
+			const resultEl = document.getElementById('result');
+
+			const setStatus = (msg) => {statusEl.textContent = msg || '';};
+
+			const setDisabled = (v) => {
+				btn.disabled = !!v;
+				fileEl.disabled = !!v;
+			};
+
+			function renderResult(res) {
+				resultEl.style.display = 'block';
+
+				document.getElementById('rTotal').textContent = res.totalRows ?? 0;
+				document.getElementById('rSuccess').textContent = res.successRows ?? 0;
+				document.getElementById('rFail').textContent = res.failedRows ?? 0;
+
+				document.getElementById('rCreatedM').textContent = res.createdMembers ?? 0;
+				document.getElementById('rUpdatedM').textContent = res.updatedMembers ?? 0;
+				document.getElementById('rCreatedC').textContent = res.createdCompanies ?? 0;
+				document.getElementById('rUpdatedC').textContent = res.updatedCompanies ?? 0;
+
+				const body = document.getElementById('errorBody');
+				body.innerHTML = '';
+
+				const errors = res.errors || [];
+				if (!errors.length) {
+					const tr = document.createElement('tr');
+					tr.innerHTML = '<td colspan="2" class="small">실패가 없습니다.</td>';
+					body.appendChild(tr);
+					return;
+				}
+
+				for (const e of errors) {
+					const tr = document.createElement('tr');
+					tr.innerHTML = `<td>${e.rowIndex}</td><td>${escapeHtml(e.message || '')}</td>`;
+					body.appendChild(tr);
+				}
+			}
+
+			function escapeHtml(s) {
+				return String(s)
+					.replaceAll('&', '&amp;')
+					.replaceAll('<', '&lt;')
+					.replaceAll('>', '&gt;')
+					.replaceAll('"', '&quot;')
+					.replaceAll("'", "&#039;");
+			}
+
+			btn.addEventListener('click', async () => {
+				const f = fileEl.files && fileEl.files[0];
+				if (!f) {
+					alert('엑셀 파일을 선택해 주세요.');
+					return;
+				}
+
+				const fd = new FormData();
+				fd.append('file', f);
+
+				setDisabled(true);
+				setStatus('업로드 중...');
+
+				try {
+					const resp = await fetch('/api/admin/member-excel/upload', {
+						method: 'POST',
+						body: fd
+					});
+
+					if (!resp.ok) {
+						const text = await resp.text();
+						throw new Error('서버 오류: ' + text);
+					}
+
+					const data = await resp.json();
+					renderResult(data);
+					setStatus('완료');
+				} catch (err) {
+					console.error(err);
+					alert(err.message || '업로드 실패');
+					setStatus('실패');
+				} finally {
+					setDisabled(false);
+				}
+			});
+		})();
+	</script>
+
+</body>
+
+</html>

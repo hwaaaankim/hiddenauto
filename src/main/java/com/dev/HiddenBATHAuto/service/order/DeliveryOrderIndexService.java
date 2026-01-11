@@ -1,7 +1,10 @@
 package com.dev.HiddenBATHAuto.service.order;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -121,8 +124,11 @@ public class DeliveryOrderIndexService {
         }
 
         // 1) 현재 DB 기준(정상 규칙) 순서 조회
-        List<DeliveryOrderIndex> current = deliveryOrderIndexRepository
-                .findAllByHandlerAndDateForGuard(handler.getId(), date);
+        List<DeliveryOrderIndex> current =
+                deliveryOrderIndexRepository.findAllByHandlerAndDateForTaskGrouping(
+                		handler.getId(),
+                		date
+                );
 
         // 2) 현재 done 순서(상대순서) 추출
         List<Long> currentDoneOrderIds = current.stream()
@@ -182,5 +188,63 @@ public class DeliveryOrderIndexService {
             idx.setOrderIndex(newIndex++);
             // dirty checking
         }
+    }
+    
+    /**
+     * ✅ 업체별정렬 핵심: pendingOrderIds를 Task 기준으로 stable grouping 해서 반환
+     *
+     * 규칙:
+     * - Task의 "첫 등장 순서" 유지
+     * - 같은 Task 내부 order들의 "상대 순서" 유지
+     */
+    @Transactional(readOnly = true)
+    public List<Long> reorderPendingOrderIdsByTask(Long handlerId, LocalDate deliveryDate, List<Long> pendingOrderIds) {
+
+        // 1) 해당 날짜/기사의 index들을 order+task join fetch로 가져오기
+        List<DeliveryOrderIndex> all =
+                deliveryOrderIndexRepository.findAllByHandlerAndDateForTaskGrouping(handlerId, deliveryDate);
+
+        // 2) pending 대상 orderId -> taskId 매핑 구성 (DELIVERY_DONE 제외)
+        Map<Long, Long> orderIdToTaskId = new HashMap<>();
+        Set<Long> validPendingOrderIds = new HashSet<>();
+
+        for (DeliveryOrderIndex doi : all) {
+            if (doi == null || doi.getOrder() == null) continue;
+
+            Long orderId = doi.getOrder().getId();
+            if (orderId == null) continue;
+
+            if (doi.getOrder().getStatus() == OrderStatus.DELIVERY_DONE) {
+                continue; // done은 정렬 대상 아님
+            }
+
+            Long taskId = (doi.getOrder().getTask() != null) ? doi.getOrder().getTask().getId() : 0L;
+            orderIdToTaskId.put(orderId, taskId);
+            validPendingOrderIds.add(orderId);
+        }
+
+        // 3) 요청으로 들어온 orderId 검증 (서버 기준 pending에 없는 값이면 실패)
+        List<Long> invalid = pendingOrderIds.stream()
+                .filter(id -> id == null || !validPendingOrderIds.contains(id))
+                .collect(Collectors.toList());
+
+        if (!invalid.isEmpty()) {
+            throw new IllegalArgumentException("업체별정렬 불가: pending 대상이 아닌 orderId 포함 - " + invalid);
+        }
+
+        // 4) stable grouping (LinkedHashMap = task 첫 등장 순서 유지)
+        Map<Long, List<Long>> groups = new LinkedHashMap<>();
+        for (Long orderId : pendingOrderIds) {
+            Long taskId = orderIdToTaskId.getOrDefault(orderId, 0L);
+            groups.computeIfAbsent(taskId, k -> new ArrayList<>()).add(orderId);
+        }
+
+        // 5) flatten
+        List<Long> reordered = new ArrayList<>(pendingOrderIds.size());
+        for (List<Long> g : groups.values()) {
+            reordered.addAll(g);
+        }
+
+        return reordered;
     }
 }

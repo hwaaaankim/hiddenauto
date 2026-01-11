@@ -32,7 +32,30 @@ public class WebClientConfig {
     WebClient kakaoWebClient(
             @Value("${kakao.base-url:https://dapi.kakao.com}") String baseUrl
     ) {
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000)
+                .responseTimeout(Duration.ofSeconds(5))
+                .doOnConnected(conn -> {
+                    conn.addHandlerLast(new ReadTimeoutHandler(5, TimeUnit.SECONDS));
+                    conn.addHandlerLast(new WriteTimeoutHandler(5, TimeUnit.SECONDS));
+                });
 
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(cfg -> cfg.defaultCodecs().maxInMemorySize(2 * 1024 * 1024))
+                .build();
+
+        return WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .baseUrl(baseUrl)
+                .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .exchangeStrategies(strategies)
+                .build();
+    }
+
+    @Bean
+    WebClient jusoWebClient(
+            @Value("${juso.base-url:https://business.juso.go.kr}") String baseUrl
+    ) {
         HttpClient httpClient = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000)
                 .responseTimeout(Duration.ofSeconds(5))

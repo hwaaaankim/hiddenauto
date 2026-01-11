@@ -27,6 +27,14 @@ kakao:
   rest:
     api-key: "0daa583a542a7c7639b42072873d05b9"   # <-- 제공해주신 키(예시). 실제 운영에선 환경변수로 주입 권장.
   throttle-ms: 120
+
+juso:
+  confm-key: devU01TX0FVVEgyMDI2MDExMDEzMDkyNjExNzQyMDk=
+  base-url: https://business.juso.go.kr
+  first-sort: location
+  throttle-ms: 0
+  count-per-page: 10
+  timeout-seconds: 5
   
 logging:
   config: classpath:logback-spring.xml

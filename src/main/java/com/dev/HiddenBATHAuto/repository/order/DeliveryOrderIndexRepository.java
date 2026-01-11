@@ -43,10 +43,8 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
             Pageable pageable
     );
 
-    // (D) 담당자/날짜 해제 시 제거용
     void deleteByOrder(Order order);
-    
-    
+
     @Query("""
         SELECT doi
           FROM DeliveryOrderIndex doi
@@ -63,7 +61,7 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
             @Param("statuses") List<OrderStatus> statuses
     );
 
-    java.util.Optional<DeliveryOrderIndex> findByOrder(Order order);
+    Optional<DeliveryOrderIndex> findByOrder(Order order);
 
     @Query("""
         SELECT MAX(doi.orderIndex)
@@ -74,21 +72,26 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
     Integer findMaxIndexByHandlerAndDate(@Param("handlerId") Long handlerId,
                                         @Param("deliveryDate") LocalDate deliveryDate);
 
+    /**
+     * ✅ 업체별정렬용: order + task join fetch
+     */
     @Query("""
         SELECT doi
           FROM DeliveryOrderIndex doi
+          JOIN FETCH doi.order o
+          LEFT JOIN FETCH o.task t
          WHERE doi.deliveryHandler.id = :handlerId
            AND doi.deliveryDate = :deliveryDate
       ORDER BY
-           CASE WHEN doi.order.status = com.dev.HiddenBATHAuto.model.task.OrderStatus.DELIVERY_DONE THEN 1 ELSE 0 END ASC,
+           CASE WHEN o.status = com.dev.HiddenBATHAuto.model.task.OrderStatus.DELIVERY_DONE THEN 1 ELSE 0 END ASC,
            doi.orderIndex ASC
     """)
-    List<DeliveryOrderIndex> findAllByHandlerAndDateForGuard(
+    List<DeliveryOrderIndex> findAllByHandlerAndDateForTaskGrouping(
             @Param("handlerId") Long handlerId,
             @Param("deliveryDate") LocalDate deliveryDate
     );
 
-    java.util.Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
+    Optional<DeliveryOrderIndex> findByDeliveryHandlerIdAndDeliveryDateAndOrderId(
             Long handlerId,
             LocalDate deliveryDate,
             Long orderId

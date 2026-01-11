@@ -20,6 +20,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.dev.HiddenBATHAuto.dto.address.AddressPickResult;
+import com.dev.HiddenBATHAuto.dto.address.JusoAddrLinkResponse;
 import com.dev.HiddenBATHAuto.dto.address.KakaoCoord2AddressResponse;
 import com.dev.HiddenBATHAuto.dto.address.KakaoDocument;
 import com.dev.HiddenBATHAuto.dto.address.KakaoKeywordDoc;
@@ -27,6 +28,7 @@ import com.dev.HiddenBATHAuto.dto.address.KakaoKeywordResponse;
 import com.dev.HiddenBATHAuto.dto.address.KakaoResponse;
 import com.dev.HiddenBATHAuto.utils.AddressFallbackParser;
 import com.dev.HiddenBATHAuto.utils.AddressNormalizer;
+import com.dev.HiddenBATHAuto.utils.AddressPickResultFromJuso;
 import com.dev.HiddenBATHAuto.utils.AddressPreprocessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -41,7 +43,9 @@ public class KakaoAddressClient {
 
     private final WebClient kakaoWebClient;
 
-    // ✅ raw 응답 로그를 위해 ObjectMapper 사용
+    // ✅ 추가: Juso 2차 보완
+    private final JusoAddressClient jusoAddressClient;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${kakao.rest.api-key}")
@@ -65,7 +69,7 @@ public class KakaoAddressClient {
         return kakaoWebClient.get()
             .uri(uriBuilder -> uriBuilder
                 .path("/v2/local/search/address.json")
-                .queryParam("analyze_type", "similar") // 필요시 exact/미지정도 fallback로 사용 가능
+                .queryParam("analyze_type", "similar")
                 .queryParam("size", 10)
                 .queryParam("query", q)
                 .build()
@@ -129,11 +133,6 @@ public class KakaoAddressClient {
             .block();
     }
 
-    /**
-     * ✅ 여기서 핵심:
-     * - status가 2xx가 아니면 raw body를 찍고 빈 객체 반환
-     * - status가 2xx여도 raw body를 (필요 시) 일부 찍어서 "documents가 비는 이유"를 추적 가능
-     */
     private <T> Mono<T> parseJsonWithDiagnostics(ClientResponse resp, Class<T> type, String tag, String key) {
         HttpStatusCode sc = resp.statusCode();
 
@@ -143,7 +142,6 @@ public class KakaoAddressClient {
                 String bodyHead = head(body, 500);
 
                 if (!sc.is2xxSuccessful()) {
-                    // ✅ 여기서 401/403/429 같은게 명확히 드러납니다.
                     log.warn("{} HTTP {} key='{}' body='{}'", tag, sc.value(), key, bodyHead);
                     return emptyInstance(type);
                 }
@@ -151,7 +149,6 @@ public class KakaoAddressClient {
                 try {
                     T parsed = objectMapper.readValue(body.getBytes(StandardCharsets.UTF_8), type);
 
-                    // ✅ 성공이더라도 documents가 비면 원인 추적 위해 body를 일부 남김
                     if (isDocumentsEmpty(parsed)) {
                         log.warn("{} EMPTY_DOCS key='{}' body='{}'", tag, key, bodyHead);
                     }
@@ -168,7 +165,6 @@ public class KakaoAddressClient {
         try {
             return type.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
-            // 최후: null로 떨어지면 호출부가 더 꼬이니, 런타임 예외로 올려서 바로 알게 하는 게 낫습니다.
             throw new RuntimeException("Cannot instantiate " + type.getName(), e);
         }
     }
@@ -218,7 +214,7 @@ public class KakaoAddressClient {
         String parenDetail = AddressPreprocessor.extractParenDetail(cleaned);
         String noParen = AddressPreprocessor.stripParen(cleaned);
 
-        // ✅ 3) 콤마 뒤는 무조건 상세로 이동
+        // 3) 콤마 뒤는 상세로 이동
         String commaTail = extractCommaTail(noParen);
         String noComma = stripAfterComma(noParen);
 
@@ -244,7 +240,9 @@ public class KakaoAddressClient {
             query2, query1, query0, jibunQuery, queryCompact
         ));
 
-        // AD 먼저
+        // =========================
+        // (1) Kakao AD 먼저
+        // =========================
         for (String q : candidates) {
             if (!StringUtils.hasText(q)) continue;
 
@@ -254,7 +252,6 @@ public class KakaoAddressClient {
 
             AddressPickResult r = AddressPickResult.from(best, detail);
 
-            // ✅ 보강: zip/주소가 비면 C2A
             boolean needC2A = isBlank(r.getZip()) || (isBlank(r.getRoadAddress()) && isBlank(r.getJibunAddress()));
             if (needC2A && StringUtils.hasText(best.getX()) && StringUtils.hasText(best.getY())) {
                 KakaoCoord2AddressResponse c2a = coord2Address(best.getX(), best.getY());
@@ -269,7 +266,6 @@ public class KakaoAddressClient {
                 }
             }
 
-            // 최종 성공
             if (!isBlank(r.getRoadAddress()) || !isBlank(r.getJibunAddress())) {
                 r.setSuccess(true);
                 log.debug("[RES] OK via AD q='{}' zip='{}' do='{}' si='{}' gu='{}' road='{}' jibun='{}' detail='{}'",
@@ -278,7 +274,28 @@ public class KakaoAddressClient {
             }
         }
 
-        // KW → C2A
+        // =========================
+        // ✅ (2) 추가: Juso addrLinkApi 2차 시도
+        // =========================
+        // 카카오가 못찾는 지번/리 단위(예: "진접읍 내곡리 533-64")가 여기서 잡히는 경우가 많습니다.
+        // keyword는 "상세" 제거된 query2(or query0) 쪽이 성공률이 높습니다.
+        String jusoKeyword = StringUtils.hasText(query2) ? query2 : (StringUtils.hasText(query0) ? query0 : cleaned);
+        try {
+            JusoAddrLinkResponse jr = jusoAddressClient.search(jusoKeyword);
+            AddressPickResult viaJuso = AddressPickResultFromJuso.convert(jr, detail);
+            if (viaJuso != null && viaJuso.isSuccess()) {
+                log.debug("[RES] OK via JUSO keyword='{}' zip='{}' do='{}' si='{}' gu='{}' road='{}' jibun='{}' detail='{}'",
+                        jusoKeyword, viaJuso.getZip(), viaJuso.getDoName(), viaJuso.getSiName(), viaJuso.getGuName(),
+                        viaJuso.getRoadAddress(), viaJuso.getJibunAddress(), viaJuso.getDetailAddress());
+                return viaJuso;
+            }
+        } catch (Exception ex) {
+            log.warn("[RES] JUSO_FAIL keyword='{}' err={}", jusoKeyword, shortErr(ex));
+        }
+
+        // =========================
+        // (3) Kakao KW → C2A
+        // =========================
         String kwQuery = StringUtils.hasText(queryCompact) ? queryCompact : query2;
         KakaoKeywordResponse kw = searchKeyword(kwQuery);
         KakaoKeywordDoc kd = (kw != null && kw.getDocuments() != null && !kw.getDocuments().isEmpty())
@@ -296,19 +313,16 @@ public class KakaoAddressClient {
             }
         }
 
-     // 실패: 카카오 documents=[] 인 경우라도 최소 도/시/구는 로컬 파싱으로 채움
+        // =========================
+        // (4) 로컬 fallback
+        // =========================
         AddressFallbackParser.FallbackResult fb = AddressFallbackParser.parse(cleaned);
 
-        // cleaned는 콤마/괄호 포함 원문이므로, query 본문(콤마/괄호 제거된 noComma 등)을 쓰셔도 됩니다.
-        // 저는 cleaned로 두되, 아래에서 road/jibun guess는 내부에서 괄호/콤마 제거합니다.
         AddressPickResult fallback = AddressPickResult.empty(detail);
-
-        // ✅ 최소 행정구역 채우기
         fallback.setDoName(fb.doName);
         fallback.setSiName(fb.siName);
         fallback.setGuName(fb.guName);
 
-        // ✅ 주소 형태 guess (카카오가 못찾아도 원문을 기반으로라도 넣어줌)
         if (fallback.getRoadAddress() == null || fallback.getRoadAddress().isBlank()) {
             fallback.setRoadAddress(fb.roadGuess);
         }
@@ -316,8 +330,6 @@ public class KakaoAddressClient {
             fallback.setJibunAddress(fb.jibunGuess);
         }
 
-        // ✅ 여기 중요: 엑셀에 값이 들어가려면 success=true 여야 합니다.
-        // (현재 서비스 로직이 res.isSuccess()일 때만 칼럼을 채우니까요)
         boolean hasAny =
                 !(fallback.getDoName() == null || fallback.getDoName().isBlank()) ||
                 !(fallback.getGuName() == null || fallback.getGuName().isBlank()) ||
@@ -331,11 +343,10 @@ public class KakaoAddressClient {
                 fallback.getRoadAddress(), fallback.getJibunAddress());
 
         return fallback;
-
     }
 
     // =========================
-    // 3) comma util (resolve에서 확실히 적용)
+    // comma util
     // =========================
 
     private String extractCommaTail(String s) {
@@ -352,10 +363,6 @@ public class KakaoAddressClient {
         int idx = s.indexOf(',');
         return idx > -1 ? s.substring(0, idx).trim() : s.trim();
     }
-
-    // =========================
-    // 4) common util
-    // =========================
 
     private List<String> dedupKeepOrder(List<String> list) {
         LinkedHashSet<String> set = new LinkedHashSet<>();

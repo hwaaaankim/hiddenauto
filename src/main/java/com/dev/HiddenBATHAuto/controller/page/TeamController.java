@@ -34,6 +34,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskResponse;
 import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
@@ -225,80 +227,123 @@ public class TeamController {
 	}
 
 	@GetMapping("/deliveryList")
-	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
-	        @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
-	        @RequestParam(required = false) OrderStatus status, Model model) {
+    public String getDeliveryOrders(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
+            @RequestParam(required = false) OrderStatus status,
+            Model model
+    ) {
+        Member member = principal.getMember();
 
-	    Member member = principal.getMember();
+        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+        }
 
-	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-	    }
+        if (preferredDate == null) {
+            preferredDate = LocalDate.now().plusDays(1);
+        }
 
-	    if (preferredDate == null) {
-	        preferredDate = LocalDate.now().plusDays(1);
-	    }
+        List<OrderStatus> statuses = (status != null)
+                ? List.of(status)
+                : List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
 
-	    List<OrderStatus> statuses = (status != null) ? List.of(status)
-	            : List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
+        List<DeliveryOrderIndex> all = deliveryOrderIndexRepository
+                .findListByHandlerAndDateAndStatusIn(member.getId(), preferredDate, statuses);
 
-	    List<DeliveryOrderIndex> all = deliveryOrderIndexRepository
-	            .findListByHandlerAndDateAndStatusIn(member.getId(), preferredDate, statuses);
+        List<DeliveryOrderIndex> pendingOrders = all.stream()
+                .filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
+                .collect(Collectors.toList());
 
-	    List<DeliveryOrderIndex> pendingOrders = all.stream()
-	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
-	            .collect(Collectors.toList());
+        List<DeliveryOrderIndex> doneOrders = all.stream()
+                .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+                .collect(Collectors.toList());
 
-	    List<DeliveryOrderIndex> doneOrders = all.stream()
-	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
-	            .collect(Collectors.toList());
+        // ✅ 여기서 optionJson 파싱해서 formattedOptionText 채우기 (요청하신 기존 로직 그대로 사용)
+        enrichOrderItems(pendingOrders);
+        enrichOrderItems(doneOrders);
 
-	    // ✅ 여기서 optionJson 파싱해서 formattedOptionText 채우기
-	    enrichOrderItems(pendingOrders);
-	    enrichOrderItems(doneOrders);
+        model.addAttribute("deliveryHandlerId", member.getId());
+        model.addAttribute("preferredDate", preferredDate);
 
-	    model.addAttribute("deliveryHandlerId", member.getId());
-	    model.addAttribute("preferredDate", preferredDate);
+        model.addAttribute("pendingOrders", pendingOrders);
+        model.addAttribute("doneOrders", doneOrders);
 
-	    model.addAttribute("pendingOrders", pendingOrders);
-	    model.addAttribute("doneOrders", doneOrders);
+        model.addAttribute("status", status);
+        model.addAttribute("availableStatuses",
+                List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
 
-	    model.addAttribute("status", status);
-	    model.addAttribute("availableStatuses",
-	            List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
+        return "administration/team/delivery/deliveryList";
+    }
 
-	    return "administration/team/delivery/deliveryList";
-	}
+    // ✅ 기존에 쓰시던 enrich 코드 그대로
+    private void enrichOrderItems(List<DeliveryOrderIndex> list) {
+        if (list == null) return;
+        for (DeliveryOrderIndex doi : list) {
+            if (doi == null || doi.getOrder() == null) continue;
+            OrderItem item = doi.getOrder().getOrderItem();
+            if (item == null) continue;
 
-	private void enrichOrderItems(List<DeliveryOrderIndex> list) {
-	    if (list == null) return;
-	    for (DeliveryOrderIndex doi : list) {
-	        if (doi == null || doi.getOrder() == null) continue;
-	        OrderItem item = doi.getOrder().getOrderItem();
-	        if (item == null) continue;
+            OrderItemOptionJsonUtil.enrich(item);
+        }
+    }
 
-	        OrderItemOptionJsonUtil.enrich(item);
-	    }
-	}
+    @PostMapping("/updateOrderIndex")
+    @ResponseBody
+    public ResponseEntity<?> updateOrderIndex(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody DeliveryOrderIndexUpdateRequest request
+    ) {
+        Member member = principal.getMember();
 
-	@PostMapping("/updateOrderIndex")
-	@ResponseBody
-	public org.springframework.http.ResponseEntity<?> updateOrderIndex(
-			@AuthenticationPrincipal PrincipalDetails principal, @RequestBody DeliveryOrderIndexUpdateRequest request) {
-		// ✅ 배송팀 권한 체크(프론트 조작 방어)
-		Member member = principal.getMember();
-		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-		}
+        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+        }
 
-		// ✅ 자기 자신(해당 배송팀 직원)만 저장 가능하게 강제
-		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-			return org.springframework.http.ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
-		}
+        if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+            return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+        }
 
-		deliveryOrderIndexService.updateIndexesWithDoneGuard(request);
-		return org.springframework.http.ResponseEntity.ok().build();
-	}
+        // ✅ 기존 저장 로직(완료 고정 guard 포함) 그대로 사용
+        deliveryOrderIndexService.updateIndexesWithDoneGuard(request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * ✅ 업체별정렬 API (pending DOM 순서 기반 stable grouping)
+     * - DB 저장은 '순서 저장' 버튼(updateOrderIndex)에서 수행하는 구조
+     */
+    @PostMapping("/reorderByTask")
+    @ResponseBody
+    public ResponseEntity<?> reorderByTask(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody DeliveryReorderByTaskRequest request
+    ) {
+        Member member = principal.getMember();
+
+        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+        }
+
+        if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+            return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+        }
+
+        if (request.getDeliveryDate() == null) {
+            return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
+        }
+
+        if (request.getPendingOrderIds() == null || request.getPendingOrderIds().isEmpty()) {
+            return ResponseEntity.badRequest().body("잘못된 요청입니다.(정렬 대상 없음)");
+        }
+
+        List<Long> reordered = deliveryOrderIndexService.reorderPendingOrderIdsByTask(
+                member.getId(),
+                request.getDeliveryDate(),
+                request.getPendingOrderIds()
+        );
+
+        return ResponseEntity.ok(new DeliveryReorderByTaskResponse(reordered));
+    }
 
 	@PostMapping("/deliveryStatus/{orderId}")
 	public String updateDeliveryStatusAndUploadImages(@AuthenticationPrincipal PrincipalDetails principal,

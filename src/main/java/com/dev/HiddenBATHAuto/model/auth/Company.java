@@ -62,6 +62,8 @@ public class Company implements Serializable {
     private String siName;   // ex: 용인시
     private String guName;   // ex: 수지구
 
+    private String originAddress;
+    private String jibunAddress;
     // 주소
     private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
     private String detailAddress;   // ex: 302동 1502호
