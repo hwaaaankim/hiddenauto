@@ -19,6 +19,25 @@
 		</root>
 	</springProfile>
 
+	<springProfile name="mac">
+		<appender name="STDOUT"
+			class="ch.qos.logback.core.ConsoleAppender">
+			<encoder>
+				<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n
+				</pattern>
+			</encoder>
+		</appender>
+
+		<logger name="com.dev.HiddenBATHAuto" level="DEBUG" />
+		<logger name="org.hibernate" level="INFO" />
+		<logger name="org.springframework" level="INFO" />
+
+		<root level="INFO">
+			<appender-ref ref="STDOUT" />
+		</root>
+	</springProfile>
+
+
 	<!-- 운영서버에서만 적용될 속성 -->
 	<springProfile name="prod">
 		<property name="LOG_PATH" value="/home/ubuntu/hiddenauto/log" />

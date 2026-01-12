@@ -17,7 +17,7 @@ public class AsVisitReminderScheduler {
     private final AsVisitReminderSmsService asVisitReminderSmsService;
 
     // 매일 21:00 (KST)
-    @Scheduled(cron = "0 0 21 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 57 8 * * *", zone = "Asia/Seoul")
     public void sendTomorrowVisitReminderSms() {
         log.info("[AS-SMS] Scheduler started.");
         asVisitReminderSmsService.sendTomorrowVisitReminders();
