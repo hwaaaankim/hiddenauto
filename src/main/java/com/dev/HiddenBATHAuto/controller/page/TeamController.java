@@ -34,6 +34,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryExcelRequest;
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskResponse;
 import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
@@ -56,10 +58,13 @@ import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.order.OrderService;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
+import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryExcelService;
+import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryOrderSummaryService;
 import com.dev.HiddenBATHAuto.utils.OrderItemOptionJsonUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -77,6 +82,8 @@ public class TeamController {
 	private final AsImageRepository asImageRepository;
 	private final OrderService orderService;
 	private final ProvinceRepository provinceRepository;
+	private final DeliveryOrderSummaryService deliveryOrderSummaryService;
+	private final DeliveryExcelService deliveryExcelService;
 
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
@@ -345,36 +352,116 @@ public class TeamController {
         return ResponseEntity.ok(new DeliveryReorderByTaskResponse(reordered));
     }
 
-	@PostMapping("/deliveryStatus/{orderId}")
-	public String updateDeliveryStatusAndUploadImages(@AuthenticationPrincipal PrincipalDetails principal,
-			@PathVariable Long orderId, @RequestParam(value = "status", required = false) String status,
-			@RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
-			org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
-		try {
-			Member member = principal.getMember();
-			if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-				throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-			}
+    /**
+     * ✅ 기존 배송완료 컨트롤러: fetch(multipart)에서도 자연스럽게 동작하도록 개선
+     * - 기존 redirect 유지
+     * - 단, fetch 요청(X-Requested-With=fetch)인 경우 JSON 응답으로 처리
+     */
+    @PostMapping("/deliveryStatus/{orderId}")
+    public Object updateDeliveryStatusAndUploadImages(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @PathVariable Long orderId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
+            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes,
+            HttpServletRequest httpServletRequest
+    ) {
+        try {
+            Member member = principal.getMember();
+            if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+                throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+            }
 
-			Order order = orderRepository.findById(orderId)
-					.orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
 
-			// CONFIRMED 상태 변경 차단(기존 요구)
-			if (order.getStatus() == OrderStatus.CONFIRMED) {
-				throw new IllegalStateException("관리자승인(생산 전) 상태에서는 배송완료 처리 및 증빙 업로드가 불가능합니다.");
-			}
+            // CONFIRMED 상태 변경 차단(기존 요구)
+            if (order.getStatus() == OrderStatus.CONFIRMED) {
+                throw new IllegalStateException("관리자승인(생산 전) 상태에서는 배송완료 처리 및 증빙 업로드가 불가능합니다.");
+            }
 
-			orderService.updateDeliveryStatusAndImages(orderId, status, files);
+            orderService.updateDeliveryStatusAndImages(orderId, status, files);
 
-			redirectAttributes.addFlashAttribute("successMessage", "배송 상태가 변경되었습니다.");
-		} catch (Exception e) {
-			e.printStackTrace();
-			redirectAttributes.addFlashAttribute("errorMessage", "배송 상태 변경 실패: " + e.getMessage());
-		}
+            // fetch 요청이면 JSON 응답
+            String xrw = httpServletRequest.getHeader("X-Requested-With");
+            if ("fetch".equalsIgnoreCase(xrw)) {
+                java.util.Map<String, Object> body = new java.util.HashMap<>();
+                body.put("success", true);
+                body.put("orderId", orderId);
+                body.put("status", status);
+                return ResponseEntity.ok(body);
+            }
 
-		return "redirect:/team/deliveryDetail/" + orderId;
+            redirectAttributes.addFlashAttribute("successMessage", "배송 상태가 변경되었습니다.");
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            String xrw = httpServletRequest.getHeader("X-Requested-With");
+            if ("fetch".equalsIgnoreCase(xrw)) {
+                return ResponseEntity.badRequest().body("배송 상태 변경 실패: " + e.getMessage());
+            }
+
+            redirectAttributes.addFlashAttribute("errorMessage", "배송 상태 변경 실패: " + e.getMessage());
+        }
+
+        return "redirect:/team/deliveryDetail/" + orderId;
+    }
+    
+	@GetMapping("/deliveryOrderSummary/{orderId}")
+	@ResponseBody
+	public ResponseEntity<?> getDeliveryOrderSummary(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @PathVariable Long orderId
+	) {
+	    Member member = principal.getMember();
+
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
+
+	    DeliveryOrderSummaryRes res = deliveryOrderSummaryService.getSummary(member.getId(), orderId);
+	    return ResponseEntity.ok(res);
+	}
+	
+	/**
+	 * ✅ 엑셀 출력 (현재 DOM 순서 그대로 전송받아 A4 맞춤 XLSX 생성)
+	 */
+	@PostMapping("/deliveryExcel")
+	public ResponseEntity<?> downloadDeliveryExcel(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestBody DeliveryExcelRequest request
+	) {
+	    Member member = principal.getMember();
+
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
+
+	    if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+	    }
+	    if (request.getDeliveryDate() == null) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
+	    }
+	    if (request.getOrderedOrderIds() == null || request.getOrderedOrderIds().isEmpty()) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(출력 대상 없음)");
+	    }
+
+	    byte[] bytes = deliveryExcelService.buildExcel(
+	            member.getId(),
+	            request.getDeliveryDate(),
+	            request.getOrderedOrderIds()
+	    );
+
+	    String filename = "delivery_" + request.getDeliveryDate().toString() + ".xlsx";
+
+	    return ResponseEntity.ok()
+	            .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	            .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+	            .body(bytes);
 	}
 
+	
 	@GetMapping("/deliveryDetail/{id}")
 	public String getDeliveryDetailPage(@PathVariable Long id, Model model) {
 		// 주문 조회

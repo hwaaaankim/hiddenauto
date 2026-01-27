@@ -1,0 +1,319 @@
+/* =========================================================
+   delivery-list-added- 접두사 전용 스타일 (충돌 방지)
+   ========================================================= */
+
+/* 카드 기본 */
+.delivery-list-added-card {
+	border-radius: 14px;
+}
+
+/* 완료/미완료 배경 구분 */
+.delivery-card.is-done.delivery-list-added-card {
+	background: rgba(25, 135, 84, 0.06);
+}
+
+#pendingList .delivery-list-added-card {
+	background: #fff;
+}
+
+/* 라인 */
+.delivery-list-added-line {
+	display: block;
+	margin-top: 4px;
+}
+
+/* 액션 버튼 */
+.delivery-list-added-action .action-btn {
+	border-radius: 10px;
+}
+
+/* =========================================================
+   ✅ 리스트 아이템 레이아웃
+   - 핸들(≡) + 텍스트 + 버튼 영역 균형
+   - 핸들과 액션 영역만 수직 중앙정렬(요청사항)
+   ========================================================= */
+
+.delivery-list-added-item-content {
+	display: flex;
+	justify-content: flex-start !important;
+	/* 기존 space-between 무력화 */
+	gap: 12px;
+	align-items: flex-start;
+	/* 텍스트는 자연스럽게 위에서부터 */
+}
+
+/* 텍스트 영역: 남는 공간 차지 + ellipsis 안정 */
+.delivery-list-added-item-content .text-section {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* 액션 영역: 필요한 만큼만 + 수직 중앙 */
+.delivery-list-added-item-content .delivery-list-added-action {
+	flex: 0 0 auto;
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	justify-content: flex-end;
+	min-width: 120px;
+	align-self: center;
+	/* ✅ list-group-item 기준 수직 중앙정렬 */
+}
+
+/* =========================================================
+   ✅ 드래그 핸들(≡)
+   - PC/모바일 모두 핸들로만 드래그
+   - 핸들 자체도 수직 중앙정렬
+   ========================================================= */
+
+.delivery-list-added-drag-handle {
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	background: #fff;
+	border-radius: 10px;
+	padding: 6px 10px;
+	font-size: 18px;
+	line-height: 1;
+	cursor: grab;
+	user-select: none;
+	-webkit-user-select: none;
+	touch-action: none;
+	/* 모바일 드래그 안정성 */
+	margin-right: 10px;
+	align-self: center;
+	/* ✅ list-group-item 기준 수직 중앙정렬 */
+}
+
+.delivery-list-added-drag-handle:active {
+	cursor: grabbing;
+}
+
+/* 배송완료 섹션(순서 변경 불가) 핸들 */
+.delivery-list-added-drag-handle-disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+/* =========================================================
+   ✅ 모달 스타일
+   ========================================================= */
+
+.delivery-list-added-modal-dialog {
+	max-width: 980px;
+}
+
+.delivery-list-added-modal-content {
+	border-radius: 16px;
+	overflow: hidden;
+}
+
+.delivery-list-added-info-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+
+.delivery-list-added-info-item {
+	background: rgba(0, 0, 0, 0.02);
+	border: 1px solid rgba(0, 0, 0, 0.05);
+	border-radius: 14px;
+	padding: 12px 12px;
+}
+
+.delivery-list-added-info-item-wide {
+	grid-column: 1 / -1;
+}
+
+.delivery-list-added-info-label {
+	font-size: 12px;
+	color: rgba(0, 0, 0, 0.55);
+	margin-bottom: 6px;
+}
+
+.delivery-list-added-info-value {
+	font-size: 14px;
+	color: rgba(0, 0, 0, 0.88);
+	line-height: 1.35;
+}
+
+.delivery-list-added-prewrap {
+	white-space: pre-wrap;
+}
+
+/* =========================================================
+   ✅ 업로드(썸네일) 영역
+   ========================================================= */
+
+.delivery-list-added-upload-title {
+	font-weight: 700;
+	font-size: 14px;
+	margin-bottom: 10px;
+}
+
+.delivery-list-added-upload-actions {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.delivery-list-added-thumb-list {
+	margin-top: 12px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.delivery-list-added-thumb-item {
+	width: 100px;
+	height: 100px;
+	border-radius: 12px;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	overflow: hidden;
+	position: relative;
+	background: #fff;
+}
+
+.delivery-list-added-thumb-item img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.delivery-list-added-thumb-remove {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	border: none;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	display: grid;
+	place-items: center;
+	cursor: pointer;
+	line-height: 1;
+}
+
+.delivery-list-added-thumb-remove:hover {
+	background: rgba(0, 0, 0, 0.75);
+}
+
+/* =========================================================
+   ✅ 기존 배송 증빙 이미지 표시
+   ========================================================= */
+
+.delivery-list-added-existing-title {
+	font-weight: 600;
+	margin-bottom: 10px;
+}
+
+.delivery-list-added-existing-list {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 10px;
+}
+
+.delivery-list-added-existing-item {
+	position: relative;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 12px;
+	overflow: hidden;
+	background: #fff;
+}
+
+.delivery-list-added-existing-item a {
+	display: block;
+}
+
+.delivery-list-added-existing-item img {
+	width: 100%;
+	height: 90px;
+	object-fit: cover;
+	display: block;
+}
+
+/* =========================================================
+   ✅ 모바일(hover 의존 제거)
+   ========================================================= */
+
+@media (hover: none) and (pointer: coarse) {
+
+	/* hover로만 보이던 UI가 있다면 모바일에서는 항상 노출 */
+	.delivery-card .action-btn-group {
+		opacity: 1 !important;
+		transform: none !important;
+		pointer-events: auto !important;
+	}
+}
+
+/* =========================================================
+   ✅ 반응형 (태블릿 이하)
+   ========================================================= */
+
+@media (max-width: 768px) {
+	.delivery-list-added-info-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.delivery-list-added-modal-dialog {
+		max-width: 100%;
+		margin: 12px;
+	}
+
+	/* 모바일/태블릿: 액션 버튼 살짝 컴팩트 */
+	.delivery-list-added-action .action-btn {
+		padding: 6px 8px;
+		font-size: 12px;
+		border-radius: 10px;
+	}
+}
+
+/* =========================================================
+   ✅ 모바일(작은 화면)
+   - 1) 배송완료 버튼 숨김(요청사항)
+   - 2) 햄버거(≡) 버튼 더 작게 + 좌우 여백 축소(요청사항)
+   - 3) 기존증빙 이미지 그리드 조정
+   ========================================================= */
+
+@media (max-width: 576px) {
+
+	/* ✅ (1) 모바일에서 '배송완료' 버튼 아예 안 보이게 */
+	.delivery-list-added-open-complete-modal,
+	.action-btn.btn-complete {
+		display: none !important;
+	}
+
+	/* ✅ (2) 햄버거 버튼 크기/여백 축소 */
+	.delivery-list-added-drag-handle {
+		padding: 4px 7px;
+		font-size: 16px;
+		border-radius: 9px;
+		margin-right: 6px;
+	}
+
+	/* 액션 영역 최소폭 줄여서 공간 확보 */
+	.delivery-list-added-item-content .delivery-list-added-action {
+		min-width: 92px;
+	}
+
+	/* 기존 증빙 이미지: 3열 */
+	.delivery-list-added-existing-list {
+		grid-template-columns: repeat(3, 1fr);
+	}
+
+	.delivery-list-added-existing-item img {
+		height: 84px;
+	}
+	/* ✅ 모바일에서 '배송완료(done) 리스트'의 '배송상세' 버튼도 숨김 */
+	#doneList .delivery-list-added-action,
+	#doneList .delivery-list-added-open-detail-modal {
+		display: none !important;
+	}
+}
+@media(max-width:760px){
+	.m-d-n{
+		display:none !important;
+	}
+}

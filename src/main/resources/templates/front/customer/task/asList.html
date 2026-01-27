@@ -6,156 +6,222 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
+    <th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+    <th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
-	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
-	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+    <div id="page" class="container">
+        <th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
 
-	<div id="page" class="container">
-		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
-		<div class="page-content header-clear-medium">
-			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
-				<div class="card-center ms-3">
-					<h1 class="color-white mb-0">AS 신청리스트</h1>
-					<p class="color-white mt-n1 mb-0">AS 신청을 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
-				</div>
-				<div class="card-center me-3">
-					<a href="/index" data-back-button
-						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
-				</div>
-				<div class="card-overlay bg-black opacity-80"></div>
-			</div>
-			<div class="card card-style">
-				<div class="content mb-0">
-					<form method="get" th:action="@{/customer/asList}" class="row">
-						<div class="row">
-							<div class="input-style no-borders has-icon mt-1 col-6">
-								<input type="date" name="startDate" th:value="${startDate}"
-									class="form-control validate-text">
-							</div>
-							<div class="input-style no-borders has-icon mt-1 col-6">
-								<input type="date" class="form-control" name="endDate" th:value="${endDate}">
-								<button type="submit">검색</button>
-							</div>
+        <div class="page-content header-clear-medium">
+            <div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+                <div class="card-center ms-3">
+                    <h1 class="color-white mb-0">AS 신청리스트</h1>
+                    <p class="color-white mt-n1 mb-0">AS 신청을 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
+                </div>
+                <div class="card-center me-3">
+                    <a href="/index" data-back-button
+                        class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+                </div>
+                <div class="card-overlay bg-black opacity-80"></div>
+            </div>
 
-						</div>
-					</form>
-				</div>
-			</div>
-			<div class="card card-style" th:each="asTask, i : ${asTaskPage.content}">
-				<div class="accordion" th:id="'accordion-as-' + ${i.index}">
-					<div class="mb-0">
-						<button class="btn accordion-btn no-effect" data-bs-toggle="collapse"
-							th:attr="data-bs-target='#as-'+${i.index}">
-							<div class="content">
-								<h3 class="mb-1" th:text="'AS-' + ${asTask.id}">AS TITLE</h3>
-								<p class="font-11 mt-n2 mb-0 opacity-50">제품 AS신청</p>
-								<div class="row mb-n2 color-theme">
-									<div class="col-6 font-10 text-start">
-										<span class="badge bg-black color-white font-10 mt-2">AS</span>
-										<span class="badge bg-black color-white font-10 mt-2"
-											th:text="${asTask.status}">처리상태</span>
-									</div>
-									<div class="col-6 font-10 text-end opacity-30">
-										<i class="fa fa-calendar pe-2"></i>
-										<span th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd')}"></span>
-									</div>
-								</div>
-							</div>
-						</button>
-						<div th:id="'as-' + ${i.index}" class="collapse"
-							th:attr="data-bs-parent='#accordion-as-' + ${i.index}">
-							<div class="pt-1 pb-2 ps-3 pe-3">
-								<div class="content task-content">
-									<div class="row">
-										<div class="col-lg-3 col-md-6">
-											<strong class="color-theme">AS 신청일 :</strong>
-											<p class="font-12"
-												th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd HH:mm:ss')}">
-											</p>
-										</div>
-										<div class="col-lg-3 col-md-6">
-											<strong class="color-theme">AS 처리일 :</strong>
-											<p class="font-12"
-												th:text="${asTask.updatedAt != null ? #temporals.format(asTask.updatedAt, 'yyyy.MM.dd HH:mm:ss') : '-'}">
-											</p>
-										</div>
-										<div class="col-lg-3 col-md-6">
-											<strong class="color-theme">AS 처리금액 :</strong>
-											<p class="font-12"
-												th:text="${#numbers.formatInteger(asTask.price, 3, 'COMMA')} + ' 원'">
-											</p>
-										</div>
-										<div class="col-lg-3 col-md-6">
-											<strong class="color-theme">AS 처리담당자 :</strong>
-											<p class="font-12"
-												th:text="${asTask.assignedHandler != null ? asTask.assignedHandler.name : '-'}">
-											</p>
-										</div>
-										<div class="col-12 mt-2">
-											<strong class="color-theme">AS 신청 이미지 :</strong>
-											<div class="d-flex flex-wrap gap-2 mt-2">
-												<a th:each="img : ${asTask.requestImages}" th:href="${img.url}"
-													download>
-													<img th:src="${img.url}" class="rounded" width="80">
-												</a>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-			<!-- 페이지네이션 -->
-			<div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
-				<ul class="pagination">
+            <!-- 검색 -->
+            <div class="card card-style">
+                <div class="content mb-0">
+                    <form method="get" th:action="@{/customer/asList}" class="row g-2 align-items-end">
+                        <div class="col-6">
+                            <div class="input-style no-borders has-icon mt-1">
+                                <input type="date" name="startDate" th:value="${startDate}"
+                                    class="form-control validate-text">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="input-style no-borders has-icon mt-1 d-flex gap-2">
+                                <input type="date" class="form-control" name="endDate" th:value="${endDate}">
+                                <button type="submit" class="btn btn-s bg-highlight color-white rounded-s">검색</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
-					<!-- FIRST -->
-					<li class="page-item" th:classappend="${asTaskPage.first} ? 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
-					</li>
+            <!-- 리스트 -->
+            <div class="card card-style" th:each="asTask, i : ${asTaskPage.content}">
+                <div class="accordion" th:id="'accordion-as-' + ${i.index}">
+                    <div class="mb-0">
 
-					<!-- PREVIOUS -->
-					<li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${asTaskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
-							PREVIOUS
-						</a>
-					</li>
+                        <!-- 헤더 버튼 -->
+                        <button class="btn accordion-btn no-effect" data-bs-toggle="collapse"
+                            th:attr="data-bs-target='#as-'+${i.index}">
+                            <div class="content">
 
-					<!-- PAGE NUMBERS -->
-					<li class="page-item" th:each="i : ${#numbers.sequence(0, asTaskPage.totalPages - 1)}"
-						th:classappend="${asTaskPage.number == i} ? 'active'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${i}, startDate=${startDate}, endDate=${endDate})}"
-							th:text="${i + 1}">1</a>
-					</li>
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h3 class="mb-1" th:text="'AS-' + ${asTask.id}">AS TITLE</h3>
+                                        <p class="font-11 mt-n2 mb-0 opacity-50">제품 AS신청</p>
+                                    </div>
 
-					<!-- NEXT -->
-					<li class="page-item" th:classappend="${asTaskPage.hasNext()} ? '' : 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${asTaskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
-							NEXT
-						</a>
-					</li>
+                                    <!-- ✅ 고객용 상태 뱃지(신청중/신청완료/취소) -->
+                                    <div class="text-end">
+                                        <span class="badge rounded-pill px-3 py-2 font-12"
+                                            th:classappend="${asTask.customerStatusBadgeClass}"
+                                            th:text="${asTask.customerStatusText}">
+                                            신청중
+                                        </span>
+                                    </div>
+                                </div>
 
-					<!-- LAST -->
-					<li class="page-item" th:classappend="${asTaskPage.last} ? 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${asTaskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
-							LAST
-						</a>
-					</li>
-				</ul>
-			</div>
+                                <div class="row mb-n2 color-theme mt-2">
+                                    <div class="col-6 font-10 text-start">
+                                        <span class="badge bg-black color-white font-10 mt-2">AS</span>
 
-		</div>
-		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
-	</div>
-	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
-	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+                                        <!-- 원하시면 이 줄은 유지/삭제 선택 가능: 내부 enum 원문 표시 -->
+                                        <span class="badge bg-black color-white font-10 mt-2"
+                                            th:text="${asTask.status}">처리상태</span>
+                                    </div>
+                                    <div class="col-6 font-10 text-end opacity-30">
+                                        <i class="fa fa-calendar pe-2"></i>
+                                        <span th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd')}"></span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </button>
+
+                        <!-- 상세 토글 -->
+                        <div th:id="'as-' + ${i.index}" class="collapse"
+                            th:attr="data-bs-parent='#accordion-as-' + ${i.index}">
+                            <div class="pt-1 pb-2 ps-3 pe-3">
+                                <div class="content task-content">
+                                    <div class="row">
+
+                                        <div class="col-lg-3 col-md-6">
+                                            <strong class="color-theme">AS 신청일 :</strong>
+                                            <p class="font-12"
+                                                th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd HH:mm:ss')}">
+                                            </p>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-6">
+                                            <strong class="color-theme">AS 처리일 :</strong>
+                                            <p class="font-12"
+                                                th:text="${asTask.updatedAt != null ? #temporals.format(asTask.updatedAt, 'yyyy.MM.dd HH:mm:ss') : '-'}">
+                                            </p>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-6">
+                                            <strong class="color-theme">AS 처리금액 :</strong>
+                                            <p class="font-12"
+                                                th:text="${asTask.price != null ? (#numbers.formatInteger(asTask.price, 3, 'COMMA') + ' 원') : '-'}">
+                                            </p>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-6">
+                                            <strong class="color-theme">AS 처리담당자 :</strong>
+                                            <p class="font-12"
+                                                th:text="${asTask.assignedHandler != null ? asTask.assignedHandler.name : '-'}">
+                                            </p>
+                                        </div>
+
+                                        <!-- ✅ AS 신청 이미지 -->
+                                        <div class="col-12 mt-3">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong class="color-theme">AS 신청 이미지 :</strong>
+                                                <span class="font-11 opacity-50"
+                                                    th:text="${asTask.requestImages != null ? asTask.requestImages.size() : 0} + '장'">0장</span>
+                                            </div>
+
+                                            <div class="d-flex flex-wrap gap-2 mt-2"
+                                                th:if="${asTask.requestImages != null and !asTask.requestImages.isEmpty()}">
+                                                <a th:each="img : ${asTask.requestImages}" th:href="${img.url}" target="_blank" rel="noopener">
+                                                    <img th:src="${img.url}" class="rounded shadow-sm" width="84" height="84"
+                                                        style="object-fit:cover;">
+                                                </a>
+                                            </div>
+
+                                            <div class="mt-2 font-12 opacity-50"
+                                                th:if="${asTask.requestImages == null or asTask.requestImages.isEmpty()}">
+                                                등록된 신청 이미지가 없습니다.
+                                            </div>
+                                        </div>
+
+                                        <!-- ✅ AS 결과 이미지(추가) -->
+                                        <div class="col-12 mt-4">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong class="color-theme">AS 결과 :</strong>
+                                                <span class="font-11 opacity-50"
+                                                    th:text="${asTask.resultImages != null ? asTask.resultImages.size() : 0} + '장'">0장</span>
+                                            </div>
+
+                                            <div class="d-flex flex-wrap gap-2 mt-2"
+                                                th:if="${asTask.resultImages != null and !asTask.resultImages.isEmpty()}">
+                                                <a th:each="img : ${asTask.resultImages}" th:href="${img.url}" target="_blank" rel="noopener">
+                                                    <img th:src="${img.url}" class="rounded shadow-sm" width="84" height="84"
+                                                        style="object-fit:cover;">
+                                                </a>
+                                            </div>
+
+                                            <div class="mt-2 font-12 opacity-50"
+                                                th:if="${asTask.resultImages == null or asTask.resultImages.isEmpty()}">
+                                                아직 결과 이미지가 등록되지 않았습니다.
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- 페이지네이션 -->
+            <div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
+                <ul class="pagination">
+
+                    <li class="page-item" th:classappend="${asTaskPage.first} ? 'disabled'">
+                        <a class="page-link"
+                            th:href="@{/customer/asList(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
+                    </li>
+
+                    <li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
+                        <a class="page-link"
+                            th:href="@{/customer/asList(page=${asTaskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
+                            PREVIOUS
+                        </a>
+                    </li>
+
+                    <li class="page-item" th:each="p : ${#numbers.sequence(0, asTaskPage.totalPages - 1)}"
+                        th:classappend="${asTaskPage.number == p} ? 'active'">
+                        <a class="page-link"
+                            th:href="@{/customer/asList(page=${p}, startDate=${startDate}, endDate=${endDate})}"
+                            th:text="${p + 1}">1</a>
+                    </li>
+
+                    <li class="page-item" th:classappend="${asTaskPage.hasNext()} ? '' : 'disabled'">
+                        <a class="page-link"
+                            th:href="@{/customer/asList(page=${asTaskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
+                            NEXT
+                        </a>
+                    </li>
+
+                    <li class="page-item" th:classappend="${asTaskPage.last} ? 'disabled'">
+                        <a class="page-link"
+                            th:href="@{/customer/asList(page=${asTaskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
+                            LAST
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+        <th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+    </div>
+
+    <th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+    <th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 
 </body>
 

@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,8 +21,6 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrderIndex, Long> {
 
     List<DeliveryOrderIndex> findByDeliveryHandlerAndDeliveryDateOrderByOrderIndex(Member handler, LocalDate date);
-
-    Optional<DeliveryOrderIndex> findByOrder_Id(Long orderId);
 
     int countByDeliveryHandlerAndDeliveryDate(Member handler, LocalDate date);
 
@@ -96,4 +95,14 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
             LocalDate deliveryDate,
             Long orderId
     );
+    
+    @EntityGraph(attributePaths = {
+        "order",
+        "order.orderImages",
+        "order.orderItem",
+        "order.task",
+        "order.task.requestedBy",
+        "order.task.requestedBy.company"
+    })
+    Optional<DeliveryOrderIndex> findByOrder_Id(Long orderId);
 }
