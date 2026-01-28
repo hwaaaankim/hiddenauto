@@ -26,6 +26,9 @@
 	let modalSortable = null;
 	let isMobile = false;
 
+	// ✅ 외부 드래그 인스턴스(PC에서만 생성/유지)
+	let externalDraggable = null;
+
 	// 날짜별 이벤트 수(“N건” 배지용)
 	let eventCountByDate = {};
 
@@ -41,20 +44,20 @@
 	};
 
 	// ✅ 재오픈 트리거(‘업무’ 버튼) 인식 여유 영역
-	// - “버튼 위로 이동하면 생기도록”
-	// - 리스트 일부가 버튼과 겹칠 수 있으니, 버튼 rect를 넓혀서 트리거 처리
 	const DRAWER_REOPEN_BTN_PADDING = 18; // 버튼 주변 여유
 	const DRAWER_REOPEN_BTN_TOP_EXTRA = 36; // 버튼 "위" 쪽 추가 여유(요청 포인트)
 
-	// ✅ 닫힘 히스테리시스(경계선에서 왔다갔다 하며 깜빡이는 것 방지)
-	const DRAWER_CLOSE_OUT_MARGIN = 6; // drawer rect 밖으로 이만큼은 나가야 닫힘 인정
+	// ✅ 닫힘 히스테리시스
+	const DRAWER_CLOSE_OUT_MARGIN = 6;
 
 	// ===== utils =====
 	function qs(sel, root) { return (root || document).querySelector(sel); }
 	function qsa(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 
 	function detectMobile() {
-		return window.matchMedia('(max-width: 991px)').matches;
+		const byWidth = window.matchMedia('(max-width: 991px)').matches;
+		const byTouch = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+		return byWidth || byTouch;
 	}
 
 	function toYmd(v) {
@@ -106,11 +109,9 @@
 	}
 
 	function getPointerXY(e) {
-		// PointerEvent / MouseEvent
 		if (e && typeof e.clientX === 'number' && typeof e.clientY === 'number') {
 			return { x: e.clientX, y: e.clientY };
 		}
-		// TouchEvent fallback
 		if (e && e.touches && e.touches[0]) {
 			return { x: e.touches[0].clientX, y: e.touches[0].clientY };
 		}
@@ -187,6 +188,41 @@
 			});
 		}
 		if (modalSaveBtn) modalSaveBtn.addEventListener('click', saveModalOrder);
+	}
+
+	// ===== slide toggle (drawer + modal 공용) =====
+	function slideToggle(el, open) {
+		if (!el) return;
+
+		el.style.overflow = 'hidden';
+
+		if (open) {
+			el.style.display = 'block';
+			const h = el.scrollHeight;
+			el.style.height = '0px';
+			el.style.transition = 'height .18s ease';
+			requestAnimationFrame(() => {
+				el.style.height = h + 'px';
+			});
+			window.setTimeout(() => {
+				el.style.height = '';
+				el.style.transition = '';
+				el.style.overflow = '';
+			}, 190);
+		} else {
+			const h = el.scrollHeight;
+			el.style.height = h + 'px';
+			el.style.transition = 'height .18s ease';
+			requestAnimationFrame(() => {
+				el.style.height = '0px';
+			});
+			window.setTimeout(() => {
+				el.style.display = 'none';
+				el.style.height = '';
+				el.style.transition = '';
+				el.style.overflow = '';
+			}, 190);
+		}
 	}
 
 	// ===== Right list normalize + draggable marker =====
@@ -272,38 +308,6 @@
 		});
 	}
 
-	function slideToggle(el, open) {
-		el.style.overflow = 'hidden';
-
-		if (open) {
-			el.style.display = 'block';
-			const h = el.scrollHeight;
-			el.style.height = '0px';
-			el.style.transition = 'height .18s ease';
-			requestAnimationFrame(() => {
-				el.style.height = h + 'px';
-			});
-			window.setTimeout(() => {
-				el.style.height = '';
-				el.style.transition = '';
-				el.style.overflow = '';
-			}, 190);
-		} else {
-			const h = el.scrollHeight;
-			el.style.height = h + 'px';
-			el.style.transition = 'height .18s ease';
-			requestAnimationFrame(() => {
-				el.style.height = '0px';
-			});
-			window.setTimeout(() => {
-				el.style.display = 'none';
-				el.style.height = '';
-				el.style.transition = '';
-				el.style.overflow = '';
-			}, 190);
-		}
-	}
-
 	function highlightDateCell(dateStr) {
 		const cell = calendarEl ? calendarEl.querySelector(`[data-date="${dateStr}"]`) : null;
 		if (!cell) return;
@@ -314,13 +318,7 @@
 	}
 
 	// ============================================================
-	// ✅ 외부 드래그 시:
-	// 1) Drawer 열려있고, 드래그 시작 -> 감시 시작
-	// 2) 드래그 중 포인터가 Drawer 영역 밖(약간의 margin 포함)으로 나가면 Drawer 닫기
-	// 3) 닫힌 상태에서 포인터가 '업무' 버튼(및 위쪽 여유 영역)으로 들어오면 Drawer 다시 열기
-	//
-	// 🔥 깜빡임 원인 제거:
-	// - pointer/mouse/touch move를 동시에 걸지 않고 Pointer Events 우선 단일 트랙 사용
+	// ✅ 외부 드래그 시 Drawer 자동 닫기/재오픈
 	// ============================================================
 	function bindExternalDragAutoCloseAndReopen() {
 		if (!externalListEl) return;
@@ -330,11 +328,9 @@
 			if (area.dataset.asManagementAddedBoundLeaveReopen === '1') return;
 			area.dataset.asManagementAddedBoundLeaveReopen = '1';
 
-			// PointerEvent 지원 시: pointerdown 하나만
 			if (window.PointerEvent) {
 				area.addEventListener('pointerdown', onDragWatchStartPointer, { passive: true });
 			} else {
-				// fallback: mousedown/touchstart (둘 다 달되, start에서 어떤 타입인지 보고 move/end를 그 타입만 붙임)
 				area.addEventListener('mousedown', onDragWatchStartMouse, { passive: true });
 				area.addEventListener('touchstart', onDragWatchStartTouch, { passive: true });
 			}
@@ -361,7 +357,6 @@
 	function onDragWatchMovePointer(e) {
 		if (!drawerDragWatch.active) return;
 
-		// 동일 포인터만 추적
 		if (drawerDragWatch.pointerId != null && e && typeof e.pointerId === 'number') {
 			if (e.pointerId !== drawerDragWatch.pointerId) return;
 		}
@@ -459,7 +454,6 @@
 	function onDragWatchMoveCore(e) {
 		const pos = getPointerXY(e);
 
-		// 드래그 인정 최소 이동(클릭 오작동 방지)
 		const dx = Math.abs(pos.x - drawerDragWatch.startX);
 		const dy = Math.abs(pos.y - drawerDragWatch.startY);
 		if (!drawerDragWatch.moved) {
@@ -467,10 +461,8 @@
 			drawerDragWatch.moved = true;
 		}
 
-		// (A) Drawer가 열린 상태면: Drawer rect 밖(마진 포함)으로 나가면 닫기
 		if (isDrawerOpen()) {
 			const rect0 = drawer.getBoundingClientRect();
-			// 경계 히스테리시스: rect를 살짝 "줄여서" 밖 판정을 늦춤(깜빡임 방지)
 			const rect = expandRect(rect0, -DRAWER_CLOSE_OUT_MARGIN, -DRAWER_CLOSE_OUT_MARGIN, -DRAWER_CLOSE_OUT_MARGIN, -DRAWER_CLOSE_OUT_MARGIN);
 
 			const inside = isPointInsideRect(pos.x, pos.y, rect);
@@ -482,12 +474,10 @@
 			return;
 		}
 
-		// (B) Drawer가 닫힌 상태인데, 드래그로 닫힌 케이스면: '업무' 버튼 위로 가면 다시 열기
 		if (drawerDragWatch.closedByDrag) {
 			if (!drawerOpenBtn) return;
 
 			const btnRect0 = drawerOpenBtn.getBoundingClientRect();
-			// 버튼 주변 + 위쪽 여유를 넓혀서 트리거(리스트가 버튼과 겹쳐도 잘 열리도록)
 			const btnRect = expandRect(
 				btnRect0,
 				DRAWER_REOPEN_BTN_PADDING,
@@ -501,16 +491,21 @@
 				openDrawer();
 				drawerDragWatch.openedAgain = true;
 			}
-
-			// 다시 열었는데 또 닫혔다면 openedAgain을 false로 바꿔서 재오픈 가능하게는 해야 함
-			// (여기서는 A에서 close 시 openedAgain=false로 리셋하므로 별도 처리 불필요)
 		}
 	}
 
 	// ===== FullCalendar init =====
+	function getHeaderToolbarForCurrentMode() {
+		if (isMobile) {
+			return { left: 'prev,next,today', center: 'title', right: '' };
+		}
+		return { left: 'prev,next', center: 'title', right: 'today' };
+	}
+
 	function initCalendar() {
 		if (!calendarEl) return;
 
+		isMobile = detectMobile();
 		const initialView = isMobile ? 'dayGridDay' : 'dayGridMonth';
 
 		calendar = new FullCalendar.Calendar(calendarEl, {
@@ -525,15 +520,11 @@
 			eventStartEditable: !isMobile,
 			eventDurationEditable: false,
 
-			dayMaxEvents: isMobile ? 10 : 5,
+			dayMaxEvents: isMobile ? 10 : 3,
 			displayEventTime: false,
 			eventDisplay: 'block',
 
-			headerToolbar: {
-				left: 'prev,next',
-				center: 'title',
-				right: isMobile ? '' : 'today'
-			},
+			headerToolbar: getHeaderToolbarForCurrentMode(),
 
 			dayCellContent: function (arg) {
 				const dayNum = arg.date.getDate();
@@ -659,6 +650,7 @@
 		});
 
 		calendar.render();
+		applyResponsiveCalendarView();
 	}
 
 	function updateDayCountBadges() {
@@ -711,26 +703,68 @@
 		}
 	}
 
-	function initExternalDraggable() {
-		if (!externalListEl) return;
-		if (isMobile) return;
-
-		new FullCalendar.Draggable(externalListEl, {
-			itemSelector: '.as-management-added-drag-area.as-management-added-draggable',
-			eventData: function (el) {
-				const taskEl = el.closest('.as-management-added-task');
-				const taskId = taskEl.getAttribute('data-task-id');
-				const company = taskEl.getAttribute('data-company');
-				const status = taskEl.getAttribute('data-status');
-				return {
-					id: String(taskId),
-					title: company,
-					allDay: true,
-					classNames: ['as-management-added-evt', 'as-management-added-evt-' + status],
-					extendedProps: { status: status }
-				};
+	function ensureExternalDraggable() {
+		if (isMobile) {
+			if (externalDraggable && typeof externalDraggable.destroy === 'function') {
+				try { externalDraggable.destroy(); } catch (e) { }
 			}
-		});
+			externalDraggable = null;
+			return;
+		}
+
+		if (!externalListEl) return;
+		if (externalDraggable) return;
+
+		try {
+			externalDraggable = new FullCalendar.Draggable(externalListEl, {
+				itemSelector: '.as-management-added-drag-area.as-management-added-draggable',
+				eventData: function (el) {
+					const taskEl = el.closest('.as-management-added-task');
+					const taskId = taskEl.getAttribute('data-task-id');
+					const company = taskEl.getAttribute('data-company');
+					const status = taskEl.getAttribute('data-status');
+					return {
+						id: String(taskId),
+						title: company,
+						allDay: true,
+						classNames: ['as-management-added-evt', 'as-management-added-evt-' + status],
+						extendedProps: { status: status }
+					};
+				}
+			});
+		} catch (e) {
+			externalDraggable = null;
+		}
+	}
+
+	function initExternalDraggable() {
+		ensureExternalDraggable();
+	}
+
+	function applyResponsiveCalendarView() {
+		if (!calendar) return;
+
+		const nextIsMobile = detectMobile();
+		const nextView = nextIsMobile ? 'dayGridDay' : 'dayGridMonth';
+
+		isMobile = nextIsMobile;
+
+		calendar.setOption('droppable', !isMobile);
+		calendar.setOption('editable', !isMobile);
+		calendar.setOption('eventStartEditable', !isMobile);
+		calendar.setOption('dayMaxEvents', isMobile ? 10 : 5);
+
+		calendar.setOption('headerToolbar', getHeaderToolbarForCurrentMode());
+
+		if (calendar.view && calendar.view.type !== nextView) {
+			calendar.changeView(nextView);
+		}
+
+		if (!isMobile) {
+			updateDayCountBadges();
+		}
+
+		ensureExternalDraggable();
 	}
 
 	// ===== Modal list (등록된 업무) =====
@@ -760,6 +794,7 @@
 			});
 	}
 
+	// ✅ 모달 리스트: "상세 ▼" 슬라이드 토글 추가
 	function renderModalList(items) {
 		if (!items || items.length === 0) {
 			modalListEl.innerHTML = '<div class="text-muted small">배정된 업무가 없습니다.</div>';
@@ -779,29 +814,95 @@
 			const reqDate = it.requestedAt ? String(it.requestedAt).substring(0, 10) : '-';
 			const procDate = it.asProcessDate ? String(it.asProcessDate).substring(0, 10) : '-';
 
+			// 모달은 "해당 날짜"가 곧 등록일(스케줄 날짜)
+			const schedDate = modalDate ? modalDate : '-';
+
 			return `
         <div class="as-calendar-modal-item" data-task-id="${it.taskId}">
-          <div class="as-calendar-modal-drag-handle">↕</div>
+          <div class="as-calendar-modal-drag-handle" title="드래그로 순서 변경">↕</div>
+
           <div class="as-calendar-modal-main">
             <div class="as-calendar-modal-row1">
               <div class="as-calendar-modal-company">${escapeHtml(it.companyName)}</div>
-              <span class="${badge}">${escapeHtml(status)}</span>
+
+              <div class="as-calendar-modal-actions">
+                <span class="${badge}">${escapeHtml(status)}</span>
+
+                <button type="button"
+                        class="btn btn-sm btn-light as-calendar-modal-toggle"
+                        aria-label="상세 보기"
+                        title="상세">
+                  ▼
+                </button>
+
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger as-calendar-modal-remove"
+                        ${disabledRemove}
+                        title="해당 날짜에서 제거">
+                  ×
+                </button>
+              </div>
             </div>
+
             <div class="as-calendar-modal-row2">
               <div><span class="as-calendar-label">신청일</span> ${reqDate}</div>
               <div><span class="as-calendar-label">처리일</span> ${procDate}</div>
             </div>
+
+            <!-- ✅ 상세 영역(슬라이드 토글) -->
+            <div class="as-calendar-modal-detail" style="display:none;">
+              <div class="as-calendar-modal-detail-grid">
+                <div>
+                  <span class="as-calendar-modal-detail-label">업무ID</span>
+                  <span>${escapeHtml(it.taskId)}</span>
+                </div>
+                <div>
+                  <span class="as-calendar-modal-detail-label">등록일</span>
+                  <span>${escapeHtml(schedDate)}</span>
+                </div>
+                <div>
+                  <span class="as-calendar-modal-detail-label">상태</span>
+                  <span>${escapeHtml(status)}</span>
+                </div>
+              </div>
+
+              <div class="as-calendar-modal-detail-hint text-muted small mt-2">
+                - 완료/취소는 제거 불가, 진행중은 제거 후 다른 날짜로 재등록 가능합니다.
+              </div>
+            </div>
           </div>
-          <button type="button"
-                  class="btn btn-sm btn-outline-danger as-calendar-modal-remove"
-                  ${disabledRemove}
-                  title="해당 날짜에서 제거">x</button>
         </div>
       `;
 		}).join('');
 
+		bindModalItemButtons();
+	}
+
+	function bindModalItemButtons() {
+		// 상세 토글 버튼
+		qsa('.as-calendar-modal-toggle', modalListEl).forEach(btn => {
+			btn.addEventListener('click', function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				const itemEl = btn.closest('.as-calendar-modal-item');
+				const detailEl = qs('.as-calendar-modal-detail', itemEl);
+				if (!detailEl) return;
+
+				const isOpen = detailEl.style.display !== 'none';
+				slideToggle(detailEl, !isOpen);
+
+				// 화살표 회전/상태표시용 클래스
+				btn.classList.toggle('is-open', !isOpen);
+			});
+		});
+
+		// 제거 버튼
 		qsa('.as-calendar-modal-remove', modalListEl).forEach(btn => {
-			btn.addEventListener('click', function () {
+			btn.addEventListener('click', function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+
 				if (btn.disabled) {
 					window.alert('완료/취소된 업무는 제거할 수 없습니다.');
 					return;
@@ -826,7 +927,7 @@
 						unmarkTaskRegistered(taskId);
 						normalizeTaskList();
 					})
-					.catch((e) => window.alert(e.message || '제거 실패'));
+					.catch((err) => window.alert(err.message || '제거 실패'));
 			});
 		});
 	}
@@ -886,5 +987,14 @@
 		normalizeTaskList();
 		initExternalDraggable();
 		initCalendar();
+
+		let resizeTimer = null;
+		window.addEventListener('resize', function () {
+			window.clearTimeout(resizeTimer);
+			resizeTimer = window.setTimeout(function () {
+				if (calendar) applyResponsiveCalendarView();
+				normalizeTaskList();
+			}, 120);
+		});
 	});
 })();

@@ -847,3 +847,69 @@
 	background: rgba(239, 68, 68, .14);
 	color: #b91c1c;
 }
+
+/* ===== Modal 상세 토글(추가) ===== */
+
+.as-calendar-modal-row1 {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.as-calendar-modal-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.as-calendar-modal-toggle {
+	line-height: 1;
+	padding: 4px 8px;
+	border-radius: 8px;
+}
+
+.as-calendar-modal-toggle.is-open {
+	transform: rotate(180deg);
+	transition: transform .15s ease;
+}
+
+.as-calendar-modal-detail {
+	margin-top: 10px;
+	padding: 10px 12px;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	border-radius: 12px;
+	background: rgba(0, 0, 0, 0.02);
+}
+
+.as-calendar-modal-detail-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px 12px;
+}
+
+.as-calendar-modal-detail-grid > div {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	white-space: nowrap;
+}
+
+.as-calendar-modal-detail-label {
+	font-size: 12px;
+	color: rgba(0, 0, 0, 0.6);
+}
+
+@media (max-width: 575px) {
+	.as-calendar-modal-detail-grid {
+		grid-template-columns: 1fr;
+	}
+	.as-calendar-modal-detail-grid > div {
+		justify-content: flex-start;
+	}
+	.as-calendar-modal-detail-grid > div span:last-child {
+		margin-left: 10px;
+	}
+}
