@@ -18,12 +18,24 @@ public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, 
 
     List<AsTaskSchedule> findByScheduledDateOrderByOrderIndexAsc(LocalDate date);
 
+    // ✅ 기존 유지(누락 없이 그대로 둠)
     @Query("""
         select s from AsTaskSchedule s
         where s.scheduledDate between :start and :end
     """)
     List<AsTaskSchedule> findBetweenDates(@Param("start") LocalDate start,
                                           @Param("end") LocalDate end);
+
+    // ✅ FullCalendar용(권장): end exclusive + 정렬
+    @Query("""
+        select s
+        from AsTaskSchedule s
+        where s.scheduledDate >= :start
+          and s.scheduledDate <  :end
+        order by s.scheduledDate asc, s.orderIndex asc
+    """)
+    List<AsTaskSchedule> findBetweenDatesForCalendar(@Param("start") LocalDate start,
+                                                     @Param("end") LocalDate end);
 
     @Query("""
         select max(s.orderIndex) from AsTaskSchedule s
@@ -37,13 +49,13 @@ public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, 
         where s.asTask.id = :taskId
     """)
     int deleteByTaskId(@Param("taskId") Long taskId);
-    
+
     @Query("""
       select s from AsTaskSchedule s
       where s.asTask.id in :taskIds
     """)
     List<AsTaskSchedule> findByTaskIds(@Param("taskIds") List<Long> taskIds);
-    
+
     @Query("""
 	    select s
 	    from AsTaskSchedule s

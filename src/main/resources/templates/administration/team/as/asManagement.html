@@ -1,5 +1,6 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+<html xmlns:th="http://www.thymeleaf.org" lang="ko"
+      data-layout="twocolumn" data-sidebar="light"
       data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
@@ -30,12 +31,11 @@
                     </div>
                 </div>
 
-                <!-- ✅ 검색 폼 -->
+                <!-- ✅ 검색 폼(기존 유지) -->
                 <form method="get" th:action="@{/team/asManagement}" class="row">
                     <div class="col-lg-12">
                         <div class="row g-4 mb-3">
 
-                            <!-- 상태 -->
                             <div class="col-lg-1">
                                 <label class="form-label">상태</label>
                                 <select name="status" class="form-select">
@@ -47,7 +47,6 @@
                                 </select>
                             </div>
 
-                            <!-- 조회조건 -->
                             <div class="col-lg-1">
                                 <label class="form-label">조회조건</label>
                                 <select name="dateType" class="form-select">
@@ -57,7 +56,6 @@
                                 </select>
                             </div>
 
-                            <!-- 시작일 -->
                             <div class="col-lg-2">
                                 <label class="form-label">시작일</label>
                                 <input type="date" name="startDate"
@@ -65,7 +63,6 @@
                                        class="form-control">
                             </div>
 
-                            <!-- 종료일 -->
                             <div class="col-lg-2">
                                 <label class="form-label">종료일</label>
                                 <input type="date" name="endDate"
@@ -73,7 +70,6 @@
                                        class="form-control">
                             </div>
 
-                            <!-- 업체명 -->
                             <div class="col-lg-2">
                                 <label class="form-label">업체명</label>
                                 <input type="text" name="companyKeyword" class="form-control"
@@ -81,7 +77,6 @@
                                        th:value="${companyKeyword}">
                             </div>
 
-                            <!-- Province -->
                             <div class="col-lg-1">
                                 <label class="form-label">도/광역시</label>
                                 <select name="provinceId" id="as-province-select" class="form-select">
@@ -94,7 +89,6 @@
                                 </select>
                             </div>
 
-                            <!-- City/District 영역(기존 유지) -->
                             <div class="col-lg-1" id="as-child-wrapper" style="display:none;">
                                 <label class="form-label" id="as-child-label">시/군</label>
                                 <select name="cityId" id="as-city-select" class="form-select" style="display:none;">
@@ -123,81 +117,131 @@
                     </div>
                 </form>
 
-                <!-- ✅ 본문: 좌 캘린더(10) / 우 리스트(2) -->
+                <!-- ✅ 캘린더: 항상 풀폭 -->
                 <div class="row g-3">
-                    <div class="col-lg-10">
+                    <div class="col-12">
                         <div class="card as-calendar-card">
                             <div class="card-body">
                                 <div id="as-calendar-calendar"></div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="col-lg-2">
-                        <div class="card as-calendar-card">
-                            <div class="card-header">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="fw-semibold">업무 리스트</span>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    - 등록 가능: 요청됨/진행중<br/>
-                                    - 등록 불가: 완료/취소<br/>
-                                    - 이미 등록됨: 등록일 표시
+                <!-- ✅ 리스트 오픈 FAB (right:0 / 수직 중앙) -->
+                <button type="button"
+                        class="as-management-added-fab"
+                        id="as-management-added-open-drawer"
+                        aria-label="업무 리스트 열기">
+                    업무
+                </button>
+
+                <!-- ✅ 리스트 Drawer(우->좌 슬라이드) -->
+                <div class="as-management-added-drawer-overlay"
+                     id="as-management-added-drawer-overlay"
+                     style="display:none;">
+                    <aside class="as-management-added-drawer" role="dialog" aria-modal="true" aria-label="업무 리스트">
+                        <div class="as-management-added-drawer-header">
+                            <div class="as-management-added-drawer-title">
+                                <div class="fw-semibold">업무 리스트</div>
+                                <div class="as-management-added-drawer-sub">
+                                    <span class="as-management-added-pill as-management-added-pill-info">등록 가능(IN_PROGRESS)</span>
+                                    <span class="as-management-added-pill as-management-added-pill-muted">등록 불가</span>
+                                    <span class="as-management-added-pill as-management-added-pill-outline">이미 등록</span>
+                                    <span class="as-management-added-pill as-management-added-pill-warn">미컨펌(REQUESTED)</span>
                                 </div>
                             </div>
-                            <div class="card-body as-calendar-tasklist" id="as-calendar-external-list">
+                            <button type="button" class="btn btn-sm btn-light" id="as-management-added-close-drawer">닫기</button>
+                        </div>
+
+                        <div class="as-management-added-drawer-body" id="as-management-added-drawer-body">
+                            <div class="as-management-added-tasklist" id="as-calendar-external-list">
+
                                 <div th:if="${asPage == null || asPage.content == null || #lists.isEmpty(asPage.content)}"
                                      class="text-muted small">
                                     조회 결과가 없습니다.
                                 </div>
 
                                 <div th:each="t : ${asPage.content}"
-                                     class="as-calendar-task-card"
+                                     class="as-management-added-task"
                                      th:attr="
                                         data-task-id=${t.taskId},
                                         data-company=${t.companyName},
                                         data-status=${t.status},
-                                        data-scheduled-date=${t.scheduledDate != null ? #temporals.format(t.scheduledDate, 'yyyy-MM-dd') : ''}">
+                                        data-scheduled-date=${t.scheduledDate != null ? #temporals.format(t.scheduledDate, 'yyyy-MM-dd') : ''},
+                                        data-requested-at=${t.requestedAt != null ? #temporals.format(t.requestedAt, 'yyyy-MM-dd') : ''},
+                                        data-processed-at=${t.asProcessDate != null ? #temporals.format(t.asProcessDate, 'yyyy-MM-dd') : ''}">
 
-                                    <div class="as-calendar-task-card-inner"
-                                         th:classappend="
-                                            ${t.status == 'COMPLETED' || t.status == 'CANCELED'} ? ' as-calendar-task-disabled' :
-                                            (${t.scheduledDate != null} ? ' as-calendar-task-registered' : ' as-calendar-task-available')
-                                         ">
-                                        <div class="as-calendar-task-title" th:text="${t.companyName}">업체명</div>
+                                    <div class="as-management-added-task-top">
+                                        <div class="as-management-added-drag-area">
+                                            <div class="as-management-added-task-company" th:text="${t.companyName}">업체명</div>
 
-                                        <div class="as-calendar-task-meta">
+                                            <span class="as-management-added-badge"
+                                                  th:classappend="' as-management-added-badge-' + ${t.status}"
+                                                  th:text="${t.status}">
+                                            </span>
+
+                                            <!-- ✅ 미컨펌(REQUESTED) -->
+                                            <span class="as-management-added-badge as-management-added-badge-unconfirmed"
+                                                  th:if="${t.status == 'REQUESTED'}">
+                                                UNCONFIRMED
+                                            </span>
+
+                                            <!-- ✅ 이미 등록됨 (서버 렌더 + JS에서 표시 가능하도록 항상 태그는 유지) -->
+                                            <span class="as-management-added-badge as-management-added-badge-registered"
+                                                  th:style="${t.scheduledDate != null ? '' : 'display:none;'}">
+                                                등록됨
+                                            </span>
+                                        </div>
+
+                                        <div class="as-management-added-task-actions">
+                                            <button type="button"
+                                                    class="as-management-added-icon-btn as-management-added-toggle-btn"
+                                                    aria-label="상세 열기"
+                                                    title="상세">
+                                                ▼
+                                            </button>
+
+                                            <button type="button"
+                                                    class="as-management-added-icon-btn as-management-added-jump-btn"
+                                                    aria-label="달력 이동"
+                                                    title="달력 이동">
+                                                ↗
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="as-management-added-task-detail" style="display:none;">
+                                        <div class="as-management-added-detail-grid">
                                             <div>
-                                                <span class="as-calendar-label">신청일</span>
-                                                <span th:text="${t.requestedAt != null ? #temporals.format(t.requestedAt, 'yyyy-MM-dd') : '-'}">-</span>
+                                                <span class="as-management-added-detail-label">신청일</span>
+                                                <span th:text="${t.requestedAt != null ? #temporals.format(t.requestedAt,'yyyy-MM-dd') : '-'}">-</span>
                                             </div>
                                             <div>
-                                                <span class="as-calendar-label">처리일</span>
-                                                <span th:text="${t.asProcessDate != null ? #temporals.format(t.asProcessDate, 'yyyy-MM-dd') : '-'}">-</span>
+                                                <span class="as-management-added-detail-label">처리일</span>
+                                                <span th:text="${t.asProcessDate != null ? #temporals.format(t.asProcessDate,'yyyy-MM-dd') : '-'}">-</span>
                                             </div>
-
-                                            <div th:if="${t.scheduledDate != null}">
-                                                <span class="as-calendar-label">등록일</span>
-                                                <span th:text="${#temporals.format(t.scheduledDate, 'yyyy-MM-dd')}">-</span>
+                                            <div>
+                                                <span class="as-management-added-detail-label">등록일</span>
+                                                <span th:text="${t.scheduledDate != null ? #temporals.format(t.scheduledDate,'yyyy-MM-dd') : '-'}">-</span>
                                             </div>
                                         </div>
 
-                                        <div class="as-calendar-task-addr" th:text="${t.address}">주소</div>
-
-                                        <!-- 드래그 가능한 엘리먼트 표시용 -->
-                                        <div class="as-calendar-drag-hint"
-                                             th:if="${t.status == 'REQUESTED' || t.status == 'IN_PROGRESS'}"
-                                             th:text="${t.scheduledDate != null ? '이미 등록됨' : '드래그하여 달력에 등록'}">
+                                        <div class="as-management-added-detail-hint text-muted small mt-2">
+                                            - 등록 가능: 진행중(IN_PROGRESS)만<br/>
+                                            - 등록 불가: 요청됨(REQUESTED)/완료(COMPLETED)/취소(CANCELED)<br/>
+                                            - 완료/취소는 제거 불가, 진행중은 제거 후 재등록 가능<br/>
+                                            - 진행중(IN_PROGRESS) 등록된 일정은 캘린더에서 날짜 이동 가능(PC)
                                         </div>
                                     </div>
                                 </div>
 
                             </div>
                         </div>
-                    </div>
+                    </aside>
                 </div>
 
-                <!-- ✅ 모달 -->
+                <!-- ✅ 캘린더 날짜 클릭 모달(기존 유지 + 정렬 가능) -->
                 <div class="as-calendar-modal-overlay" id="as-calendar-modal-overlay" style="display:none;">
                     <div class="as-calendar-modal" role="dialog" aria-modal="true">
                         <div class="as-calendar-modal-header">
@@ -209,9 +253,7 @@
                         </div>
 
                         <div class="as-calendar-modal-body">
-                            <div id="as-calendar-modal-list" class="as-calendar-modal-list">
-                                <!-- JS로 채움 -->
-                            </div>
+                            <div id="as-calendar-modal-list" class="as-calendar-modal-list"></div>
                         </div>
 
                         <div class="as-calendar-modal-footer">
@@ -234,6 +276,10 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 <script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 
+<!-- ✅ 추가 CSS -->
+<link rel="stylesheet" href="/administration/assets/css/page/asManagement.css"/>
+
+<!-- ✅ JS -->
 <script src="/administration/assets/js/page/asManagement.js"></script>
 
 </body>

@@ -14,7 +14,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CalendarEventDto {
-	private Long taskId;
-	private String title; // 업체명만
-	private LocalDate date; // scheduled_date
+    private Long taskId;
+    private String title; // 업체명만
+    private LocalDate date; // scheduled_date
+    private String status; // ✅ 추가: REQUESTED/IN_PROGRESS/...
 }

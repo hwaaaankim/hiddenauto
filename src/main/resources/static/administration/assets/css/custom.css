@@ -272,3 +272,578 @@
 #employDetail-regionMsg {
 	min-height: 1.5rem;
 }
+
+
+/* ================================
+   AS List (Table) - Added Styles
+   Prefix: as-list-added-
+   ================================ */
+
+/* 카드 컨테이너(테이블 감싸는 카드) */
+.as-list-added-table-card {
+	border: 1px solid rgba(0, 0, 0, 0.06);
+	border-radius: 14px;
+	overflow: hidden;
+}
+
+.as-list-added-table-card-body {
+	padding: 0;
+}
+
+/* 테이블 래퍼 */
+.as-list-added-table-responsive {
+	width: 100%;
+}
+
+/* 테이블 기본 */
+.as-list-added-table {
+	margin: 0;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+/* THEAD */
+.as-list-added-thead th.as-list-added-th {
+	background: #f7f9fc;
+	font-weight: 700;
+	font-size: 0.92rem;
+	color: #1f2d3d;
+	letter-spacing: -0.2px;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.07) !important;
+	padding: 14px 12px;
+	vertical-align: middle !important;
+	white-space: nowrap;
+}
+
+/* TBODY */
+.as-list-added-tbody td.as-list-added-td {
+	padding: 14px 12px;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+	vertical-align: middle !important;
+}
+
+/* 마지막 행 라인 정리 */
+.as-list-added-tbody tr:last-child td.as-list-added-td {
+	border-bottom: 0;
+}
+
+/* 행 hover */
+.as-list-added-tr:hover td.as-list-added-td {
+	background: rgba(0, 0, 0, 0.015);
+}
+
+/* 컬럼 폭/정렬 */
+.as-list-added-col-id {
+	width: 90px;
+	text-align: center;
+}
+
+.as-list-added-col-status {
+	width: 110px;
+	text-align: center;
+}
+
+.as-list-added-col-requester {
+	width: 140px;
+	text-align: center;
+}
+
+.as-list-added-col-requestedAt {
+	width: 120px;
+	text-align: center;
+}
+
+.as-list-added-col-processedAt {
+	width: 120px;
+	text-align: center;
+}
+
+.as-list-added-col-actions {
+	width: 190px;
+	text-align: center;
+}
+
+.as-list-added-col-address {
+	min-width: 260px;
+}
+
+.as-list-added-col-memo {
+	min-width: 220px;
+}
+
+/* 텍스트 스타일 */
+.as-list-added-id {
+	font-weight: 700;
+	color: #0b2239;
+}
+
+.as-list-added-requester {
+	font-weight: 600;
+	color: #0b2239;
+}
+
+.as-list-added-date {
+	font-weight: 600;
+	color: #0b2239;
+	white-space: nowrap;
+}
+
+/* 주소/메모 줄바꿈 품질 */
+.as-list-added-address,
+.as-list-added-memo {
+	line-height: 1.35;
+	color: #3a4b5c;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+/* 상태 배지 공통 */
+.as-list-added-status-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 72px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	font-weight: 700;
+	font-size: 0.78rem;
+	letter-spacing: -0.2px;
+	border: 1px solid transparent;
+}
+
+/* 상태별 컬러(부트스트랩 톤과 유사) */
+.as-list-added-badge-requested {
+	background: rgba(255, 193, 7, 0.15);
+	color: #b78103;
+	border-color: rgba(255, 193, 7, 0.28);
+}
+
+.as-list-added-badge-progress {
+	background: rgba(13, 110, 253, 0.12);
+	color: #0b5ed7;
+	border-color: rgba(13, 110, 253, 0.22);
+}
+
+.as-list-added-badge-completed {
+	background: rgba(25, 135, 84, 0.12);
+	color: #157347;
+	border-color: rgba(25, 135, 84, 0.22);
+}
+
+.as-list-added-badge-canceled {
+	background: rgba(220, 53, 69, 0.12);
+	color: #bb2d3b;
+	border-color: rgba(220, 53, 69, 0.22);
+}
+
+/* 액션 버튼 영역: 수직 중앙 + 균형 */
+.as-list-added-actions {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.as-list-added-btn-detail,
+.as-list-added-btn-complete {
+	padding: 7px 10px;
+	border-radius: 10px;
+	font-weight: 700;
+	letter-spacing: -0.2px;
+}
+
+/* 테이블 헤더/바디 모서리 라운딩 느낌 */
+.as-list-added-thead th:first-child {
+	border-top-left-radius: 14px;
+}
+
+.as-list-added-thead th:last-child {
+	border-top-right-radius: 14px;
+}
+
+/* 빈 상태 영역 */
+.as-list-added-empty {
+	padding: 28px 0;
+}
+
+/* 모바일 대응: 주소/메모 폭이 너무 커지는 경우 대비 */
+@media (max-width: 991.98px) {
+	.as-list-added-col-address {
+		min-width: 220px;
+	}
+
+	.as-list-added-col-memo {
+		min-width: 200px;
+	}
+
+	.as-list-added-col-actions {
+		width: 170px;
+	}
+}
+
+/* ===== Drawer / FAB ===== */
+.as-management-added-fab {
+	position: fixed;
+	right: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	z-index: 1200;
+	border: 0;
+	border-radius: 14px 0 0 14px;
+	padding: 12px 14px;
+	font-weight: 700;
+	letter-spacing: 0.2px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+	background: #111827;
+	color: #fff;
+}
+
+.as-management-added-fab:hover {
+	filter: brightness(1.08);
+}
+
+.as-management-added-drawer-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1250;
+	background: rgba(15, 23, 42, 0.35);
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	padding: 18px;
+}
+
+.as-management-added-drawer {
+	width: 420px;
+	max-width: 92vw;
+	height: calc(100vh - 36px);
+	max-height: 92vh;
+	background: #fff;
+	border-radius: 18px;
+	box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+	overflow: hidden;
+
+	display: flex;
+	flex-direction: column;
+
+	transform: translateX(30px);
+	opacity: 0;
+	transition: transform .18s ease, opacity .18s ease;
+}
+
+.as-management-added-drawer.as-management-added-open {
+	transform: translateX(0);
+	opacity: 1;
+}
+
+@media (max-width: 768px) {
+	.as-management-added-drawer {
+		width: 90vw;
+		/* 요구사항: width 90% */
+		height: 90vh;
+		/* 요구사항: height 90% */
+		max-height: 90vh;
+		border-radius: 18px;
+	}
+}
+
+/* header fixed + body scroll */
+.as-management-added-drawer-header {
+	padding: 14px 14px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	border-bottom: 1px solid #eef2f7;
+	background: #ffffff;
+}
+
+.as-management-added-drawer-title {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.as-management-added-drawer-sub {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.as-management-added-pill {
+	font-size: 11px;
+	padding: 4px 8px;
+	border-radius: 999px;
+	line-height: 1;
+	border: 1px solid transparent;
+}
+
+.as-management-added-pill-info {
+	background: rgba(59, 130, 246, 0.12);
+	border-color: rgba(59, 130, 246, 0.35);
+}
+
+.as-management-added-pill-muted {
+	background: rgba(100, 116, 139, 0.12);
+	border-color: rgba(100, 116, 139, 0.35);
+}
+
+.as-management-added-pill-outline {
+	background: #fff;
+	border-color: #e2e8f0;
+}
+
+.as-management-added-drawer-body {
+	flex: 1;
+	overflow: auto;
+	/* ✅ 리스트 영역만 스크롤 */
+	padding: 12px;
+}
+
+/* ===== List Items ===== */
+.as-management-added-tasklist {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.as-management-added-task {
+	border: 1px solid #eef2f7;
+	border-radius: 14px;
+	background: #fff;
+	overflow: hidden;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.as-management-added-task-top {
+	padding: 12px 12px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.as-management-added-drag-area {
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.as-management-added-task-company {
+	font-weight: 700;
+	color: #0f172a;
+	max-width: 220px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.as-management-added-task-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.as-management-added-icon-btn {
+	border: 1px solid #e2e8f0;
+	background: #fff;
+	border-radius: 10px;
+	width: 34px;
+	height: 34px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: #0f172a;
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+}
+
+.as-management-added-icon-btn:hover {
+	background: #f8fafc;
+}
+
+.as-management-added-task-detail {
+	border-top: 1px solid #eef2f7;
+	padding: 10px 12px 12px 12px;
+	background: #fbfdff;
+}
+
+.as-management-added-detail-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 8px;
+}
+
+.as-management-added-detail-label {
+	display: inline-block;
+	min-width: 56px;
+	color: #64748b;
+	font-size: 12px;
+	margin-right: 6px;
+}
+
+/* ===== Badge colors by status ===== */
+.as-management-added-badge {
+	font-size: 11px;
+	padding: 4px 8px;
+	border-radius: 999px;
+	line-height: 1;
+	font-weight: 800;
+	border: 1px solid transparent;
+}
+
+.as-management-added-badge-REQUESTED {
+	background: rgba(59, 130, 246, 0.12);
+	border-color: rgba(59, 130, 246, 0.35);
+	color: #1d4ed8;
+}
+
+.as-management-added-badge-IN_PROGRESS {
+	background: rgba(245, 158, 11, 0.14);
+	border-color: rgba(245, 158, 11, 0.35);
+	color: #b45309;
+}
+
+.as-management-added-badge-COMPLETED {
+	background: rgba(34, 197, 94, 0.14);
+	border-color: rgba(34, 197, 94, 0.35);
+	color: #15803d;
+}
+
+.as-management-added-badge-CANCELED {
+	background: rgba(239, 68, 68, 0.12);
+	border-color: rgba(239, 68, 68, 0.35);
+	color: #b91c1c;
+}
+
+.as-management-added-badge-unconfirmed {
+	background: rgba(100, 116, 139, 0.10);
+	border-color: rgba(100, 116, 139, 0.35);
+	color: #475569;
+}
+
+.as-management-added-badge-registered {
+	background: #fff;
+	border-color: #e2e8f0;
+	color: #0f172a;
+}
+
+/* draggable marker */
+.as-management-added-draggable {
+	cursor: grab;
+}
+
+.as-management-added-draggable:active {
+	cursor: grabbing;
+}
+
+/* ===== FullCalendar Event Styling ===== */
+.as-management-added-evt {
+	border-radius: 10px !important;
+	border: 1px solid rgba(15, 23, 42, 0.10) !important;
+	padding: 2px 6px !important;
+	font-weight: 800 !important;
+}
+
+/* status colors inside calendar */
+.as-management-added-evt-REQUESTED {
+	background: rgba(59, 130, 246, 0.16) !important;
+	color: #1d4ed8 !important;
+}
+
+.as-management-added-evt-IN_PROGRESS {
+	background: rgba(245, 158, 11, 0.18) !important;
+	color: #b45309 !important;
+}
+
+.as-management-added-evt-COMPLETED {
+	background: rgba(34, 197, 94, 0.16) !important;
+	color: #15803d !important;
+}
+
+.as-management-added-evt-CANCELED {
+	background: rgba(239, 68, 68, 0.14) !important;
+	color: #b91c1c !important;
+}
+
+.as-management-added-daycount {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-left: 6px;
+	font-size: 11px;
+	font-weight: 900;
+	padding: 2px 6px;
+	border-radius: 999px;
+	background: rgba(15, 23, 42, 0.08);
+	color: #0f172a;
+	vertical-align: middle;
+}
+
+/* 달력 날짜(숫자) 영역 정렬을 깔끔하게 */
+.fc .fc-daygrid-day-top {
+	align-items: center;
+	gap: 4px;
+}
+
+/* /administration/assets/css/page/asManagement.css */
+
+/* ✅ day count badge(기존 로직 유지용, 없으면 추가) */
+.as-management-added-daycount {
+	margin-left: 6px;
+	font-size: 11px;
+	line-height: 1;
+	padding: 2px 6px;
+	border-radius: 999px;
+	background: rgba(59, 130, 246, .12);
+	color: #2563eb;
+	vertical-align: middle;
+}
+
+/* ✅ 캘린더 이벤트: 업체명 + 우측 status badge */
+.as-management-added-evt-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+
+.as-management-added-evt-title {
+	font-size: 12px;
+	line-height: 1.2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: calc(100% - 56px);
+}
+
+.as-management-added-evt-badge {
+	font-size: 10px;
+	line-height: 1;
+	padding: 2px 6px;
+	border-radius: 999px;
+	white-space: nowrap;
+	opacity: .95;
+	border: 1px solid rgba(0, 0, 0, .08);
+}
+
+/* 상태별 배지 톤(원하시면 색만 조절하시면 됩니다) */
+.as-management-added-evt-badge-IN_PROGRESS {
+	background: rgba(245, 158, 11, .14);
+	color: #b45309;
+}
+
+.as-management-added-evt-badge-REQUESTED {
+	background: rgba(59, 130, 246, .14);
+	color: #1d4ed8;
+}
+
+.as-management-added-evt-badge-COMPLETED {
+	background: rgba(34, 197, 94, .14);
+	color: #15803d;
+}
+
+.as-management-added-evt-badge-CANCELED {
+	background: rgba(239, 68, 68, .14);
+	color: #b91c1c;
+}

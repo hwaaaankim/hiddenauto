@@ -2,11 +2,9 @@ package com.dev.HiddenBATHAuto.controller.api;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +20,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dev.HiddenBATHAuto.dto.as.ScheduleCreateRequest;
+import com.dev.HiddenBATHAuto.dto.as.ScheduleMoveRequest;
 import com.dev.HiddenBATHAuto.dto.as.ScheduleReorderRequest;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.service.as.AsScheduleService;
 
 import lombok.RequiredArgsConstructor;
+
 
 @RestController
 @RequestMapping("/team/asSchedule")
@@ -34,86 +34,94 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AsScheduleApiController {
 
-	private final AsScheduleService asScheduleService;
+    private final AsScheduleService asScheduleService;
 
-	// ✅ 캘린더 이벤트 조회 (FullCalendar용)
-	@GetMapping("/events")
-	public List<Map<String, Object>> events(
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
-		// FullCalendar end는 보통 exclusive라서 그대로 받아도 되지만
-		// 여기선 inclusive가 편하므로 end.minusDays(1) 처리 여부는 프론트에서 맞추면 됩니다.
-		var list = asScheduleService.getCalendarEvents(start, end);
-		List<Map<String, Object>> res = new ArrayList<>();
-		for (var e : list) {
-			Map<String, Object> m = new HashMap<>();
-			m.put("id", e.getTaskId());
-			m.put("title", e.getTitle());
-			m.put("start", e.getDate().toString()); // yyyy-MM-dd
-			m.put("allDay", true);
-			res.add(m);
-		}
-		return res;
-	}
+    @GetMapping("/events")
+    public List<Map<String, Object>> events(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
 
-	// ✅ 드랍 등록
-	@PostMapping("/register")
-	public ResponseEntity<?> register(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestBody ScheduleCreateRequest req) {
-		asScheduleService.registerToDate(principal.getMember(), req.getTaskId(), req.getScheduledDate());
-		return ResponseEntity.ok(Map.of("ok", true));
-	}
+        var list = asScheduleService.getCalendarEvents(start, end);
 
-	// ✅ 제거(모달 x 버튼)
-	@DeleteMapping("/remove/{taskId}")
-	public ResponseEntity<?> remove(@PathVariable Long taskId) {
-		asScheduleService.removeFromCalendar(taskId);
-		return ResponseEntity.ok(Map.of("ok", true));
-	}
+        List<Map<String, Object>> res = new ArrayList<>();
+        for (var e : list) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", e.getTaskId());
+            m.put("title", e.getTitle());
+            m.put("start", e.getDate().toString());
+            m.put("allDay", true);
 
-	@GetMapping("/date")
-	public List<Map<String, Object>> byDate(@RequestParam String date) {
+            String status = e.getStatus(); // "REQUESTED" ...
+            List<String> classNames = new ArrayList<>();
+            classNames.add("as-management-added-evt");
+            classNames.add("as-management-added-evt-" + status);
+            m.put("classNames", classNames);
 
-	    // ✅ "2025-11-30" 또는 "2025-11-30T00:00:00+09:00" 등 모두 대응
-	    String d = (date != null && date.length() >= 10) ? date.substring(0, 10) : date;
-	    LocalDate localDate = LocalDate.parse(d); // yyyy-MM-dd
+            // ✅ eventContent에서 status badge 그리기용
+            m.put("extendedProps", Map.of("status", status));
 
-	    var list = asScheduleService.getSchedulesByDate(localDate);
+            res.add(m);
+        }
+        return res;
+    }
 
-	    List<Map<String, Object>> res = new ArrayList<>();
-	    for (var s : list) {
-	        var task = s.getAsTask();
+    @PostMapping("/register")
+    public ResponseEntity<?> register(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody ScheduleCreateRequest req) {
 
-	        String companyName = (task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null)
-	                ? task.getRequestedBy().getCompany().getCompanyName() // 환님 코드 기준
-	                : "(업체없음)";
+        asScheduleService.registerToDate(principal.getMember(), req.getTaskId(), req.getScheduledDate());
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
 
-	        String address = String.join(" ",
-	                Optional.ofNullable(task.getDoName()).orElse(""),
-	                Optional.ofNullable(task.getSiName()).orElse(""),
-	                Optional.ofNullable(task.getGuName()).orElse(""),
-	                Optional.ofNullable(task.getRoadAddress()).orElse(""),
-	                Optional.ofNullable(task.getDetailAddress()).orElse("")
-	        ).trim();
+    @DeleteMapping("/remove/{taskId}")
+    public ResponseEntity<?> remove(@PathVariable Long taskId) {
+        asScheduleService.removeFromCalendar(taskId);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
 
-	        // 아래 2)에서 설명하는 Map.of NPE 방지용으로 HashMap 사용
-	        Map<String, Object> m = new LinkedHashMap<>();
-	        m.put("taskId", task.getId());
-	        m.put("companyName", companyName);
-	        m.put("status", task.getStatus().name());
-	        m.put("requestedAt", task.getRequestedAt());     // null 가능
-	        m.put("asProcessDate", task.getAsProcessDate()); // null 가능
-	        m.put("address", address);
-	        m.put("orderIndex", s.getOrderIndex());
+    @GetMapping("/date")
+    public List<Map<String, Object>> byDate(@RequestParam String date) {
 
-	        res.add(m);
-	    }
-	    return res;
-	}
-	// ✅ 모달: 순서변경 확정
-	@PostMapping("/reorder")
-	public ResponseEntity<?> reorder(@RequestBody ScheduleReorderRequest req) {
-		asScheduleService.reorderWithinDate(req.getScheduledDate(), req.getTaskIdsInOrder());
-		return ResponseEntity.ok(Map.of("ok", true));
-	}
+        String d = (date != null && date.length() >= 10) ? date.substring(0, 10) : date;
+        LocalDate localDate = LocalDate.parse(d);
+
+        var list = asScheduleService.getSchedulesByDate(localDate);
+
+        List<Map<String, Object>> res = new ArrayList<>();
+        for (var s : list) {
+            var task = s.getAsTask();
+
+            String companyName =
+                    (task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null)
+                            ? task.getRequestedBy().getCompany().getCompanyName()
+                            : "(업체없음)";
+
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("taskId", task.getId());
+            m.put("companyName", companyName);
+            m.put("status", task.getStatus().name());
+            m.put("requestedAt", task.getRequestedAt());
+            m.put("asProcessDate", task.getAsProcessDate());
+            m.put("orderIndex", s.getOrderIndex());
+            res.add(m);
+        }
+        return res;
+    }
+
+    @PostMapping("/reorder")
+    public ResponseEntity<?> reorder(@RequestBody ScheduleReorderRequest req) {
+        asScheduleService.reorderWithinDate(req.getScheduledDate(), req.getTaskIdsInOrder());
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    // ✅ (4) 날짜 → 날짜 이동
+    @PostMapping("/move")
+    public ResponseEntity<?> move(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody ScheduleMoveRequest req) {
+
+        asScheduleService.moveToDate(principal.getMember(), req.getTaskId(), req.getScheduledDate());
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
 }
