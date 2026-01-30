@@ -3,6 +3,38 @@
 		M = 7,
 		t = "en",
 		a = localStorage.getItem("language");
+
+	// ✅ [추가] twocolumn-panel 기본 닫힘 + 상태 저장/복원
+	function applyTwocolumnPanelState() {
+		var layout = document.documentElement.getAttribute("data-layout");
+		var w = document.documentElement.clientWidth;
+
+		// twocolumn 아닐 때는 패널 강제 제거
+		if (layout !== "twocolumn") {
+			document.body.classList.remove("twocolumn-panel");
+			return;
+		}
+
+		// 모바일(<=767)은 기존 로직대로 panel 유지(닫힘 상태로 취급)
+		if (w <= 767) {
+			document.body.classList.add("twocolumn-panel");
+			sessionStorage.setItem("twocolumn-panel", "1");
+		} else {
+			// ✅ 데스크탑/태블릿은 "기본 1(닫힘)"으로
+			var saved = sessionStorage.getItem("twocolumn-panel");
+			if (saved === null) saved = "1"; // 기본 닫힘
+			if (saved === "1") document.body.classList.add("twocolumn-panel");
+			else document.body.classList.remove("twocolumn-panel");
+		}
+
+		// 햄버거 아이콘 open 상태 동기화(기존 UX와 맞추기 위해 panel이면 open 유지)
+		var hi = document.querySelector(".hamburger-icon");
+		if (hi) {
+			if (document.body.classList.contains("twocolumn-panel")) hi.classList.add("open");
+			else hi.classList.remove("open");
+		}
+	}
+
 	function o() {
 		n(null === a ? t : a);
 		var e = document.getElementsByClassName("language");
@@ -311,10 +343,14 @@
 							document.querySelector(".hamburger-icon")) &&
 						document.querySelector(".hamburger-icon").classList.add("open"),
 					document.querySelectorAll("#navbar-nav > li.nav-item"));
+
 		Array.from(e).forEach(function(e) {
 			e.addEventListener("click", c.bind(this), !1),
 				e.addEventListener("mouseover", c.bind(this), !1);
 		});
+
+		// ✅ [추가] 리사이즈 후 twocolumn-panel 상태 복원(기본 닫힘 포함)
+		applyTwocolumnPanelState();
 	}
 	function c(e) {
 		if (e.target && e.target.matches("a.nav-link span"))
@@ -362,9 +398,15 @@
 	}
 	function O() {
 		var e = document.documentElement.clientWidth;
-		767 < e &&
-			document.querySelector(".hamburger-icon").classList.toggle("open"),
-			"horizontal" === document.documentElement.getAttribute("data-layout") &&
+
+		// ✅ [수정] twocolumn일 때는 open 토글을 직접 관리(패널 상태와 동기화)
+		if (767 < e && document.querySelector(".hamburger-icon")) {
+			if (document.documentElement.getAttribute("data-layout") !== "twocolumn") {
+				document.querySelector(".hamburger-icon").classList.toggle("open");
+			}
+		}
+
+		"horizontal" === document.documentElement.getAttribute("data-layout") &&
 			(document.body.classList.contains("menu")
 				? document.body.classList.remove("menu")
 				: document.body.classList.add("menu")),
@@ -407,22 +449,20 @@
 			(document.body.classList.contains("twocolumn-panel")
 				? document.body.classList.remove("twocolumn-panel")
 				: document.body.classList.add("twocolumn-panel"));
+
+		// ✅ [추가] twocolumn-panel 상태 저장 + 햄버거 open 동기화
+		if (document.documentElement.getAttribute("data-layout") === "twocolumn") {
+			sessionStorage.setItem(
+				"twocolumn-panel",
+				document.body.classList.contains("twocolumn-panel") ? "1" : "0"
+			);
+			var hi = document.querySelector(".hamburger-icon");
+			if (hi) {
+				if (document.body.classList.contains("twocolumn-panel")) hi.classList.add("open");
+				else hi.classList.remove("open");
+			}
+		}
 	}
-
-	// ✅ [추가] twocolumn 기본 진입 시 "닫힘" 상태로 강제 적용 (기존 토글/URL active 기능은 유지)
-	function _applyTwocolumnClosedByDefaultOnce() {
-		if (document.documentElement.getAttribute("data-layout") !== "twocolumn") return;
-
-		// 닫힘 상태: twocolumn-panel + nav-hide + hamburger open
-		document.body.classList.add("twocolumn-panel");
-
-		var nav = document.getElementById("navbar-nav");
-		nav && nav.classList.add("twocolumn-nav-hide");
-
-		var hamburger = document.querySelector(".hamburger-icon");
-		hamburger && hamburger.classList.add("open");
-	}
-
 	function G() {
 		document.addEventListener("DOMContentLoaded", function() {
 			var e = document.getElementsByClassName("code-switcher");
@@ -453,12 +493,8 @@
 				var e;
 				("twocolumn" == document.documentElement.getAttribute("data-layout")
 					? u
-					: g)();
-
-				// ✅ [변경 포인트] 페이지 로드 후 twocolumn이면 기본을 "닫힘"으로 시작
-				_applyTwocolumnClosedByDefaultOnce();
-
-				(e = document.getElementsByClassName("vertical-overlay")) &&
+					: g)(),
+					(e = document.getElementsByClassName("vertical-overlay")) &&
 					Array.from(e).forEach(function(e) {
 						e.addEventListener("click", function() {
 							document.body.classList.remove("vertical-sidebar-enable"),
@@ -468,9 +504,21 @@
 										"data-sidebar-size",
 										sessionStorage.getItem("data-sidebar-size")
 									);
+
+							// ✅ [추가] overlay 클릭으로 panel 들어간 경우도 저장/동기화
+							if (document.documentElement.getAttribute("data-layout") === "twocolumn") {
+								sessionStorage.setItem(
+									"twocolumn-panel",
+									document.body.classList.contains("twocolumn-panel") ? "1" : "0"
+								);
+								applyTwocolumnPanelState();
+							}
 						});
 					}),
 					E();
+
+				// ✅ [추가] 최초 로드시 기본 닫힘 적용(세팅/메뉴 활성화 이후에 실행)
+				applyTwocolumnPanelState();
 			}),
 			document.getElementById("topnav-hamburger-icon") &&
 			document
@@ -486,6 +534,15 @@
 			).forEach(function(e) {
 				e.addEventListener("click", function(e) {
 					document.body.classList.remove("twocolumn-panel");
+
+					// ✅ [추가] 모바일에서 icon 클릭으로 패널 닫힘/열림 바뀌면 저장
+					if (document.documentElement.getAttribute("data-layout") === "twocolumn") {
+						sessionStorage.setItem(
+							"twocolumn-panel",
+							document.body.classList.contains("twocolumn-panel") ? "1" : "0"
+						);
+						applyTwocolumnPanelState();
+					}
 				});
 			});
 	}
@@ -497,7 +554,9 @@
 				"/" == location.pathname ? "/admin/index" : location.pathname.substring(0);
 		(a = location.pathname === "/" ? "/admin/index" : location.pathname) &&
 			console.log(a);
-		("twocolumn-panel" == document.body.className &&
+
+		// ✅ [수정] document.body.className 완전일치 비교 제거 -> contains로 변경
+		(document.body.classList.contains("twocolumn-panel") &&
 			document
 				.getElementById("two-column-menu")
 				.querySelector('[href="' + a + '"]')
@@ -782,9 +841,6 @@
 									document.documentElement.setAttribute("data-layout", "semibox"),
 									y("semibox"));
 			}
-			// 이하 동일… (원본 그대로 유지)
-			// ---- 여기부터는 사용자가 제공한 원본 코드와 동일하게 계속 이어집니다 ----
-			// (중략 없음: 아래는 원본 그대로)
 			switch (e["data-topbar"]) {
 				case "light":
 					T("data-topbar", "light"),
@@ -852,10 +908,360 @@
 								"default"
 							));
 			}
-			// ... (이후 원본 끝까지 그대로)
+			switch (e["data-sidebar-size"]) {
+				case "lg":
+					T("data-sidebar-size", "lg"),
+						document.documentElement.setAttribute("data-sidebar-size", "lg"),
+						sessionStorage.setItem("data-sidebar-size", "lg");
+					break;
+				case "sm":
+					T("data-sidebar-size", "sm"),
+						document.documentElement.setAttribute("data-sidebar-size", "sm"),
+						sessionStorage.setItem("data-sidebar-size", "sm");
+					break;
+				case "md":
+					T("data-sidebar-size", "md"),
+						document.documentElement.setAttribute("data-sidebar-size", "md"),
+						sessionStorage.setItem("data-sidebar-size", "md");
+					break;
+				case "sm-hover":
+					T("data-sidebar-size", "sm-hover"),
+						document.documentElement.setAttribute(
+							"data-sidebar-size",
+							"sm-hover"
+						),
+						sessionStorage.setItem("data-sidebar-size", "sm-hover");
+					break;
+				default:
+					"sm" == sessionStorage.getItem("data-sidebar-size")
+						? (document.documentElement.setAttribute("data-sidebar-size", "sm"),
+							T("data-sidebar-size", "sm"),
+							sessionStorage.setItem("data-sidebar-size", "sm"))
+						: "md" == sessionStorage.getItem("data-sidebar-size")
+							? (document.documentElement.setAttribute("data-sidebar-size", "md"),
+								T("data-sidebar-size", "md"),
+								sessionStorage.setItem("data-sidebar-size", "md"))
+							: "sm-hover" == sessionStorage.getItem("data-sidebar-size")
+								? (document.documentElement.setAttribute(
+									"data-sidebar-size",
+									"sm-hover"
+								),
+									T("data-sidebar-size", "sm-hover"),
+									sessionStorage.setItem("data-sidebar-size", "sm-hover"))
+								: (document.documentElement.setAttribute("data-sidebar-size", "lg"),
+									T("data-sidebar-size", "lg"),
+									sessionStorage.setItem("data-sidebar-size", "lg"));
+			}
+			switch (e["data-bs-theme"]) {
+				case "light":
+					T("data-bs-theme", "light"),
+						document.documentElement.setAttribute("data-bs-theme", "light"),
+						sessionStorage.setItem("data-bs-theme", "light");
+					break;
+				case "dark":
+					T("data-bs-theme", "dark"),
+						document.documentElement.setAttribute("data-bs-theme", "dark"),
+						sessionStorage.setItem("data-bs-theme", "dark");
+					break;
+				default:
+					sessionStorage.getItem("data-bs-theme") &&
+						"dark" == sessionStorage.getItem("data-bs-theme")
+						? (sessionStorage.setItem("data-bs-theme", "dark"),
+							document.documentElement.setAttribute("data-bs-theme", "dark"),
+							T("data-bs-theme", "dark"))
+						: (sessionStorage.setItem("data-bs-theme", "light"),
+							document.documentElement.setAttribute("data-bs-theme", "light"),
+							T("data-bs-theme", "light"));
+			}
+			switch (e["data-layout-width"]) {
+				case "fluid":
+					T("data-layout-width", "fluid"),
+						document.documentElement.setAttribute("data-layout-width", "fluid"),
+						sessionStorage.setItem("data-layout-width", "fluid");
+					break;
+				case "boxed":
+					T("data-layout-width", "boxed"),
+						document.documentElement.setAttribute("data-layout-width", "boxed"),
+						sessionStorage.setItem("data-layout-width", "boxed");
+					break;
+				default:
+					"boxed" == sessionStorage.getItem("data-layout-width")
+						? (sessionStorage.setItem("data-layout-width", "boxed"),
+							document.documentElement.setAttribute(
+								"data-layout-width",
+								"boxed"
+							),
+							T("data-layout-width", "boxed"))
+						: (sessionStorage.setItem("data-layout-width", "fluid"),
+							document.documentElement.setAttribute(
+								"data-layout-width",
+								"fluid"
+							),
+							T("data-layout-width", "fluid"));
+			}
+			switch (e["data-sidebar"]) {
+				case "light":
+					T("data-sidebar", "light"),
+						sessionStorage.setItem("data-sidebar", "light"),
+						document.documentElement.setAttribute("data-sidebar", "light");
+					break;
+				case "dark":
+					T("data-sidebar", "dark"),
+						sessionStorage.setItem("data-sidebar", "dark"),
+						document.documentElement.setAttribute("data-sidebar", "dark");
+					break;
+				case "gradient":
+					T("data-sidebar", "gradient"),
+						sessionStorage.setItem("data-sidebar", "gradient"),
+						document.documentElement.setAttribute("data-sidebar", "gradient");
+					break;
+				case "gradient-2":
+					T("data-sidebar", "gradient-2"),
+						sessionStorage.setItem("data-sidebar", "gradient-2"),
+						document.documentElement.setAttribute("data-sidebar", "gradient-2");
+					break;
+				case "gradient-3":
+					T("data-sidebar", "gradient-3"),
+						sessionStorage.setItem("data-sidebar", "gradient-3"),
+						document.documentElement.setAttribute("data-sidebar", "gradient-3");
+					break;
+				case "gradient-4":
+					T("data-sidebar", "gradient-4"),
+						sessionStorage.setItem("data-sidebar", "gradient-4"),
+						document.documentElement.setAttribute("data-sidebar", "gradient-4");
+					break;
+				default:
+					sessionStorage.getItem("data-sidebar") &&
+						"light" == sessionStorage.getItem("data-sidebar")
+						? (sessionStorage.setItem("data-sidebar", "light"),
+							T("data-sidebar", "light"),
+							document.documentElement.setAttribute("data-sidebar", "light"))
+						: "dark" == sessionStorage.getItem("data-sidebar")
+							? (sessionStorage.setItem("data-sidebar", "dark"),
+								T("data-sidebar", "dark"),
+								document.documentElement.setAttribute("data-sidebar", "dark"))
+							: "gradient" == sessionStorage.getItem("data-sidebar")
+								? (sessionStorage.setItem("data-sidebar", "gradient"),
+									T("data-sidebar", "gradient"),
+									document.documentElement.setAttribute("data-sidebar", "gradient"))
+								: "gradient-2" == sessionStorage.getItem("data-sidebar")
+									? (sessionStorage.setItem("data-sidebar", "gradient-2"),
+										T("data-sidebar", "gradient-2"),
+										document.documentElement.setAttribute(
+											"data-sidebar",
+											"gradient-2"
+										))
+									: "gradient-3" == sessionStorage.getItem("data-sidebar")
+										? (sessionStorage.setItem("data-sidebar", "gradient-3"),
+											T("data-sidebar", "gradient-3"),
+											document.documentElement.setAttribute(
+												"data-sidebar",
+												"gradient-3"
+											))
+										: "gradient-4" == sessionStorage.getItem("data-sidebar") &&
+										(sessionStorage.setItem("data-sidebar", "gradient-4"),
+											T("data-sidebar", "gradient-4"),
+											document.documentElement.setAttribute(
+												"data-sidebar",
+												"gradient-4"
+											));
+			}
+			switch (e["data-sidebar-image"]) {
+				case "none":
+					T("data-sidebar-image", "none"),
+						sessionStorage.setItem("data-sidebar-image", "none"),
+						document.documentElement.setAttribute("data-sidebar-image", "none");
+					break;
+				case "img-1":
+					T("data-sidebar-image", "img-1"),
+						sessionStorage.setItem("data-sidebar-image", "img-1"),
+						document.documentElement.setAttribute(
+							"data-sidebar-image",
+							"img-1"
+						);
+					break;
+				case "img-2":
+					T("data-sidebar-image", "img-2"),
+						sessionStorage.setItem("data-sidebar-image", "img-2"),
+						document.documentElement.setAttribute(
+							"data-sidebar-image",
+							"img-2"
+						);
+					break;
+				case "img-3":
+					T("data-sidebar-image", "img-3"),
+						sessionStorage.setItem("data-sidebar-image", "img-3"),
+						document.documentElement.setAttribute(
+							"data-sidebar-image",
+							"img-3"
+						);
+					break;
+				case "img-4":
+					T("data-sidebar-image", "img-4"),
+						sessionStorage.setItem("data-sidebar-image", "img-4"),
+						document.documentElement.setAttribute(
+							"data-sidebar-image",
+							"img-4"
+						);
+					break;
+				default:
+					sessionStorage.getItem("data-sidebar-image") &&
+						"none" == sessionStorage.getItem("data-sidebar-image")
+						? (sessionStorage.setItem("data-sidebar-image", "none"),
+							T("data-sidebar-image", "none"),
+							document.documentElement.setAttribute(
+								"data-sidebar-image",
+								"none"
+							))
+						: "img-1" == sessionStorage.getItem("data-sidebar-image")
+							? (sessionStorage.setItem("data-sidebar-image", "img-1"),
+								T("data-sidebar-image", "img-1"),
+								document.documentElement.setAttribute(
+									"data-sidebar-image",
+									"img-2"
+								))
+							: "img-2" == sessionStorage.getItem("data-sidebar-image")
+								? (sessionStorage.setItem("data-sidebar-image", "img-2"),
+									T("data-sidebar-image", "img-2"),
+									document.documentElement.setAttribute(
+										"data-sidebar-image",
+										"img-2"
+									))
+								: "img-3" == sessionStorage.getItem("data-sidebar-image")
+									? (sessionStorage.setItem("data-sidebar-image", "img-3"),
+										T("data-sidebar-image", "img-3"),
+										document.documentElement.setAttribute(
+											"data-sidebar-image",
+											"img-3"
+										))
+									: "img-4" == sessionStorage.getItem("data-sidebar-image") &&
+									(sessionStorage.setItem("data-sidebar-image", "img-4"),
+										T("data-sidebar-image", "img-4"),
+										document.documentElement.setAttribute(
+											"data-sidebar-image",
+											"img-4"
+										));
+			}
+			switch (e["data-layout-position"]) {
+				case "fixed":
+					T("data-layout-position", "fixed"),
+						sessionStorage.setItem("data-layout-position", "fixed"),
+						document.documentElement.setAttribute(
+							"data-layout-position",
+							"fixed"
+						);
+					break;
+				case "scrollable":
+					T("data-layout-position", "scrollable"),
+						sessionStorage.setItem("data-layout-position", "scrollable"),
+						document.documentElement.setAttribute(
+							"data-layout-position",
+							"scrollable"
+						);
+					break;
+				default:
+					sessionStorage.getItem("data-layout-position") &&
+						"scrollable" == sessionStorage.getItem("data-layout-position")
+						? (T("data-layout-position", "scrollable"),
+							sessionStorage.setItem("data-layout-position", "scrollable"),
+							document.documentElement.setAttribute(
+								"data-layout-position",
+								"scrollable"
+							))
+						: (T("data-layout-position", "fixed"),
+							sessionStorage.setItem("data-layout-position", "fixed"),
+							document.documentElement.setAttribute(
+								"data-layout-position",
+								"fixed"
+							));
+			}
+			switch (e["data-preloader"]) {
+				case "disable":
+					T("data-preloader", "disable"),
+						sessionStorage.setItem("data-preloader", "disable"),
+						document.documentElement.setAttribute("data-preloader", "disable");
+					break;
+				case "enable":
+					T("data-preloader", "enable"),
+						sessionStorage.setItem("data-preloader", "enable"),
+						document.documentElement.setAttribute("data-preloader", "enable"),
+						(t = document.getElementById("preloader")) &&
+						window.addEventListener("load", function() {
+							(t.style.opacity = "0"), (t.style.visibility = "hidden");
+						});
+					break;
+				default:
+					var t;
+					sessionStorage.getItem("data-preloader") &&
+						"disable" == sessionStorage.getItem("data-preloader")
+						? (T("data-preloader", "disable"),
+							sessionStorage.setItem("data-preloader", "disable"),
+							document.documentElement.setAttribute(
+								"data-preloader",
+								"disable"
+							))
+						: "enable" == sessionStorage.getItem("data-preloader")
+							? (T("data-preloader", "enable"),
+								sessionStorage.setItem("data-preloader", "enable"),
+								document.documentElement.setAttribute("data-preloader", "enable"),
+								(t = document.getElementById("preloader")) &&
+								window.addEventListener("load", function() {
+									(t.style.opacity = "0"), (t.style.visibility = "hidden");
+								}))
+							: document.documentElement.setAttribute(
+								"data-preloader",
+								"disable"
+							);
+			}
+			switch (e["data-body-image"]) {
+				case "img-1":
+					T("data-body-image", "img-1"),
+						sessionStorage.setItem("data-sidebabodyr-image", "img-1"),
+						document.documentElement.setAttribute("data-body-image", "img-1"),
+						document.getElementById("theme-settings-offcanvas") &&
+						document.documentElement.removeAttribute("data-sidebar-image");
+					break;
+				case "img-2":
+					T("data-body-image", "img-2"),
+						sessionStorage.setItem("data-body-image", "img-2"),
+						document.documentElement.setAttribute("data-body-image", "img-2");
+					break;
+				case "img-3":
+					T("data-body-image", "img-3"),
+						sessionStorage.setItem("data-body-image", "img-3"),
+						document.documentElement.setAttribute("data-body-image", "img-3");
+					break;
+				case "none":
+					T("data-body-image", "none"),
+						sessionStorage.setItem("data-body-image", "none"),
+						document.documentElement.setAttribute("data-body-image", "none");
+					break;
+				default:
+					sessionStorage.getItem("data-body-image") &&
+						"img-1" == sessionStorage.getItem("data-body-image")
+						? (sessionStorage.setItem("data-body-image", "img-1"),
+							T("data-body-image", "img-1"),
+							document.documentElement.setAttribute("data-body-image", "img-1"),
+							document.getElementById("theme-settings-offcanvas") &&
+							document.getElementById("sidebar-img") &&
+							((document.getElementById("sidebar-img").style.display =
+								"none"),
+								document.documentElement.removeAttribute("data-sidebar-image")))
+						: "img-2" == sessionStorage.getItem("data-body-image")
+							? (sessionStorage.setItem("data-body-image", "img-2"),
+								T("data-body-image", "img-2"),
+								document.documentElement.setAttribute("data-body-image", "img-2"))
+							: "img-3" == sessionStorage.getItem("data-body-image")
+								? (sessionStorage.setItem("data-body-image", "img-3"),
+									T("data-body-image", "img-3"),
+									document.documentElement.setAttribute("data-body-image", "img-3"))
+								: "none" == sessionStorage.getItem("data-body-image") &&
+								(sessionStorage.setItem("data-body-image", "none"),
+									T("data-body-image", "none"),
+									document.documentElement.setAttribute("data-body-image", "none"));
+			}
 		}
 	}
-
 	function p() {
 		setTimeout(function() {
 			var e,
@@ -874,7 +1280,6 @@
 				}, 0);
 		}, 250);
 	}
-
 	var f,
 		h,
 		v,
@@ -888,7 +1293,6 @@
 		z,
 		q,
 		x = new Event("resize");
-
 	function T(n, e) {
 		Array.from(document.querySelectorAll("input[name=" + n + "]")).forEach(
 			function(a) {
@@ -992,6 +1396,9 @@
 								),
 									document.getElementById("customizerclose-btn").click()),
 							"data-bs-theme" == n && window.dispatchEvent(x);
+
+						// ✅ [추가] 레이아웃 변경 후 twocolumn-panel 상태 재적용
+						applyTwocolumnPanelState();
 					});
 			}
 		),
@@ -1047,7 +1454,6 @@
 				}
 			);
 	}
-
 	function C(e, t, a, n) {
 		var o = document.getElementById(a);
 		n.setAttribute(e, t), o && document.getElementById(a).click();
@@ -1096,10 +1502,6 @@
 				e.getContentElement(),
 				clearTimeout(q));
 	}
-
-	// ---- 이하 (원본 나머지)는 사용자가 제공하신 코드와 동일하게 그대로 실행 ----
-	// (이 답변에서는 이미 “변경점”을 포함한 전체 스크립트를 제공했으므로,
-	//  실제 적용 시에는 위 코드 전체를 그대로 교체해 사용하시면 됩니다.)
 
 	sessionStorage.getItem("defaultAttribute")
 		? (((f = {})["data-layout"] = sessionStorage.getItem("data-layout")),
@@ -1474,6 +1876,9 @@
 		window.addEventListener("resize", function() {
 			q && clearTimeout(q), (q = setTimeout(W, 2e3));
 		});
+
+	// ✅ [추가] 파일 끝에서 한번 더 보정(초기 실행 타이밍 이슈 방지)
+	applyTwocolumnPanelState();
 })();
 var mybutton = document.getElementById("back-to-top");
 function scrollFunction() {

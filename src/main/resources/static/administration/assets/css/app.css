@@ -421,7 +421,8 @@
 }
 
 @media (min-width: 768px) {
-	[data-layout="twocolumn"] #page-topbar {
+	
+ #page-topbar {
 		left: calc(70px + 220px);
 	}
 }
@@ -1462,7 +1463,7 @@
 
 .vertical-sidebar-enable .app-menu {
 	margin-left: 0 !important;
-	z-index: 1004;
+	width:0 !important;
 }
 
 [dir="rtl"] .navbar-menu .navbar-nav .nav-link[data-bs-toggle="collapse"]:after {
@@ -18899,3 +18900,4 @@ span.flatpickr-weekday {
 .team-production-table td {
 	vertical-align: middle !important;
 }
+

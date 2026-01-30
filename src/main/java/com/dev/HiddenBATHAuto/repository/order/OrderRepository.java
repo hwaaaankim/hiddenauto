@@ -22,81 +22,147 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 public interface OrderRepository extends JpaRepository<Order, Long>{
 
 	List<Order> findByTask_RequestedByAndPreferredDeliveryDateBetween(Member member, LocalDateTime start, LocalDateTime end);
-	
-	@EntityGraph(attributePaths = {
-            "orderItem",
-            "productCategory",
-            "task",
-            "task.requestedBy",
-            "task.requestedBy.company"
-    })
-    @Query("""
-        SELECT o FROM Order o
-        WHERE o.status IN :statuses
-          AND o.productCategory.id = :categoryId
-          AND (
-                :productionFilter = 'ALL'
-             OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
-             OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
-          )
-          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
-          AND (:end IS NULL OR o.preferredDeliveryDate < :end)
-        ORDER BY
-          CASE
-            WHEN o.status = 'CONFIRMED' THEN 0
-            WHEN o.status = 'PRODUCTION_DONE' THEN 1
-            WHEN o.status = 'DELIVERY_DONE' THEN 2
-            ELSE 9
-          END ASC,
-          o.preferredDeliveryDate ASC,
-          o.id DESC
-    """)
-    Page<Order> findProductionListByPreferredRange(
-            @Param("statuses") List<OrderStatus> statuses,
-            @Param("categoryId") Long categoryId,
-            @Param("productionFilter") String productionFilter,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end,
-            Pageable pageable
-    );
 
-    @EntityGraph(attributePaths = {
-            "orderItem",
-            "productCategory",
-            "task",
-            "task.requestedBy",
-            "task.requestedBy.company"
-    })
-    @Query("""
-        SELECT o FROM Order o
-        WHERE o.status IN :statuses
-          AND o.productCategory.id = :categoryId
-          AND (
-                :productionFilter = 'ALL'
-             OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
-             OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
-          )
-          AND (:start IS NULL OR o.createdAt >= :start)
-          AND (:end IS NULL OR o.createdAt < :end)
-        ORDER BY
-          CASE
-            WHEN o.status = 'CONFIRMED' THEN 0
-            WHEN o.status = 'PRODUCTION_DONE' THEN 1
-            WHEN o.status = 'DELIVERY_DONE' THEN 2
-            ELSE 9
-          END ASC,
-          o.createdAt ASC,
-          o.id DESC
-    """)
-    Page<Order> findProductionListByCreatedRange(
-            @Param("statuses") List<OrderStatus> statuses,
-            @Param("categoryId") Long categoryId,
-            @Param("productionFilter") String productionFilter,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end,
-            Pageable pageable
-    );
-	
+	// =========================
+	// 생산팀 목록 (기본 정렬 고정: 상태 우선 + 날짜 ASC + id DESC)  ✅ 기존 유지
+	// =========================
+	@EntityGraph(attributePaths = {
+			"orderItem",
+			"productCategory",
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE o.status IN :statuses
+		  AND o.productCategory.id = :categoryId
+		  AND (
+				:productionFilter = 'ALL'
+			 OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
+			 OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
+		  )
+		  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+		  AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+		ORDER BY
+		  CASE
+			WHEN o.status = 'CONFIRMED' THEN 0
+			WHEN o.status = 'PRODUCTION_DONE' THEN 1
+			WHEN o.status = 'DELIVERY_DONE' THEN 2
+			ELSE 9
+		  END ASC,
+		  o.preferredDeliveryDate ASC,
+		  o.id DESC
+	""")
+	Page<Order> findProductionListByPreferredRange(
+			@Param("statuses") List<OrderStatus> statuses,
+			@Param("categoryId") Long categoryId,
+			@Param("productionFilter") String productionFilter,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = {
+			"orderItem",
+			"productCategory",
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE o.status IN :statuses
+		  AND o.productCategory.id = :categoryId
+		  AND (
+				:productionFilter = 'ALL'
+			 OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
+			 OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
+		  )
+		  AND (:start IS NULL OR o.createdAt >= :start)
+		  AND (:end IS NULL OR o.createdAt < :end)
+		ORDER BY
+		  CASE
+			WHEN o.status = 'CONFIRMED' THEN 0
+			WHEN o.status = 'PRODUCTION_DONE' THEN 1
+			WHEN o.status = 'DELIVERY_DONE' THEN 2
+			ELSE 9
+		  END ASC,
+		  o.createdAt ASC,
+		  o.id DESC
+	""")
+	Page<Order> findProductionListByCreatedRange(
+			@Param("statuses") List<OrderStatus> statuses,
+			@Param("categoryId") Long categoryId,
+			@Param("productionFilter") String productionFilter,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
+
+	// =========================
+	// 생산팀 목록 (정렬 버튼용) ✅ 신규 추가
+	// - ORDER BY 제거: Pageable의 Sort가 붙어야 페이징까지 완벽히 반영됩니다.
+	// - 헤더 정렬 클릭 시 이 메서드들을 호출하세요.
+	// =========================
+	@EntityGraph(attributePaths = {
+			"orderItem",
+			"productCategory",
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE o.status IN :statuses
+		  AND o.productCategory.id = :categoryId
+		  AND (
+				:productionFilter = 'ALL'
+			 OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
+			 OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
+		  )
+		  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+		  AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+	""")
+	Page<Order> findProductionListByPreferredRangeSortable(
+			@Param("statuses") List<OrderStatus> statuses,
+			@Param("categoryId") Long categoryId,
+			@Param("productionFilter") String productionFilter,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = {
+			"orderItem",
+			"productCategory",
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE o.status IN :statuses
+		  AND o.productCategory.id = :categoryId
+		  AND (
+				:productionFilter = 'ALL'
+			 OR (:productionFilter = 'IN_PROGRESS' AND o.status = 'CONFIRMED')
+			 OR (:productionFilter = 'DONE' AND (o.status = 'PRODUCTION_DONE' OR o.status = 'DELIVERY_DONE'))
+		  )
+		  AND (:start IS NULL OR o.createdAt >= :start)
+		  AND (:end IS NULL OR o.createdAt < :end)
+	""")
+	Page<Order> findProductionListByCreatedRangeSortable(
+			@Param("statuses") List<OrderStatus> statuses,
+			@Param("categoryId") Long categoryId,
+			@Param("productionFilter") String productionFilter,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
+
+	// ====== 이하 기존 코드 전부 유지 ======
+
 	@Query("""
 		    SELECT o FROM Order o
 		    WHERE o.status IN :statuses
@@ -110,7 +176,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 		    @Param("preferredDate") LocalDate preferredDate,
 		    Pageable pageable);
 
-
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE o.status IN :statuses
@@ -119,7 +184,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    ORDER BY o.preferredDeliveryDate ASC
 	""")
 	Page<Order> findDeliveryOrders(List<OrderStatus> statuses, Long memberId, LocalDate preferredDate, Pageable pageable);
-	
+
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE o.assignedDeliveryHandler.id = :handlerId
@@ -132,7 +197,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("startDate") LocalDateTime startDate,
 	    @Param("endDate") LocalDateTime endDate,
 	    Pageable pageable);
-	
+
 	@Query("""
 		    SELECT o FROM Order o
 		    WHERE o.status IN :statuses
@@ -148,7 +213,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	        @Param("endOfDay") LocalDateTime endOfDay,
 	        Pageable pageable
 	);
-	
+
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE o.status IN :statuses
@@ -213,7 +278,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	        Pageable pageable
 	);
 
-	
 	@Query("""
 		    SELECT o FROM Order o
 		    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -237,7 +301,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    WHERE o.id = :id
 	""")
 	Optional<Order> findWithFullRelationsById(@Param("id") Long id);
-	
+
 	@Query("""
 		    SELECT o FROM Order o
 		    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -250,8 +314,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("start") LocalDateTime start,
 	    @Param("end") LocalDateTime end
 	);
-	
+
 	Page<Order> findAllByOrderByPreferredDeliveryDateDesc(Pageable pageable);
+
 	@Query("""
 		    SELECT o FROM Order o
 		    WHERE 
@@ -272,7 +337,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 		        )
 		    ORDER BY o.preferredDeliveryDate DESC
 		""")
-		Page<Order> findFilteredOrders(
+	Page<Order> findFilteredOrders(
 		    @Param("keyword") String keyword,
 		    @Param("dateCriteria") String dateCriteria,
 		    @Param("startDateTime") LocalDateTime startDateTime,
@@ -282,7 +347,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 		    @Param("deliveryMethodId") Long deliveryMethodId,
 		    Pageable pageable
 		);
-	
+
 	@Query("""
 		SELECT o FROM Order o
 		WHERE 
@@ -371,11 +436,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 		@Param("endDateTime") LocalDateTime endDateTime,
 		@Param("productCategoryId") Long productCategoryId,
 		@Param("status") OrderStatus status,
-		@Param("standard") Boolean standard // ✅ 변경된 필드
+		@Param("standard") Boolean standard
 	);
 
-	
-	// 배송희망일 기준
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -388,7 +451,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	                                     @Param("end") LocalDateTime end,
 	                                     Pageable pageable);
 
-	// 신청일 기준
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -400,8 +462,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	                                   @Param("start") LocalDateTime start,
 	                                   @Param("end") LocalDateTime end,
 	                                   Pageable pageable);
-	
-	// preferredDeliveryDate 기준
+
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -415,7 +476,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("end") LocalDateTime end
 	);
 
-	// createdAt 기준
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -429,7 +489,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("end") LocalDateTime end
 	);
 
-	// preferredDeliveryDate 기준
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -450,9 +509,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    Pageable pageable
 	);
 
-
-
-	// createdAt 기준
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -489,8 +545,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("end") LocalDateTime end
 	);
 
-
-
 	@Query("""
 	    SELECT o FROM Order o
 	    WHERE (:category IS NULL OR o.productCategory = :category)
@@ -506,123 +560,110 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    @Param("start") LocalDateTime start,
 	    @Param("end") LocalDateTime end
 	);
-	
-	
-	// =========================
-    // preferredDeliveryDate 기준 (Page)
-    // =========================
-    @EntityGraph(attributePaths = {
-            "task",
-            "task.requestedBy",
-            "task.requestedBy.company",
-            "productCategory",
-            "assignedDeliveryHandler",
-            "orderItem"
-    })
-    @Query("""
-        SELECT o FROM Order o
-        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
-          AND (:status IS NULL OR o.status = :status)
-          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
-          AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
-        ORDER BY o.preferredDeliveryDate DESC
-    """)
-    Page<Order> findByPreferredDateRange(
-            @Param("categoryId") Long categoryId,
-            @Param("assignedMemberId") Long assignedMemberId,
-            @Param("status") OrderStatus status,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end,
-            Pageable pageable
-    );
 
-    // =========================
-    // createdAt 기준 (Page)
-    // =========================
-    @EntityGraph(attributePaths = {
-            "task",
-            "task.requestedBy",
-            "task.requestedBy.company",
-            "productCategory",
-            "assignedDeliveryHandler",
-            "orderItem"
-    })
-    @Query("""
-        SELECT o FROM Order o
-        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
-          AND (:status IS NULL OR o.status = :status)
-          AND (:start IS NULL OR o.createdAt >= :start)
-          AND (:end IS NULL OR o.createdAt <= :end)
-        ORDER BY o.createdAt DESC
-    """)
-    Page<Order> findByCreatedDateRange(
-            @Param("categoryId") Long categoryId,
-            @Param("assignedMemberId") Long assignedMemberId,
-            @Param("status") OrderStatus status,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end,
-            Pageable pageable
-    );
+	@EntityGraph(attributePaths = {
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company",
+			"productCategory",
+			"assignedDeliveryHandler",
+			"orderItem"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+		  AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+		  AND (:status IS NULL OR o.status = :status)
+		  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+		  AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+		ORDER BY o.preferredDeliveryDate DESC
+	""")
+	Page<Order> findByPreferredDateRange(
+			@Param("categoryId") Long categoryId,
+			@Param("assignedMemberId") Long assignedMemberId,
+			@Param("status") OrderStatus status,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
 
-    // =========================
-    // preferredDeliveryDate 기준 (Excel/List)
-    // =========================
-    @EntityGraph(attributePaths = {
-            "task",
-            "task.requestedBy",
-            "task.requestedBy.company",
-            "productCategory",
-            "assignedDeliveryHandler",
-            "orderItem"
-    })
-    @Query("""
-        SELECT o FROM Order o
-        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
-          AND (:status IS NULL OR o.status = :status)
-          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
-          AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
-        ORDER BY o.preferredDeliveryDate DESC
-    """)
-    List<Order> findAllByPreferredDateRange(
-            @Param("categoryId") Long categoryId,
-            @Param("assignedMemberId") Long assignedMemberId,
-            @Param("status") OrderStatus status,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );
+	@EntityGraph(attributePaths = {
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company",
+			"productCategory",
+			"assignedDeliveryHandler",
+			"orderItem"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+		  AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+		  AND (:status IS NULL OR o.status = :status)
+		  AND (:start IS NULL OR o.createdAt >= :start)
+		  AND (:end IS NULL OR o.createdAt <= :end)
+		ORDER BY o.createdAt DESC
+	""")
+	Page<Order> findByCreatedDateRange(
+			@Param("categoryId") Long categoryId,
+			@Param("assignedMemberId") Long assignedMemberId,
+			@Param("status") OrderStatus status,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
 
-    // =========================
-    // createdAt 기준 (Excel/List)
-    // =========================
-    @EntityGraph(attributePaths = {
-            "task",
-            "task.requestedBy",
-            "task.requestedBy.company",
-            "productCategory",
-            "assignedDeliveryHandler",
-            "orderItem"
-    })
-    @Query("""
-        SELECT o FROM Order o
-        WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-          AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
-          AND (:status IS NULL OR o.status = :status)
-          AND (:start IS NULL OR o.createdAt >= :start)
-          AND (:end IS NULL OR o.createdAt <= :end)
-        ORDER BY o.createdAt DESC
-    """)
-    List<Order> findAllByCreatedDateRange(
-            @Param("categoryId") Long categoryId,
-            @Param("assignedMemberId") Long assignedMemberId,
-            @Param("status") OrderStatus status,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );
-    
-    @Query("""
+	@EntityGraph(attributePaths = {
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company",
+			"productCategory",
+			"assignedDeliveryHandler",
+			"orderItem"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+		  AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+		  AND (:status IS NULL OR o.status = :status)
+		  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+		  AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+		ORDER BY o.preferredDeliveryDate DESC
+	""")
+	List<Order> findAllByPreferredDateRange(
+			@Param("categoryId") Long categoryId,
+			@Param("assignedMemberId") Long assignedMemberId,
+			@Param("status") OrderStatus status,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end
+	);
+
+	@EntityGraph(attributePaths = {
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company",
+			"productCategory",
+			"assignedDeliveryHandler",
+			"orderItem"
+	})
+	@Query("""
+		SELECT o FROM Order o
+		WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+		  AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+		  AND (:status IS NULL OR o.status = :status)
+		  AND (:start IS NULL OR o.createdAt >= :start)
+		  AND (:end IS NULL OR o.createdAt <= :end)
+		ORDER BY o.createdAt DESC
+	""")
+	List<Order> findAllByCreatedDateRange(
+			@Param("categoryId") Long categoryId,
+			@Param("assignedMemberId") Long assignedMemberId,
+			@Param("status") OrderStatus status,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end
+	);
+
+	@Query("""
         select distinct o
         from Order o
         left join fetch o.orderItem oi
@@ -632,9 +673,103 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
         left join fetch rb.company c
         where o.id in :ids
     """)
-    List<Order> findAllForStickerPrint(@Param("ids") List<Long> ids);
-}
+	List<Order> findAllForStickerPrint(@Param("ids") List<Long> ids);
+	
+	@EntityGraph(attributePaths = {
+            "orderItem",
+            "productCategory",
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE o.productCategory.id = :categoryId
+          AND (:allStatus = true OR o.status = :statusFilter)
+          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+          AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+    """)
+    Page<Order> findProductionListByPreferredRangeSortable(
+            @Param("categoryId") Long categoryId,
+            @Param("allStatus") boolean allStatus,
+            @Param("statusFilter") OrderStatus statusFilter,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
 
+    @EntityGraph(attributePaths = {
+            "orderItem",
+            "productCategory",
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company"
+    })
+    @Query("""
+        SELECT o FROM Order o
+        WHERE o.productCategory.id = :categoryId
+          AND (:allStatus = true OR o.status = :statusFilter)
+          AND (:start IS NULL OR o.createdAt >= :start)
+          AND (:end IS NULL OR o.createdAt < :end)
+    """)
+    Page<Order> findProductionListByCreatedRangeSortable(
+            @Param("categoryId") Long categoryId,
+            @Param("allStatus") boolean allStatus,
+            @Param("statusFilter") OrderStatus statusFilter,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+    
+ // ✅ (추가) preferredDeliveryDate 기준 + statusFilter(ALL 지원) + pageable sort 반영
+ 	@EntityGraph(attributePaths = {
+ 			"orderItem",
+ 			"productCategory",
+ 			"task",
+ 			"task.requestedBy",
+ 			"task.requestedBy.company"
+ 	})
+ 	@Query("""
+ 		SELECT o FROM Order o
+ 		WHERE o.productCategory.id = :categoryId
+ 		  AND (:allStatus = true OR o.status = :statusFilter)
+ 		  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+ 		  AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+ 	""")
+ 	Page<Order> findProductionListByPreferredRangeStatusSortable(
+ 			@Param("categoryId") Long categoryId,
+ 			@Param("allStatus") boolean allStatus,
+ 			@Param("statusFilter") OrderStatus statusFilter,
+ 			@Param("start") LocalDateTime start,
+ 			@Param("end") LocalDateTime end,
+ 			Pageable pageable
+ 	);
+
+ 	// ✅ (추가) createdAt 기준 + statusFilter(ALL 지원) + pageable sort 반영
+ 	@EntityGraph(attributePaths = {
+ 			"orderItem",
+ 			"productCategory",
+ 			"task",
+ 			"task.requestedBy",
+ 			"task.requestedBy.company"
+ 	})
+ 	@Query("""
+ 		SELECT o FROM Order o
+ 		WHERE o.productCategory.id = :categoryId
+ 		  AND (:allStatus = true OR o.status = :statusFilter)
+ 		  AND (:start IS NULL OR o.createdAt >= :start)
+ 		  AND (:end IS NULL OR o.createdAt < :end)
+ 	""")
+ 	Page<Order> findProductionListByCreatedRangeStatusSortable(
+ 			@Param("categoryId") Long categoryId,
+ 			@Param("allStatus") boolean allStatus,
+ 			@Param("statusFilter") OrderStatus statusFilter,
+ 			@Param("start") LocalDateTime start,
+ 			@Param("end") LocalDateTime end,
+ 			Pageable pageable
+ 	);
+
+}
 
 
 

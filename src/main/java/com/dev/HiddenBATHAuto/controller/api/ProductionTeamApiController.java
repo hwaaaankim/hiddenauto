@@ -42,10 +42,15 @@ public class ProductionTeamApiController {
 			return ResponseEntity.badRequest().body("orderIds가 비어있습니다.");
 		}
 
-		int updated = productionTeamCommandService.bulkComplete(member, orderIds);
+		try {
+			int updated = productionTeamCommandService.bulkComplete(member, orderIds);
 
-		return ResponseEntity.ok(Map.of(
-				"updatedCount", updated
-		));
+			return ResponseEntity.ok(Map.of(
+					"updatedCount", updated
+			));
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			// ✅ 서버 검증 실패 메시지를 그대로 내려줌
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
 	}
 }

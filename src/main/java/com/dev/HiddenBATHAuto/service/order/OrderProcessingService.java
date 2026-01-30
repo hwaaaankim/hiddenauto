@@ -84,7 +84,7 @@ public class OrderProcessingService {
 	    System.out.println("📥 createTaskWithOrders 시작");
 	    System.out.println("➡ 주문 수 : " + items.size());
 	    System.out.println("➡ 포인트 사용 : " + pointUsed);
-	    
+
 	    Task task = new Task();
 	    task.setRequestedBy(member);
 	    task.setStatus(TaskStatus.REQUESTED);
@@ -105,8 +105,11 @@ public class OrderProcessingService {
 
 	        Order order = new Order();
 	        order.setTask(task);
-	        order.setStandard(cart.isStandard());
-	        
+
+	        // ✅ standard 여부를 여기서 확정
+	        boolean isStandard = cart.isStandard();
+	        order.setStandard(isStandard);
+
 	        int quantity = cart.getQuantity();
 	        int productCost = cart.getPrice();
 	        int deliveryPrice = dto.getDeliveryPrice();
@@ -132,7 +135,11 @@ public class OrderProcessingService {
 	            });
 	        order.setDeliveryMethod(method);
 
-	        Map<String, Object> localizedOptionMap = objectMapper.readValue(cart.getLocalizedOptionJson(), new TypeReference<>() {});
+	        Map<String, Object> localizedOptionMap = objectMapper.readValue(
+	            cart.getLocalizedOptionJson(),
+	            new TypeReference<Map<String, Object>>() {}
+	        );
+
 	        String categoryName = Optional.ofNullable(localizedOptionMap.get("카테고리"))
 	            .map(Object::toString)
 	            .orElseThrow(() -> new IllegalArgumentException("카테고리 정보가 없습니다."));
@@ -153,11 +160,15 @@ public class OrderProcessingService {
 	        order.setProductCategory(productCategory);
 	        order.setStatus(OrderStatus.REQUESTED);
 
+	        // ===== OrderItem 생성 =====
 	        OrderItem orderItem = new OrderItem();
 	        orderItem.setOrder(order);
-	        orderItem.setProductName("임시 제품명");
 	        orderItem.setQuantity(quantity);
 
+	        // 기본값 (둘 다 없을 때)
+	        orderItem.setProductName("제품명없음");
+
+	        // ===== 옵션 변환 + 제품명 세팅 =====
 	        try {
 	            Map<String, String> localizedMap = OptionTranslator.getLocalizedOptionMap(
 	                cart.getLocalizedOptionJson(),
@@ -166,8 +177,16 @@ public class OrderProcessingService {
 	                productColorRepository,
 	                productOptionPositionRepository
 	            );
+
+	            // ✅ standard=true => "제품명"
+	            // ✅ standard=false => "제품"
+	            // ✅ 둘 다 없으면 "제품명없음"
+	            String productName = extractProductNameByStandard(isStandard, localizedMap);
+	            orderItem.setProductName(productName);
+
 	            String convertedJson = objectMapper.writeValueAsString(localizedMap);
 	            orderItem.setOptionJson(convertedJson);
+
 	        } catch (Exception e) {
 	            System.out.println("❌ 옵션 변환 실패: " + e.getMessage());
 	            throw new RuntimeException("옵션 변환 실패", e);
@@ -175,6 +194,7 @@ public class OrderProcessingService {
 
 	        order.setOrderItem(orderItem);
 
+	        // ===== 이미지 복사 =====
 	        List<OrderImage> orderImages = new ArrayList<>();
 	        String today = LocalDate.now().toString();
 	        Long memberId = member.getId();
@@ -217,7 +237,6 @@ public class OrderProcessingService {
 	            }
 	        }
 
-
 	        order.setOrderImages(orderImages);
 	        orderList.add(order);
 	        cartRepository.delete(cart);
@@ -236,7 +255,8 @@ public class OrderProcessingService {
 
 	    int rewardPoint = (int) (totalPrice * 0.01);
 	    company.setPoint(remainingPoint + rewardPoint);
-	    System.out.printf("💰 총금액: %d원, 보유포인트: %d → 잔여포인트: %d, 적립예정: %dP\n", totalPrice, currentPoint, remainingPoint, rewardPoint);
+	    System.out.printf("💰 총금액: %d원, 보유포인트: %d → 잔여포인트: %d, 적립예정: %dP\n",
+	        totalPrice, currentPoint, remainingPoint, rewardPoint);
 
 	    task.setOrders(orderList);
 	    task.setTotalPrice(totalPrice);
@@ -245,6 +265,26 @@ public class OrderProcessingService {
 	    System.out.println("🎉 발주 저장 완료!");
 	    return "발주가 완료되었습니다.";
 	}
+
+	/**
+	 * standard=true  -> "제품명"
+	 * standard=false -> "제품"
+	 * 둘 다 없으면  -> "제품명없음"
+	 */
+	private String extractProductNameByStandard(boolean isStandard, Map<String, String> localizedMap) {
+	    if (localizedMap == null || localizedMap.isEmpty()) {
+	        return "제품명없음";
+	    }
+
+	    String key = isStandard ? "제품명" : "제품";
+	    String value = localizedMap.get(key);
+
+	    if (value == null || value.isBlank()) {
+	        return "제품명없음";
+	    }
+	    return value.trim();
+	}
+
 
 	private void refineAddressFromFullRoad(Order order) {
 		String full = order.getRoadAddress();
