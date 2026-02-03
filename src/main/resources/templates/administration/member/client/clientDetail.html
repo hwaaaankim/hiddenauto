@@ -15,10 +15,11 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
-		<div class="main-content">
 
+		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
+
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -31,16 +32,18 @@
 										<li class="breadcrumb-item active">대리점 상세</li>
 									</ol>
 								</div>
-
 							</div>
 						</div>
 					</div>
+
+					<!-- ✅ CSRF(ajax용): CSRF 꺼져있으면 값이 비어도 무해 -->
+					<meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+					<meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
 
 					<div class="row">
 						<div class="col-lg-6">
 							<div class="card mb-3">
 								<div class="card-body">
-
 									<div class="table-card">
 										<table class="table mb-0">
 											<tbody>
@@ -53,12 +56,14 @@
 													<td th:text="${company.point} + 'P'"></td>
 												</tr>
 												<tr>
-												    <td class="fw-medium">주소</td>
-												    <td th:text="|${company.doName ?: ''} ${company.siName ?: ''} ${company.guName ?: ''} ${company.roadAddress ?: ''} ${company.detailAddress ?: ''}|"></td>
+													<td class="fw-medium">주소</td>
+													<td
+														th:text="|${company.doName ?: ''} ${company.siName ?: ''} ${company.guName ?: ''} ${company.roadAddress ?: ''} ${company.detailAddress ?: ''}|">
+													</td>
 												</tr>
 												<tr>
-												    <td class="fw-medium">우편번호</td>
-												    <td th:text="${company.zipCode ?: '없음'}"></td>
+													<td class="fw-medium">우편번호</td>
+													<td th:text="${company.zipCode ?: '없음'}"></td>
 												</tr>
 											</tbody>
 										</table>
@@ -66,19 +71,26 @@
 								</div>
 							</div>
 						</div>
+
 						<div class="col-lg-6">
 							<div class="card mb-3">
 								<div class="card-body">
-
 									<div class="table-card">
 										<table class="table mb-0">
 											<tbody>
 												<tr>
 													<td class="fw-medium">사업자등록증</td>
 													<td>
-														<a th:if="${company.businessLicenseUrl != null}"
-															th:href="${company.businessLicenseUrl}"
-															target="_blank">열람하기</a>
+														<!-- ✅ 컨트롤러 없이 DB에 저장된 businessLicenseUrl을 그대로 사용 -->
+														<a href="javascript:void(0);"
+															class="text-primary text-decoration-underline"
+															style="cursor:pointer;"
+															th:if="${company.businessLicenseUrl != null}"
+															th:attr="data-license-url=${company.businessLicenseUrl}"
+															id="open-business-license">
+															열람하기
+														</a>
+
 														<span th:if="${company.businessLicenseUrl == null}">없음</span>
 													</td>
 												</tr>
@@ -95,19 +107,21 @@
 													</td>
 												</tr>
 												<tr>
-												    <td class="fw-medium">직원 수</td>
-												    <td th:text="${members.size()} + '명'"></td>
+													<td class="fw-medium">직원 수</td>
+													<td th:text="${members.size()} + '명'"></td>
 												</tr>
 											</tbody>
 										</table>
 									</div>
+
 								</div>
 							</div>
 						</div>
+
+						<!-- 멤버 카드 -->
 						<div class="col-xxl-4 col-sm-6 project-card" th:each="member : ${members}">
 							<div class="card">
 								<div class="card-body">
-									<!-- 카드 상단 영역 (타이틀 + 아이콘) -->
 									<div class="p-3 mt-n3 mx-n3 bg-primary-subtle rounded-top">
 										<div class="d-flex align-items-center">
 											<div class="flex-grow-1">
@@ -125,12 +139,23 @@
 															<i data-feather="more-horizontal" class="icon-sm"></i>
 														</button>
 														<div class="dropdown-menu dropdown-menu-end">
-															<a class="dropdown-item" href="#" data-bs-toggle="modal"
-																data-bs-target="#removeProjectModal">
+
+															<a class="dropdown-item js-reset-password"
+																href="javascript:void(0);"
+																th:attr="data-member-id=${member.id}, data-username=${member.username}">
+																<i
+																	class="ri-key-2-fill align-bottom me-2 text-muted"></i>
+																비밀번호 초기화
+															</a>
+
+															<a class="dropdown-item js-disable-member"
+																href="javascript:void(0);"
+																th:attr="data-member-id=${member.id}, data-username=${member.username}">
 																<i
 																	class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
 																접속금지
 															</a>
+
 														</div>
 													</div>
 												</div>
@@ -138,7 +163,6 @@
 										</div>
 									</div>
 
-									<!-- 카드 내용 -->
 									<div class="py-3">
 										<div class="row gy-3">
 											<div class="col-6">
@@ -160,21 +184,178 @@
 											</div>
 										</div>
 									</div>
+
 								</div>
 							</div>
 						</div>
+
+						<!-- ✅ 사업자등록증 팝업 모달 (이미지/ PDF 자동 전환) -->
+						<div class="modal fade" id="businessLicenseModal" tabindex="-1" aria-hidden="true">
+							<div class="modal-dialog modal-xl modal-dialog-centered">
+								<div class="modal-content">
+									<div class="modal-header">
+										<h5 class="modal-title">사업자등록증</h5>
+										<button type="button" class="btn-close" data-bs-dismiss="modal"
+											aria-label="Close"></button>
+									</div>
+
+									<div class="modal-body p-0" style="height: 80vh; overflow:auto;">
+										<!-- 이미지 -->
+										<img id="businessLicenseImg" alt="business-license"
+											style="width:100%; height:auto; display:none;" />
+
+										<!-- PDF/기타 -->
+										<iframe id="businessLicenseFrame"
+											style="width:100%;height:100%;border:0; display:none;"
+											title="business-license"></iframe>
+									</div>
+								</div>
+							</div>
+						</div>
+						<!-- ✅ 모달 끝 -->
+
 					</div>
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
 
-
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
 	<script src="/administration/assets/libs/dropzone/dropzone-min.js"></script>
 	<script src="/administration/assets/js/pages/project-create.init.js"></script>
-</body class="twocolumn-panel">
+
+	<script>
+		(function () {
+			'use strict';
+
+			function getCsrf() {
+				const tokenMeta = document.querySelector('meta[name="_csrf"]');
+				const headerMeta = document.querySelector('meta[name="_csrf_header"]');
+				return {
+					token: tokenMeta ? tokenMeta.getAttribute('content') : null,
+					header: headerMeta ? headerMeta.getAttribute('content') : null
+				};
+			}
+
+			async function postJson(url, bodyObj) {
+				const csrf = getCsrf();
+				const headers = {'Content-Type': 'application/json'};
+				if (csrf.token && csrf.header) headers[csrf.header] = csrf.token;
+
+				const res = await fetch(url, {
+					method: 'POST',
+					headers,
+					body: JSON.stringify(bodyObj || {})
+				});
+
+				const text = await res.text();
+				let json = null;
+				try {json = JSON.parse(text);} catch (e) { /* ignore */}
+
+				if (!res.ok) {
+					const msg = (json && json.message) ? json.message : text || ('HTTP ' + res.status);
+					throw new Error(msg);
+				}
+				return json ?? {message: text};
+			}
+
+			// 1) 비밀번호 초기화
+			document.querySelectorAll('.js-reset-password').forEach(function (el) {
+				el.addEventListener('click', async function () {
+					const memberId = el.getAttribute('data-member-id');
+					const username = el.getAttribute('data-username') || '';
+					if (!memberId) return;
+
+					const ok = confirm('해당 유저의 비밀번호를 초기화 하시겠습니까?');
+					if (!ok) return;
+
+					try {
+						await postJson('/management/member/' + memberId + '/resetPassword', {});
+						alert('비밀번호가 초기화되었고, 해당 휴대폰번호로 안내 문자가 발송되었습니다.\n(아이디: ' + username + ')');
+					} catch (e) {
+						alert('실패: ' + (e && e.message ? e.message : e));
+					}
+				});
+			});
+
+			// 2) 접속금지(enabled=false)
+			document.querySelectorAll('.js-disable-member').forEach(function (el) {
+				el.addEventListener('click', async function () {
+					const memberId = el.getAttribute('data-member-id');
+					const username = el.getAttribute('data-username') || '';
+					if (!memberId) return;
+
+					const ok = confirm('해당 유저를 접속금지 처리하시겠습니까?');
+					if (!ok) return;
+
+					try {
+						await postJson('/management/member/' + memberId + '/disable', {});
+						alert('접속금지 처리되었습니다.\n(아이디: ' + username + ')');
+					} catch (e) {
+						alert('실패: ' + (e && e.message ? e.message : e));
+					}
+				});
+			});
+
+			// 3) 사업자등록증 모달 (businessLicenseUrl 직접 열기)
+			const openBtn = document.getElementById('open-business-license');
+			const modalEl = document.getElementById('businessLicenseModal');
+			const imgEl = document.getElementById('businessLicenseImg');
+			const frameEl = document.getElementById('businessLicenseFrame');
+
+			function isLikelyImageUrl(url) {
+				const u = (url || '').toLowerCase().split('?')[0].split('#')[0];
+				return u.endsWith('.png') || u.endsWith('.jpg') || u.endsWith('.jpeg') || u.endsWith('.gif') || u.endsWith('.webp');
+			}
+
+			function isLikelyPdfUrl(url) {
+				const u = (url || '').toLowerCase().split('?')[0].split('#')[0];
+				return u.endsWith('.pdf');
+			}
+
+			if (openBtn) {
+				openBtn.addEventListener('click', function () {
+					const url = openBtn.getAttribute('data-license-url');
+					if (!url) return;
+
+					// 초기화
+					if (imgEl) {imgEl.style.display = 'none'; imgEl.src = '';}
+					if (frameEl) {frameEl.style.display = 'none'; frameEl.src = '';}
+
+					// 이미지면 img, pdf/기타면 iframe
+					if (isLikelyImageUrl(url)) {
+						if (imgEl) {
+							imgEl.src = url;
+							imgEl.style.display = 'block';
+						}
+					} else {
+						if (frameEl) {
+							frameEl.src = url; // pdf 포함
+							frameEl.style.display = 'block';
+						}
+					}
+
+					if (modalEl) {
+						const modal = new bootstrap.Modal(modalEl);
+						modal.show();
+					}
+				});
+			}
+
+			// 모달 닫을 때 src 제거
+			if (modalEl) {
+				modalEl.addEventListener('hidden.bs.modal', function () {
+					if (imgEl) imgEl.src = '';
+					if (frameEl) frameEl.src = '';
+				});
+			}
+		})();
+	</script>
+
+</body>
 
 </html>

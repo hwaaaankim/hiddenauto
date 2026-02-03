@@ -15,6 +15,9 @@ import com.dev.HiddenBATHAuto.model.auth.Company;
 @Repository
 public interface CompanyRepository extends JpaRepository<Company, Long> {
 
+    // ✅ 사업자등록번호 중복체크(본인 회사 제외)
+    boolean existsByBusinessNumberAndIdNot(String businessNumber, Long id);
+	
 	Company findByCompanyName(String name);
 
 	Optional<Company> findByRegistrationKey(String registrationKey);

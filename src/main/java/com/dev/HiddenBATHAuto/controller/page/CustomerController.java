@@ -16,12 +16,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,6 +40,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
@@ -259,9 +262,113 @@ public class CustomerController {
     }
 
 	// =========================
-    // 3) /myInfoUpdate (POST) 배송지 추가/삭제/변경 반영
-    //    - 대표/직원 모두 배송지 변경은 회사에 반영
-    //    - 대표만 회사 기본정보(회사명/대표주소/파일 등) 수정 가능
+    // ✅ 중복체크 API (휴대폰)
+    // =========================
+    @GetMapping("/api/dup-check/phone")
+    public ResponseEntity<?> checkPhoneDup(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) String phone
+    ) {
+        Member me = memberRepository.findById(principal.getMember().getId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        String normalized = normalizePhone(phone);
+        Map<String, Object> body = new HashMap<>();
+
+        if (normalized.isEmpty() || normalized.length() < 12) { // 010-1234-5678 = 13, 010-123-4567 = 12
+            body.put("ok", false);
+            body.put("duplicate", false);
+            body.put("message", "휴대폰 번호 형식이 올바르지 않습니다.");
+            return ResponseEntity.ok(body);
+        }
+
+        // 본인 값이면 중복 아님으로 처리
+        String myPhone = normalizePhone(me.getPhone());
+        if (!myPhone.isEmpty() && myPhone.equals(normalized)) {
+            body.put("ok", true);
+            body.put("duplicate", false);
+            body.put("message", "중복 아님");
+            return ResponseEntity.ok(body);
+        }
+
+        boolean dup = memberRepository.existsByPhoneAndIdNot(normalized, me.getId());
+        body.put("ok", true);
+        body.put("duplicate", dup);
+        body.put("message", dup ? "중복임" : "중복 아님");
+        return ResponseEntity.ok(body);
+    }
+
+    // =========================
+    // ✅ 중복체크 API (사업자등록번호)
+    // =========================
+    @GetMapping("/api/dup-check/business-number")
+    public ResponseEntity<?> checkBusinessNumberDup(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) String businessNumber
+    ) {
+        Member me = memberRepository.findById(principal.getMember().getId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Company company = me.getCompany();
+        if (company == null) {
+            throw new IllegalStateException("회사 정보가 없습니다.");
+        }
+
+        String digits = onlyDigits(businessNumber); // DB에는 숫자 10자리만 저장 전제로
+        Map<String, Object> body = new HashMap<>();
+
+        if (digits.length() != 10) {
+            body.put("ok", false);
+            body.put("duplicate", false);
+            body.put("message", "사업자등록번호는 숫자 10자리여야 합니다.");
+            return ResponseEntity.ok(body);
+        }
+
+        // 본인 회사 값이면 중복 아님
+        String my = onlyDigits(company.getBusinessNumber());
+        if (!my.isEmpty() && my.equals(digits)) {
+            body.put("ok", true);
+            body.put("duplicate", false);
+            body.put("message", "중복 아님");
+            return ResponseEntity.ok(body);
+        }
+
+        boolean dup = companyRepository.existsByBusinessNumberAndIdNot(digits, company.getId());
+        body.put("ok", true);
+        body.put("duplicate", dup);
+        body.put("message", dup ? "중복임" : "중복 아님");
+        return ResponseEntity.ok(body);
+    }
+
+ // =========================
+    // ✅ 헬퍼: 숫자만
+    // =========================
+    private String onlyDigits(String v) {
+        if (v == null) return "";
+        return v.replaceAll("[^0-9]", "");
+    }
+
+    // =========================
+    // ✅ 헬퍼: 휴대폰 정규화 (010-1234-5678 / 010-123-4567)
+    // - 숫자만 받은 뒤 일반 포맷으로 변환
+    // =========================
+    private String normalizePhone(String phone) {
+        String digits = onlyDigits(phone);
+        if (digits.isEmpty()) return "";
+
+        // 02 지역번호 케이스까지 완벽히 하려면 규칙이 더 필요하지만,
+        // 현재 요구는 휴대폰 중심이므로 010/011/016/017/018/019 등을 우선 지원합니다.
+        if (digits.length() == 11) {
+            return digits.substring(0, 3) + "-" + digits.substring(3, 7) + "-" + digits.substring(7);
+        }
+        if (digits.length() == 10) {
+            return digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+        }
+        return ""; // 형식 불가
+    }
+    
+    // =========================
+    // ✅ /myInfoUpdate (POST) - 변경(전체 교체 권장)
     // =========================
     @PostMapping("/myInfoUpdate")
     public String updateMyInfo(
@@ -271,6 +378,7 @@ public class CustomerController {
             @RequestParam String email,
 
             @RequestParam(required = false) String companyName,
+            @RequestParam(required = false) String businessNumber, // ✅ 수정 가능하도록 받기
             @RequestParam String roadAddress,
             @RequestParam String detailAddress,
             @RequestParam String doName,
@@ -278,11 +386,12 @@ public class CustomerController {
             @RequestParam String guName,
             @RequestParam String zipCode,
 
-            // ✅ 추가 배송지 JSON(대표/직원 공통 반영)
             @RequestParam(required = false) String companyDeliveryAddressesJson,
 
             @RequestParam(defaultValue = "false") boolean removeBusinessLicense,
-            @RequestParam(required = false) MultipartFile businessLicenseFile
+            @RequestParam(required = false) MultipartFile businessLicenseFile,
+
+            RedirectAttributes ra
     ) {
         Long memberId = principal.getMember().getId();
 
@@ -294,21 +403,51 @@ public class CustomerController {
             throw new IllegalStateException("회사 정보가 없습니다.");
         }
 
+        // ===== 0) 입력값 정규화 =====
+        String normalizedPhone = normalizePhone(phone);
+        if (normalizedPhone.isEmpty()) {
+            ra.addFlashAttribute("myInfoError", "휴대폰 번호 형식이 올바르지 않습니다.");
+            return "redirect:/customer/myInfo";
+        }
+        String normalizedBizDigits = (businessNumber == null) ? "" : onlyDigits(businessNumber);
+
         // ===== 1) 멤버 정보 =====
         member.setName(name);
-        member.setPhone(phone);
+        member.setPhone(normalizedPhone);
         member.setEmail(email);
         member.setUpdatedAt(LocalDateTime.now());
 
-        // ===== 2) 추가 배송지: 대표/직원 공통으로 회사에 반영 =====
+        // ✅ 휴대폰 중복 최종 방어(동시성 대비)
+        if (memberRepository.existsByPhoneAndIdNot(normalizedPhone, member.getId())) {
+            ra.addFlashAttribute("myInfoError", "휴대폰 번호가 이미 사용 중입니다.");
+            return "redirect:/customer/myInfo";
+        }
+
+        // ===== 2) 추가 배송지: 대표/직원 공통 회사 반영 =====
         applyCompanyDeliveryAddresses(company, companyDeliveryAddressesJson);
 
+        boolean isRepresentative = (member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
+
         // ===== 3) 회사 기본 정보: 대표만 수정 가능 =====
-        if (member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE) {
+        if (isRepresentative) {
 
             if (companyName != null) {
                 company.setCompanyName(companyName);
             }
+
+            // ✅ 사업자등록번호 수정 가능
+            if (normalizedBizDigits.length() != 10) {
+                ra.addFlashAttribute("myInfoError", "사업자등록번호는 숫자 10자리여야 합니다.");
+                return "redirect:/customer/myInfo";
+            }
+
+            // 중복 최종 방어
+            if (companyRepository.existsByBusinessNumberAndIdNot(normalizedBizDigits, company.getId())) {
+                ra.addFlashAttribute("myInfoError", "사업자등록번호가 이미 등록되어 있습니다.");
+                return "redirect:/customer/myInfo";
+            }
+
+            company.setBusinessNumber(normalizedBizDigits);
 
             company.setRoadAddress(roadAddress);
             company.setDetailAddress(detailAddress);
@@ -319,6 +458,7 @@ public class CustomerController {
             company.setUpdatedAt(LocalDateTime.now());
 
             // ===== 4) 사업자등록증 파일 =====
+            // 케이스 A) 새 파일 업로드: 기존 파일 삭제 후 교체
             if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
                 FileUtil.deleteIfExists(company.getBusinessLicensePath());
 
@@ -341,22 +481,42 @@ public class CustomerController {
                 }
             }
 
-            // 파일 삭제만 요청한 경우(대표만 버튼 노출되므로 대표만 들어옴)
+            // 케이스 B) 삭제 요청(removeBusinessLicense=true)인데 새 파일이 없으면 => 업데이트 불가(필수)
             if (removeBusinessLicense) {
-                FileUtil.deleteIfExists(company.getBusinessLicensePath());
-                company.setBusinessLicenseFilename(null);
-                company.setBusinessLicensePath(null);
-                company.setBusinessLicenseUrl(null);
+                boolean hasNewUpload = (businessLicenseFile != null && !businessLicenseFile.isEmpty());
+                if (!hasNewUpload) {
+                    ra.addFlashAttribute("myInfoError", "사업자등록증은 필수입니다. 삭제 후에는 새 파일을 업로드해 주세요.");
+                    return "redirect:/customer/myInfo";
+                }
+                // hasNewUpload=true 인 경우는 위에서 교체 저장되므로 별도 삭제 처리 불필요(이미 교체됨)
             }
 
             companyRepository.save(company);
+
         } else {
-            // 대표가 아니어도 배송지 변경은 company에 반영되어야 하므로 저장 필요
+            // 대표 아니어도 배송지 변경은 회사에 반영 -> 저장 필요
             companyRepository.save(company);
         }
 
-        memberRepository.save(member);
+        // ===== 5) 사업자등록증 최종 필수 방어(대표/직원 공통) =====
+        // 혹시라도 회사에 등록증이 없는 상태라면 업데이트 불가
+        // (정상 운영이라면 거의 발생하지 않지만, 데이터 꼬임 방지용)
+        Company savedCompany = companyRepository.findById(company.getId())
+                .orElseThrow(() -> new IllegalStateException("회사 저장 실패"));
+        if (savedCompany.getBusinessLicensePath() == null || savedCompany.getBusinessLicensePath().trim().isEmpty()) {
+            ra.addFlashAttribute("myInfoError", "사업자등록증은 필수입니다. 사업자등록증을 등록해 주세요.");
+            return "redirect:/customer/myInfo";
+        }
 
+        try {
+            memberRepository.save(member);
+        } catch (DataIntegrityViolationException e) {
+            // unique 제약 등 최종 방어
+            ra.addFlashAttribute("myInfoError", "저장 중 오류가 발생했습니다. 중복 여부를 확인해 주세요.");
+            return "redirect:/customer/myInfo";
+        }
+
+        ra.addFlashAttribute("myInfoSuccess", "변경사항이 저장되었습니다.");
         return "redirect:/customer/myInfo";
     }
 

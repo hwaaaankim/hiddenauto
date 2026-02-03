@@ -1,0 +1,145 @@
+/* =========================
+   myInfo 전용 강제 스타일
+   Prefix: myinfo-added-
+   ========================= */
+
+/* 알림 */
+.myinfo-added-alert {
+	padding: 10px 12px !important;
+	border-radius: 10px !important;
+	margin-bottom: 12px !important;
+	font-size: 13px !important;
+	line-height: 1.4 !important;
+}
+
+.myinfo-added-alert-danger {
+	background: #fff0f0 !important;
+	border: 1px solid #ffd0d0 !important;
+	color: #b00020 !important;
+}
+
+.myinfo-added-alert-success {
+	background: #f1fff3 !important;
+	border: 1px solid #c8f5d0 !important;
+	color: #0a7a28 !important;
+}
+
+/* input 전체 패딩/높이 축소 */
+.myinfo-added-form .input-style input.form-control,
+.myinfo-added-form .input-style textarea.form-control {
+	padding: 10px 12px !important;
+	min-height: 42px !important;
+	height: 42px !important;
+	font-size: 14px !important;
+	border-radius: 12px !important;
+}
+
+/* readonly/disabled 깔끔하게 */
+.myinfo-added-form input[readonly],
+.myinfo-added-form textarea[readonly],
+.myinfo-added-form input:disabled,
+.myinfo-added-form textarea:disabled {
+	background: #f6f7f9 !important;
+	color: #6b7280 !important;
+	border-color: #e5e7eb !important;
+	opacity: 1 !important;
+	/* disabled 회색 흐림 제거 */
+}
+
+/* 도움말 메시지 */
+.myinfo-added-help {
+	margin-top: 6px !important;
+	font-size: 12px !important;
+	line-height: 1.3 !important;
+	color: #6b7280 !important;
+}
+
+.myinfo-added-help.ok {
+	color: #0a7a28 !important;
+}
+
+.myinfo-added-help.bad {
+	color: #b00020 !important;
+}
+
+/* 제출 버튼 비활성 */
+#myinfo-added-submit:disabled {
+	opacity: 0.55 !important;
+	cursor: not-allowed !important;
+}
+
+/* =========================
+   사업자등록증 프리뷰(200x340)
+   ========================= */
+.myinfo-added-license-wrap {
+	margin-top: 10px !important;
+}
+
+.myinfo-added-license-box {
+	position: relative !important;
+	width: 200px !important;
+	height: 340px !important;
+	border: 1px solid #e5e7eb !important;
+	border-radius: 14px !important;
+	overflow: hidden !important;
+	background: #fafafa !important;
+}
+
+.myinfo-added-license-link {
+	display: block !important;
+	width: 100% !important;
+	height: 100% !important;
+}
+
+.myinfo-added-license-img {
+	width: 100% !important;
+	height: 100% !important;
+	object-fit: cover !important;
+	display: block !important;
+}
+
+/* 우측 상단 X */
+.myinfo-added-license-x {
+	position: absolute !important;
+	top: 8px !important;
+	right: 8px !important;
+	width: 28px !important;
+	height: 28px !important;
+	border-radius: 999px !important;
+	border: 1px solid rgba(0, 0, 0, 0.12) !important;
+	background: rgba(255, 255, 255, 0.92) !important;
+	font-size: 18px !important;
+	line-height: 26px !important;
+	text-align: center !important;
+	cursor: pointer !important;
+	z-index: 5 !important;
+}
+
+.myinfo-added-license-x:hover {
+	background: #fff !important;
+}
+
+/* =========================
+   myInfo: has-icon 입력에서 아이콘 겹침 방지
+   ========================= */
+
+/* 아이콘이 있는 input은 왼쪽 여백을 아이콘 폭만큼 확보 */
+.myinfo-added-form .input-style.has-icon input.form-control {
+	padding-left: 40px !important;
+	/* ✅ 아이콘 영역 확보 */
+}
+
+/* 아이콘 위치를 input 높이(42px)에 맞춰 정렬 */
+.myinfo-added-form .input-style.has-icon>i {
+	left: 12px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+	margin-top: 0 !important;
+	pointer-events: none !important;
+}
+
+/* 혹시 아이콘이 폰트 크기 때문에 또 침범하면 살짝 줄이기 */
+.myinfo-added-form .input-style.has-icon>i.font-12 {
+	font-size: 12px !important;
+	line-height: 1 !important;
+}

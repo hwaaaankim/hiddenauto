@@ -13,12 +13,21 @@
 
 		<div class="page-content header-clear-medium">
 
+			<!-- ✅ 페이지 전용 CSS -->
+			<link rel="stylesheet" href="/front/page/myInfo/myInfo.css">
+
 			<div class="card card-style">
 				<div class="content mb-0">
 					<h2>계정정보</h2>
 					<p class="mb-4">아이디는 변경할 수 없습니다.</p>
 
-					<form method="POST" action="/customer/myInfoUpdate" enctype="multipart/form-data">
+					<!-- ✅ 서버 메시지(백엔드 최종 방어) -->
+					<div class="myinfo-added-alert myinfo-added-alert-danger"
+						th:if="${myInfoError != null}" th:text="${myInfoError}"></div>
+					<div class="myinfo-added-alert myinfo-added-alert-success"
+						th:if="${myInfoSuccess != null}" th:text="${myInfoSuccess}"></div>
+
+					<form class="myinfo-added-form" method="POST" action="/customer/myInfoUpdate" enctype="multipart/form-data">
 						<!-- 사용자 성함 -->
 						<div class="input-style input-style-always-active has-borders has-icon">
 							<i class="fa fa-user font-12"></i>
@@ -30,9 +39,12 @@
 						<!-- 연락처 -->
 						<div class="input-style input-style-always-active has-borders has-icon mt-4">
 							<i class="fa fa-phone font-12"></i>
-							<input type="text" class="form-control" name="phone" th:value="${member.phone}"
-								placeholder="연락처" required>
+							<input type="text" class="form-control" id="myinfo-added-phone"
+								   name="phone" th:value="${member.phone}"
+								   placeholder="휴대폰 번호(숫자만 입력, 자동 '-' 적용)"
+								   required autocomplete="off">
 							<label class="color-blue-dark font-13">연락처</label>
+							<div class="myinfo-added-help" id="myinfo-added-phone-help"></div>
 						</div>
 
 						<!-- 이메일 -->
@@ -55,11 +67,20 @@
 							<label class="color-blue-dark font-13">대리점명</label>
 						</div>
 
-						<!-- ✅ 사업자등록번호 (추가) : disabled 표시, 변경 불가 -->
+						<!-- ✅ 사업자등록번호 (수정 가능) -->
 						<div class="input-style input-style-always-active has-borders has-icon mt-3">
 							<i class="fa-solid fa-receipt font-12"></i>
-							<input type="text" class="form-control" th:value="${company.businessNumber}" disabled>
+							<input type="text"
+								   class="form-control"
+								   id="myinfo-added-businessNumber"
+								   name="businessNumber"
+								   th:value="${company.businessNumber}"
+								   placeholder="사업자등록번호(숫자만 입력, 자동 '-' 적용)"
+								   required
+								   autocomplete="off"
+								   th:readonly="${!isRepresentative}">
 							<label class="color-blue-dark font-13">사업자등록번호</label>
+							<div class="myinfo-added-help" id="myinfo-added-businessNumber-help"></div>
 						</div>
 
 						<!-- 포인트 -->
@@ -70,7 +91,7 @@
 						</div>
 
 						<!-- 주소 검색 영역 (대표만 수정 가능) -->
-						<div class="input-style no-borders has-icon mt-1">
+						<div class="input-style input-style-always-active has-borders has-icon mt-3">
 							<i class="fa-regular fa-address-book"></i>
 							<input type="text" class="form-control" id="searchAddress" name="roadAddress" required
 								placeholder="주소를 검색 해 주세요." autocomplete="off" th:value="${company.roadAddress}"
@@ -81,7 +102,7 @@
 						</div>
 
 						<!-- 상세주소 + hidden 행정구역 (대표만 수정 가능) -->
-						<div class="input-style no-borders has-icon mt-1">
+						<div class="input-style input-style-always-active has-borders has-icon mt-3">
 							<i class="fa-regular fa-address-book"></i>
 							<input type="text" class="form-control" id="detailAddress" name="detailAddress" required
 								placeholder="상세 주소를 입력 해 주세요." autocomplete="off" th:value="${company.detailAddress}"
@@ -94,12 +115,6 @@
 							<input type="hidden" name="zipCode" id="zipCode" required th:value="${company.zipCode}">
 						</div>
 
-						<!-- =========================
-						     ✅ 추가 배송지 영역 (대표/직원 공통)
-						     - 리스트: "경기도 용인시 ... X"
-						     - +배송지 추가 버튼
-						     - hidden JSON으로 서버 전송
-						     ========================= -->
 						<hr class="my-4" />
 						<h2>추가 배송지</h2>
 						<p class="mb-3">회사에 등록된 추가 배송지를 관리할 수 있습니다.</p>
@@ -111,42 +126,66 @@
 							</a>
 						</div>
 
-						<!-- 리스트 표시 -->
 						<div id="companyDeliveryList" class="mb-3"></div>
 
-						<!-- 서버 전송용 JSON -->
 						<input type="hidden" id="companyDeliveryAddressesJson" name="companyDeliveryAddressesJson"
 							value="" />
 
 						<!-- =========================
-						     사업자등록증(대표만)
+						     ✅ 사업자등록증(대표만)
 						     ========================= -->
+						<hr class="my-4" />
 				     	<h2>사업자등록증</h2>
 				     	<p class="mb-3">사업자등록증은 필수 항목입니다.</p>
+
 						<div class="pb-1" th:if="${isRepresentative}">
 							<label class="signUpImageBtn">
-								<input type="file" id="file-upload" name="businessLicenseFile" class="signUpImageInput"
-									accept="image/*">
+								<input type="file" id="myinfo-added-license-input"
+									   name="businessLicenseFile"
+									   class="signUpImageInput"
+									   accept="image/*">
 								<i class="fa-regular fa-file"></i> 사업자등록증 업로드
 							</label>
 
-							<ul id="file-list" class="file-list mt-2">
-								<li class="existing-file" th:if="${company.businessLicenseFilename != null}">
-									<a th:href="@{${company.businessLicenseUrl}}"
-										th:text="${company.businessLicenseFilename}" target="_blank"></a>
-									<button type="button" class="remove-file-btn"
-										onclick="removeExistingFile()">×</button>
-								</li>
-							</ul>
+							<!-- ✅ 프리뷰 영역(기존/신규 공통) -->
+							<div class="myinfo-added-license-wrap">
+								<!-- 기존 이미지가 있으면 표시 -->
+								<div id="myinfo-added-license-existing"
+									 class="myinfo-added-license-box"
+									 th:classappend="${company.businessLicenseUrl == null} ? ' d-none' : ''">
+									<a class="myinfo-added-license-link" th:href="@{${company.businessLicenseUrl}}" target="_blank">
+										<img id="myinfo-added-license-existing-img"
+											 th:src="@{${company.businessLicenseUrl}}"
+											 alt="사업자등록증"
+											 class="myinfo-added-license-img">
+									</a>
+									<button type="button"
+											class="myinfo-added-license-x"
+											id="myinfo-added-license-existing-remove"
+											aria-label="삭제">×</button>
+								</div>
 
-							<input type="hidden" id="removeBusinessLicense" name="removeBusinessLicense"
-								value="false" />
+								<!-- 신규 선택 프리뷰(기본 숨김) -->
+								<div id="myinfo-added-license-new" class="myinfo-added-license-box d-none">
+									<img id="myinfo-added-license-new-img" alt="사업자등록증(신규)" class="myinfo-added-license-img">
+									<button type="button"
+											class="myinfo-added-license-x"
+											id="myinfo-added-license-new-remove"
+											aria-label="삭제">×</button>
+								</div>
+							</div>
+
+							<!-- 필수 상태 안내 -->
+							<div class="myinfo-added-help" id="myinfo-added-license-help"></div>
+
+							<input type="hidden" id="removeBusinessLicense" name="removeBusinessLicense" value="false" />
 						</div>
 
 						<!-- 수정 버튼 -->
 						<div class="mt-4 mb-2">
 							<button type="submit"
-								class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l font-900">
+									id="myinfo-added-submit"
+									class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l font-900">
 								변경사항 저장
 							</button>
 						</div>
@@ -201,14 +240,17 @@
 
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 
-	<!-- ✅ 배송지/파일/주소 스크립트 -->
 	<script th:inline="javascript">
-		// 서버에서 내려온 배송지 목록(DTO)
 		window.__COMPANY_DELIVERY_ADDRESSES__ = /*[[${deliveryAddresses}]]*/[];
+		window.__MYINFO_EXISTING_LICENSE_URL__ = /*[[${company.businessLicenseUrl}]]*/ null;
+		window.__MYINFO_IS_REPRESENTATIVE__ = /*[[${isRepresentative}]]*/ false;
 	</script>
 
+	<!-- ✅ 외부 JS(요청 경로) -->
+	<script src="/front/page/myInfo/myInfo.js"></script>
+
 	<!-- =========================
-	     ✅ 추가 배송지 상세주소 입력 모달 (Bootstrap 5 기준)
+	     ✅ 추가 배송지 상세주소 입력 모달(기존 유지)
 	     ========================= -->
 	<div class="modal fade" id="companyDeliveryDetailModal" tabindex="-1" aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered">
@@ -240,322 +282,5 @@
 		</div>
 	</div>
 
-	<script>
-		/* global daum, bootstrap */
-		(function () {
-			'use strict';
-
-			// =========================
-			// 공통 유틸
-			// =========================
-			function qs(id) { return document.getElementById(id); }
-
-			function escapeHtml(s) {
-				return (s || '').toString().replace(/[&<>"']/g, function (m) {
-					switch (m) {
-						case '&': return '&amp;';
-						case '<': return '&lt;';
-						case '>': return '&gt;';
-						case '"': return '&quot;';
-						case "'": return '&#39;';
-						default: return m;
-					}
-				});
-			}
-
-			// =========================
-			// 1) 사업자등록증 파일 표시/삭제 (기존 유지 + removeBusinessLicense true 반영)
-			// =========================
-			document.addEventListener("DOMContentLoaded", function () {
-				var fileInput = qs("file-upload");
-				var fileList = qs("file-list");
-
-				if (fileInput && fileList) {
-					fileInput.addEventListener("change", function () {
-						fileList.querySelectorAll('.new-preview').forEach(function (el) { el.remove(); });
-
-						Array.from(fileInput.files).forEach(function (file) {
-							var li = document.createElement("li");
-							li.className = "new-preview";
-
-							var link = document.createElement("span");
-							link.textContent = file.name;
-
-							var btn = document.createElement("button");
-							btn.type = "button";
-							btn.textContent = "×";
-							btn.className = "remove-file-btn";
-							btn.onclick = function () {
-								fileInput.value = "";
-								li.remove();
-							};
-
-							li.appendChild(link);
-							li.appendChild(btn);
-							fileList.appendChild(li);
-						});
-					});
-				}
-			});
-
-			window.removeExistingFile = function removeExistingFile() {
-				var li = document.querySelector(".existing-file");
-				if (li) li.remove();
-
-				var hidden = qs("removeBusinessLicense");
-				if (hidden) hidden.value = "true"; // ✅ 삭제 반영되도록 true
-			};
-
-			// =========================
-			// 2) 다음 주소(대표 기본주소)
-			// =========================
-			window.execDaumPostcode = function execDaumPostcode() {
-				new daum.Postcode({
-					oncomplete: function (data) {
-						var fullRoadAddr = data.roadAddress;
-						var zonecode = data.zonecode;
-
-						var addrParts = (fullRoadAddr || '').split(" ");
-						var doName = addrParts[0] || "";
-						var siName = "";
-						var guName = "";
-
-						if (addrParts.length >= 2) {
-							if (addrParts[1].endsWith("시") || addrParts[1].endsWith("군")) {
-								siName = addrParts[1];
-								guName = addrParts[2] || "";
-							} else {
-								siName = "";
-								guName = addrParts[1] || "";
-							}
-						}
-
-						qs("searchAddress").value = fullRoadAddr || '';
-						qs("zipCode").value = zonecode || '';
-						qs("doName").value = doName;
-						qs("siName").value = siName;
-						qs("guName").value = guName;
-
-						qs("detailAddress").focus();
-					}
-				}).open();
-			};
-
-			// =========================
-			// 3) ✅ 추가 배송지 UI (대표/직원 공통) - 모달 방식
-			// =========================
-			function setupCompanyDeliveryUI() {
-				var addBtn = qs('companyAddDeliveryBtn');
-				var listEl = qs('companyDeliveryList');
-				var hiddenEl = qs('companyDeliveryAddressesJson');
-				if (!addBtn || !listEl || !hiddenEl) return;
-
-				// 모달 관련 엘리먼트
-				var modalEl = qs('companyDeliveryDetailModal');
-				var selectedAddrEl = qs('companyDeliverySelectedAddress');
-				var detailInputEl = qs('companyDeliveryDetailInput');
-				var saveBtn = qs('companyDeliveryDetailSaveBtn');
-
-				// bootstrap 모달 인스턴스
-				var modalInstance = null;
-				if (modalEl && window.bootstrap && bootstrap.Modal) {
-					modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
-						backdrop: 'static',
-						keyboard: true
-					});
-				}
-
-				// 주소 선택 후 임시 저장(상세주소 입력 전)
-				var pending = null;
-
-				// 초기값(서버 데이터)
-				var items = Array.isArray(window.__COMPANY_DELIVERY_ADDRESSES__)
-					? window.__COMPANY_DELIVERY_ADDRESSES__.map(function (x) {
-						return {
-							id: x.id || null,
-							zipCode: x.zipCode || '',
-							doName: x.doName || '',
-							siName: x.siName || '',
-							guName: x.guName || '',
-							roadAddress: x.roadAddress || '',
-							detailAddress: x.detailAddress || ''
-						};
-					})
-					: [];
-
-				function syncHidden() {
-					hiddenEl.value = JSON.stringify(items);
-				}
-
-				function render() {
-					listEl.innerHTML = '';
-
-					if (!items.length) {
-						var empty = document.createElement('div');
-						empty.className = 'p-2 border rounded-sm';
-						empty.textContent = '등록된 추가 배송지가 없습니다.';
-						listEl.appendChild(empty);
-						return;
-					}
-
-					items.forEach(function (it, idx) {
-						var wrap = document.createElement('div');
-						wrap.className = 'd-flex align-items-center justify-content-between p-2 mb-1 rounded-sm border';
-
-						var left = document.createElement('div');
-						left.className = 'me-2';
-
-						var text = (it.roadAddress || '');
-						if (it.detailAddress) text += ' ' + it.detailAddress;
-
-						var prefix = [it.doName, it.siName, it.guName].filter(Boolean).join(' ');
-						var display = (prefix ? (prefix + ' ') : '') + text;
-
-						left.innerHTML = '<div class="font-600">' + escapeHtml(display) + '</div>';
-
-						var right = document.createElement('button');
-						right.type = 'button';
-						right.className = 'btn btn-sm btn-outline-danger';
-						right.textContent = 'X';
-						right.addEventListener('click', function () {
-							items.splice(idx, 1);
-							syncHidden();
-							render();
-						});
-
-						wrap.appendChild(left);
-						wrap.appendChild(right);
-						listEl.appendChild(wrap);
-					});
-				}
-
-				function openDetailModal(pendingItem) {
-					pending = pendingItem;
-
-					// 화면 표시(선택한 주소)
-					if (selectedAddrEl) {
-						var prefix = [pending.doName, pending.siName, pending.guName].filter(Boolean).join(' ');
-						var base = (prefix ? (prefix + ' ') : '') + (pending.roadAddress || '');
-						selectedAddrEl.innerHTML = escapeHtml(base);
-					}
-
-					// 입력 초기화
-					if (detailInputEl) detailInputEl.value = '';
-
-					// 모달 오픈
-					if (modalInstance) {
-						modalInstance.show();
-						// 포커스
-						setTimeout(function () {
-							if (detailInputEl) detailInputEl.focus();
-						}, 150);
-						return;
-					}
-
-					// bootstrap 미존재 시 fallback (최소 동작)
-					alert('모달 라이브러리가 없어 상세주소 모달을 열 수 없습니다. (bootstrap 미로드)');
-				}
-
-				function addPendingToItems(detailText) {
-					if (!pending) return;
-
-					var newItem = {
-						id: null,
-						zipCode: pending.zipCode || '',
-						doName: pending.doName || '',
-						siName: pending.siName || '',
-						guName: pending.guName || '',
-						roadAddress: pending.roadAddress || '',
-						detailAddress: (detailText || '').trim()
-					};
-
-					if (!newItem.roadAddress) {
-						pending = null;
-						return;
-					}
-
-					// 중복 방지(road+detail이 같으면 막기)
-					var dup = items.some(function (x) {
-						return (x.roadAddress === newItem.roadAddress) && (x.detailAddress === newItem.detailAddress);
-					});
-					if (dup) {
-						alert('이미 추가된 배송지입니다.');
-						pending = null;
-						return;
-					}
-
-					items.push(newItem);
-					pending = null;
-					syncHidden();
-					render();
-				}
-
-				function openDaumAndAdd() {
-					new daum.Postcode({
-						oncomplete: function (data) {
-							var road = (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress;
-
-							var pendingItem = {
-								zipCode: data.zonecode || '',
-								doName: data.sido || '',
-								siName: data.sigungu || '',
-								guName: data.bname || '',
-								roadAddress: road || ''
-							};
-
-							if (!pendingItem.roadAddress) return;
-
-							// ✅ 주소 선택 후 모달로 상세주소 입력
-							openDetailModal(pendingItem);
-						}
-					}).open();
-				}
-
-				// 저장 버튼
-				if (saveBtn) {
-					saveBtn.addEventListener('click', function () {
-						var detailText = detailInputEl ? detailInputEl.value : '';
-						addPendingToItems(detailText);
-
-						if (modalInstance) modalInstance.hide();
-					});
-				}
-
-				// 모달 닫힐 때 pending 초기화(취소 대비)
-				if (modalEl) {
-					modalEl.addEventListener('hidden.bs.modal', function () {
-						pending = null;
-						if (detailInputEl) detailInputEl.value = '';
-						if (selectedAddrEl) selectedAddrEl.innerHTML = '';
-					});
-				}
-
-				addBtn.addEventListener('click', openDaumAndAdd);
-
-				// 초기 동기화
-				syncHidden();
-				render();
-			}
-
-			document.addEventListener('DOMContentLoaded', function () {
-				setupCompanyDeliveryUI();
-			});
-
-			// =========================
-			// 4) 대표 코드 생성(기존)
-			// =========================
-			window.generateKey = function generateKey() {
-				fetch("/customer/generateRegistrationKey", { method: "POST" })
-					.then(function (res) { return res.json(); })
-					.then(function (data) {
-						alert("새 코드가 생성되었습니다: " + data.key);
-						location.reload();
-					});
-			};
-
-		})();
-	</script>
-
 </body>
-
 </html>

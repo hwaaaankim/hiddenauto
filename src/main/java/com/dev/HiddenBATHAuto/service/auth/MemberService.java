@@ -72,7 +72,9 @@ public class MemberService {
 	private String uploadPath;
 
 	 public Page<Member> searchEmployees(String name, Long teamId, Pageable pageable) {
-        return memberRepository.searchEmployees(name, teamId, pageable);
+        // 직원만(관리직/현장직)
+        List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
+        return memberRepository.searchEmployees(name, teamId, roles, pageable);
     }
 	
 	public Page<Member> searchEmployees(String name, String team, Pageable pageable) {

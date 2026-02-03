@@ -17,6 +17,9 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
+    // ✅ 휴대폰 중복체크(본인 제외)
+    boolean existsByPhoneAndIdNot(String phone, Long id);
+	
     Optional<Member> findByPhone(String phone);
     
 	Optional<Member> findByUsername(String username);
@@ -54,14 +57,18 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	    @Param("team") String team,
 	    Pageable pageable);
 	
-	@Query("""
+	 @Query("""
         select m
           from Member m
-         where (:name is null or trim(:name) = '' or lower(m.name) like lower(concat('%', :name, '%')))
+         where m.company is null
+           and m.team is not null
+           and m.role in :roles
+           and (:name is null or trim(:name) = '' or lower(m.name) like lower(concat('%', :name, '%')))
            and (:teamId is null or m.team.id = :teamId)
     """)
     Page<Member> searchEmployees(@Param("name") String name,
                                  @Param("teamId") Long teamId,
+                                 @Param("roles") java.util.List<MemberRole> roles,
                                  Pageable pageable);
 
 

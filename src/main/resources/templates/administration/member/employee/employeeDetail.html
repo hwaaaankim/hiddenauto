@@ -16,7 +16,6 @@
 			<div class="page-content">
 				<div class="container-fluid">
 
-					<!-- 타이틀 -->
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -32,35 +31,28 @@
 						</div>
 					</div>
 
-					<!-- 본문 -->
 					<form id="employDetail-form" action="javascript:void(0);" method="post" novalidate>
 						<div class="row">
 
-							<!-- 좌측: 기본 정보 -->
 							<div class="col-lg-6">
 								<div class="card">
 									<div class="card-body">
 
-										<!-- 이름 / 아이디 -->
 										<div class="row">
 											<div class="col-lg-6 mb-3">
-												<label class="form-label" for="employDetail-name">이름 <span
-														class="text-danger">*</span></label>
+												<label class="form-label" for="employDetail-name">이름 <span class="text-danger">*</span></label>
 												<input type="text" class="form-control" id="employDetail-name"
 													th:value="${member.name}">
 											</div>
 											<div class="col-lg-6 mb-3">
 												<label class="form-label">아이디</label>
-												<input type="text" class="form-control" th:value="${member.username}"
-													readonly>
+												<input type="text" class="form-control" th:value="${member.username}" readonly>
 											</div>
 										</div>
 
-										<!-- 휴대전화 / 유선전화 -->
 										<div class="row">
 											<div class="col-lg-6 mb-3">
-												<label class="form-label" for="employDetail-phone">휴대전화 <span
-														class="text-danger">*</span></label>
+												<label class="form-label" for="employDetail-phone">휴대전화 <span class="text-danger">*</span></label>
 												<input type="text" class="form-control" id="employDetail-phone"
 													th:value="${member.phone}">
 											</div>
@@ -71,11 +63,9 @@
 											</div>
 										</div>
 
-										<!-- 권한 / 이메일 -->
 										<div class="row">
 											<div class="col-lg-6 mb-3">
-												<label class="form-label" for="employDetail-role-select">권한 <span
-														class="text-danger">*</span></label>
+												<label class="form-label" for="employDetail-role-select">권한 <span class="text-danger">*</span></label>
 												<select class="form-select" id="employDetail-role-select"></select>
 											</div>
 											<div class="col-lg-6 mb-3">
@@ -85,22 +75,17 @@
 											</div>
 										</div>
 
-										<!-- 소속 팀 / 팀 카테고리 -->
 										<div class="row">
 											<div class="col-lg-6 mb-3">
-												<label class="form-label" for="employDetail-team-select">소속 팀 <span
-														class="text-danger">*</span></label>
+												<label class="form-label" for="employDetail-team-select">소속 팀 <span class="text-danger">*</span></label>
 												<select class="form-select" id="employDetail-team-select"></select>
 											</div>
 											<div class="col-lg-6 mb-3">
-												<label class="form-label" for="employDetail-teamCategory-select">팀 카테고리
-													<span class="text-danger">*</span></label>
-												<select class="form-select"
-													id="employDetail-teamCategory-select"></select>
+												<label class="form-label" for="employDetail-teamCategory-select">팀 카테고리 <span class="text-danger">*</span></label>
+												<select class="form-select" id="employDetail-teamCategory-select"></select>
 											</div>
 										</div>
 
-										<!-- 안내 및 읽기전용 필드 -->
 										<div class="row">
 											<p class="mb-0" style="margin-top:10px; font-size:12px; color:gray;">
 												* 하기 사항은 추후 추가될 수 있는 기능에 대한 샘플 양식입니다.
@@ -108,8 +93,7 @@
 											<div class="col-lg-6 mb-3">
 												<label class="form-label">입사일</label>
 												<input type="text" class="form-control"
-													th:value="${#temporals.format(member.createdAt, 'yyyy-MM-dd HH:mm')}"
-													readonly>
+													th:value="${#temporals.format(member.createdAt, 'yyyy-MM-dd HH:mm')}" readonly>
 											</div>
 											<div class="col-lg-6 mb-3">
 												<label class="form-label">급여</label>
@@ -121,20 +105,17 @@
 											</div>
 											<div class="col-lg-6 mb-3">
 												<label class="form-label">담당 제품군</label>
-												<input type="text" class="form-control"
-													th:value="${member.productCategoryScope}" readonly>
+												<input type="text" class="form-control" th:value="${member.productCategoryScope}" readonly>
 											</div>
 											<div class="col-lg-6 mb-3">
 												<label class="form-label">최근 수정일</label>
 												<input type="text" class="form-control"
-													th:value="${member.updatedAt != null ? #temporals.format(member.updatedAt, 'yyyy-MM-dd HH:mm') : '—'}"
-													readonly>
+													th:value="${member.updatedAt != null ? #temporals.format(member.updatedAt, 'yyyy-MM-dd HH:mm') : '—'}" readonly>
 											</div>
 											<div class="col-lg-6 mb-3">
 												<label class="form-label">마지막 로그인</label>
 												<input type="text" class="form-control"
-													th:value="${member.lastLoginAt != null ? #temporals.format(member.lastLoginAt, 'yyyy-MM-dd HH:mm') : '—'}"
-													readonly>
+													th:value="${member.lastLoginAt != null ? #temporals.format(member.lastLoginAt, 'yyyy-MM-dd HH:mm') : '—'}" readonly>
 											</div>
 										</div>
 
@@ -142,20 +123,18 @@
 								</div>
 
 								<div class="text-end mb-4">
-									<button type="button" class="btn btn-success w-sm"
-										id="employDetail-saveMemberBtn">저장</button>
+									<button type="button" class="btn btn-success w-sm" id="employDetail-saveMemberBtn">저장</button>
 								</div>
 							</div>
 
 							<!-- 우측: 담당 구역 관리 -->
-							<div class="col-lg-6">
+							<div class="col-lg-6" id="employDetail-regionCardWrap">
 								<div class="card">
 									<div class="card-header">
 										<strong>담당 구역 관리</strong>
 									</div>
 									<div class="card-body">
 
-										<!-- 선택 체인 -->
 										<div class="row g-2">
 											<div class="col-md-4">
 												<label class="form-label" for="employDetail-province">광역시/도</label>
@@ -167,17 +146,14 @@
 											</div>
 											<div class="col-md-4">
 												<label class="form-label" for="employDetail-district">구/읍/면/동</label>
-												<select class="form-select" id="employDetail-district"
-													disabled></select>
+												<select class="form-select" id="employDetail-district" disabled></select>
 											</div>
 										</div>
 
 										<div class="mt-2 d-flex justify-content-end">
-											<button type="button" class="btn btn-primary btn-sm"
-												id="employDetail-addSelectionBtn">추가</button>
+											<button type="button" class="btn btn-primary btn-sm" id="employDetail-addSelectionBtn">추가</button>
 										</div>
 
-										<!-- 선택된(아직 저장 안된) 리스트 -->
 										<div class="mt-3">
 											<div class="d-flex align-items-center mb-2">
 												<strong class="me-2">추가 예정 리스트</strong>
@@ -188,7 +164,6 @@
 
 										<hr>
 
-										<!-- 이미 등록된 담당구역 -->
 										<div class="d-flex align-items-center mb-2">
 											<strong class="me-2">등록된 담당 구역</strong>
 											<small class="text-muted">최대 15개 표시, 초과 시 스크롤</small>
@@ -196,23 +171,22 @@
 										<div id="employDetail-assignedList" class="employDetail-scroll-list"></div>
 
 										<div class="text-end mt-3">
-											<button type="button" class="btn btn-success"
-												id="employDetail-saveRegionsBtn">저장</button>
+											<button type="button" class="btn btn-success" id="employDetail-saveRegionsBtn">저장</button>
 										</div>
 
 										<div class="mt-2" id="employDetail-regionMsg"></div>
 									</div>
 								</div>
 							</div>
+
 						</div>
 
 						<!-- 히든 값 -->
 						<input type="hidden" id="employDetail-memberId" th:value="${member.id}">
-						<input type="hidden" id="employDetail-currentTeamId"
-							th:value="${member.team != null ? member.team.id : ''}">
-						<input type="hidden" id="employDetail-currentTeamCategoryId"
-							th:value="${member.teamCategory != null ? member.teamCategory.id : ''}">
+						<input type="hidden" id="employDetail-currentTeamId" th:value="${member.team != null ? member.team.id : ''}">
+						<input type="hidden" id="employDetail-currentTeamCategoryId" th:value="${member.teamCategory != null ? member.teamCategory.id : ''}">
 						<input type="hidden" id="employDetail-currentRole" th:value="${member.role}">
+						<input type="hidden" id="employDetail-currentTeamName" th:value="${member.team != null ? member.team.name : ''}">
 					</form>
 				</div>
 			</div>
@@ -221,13 +195,10 @@
 		</div>
 	</div>
 
-	<!-- 공통 스크립트 -->
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<!-- 페이지 스크립트 -->
 	<script src="/administration/assets/js/pages/employeeDetail.js"></script>
-
 </body>
 
 </html>

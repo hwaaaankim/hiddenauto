@@ -51,6 +51,7 @@
 										</div>
 									</div>
 								</div>
+
 								<!-- 검색 폼 -->
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" action="/management/clientList">
@@ -79,7 +80,6 @@
 									</form>
 								</div>
 
-								<!--end card-body-->
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
@@ -115,26 +115,21 @@
 													</td>
 
 													<td>
-														<span class="fw-medium"
-															th:text="${company.companyName}">대리점명</span>
+														<span class="fw-medium" th:text="${company.companyName}">대리점명</span>
 													</td>
 
 													<td>
 														<span th:text="${#lists.isEmpty(company.members.?[role.name() == 'CUSTOMER_REPRESENTATIVE']) ? '미지정' : company.members.?[role.name() == 'CUSTOMER_REPRESENTATIVE'][0].name}">
-														    대표자명
+															대표자명
 														</span>
-
-													</td>
-
-
-													<td>
-														<span
-															th:text="${#temporals.format(company.createdAt, 'yyyy-MM-dd')}">2024-01-01</span>
 													</td>
 
 													<td>
-														<span
-															th:text="${company.salesManager?.name ?: '미지정'}">담당영업</span>
+														<span th:text="${#temporals.format(company.createdAt, 'yyyy-MM-dd')}">2024-01-01</span>
+													</td>
+
+													<td>
+														<span th:text="${company.salesManager?.name ?: '미지정'}">담당영업</span>
 													</td>
 
 													<td>
@@ -143,6 +138,7 @@
 												</tr>
 											</tbody>
 										</table>
+
 										<div class="noresult" style="display: none">
 											<div class="text-center">
 												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
@@ -153,34 +149,45 @@
 											</div>
 										</div>
 									</div>
-									<div class="d-flex justify-content-end mt-2">
+
+									<!-- ✅ 페이지네이션 (페이지번호 5개만 노출) -->
+									<div class="d-flex justify-content-end mt-2" th:if="${companies.totalPages > 0}">
 										<div class="pagination-wrap hstack gap-2">
-											<nav aria-label="navigation" style="text-align: center;">
+											<nav aria-label="navigation" style="text-align: center;"
+												th:with="
+													pageWindow=5,
+													totalPages=${companies.totalPages},
+													current=${companies.number},
+													lastIndex=${totalPages - 1},
+													start=${(current / pageWindow) * pageWindow},
+													tmpEnd=${start + pageWindow - 1},
+													end=${tmpEnd < lastIndex ? tmpEnd : lastIndex}
+												">
 												<ul class="pagination justify-content-center">
-													<li class="page-item"
-														th:classappend="${companies.first} ? 'disabled'">
+													<li class="page-item" th:classappend="${companies.first} ? 'disabled'">
 														<a class="page-link"
 															th:href="@{/management/clientList(page=0, searchType=${searchType}, keyword=${keyword})}">First</a>
 													</li>
-													<li class="page-item"
-														th:classappend="${companies.first} ? 'disabled'">
+
+													<li class="page-item" th:classappend="${companies.first} ? 'disabled'">
 														<a class="page-link"
 															th:href="@{/management/clientList(page=${companies.number - 1}, searchType=${searchType}, keyword=${keyword})}">Previous</a>
 													</li>
+
 													<li class="page-item"
-														th:each="pageNum : ${#numbers.sequence(0, companies.totalPages - 1)}"
+														th:each="pageNum : ${#numbers.sequence(start, end)}"
 														th:classappend="${companies.number == pageNum} ? 'active'">
 														<a class="page-link"
 															th:href="@{/management/clientList(page=${pageNum}, searchType=${searchType}, keyword=${keyword})}"
 															th:text="${pageNum + 1}">1</a>
 													</li>
-													<li class="page-item"
-														th:classappend="${companies.last} ? 'disabled'">
+
+													<li class="page-item" th:classappend="${companies.last} ? 'disabled'">
 														<a class="page-link"
 															th:href="@{/management/clientList(page=${companies.number + 1}, searchType=${searchType}, keyword=${keyword})}">Next</a>
 													</li>
-													<li class="page-item"
-														th:classappend="${companies.last} ? 'disabled'">
+
+													<li class="page-item" th:classappend="${companies.last} ? 'disabled'">
 														<a class="page-link"
 															th:href="@{/management/clientList(page=${companies.totalPages - 1}, searchType=${searchType}, keyword=${keyword})}">Last</a>
 													</li>
@@ -188,15 +195,19 @@
 											</nav>
 										</div>
 									</div>
+									<!-- ✅ 페이지네이션 끝 -->
+
 								</div>
 							</div>
 						</div>
 					</div>
+
 				</div>
 			</div>
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 </body>

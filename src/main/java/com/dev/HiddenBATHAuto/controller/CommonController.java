@@ -80,14 +80,7 @@ public class CommonController {
 		Member member = memberOpt.get();
 		String message = "[히든바스] 가입하신 아이디는 [" + member.getUsername() + "] 입니다.";
 
-		try {
-			smsService.sendMessage(phone, message);
-		} catch (EncoderException e) {
-			log.error("문자 전송 실패", e);
-			response.getWriter()
-					.println("<script>alert('문자 전송 중 오류가 발생했습니다.'); location.href='/findUsername';</script>");
-			return;
-		}
+		smsService.sendMessage(phone, message);
 
 		response.getWriter().println("<script>alert('가입시 입력한 아이디를 문자로 발송했습니다.'); location.href='/loginForm';</script>");
 	}
@@ -134,14 +127,7 @@ public class CommonController {
 		// 문자 내용
 		String message = "__" + tempPassword + "__로 비밀번호를 변경 하였습니다. '나의정보수정' 을 이용 해 주시기 바랍니다.";
 
-		try {
-			smsService.sendMessage(phone, message);
-		} catch (EncoderException e) {
-			log.error("문자 전송 실패", e);
-			response.getWriter()
-					.println("<script>alert('문자 전송 중 오류가 발생했습니다.'); location.href='/findPassword';</script>");
-			return;
-		}
+		smsService.sendMessage(phone, message);
 
 		response.getWriter().println(
 				"<script>alert('임시 비밀번호를 문자로 발송하였습니다. 로그인 후 나의정보수정에서 비밀번호를 변경해 주세요.'); location.href='/loginForm';</script>");

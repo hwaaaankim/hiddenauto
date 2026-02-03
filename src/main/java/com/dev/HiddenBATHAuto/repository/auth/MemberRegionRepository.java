@@ -100,4 +100,8 @@ public interface MemberRegionRepository extends JpaRepository<MemberRegion, Long
             @Param("cityId") Long cityId,
             @Param("districtId") Long districtId
     );
+    
+    void deleteByMember_Id(Long memberId);
+
+    List<MemberRegion> findByMember_Id(Long memberId);
 }

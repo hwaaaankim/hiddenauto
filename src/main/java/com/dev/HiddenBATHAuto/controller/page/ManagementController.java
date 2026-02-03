@@ -2,7 +2,9 @@ package com.dev.HiddenBATHAuto.controller.page;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,16 +29,22 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -50,6 +58,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
+import com.dev.HiddenBATHAuto.dto.employee.EmployeeUpdateResult;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
@@ -79,6 +88,7 @@ import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderImageRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.dev.HiddenBATHAuto.service.MemberAdminService;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.auth.CompanyService;
 import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
@@ -112,6 +122,9 @@ public class ManagementController {
 	private final ObjectMapper objectMapper;
 	private final OrderImageRepository orderImageRepository;
 	private final MemberManagementService memberMgmtService;
+	// ✅ 추가 서비스
+	private final MemberAdminService memberAdminService;
+
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
 	@GetMapping("/nonStandardTaskList")
@@ -1410,44 +1423,142 @@ public class ManagementController {
 	@PostMapping("/clientUpdate")
 	@ResponseBody
 	public String clientUpdate() {
-
 		return "success";
 	}
 
-	@GetMapping("/employeeList")
-	public String employeeList(@RequestParam(value = "name", required = false) String name,
-			@RequestParam(value = "teamId", required = false) Long teamId,
-			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-			Model model) {
-
-		// 1) 팀 목록(이름 오름차순) 조회하여 셀렉트 옵션으로 사용
-		List<Team> teams = teamRepository.findAllOrderedByName();
-
-		// 2) 팀 ID 기준으로 직원 검색 (이름 + 팀ID 모두 선택적)
-		Page<Member> employeePage = memberService.searchEmployees(name, teamId, pageable);
-
-		// 3) 모델 바인딩
-		model.addAttribute("teams", teams);
-		model.addAttribute("employeePage", employeePage);
-		model.addAttribute("name", name);
-		model.addAttribute("teamId", teamId);
-
-		return "administration/member/employee/employeeList";
+	// =========================================================
+	// ✅ 추가 API 1) 멤버 비밀번호 초기화 + SMS 발송
+	// =========================================================
+	@PostMapping("/member/{memberId}/resetPassword")
+	@ResponseBody
+	public ResponseEntity<?> resetPassword(@PathVariable Long memberId) {
+		memberAdminService.resetPasswordAndSendSms(memberId);
+		return ResponseEntity.ok(Map.of(
+				"result", "success"
+		));
 	}
 
-	@GetMapping("/employeeDetail/{id}")
-	public String employeeDetail(@PathVariable Long id, Model model) {
-		Member member = memberRepository.findById(id)
-				.orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
-
-		// 권한 체크 (INTERNAL_EMPLOYEE 또는 MANAGEMENT만 허용)
-		if (!(member.getRole() == MemberRole.INTERNAL_EMPLOYEE || member.getRole() == MemberRole.MANAGEMENT)) {
-			throw new IllegalArgumentException("직원만 조회 가능합니다.");
-		}
-
-		model.addAttribute("member", member);
-		return "administration/member/employee/employeeDetail";
+	// =========================================================
+	// ✅ 추가 API 2) 멤버 접속금지(enabled=false)
+	// =========================================================
+	@PostMapping("/member/{memberId}/disable")
+	@ResponseBody
+	public ResponseEntity<?> disableMember(@PathVariable Long memberId) {
+		memberAdminService.disableMember(memberId);
+		return ResponseEntity.ok(Map.of(
+				"result", "success"
+		));
 	}
+
+	 @GetMapping("/employeeList")
+	    public String employeeList(
+	            @RequestParam(value = "name", required = false) String name,
+	            @RequestParam(value = "teamId", required = false) Long teamId,
+	            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+	            Model model
+	    ) {
+
+        // 1) 팀 목록(이름 오름차순)
+        List<Team> teams = teamRepository.findAllOrderedByName();
+
+        // 2) 직원 검색(우리회사 직원만 + 직원 role만)
+        Page<Member> employeePage = memberService.searchEmployees(name, teamId, pageable);
+
+        // 3) 페이지네이션(5개 윈도우)
+        int totalPages = employeePage.getTotalPages();
+        int current = employeePage.getNumber(); // 0-based
+        int window = 5;
+
+        int pageStart = 0;
+        int pageEnd = 0;
+        if (totalPages > 0) {
+            pageStart = Math.max(0, current - (window / 2));
+            pageEnd = Math.min(totalPages - 1, pageStart + window - 1);
+            pageStart = Math.max(0, pageEnd - window + 1);
+        }
+
+        // 4) 모델 바인딩
+        model.addAttribute("teams", teams);
+        model.addAttribute("employeePage", employeePage);
+        model.addAttribute("name", name);
+        model.addAttribute("teamId", teamId);
+
+        model.addAttribute("pageStart", pageStart);
+        model.addAttribute("pageEnd", pageEnd);
+
+        return "administration/member/employee/employeeList";
+    }
+
+    @GetMapping("/employeeDetail/{id}")
+    public String employeeDetail(@PathVariable Long id, Model model) {
+        Member member = memberRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
+
+        if (!(member.getRole() == MemberRole.INTERNAL_EMPLOYEE
+                || member.getRole() == MemberRole.MANAGEMENT)) {
+            throw new IllegalArgumentException("직원만 조회 가능합니다.");
+        }
+
+        model.addAttribute("member", member);
+        return "administration/member/employee/employeeDetail";
+    }
+
+    @GetMapping("/company/{companyId}/business-license")
+    public ResponseEntity<Resource> viewBusinessLicense(@PathVariable Long companyId) throws IOException {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new IllegalArgumentException("회사 정보를 찾을 수 없습니다. id=" + companyId));
+
+        String pathStr = company.getBusinessLicensePath();
+        if (!StringUtils.hasText(pathStr)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Path filePath = Paths.get(pathStr);
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Resource resource = toResource(filePath);
+
+        // content-type 추정 (image/png, application/pdf 등)
+        String contentType = Files.probeContentType(filePath);
+        MediaType mediaType = (contentType != null) ? MediaType.parseMediaType(contentType) : MediaType.APPLICATION_OCTET_STREAM;
+
+        // 브라우저에서 "열람"되도록 inline
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(mediaType);
+        headers.setContentDisposition(ContentDisposition.inline().build());
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(resource);
+    }
+
+    private Resource toResource(Path filePath) {
+        try {
+            return new UrlResource(filePath.toUri());
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException("파일 경로가 올바르지 않습니다: " + filePath, e);
+        }
+    }
+    
+    // ===== 직원 정보 업데이트 =====
+    @PostMapping("/employeeUpdate")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<EmployeeUpdateResult>> employeeUpdate(
+            @RequestBody EmployeeUpdateRequest req
+    ) {
+        EmployeeUpdateResult result = memberMgmtService.updateEmployee(req);
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    // ✅ 팀 변경 시 담당구역 전체 삭제(확인 후 호출)
+    @DeleteMapping("/member/{memberId}/regions")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> deleteAllMemberRegions(@PathVariable Long memberId) {
+        memberMgmtService.clearMemberRegions(memberId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
 
 	@GetMapping("/employeeInsertForm")
 	public String employeeInsertForm(Model model) {
@@ -1473,14 +1584,6 @@ public class ManagementController {
 
 		memberService.saveMember(request);
 		return "redirect:/management/employeeInsertForm";
-	}
-
-	// ===== 직원 정보 업데이트 =====
-	@PostMapping("/employeeUpdate")
-	@ResponseBody
-	public ResponseEntity<ApiResponse<Void>> employeeUpdate(@RequestBody EmployeeUpdateRequest req) {
-		memberMgmtService.updateEmployee(req);
-		return ResponseEntity.ok(ApiResponse.ok(null));
 	}
 
 	// ===== 선택지 조회 =====
