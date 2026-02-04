@@ -5,8 +5,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -16,8 +19,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.CompanyDeliveryAddressRequest;
@@ -71,10 +76,91 @@ public class MemberService {
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 
-	 public Page<Member> searchEmployees(String name, Long teamId, Pageable pageable) {
+	 /**
+     * ✅ "1,2,3" 문자열을 Long 리스트로 파싱 (순서 유지)
+     * - 공백/빈값 제거
+     * - 숫자 아닌 값은 제외
+     * - 중복은 최초 등장만 유지(순서 유지)
+     */
+    public List<Long> parseIdListKeepOrder(String ids) {
+        if (ids == null || ids.trim().isEmpty()) return Collections.emptyList();
+
+        String[] parts = ids.split(",");
+        LinkedHashSet<Long> set = new LinkedHashSet<>();
+
+        for (String p : parts) {
+            if (p == null) continue;
+            String s = p.trim();
+            if (s.isEmpty()) continue;
+            try {
+                set.add(Long.parseLong(s));
+            } catch (NumberFormatException ignore) {
+                // 숫자 아닌 값은 무시
+            }
+        }
+        return new ArrayList<>(set);
+    }
+
+    /**
+     * ✅ 체크된 직원만 조회 + 요청 ids 순서대로 정렬하여 반환
+     * - EntityGraph로 연관관계 로딩 (N+1 방지)
+     */
+    @Transactional(readOnly = true)
+    public List<Member> findEmployeesForExcelByIdsOrdered(List<Long> orderedIds) {
+        if (orderedIds == null || orderedIds.isEmpty()) return Collections.emptyList();
+
+        List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
+
+        List<Member> fetched = memberRepository.searchEmployeesForExcelByIds(orderedIds, roles);
+
+        // DB 반환 순서는 IN 절 특성상 보장되지 않으므로, 요청 순서대로 재정렬
+        Map<Long, Member> map = fetched.stream()
+                .collect(Collectors.toMap(Member::getId, m -> m, (a, b) -> a));
+
+        List<Member> ordered = new ArrayList<>();
+        for (Long id : orderedIds) {
+            Member m = map.get(id);
+            if (m != null) ordered.add(m);
+        }
+        return ordered;
+    }
+
+	
+	public Page<Member> searchEmployees(String name, Long teamId, Pageable pageable) {
         // 직원만(관리직/현장직)
         List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
         return memberRepository.searchEmployees(name, teamId, roles, pageable);
+    }
+
+    /**
+     * ✅ 엑셀용: 페이징 없이 전체 리스트 + 팀/카테고리/지역까지 조회(성능 위해 EntityGraph)
+     */
+    @Transactional(readOnly = true)
+    public List<Member> findEmployeesForExcel(String name, Long teamId, Sort sort) {
+        List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
+        return memberRepository.searchEmployeesForExcel(name, teamId, roles, sort);
+    }
+
+    /**
+     * ✅ 담당구역 텍스트 생성 (줄바꿈 자연스럽게)
+     */
+    @Transactional(readOnly = true)
+    public String buildRegionText(Member m) {
+        if (m.getAddressScopes() == null || m.getAddressScopes().isEmpty()) return "";
+
+        return m.getAddressScopes().stream()
+                .map(r -> {
+                    String p = (r.getProvince() != null ? r.getProvince().getName() : "");
+                    String c = (r.getCity() != null ? r.getCity().getName() : "");
+                    String d = (r.getDistrict() != null ? r.getDistrict().getName() : "");
+
+                    // 공백 정리
+                    String combined = (p + " " + c + " " + d).trim().replaceAll("\\s{2,}", " ");
+                    return combined;
+                })
+                .filter(s -> s != null && !s.isBlank())
+                // 엑셀 셀 줄바꿈
+                .collect(Collectors.joining("\n"));
     }
 	
 	public Page<Member> searchEmployees(String name, String team, Pageable pageable) {

@@ -1,9 +1,11 @@
 package com.dev.HiddenBATHAuto.repository.auth;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,8 +15,14 @@ import org.springframework.stereotype.Repository;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 
 @Repository
-public interface CompanyRepository extends JpaRepository<Company, Long> {
+public interface CompanyRepository extends JpaRepository<Company, Long>, CompanyRepositoryCustom {
 
+	 // ✅ 체크된 ID들만 조회 (정렬 포함)
+    List<Company> findAllByIdIn(List<Long> ids, Sort sort);
+	
+	// ✅ 엑셀 전용: 배송지 + 멤버까지 모두 필요 (Custom에서 구현)
+    List<Company> findAllForExcel(String keyword, String searchType, String sortField, String sortDir);
+	
     // ✅ 사업자등록번호 중복체크(본인 회사 제외)
     boolean existsByBusinessNumberAndIdNot(String businessNumber, Long id);
 	

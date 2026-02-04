@@ -889,7 +889,7 @@
 	gap: 8px 12px;
 }
 
-.as-calendar-modal-detail-grid > div {
+.as-calendar-modal-detail-grid>div {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -906,10 +906,84 @@
 	.as-calendar-modal-detail-grid {
 		grid-template-columns: 1fr;
 	}
-	.as-calendar-modal-detail-grid > div {
+
+	.as-calendar-modal-detail-grid>div {
 		justify-content: flex-start;
 	}
-	.as-calendar-modal-detail-grid > div span:last-child {
+
+	.as-calendar-modal-detail-grid>div span:last-child {
 		margin-left: 10px;
 	}
+}
+
+
+.clientList-added-sort-wrap {
+	display: inline-flex;
+	flex-direction: column;
+	line-height: 1;
+	gap: 2px;
+	transform: translateY(-1px);
+}
+
+.clientList-added-sort-btn {
+	color: #9aa4b2;
+	font-size: 12px;
+	text-decoration: none;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.clientList-added-sort-text {
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 12px;
+}
+
+.clientList-added-sort-btn:hover {
+	color: #495057;
+}
+
+.clientList-added-active {
+	color: #0d6efd !important;
+}
+
+.clientList-added-sort-btn:hover {
+	color: #495057;
+}
+
+.clientList-added-active {
+	color: #0d6efd !important;
+}
+
+.task-list-added-sort-header {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+.task-list-added-sort-icons {
+	display: inline-flex;
+	flex-direction: column;
+	line-height: 10px;
+	margin-left: 4px;
+}
+
+.task-list-added-sort-link {
+	text-decoration: none;
+	font-size: 10px;
+	color: #6c757d;
+	padding: 0;
+	height: 10px;
+}
+
+.task-list-added-sort-link:hover {
+	color: #0d6efd;
+}
+
+.task-list-added-active {
+	color: #0d6efd !important;
+	font-weight: 700;
 }

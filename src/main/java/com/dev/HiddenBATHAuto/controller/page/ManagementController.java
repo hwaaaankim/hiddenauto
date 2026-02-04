@@ -3,6 +3,8 @@ package com.dev.HiddenBATHAuto.controller.page;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,6 +24,7 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -29,6 +32,7 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
@@ -58,6 +62,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
+import com.dev.HiddenBATHAuto.dto.client.CompanyListRowDto;
 import com.dev.HiddenBATHAuto.dto.employee.EmployeeUpdateResult;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
@@ -98,6 +103,7 @@ import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
@@ -128,57 +134,112 @@ public class ManagementController {
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
 	@GetMapping("/nonStandardTaskList")
-	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
-			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
-			@RequestParam(required = false) String startDate, // ✅ String (빈값 안전)
-			@RequestParam(required = false) String endDate, // ✅ String (빈값 안전)
-			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
-			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
-			@RequestParam(required = false, defaultValue = "all") String standard,
-			@PageableDefault(size = 10) Pageable pageable, Model model) {
-		// 1) dateCriteria 정규화
-		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
+    public String nonStandardTaskList(
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(required = false, defaultValue = "all") String dateCriteria,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false, defaultValue = "all") String productCategoryId,
+            @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+            @RequestParam(required = false, defaultValue = "all") String standard,
 
-		// 2) 날짜 범위 (dateCriteria=all 이면 날짜필터 미적용)
-		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
+            // ✅ 정렬 파라미터 (기본값 정리)
+            @RequestParam(required = false, defaultValue = "orderDate") String sortField,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir,
 
-		// 3) standard 파싱 (all/true/false)
-		Boolean standardBool = parseStandardOrNull(standard);
+            @PageableDefault(size = 10) Pageable pageable,
+            Model model
+    ) {
+        // 1) dateCriteria 정규화 (변경없음)
+        String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
-		// 4) category/status 파싱 (all/오류 안전)
-		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
-		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+        // 2) 날짜 범위 (변경없음)
+        DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
-		// 5) keyword 정리
-		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+        // 3) standard 파싱 (변경없음)
+        Boolean standardBool = parseStandardOrNull(standard);
 
-		Page<Order> orders = orderRepository.findFilteredOrders(finalKeyword, finalDateCriteria, range.getStart(),
-				range.getEnd(), categoryId, statusEnum, standardBool, pageable);
+        // 4) category/status 파싱 (변경없음)
+        Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+        OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
 
-		// ✅ 페이지네이션 계산 (현재 HTML이 1-based로 렌더링하므로 이에 맞춤)
-		int currentPage1 = orders.getPageable().getPageNumber() + 1; // 1-based
-		int startPage = Math.max(1, currentPage1 - 4);
-		int endPage = Math.min(orders.getTotalPages(), currentPage1 + 4);
+        // 5) keyword 정리 (변경없음)
+        String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-		model.addAttribute("orders", orders);
-		model.addAttribute("startPage", startPage);
-		model.addAttribute("endPage", endPage);
+        // ✅ 6) 정렬 매핑
+        String sortProperty = mapSortFieldToProperty(sortField);
 
-		// 필터 데이터
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
-		model.addAttribute("orderStatuses", OrderStatus.values());
+        // ✅ 6-1) sortDir 안정화 (공백/줄바꿈 방지)
+        String safeSortDir = (sortDir == null) ? "desc" : sortDir.trim();
+        Sort.Direction direction = "asc".equalsIgnoreCase(safeSortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
-		// 필터 유지 (HTML 그대로 유지 가능)
-		model.addAttribute("keyword", (keyword == null) ? "" : keyword);
-		model.addAttribute("dateCriteria", finalDateCriteria);
-		model.addAttribute("startDate", range.getStartDateStr()); // ✅ String 유지
-		model.addAttribute("endDate", range.getEndDateStr()); // ✅ String 유지
-		model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
-		model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
-		model.addAttribute("standard", (standard == null) ? "all" : standard);
+        // ✅ 7) Pageable에 정렬 적용
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(direction, sortProperty)
+        );
 
-		return "administration/management/order/nonStandard/taskList";
-	}
+        // ✅ 8) Repository: JPQL에 ORDER BY가 없어야 pageable sort가 먹습니다.
+        Page<Order> orders = orderRepository.findFilteredOrders(
+                finalKeyword,
+                finalDateCriteria,
+                range.getStart(),
+                range.getEnd(),
+                categoryId,
+                statusEnum,
+                standardBool,
+                sortedPageable
+        );
+
+        // ✅ 페이지네이션 계산 (변경없음)
+        int currentPage1 = orders.getPageable().getPageNumber() + 1;
+        int startPageNum = Math.max(1, currentPage1 - 4);
+        int endPageNum = Math.min(orders.getTotalPages(), currentPage1 + 4);
+
+        model.addAttribute("orders", orders);
+        model.addAttribute("startPage", startPageNum);
+        model.addAttribute("endPage", endPageNum);
+
+        // (변경없음) 필터 데이터
+        model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+        model.addAttribute("orderStatuses", OrderStatus.values());
+
+        // (변경없음) 필터 유지
+        model.addAttribute("keyword", (keyword == null) ? "" : keyword);
+        model.addAttribute("dateCriteria", finalDateCriteria);
+
+        model.addAttribute("startDate", range.getStartDateStr());
+        model.addAttribute("endDate", range.getEndDateStr());
+        model.addAttribute("startDateStr", range.getStartDateStr());
+        model.addAttribute("endDateStr", range.getEndDateStr());
+
+        model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
+        model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
+        model.addAttribute("standard", (standard == null) ? "all" : standard);
+
+        // ✅ 정렬 유지 (safe 값으로 내려줌)
+        model.addAttribute("sortField", sortField);
+        model.addAttribute("sortDir", "asc".equalsIgnoreCase(safeSortDir) ? "asc" : "desc");
+
+        // ✅ 페이지 사이즈 유지
+        model.addAttribute("pageSize", orders.getSize());
+
+        return "administration/management/order/nonStandard/taskList";
+    }
+
+    // ✅ UI에서 선택한 필드명을 실제 JPA 정렬 property로 변환
+    private String mapSortFieldToProperty(String sortField) {
+        Map<String, String> mapping = Map.of(
+                "agencyName", "task.requestedBy.company.companyName",
+                "requesterName", "task.requestedBy.name",
+                "standard", "standard",
+                "orderDate", "createdAt",
+                "preferredDeliveryDate", "preferredDeliveryDate",
+                "status", "status"
+        );
+        return mapping.getOrDefault(sortField, "createdAt");
+    }
 
 	@GetMapping("/nonStandardOrder/excel")
 	public void downloadNonStandardOrderExcel(@RequestParam(required = false) String keyword,
@@ -1398,14 +1459,63 @@ public class ManagementController {
 	@GetMapping("/clientList")
 	public String clientList(@RequestParam(required = false) String keyword,
 			@RequestParam(required = false, defaultValue = "company") String searchType,
-			@PageableDefault(size = 10) Pageable pageable, Model model) {
+			@RequestParam(required = false, defaultValue = "0") int page,
+			@RequestParam(required = false, defaultValue = "10") int size,
+			@RequestParam(required = false, defaultValue = "createdAt") String sortField,
+			@RequestParam(required = false, defaultValue = "desc") String sortDir, Model model) {
+		// ✅ size 안전장치 (원하시면 더 엄격히 제한 가능)
+		if (size != 10 && size != 30 && size != 50 && size != 100) {
+			size = 10;
+		}
 
-		Page<Company> companies = companyService.getCompanyList(keyword, searchType, pageable);
+		// ✅ sortDir 안전장치
+		Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+		// ✅ 여기서는 pageable의 sort는 "기본값" 용도로만 두고,
+		// 실제 정렬은 repository custom 구현에서 sortField/sortDir로 처리합니다.
+		Pageable pageable = PageRequest.of(page, size, Sort.by(direction, "createdAt"));
+
+		Page<CompanyListRowDto> companies = companyService.getCompanyList(keyword, searchType, sortField, sortDir,
+				pageable);
+
 		model.addAttribute("companies", companies);
 		model.addAttribute("keyword", keyword);
 		model.addAttribute("searchType", searchType);
+		model.addAttribute("size", size);
+		model.addAttribute("sortField", sortField);
+		model.addAttribute("sortDir", sortDir);
+
 		return "administration/member/client/clientList";
 	}
+
+	@GetMapping("/clientList/excel")
+    public ResponseEntity<ByteArrayResource> downloadClientListExcel(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = "company") String searchType,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortField,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) Integer size, // 화면 상태 유지용(필수는 아님)
+            @RequestParam(name = "companyIds", required = false) List<Long> companyIds
+    ) throws IOException {
+
+        if (companyIds == null || companyIds.isEmpty()) {
+            // 체크박스 미선택 방어
+            return ResponseEntity.badRequest()
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(new ByteArrayResource("선택된 대리점이 없습니다.".getBytes()));
+        }
+
+        byte[] bytes = companyService.exportCompaniesToExcelByIds(companyIds, sortField, sortDir);
+
+        String filename = "company_list.xlsx";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(new ByteArrayResource(bytes));
+    }
 
 	@GetMapping("/clientDetail/{id}")
 	public String clientDetail(@PathVariable Long id, Model model) {
@@ -1433,9 +1543,7 @@ public class ManagementController {
 	@ResponseBody
 	public ResponseEntity<?> resetPassword(@PathVariable Long memberId) {
 		memberAdminService.resetPasswordAndSendSms(memberId);
-		return ResponseEntity.ok(Map.of(
-				"result", "success"
-		));
+		return ResponseEntity.ok(Map.of("result", "success"));
 	}
 
 	// =========================================================
@@ -1445,120 +1553,272 @@ public class ManagementController {
 	@ResponseBody
 	public ResponseEntity<?> disableMember(@PathVariable Long memberId) {
 		memberAdminService.disableMember(memberId);
-		return ResponseEntity.ok(Map.of(
-				"result", "success"
-		));
+		return ResponseEntity.ok(Map.of("result", "success"));
 	}
 
-	 @GetMapping("/employeeList")
-	    public String employeeList(
-	            @RequestParam(value = "name", required = false) String name,
-	            @RequestParam(value = "teamId", required = false) Long teamId,
-	            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-	            Model model
-	    ) {
+	@GetMapping("/employeeList")
+	public String employeeList(@RequestParam(value = "name", required = false) String name,
+			@RequestParam(value = "teamId", required = false) Long teamId,
+			@RequestParam(value = "sortField", required = false, defaultValue = "createdAt") String sortField,
+			@RequestParam(value = "sortDir", required = false, defaultValue = "desc") String sortDir,
+			@PageableDefault(size = 10) Pageable pageable, Model model) {
 
-        // 1) 팀 목록(이름 오름차순)
-        List<Team> teams = teamRepository.findAllOrderedByName();
+		// 1) 팀 목록(이름 오름차순)
+		List<Team> teams = teamRepository.findAllOrderedByName();
 
-        // 2) 직원 검색(우리회사 직원만 + 직원 role만)
-        Page<Member> employeePage = memberService.searchEmployees(name, teamId, pageable);
+		// 2) 정렬 생성(팀 정렬 시 팀카테고리 묶음 처리)
+		Sort sort = buildEmployeeSort(sortField, sortDir);
 
-        // 3) 페이지네이션(5개 윈도우)
-        int totalPages = employeePage.getTotalPages();
-        int current = employeePage.getNumber(); // 0-based
-        int window = 5;
+		// 3) Pageable에 sort 반영
+		Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
-        int pageStart = 0;
-        int pageEnd = 0;
-        if (totalPages > 0) {
-            pageStart = Math.max(0, current - (window / 2));
-            pageEnd = Math.min(totalPages - 1, pageStart + window - 1);
-            pageStart = Math.max(0, pageEnd - window + 1);
-        }
+		// 4) 직원 검색(우리회사 직원만 + 직원 role만) - 기존 기능 유지
+		Page<Member> employeePage = memberService.searchEmployees(name, teamId, sortedPageable);
 
-        // 4) 모델 바인딩
-        model.addAttribute("teams", teams);
-        model.addAttribute("employeePage", employeePage);
-        model.addAttribute("name", name);
-        model.addAttribute("teamId", teamId);
+		// 5) 페이지네이션(5개 윈도우)
+		int totalPages = employeePage.getTotalPages();
+		int current = employeePage.getNumber(); // 0-based
+		int window = 5;
 
-        model.addAttribute("pageStart", pageStart);
-        model.addAttribute("pageEnd", pageEnd);
+		int pageStart = 0;
+		int pageEnd = 0;
+		if (totalPages > 0) {
+			pageStart = Math.max(0, current - (window / 2));
+			pageEnd = Math.min(totalPages - 1, pageStart + window - 1);
+			pageStart = Math.max(0, pageEnd - window + 1);
+		}
 
-        return "administration/member/employee/employeeList";
-    }
+		// 6) 모델 바인딩
+		model.addAttribute("teams", teams);
+		model.addAttribute("employeePage", employeePage);
+		model.addAttribute("name", name);
+		model.addAttribute("teamId", teamId);
 
-    @GetMapping("/employeeDetail/{id}")
-    public String employeeDetail(@PathVariable Long id, Model model) {
-        Member member = memberRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
+		model.addAttribute("sortField", sortField);
+		model.addAttribute("sortDir", sortDir);
 
-        if (!(member.getRole() == MemberRole.INTERNAL_EMPLOYEE
-                || member.getRole() == MemberRole.MANAGEMENT)) {
-            throw new IllegalArgumentException("직원만 조회 가능합니다.");
-        }
+		model.addAttribute("pageStart", pageStart);
+		model.addAttribute("pageEnd", pageEnd);
 
-        model.addAttribute("member", member);
-        return "administration/member/employee/employeeDetail";
-    }
+		return "administration/member/employee/employeeList";
+	}
 
-    @GetMapping("/company/{companyId}/business-license")
-    public ResponseEntity<Resource> viewBusinessLicense(@PathVariable Long companyId) throws IOException {
-        Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new IllegalArgumentException("회사 정보를 찾을 수 없습니다. id=" + companyId));
+	/**
+	 * ✅ EXCEL 다운로드 (체크된 항목만 / 현재 페이지 기준) - ids: "1,2,3" 형태로 전달됨
+	 */
+	@PostMapping("/employeeList/excel-selected")
+	public void employeeListExcelSelected(@RequestParam(value = "ids", required = false) String ids,
+			HttpServletResponse response) throws IOException {
 
-        String pathStr = company.getBusinessLicensePath();
-        if (!StringUtils.hasText(pathStr)) {
-            return ResponseEntity.notFound().build();
-        }
+		// 1) 방어: ids 없음
+		if (ids == null || ids.trim().isEmpty()) {
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
 
-        Path filePath = Paths.get(pathStr);
-        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-            return ResponseEntity.notFound().build();
-        }
+		// 2) ids 파싱 + 순서 유지
+		List<Long> idList = memberService.parseIdListKeepOrder(ids);
+		if (idList.isEmpty()) {
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
 
-        Resource resource = toResource(filePath);
+		// 3) 체크된 직원만 조회 (N+1 방지 EntityGraph) + 요청 순서대로 재정렬
+		List<Member> employees = memberService.findEmployeesForExcelByIdsOrdered(idList);
 
-        // content-type 추정 (image/png, application/pdf 등)
-        String contentType = Files.probeContentType(filePath);
-        MediaType mediaType = (contentType != null) ? MediaType.parseMediaType(contentType) : MediaType.APPLICATION_OCTET_STREAM;
+		try (Workbook wb = new XSSFWorkbook()) {
+			Sheet sheet = wb.createSheet("직원리스트");
 
-        // 브라우저에서 "열람"되도록 inline
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(mediaType);
-        headers.setContentDisposition(ContentDisposition.inline().build());
+			// ===== 스타일 =====
+			// 헤더(12pt, bold)
+			Font headerFont = wb.createFont();
+			headerFont.setFontHeightInPoints((short) 12);
+			headerFont.setBold(true);
 
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(resource);
-    }
+			CellStyle headerStyle = wb.createCellStyle();
+			headerStyle.setFont(headerFont);
+			headerStyle.setAlignment(HorizontalAlignment.CENTER);
+			headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+			headerStyle.setBorderTop(BorderStyle.THIN);
+			headerStyle.setBorderBottom(BorderStyle.THIN);
+			headerStyle.setBorderLeft(BorderStyle.THIN);
+			headerStyle.setBorderRight(BorderStyle.THIN);
 
-    private Resource toResource(Path filePath) {
-        try {
-            return new UrlResource(filePath.toUri());
-        } catch (MalformedURLException e) {
-            throw new IllegalArgumentException("파일 경로가 올바르지 않습니다: " + filePath, e);
-        }
-    }
-    
-    // ===== 직원 정보 업데이트 =====
-    @PostMapping("/employeeUpdate")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<EmployeeUpdateResult>> employeeUpdate(
-            @RequestBody EmployeeUpdateRequest req
-    ) {
-        EmployeeUpdateResult result = memberMgmtService.updateEmployee(req);
-        return ResponseEntity.ok(ApiResponse.ok(result));
-    }
+			// 바디(10pt, wrap)
+			Font bodyFont = wb.createFont();
+			bodyFont.setFontHeightInPoints((short) 10);
 
-    // ✅ 팀 변경 시 담당구역 전체 삭제(확인 후 호출)
-    @DeleteMapping("/member/{memberId}/regions")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<Void>> deleteAllMemberRegions(@PathVariable Long memberId) {
-        memberMgmtService.clearMemberRegions(memberId);
-        return ResponseEntity.ok(ApiResponse.ok(null));
-    }
+			CellStyle bodyStyle = wb.createCellStyle();
+			bodyStyle.setFont(bodyFont);
+			bodyStyle.setAlignment(HorizontalAlignment.LEFT);
+			bodyStyle.setVerticalAlignment(VerticalAlignment.TOP);
+			bodyStyle.setWrapText(true);
+			bodyStyle.setBorderTop(BorderStyle.THIN);
+			bodyStyle.setBorderBottom(BorderStyle.THIN);
+			bodyStyle.setBorderLeft(BorderStyle.THIN);
+			bodyStyle.setBorderRight(BorderStyle.THIN);
+
+			CellStyle bodyCenterStyle = wb.createCellStyle();
+			bodyCenterStyle.cloneStyleFrom(bodyStyle);
+			bodyCenterStyle.setAlignment(HorizontalAlignment.CENTER);
+
+			// ===== 헤더 =====
+			String[] headers = new String[] { "Username", "이름", "전화", "이메일", "롤", "팀", "팀카테고리", "담당구역" };
+
+			Row headerRow = sheet.createRow(0);
+			headerRow.setHeightInPoints(22);
+
+			for (int i = 0; i < headers.length; i++) {
+				Cell cell = headerRow.createCell(i);
+				cell.setCellValue(headers[i]);
+				cell.setCellStyle(headerStyle);
+			}
+
+			// ===== 데이터 =====
+			int rowIdx = 1;
+
+			for (Member m : employees) {
+				Row row = sheet.createRow(rowIdx++);
+				row.setHeightInPoints(18);
+
+				// 담당구역 텍스트 (기존에 쓰시던 로직 그대로 사용)
+				String regionText = memberService.buildRegionText(m);
+
+				setCell(row, 0, safe(m.getUsername()), bodyStyle);
+				setCell(row, 1, safe(m.getName()), bodyStyle);
+				setCell(row, 2, safe(m.getPhone()), bodyStyle);
+				setCell(row, 3, safe(m.getEmail()), bodyStyle);
+				setCell(row, 4, (m.getRole() != null ? m.getRole().name() : ""), bodyCenterStyle);
+
+				setCell(row, 5, (m.getTeam() != null ? safe(m.getTeam().getName()) : ""), bodyStyle);
+				setCell(row, 6, (m.getTeamCategory() != null ? safe(m.getTeamCategory().getName()) : ""), bodyStyle);
+				setCell(row, 7, safe(regionText), bodyStyle);
+			}
+
+			// ===== 컬럼 너비 =====
+			sheet.setColumnWidth(0, 18 * 256); // Username
+			sheet.setColumnWidth(1, 14 * 256); // 이름
+			sheet.setColumnWidth(2, 16 * 256); // 전화
+			sheet.setColumnWidth(3, 24 * 256); // 이메일
+			sheet.setColumnWidth(4, 14 * 256); // 롤
+			sheet.setColumnWidth(5, 14 * 256); // 팀
+			sheet.setColumnWidth(6, 18 * 256); // 팀카테고리
+			sheet.setColumnWidth(7, 40 * 256); // 담당구역(줄바꿈)
+
+			// ===== 응답 헤더 =====
+			String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"));
+			String fileName = "직원리스트_" + now + ".xlsx";
+			String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
+
+			response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+			response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
+
+			try (ServletOutputStream os = response.getOutputStream()) {
+				wb.write(os);
+				os.flush();
+			}
+		}
+	}
+
+	private void setCell(Row row, int col, String value, CellStyle style) {
+		Cell cell = row.createCell(col);
+		cell.setCellValue(value == null ? "" : value);
+		cell.setCellStyle(style);
+	}
+
+	// ===== 정렬 빌더 =====
+	private Sort buildEmployeeSort(String sortField, String sortDir) {
+		Sort.Direction dir = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+		// 허용 필드만
+		if (!"name".equals(sortField) && !"team".equals(sortField) && !"createdAt".equals(sortField)) {
+			sortField = "createdAt";
+		}
+
+		if ("name".equals(sortField)) {
+			// 이름 정렬: 이름 -> id
+			return Sort.by(dir, "name").and(Sort.by(Sort.Direction.ASC, "id"));
+		}
+
+		if ("team".equals(sortField)) {
+			// ✅ 팀 정렬: 팀 -> 팀카테고리(묶음) -> 이름 -> id
+			// (요청하신 “팀카테고리 같은 것끼리 모여서”는 이 정렬로 보장됩니다.)
+			return Sort.by(dir, "team.name").and(Sort.by(Sort.Direction.ASC, "teamCategory.name"))
+					.and(Sort.by(Sort.Direction.ASC, "name")).and(Sort.by(Sort.Direction.ASC, "id"));
+		}
+
+		// createdAt 정렬: 등록일 -> id
+		return Sort.by(dir, "createdAt").and(Sort.by(Sort.Direction.ASC, "id"));
+	}
+
+	@GetMapping("/employeeDetail/{id}")
+	public String employeeDetail(@PathVariable Long id, Model model) {
+		Member member = memberRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
+
+		if (!(member.getRole() == MemberRole.INTERNAL_EMPLOYEE || member.getRole() == MemberRole.MANAGEMENT)) {
+			throw new IllegalArgumentException("직원만 조회 가능합니다.");
+		}
+
+		model.addAttribute("member", member);
+		return "administration/member/employee/employeeDetail";
+	}
+
+	@GetMapping("/company/{companyId}/business-license")
+	public ResponseEntity<Resource> viewBusinessLicense(@PathVariable Long companyId) throws IOException {
+		Company company = companyRepository.findById(companyId)
+				.orElseThrow(() -> new IllegalArgumentException("회사 정보를 찾을 수 없습니다. id=" + companyId));
+
+		String pathStr = company.getBusinessLicensePath();
+		if (!StringUtils.hasText(pathStr)) {
+			return ResponseEntity.notFound().build();
+		}
+
+		Path filePath = Paths.get(pathStr);
+		if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+			return ResponseEntity.notFound().build();
+		}
+
+		Resource resource = toResource(filePath);
+
+		// content-type 추정 (image/png, application/pdf 등)
+		String contentType = Files.probeContentType(filePath);
+		MediaType mediaType = (contentType != null) ? MediaType.parseMediaType(contentType)
+				: MediaType.APPLICATION_OCTET_STREAM;
+
+		// 브라우저에서 "열람"되도록 inline
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(mediaType);
+		headers.setContentDisposition(ContentDisposition.inline().build());
+
+		return ResponseEntity.ok().headers(headers).body(resource);
+	}
+
+	private Resource toResource(Path filePath) {
+		try {
+			return new UrlResource(filePath.toUri());
+		} catch (MalformedURLException e) {
+			throw new IllegalArgumentException("파일 경로가 올바르지 않습니다: " + filePath, e);
+		}
+	}
+
+	// ===== 직원 정보 업데이트 =====
+	@PostMapping("/employeeUpdate")
+	@ResponseBody
+	public ResponseEntity<ApiResponse<EmployeeUpdateResult>> employeeUpdate(@RequestBody EmployeeUpdateRequest req) {
+		EmployeeUpdateResult result = memberMgmtService.updateEmployee(req);
+		return ResponseEntity.ok(ApiResponse.ok(result));
+	}
+
+	// ✅ 팀 변경 시 담당구역 전체 삭제(확인 후 호출)
+	@DeleteMapping("/member/{memberId}/regions")
+	@ResponseBody
+	public ResponseEntity<ApiResponse<Void>> deleteAllMemberRegions(@PathVariable Long memberId) {
+		memberMgmtService.clearMemberRegions(memberId);
+		return ResponseEntity.ok(ApiResponse.ok(null));
+	}
 
 	@GetMapping("/employeeInsertForm")
 	public String employeeInsertForm(Model model) {

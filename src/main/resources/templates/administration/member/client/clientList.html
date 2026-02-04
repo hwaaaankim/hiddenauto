@@ -15,10 +15,11 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
-		<div class="main-content">
 
+		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
+
 					<!-- start page title -->
 					<div class="row">
 						<div class="col-12">
@@ -36,17 +37,23 @@
 						</div>
 					</div>
 					<!-- end page title -->
+
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card" id="tasksList">
+
 								<div class="card-header border-0">
 									<div class="d-flex align-items-center">
 										<h5 class="card-title mb-0 flex-grow-1">CUSTOMER MANAGER</h5>
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
-												<button onclick="javascript:location.href='/normalOrderInsert'"
-													class="btn btn-warning add-btn"><i class="fa-solid fa-plus"></i>
-													Excel</button>
+
+												<!-- ✅ 엑셀 다운로드 버튼: 체크 없으면 비활성 / 체크된 항목 기준 다운로드 -->
+												<button type="button" class="btn btn-warning add-btn"
+													id="clientList-added-excelBtn" disabled>
+													<i class="fa-solid fa-file-excel"></i> EXCEL
+												</button>
+
 											</div>
 										</div>
 									</div>
@@ -54,8 +61,9 @@
 
 								<!-- 검색 폼 -->
 								<div class="card-body border border-dashed border-end-0 border-start-0">
-									<form method="get" action="/management/clientList">
+									<form method="get" action="/management/clientList" id="clientList-added-searchForm">
 										<div class="row g-3">
+
 											<div class="col-md-3">
 												<label class="form-label">검색조건</label>
 												<select class="form-select" name="searchType">
@@ -65,17 +73,35 @@
 														직원이름</option>
 												</select>
 											</div>
+
 											<div class="col-md-3">
 												<label class="form-label">검색어</label>
 												<input type="text" class="form-control bg-light border-light"
 													name="keyword" th:value="${keyword}" placeholder="검색어를 입력 해 주세요.">
 											</div>
+
+											<!-- ✅ 페이지 사이즈 필터 -->
+											<div class="col-md-3">
+												<label class="form-label">페이지 사이즈</label>
+												<select class="form-select" name="size" id="clientList-added-pageSize">
+													<option value="10" th:selected="${size == 10}">10개씩 보기</option>
+													<option value="30" th:selected="${size == 30}">30개씩 보기</option>
+													<option value="50" th:selected="${size == 50}">50개씩 보기</option>
+													<option value="100" th:selected="${size == 100}">100개씩 보기</option>
+												</select>
+											</div>
+
 											<div class="col-md-3">
 												<label class="form-label">조회</label>
 												<button type="submit" class="btn btn-primary w-100">
 													<i class="fa-solid fa-magnifying-glass"></i> 검색
 												</button>
 											</div>
+
+											<!-- ✅ 정렬 파라미터 유지용 hidden -->
+											<input type="hidden" name="sortField" th:value="${sortField}">
+											<input type="hidden" name="sortDir" th:value="${sortDir}">
+
 										</div>
 									</form>
 								</div>
@@ -83,28 +109,165 @@
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
+
 											<thead class="table-light text-muted">
 												<tr>
+
 													<th scope="col" style="width: 40px;">
 														<div class="form-check">
 															<input class="form-check-input" type="checkbox"
-																id="checkAll" value="option">
+																id="clientList-added-checkAll" value="option">
 														</div>
 													</th>
-													<th class="sort">ID</th>
-													<th class="sort">대리점명</th>
-													<th class="sort">대표자명</th>
-													<th class="sort">가입일</th>
-													<th class="sort">담당영업사원</th>
-													<th class="sort">직원수</th>
+
+													<th>ID</th>
+
+													<!-- ✅ 정렬 헤더: 대리점명 -->
+													<th>
+														<div class="d-flex align-items-center gap-2">
+															<span>대리점명</span>
+															<span class="clientList-added-sort-wrap">
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'companyName' and sortDir == 'asc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='companyName',
+                                                                sortDir='asc'
+                                                           )}" title="오름차순">
+																	<span class="clientList-added-sort-text">▲</span>
+																</a>
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'companyName' and sortDir == 'desc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='companyName',
+                                                                sortDir='desc'
+                                                           )}" title="내림차순">
+																	<span class="clientList-added-sort-text">▼</span>
+																</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 정렬 헤더: 대표자명 -->
+													<th>
+														<div class="d-flex align-items-center gap-2">
+															<span>대표자명</span>
+															<span class="clientList-added-sort-wrap">
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'representativeName' and sortDir == 'asc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='representativeName',
+                                                                sortDir='asc'
+                                                           )}" title="오름차순">
+																	<span class="clientList-added-sort-text">▲</span>
+																</a>
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'representativeName' and sortDir == 'desc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='representativeName',
+                                                                sortDir='desc'
+                                                           )}" title="내림차순">
+																	<span class="clientList-added-sort-text">▼</span>
+																</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 정렬 헤더: 가입일 -->
+													<th>
+														<div class="d-flex align-items-center gap-2">
+															<span>가입일</span>
+															<span class="clientList-added-sort-wrap">
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'createdAt' and sortDir == 'asc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='createdAt',
+                                                                sortDir='asc'
+                                                           )}" title="빠른순">
+																	<span class="clientList-added-sort-text">▲</span>
+																</a>
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'createdAt' and sortDir == 'desc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='createdAt',
+                                                                sortDir='desc'
+                                                           )}" title="느린순">
+																	<span class="clientList-added-sort-text">▼</span>
+																</a>
+															</span>
+														</div>
+													</th>
+
+													<th>담당영업사원</th>
+
+													<!-- ✅ 정렬 헤더: 직원수 -->
+													<th>
+														<div class="d-flex align-items-center gap-2">
+															<span>직원수</span>
+															<span class="clientList-added-sort-wrap">
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'memberCount' and sortDir == 'desc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='memberCount',
+                                                                sortDir='desc'
+                                                           )}" title="많은순">
+																	<span class="clientList-added-sort-text">▲</span>
+																</a>
+																<a class="clientList-added-sort-btn"
+																	th:classappend="${sortField == 'memberCount' and sortDir == 'asc'} ? 'clientList-added-active' : ''"
+																	th:href="@{/management/clientList(
+                                                                page=0,
+                                                                size=${size},
+                                                                searchType=${searchType},
+                                                                keyword=${keyword},
+                                                                sortField='memberCount',
+                                                                sortDir='asc'
+                                                           )}" title="적은순">
+																	<span class="clientList-added-sort-text">▼</span>
+																</a>
+															</span>
+														</div>
+													</th>
+
 												</tr>
 											</thead>
+
 											<tbody class="list form-check-all">
 												<tr th:each="company : ${companies.content}">
+
 													<th scope="row">
 														<div class="form-check">
-															<input class="form-check-input" type="checkbox"
-																name="chk_child" />
+															<!-- ✅ value에 company.id를 넣어 체크된 것만 수집 -->
+															<input class="form-check-input clientList-added-row-check"
+																type="checkbox" name="chk_child"
+																th:value="${company.id}" />
 														</div>
 													</th>
 
@@ -115,28 +278,34 @@
 													</td>
 
 													<td>
-														<span class="fw-medium" th:text="${company.companyName}">대리점명</span>
+														<span class="fw-medium"
+															th:text="${company.companyName}">대리점명</span>
 													</td>
 
 													<td>
-														<span th:text="${#lists.isEmpty(company.members.?[role.name() == 'CUSTOMER_REPRESENTATIVE']) ? '미지정' : company.members.?[role.name() == 'CUSTOMER_REPRESENTATIVE'][0].name}">
+														<span
+															th:text="${(company.representativeName == null or #strings.isEmpty(company.representativeName)) ? '미지정' : company.representativeName}">
 															대표자명
 														</span>
 													</td>
 
 													<td>
-														<span th:text="${#temporals.format(company.createdAt, 'yyyy-MM-dd')}">2024-01-01</span>
+														<span
+															th:text="${#temporals.format(company.createdAt, 'yyyy-MM-dd')}">2024-01-01</span>
 													</td>
 
 													<td>
-														<span th:text="${company.salesManager?.name ?: '미지정'}">담당영업</span>
+														<span
+															th:text="${company.salesManagerName != null ? company.salesManagerName : '미지정'}">담당영업</span>
 													</td>
 
 													<td>
-														<span th:text="${company.members?.size()} + '명'">0명</span>
+														<span th:text="${company.memberCount} + '명'">0명</span>
 													</td>
+
 												</tr>
 											</tbody>
+
 										</table>
 
 										<div class="noresult" style="display: none">
@@ -153,44 +322,78 @@
 									<!-- ✅ 페이지네이션 (페이지번호 5개만 노출) -->
 									<div class="d-flex justify-content-end mt-2" th:if="${companies.totalPages > 0}">
 										<div class="pagination-wrap hstack gap-2">
-											<nav aria-label="navigation" style="text-align: center;"
-												th:with="
-													pageWindow=5,
-													totalPages=${companies.totalPages},
-													current=${companies.number},
-													lastIndex=${totalPages - 1},
-													start=${(current / pageWindow) * pageWindow},
-													tmpEnd=${start + pageWindow - 1},
-													end=${tmpEnd < lastIndex ? tmpEnd : lastIndex}
-												">
+											<nav aria-label="navigation" style="text-align: center;" th:with="
+                                                pageWindow=5,
+                                                totalPages=${companies.totalPages},
+                                                current=${companies.number},
+                                                lastIndex=${totalPages - 1},
+                                                start=${(current / pageWindow) * pageWindow},
+                                                tmpEnd=${start + pageWindow - 1},
+                                                end=${tmpEnd < lastIndex ? tmpEnd : lastIndex}
+                                             ">
 												<ul class="pagination justify-content-center">
-													<li class="page-item" th:classappend="${companies.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/clientList(page=0, searchType=${searchType}, keyword=${keyword})}">First</a>
+
+													<li class="page-item"
+														th:classappend="${companies.first} ? 'disabled'">
+														<a class="page-link" th:href="@{/management/clientList(
+                                                            page=0,
+                                                            size=${size},
+                                                            searchType=${searchType},
+                                                            keyword=${keyword},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">First</a>
 													</li>
 
-													<li class="page-item" th:classappend="${companies.first} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/clientList(page=${companies.number - 1}, searchType=${searchType}, keyword=${keyword})}">Previous</a>
+													<li class="page-item"
+														th:classappend="${companies.first} ? 'disabled'">
+														<a class="page-link" th:href="@{/management/clientList(
+                                                            page=${companies.number - 1},
+                                                            size=${size},
+                                                            searchType=${searchType},
+                                                            keyword=${keyword},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">Previous</a>
 													</li>
 
 													<li class="page-item"
 														th:each="pageNum : ${#numbers.sequence(start, end)}"
 														th:classappend="${companies.number == pageNum} ? 'active'">
-														<a class="page-link"
-															th:href="@{/management/clientList(page=${pageNum}, searchType=${searchType}, keyword=${keyword})}"
-															th:text="${pageNum + 1}">1</a>
+														<a class="page-link" th:href="@{/management/clientList(
+                                                            page=${pageNum},
+                                                            size=${size},
+                                                            searchType=${searchType},
+                                                            keyword=${keyword},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}" th:text="${pageNum + 1}">1</a>
 													</li>
 
-													<li class="page-item" th:classappend="${companies.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/clientList(page=${companies.number + 1}, searchType=${searchType}, keyword=${keyword})}">Next</a>
+													<li class="page-item"
+														th:classappend="${companies.last} ? 'disabled'">
+														<a class="page-link" th:href="@{/management/clientList(
+                                                            page=${companies.number + 1},
+                                                            size=${size},
+                                                            searchType=${searchType},
+                                                            keyword=${keyword},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">Next</a>
 													</li>
 
-													<li class="page-item" th:classappend="${companies.last} ? 'disabled'">
-														<a class="page-link"
-															th:href="@{/management/clientList(page=${companies.totalPages - 1}, searchType=${searchType}, keyword=${keyword})}">Last</a>
+													<li class="page-item"
+														th:classappend="${companies.last} ? 'disabled'">
+														<a class="page-link" th:href="@{/management/clientList(
+                                                            page=${companies.totalPages - 1},
+                                                            size=${size},
+                                                            searchType=${searchType},
+                                                            keyword=${keyword},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">Last</a>
 													</li>
+
 												</ul>
 											</nav>
 										</div>
@@ -204,12 +407,124 @@
 
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+	<script>
+		(function () {
+
+			// ========= 공통 엘리먼트 =========
+			var pageSize = document.getElementById('clientList-added-pageSize');
+			var form = document.getElementById('clientList-added-searchForm');
+			var checkAll = document.getElementById('clientList-added-checkAll');
+			var excelBtn = document.getElementById('clientList-added-excelBtn');
+
+			function getRowChecks() {
+				return document.querySelectorAll('.clientList-added-row-check');
+			}
+
+			function getCheckedCompanyIds() {
+				var checked = document.querySelectorAll('.clientList-added-row-check:checked');
+				var ids = [];
+				checked.forEach(function (cb) {
+					if (cb.value) ids.push(cb.value);
+				});
+				return ids;
+			}
+
+			function syncExcelButtonState() {
+				if (!excelBtn) return;
+				var ids = getCheckedCompanyIds();
+				excelBtn.disabled = (ids.length === 0);
+			}
+
+			// ========= 페이지 사이즈 변경 시 즉시 submit (정렬/검색 조건 유지) =========
+			if (pageSize && form) {
+				pageSize.addEventListener('change', function () {
+					form.submit();
+				});
+			}
+
+			// ========= 전체 선택 =========
+			if (checkAll) {
+				checkAll.addEventListener('change', function () {
+					var checked = checkAll.checked;
+					var rows = getRowChecks();
+					rows.forEach(function (cb) {
+						cb.checked = checked;
+					});
+					checkAll.indeterminate = false;
+					syncExcelButtonState();
+				});
+			}
+
+			// ========= 개별 체크 변경 시 헤더 체크 상태 동기화 =========
+			var rowChecks = getRowChecks();
+			if (rowChecks && rowChecks.length > 0 && checkAll) {
+				rowChecks.forEach(function (cb) {
+					cb.addEventListener('change', function () {
+						var all = true;
+						var any = false;
+						rowChecks.forEach(function (x) {
+							if (!x.checked) all = false;
+							if (x.checked) any = true;
+						});
+						checkAll.indeterminate = (!all && any);
+						checkAll.checked = all;
+						syncExcelButtonState();
+					});
+				});
+			}
+
+			// ========= 엑셀 다운로드(체크된 항목 기준) =========
+			if (excelBtn) {
+				excelBtn.addEventListener('click', function () {
+					var ids = getCheckedCompanyIds();
+					if (ids.length === 0) {
+						// 안전장치: 버튼이 disabled면 원래 안 들어오지만 혹시 몰라 방어
+						return;
+					}
+
+					// 현재 검색/정렬/페이지사이즈 상태 유지(요청 파라미터에 포함)
+					// (페이지네이션은 화면 유지용이라 굳이 excel에 page를 보낼 필요 없지만, 원하시면 page도 추가 가능합니다)
+					var params = new URLSearchParams();
+
+					// form에서 현재 값 읽기
+					if (form) {
+						var searchTypeEl = form.querySelector('[name="searchType"]');
+						var keywordEl = form.querySelector('[name="keyword"]');
+						var sizeEl = form.querySelector('[name="size"]');
+						var sortFieldEl = form.querySelector('[name="sortField"]');
+						var sortDirEl = form.querySelector('[name="sortDir"]');
+
+						if (keywordEl && keywordEl.value) params.append('keyword', keywordEl.value);
+						if (searchTypeEl && searchTypeEl.value) params.append('searchType', searchTypeEl.value);
+						if (sizeEl && sizeEl.value) params.append('size', sizeEl.value);
+						if (sortFieldEl && sortFieldEl.value) params.append('sortField', sortFieldEl.value);
+						if (sortDirEl && sortDirEl.value) params.append('sortDir', sortDirEl.value);
+					}
+
+					// 체크된 companyIds 추가 (repeat param)
+					ids.forEach(function (id) {
+						params.append('companyIds', id);
+					});
+
+					var url = '/management/clientList/excel?' + params.toString();
+					window.location.href = url;
+				});
+			}
+
+			// 최초 진입 시 버튼 상태 동기화
+			syncExcelButtonState();
+
+		})();
+	</script>
+
 </body>
 
 </html>

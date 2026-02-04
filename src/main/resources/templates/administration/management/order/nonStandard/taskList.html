@@ -2,24 +2,22 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="~{fragments/administration/common :: autoAdminHead}">
-</head>
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body class="twocolumn-panel">
 
 	<!-- Begin page -->
 	<div id="layout-wrapper">
-
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
-
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
-		<div class="main-content">
 
+		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
-					<!-- start page title -->
+
+					<!-- start page title (변경없음) -->
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -34,33 +32,43 @@
 							</div>
 						</div>
 					</div>
-					<!-- end page title -->
+					<!-- end page title (변경없음) -->
 
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card" id="tasksList">
+
 								<div class="card-header border-0">
 									<div class="d-flex align-items-center">
 										<h5 class="card-title mb-0 flex-grow-1">ORDER MANAGER</h5>
+
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
+												<!-- ✅ 엑셀 다운로드: 정렬/페이지사이즈 포함 (변경없음) -->
 												<a th:href="@{/management/nonStandardOrder/excel(
-												    keyword=${keyword},
-												    dateCriteria=${dateCriteria},
-												    startDate=${startDateStr},
-												    endDate=${endDateStr},
-												    productCategoryId=${productCategoryId},
-												    orderStatus=${orderStatus},
-												    standard=${standard}
-												)}" class="btn btn-success"><i class="fa-solid fa-download"></i> 엑셀 다운로드</a>
+                                                    keyword=${keyword},
+                                                    dateCriteria=${dateCriteria},
+                                                    startDate=${startDateStr},
+                                                    endDate=${endDateStr},
+                                                    productCategoryId=${productCategoryId},
+                                                    orderStatus=${orderStatus},
+                                                    standard=${standard},
+                                                    sortField=${sortField},
+                                                    sortDir=${sortDir},
+                                                    size=${pageSize}
+                                                )}" class="btn btn-success">
+													<i class="fa-solid fa-download"></i> 엑셀 다운로드
+												</a>
 											</div>
 										</div>
 									</div>
 								</div>
+
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" th:action="@{/management/nonStandardTaskList}">
 										<div class="row g-3">
-											<!-- 🔍 키워드 -->
+
+											<!-- 🔍 키워드 (변경없음) -->
 											<div class="col-xxl-3 col-sm-12">
 												<label class="form-label">키워드 검색</label>
 												<div class="search-box">
@@ -71,7 +79,7 @@
 												</div>
 											</div>
 
-											<!-- 📅 기준일 선택 -->
+											<!-- 📅 기준일 선택 (변경없음) -->
 											<div class="col-md-3">
 												<label class="form-label">기준일선택</label>
 												<select class="form-select" name="dateCriteria" id="dateCriteria">
@@ -84,25 +92,25 @@
 												</select>
 											</div>
 
-											<!-- 📅 시작일 -->
+											<!-- 📅 시작일 (변경없음) -->
 											<div class="col-xxl-3 col-sm-6">
 												<label class="form-label">시작일</label>
 												<input type="date" id="startDate" name="startDate"
-												    class="form-control bg-light border-light"
-												    th:attr="disabled=${dateCriteria == 'all'}"
-												    th:value="${startDateStr}">
+													class="form-control bg-light border-light"
+													th:attr="disabled=${dateCriteria == 'all'}"
+													th:value="${startDateStr}">
 											</div>
 
-											<!-- 📅 종료일 -->
+											<!-- 📅 종료일 (변경없음) -->
 											<div class="col-xxl-3 col-sm-6">
 												<label class="form-label">종료일</label>
 												<input type="date" id="endDate" name="endDate"
-											    class="form-control bg-light border-light"
-											    th:attr="disabled=${dateCriteria == 'all'}"
-											    th:value="${endDateStr}">
+													class="form-control bg-light border-light"
+													th:attr="disabled=${dateCriteria == 'all'}"
+													th:value="${endDateStr}">
 											</div>
 
-											<!-- 🛠 제품 -->
+											<!-- 🛠 제품 (변경없음) -->
 											<div class="col-xxl-3 col-sm-4">
 												<label class="form-label">제품</label>
 												<div class="input-light">
@@ -112,13 +120,14 @@
 														<option th:each="category : ${productionTeamCategories}"
 															th:value="${category.id}" th:text="${category.name}"
 															th:selected="${productCategoryId == category.id.toString()}">
-															제품</option>
+															제품
+														</option>
 													</select>
 												</div>
 											</div>
 
-											<!-- 📦 발주상태 -->
-											<div class="col-xxl-3 col-sm-4">
+											<!-- 📦 발주상태 (변경없음) -->
+											<div class="col-xxl-3 col-sm-3">
 												<label class="form-label">발주상태</label>
 												<div class="input-light">
 													<select class="form-control" name="orderStatus">
@@ -131,8 +140,8 @@
 												</div>
 											</div>
 
-											<!-- 🚚 배송방식 -->
-											<div class="col-xxl-3 col-sm-4">
+											<!-- 🚚 규격 여부 (필터용) (변경없음) -->
+											<div class="col-xxl-2 col-sm-3">
 												<label class="form-label">규격 여부</label>
 												<div class="input-light">
 													<select class="form-control" name="standard">
@@ -146,76 +155,316 @@
 												</div>
 											</div>
 
-											<!-- 🔍 조회 버튼 -->
-											<div class="col-xxl-3 col-sm-4">
+											<!-- ✅ 페이지 사이즈 (변경없음) -->
+											<div class="col-xxl-2 col-sm-3">
+												<label class="form-label">페이지 사이즈</label>
+												<div class="input-light">
+													<select class="form-control" id="task-list-added-pageSize"
+														name="size">
+														<option value="10" th:selected="${pageSize == 10}">10개씩 보기
+														</option>
+														<option value="30" th:selected="${pageSize == 30}">30개씩 보기
+														</option>
+														<option value="50" th:selected="${pageSize == 50}">50개씩 보기
+														</option>
+														<option value="100" th:selected="${pageSize == 100}">100개씩 보기
+														</option>
+													</select>
+												</div>
+											</div>
+
+											<!-- ✅ 정렬 유지용 hidden (변경없음) -->
+											<input type="hidden" name="sortField" th:value="${sortField}">
+											<input type="hidden" name="sortDir" th:value="${sortDir}">
+
+											<!-- 🔍 조회 버튼 (변경없음) -->
+											<div class="col-xxl-2 col-sm-3">
 												<label class="form-label">조회</label>
 												<button type="submit" class="btn btn-primary w-100">
 													<i class="fa-solid fa-magnifying-glass"></i> 검색
 												</button>
 											</div>
+
 										</div>
 									</form>
-
 								</div>
 								<!--end card-body-->
+
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
 											<thead class="table-light text-muted">
 												<tr>
-													<th scope="col" style="width: 40px;">
-														<div class="form-check">
-															<input class="form-check-input" type="checkbox"
-																id="checkAll" value="option">
-														</div>
-													</th>
-													<th class="sort">업무ID</th>
-													<th class="sort">오더ID</th>
-													<th class="sort">대리점명</th>
-													<th class="sort">신청자</th>
-													<th class="sort">규격/비규격</th>
-													<th class="sort">발주일</th>
-													<th class="sort">배송희망일</th>
-													<th class="sort">상태</th>
-												</tr>
-											</thead>
-											<tbody class="list form-check-all">
-												<tr th:each="order : ${orders.content}">
-													<th scope="row">
-														<div class="form-check">
-															<input class="form-check-input" type="checkbox"
-																name="chk_child" th:value="${order.id}" />
+													<th>업무ID</th>
+													<th>오더ID</th>
+
+													<!-- ✅ 정렬: 대리점명 -->
+													<th>
+														<div class="task-list-added-sort-header">
+															<span>대리점명</span>
+															<span class="task-list-added-sort-icons">
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='agencyName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='agencyName',
+                                                                sortDir='asc'
+                                                           )}">▲</a>
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='agencyName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='agencyName',
+                                                                sortDir='desc'
+                                                           )}">▼</a>
+															</span>
 														</div>
 													</th>
 
-													<!-- Task ID -->
+													<!-- ✅ 정렬: 신청자 (※ 기존 asc 링크 깨짐 수정) -->
+													<th>
+														<div class="task-list-added-sort-header">
+															<span>신청자</span>
+															<span class="task-list-added-sort-icons">
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='requesterName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='requesterName',
+                                                                sortDir='asc'
+                                                           )}">▲</a>
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='requesterName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='requesterName',
+                                                                sortDir='desc'
+                                                           )}">▼</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 정렬: 규격/비규격 (규격 먼저 = true 먼저를 원하면 desc/asc는 DB에 따라 달라서 “true 먼저”를 보장하려면 주의사항 아래 참고) -->
+													<th>
+														<div class="task-list-added-sort-header">
+															<span>규격/비규격</span>
+															<span class="task-list-added-sort-icons">
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='standard' and sortDir=='desc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='standard',
+                                                                sortDir='desc'
+                                                           )}">▲</a>
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='standard' and sortDir=='asc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='standard',
+                                                                sortDir='asc'
+                                                           )}">▼</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 정렬: 발주일 -->
+													<th>
+														<div class="task-list-added-sort-header">
+															<span>발주일</span>
+															<span class="task-list-added-sort-icons">
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='orderDate' and sortDir=='asc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='orderDate',
+                                                                sortDir='asc'
+                                                           )}">▲</a>
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='orderDate' and sortDir=='desc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='orderDate',
+                                                                sortDir='desc'
+                                                           )}">▼</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 정렬: 배송희망일 -->
+													<th>
+														<div class="task-list-added-sort-header">
+															<span>배송희망일</span>
+															<span class="task-list-added-sort-icons">
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='preferredDeliveryDate' and sortDir=='asc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='preferredDeliveryDate',
+                                                                sortDir='asc'
+                                                           )}">▲</a>
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='preferredDeliveryDate' and sortDir=='desc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='preferredDeliveryDate',
+                                                                sortDir='desc'
+                                                           )}">▼</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 정렬: 상태 (enum string 기준 사전순: ABC/가나다 유사) -->
+													<th>
+														<div class="task-list-added-sort-header">
+															<span>상태</span>
+															<span class="task-list-added-sort-icons">
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='status' and sortDir=='asc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='status',
+                                                                sortDir='asc'
+                                                           )}">▲</a>
+																<a class="task-list-added-sort-link"
+																	th:classappend="${sortField=='status' and sortDir=='desc'} ? ' task-list-added-active' : ''"
+																	th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField='status',
+                                                                sortDir='desc'
+                                                           )}">▼</a>
+															</span>
+														</div>
+													</th>
+												</tr>
+											</thead>
+
+											<tbody class="list form-check-all">
+												<tr th:each="order : ${orders.content}">
+
+													<!-- Task ID (변경없음) -->
 													<td class="id">
 														<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${order.task.id})}"
 															class="fw-medium link-secondary"
 															th:text="'#TASK_' + ${order.task.id}">#TASK_ID</a>
 													</td>
 
-													<!-- Order ID -->
+													<!-- Order ID (변경없음) -->
 													<td class="id">
 														<a th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}"
 															class="fw-medium link-primary"
 															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
 													</td>
 
-													<!-- 대리점명 -->
+													<!-- 대리점명 (변경없음) -->
 													<td class="project_name">
 														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
 															class="fw-medium link-primary"
 															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
 													</td>
 
-													<!-- 신청자 -->
+													<!-- 신청자 (변경없음) -->
 													<td class="client_name">
 														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
 															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
-													<!-- 규격/비규격 구분 -->
+													<!-- 규격/비규격 (변경없음) -->
 													<td class="assignedto">
 														<span th:if="${order.standard}"
 															class="badge bg-success-subtle text-success">규격</span>
@@ -223,19 +472,19 @@
 															class="badge bg-primary-subtle text-primary">비규격</span>
 													</td>
 
-													<!-- 발주일 -->
+													<!-- 발주일 (변경없음) -->
 													<td class="due_date"
 														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 
-													<!-- 배송희망일 (preferredDeliveryDate로 대체됨) -->
+													<!-- 배송희망일 (변경없음) -->
 													<td class="due_date"
 														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 
-													<!-- 상태 -->
+													<!-- 상태 (변경없음) -->
 													<td class="status">
 														<span
 															class="badge bg-secondary-subtle text-secondary text-uppercase"
@@ -243,8 +492,6 @@
 													</td>
 												</tr>
 											</tbody>
-
-
 										</table>
 
 										<div class="noresult" style="display: none">
@@ -257,136 +504,138 @@
 											</div>
 										</div>
 									</div>
+
+									<!-- ✅ 페이지네이션(정렬/사이즈 포함) (변경없음) -->
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
-												    <!-- ✅ 계산용 변수 (0건/마지막 페이지 안전) -->
-												    <th:block
-												        th:with="
-												            totalPages=${orders.totalPages},
-												            lastPage=${(orders.totalPages > 0) ? (orders.totalPages - 1) : 0},
-												            currentPage=${orders.pageable.pageNumber},
-												            prevPage=${(orders.pageable.pageNumber > 0) ? (orders.pageable.pageNumber - 1) : 0},
-												            nextPage=${(orders.pageable.pageNumber + 1 < lastPage + 1) ? (orders.pageable.pageNumber + 1) : lastPage}
-												        ">
-												
-												        <!-- First -->
-												        <li class="page-item"
-												            th:classappend="${totalPages == 0 || currentPage == 0} ? 'disabled'">
-												            <a class="page-link"
-												               th:href="@{/management/nonStandardTaskList(
-												                    page=0,
-												                    size=${orders.size},
-												                    keyword=${keyword},
-												                    dateCriteria=${dateCriteria},
-												                    startDate=${startDate},
-												                    endDate=${endDate},
-												                    productCategoryId=${productCategoryId},
-												                    orderStatus=${orderStatus},
-												                    standard=${standard}
-												                )}">
-												                First
-												            </a>
-												        </li>
-												
-												        <!-- Previous -->
-												        <li class="page-item"
-												            th:classappend="${totalPages == 0 || currentPage == 0} ? 'disabled'">
-												            <a class="page-link"
-												               th:href="@{/management/nonStandardTaskList(
-												                    page=${prevPage},
-												                    size=${orders.size},
-												                    keyword=${keyword},
-												                    dateCriteria=${dateCriteria},
-												                    startDate=${startDate},
-												                    endDate=${endDate},
-												                    productCategoryId=${productCategoryId},
-												                    orderStatus=${orderStatus},
-												                    standard=${standard}
-												                )}">
-												                Previous
-												            </a>
-												        </li>
-												
-												        <!-- Page Numbers -->
-												        <li class="page-item"
-												            th:each="i : ${#numbers.sequence(startPage, endPage)}"
-												            th:classappend="${i == currentPage + 1} ? 'active'">
-												            <a class="page-link"
-												               th:text="${i}"
-												               th:href="@{/management/nonStandardTaskList(
-												                    page=${i - 1},
-												                    size=${orders.size},
-												                    keyword=${keyword},
-												                    dateCriteria=${dateCriteria},
-												                    startDate=${startDate},
-												                    endDate=${endDate},
-												                    productCategoryId=${productCategoryId},
-												                    orderStatus=${orderStatus},
-												                    standard=${standard}
-												                )}">
-												                1
-												            </a>
-												        </li>
-												
-												        <!-- Next -->
-												        <li class="page-item"
-												            th:classappend="${totalPages == 0 || currentPage >= lastPage} ? 'disabled'">
-												            <a class="page-link"
-												               th:href="@{/management/nonStandardTaskList(
-												                    page=${nextPage},
-												                    size=${orders.size},
-												                    keyword=${keyword},
-												                    dateCriteria=${dateCriteria},
-												                    startDate=${startDate},
-												                    endDate=${endDate},
-												                    productCategoryId=${productCategoryId},
-												                    orderStatus=${orderStatus},
-												                    standard=${standard}
-												                )}">
-												                Next
-												            </a>
-												        </li>
-												
-												        <!-- Last -->
-												        <li class="page-item"
-												            th:classappend="${totalPages == 0 || currentPage >= lastPage} ? 'disabled'">
-												            <a class="page-link"
-												               th:href="@{/management/nonStandardTaskList(
-												                    page=${lastPage},
-												                    size=${orders.size},
-												                    keyword=${keyword},
-												                    dateCriteria=${dateCriteria},
-												                    startDate=${startDate},
-												                    endDate=${endDate},
-												                    productCategoryId=${productCategoryId},
-												                    orderStatus=${orderStatus},
-												                    standard=${standard}
-												                )}">
-												                Last
-												            </a>
-												        </li>
-												
-												    </th:block>
-												</ul>
+													<th:block th:with="
+                                                        totalPages=${orders.totalPages},
+                                                        lastPage=${(orders.totalPages > 0) ? (orders.totalPages - 1) : 0},
+                                                        currentPage=${orders.pageable.pageNumber},
+                                                        prevPage=${(orders.pageable.pageNumber > 0) ? (orders.pageable.pageNumber - 1) : 0},
+                                                        nextPage=${(orders.pageable.pageNumber + 1 < lastPage + 1) ? (orders.pageable.pageNumber + 1) : lastPage}
+                                                    ">
 
+														<li class="page-item"
+															th:classappend="${totalPages == 0 || currentPage == 0} ? 'disabled'">
+															<a class="page-link" th:href="@{/management/nonStandardTaskList(
+                                                                page=0,
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField=${sortField},
+                                                                sortDir=${sortDir}
+                                                            )}">
+																First
+															</a>
+														</li>
+
+														<li class="page-item"
+															th:classappend="${totalPages == 0 || currentPage == 0} ? 'disabled'">
+															<a class="page-link" th:href="@{/management/nonStandardTaskList(
+                                                                page=${prevPage},
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField=${sortField},
+                                                                sortDir=${sortDir}
+                                                            )}">
+																Previous
+															</a>
+														</li>
+
+														<li class="page-item"
+															th:each="i : ${#numbers.sequence(startPage, endPage)}"
+															th:classappend="${i == currentPage + 1} ? 'active'">
+															<a class="page-link" th:text="${i}" th:href="@{/management/nonStandardTaskList(
+                                                                page=${i - 1},
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField=${sortField},
+                                                                sortDir=${sortDir}
+                                                            )}">
+																1
+															</a>
+														</li>
+
+														<li class="page-item"
+															th:classappend="${totalPages == 0 || currentPage >= lastPage} ? 'disabled'">
+															<a class="page-link" th:href="@{/management/nonStandardTaskList(
+                                                                page=${nextPage},
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField=${sortField},
+                                                                sortDir=${sortDir}
+                                                            )}">
+																Next
+															</a>
+														</li>
+
+														<li class="page-item"
+															th:classappend="${totalPages == 0 || currentPage >= lastPage} ? 'disabled'">
+															<a class="page-link" th:href="@{/management/nonStandardTaskList(
+                                                                page=${lastPage},
+                                                                size=${pageSize},
+                                                                keyword=${keyword},
+                                                                dateCriteria=${dateCriteria},
+                                                                startDate=${startDateStr},
+                                                                endDate=${endDateStr},
+                                                                productCategoryId=${productCategoryId},
+                                                                orderStatus=${orderStatus},
+                                                                standard=${standard},
+                                                                sortField=${sortField},
+                                                                sortDir=${sortDir}
+                                                            )}">
+																Last
+															</a>
+														</li>
+
+													</th:block>
+												</ul>
 											</nav>
 										</div>
 									</div>
+
 								</div>
 							</div>
 						</div>
 					</div>
+
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
 
-
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+	<!-- ✅ JS 포함(기존 기능 + 페이지사이즈 자동 submit) (변경없음) -->
 	<script>
 		document.addEventListener("DOMContentLoaded", function () {
 			const dateCriteriaSelect = document.getElementById("dateCriteria");
@@ -396,16 +645,21 @@
 			function updateDateInputs() {
 				const selectedValue = dateCriteriaSelect.value;
 				const shouldEnable = selectedValue === "order" || selectedValue === "delivery";
-
 				startDateInput.disabled = !shouldEnable;
 				endDateInput.disabled = !shouldEnable;
 			}
 
-			// 초기 실행
 			updateDateInputs();
-
-			// 셀렉트 변경 시
 			dateCriteriaSelect.addEventListener("change", updateDateInputs);
+
+			const pageSizeSelect = document.getElementById("task-list-added-pageSize");
+			if (pageSizeSelect) {
+				pageSizeSelect.addEventListener("change", function () {
+					const form = pageSizeSelect.closest("form");
+					if (!form) return;
+					form.submit();
+				});
+			}
 		});
 	</script>
 

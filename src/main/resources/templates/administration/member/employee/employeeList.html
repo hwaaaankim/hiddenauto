@@ -38,21 +38,62 @@
                             <div class="card-header border-0">
                                 <div class="d-flex align-items-center">
                                     <h5 class="card-title mb-0 flex-grow-1">AS MANAGER</h5>
+
                                     <div class="flex-shrink-0">
                                         <div class="d-flex flex-wrap gap-2">
-                                            <button onclick="javascript:location.href='/normalOrderInsert'"
-                                                    class="btn btn-warning add-btn">
-                                                <i class="fa-solid fa-plus"></i> Excel
+                                            <!-- ✅ EXCEL 다운로드: 체크된 항목만 (체크 0개면 비활성) -->
+                                            <button type="button"
+                                                    class="btn btn-warning add-btn"
+                                                    id="employeeListExcelBtn"
+                                                    disabled>
+                                                <span class="employeeList-added-btn-icon">＋</span> EXCEL
                                             </button>
+
+                                            <!-- ✅ 엑셀 다운로드 POST 폼 (hidden ids) -->
+                                            <form id="employeeListExcelForm"
+                                                  method="post"
+                                                  action="/management/employeeList/excel-selected"
+                                                  style="display:none;">
+                                                <!-- Spring Security CSRF 사용 시 -->
+                                                <input type="hidden" th:if="${_csrf != null}"
+                                                       th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                                                <!-- 체크된 직원 ID들(콤마로 전송) -->
+                                                <input type="hidden" name="ids" id="employeeListExcelIds" value=""/>
+                                            </form>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- ✅ (추가) 간단 CSS: FA 아이콘 대신 span/유니코드로 정렬 화살표 구현 -->
+                            <style>
+                                .employeeList-added-sort-wrap { display: inline-flex; align-items: center; gap: 6px; }
+                                .employeeList-added-sort-icons { display: inline-flex; flex-direction: column; line-height: 10px; }
+                                .employeeList-added-sort-link { text-decoration: none; color: inherit; }
+                                .employeeList-added-sort-link:hover { text-decoration: underline; }
+                                .employeeList-added-sort-arrow { font-size: 10px; opacity: 0.35; user-select: none; }
+                                .employeeList-added-sort-arrow.active { opacity: 1; font-weight: 700; }
+
+                                .employeeList-added-btn-icon {
+                                    display:inline-flex; align-items:center; justify-content:center;
+                                    width:18px; height:18px; border-radius:4px;
+                                    border:1px solid rgba(0,0,0,0.15);
+                                    background: rgba(255,255,255,0.4);
+                                    margin-right:6px;
+                                    font-size:12px;
+                                }
+                            </style>
+
                             <div class="card-body border border-dashed border-end-0 border-start-0">
                                 <form method="get" action="/management/employeeList">
+                                    <!-- ✅ 정렬/페이지사이즈 파라미터 유지 -->
+                                    <input type="hidden" name="sortField" th:value="${sortField}">
+                                    <input type="hidden" name="sortDir" th:value="${sortDir}">
+                                    <input type="hidden" name="page" value="0"><!-- 검색 시 0페이지로 -->
+
                                     <div class="row g-3">
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <label class="form-label">팀별 검색</label>
                                             <select class="form-select" name="teamId">
                                                 <option value="">모든 팀</option>
@@ -64,16 +105,27 @@
                                             </select>
                                         </div>
 
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <label class="form-label">이름</label>
                                             <input type="text" class="form-control bg-light border-light"
                                                    name="name" th:value="${name}" placeholder="직원 이름 검색">
                                         </div>
 
-                                        <div class="col-md-4">
+                                        <!-- ✅ 페이지 사이즈 -->
+                                        <div class="col-md-3">
+                                            <label class="form-label">페이지 사이즈</label>
+                                            <select class="form-select" name="size">
+                                                <option value="10"  th:selected="${employeePage.size == 10}">10개씩 보기</option>
+                                                <option value="30"  th:selected="${employeePage.size == 30}">30개씩 보기</option>
+                                                <option value="50"  th:selected="${employeePage.size == 50}">50개씩 보기</option>
+                                                <option value="100" th:selected="${employeePage.size == 100}">100개씩 보기</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-3">
                                             <label class="form-label">조회</label>
                                             <button type="submit" class="btn btn-primary w-100">
-                                                <i class="fa-solid fa-magnifying-glass"></i> 검색
+                                                <span class="employeeList-added-btn-icon">⌕</span> 검색
                                             </button>
                                         </div>
                                     </div>
@@ -87,22 +139,108 @@
                                         <tr>
                                             <th scope="col" style="width: 40px;">
                                                 <div class="form-check">
+                                                    <!-- ✅ checkAll -->
                                                     <input class="form-check-input" type="checkbox" id="checkAll" value="option">
                                                 </div>
                                             </th>
-                                            <th class="sort">ID</th>
-                                            <th class="sort">이름</th>
-                                            <th class="sort">팀</th>
-                                            <th class="sort">팀카테고리</th>
-                                            <th class="sort">등록일</th>
-                                            <th class="sort">최근수정일</th>
+                                            <th>ID</th>
+
+                                            <!-- ✅ 정렬: 이름 -->
+                                            <th>
+                                                <div class="employeeList-added-sort-wrap">
+                                                    <a class="employeeList-added-sort-link"
+                                                       th:href="@{/management/employeeList(
+                                                            page=0,
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField='name',
+                                                            sortDir=${(sortField == 'name' and sortDir == 'asc') ? 'desc' : 'asc'}
+                                                       )}">
+                                                        이름
+                                                    </a>
+                                                    <span class="employeeList-added-sort-icons">
+                                                        <span class="employeeList-added-sort-arrow"
+                                                              th:classappend="${sortField == 'name' and sortDir == 'asc'} ? ' active'">
+                                                            ▲
+                                                        </span>
+                                                        <span class="employeeList-added-sort-arrow"
+                                                              th:classappend="${sortField == 'name' and sortDir == 'desc'} ? ' active'">
+                                                            ▼
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </th>
+
+                                            <!-- ✅ 정렬: 팀 -->
+                                            <th>
+                                                <div class="employeeList-added-sort-wrap">
+                                                    <a class="employeeList-added-sort-link"
+                                                       th:href="@{/management/employeeList(
+                                                            page=0,
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField='team',
+                                                            sortDir=${(sortField == 'team' and sortDir == 'asc') ? 'desc' : 'asc'}
+                                                       )}">
+                                                        팀
+                                                    </a>
+                                                    <span class="employeeList-added-sort-icons">
+                                                        <span class="employeeList-added-sort-arrow"
+                                                              th:classappend="${sortField == 'team' and sortDir == 'asc'} ? ' active'">
+                                                            ▲
+                                                        </span>
+                                                        <span class="employeeList-added-sort-arrow"
+                                                              th:classappend="${sortField == 'team' and sortDir == 'desc'} ? ' active'">
+                                                            ▼
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </th>
+
+                                            <th>팀카테고리</th>
+
+                                            <!-- ✅ 정렬: 등록일 -->
+                                            <th>
+                                                <div class="employeeList-added-sort-wrap">
+                                                    <a class="employeeList-added-sort-link"
+                                                       th:href="@{/management/employeeList(
+                                                            page=0,
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField='createdAt',
+                                                            sortDir=${(sortField == 'createdAt' and sortDir == 'asc') ? 'desc' : 'asc'}
+                                                       )}">
+                                                        등록일
+                                                    </a>
+                                                    <span class="employeeList-added-sort-icons">
+                                                        <span class="employeeList-added-sort-arrow"
+                                                              th:classappend="${sortField == 'createdAt' and sortDir == 'asc'} ? ' active'">
+                                                            ▲
+                                                        </span>
+                                                        <span class="employeeList-added-sort-arrow"
+                                                              th:classappend="${sortField == 'createdAt' and sortDir == 'desc'} ? ' active'">
+                                                            ▼
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </th>
+
+                                            <th>최근수정일</th>
                                         </tr>
                                         </thead>
+
                                         <tbody class="list form-check-all">
                                         <tr th:each="emp : ${employeePage.content}">
                                             <td>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="chk_child"/>
+                                                    <!-- ✅ 체크박스 value에 emp.id 반드시 넣기 -->
+                                                    <input class="form-check-input employeeList-added-chk-child"
+                                                           type="checkbox"
+                                                           name="chk_child"
+                                                           th:value="${emp.id}"/>
                                                 </div>
                                             </td>
 
@@ -136,7 +274,7 @@
                                     </div>
                                 </div>
 
-                                <!-- ✅ 페이지네이션 (5개 윈도우) -->
+                                <!-- ✅ 페이지네이션 (5개 윈도우) + 정렬/필터 파라미터 유지 -->
                                 <div class="d-flex justify-content-end mt-2" th:if="${employeePage.totalPages > 0}">
                                     <div class="pagination-wrap hstack gap-2">
                                         <nav aria-label="navigation">
@@ -144,14 +282,28 @@
 
                                                 <li class="page-item" th:classappend="${employeePage.first} ? 'disabled'">
                                                     <a class="page-link"
-                                                       th:href="@{/management/employeeList(page=0, size=${employeePage.size}, name=${name}, teamId=${teamId})}">
+                                                       th:href="@{/management/employeeList(
+                                                            page=0,
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">
                                                         First
                                                     </a>
                                                 </li>
 
                                                 <li class="page-item" th:classappend="${employeePage.first} ? 'disabled'">
                                                     <a class="page-link"
-                                                       th:href="@{/management/employeeList(page=${employeePage.number - 1}, size=${employeePage.size}, name=${name}, teamId=${teamId})}">
+                                                       th:href="@{/management/employeeList(
+                                                            page=${employeePage.number - 1},
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">
                                                         Previous
                                                     </a>
                                                 </li>
@@ -160,7 +312,14 @@
                                                     th:each="pageNum : ${#numbers.sequence(pageStart, pageEnd)}"
                                                     th:classappend="${employeePage.number == pageNum} ? 'active'">
                                                     <a class="page-link"
-                                                       th:href="@{/management/employeeList(page=${pageNum}, size=${employeePage.size}, name=${name}, teamId=${teamId})}"
+                                                       th:href="@{/management/employeeList(
+                                                            page=${pageNum},
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}"
                                                        th:text="${pageNum + 1}">
                                                         1
                                                     </a>
@@ -168,14 +327,28 @@
 
                                                 <li class="page-item" th:classappend="${employeePage.last} ? 'disabled'">
                                                     <a class="page-link"
-                                                       th:href="@{/management/employeeList(page=${employeePage.number + 1}, size=${employeePage.size}, name=${name}, teamId=${teamId})}">
+                                                       th:href="@{/management/employeeList(
+                                                            page=${employeePage.number + 1},
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">
                                                         Next
                                                     </a>
                                                 </li>
 
                                                 <li class="page-item" th:classappend="${employeePage.last} ? 'disabled'">
                                                     <a class="page-link"
-                                                       th:href="@{/management/employeeList(page=${employeePage.totalPages - 1}, size=${employeePage.size}, name=${name}, teamId=${teamId})}">
+                                                       th:href="@{/management/employeeList(
+                                                            page=${employeePage.totalPages - 1},
+                                                            size=${employeePage.size},
+                                                            name=${name},
+                                                            teamId=${teamId},
+                                                            sortField=${sortField},
+                                                            sortDir=${sortDir}
+                                                       )}">
                                                         Last
                                                     </a>
                                                 </li>
@@ -199,6 +372,77 @@
 
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+<!-- ✅ 체크박스 전체선택 + 엑셀 버튼 활성/비활성 + 선택 ids 전송 JS -->
+<script>
+    (function () {
+        const checkAll = document.getElementById('checkAll');
+        const excelBtn = document.getElementById('employeeListExcelBtn');
+        const excelForm = document.getElementById('employeeListExcelForm');
+        const excelIdsInput = document.getElementById('employeeListExcelIds');
+
+        if (!checkAll || !excelBtn || !excelForm || !excelIdsInput) return;
+
+        function getChildren() {
+            return Array.from(document.querySelectorAll('.employeeList-added-chk-child'));
+        }
+
+        function getCheckedIdsInDomOrder() {
+            // 현재 페이지(현재 DOM)에 존재하는 체크된 항목만 수집
+            return getChildren()
+                .filter(chk => chk.checked)
+                .map(chk => chk.value)
+                .filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+        }
+
+        function syncHeaderCheckboxState() {
+            const children = getChildren();
+            const allChecked = children.length > 0 && children.every(chk => chk.checked);
+            const anyChecked = children.some(chk => chk.checked);
+
+            checkAll.checked = allChecked;
+            checkAll.indeterminate = !allChecked && anyChecked;
+        }
+
+        function syncExcelButtonState() {
+            const checkedCount = getCheckedIdsInDomOrder().length;
+            excelBtn.disabled = checkedCount === 0;
+        }
+
+        // 초기 상태
+        syncHeaderCheckboxState();
+        syncExcelButtonState();
+
+        // 모두 체크/해제 (현재 페이지에 렌더된 항목만)
+        checkAll.addEventListener('change', function () {
+            const checked = checkAll.checked;
+            getChildren().forEach(chk => chk.checked = checked);
+            syncHeaderCheckboxState();
+            syncExcelButtonState();
+        });
+
+        // 자식 체크 상태 변경 시 동기화
+        document.addEventListener('change', function (e) {
+            if (!e.target.classList.contains('employeeList-added-chk-child')) return;
+            syncHeaderCheckboxState();
+            syncExcelButtonState();
+        });
+
+        // 엑셀 버튼 클릭 -> 체크된 ids를 hidden input에 넣고 POST 제출
+        excelBtn.addEventListener('click', function () {
+            const ids = getCheckedIdsInDomOrder();
+
+            if (ids.length === 0) {
+                excelBtn.disabled = true;
+                return;
+            }
+
+            // 콤마 문자열로 전송 (서버에서 split)
+            excelIdsInput.value = ids.join(',');
+            excelForm.submit();
+        });
+    })();
+</script>
 
 </body>
 </html>
