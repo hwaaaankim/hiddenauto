@@ -7,7 +7,6 @@
 
 <body class="twocolumn-panel">
 
-	<!-- Begin page -->
 	<div id="layout-wrapper">
 
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
@@ -15,23 +14,22 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
+
 		<div class="main-content">
 
 			<div class="page-content">
 				<div class="container-fluid">
-					<!-- start page title -->
+
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
 								<h4 class="mb-sm-0">배송팀업무관리</h4>
-
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
 										<li class="breadcrumb-item"><a href="javascript: void(0);">팀관리</a></li>
 										<li class="breadcrumb-item active">배송팀업무관리</li>
 									</ol>
 								</div>
-
 							</div>
 						</div>
 					</div>
@@ -39,6 +37,7 @@
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card" id="tasksList">
+
 								<div class="card-header border-0">
 									<div class="d-flex align-items-center">
 										<h5 class="card-title mb-0 flex-grow-1">DELIVERY MANAGER</h5>
@@ -50,7 +49,10 @@
 													    status=${status},
 													    dateType=${dateType},
 													    startDate=${startDate},
-													    endDate=${endDate}
+													    endDate=${endDate},
+													    sortField=${sortField},
+													    sortDir=${sortDir},
+													    size=${pageSize}
 													)}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
@@ -58,23 +60,27 @@
 										</div>
 									</div>
 								</div>
+
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" th:action="@{/management/deliveryList}"
 										class="row g-3 align-items-end">
+
+										<!-- ✅ 정렬 유지용 hidden -->
+										<input type="hidden" name="sortField" th:value="${sortField}">
+										<input type="hidden" name="sortDir" th:value="${sortDir}">
 
 										<!-- 오더 상태 -->
 										<div class="col-md-2">
 											<label class="form-label">오더 상태</label>
 											<select class="form-select" name="status">
-												<option value="" th:selected="${status == null or status == ''}">전체
-												</option>
+												<option value="" th:selected="${status == null or status == ''}">전체</option>
 												<option th:each="s : ${orderStatusList}" th:value="${s.name()}"
 													th:text="${s.label}" th:selected="${s.name() == status}">
 												</option>
 											</select>
 										</div>
 
-										<!-- 제품 카테고리 (생산팀) -->
+										<!-- 제품 카테고리 -->
 										<div class="col-md-2">
 											<label class="form-label">제품 카테고리</label>
 											<select class="form-select" name="categoryId">
@@ -85,8 +91,8 @@
 											</select>
 										</div>
 
-										<!-- 담당자 (배송 담당자) -->
-										<div class="col-md-2">
+										<!-- 담당자 -->
+										<div class="col-md-1">
 											<label class="form-label">담당자</label>
 											<select class="form-select" name="assignedMemberId">
 												<option value="" th:selected="${assignedMemberId == null}">전체</option>
@@ -101,10 +107,8 @@
 											<label class="form-label">날짜 기준</label>
 											<select class="form-select" name="dateType">
 												<option value="preferred"
-													th:selected="${dateType == null or dateType == 'preferred'}">출고일
-												</option>
-												<option value="created" th:selected="${dateType == 'created'}">신청일
-												</option>
+													th:selected="${dateType == null or dateType == 'preferred'}">출고일</option>
+												<option value="created" th:selected="${dateType == 'created'}">신청일</option>
 											</select>
 										</div>
 
@@ -120,6 +124,17 @@
 											<input type="date" class="form-control" name="endDate" th:value="${endDate}" />
 										</div>
 
+										<!-- ✅ 페이지 사이즈 -->
+										<div class="col-md-1">
+											<label class="form-label">표시</label>
+											<select class="form-select" name="size" id="delivery-list-added-page-size">
+												<option value="10" th:selected="${pageSize == 10}">10</option>
+												<option value="30" th:selected="${pageSize == 30}">30</option>
+												<option value="50" th:selected="${pageSize == 50}">50</option>
+												<option value="100" th:selected="${pageSize == 100}">100</option>
+											</select>
+										</div>
+
 										<!-- 검색 버튼 -->
 										<div class="col-md-1">
 											<button type="submit" class="btn btn-primary w-100">
@@ -128,77 +143,312 @@
 										</div>
 									</form>
 								</div>
-								<!--end card-body-->
+
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
+
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
 											<thead class="table-light text-muted">
 												<tr>
-													<th scope="col" style="width: 40px;">
-														<div class="form-check">
-															<input class="form-check-input" type="checkbox"
-																id="checkAll" value="option">
-														</div>
-													</th>
-													<th class="sort">ID</th>
-													<th class="sort">대리점명</th>
-													<th class="sort">신청자</th>
-													<th class="sort">발주일</th>
-													<th class="sort">배송일</th>
-													<th class="sort">수정일</th>
-													<th class="sort">상태</th>
-												</tr>
-											</thead>
-											<tbody class="list form-check-all">
-												<tr th:each="order : ${orders.content}">
-													<th scope="row">
-														<div class="form-check">
-															<input class="form-check-input" type="checkbox"
-																name="chk_child" th:value="${order.id}" />
+
+													<th>ID</th>
+
+													<!-- ✅ 대리점명 정렬 -->
+													<th>
+														<div class="delivery-list-added-sort-wrap">
+															<span>대리점명</span>
+															<div class="delivery-list-added-sort-icons"
+																th:with="active=${sortField == 'agency'},
+																         upActive=${active and sortDir == 'asc'},
+																         downActive=${active and sortDir == 'desc'},
+																         upDir='asc', downDir='desc'">
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='agency',
+																	sortDir=${upDir}
+																)}"
+																th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='agency',
+																	sortDir=${downDir}
+																)}"
+																th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</div>
 														</div>
 													</th>
 
-													<!-- Order ID -->
+													<!-- ✅ 신청자 정렬 -->
+													<th>
+														<div class="delivery-list-added-sort-wrap">
+															<span>신청자</span>
+															<div class="delivery-list-added-sort-icons"
+																th:with="active=${sortField == 'requester'},
+																         upActive=${active and sortDir == 'asc'},
+																         downActive=${active and sortDir == 'desc'}">
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='requester',
+																	sortDir='asc'
+																)}"
+																th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='requester',
+																	sortDir='desc'
+																)}"
+																th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</div>
+														</div>
+													</th>
+
+													<!-- ✅ 규격-비규격 정렬 -->
+													<th>
+														<div class="delivery-list-added-sort-wrap">
+															<span>규격-비규격</span>
+															<div class="delivery-list-added-sort-icons"
+																th:with="active=${sortField == 'standard'},
+																         upActive=${active and sortDir == 'asc'},
+																         downActive=${active and sortDir == 'desc'}">
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='standard',
+																	sortDir='asc'
+																)}"
+																th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='standard',
+																	sortDir='desc'
+																)}"
+																th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</div>
+														</div>
+													</th>
+
+													<!-- ✅ 신청일 정렬 -->
+													<th>
+														<div class="delivery-list-added-sort-wrap">
+															<span>신청일</span>
+															<div class="delivery-list-added-sort-icons"
+																th:with="active=${sortField == 'createdAt'},
+																         upActive=${active and sortDir == 'asc'},
+																         downActive=${active and sortDir == 'desc'}">
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='createdAt',
+																	sortDir='asc'
+																)}"
+																th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='createdAt',
+																	sortDir='desc'
+																)}"
+																th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</div>
+														</div>
+													</th>
+
+													<!-- ✅ 배송희망일 정렬 -->
+													<th>
+														<div class="delivery-list-added-sort-wrap">
+															<span>배송희망일</span>
+															<div class="delivery-list-added-sort-icons"
+																th:with="active=${sortField == 'preferredDeliveryDate'},
+																         upActive=${active and sortDir == 'asc'},
+																         downActive=${active and sortDir == 'desc'}">
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='preferredDeliveryDate',
+																	sortDir='asc'
+																)}"
+																th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='preferredDeliveryDate',
+																	sortDir='desc'
+																)}"
+																th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</div>
+														</div>
+													</th>
+
+													<th>수정일</th>
+
+													<!-- ✅ 상태 정렬 -->
+													<th>
+														<div class="delivery-list-added-sort-wrap">
+															<span>상태</span>
+															<div class="delivery-list-added-sort-icons"
+																th:with="active=${sortField == 'status'},
+																         upActive=${active and sortDir == 'asc'},
+																         downActive=${active and sortDir == 'desc'}">
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='status',
+																	sortDir='asc'
+																)}"
+																th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a th:href="@{/management/deliveryList(
+																	page=${orders.number},
+																	size=${pageSize},
+																	categoryId=${categoryId},
+																	assignedMemberId=${assignedMemberId},
+																	status=${status},
+																	dateType=${dateType},
+																	startDate=${startDate},
+																	endDate=${endDate},
+																	sortField='status',
+																	sortDir='desc'
+																)}"
+																th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</div>
+														</div>
+													</th>
+
+												</tr>
+											</thead>
+
+											<tbody class="list form-check-all">
+												<tr th:each="order : ${orders.content}">
+
 													<td class="id">
 														<a th:href="@{/management/deliveryDetail/{id}(id=${order.id})}"
 															class="fw-medium link-primary"
 															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
 													</td>
 
-													<!-- 대리점명 (Order → Task → Member → Company) -->
 													<td class="project_name">
 														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
 															class="fw-medium link-primary"
 															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
 													</td>
 
-													<!-- 신청자명 -->
 													<td class="client_name">
 														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
 															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
-													<!-- 신청일 -->
-													<td class="due_date"
-														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
-														00:00:00
-													</td>
-													<!-- 발주일 -->
-													<td class="due_date"
-														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss')}">
-														00:00:00
+													<!-- ✅ 규격/비규격 표시 -->
+													<td>
+														<span class="badge"
+															th:classappend="${order.standard} ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-warning'"
+															th:text="${order.standard} ? '규격' : '비규격'">규격</span>
 													</td>
 
-													<!-- 최근수정일 -->
 													<td class="due_date"
-														th:text="${#temporals.format(order.updatedAt, 'yyyy-MM-dd HH:mm:ss')}">
-														00:00:00
-													</td>
+														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">00:00:00</td>
 
-													<!-- 상태 -->
+													<td class="due_date"
+														th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss') : '-'}">00:00:00</td>
+
+													<td class="due_date"
+														th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">00:00:00</td>
+
 													<td class="status">
-														<span
-															class="badge bg-secondary-subtle text-secondary text-uppercase"
+														<span class="badge bg-secondary-subtle text-secondary text-uppercase"
 															th:text="${order.status}">대기중</span>
 													</td>
 												</tr>
@@ -215,90 +465,96 @@
 											</div>
 										</div>
 									</div>
+
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
-												    <!-- First -->
-												    <li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-												        <a class="page-link"
-												           th:href="@{/management/deliveryList(
-												                page=0,
-												                size=${orders.size},
-												                categoryId=${categoryId},
-												                assignedMemberId=${assignedMemberId},
-												                status=${status},
-												                dateType=${dateType},
-												                startDate=${startDate},
-												                endDate=${endDate}
-												           )}">First</a>
-												    </li>
-												
-												    <!-- Previous -->
-												    <li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-												        <a class="page-link"
-												           th:href="@{/management/deliveryList(
-												                page=${orders.number - 1},
-												                size=${orders.size},
-												                categoryId=${categoryId},
-												                assignedMemberId=${assignedMemberId},
-												                status=${status},
-												                dateType=${dateType},
-												                startDate=${startDate},
-												                endDate=${endDate}
-												           )}">Previous</a>
-												    </li>
-												
-												    <!-- Pages -->
-												    <li class="page-item"
-												        th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
-												        th:classappend="${i == orders.number + 1} ? 'active'">
-												        <a class="page-link"
-												           th:href="@{/management/deliveryList(
-												                page=${i - 1},
-												                size=${orders.size},
-												                categoryId=${categoryId},
-												                assignedMemberId=${assignedMemberId},
-												                status=${status},
-												                dateType=${dateType},
-												                startDate=${startDate},
-												                endDate=${endDate}
-												           )}"
-												           th:text="${i}">1</a>
-												    </li>
-												
-												    <!-- Next -->
-												    <li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-												        <a class="page-link"
-												           th:href="@{/management/deliveryList(
-												                page=${orders.number + 1},
-												                size=${orders.size},
-												                categoryId=${categoryId},
-												                assignedMemberId=${assignedMemberId},
-												                status=${status},
-												                dateType=${dateType},
-												                startDate=${startDate},
-												                endDate=${endDate}
-												           )}">Next</a>
-												    </li>
-												
-												    <!-- Last -->
-												    <li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-												        <a class="page-link"
-												           th:href="@{/management/deliveryList(
-												                page=${orders.totalPages - 1},
-												                size=${orders.size},
-												                categoryId=${categoryId},
-												                assignedMemberId=${assignedMemberId},
-												                status=${status},
-												                dateType=${dateType},
-												                startDate=${startDate},
-												                endDate=${endDate}
-												           )}">Last</a>
-												    </li>
-												
-												</ul>
 
+													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
+														<a class="page-link"
+														   th:href="@{/management/deliveryList(
+																page=0,
+																size=${pageSize},
+																categoryId=${categoryId},
+																assignedMemberId=${assignedMemberId},
+																status=${status},
+																dateType=${dateType},
+																startDate=${startDate},
+																endDate=${endDate},
+																sortField=${sortField},
+																sortDir=${sortDir}
+														   )}">First</a>
+													</li>
+
+													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
+														<a class="page-link"
+														   th:href="@{/management/deliveryList(
+																page=${orders.number - 1},
+																size=${pageSize},
+																categoryId=${categoryId},
+																assignedMemberId=${assignedMemberId},
+																status=${status},
+																dateType=${dateType},
+																startDate=${startDate},
+																endDate=${endDate},
+																sortField=${sortField},
+																sortDir=${sortDir}
+														   )}">Previous</a>
+													</li>
+
+													<li class="page-item"
+														th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
+														th:classappend="${i == orders.number + 1} ? 'active'">
+														<a class="page-link"
+														   th:href="@{/management/deliveryList(
+																page=${i - 1},
+																size=${pageSize},
+																categoryId=${categoryId},
+																assignedMemberId=${assignedMemberId},
+																status=${status},
+																dateType=${dateType},
+																startDate=${startDate},
+																endDate=${endDate},
+																sortField=${sortField},
+																sortDir=${sortDir}
+														   )}"
+														   th:text="${i}">1</a>
+													</li>
+
+													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
+														<a class="page-link"
+														   th:href="@{/management/deliveryList(
+																page=${orders.number + 1},
+																size=${pageSize},
+																categoryId=${categoryId},
+																assignedMemberId=${assignedMemberId},
+																status=${status},
+																dateType=${dateType},
+																startDate=${startDate},
+																endDate=${endDate},
+																sortField=${sortField},
+																sortDir=${sortDir}
+														   )}">Next</a>
+													</li>
+
+													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
+														<a class="page-link"
+														   th:href="@{/management/deliveryList(
+																page=${orders.totalPages - 1},
+																size=${pageSize},
+																categoryId=${categoryId},
+																assignedMemberId=${assignedMemberId},
+																status=${status},
+																dateType=${dateType},
+																startDate=${startDate},
+																endDate=${endDate},
+																sortField=${sortField},
+																sortDir=${sortDir}
+														   )}">Last</a>
+													</li>
+
+												</ul>
 											</nav>
 										</div>
 									</div>
@@ -307,13 +563,15 @@
 							</div>
 						</div>
 					</div>
+
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 </body>
-
 </html>

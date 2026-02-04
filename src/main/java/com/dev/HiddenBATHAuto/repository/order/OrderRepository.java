@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -561,57 +562,86 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	);
 
 	@EntityGraph(attributePaths = {
-			"task",
-			"task.requestedBy",
-			"task.requestedBy.company",
-			"productCategory",
-			"assignedDeliveryHandler",
-			"orderItem"
-	})
-	@Query("""
-		SELECT o FROM Order o
-		WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-		  AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
-		  AND (:status IS NULL OR o.status = :status)
-		  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
-		  AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
-		ORDER BY o.preferredDeliveryDate DESC
-	""")
-	Page<Order> findByPreferredDateRange(
-			@Param("categoryId") Long categoryId,
-			@Param("assignedMemberId") Long assignedMemberId,
-			@Param("status") OrderStatus status,
-			@Param("start") LocalDateTime start,
-			@Param("end") LocalDateTime end,
-			Pageable pageable
-	);
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company",
+            "productCategory",
+            "assignedDeliveryHandler",
+            "orderItem"
+    })
+    @Query(
+        value = """
+            SELECT o FROM Order o
+            JOIN o.task t
+            JOIN t.requestedBy rb
+            JOIN rb.company c
+            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+              AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+              AND (:status IS NULL OR o.status = :status)
+              AND (:start IS NULL OR o.createdAt >= :start)
+              AND (:end IS NULL OR o.createdAt <= :end)
+        """,
+        countQuery = """
+            SELECT COUNT(o) FROM Order o
+            JOIN o.task t
+            JOIN t.requestedBy rb
+            JOIN rb.company c
+            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+              AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+              AND (:status IS NULL OR o.status = :status)
+              AND (:start IS NULL OR o.createdAt >= :start)
+              AND (:end IS NULL OR o.createdAt <= :end)
+        """
+    )
+    Page<Order> findByCreatedDateRange(
+            @Param("categoryId") Long categoryId,
+            @Param("assignedMemberId") Long assignedMemberId,
+            @Param("status") OrderStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
 
-	@EntityGraph(attributePaths = {
-			"task",
-			"task.requestedBy",
-			"task.requestedBy.company",
-			"productCategory",
-			"assignedDeliveryHandler",
-			"orderItem"
-	})
-	@Query("""
-		SELECT o FROM Order o
-		WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-		  AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
-		  AND (:status IS NULL OR o.status = :status)
-		  AND (:start IS NULL OR o.createdAt >= :start)
-		  AND (:end IS NULL OR o.createdAt <= :end)
-		ORDER BY o.createdAt DESC
-	""")
-	Page<Order> findByCreatedDateRange(
-			@Param("categoryId") Long categoryId,
-			@Param("assignedMemberId") Long assignedMemberId,
-			@Param("status") OrderStatus status,
-			@Param("start") LocalDateTime start,
-			@Param("end") LocalDateTime end,
-			Pageable pageable
-	);
-
+    @EntityGraph(attributePaths = {
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company",
+            "productCategory",
+            "assignedDeliveryHandler",
+            "orderItem"
+    })
+    @Query(
+        value = """
+            SELECT o FROM Order o
+            JOIN o.task t
+            JOIN t.requestedBy rb
+            JOIN rb.company c
+            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+              AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+              AND (:status IS NULL OR o.status = :status)
+              AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+              AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+        """,
+        countQuery = """
+            SELECT COUNT(o) FROM Order o
+            JOIN o.task t
+            JOIN t.requestedBy rb
+            JOIN rb.company c
+            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+              AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+              AND (:status IS NULL OR o.status = :status)
+              AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+              AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+        """
+    )
+    Page<Order> findByPreferredDateRange(
+            @Param("categoryId") Long categoryId,
+            @Param("assignedMemberId") Long assignedMemberId,
+            @Param("status") OrderStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
 	@EntityGraph(attributePaths = {
 			"task",
 			"task.requestedBy",
@@ -767,6 +797,74 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
  			@Param("end") LocalDateTime end,
  			Pageable pageable
  	);
+ 	
+ 	@Query("""
+        SELECT o
+        FROM Order o
+        join o.task t
+        join t.requestedBy rb
+        join rb.company c
+        WHERE (:category IS NULL OR o.productCategory = :category)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.createdAt >= :start)
+          AND (:end IS NULL OR o.createdAt <= :end)
+    """)
+    Page<Order> findProductionListByCreatedDate(@Param("category") TeamCategory category,
+                                               @Param("status") OrderStatus status,
+                                               @Param("start") LocalDateTime start,
+                                               @Param("end") LocalDateTime end,
+                                               Pageable pageable);
+
+    @Query("""
+        SELECT o
+        FROM Order o
+        join o.task t
+        join t.requestedBy rb
+        join rb.company c
+        WHERE (:category IS NULL OR o.productCategory = :category)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+          AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+    """)
+    Page<Order> findProductionListByPreferredDate(@Param("category") TeamCategory category,
+                                                 @Param("status") OrderStatus status,
+                                                 @Param("start") LocalDateTime start,
+                                                 @Param("end") LocalDateTime end,
+                                                 Pageable pageable);
+
+    @Query("""
+        SELECT o
+        FROM Order o
+        join o.task t
+        join t.requestedBy rb
+        join rb.company c
+        WHERE (:category IS NULL OR o.productCategory = :category)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.createdAt >= :start)
+          AND (:end IS NULL OR o.createdAt <= :end)
+    """)
+    List<Order> findAllProductionListByCreatedDate(@Param("category") TeamCategory category,
+                                                  @Param("status") OrderStatus status,
+                                                  @Param("start") LocalDateTime start,
+                                                  @Param("end") LocalDateTime end,
+                                                  Sort sort);
+
+    @Query("""
+        SELECT o
+        FROM Order o
+        join o.task t
+        join t.requestedBy rb
+        join rb.company c
+        WHERE (:category IS NULL OR o.productCategory = :category)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+          AND (:end IS NULL OR o.preferredDeliveryDate <= :end)
+    """)
+    List<Order> findAllProductionListByPreferredDate(@Param("category") TeamCategory category,
+                                                    @Param("status") OrderStatus status,
+                                                    @Param("start") LocalDateTime start,
+                                                    @Param("end") LocalDateTime end,
+                                                    Sort sort);
 
 }
 

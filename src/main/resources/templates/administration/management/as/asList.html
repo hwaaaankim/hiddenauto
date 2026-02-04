@@ -47,22 +47,28 @@
 										<h5 class="card-title mb-0 flex-grow-1">AS MANAGER</h5>
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
+
+												<!-- ✅ 엑셀 다운로드: 필터 + 정렬 반영 -->
 												<a th:href="@{/management/asList/excel(
 													handlerId=${selectedHandlerId},
 													status=${selectedStatus},
 													dateType=${selectedDateType},
 													fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-													toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+													toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+													sortField=${sortField},
+													sortDir=${sortDir}
 												)}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
+
 											</div>
 										</div>
 									</div>
 								</div>
 
+								<!-- ✅ 정렬/사이즈 포함 검색폼 -->
 								<div class="card-body border border-dashed border-end-0 border-start-0">
-									<form method="get" action="/management/asList">
+									<form method="get" action="/management/asList" id="as-list-new-added-filter-form">
 										<div class="row g-3">
 
 											<!-- 상태 -->
@@ -115,9 +121,26 @@
 													th:value="${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}">
 											</div>
 
+											<!-- ✅ 페이지 사이즈 -->
+											<div class="col-md-1">
+												<label class="form-label">페이지 사이즈</label>
+												<select class="form-select" name="size" id="as-list-new-added-size-select"
+													onchange="document.getElementById('as-list-new-added-filter-form').submit();">
+													<option value="10" th:selected="${pageSize == 10}">10개씩</option>
+													<option value="30" th:selected="${pageSize == 30}">30개씩</option>
+													<option value="50" th:selected="${pageSize == 50}">50개씩</option>
+													<option value="100" th:selected="${pageSize == 100}">100개씩</option>
+												</select>
+											</div>
+
+											<!-- ✅ 정렬 유지용 hidden (검색 누르면 현재 정렬 유지) -->
+											<input type="hidden" name="sortField" th:value="${sortField}">
+											<input type="hidden" name="sortDir" th:value="${sortDir}">
+											<input type="hidden" name="page" value="0">
+
 											<!-- 검색 버튼 -->
-											<div class="col-md-2">
-												<label class="form-label">조회</label>
+											<div class="col-1">
+												<label class="form-label">검색</label>
 												<button type="submit" class="btn btn-primary w-100">
 													<i class="fa-solid fa-magnifying-glass"></i> 검색
 												</button>
@@ -127,34 +150,232 @@
 									</form>
 								</div>
 
+
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
 											<thead class="table-light text-muted">
 												<tr>
-													<th scope="col" style="width: 40px;">
-														<div class="form-check">
-															<input class="form-check-input" type="checkbox" id="checkAll" value="option">
+													<!-- ✅ 체크박스 열 삭제 -->
+													<th>ID</th>
+
+													<!-- ✅ 대리점명 정렬 -->
+													<th>
+														<div class="as-list-new-added-th-sort">
+															<span class="as-list-new-added-sort-label">대리점명</span>
+															<span class="as-list-new-added-sort-icons">
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'companyName' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,
+																		size=${pageSize},
+																		handlerId=${selectedHandlerId},
+																		status=${selectedStatus},
+																		dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='companyName',
+																		sortDir='asc'
+																	)}" aria-label="대리점명 오름차순">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'companyName' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,
+																		size=${pageSize},
+																		handlerId=${selectedHandlerId},
+																		status=${selectedStatus},
+																		dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='companyName',
+																		sortDir='desc'
+																	)}" aria-label="대리점명 내림차순">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</span>
 														</div>
 													</th>
-													<th class="sort">ID</th>
-													<th class="sort">대리점명</th>
-													<th class="sort">신청자</th>
-													<th class="sort">담당AS사원</th>
-													<th class="sort">신청일</th>
-													<th class="sort">최근수정일</th>
-													<th class="sort">처리일</th>
-													<th class="sort">상태</th>
+
+													<!-- ✅ 신청자 정렬 -->
+													<th>
+														<div class="as-list-new-added-th-sort">
+															<span class="as-list-new-added-sort-label">신청자</span>
+															<span class="as-list-new-added-sort-icons">
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'requesterName' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='requesterName',sortDir='asc'
+																	)}">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'requesterName' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='requesterName',sortDir='desc'
+																	)}">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 담당 사원 정렬 -->
+													<th>
+													  <div class="as-list-new-added-th-sort">
+													    <span class="as-list-new-added-sort-label">담당AS사원</span>
+													    <span class="as-list-new-added-sort-icons">
+													
+													      <!-- ASC -->
+													      <a class="as-list-new-added-sort-link"
+													         th:classappend="${sortField == 'handlerName' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+													         th:href="@{/management/asList(
+													           page=0,
+													           size=${pageSize},
+													           handlerId=${selectedHandlerId},
+													           status=${selectedStatus},
+													           dateType=${selectedDateType},
+													           fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+													           toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+													           sortField=${'handlerName'},
+													           sortDir=${'asc'}
+													         )}"
+													         aria-label="담당AS사원 오름차순">
+													        <i class="fa-solid fa-caret-up"></i>
+													      </a>
+													
+													      <!-- DESC -->
+													      <a class="as-list-new-added-sort-link"
+													         th:classappend="${sortField == 'handlerName' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+													         th:href="@{/management/asList(
+													           page=0,
+													           size=${pageSize},
+													           handlerId=${selectedHandlerId},
+													           status=${selectedStatus},
+													           dateType=${selectedDateType},
+													           fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+													           toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+													           sortField=${'handlerName'},
+													           sortDir=${'desc'}
+													         )}"
+													         aria-label="담당AS사원 내림차순">
+													        <i class="fa-solid fa-caret-down"></i>
+													      </a>
+													
+													    </span>
+													  </div>
+													</th>
+
+
+													<!-- ✅ 신청일 정렬 -->
+													<th>
+														<div class="as-list-new-added-th-sort">
+															<span class="as-list-new-added-sort-label">신청일</span>
+															<span class="as-list-new-added-sort-icons">
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'requestedAt' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='requestedAt',sortDir='asc'
+																	)}">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'requestedAt' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='requestedAt',sortDir='desc'
+																	)}">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</span>
+														</div>
+													</th>
+
+													<th>최근수정일</th>
+
+													<!-- ✅ 처리일 정렬 -->
+													<th>
+														<div class="as-list-new-added-th-sort">
+															<span class="as-list-new-added-sort-label">처리일</span>
+															<span class="as-list-new-added-sort-icons">
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'asProcessDate' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='asProcessDate',sortDir='asc'
+																	)}">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'asProcessDate' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='asProcessDate',sortDir='desc'
+																	)}">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</span>
+														</div>
+													</th>
+
+													<!-- ✅ 상태 정렬 -->
+													<th>
+														<div class="as-list-new-added-th-sort">
+															<span class="as-list-new-added-sort-label">상태</span>
+															<span class="as-list-new-added-sort-icons">
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'status' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='status',sortDir='asc'
+																	)}">
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'status' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
+																		page=0,size=${pageSize},
+																		handlerId=${selectedHandlerId},status=${selectedStatus},dateType=${selectedDateType},
+																		fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+																		toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																		sortField='status',sortDir='desc'
+																	)}">
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</span>
+														</div>
+													</th>
+
 												</tr>
 											</thead>
 
 											<tbody class="list form-check-all">
 												<tr th:each="as : ${asPage.content}">
-													<th scope="row">
-														<div class="form-check">
-															<input class="form-check-input" type="checkbox" name="chk_child" />
-														</div>
-													</th>
 
 													<td>
 														<a th:href="@{/management/asDetail/{id}(id=${as.id})}"
@@ -206,6 +427,7 @@
 
 									</div>
 
+									<!-- ✅ 페이지네이션: 필터 + 정렬 + size 반영 -->
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
@@ -215,11 +437,14 @@
 														<a class="page-link"
 															th:href="@{/management/asList(
 																page=0,
+																size=${pageSize},
 																handlerId=${selectedHandlerId},
 																status=${selectedStatus},
 																dateType=${selectedDateType},
 																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																sortField=${sortField},
+																sortDir=${sortDir}
 															)}">First</a>
 													</li>
 
@@ -227,11 +452,14 @@
 														<a class="page-link"
 															th:href="@{/management/asList(
 																page=${asPage.number - 1},
+																size=${pageSize},
 																handlerId=${selectedHandlerId},
 																status=${selectedStatus},
 																dateType=${selectedDateType},
 																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																sortField=${sortField},
+																sortDir=${sortDir}
 															)}">Previous</a>
 													</li>
 
@@ -241,11 +469,14 @@
 														<a class="page-link"
 															th:href="@{/management/asList(
 																page=${pageNum},
+																size=${pageSize},
 																handlerId=${selectedHandlerId},
 																status=${selectedStatus},
 																dateType=${selectedDateType},
 																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																sortField=${sortField},
+																sortDir=${sortDir}
 															)}"
 															th:text="${pageNum + 1}">1</a>
 													</li>
@@ -254,11 +485,14 @@
 														<a class="page-link"
 															th:href="@{/management/asList(
 																page=${asPage.number + 1},
+																size=${pageSize},
 																handlerId=${selectedHandlerId},
 																status=${selectedStatus},
 																dateType=${selectedDateType},
 																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																sortField=${sortField},
+																sortDir=${sortDir}
 															)}">Next</a>
 													</li>
 
@@ -266,11 +500,14 @@
 														<a class="page-link"
 															th:href="@{/management/asList(
 																page=${asPage.totalPages - 1},
+																size=${pageSize},
 																handlerId=${selectedHandlerId},
 																status=${selectedStatus},
 																dateType=${selectedDateType},
 																fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''}
+																toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+																sortField=${sortField},
+																sortDir=${sortDir}
 															)}">Last</a>
 													</li>
 

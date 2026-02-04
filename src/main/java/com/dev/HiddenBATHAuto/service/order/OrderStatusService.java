@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -91,22 +92,37 @@ public class OrderStatusService {
 	}
 
 	public Page<Order> getOrders(
-	        LocalDateTime start,
-	        LocalDateTime end,
-	        TeamCategory category,
-	        OrderStatus status,
-	        String dateType,
-	        Pageable pageable
-	) {
-	    String dt = (dateType == null) ? "" : dateType.trim();
+            LocalDateTime start,
+            LocalDateTime end,
+            TeamCategory category,
+            OrderStatus status,
+            String dateType,
+            Pageable pageable
+    ) {
+        String dt = (dateType == null) ? "created" : dateType.trim().toLowerCase();
 
-	    if ("created".equalsIgnoreCase(dt)) {
-	        return orderRepository.findByCreatedDateRange(category, status, start, end, pageable);
-	    }
-	    // 기본값: preferred
-	    return orderRepository.findByPreferredDateRange(category, status, start, end, pageable);
-	}
+        if ("preferred".equals(dt)) {
+            return orderRepository.findProductionListByPreferredDate(category, status, start, end, pageable);
+        }
+        // 기본 created
+        return orderRepository.findProductionListByCreatedDate(category, status, start, end, pageable);
+    }
 
+    public List<Order> getAllOrders(
+            LocalDateTime start,
+            LocalDateTime end,
+            TeamCategory category,
+            OrderStatus status,
+            String dateType,
+            Sort sort
+    ) {
+        String dt = (dateType == null) ? "created" : dateType.trim().toLowerCase();
+
+        if ("preferred".equals(dt)) {
+            return orderRepository.findAllProductionListByPreferredDate(category, status, start, end, sort);
+        }
+        return orderRepository.findAllProductionListByCreatedDate(category, status, start, end, sort);
+    }
 	public Page<Order> getOrders(LocalDate date, TeamCategory category, OrderStatus status, Pageable pageable) {
 		LocalDateTime start = date.atStartOfDay();
 		LocalDateTime end = date.atTime(LocalTime.MAX);
