@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.dto.production;
 
-import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -8,17 +9,22 @@ import lombok.Getter;
 @Getter
 @Builder
 public class StickerPrintDto {
+
     private Long orderId;
-    private String status;
+
     private String companyName;
+    private boolean standard;
 
-    private String roadAddress;
-    private String detailAddress;
-    private String regionText;   // 도/시/구 + 우편번호
+    private String modelName;
 
-    private String productName;
-    private Integer quantity;
-    private String optionSummary;
+    private String colorDisplay;   // ✅ "HW (히든 화이트)" 형태
+    private String size;
 
-    private LocalDate preferredDeliveryDate;
+    private List<String> optionFlags;
+
+    private String adminMemo;
+    private String adminImageUrl;
+
+    @Builder.Default
+    private List<String> debugRawKeys = new ArrayList<>();
 }

@@ -55,6 +55,7 @@ public class OrderUpdateService {
     @Value("${spring.upload.path}")
     private String uploadRootPath;
 
+    @Transactional
     public void updateOrder(
             Long orderId,
             int productCost,
@@ -63,11 +64,13 @@ public class OrderUpdateService {
             Optional<Long> deliveryMethodId,
             Optional<Long> deliveryHandlerId,
             Optional<Long> productCategoryId,
-            Optional<Long> companyId,              // ✅ 추가
-            Optional<Long> requesterMemberId,      // ✅ 추가
-            List<MultipartFile> adminImages
-    ) {
+            Optional<Long> companyId,
+            Optional<Long> requesterMemberId,
+            List<MultipartFile> adminImages,
 
+            // ✅✅ 추가
+            String adminMemo
+    ) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
@@ -76,6 +79,11 @@ public class OrderUpdateService {
         order.setProductCost(productCost);
         order.setPreferredDeliveryDate(preferredDeliveryDate != null ? preferredDeliveryDate.atStartOfDay() : null);
         order.setStatus(status);
+
+        // ✅✅ 관리자 남김말 업데이트 (NULL 가능)
+        // 공백만 입력되면 null 처리(원치 않으면 이 로직 제거하세요)
+        String normalizedAdminMemo = (adminMemo == null) ? null : adminMemo.trim();
+        order.setAdminMemo((normalizedAdminMemo == null || normalizedAdminMemo.isEmpty()) ? null : normalizedAdminMemo);
 
         deliveryMethodId.ifPresentOrElse(id -> {
             var method = deliveryMethodRepository.findById(id)
@@ -99,21 +107,25 @@ public class OrderUpdateService {
         if (requesterMemberId.isPresent()) {
             Member newRequester = memberRepository.findById(requesterMemberId.get())
                     .orElseThrow(() -> new IllegalArgumentException("Invalid requesterMemberId"));
+
             // 회사 소속 검증(회사도 넘어온 경우)
             if (companyId.isPresent()) {
                 Company newCompany = companyRepository.findById(companyId.get())
                         .orElseThrow(() -> new IllegalArgumentException("Invalid companyId"));
-                if (newRequester.getCompany() == null || !Objects.equals(newRequester.getCompany().getId(), newCompany.getId())) {
+
+                if (newRequester.getCompany() == null ||
+                        !Objects.equals(newRequester.getCompany().getId(), newCompany.getId())) {
                     throw new IllegalStateException("선택한 멤버가 해당 대리점(Company)에 소속되어 있지 않습니다.");
                 }
             }
+
             Task task = order.getTask();
             if (task == null) throw new IllegalStateException("Order에 Task가 존재하지 않습니다.");
+
             task.setRequestedBy(newRequester);
             task.setUpdatedAt(LocalDateTime.now());
-            taskRepository.save(task); // ✅ 명시적 저장(트랜잭션 내 merge)
+            taskRepository.save(task); // ✅ 명시적 저장
         } else if (companyId.isPresent()) {
-            // 회사만 단독 변경은 의미 없음(신청자도 바뀌어야 Task 소속이 바뀜) → 보호적 검증
             throw new IllegalArgumentException("대리점을 변경하려면 신청자(멤버)도 함께 선택해야 합니다.");
         }
 
@@ -122,11 +134,18 @@ public class OrderUpdateService {
         // ✅ 이미지 저장 로직 (기존 유지)
         saveAdminImages(order, adminImages);
 
+        // ✅ 인덱스 처리 (기존 유지)
         if (status == OrderStatus.CANCELED) {
-            deliveryOrderIndexRepository.findByOrder(order).ifPresent(deliveryOrderIndexRepository::delete);
+            deliveryOrderIndexRepository.findByOrder(order)
+                    .ifPresent(deliveryOrderIndexRepository::delete);
         } else {
             deliveryOrderIndexService.ensureIndex(order);
         }
+
+        // ✅ orderRepository.save(order) 호출이 필요할 수도?
+        // - 현재 구조가 JPA 영속 상태에서 트랜잭션 커밋 시 dirty checking으로 반영된다면 생략 가능
+        // - 하지만 서비스 구조상 detach 가능성이 있거나, 확실히 하고 싶다면 아래를 활성화 권장
+        // orderRepository.save(order);
     }
 
     private void saveAdminImages(Order order, List<MultipartFile> files) {

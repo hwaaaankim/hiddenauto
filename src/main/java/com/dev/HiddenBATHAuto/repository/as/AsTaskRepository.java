@@ -397,4 +397,94 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
             @Param("endDate") java.time.LocalDate endDate,
             Pageable pageable
     );
+    
+ // requested/processed 조회(지역 포함)
+    @Query("""
+      select t from AsTask t
+      left join t.requestedBy rb
+      left join rb.company c
+      where (:status is null or t.status = :status)
+        and (:companyKeyword is null or :companyKeyword = '' or c.companyName like concat('%', :companyKeyword, '%'))
+        and (:provinceName is null or :provinceName = '' or t.doName = :provinceName)
+        and (:cityName is null or :cityName = '' or t.siName = :cityName)
+        and (:districtName is null or :districtName = '' or t.guName = :districtName)
+    """)
+    Page<AsTask> searchBaseWithRegion(
+            @Param("status") AsStatus status,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("provinceName") String provinceName,
+            @Param("cityName") String cityName,
+            @Param("districtName") String districtName,
+            Pageable pageable
+    );
+
+    // scheduled 조회: 스케줄 등록된 것만(지역 포함)
+    @Query("""
+      select t from AsTaskSchedule s
+      join s.asTask t
+      left join t.requestedBy rb
+      left join rb.company c
+      where (:status is null or t.status = :status)
+        and (:companyKeyword is null or :companyKeyword = '' or c.companyName like concat('%', :companyKeyword, '%'))
+        and (:provinceName is null or :provinceName = '' or t.doName = :provinceName)
+        and (:cityName is null or :cityName = '' or t.siName = :cityName)
+        and (:districtName is null or :districtName = '' or t.guName = :districtName)
+        and (:startDate is null or s.scheduledDate >= :startDate)
+        and (:endDate is null or s.scheduledDate < :endDate)
+    """)
+    Page<AsTask> searchByScheduledDateWithRegion(
+            @Param("status") AsStatus status,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("provinceName") String provinceName,
+            @Param("cityName") String cityName,
+            @Param("districtName") String districtName,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            Pageable pageable
+    );
+    
+ // requested/processed 조회(지역 포함) - IN으로 변경
+    @Query("""
+      select t from AsTask t
+      left join t.requestedBy rb
+      left join rb.company c
+      where (:status is null or t.status = :status)
+        and (:companyKeyword is null or :companyKeyword = '' or c.companyName like concat('%', :companyKeyword, '%'))
+        and (:provinceNames is null or t.doName in :provinceNames)
+        and (:cityNames is null or t.siName in :cityNames)
+        and (:districtNames is null or t.guName in :districtNames)
+    """)
+    Page<AsTask> searchBaseWithRegion(
+            @Param("status") AsStatus status,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("provinceNames") List<String> provinceNames,
+            @Param("cityNames") List<String> cityNames,
+            @Param("districtNames") List<String> districtNames,
+            Pageable pageable
+    );
+
+    // scheduled 조회: 스케줄 등록된 것만(지역 포함) - IN으로 변경
+    @Query("""
+      select t from AsTaskSchedule s
+      join s.asTask t
+      left join t.requestedBy rb
+      left join rb.company c
+      where (:status is null or t.status = :status)
+        and (:companyKeyword is null or :companyKeyword = '' or c.companyName like concat('%', :companyKeyword, '%'))
+        and (:provinceNames is null or t.doName in :provinceNames)
+        and (:cityNames is null or t.siName in :cityNames)
+        and (:districtNames is null or t.guName in :districtNames)
+        and (:startDate is null or s.scheduledDate >= :startDate)
+        and (:endDate is null or s.scheduledDate < :endDate)
+    """)
+    Page<AsTask> searchByScheduledDateWithRegion(
+            @Param("status") AsStatus status,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("provinceNames") List<String> provinceNames,
+            @Param("cityNames") List<String> cityNames,
+            @Param("districtNames") List<String> districtNames,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            Pageable pageable
+    );
 }

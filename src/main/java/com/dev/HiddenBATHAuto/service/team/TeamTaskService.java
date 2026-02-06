@@ -5,9 +5,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +23,7 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
@@ -40,15 +44,8 @@ public class TeamTaskService {
 	/**
 	 * ✅ 기존 메서드(유지): productionFilter(IN_PROGRESS/DONE/ALL) 기반 조회
 	 */
-	public Page<Order> getProductionOrdersByDateTypeAndProductionFilter(
-			List<OrderStatus> statuses,
-			Long categoryId,
-			String dateType,
-			String productionFilter,
-			LocalDateTime start,
-			LocalDateTime end,
-			Pageable pageable
-	) {
+	public Page<Order> getProductionOrdersByDateTypeAndProductionFilter(List<OrderStatus> statuses, Long categoryId,
+			String dateType, String productionFilter, LocalDateTime start, LocalDateTime end, Pageable pageable) {
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
 		String pf = (productionFilter == null || productionFilter.isBlank()) ? "IN_PROGRESS" : productionFilter;
 
@@ -58,13 +55,16 @@ public class TeamTaskService {
 		if (useCreated) {
 			// created 기준
 			page = hasSort
-					? orderRepository.findProductionListByCreatedRangeSortable(statuses, categoryId, pf, start, end, pageable)
+					? orderRepository.findProductionListByCreatedRangeSortable(statuses, categoryId, pf, start, end,
+							pageable)
 					: orderRepository.findProductionListByCreatedRange(statuses, categoryId, pf, start, end, pageable);
 		} else {
 			// preferred 기준
 			page = hasSort
-					? orderRepository.findProductionListByPreferredRangeSortable(statuses, categoryId, pf, start, end, pageable)
-					: orderRepository.findProductionListByPreferredRange(statuses, categoryId, pf, start, end, pageable);
+					? orderRepository.findProductionListByPreferredRangeSortable(statuses, categoryId, pf, start, end,
+							pageable)
+					: orderRepository.findProductionListByPreferredRange(statuses, categoryId, pf, start, end,
+							pageable);
 		}
 
 		applySingleLineOptionSummary(page);
@@ -73,25 +73,20 @@ public class TeamTaskService {
 	}
 
 	/**
-	 * ✅ 신규 추가(에러 해결 핵심):
-	 * 컨트롤러에서 호출하는 메서드 시그니처와 동일합니다.
+	 * ✅ 신규 추가(에러 해결 핵심): 컨트롤러에서 호출하는 메서드 시그니처와 동일합니다.
 	 *
-	 * - statusFilter가 null이면 ALL (전체)
-	 * - statusFilter가 있으면 해당 상태만
-	 * - dateType(created/preferred)에 따라 createdAt or preferredDeliveryDate 기준 기간 필터 적용
+	 * - statusFilter가 null이면 ALL (전체) - statusFilter가 있으면 해당 상태만 -
+	 * dateType(created/preferred)에 따라 createdAt or preferredDeliveryDate 기준 기간 필터
+	 * 적용
 	 *
 	 * ⚠️ 이 메서드를 사용하려면 OrderRepository에
-	 *    findProductionListByCreatedRangeStatusSortable / findProductionListByPreferredRangeStatusSortable
-	 *    메서드가 존재해야 합니다(아래 2)에서 전체 코드 제공).
+	 * findProductionListByCreatedRangeStatusSortable /
+	 * findProductionListByPreferredRangeStatusSortable 메서드가 존재해야 합니다(아래 2)에서 전체 코드
+	 * 제공).
 	 */
-	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
-			Long categoryId,
-			String dateType,
-			OrderStatus statusFilter,     // null이면 ALL
-			LocalDateTime start,
-			LocalDateTime end,
-			Pageable pageable
-	) {
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(Long categoryId, String dateType,
+			OrderStatus statusFilter, // null이면 ALL
+			LocalDateTime start, LocalDateTime end, Pageable pageable) {
 
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
 		boolean allStatus = (statusFilter == null);
@@ -100,23 +95,11 @@ public class TeamTaskService {
 		// (Query 내부에 ORDER BY를 넣지 않는 방식)
 		Page<Order> page;
 		if (useCreated) {
-			page = orderRepository.findProductionListByCreatedRangeStatusSortable(
-					categoryId,
-					allStatus,
-					statusFilter,
-					start,
-					end,
-					pageable
-			);
+			page = orderRepository.findProductionListByCreatedRangeStatusSortable(categoryId, allStatus, statusFilter,
+					start, end, pageable);
 		} else {
-			page = orderRepository.findProductionListByPreferredRangeStatusSortable(
-					categoryId,
-					allStatus,
-					statusFilter,
-					start,
-					end,
-					pageable
-			);
+			page = orderRepository.findProductionListByPreferredRangeStatusSortable(categoryId, allStatus, statusFilter,
+					start, end, pageable);
 		}
 
 		applySingleLineOptionSummary(page);
@@ -126,11 +109,13 @@ public class TeamTaskService {
 
 	// ✅ 옵션 한줄 요약 세팅(공통화)
 	private void applySingleLineOptionSummary(Page<Order> page) {
-		if (page == null || page.getContent() == null) return;
+		if (page == null || page.getContent() == null)
+			return;
 
 		for (Order o : page.getContent()) {
 			OrderItem item = o.getOrderItem();
-			if (item == null) continue;
+			if (item == null)
+				continue;
 			item.setFormattedOptionText(buildOptionSummarySingleLine(o, item));
 		}
 	}
@@ -155,38 +140,49 @@ public class TeamTaskService {
 
 		// 3) 출력용 토큰 구성 (값 있는 것만)
 		List<String> tokens = new ArrayList<>();
-		if (!category.isBlank()) tokens.add(category);
-		if (!productName.isBlank()) tokens.add(productName);
-		if (!size.isBlank()) tokens.add("사이즈:" + size);
-		if (!color.isBlank()) tokens.add("색상:" + color);
-		if (!type.isBlank()) tokens.add(type);
+		if (!category.isBlank())
+			tokens.add(category);
+		if (!productName.isBlank())
+			tokens.add(productName);
+		if (!size.isBlank())
+			tokens.add("사이즈:" + size);
+		if (!color.isBlank())
+			tokens.add("색상:" + color);
+		if (!type.isBlank())
+			tokens.add(type);
 
 		// 4) 슬래시 구분
 		return String.join(" / ", tokens);
 	}
 
 	private Map<String, Object> parseJsonToMap(String json) {
-		if (json == null || json.isBlank()) return Collections.emptyMap();
+		if (json == null || json.isBlank())
+			return Collections.emptyMap();
 		try {
-			return objectMapper.readValue(json, new TypeReference<LinkedHashMap<String, Object>>() {});
+			return objectMapper.readValue(json, new TypeReference<LinkedHashMap<String, Object>>() {
+			});
 		} catch (Exception e) {
 			return Collections.emptyMap();
 		}
 	}
 
 	private String pickFirstValue(Map<String, Object> map, List<String> keys) {
-		if (map == null || map.isEmpty() || keys == null) return "";
+		if (map == null || map.isEmpty() || keys == null)
+			return "";
 		for (String k : keys) {
-			if (k == null) continue;
+			if (k == null)
+				continue;
 			Object v = map.get(k);
 			String s = safeText(v);
-			if (!s.isBlank()) return s;
+			if (!s.isBlank())
+				return s;
 		}
 		return "";
 	}
 
 	private String safeText(Object v) {
-		if (v == null) return "";
+		if (v == null)
+			return "";
 		String s = String.valueOf(v);
 		s = s.replace("\r", " ").replace("\n", " ").replace("\t", " ");
 		s = s.replaceAll("\\s{2,}", " ").trim();
@@ -228,8 +224,7 @@ public class TeamTaskService {
 		LocalDateTime end = start.plusDays(1);
 
 		return asTaskRepository.findAsTasksByFilter(handler.getId(), status,
-				(dateType != null && dateType.equals("requested")) ? "requested" : "processed",
-				start, end, pageable);
+				(dateType != null && dateType.equals("requested")) ? "requested" : "processed", start, end, pageable);
 	}
 
 	public Page<AsTask> getAsTasks(Member handler, LocalDate asDate, Pageable pageable) {
@@ -245,16 +240,17 @@ public class TeamTaskService {
 		List<Order> orders = orderRepository.findAllForStickerPrint(orderIds);
 
 		if (allowedCategoryId != null) {
-			orders = orders.stream()
-					.filter(o -> o.getProductCategory() != null && allowedCategoryId.equals(o.getProductCategory().getId()))
+			orders = orders.stream().filter(
+					o -> o.getProductCategory() != null && allowedCategoryId.equals(o.getProductCategory().getId()))
 					.toList();
 		}
 
 		List<StickerPrintDto> result = new ArrayList<>();
 
 		for (Order o : orders) {
-			OrderItem item = o.getOrderItem();
+			OrderItem orderItem = o.getOrderItem();
 
+			// 업체명
 			String companyName = "-";
 			try {
 				if (o.getTask() != null && o.getTask().getRequestedBy() != null
@@ -267,47 +263,169 @@ public class TeamTaskService {
 				companyName = "-";
 			}
 
-			String region = safeJoinWithSpace(safe(o.getDoName()), safe(o.getSiName()), safe(o.getGuName()));
+			boolean standard = o.isStandard();
 
-			if (o.getZipCode() != null && !o.getZipCode().isBlank()) {
-				region = region + " (" + o.getZipCode() + ")";
+			// 옵션 JSON 파싱
+			Map<String, String> optMap = parseOptionJsonToMap(orderItem != null ? orderItem.getOptionJson() : null);
+
+			// 모델명 규칙
+			String modelName = standard ? nvl(optMap.get("제품명")) : nvl(optMap.get("제품"));
+			if (isBlank(modelName))
+				modelName = "-";
+
+			// 색상 (코드면 한글명 병기)
+			String colorRaw = nvl(optMap.get("색상")).trim();
+			String colorDisplay = buildColorDisplay(colorRaw); // ✅ 추가
+
+			// 사이즈 (넓이 숫자 뒤 mm)
+			String sizeRaw = nvl(optMap.get("사이즈")).trim();
+			String size = buildSizeWithWidthMm(sizeRaw); // ✅ 추가
+			if (isBlank(size))
+				size = "-";
+
+			// 옵션여부(4개)
+			List<String> optionFlags = new ArrayList<>();
+			addOptIfPresent(optionFlags, "티슈위치", optMap);
+			addOptIfPresent(optionFlags, "드라이걸이", optMap);
+			addOptIfPresent(optionFlags, "콘센트", optMap);
+			addOptIfPresent(optionFlags, "LED", optMap);
+
+			// 비고
+			String adminMemo = nvl(o.getAdminMemo()).trim();
+
+			// 관리자 업로드 이미지 1장
+			String adminImageUrl = "";
+			try {
+				List<OrderImage> adminImages = (o.getAdminUploadedImages() != null) ? o.getAdminUploadedImages()
+						: List.of();
+				if (!adminImages.isEmpty()) {
+					adminImageUrl = resolveAdminImageUrl(adminImages.get(0));
+				}
+			} catch (Exception ignore) {
+				adminImageUrl = "";
 			}
 
-			String optionSummary = "";
-			if (item != null) {
-				optionSummary = buildOptionSummarySingleLine(o, item);
-			}
-
-			StickerPrintDto dto = StickerPrintDto.builder()
-					.orderId(o.getId())
-					.status(o.getStatus() != null ? o.getStatus().name() : "-")
-					.companyName(companyName)
-					.roadAddress(safe(o.getRoadAddress()))
-					.detailAddress(safe(o.getDetailAddress()))
-					.regionText(region != null ? region.trim() : "")
-					.productName(item != null ? safe(item.getProductName()) : "-")
-					.quantity(item != null ? item.getQuantity() : 0)
-					.optionSummary(optionSummary)
-					.preferredDeliveryDate(
-							o.getPreferredDeliveryDate() != null
-									? o.getPreferredDeliveryDate().toLocalDate()
-									: null
-					)
-					.build();
+			StickerPrintDto dto = StickerPrintDto.builder().orderId(o.getId()).companyName(companyName)
+					.standard(standard).modelName(modelName).colorDisplay(colorDisplay).size(size)
+					.optionFlags(optionFlags).adminMemo(adminMemo).adminImageUrl(adminImageUrl).build();
 
 			result.add(dto);
 		}
 
 		result.sort(Comparator.comparingInt(d -> orderIds.indexOf(d.getOrderId())));
-
 		return result;
 	}
 
-	private String safe(String v) {
-		return (v == null) ? "" : v.trim();
+	private Map<String, String> parseOptionJsonToMap(String optionJson) {
+		if (optionJson == null || optionJson.isBlank())
+			return new HashMap<>();
+		try {
+			return objectMapper.readValue(optionJson, new TypeReference<Map<String, String>>() {
+			});
+		} catch (Exception e) {
+			return new HashMap<>();
+		}
 	}
 
-	private String safeJoinWithSpace(String a, String b, String c) {
-		return (a + " " + b + " " + c).replaceAll("\\s{2,}", " ").trim();
+	private void addOptIfPresent(List<String> out, String key, Map<String, String> map) {
+		String v = nvl(map.get(key)).trim();
+		if (!isBlank(v))
+			out.add(key + ": " + v);
+	}
+
+	private String nvl(String v) {
+		return v == null ? "" : v;
+	}
+
+	private boolean isBlank(String v) {
+		return v == null || v.trim().isEmpty();
+	}
+
+	/**
+	 * ✅ 색상 코드 -> "HW (히든 화이트)" 형태로 변환 - raw가 이미 "히든 화이트" 같은 한글이면 그대로 사용 - raw가 "HW"
+	 * 또는 "HW ..." 또는 "HW(…)" 형태면 코드 추출해서 매핑
+	 */
+	private String buildColorDisplay(String raw) {
+		if (isBlank(raw))
+			return "-";
+
+		// 코드 후보 추출 (공백/괄호 전까지)
+		String code = raw.trim();
+		int cut = code.indexOf(' ');
+		if (cut > 0)
+			code = code.substring(0, cut);
+		cut = code.indexOf('(');
+		if (cut > 0)
+			code = code.substring(0, cut);
+		code = code.trim().toUpperCase();
+
+		Map<String, String> map = COLOR_MAP();
+		if (map.containsKey(code)) {
+			return code + " (" + map.get(code) + ")";
+		}
+
+		// 코드가 아니면(이미 한글명 등) raw 그대로
+		return raw;
+	}
+
+	private Map<String, String> COLOR_MAP() {
+		Map<String, String> m = new LinkedHashMap<>();
+		m.put("HW", "히든 화이트");
+		m.put("HB", "히든 블랙");
+		m.put("HC", "히든 크림");
+		m.put("HG", "히든 그레이");
+		m.put("G", "골드");
+		m.put("S", "실버");
+		m.put("IV", "아이보리");
+		m.put("HN", "히든 네츄럴");
+		m.put("DB", "다크블루");
+		m.put("LW", "라이트 우드");
+		m.put("MG", "미스트 그레이");
+		m.put("GB", "그레이쉬 브라운");
+		m.put("SP", "소프트 핑크");
+		m.put("SB", "소프트 블루");
+		return m;
+	}
+
+	/**
+	 * ✅ 사이즈 문자열에서 - 넓이/높이/깊이 라벨을 "넓이(W):" / "높이(H):" / "깊이(D):" 로 통일 - 각 숫자 뒤에 mm가
+	 * 없으면 mm를 자동으로 붙임
+	 *
+	 * 예) "넓이: 630 / 높이: 700 / 깊이: 120" -> "넓이(W): 630mm / 높이(H): 700mm / 깊이(D):
+	 * 120mm" "넓이:630mm 높이:700 깊이:120" -> "넓이(W): 630mm 높이(H): 700mm 깊이(D): 120mm"
+	 */
+	private String buildSizeWithWidthMm(String sizeRaw) {
+		if (isBlank(sizeRaw))
+			return sizeRaw;
+
+		String s = sizeRaw;
+
+		// 1) 라벨을 "넓이(W)", "높이(H)", "깊이(D)" 로 변환 (이미 (W) 등이 있어도 중복 방지)
+		s = s.replaceAll("넓이(?!\\s*\\(W\\))", "넓이(W)");
+		s = s.replaceAll("높이(?!\\s*\\(H\\))", "높이(H)");
+		s = s.replaceAll("깊이(?!\\s*\\(D\\))", "깊이(D)");
+
+		// 2) "넓이(W): 630" / "높이(H):700" / "깊이(D):120" 처럼 숫자 뒤에 mm가 없으면 mm 추가
+		// - (?!\\s*mm) : 뒤에 mm가 있으면 붙이지 않음
+		Pattern p = Pattern.compile("((?:넓이\\(W\\)|높이\\(H\\)|깊이\\(D\\))\\s*:\\s*)(\\d+)(?!\\s*mm)",
+				Pattern.CASE_INSENSITIVE);
+
+		Matcher m = p.matcher(s);
+		s = m.replaceAll("$1$2mm");
+
+		return s;
+	}
+
+	/**
+	 * ⚠️ OrderImage 실제 URL 필드명에 맞춰 한 줄만 교체하세요.
+	 */
+	private String resolveAdminImageUrl(OrderImage img) {
+		if (img == null)
+			return "";
+
+		// TODO: 아래 한 줄을 실제 필드명으로 교체
+		String url = img.getUrl();
+
+		return url == null ? "" : url.trim();
 	}
 }

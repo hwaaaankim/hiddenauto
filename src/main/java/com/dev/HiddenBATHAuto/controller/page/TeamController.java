@@ -631,37 +631,39 @@ public class TeamController {
 	}
 
 	@PostMapping("/productionStickerPrint")
-	public String productionStickerPrint(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam("orderIds") List<Long> orderIds, Model model) {
-		Member member = principal.getMember();
+    public String productionStickerPrint(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam("orderIds") List<Long> orderIds,
+            Model model
+    ) {
+        Member member = principal.getMember();
 
-		if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
-		}
+        if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+        }
 
-		if (orderIds == null || orderIds.isEmpty()) {
-			model.addAttribute("pages", List.of());
-			model.addAttribute("totalCount", 0);
-			return "administration/team/production/productionStickerPrint";
-		}
+        if (orderIds == null || orderIds.isEmpty()) {
+            model.addAttribute("pages", List.of());
+            model.addAttribute("totalCount", 0);
+            model.addAttribute("today", LocalDate.now()); // ✅ 추가
+            return "administration/team/production/productionStickerPrint";
+        }
 
-		// ✅ 하부장팀 제한을 “출력”에도 적용할지 여부가 중요합니다.
-		// 아래는 "목록에서의 제한과 동일하게" 적용하는 방식(권장).
-		boolean isSubLeaderTeam = (member.getTeamCategory() != null
-				&& "하부장".equals(member.getTeamCategory().getName()));
-		Long allowedCategoryId = isSubLeaderTeam ? member.getTeamCategory().getId() : null;
+        boolean isSubLeaderTeam = (member.getTeamCategory() != null
+                && "하부장".equals(member.getTeamCategory().getName()));
+        Long allowedCategoryId = isSubLeaderTeam ? member.getTeamCategory().getId() : null;
 
-		List<StickerPrintDto> items = teamTaskService.getStickerPrintItems(orderIds, allowedCategoryId);
+        List<StickerPrintDto> items = teamTaskService.getStickerPrintItems(orderIds, allowedCategoryId);
 
-		// 4개씩 페이지 분할
-		List<List<StickerPrintDto>> pages = new ArrayList<>();
-		for (int i = 0; i < items.size(); i += 4) {
-			pages.add(items.subList(i, Math.min(i + 4, items.size())));
-		}
+        List<List<StickerPrintDto>> pages = new ArrayList<>();
+        for (int i = 0; i < items.size(); i += 4) {
+            pages.add(items.subList(i, Math.min(i + 4, items.size())));
+        }
 
-		model.addAttribute("pages", pages);
-		model.addAttribute("totalCount", items.size());
+        model.addAttribute("pages", pages);
+        model.addAttribute("totalCount", items.size());
+        model.addAttribute("today", LocalDate.now()); // ✅ 추가
 
-		return "administration/team/production/productionStickerPrint";
-	}
+        return "administration/team/production/productionStickerPrint";
+    }
 }

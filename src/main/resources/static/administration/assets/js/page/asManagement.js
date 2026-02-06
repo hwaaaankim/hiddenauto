@@ -4,15 +4,17 @@
 (function () {
 	'use strict';
 
-	// ===== DOM =====
+	// =========================
+	// ===== DOM (CALENDAR) =====
+	// =========================
 	const calendarEl = document.getElementById('as-calendar-calendar');
 
-	const drawerOpenBtn = document.getElementById('as-management-added-open-drawer'); // '업무' 버튼(FAB)
+	const drawerOpenBtn = document.getElementById('as-management-added-open-drawer');
 	const drawerOverlay = document.getElementById('as-management-added-drawer-overlay');
 	const drawer = drawerOverlay ? drawerOverlay.querySelector('.as-management-added-drawer') : null;
 	const drawerCloseBtn = document.getElementById('as-management-added-close-drawer');
 
-	const externalListEl = document.getElementById('as-calendar-external-list'); // drawer 안 리스트
+	const externalListEl = document.getElementById('as-calendar-external-list');
 
 	const modalOverlay = document.getElementById('as-calendar-modal-overlay');
 	const modalCloseBtn = document.getElementById('as-calendar-modal-close');
@@ -20,19 +22,36 @@
 	const modalListEl = document.getElementById('as-calendar-modal-list');
 	const modalSaveBtn = document.getElementById('as-calendar-modal-save-order');
 
+	// ========================
+	// ===== DOM (REGION) =====
+	// ========================
+	const provinceSelect = document.getElementById('as-province-select');
+
+	const childWrapper = document.getElementById('as-child-wrapper');
+	const childLabel = document.getElementById('as-child-label');
+
+	const citySelect = document.getElementById('as-city-select');
+	const districtDirectSelect = document.getElementById('as-district-direct-select'); // city 없는 province용(서울/세종 등)
+
+	const districtWrapper = document.getElementById('as-district-wrapper');
+	const districtSelect = document.getElementById('as-district-select'); // city 있는 경우
+
+	const districtHidden = document.getElementById('as-district-hidden'); // ✅ 실제 전송용
+
+	// 서버에서 전달한 초기 선택값
+	const selected = window.__AS_SELECTED__ || {};
+
+	// =================
 	// ===== state =====
+	// =================
 	let calendar = null;
 	let modalDate = null;
 	let modalSortable = null;
 	let isMobile = false;
 
-	// ✅ 외부 드래그 인스턴스(PC에서만 생성/유지)
 	let externalDraggable = null;
-
-	// 날짜별 이벤트 수(“N건” 배지용)
 	let eventCountByDate = {};
 
-	// ✅ Drawer 자동닫기/재오픈을 위한 드래그 감시 상태
 	let drawerDragWatch = {
 		active: false,
 		pointerId: null,
@@ -43,14 +62,13 @@
 		openedAgain: false
 	};
 
-	// ✅ 재오픈 트리거(‘업무’ 버튼) 인식 여유 영역
-	const DRAWER_REOPEN_BTN_PADDING = 18; // 버튼 주변 여유
-	const DRAWER_REOPEN_BTN_TOP_EXTRA = 36; // 버튼 "위" 쪽 추가 여유(요청 포인트)
-
-	// ✅ 닫힘 히스테리시스
+	const DRAWER_REOPEN_BTN_PADDING = 18;
+	const DRAWER_REOPEN_BTN_TOP_EXTRA = 36;
 	const DRAWER_CLOSE_OUT_MARGIN = 6;
 
-	// ===== utils =====
+	// ==============
+	// ===== utils ===
+	// ==============
 	function qs(sel, root) { return (root || document).querySelector(sel); }
 	function qsa(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 
@@ -66,13 +84,8 @@
 		return s.length >= 10 ? s.substring(0, 10) : s;
 	}
 
-	function isSchedulableStatus(status) {
-		return status === 'IN_PROGRESS';
-	}
-
-	function isBlockedStatus(status) {
-		return status === 'COMPLETED' || status === 'CANCELED';
-	}
+	function isSchedulableStatus(status) { return status === 'IN_PROGRESS'; }
+	function isBlockedStatus(status) { return status === 'COMPLETED' || status === 'CANCELED'; }
 
 	function apiJson(url, method, body) {
 		return fetch(url, {
@@ -93,7 +106,7 @@
 	}
 
 	function apiGet(url) {
-		return fetch(url).then(async (res) => {
+		return fetch(url, { headers: { 'Accept': 'application/json' } }).then(async (res) => {
 			if (!res.ok) throw new Error('요청 실패');
 			return res.json();
 		});
@@ -135,7 +148,9 @@
 		};
 	}
 
+	// =================
 	// ===== Drawer =====
+	// =================
 	function openDrawer() {
 		if (!drawerOverlay || !drawer) return;
 		drawerOverlay.style.display = 'flex';
@@ -163,7 +178,9 @@
 		}
 	}
 
+	// ================
 	// ===== Modal =====
+	// ================
 	function openModal() {
 		modalOverlay.style.display = 'flex';
 		document.body.classList.add('as-calendar-modal-open');
@@ -190,7 +207,9 @@
 		if (modalSaveBtn) modalSaveBtn.addEventListener('click', saveModalOrder);
 	}
 
-	// ===== slide toggle (drawer + modal 공용) =====
+	// ============================
+	// ===== slide toggle util =====
+	// ============================
 	function slideToggle(el, open) {
 		if (!el) return;
 
@@ -225,13 +244,14 @@
 		}
 	}
 
-	// ===== Right list normalize + draggable marker =====
+	// =====================================
+	// ===== Right list normalize + drag =====
+	// =====================================
 	function normalizeTaskList() {
 		if (!externalListEl) return;
 
 		const items = qsa('.as-management-added-task', externalListEl);
 
-		// 정렬: 1) 등록가능(IN_PROGRESS + 미등록) 2) 이미등록(IN_PROGRESS + 등록) 3) 나머지
 		items.sort((a, b) => {
 			const sa = a.getAttribute('data-status');
 			const sb = b.getAttribute('data-status');
@@ -252,7 +272,6 @@
 		items.forEach(el => frag.appendChild(el));
 		externalListEl.appendChild(frag);
 
-		// draggable marker: 모바일이면 불가, PC라도 IN_PROGRESS + 미등록만 가능
 		items.forEach(el => {
 			const status = el.getAttribute('data-status');
 			const scheduled = el.getAttribute('data-scheduled-date') || '';
@@ -267,13 +286,10 @@
 		});
 
 		bindListButtons();
-
-		// ✅ 드래그 중: Drawer 밖으로 나가면 닫고, '업무' 버튼 위로 가면 다시 열기
 		bindExternalDragAutoCloseAndReopen();
 	}
 
 	function bindListButtons() {
-		// 상세 토글
 		qsa('.as-management-added-toggle-btn', externalListEl).forEach(btn => {
 			btn.onclick = function (e) {
 				e.preventDefault();
@@ -287,7 +303,6 @@
 			};
 		});
 
-		// 달력 이동
 		qsa('.as-management-added-jump-btn', externalListEl).forEach(btn => {
 			btn.onclick = function (e) {
 				e.preventDefault();
@@ -360,7 +375,6 @@
 		if (drawerDragWatch.pointerId != null && e && typeof e.pointerId === 'number') {
 			if (e.pointerId !== drawerDragWatch.pointerId) return;
 		}
-
 		onDragWatchMoveCore(e);
 	}
 
@@ -378,7 +392,6 @@
 		window.removeEventListener('pointercancel', onDragWatchEndPointer);
 	}
 
-	// ----- fallback: Mouse -----
 	function onDragWatchStartMouse(e) {
 		if (!isDrawerOpen()) return;
 
@@ -413,7 +426,6 @@
 		window.removeEventListener('mouseup', onDragWatchEndMouse);
 	}
 
-	// ----- fallback: Touch -----
 	function onDragWatchStartTouch(e) {
 		if (!isDrawerOpen()) return;
 
@@ -450,7 +462,6 @@
 		window.removeEventListener('touchcancel', onDragWatchEndTouch);
 	}
 
-	// ----- shared core -----
 	function onDragWatchMoveCore(e) {
 		const pos = getPointerXY(e);
 
@@ -494,11 +505,11 @@
 		}
 	}
 
+	// ===========================
 	// ===== FullCalendar init =====
+	// ===========================
 	function getHeaderToolbarForCurrentMode() {
-		if (isMobile) {
-			return { left: 'prev,next,today', center: 'title', right: '' };
-		}
+		if (isMobile) return { left: 'prev,next,today', center: 'title', right: '' };
 		return { left: 'prev,next', center: 'title', right: 'today' };
 	}
 
@@ -695,9 +706,7 @@
 				if (items && items.length >= 3) {
 					const third = items[2];
 					const spans = third.querySelectorAll('span');
-					if (spans && spans.length >= 2) {
-						spans[1].textContent = dateStr || '-';
-					}
+					if (spans && spans.length >= 2) spans[1].textContent = dateStr || '-';
 				}
 			}
 		}
@@ -760,14 +769,13 @@
 			calendar.changeView(nextView);
 		}
 
-		if (!isMobile) {
-			updateDayCountBadges();
-		}
-
+		if (!isMobile) updateDayCountBadges();
 		ensureExternalDraggable();
 	}
 
-	// ===== Modal list (등록된 업무) =====
+	// ============================
+	// ===== Modal list (등록) =====
+	// ============================
 	function openDateModal(dateStr) {
 		modalDate = toYmd(dateStr);
 		modalDateText.textContent = modalDate;
@@ -794,7 +802,6 @@
 			});
 	}
 
-	// ✅ 모달 리스트: "상세 ▼" 슬라이드 토글 추가
 	function renderModalList(items) {
 		if (!items || items.length === 0) {
 			modalListEl.innerHTML = '<div class="text-muted small">배정된 업무가 없습니다.</div>';
@@ -813,8 +820,6 @@
 
 			const reqDate = it.requestedAt ? String(it.requestedAt).substring(0, 10) : '-';
 			const procDate = it.asProcessDate ? String(it.asProcessDate).substring(0, 10) : '-';
-
-			// 모달은 "해당 날짜"가 곧 등록일(스케줄 날짜)
 			const schedDate = modalDate ? modalDate : '-';
 
 			return `
@@ -849,7 +854,6 @@
               <div><span class="as-calendar-label">처리일</span> ${procDate}</div>
             </div>
 
-            <!-- ✅ 상세 영역(슬라이드 토글) -->
             <div class="as-calendar-modal-detail" style="display:none;">
               <div class="as-calendar-modal-detail-grid">
                 <div>
@@ -879,7 +883,6 @@
 	}
 
 	function bindModalItemButtons() {
-		// 상세 토글 버튼
 		qsa('.as-calendar-modal-toggle', modalListEl).forEach(btn => {
 			btn.addEventListener('click', function (e) {
 				e.preventDefault();
@@ -891,13 +894,10 @@
 
 				const isOpen = detailEl.style.display !== 'none';
 				slideToggle(detailEl, !isOpen);
-
-				// 화살표 회전/상태표시용 클래스
 				btn.classList.toggle('is-open', !isOpen);
 			});
 		});
 
-		// 제거 버튼
 		qsa('.as-calendar-modal-remove', modalListEl).forEach(btn => {
 			btn.addEventListener('click', function (e) {
 				e.preventDefault();
@@ -950,9 +950,7 @@
 				if (items && items.length >= 3) {
 					const third = items[2];
 					const spans = third.querySelectorAll('span');
-					if (spans && spans.length >= 2) {
-						spans[1].textContent = '-';
-					}
+					if (spans && spans.length >= 2) spans[1].textContent = '-';
 				}
 			}
 		}
@@ -977,12 +975,179 @@
 		});
 	}
 
+	// =====================================
+	// ✅ REGION FILTER (Province/City/District)
+	// =====================================
+	function show(el) { if (el) el.style.display = ''; }
+	function hide(el) { if (el) el.style.display = 'none'; }
+
+	function resetSelect(selectEl, placeholderText) {
+		if (!selectEl) return;
+		selectEl.innerHTML = '';
+		const opt = document.createElement('option');
+		opt.value = '';
+		opt.textContent = placeholderText || '전체';
+		selectEl.appendChild(opt);
+	}
+
+	function fillOptions(selectEl, items, selectedId) {
+		if (!selectEl) return;
+		(items || []).forEach(item => {
+			const opt = document.createElement('option');
+			opt.value = String(item.id);
+			opt.textContent = item.name;
+			if (selectedId != null && String(selectedId) === String(item.id)) opt.selected = true;
+			selectEl.appendChild(opt);
+		});
+	}
+
+	function setDistrictHidden(v) {
+		if (!districtHidden) return;
+		districtHidden.value = (v == null) ? '' : String(v);
+	}
+
+	function hideAllRegionControls() {
+		hide(childWrapper);
+		hide(citySelect);
+		hide(districtDirectSelect);
+
+		hide(districtWrapper);
+		hide(districtSelect);
+	}
+
+	async function onProvinceChange(isInit) {
+		if (!provinceSelect) return;
+
+		const provinceId = provinceSelect.value;
+
+		resetSelect(citySelect, '전체');
+		resetSelect(districtDirectSelect, '전체');
+		resetSelect(districtSelect, '전체');
+
+		hideAllRegionControls();
+
+		if (!provinceId) {
+			setDistrictHidden('');
+			return;
+		}
+
+		// ✅ API: Province의 자식이 City인지, District 직행인지 판별
+		const data = await apiGet(`/api/regions/provinces/${encodeURIComponent(provinceId)}/children`);
+
+		// province 선택 시 child wrapper는 보여야 합니다.
+		show(childWrapper);
+
+		if (data && data.type === 'CITY') {
+			if (childLabel) childLabel.textContent = '시/군';
+
+			show(citySelect);
+			hide(districtDirectSelect);
+
+			fillOptions(citySelect, data.items || [], isInit ? selected.cityId : null);
+
+			if (isInit && selected.cityId) {
+				await onCityChange(true);
+			} else {
+				hide(districtWrapper);
+				hide(districtSelect);
+				setDistrictHidden('');
+			}
+			return;
+		}
+
+		// ✅ City 없는 케이스(서울/세종 등): District 직행
+		if (childLabel) childLabel.textContent = '구/군';
+
+		hide(citySelect);
+		show(districtDirectSelect);
+		hide(districtWrapper);
+		hide(districtSelect);
+
+		fillOptions(districtDirectSelect, data.items || [], isInit ? selected.districtId : null);
+
+		// hidden 동기화
+		if (isInit && selected.districtId) {
+			setDistrictHidden(selected.districtId);
+		} else {
+			setDistrictHidden(districtDirectSelect.value || '');
+		}
+	}
+
+	async function onCityChange(isInit) {
+		const cityId = citySelect ? citySelect.value : '';
+
+		resetSelect(districtSelect, '전체');
+		hide(districtWrapper);
+		hide(districtSelect);
+
+		if (!cityId) {
+			setDistrictHidden('');
+			return;
+		}
+
+		const items = await apiGet(`/api/regions/cities/${encodeURIComponent(cityId)}/districts`);
+
+		show(districtWrapper);
+		show(districtSelect);
+
+		fillOptions(districtSelect, items || [], isInit ? selected.districtId : null);
+
+		if (isInit && selected.districtId) {
+			setDistrictHidden(selected.districtId);
+		} else {
+			setDistrictHidden(districtSelect.value || '');
+		}
+	}
+
+	function bindRegionFilter() {
+		if (!provinceSelect) return;
+
+		provinceSelect.addEventListener('change', () => {
+			selected.cityId = null;
+			selected.districtId = null;
+			setDistrictHidden('');
+			onProvinceChange(false).catch(console.error);
+		});
+
+		if (citySelect) {
+			citySelect.addEventListener('change', () => {
+				selected.districtId = null;
+				setDistrictHidden('');
+				onCityChange(false).catch(console.error);
+			});
+		}
+
+		if (districtDirectSelect) {
+			districtDirectSelect.addEventListener('change', () => {
+				const v = districtDirectSelect.value;
+				selected.districtId = v ? Number(v) : null;
+				setDistrictHidden(v || '');
+			});
+		}
+
+		if (districtSelect) {
+			districtSelect.addEventListener('change', () => {
+				const v = districtSelect.value;
+				selected.districtId = v ? Number(v) : null;
+				setDistrictHidden(v || '');
+			});
+		}
+	}
+
+	async function initRegionFilter() {
+		bindRegionFilter();
+		await onProvinceChange(true);
+	}
+
 	// ===== boot =====
 	document.addEventListener('DOMContentLoaded', function () {
 		isMobile = detectMobile();
 
 		bindDrawer();
 		bindModalClose();
+
+		// ✅ 지역 필터 초기화(반드시 먼저 실행해도 무방)
+		initRegionFilter().catch(console.error);
 
 		normalizeTaskList();
 		initExternalDraggable();

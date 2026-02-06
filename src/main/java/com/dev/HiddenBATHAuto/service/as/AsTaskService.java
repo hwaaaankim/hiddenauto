@@ -7,10 +7,13 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -521,7 +524,7 @@ public class AsTaskService {
 	
 
 
-    @Transactional(readOnly = true)
+	@Transactional(readOnly = true)
     public Page<AsTaskCardDto> getAsTasksForCalendar(
             Member member,
             String dateType,
@@ -534,40 +537,99 @@ public class AsTaskService {
             Long districtId,
             Pageable pageable
     ) {
-        // ⚠️ 아래는 “회사명/상태/날짜” 중심 예시입니다.
-        // 실제로 province/city/district 조건을 이미 getAsTasks에서 쓰고 있다면
-        // 그 스펙 그대로 JPQL/Specification에 합치셔야 합니다.
+        // =========================
+        // 1) 지역 ID -> name 해석
+        // =========================
+        String provinceName = null;
+        String cityName = null;
+        String districtName = null;
 
+        if (provinceId != null) {
+            provinceName = provinceRepository.findById(provinceId).map(Province::getName).orElse(null);
+        }
+        if (cityId != null) {
+            cityName = cityRepository.findById(cityId).map(City::getName).orElse(null);
+        }
+        if (districtId != null) {
+            districtName = districtRepository.findById(districtId).map(District::getName).orElse(null);
+        }
+
+        // =========================
+        // 1-1) "경기도=경기, 강원=강원도, 서울=서울특별시 ..." 별칭 목록 생성
+        // =========================
+        List<String> provinceNames = buildRegionAliases(provinceName, RegionLevel.PROVINCE);
+        List<String> cityNames = buildRegionAliases(cityName, RegionLevel.CITY);
+        List<String> districtNames = buildRegionAliases(districtName, RegionLevel.DISTRICT);
+
+        // 비어있으면 null로 (JPQL IN 파라미터 안전 처리)
+        provinceNames = (provinceNames == null || provinceNames.isEmpty()) ? null : provinceNames;
+        cityNames = (cityNames == null || cityNames.isEmpty()) ? null : cityNames;
+        districtNames = (districtNames == null || districtNames.isEmpty()) ? null : districtNames;
+
+        // =========================
+        // 2) 조회 (scheduled vs base)
+        // =========================
         Page<AsTask> page;
 
         if ("scheduled".equals(dateType)) {
             LocalDate s = (start != null) ? start.toLocalDate() : null;
             LocalDate e = (end != null) ? end.toLocalDate() : null;
-            page = asTaskRepository.searchByScheduledDate(status, companyKeyword, s, e, pageable);
-        } else {
-            // requested/processed는 기존 로직에 맞춰 교체 가능
-            page = asTaskRepository.searchBase(status, companyKeyword, pageable);
 
-            // 날짜필터 적용(예시)
+            // 기존 쿼리가 endDate < :endDate (exclusive) 이므로,
+            // "사용자 입력 end를 포함"하려면 e.plusDays(1)로 넘기는게 일반적입니다.
+            // 지금 로직을 유지하시려면 아래 줄을 주석 처리하세요.
+            if (e != null) e = e.plusDays(1);
+
+            page = asTaskRepository.searchByScheduledDateWithRegion(
+                    status,
+                    companyKeyword,
+                    provinceNames,
+                    cityNames,
+                    districtNames,
+                    s,
+                    e,
+                    pageable
+            );
+        } else {
+            // requested/processed는 AsTask 기준으로 조회 후, 날짜는 서비스단에서 필터(기존 로직 유지)
+            page = asTaskRepository.searchBaseWithRegion(
+                    status,
+                    companyKeyword,
+                    provinceNames,
+                    cityNames,
+                    districtNames,
+                    pageable
+            );
+
             if (start != null || end != null) {
                 List<AsTask> filtered = page.getContent().stream().filter(t -> {
                     LocalDateTime base =
                             "processed".equals(dateType) ? t.getAsProcessDate() : t.getRequestedAt();
                     if (base == null) return false;
                     if (start != null && base.isBefore(start)) return false;
-                    if (end != null && !base.isBefore(end)) return false;
+                    if (end != null && !base.isBefore(end)) return false; // end exclusive 유지
                     return true;
                 }).toList();
 
+                // ⚠️ requested/processed에서 service 필터를 쓰면 "정확한 totalElements"는 깨질 수 있습니다.
                 page = new PageImpl<>(filtered, pageable, filtered.size());
             }
         }
 
-        // schedule 정보(등록된 날짜) 합치기
+        // =========================
+        // 3) schedule 정보 합치기
+        // =========================
         List<Long> taskIds = page.getContent().stream().map(AsTask::getId).toList();
         Map<Long, LocalDate> scheduledMap = scheduleRepository.findByTaskIds(taskIds).stream()
-                .collect(Collectors.toMap(s -> s.getAsTask().getId(), AsTaskSchedule::getScheduledDate));
+                .collect(Collectors.toMap(
+                        s -> s.getAsTask().getId(),
+                        AsTaskSchedule::getScheduledDate,
+                        (a, b) -> a // 혹시 중복이 있으면 첫 값 유지
+                ));
 
+        // =========================
+        // 4) DTO 변환
+        // =========================
         List<AsTaskCardDto> dtoList = page.getContent().stream().map(t -> {
             String companyName = (t.getRequestedBy() != null && t.getRequestedBy().getCompany() != null)
                     ? t.getRequestedBy().getCompany().getCompanyName()
@@ -593,5 +655,108 @@ public class AsTaskService {
         }).toList();
 
         return new PageImpl<>(dtoList, pageable, page.getTotalElements());
+    }
+
+    // =========================
+    // 별칭 생성 로직
+    // =========================
+    private enum RegionLevel { PROVINCE, CITY, DISTRICT }
+
+    /**
+     * 예:
+     * - "경기도" -> ["경기도", "경기"]
+     * - "강원" -> ["강원", "강원도"]
+     * - "서울특별시" -> ["서울특별시", "서울"]
+     * - "부산광역시" -> ["부산광역시", "부산"]
+     */
+    private List<String> buildRegionAliases(String input, RegionLevel level) {
+        if (input == null) return Collections.emptyList();
+        String name = input.trim();
+        if (name.isEmpty()) return Collections.emptyList();
+
+        // 원본 포함
+        Set<String> set = new LinkedHashSet<>();
+        set.add(name);
+
+        // 1) suffix 제거한 "짧은 형태" 생성
+        String shortName = stripSuffix(name, level);
+        if (!shortName.isBlank()) set.add(shortName);
+
+        // 2) 반대로 "긴 형태"도 보강 (short -> long 후보)
+        //    (예: "강원"이면 "강원도"도 추가, "서울"이면 "서울특별시"도 추가 등)
+        set.addAll(expandToCommonLongForms(shortName, level));
+
+        // 빈 문자열 제거
+        return set.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .toList();
+    }
+
+    private String stripSuffix(String name, RegionLevel level) {
+        String n = name.trim();
+
+        // 가장 긴 suffix부터 제거 (정확도)
+        if (level == RegionLevel.PROVINCE) {
+            // 시/도 단위
+            String[] suffixes = {
+                    "특별자치도", "특별자치시", "특별시", "광역시", "자치도", "도"
+            };
+            for (String suf : suffixes) {
+                if (n.endsWith(suf)) return n.substring(0, n.length() - suf.length()).trim();
+            }
+            return n;
+
+        } else if (level == RegionLevel.CITY) {
+            // 시/군 단위 (필요 시 확장)
+            String[] suffixes = {"특별시", "광역시", "특별자치시", "시", "군"};
+            for (String suf : suffixes) {
+                if (n.endsWith(suf)) return n.substring(0, n.length() - suf.length()).trim();
+            }
+            return n;
+
+        } else {
+            // 구/군 단위
+            String[] suffixes = {"구", "군", "시"};
+            for (String suf : suffixes) {
+                if (n.endsWith(suf)) return n.substring(0, n.length() - suf.length()).trim();
+            }
+            return n;
+        }
+    }
+
+    private Set<String> expandToCommonLongForms(String shortName, RegionLevel level) {
+        if (shortName == null) return Collections.emptySet();
+        String s = shortName.trim();
+        if (s.isEmpty()) return Collections.emptySet();
+
+        Set<String> out = new LinkedHashSet<>();
+
+        if (level == RegionLevel.PROVINCE) {
+            // 흔한 케이스만 안전하게 추가
+            // (DB 값이 "서울특별시"로 저장되어 있을 수도 있고, "서울"로 저장되어 있을 수도 있어서 둘 다 지원)
+            switch (s) {
+                case "서울" -> out.add("서울특별시");
+                case "부산" -> out.add("부산광역시");
+                case "대구" -> out.add("대구광역시");
+                case "인천" -> out.add("인천광역시");
+                case "광주" -> out.add("광주광역시");
+                case "대전" -> out.add("대전광역시");
+                case "울산" -> out.add("울산광역시");
+                case "세종" -> out.add("세종특별자치시");
+                case "제주" -> {
+                    out.add("제주특별자치도");
+                    out.add("제주도");
+                }
+                default -> {
+                    // 일반 도 단위: short + "도"
+                    out.add(s + "도");
+                }
+            }
+        }
+        // CITY / DISTRICT는 long 확장은 지역마다 케이스가 많아(예: ~시, ~군)
+        // 무리하게 붙이면 오탐 가능성이 있어서 strip 정도만으로 두는 것이 안전합니다.
+        return out;
     }
 }

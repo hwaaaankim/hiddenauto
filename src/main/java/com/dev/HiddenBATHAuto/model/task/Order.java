@@ -18,6 +18,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
@@ -39,10 +40,11 @@ public class Order {
 
     @Column(nullable = false)
     private boolean standard = false; // 규격 제품 주문 여부 (기본값 false)
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_category_id")
     private TeamCategory productCategory;
+
     // 우편번호
     private String zipCode;
 
@@ -54,18 +56,18 @@ public class Order {
     // 주소
     private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
     private String detailAddress;   // ex: 302동 1502호
-    
+
     private int quantity;
     private int productCost;                     // 제품비용 (단위: 원)
     private String orderComment;
-    
+
     // ✅ 추가 필드
     private LocalDateTime preferredDeliveryDate; // 배송희망일
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_method_id") // FK 이름 명시
     private DeliveryMethod deliveryMethod; // ✅ 배송수단 엔티티 참조
-    
+
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
@@ -94,38 +96,47 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderImage> orderImages; // 배송 완료 후 이미지 업로드
 
+    // ✅✅ 신규 추가: 관리자 남김말 (NULL 가능)
+    @Lob
+    @Column(name = "admin_memo", nullable = true)
+    private String adminMemo;
+
     private LocalDateTime createdAt = LocalDateTime.now(); // 주문 등록일
     private LocalDateTime updatedAt;
-    
+
     public List<OrderImage> getCustomerUploadedImages() {
+        if (orderImages == null) return List.of();
         return orderImages.stream()
-            .filter(img -> "CUSTOMER".equalsIgnoreCase(img.getType()))
-            .collect(Collectors.toList());
+                .filter(img -> "CUSTOMER".equalsIgnoreCase(img.getType()))
+                .collect(Collectors.toList());
     }
 
     public List<OrderImage> getAdminUploadedImages() {
+        if (orderImages == null) return List.of();
         return orderImages.stream()
-            .filter(img -> "MANAGEMENT".equalsIgnoreCase(img.getType()))
-            .collect(Collectors.toList());
+                .filter(img -> "MANAGEMENT".equalsIgnoreCase(img.getType()))
+                .collect(Collectors.toList());
     }
 
     public List<OrderImage> getDeliveryImages() {
+        if (orderImages == null) return List.of();
         return orderImages.stream()
-            .filter(img -> "DELIVERY".equalsIgnoreCase(img.getType()))
-            .collect(Collectors.toList());
+                .filter(img -> "DELIVERY".equalsIgnoreCase(img.getType()))
+                .collect(Collectors.toList());
     }
 
     public List<OrderImage> getProofImages() {
+        if (orderImages == null) return List.of();
         return orderImages.stream()
-            .filter(img -> "PROOF".equalsIgnoreCase(img.getType()))
-            .collect(Collectors.toList());
+                .filter(img -> "PROOF".equalsIgnoreCase(img.getType()))
+                .collect(Collectors.toList());
     }
+
     @Transient
     public List<OrderImage> getImagesByType(String type) {
         if (orderImages == null) return List.of();
         return orderImages.stream()
-            .filter(img -> type != null && type.equalsIgnoreCase(img.getType()))
-            .collect(Collectors.toList());
+                .filter(img -> type != null && type.equalsIgnoreCase(img.getType()))
+                .collect(Collectors.toList());
     }
-
 }
