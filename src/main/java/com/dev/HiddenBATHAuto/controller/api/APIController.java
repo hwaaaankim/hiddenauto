@@ -33,12 +33,14 @@ import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
+import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
+import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductColorRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductOptionPositionRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
@@ -91,7 +93,8 @@ public class APIController {
 	private final TaskRepository taskRepository;
 
 	private final MemberManagementService memberManagementService;
-
+	 // ✅ 신규: province 목록 조회용
+    private final ProvinceRepository provinceRepository;
 	private final CompanyRepository companyRepository;
 
     @GetMapping("/validate/businessNumber")
@@ -124,6 +127,14 @@ public class APIController {
         private List<RegionSelectionDTO> selections;
     }
 	
+    // ✅✅ (신규) Province 전체 목록
+    @GetMapping("/provinces")
+    @ResponseBody
+    public List<Province> getProvinces() {
+        // 정렬이 필요하면 findAllByOrderByNameAsc() 사용
+        return provinceRepository.findAllByOrderByNameAsc();
+    }
+    
 	@GetMapping("/province/{provinceId}/cities")
 	@ResponseBody
 	public List<City> getCitiesByProvince(@PathVariable Long provinceId) {

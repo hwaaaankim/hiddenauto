@@ -53,7 +53,7 @@ public class WebSecurityConfig {
 	};
 	
 	private final String[] managementUrls = {
-			"/management/**" 
+			"/management/**" , "/analytics"
 	};
 	
 	private final String[] teamUrls = {

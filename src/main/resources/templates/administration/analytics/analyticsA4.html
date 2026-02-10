@@ -1,0 +1,352 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Analytics A4 Report</title>
+	<style>
+		@page {
+			size: A4;
+			margin: 12mm;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Arial, sans-serif;
+			color: #111;
+		}
+
+		.header {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-end;
+			border-bottom: 2px solid #111;
+			padding-bottom: 8px;
+			margin-bottom: 12px;
+		}
+
+		.header h1 {
+			font-size: 18px;
+			margin: 0;
+			letter-spacing: -0.2px;
+		}
+
+		.header .small {
+			font-size: 11px;
+			color: #555;
+		}
+
+		.box {
+			border: 1px solid #e5e7eb;
+			border-radius: 10px;
+			padding: 10px 12px;
+			margin-bottom: 10px;
+		}
+
+		.box-title {
+			font-size: 12px;
+			font-weight: 800;
+			margin: 0 0 6px 0;
+		}
+
+		.meta-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 6px 12px;
+			font-size: 11px;
+			color: #222;
+		}
+
+		.meta-item b {
+			color: #000;
+		}
+
+		.section-title {
+			font-size: 13px;
+			font-weight: 900;
+			margin: 14px 0 8px 0;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			table-layout: fixed;
+		}
+
+		th,
+		td {
+			border: 1px solid #ddd;
+			padding: 6px;
+			font-size: 10.8px;
+			vertical-align: top;
+			word-break: break-word;
+		}
+
+		th {
+			background: #f3f4f6;
+			font-weight: 800;
+		}
+
+		.two-col {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+
+		.rank-table th,
+		.rank-table td {
+			font-size: 10.5px;
+			padding: 5px;
+		}
+
+		.chart-wrap {
+			border: 1px solid #e5e7eb;
+			border-radius: 10px;
+			padding: 10px 12px;
+		}
+
+		.bar-row {
+			display: grid;
+			grid-template-columns: 42% 58%;
+			align-items: center;
+			gap: 8px;
+			margin: 6px 0;
+		}
+
+		.bar-label {
+			font-size: 10.5px;
+			color: #111;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.bar-track {
+			height: 10px;
+			background: #f1f5f9;
+			border: 1px solid #e5e7eb;
+			border-radius: 999px;
+			overflow: hidden;
+			position: relative;
+		}
+
+		.bar-fill {
+			height: 100%;
+			background: #111;
+			/* 인쇄 대비 */
+			border-radius: 999px;
+		}
+
+		.chart-caption {
+			font-size: 10px;
+			color: #555;
+			margin-top: 6px;
+		}
+
+		.note {
+			font-size: 10px;
+			color: #666;
+			margin-top: 6px;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="header">
+		<div>
+			<h1>애널리틱스 보고서</h1>
+			<div class="small">※ 브라우저 인쇄(A4) 기준 최적화</div>
+		</div>
+		<div class="small" th:text="${#dates.format(#dates.createNow(), 'yyyy-MM-dd HH:mm')}">-</div>
+	</div>
+
+	<!-- ✅ 조회 조건 요약 -->
+	<div class="box" th:if="${bundle != null && bundle.meta != null}">
+		<div class="box-title">조회 조건</div>
+		<div class="meta-grid">
+			<div class="meta-item"><b th:text="${bundle.meta.periodText}">필터기간: 전체</b></div>
+			<div class="meta-item" th:text="${bundle.meta.sortText}">정렬: 없음</div>
+
+			<div class="meta-item" th:text="${bundle.meta.yAxisText}">Y축: -</div>
+			<div class="meta-item" th:text="${bundle.meta.xAxisText}">X축 지표: -</div>
+
+			<div class="meta-item" th:text="${bundle.meta.ySubText}">Y-Sub: -</div>
+			<div class="meta-item" th:text="${bundle.meta.xDimText}">제품 분류: -</div>
+
+			<div class="meta-item" th:text="${bundle.meta.addressText}">주소필터: 전체</div>
+			<div class="meta-item" th:text="${bundle.meta.hourText}">시간대: 전체</div>
+		</div>
+	</div>
+
+	<!-- ✅ 요약 -->
+	<div class="section-title">요약 (Top 5)</div>
+
+	<div class="two-col" th:if="${bundle != null && bundle.summary != null}">
+		<div class="box" th:if="${bundle.summary.topCompanies != null && !#lists.isEmpty(bundle.summary.topCompanies)}">
+			<div class="box-title">업체 Top 5</div>
+			<table class="rank-table">
+				<thead>
+					<tr>
+						<th style="width:10%">순위</th>
+						<th>업체</th>
+						<th style="width:18%">매출</th>
+						<th style="width:18%">건수</th>
+						<th style="width:18%">수량</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="it : ${bundle.summary.topCompanies}">
+						<td th:text="${it.rank}">1</td>
+						<td th:text="${it.name}">-</td>
+						<td th:text="${it.sales}">0</td>
+						<td th:text="${it.taskCount}">0</td>
+						<td th:text="${it.qty}">0</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="box" th:if="${bundle.summary.topRegions != null && !#lists.isEmpty(bundle.summary.topRegions)}">
+			<div class="box-title">지역 Top 5</div>
+			<table class="rank-table">
+				<thead>
+					<tr>
+						<th style="width:10%">순위</th>
+						<th>지역</th>
+						<th style="width:18%">매출</th>
+						<th style="width:18%">건수</th>
+						<th style="width:18%">수량</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="it : ${bundle.summary.topRegions}">
+						<td th:text="${it.rank}">1</td>
+						<td th:text="${it.name}">-</td>
+						<td th:text="${it.sales}">0</td>
+						<td th:text="${it.taskCount}">0</td>
+						<td th:text="${it.qty}">0</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="box"
+			th:if="${bundle.summary.topCategories != null && !#lists.isEmpty(bundle.summary.topCategories)}">
+			<div class="box-title">카테고리 Top 5</div>
+			<table class="rank-table">
+				<thead>
+					<tr>
+						<th style="width:10%">순위</th>
+						<th>카테고리</th>
+						<th style="width:18%">매출</th>
+						<th style="width:18%">건수</th>
+						<th style="width:18%">수량</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="it : ${bundle.summary.topCategories}">
+						<td th:text="${it.rank}">1</td>
+						<td th:text="${it.name}">-</td>
+						<td th:text="${it.sales}">0</td>
+						<td th:text="${it.taskCount}">0</td>
+						<td th:text="${it.qty}">0</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="box" th:if="${bundle.summary.topSeries != null && !#lists.isEmpty(bundle.summary.topSeries)}">
+			<div class="box-title">시리즈 Top 5</div>
+			<table class="rank-table">
+				<thead>
+					<tr>
+						<th style="width:10%">순위</th>
+						<th>시리즈</th>
+						<th style="width:18%">매출</th>
+						<th style="width:18%">건수</th>
+						<th style="width:18%">수량</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="it : ${bundle.summary.topSeries}">
+						<td th:text="${it.rank}">1</td>
+						<td th:text="${it.name}">-</td>
+						<td th:text="${it.sales}">0</td>
+						<td th:text="${it.taskCount}">0</td>
+						<td th:text="${it.qty}">0</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="box" th:if="${bundle.summary.topProducts != null && !#lists.isEmpty(bundle.summary.topProducts)}">
+			<div class="box-title">제품 Top 5</div>
+			<table class="rank-table">
+				<thead>
+					<tr>
+						<th style="width:10%">순위</th>
+						<th>제품</th>
+						<th style="width:18%">매출</th>
+						<th style="width:18%">건수</th>
+						<th style="width:18%">수량</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="it : ${bundle.summary.topProducts}">
+						<td th:text="${it.rank}">1</td>
+						<td th:text="${it.name}">-</td>
+						<td th:text="${it.sales}">0</td>
+						<td th:text="${it.taskCount}">0</td>
+						<td th:text="${it.qty}">0</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<!-- ✅ 그래프 -->
+	<div class="section-title">그래프</div>
+
+	<div class="chart-wrap" th:if="${bundle != null && bundle.chart != null}">
+		<div class="box-title" th:text="${bundle.chart.title}">상위 10개 매출</div>
+
+		<div th:with="maxVal=${bundle.chart.maxValue}">
+			<div th:each="i : ${#numbers.sequence(0, bundle.chart.labels.size()-1)}" class="bar-row">
+				<div class="bar-label" th:text="${bundle.chart.labels[i]}">label</div>
+				<div class="bar-track">
+					<div class="bar-fill"
+						th:style="${'width:' + (maxVal == 0 ? 0 : (bundle.chart.values[i].doubleValue() * 100 / maxVal)) + '%'}">
+					</div>
+
+				</div>
+			</div>
+		</div>
+
+		<div class="chart-caption">
+			값 기준: <span th:text="${bundle.chart.valueKey}">sales</span>
+		</div>
+	</div>
+
+	<div class="note">※ 아래부터는 원본 데이터 상세입니다.</div>
+
+	<!-- ✅ 원본 데이터 -->
+	<div class="section-title">원본 데이터</div>
+
+	<div th:if="${bundle == null || bundle.rows == null || #lists.isEmpty(bundle.rows)}">
+		데이터가 없습니다.
+	</div>
+
+	<table th:if="${bundle != null && bundle.rows != null && !#lists.isEmpty(bundle.rows)}">
+		<thead>
+			<tr>
+				<th th:each="c : ${bundle.columns}" th:text="${c.label}">-</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="r : ${bundle.rows}">
+				<td th:each="c : ${bundle.columns}" th:text="${r.get(c.key)}"></td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+
+</html>

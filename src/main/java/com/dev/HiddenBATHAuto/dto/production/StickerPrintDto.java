@@ -17,7 +17,10 @@ public class StickerPrintDto {
 
     private String modelName;
 
-    private String colorDisplay;   // ✅ "HW (히든 화이트)" 형태
+    // ✅✅ 규격일 때만 채워질 제품코드
+    private String productCode;
+
+    private String colorDisplay;   // "HW (히든 화이트)" 형태
     private String size;
 
     private List<String> optionFlags;

@@ -1,0 +1,297 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+	<div id="layout-wrapper">
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+
+		<div class="main-content">
+			<div class="page-content">
+				<div class="container-fluid">
+
+					<div class="row mb-3">
+						<div class="col-12 d-flex align-items-center justify-content-between">
+							<h4 class="mb-0">애널리틱스</h4>
+
+							<div class="d-flex gap-2">
+								<button id="analyticsExcelBtn" class="btn btn-outline-success" disabled>
+									엑셀 출력
+									<span class="help-q" data-help="요약 시트(조건/Top5/그래프) + 원본데이터 시트로 다운로드됩니다.">?</span>
+								</button>
+								<button id="analyticsA4Btn" class="btn btn-outline-dark" disabled>
+									A4 보고서 출력
+									<span class="help-q"
+										data-help="요약(조건/Top5/그래프) → 원본데이터 순서로 A4 인쇄용 화면을 엽니다.">?</span>
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- 날짜 범위 -->
+					<div class="card mb-3">
+						<div class="card-body d-flex flex-wrap align-items-end gap-3">
+							<div>
+								<label class="form-label">From
+									<span class="help-q" data-help="비우면 과거 전체로 조회합니다.">?</span>
+								</label>
+								<input id="fromDate" type="date" class="form-control">
+							</div>
+							<div>
+								<label class="form-label">To
+									<span class="help-q" data-help="비우면 미래 전체로 조회합니다.">?</span>
+								</label>
+								<input id="toDate" type="date" class="form-control">
+							</div>
+
+							<div class="ms-auto">
+								<button id="analyticsSearchBtn" class="btn btn-primary">
+									조회
+									<span class="help-q" data-help="선택된 축/필터/지표 기준으로 데이터를 집계합니다.">?</span>
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- 축 구성 (✅ 좌우 높이 동일: h-100 + analytics-axis-card) -->
+					<div class="row align-items-stretch">
+						<div class="col-lg-6 d-flex">
+							<div class="card analytics-axis-card w-100 h-100">
+								<div class="card-header d-flex justify-content-between align-items-center">
+									<b>Y축(행 기준)</b>
+									<small class="text-muted">업체별/제품별 중 하나만</small>
+								</div>
+								<div class="card-body d-flex flex-column">
+									<div class="d-flex gap-2 mb-2">
+										<button class="btn btn-outline-primary" id="btnAddYCompany">
+											업체별 <span class="help-q"
+												data-help="업체 단위로 집계합니다. (주소/시간대 옵션 사용 가능)">?</span>
+										</button>
+										<button class="btn btn-outline-primary" id="btnAddYProduct">
+											제품별 <span class="help-q"
+												data-help="제품 옵션(JSON) 기반으로 규격/비규격 분류를 집계합니다.">?</span>
+										</button>
+									</div>
+
+									<div id="yAxisBox" class="axis-box flex-fill"></div>
+
+									<hr>
+
+									<div class="d-flex gap-2">
+										<button class="btn btn-outline-secondary btn-sm" id="btnAddYAddress" disabled>
+											주소 추가 <span class="help-q" data-help="업체별(Y축)일 때만 주소 필터/표시를 추가합니다.">?</span>
+										</button>
+										<button class="btn btn-outline-secondary btn-sm" id="btnAddYHour" disabled>
+											시간대 추가 <span class="help-q"
+												data-help="Task 생성 시간 기준으로 시간대 필터를 적용합니다.">?</span>
+										</button>
+									</div>
+
+									<div id="ySubAxisBox" class="axis-box mt-2 flex-fill"></div>
+								</div>
+							</div>
+						</div>
+
+						<div class="col-lg-6 d-flex">
+							<div class="card analytics-axis-card w-100 h-100">
+								<div class="card-header d-flex justify-content-between align-items-center">
+									<b>X축(컬럼/지표)</b>
+									<small class="text-muted">드래그로 순서 변경</small>
+								</div>
+								<div class="card-body d-flex flex-column">
+									<div class="d-flex gap-2 mb-2">
+										<button class="btn btn-outline-success" id="btnAddMetricSales">
+											매출액 <span class="help-q" data-help="Task.totalPrice 합계 기준입니다.">?</span>
+										</button>
+										<button class="btn btn-outline-success" id="btnAddMetricTaskCount">
+											주문건수 <span class="help-q" data-help="Task(업무) 건수 기준입니다.">?</span>
+										</button>
+										<button class="btn btn-outline-success" id="btnAddMetricQty">
+											주문수량 <span class="help-q" data-help="Order.quantity 합계 기준입니다.">?</span>
+										</button>
+									</div>
+
+									<div class="d-flex gap-2 mb-2">
+										<button class="btn btn-outline-dark" id="btnAddDimStandard" disabled>
+											규격 분류 추가 <span class="help-q"
+												data-help="제품별(Y축)일 때 규격 분류 레벨을 선택합니다.">?</span>
+										</button>
+										<button class="btn btn-outline-dark" id="btnAddDimNonStandard" disabled>
+											비규격 분류 추가 <span class="help-q"
+												data-help="제품별(Y축)일 때 비규격 분류 레벨을 선택합니다.">?</span>
+										</button>
+									</div>
+
+									<div id="xAxisBox" class="axis-box flex-fill"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- 그래프 -->
+					<div class="card mt-3">
+						<div class="card-header"><b>그래프</b></div>
+						<div class="card-body">
+							<canvas id="analyticsChart" height="110"></canvas>
+						</div>
+					</div>
+
+					<!-- 결과 테이블 -->
+					<div class="card mt-3">
+						<div class="card-header d-flex align-items-center justify-content-between">
+							<b>조회 결과</b>
+							<small class="text-muted" id="analyticsTotalText">0 rows</small>
+						</div>
+						<div class="card-body p-0">
+							<div class="table-responsive">
+								<table class="table table-hover mb-0" id="analyticsTable">
+									<thead id="analyticsThead"></thead>
+									<tbody id="analyticsTbody"></tbody>
+								</table>
+							</div>
+							<div class="p-3 text-center">
+								<button class="btn btn-outline-primary" id="analyticsLoadMoreBtn" style="display:none;">
+									더 불러오기
+								</button>
+							</div>
+						</div>
+					</div>
+
+				</div>
+			</div>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+	<script src="/administration/assets/js/analytics.js"></script>
+
+	<!-- ✅ 주소 선택 모달 -->
+	<div class="modal fade" id="addressSelectModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">업체 주소 필터 선택</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="row g-3">
+						<div class="col-md-4">
+							<label class="form-label">Province</label>
+							<select id="addrProvinceSelect" class="form-select">
+								<option value="">전체</option>
+							</select>
+						</div>
+
+						<div class="col-md-4">
+							<label class="form-label">City</label>
+							<select id="addrCitySelect" class="form-select" disabled>
+								<option value="">전체</option>
+							</select>
+							<small class="text-muted d-block mt-1" id="addrCityHint" style="display:none;">
+								선택한 Province는 City가 없고 District로 바로 연결됩니다.
+							</small>
+						</div>
+
+						<div class="col-md-4">
+							<label class="form-label">District</label>
+							<select id="addrDistrictSelect" class="form-select" disabled>
+								<option value="">전체</option>
+							</select>
+						</div>
+					</div>
+
+					<hr class="my-3">
+
+					<div class="text-muted">
+						- Province만 선택하면 해당 Province 전체<br>
+						- City까지 선택하면 해당 City 전체<br>
+						- District까지 선택하면 해당 District로 필터링됩니다.
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" id="addrClearBtn">
+						초기화
+					</button>
+					<button type="button" class="btn btn-primary" id="addrApplyBtn">
+						적용
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+<!-- ✅ 규격 분류 레벨 모달 -->
+<div class="modal fade" id="standardLevelModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-md modal-dialog-centered">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">규격 분류 레벨 선택</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+
+			<div class="modal-body">
+				<div class="mb-2 text-muted">
+					규격 제품을 어떤 레벨로 묶어서 볼지 선택합니다.
+				</div>
+
+				<label class="form-label">Level</label>
+				<select id="standardLevelSelect" class="form-select">
+					<option value="CATEGORY">CATEGORY (카테고리)</option>
+					<option value="SERIES">SERIES (시리즈)</option>
+					<option value="PRODUCT">PRODUCT (제품)</option>
+					<option value="COLOR">COLOR (색상)</option>
+				</select>
+			</div>
+
+			<div class="modal-footer">
+				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+				<button type="button" class="btn btn-primary" id="standardLevelApplyBtn">적용</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- ✅ 비규격 분류 레벨 모달 -->
+<div class="modal fade" id="nonStandardLevelModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-md modal-dialog-centered">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">비규격 분류 레벨 선택</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+
+			<div class="modal-body">
+				<div class="mb-2 text-muted">
+					비규격 제품을 어떤 레벨로 묶어서 볼지 선택합니다.
+				</div>
+
+				<label class="form-label">Level</label>
+				<select id="nonStandardLevelSelect" class="form-select">
+					<option value="SORT">SORT (자체분류)</option>
+					<option value="SERIES">SERIES (시리즈)</option>
+					<option value="PRODUCT">PRODUCT (제품)</option>
+					<option value="COLOR">COLOR (색상)</option>
+				</select>
+			</div>
+
+			<div class="modal-footer">
+				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+				<button type="button" class="btn btn-primary" id="nonStandardLevelApplyBtn">적용</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+</body>
+
+</html>

@@ -273,13 +273,21 @@ public class TeamTaskService {
 			if (isBlank(modelName))
 				modelName = "-";
 
+			// ✅✅ 규격일 때 제품코드
+			String productCode = "";
+			if (standard) {
+				productCode = nvl(optMap.get("제품코드")).trim();
+				if (isBlank(productCode))
+					productCode = ""; // 출력 조건에서 걸러짐
+			}
+
 			// 색상 (코드면 한글명 병기)
 			String colorRaw = nvl(optMap.get("색상")).trim();
-			String colorDisplay = buildColorDisplay(colorRaw); // ✅ 추가
+			String colorDisplay = buildColorDisplay(colorRaw);
 
 			// 사이즈 (넓이 숫자 뒤 mm)
 			String sizeRaw = nvl(optMap.get("사이즈")).trim();
-			String size = buildSizeWithWidthMm(sizeRaw); // ✅ 추가
+			String size = buildSizeWithWidthMm(sizeRaw);
 			if (isBlank(size))
 				size = "-";
 
@@ -306,8 +314,9 @@ public class TeamTaskService {
 			}
 
 			StickerPrintDto dto = StickerPrintDto.builder().orderId(o.getId()).companyName(companyName)
-					.standard(standard).modelName(modelName).colorDisplay(colorDisplay).size(size)
-					.optionFlags(optionFlags).adminMemo(adminMemo).adminImageUrl(adminImageUrl).build();
+					.standard(standard).modelName(modelName).productCode(productCode) // ✅ 추가
+					.colorDisplay(colorDisplay).size(size).optionFlags(optionFlags).adminMemo(adminMemo)
+					.adminImageUrl(adminImageUrl).build();
 
 			result.add(dto);
 		}
@@ -342,14 +351,12 @@ public class TeamTaskService {
 	}
 
 	/**
-	 * ✅ 색상 코드 -> "HW (히든 화이트)" 형태로 변환 - raw가 이미 "히든 화이트" 같은 한글이면 그대로 사용 - raw가 "HW"
-	 * 또는 "HW ..." 또는 "HW(…)" 형태면 코드 추출해서 매핑
+	 * 색상 코드 -> "HW (히든 화이트)" 형태로 변환
 	 */
 	private String buildColorDisplay(String raw) {
 		if (isBlank(raw))
 			return "-";
 
-		// 코드 후보 추출 (공백/괄호 전까지)
 		String code = raw.trim();
 		int cut = code.indexOf(' ');
 		if (cut > 0)
@@ -363,8 +370,6 @@ public class TeamTaskService {
 		if (map.containsKey(code)) {
 			return code + " (" + map.get(code) + ")";
 		}
-
-		// 코드가 아니면(이미 한글명 등) raw 그대로
 		return raw;
 	}
 
@@ -388,11 +393,7 @@ public class TeamTaskService {
 	}
 
 	/**
-	 * ✅ 사이즈 문자열에서 - 넓이/높이/깊이 라벨을 "넓이(W):" / "높이(H):" / "깊이(D):" 로 통일 - 각 숫자 뒤에 mm가
-	 * 없으면 mm를 자동으로 붙임
-	 *
-	 * 예) "넓이: 630 / 높이: 700 / 깊이: 120" -> "넓이(W): 630mm / 높이(H): 700mm / 깊이(D):
-	 * 120mm" "넓이:630mm 높이:700 깊이:120" -> "넓이(W): 630mm 높이(H): 700mm 깊이(D): 120mm"
+	 * 사이즈 문자열 정규화 + mm 자동 부착
 	 */
 	private String buildSizeWithWidthMm(String sizeRaw) {
 		if (isBlank(sizeRaw))
@@ -400,13 +401,10 @@ public class TeamTaskService {
 
 		String s = sizeRaw;
 
-		// 1) 라벨을 "넓이(W)", "높이(H)", "깊이(D)" 로 변환 (이미 (W) 등이 있어도 중복 방지)
 		s = s.replaceAll("넓이(?!\\s*\\(W\\))", "넓이(W)");
 		s = s.replaceAll("높이(?!\\s*\\(H\\))", "높이(H)");
 		s = s.replaceAll("깊이(?!\\s*\\(D\\))", "깊이(D)");
 
-		// 2) "넓이(W): 630" / "높이(H):700" / "깊이(D):120" 처럼 숫자 뒤에 mm가 없으면 mm 추가
-		// - (?!\\s*mm) : 뒤에 mm가 있으면 붙이지 않음
 		Pattern p = Pattern.compile("((?:넓이\\(W\\)|높이\\(H\\)|깊이\\(D\\))\\s*:\\s*)(\\d+)(?!\\s*mm)",
 				Pattern.CASE_INSENSITIVE);
 
@@ -422,10 +420,7 @@ public class TeamTaskService {
 	private String resolveAdminImageUrl(OrderImage img) {
 		if (img == null)
 			return "";
-
-		// TODO: 아래 한 줄을 실제 필드명으로 교체
-		String url = img.getUrl();
-
+		String url = img.getUrl(); // TODO: 실제 필드명 맞으면 그대로 사용
 		return url == null ? "" : url.trim();
 	}
 }

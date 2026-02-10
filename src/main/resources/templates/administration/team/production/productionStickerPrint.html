@@ -13,24 +13,17 @@
 	<link
 		href="https://fonts.googleapis.com/css2?family=Hi+Melody&family=Noto+Sans+KR:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Noto+Serif+JP:wght@200..900&display=swap"
 		rel="stylesheet">
+
 	<style>
-		/* ==================================================
-       ✅ 인쇄 미세조정 포인트 (mm 단위로 여기만 조절)
-       ================================================== */
 		:root {
-			/* 프린터 전체 여백(가장 중요) */
 			--page-mt: 6mm;
 			--page-mr: 6mm;
 			--page-mb: 6mm;
 			--page-ml: 6mm;
 
-			/* 대지(각 1/4 영역) 내부 여백 */
 			--label-pad: 5mm;
-
-			/* 구분선 */
 			--divider: 1px dashed #b8b8b8;
 
-			/* ✅ 글씨 크기 전체 업 */
 			--font-base: 12pt;
 			--font-small: 11pt;
 
@@ -40,15 +33,10 @@
 			--weight-strong: 800;
 			--weight-key: 800;
 
-			/* ✅ 로고 크기(기존 대비 30% 확대) */
 			--logo-w: 44mm;
-			/* 34mm * 1.3 ≒ 44mm */
 			--logo-h: auto;
 
-			/* ✅ KV 블록을 중앙선(상/하 분할선) 기준으로 더 아래로 내림 */
 			--kv-push-down: 50px;
-
-			/* ✅ KV 줄간격(조금 더 넓게) */
 			--kv-row-gap: 2.6mm;
 		}
 
@@ -61,8 +49,7 @@
 			font-family: "Noto Sans KR", sans-serif;
 		}
 
-		html,
-		body {
+		html, body {
 			margin: 0;
 			padding: 0;
 			font-family: "Noto Sans KR", sans-serif;
@@ -73,8 +60,6 @@
 			print-color-adjust: exact;
 		}
 
-
-		/* ✅ A4 인쇄 가능 영역(=margin 제외) */
 		.sheet {
 			width: calc(210mm - (var(--page-ml) + var(--page-mr)));
 			height: calc(297mm - (var(--page-mt) + var(--page-mb)));
@@ -88,7 +73,6 @@
 			page-break-after: always;
 		}
 
-		/* 각 칸(대지) */
 		.label {
 			box-sizing: border-box;
 			padding: var(--label-pad);
@@ -97,23 +81,19 @@
 
 			display: flex;
 			flex-direction: column;
-		}
 
-		/* ✅ 십자가 구분선 */
-		.label {
 			border-right: var(--divider);
 			border-bottom: var(--divider);
 		}
 
-		.sheet>.label:nth-child(2n) {
+		.sheet > .label:nth-child(2n) {
 			border-right: none;
 		}
 
-		.sheet>.label:nth-child(n+3) {
+		.sheet > .label:nth-child(n+3) {
 			border-bottom: none;
 		}
 
-		/* ✅ 상/하 50% */
 		.label-top {
 			flex: 0 0 50%;
 			min-height: 50%;
@@ -125,14 +105,12 @@
 		.label-bottom {
 			flex: 0 0 50%;
 			min-height: 50%;
-			border-top: 1px solid #ddd;
 			padding-top: 3mm;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 		}
 
-		/* ✅ 로고 + 배지 */
 		.logo-row {
 			display: flex;
 			justify-content: space-between;
@@ -147,31 +125,23 @@
 			display: block;
 		}
 
-		/* ✅ 규격/비규격 배지: 작게 + 회색 + 외곽선 제거 */
 		.badge {
 			font-size: 9pt;
-			/* ✅ 더 작게 */
 			font-weight: 400;
 			color: #777;
-			/* ✅ 회색 */
 			border: none;
-			/* ✅ 외곽선 제거 */
 			background: transparent;
-			/* ✅ 배경 제거 */
 			padding: 0;
-			/* 깔끔하게 */
 			white-space: nowrap;
 			align-self: flex-start;
 		}
 
-		/* Key-Value */
 		.kv {
 			display: grid;
 			grid-template-columns: 22mm 1fr;
 			column-gap: 3.5mm;
 			row-gap: var(--kv-row-gap);
 
-			/* ✅ 중앙선 기준 아래로 내려 보이도록 */
 			margin-top: var(--kv-push-down);
 			align-items: start;
 		}
@@ -185,16 +155,15 @@
 			align-items: center;
 		}
 
-		/* ✅ 별표 제거 */
 		.k::before {
 			content: none;
 		}
 
-		/* ✅ 아이콘/글씨 크기 업 + 간격 약간 증가 */
+		/* ✅ 아이콘만 약하게 */
 		.k i {
-			margin-right: 2.0mm;
-			color: #111;
-			font-size: 12.5pt;
+			margin-right: 1.6mm;
+			color: #666;
+			font-size: 8pt;
 			line-height: 1;
 		}
 
@@ -213,7 +182,6 @@
 			font-weight: var(--weight-strong);
 		}
 
-		/* 옵션칩 */
 		.opt-inline {
 			display: flex;
 			flex-wrap: wrap;
@@ -229,7 +197,6 @@
 			white-space: nowrap;
 		}
 
-		/* 하단 이미지 */
 		.admin-image {
 			width: 100%;
 			height: 100%;
@@ -249,26 +216,19 @@
 			width: 100%;
 		}
 
-		/* ✅ 우측 하단 오늘 날짜: 작게 + 회색 + 외곽선 제거 */
 		.today {
 			position: absolute;
 			right: 4mm;
 			bottom: 3.2mm;
 			font-size: 8pt;
-			/* ✅ 더 작게 */
 			font-weight: 400;
 			color: #777;
-			/* ✅ 회색 */
 			background: transparent;
-			/* ✅ 배경 제거 */
 			border: none;
-			/* ✅ 외곽선 제거 */
 			padding: 0;
-			/* ✅ 깔끔하게 */
 			white-space: nowrap;
 		}
 
-		/* 마지막 페이지 빈 칸 */
 		.label.empty {
 			color: transparent;
 		}
@@ -291,27 +251,6 @@
 				text-decoration: none;
 				color: inherit;
 			}
-		}
-
-		/* ✅ 라벨 텍스트는 그대로 두고 */
-		.k {
-			font-size: var(--font-small);
-			font-weight: var(--weight-key);
-			white-space: nowrap;
-			color: #111;
-			display: flex;
-			align-items: center;
-		}
-
-		/* ✅ 아이콘만 약하게 */
-		.k i {
-			margin-right: 1.6mm;
-			/* 기존 2.0mm → 약간 축소 */
-			color: #666;
-			/* 검정(#111) → 회색으로 부드럽게 */
-			font-size: 8pt;
-			/* 기존 12.5pt → 축소 */
-			line-height: 1;
 		}
 	</style>
 </head>
@@ -350,6 +289,12 @@
 					<div class="k"><i class="fa-solid fa-tag"></i>모델명</div>
 					<div class="v strong" th:text="${item.modelName}">-</div>
 
+					<!-- ✅✅ 규격이면 제품코드 출력 -->
+					<th:block th:if="${item.standard and item.productCode != null and item.productCode != ''}">
+						<div class="k"><i class="fa-solid fa-barcode"></i>제품코드</div>
+						<div class="v strong" th:text="${item.productCode}">-</div>
+					</th:block>
+
 					<div class="k"><i class="fa-solid fa-palette"></i>색상</div>
 					<div class="v" th:text="${item.colorDisplay}">-</div>
 
@@ -357,14 +302,14 @@
 					<div class="v tight" th:text="${item.size}">-</div>
 
 					<!-- 옵션여부: 있을 때만 -->
-					<div th:if="${item.optionFlags != null and !item.optionFlags.isEmpty()}">
+					<th:block th:if="${item.optionFlags != null and !item.optionFlags.isEmpty()}">
 						<div class="k"><i class="fa-solid fa-sliders"></i>옵션여부</div>
 						<div class="v">
 							<div class="opt-inline">
 								<span class="opt-chip" th:each="opt : ${item.optionFlags}" th:text="${opt}">옵션</span>
 							</div>
 						</div>
-					</div>
+					</th:block>
 
 					<div class="k"><i class="fa-solid fa-note-sticky"></i>비고</div>
 					<div class="v tight"

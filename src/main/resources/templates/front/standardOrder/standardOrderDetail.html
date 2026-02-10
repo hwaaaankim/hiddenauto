@@ -26,8 +26,17 @@
 							<div class="standard-detail-text">
 								<h3 th:text="${product.name}">제품명</h3>
 								<p>제품 코드: <span th:text="${product.productCode}"></span></p>
-								<input type="hidden" name="productId" th:value="${product.id}" th:attr="data-code=${product.productCode}">
+								<input type="hidden" name="productId" th:value="${product.id}"
+									th:attr="data-code=${product.productCode}">
 								<input type="hidden" name="categoryName" th:value="${product.category.name}">
+
+								<!-- ✅ 추가: 제품 시리즈(중분류) -->
+								<input type="hidden" name="seriesName"
+									th:value="${product.productSeries != null ? product.productSeries.name : ''}">
+								<!-- (선택) 나중에 분석/정합성용으로 ID도 같이 저장 추천 -->
+								<input type="hidden" name="seriesId"
+									th:value="${product.productSeries != null ? product.productSeries.id : ''}">
+
 							</div>
 						</div>
 
@@ -111,9 +120,10 @@
 								</div>
 							</div>
 						</div>
-						
+
 						<div class="standard-detail-final-section">
-							<textarea class="standard-detail-textarea" id="final-additional-info" placeholder="추가 요청사항을 입력하세요"></textarea>
+							<textarea class="standard-detail-textarea" id="final-additional-info"
+								placeholder="추가 요청사항을 입력하세요"></textarea>
 
 							<!-- 버튼 영역 -->
 							<div class="standard-detail-button-group">

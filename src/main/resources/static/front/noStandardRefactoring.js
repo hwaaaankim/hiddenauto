@@ -30,14 +30,14 @@ AOS.init({
 
 // 로더 표시 함수
 function showPreloader() {
-    const preloader = document.getElementById("preloader");
-    if (preloader) preloader.classList.remove("preloader-hide");
+	const preloader = document.getElementById("preloader");
+	if (preloader) preloader.classList.remove("preloader-hide");
 }
 
 // 로더 숨김 함수
 function hidePreloader() {
-    const preloader = document.getElementById("preloader");
-    if (preloader) preloader.classList.add("preloader-hide");
+	const preloader = document.getElementById("preloader");
+	if (preloader) preloader.classList.add("preloader-hide");
 }
 
 
@@ -227,11 +227,11 @@ function assignNextValues(filteredFlow) {
 			if (fnStr.includes("'NEXT'") || fnStr.includes('"NEXT"') || fnStr.includes("'NEXT_ONE'") || fnStr.includes('"NEXT_ONE"')) {
 				const currentStepName = currentStep.step;
 				const remaining = filteredFlow.slice(i + 1);
-	
+
 				// NEXT 대체: 자기 다음 단계
 				const nextRealStep = remaining.find(s => !s.step.includes(currentStepName));
 				const replacement = nextRealStep ? nextRealStep.step : 'final';
-	
+
 				// NEXT_ONE 대체: replacement 이후의 단계
 				let nextOneReplacement = 'final';
 				const nextStepIndex = filteredFlow.findIndex(s => s.step === replacement);
@@ -246,12 +246,12 @@ function assignNextValues(filteredFlow) {
 						nextOneReplacement = filteredFlow[nextStepIndex + 1].step;
 					}
 				}
-	
+
 				// 치환 적용
 				const newFnStr = fnStr
 					.replace(/['"]NEXT['"]/g, `'${replacement}'`)
 					.replace(/['"]NEXT_ONE['"]/g, `'${nextOneReplacement}'`);
-	
+
 				// 재생성
 				const originalArgs = fnStr.match(/\((.*?)\)/)[1];
 				currentStep.next = new Function(originalArgs, `return (${newFnStr})(${originalArgs});`);
@@ -774,12 +774,8 @@ function validateDoorDirectionInput(inputValue, numberOfDoors) {
 function handleMiddleSortSelection(middleSortId) {
 	selectedMiddleSort = middleSortId;
 
-	// categoryKey 계산
-	const categoryKey = selectedBigSort === '거울' ? 'mirror' :
-		selectedBigSort === '상부장' ? 'top' :
-			selectedBigSort === '하부장' ? 'low' :
-				selectedBigSort === '플랩장' ? 'flap' :
-					selectedBigSort === '슬라이드장' ? 'slide' : '';
+	// ✅ selectedBigSort는 객체이므로 value를 사용 (mirror/top/low/flap/slide)
+	const categoryKey = selectedBigSort?.value || '';
 
 	// currentFlow에 'product' 추가
 	if (!currentFlow.includes('product')) {
@@ -799,17 +795,16 @@ function handleMiddleSortSelection(middleSortId) {
 	optionDiv.classList.add('disabled-option');
 
 	selectedAnswerValue['middleSort'] = selectedMiddleSort;
-	// 미리 로드된 데이터에서 제품 목록 찾기
+
 	const selectedMiddleSortData = preloadedData.middleSort.find(
-		middleSort => middleSort.id === middleSortId
+		(middleSort) => middleSort.id === middleSortId
 	);
 
 	// renderAnswer 호출
 	renderAnswer({ step: 'middleSort' }, selectedMiddleSortData.name, categoryKey);
+
 	if (selectedMiddleSortData) {
-		// 제품 목록 가져오기
 		const productList = selectedMiddleSortData.products || [];
-		// 다음 옵션을 그리는 부분
 		updateProductFlowOptions(productList);
 	} else {
 		console.error('해당 2차 카테고리에 대한 데이터를 찾을 수 없습니다.');
@@ -819,11 +814,10 @@ function handleMiddleSortSelection(middleSortId) {
 function renderMiddleSortQuestion(middleSortList) {
 	const chatBox = document.getElementById('chat-box');
 	const middleSortWrap = document.createElement('div');
-	middleSortWrap.id = 'middleSort-wrap'; // 'middle-sort-wrap'에서 수정
+	middleSortWrap.id = 'middleSort-wrap';
 	middleSortWrap.classList.add('non-standard-wrap');
 	middleSortWrap.setAttribute('data-aos', 'fade-in');
 
-	// 질문 텍스트 추가
 	const questionDiv = document.createElement('div');
 	questionDiv.classList.add('non-standard-question');
 	questionDiv.innerText = '시리즈를 선택 해 주세요:';
@@ -833,12 +827,28 @@ function renderMiddleSortQuestion(middleSortList) {
 	optionDiv.id = 'middleSort-option';
 	optionDiv.classList.add('non-standard-option');
 
-	// MiddleSort 옵션 버튼 추가
-	middleSortList.forEach(middleSort => {
+	// ✅ 시리즈: "이름(왼쪽) + 이미지(오른쪽)" + 이미지 없으면 기본 이미지 사용
+	middleSortList.forEach(series => {
 		const button = document.createElement('button');
-		button.innerText = middleSort.name; // 사용자에게 보이는 이름 (한글)
-		button.classList.add('non-standard-btn');
-		button.onclick = () => handleMiddleSortSelection(middleSort.id); // ID를 전송
+		// ✅ product-option-btn 유지 + 시리즈 전용 클래스 추가(오버라이드용)
+		button.classList.add('non-standard-btn', 'product-option-btn', 'series-option-btn');
+
+		// ✅ 이미지 먼저(왼쪽) → 텍스트(오른쪽)
+		const img = document.createElement('img');
+		img.src = series.seriesRepImageRoad ? series.seriesRepImageRoad : '/front/images/1.png';
+		img.alt = series.name || 'series';
+		button.appendChild(img);
+
+		const span = document.createElement('span');
+		span.innerHTML = (series.name || '').split(' ').join('<br>');
+		button.appendChild(span);
+
+
+		button.addEventListener('click', () => {
+			if (isButtonClicked(button)) return;
+			handleMiddleSortSelection(series.id);
+		});
+
 		optionDiv.appendChild(button);
 	});
 
@@ -846,6 +856,7 @@ function renderMiddleSortQuestion(middleSortList) {
 	chatBox.appendChild(middleSortWrap);
 	AOS.refresh();
 }
+
 
 function handleCategorySelection(category) {
 	showLoader();
@@ -1190,7 +1201,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 				fields.forEach(field => {
 					const label = document.createElement('label');
-					
+
 					const span = document.createElement('span');
 					span.innerText = `${field.charAt(0).toUpperCase() + field.slice(1)}: `;
 					span.classList.add('size-span');
@@ -1240,17 +1251,17 @@ function updateProductOptions(categoryKey, stepIndex) {
 				confirmButton.classList.add('non-standard-btn', 'confirm');
 				confirmButton.addEventListener('click', () => {
 					if (isButtonClicked(confirmButton)) return;
-				
+
 					const width = parseInt(document.getElementById('width-input').value);
 					const height = parseInt(document.getElementById('height-input').value);
 					const depth = categoryKey === 'mirror' ? null : parseInt(document.getElementById('depth-input').value);
-				
+
 					if (!width || !height || (categoryKey !== 'mirror' && !depth)) {
 						alert('모든 필드를 입력하세요.');
 						resetButtonClickState(confirmButton); // ✅ 추가
 						return;
 					}
-				
+
 					// ✅ 클릭 시 검증 추가
 					if (selectedProductInfo.sizeRatioSign && width !== height) {
 						alert('이 제품은 원형 형태이므로, 넓이와 높이는 반드시 같아야 합니다. (1:1 비율)');
@@ -1269,7 +1280,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 						alert('1도어 기준 넓이 1,500(mm) 이상 또는 높이 600(mm) 이상인 경우 A/S가 불가능 합니다.');
 						resetButtonClickState(confirmButton); // ✅ 추가
 					}
-				
+
 					// 정상 처리
 					if (categoryKey === 'top' || categoryKey === 'low') {
 						determineNumberOfOptions(width);
@@ -1471,7 +1482,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				if (isButtonClicked(confirmButton)) return;
 				const inputValue = input.value.trim();
 				if (!inputValue) {
-					resetButtonClickState(confirmButton); 
+					resetButtonClickState(confirmButton);
 					alert('세면대 위치를 입력 해 주세요.');
 					return;
 				}
@@ -1515,7 +1526,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				const directionValue = directionInput.value.trim();
 
 				if (!directionValue) {
-					resetButtonClickState(confirmButton); 
+					resetButtonClickState(confirmButton);
 					alert('경첩 방향을 입력 해 주세요.');
 					return;
 				}
@@ -1523,7 +1534,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 				// 최종 검증
 				const validationResult = validateDoorDirectionInput(directionValue, numberOfDoors);
 				if (!validationResult.isValid) {
-					resetButtonClickState(confirmButton); 
+					resetButtonClickState(confirmButton);
 					alert(validationResult.message); // 검증 실패 메시지 출력
 					return;
 				}
@@ -1551,7 +1562,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 			input1.required = true;
 			label1.appendChild(span1);
 			label1.appendChild(input1);
-			
+
 			// 두 번째 input 필드
 			const label2 = document.createElement('label');
 			const span2 = document.createElement('span');
@@ -1580,7 +1591,7 @@ function updateProductOptions(categoryKey, stepIndex) {
 
 				// 유효성 검사: 입력 값이 숫자가 아니거나 0 이하일 때
 				if (isNaN(value1) || isNaN(value2) || value1 <= 0 || value2 <= 0) {
-					resetButtonClickState(confirmButton); 
+					resetButtonClickState(confirmButton);
 					alert('모든 비율 값을 올바르게 입력하세요.');
 					input1.value = '';
 					input2.value = '';
@@ -1599,14 +1610,14 @@ function updateProductOptions(categoryKey, stepIndex) {
 					}
 					// width 값이 유효한지 검사
 					if (!width) {
-						resetButtonClickState(confirmButton); 
+						resetButtonClickState(confirmButton);
 						alert('사이즈 데이터에서 넓이 값을 가져오지 못했습니다.');
 						return;
 					}
 
 					// 입력된 값의 합이 width와 동일한지 검증
 					if (value1 + value2 !== parseInt(width, 10)) {
-						resetButtonClickState(confirmButton); 
+						resetButtonClickState(confirmButton);
 						alert(`입력한 비율의 합이 ${width}와 일치해야 합니다.`);
 						input1.value = '';
 						input2.value = '';
@@ -1768,7 +1779,7 @@ function renderAnswer(step, product, categoryKey = '') {
 		additionalInfo.placeholder = '추가 정보 입력';
 		additionalInfo.classList.add('non-standard-textarea');
 		finalWrap.appendChild(additionalInfo);
-		
+
 		// file input
 		const fileUpload = document.createElement('input');
 		fileUpload.id = 'final-upload'; // ✅ ID 추가
@@ -1777,29 +1788,29 @@ function renderAnswer(step, product, categoryKey = '') {
 		fileUpload.multiple = true;    // ✅ 다중 업로드
 		fileUpload.classList.add('non-standard-file-upload');
 		finalWrap.appendChild(fileUpload);
-		
+
 		// 업로드된 이미지 미리보기 리스트
 		const imagePreviewList = document.createElement('div');
 		imagePreviewList.id = 'upload-preview-list';
 		imagePreviewList.classList.add('preview-list');
 		finalWrap.appendChild(imagePreviewList);
-		
+
 		// 업로드 이벤트 핸들링
 		fileUpload.addEventListener('change', (e) => {
 			const files = Array.from(e.target.files);
 			imagePreviewList.innerHTML = ''; // 초기화
-		
+
 			files.forEach((file, index) => {
 				if (!file.type.startsWith('image/')) return;
-		
+
 				const reader = new FileReader();
-				reader.onload = function (event) {
+				reader.onload = function(event) {
 					const previewItem = document.createElement('div');
 					previewItem.classList.add('preview-item');
-		
+
 					const img = document.createElement('img');
 					img.src = event.target.result;
-		
+
 					const removeBtn = document.createElement('button');
 					removeBtn.innerText = '✕';
 					removeBtn.classList.add('remove-btn');
@@ -1812,7 +1823,7 @@ function renderAnswer(step, product, categoryKey = '') {
 						fileUpload.files = dt.files;
 						fileUpload.dispatchEvent(new Event('change'));
 					};
-		
+
 					previewItem.appendChild(img);
 					previewItem.appendChild(removeBtn);
 					imagePreviewList.appendChild(previewItem);
@@ -1820,7 +1831,7 @@ function renderAnswer(step, product, categoryKey = '') {
 				reader.readAsDataURL(file);
 			});
 		});
-		
+
 		// ✅ 4. 메시지
 		const finalMessage = document.createElement('span');
 		finalMessage.innerText = '선택이 완료되었습니다.';
@@ -1829,13 +1840,13 @@ function renderAnswer(step, product, categoryKey = '') {
 		// ✅ 5. 수량 입력
 		const quantityRow = document.createElement('div');
 		quantityRow.classList.add('quantity-row');
-		
+
 		const quantityLabel = document.createElement('label');
 		const quantitySpan = document.createElement('span');
 		quantitySpan.innerText = '수량: ';
 		quantitySpan.classList.add('size-span');
 		quantityLabel.appendChild(quantitySpan);
-		
+
 		const quantityInput = document.createElement('input');
 		quantityInput.type = 'number';
 		quantityInput.id = 'final-quantity';
@@ -1843,12 +1854,12 @@ function renderAnswer(step, product, categoryKey = '') {
 		quantityInput.classList.add('non-standard-input');
 		quantityInput.style.flex = '1'; // JS에서 꽉 차게
 		quantityLabel.appendChild(quantityInput);
-		
+
 		quantityRow.appendChild(quantityLabel);
 
 		const buttonRow = document.createElement('div');
 		buttonRow.classList.add('button-row');
-		
+
 		// ✅ 6. 장바구니 버튼
 		const cartButton = document.createElement('button');
 		cartButton.id = 'cart-btn';
@@ -1858,7 +1869,7 @@ function renderAnswer(step, product, categoryKey = '') {
 		cartButton.addEventListener('click', () => {
 			if (confirm('장바구니에 담으시겠습니까?')) {
 				addToCart();
-				
+
 			}
 		});
 
@@ -1879,8 +1890,8 @@ function renderAnswer(step, product, categoryKey = '') {
 		calcButton.id = 'calculate-price-btn';
 		calcButton.innerText = '가격계산';
 		calcButton.classList.add('non-standard-btn', 'non-answer-btn');
-		
-		
+
+
 		calcButton.addEventListener('click', () => {
 			if (isButtonClicked(calcButton)) return;
 			calcButton.innerText = '계산 중...';
@@ -2278,39 +2289,39 @@ function scrollIfNeeded(nextOptionsContainer) {
 }
 
 function convertOptionJsonWithLabels(optionJson) {
-  const parsed = typeof optionJson === 'string' ? JSON.parse(optionJson) : optionJson;
-  const categoryKey = parsed?.category?.value || parsed?.category;
-  const result = {};
+	const parsed = typeof optionJson === 'string' ? JSON.parse(optionJson) : optionJson;
+	const categoryKey = parsed?.category?.value || parsed?.category;
+	const result = {};
 
-  // 기본 항목 라벨 정의
-  const baseLabelMap = {
-    category: initialQuestion.step.label,
-    middleSort: '제품시리즈'
-  };
+	// 기본 항목 라벨 정의
+	const baseLabelMap = {
+		category: initialQuestion.step.label,
+		middleSort: '제품시리즈'
+	};
 
-  // 카테고리 기반 라벨 등록
-  if (categoryKey && productFlowSteps[categoryKey]) {
-    productFlowSteps[categoryKey].forEach(step => {
-      if (step.step && step.label) {
-        baseLabelMap[step.step] = step.label;
-      }
-    });
-  }
+	// 카테고리 기반 라벨 등록
+	if (categoryKey && productFlowSteps[categoryKey]) {
+		productFlowSteps[categoryKey].forEach(step => {
+			if (step.step && step.label) {
+				baseLabelMap[step.step] = step.label;
+			}
+		});
+	}
 
-  // 라벨로 치환된 객체 생성
-  for (const key in parsed) {
-    const label = baseLabelMap[key] || key;
-    const value = parsed[key];
-    if (key === 'category' && value?.label) {
-      result[label] = value.label;
-    } else if (typeof value === 'object' && value !== null && value.label) {
-      result[label] = value.label;
-    } else {
-      result[label] = value;
-    }
-  }
+	// 라벨로 치환된 객체 생성
+	for (const key in parsed) {
+		const label = baseLabelMap[key] || key;
+		const value = parsed[key];
+		if (key === 'category' && value?.label) {
+			result[label] = value.label;
+		} else if (typeof value === 'object' && value !== null && value.label) {
+			result[label] = value.label;
+		} else {
+			result[label] = value;
+		}
+	}
 
-  return result;
+	return result;
 }
 
 
@@ -2481,10 +2492,10 @@ document.getElementById('three-d-btn').addEventListener('click', () => {
 
 // star 버튼 클릭 시
 document.getElementById('star-btn').addEventListener('click', () => {
-    const confirmSave = confirm('즐겨찾기를 추가하시겠습니까?');
-    if (confirmSave) {
-        sendFavoriteMark(selectedAnswerValue);
-    }
+	const confirmSave = confirm('즐겨찾기를 추가하시겠습니까?');
+	if (confirmSave) {
+		sendFavoriteMark(selectedAnswerValue);
+	}
 });
 window.onload = () => {
 	renderInitialQuestion();

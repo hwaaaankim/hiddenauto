@@ -86,13 +86,19 @@ document.addEventListener('DOMContentLoaded', () => {
 			const el = document.querySelector(`input[name="${name}"]:checked`);
 			return el ? el.nextElementSibling.textContent.trim() : "없음";
 		};
-	
+
 		const productName = document.querySelector('h3')?.textContent.trim() || "";
 		const productCode = document.querySelector('[name="productId"]')?.getAttribute('data-code') || "";
 		const categoryName = document.querySelector('[name="categoryName"]')?.value || "";
-	
+
+		// ✅ 추가: 시리즈(중분류)
+		const seriesName = document.querySelector('[name="seriesName"]')?.value || "";
+		const seriesId = document.querySelector('[name="seriesId"]')?.value || "";
+
 		return {
 			카테고리: categoryName,
+			제품시리즈: seriesName || "없음",      // ✅ 추가
+			제품시리즈ID: seriesId || null,        // ✅ (선택) 분석용으로 있으면 매우 좋습니다
 			제품명: productName,
 			제품코드: productCode,
 			사이즈: getCheckedText('sizeId'),
@@ -104,16 +110,17 @@ document.addEventListener('DOMContentLoaded', () => {
 		};
 	}
 
+
 	// 장바구니
 	async function addToCartStandard() {
 		if (!confirm('해당 상품을 장바구니에 담으시겠습니까?')) return;
-	
+
 		const quantity = parseInt(document.getElementById('quantity')?.value) || 1;
 		const unitPrice = Math.round((calculatedMainPrice || 10000) / quantity); // ✅ 단가 전송
 		const localizedOptionJson = buildStandardLocalizedOptionJson();
 		const optionJson = { ...localizedOptionJson };
 		const additionalInfo = document.getElementById('final-additional-info')?.value || null;
-	
+
 		const formData = new FormData();
 		formData.append('quantity', quantity);
 		formData.append('price', unitPrice);
@@ -121,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		formData.append('localizedOptionJson', JSON.stringify(localizedOptionJson));
 		formData.append('standard', true);
 		if (additionalInfo) formData.append('additionalInfo', additionalInfo);
-	
+
 		try {
 			const response = await fetch('/api/v2/insertCart', {
 				method: 'POST',
@@ -141,13 +148,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 발주하기
 	async function addToOrderStandard() {
 		if (!confirm('해당 상품을 발주하시겠습니까?')) return;
-	
+
 		const quantity = parseInt(document.getElementById('quantity')?.value) || 1;
 		const unitPrice = Math.round((calculatedMainPrice || 10000) / quantity); // ✅ 단가 전송
 		const localizedOptionJson = buildStandardLocalizedOptionJson();
 		const optionJson = { ...localizedOptionJson };
 		const additionalInfo = document.getElementById('final-additional-info')?.value || null;
-	
+
 		const formData = new FormData();
 		formData.append('from', 'direct');
 		formData.append('quantity', quantity);
@@ -156,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		formData.append('localizedOptionJson', JSON.stringify(localizedOptionJson));
 		formData.append('standard', true);
 		if (additionalInfo) formData.append('additionalInfo', additionalInfo);
-	
+
 		try {
 			const response = await fetch('/orderConfirm', {
 				method: 'POST',

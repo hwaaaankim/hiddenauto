@@ -1074,3 +1074,173 @@
 .as-list-new-added-sort-link i {
 	font-size: 11px;
 }
+
+.axis-box {
+	min-height: 58px;
+	border: 1px dashed #cfd4da;
+	border-radius: 10px;
+	padding: 10px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	background: #fafbfc;
+}
+
+.axis-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border: 1px solid #e5e7eb;
+	border-radius: 10px;
+	background: #fff;
+}
+
+.axis-item .handle {
+	cursor: grab;
+	padding: 4px 8px;
+	border-radius: 8px;
+	border: 1px solid #eee;
+	background: #f8f9fa;
+}
+
+.axis-item .btn-mini {
+	font-size: 12px;
+	padding: 4px 8px;
+}
+
+.th-sort {
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.th-sort .arrows {
+	margin-left: 6px;
+	font-size: 11px;
+	opacity: .65;
+}
+
+/* =========================
+   공통 도움말 ? 툴팁
+   ========================= */
+.help-q {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	margin-left: 6px;
+	border-radius: 999px;
+	border: 1px solid #cbd5e1;
+	color: #334155;
+	font-size: 11px;
+	font-weight: 800;
+	cursor: help;
+	position: relative;
+	vertical-align: middle;
+	background: #fff;
+}
+
+.help-q::after {
+	content: attr(data-help);
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	bottom: calc(100% + 8px);
+	min-width: 220px;
+	max-width: 320px;
+	white-space: normal;
+	background: #111;
+	color: #fff;
+	padding: 8px 10px;
+	border-radius: 10px;
+	font-size: 12px;
+	line-height: 1.35;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity .15s ease;
+	z-index: 9999;
+}
+
+.help-q::before {
+	content: "";
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	bottom: calc(100% + 2px);
+	border: 6px solid transparent;
+	border-top-color: #111;
+	opacity: 0;
+	transition: opacity .15s ease;
+}
+
+.help-q:hover::after,
+.help-q:hover::before {
+	opacity: 1;
+}
+
+/* =========================
+   축 카드 높이 통일
+   ========================= */
+.analytics-axis-card .card-body {
+	min-height: 360px;
+	/* ✅ 좌/우 동일 기준 */
+}
+
+.axis-box {
+	border: 1px dashed #d1d5db;
+	border-radius: 10px;
+	padding: 10px;
+	min-height: 140px;
+	/* ✅ x/y 모두 같은 최소 높이 */
+	background: #fff;
+}
+
+/* axis item */
+.axis-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	border: 1px solid #e5e7eb;
+	border-radius: 10px;
+	padding: 10px;
+	margin-bottom: 10px;
+	background: #fff;
+}
+
+.axis-item .handle {
+	cursor: grab;
+	user-select: none;
+	color: #64748b;
+	font-weight: 800;
+}
+
+.btn-mini {
+	padding: 4px 8px;
+	font-size: 12px;
+	border-radius: 8px;
+	margin-left: auto;
+}
+
+.axis-item .btn-mini+.btn-mini {
+	margin-left: 6px;
+}
+
+/* 테이블 헤더 정렬 표시 */
+.th-sort {
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.th-sort .arrows {
+	margin-left: 6px;
+	color: #64748b;
+	font-weight: 800;
+}
+
+/* 헤더 help 아이콘 spacing */
+.th-help {
+	margin-left: 6px;
+}
