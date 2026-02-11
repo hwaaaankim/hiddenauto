@@ -1,0 +1,287 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<title>제품 이미지 일괄 업로드(임시)</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+	<style>
+		.mono {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+		}
+
+		.badge-status {
+			font-size: .85rem;
+		}
+
+		.table td,
+		.table th {
+			vertical-align: middle;
+		}
+
+		.small-muted {
+			font-size: .9rem;
+			color: #6c757d;
+		}
+
+		.img-preview {
+			max-height: 64px;
+			border: 1px solid #eee;
+			border-radius: 8px;
+		}
+
+		.sticky-top-card {
+			position: sticky;
+			top: 10px;
+			z-index: 5;
+		}
+	</style>
+</head>
+
+<body class="bg-light">
+	<div class="container py-4">
+
+		<div class="row g-3">
+			<div class="col-12 col-lg-4">
+				<div class="card shadow-sm sticky-top-card">
+					<div class="card-body">
+						<h5 class="mb-2">제품 이미지 ZIP 업로드(임시)</h5>
+						<div class="small-muted mb-3">
+							ZIP 내부는 <b>폴더명 기준</b>으로 매칭합니다.<br>
+							- 규격: <span class="mono">제품코드(productCode)</span> 폴더<br>
+							- 시리즈: <span class="mono">Series.name</span> 폴더<br>
+							- 비규격: <span class="mono">Product.name</span> 폴더
+							<hr class="my-2">
+							<div class="small-muted">
+								<b>매칭 실패가 많을 때 체크</b><br>
+								1) ZIP 내부 구조가 <span class="mono">폴더/이미지</span> 형태인지<br>
+								2) 폴더명 공백/특수문자/괄호가 DB와 완전히 같은지<br>
+								3) Series/Product 이름 중복이 있는지
+							</div>
+						</div>
+
+						<form th:action="@{/productImageUpload}" method="post" enctype="multipart/form-data"
+							class="vstack gap-3">
+							<div>
+								<label class="form-label fw-semibold">1) 규격 제품(StandardProduct) ZIP</label>
+								<input class="form-control" type="file" name="standardZip" accept=".zip">
+								<div class="small-muted mt-1">폴더명 = 제품코드, 내부 대표이미지(webp 권장)</div>
+							</div>
+
+							<div>
+								<label class="form-label fw-semibold">2) 시리즈(Series) ZIP</label>
+								<input class="form-control" type="file" name="seriesZip" accept=".zip">
+								<div class="small-muted mt-1">폴더명 = 시리즈명(Series.name)</div>
+							</div>
+
+							<div>
+								<label class="form-label fw-semibold">3) 비규격 제품(Product) ZIP</label>
+								<input class="form-control" type="file" name="productZip" accept=".zip">
+								<div class="small-muted mt-1">폴더명 = 제품명(Product.name)</div>
+							</div>
+
+							<button class="btn btn-primary w-100" type="submit">
+								업로드 실행(기존 이미지 정보 삭제 후 재등록)
+							</button>
+
+							<div class="small-muted">
+								⚠️ 대용량 ZIP은 서버 메모리/시간에 영향이 있습니다. (multipart max-size 확인)
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+
+			<!-- 결과 리포트 -->
+			<div class="col-12 col-lg-8">
+				<div class="card shadow-sm">
+					<div class="card-body">
+						<h5 class="mb-3">업로드 결과</h5>
+
+						<div th:if="${result == null}" class="alert alert-secondary mb-0">
+							아직 업로드가 실행되지 않았습니다.
+						</div>
+
+						<div th:if="${result != null}">
+							<!-- 요약 -->
+							<div class="row g-2 mb-3">
+								<div class="col-6 col-md-3">
+									<div class="p-2 bg-body border rounded">
+										<div class="small-muted">총 폴더</div>
+										<div class="fs-5 fw-bold" th:text="${result.summary.totalFolders}">0</div>
+									</div>
+								</div>
+								<div class="col-6 col-md-3">
+									<div class="p-2 bg-body border rounded">
+										<div class="small-muted">정상 업데이트</div>
+										<div class="fs-5 fw-bold" th:text="${result.summary.updated}">0</div>
+									</div>
+								</div>
+								<div class="col-6 col-md-3">
+									<div class="p-2 bg-body border rounded">
+										<div class="small-muted">미매칭 폴더</div>
+										<div class="fs-5 fw-bold" th:text="${result.summary.notMatchedFolders}">0</div>
+									</div>
+								</div>
+								<div class="col-6 col-md-3">
+									<div class="p-2 bg-body border rounded">
+										<div class="small-muted">오류</div>
+										<div class="fs-5 fw-bold" th:text="${result.summary.errors}">0</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- 카테고리별 탭 -->
+							<ul class="nav nav-tabs" role="tablist">
+								<li class="nav-item" role="presentation">
+									<button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabStandard"
+										type="button" role="tab">
+										규격(Standard) <span class="badge bg-secondary ms-1"
+											th:text="${#lists.size(result.standard.items)}">0</span>
+									</button>
+								</li>
+								<li class="nav-item" role="presentation">
+									<button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSeries"
+										type="button" role="tab">
+										시리즈(Series) <span class="badge bg-secondary ms-1"
+											th:text="${#lists.size(result.series.items)}">0</span>
+									</button>
+								</li>
+								<li class="nav-item" role="presentation">
+									<button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabProduct"
+										type="button" role="tab">
+										비규격(Product) <span class="badge bg-secondary ms-1"
+											th:text="${#lists.size(result.product.items)}">0</span>
+									</button>
+								</li>
+								<li class="nav-item" role="presentation">
+									<button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabMissing"
+										type="button" role="tab">
+										누락/미업데이트 엔티티
+									</button>
+								</li>
+							</ul>
+
+							<div class="tab-content border border-top-0 rounded-bottom p-3">
+								<!-- 규격 -->
+								<div class="tab-pane fade show active" id="tabStandard" role="tabpanel">
+									<!-- ✅ 자기 자신 프래그먼트 호출(경로 하드코딩 제거) -->
+									<div th:replace="~{::resultTableFragment(section=${result.standard})}"></div>
+								</div>
+								<!-- 시리즈 -->
+								<div class="tab-pane fade" id="tabSeries" role="tabpanel">
+									<div th:replace="~{::resultTableFragment(section=${result.series})}"></div>
+								</div>
+								<!-- 비규격 -->
+								<div class="tab-pane fade" id="tabProduct" role="tabpanel">
+									<div th:replace="~{::resultTableFragment(section=${result.product})}"></div>
+								</div>
+								<!-- 미업데이트 -->
+								<div class="tab-pane fade" id="tabMissing" role="tabpanel">
+									<div class="row g-3">
+										<div class="col-12">
+											<div class="alert alert-warning mb-2">
+												ZIP에 폴더가 없거나, 폴더명 불일치/중복으로 인해 업데이트되지 않은 엔티티 목록입니다.
+											</div>
+										</div>
+
+										<div class="col-12">
+											<h6 class="mb-2">규격(StandardProduct) 이미지 없는 항목</h6>
+											<div class="small-muted mb-2">최대 200개까지만 표시합니다.</div>
+											<div class="border rounded p-2 bg-body">
+												<div th:if="${#lists.isEmpty(result.missing.standardNoImage)}"
+													class="text-success">없음</div>
+												<ul th:if="${!#lists.isEmpty(result.missing.standardNoImage)}"
+													class="mb-0">
+													<li th:each="x : ${result.missing.standardNoImage}" class="mono"
+														th:text="${x}">-</li>
+												</ul>
+											</div>
+										</div>
+
+										<div class="col-12">
+											<h6 class="mb-2">시리즈(Series) 이미지 없는 항목</h6>
+											<div class="small-muted mb-2">최대 200개까지만 표시합니다.</div>
+											<div class="border rounded p-2 bg-body">
+												<div th:if="${#lists.isEmpty(result.missing.seriesNoImage)}"
+													class="text-success">없음</div>
+												<ul th:if="${!#lists.isEmpty(result.missing.seriesNoImage)}"
+													class="mb-0">
+													<li th:each="x : ${result.missing.seriesNoImage}" class="mono"
+														th:text="${x}">-</li>
+												</ul>
+											</div>
+										</div>
+
+										<div class="col-12">
+											<h6 class="mb-2">비규격(Product) 이미지 없는 항목</h6>
+											<div class="small-muted mb-2">최대 200개까지만 표시합니다.</div>
+											<div class="border rounded p-2 bg-body">
+												<div th:if="${#lists.isEmpty(result.missing.productNoImage)}"
+													class="text-success">없음</div>
+												<ul th:if="${!#lists.isEmpty(result.missing.productNoImage)}"
+													class="mb-0">
+													<li th:each="x : ${result.missing.productNoImage}" class="mono"
+														th:text="${x}">-</li>
+												</ul>
+											</div>
+										</div>
+
+									</div>
+								</div>
+							</div>
+
+							<!-- 프래그먼트(테이블) -->
+							<th:block th:fragment="resultTableFragment(section)">
+								<div class="table-responsive">
+									<table class="table table-sm table-hover align-middle">
+										<thead class="table-light">
+											<tr>
+												<th style="width: 140px;">상태</th>
+												<th>폴더명</th>
+												<th style="width: 120px;">매칭 ID</th>
+												<th>메시지</th>
+												<th style="width: 100px;">미리보기</th>
+											</tr>
+										</thead>
+										<tbody>
+											<tr th:each="it : ${section.items}">
+												<td>
+													<span class="badge badge-status"
+														th:classappend="${it.status == 'UPDATED'} ? ' bg-success' :
+                                                                  (${it.status == 'NOT_FOUND'} ? ' bg-secondary' :
+                                                                  (${it.status == 'NO_IMAGE'} ? ' bg-warning text-dark' :
+                                                                  (${it.status == 'AMBIGUOUS'} ? ' bg-danger' :
+                                                                  (${it.status == 'ERROR'} ? ' bg-dark' : ' bg-info'))))"
+														th:text="${it.status}">UPDATED</span>
+												</td>
+												<td class="mono" th:text="${it.folderName}">-</td>
+												<td class="mono" th:text="${it.matchedId}">-</td>
+												<td th:text="${it.message}">-</td>
+												<td>
+													<img th:if="${it.newImageUrl != null}" th:src="${it.newImageUrl}"
+														class="img-preview" alt="preview">
+													<span th:if="${it.newImageUrl == null}" class="small-muted">-</span>
+												</td>
+											</tr>
+											<tr th:if="${#lists.isEmpty(section.items)}">
+												<td colspan="5" class="text-center text-muted py-4">결과가 없습니다.</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+							</th:block>
+
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+	</div>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

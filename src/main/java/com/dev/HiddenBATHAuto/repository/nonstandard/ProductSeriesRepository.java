@@ -34,5 +34,9 @@ public interface ProductSeriesRepository extends JpaRepository<Series, Long>{
 		       "LEFT JOIN FETCH ms.products p " +
 		       "WHERE bs.id = :productSortId")
 	List<Series> findMiddleSortsByBigSortIdWithOrderedProducts(@Param("productSortId") Long productSortId);
+	
+	List<Series> findByName(String name);
+
+    List<Series> findTop200BySeriesRepImageRoadIsNullOrSeriesRepImageRoadEquals(String blank);
 
 }

@@ -6,7 +6,6 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
@@ -21,27 +20,30 @@
 						<!-- 제품 기본 정보 -->
 						<div class="standard-detail-info">
 							<div class="standard-detail-image">
-								<img src="/front/images/1.png" alt="제품 이미지">
+								<!-- ✅ 실제 이미지 출력 + 없으면 기본 이미지 -->
+								<img th:src="${#strings.isEmpty(product.imageUrl) ? '/front/images/1.png' : product.imageUrl}"
+									 alt="제품 이미지">
 							</div>
+
 							<div class="standard-detail-text">
 								<h3 th:text="${product.name}">제품명</h3>
 								<p>제품 코드: <span th:text="${product.productCode}"></span></p>
+
 								<input type="hidden" name="productId" th:value="${product.id}"
 									th:attr="data-code=${product.productCode}">
 								<input type="hidden" name="categoryName" th:value="${product.category.name}">
 
-								<!-- ✅ 추가: 제품 시리즈(중분류) -->
+								<!-- ✅ 제품 시리즈(중분류) -->
 								<input type="hidden" name="seriesName"
 									th:value="${product.productSeries != null ? product.productSeries.name : ''}">
-								<!-- (선택) 나중에 분석/정합성용으로 ID도 같이 저장 추천 -->
 								<input type="hidden" name="seriesId"
 									th:value="${product.productSeries != null ? product.productSeries.id : ''}">
-
 							</div>
 						</div>
 
 						<!-- 선택 옵션 -->
 						<div class="standard-detail-options">
+
 							<!-- 사이즈 -->
 							<div class="standard-detail-section">
 								<div class="standard-detail-title">사이즈</div>
@@ -70,8 +72,7 @@
 							<div th:if="${product.hasTissueCap}" class="standard-detail-section">
 								<div class="standard-detail-title">티슈 위치</div>
 								<div class="standard-detail-radio-group">
-									<label th:each="pos : ${product.productTissuePositions}"
-										class="standard-detail-radio">
+									<label th:each="pos : ${product.productTissuePositions}" class="standard-detail-radio">
 										<input type="radio" name="tissuePositionId" th:value="${pos.id}" hidden>
 										<span th:text="${pos.nameKr}"></span>
 									</label>
@@ -93,8 +94,7 @@
 							<div th:if="${product.hasOutlet}" class="standard-detail-section">
 								<div class="standard-detail-title">콘센트 위치</div>
 								<div class="standard-detail-radio-group">
-									<label th:each="pos : ${product.productOutletPositions}"
-										class="standard-detail-radio">
+									<label th:each="pos : ${product.productOutletPositions}" class="standard-detail-radio">
 										<input type="radio" name="outletPositionId" th:value="${pos.id}" hidden>
 										<span th:text="${pos.nameKr}"></span>
 									</label>
@@ -112,6 +112,7 @@
 								</div>
 								<div th:if="${#lists.isEmpty(product.productLedPositions)}">선택 가능한 옵션이 없습니다.</div>
 							</div>
+
 							<div class="standard-detail-section">
 								<div class="standard-detail-title">수량</div>
 								<div class="standard-detail-radio-group">
@@ -119,6 +120,7 @@
 										style="width: 130px; padding: 8px 16px; border: 1px solid #ccc; border-radius: 8px;">
 								</div>
 							</div>
+
 						</div>
 
 						<div class="standard-detail-final-section">
@@ -138,14 +140,16 @@
 								<p><strong>계산된 가격:</strong> <span id="calculated-price">-</span> 원</p>
 							</div>
 						</div>
+
 					</div>
 				</div>
 			</div>
+
 			<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 		</div>
+
 		<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
 		<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 		<script src="/front/standardOrder/standardOrderDetail.js"></script>
 </body>
-
 </html>

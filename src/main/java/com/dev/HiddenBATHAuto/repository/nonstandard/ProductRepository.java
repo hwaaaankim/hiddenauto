@@ -55,6 +55,12 @@ public interface ProductRepository extends JpaRepository<Product, Long>{
 	@Query("SELECT MAX(productIndex) FROM Product")
 	Optional<Integer> findFirstIndex();
 	
+	 // ✅ 신규 추가: 중복명/복수매칭 대비용(이번 업로드에서만 사용)
+    List<Product> findAllByName(String name);
+
+    // ✅ 신규 추가: 업로드 후에도 이미지 없는 엔티티 출력용(없으면 추가)
+    List<Product> findTop200ByProductRepImageRoadIsNullOrProductRepImageRoadEquals(String blank);
+	
 }
 
 

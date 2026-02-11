@@ -41,7 +41,8 @@ public class WebSecurityConfig {
 			"/api/excel/**",
 			"/api/standard/**",
 			"/excelConvert",
-			"/api/admin/member-excel/upload"
+			"/api/admin/member-excel/upload",
+			"/productImageUpload/**"
 	};
 	
 	private final String[] adminCommonUrls = {
