@@ -23,8 +23,6 @@ import jakarta.annotation.PostConstruct;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-  
-
     private final Environment environment;
 
     public WebMvcConfig(Environment environment) {
@@ -43,9 +41,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
         try {
             String normalized = normalizeDir(uploadPath);
             Path p = Paths.get(normalized);
+
             if (Files.notExists(p)) {
                 Files.createDirectories(p);
             }
+
             System.out.println("[WebMvcConfig] Ensured upload dir: " + p.toAbsolutePath());
         } catch (Exception e) {
             System.err.println("[WebMvcConfig] Failed to create upload dir: " + e.getMessage());
@@ -55,7 +55,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
         String normalized = normalizeDir(uploadPath);
-        String location = "file:" + normalized; // file: 프리픽스가 가장 명확합니다.
+        String location = "file:" + normalized; // file: 프리픽스
 
         System.out.println("[WebMvcConfig] Active profile: " + String.join(",", environment.getActiveProfiles()));
         System.out.println("[WebMvcConfig] Upload env: " + env);
@@ -66,14 +66,36 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addResourceLocations(location);
     }
 
-    /** 디렉터리 경로를 OS별로 안전하게 정규화(마지막에 / 보장) */
+    /**
+     * ✅ 디렉터리 경로를 OS별로 안전하게 정규화
+     * - \ -> /
+     * - ${user.home} 문자열이 그대로 들어온 경우 실제 홈으로 치환
+     * - ~ 로 시작하면 홈으로 치환
+     * - 마지막에 / 보장
+     */
     private String normalizeDir(String dir) {
         if (!StringUtils.hasText(dir)) return dir;
-        String d = dir.replace("\\", "/");
+
+        String d = dir.replace("\\", "/").trim();
+
+        String userHome = System.getProperty("user.home");
+        if (StringUtils.hasText(userHome)) {
+            userHome = userHome.replace("\\", "/");
+            // ${user.home} 문자열이 그대로 들어온 경우 치환
+            d = d.replace("${user.home}", userHome);
+
+            // ~ 처리
+            if (d.equals("~")) {
+                d = userHome;
+            } else if (d.startsWith("~/")) {
+                d = userHome + d.substring(1);
+            }
+        }
+
         if (!d.endsWith("/")) d = d + "/";
         return d;
     }
-    
+
     @Override
     public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
         for (HttpMessageConverter<?> converter : converters) {

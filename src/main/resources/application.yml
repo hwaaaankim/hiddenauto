@@ -1,7 +1,7 @@
 # ===================== 공통 설정 =====================
 spring:
   profiles:
-    active: test
+    active: mac
   application:
     name: HiddenBATHAuto
 as:
@@ -133,8 +133,8 @@ spring:
             enable: true
 
   upload:
-    # 기존에 쓰시던 맥 전용 경로 그대로 유지
-    path: "${user.home}/Downloads/hiddenauto/"
+    # ✅ mac: 바탕화면 Desktop/product 폴더 아래로 저장
+    path: "${user.home}/Desktop/product/"
     env: mac
 
 # ===================== 배포(prod) =====================

@@ -6,9 +6,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.Normalizer;
+import java.text.Normalizer.Form;
 import java.time.LocalDate;
 import java.util.Enumeration;
 import java.util.HashSet;
@@ -50,10 +53,27 @@ public class ProductImageUploadService {
     private static final Set<String> ALLOWED_EXT = Set.of("webp", "png", "jpg", "jpeg");
     private static final int REPORT_LIMIT = 200;
 
+    // macOS ZIP 메타 제외
+    private static final Set<String> IGNORE_TOP_FOLDERS = Set.of("__MACOSX");
+    private static final Set<String> IGNORE_FILE_NAMES = Set.of(".DS_Store");
+
+    /**
+     * ✅ "컨테이너(담는) 폴더"로 자주 쓰이는 폴더명들
+     * - 예: 규격/ABC123/대표.webp  => key는 "ABC123"이어야 함 (규격은 컨테이너)
+     * - 환경에 따라 더 추가 가능
+     */
+    private static final Set<String> CONTAINER_FOLDERS = Set.of(
+            "규격", "시리즈", "제품",
+            "standard", "series", "product",
+            "STANDARD", "SERIES", "PRODUCT"
+    );
+
+    // -------------------------------
+    // Public API
+    // -------------------------------
     public ProductImageUploadReport process(MultipartFile standardZip, MultipartFile seriesZip, MultipartFile productZip) {
         ProductImageUploadReport report = new ProductImageUploadReport();
 
-        // 1) ZIP별 처리
         if (standardZip != null && !standardZip.isEmpty()) {
             handleStandardZip(standardZip, report);
         }
@@ -64,31 +84,40 @@ public class ProductImageUploadService {
             handleProductZip(productZip, report);
         }
 
-        // 2) “업로드 후에도 이미지가 없는 엔티티” 목록 채우기(최대 200)
         fillMissingLists(report);
-
         return report;
     }
 
+    // -------------------------------
+    // Missing list
+    // -------------------------------
     private void fillMissingLists(ProductImageUploadReport report) {
-        // StandardProduct: imageUrl null/blank
         standardProductRepository.findTop200ByImageUrlIsNullOrImageUrlEquals("")
-                .forEach(sp -> report.getMissing().getStandardNoImage().add("id=" + sp.getId() + ", code=" + sp.getProductCode() + ", name=" + sp.getName()));
+                .forEach(sp -> {
+                    if (report.getMissing().getStandardNoImage().size() >= REPORT_LIMIT) return;
+                    report.getMissing().getStandardNoImage()
+                            .add("id=" + sp.getId() + ", code=" + sp.getProductCode() + ", name=" + sp.getName());
+                });
 
-        // Series: seriesRepImageRoad null/blank
         seriesRepository.findTop200BySeriesRepImageRoadIsNullOrSeriesRepImageRoadEquals("")
-                .forEach(s -> report.getMissing().getSeriesNoImage().add("id=" + s.getId() + ", name=" + s.getName()));
+                .forEach(s -> {
+                    if (report.getMissing().getSeriesNoImage().size() >= REPORT_LIMIT) return;
+                    report.getMissing().getSeriesNoImage()
+                            .add("id=" + s.getId() + ", name=" + s.getName());
+                });
 
-        // Product: productRepImageRoad null/blank
         productRepository.findTop200ByProductRepImageRoadIsNullOrProductRepImageRoadEquals("")
-                .forEach(p -> report.getMissing().getProductNoImage().add("id=" + p.getId() + ", name=" + p.getName()));
+                .forEach(p -> {
+                    if (report.getMissing().getProductNoImage().size() >= REPORT_LIMIT) return;
+                    report.getMissing().getProductNoImage()
+                            .add("id=" + p.getId() + ", name=" + p.getName());
+                });
     }
 
     // -------------------------------
-    // ZIP 처리(공통)
+    // ZIP open / temp
     // -------------------------------
     private ZipFile openZipFileWithFallback(File tmpZip) throws Exception {
-        // 기본 UTF-8 시도 → 실패 시 EUC-KR 폴백(윈도우에서 한글 폴더명 ZIP 흔함)
         try {
             return new ZipFile(tmpZip, Charset.forName("UTF-8"));
         } catch (Exception e) {
@@ -108,18 +137,47 @@ public class ProductImageUploadService {
         }
     }
 
+    // -------------------------------
+    // Path / key normalization
+    // -------------------------------
+
+    /**
+     * ✅ ZIP 엔트리 경로 정규화
+     * - \ -> /
+     * - 선행 "./" 제거 (맥/일부 압축툴)
+     * - 선행 "/" 제거
+     * - NFC 정규화
+     */
+    private String normalizeEntryPath(String entryNameRaw) {
+        if (!StringUtils.hasText(entryNameRaw)) return "";
+        String n = entryNameRaw.replace("\\", "/").trim();
+
+        while (n.startsWith("./")) n = n.substring(2);
+        while (n.startsWith("/")) n = n.substring(1);
+
+        n = Normalizer.normalize(n, Form.NFC);
+        return n;
+    }
+
+    /**
+     * 폴더/키 정규화
+     * - trim
+     * - NFC
+     * - 뒤쪽 "/" 제거
+     * - 불필요 공백 축소
+     */
     private String normalizeFolderName(String s) {
         if (!StringUtils.hasText(s)) return "";
         String t = s.trim();
-        // ZIP 엔트리에서 흔히 섞이는 백슬래시 방지
         t = t.replace("\\", "/");
-        // 끝 슬래시 제거
         while (t.endsWith("/")) t = t.substring(0, t.length() - 1);
-        return t.trim();
+        t = t.trim();
+        t = Normalizer.normalize(t, Form.NFC);
+        t = t.replaceAll("\\s+", " ").trim();
+        return t;
     }
 
     private boolean isZipSlip(String entryName) {
-        // Zip Slip 방어: .. 또는 절대경로 형태 거부
         String n = entryName.replace("\\", "/");
         return n.contains("..") || n.startsWith("/") || n.matches("^[A-Za-z]:/.*");
     }
@@ -131,94 +189,238 @@ public class ProductImageUploadService {
         return filename.substring(dot + 1).toLowerCase();
     }
 
-    private Map<String, ZipEntry> pickRepresentativeImagePerFolder(ZipFile zipFile) {
-        // folderName -> chosenZipEntry (대표 이미지)
-        Map<String, ZipEntry> chosen = new LinkedHashMap<>();
+    private boolean shouldIgnoreEntry(String entryNameRaw) {
+        if (!StringUtils.hasText(entryNameRaw)) return true;
 
-        // folderName -> 이미 webp가 선택됐는지
-        Set<String> chosenWebpFolders = new HashSet<>();
+        String name = normalizeEntryPath(entryNameRaw);
+
+        if (!StringUtils.hasText(name)) return true;
+        if (isZipSlip(name)) return true;
+
+        String[] parts = name.split("/");
+        if (parts.length >= 1) {
+            String top = normalizeFolderName(parts[0]);
+            if (IGNORE_TOP_FOLDERS.contains(top)) return true;
+            if (".".equals(top)) return true;
+        }
+
+        String last = Paths.get(name).getFileName().toString();
+        if (IGNORE_FILE_NAMES.contains(last)) return true;
+
+        // AppleDouble 제외 (._xxx.webp)
+        if (last.startsWith("._")) return true;
+
+        return false;
+    }
+
+    // -------------------------------
+    // ✅ Common top folder detection
+    // -------------------------------
+    /**
+     * ZIP 내부 엔트리들이 전부 같은 최상단 폴더(예: 규격/...) 아래에 있으면 그 폴더명을 반환.
+     * 아니면 null 반환.
+     *
+     * ✅ 맥에서 "./규격/..." 처럼 들어오는 경우가 있어 "." top은 무시합니다.
+     */
+    private String detectCommonTopFolder(ZipFile zipFile) {
+        Set<String> topFolders = new HashSet<>();
 
         Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
             ZipEntry e = entries.nextElement();
             if (e.isDirectory()) continue;
 
-            String name = e.getName();
+            String name = normalizeEntryPath(e.getName());
             if (!StringUtils.hasText(name)) continue;
-            if (isZipSlip(name)) continue;
 
-            name = name.replace("\\", "/");
-            String[] parts = name.split("/");
-            if (parts.length < 2) continue; // 최상위 폴더/파일 구조가 아니면 제외(원하시면 확장 가능)
+            if (shouldIgnoreEntry(name)) continue;
 
-            String folder = normalizeFolderName(parts[0]);
-            if (!StringUtils.hasText(folder)) continue;
+            // 파일이 루트에 있으면 공통 top 폴더 제거 대상 아님
+            if (!name.contains("/")) return null;
+
+            String top = name.substring(0, name.indexOf('/'));
+            top = normalizeFolderName(top);
+
+            // "." 또는 빈값은 무시
+            if (!StringUtils.hasText(top) || ".".equals(top)) continue;
+
+            if (IGNORE_TOP_FOLDERS.contains(top)) continue;
+
+            topFolders.add(top);
+            if (topFolders.size() > 1) return null;
+        }
+
+        if (topFolders.size() == 1) {
+            return topFolders.iterator().next();
+        }
+        return null;
+    }
+
+    // -------------------------------
+    // ✅ Match key extraction
+    // -------------------------------
+    /**
+     * 엔트리 경로에서 "DB 매칭 키"를 추출합니다.
+     *
+     * 1) 공통 최상단 폴더(commonTop)가 있으면 제거
+     * 2) 남은 경로의 첫 폴더가 컨테이너(규격/시리즈/제품...)면 두 번째 폴더를 키로 사용
+     * 3) 그렇지 않으면 첫 폴더를 키로 사용
+     * 4) 파일이 루트면 파일명(확장자 제외)을 키로 사용
+     */
+    private String extractMatchKey(String entryNameRaw, String commonTop) {
+        String n = normalizeEntryPath(entryNameRaw);
+        if (!StringUtils.hasText(n)) return null;
+
+        if (StringUtils.hasText(commonTop)) {
+            String topNorm = normalizeFolderName(commonTop);
+            String prefix = topNorm + "/";
+            if (n.startsWith(prefix)) {
+                n = n.substring(prefix.length());
+            }
+        }
+
+        String[] parts = n.split("/");
+        if (parts.length == 0) return null;
+
+        // 루트 파일: 파일명(확장자 제거)
+        if (parts.length == 1) {
+            String base = Paths.get(parts[0]).getFileName().toString();
+            int dot = base.lastIndexOf('.');
+            String key = (dot > 0) ? base.substring(0, dot) : base;
+            key = normalizeFolderName(key);
+            return StringUtils.hasText(key) ? key : null;
+        }
+
+        String first = normalizeFolderName(parts[0]);
+        if (!StringUtils.hasText(first) || ".".equals(first) || IGNORE_TOP_FOLDERS.contains(first)) return null;
+
+        // ✅ 핵심: 첫 폴더가 컨테이너(규격 등)면 2번째 폴더를 키로 사용
+        if (CONTAINER_FOLDERS.contains(first) && parts.length >= 2) {
+            String second = normalizeFolderName(parts[1]);
+            if (!StringUtils.hasText(second) || ".".equals(second) || IGNORE_TOP_FOLDERS.contains(second)) return null;
+            return second;
+        }
+
+        return first;
+    }
+
+    // -------------------------------
+    // Representative image selection
+    // -------------------------------
+    private Map<String, ZipEntry> pickRepresentativeImagePerFolder(ZipFile zipFile) {
+        Map<String, ZipEntry> chosen = new LinkedHashMap<>();
+        Set<String> chosenWebpKeys = new HashSet<>();
+
+        // ✅ ZIP의 "공통 최상단 폴더"가 하나면 제거하기 위한 prefix 계산
+        String commonTop = detectCommonTopFolder(zipFile);
+
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry e = entries.nextElement();
+            if (e.isDirectory()) continue;
+
+            String rawName = e.getName();
+            String name = normalizeEntryPath(rawName);
+            if (!StringUtils.hasText(name)) continue;
+
+            if (shouldIgnoreEntry(name)) continue;
 
             String ext = extOf(name);
             if (!ALLOWED_EXT.contains(ext)) continue;
 
+            // ✅ 핵심: "규격" 같은 컨테이너 폴더를 키로 쓰지 않도록 match key 추출
+            String key = extractMatchKey(name, commonTop);
+            if (!StringUtils.hasText(key)) continue;
+
             boolean isWebp = "webp".equals(ext);
 
-            // 1) 아직 아무것도 선택 안 된 폴더면: 그냥 넣어둠(임의 선택)
-            if (!chosen.containsKey(folder)) {
-                chosen.put(folder, e);
-                if (isWebp) chosenWebpFolders.add(folder);
+            if (!chosen.containsKey(key)) {
+                chosen.put(key, e);
+                if (isWebp) chosenWebpKeys.add(key);
                 continue;
             }
 
-            // 2) 이미 webp가 선택된 폴더면: 그대로 유지(아무것도 안 함)
-            if (chosenWebpFolders.contains(folder)) {
-                continue;
-            }
+            // 이미 webp가 선택된 키면 교체 금지
+            if (chosenWebpKeys.contains(key)) continue;
 
-            // 3) 아직 webp가 선택되지 않았는데, 이번 파일이 webp면: webp로 교체
+            // webp 우선권
             if (isWebp) {
-                chosen.put(folder, e);
-                chosenWebpFolders.add(folder);
+                chosen.put(key, e);
+                chosenWebpKeys.add(key);
             }
-
-            // 4) webp가 아닌 다른 확장자면: 기존 선택 유지(임의 그대로)
         }
 
         return chosen;
     }
 
-
+    // -------------------------------
+    // Save / delete
+    // -------------------------------
     private Path ensureDir(String dir) throws Exception {
         Path p = Paths.get(dir);
-        if (Files.notExists(p)) Files.createDirectories(p);
+        if (Files.notExists(p)) {
+            try {
+                Files.createDirectories(p);
+            } catch (AccessDeniedException ade) {
+                throw new IllegalStateException("디렉토리 생성 권한 없음: " + p.toAbsolutePath(), ade);
+            }
+        }
         return p;
     }
 
+    /**
+     * ✅ uploadRoot가 "${user.home}" 치환이 안 된 채 들어오는 경우까지 방어
+     * - ${user.home} 또는 ~ 를 실제 홈 디렉토리로 보정
+     * - 마지막 / 보장
+     */
     private String normalizeUploadRoot(String root) {
-        String r = root.replace("\\", "/");
+        if (!StringUtils.hasText(root)) return root;
+
+        String r = root.replace("\\", "/").trim();
+
+        String userHome = System.getProperty("user.home");
+        if (StringUtils.hasText(userHome)) {
+            userHome = userHome.replace("\\", "/");
+            r = r.replace("${user.home}", userHome);
+
+            if (r.startsWith("~/")) {
+                r = userHome + r.substring(1);
+            } else if (r.equals("~")) {
+                r = userHome;
+            }
+        }
+
         if (!r.endsWith("/")) r += "/";
         return r;
     }
 
     private SavedFile saveZipEntryToTarget(ZipFile zipFile, ZipEntry entry, String targetDir, String originalNameHint) throws Exception {
-        ensureDir(targetDir);
+        String normalizedTargetDir = targetDir.replace("\\", "/");
+        ensureDir(normalizedTargetDir);
 
-        String entryName = entry.getName();
+        String entryName = normalizeEntryPath(entry.getName());
         String ext = extOf(entryName);
         if (!ALLOWED_EXT.contains(ext)) {
             throw new IllegalArgumentException("허용되지 않은 확장자: " + ext + " (" + entryName + ")");
         }
 
         String fileName = UUID.randomUUID().toString().replace("-", "") + "." + ext;
-        Path targetPath = Paths.get(targetDir, fileName);
+        Path targetPath = Paths.get(normalizedTargetDir, fileName);
 
-        // 대용량 대비 스트리밍 저장
         try (InputStream is = new BufferedInputStream(zipFile.getInputStream(entry));
              BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(targetPath.toFile()))) {
             is.transferTo(os);
+        } catch (AccessDeniedException ade) {
+            throw new IllegalStateException("파일 저장 권한 없음: " + targetPath.toAbsolutePath(), ade);
         }
 
         SavedFile sf = new SavedFile();
         sf.fullPath = targetPath.toString().replace("\\", "/");
         sf.fileName = fileName;
         sf.ext = ext;
-        sf.originalName = StringUtils.hasText(originalNameHint) ? originalNameHint : Paths.get(entryName).getFileName().toString();
+        sf.originalName = StringUtils.hasText(originalNameHint)
+                ? originalNameHint
+                : Paths.get(entryName).getFileName().toString();
         return sf;
     }
 
@@ -241,47 +443,62 @@ public class ProductImageUploadService {
     }
 
     // -------------------------------
+    // Debug helper (필요 시)
+    // -------------------------------
+    @SuppressWarnings("unused")
+    private void logNotMatched(String type, String key, String entryName) {
+        // key의 실제 유니코드 확인용
+        String hex = key.chars()
+                .mapToObj(c -> String.format("%04X", c))
+                .reduce((a, b) -> a + " " + b)
+                .orElse("");
+        System.out.println("[ZIP][" + type + "][NOT_MATCH] key=[" + key + "] (hex=" + hex + "), entry=[" + entryName + "]");
+    }
+
+    // -------------------------------
     // Standard ZIP
     // -------------------------------
     private void handleStandardZip(MultipartFile zip, ProductImageUploadReport report) {
         File tmp = toTempFile(zip);
+
         try (ZipFile zipFile = openZipFileWithFallback(tmp)) {
             Map<String, ZipEntry> reps = pickRepresentativeImagePerFolder(zipFile);
 
             for (Map.Entry<String, ZipEntry> en : reps.entrySet()) {
-                String folder = en.getKey(); // productCode
+                String key = en.getKey();     // ✅ 이제 "규격"이 아니라 "ABC123" 같은 하위 폴더가 들어와야 함
                 ZipEntry entry = en.getValue();
 
                 report.getSummary().setTotalFolders(report.getSummary().getTotalFolders() + 1);
 
                 ProductImageUploadReport.Item item = new ProductImageUploadReport.Item();
-                item.setFolderName(folder);
+                item.setFolderName(key);
 
                 try {
-                    StandardProduct sp = standardProductRepository.findByProductCode(folder).orElse(null);
+                    StandardProduct sp = standardProductRepository.findByProductCode(key).orElse(null);
                     if (sp == null) {
                         item.setStatus("NOT_FOUND");
                         item.setMessage("제품코드로 StandardProduct 매칭 실패");
                         report.getStandard().getItems().add(item);
                         report.getSummary().setNotMatchedFolders(report.getSummary().getNotMatchedFolders() + 1);
+
+                        // 필요하면 켜서 확인하세요
+                        // logNotMatched("STANDARD", key, entry.getName());
                         continue;
                     }
 
-                    // 새 파일 저장
                     String date = LocalDate.now().toString();
                     String root = normalizeUploadRoot(uploadRoot);
+
                     String dir = root + "standard/product/" + sp.getId() + "/" + date + "/";
                     SavedFile saved = saveZipEntryToTarget(zipFile, entry, dir, entry.getName());
-
                     String newUrl = "/upload/standard/product/" + sp.getId() + "/" + date + "/" + saved.fileName;
 
-                    // DB 업데이트(파일 먼저 저장 → DB 저장 성공 후 기존 파일 삭제)
                     updateStandardProductImage(sp, saved, newUrl);
 
                     item.setStatus("UPDATED");
                     item.setMatchedId(String.valueOf(sp.getId()));
                     item.setNewImageUrl(newUrl);
-                    item.setMessage("업데이트 완료");
+                    item.setMessage("업데이트 완료 (저장경로: " + saved.fullPath + ")");
                     report.getStandard().getItems().add(item);
                     report.getSummary().setUpdated(report.getSummary().getUpdated() + 1);
 
@@ -293,7 +510,6 @@ public class ProductImageUploadService {
                 }
             }
 
-            // 이미지가 하나도 없거나 폴더를 못 뽑은 경우도 표시
             if (reps.isEmpty()) {
                 ProductImageUploadReport.Item item = new ProductImageUploadReport.Item();
                 item.setStatus("NO_IMAGE");
@@ -316,10 +532,8 @@ public class ProductImageUploadService {
 
     @Transactional
     protected void updateStandardProductImage(StandardProduct sp, SavedFile saved, String newUrl) {
-        // 기존 파일 경로 백업
         String oldPath = sp.getImagePath();
 
-        // 이미지 필드 “교체”
         sp.setImageUrl(newUrl);
         sp.setImagePath(saved.fullPath);
         sp.setImageFileName(saved.fileName);
@@ -328,7 +542,6 @@ public class ProductImageUploadService {
 
         standardProductRepository.save(sp);
 
-        // DB 저장이 성공한 뒤에 기존 파일 삭제 시도
         if (StringUtils.hasText(oldPath) && !oldPath.equals(saved.fullPath)) {
             deleteIfExists(oldPath);
         }
@@ -339,25 +552,28 @@ public class ProductImageUploadService {
     // -------------------------------
     private void handleSeriesZip(MultipartFile zip, ProductImageUploadReport report) {
         File tmp = toTempFile(zip);
+
         try (ZipFile zipFile = openZipFileWithFallback(tmp)) {
             Map<String, ZipEntry> reps = pickRepresentativeImagePerFolder(zipFile);
 
             for (Map.Entry<String, ZipEntry> en : reps.entrySet()) {
-                String folder = en.getKey(); // Series.name
+                String key = en.getKey();
                 ZipEntry entry = en.getValue();
 
                 report.getSummary().setTotalFolders(report.getSummary().getTotalFolders() + 1);
 
                 ProductImageUploadReport.Item item = new ProductImageUploadReport.Item();
-                item.setFolderName(folder);
+                item.setFolderName(key);
 
                 try {
-                    List<Series> list = seriesRepository.findByName(folder);
+                    List<Series> list = seriesRepository.findByName(key);
                     if (list == null || list.isEmpty()) {
                         item.setStatus("NOT_FOUND");
                         item.setMessage("Series.name으로 매칭 실패");
                         report.getSeries().getItems().add(item);
                         report.getSummary().setNotMatchedFolders(report.getSummary().getNotMatchedFolders() + 1);
+
+                        // logNotMatched("SERIES", key, entry.getName());
                         continue;
                     }
                     if (list.size() != 1) {
@@ -372,9 +588,9 @@ public class ProductImageUploadService {
 
                     String date = LocalDate.now().toString();
                     String root = normalizeUploadRoot(uploadRoot);
+
                     String dir = root + "series/" + s.getId() + "/" + date + "/";
                     SavedFile saved = saveZipEntryToTarget(zipFile, entry, dir, entry.getName());
-
                     String newUrl = "/upload/series/" + s.getId() + "/" + date + "/" + saved.fileName;
 
                     updateSeriesImage(s, saved, newUrl);
@@ -382,7 +598,7 @@ public class ProductImageUploadService {
                     item.setStatus("UPDATED");
                     item.setMatchedId(String.valueOf(s.getId()));
                     item.setNewImageUrl(newUrl);
-                    item.setMessage("업데이트 완료");
+                    item.setMessage("업데이트 완료 (저장경로: " + saved.fullPath + ")");
                     report.getSeries().getItems().add(item);
                     report.getSummary().setUpdated(report.getSummary().getUpdated() + 1);
 
@@ -436,26 +652,29 @@ public class ProductImageUploadService {
     // -------------------------------
     private void handleProductZip(MultipartFile zip, ProductImageUploadReport report) {
         File tmp = toTempFile(zip);
+
         try (ZipFile zipFile = openZipFileWithFallback(tmp)) {
             Map<String, ZipEntry> reps = pickRepresentativeImagePerFolder(zipFile);
 
             for (Map.Entry<String, ZipEntry> en : reps.entrySet()) {
-                String folder = en.getKey(); // Product.name
+                String key = en.getKey();
                 ZipEntry entry = en.getValue();
 
                 report.getSummary().setTotalFolders(report.getSummary().getTotalFolders() + 1);
 
                 ProductImageUploadReport.Item item = new ProductImageUploadReport.Item();
-                item.setFolderName(folder);
+                item.setFolderName(key);
 
                 try {
-                	List<Product> list = productRepository.findAllByName(folder);
+                    List<Product> list = productRepository.findAllByName(key);
 
                     if (list == null || list.isEmpty()) {
                         item.setStatus("NOT_FOUND");
                         item.setMessage("Product.name으로 매칭 실패");
                         report.getProduct().getItems().add(item);
                         report.getSummary().setNotMatchedFolders(report.getSummary().getNotMatchedFolders() + 1);
+
+                        // logNotMatched("PRODUCT", key, entry.getName());
                         continue;
                     }
                     if (list.size() != 1) {
@@ -470,9 +689,9 @@ public class ProductImageUploadService {
 
                     String date = LocalDate.now().toString();
                     String root = normalizeUploadRoot(uploadRoot);
+
                     String dir = root + "product/" + p.getId() + "/" + date + "/";
                     SavedFile saved = saveZipEntryToTarget(zipFile, entry, dir, entry.getName());
-
                     String newUrl = "/upload/product/" + p.getId() + "/" + date + "/" + saved.fileName;
 
                     updateProductImage(p, saved, newUrl);
@@ -480,7 +699,7 @@ public class ProductImageUploadService {
                     item.setStatus("UPDATED");
                     item.setMatchedId(String.valueOf(p.getId()));
                     item.setNewImageUrl(newUrl);
-                    item.setMessage("업데이트 완료");
+                    item.setMessage("업데이트 완료 (저장경로: " + saved.fullPath + ")");
                     report.getProduct().getItems().add(item);
                     report.getSummary().setUpdated(report.getSummary().getUpdated() + 1);
 

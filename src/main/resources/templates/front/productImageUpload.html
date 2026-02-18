@@ -167,17 +167,19 @@
 							<div class="tab-content border border-top-0 rounded-bottom p-3">
 								<!-- 규격 -->
 								<div class="tab-pane fade show active" id="tabStandard" role="tabpanel">
-									<!-- ✅ 자기 자신 프래그먼트 호출(경로 하드코딩 제거) -->
-									<div th:replace="~{::resultTableFragment(section=${result.standard})}"></div>
+									<div th:replace="~{::resultTableFragment(${result.standard})}"></div>
 								</div>
+
 								<!-- 시리즈 -->
 								<div class="tab-pane fade" id="tabSeries" role="tabpanel">
-									<div th:replace="~{::resultTableFragment(section=${result.series})}"></div>
+									<div th:replace="~{::resultTableFragment(${result.series})}"></div>
 								</div>
+
 								<!-- 비규격 -->
 								<div class="tab-pane fade" id="tabProduct" role="tabpanel">
-									<div th:replace="~{::resultTableFragment(section=${result.product})}"></div>
+									<div th:replace="~{::resultTableFragment(${result.product})}"></div>
 								</div>
+
 								<!-- 미업데이트 -->
 								<div class="tab-pane fade" id="tabMissing" role="tabpanel">
 									<div class="row g-3">
@@ -233,54 +235,60 @@
 								</div>
 							</div>
 
-							<!-- 프래그먼트(테이블) -->
-							<th:block th:fragment="resultTableFragment(section)">
-								<div class="table-responsive">
-									<table class="table table-sm table-hover align-middle">
-										<thead class="table-light">
-											<tr>
-												<th style="width: 140px;">상태</th>
-												<th>폴더명</th>
-												<th style="width: 120px;">매칭 ID</th>
-												<th>메시지</th>
-												<th style="width: 100px;">미리보기</th>
-											</tr>
-										</thead>
-										<tbody>
-											<tr th:each="it : ${section.items}">
-												<td>
-													<span class="badge badge-status"
-														th:classappend="${it.status == 'UPDATED'} ? ' bg-success' :
-                                                                  (${it.status == 'NOT_FOUND'} ? ' bg-secondary' :
-                                                                  (${it.status == 'NO_IMAGE'} ? ' bg-warning text-dark' :
-                                                                  (${it.status == 'AMBIGUOUS'} ? ' bg-danger' :
-                                                                  (${it.status == 'ERROR'} ? ' bg-dark' : ' bg-info'))))"
-														th:text="${it.status}">UPDATED</span>
-												</td>
-												<td class="mono" th:text="${it.folderName}">-</td>
-												<td class="mono" th:text="${it.matchedId}">-</td>
-												<td th:text="${it.message}">-</td>
-												<td>
-													<img th:if="${it.newImageUrl != null}" th:src="${it.newImageUrl}"
-														class="img-preview" alt="preview">
-													<span th:if="${it.newImageUrl == null}" class="small-muted">-</span>
-												</td>
-											</tr>
-											<tr th:if="${#lists.isEmpty(section.items)}">
-												<td colspan="5" class="text-center text-muted py-4">결과가 없습니다.</td>
-											</tr>
-										</tbody>
-									</table>
-								</div>
-							</th:block>
+						</div><!-- /result != null -->
 
-						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 
 	</div>
+
+	<!-- ✅ 프래그먼트(테이블): 타입참조(T())/없는 메서드(#lists.list()) 없이 null-safe 처리 -->
+	<div th:fragment="resultTableFragment(section)">
+		<div class="table-responsive">
+			<table class="table table-sm table-hover align-middle">
+				<thead class="table-light">
+					<tr>
+						<th style="width: 140px;">상태</th>
+						<th>폴더명</th>
+						<th style="width: 120px;">매칭 ID</th>
+						<th>메시지</th>
+						<th style="width: 100px;">미리보기</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<!-- ✅ section이 null이면 null을 넘겨 반복 0회(안전) -->
+					<tr th:each="it : ${section != null ? section.items : null}">
+						<td>
+							<span class="badge badge-status"
+								th:classappend="${it.status == 'UPDATED'} ? ' bg-success' :
+                                              (${it.status == 'NOT_FOUND'} ? ' bg-secondary' :
+                                              (${it.status == 'NO_IMAGE'} ? ' bg-warning text-dark' :
+                                              (${it.status == 'AMBIGUOUS'} ? ' bg-danger' :
+                                              (${it.status == 'ERROR'} ? ' bg-dark' : ' bg-info'))))"
+								th:text="${it.status}">UPDATED</span>
+						</td>
+						<td class="mono" th:text="${it.folderName}">-</td>
+						<td class="mono" th:text="${it.matchedId}">-</td>
+						<td th:text="${it.message}">-</td>
+						<td>
+							<img th:if="${it.newImageUrl != null}" th:src="${it.newImageUrl}" class="img-preview"
+								alt="preview">
+							<span th:if="${it.newImageUrl == null}" class="small-muted">-</span>
+						</td>
+					</tr>
+
+					<!-- ✅ section이 null이거나, items가 null이거나, items가 비어있으면 "결과 없음" -->
+					<tr th:if="${section == null or section.items == null or #lists.isEmpty(section.items)}">
+						<td colspan="5" class="text-center text-muted py-4">결과가 없습니다.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
