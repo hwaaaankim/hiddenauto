@@ -3,8 +3,11 @@ package com.dev.HiddenBATHAuto.controller.api;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -26,15 +29,18 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.CalendarEventDTO;
-import com.dev.HiddenBATHAuto.dto.TaskDetailDTO;
+import com.dev.HiddenBATHAuto.dto.calendar.CalendarTaskDetailDTO;
+import com.dev.HiddenBATHAuto.dto.calendar.CalendarTaskDetailDTO.OrderBriefDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionSelectionDTO;
+import com.dev.HiddenBATHAuto.enums.CalendarDateBasis;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
+import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
@@ -93,48 +99,53 @@ public class APIController {
 	private final TaskRepository taskRepository;
 
 	private final MemberManagementService memberManagementService;
-	 // ✅ 신규: province 목록 조회용
-    private final ProvinceRepository provinceRepository;
+	// ✅ 신규: province 목록 조회용
+	private final ProvinceRepository provinceRepository;
 	private final CompanyRepository companyRepository;
 
-    @GetMapping("/validate/businessNumber")
-    public ResponseEntity<Map<String, Object>> validateBusinessNumber(@RequestParam("businessNumber") String businessNumber) {
-        String digits = (businessNumber == null) ? "" : businessNumber.replaceAll("\\D", "");
+	private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-        Map<String, Object> result = new HashMap<>();
-        // ✅ 형식이 아예 틀리면 duplicate=false로 내려주고 프론트에서 길이검증
-        if (digits.length() != 10) {
-            result.put("duplicate", false);
-            result.put("normalized", digits);
-            return ResponseEntity.ok(result);
-        }
+	@GetMapping("/validate/businessNumber")
+	public ResponseEntity<Map<String, Object>> validateBusinessNumber(
+			@RequestParam("businessNumber") String businessNumber) {
+		String digits = (businessNumber == null) ? "" : businessNumber.replaceAll("\\D", "");
 
-        boolean duplicate = companyRepository.existsByBusinessNumber(digits);
-        result.put("duplicate", duplicate);
-        result.put("normalized", digits);
-        return ResponseEntity.ok(result);
-    }
-	
-    @PostMapping("/region/conflicts/check-new")
-    public ResponseEntity<List<ConflictDTO>> checkRegionConflictsForNewMember(@RequestBody NewMemberRegionCheckRequest req) {
-        List<ConflictDTO> conflicts = memberManagementService.checkRegionConflictsForNewMember(req.getTeamId(), req.getSelections());
-        return ResponseEntity.ok(conflicts);
-    }
+		Map<String, Object> result = new HashMap<>();
+		// ✅ 형식이 아예 틀리면 duplicate=false로 내려주고 프론트에서 길이검증
+		if (digits.length() != 10) {
+			result.put("duplicate", false);
+			result.put("normalized", digits);
+			return ResponseEntity.ok(result);
+		}
 
-    @Data
-    public static class NewMemberRegionCheckRequest {
-        private Long teamId;
-        private List<RegionSelectionDTO> selections;
-    }
-	
-    // ✅✅ (신규) Province 전체 목록
-    @GetMapping("/provinces")
-    @ResponseBody
-    public List<Province> getProvinces() {
-        // 정렬이 필요하면 findAllByOrderByNameAsc() 사용
-        return provinceRepository.findAllByOrderByNameAsc();
-    }
-    
+		boolean duplicate = companyRepository.existsByBusinessNumber(digits);
+		result.put("duplicate", duplicate);
+		result.put("normalized", digits);
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/region/conflicts/check-new")
+	public ResponseEntity<List<ConflictDTO>> checkRegionConflictsForNewMember(
+			@RequestBody NewMemberRegionCheckRequest req) {
+		List<ConflictDTO> conflicts = memberManagementService.checkRegionConflictsForNewMember(req.getTeamId(),
+				req.getSelections());
+		return ResponseEntity.ok(conflicts);
+	}
+
+	@Data
+	public static class NewMemberRegionCheckRequest {
+		private Long teamId;
+		private List<RegionSelectionDTO> selections;
+	}
+
+	// ✅✅ (신규) Province 전체 목록
+	@GetMapping("/provinces")
+	@ResponseBody
+	public List<Province> getProvinces() {
+		// 정렬이 필요하면 findAllByOrderByNameAsc() 사용
+		return provinceRepository.findAllByOrderByNameAsc();
+	}
+
 	@GetMapping("/province/{provinceId}/cities")
 	@ResponseBody
 	public List<City> getCitiesByProvince(@PathVariable Long provinceId) {
@@ -296,73 +307,240 @@ public class APIController {
 
 	@GetMapping("/calendar/events")
 	@ResponseBody
-	public List<CalendarEventDTO> getCalendarEvents(@AuthenticationPrincipal PrincipalDetails principalDetails) {
-		
-		Member member = principalDetails.getMember(); // 또는 getUser() 등 실제 메서드명 확인
-		log.info("[CalendarEvents] 요청자: {}", member != null ? member.getUsername() : "비로그인");
+	public List<CalendarEventDTO> getCalendarEvents(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @RequestParam(value = "basis", required = false) String basisParam
+    ) {
+        CalendarDateBasis basis = CalendarDateBasis.from(basisParam);
 
-		List<AsTask> asTasks = asTaskRepository.findByRequestedBy(member);
-		List<Task> tasks = taskRepository.findByRequestedBy(member);
+        Member member = principalDetails.getMember();
+        log.info("[CalendarEvents] basis={}, requester={}", basis, (member != null ? member.getUsername() : "비로그인"));
 
-		log.info("조회된 AS 태스크 수: {}", asTasks.size());
-		log.info("조회된 주문 태스크 수: {}", tasks.size());
+        // =========================
+        // AS 조회/그룹핑
+        // =========================
+        List<AsTask> asTasks;
+        if (basis == CalendarDateBasis.PROCESS) {
+            asTasks = asTaskRepository.findByRequestedByAndAsProcessDateNotNull(member);
+        } else {
+            asTasks = asTaskRepository.findByRequestedBy(member);
+        }
 
-		Map<LocalDate, List<AsTask>> asMap = asTasks.stream()
-				.collect(Collectors.groupingBy(task -> task.getRequestedAt().toLocalDate()));
+        Map<LocalDate, List<AsTask>> asMap = asTasks.stream()
+                .map(t -> new AbstractMap.SimpleEntry<>(extractAsDate(t, basis), t))
+                .filter(e -> e.getKey() != null) // ✅ 처리일 기준에서 null 제거
+                .collect(Collectors.groupingBy(Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
-		Map<LocalDate, List<Task>> taskMap = tasks.stream()
-				.collect(Collectors.groupingBy(task -> task.getCreatedAt().toLocalDate()));
+        // =========================
+        // TASK 조회/그룹핑
+        // =========================
+        List<Task> tasks;
+        if (basis == CalendarDateBasis.PROCESS) {
+            tasks = taskRepository.findByRequestedByAndPreferredDeliveryNotNullFetchOrders(member);
+        } else {
+            tasks = taskRepository.findByRequestedByFetchOrders(member);
+        }
 
-		Set<LocalDate> allDates = new HashSet<>();
-		allDates.addAll(asMap.keySet());
-		allDates.addAll(taskMap.keySet());
+        Map<LocalDate, List<Task>> taskMap = tasks.stream()
+                .map(t -> new AbstractMap.SimpleEntry<>(extractTaskDate(t, basis), t))
+                .filter(e -> e.getKey() != null) // ✅ 처리일 기준에서 null 제거
+                .collect(Collectors.groupingBy(Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
-		log.info("모든 날짜 수: {}", allDates.size());
+        // =========================
+        // 합치기
+        // =========================
+        Set<LocalDate> allDates = new HashSet<>();
+        allDates.addAll(asMap.keySet());
+        allDates.addAll(taskMap.keySet());
 
-		List<CalendarEventDTO> result = new ArrayList<>();
-		for (LocalDate date : allDates) {
-			int asCount = asMap.getOrDefault(date, List.of()).size();
-			int taskCount = taskMap.getOrDefault(date, List.of()).size();
-			result.add(new CalendarEventDTO(date.toString(), asCount, taskCount));
+        List<CalendarEventDTO> result = new ArrayList<>();
+        for (LocalDate date : allDates) {
+            int asCount = asMap.getOrDefault(date, List.of()).size();
+            int taskCount = taskMap.getOrDefault(date, List.of()).size();
+            result.add(new CalendarEventDTO(date.toString(), asCount, taskCount));
+        }
 
-			log.info("📅 {}: AS {}건 / 주문 {}건", date, asCount, taskCount);
-		}
+        // 날짜 정렬(오름차순) 원하시면 반대로도 가능
+        result.sort(Comparator.comparing(CalendarEventDTO::getDate));
+        return result;
+    }
 
-		return result;
-	}
+    /**
+     * ✅ 모달 상세
+     * - basis=REQUEST(기본): date는 신청일 기준으로 필터
+     * - basis=PROCESS: date는 처리일 기준으로 필터 (NULL 제외)
+     */
+    @GetMapping("/calendar/tasks")
+    @ResponseBody
+    public List<CalendarTaskDetailDTO> getCalendarTasks(
+            @AuthenticationPrincipal PrincipalDetails principalDetails,
+            @RequestParam("date") String dateStr,
+            @RequestParam(value = "basis", required = false) String basisParam
+    ) {
+        CalendarDateBasis basis = CalendarDateBasis.from(basisParam);
+        LocalDate target = LocalDate.parse(dateStr);
 
-	@GetMapping("/calendar/tasks")
-	@ResponseBody
-	public List<TaskDetailDTO> getTasksByDate(@AuthenticationPrincipal PrincipalDetails principalDetails, @RequestParam String date) {
-		
-		Member member = principalDetails.getMember(); // 또는 getUser() 등 실제 메서드명 확인
-		log.info("[TaskDetail] 날짜: {}, 요청자: {}", date, member != null ? member.getUsername() : "비로그인");
+        Member member = principalDetails.getMember();
+        log.info("[CalendarTasks] basis={}, date={}, requester={}", basis, dateStr, member != null ? member.getUsername() : "비로그인");
 
-		LocalDate targetDate = LocalDate.parse(date);
+        List<CalendarTaskDetailDTO> out = new ArrayList<>();
 
-		List<AsTask> asTasks = asTaskRepository.findByRequestedByAndRequestedAtBetween(member,
-				targetDate.atStartOfDay(), targetDate.atTime(LocalTime.MAX));
+        // -------------------------
+        // AS
+        // -------------------------
+        List<AsTask> asTasks;
+        if (basis == CalendarDateBasis.PROCESS) {
+            asTasks = asTaskRepository.findByRequestedByAndAsProcessDateNotNull(member);
+        } else {
+            asTasks = asTaskRepository.findByRequestedBy(member);
+        }
 
-		List<Task> tasks = taskRepository.findByRequestedByAndCreatedAtBetween(member, targetDate.atStartOfDay(),
-				targetDate.atTime(LocalTime.MAX));
+        asTasks.stream()
+                .filter(t -> {
+                    LocalDate d = extractAsDate(t, basis);
+                    return d != null && d.equals(target);
+                })
+                .forEach(t -> out.add(toAsDetailDTO(t, basis)));
 
-		log.info("해당 날짜의 AS 태스크 수: {}", asTasks.size());
-		log.info("해당 날짜의 주문 태스크 수: {}", tasks.size());
+        // -------------------------
+        // TASK
+        // -------------------------
+        List<Task> tasks;
+        if (basis == CalendarDateBasis.PROCESS) {
+            tasks = taskRepository.findByRequestedByAndPreferredDeliveryNotNullFetchOrders(member);
+        } else {
+            tasks = taskRepository.findByRequestedByFetchOrders(member);
+        }
 
-		List<TaskDetailDTO> result = new ArrayList<>();
-		for (AsTask task : asTasks) {
-			TaskDetailDTO dto = TaskDetailDTO.fromAsTask(task);
-			log.debug("AS → {}", dto);
-			result.add(dto);
-		}
+        tasks.stream()
+                .filter(t -> {
+                    LocalDate d = extractTaskDate(t, basis);
+                    return d != null && d.equals(target);
+                })
+                .forEach(t -> out.add(toTaskDetailDTO(t, basis)));
 
-		for (Task task : tasks) {
-			TaskDetailDTO dto = TaskDetailDTO.fromTask(task);
-			log.debug("TASK → {}", dto);
-			result.add(dto);
-		}
+        // 보기 좋게: AS 먼저, TASK 다음 (원하시면 변경 가능)
+        out.sort(Comparator.comparing(CalendarTaskDetailDTO::getType));
+        return out;
+    }
 
-		return result;
-	}
+    // =========================================================
+    // ✅ Date 추출 규칙
+    // =========================================================
+    private LocalDate extractAsDate(AsTask t, CalendarDateBasis basis) {
+        if (t == null) return null;
+        if (basis == CalendarDateBasis.PROCESS) {
+            // ✅ 처리일 기준: asProcessDate (NULL이면 표시 안 함)
+            LocalDateTime p = t.getAsProcessDate();
+            return (p != null) ? p.toLocalDate() : null;
+        } else {
+            // ✅ 신청일 기준: requestedAt
+            LocalDateTime r = t.getRequestedAt();
+            return (r != null) ? r.toLocalDate() : null;
+        }
+    }
+
+    private LocalDate extractTaskDate(Task t, CalendarDateBasis basis) {
+        if (t == null) return null;
+
+        if (basis == CalendarDateBasis.PROCESS) {
+            // ✅ 처리일 기준: 주문들의 preferredDeliveryDate (전부 동일하다는 전제)
+            LocalDateTime pref = getTaskPreferredDeliveryDate(t);
+            return (pref != null) ? pref.toLocalDate() : null;
+        } else {
+            // ✅ 신청일 기준: task.createdAt
+            LocalDateTime c = t.getCreatedAt();
+            return (c != null) ? c.toLocalDate() : null;
+        }
+    }
+
+    /**
+     * ✅ Task 내 orders가 여러 개여도 배송희망일은 동일하므로,
+     *    첫 번째 유효값을 대표로 사용합니다.
+     *    (혹시 데이터가 섞일 가능성이 있으면 min/max 검증 로직 추가 권장)
+     */
+    private LocalDateTime getTaskPreferredDeliveryDate(Task t) {
+        if (t.getOrders() == null || t.getOrders().isEmpty()) return null;
+        for (Order o : t.getOrders()) {
+            if (o != null && o.getPreferredDeliveryDate() != null) {
+                return o.getPreferredDeliveryDate();
+            }
+        }
+        return null;
+    }
+
+    // =========================================================
+    // ✅ DTO 변환
+    // =========================================================
+    private CalendarTaskDetailDTO toAsDetailDTO(AsTask t, CalendarDateBasis basis) {
+        CalendarTaskDetailDTO dto = new CalendarTaskDetailDTO();
+        dto.setType("AS");
+        dto.setId(t.getId());
+
+        // title: subject 우선, 없으면 productName
+        String title = (t.getSubject() != null && !t.getSubject().isBlank()) ? t.getSubject() : t.getProductName();
+        dto.setTitle(title);
+
+        LocalDate date = extractAsDate(t, basis);
+        dto.setDate(date != null ? date.toString() : null);
+
+        dto.setAddress(buildAddress(t.getDoName(), t.getSiName(), t.getGuName(), t.getRoadAddress(), t.getDetailAddress()));
+        return dto;
+    }
+
+    private CalendarTaskDetailDTO toTaskDetailDTO(Task t, CalendarDateBasis basis) {
+        CalendarTaskDetailDTO dto = new CalendarTaskDetailDTO();
+        dto.setType("TASK");
+        dto.setId(t.getId());
+
+        LocalDate date = extractTaskDate(t, basis);
+        dto.setDate(date != null ? date.toString() : null);
+
+        // orders
+        List<Order> orders = (t.getOrders() != null) ? t.getOrders() : List.of();
+        for (Order o : orders) {
+            if (o == null) continue;
+
+            OrderBriefDTO ob = new OrderBriefDTO();
+            ob.setOrderId(o.getId());
+            ob.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().format(DT) : null);
+            ob.setPreferredDeliveryDate(o.getPreferredDeliveryDate() != null ? o.getPreferredDeliveryDate().format(DT) : null);
+            ob.setAddress(buildAddress(o.getDoName(), o.getSiName(), o.getGuName(), o.getRoadAddress(), o.getDetailAddress()));
+            ob.setQuantity(o.getQuantity());
+            ob.setPrice(o.getProductCost());
+            ob.setCategoryName(o.getProductCategory() != null ? o.getProductCategory().getName() : null);
+
+            dto.getOrders().add(ob);
+        }
+
+        // title은 JS가 TASK는 orders를 찍으므로 굳이 필요 없지만, 혹시 대비해서 설정
+        dto.setTitle("TASK_" + t.getId());
+        dto.setAddress(dto.getOrders().isEmpty() ? "-" : dto.getOrders().get(0).getAddress());
+
+        return dto;
+    }
+
+    private String buildAddress(String doName, String siName, String guName, String roadAddress, String detailAddress) {
+        // roadAddress가 이미 전체 주소라면 roadAddress 위주로
+        String base = (roadAddress != null && !roadAddress.isBlank())
+                ? roadAddress
+                : String.join(" ",
+                    safe(doName),
+                    safe(siName),
+                    safe(guName)
+                ).trim();
+
+        if (detailAddress != null && !detailAddress.isBlank()) {
+            if (base.isBlank()) return detailAddress;
+            return base + " " + detailAddress;
+        }
+        return base.isBlank() ? "-" : base;
+    }
+
+    private String safe(String s) {
+        return (s == null) ? "" : s;
+    }
 
 }

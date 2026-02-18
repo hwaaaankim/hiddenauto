@@ -16,6 +16,20 @@ import com.dev.HiddenBATHAuto.model.task.Task;
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long>{
 
+    // ✅ 신청일 기준에서도 모달 상세에 orders가 필요하므로 fetch join
+    @Query("select distinct t from Task t left join fetch t.orders o where t.requestedBy = :member")
+    List<Task> findByRequestedByFetchOrders(@Param("member") Member member);
+
+    // ✅ 처리일 기준: preferredDeliveryDate 있는 주문이 있는 Task만 + fetch join
+    @Query("""
+        select distinct t
+        from Task t
+        join fetch t.orders o
+        where t.requestedBy = :member
+          and o.preferredDeliveryDate is not null
+    """)
+    List<Task> findByRequestedByAndPreferredDeliveryNotNullFetchOrders(@Param("member") Member member);
+	
 	Page<Task> findAllByOrderByIdDesc(Pageable pageable);
 	
 	List<Task> findByRequestedBy(Member member);

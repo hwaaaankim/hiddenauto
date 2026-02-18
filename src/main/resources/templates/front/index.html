@@ -14,9 +14,25 @@
 		<div class="page-content header-clear-medium">
 			<div class="card card-style web-mb-5">
 				<div class="content web-mb-5">
+
+					<!-- ✅ 달력 기준 토글 버튼 (prefix: index-calendar-) -->
+					<div class="d-flex justify-content-end mb-2 gap-2" id="index-calendar-basis-wrap">
+						<button type="button"
+							class="btn btn-sm btn-outline-primary"
+							id="index-calendar-basis-request">
+							신청일기준
+						</button>
+						<button type="button"
+							class="btn btn-sm btn-outline-primary"
+							id="index-calendar-basis-process">
+							처리일기준
+						</button>
+					</div>
+
 					<div id="auto-calendar"></div>
 				</div>
 			</div>
+
 			<th:block th:replace="~{fragments/front/common :: autoFooter}"></th:block>
 		</div>
 		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
@@ -41,10 +57,8 @@
 		th:if="${popups != null and !#lists.isEmpty(popups)}">
 		<div id="index-popup-modal" class="index-popup-modal" role="dialog" aria-modal="true" aria-label="공지 팝업"
 			onclick="event.stopPropagation();">
-			<!-- 닫기(X) -->
 			<button type="button" class="index-popup-close" aria-label="닫기">&times;</button>
 
-			<!-- 슬라이더 -->
 			<div class="index-popup-swiper" id="index-popup-swiper">
 				<div class="swiper-wrapper">
 					<div class="swiper-slide" th:each="p : ${popups}" th:attr="data-id=${p.id}">
@@ -60,12 +74,10 @@
 					</div>
 				</div>
 
-				<!-- ✅ 네비게이션(좌/우)만 사용. Swiper 기본 아이콘을 쓰기 위해 기본 클래스도 함께 부여 -->
 				<div class="indexpop-button-prev swiper-button-prev"></div>
 				<div class="indexpop-button-next swiper-button-next"></div>
 			</div>
 
-			<!-- 하단 바: 다시 보지 않기 + 닫기 -->
 			<div class="index-popup-footer">
 				<label class="index-popup-nosee">
 					<input type="checkbox" id="index-popup-hide7">
@@ -79,6 +91,7 @@
 	<!-- 공용 스크립트 -->
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 	<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+
 	<script src="/front/calendar.js"></script>
 	<script src="/front/index-popup.js"></script>
 </body>

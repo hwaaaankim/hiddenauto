@@ -12,9 +12,147 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
+
 		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
+
+					<!-- ✅ 추가 CSS (충돌 방지: product-detail-added- prefix만 사용) -->
+					<style>
+						/* =========================
+						   Product Detail Added Styles
+						   ========================= */
+
+						/* 섹션 전체 감싸는 래퍼 */
+						.product-detail-added-spec-wrap {
+							width: 100%;
+							margin-top: 8px;
+						}
+
+						/* 타이틀 영역 */
+						.product-detail-added-spec-title {
+							display: flex;
+							align-items: center;
+							justify-content: space-between;
+							gap: 12px;
+							margin-bottom: 12px;
+						}
+
+						.product-detail-added-spec-title h5 {
+							margin: 0;
+							font-weight: 700;
+							letter-spacing: -0.2px;
+						}
+
+						/* "중요" 느낌의 배지 (선택) */
+						.product-detail-added-spec-badge {
+							font-size: 12px;
+							font-weight: 600;
+							padding: 6px 10px;
+							border-radius: 999px;
+							background: rgba(0, 0, 0, 0.06);
+							color: #333;
+							white-space: nowrap;
+						}
+
+						/* 옵션 카드 컨테이너 */
+						.product-detail-added-spec-card {
+							border: 1px solid rgba(0, 0, 0, 0.08);
+							border-radius: 14px;
+							background: #fff;
+							padding: 14px;
+						}
+
+						/* 옵션 그리드(화면 넓게 사용) */
+						.product-detail-added-spec-grid {
+							display: grid;
+							grid-template-columns: repeat(2, minmax(0, 1fr));
+							gap: 10px;
+						}
+
+						/* 화면이 매우 넓으면 3열까지 */
+						@media (min-width: 1400px) {
+							.product-detail-added-spec-grid {
+								grid-template-columns: repeat(3, minmax(0, 1fr));
+							}
+						}
+
+						/* 태블릿/모바일은 1열 */
+						@media (max-width: 991.98px) {
+							.product-detail-added-spec-grid {
+								grid-template-columns: 1fr;
+							}
+						}
+
+						/* 각 옵션 아이템 (키/값 한 덩어리) */
+						.product-detail-added-spec-item {
+							border: 1px solid rgba(0, 0, 0, 0.08);
+							border-radius: 12px;
+							padding: 12px 12px;
+							display: flex;
+							gap: 12px;
+							align-items: flex-start;
+							min-height: 62px;
+						}
+
+						/* 왼쪽 키 */
+						.product-detail-added-spec-key {
+							flex: 0 0 120px;
+							max-width: 120px;
+							color: #6c757d;
+							font-weight: 700;
+							font-size: 14px;
+							line-height: 1.2;
+							letter-spacing: -0.1px;
+							padding-top: 2px;
+						}
+
+						/* 오른쪽 값 */
+						.product-detail-added-spec-val {
+							flex: 1 1 auto;
+							color: #111;
+							font-weight: 800;
+							font-size: 16px;
+							line-height: 1.25;
+							letter-spacing: -0.2px;
+
+							/* 길어질 때 정리 */
+							word-break: break-word;
+							overflow-wrap: anywhere;
+						}
+
+						/* 키가 긴 경우 대비(모바일에서 키 폭 자동) */
+						@media (max-width: 575.98px) {
+							.product-detail-added-spec-item {
+								flex-direction: column;
+								gap: 6px;
+							}
+
+							.product-detail-added-spec-key {
+								flex: 0 0 auto;
+								max-width: 100%;
+								font-size: 13px;
+							}
+
+							.product-detail-added-spec-val {
+								font-size: 16px;
+							}
+						}
+
+						/* 아이템 hover로 가독성/클릭감(시각적 강조) */
+						.product-detail-added-spec-item:hover {
+							background: rgba(0, 0, 0, 0.02);
+							border-color: rgba(0, 0, 0, 0.14);
+						}
+
+						/* 구분선 느낌의 얇은 상단 라인 */
+						.product-detail-added-divider {
+							height: 1px;
+							background: rgba(0, 0, 0, 0.08);
+							margin: 10px 0 14px;
+						}
+					</style>
+
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -58,6 +196,7 @@
 							</div>
 						</div>
 					</form>
+
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card">
@@ -68,59 +207,67 @@
 												<div class="d-flex">
 													<div class="flex-grow-1">
 														<div class="hstack gap-3 flex-wrap">
-															<div class="text-muted">대리점명 : <span
-																	class="text-body fw-medium"
+															<div class="text-muted">대리점명 : <span class="text-body fw-medium"
 																	th:text="${order.task.requestedBy.company.companyName}">신청자명</span>
 															</div>
 															<div class="vr"></div>
-															<div class="text-muted">신청자 : <span
-																	class="text-body fw-medium"
+															<div class="text-muted">신청자 : <span class="text-body fw-medium"
 																	th:text="${order.task.requestedBy.name}">신청자명</span>
 															</div>
 															<div class="vr"></div>
-															<div class="text-muted">발주일 : <span
-																	class="text-body fw-medium"
+															<div class="text-muted">발주일 : <span class="text-body fw-medium"
 																	th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}"></span>
 															</div>
 															<div class="vr"></div>
-															<div class="text-muted">배정일 : <span
-																	class="text-body fw-medium"
+															<div class="text-muted">배정일 : <span class="text-body fw-medium"
 																	th:text="${#temporals.format(order.updatedAt, 'yyyy-MM-dd')}"></span>
 															</div>
 															<div class="vr"></div>
-															<div class="text-muted">배송일 : <span
-																	class="text-body fw-medium"
+															<div class="text-muted">배송일 : <span class="text-body fw-medium"
 																	th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"></span>
 															</div>
 														</div>
 													</div>
 												</div>
+
 												<div class="mt-4 text-muted">
 													<h5 class="fs-15">고객 남김말 :</h5>
 													<p th:text="${order.orderComment}">고객 남김말 영역</p>
 												</div>
 
-												<div class="row">
-													<div class="col-sm-6">
-														<div class="mt-3">
-															<h5 class="fs-15">상세스펙 및 옵션 :</h5>
-															<ul class="list-unstyled">
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>제품분류
-																	: <span
-																		th:text="${order.productCategory.name}"></span>
-																</li>
-																<li class="py-1"
-																	th:each="entry : ${orderItem.parsedOptionMap}">
-																	<i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	<span
-																		th:text="${entry.key} + ' : ' + ${entry.value}">옵션</span>
-																</li>
-															</ul>
+												<!-- ✅ 여기부터 “상세스펙 및 옵션” 레이아웃 변경 -->
+												<div class="product-detail-added-spec-wrap">
+													<div class="product-detail-added-spec-title">
+														<h5 class="fs-15">상세스펙 및 옵션 :</h5>
+														<span class="product-detail-added-spec-badge">중요 옵션</span>
+													</div>
+
+													<div class="product-detail-added-divider"></div>
+
+													<div class="product-detail-added-spec-card">
+														<div class="product-detail-added-spec-grid">
+
+															<!-- 제품분류 -->
+															<div class="product-detail-added-spec-item">
+																<div class="product-detail-added-spec-key">제품분류</div>
+																<div class="product-detail-added-spec-val"
+																	th:text="${order.productCategory.name}">하부장</div>
+															</div>
+
+															<!-- 옵션 리스트 -->
+															<div class="product-detail-added-spec-item"
+																th:each="entry : ${orderItem.parsedOptionMap}">
+																<div class="product-detail-added-spec-key"
+																	th:text="${entry.key}">옵션키</div>
+																<div class="product-detail-added-spec-val"
+																	th:text="${entry.value}">옵션값</div>
+															</div>
+
 														</div>
 													</div>
 												</div>
+												<!-- ✅ 여기까지 “상세스펙 및 옵션” 레이아웃 변경 끝 -->
+
 												<div class="row mt-4">
 													<div class="col-12">
 														<label class="form-label">이미지 첨부 파일</label>
@@ -138,24 +285,23 @@
 																		th:attr="data-id=${img.id}">
 																		<div
 																			class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
-																			<img th:src="${img.url}"
-																				class="img-fluid mb-2"
+																			<img th:src="${img.url}" class="img-fluid mb-2"
 																				style="max-height: 120px;" />
 																			<span class="text-truncate small"
 																				th:text="${img.filename}"
 																				style="max-width: 100%;"></span>
-																			<a th:href="${img.url}" download
-																				class="mt-1">
-																				<i
-																					class="ri-download-2-line fs-18 text-primary"></i>
+																			<a th:href="${img.url}" download class="mt-1">
+																				<i class="ri-download-2-line fs-18 text-primary"></i>
 																			</a>
 																		</div>
 																	</div>
 																</div>
 															</div>
+
 														</div>
 													</div>
 												</div>
+
 											</div>
 										</div>
 									</div>
@@ -166,6 +312,7 @@
 					</div>
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
