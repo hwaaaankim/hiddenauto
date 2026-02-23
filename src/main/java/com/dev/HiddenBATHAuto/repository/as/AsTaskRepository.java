@@ -19,6 +19,20 @@ import com.dev.HiddenBATHAuto.model.task.AsTask;
 @Repository
 public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 
+	@Query("""
+        select a
+        from AsTask a
+        where a.requestedBy.company.id = :companyId
+          and (:start is null or a.requestedAt >= :start)
+          and (:end is null or a.requestedAt <= :end)
+        """)
+    Page<AsTask> findByCompanyIdAndRequestedAtRange(
+            @Param("companyId") Long companyId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+	
 	@Query("select a from AsTask a where a.requestedBy = :member and a.asProcessDate is not null")
 	List<AsTask> findByRequestedByAndAsProcessDateNotNull(@Param("member") Member member);
 

@@ -213,6 +213,10 @@
 
     // 상태
     let currentTaskId = null;
+
+    // ✅ 추가: 현재 작업의 상태(리스트에서 받은 값 or 상세에서 받은 값)
+    let currentTaskStatus = null; // 'IN_PROGRESS' | 'REQUESTED' | ...
+
     let existingResultImages = []; // [{id,url,filename}]
     let selectedFiles = []; // File[] (fileInput과 동기화)
 
@@ -252,6 +256,14 @@
     }
 
     function updateCompleteButtonState() {
+        // ✅ 진행중이 아니면 무조건 비활성
+        if (btnComplete) {
+            if (currentTaskStatus !== 'IN_PROGRESS') {
+                btnComplete.disabled = true;
+                return;
+            }
+        }
+
         const total = (existingResultImages?.length || 0) + (selectedFiles?.length || 0);
         if (btnComplete) btnComplete.disabled = total <= 0;
     }
@@ -301,6 +313,12 @@
     }
 
     async function deleteExistingImage(imageId) {
+        // ✅ 진행중이 아닌 상태에서는 삭제도 막는 게 안전합니다(원하시면 제거 가능)
+        if (currentTaskStatus !== 'IN_PROGRESS') {
+            alert('진행중 건에 대해서만 가능합니다.');
+            return;
+        }
+
         const res = await fetch(`/team/asImageDelete/${imageId}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('이미지 삭제 실패');
         existingResultImages = existingResultImages.filter(x => String(x.id) !== String(imageId));
@@ -308,6 +326,12 @@
     }
 
     function removeNewFileByIndex(idx) {
+        // ✅ 진행중 아니면 신규 선택도 의미가 없으니 막습니다(원하시면 제거 가능)
+        if (currentTaskStatus !== 'IN_PROGRESS') {
+            alert('진행중 건에 대해서만 가능합니다.');
+            return;
+        }
+
         selectedFiles = selectedFiles.filter((_, i) => i !== idx);
         syncFileInputFromSelectedFiles();
         renderImages();
@@ -347,6 +371,13 @@
         if (!fileInput) return;
 
         fileInput.addEventListener('change', () => {
+            // ✅ 진행중이 아니면 파일 선택 자체를 막습니다
+            if (currentTaskStatus !== 'IN_PROGRESS') {
+                fileInput.value = '';
+                alert('진행중 건에 대해서만 가능합니다.');
+                return;
+            }
+
             const incoming = Array.from(fileInput.files || []);
             if (incoming.length > 0) {
                 selectedFiles = selectedFiles.concat(incoming);
@@ -361,6 +392,12 @@
     function openFilePicker(mode) {
         // mode: 'camera' | 'gallery'
         if (!fileInput) return;
+
+        // ✅ 진행중이 아니면 막기
+        if (currentTaskStatus !== 'IN_PROGRESS') {
+            alert('진행중 건에 대해서만 가능합니다.');
+            return;
+        }
 
         if (mode === 'camera') {
             // 모바일 촬영
@@ -380,8 +417,6 @@
             btnUpload.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-
-                // 모바일에서는 "갤러리 선택" 의미
                 openFilePicker('gallery');
             });
         }
@@ -390,8 +425,6 @@
             btnCamera.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-
-                // 모바일 촬영
                 openFilePicker('camera');
             });
         }
@@ -399,12 +432,19 @@
 
     function applyMobileButtonsVisibility() {
         if (isMobile()) {
-            // 모바일: 업로드 + 촬영
             if (btnCamera) btnCamera.classList.remove('d-none');
         } else {
-            // PC: 업로드만
             if (btnCamera) btnCamera.classList.add('d-none');
         }
+    }
+
+    function lockModalIfNotInProgress() {
+        // ✅ 진행중 아니면 모달 내 액션 전부 비활성
+        if (currentTaskStatus !== 'IN_PROGRESS') {
+            setAlert('danger', '진행중 건에 대해서만 가능합니다.');
+            if (btnComplete) btnComplete.disabled = true;
+        }
+        updateCompleteButtonState();
     }
 
     async function loadTaskForModal(taskId) {
@@ -421,9 +461,13 @@
         setText(field.productSize, data.productSize);
         setText(field.productColor, data.productColor);
         setText(field.onsiteContact, data.onsiteContact);
-
-        // ✅ 서버에서 이미 "yyyy-MM-dd HH:mm" 문자열로 내려오도록 수정했으므로 그대로 표시
         setText(field.requestedAt, data.requestedAt);
+
+        // ✅ (강력 권장) 상세 API가 status를 내려주면 여기서 2중 검증
+        // - data.status 예: 'IN_PROGRESS'
+        if (data && data.status) {
+            currentTaskStatus = String(data.status);
+        }
 
         existingResultImages = (data.resultImages || []).map(x => ({
             id: x.id,
@@ -439,12 +483,20 @@
         }
 
         renderImages();
+        lockModalIfNotInProgress();
     }
 
-    function openCompleteModal(taskId) {
+    function openCompleteModal(taskId, statusFromRow) {
         if (!modalEl) return;
 
         currentTaskId = taskId;
+        currentTaskStatus = statusFromRow ? String(statusFromRow) : null;
+
+        // ✅ 1차 방어: row status가 IN_PROGRESS가 아니면 모달 자체를 열지 않음
+        if (currentTaskStatus !== 'IN_PROGRESS') {
+            alert('진행중 건에 대해서만 가능합니다.');
+            return;
+        }
 
         // form action 세팅: 기존 컨트롤러 그대로 사용
         if (formEl) formEl.action = `/team/asUpdate/${taskId}`;
@@ -456,7 +508,15 @@
         setAlert('info', '불러오는 중입니다...');
 
         loadTaskForModal(taskId)
-            .then(() => setAlert(null, null))
+            .then(() => {
+                // loadTaskForModal 안에서 status 재검증까지 수행
+                if (currentTaskStatus !== 'IN_PROGRESS') {
+                    // 서버에서 상태가 바뀐 경우(경합 상황)
+                    setAlert('danger', '진행중 건에 대해서만 가능합니다.');
+                } else {
+                    setAlert(null, null);
+                }
+            })
             .catch(err => {
                 console.error(err);
                 setAlert('danger', '상세 정보를 불러오지 못했습니다.');
@@ -476,9 +536,16 @@
             e.stopPropagation();
 
             const taskId = btn.getAttribute('data-task-id');
+            const status = btn.getAttribute('data-status'); // ✅ row에 심어둔 상태값
             if (!taskId) return;
 
-            openCompleteModal(taskId);
+            // ✅ disabled여도 클릭이 들어오는 케이스가 있어(브라우저/DOM 상황) 2중 방어
+            if (String(status) !== 'IN_PROGRESS') {
+                alert('진행중 건에 대해서만 가능합니다.');
+                return;
+            }
+
+            openCompleteModal(taskId, status);
         });
     }
 
@@ -502,6 +569,13 @@
     function bindFormSubmitGuard() {
         if (!formEl) return;
         formEl.addEventListener('submit', (e) => {
+            // ✅ 최종 JS 방어: 진행중만 제출 가능
+            if (currentTaskStatus !== 'IN_PROGRESS') {
+                e.preventDefault();
+                alert('진행중 건에 대해서만 가능합니다.');
+                return;
+            }
+
             const total = (existingResultImages?.length || 0) + (selectedFiles?.length || 0);
             if (total <= 0) {
                 e.preventDefault();

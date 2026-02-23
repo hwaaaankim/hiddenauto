@@ -175,25 +175,26 @@ public class CustomerController {
 	}
 
 	@GetMapping("/asList")
-	public String asList(
-	        @AuthenticationPrincipal PrincipalDetails principal,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-	        @PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
-	        Model model) {
+    public String asList(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
+            Model model) {
 
-	    Long companyId = principal.getMember().getCompany().getId();
-	    LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-	    LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+        Long companyId = principal.getMember().getCompany().getId();
 
-	    Page<AsTask> asTaskPage = asTaskRepository.findByCompanyIdAndRequestedAtBetween(companyId, start, end, pageable);
+        LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+        LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
 
-	    model.addAttribute("asTaskPage", asTaskPage);
-	    model.addAttribute("startDate", startDate);
-	    model.addAttribute("endDate", endDate);
+        Page<AsTask> asTaskPage = asTaskRepository.findByCompanyIdAndRequestedAtRange(companyId, start, end, pageable);
 
-	    return "front/customer/task/asList";
-	}
+        model.addAttribute("asTaskPage", asTaskPage);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+
+        return "front/customer/task/asList";
+    }
 
 	@GetMapping("/asRequest")
 	public String asRequest(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails) {

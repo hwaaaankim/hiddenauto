@@ -42,13 +42,16 @@ public class AsTask {
     private String doName;   // ex: 경기도
     private String siName;   // ex: 용인시
     private String guName;   // ex: 수지구
- 
+
     // 주소
     private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
     private String detailAddress;   // ex: 302동 1502호
 
     private String reason;
+
+    /** 0이면 미정으로 간주(화면에서 '-' 처리) */
     private int price;
+
     private String asComment;
 
     // 신규 필드 추가
@@ -92,6 +95,12 @@ public class AsTask {
         return images.stream()
                 .filter(img -> img != null && "RESULT".equalsIgnoreCase(img.getType()))
                 .collect(Collectors.toList());
+    }
+
+    /** ✅ 처리상태 한글 라벨(템플릿에서 안전하게 사용) */
+    public String getStatusLabelKr() {
+        if (status == null) return "-";
+        return status.getLabelKr();
     }
 
     /**

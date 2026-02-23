@@ -266,7 +266,9 @@
 															<!-- ✅ 완료(모달 오픈): PC/모바일 공용 -->
 															<button type="button"
 																class="btn btn-sm btn-primary asList-second-btn-open-complete"
-																th:attr="data-task-id=${task.id}, data-stop-row='1'">
+																th:attr="data-task-id=${task.id},
+												                 data-status=${task.status != null ? task.status.name() : ''},
+												                 data-stop-row='1'" th:disabled="${task.status == null || task.status.name() != 'IN_PROGRESS'}">
 																완료
 															</button>
 														</div>
@@ -471,7 +473,8 @@
 								</button>
 
 								<!-- 모바일 전용: 촬영 -->
-								<button type="button" class="btn btn-outline-primary d-none" id="asList-second-btn-camera">
+								<button type="button" class="btn btn-outline-primary d-none"
+									id="asList-second-btn-camera">
 									<i class="ri-camera-line"></i> 촬영
 								</button>
 							</div>
