@@ -33,6 +33,7 @@ public class AsTask {
     @ManyToOne
     private Member requestedBy;
 
+    /** ✅ 고객이 남기는 제목(요청 내용 요약) */
     private String subject;
 
     // 우편번호
@@ -58,7 +59,11 @@ public class AsTask {
     private String productName;
     private String productSize;
     private String productColor;
-    private String productOptions;   // JSON 문자열로 저장하거나 단일 문자열로 처리
+
+    /** JSON 문자열로 저장하거나 단일 문자열로 처리 */
+    private String productOptions;
+
+    /** 현장 연락처 */
     private String onsiteContact;
 
     @Enumerated(EnumType.STRING)
@@ -101,6 +106,13 @@ public class AsTask {
     public String getStatusLabelKr() {
         if (status == null) return "-";
         return status.getLabelKr();
+    }
+
+    /** ✅ subject 안전표시(빈값/NULL이면 '-') */
+    public String getSubjectSafe() {
+        if (subject == null) return "-";
+        String s = subject.trim();
+        return s.isEmpty() ? "-" : s;
     }
 
     /**

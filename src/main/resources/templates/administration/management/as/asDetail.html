@@ -111,7 +111,11 @@
 													th:value="${#temporals.format(asTask.asProcessDate, 'yyyy-MM-dd HH:mm')}"
 													readonly>
 											</div>
-
+											<div class="col-lg-4 mb-3">
+												<label class="form-label">AS 사유</label>
+												<input type="text" class="form-control" th:value="${asTask.subject}" readonly
+													name="subject">
+											</div>
 											<div class="col-lg-4 mb-3">
 												<label class="form-label">AS 비용</label>
 												<input type="text" class="form-control" th:value="${asTask.price}"
@@ -120,15 +124,15 @@
 										</div>
 										<div class="row mt-4">
 											<!-- ✅ 고객 요청 이미지 -->
-											<div class="col-12 mt-3">
+											<div class="col-6 mt-3">
 												<label class="form-label">고객 요청 이미지</label>
 												<div class="row g-2">
 													<!-- 이미지가 있는 경우 -->
-													<div class="col-lg-2" th:each="img : ${asTask.requestImages}">
+													<div class="col-lg-12" th:each="img : ${asTask.requestImages}">
 														<div
 															class="border rounded p-2 d-flex flex-column align-items-center text-center">
 															<img th:src="@{${img.url}}" class="img-fluid mb-2"
-																style="max-height: 120px;" />
+																style="max-height: 120px; max-width:100%;" />
 															<span class="text-truncate small" th:text="${img.filename}"
 																style="max-width: 100%;"></span>
 															<a th:href="@{${img.url}}" download class="mt-1">
@@ -145,15 +149,15 @@
 											</div>
 
 											<!-- ✅ AS 결과 이미지 -->
-											<div class="col-12 mt-3">
+											<div class="col-6 mt-3">
 												<label class="form-label">AS 결과 이미지</label>
 												<div class="row g-2">
 													<!-- 이미지가 있는 경우 -->
-													<div class="col-lg-2" th:each="img : ${asTask.resultImages}">
+													<div class="col-lg-12" th:each="img : ${asTask.resultImages}">
 														<div
 															class="border rounded p-2 d-flex flex-column align-items-center text-center">
 															<img th:src="@{${img.url}}" class="img-fluid mb-2"
-																style="max-height: 120px;" />
+																style="max-height: 120px; max-width:100%;" />
 															<span class="text-truncate small" th:text="${img.filename}"
 																style="max-width: 100%;"></span>
 															<a th:href="@{${img.url}}" download class="mt-1">
