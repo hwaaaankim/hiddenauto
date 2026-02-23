@@ -1244,3 +1244,26 @@
 .th-help {
 	margin-left: 6px;
 }
+
+/* ✅ 모바일에서 모달이 하단까지 안 보이는 문제 해결: 바디 스크롤 강제 */
+#asList-second-complete-modal .asList-second-modal-content {
+	max-height: calc(100dvh - 24px);
+}
+
+#asList-second-complete-modal .asList-second-modal-body {
+	/* header + footer 고려해서 바디에 스크롤 */
+	max-height: calc(100dvh - 160px);
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+/* ✅ 혹시라도 iOS에서 모달이 살짝 잘리는 케이스 대응 */
+@supports not (height: 100dvh) {
+	#asList-second-complete-modal .asList-second-modal-content {
+		max-height: calc(100vh - 24px);
+	}
+
+	#asList-second-complete-modal .asList-second-modal-body {
+		max-height: calc(100vh - 160px);
+	}
+}

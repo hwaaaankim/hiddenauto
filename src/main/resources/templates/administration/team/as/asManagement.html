@@ -56,8 +56,7 @@
 										<option value="requested"
 											th:selected="${dateType == null || dateType == 'requested'}">신청일</option>
 										<option value="processed" th:selected="${dateType == 'processed'}">처리일</option>
-										<option value="scheduled" th:selected="${dateType == 'scheduled'}">업무등록일
-										</option>
+										<option value="scheduled" th:selected="${dateType == 'scheduled'}">업무등록일</option>
 									</select>
 								</div>
 
@@ -91,22 +90,18 @@
 									</select>
 								</div>
 
-								<!-- ✅ Province 다음 단계: City or (Direct) District -->
 								<div class="col-lg-1" id="as-child-wrapper" style="display:none;">
 									<label class="form-label" id="as-child-label">시/군</label>
 
-									<!-- City 있을 때 -->
 									<select name="cityId" id="as-city-select" class="form-select" style="display:none;">
 										<option value="">전체</option>
 									</select>
 
-									<!-- City 없고 District 직행일 때(서울/세종 등) -->
 									<select id="as-district-direct-select" class="form-select" style="display:none;">
 										<option value="">전체</option>
 									</select>
 								</div>
 
-								<!-- ✅ City 다음 단계 District -->
 								<div class="col-lg-1" id="as-district-wrapper" style="display:none;">
 									<label class="form-label">구/읍/면</label>
 									<select id="as-district-select" class="form-select" style="display:none;">
@@ -119,14 +114,13 @@
 									<button type="submit" class="btn btn-primary w-100">검색하기</button>
 								</div>
 
-								<!-- ✅ 실제 전송은 districtId 하나로 통일 -->
 								<input type="hidden" name="districtId" id="as-district-hidden"
 									th:value="${districtId != null ? districtId : ''}" />
 							</div>
 						</div>
 					</form>
 
-					<!-- ✅ 캘린더: 항상 풀폭 -->
+					<!-- ✅ 캘린더 -->
 					<div class="row g-3">
 						<div class="col-12">
 							<div class="card as-calendar-card">
@@ -137,13 +131,11 @@
 						</div>
 					</div>
 
-					<!-- ✅ 리스트 오픈 FAB -->
 					<button type="button" class="as-management-added-fab" id="as-management-added-open-drawer"
 						aria-label="업무 리스트 열기">
 						업무
 					</button>
 
-					<!-- ✅ 리스트 Drawer -->
 					<div class="as-management-added-drawer-overlay" id="as-management-added-drawer-overlay"
 						style="display:none;">
 						<aside class="as-management-added-drawer" role="dialog" aria-modal="true" aria-label="업무 리스트">
@@ -157,8 +149,7 @@
 											불가</span>
 										<span class="as-management-added-pill as-management-added-pill-outline">이미
 											등록</span>
-										<span
-											class="as-management-added-pill as-management-added-pill-warn">미컨펌(REQUESTED)</span>
+										<span class="as-management-added-pill as-management-added-pill-warn">미컨펌(REQUESTED)</span>
 									</div>
 								</div>
 								<button type="button" class="btn btn-sm btn-light"
@@ -187,19 +178,18 @@
 												<div class="as-management-added-task-company"
 													th:text="${t.companyName}">업체명</div>
 
+												<!-- ✅ 표시만 한글 라벨로 -->
 												<span class="as-management-added-badge"
 													th:classappend="' as-management-added-badge-' + ${t.status}"
-													th:text="${t.status}">
+													th:text="${asStatusLabels[t.status]}">
 												</span>
 
-												<span
-													class="as-management-added-badge as-management-added-badge-unconfirmed"
+												<span class="as-management-added-badge as-management-added-badge-unconfirmed"
 													th:if="${t.status == 'REQUESTED'}">
 													UNCONFIRMED
 												</span>
 
-												<span
-													class="as-management-added-badge as-management-added-badge-registered"
+												<span class="as-management-added-badge as-management-added-badge-registered"
 													th:style="${t.scheduledDate != null ? '' : 'display:none;'}">
 													등록됨
 												</span>
@@ -253,7 +243,6 @@
 						</aside>
 					</div>
 
-					<!-- ✅ 캘린더 날짜 클릭 모달 -->
 					<div class="as-calendar-modal-overlay" id="as-calendar-modal-overlay" style="display:none;">
 						<div class="as-calendar-modal" role="dialog" aria-modal="true">
 							<div class="as-calendar-modal-header">
@@ -286,20 +275,19 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<!-- ✅ 초기 선택값을 JS로 전달 (복원용) -->
 	<script th:inline="javascript">
 		window.__AS_SELECTED__ = {
 			provinceId: /*[[${provinceId}]]*/ null,
 			cityId: /*[[${cityId}]]*/ null,
 			districtId: /*[[${districtId}]]*/ null
 		};
+		// ✅ JS에서 라벨 필요할 수 있으니 같이 내려줌(선택)
+		window.__AS_STATUS_LABELS__ = /*[[${asStatusLabels}]]*/ {};
 	</script>
 
-	<!-- FullCalendar / Sortable -->
 	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 
-	<!-- ✅ JS -->
 	<script src="/administration/assets/js/page/asManagement.js"></script>
 
 </body>

@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.as.AsTaskModalDto;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryExcelRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
@@ -576,6 +578,7 @@ public class TeamController {
 		model.addAttribute("provinceId", provinceId);
 		model.addAttribute("cityId", cityId);
 		model.addAttribute("districtId", districtId);
+		model.addAttribute("asStatusLabels", AsStatus.labelMap());
 
 		return "administration/team/as/asList";
 	}
@@ -586,7 +589,8 @@ public class TeamController {
 
 		model.addAttribute("asTask", asTask);
 		model.addAttribute("asStatuses", AsStatus.values());
-
+		model.addAttribute("asStatusLabels", AsStatus.labelMap());
+		
 		return "administration/team/as/asDetail";
 	}
 
@@ -607,6 +611,74 @@ public class TeamController {
 		return "redirect:/team/asDetail/" + id;
 	}
 
+	@GetMapping("/asDetailModal/{id}")
+	@ResponseBody
+	public AsTaskModalDto asDetailModal(@PathVariable Long id,
+	                                   @AuthenticationPrincipal PrincipalDetails principal) {
+
+	    // ✅ 권한 체크(AS팀만) - asList와 동일 정책
+	    Member member = principal.getMember();
+	    if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
+	    }
+
+	    AsTask asTask = asTaskService.getAsDetail(id);
+
+	    AsTaskModalDto dto = new AsTaskModalDto();
+	    dto.setId(asTask.getId());
+
+	    // 회사/신청자
+	    String companyName = "-";
+	    String requesterName = "-";
+	    if (asTask.getRequestedBy() != null) {
+	        requesterName = asTask.getRequestedBy().getName();
+	        if (asTask.getRequestedBy().getCompany() != null) {
+	            companyName = asTask.getRequestedBy().getCompany().getCompanyName();
+	        }
+	    }
+	    dto.setCompanyName(companyName);
+	    dto.setRequesterName(requesterName);
+
+	    // 주소
+	    String fullAddress = String.format("(%s) %s %s %s %s %s",
+	            safe(asTask.getZipCode()),
+	            safe(asTask.getDoName()),
+	            safe(asTask.getSiName()),
+	            safe(asTask.getGuName()),
+	            safe(asTask.getRoadAddress()),
+	            safe(asTask.getDetailAddress())
+	    ).replaceAll("\\s+", " ").trim();
+	    dto.setFullAddress(fullAddress);
+
+	    dto.setReason(asTask.getReason());
+	    dto.setProductName(asTask.getProductName());
+	    dto.setProductSize(asTask.getProductSize());
+	    dto.setProductColor(asTask.getProductColor());
+	    dto.setOnsiteContact(asTask.getOnsiteContact());
+	    dto.setRequestedAt(asTask.getRequestedAt());
+
+	    // ✅ RESULT 이미지만 내려줌
+	    List<AsTaskModalDto.ImageDto> resultImages =
+	            (asTask.getResultImages() == null ? Collections.<AsImage>emptyList() : asTask.getResultImages())
+	            .stream()
+	            .map(img -> {
+	                AsTaskModalDto.ImageDto i = new AsTaskModalDto.ImageDto();
+	                i.setId(img.getId());
+	                i.setUrl(img.getUrl());
+	                i.setFilename(img.getFilename());
+	                return i;
+	            })
+	            .collect(Collectors.toList());
+
+	    dto.setResultImages(resultImages);
+
+	    return dto;
+	}
+
+	private String safe(String v) {
+	    return v == null ? "" : v;
+	}
+	
 	@DeleteMapping("/asImageDelete/{id}")
 	@ResponseBody
 	public ResponseEntity<Void> deleteAsImage(@PathVariable Long id) {

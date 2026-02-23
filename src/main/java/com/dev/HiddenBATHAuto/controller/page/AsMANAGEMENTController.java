@@ -78,7 +78,8 @@ public class AsMANAGEMENTController {
         model.addAttribute("provinceId", provinceId);
         model.addAttribute("cityId", cityId);
         model.addAttribute("districtId", districtId);
-
+        model.addAttribute("asStatusLabels", AsStatus.labelMap());
+        
         return "administration/team/as/asManagement";
     }
 }
