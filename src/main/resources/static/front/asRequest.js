@@ -111,7 +111,8 @@ document.addEventListener("DOMContentLoaded", function () {
 			"개폐 불량",
 			"경첩 불량",
 			"LED 점등 불량",
-			"오출고"
+			"오출고",
+			"기타 사유"
 		],
 		"슬라이드장": [
 			"도어 파손",
@@ -125,7 +126,8 @@ document.addEventListener("DOMContentLoaded", function () {
 			"댐퍼불량",
 			"손잡이 불량",
 			"LED 점등 불량",
-			"오출고"
+			"오출고",
+			"기타 사유"
 		],
 		"플랩장": [
 			"도어 파손",
@@ -139,13 +141,15 @@ document.addEventListener("DOMContentLoaded", function () {
 			"개폐 불량",
 			"경첩 불량",
 			"LED 점등 불량",
-			"오출고"
+			"오출고",
+			"기타 사유"
 		],
 		"하부장": [
 			"도어 단차 불량",
 			"서랍 개폐불량",
 			"도어 마감 불량",
-			"오출고"
+			"오출고",
+			"기타 사유"
 		],
 		"거울": [
 			"테두리 도장 불량",
@@ -153,7 +157,8 @@ document.addEventListener("DOMContentLoaded", function () {
 			"유리 파손",
 			"유리 변색",
 			"LED 점등 불량",
-			"오출고"
+			"오출고",
+			"기타 사유"
 		]
 	};
 
