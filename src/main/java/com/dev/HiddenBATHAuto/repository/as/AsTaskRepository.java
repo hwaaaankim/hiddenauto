@@ -2,6 +2,7 @@ package com.dev.HiddenBATHAuto.repository.as;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -19,6 +20,107 @@ import com.dev.HiddenBATHAuto.model.task.AsTask;
 @Repository
 public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 
+	
+	// ✅ (A) 신청일 기준 조회: requestedAt DESC 정렬 보장
+	@Query("""
+	      select t from AsTask t
+	      left join t.requestedBy rb
+	      left join rb.company c
+	      where (:status is null or t.status = :status)
+
+	        and (
+	              :companyKeyword is null or :companyKeyword = '' or
+	              (c is not null and c.companyName like concat('%', :companyKeyword, '%'))
+	        )
+
+	        and (:provinceNames is null or t.doName in :provinceNames)
+	        and (:cityNames is null or t.siName in :cityNames)
+	        and (:districtNames is null or t.guName in :districtNames)
+
+	        and (:start is null or t.requestedAt >= :start)
+	        and (:end is null or t.requestedAt < :end)
+
+	      order by t.requestedAt desc
+	      """)
+	Page<AsTask> searchRequestedForCalendar(
+	        @Param("status") AsStatus status,
+	        @Param("companyKeyword") String companyKeyword,
+	        @Param("provinceNames") List<String> provinceNames,
+	        @Param("cityNames") List<String> cityNames,
+	        @Param("districtNames") List<String> districtNames,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	// ✅ (B) 처리일 기준 조회: asProcessDate DESC 정렬 보장 + asProcessDate null 제외
+	@Query("""
+	      select t from AsTask t
+	      left join t.requestedBy rb
+	      left join rb.company c
+	      where t.asProcessDate is not null
+
+	        and (:status is null or t.status = :status)
+
+	        and (
+	              :companyKeyword is null or :companyKeyword = '' or
+	              (c is not null and c.companyName like concat('%', :companyKeyword, '%'))
+	        )
+
+	        and (:provinceNames is null or t.doName in :provinceNames)
+	        and (:cityNames is null or t.siName in :cityNames)
+	        and (:districtNames is null or t.guName in :districtNames)
+
+	        and (:start is null or t.asProcessDate >= :start)
+	        and (:end is null or t.asProcessDate < :end)
+
+	      order by t.asProcessDate desc
+	      """)
+	Page<AsTask> searchProcessedForCalendar(
+	        @Param("status") AsStatus status,
+	        @Param("companyKeyword") String companyKeyword,
+	        @Param("provinceNames") List<String> provinceNames,
+	        @Param("cityNames") List<String> cityNames,
+	        @Param("districtNames") List<String> districtNames,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        Pageable pageable
+	);
+
+	// ✅ (C) 업무등록일(스케줄) 기준 조회: scheduledDate DESC, orderIndex ASC 정렬 보장
+	@Query("""
+	      select t
+	      from AsTaskSchedule s
+	      join s.asTask t
+	      left join t.requestedBy rb
+	      left join rb.company c
+	      where (:status is null or t.status = :status)
+
+	        and (:startDate is null or s.scheduledDate >= :startDate)
+	        and (:endDate is null or s.scheduledDate < :endDate)
+
+	        and (
+	              :companyKeyword is null or :companyKeyword = '' or
+	              (c is not null and c.companyName like concat('%', :companyKeyword, '%'))
+	        )
+
+	        and (:provinceNames is null or t.doName in :provinceNames)
+	        and (:cityNames is null or t.siName in :cityNames)
+	        and (:districtNames is null or t.guName in :districtNames)
+
+	      order by s.scheduledDate desc, s.orderIndex asc
+	      """)
+	Page<AsTask> searchScheduledForCalendar(
+	        @Param("status") AsStatus status,
+	        @Param("companyKeyword") String companyKeyword,
+	        @Param("provinceNames") List<String> provinceNames,
+	        @Param("cityNames") List<String> cityNames,
+	        @Param("districtNames") List<String> districtNames,
+	        @Param("startDate") LocalDate startDate,
+	        @Param("endDate") LocalDate endDate,
+	        Pageable pageable
+	);
+	
 	@Query("""
         select a
         from AsTask a

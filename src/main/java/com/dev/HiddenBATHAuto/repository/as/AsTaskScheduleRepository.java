@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.repository.as;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,22 @@ import com.dev.HiddenBATHAuto.model.task.AsTaskSchedule;
 
 public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, Long> {
 
+	/**
+     * 화면 표시용 최소 필드만 프로젝션으로 조회 (Lazy 이슈/불필요 fetch 방지)
+     */
+    interface AsTaskScheduleSimpleView {
+        Long getAsTaskId();
+        java.time.LocalDate getScheduledDate();
+    }
+
+    @Query("""
+        select s.asTask.id as asTaskId,
+               s.scheduledDate as scheduledDate
+          from AsTaskSchedule s
+         where s.asTask.id in :taskIds
+    """)
+    List<AsTaskScheduleSimpleView> findSimpleByAsTaskIdIn(@Param("taskIds") Collection<Long> taskIds);
+	
     Optional<AsTaskSchedule> findByAsTaskId(Long asTaskId);
 
     List<AsTaskSchedule> findByScheduledDateOrderByOrderIndexAsc(LocalDate date);

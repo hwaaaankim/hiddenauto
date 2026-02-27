@@ -63,11 +63,10 @@
                                             <span class="opacity-70" th:text="' · ' + ${asTask.subjectSafe}"> · -</span>
                                         </h3>
 
-                                        <!-- 기존 설명 문구(원하시면 subject로 대체 가능) -->
                                         <p class="font-11 mt-n2 mb-0 opacity-50">제품 AS신청</p>
                                     </div>
 
-                                    <!-- ✅ 고객용 상태 뱃지(신청중/신청완료/취소) : 한글 표시 -->
+                                    <!-- ✅ 고객용 상태 뱃지 -->
                                     <div class="text-end">
                                         <span class="badge rounded-pill px-3 py-2 font-12"
                                               th:classappend="${asTask.customerStatusBadgeClass}"
@@ -81,7 +80,6 @@
                                     <div class="col-6 font-10 text-start">
                                         <span class="badge bg-black color-white font-10 mt-2">AS</span>
 
-                                        <!-- ✅ 처리상태도 항상 한글로 -->
                                         <span class="badge bg-black color-white font-10 mt-2"
                                               th:text="${asTask.statusLabelKr}">처리상태</span>
                                     </div>
@@ -101,7 +99,7 @@
                                 <div class="content task-content">
                                     <div class="row">
 
-                                        <!-- ✅ 제목(subject) 항목 추가 -->
+                                        <!-- ✅ 제목(subject) -->
                                         <div class="col-12">
                                             <strong class="color-theme">AS 제목 :</strong>
                                             <p class="font-12" th:text="${asTask.subjectSafe}">-</p>
@@ -121,6 +119,15 @@
                                             </p>
                                         </div>
 
+                                        <!-- ✅ 추가: 방문예정일(scheduledDate) -->
+                                        <div class="col-lg-3 col-md-6">
+                                            <strong class="color-theme">방문예정일 :</strong>
+                                            <p class="font-12"
+                                               th:text="${asScheduleDateMap[asTask.id] != null ? #temporals.format(asScheduleDateMap[asTask.id], 'yyyy.MM.dd') : '-'}">
+                                                -
+                                            </p>
+                                        </div>
+
                                         <div class="col-lg-3 col-md-6">
                                             <strong class="color-theme">AS 처리금액 :</strong>
                                             <p class="font-12"
@@ -135,7 +142,16 @@
                                             </p>
                                         </div>
 
-                                        <!-- ✅ 이미지 2종(신청/결과) : PC col-lg-6 / Mobile col-sm-12 -->
+                                        <!-- ✅ 추가: 담당자 연락처 -->
+                                        <div class="col-lg-3 col-md-6">
+                                            <strong class="color-theme">담당자 연락처 :</strong>
+                                            <p class="font-12"
+                                               th:text="${asHandlerContactMap[asTask.id]}">
+                                                -
+                                            </p>
+                                        </div>
+
+                                        <!-- ✅ 이미지 2종 -->
                                         <div class="row mt-3 g-3">
 
                                             <!-- ✅ AS 신청 이미지 -->

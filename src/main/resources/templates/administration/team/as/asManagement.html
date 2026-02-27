@@ -34,7 +34,9 @@
 					<form method="get" th:action="@{/team/asManagement}" class="row">
 						<div class="col-lg-12">
 							<div class="row g-4 mb-3">
-
+								<!-- ✅ 이 페이지는 드로어 목록이 중요하므로 기본 사이즈를 넉넉히(원하시면 200→100 등 조정) -->
+								<input type="hidden" name="page" value="0" />
+								<input type="hidden" name="size" value="200" />
 								<div class="col-lg-1">
 									<label class="form-label">상태</label>
 									<select name="status" class="form-select">
@@ -56,7 +58,8 @@
 										<option value="requested"
 											th:selected="${dateType == null || dateType == 'requested'}">신청일</option>
 										<option value="processed" th:selected="${dateType == 'processed'}">처리일</option>
-										<option value="scheduled" th:selected="${dateType == 'scheduled'}">업무등록일</option>
+										<option value="scheduled" th:selected="${dateType == 'scheduled'}">업무등록일
+										</option>
 									</select>
 								</div>
 
@@ -149,7 +152,8 @@
 											불가</span>
 										<span class="as-management-added-pill as-management-added-pill-outline">이미
 											등록</span>
-										<span class="as-management-added-pill as-management-added-pill-warn">미컨펌(REQUESTED)</span>
+										<span
+											class="as-management-added-pill as-management-added-pill-warn">미컨펌(REQUESTED)</span>
 									</div>
 								</div>
 								<button type="button" class="btn btn-sm btn-light"
@@ -184,12 +188,14 @@
 													th:text="${asStatusLabels[t.status]}">
 												</span>
 
-												<span class="as-management-added-badge as-management-added-badge-unconfirmed"
+												<span
+													class="as-management-added-badge as-management-added-badge-unconfirmed"
 													th:if="${t.status == 'REQUESTED'}">
 													UNCONFIRMED
 												</span>
 
-												<span class="as-management-added-badge as-management-added-badge-registered"
+												<span
+													class="as-management-added-badge as-management-added-badge-registered"
 													th:style="${t.scheduledDate != null ? '' : 'display:none;'}">
 													등록됨
 												</span>

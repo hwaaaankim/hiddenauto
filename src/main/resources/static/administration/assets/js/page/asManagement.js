@@ -1,7 +1,7 @@
 /* /administration/assets/js/page/asManagement.js */
 /* global FullCalendar, Sortable */
 
-(function () {
+(function() {
 	'use strict';
 
 	// =========================
@@ -84,6 +84,24 @@
 		return s.length >= 10 ? s.substring(0, 10) : s;
 	}
 
+
+	function bindFilterFormSubmitCleanup() {
+		const form = document.getElementById('as-management-filter-form');
+		if (!form) return;
+
+		form.addEventListener('submit', function() {
+			// 빈 값은 아예 전송하지 않도록 disable (서버에서 null 처리와 동일 효과)
+			const fields = form.querySelectorAll('input[name], select[name], textarea[name]');
+			fields.forEach(el => {
+				const v = (el.value == null) ? '' : String(el.value).trim();
+				if (v === '') el.disabled = true;
+			});
+
+			// 검색할 때는 항상 첫 페이지부터 보게(오늘 등록 건이 “안 보이는” 체감 방지)
+			const pageInput = form.querySelector('input[name="page"]');
+			if (pageInput) pageInput.value = '0';
+		});
+	}
 	function isSchedulableStatus(status) { return status === 'IN_PROGRESS'; }
 	function isBlockedStatus(status) { return status === 'COMPLETED' || status === 'CANCELED'; }
 
@@ -172,7 +190,7 @@
 		if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeDrawer);
 
 		if (drawerOverlay) {
-			drawerOverlay.addEventListener('click', function (e) {
+			drawerOverlay.addEventListener('click', function(e) {
 				if (e.target === drawerOverlay) closeDrawer();
 			});
 		}
@@ -200,7 +218,7 @@
 	function bindModalClose() {
 		if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
 		if (modalOverlay) {
-			modalOverlay.addEventListener('click', function (e) {
+			modalOverlay.addEventListener('click', function(e) {
 				if (e.target === modalOverlay) closeModal();
 			});
 		}
@@ -291,7 +309,7 @@
 
 	function bindListButtons() {
 		qsa('.as-management-added-toggle-btn', externalListEl).forEach(btn => {
-			btn.onclick = function (e) {
+			btn.onclick = function(e) {
 				e.preventDefault();
 				e.stopPropagation();
 				const taskEl = btn.closest('.as-management-added-task');
@@ -304,7 +322,7 @@
 		});
 
 		qsa('.as-management-added-jump-btn', externalListEl).forEach(btn => {
-			btn.onclick = function (e) {
+			btn.onclick = function(e) {
 				e.preventDefault();
 				e.stopPropagation();
 				const taskEl = btn.closest('.as-management-added-task');
@@ -537,12 +555,12 @@
 
 			headerToolbar: getHeaderToolbarForCurrentMode(),
 
-			dayCellContent: function (arg) {
+			dayCellContent: function(arg) {
 				const dayNum = arg.date.getDate();
 				return { html: String(dayNum) };
 			},
 
-			eventContent: function (arg) {
+			eventContent: function(arg) {
 				const status = (arg.event.extendedProps && arg.event.extendedProps.status) ? String(arg.event.extendedProps.status) : '';
 				const title = escapeHtml(arg.event.title || '');
 
@@ -560,14 +578,14 @@
 				};
 			},
 
-			eventAllow: function (dropInfo, draggedEvent) {
+			eventAllow: function(dropInfo, draggedEvent) {
 				const status = (draggedEvent.extendedProps && draggedEvent.extendedProps.status) ? String(draggedEvent.extendedProps.status) : '';
 				return isSchedulableStatus(status);
 			},
 
 			eventSources: [
 				{
-					events: function (fetchInfo, success, failure) {
+					events: function(fetchInfo, success, failure) {
 						const start = toYmd(fetchInfo.startStr || fetchInfo.start);
 						const end = toYmd(fetchInfo.endStr || fetchInfo.end);
 
@@ -588,12 +606,12 @@
 				}
 			],
 
-			dateClick: function (info) {
+			dateClick: function(info) {
 				const dateStr = toYmd(info.dateStr || info.date);
 				openDateModal(dateStr);
 			},
 
-			eventReceive: function (info) {
+			eventReceive: function(info) {
 				if (isMobile) {
 					info.event.remove();
 					return;
@@ -623,7 +641,7 @@
 				});
 			},
 
-			eventDrop: function (info) {
+			eventDrop: function(info) {
 				if (isMobile) {
 					info.revert();
 					return;
@@ -727,7 +745,7 @@
 		try {
 			externalDraggable = new FullCalendar.Draggable(externalListEl, {
 				itemSelector: '.as-management-added-drag-area.as-management-added-draggable',
-				eventData: function (el) {
+				eventData: function(el) {
 					const taskEl = el.closest('.as-management-added-task');
 					const taskId = taskEl.getAttribute('data-task-id');
 					const company = taskEl.getAttribute('data-company');
@@ -884,7 +902,7 @@
 
 	function bindModalItemButtons() {
 		qsa('.as-calendar-modal-toggle', modalListEl).forEach(btn => {
-			btn.addEventListener('click', function (e) {
+			btn.addEventListener('click', function(e) {
 				e.preventDefault();
 				e.stopPropagation();
 
@@ -899,7 +917,7 @@
 		});
 
 		qsa('.as-calendar-modal-remove', modalListEl).forEach(btn => {
-			btn.addEventListener('click', function (e) {
+			btn.addEventListener('click', function(e) {
 				e.preventDefault();
 				e.stopPropagation();
 
@@ -1140,7 +1158,7 @@
 	}
 
 	// ===== boot =====
-	document.addEventListener('DOMContentLoaded', function () {
+	document.addEventListener('DOMContentLoaded', function() {
 		isMobile = detectMobile();
 
 		bindDrawer();
@@ -1148,15 +1166,15 @@
 
 		// ✅ 지역 필터 초기화(반드시 먼저 실행해도 무방)
 		initRegionFilter().catch(console.error);
-
+		bindFilterFormSubmitCleanup();   // ✅ 추가
 		normalizeTaskList();
 		initExternalDraggable();
 		initCalendar();
 
 		let resizeTimer = null;
-		window.addEventListener('resize', function () {
+		window.addEventListener('resize', function() {
 			window.clearTimeout(resizeTimer);
-			resizeTimer = window.setTimeout(function () {
+			resizeTimer = window.setTimeout(function() {
 				if (calendar) applyResponsiveCalendarView();
 				normalizeTaskList();
 			}, 120);

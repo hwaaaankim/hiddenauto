@@ -525,137 +525,117 @@ public class AsTaskService {
 
 
 	@Transactional(readOnly = true)
-    public Page<AsTaskCardDto> getAsTasksForCalendar(
-            Member member,
-            String dateType,
-            LocalDateTime start,
-            LocalDateTime end,
-            AsStatus status,
-            String companyKeyword,
-            Long provinceId,
-            Long cityId,
-            Long districtId,
-            Pageable pageable
-    ) {
-        // =========================
-        // 1) 지역 ID -> name 해석
-        // =========================
-        String provinceName = null;
-        String cityName = null;
-        String districtName = null;
+	public Page<AsTaskCardDto> getAsTasksForCalendar(
+	        Member member,
+	        String dateType,
+	        LocalDateTime start,
+	        LocalDateTime end, // ✅ end는 exclusive(컨트롤러에서 endDate+1일 처리)
+	        AsStatus status,
+	        String companyKeyword,
+	        Long provinceId,
+	        Long cityId,
+	        Long districtId,
+	        Pageable pageable
+	) {
+	    // 0) dateType normalize
+	    String dt = (dateType == null || dateType.isBlank()) ? "requested" : dateType.trim().toLowerCase();
 
-        if (provinceId != null) {
-            provinceName = provinceRepository.findById(provinceId).map(Province::getName).orElse(null);
-        }
-        if (cityId != null) {
-            cityName = cityRepository.findById(cityId).map(City::getName).orElse(null);
-        }
-        if (districtId != null) {
-            districtName = districtRepository.findById(districtId).map(District::getName).orElse(null);
-        }
+	    // 1) companyKeyword normalize
+	    String kw = (companyKeyword == null) ? null : companyKeyword.trim();
+	    if (kw != null && kw.isEmpty()) kw = null;
 
-        // =========================
-        // 1-1) "경기도=경기, 강원=강원도, 서울=서울특별시 ..." 별칭 목록 생성
-        // =========================
-        List<String> provinceNames = buildRegionAliases(provinceName, RegionLevel.PROVINCE);
-        List<String> cityNames = buildRegionAliases(cityName, RegionLevel.CITY);
-        List<String> districtNames = buildRegionAliases(districtName, RegionLevel.DISTRICT);
+	    // 2) 지역 ID -> name 해석
+	    String provinceName = null;
+	    String cityName = null;
+	    String districtName = null;
 
-        // 비어있으면 null로 (JPQL IN 파라미터 안전 처리)
-        provinceNames = (provinceNames == null || provinceNames.isEmpty()) ? null : provinceNames;
-        cityNames = (cityNames == null || cityNames.isEmpty()) ? null : cityNames;
-        districtNames = (districtNames == null || districtNames.isEmpty()) ? null : districtNames;
+	    if (provinceId != null) {
+	        provinceName = provinceRepository.findById(provinceId).map(Province::getName).orElse(null);
+	    }
+	    if (cityId != null) {
+	        cityName = cityRepository.findById(cityId).map(City::getName).orElse(null);
+	    }
+	    if (districtId != null) {
+	        districtName = districtRepository.findById(districtId).map(District::getName).orElse(null);
+	    }
 
-        // =========================
-        // 2) 조회 (scheduled vs base)
-        // =========================
-        Page<AsTask> page;
+	    // 3) 별칭 목록 생성(기존 로직 유지)
+	    List<String> provinceNames = buildRegionAliases(provinceName, RegionLevel.PROVINCE);
+	    List<String> cityNames = buildRegionAliases(cityName, RegionLevel.CITY);
+	    List<String> districtNames = buildRegionAliases(districtName, RegionLevel.DISTRICT);
 
-        if ("scheduled".equals(dateType)) {
-            LocalDate s = (start != null) ? start.toLocalDate() : null;
-            LocalDate e = (end != null) ? end.toLocalDate() : null;
+	    provinceNames = (provinceNames == null || provinceNames.isEmpty()) ? null : provinceNames;
+	    cityNames = (cityNames == null || cityNames.isEmpty()) ? null : cityNames;
+	    districtNames = (districtNames == null || districtNames.isEmpty()) ? null : districtNames;
 
-            // 기존 쿼리가 endDate < :endDate (exclusive) 이므로,
-            // "사용자 입력 end를 포함"하려면 e.plusDays(1)로 넘기는게 일반적입니다.
-            // 지금 로직을 유지하시려면 아래 줄을 주석 처리하세요.
-            if (e != null) e = e.plusDays(1);
+	    // 4) dateType별 조회를 Repository에서 “정렬+날짜필터”까지 처리
+	    Page<AsTask> page;
 
-            page = asTaskRepository.searchByScheduledDateWithRegion(
-                    status,
-                    companyKeyword,
-                    provinceNames,
-                    cityNames,
-                    districtNames,
-                    s,
-                    e,
-                    pageable
-            );
-        } else {
-            // requested/processed는 AsTask 기준으로 조회 후, 날짜는 서비스단에서 필터(기존 로직 유지)
-            page = asTaskRepository.searchBaseWithRegion(
-                    status,
-                    companyKeyword,
-                    provinceNames,
-                    cityNames,
-                    districtNames,
-                    pageable
-            );
+	    if ("scheduled".equals(dt)) {
+	        LocalDate s = (start != null) ? start.toLocalDate() : null;
+	        LocalDate e = (end != null) ? end.toLocalDate() : null; // ✅ end는 이미 exclusive 상태
 
-            if (start != null || end != null) {
-                List<AsTask> filtered = page.getContent().stream().filter(t -> {
-                    LocalDateTime base =
-                            "processed".equals(dateType) ? t.getAsProcessDate() : t.getRequestedAt();
-                    if (base == null) return false;
-                    if (start != null && base.isBefore(start)) return false;
-                    if (end != null && !base.isBefore(end)) return false; // end exclusive 유지
-                    return true;
-                }).toList();
+	        page = asTaskRepository.searchScheduledForCalendar(
+	                status, kw,
+	                provinceNames, cityNames, districtNames,
+	                s, e,
+	                pageable
+	        );
 
-                // ⚠️ requested/processed에서 service 필터를 쓰면 "정확한 totalElements"는 깨질 수 있습니다.
-                page = new PageImpl<>(filtered, pageable, filtered.size());
-            }
-        }
+	    } else if ("processed".equals(dt)) {
+	        page = asTaskRepository.searchProcessedForCalendar(
+	                status, kw,
+	                provinceNames, cityNames, districtNames,
+	                start, end,
+	                pageable
+	        );
 
-        // =========================
-        // 3) schedule 정보 합치기
-        // =========================
-        List<Long> taskIds = page.getContent().stream().map(AsTask::getId).toList();
-        Map<Long, LocalDate> scheduledMap = scheduleRepository.findByTaskIds(taskIds).stream()
-                .collect(Collectors.toMap(
-                        s -> s.getAsTask().getId(),
-                        AsTaskSchedule::getScheduledDate,
-                        (a, b) -> a // 혹시 중복이 있으면 첫 값 유지
-                ));
+	    } else {
+	        // default: requested
+	        page = asTaskRepository.searchRequestedForCalendar(
+	                status, kw,
+	                provinceNames, cityNames, districtNames,
+	                start, end,
+	                pageable
+	        );
+	    }
 
-        // =========================
-        // 4) DTO 변환
-        // =========================
-        List<AsTaskCardDto> dtoList = page.getContent().stream().map(t -> {
-            String companyName = (t.getRequestedBy() != null && t.getRequestedBy().getCompany() != null)
-                    ? t.getRequestedBy().getCompany().getCompanyName()
-                    : "(업체없음)";
+	    // 5) schedule 정보 합치기(기존 유지)
+	    List<Long> taskIds = page.getContent().stream().map(AsTask::getId).toList();
+	    Map<Long, LocalDate> scheduledMap = scheduleRepository.findByTaskIds(taskIds).stream()
+	            .collect(Collectors.toMap(
+	                    s -> s.getAsTask().getId(),
+	                    AsTaskSchedule::getScheduledDate,
+	                    (a, b) -> a
+	            ));
 
-            String address = String.join(" ",
-                    Optional.ofNullable(t.getDoName()).orElse(""),
-                    Optional.ofNullable(t.getSiName()).orElse(""),
-                    Optional.ofNullable(t.getGuName()).orElse(""),
-                    Optional.ofNullable(t.getRoadAddress()).orElse(""),
-                    Optional.ofNullable(t.getDetailAddress()).orElse("")
-            ).trim();
+	    // 6) DTO 변환(기존 유지)
+	    List<AsTaskCardDto> dtoList = page.getContent().stream().map(t -> {
+	        String companyName = (t.getRequestedBy() != null && t.getRequestedBy().getCompany() != null)
+	                ? t.getRequestedBy().getCompany().getCompanyName()
+	                : "(업체없음)";
 
-            return AsTaskCardDto.builder()
-                    .taskId(t.getId())
-                    .companyName(companyName)
-                    .requestedAt(t.getRequestedAt())
-                    .asProcessDate(t.getAsProcessDate())
-                    .address(address)
-                    .status(t.getStatus().name())
-                    .scheduledDate(scheduledMap.get(t.getId()))
-                    .build();
-        }).toList();
+	        String address = String.join(" ",
+	                Optional.ofNullable(t.getDoName()).orElse(""),
+	                Optional.ofNullable(t.getSiName()).orElse(""),
+	                Optional.ofNullable(t.getGuName()).orElse(""),
+	                Optional.ofNullable(t.getRoadAddress()).orElse(""),
+	                Optional.ofNullable(t.getDetailAddress()).orElse("")
+	        ).trim();
 
-        return new PageImpl<>(dtoList, pageable, page.getTotalElements());
-    }
+	        return AsTaskCardDto.builder()
+	                .taskId(t.getId())
+	                .companyName(companyName)
+	                .requestedAt(t.getRequestedAt())
+	                .asProcessDate(t.getAsProcessDate())
+	                .address(address)
+	                .status(t.getStatus().name())
+	                .scheduledDate(scheduledMap.get(t.getId()))
+	                .build();
+	    }).toList();
+
+	    return new PageImpl<>(dtoList, pageable, page.getTotalElements());
+	}
 
     // =========================
     // 별칭 생성 로직

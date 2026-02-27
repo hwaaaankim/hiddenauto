@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 		if (!btnReq || !btnPro) return;
 
-		// active 스타일: btn-primary vs btn-outline-primary
 		if (basis === BASIS.REQUEST) {
 			btnReq.classList.remove('btn-outline-primary');
 			btnReq.classList.add('btn-primary');
@@ -58,18 +57,25 @@ document.addEventListener('DOMContentLoaded', function () {
 				const modalBody = document.getElementById('auto-modal-body');
 
 				const basisText = (basis === BASIS.REQUEST) ? '신청일 기준' : '처리일 기준';
-				modalTitle.innerText = `${dateStr} 일정 (${data.length}건) - ${basisText}`;
+				modalTitle.innerText = `${dateStr} 일정 (${(data && data.length) ? data.length : 0}건) - ${basisText}`;
 
 				if (!data || data.length === 0) {
 					modalBody.innerHTML = '<p class="calendar-task-empty">해당 날짜에 일정이 없습니다.</p>';
 				} else {
 					modalBody.innerHTML = data.map((task) => {
 						if (task.type === 'AS') {
+							const scheduledDate = task.scheduledDate || '-';
+							const handlerName = task.handlerName || '-';
+							const handlerContact = task.handlerContact || '';
+							const handlerText = handlerContact ? `${handlerName} (${handlerContact})` : handlerName;
+
 							return `
 								<div class="calendar-task calendar-task-as">
 									<p><strong>#AS_${task.id}</strong></p>
 									<p><span>제목:</span> ${task.title || '-'}</p>
 									<p><span>${basis === BASIS.REQUEST ? '신청일' : '처리일'}:</span> ${task.date || '-'}</p>
+									<p><span>방문예정일:</span> ${scheduledDate}</p>
+									<p><span>담당자:</span> ${handlerText}</p>
 									<p><span>주소:</span> ${task.address || '-'}</p>
 								</div>
 							`;
@@ -107,7 +113,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	// =========================
 	// ✅ FullCalendar 초기화
-	// - 이벤트를 함수형 소스로 구성
 	// =========================
 	const calendar = new FullCalendar.Calendar(calendarEl, {
 		initialView: 'dayGridMonth',
@@ -172,7 +177,6 @@ document.addEventListener('DOMContentLoaded', function () {
 	const btnReq = document.getElementById('index-calendar-basis-request');
 	const btnPro = document.getElementById('index-calendar-basis-process');
 
-	// 초기 버튼 active
 	setButtonActive(getBasis());
 
 	if (btnReq) {

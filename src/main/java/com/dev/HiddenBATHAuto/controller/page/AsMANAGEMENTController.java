@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -48,18 +49,21 @@ public class AsMANAGEMENTController {
             @RequestParam(required = false) Long cityId,
             @RequestParam(required = false) Long districtId,
 
-            Pageable pageable,
+            @PageableDefault(size = 200) Pageable pageable,
             Model model
     ) {
+        if (principal == null || principal.getMember() == null) {
+            throw new AccessDeniedException("로그인이 필요합니다.");
+        }
+
         Member member = principal.getMember();
         if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
             throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
         }
 
         LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-        LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+        LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null; // end exclusive
 
-        // ✅ 오른쪽 카드 리스트 + 캘린더 표시에 필요한 정보까지 포함해서 조회
         Page<AsTaskCardDto> asPage = asTaskService.getAsTasksForCalendar(
                 member, dateType, start, end, status,
                 companyKeyword, provinceId, cityId, districtId,
@@ -78,8 +82,9 @@ public class AsMANAGEMENTController {
         model.addAttribute("provinceId", provinceId);
         model.addAttribute("cityId", cityId);
         model.addAttribute("districtId", districtId);
+
         model.addAttribute("asStatusLabels", AsStatus.labelMap());
-        
+
         return "administration/team/as/asManagement";
     }
 }

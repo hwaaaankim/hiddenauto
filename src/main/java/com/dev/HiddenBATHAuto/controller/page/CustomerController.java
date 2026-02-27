@@ -53,6 +53,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.ProductMark;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
+import com.dev.HiddenBATHAuto.repository.as.AsTaskScheduleRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductMarkRepository;
@@ -85,6 +86,7 @@ public class CustomerController {
 	private final PasswordEncoder passwordEncoder;
 	private final MemberService memberService;
 	private final ProductMarkRepository productMarkRepository;
+	private final AsTaskScheduleRepository asTaskScheduleRepository;
 
 	@GetMapping("/productMarkList")
 	public String productMarkList(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails) throws Exception {
@@ -189,13 +191,51 @@ public class CustomerController {
 
         Page<AsTask> asTaskPage = asTaskRepository.findByCompanyIdAndRequestedAtRange(companyId, start, end, pageable);
 
+        // ✅ 이번 페이지에 있는 AsTask들만 스케줄 조회해서 Map으로 내려줌
+        Map<Long, LocalDate> asScheduleDateMap = new HashMap<>();
+        List<Long> taskIds = asTaskPage.getContent().stream().map(AsTask::getId).toList();
+
+        if (!taskIds.isEmpty()) {
+            asTaskScheduleRepository.findSimpleByAsTaskIdIn(taskIds).forEach(v -> {
+                asScheduleDateMap.put(v.getAsTaskId(), v.getScheduledDate());
+            });
+        }
+
+        // ✅ 담당자 연락처도 템플릿에서 깔끔하게 쓰려고 Map으로 내려줌
+        Map<Long, String> asHandlerContactMap = new HashMap<>();
+        for (AsTask t : asTaskPage.getContent()) {
+            asHandlerContactMap.put(t.getId(), resolveContact(t.getAssignedHandler()));
+        }
+
         model.addAttribute("asTaskPage", asTaskPage);
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
 
+        model.addAttribute("asScheduleDateMap", asScheduleDateMap);
+        model.addAttribute("asHandlerContactMap", asHandlerContactMap);
+
         return "front/customer/task/asList";
     }
 
+    /**
+     * ✅ 연락처: phone 우선, 없으면 telephone, 둘 다 없으면 "-"
+     */
+    private String resolveContact(Member m) {
+        if (m == null) return "-";
+        String phone = safeText(m.getPhone());
+        if (phone != null) return phone;
+
+        String tel = safeText(m.getTelephone());
+        if (tel != null) return tel;
+
+        return "-";
+    }
+
+    private String safeText(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
 	@GetMapping("/asRequest")
 	public String asRequest(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails) {
 
