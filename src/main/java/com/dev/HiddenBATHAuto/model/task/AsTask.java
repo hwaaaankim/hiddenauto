@@ -36,6 +36,9 @@ public class AsTask {
     /** ✅ 고객이 남기는 제목(요청 내용 요약) */
     private String subject;
 
+    /** ✅ (신규) 고객 성함 - AS 신청 시 입력 */
+    private String customerName;
+
     // 우편번호
     private String zipCode;
 
@@ -112,6 +115,23 @@ public class AsTask {
     public String getSubjectSafe() {
         if (subject == null) return "-";
         String s = subject.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    /** ✅ customerName 안전표시(빈값/NULL이면 '-') */
+    public String getCustomerNameSafe() {
+        if (customerName == null) return "-";
+        String s = customerName.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    /** ✅ 신청매장(요청자 Member → Company → companyName) 안전표시 */
+    public String getRequestedCompanyNameSafe() {
+        if (requestedBy == null) return "-";
+        if (requestedBy.getCompany() == null) return "-";
+        String name = requestedBy.getCompany().getCompanyName();
+        if (name == null) return "-";
+        String s = name.trim();
         return s.isEmpty() ? "-" : s;
     }
 

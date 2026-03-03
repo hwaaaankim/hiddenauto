@@ -1599,7 +1599,7 @@ button[disabled] {
 .calendar-task {
 	border: 1px solid #e0e0e0;
 	border-radius: 8px;
-	padding: 15px;
+	padding: 10px;
 	margin-bottom: 15px;
 	background-color: #f9f9f9;
 }
@@ -1615,8 +1615,7 @@ button[disabled] {
 .calendar-task-order {
 	background: white;
 	border: 1px dashed #ddd;
-	margin-top: 10px;
-	padding: 10px;
+	padding: 5px;
 	border-radius: 6px;
 }
 
@@ -1747,6 +1746,7 @@ h3#auto-modal-title {
 .calendar-task-order p,
 .calendar-task-as p {
 	margin-bottom: 0px;
+	font-size: 13px;
 }
 
 .web-mb-5 {
@@ -2087,12 +2087,157 @@ h3#auto-modal-title {
 
 /* ✅ 시리즈 버튼 전용: 텍스트(좌) + 이미지(우) 로 구성하므로 보더/마진 방향을 반대로 오버라이드 */
 .non-standard-btn.product-option-btn.series-option-btn {
-    display: flex;           /* 혹시 기존에 없을 경우 대비 */
-    align-items: center;
+	display: flex;
+	/* 혹시 기존에 없을 경우 대비 */
+	align-items: center;
 }
 
 /* ✅ 기존 product-option-btn img 스타일을 시리즈에서 반전 */
 .non-standard-btn.product-option-btn.series-option-btn img {
-    margin-right: 5px;                /* 이미지가 우측이므로 왼쪽 여백 */
-    border-right: 1px solid #ddd;     /* 우측 이미지의 좌측에 구분선 */
+	margin-right: 5px;
+	/* 이미지가 우측이므로 왼쪽 여백 */
+	border-right: 1px solid #ddd;
+	/* 우측 이미지의 좌측에 구분선 */
+}
+
+
+/* 퀵 메뉴 */
+.index-third-quickmenu {
+	position: fixed;
+	right: 10px;
+	bottom: 50px;
+	z-index: 1060;
+	width: 168px;
+	padding: 10px 10px 12px;
+	border-radius: 14px;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	background: rgba(255, 255, 255, 0.96);
+	box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+	backdrop-filter: blur(6px);
+}
+
+.index-third-quickmenu-title {
+	font-weight: 800;
+	font-size: 13px;
+	margin-bottom: 8px;
+	letter-spacing: -0.2px;
+}
+
+.index-third-quickmenu-btn {
+	border-radius: 12px;
+	padding: 8px 10px;
+	font-weight: 700;
+}
+
+.index-third-quickmenu-btn:hover {
+	filter: brightness(0.98);
+}
+
+@media (max-width: 767.98px) {
+	.index-third-quickmenu {
+		width: 96px;
+		padding: 10px;
+	}
+}
+
+/* =========================
+	   ✅ 모달 스크롤/레이아웃 보강
+	   - 내용 많아지면 모달 내부 스크롤
+	   ========================= */
+#auto-modal.auto-modal {
+	/* 기존 공용 CSS가 있어도 안전하게 동작하도록 보강 */
+	overflow: auto;
+}
+
+#auto-modal .auto-modal-content {
+	/* 제목/닫기 고정 + 본문만 스크롤 */
+	display: flex;
+	flex-direction: column;
+	max-height: 85vh;
+	overflow: hidden;
+}
+
+#auto-modal #auto-modal-body {
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	padding-right: 4px;
+	/* 스크롤바 겹침 방지 */
+}
+
+/* 모달 섹션(제품정보/고객정보) */
+.index-third-modal-section {
+	padding-top: 10px;
+	margin-top: 10px;
+	border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.index-third-modal-section:first-child {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.index-third-modal-section-title {
+	font-weight: 900;
+	font-size: 14px;
+	margin-bottom: 8px;
+	letter-spacing: -0.2px;
+}
+
+.index-third-modal-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.index-third-modal-label {
+	min-width: 86px;
+	font-size: 12px;
+	opacity: 0.75;
+	font-weight: 500;
+}
+
+.index-third-modal-value {
+	flex: 1;
+	text-align: right;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: -0.1px;
+	word-break: break-word;
+}
+
+.index-third-aslist-title {
+	font-weight: 900;
+	letter-spacing: -0.2px;
+}
+
+.index-third-aslist-subtitle {
+	letter-spacing: -0.2px;
+}
+
+.index-third-aslist-section-title {
+	font-weight: 900;
+	font-size: 14px;
+	letter-spacing: -0.2px;
+	margin-bottom: 10px;
+}
+
+.index-third-aslist-field {
+	border: 1px solid rgba(0, 0, 0, 0.06);
+	background: rgba(0, 0, 0, 0.02);
+	padding: 5px 6px;
+}
+
+.index-third-aslist-label {
+	font-size: 12px;
+	opacity: 0.7;
+	font-weight: 800;
+	min-width: 86px;
+}
+
+.index-third-aslist-value {
+	font-size: 13px;
+	font-weight: 800;
+	letter-spacing: -0.1px;
 }

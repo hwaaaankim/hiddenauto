@@ -233,11 +233,23 @@ public class AsTaskService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 AS 요청을 찾을 수 없습니다. ID: " + id));
     }
 
-    // ==============================
-    // 기존 기능 유지 + 이미지 저장
-    // ==============================
+    @Transactional
     public AsTask submitAsTask(AsTask task, List<MultipartFile> images, Member member) throws IOException {
+
+        // ✅ 요청자
         task.setRequestedBy(member);
+
+        // ✅ (중요) 고객 성함: 공백 방지/트림 처리
+        task.setCustomerName(normalizeText(task.getCustomerName()));
+
+        // ✅ 기타 입력값도 트림(필요한 만큼만)
+        task.setOnsiteContact(normalizeText(task.getOnsiteContact()));
+        task.setProductName(normalizeText(task.getProductName()));
+        task.setProductSize(normalizeText(task.getProductSize()));
+        task.setProductColor(normalizeText(task.getProductColor()));
+        task.setProductOptions(normalizeText(task.getProductOptions()));
+        task.setSubject(normalizeText(task.getSubject()));
+
         task.setRequestedAt(LocalDateTime.now());
         task.setStatus(AsStatus.REQUESTED);
 
@@ -278,6 +290,12 @@ public class AsTaskService {
         }
 
         return savedTask;
+    }
+
+    private String normalizeText(String v) {
+        if (v == null) return null;
+        String t = v.trim();
+        return t.isEmpty() ? null : t;
     }
 
     // ==============================

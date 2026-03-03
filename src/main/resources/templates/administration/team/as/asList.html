@@ -143,54 +143,52 @@
 											<thead class="as-list-added-thead">
 												<tr>
 													<!-- ✅ 모바일 숨김: ID -->
-													<th
-														class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
+													<th class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														ID</th>
 
 													<!-- ✅ 모바일 표시 -->
-													<th
-														class="as-list-added-th as-list-added-col-status asList-second-col-status">
+													<th class="as-list-added-th as-list-added-col-status asList-second-col-status">
 														상태</th>
-													<th
-														class="as-list-added-th as-list-added-col-requester asList-second-col-requester">
-														신청자</th>
-													<th
-														class="as-list-added-th as-list-added-col-address asList-second-col-address">
+
+													<!-- ✅ 변경: 신청자 -> 신청매장 -->
+													<th class="as-list-added-th as-list-added-col-requester asList-second-col-requester">
+														신청매장</th>
+
+													<!-- ✅ 신규: 고객 성함 -->
+													<th class="as-list-added-th as-list-added-col-customerName asList-second-col-customerName">
+														고객 성함</th>
+
+													<th class="as-list-added-th as-list-added-col-address asList-second-col-address">
 														주소</th>
 
 													<!-- ✅ 모바일 숨김: 현장연락처/신청일/처리일 -->
-													<th
-														class="as-list-added-th as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
+													<th class="as-list-added-th as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														현장연락처</th>
-													<th
-														class="as-list-added-th as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
+													<th class="as-list-added-th as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														신청일</th>
-													<th
-														class="as-list-added-th as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
+													<th class="as-list-added-th as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														처리일</th>
 
 													<!-- ✅ 모바일/PC 공용(비고) -->
-													<th
-														class="as-list-added-th as-list-added-col-actions text-center asList-second-col-actions">
+													<th class="as-list-added-th as-list-added-col-actions text-center asList-second-col-actions">
 														비고</th>
 												</tr>
 											</thead>
 
 											<tbody class="as-list-added-tbody">
 												<tr th:each="task : ${asPage.content}"
-													class="as-list-added-tr asList-second-row-click" th:attr="data-href=@{'/team/asDetail/' + ${task.id}},
+													class="as-list-added-tr asList-second-row-click"
+													th:attr="data-href=@{'/team/asDetail/' + ${task.id}},
                                                              data-task-id=${task.id},
                                                              data-onsite=${task.onsiteContact}">
 
 													<!-- ✅ 모바일 숨김: ID -->
-													<td
-														class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
+													<td class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														<span class="as-list-added-id" th:text="${task.id}">1</span>
 													</td>
 
 													<!-- 상태 (모바일 표시) -->
-													<td
-														class="as-list-added-td as-list-added-col-status asList-second-col-status">
+													<td class="as-list-added-td as-list-added-col-status asList-second-col-status">
 														<span class="badge as-list-added-status-badge" th:classappend="${
                                                               task.status?.name() == 'REQUESTED' ? ' as-list-added-badge-requested' :
                                                               task.status?.name() == 'IN_PROGRESS' ? ' as-list-added-badge-progress' :
@@ -202,16 +200,20 @@
 														</span>
 													</td>
 
-													<!-- 신청자 (모바일 표시) -->
-													<td
-														class="as-list-added-td as-list-added-col-requester asList-second-col-requester">
+													<!-- ✅ 변경: 신청매장(Company.companyName) -->
+													<td class="as-list-added-td as-list-added-col-requester asList-second-col-requester">
 														<span class="as-list-added-requester"
-															th:text="${task.requestedBy.name}">홍길동</span>
+															th:text="${task.requestedCompanyNameSafe}">-</span>
+													</td>
+
+													<!-- ✅ 신규: 고객 성함 -->
+													<td class="as-list-added-td as-list-added-col-customerName asList-second-col-customerName">
+														<span class="as-list-added-customerName"
+															th:text="${task.customerNameSafe}">-</span>
 													</td>
 
 													<!-- 주소 (모바일 표시) -->
-													<td
-														class="as-list-added-td as-list-added-col-address asList-second-col-address">
+													<td class="as-list-added-td as-list-added-col-address asList-second-col-address">
 														<div class="as-list-added-address"
 															th:text="${task.roadAddress + ' ' + task.detailAddress}">
 															주소
@@ -219,8 +221,7 @@
 													</td>
 
 													<!-- ✅ 모바일 숨김: 현장연락처 -->
-													<td
-														class="as-list-added-td as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
+													<td class="as-list-added-td as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														<div class="asList-second-onsiteContact text-truncate"
 															th:text="${task.onsiteContact != null && !#strings.isEmpty(task.onsiteContact) ? task.onsiteContact : '-'}">
 															-
@@ -228,24 +229,20 @@
 													</td>
 
 													<!-- ✅ 모바일 숨김: 신청일 -->
-													<td
-														class="as-list-added-td as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
+													<td class="as-list-added-td as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														<span class="as-list-added-date"
 															th:text="${#temporals.format(task.requestedAt, 'yyyy-MM-dd')}">2026-01-01</span>
 													</td>
 
 													<!-- ✅ 모바일 숨김: 처리일 -->
-													<td
-														class="as-list-added-td as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
+													<td class="as-list-added-td as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														<span class="as-list-added-date"
 															th:text="${task.asProcessDate != null ? #temporals.format(task.asProcessDate, 'yyyy-MM-dd') : '-'}">-</span>
 													</td>
 
 													<!-- ✅ 비고(모바일/PC 공용) : 모바일에서만 전화 버튼 노출 -->
-													<td
-														class="as-list-added-td as-list-added-col-actions text-center asList-second-col-actions">
-														<div
-															class="asList-second-actions d-inline-flex gap-2 align-items-center justify-content-end">
+													<td class="as-list-added-td as-list-added-col-actions text-center asList-second-col-actions">
+														<div class="asList-second-actions d-inline-flex gap-2 align-items-center justify-content-end">
 
 															<!-- ✅ 전화 버튼: 모바일에서만 노출(d-lg-none 유지) -->
 															<a class="btn btn-sm btn-success asList-second-btn-call d-inline-flex d-lg-none"
@@ -268,7 +265,8 @@
 																class="btn btn-sm btn-primary asList-second-btn-open-complete"
 																th:attr="data-task-id=${task.id},
 												                 data-status=${task.status != null ? task.status.name() : ''},
-												                 data-stop-row='1'" th:disabled="${task.status == null || task.status.name() != 'IN_PROGRESS'}">
+												                 data-stop-row='1'"
+																th:disabled="${task.status == null || task.status.name() != 'IN_PROGRESS'}">
 																완료
 															</button>
 														</div>
@@ -382,16 +380,12 @@
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
 
-				<!-- ✅ 모달 내부는 form으로 구성: 기존 /team/asUpdate/{id} 그대로 사용 -->
 				<form id="asList-second-complete-form" method="POST" enctype="multipart/form-data">
 					<div class="modal-body asList-second-modal-body">
 
-						<!-- 로딩/에러 -->
 						<div id="asList-second-modal-alert" class="alert d-none" role="alert"></div>
 
-						<!-- 상세 요약 -->
 						<div class="row g-3">
-							<!-- ✅ (중복 제거) 대리점 -->
 							<div class="col-6 col-md-6 asList-second-col-company">
 								<div class="p-3 border rounded asList-second-box">
 									<div class="fw-semibold mb-1">대리점</div>
@@ -406,7 +400,6 @@
 								</div>
 							</div>
 
-							<!-- ✅ 주소 -->
 							<div class="col-12">
 								<div class="p-3 border rounded asList-second-box">
 									<div class="fw-semibold mb-1">주소</div>
@@ -458,21 +451,14 @@
 
 						<hr class="my-4">
 
-						<!-- ✅ 이미지 업로드/리스트 -->
 						<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
 							<div class="fw-semibold">AS 결과 이미지</div>
 
-							<!-- ✅ 버튼 정책:
-							     - PC: "이미지 업로드" 1개만 노출
-							     - 모바일: "이미지 업로드(갤러리)" + "촬영" 2개만 노출
-							 -->
 							<div class="d-flex gap-2 asList-second-upload-actions">
-								<!-- 공용: 업로드(PC는 기본, 모바일에서는 갤러리 의미) -->
 								<button type="button" class="btn btn-outline-primary" id="asList-second-btn-upload">
 									<i class="ri-upload-2-line"></i> 이미지 업로드
 								</button>
 
-								<!-- 모바일 전용: 촬영 -->
 								<button type="button" class="btn btn-outline-primary d-none"
 									id="asList-second-btn-camera">
 									<i class="ri-camera-line"></i> 촬영
@@ -483,10 +469,8 @@
 						<input type="file" id="asList-second-file-input" name="resultImages" accept="image/*" multiple
 							style="display:none;" />
 
-						<!-- ✅ 기존 등록 + 신규 선택 이미지 리스트 -->
 						<div id="asList-second-image-list" class="row g-2 mt-3"></div>
 
-						<!-- ✅ 상태는 완료로 고정 -->
 						<input type="hidden" name="status" value="COMPLETED" />
 					</div>
 
@@ -505,7 +489,6 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<!-- ✅ JS: 행정구역 동적 셀렉트 + 모달 로직용 서버 값 -->
 	<script th:inline="javascript">
 		window.__AS_SELECTED__ = {
 			provinceId: /*[[${provinceId}]]*/ null,

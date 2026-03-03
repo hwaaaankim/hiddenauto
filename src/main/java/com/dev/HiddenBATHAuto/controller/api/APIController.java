@@ -364,16 +364,22 @@ public class APIController {
 	}
 
 	/**
-	 * ✅ 모달 상세 - basis=REQUEST(기본): date는 신청일 기준 - basis=PROCESS: date는 처리일 기준 (NULL
-	 * 제외)
+	 * ✅ 모달 상세
+	 * - basis=REQUEST(기본): date는 신청일 기준
+	 * - basis=PROCESS: date는 처리일 기준 (NULL 제외)
 	 *
-	 * ✅ 추가 포함: - AS 방문예정일(scheduledDate) - AS 담당자 이름/연락처
+	 * ✅ 포함:
+	 * - AS 방문예정일(scheduledDate)
+	 * - AS 담당자 이름/연락처
+	 * - AS 제품정보/고객정보(AS 신청 시 입력한 값)
 	 */
 	@GetMapping("/calendar/tasks")
 	@ResponseBody
-	public List<CalendarTaskDetailDTO> getCalendarTasks(@AuthenticationPrincipal PrincipalDetails principalDetails,
+	public List<CalendarTaskDetailDTO> getCalendarTasks(
+			@AuthenticationPrincipal PrincipalDetails principalDetails,
 			@org.springframework.web.bind.annotation.RequestParam("date") String dateStr,
-			@org.springframework.web.bind.annotation.RequestParam(value = "basis", required = false) String basisParam) {
+			@org.springframework.web.bind.annotation.RequestParam(value = "basis", required = false) String basisParam
+	) {
 		CalendarDateBasis basis = CalendarDateBasis.from(basisParam);
 		LocalDate target = LocalDate.parse(dateStr);
 
@@ -433,8 +439,7 @@ public class APIController {
 	// ✅ Date 추출 규칙
 	// =========================================================
 	private LocalDate extractAsDate(AsTask t, CalendarDateBasis basis) {
-		if (t == null)
-			return null;
+		if (t == null) return null;
 		if (basis == CalendarDateBasis.PROCESS) {
 			LocalDateTime p = t.getAsProcessDate();
 			return (p != null) ? p.toLocalDate() : null;
@@ -445,8 +450,7 @@ public class APIController {
 	}
 
 	private LocalDate extractTaskDate(Task t, CalendarDateBasis basis) {
-		if (t == null)
-			return null;
+		if (t == null) return null;
 
 		if (basis == CalendarDateBasis.PROCESS) {
 			LocalDateTime pref = getTaskPreferredDeliveryDate(t);
@@ -458,8 +462,7 @@ public class APIController {
 	}
 
 	private LocalDateTime getTaskPreferredDeliveryDate(Task t) {
-		if (t.getOrders() == null || t.getOrders().isEmpty())
-			return null;
+		if (t.getOrders() == null || t.getOrders().isEmpty()) return null;
 		for (Order o : t.getOrders()) {
 			if (o != null && o.getPreferredDeliveryDate() != null) {
 				return o.getPreferredDeliveryDate();
@@ -476,14 +479,17 @@ public class APIController {
 		dto.setType("AS");
 		dto.setId(t.getId());
 
+		// (title은 이제 모달에서 사용하지 않지만, 기존 호환 위해 유지)
 		String title = (t.getSubject() != null && !t.getSubject().isBlank()) ? t.getSubject() : t.getProductName();
-		dto.setTitle(title);
+		dto.setTitle(safeText(title));
 
+		// 달력 기준 date (yyyy-MM-dd)
 		LocalDate date = extractAsDate(t, basis);
 		dto.setDate(date != null ? date.toString() : null);
 
 		dto.setAddress(
-				buildAddress(t.getDoName(), t.getSiName(), t.getGuName(), t.getRoadAddress(), t.getDetailAddress()));
+			buildAddress(t.getDoName(), t.getSiName(), t.getGuName(), t.getRoadAddress(), t.getDetailAddress())
+		);
 
 		// ✅ 방문예정일
 		dto.setScheduledDate(scheduledDate != null ? scheduledDate.toString() : null);
@@ -492,6 +498,19 @@ public class APIController {
 		Member handler = t.getAssignedHandler();
 		dto.setHandlerName(handler != null ? safeText(handler.getName()) : null);
 		dto.setHandlerContact(resolveContact(handler));
+
+		// =================================================
+		// ✅ 추가: 제품정보/고객정보 (AS 신청 시 입력한 값)
+		// =================================================
+		dto.setProductName(safeText(t.getProductName()));
+		dto.setProductSize(safeText(t.getProductSize()));
+		dto.setProductColor(safeText(t.getProductColor()));
+		dto.setProductOptions(safeText(t.getProductOptions()));
+		dto.setSymptom(safeText(t.getSubject()));           // ✅ 증상 = subject
+
+		dto.setCustomerName(safeText(t.getCustomerName())); // ✅ 고객 성함(신규)
+		dto.setOnsiteContact(safeText(t.getOnsiteContact())); // ✅ 현장 연락처
+		dto.setRequestedAt(t.getRequestedAt() != null ? t.getRequestedAt().format(DT) : null); // ✅ 신청일(고정)
 
 		return dto;
 	}
@@ -506,16 +525,13 @@ public class APIController {
 
 		List<Order> orders = (t.getOrders() != null) ? t.getOrders() : List.of();
 		for (Order o : orders) {
-			if (o == null)
-				continue;
+			if (o == null) continue;
 
 			CalendarTaskDetailDTO.OrderBriefDTO ob = new CalendarTaskDetailDTO.OrderBriefDTO();
 			ob.setOrderId(o.getId());
 			ob.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().format(DT) : null);
-			ob.setPreferredDeliveryDate(
-					o.getPreferredDeliveryDate() != null ? o.getPreferredDeliveryDate().format(DT) : null);
-			ob.setAddress(buildAddress(o.getDoName(), o.getSiName(), o.getGuName(), o.getRoadAddress(),
-					o.getDetailAddress()));
+			ob.setPreferredDeliveryDate(o.getPreferredDeliveryDate() != null ? o.getPreferredDeliveryDate().format(DT) : null);
+			ob.setAddress(buildAddress(o.getDoName(), o.getSiName(), o.getGuName(), o.getRoadAddress(), o.getDetailAddress()));
 			ob.setQuantity(o.getQuantity());
 			ob.setPrice(o.getProductCost());
 			ob.setCategoryName(o.getProductCategory() != null ? o.getProductCategory().getName() : null);
@@ -530,12 +546,12 @@ public class APIController {
 	}
 
 	private String buildAddress(String doName, String siName, String guName, String roadAddress, String detailAddress) {
-		String base = (roadAddress != null && !roadAddress.isBlank()) ? roadAddress
+		String base = (roadAddress != null && !roadAddress.isBlank())
+				? roadAddress
 				: String.join(" ", safe(doName), safe(siName), safe(guName)).trim();
 
 		if (detailAddress != null && !detailAddress.isBlank()) {
-			if (base.isBlank())
-				return detailAddress;
+			if (base.isBlank()) return detailAddress;
 			return base + " " + detailAddress;
 		}
 		return base.isBlank() ? "-" : base;
@@ -546,8 +562,7 @@ public class APIController {
 	}
 
 	private String safeText(String s) {
-		if (s == null)
-			return null;
+		if (s == null) return null;
 		String t = s.trim();
 		return t.isEmpty() ? null : t;
 	}
@@ -556,11 +571,9 @@ public class APIController {
 	 * ✅ 연락처: phone 우선, 없으면 telephone, 둘 다 없으면 null
 	 */
 	private String resolveContact(Member m) {
-		if (m == null)
-			return null;
+		if (m == null) return null;
 		String phone = safeText(m.getPhone());
-		if (phone != null)
-			return phone;
+		if (phone != null) return phone;
 		String tel = safeText(m.getTelephone());
 		return tel;
 	}

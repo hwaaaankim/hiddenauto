@@ -153,10 +153,9 @@
 
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
-										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
+										<table class="table table-hover align-middle table-nowrap mb-0" id="tasksTable">
 											<thead class="table-light text-muted">
 												<tr>
-													<!-- ✅ 체크박스 열 삭제 -->
 													<th>ID</th>
 
 													<!-- ✅ 대리점명 정렬 -->
@@ -229,12 +228,15 @@
 														</div>
 													</th>
 
+													<!-- ✅ (추가) 고객 성함 -->
+													<th>고객 성함</th>
+
 													<!-- ✅ 담당 사원 정렬 -->
 													<th>
 													  <div class="as-list-new-added-th-sort">
 													    <span class="as-list-new-added-sort-label">담당AS사원</span>
 													    <span class="as-list-new-added-sort-icons">
-													
+
 													      <!-- ASC -->
 													      <a class="as-list-new-added-sort-link"
 													         th:classappend="${sortField == 'handlerName' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
@@ -252,7 +254,7 @@
 													         aria-label="담당AS사원 오름차순">
 													        <i class="fa-solid fa-caret-up"></i>
 													      </a>
-													
+
 													      <!-- DESC -->
 													      <a class="as-list-new-added-sort-link"
 													         th:classappend="${sortField == 'handlerName' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
@@ -270,11 +272,10 @@
 													         aria-label="담당AS사원 내림차순">
 													        <i class="fa-solid fa-caret-down"></i>
 													      </a>
-													
+
 													    </span>
 													  </div>
 													</th>
-
 
 													<!-- ✅ 신청일 정렬 -->
 													<th>
@@ -375,22 +376,36 @@
 											</thead>
 
 											<tbody class="list form-check-all">
-												<tr th:each="as : ${asPage.content}">
+												<tr th:each="as : ${asPage.content}"
+													style="cursor:pointer;"
+													th:onclick="|window.location.href='@{/management/asDetail/{id}(id=${as.id})}'|">
 
-													<td>
-														<a th:href="@{/management/asDetail/{id}(id=${as.id})}"
-															class="fw-medium link-primary"
-															th:text="${'AS_TASK_#' + as.id}">AS_TASK_0</a>
-													</td>
+													<!-- ✅ 1) AS_TASK_# 접두어 제거 -> 숫자 ID만 -->
+													<td th:text="${as.id}">0</td>
 
+													<!-- ✅ 3) 대리점명: 회사 상세로 이동 + 행 클릭 전파 방지 -->
 													<td class="project_name">
-														<a href="#" class="fw-medium link-primary"
-															th:text="${as.requestedBy != null and as.requestedBy.company != null ? as.requestedBy.company.companyName : '미지정'}">
-															대리점명</a>
+														<th:block th:if="${as.requestedBy != null and as.requestedBy.company != null}">
+															<a th:href="@{/management/clientDetail/{companyId}(companyId=${as.requestedBy.company.id})}"
+															   class="fw-medium link-primary"
+															   onclick="event.stopPropagation();"
+															   th:text="${as.requestedCompanyNameSafe}">
+																대리점명
+															</a>
+														</th:block>
+														<th:block th:if="${as.requestedBy == null or as.requestedBy.company == null}">
+															<span class="text-muted">미지정</span>
+														</th:block>
 													</td>
 
+													<!-- ✅ 4) 신청자명: 링크 제거 -->
 													<td>
-														<a href="#" th:text="${as.requestedBy != null ? as.requestedBy.name : '미지정'}">신청자명</a>
+														<span th:text="${as.requestedBy != null ? as.requestedBy.name : '미지정'}">신청자명</span>
+													</td>
+
+													<!-- ✅ 5) 고객 성함 추가 -->
+													<td>
+														<span th:text="${as.customerNameSafe}">-</span>
 													</td>
 
 													<td class="assignedto">
