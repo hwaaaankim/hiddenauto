@@ -2,7 +2,6 @@ package com.dev.HiddenBATHAuto.repository.as;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -14,13 +13,13 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.task.AsImage;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 
 @Repository
 public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 
-	
 	// ✅ (A) 신청일 기준 조회: requestedAt DESC 정렬 보장
 	@Query("""
 	      select t from AsTask t

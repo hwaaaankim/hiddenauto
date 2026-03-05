@@ -15,6 +15,8 @@ import com.dev.HiddenBATHAuto.model.task.AsTaskSchedule;
 
 public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, Long> {
 
+	List<AsTaskSchedule> findByAsTask_Id(Long asTaskId);
+	
 	/**
      * 화면 표시용 최소 필드만 프로젝션으로 조회 (Lazy 이슈/불필요 fetch 방지)
      */

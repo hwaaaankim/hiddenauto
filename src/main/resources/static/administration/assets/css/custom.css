@@ -1267,3 +1267,271 @@
 		max-height: calc(100vh - 160px);
 	}
 }
+
+.as-management-third-card {
+	border-radius: 14px;
+}
+
+.as-management-third-section {
+	padding: 4px 0;
+}
+
+.as-management-third-section-title {
+	font-weight: 700;
+	font-size: 1.05rem;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.as-management-third-divider {
+	margin: 18px 0;
+	opacity: 0.15;
+}
+
+.as-management-third-help {
+	cursor: pointer;
+	color: #6c757d;
+}
+
+.as-management-third-company-results {
+	max-height: 320px;
+	overflow: auto;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	border-radius: 10px;
+}
+
+.as-management-third-company-item {
+	display: block;
+	width: 100%;
+	text-align: left;
+	border: 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+	padding: 10px 12px;
+	background: #fff;
+}
+
+.as-management-third-company-item:hover {
+	background: rgba(0, 0, 0, 0.03);
+}
+
+.as-management-third-company-title {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.as-management-third-company-name {
+	font-weight: 800;
+	font-size: 1.05rem;
+}
+
+.as-management-third-company-rep {
+	font-weight: 800;
+	font-size: 1.0rem;
+	color: #343a40;
+}
+
+.as-management-third-company-addr {
+	font-size: 0.82rem;
+	color: #6c757d;
+	margin-top: 4px;
+	white-space: normal;
+	line-height: 1.25;
+}
+
+.as-management-third-company-disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.as-management-third-img-card {
+	position: relative;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	border-radius: 12px;
+	overflow: hidden;
+	background: #fff;
+}
+
+.as-management-third-img-card img {
+	width: 100%;
+	height: 160px;
+	object-fit: cover;
+	display: block;
+}
+
+.as-management-third-img-remove-btn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	border: 0;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: 18px;
+	line-height: 28px;
+	cursor: pointer;
+}
+
+.as-management-third-img-remove-btn:hover {
+	background: rgba(220, 53, 69, 0.9);
+}
+
+.as-management-third-img-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 10px;
+	gap: 8px;
+}
+
+.as-management-third-img-fn {
+	font-size: 0.82rem;
+	color: #495057;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 78%;
+}
+
+.as-management-third-img-download {
+	color: #0d6efd;
+	text-decoration: none;
+}
+
+.as-management-third-preview-title {
+	font-weight: 700;
+	margin-bottom: 8px;
+}
+
+.as-management-third-preview-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 10px;
+}
+
+.as-management-third-preview-item {
+	position: relative;
+	border: 1px dashed rgba(0, 0, 0, 0.15);
+	border-radius: 12px;
+	overflow: hidden;
+	background: #fff;
+}
+
+.as-management-third-preview-item img {
+	width: 100%;
+	height: 140px;
+	object-fit: cover;
+	display: block;
+}
+
+.as-management-third-preview-remove {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	border: 0;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: 18px;
+	line-height: 28px;
+	cursor: pointer;
+}
+
+.as-management-third-preview-remove:hover {
+	background: rgba(220, 53, 69, 0.9);
+}
+
+.as-management-third-dirty-badge {
+	border-radius: 999px;
+	padding: 6px 10px;
+}
+
+/* ✅ 기존 등록 이미지(REQUEST/RESULT) 썸네일이 가로로 늘어나는 문제 해결 */
+#as-management-third-existingRequestImages .as-management-third-img-card,
+#as-management-third-existingResultImages .as-management-third-img-card {
+	position: relative;
+	border-radius: 12px;
+	overflow: hidden;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	background: #fff;
+}
+
+/* 핵심: 고정 높이 + object-fit 으로 원본 비율 유지(늘어짐 방지) */
+#as-management-third-existingRequestImages .as-management-third-img-card img,
+#as-management-third-existingResultImages .as-management-third-img-card img {
+	display: block;
+	width: 100%;
+	height: 170px;
+	/* 필요하면 150~220 사이로 조정 */
+	object-fit: cover;
+	/* ✅ 비율 유지 + 꽉 채움(일부는 크롭됨) */
+}
+
+/* 파일명/다운로드 영역 */
+.as-management-third-img-meta {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 8px 10px;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+}
+
+.as-management-third-img-fn {
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: calc(100% - 34px);
+}
+
+.as-management-third-img-download {
+	color: #fff;
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.as-management-third-img-download:hover {
+	background: rgba(255, 255, 255, 0.25);
+	color: #fff;
+}
+
+/* 삭제 버튼(REQUEST 쪽만 존재) */
+.as-management-third-img-remove-btn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 2;
+	width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	border: 0;
+	background: rgba(0, 0, 0, 0.6);
+	color: #fff;
+	font-size: 18px;
+	line-height: 28px;
+	text-align: center;
+	cursor: pointer;
+}
+
+.as-management-third-img-remove-btn:hover {
+	background: rgba(220, 53, 69, 0.9);
+}

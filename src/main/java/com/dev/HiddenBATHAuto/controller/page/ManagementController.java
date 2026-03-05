@@ -62,6 +62,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
+import com.dev.HiddenBATHAuto.dto.as.CompanySearchItemDto;
 import com.dev.HiddenBATHAuto.dto.client.CompanyListRowDto;
 import com.dev.HiddenBATHAuto.dto.employee.EmployeeUpdateResult;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
@@ -595,36 +596,22 @@ public class ManagementController {
 	}
 
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
-	public String updateNonStandardOrderItem(
-	        @PathVariable Long orderId,
-	        @RequestParam("productCost") int productCost,
-	        @RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
-	        @RequestParam("status") String statusStr,
-	        @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
-	        @RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
-	        @RequestParam("productCategoryId") Optional<Long> productCategoryId,
-	        @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
-	        @RequestParam(value = "requesterMemberId", required = false) Optional<Long> requesterMemberId,
-	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
+	public String updateNonStandardOrderItem(@PathVariable Long orderId, @RequestParam("productCost") int productCost,
+			@RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
+			@RequestParam("status") String statusStr, @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
+			@RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
+			@RequestParam("productCategoryId") Optional<Long> productCategoryId,
+			@RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+			@RequestParam(value = "requesterMemberId", required = false) Optional<Long> requesterMemberId,
+			@RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
 
-	        // ✅✅ 추가
-	        @RequestParam(value = "adminMemo", required = false) String adminMemo
-	) {
-	    orderUpdateService.updateOrder(
-	            orderId,
-	            productCost,
-	            preferredDeliveryDate,
-	            statusStr,
-	            deliveryMethodId,
-	            deliveryHandlerId,
-	            productCategoryId,
-	            companyId,
-	            requesterMemberId,
-	            adminImages,
-	            adminMemo // ✅✅ 추가
-	    );
+			// ✅✅ 추가
+			@RequestParam(value = "adminMemo", required = false) String adminMemo) {
+		orderUpdateService.updateOrder(orderId, productCost, preferredDeliveryDate, statusStr, deliveryMethodId,
+				deliveryHandlerId, productCategoryId, companyId, requesterMemberId, adminImages, adminMemo // ✅✅ 추가
+		);
 
-	    return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
+		return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
 	}
 
 	@DeleteMapping("/order-image/delete/{id}")
@@ -826,13 +813,61 @@ public class ManagementController {
 		return (v == null) ? "" : v;
 	}
 
-	@PostMapping("/asUpdate/{id}")
-	public String updateAsTask(@PathVariable Long id, @RequestParam(required = false) Integer price,
-			@RequestParam String status, @RequestParam(required = false) Long assignedHandlerId) {
+	// =========================================================
+	// 1) 회사 검색 API (AJAX)
+	// =========================================================
+	@GetMapping("/api/companies/search")
+	@ResponseBody
+	public List<CompanySearchItemDto> searchCompanies(@RequestParam("keyword") String keyword,
+			@RequestParam(value = "limit", defaultValue = "30") int limit) {
+		return asTaskService.searchCompaniesForAs(keyword, limit);
+	}
 
-		asTaskService.updateAsTask(id, price, status, assignedHandlerId);
+	// =========================================================
+	// 2) AS 업데이트 (multipart) - 한 번에 저장
+	// =========================================================
+	@PostMapping(value = "/asUpdate/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public String updateAsTask(@PathVariable Long id,
+
+			@RequestParam(required = false) String price, @RequestParam(required = false) String status,
+			@RequestParam(required = false) Long assignedHandlerId,
+
+			@RequestParam(required = false) Long companyId,
+
+			@RequestParam(required = false) String zipCode, @RequestParam(required = false) String doName,
+			@RequestParam(required = false) String siName, @RequestParam(required = false) String guName,
+			@RequestParam(required = false) String roadAddress, @RequestParam(required = false) String detailAddress,
+
+			@RequestParam(required = false) String customerName, @RequestParam(required = false) String productName,
+			@RequestParam(required = false) String productSize, @RequestParam(required = false) String productColor,
+			@RequestParam(required = false) String productOptions, @RequestParam(required = false) String onsiteContact,
+
+			@RequestParam(required = false) String subject,
+
+			@RequestParam(required = false) String deleteRequestImageIds,
+			@RequestParam(value = "newRequestImages", required = false) List<MultipartFile> newRequestImages) {
+
+		asTaskService.updateAsTaskThird(id, price, status, assignedHandlerId,
+
+				companyId,
+
+				zipCode, doName, siName, guName, roadAddress, detailAddress, customerName, productName, productSize,
+				productColor, productOptions, onsiteContact,
+
+				subject,
+
+				deleteRequestImageIds, newRequestImages);
 
 		return "redirect:/management/asDetail/" + id;
+	}
+
+	// =========================================================
+	// 3) AS 삭제 (일정 + 이미지 + task)
+	// =========================================================
+	@PostMapping("/asDelete/{id}")
+	public String deleteAsTask(@PathVariable Long id) {
+		asTaskService.deleteAsTaskCascade(id);
+		return "redirect:/management/asList";
 	}
 
 	// =========================

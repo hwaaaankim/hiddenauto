@@ -19,6 +19,8 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
+	Optional<Member> findFirstByCompanyIdAndRoleOrderByIdAsc(Long companyId, MemberRole role);
+	
     // ✅ 휴대폰 중복체크(본인 제외)
     boolean existsByPhoneAndIdNot(String phone, Long id);
 	

@@ -49,4 +49,6 @@ public interface CompanyRepository extends JpaRepository<Company, Long>, Company
     // ✅ 배송지까지 함께 로딩 (OSIV 없어도 안전)
     @EntityGraph(attributePaths = {"deliveryAddresses"})
     Optional<Company> findWithDeliveryAddressesById(Long id);
+    
+    List<Company> findTop50ByCompanyNameContainingOrderByCompanyNameAsc(String keyword);
 }
