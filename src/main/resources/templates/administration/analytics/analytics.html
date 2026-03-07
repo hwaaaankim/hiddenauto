@@ -167,7 +167,8 @@
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
-
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -230,67 +231,67 @@
 			</div>
 		</div>
 	</div>
-<!-- ✅ 규격 분류 레벨 모달 -->
-<div class="modal fade" id="standardLevelModal" tabindex="-1" aria-hidden="true">
-	<div class="modal-dialog modal-md modal-dialog-centered">
-		<div class="modal-content">
-			<div class="modal-header">
-				<h5 class="modal-title">규격 분류 레벨 선택</h5>
-				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-			</div>
-
-			<div class="modal-body">
-				<div class="mb-2 text-muted">
-					규격 제품을 어떤 레벨로 묶어서 볼지 선택합니다.
+	<!-- ✅ 규격 분류 레벨 모달 -->
+	<div class="modal fade" id="standardLevelModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-md modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">규격 분류 레벨 선택</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
 
-				<label class="form-label">Level</label>
-				<select id="standardLevelSelect" class="form-select">
-					<option value="CATEGORY">CATEGORY (카테고리)</option>
-					<option value="SERIES">SERIES (시리즈)</option>
-					<option value="PRODUCT">PRODUCT (제품)</option>
-					<option value="COLOR">COLOR (색상)</option>
-				</select>
-			</div>
+				<div class="modal-body">
+					<div class="mb-2 text-muted">
+						규격 제품을 어떤 레벨로 묶어서 볼지 선택합니다.
+					</div>
 
-			<div class="modal-footer">
-				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
-				<button type="button" class="btn btn-primary" id="standardLevelApplyBtn">적용</button>
+					<label class="form-label">Level</label>
+					<select id="standardLevelSelect" class="form-select">
+						<option value="CATEGORY">CATEGORY (카테고리)</option>
+						<option value="SERIES">SERIES (시리즈)</option>
+						<option value="PRODUCT">PRODUCT (제품)</option>
+						<option value="COLOR">COLOR (색상)</option>
+					</select>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary" id="standardLevelApplyBtn">적용</button>
+				</div>
 			</div>
 		</div>
 	</div>
-</div>
 
-<!-- ✅ 비규격 분류 레벨 모달 -->
-<div class="modal fade" id="nonStandardLevelModal" tabindex="-1" aria-hidden="true">
-	<div class="modal-dialog modal-md modal-dialog-centered">
-		<div class="modal-content">
-			<div class="modal-header">
-				<h5 class="modal-title">비규격 분류 레벨 선택</h5>
-				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-			</div>
-
-			<div class="modal-body">
-				<div class="mb-2 text-muted">
-					비규격 제품을 어떤 레벨로 묶어서 볼지 선택합니다.
+	<!-- ✅ 비규격 분류 레벨 모달 -->
+	<div class="modal fade" id="nonStandardLevelModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-md modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">비규격 분류 레벨 선택</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
 
-				<label class="form-label">Level</label>
-				<select id="nonStandardLevelSelect" class="form-select">
-					<option value="SORT">SORT (자체분류)</option>
-					<option value="SERIES">SERIES (시리즈)</option>
-					<option value="PRODUCT">PRODUCT (제품)</option>
-					<option value="COLOR">COLOR (색상)</option>
-				</select>
-			</div>
+				<div class="modal-body">
+					<div class="mb-2 text-muted">
+						비규격 제품을 어떤 레벨로 묶어서 볼지 선택합니다.
+					</div>
 
-			<div class="modal-footer">
-				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
-				<button type="button" class="btn btn-primary" id="nonStandardLevelApplyBtn">적용</button>
+					<label class="form-label">Level</label>
+					<select id="nonStandardLevelSelect" class="form-select">
+						<option value="SORT">SORT (자체분류)</option>
+						<option value="SERIES">SERIES (시리즈)</option>
+						<option value="PRODUCT">PRODUCT (제품)</option>
+						<option value="COLOR">COLOR (색상)</option>
+					</select>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary" id="nonStandardLevelApplyBtn">적용</button>
+				</div>
 			</div>
 		</div>
 	</div>
-</div>
 
 </body>
 

@@ -1,6 +1,5 @@
 package com.dev.HiddenBATHAuto.dto.as;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import lombok.Data;
@@ -19,7 +18,11 @@ public class AsTaskModalDto {
     private String productColor;
     private String onsiteContact;
 
-    private LocalDateTime requestedAt;
+    // ✅ LocalDateTime -> String 으로 변경
+    private String requestedAt;
+
+    // ✅ 추가하신 관리자 메모
+    private String adminMemo;
 
     private List<ImageDto> resultImages;
 

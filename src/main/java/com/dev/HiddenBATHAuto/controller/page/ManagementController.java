@@ -829,36 +829,62 @@ public class ManagementController {
 	@PostMapping(value = "/asUpdate/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public String updateAsTask(@PathVariable Long id,
 
-			@RequestParam(required = false) String price, @RequestParam(required = false) String status,
-			@RequestParam(required = false) Long assignedHandlerId,
+	        @RequestParam(required = false) String price,
+	        @RequestParam(required = false) String status,
+	        @RequestParam(required = false) Long assignedHandlerId,
 
-			@RequestParam(required = false) Long companyId,
+	        @RequestParam(required = false) Long companyId,
 
-			@RequestParam(required = false) String zipCode, @RequestParam(required = false) String doName,
-			@RequestParam(required = false) String siName, @RequestParam(required = false) String guName,
-			@RequestParam(required = false) String roadAddress, @RequestParam(required = false) String detailAddress,
+	        @RequestParam(required = false) String zipCode,
+	        @RequestParam(required = false) String doName,
+	        @RequestParam(required = false) String siName,
+	        @RequestParam(required = false) String guName,
+	        @RequestParam(required = false) String roadAddress,
+	        @RequestParam(required = false) String detailAddress,
 
-			@RequestParam(required = false) String customerName, @RequestParam(required = false) String productName,
-			@RequestParam(required = false) String productSize, @RequestParam(required = false) String productColor,
-			@RequestParam(required = false) String productOptions, @RequestParam(required = false) String onsiteContact,
+	        @RequestParam(required = false) String customerName,
+	        @RequestParam(required = false) String productName,
+	        @RequestParam(required = false) String productSize,
+	        @RequestParam(required = false) String productColor,
+	        @RequestParam(required = false) String productOptions,
+	        @RequestParam(required = false) String onsiteContact,
 
-			@RequestParam(required = false) String subject,
+	        @RequestParam(required = false) String subject,
 
-			@RequestParam(required = false) String deleteRequestImageIds,
-			@RequestParam(value = "newRequestImages", required = false) List<MultipartFile> newRequestImages) {
+	        @RequestParam(required = false) String adminMemo,
 
-		asTaskService.updateAsTaskThird(id, price, status, assignedHandlerId,
+	        @RequestParam(required = false) String deleteRequestImageIds,
+	        @RequestParam(value = "newRequestImages", required = false) List<MultipartFile> newRequestImages) {
 
-				companyId,
+	    asTaskService.updateAsTaskThird(
+	            id,
+	            price,
+	            status,
+	            assignedHandlerId,
 
-				zipCode, doName, siName, guName, roadAddress, detailAddress, customerName, productName, productSize,
-				productColor, productOptions, onsiteContact,
+	            companyId,
 
-				subject,
+	            zipCode,
+	            doName,
+	            siName,
+	            guName,
+	            roadAddress,
+	            detailAddress,
+	            customerName,
+	            productName,
+	            productSize,
+	            productColor,
+	            productOptions,
+	            onsiteContact,
 
-				deleteRequestImageIds, newRequestImages);
+	            subject,
+	            adminMemo,
 
-		return "redirect:/management/asDetail/" + id;
+	            deleteRequestImageIds,
+	            newRequestImages
+	    );
+
+	    return "redirect:/management/asDetail/" + id;
 	}
 
 	// =========================================================

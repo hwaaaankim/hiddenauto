@@ -253,115 +253,113 @@ public class AsTaskService {
 			list.add(t);
 	}
 
-	// =========================================================
-	// 2) 업데이트(3차) - 한 번에 저장
-	// =========================================================
 	@Transactional
 	public void updateAsTaskThird(Long id, String priceStr, String statusStr, Long assignedHandlerId,
 
-			Long companyId,
+	        Long companyId,
 
-			String zipCode, String doName, String siName, String guName, String roadAddress, String detailAddress,
-			String customerName, String productName, String productSize, String productColor, String productOptions,
-			String onsiteContact,
+	        String zipCode, String doName, String siName, String guName,
+	        String roadAddress, String detailAddress,
+	        String customerName, String productName, String productSize,
+	        String productColor, String productOptions, String onsiteContact,
 
-			String subject,
+	        String subject,
+	        String adminMemo,
 
-			String deleteRequestImageIds, List<MultipartFile> newRequestImages) {
+	        String deleteRequestImageIds, List<MultipartFile> newRequestImages) {
 
-		AsTask asTask = getAsDetail(id); // ✅ 기존에 존재하는 메서드 사용(사용자 코드에 이미 있음)
+	    AsTask asTask = getAsDetail(id);
 
-		// 0) 담당자/상태(기존 유지)
-		if (statusStr != null && !statusStr.isBlank()) {
-			AsStatus status = AsStatus.valueOf(statusStr.trim());
-			asTask.setStatus(status);
-		}
+	    // 0) 담당자/상태
+	    if (statusStr != null && !statusStr.isBlank()) {
+	        AsStatus status = AsStatus.valueOf(statusStr.trim());
+	        asTask.setStatus(status);
+	    }
 
-		// 담당자 필수(기존 로직 유지)
-		if (assignedHandlerId == null) {
-			throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
-		}
-		Member handler = memberRepository.findById(assignedHandlerId)
-				.orElseThrow(() -> new IllegalArgumentException("유효하지 않은 담당자입니다."));
-		asTask.setAssignedHandler(handler);
+	    // 담당자 필수
+	    if (assignedHandlerId == null) {
+	        throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
+	    }
 
-		// 가격
-		int price = parsePriceOrZero(priceStr);
-		asTask.setPrice(price);
+	    Member handler = memberRepository.findById(assignedHandlerId)
+	            .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 담당자입니다."));
+	    asTask.setAssignedHandler(handler);
 
-		// 1) 회사 변경 시 requestedBy를 해당 회사 대표(CUSTOMER_REPRESENTATIVE)로 변경
-		if (companyId != null) {
-			Long currentCompanyId = (asTask.getRequestedBy() != null && asTask.getRequestedBy().getCompany() != null)
-					? asTask.getRequestedBy().getCompany().getId()
-					: null;
+	    // 가격
+	    int price = parsePriceOrZero(priceStr);
+	    asTask.setPrice(price);
 
-			if (currentCompanyId == null || !currentCompanyId.equals(companyId)) {
+	    // 1) 회사 변경 시 requestedBy를 해당 회사 대표(CUSTOMER_REPRESENTATIVE)로 변경
+	    if (companyId != null) {
+	        Long currentCompanyId = (asTask.getRequestedBy() != null && asTask.getRequestedBy().getCompany() != null)
+	                ? asTask.getRequestedBy().getCompany().getId()
+	                : null;
 
-				Company newCompany = companyRepository.findById(companyId)
-						.orElseThrow(() -> new IllegalArgumentException("유효하지 않은 대리점입니다."));
+	        if (currentCompanyId == null || !currentCompanyId.equals(companyId)) {
 
-				Member representative = memberRepository
-						.findFirstByCompanyIdAndRoleOrderByIdAsc(companyId, MemberRole.CUSTOMER_REPRESENTATIVE)
-						.orElseThrow(
-								() -> new IllegalArgumentException("해당 대리점에 대표(CUSTOMER_REPRESENTATIVE) 회원이 없습니다."));
+	            Company newCompany = companyRepository.findById(companyId)
+	                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 대리점입니다."));
 
-				// ✅ requestedBy 자체를 대표로 교체
-				asTask.setRequestedBy(representative);
-			}
-		}
+	            Member representative = memberRepository
+	                    .findFirstByCompanyIdAndRoleOrderByIdAsc(companyId, MemberRole.CUSTOMER_REPRESENTATIVE)
+	                    .orElseThrow(() -> new IllegalArgumentException("해당 대리점에 대표(CUSTOMER_REPRESENTATIVE) 회원이 없습니다."));
 
-		// 2) 주소 업데이트(daum.post에서 넘어온 값 반영)
-		asTask.setZipCode(normalize(zipCode));
-		asTask.setDoName(normalize(doName));
-		asTask.setSiName(normalize(siName));
-		asTask.setGuName(normalize(guName));
-		asTask.setRoadAddress(normalize(roadAddress));
-		asTask.setDetailAddress(normalize(detailAddress));
+	            // ✅ requestedBy 자체를 대표로 교체
+	            asTask.setRequestedBy(representative);
+	        }
+	    }
 
-		// 3) customerName/제품/연락처
-		asTask.setCustomerName(normalize(customerName));
-		asTask.setProductName(normalize(productName));
-		asTask.setProductSize(normalize(productSize));
-		asTask.setProductColor(normalize(productColor));
-		asTask.setProductOptions(normalize(productOptions));
-		asTask.setOnsiteContact(normalize(onsiteContact));
+	    // 2) 주소 업데이트
+	    asTask.setZipCode(normalize(zipCode));
+	    asTask.setDoName(normalize(doName));
+	    asTask.setSiName(normalize(siName));
+	    asTask.setGuName(normalize(guName));
+	    asTask.setRoadAddress(normalize(roadAddress));
+	    asTask.setDetailAddress(normalize(detailAddress));
 
-		// 4) subject - 2단계까지 선택된 값만 반영 (서버에서도 방어)
-		String normalizedSubject = normalize(subject);
-		if (isValidTwoDepthSubject(normalizedSubject)) {
-			asTask.setSubject(normalizedSubject);
-		}
-		// else: 1단계만 선택/이상한 값이면 기존 subject 유지
+	    // 3) customerName/제품/연락처
+	    asTask.setCustomerName(normalize(customerName));
+	    asTask.setProductName(normalize(productName));
+	    asTask.setProductSize(normalize(productSize));
+	    asTask.setProductColor(normalize(productColor));
+	    asTask.setProductOptions(normalize(productOptions));
+	    asTask.setOnsiteContact(normalize(onsiteContact));
 
-		// 5) 이미지 삭제(고객 요청 이미지 type=REQUEST만)
-		List<Long> deleteIds = parseIdCsv(deleteRequestImageIds);
-		if (!deleteIds.isEmpty()) {
-			for (Long imgId : deleteIds) {
-				AsImage img = asImageRepository.findById(imgId).orElse(null);
-				if (img == null)
-					continue;
+	    // 4) subject - 2단계까지 선택된 값만 반영
+	    String normalizedSubject = normalize(subject);
+	    if (isValidTwoDepthSubject(normalizedSubject)) {
+	        asTask.setSubject(normalizedSubject);
+	    }
 
-				// 소유/타입 검증
-				if (img.getAsTask() == null || !Objects.equals(img.getAsTask().getId(), asTask.getId()))
-					continue;
-				if (img.getType() == null || !"REQUEST".equalsIgnoreCase(img.getType()))
-					continue;
+	    // 5) 관리자메모
+	    asTask.setAdminMemo(normalize(adminMemo));
 
-				// 파일 삭제
-				deletePhysicalFileSafe(img.getPath());
+	    // 6) 이미지 삭제(고객 요청 이미지 type=REQUEST만)
+	    List<Long> deleteIds = parseIdCsv(deleteRequestImageIds);
+	    if (!deleteIds.isEmpty()) {
+	        for (Long imgId : deleteIds) {
+	            AsImage img = asImageRepository.findById(imgId).orElse(null);
+	            if (img == null) continue;
 
-				// DB 삭제
-				asImageRepository.delete(img);
-			}
-		}
+	            // 소유/타입 검증
+	            if (img.getAsTask() == null || !Objects.equals(img.getAsTask().getId(), asTask.getId())) continue;
+	            if (img.getType() == null || !"REQUEST".equalsIgnoreCase(img.getType())) continue;
 
-		// 6) 신규 이미지 추가(REQUEST)
-		if (newRequestImages != null && !newRequestImages.isEmpty()) {
-			saveNewRequestImages(asTask, newRequestImages);
-		}
+	            // 파일 삭제
+	            deletePhysicalFileSafe(img.getPath());
 
-		asTask.setUpdatedAt(LocalDateTime.now());
-		asTaskRepository.save(asTask);
+	            // DB 삭제
+	            asImageRepository.delete(img);
+	        }
+	    }
+
+	    // 7) 신규 이미지 추가(REQUEST)
+	    if (newRequestImages != null && !newRequestImages.isEmpty()) {
+	        saveNewRequestImages(asTask, newRequestImages);
+	    }
+
+	    asTask.setUpdatedAt(LocalDateTime.now());
+	    asTaskRepository.save(asTask);
 	}
 
 	private void saveNewRequestImages(AsTask asTask, List<MultipartFile> files) {

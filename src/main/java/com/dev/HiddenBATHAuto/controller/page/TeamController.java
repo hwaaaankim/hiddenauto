@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -89,136 +90,132 @@ public class TeamController {
 	private final DeliveryExcelService deliveryExcelService;
 
 	@GetMapping("/productionList")
-    public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
-                                      @RequestParam(required = false) Long productCategoryId,
-                                      @RequestParam(required = false, defaultValue = "preferred") String dateType,
+	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) Long productCategoryId,
+			@RequestParam(required = false, defaultValue = "preferred") String dateType,
 
-                                      // ✅ 변경: productionFilter -> statusFilter (OrderStatus 5개 + ALL)
-                                      @RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
+			// ✅ 변경: productionFilter -> statusFilter (OrderStatus 5개 + ALL)
+			@RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
 
-                                      @RequestParam(required = false, defaultValue = "10") int size,
-                                      @RequestParam(required = false, defaultValue = "0") int page,
-                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-                                      @RequestParam(required = false) String sortKey,
-                                      @RequestParam(required = false) String sortDir,
-                                      Model model) {
+			@RequestParam(required = false, defaultValue = "10") int size,
+			@RequestParam(required = false, defaultValue = "0") int page,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) String sortKey, @RequestParam(required = false) String sortDir,
+			Model model) {
 
-        Member member = principal.getMember();
+		Member member = principal.getMember();
 
-        if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
-            throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
-        }
+		if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+		}
 
-        Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
+		Long targetCategoryId = (productCategoryId != null) ? productCategoryId : member.getTeamCategory().getId();
 
-        LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-        LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+		LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+		LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
 
-        if (size != 10 && size != 30 && size != 50 && size != 100) size = 10;
-        if (page < 0) page = 0;
+		if (size != 10 && size != 30 && size != 50 && size != 100)
+			size = 10;
+		if (page < 0)
+			page = 0;
 
-        // ✅ statusFilter 파싱 (ALL이면 null로 처리)
-        String sf = (statusFilter == null || statusFilter.isBlank()) ? "CONFIRMED" : statusFilter.trim().toUpperCase();
-        OrderStatus statusEnum = null;
-        if (!"ALL".equals(sf)) {
-            try {
-                statusEnum = OrderStatus.valueOf(sf);
-            } catch (Exception e) {
-                // 잘못된 값이면 기본 CONFIRMED
-                statusEnum = OrderStatus.CONFIRMED;
-                sf = "CONFIRMED";
-            }
-        } else {
-            statusEnum = null; // ALL
-        }
+		// ✅ statusFilter 파싱 (ALL이면 null로 처리)
+		String sf = (statusFilter == null || statusFilter.isBlank()) ? "CONFIRMED" : statusFilter.trim().toUpperCase();
+		OrderStatus statusEnum = null;
+		if (!"ALL".equals(sf)) {
+			try {
+				statusEnum = OrderStatus.valueOf(sf);
+			} catch (Exception e) {
+				// 잘못된 값이면 기본 CONFIRMED
+				statusEnum = OrderStatus.CONFIRMED;
+				sf = "CONFIRMED";
+			}
+		} else {
+			statusEnum = null; // ALL
+		}
 
-        Pageable pageable = PageRequest.of(page, size, buildProductionSort(sortKey, sortDir, dateType));
+		Pageable pageable = PageRequest.of(page, size, buildProductionSort(sortKey, sortDir, dateType));
 
-        // ✅ (3) 상태 필터 반영 조회
-        Page<Order> orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
-                targetCategoryId,
-                dateType,
-                statusEnum,   // null이면 ALL
-                start,
-                end,
-                pageable
-        );
+		// ✅ (3) 상태 필터 반영 조회
+		Page<Order> orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(targetCategoryId, dateType,
+				statusEnum, // null이면 ALL
+				start, end, pageable);
 
-        // ✅ 하부장팀 제한(기존 로직 유지)
-        boolean isSubLeaderTeam = (member.getTeamCategory() != null
-                && "하부장".equals(member.getTeamCategory().getName()));
-        boolean canBulkComplete = true;
-        if (isSubLeaderTeam) {
-            canBulkComplete = member.getTeamCategory() != null
-                    && member.getTeamCategory().getId().equals(targetCategoryId);
-        }
+		// ✅ 하부장팀 제한(기존 로직 유지)
+		boolean isSubLeaderTeam = (member.getTeamCategory() != null
+				&& "하부장".equals(member.getTeamCategory().getName()));
+		boolean canBulkComplete = true;
+		if (isSubLeaderTeam) {
+			canBulkComplete = member.getTeamCategory() != null
+					&& member.getTeamCategory().getId().equals(targetCategoryId);
+		}
 
-        // ✅ 업체명 맵: Order -> Task -> Member -> Company -> companyName
-        Map<Long, String> orderCompanyNameMap = new HashMap<>();
-        for (Order o : orderPage.getContent()) {
-            String companyName = "-";
-            try {
-                if (o.getTask() != null && o.getTask().getRequestedBy() != null
-                        && o.getTask().getRequestedBy().getCompany() != null) {
+		// ✅ 업체명 맵: Order -> Task -> Member -> Company -> companyName
+		Map<Long, String> orderCompanyNameMap = new HashMap<>();
+		for (Order o : orderPage.getContent()) {
+			String companyName = "-";
+			try {
+				if (o.getTask() != null && o.getTask().getRequestedBy() != null
+						&& o.getTask().getRequestedBy().getCompany() != null) {
 
-                    String n = o.getTask().getRequestedBy().getCompany().getCompanyName();
-                    if (n != null && !n.isBlank()) companyName = n;
-                }
-            } catch (Exception ignore) {
-                companyName = "-";
-            }
-            orderCompanyNameMap.put(o.getId(), companyName);
-        }
+					String n = o.getTask().getRequestedBy().getCompany().getCompanyName();
+					if (n != null && !n.isBlank())
+						companyName = n;
+				}
+			} catch (Exception ignore) {
+				companyName = "-";
+			}
+			orderCompanyNameMap.put(o.getId(), companyName);
+		}
 
-        List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
+		List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
 
-        model.addAttribute("orders", orderPage.getContent());
-        model.addAttribute("page", orderPage);
+		model.addAttribute("orders", orderPage.getContent());
+		model.addAttribute("page", orderPage);
 
-        model.addAttribute("productCategoryId", targetCategoryId);
-        model.addAttribute("dateType", dateType);
+		model.addAttribute("productCategoryId", targetCategoryId);
+		model.addAttribute("dateType", dateType);
 
-        // ✅ 뷰 유지 파라미터 (statusFilter)
-        model.addAttribute("statusFilter", sf);
+		// ✅ 뷰 유지 파라미터 (statusFilter)
+		model.addAttribute("statusFilter", sf);
 
-        model.addAttribute("size", size);
-        model.addAttribute("startDate", startDate);
-        model.addAttribute("endDate", endDate);
-        model.addAttribute("productCategories", productCategories);
+		model.addAttribute("size", size);
+		model.addAttribute("startDate", startDate);
+		model.addAttribute("endDate", endDate);
+		model.addAttribute("productCategories", productCategories);
 
-        model.addAttribute("canBulkComplete", canBulkComplete);
-        model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
+		model.addAttribute("canBulkComplete", canBulkComplete);
+		model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
 
-        model.addAttribute("sortKey", sortKey);
-        model.addAttribute("sortDir", sortDir);
+		model.addAttribute("sortKey", sortKey);
+		model.addAttribute("sortDir", sortDir);
 
-        return "administration/team/production/productionList";
-    }
+		return "administration/team/production/productionList";
+	}
 
-    private Sort buildProductionSort(String sortKey, String sortDir, String dateType) {
-        if (sortKey == null || sortKey.isBlank()) {
-            return Sort.unsorted();
-        }
-        String dir = (sortDir == null || sortDir.isBlank()) ? "ASC" : sortDir.trim().toUpperCase();
-        Sort.Direction direction = "DESC".equals(dir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+	private Sort buildProductionSort(String sortKey, String sortDir, String dateType) {
+		if (sortKey == null || sortKey.isBlank()) {
+			return Sort.unsorted();
+		}
+		String dir = (sortDir == null || sortDir.isBlank()) ? "ASC" : sortDir.trim().toUpperCase();
+		Sort.Direction direction = "DESC".equals(dir) ? Sort.Direction.DESC : Sort.Direction.ASC;
 
-        if ("standard".equalsIgnoreCase(sortKey)) {
-            return Sort.by(direction, "standard").and(Sort.by(Sort.Direction.DESC, "id"));
-        }
+		if ("standard".equalsIgnoreCase(sortKey)) {
+			return Sort.by(direction, "standard").and(Sort.by(Sort.Direction.DESC, "id"));
+		}
 
-        if ("productName".equalsIgnoreCase(sortKey)) {
-            return Sort.by(direction, "orderItem.productName").and(Sort.by(Sort.Direction.DESC, "id"));
-        }
+		if ("productName".equalsIgnoreCase(sortKey)) {
+			return Sort.by(direction, "orderItem.productName").and(Sort.by(Sort.Direction.DESC, "id"));
+		}
 
-        if ("date".equalsIgnoreCase(sortKey)) {
-            String field = "created".equalsIgnoreCase(dateType) ? "createdAt" : "preferredDeliveryDate";
-            return Sort.by(direction, field).and(Sort.by(Sort.Direction.DESC, "id"));
-        }
+		if ("date".equalsIgnoreCase(sortKey)) {
+			String field = "created".equalsIgnoreCase(dateType) ? "createdAt" : "preferredDeliveryDate";
+			return Sort.by(direction, field).and(Sort.by(Sort.Direction.DESC, "id"));
+		}
 
-        return Sort.unsorted();
-    }
-
+		return Sort.unsorted();
+	}
 
 	@GetMapping("/productionDetail/{orderId}")
 	public String getProductionDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,
@@ -288,234 +285,213 @@ public class TeamController {
 	}
 
 	@GetMapping("/deliveryList")
-    public String getDeliveryOrders(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
-            @RequestParam(required = false) OrderStatus status,
-            Model model
-    ) {
-        Member member = principal.getMember();
+	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
+			@RequestParam(required = false) OrderStatus status, Model model) {
+		Member member = principal.getMember();
 
-        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-        }
+		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+		}
 
-        if (preferredDate == null) {
-            preferredDate = LocalDate.now().plusDays(1);
-        }
+		if (preferredDate == null) {
+			preferredDate = LocalDate.now().plusDays(1);
+		}
 
-        List<OrderStatus> statuses = (status != null)
-                ? List.of(status)
-                : List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
+		List<OrderStatus> statuses = (status != null) ? List.of(status)
+				: List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
 
-        List<DeliveryOrderIndex> all = deliveryOrderIndexRepository
-                .findListByHandlerAndDateAndStatusIn(member.getId(), preferredDate, statuses);
+		List<DeliveryOrderIndex> all = deliveryOrderIndexRepository.findListByHandlerAndDateAndStatusIn(member.getId(),
+				preferredDate, statuses);
 
-        List<DeliveryOrderIndex> pendingOrders = all.stream()
-                .filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
-                .collect(Collectors.toList());
+		List<DeliveryOrderIndex> pendingOrders = all.stream()
+				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
+				.collect(Collectors.toList());
 
-        List<DeliveryOrderIndex> doneOrders = all.stream()
-                .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
-                .collect(Collectors.toList());
+		List<DeliveryOrderIndex> doneOrders = all.stream()
+				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+				.collect(Collectors.toList());
 
-        // ✅ 여기서 optionJson 파싱해서 formattedOptionText 채우기 (요청하신 기존 로직 그대로 사용)
-        enrichOrderItems(pendingOrders);
-        enrichOrderItems(doneOrders);
+		// ✅ 여기서 optionJson 파싱해서 formattedOptionText 채우기 (요청하신 기존 로직 그대로 사용)
+		enrichOrderItems(pendingOrders);
+		enrichOrderItems(doneOrders);
 
-        model.addAttribute("deliveryHandlerId", member.getId());
-        model.addAttribute("preferredDate", preferredDate);
+		model.addAttribute("deliveryHandlerId", member.getId());
+		model.addAttribute("preferredDate", preferredDate);
 
-        model.addAttribute("pendingOrders", pendingOrders);
-        model.addAttribute("doneOrders", doneOrders);
+		model.addAttribute("pendingOrders", pendingOrders);
+		model.addAttribute("doneOrders", doneOrders);
 
-        model.addAttribute("status", status);
-        model.addAttribute("availableStatuses",
-                List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
+		model.addAttribute("status", status);
+		model.addAttribute("availableStatuses",
+				List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
 
-        return "administration/team/delivery/deliveryList";
-    }
+		return "administration/team/delivery/deliveryList";
+	}
 
-    // ✅ 기존에 쓰시던 enrich 코드 그대로
-    private void enrichOrderItems(List<DeliveryOrderIndex> list) {
-        if (list == null) return;
-        for (DeliveryOrderIndex doi : list) {
-            if (doi == null || doi.getOrder() == null) continue;
-            OrderItem item = doi.getOrder().getOrderItem();
-            if (item == null) continue;
+	// ✅ 기존에 쓰시던 enrich 코드 그대로
+	private void enrichOrderItems(List<DeliveryOrderIndex> list) {
+		if (list == null)
+			return;
+		for (DeliveryOrderIndex doi : list) {
+			if (doi == null || doi.getOrder() == null)
+				continue;
+			OrderItem item = doi.getOrder().getOrderItem();
+			if (item == null)
+				continue;
 
-            OrderItemOptionJsonUtil.enrich(item);
-        }
-    }
+			OrderItemOptionJsonUtil.enrich(item);
+		}
+	}
 
-    @PostMapping("/updateOrderIndex")
-    @ResponseBody
-    public ResponseEntity<?> updateOrderIndex(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestBody DeliveryOrderIndexUpdateRequest request
-    ) {
-        Member member = principal.getMember();
+	@PostMapping("/updateOrderIndex")
+	@ResponseBody
+	public ResponseEntity<?> updateOrderIndex(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestBody DeliveryOrderIndexUpdateRequest request) {
+		Member member = principal.getMember();
 
-        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-        }
+		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+		}
 
-        if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-            return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
-        }
+		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+			return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+		}
 
-        // ✅ 기존 저장 로직(완료 고정 guard 포함) 그대로 사용
-        deliveryOrderIndexService.updateIndexesWithDoneGuard(request);
-        return ResponseEntity.ok().build();
-    }
+		// ✅ 기존 저장 로직(완료 고정 guard 포함) 그대로 사용
+		deliveryOrderIndexService.updateIndexesWithDoneGuard(request);
+		return ResponseEntity.ok().build();
+	}
 
-    /**
-     * ✅ 업체별정렬 API (pending DOM 순서 기반 stable grouping)
-     * - DB 저장은 '순서 저장' 버튼(updateOrderIndex)에서 수행하는 구조
-     */
-    @PostMapping("/reorderByTask")
-    @ResponseBody
-    public ResponseEntity<?> reorderByTask(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestBody DeliveryReorderByTaskRequest request
-    ) {
-        Member member = principal.getMember();
+	/**
+	 * ✅ 업체별정렬 API (pending DOM 순서 기반 stable grouping) - DB 저장은 '순서 저장'
+	 * 버튼(updateOrderIndex)에서 수행하는 구조
+	 */
+	@PostMapping("/reorderByTask")
+	@ResponseBody
+	public ResponseEntity<?> reorderByTask(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestBody DeliveryReorderByTaskRequest request) {
+		Member member = principal.getMember();
 
-        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-        }
+		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+		}
 
-        if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-            return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
-        }
+		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+			return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+		}
 
-        if (request.getDeliveryDate() == null) {
-            return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
-        }
+		if (request.getDeliveryDate() == null) {
+			return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
+		}
 
-        if (request.getPendingOrderIds() == null || request.getPendingOrderIds().isEmpty()) {
-            return ResponseEntity.badRequest().body("잘못된 요청입니다.(정렬 대상 없음)");
-        }
+		if (request.getPendingOrderIds() == null || request.getPendingOrderIds().isEmpty()) {
+			return ResponseEntity.badRequest().body("잘못된 요청입니다.(정렬 대상 없음)");
+		}
 
-        List<Long> reordered = deliveryOrderIndexService.reorderPendingOrderIdsByTask(
-                member.getId(),
-                request.getDeliveryDate(),
-                request.getPendingOrderIds()
-        );
+		List<Long> reordered = deliveryOrderIndexService.reorderPendingOrderIdsByTask(member.getId(),
+				request.getDeliveryDate(), request.getPendingOrderIds());
 
-        return ResponseEntity.ok(new DeliveryReorderByTaskResponse(reordered));
-    }
+		return ResponseEntity.ok(new DeliveryReorderByTaskResponse(reordered));
+	}
 
-    /**
-     * ✅ 기존 배송완료 컨트롤러: fetch(multipart)에서도 자연스럽게 동작하도록 개선
-     * - 기존 redirect 유지
-     * - 단, fetch 요청(X-Requested-With=fetch)인 경우 JSON 응답으로 처리
-     */
-    @PostMapping("/deliveryStatus/{orderId}")
-    public Object updateDeliveryStatusAndUploadImages(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @PathVariable Long orderId,
-            @RequestParam(value = "status", required = false) String status,
-            @RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
-            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes,
-            HttpServletRequest httpServletRequest
-    ) {
-        try {
-            Member member = principal.getMember();
-            if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-                throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-            }
+	/**
+	 * ✅ 기존 배송완료 컨트롤러: fetch(multipart)에서도 자연스럽게 동작하도록 개선 - 기존 redirect 유지 - 단,
+	 * fetch 요청(X-Requested-With=fetch)인 경우 JSON 응답으로 처리
+	 */
+	@PostMapping("/deliveryStatus/{orderId}")
+	public Object updateDeliveryStatusAndUploadImages(@AuthenticationPrincipal PrincipalDetails principal,
+			@PathVariable Long orderId, @RequestParam(value = "status", required = false) String status,
+			@RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
+			org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes,
+			HttpServletRequest httpServletRequest) {
+		try {
+			Member member = principal.getMember();
+			if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+				throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+			}
 
-            Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+			Order order = orderRepository.findById(orderId)
+					.orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
 
-            // CONFIRMED 상태 변경 차단(기존 요구)
-            if (order.getStatus() == OrderStatus.CONFIRMED) {
-                throw new IllegalStateException("관리자승인(생산 전) 상태에서는 배송완료 처리 및 증빙 업로드가 불가능합니다.");
-            }
+			// CONFIRMED 상태 변경 차단(기존 요구)
+			if (order.getStatus() == OrderStatus.CONFIRMED) {
+				throw new IllegalStateException("관리자승인(생산 전) 상태에서는 배송완료 처리 및 증빙 업로드가 불가능합니다.");
+			}
 
-            orderService.updateDeliveryStatusAndImages(orderId, status, files);
+			orderService.updateDeliveryStatusAndImages(orderId, status, files);
 
-            // fetch 요청이면 JSON 응답
-            String xrw = httpServletRequest.getHeader("X-Requested-With");
-            if ("fetch".equalsIgnoreCase(xrw)) {
-                java.util.Map<String, Object> body = new java.util.HashMap<>();
-                body.put("success", true);
-                body.put("orderId", orderId);
-                body.put("status", status);
-                return ResponseEntity.ok(body);
-            }
+			// fetch 요청이면 JSON 응답
+			String xrw = httpServletRequest.getHeader("X-Requested-With");
+			if ("fetch".equalsIgnoreCase(xrw)) {
+				java.util.Map<String, Object> body = new java.util.HashMap<>();
+				body.put("success", true);
+				body.put("orderId", orderId);
+				body.put("status", status);
+				return ResponseEntity.ok(body);
+			}
 
-            redirectAttributes.addFlashAttribute("successMessage", "배송 상태가 변경되었습니다.");
-        } catch (Exception e) {
-            e.printStackTrace();
+			redirectAttributes.addFlashAttribute("successMessage", "배송 상태가 변경되었습니다.");
+		} catch (Exception e) {
+			e.printStackTrace();
 
-            String xrw = httpServletRequest.getHeader("X-Requested-With");
-            if ("fetch".equalsIgnoreCase(xrw)) {
-                return ResponseEntity.badRequest().body("배송 상태 변경 실패: " + e.getMessage());
-            }
+			String xrw = httpServletRequest.getHeader("X-Requested-With");
+			if ("fetch".equalsIgnoreCase(xrw)) {
+				return ResponseEntity.badRequest().body("배송 상태 변경 실패: " + e.getMessage());
+			}
 
-            redirectAttributes.addFlashAttribute("errorMessage", "배송 상태 변경 실패: " + e.getMessage());
-        }
+			redirectAttributes.addFlashAttribute("errorMessage", "배송 상태 변경 실패: " + e.getMessage());
+		}
 
-        return "redirect:/team/deliveryDetail/" + orderId;
-    }
-    
+		return "redirect:/team/deliveryDetail/" + orderId;
+	}
+
 	@GetMapping("/deliveryOrderSummary/{orderId}")
 	@ResponseBody
-	public ResponseEntity<?> getDeliveryOrderSummary(
-	        @AuthenticationPrincipal PrincipalDetails principal,
-	        @PathVariable Long orderId
-	) {
-	    Member member = principal.getMember();
+	public ResponseEntity<?> getDeliveryOrderSummary(@AuthenticationPrincipal PrincipalDetails principal,
+			@PathVariable Long orderId) {
+		Member member = principal.getMember();
 
-	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-	    }
+		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+		}
 
-	    DeliveryOrderSummaryRes res = deliveryOrderSummaryService.getSummary(member.getId(), orderId);
-	    return ResponseEntity.ok(res);
+		DeliveryOrderSummaryRes res = deliveryOrderSummaryService.getSummary(member.getId(), orderId);
+		return ResponseEntity.ok(res);
 	}
-	
+
 	/**
 	 * ✅ 엑셀 출력 (현재 DOM 순서 그대로 전송받아 A4 맞춤 XLSX 생성)
 	 */
 	@PostMapping("/deliveryExcel")
-	public ResponseEntity<?> downloadDeliveryExcel(
-	        @AuthenticationPrincipal PrincipalDetails principal,
-	        @RequestBody DeliveryExcelRequest request
-	) {
-	    Member member = principal.getMember();
+	public ResponseEntity<?> downloadDeliveryExcel(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestBody DeliveryExcelRequest request) {
+		Member member = principal.getMember();
 
-	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-	    }
+		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+		}
 
-	    if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
-	    }
-	    if (request.getDeliveryDate() == null) {
-	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
-	    }
-	    if (request.getOrderedOrderIds() == null || request.getOrderedOrderIds().isEmpty()) {
-	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(출력 대상 없음)");
-	    }
+		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+			return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+		}
+		if (request.getDeliveryDate() == null) {
+			return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
+		}
+		if (request.getOrderedOrderIds() == null || request.getOrderedOrderIds().isEmpty()) {
+			return ResponseEntity.badRequest().body("잘못된 요청입니다.(출력 대상 없음)");
+		}
 
-	    byte[] bytes = deliveryExcelService.buildExcel(
-	            member.getId(),
-	            request.getDeliveryDate(),
-	            request.getOrderedOrderIds()
-	    );
+		byte[] bytes = deliveryExcelService.buildExcel(member.getId(), request.getDeliveryDate(),
+				request.getOrderedOrderIds());
 
-	    String filename = "delivery_" + request.getDeliveryDate().toString() + ".xlsx";
+		String filename = "delivery_" + request.getDeliveryDate().toString() + ".xlsx";
 
-	    return ResponseEntity.ok()
-	            .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	            .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
-	            .body(bytes);
+		return ResponseEntity.ok()
+				.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+				.header("Content-Disposition", "attachment; filename=\"" + filename + "\"").body(bytes);
 	}
 
-	
 	@GetMapping("/deliveryDetail/{id}")
 	public String getDeliveryDetailPage(@PathVariable Long id, Model model) {
 		// 주문 조회
@@ -590,7 +566,7 @@ public class TeamController {
 		model.addAttribute("asTask", asTask);
 		model.addAttribute("asStatuses", AsStatus.values());
 		model.addAttribute("asStatusLabels", AsStatus.labelMap());
-		
+
 		return "administration/team/as/asDetail";
 	}
 
@@ -616,7 +592,6 @@ public class TeamController {
 	public AsTaskModalDto asDetailModal(@PathVariable Long id,
 	                                   @AuthenticationPrincipal PrincipalDetails principal) {
 
-	    // ✅ 권한 체크(AS팀만) - asList와 동일 정책
 	    Member member = principal.getMember();
 	    if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
 	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
@@ -627,7 +602,6 @@ public class TeamController {
 	    AsTaskModalDto dto = new AsTaskModalDto();
 	    dto.setId(asTask.getId());
 
-	    // 회사/신청자
 	    String companyName = "-";
 	    String requesterName = "-";
 	    if (asTask.getRequestedBy() != null) {
@@ -639,7 +613,6 @@ public class TeamController {
 	    dto.setCompanyName(companyName);
 	    dto.setRequesterName(requesterName);
 
-	    // 주소
 	    String fullAddress = String.format("(%s) %s %s %s %s %s",
 	            safe(asTask.getZipCode()),
 	            safe(asTask.getDoName()),
@@ -655,9 +628,17 @@ public class TeamController {
 	    dto.setProductSize(asTask.getProductSize());
 	    dto.setProductColor(asTask.getProductColor());
 	    dto.setOnsiteContact(asTask.getOnsiteContact());
-	    dto.setRequestedAt(asTask.getRequestedAt());
 
-	    // ✅ RESULT 이미지만 내려줌
+	    // ✅ 날짜 문자열로 가공해서 내려주기
+	    dto.setRequestedAt(
+	            asTask.getRequestedAt() != null
+	                    ? asTask.getRequestedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+	                    : "-"
+	    );
+
+	    // ✅ 관리자 메모
+	    dto.setAdminMemo(asTask.getAdminMemoSafe());
+
 	    List<AsTaskModalDto.ImageDto> resultImages =
 	            (asTask.getResultImages() == null ? Collections.<AsImage>emptyList() : asTask.getResultImages())
 	            .stream()
@@ -676,9 +657,9 @@ public class TeamController {
 	}
 
 	private String safe(String v) {
-	    return v == null ? "" : v;
+		return v == null ? "" : v;
 	}
-	
+
 	@DeleteMapping("/asImageDelete/{id}")
 	@ResponseBody
 	public ResponseEntity<Void> deleteAsImage(@PathVariable Long id) {
@@ -703,39 +684,36 @@ public class TeamController {
 	}
 
 	@PostMapping("/productionStickerPrint")
-    public String productionStickerPrint(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam("orderIds") List<Long> orderIds,
-            Model model
-    ) {
-        Member member = principal.getMember();
+	public String productionStickerPrint(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam("orderIds") List<Long> orderIds, Model model) {
+		Member member = principal.getMember();
 
-        if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
-            throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
-        }
+		if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+		}
 
-        if (orderIds == null || orderIds.isEmpty()) {
-            model.addAttribute("pages", List.of());
-            model.addAttribute("totalCount", 0);
-            model.addAttribute("today", LocalDate.now()); // ✅ 추가
-            return "administration/team/production/productionStickerPrint";
-        }
+		if (orderIds == null || orderIds.isEmpty()) {
+			model.addAttribute("pages", List.of());
+			model.addAttribute("totalCount", 0);
+			model.addAttribute("today", LocalDate.now()); // ✅ 추가
+			return "administration/team/production/productionStickerPrint";
+		}
 
-        boolean isSubLeaderTeam = (member.getTeamCategory() != null
-                && "하부장".equals(member.getTeamCategory().getName()));
-        Long allowedCategoryId = isSubLeaderTeam ? member.getTeamCategory().getId() : null;
+		boolean isSubLeaderTeam = (member.getTeamCategory() != null
+				&& "하부장".equals(member.getTeamCategory().getName()));
+		Long allowedCategoryId = isSubLeaderTeam ? member.getTeamCategory().getId() : null;
 
-        List<StickerPrintDto> items = teamTaskService.getStickerPrintItems(orderIds, allowedCategoryId);
+		List<StickerPrintDto> items = teamTaskService.getStickerPrintItems(orderIds, allowedCategoryId);
 
-        List<List<StickerPrintDto>> pages = new ArrayList<>();
-        for (int i = 0; i < items.size(); i += 4) {
-            pages.add(items.subList(i, Math.min(i + 4, items.size())));
-        }
+		List<List<StickerPrintDto>> pages = new ArrayList<>();
+		for (int i = 0; i < items.size(); i += 4) {
+			pages.add(items.subList(i, Math.min(i + 4, items.size())));
+		}
 
-        model.addAttribute("pages", pages);
-        model.addAttribute("totalCount", items.size());
-        model.addAttribute("today", LocalDate.now()); // ✅ 추가
+		model.addAttribute("pages", pages);
+		model.addAttribute("totalCount", items.size());
+		model.addAttribute("today", LocalDate.now()); // ✅ 추가
 
-        return "administration/team/production/productionStickerPrint";
-    }
+		return "administration/team/production/productionStickerPrint";
+	}
 }

@@ -52,6 +52,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	const productSizeEl = document.getElementById("as-management-third-productSize");
 	const productColorEl = document.getElementById("as-management-third-productColor");
 	const productOptionsEl = document.getElementById("as-management-third-productOptions");
+	const adminMemoEl = document.getElementById("as-management-third-adminMemo");
 
 	const subjectInputEl = document.getElementById("as-management-third-subjectInput");
 	const subjectCategoryEl = document.getElementById("as-management-third-subjectCategory");
@@ -89,6 +90,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		productSize: (productSizeEl?.value || "").trim(),
 		productColor: (productColorEl?.value || "").trim(),
 		productOptions: (productOptionsEl?.value || "").trim(),
+		adminMemo: (adminMemoEl?.value || "").trim(),
 
 		subject: (subjectInputEl?.value || "").trim(),
 
@@ -120,7 +122,6 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	function computeDirty() {
-		// 기본 필드 비교
 		const now = {
 			companyId: getV(companyIdEl),
 			zipCode: getV(zipCodeEl),
@@ -136,6 +137,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			productSize: getV(productSizeEl),
 			productColor: getV(productColorEl),
 			productOptions: getV(productOptionsEl),
+			adminMemo: getV(adminMemoEl),
 
 			subject: getV(subjectInputEl),
 
@@ -152,14 +154,12 @@ document.addEventListener("DOMContentLoaded", function() {
 			}
 		}
 
-		// 이미지 변경(삭제/추가)
 		if (!dirty && deletedRequestImageIds.length > 0) dirty = true;
 		if (!dirty && newImagesInput && newImagesInput.files && newImagesInput.files.length > 0) dirty = true;
 
 		setDirty(dirty);
 	}
 
-	// 초기 상태
 	setDirty(false);
 
 	// ---------------------------------------------------------
@@ -280,10 +280,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			if (companyNameDisplay) companyNameDisplay.value = companyName || "-";
 			if (requestedByNameDisplay) requestedByNameDisplay.value = repName || "-";
 
-			// 검색 닫기
 			toggleCompanySearch(false);
-
-			// 변경감지
 			computeDirty();
 		});
 	}
@@ -301,7 +298,6 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	function openAddressModal() {
-		// 현재 값 복사
 		if (modalZip) modalZip.value = getV(zipCodeEl);
 		if (modalDo) modalDo.value = getV(doNameEl);
 		if (modalSi) modalSi.value = getV(siNameEl);
@@ -356,7 +352,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	if (addressConfirmBtn) {
 		addressConfirmBtn.addEventListener("click", function() {
-			// 모달 값 -> 본문 반영
 			if (zipCodeEl) zipCodeEl.value = getV(modalZip);
 			if (doNameEl) doNameEl.value = getV(modalDo);
 			if (siNameEl) siNameEl.value = getV(modalSi);
@@ -364,10 +359,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			if (roadAddressEl) roadAddressEl.value = getV(modalRoad);
 			if (detailAddressEl) detailAddressEl.value = getV(modalDetail);
 
-			// 닫기
 			if (addressModal) addressModal.hide();
-
-			// 변경감지
 			computeDirty();
 		});
 	}
@@ -418,12 +410,10 @@ document.addEventListener("DOMContentLoaded", function() {
 		subjectSymptomEl.disabled = false;
 	}
 
-	// 초기 subject에서 category/symptom 미리 세팅(가능하면)
 	function initSubjectSelectFromCurrent() {
 		const cur = getV(subjectInputEl);
 		if (!cur || !subjectCategoryEl || !subjectSymptomEl) return;
 
-		// "카테고리 - 증상" 형태만 처리
 		const parts = cur.split(" - ");
 		if (parts.length !== 2) return;
 
@@ -431,11 +421,9 @@ document.addEventListener("DOMContentLoaded", function() {
 		const symptom = parts[1].trim();
 		if (!category || !symptom) return;
 
-		// category set
 		subjectCategoryEl.value = category;
 		fillSymptomSelect(category);
 
-		// symptom match by textContent/value
 		const targetValue = `${category} - ${symptom}`;
 		subjectSymptomEl.value = targetValue;
 	}
@@ -447,24 +435,19 @@ document.addEventListener("DOMContentLoaded", function() {
 		subjectCategoryEl.addEventListener("change", function() {
 			const category = subjectCategoryEl.value;
 			fillSymptomSelect(category);
-
-			// ✅ 1단계만 변경 시 subject는 변경하지 않음 (요구사항)
-			// 변경감지도 하지 않음. (subjectInput이 안 바뀌므로 computeDirty 결과에도 영향 없음)
 		});
 
 		subjectSymptomEl.addEventListener("change", function() {
 			const v = getV(subjectSymptomEl);
-			if (!v) return; // ✅ 2단계가 선택되지 않으면 변경하지 않음 (요구사항)
+			if (!v) return;
 
-			// ✅ 2단계까지 선택되면 subject에 반영
 			if (subjectInputEl) subjectInputEl.value = v;
-
 			computeDirty();
 		});
 	}
 
 	// ---------------------------------------------------------
-	// Phone formatting (onsiteContact) - 기존 등록 코드 스타일 반영
+	// Phone formatting (onsiteContact)
 	// ---------------------------------------------------------
 	function onlyDigits(v) {
 		return String(v || "").replace(/\D/g, "");
@@ -521,7 +504,6 @@ document.addEventListener("DOMContentLoaded", function() {
 			const id = String(cardCol.getAttribute("data-image-id") || "").trim();
 			if (!id) return;
 
-			// UI에서 제거 + 삭제 목록에 추가
 			deletedRequestImageIds.push(Number(id));
 			syncDeletedImageIds();
 
@@ -595,7 +577,6 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 	}
 
-	// 초기 프리뷰
 	renderPreview();
 
 	// ---------------------------------------------------------
@@ -605,6 +586,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		companyIdEl,
 		zipCodeEl, doNameEl, siNameEl, guNameEl, roadAddressEl, detailAddressEl,
 		customerNameEl, onsiteContactEl, productNameEl, productSizeEl, productColorEl, productOptionsEl,
+		adminMemoEl,
 		subjectInputEl,
 		priceEl, statusEl, assignedHandlerEl
 	];
@@ -619,13 +601,11 @@ document.addEventListener("DOMContentLoaded", function() {
 	// Submit validation
 	// ---------------------------------------------------------
 	form.addEventListener("submit", function(e) {
-		// 변경사항 없으면 막기
 		if (saveBtn && saveBtn.disabled) {
 			e.preventDefault();
 			return;
 		}
 
-		// 담당자/상태 필수
 		if (assignedHandlerEl && !getV(assignedHandlerEl)) {
 			e.preventDefault();
 			alert("담당자를 선택해 주세요.");
@@ -640,7 +620,6 @@ document.addEventListener("DOMContentLoaded", function() {
 			return;
 		}
 
-		// 연락처 유효성(입력했을 때만 검사)
 		if (onsiteContactEl) {
 			const digits = onlyDigits(onsiteContactEl.value);
 			if (digits && !isValidPhoneByDigits(digits)) {
@@ -654,7 +633,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	});
 
 	// ---------------------------------------------------------
-	// Delete (schedule + images + task)
+	// Delete
 	// ---------------------------------------------------------
 	if (deleteBtn && deleteForm) {
 		deleteBtn.addEventListener("click", function() {

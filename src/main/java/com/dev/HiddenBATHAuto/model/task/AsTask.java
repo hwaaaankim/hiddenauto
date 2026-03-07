@@ -58,6 +58,9 @@ public class AsTask {
 
     private String asComment;
 
+    /** ✅ 관리자 내부 메모 */
+    private String adminMemo;
+
     // 신규 필드 추가
     private String productName;
     private String productSize;
@@ -82,11 +85,11 @@ public class AsTask {
     private LocalDateTime updatedAt;
     private LocalDateTime asProcessDate;
 
-    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "asTask", cascade = jakarta.persistence.CascadeType.ALL)
     private List<AsHistory> historyLogs;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "asTask", cascade = jakarta.persistence.CascadeType.ALL)
     private List<AsImage> images; // 모든 이미지 (type 구분 포함)
 
     /** type = "REQUEST" 인 이미지만 반환 */
@@ -122,6 +125,13 @@ public class AsTask {
     public String getCustomerNameSafe() {
         if (customerName == null) return "-";
         String s = customerName.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    /** ✅ 관리자메모 안전표시(빈값/NULL이면 '-') */
+    public String getAdminMemoSafe() {
+        if (adminMemo == null) return "-";
+        String s = adminMemo.trim();
         return s.isEmpty() ? "-" : s;
     }
 

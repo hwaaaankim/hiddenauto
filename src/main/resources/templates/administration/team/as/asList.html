@@ -143,52 +143,62 @@
 											<thead class="as-list-added-thead">
 												<tr>
 													<!-- ✅ 모바일 숨김: ID -->
-													<th class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
+													<th
+														class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														ID</th>
 
 													<!-- ✅ 모바일 표시 -->
-													<th class="as-list-added-th as-list-added-col-status asList-second-col-status">
+													<th
+														class="as-list-added-th as-list-added-col-status asList-second-col-status">
 														상태</th>
 
 													<!-- ✅ 변경: 신청자 -> 신청매장 -->
-													<th class="as-list-added-th as-list-added-col-requester asList-second-col-requester">
+													<th
+														class="as-list-added-th as-list-added-col-requester asList-second-col-requester">
 														신청매장</th>
 
 													<!-- ✅ 신규: 고객 성함 -->
-													<th class="as-list-added-th as-list-added-col-customerName asList-second-col-customerName">
+													<th
+														class="as-list-added-th as-list-added-col-customerName asList-second-col-customerName">
 														고객 성함</th>
 
-													<th class="as-list-added-th as-list-added-col-address asList-second-col-address">
+													<th
+														class="as-list-added-th as-list-added-col-address asList-second-col-address">
 														주소</th>
 
 													<!-- ✅ 모바일 숨김: 현장연락처/신청일/처리일 -->
-													<th class="as-list-added-th as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
+													<th
+														class="as-list-added-th as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														현장연락처</th>
-													<th class="as-list-added-th as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
+													<th
+														class="as-list-added-th as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														신청일</th>
-													<th class="as-list-added-th as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
+													<th
+														class="as-list-added-th as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														처리일</th>
 
 													<!-- ✅ 모바일/PC 공용(비고) -->
-													<th class="as-list-added-th as-list-added-col-actions text-center asList-second-col-actions">
+													<th
+														class="as-list-added-th as-list-added-col-actions text-center asList-second-col-actions">
 														비고</th>
 												</tr>
 											</thead>
 
 											<tbody class="as-list-added-tbody">
 												<tr th:each="task : ${asPage.content}"
-													class="as-list-added-tr asList-second-row-click"
-													th:attr="data-href=@{'/team/asDetail/' + ${task.id}},
+													class="as-list-added-tr asList-second-row-click" th:attr="data-href=@{'/team/asDetail/' + ${task.id}},
                                                              data-task-id=${task.id},
                                                              data-onsite=${task.onsiteContact}">
 
 													<!-- ✅ 모바일 숨김: ID -->
-													<td class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
+													<td
+														class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														<span class="as-list-added-id" th:text="${task.id}">1</span>
 													</td>
 
 													<!-- 상태 (모바일 표시) -->
-													<td class="as-list-added-td as-list-added-col-status asList-second-col-status">
+													<td
+														class="as-list-added-td as-list-added-col-status asList-second-col-status">
 														<span class="badge as-list-added-status-badge" th:classappend="${
                                                               task.status?.name() == 'REQUESTED' ? ' as-list-added-badge-requested' :
                                                               task.status?.name() == 'IN_PROGRESS' ? ' as-list-added-badge-progress' :
@@ -201,19 +211,22 @@
 													</td>
 
 													<!-- ✅ 변경: 신청매장(Company.companyName) -->
-													<td class="as-list-added-td as-list-added-col-requester asList-second-col-requester">
+													<td
+														class="as-list-added-td as-list-added-col-requester asList-second-col-requester">
 														<span class="as-list-added-requester"
 															th:text="${task.requestedCompanyNameSafe}">-</span>
 													</td>
 
 													<!-- ✅ 신규: 고객 성함 -->
-													<td class="as-list-added-td as-list-added-col-customerName asList-second-col-customerName">
+													<td
+														class="as-list-added-td as-list-added-col-customerName asList-second-col-customerName">
 														<span class="as-list-added-customerName"
 															th:text="${task.customerNameSafe}">-</span>
 													</td>
 
 													<!-- 주소 (모바일 표시) -->
-													<td class="as-list-added-td as-list-added-col-address asList-second-col-address">
+													<td
+														class="as-list-added-td as-list-added-col-address asList-second-col-address">
 														<div class="as-list-added-address"
 															th:text="${task.roadAddress + ' ' + task.detailAddress}">
 															주소
@@ -221,7 +234,8 @@
 													</td>
 
 													<!-- ✅ 모바일 숨김: 현장연락처 -->
-													<td class="as-list-added-td as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
+													<td
+														class="as-list-added-td as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														<div class="asList-second-onsiteContact text-truncate"
 															th:text="${task.onsiteContact != null && !#strings.isEmpty(task.onsiteContact) ? task.onsiteContact : '-'}">
 															-
@@ -229,20 +243,24 @@
 													</td>
 
 													<!-- ✅ 모바일 숨김: 신청일 -->
-													<td class="as-list-added-td as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
+													<td
+														class="as-list-added-td as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														<span class="as-list-added-date"
 															th:text="${#temporals.format(task.requestedAt, 'yyyy-MM-dd')}">2026-01-01</span>
 													</td>
 
 													<!-- ✅ 모바일 숨김: 처리일 -->
-													<td class="as-list-added-td as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
+													<td
+														class="as-list-added-td as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														<span class="as-list-added-date"
 															th:text="${task.asProcessDate != null ? #temporals.format(task.asProcessDate, 'yyyy-MM-dd') : '-'}">-</span>
 													</td>
 
 													<!-- ✅ 비고(모바일/PC 공용) : 모바일에서만 전화 버튼 노출 -->
-													<td class="as-list-added-td as-list-added-col-actions text-center asList-second-col-actions">
-														<div class="asList-second-actions d-inline-flex gap-2 align-items-center justify-content-end">
+													<td
+														class="as-list-added-td as-list-added-col-actions text-center asList-second-col-actions">
+														<div
+															class="asList-second-actions d-inline-flex gap-2 align-items-center justify-content-end">
 
 															<!-- ✅ 전화 버튼: 모바일에서만 노출(d-lg-none 유지) -->
 															<a class="btn btn-sm btn-success asList-second-btn-call d-inline-flex d-lg-none"
@@ -265,8 +283,7 @@
 																class="btn btn-sm btn-primary asList-second-btn-open-complete"
 																th:attr="data-task-id=${task.id},
 												                 data-status=${task.status != null ? task.status.name() : ''},
-												                 data-stop-row='1'"
-																th:disabled="${task.status == null || task.status.name() != 'IN_PROGRESS'}">
+												                 data-stop-row='1'" th:disabled="${task.status == null || task.status.name() != 'IN_PROGRESS'}">
 																완료
 															</button>
 														</div>
@@ -411,6 +428,13 @@
 								<div class="p-3 border rounded asList-second-box">
 									<div class="fw-semibold mb-1">AS 사유</div>
 									<div id="asList-second-field-reason" class="text-muted">-</div>
+								</div>
+							</div>
+
+							<div class="col-12">
+								<div class="p-3 border rounded asList-second-box">
+									<div class="fw-semibold mb-1">관리자 메모</div>
+									<div id="asList-second-field-adminMemo" class="text-muted">-</div>
 								</div>
 							</div>
 
