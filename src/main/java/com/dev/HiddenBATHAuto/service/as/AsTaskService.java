@@ -6,9 +6,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,12 +25,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.as.AsTaskCardDto;
 import com.dev.HiddenBATHAuto.dto.as.CompanySearchItemDto;
+import com.dev.HiddenBATHAuto.dto.as.CustomerAsUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.as.TeamAsDetailModalResponse;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.District;
@@ -70,14 +76,237 @@ public class AsTaskService {
 	private final CityRepository cityRepository;
 
 	private final RegionLookupService regionLookupService;
-	
+
 	private final AsTaskScheduleRepository asTaskScheduleRepository;
 	private final CompanyRepository companyRepository;
 
 	@Value("${spring.upload.path}")
 	private String uploadPath;
 
+	private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+	
 	private static final String AS_TEAM_NAME = "AS팀";
+
+	@Transactional
+	public AsTask updateCustomerAsTask(Long asTaskId, CustomerAsUpdateRequest req, List<MultipartFile> newImages,
+			List<Long> deleteImageIds, Member loginMember) throws IOException {
+
+		if (loginMember == null || loginMember.getCompany() == null || loginMember.getCompany().getId() == null) {
+			throw new IllegalArgumentException("업체 정보가 확인되지 않습니다.");
+		}
+
+		if (req == null) {
+			throw new IllegalArgumentException("잘못된 요청입니다.");
+		}
+
+		Long companyId = loginMember.getCompany().getId();
+
+		AsTask asTask = asTaskRepository.findByIdAndRequestedBy_Company_Id(asTaskId, companyId)
+				.orElseThrow(() -> new IllegalArgumentException("수정할 AS 신청 정보를 찾을 수 없습니다."));
+
+		// ✅ 고객 수정 가능 상태는 REQUESTED 만 허용
+		if (asTask.getStatus() != AsStatus.REQUESTED) {
+			throw new IllegalStateException("접수 상태의 AS 신청만 수정할 수 있습니다.");
+		}
+
+		String customerName = normalizeText(req.getCustomerName());
+		String roadAddress = normalizeText(req.getRoadAddress());
+		String detailAddress = normalizeText(req.getDetailAddress());
+		String doName = normalizeText(req.getDoName());
+		String siName = normalizeText(req.getSiName());
+		String guName = normalizeText(req.getGuName());
+		String zipCode = normalizeText(req.getZipCode());
+
+		String productName = normalizeText(req.getProductName());
+		String productSize = normalizeText(req.getProductSize());
+		String productColor = normalizeText(req.getProductColor());
+		String productOptions = normalizeText(req.getProductOptions());
+		String reason = normalizeText(req.getReason());
+		String subject = normalizeText(req.getSubject());
+
+		String phoneDigits = onlyDigits(req.getOnsiteContact());
+		if (!isValidPhoneByDigits(phoneDigits)) {
+			throw new IllegalArgumentException("현장 연락처 형식이 올바르지 않습니다.");
+		}
+		String onsiteContact = formatKoreanPhone(phoneDigits);
+
+		if (!StringUtils.hasText(customerName)) {
+			throw new IllegalArgumentException("고객 성함을 입력해 주세요.");
+		}
+		if (!StringUtils.hasText(roadAddress)) {
+			throw new IllegalArgumentException("주소를 입력해 주세요.");
+		}
+		if (!StringUtils.hasText(productName)) {
+			throw new IllegalArgumentException("제품명을 입력해 주세요.");
+		}
+		if (!StringUtils.hasText(productSize)) {
+			throw new IllegalArgumentException("제품 사이즈를 입력해 주세요.");
+		}
+		if (!StringUtils.hasText(productColor)) {
+			throw new IllegalArgumentException("제품 컬러를 입력해 주세요.");
+		}
+		if (!StringUtils.hasText(productOptions)) {
+			throw new IllegalArgumentException("제품 옵션 여부를 입력해 주세요.");
+		}
+		if (!StringUtils.hasText(subject) || !subject.contains(" - ")) {
+			throw new IllegalArgumentException("AS 증상을 올바르게 선택해 주세요.");
+		}
+
+		// =========================
+		// 기본 필드 수정
+		// =========================
+		asTask.setCustomerName(customerName);
+		asTask.setRoadAddress(roadAddress);
+		asTask.setDetailAddress(detailAddress);
+		asTask.setDoName(doName);
+		asTask.setSiName(siName);
+		asTask.setGuName(guName);
+		asTask.setZipCode(zipCode);
+
+		asTask.setOnsiteContact(onsiteContact);
+
+		asTask.setProductName(productName);
+		asTask.setProductSize(productSize);
+		asTask.setProductColor(productColor);
+		asTask.setProductOptions(productOptions);
+
+		asTask.setSubject(subject);
+		asTask.setReason(reason);
+		asTask.setUpdatedAt(LocalDateTime.now());
+
+		// ✅ 혹시 hidden 값이 비어오는 경우에만 보정
+		if (!StringUtils.hasText(asTask.getDoName()) && !StringUtils.hasText(asTask.getSiName())
+				&& !StringUtils.hasText(asTask.getGuName())) {
+			refineAddressFromRoad(asTask);
+		}
+
+		// ✅ 주소가 바뀌면 기존 배정정보를 비우고 재배정
+		asTask.setAssignedTeam(null);
+		asTask.setAssignedHandler(null);
+		assignAsHandlerIfPossible(asTask);
+
+		// =========================
+		// 기존 신청 이미지 삭제
+		// =========================
+		List<Long> deleteIds = (deleteImageIds == null) ? Collections.emptyList()
+				: deleteImageIds.stream().filter(Objects::nonNull).distinct().toList();
+
+		if (!deleteIds.isEmpty()) {
+			List<AsImage> deleteTargets = asImageRepository.findByAsTaskIdAndIdInAndType(asTask.getId(), deleteIds,
+					"REQUEST");
+
+			if (!deleteTargets.isEmpty()) {
+				Set<Long> deleteIdSet = deleteTargets.stream().map(AsImage::getId).collect(Collectors.toSet());
+
+				for (AsImage image : deleteTargets) {
+					deletePhysicalFileQuietly(image.getPath());
+				}
+
+				asImageRepository.deleteAll(deleteTargets);
+
+				if (asTask.getImages() != null) {
+					asTask.getImages().removeIf(img -> img != null && deleteIdSet.contains(img.getId()));
+				}
+			}
+		}
+
+		// =========================
+		// 신규 신청 이미지 추가
+		// =========================
+		List<MultipartFile> uploadTargets = (newImages == null) ? Collections.emptyList()
+				: newImages.stream().filter(file -> file != null && !file.isEmpty()).toList();
+
+		if (!uploadTargets.isEmpty()) {
+			Long ownerMemberId = (asTask.getRequestedBy() != null && asTask.getRequestedBy().getId() != null)
+					? asTask.getRequestedBy().getId()
+					: loginMember.getId();
+
+			String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+			Path saveDir = Paths.get(uploadPath, "as", String.valueOf(ownerMemberId), dateStr, "request");
+			Files.createDirectories(saveDir);
+
+			for (MultipartFile file : uploadTargets) {
+				String originalName = Optional.ofNullable(file.getOriginalFilename()).orElse("image");
+				originalName = Paths.get(originalName).getFileName().toString();
+
+				String filename = UUID.randomUUID() + "_" + originalName;
+				Path filePath = saveDir.resolve(filename);
+
+				file.transferTo(filePath.toFile());
+
+				String url = "/upload/as/" + ownerMemberId + "/" + dateStr + "/request/" + filename;
+
+				AsImage image = new AsImage();
+				image.setAsTask(asTask);
+				image.setFilename(filename);
+				image.setPath(filePath.toString());
+				image.setUrl(url);
+				image.setType("REQUEST");
+
+				asImageRepository.save(image);
+			}
+		}
+
+		return asTaskRepository.save(asTask);
+	}
+
+	private void deletePhysicalFileQuietly(String path) {
+		if (!StringUtils.hasText(path))
+			return;
+
+		try {
+			Files.deleteIfExists(Paths.get(path));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private String onlyDigits(String value) {
+		return String.valueOf(value == null ? "" : value).replaceAll("\\D", "");
+	}
+
+	private boolean isValidPhoneByDigits(String digits) {
+		if (!StringUtils.hasText(digits))
+			return false;
+		if (!digits.startsWith("0"))
+			return false;
+		return digits.length() >= 9 && digits.length() <= 11;
+	}
+
+	private String formatKoreanPhone(String digits) {
+		digits = onlyDigits(digits);
+
+		if (digits.length() > 11) {
+			digits = digits.substring(0, 11);
+		}
+
+		if (digits.length() <= 3) {
+			return digits;
+		}
+
+		if (digits.startsWith("02")) {
+			if (digits.length() <= 5) {
+				return digits.substring(0, 2) + "-" + digits.substring(2);
+			}
+			if (digits.length() == 9) {
+				return digits.substring(0, 2) + "-" + digits.substring(2, 5) + "-" + digits.substring(5);
+			}
+			if (digits.length() >= 10) {
+				return digits.substring(0, 2) + "-" + digits.substring(2, 6) + "-" + digits.substring(6, 10);
+			}
+		}
+
+		if (digits.length() == 10) {
+			return digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+		}
+
+		if (digits.length() >= 11) {
+			return digits.substring(0, 3) + "-" + digits.substring(3, 7) + "-" + digits.substring(7, 11);
+		}
+
+		return digits.substring(0, 3) + "-" + digits.substring(3);
+	}
 
 	public Page<AsTask> getFilteredAsListPage(Long handlerId, AsStatus status, String dateType, LocalDateTime start,
 			LocalDateTime end, Pageable pageable) {
@@ -97,39 +326,215 @@ public class AsTaskService {
 
 	@Transactional(readOnly = true)
 	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
-			AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId, Pageable pageable) {
-		// ===== 행정구역 name 변환 =====
+			AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId, String visitTimeSort,
+			Pageable pageable) {
+
+		String normalizedCompanyKeyword = normalizeBlankToNull(companyKeyword);
+		String normalizedVisitTimeSort = normalizeVisitTimeSort(visitTimeSort);
+
 		String provinceName = regionLookupService.getProvinceName(provinceId);
 		String cityName = regionLookupService.getCityName(cityId);
 		String districtName = regionLookupService.getDistrictName(districtId);
 
 		List<String> provinceNames = regionLookupService.getProvinceAliases(provinceName);
 
-		// ⚠️ [중요] IN () 방지: 빈 리스트면 null 처리
 		if (provinceNames != null && provinceNames.isEmpty()) {
 			provinceNames = null;
 		}
 
-		// ===== 업무등록일(달력 등록일) 기준 =====
 		if ("scheduled".equalsIgnoreCase(dateType)) {
-
 			LocalDate startDate = (start != null) ? start.toLocalDate() : null;
 			LocalDate endDate = (end != null) ? end.toLocalDate() : null;
-			// end는 컨트롤러에서 이미 +1day 되어 들어오므로 그대로 사용
 
 			return asTaskRepository.findByScheduledDateFlexible(handler.getId(), status, startDate, endDate,
-					companyKeyword, provinceNames, cityName, districtName, pageable);
+					normalizedCompanyKeyword, provinceNames, cityName, districtName, pageable);
 		}
 
-		// ===== 신청일 기준 =====
 		if ("requested".equalsIgnoreCase(dateType)) {
-			return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end, companyKeyword,
-					provinceNames, cityName, districtName, pageable);
+			return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end,
+					normalizedCompanyKeyword, provinceNames, cityName, districtName, normalizedVisitTimeSort, pageable);
 		}
 
-		// ===== 처리일 기준 =====
-		return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end, companyKeyword,
-				provinceNames, cityName, districtName, pageable);
+		return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end,
+				normalizedCompanyKeyword, provinceNames, cityName, districtName, normalizedVisitTimeSort, pageable);
+	}
+
+	@Transactional
+	public void updateAsTaskByHandler(Long id, Member handler, AsStatus updatedStatus, String handlerMemo,
+			LocalTime visitPlannedTime, List<MultipartFile> resultImages) throws IOException {
+
+		AsTask task = asTaskRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("AS 요청이 존재하지 않습니다."));
+
+		if (handler == null || handler.getId() == null) {
+			throw new AccessDeniedException("잘못된 접근입니다.");
+		}
+
+		if (task.getAssignedHandler() == null || !Objects.equals(task.getAssignedHandler().getId(), handler.getId())) {
+			throw new AccessDeniedException("본인에게 배정된 AS만 수정할 수 있습니다.");
+		}
+
+		if (task.getStatus() != AsStatus.IN_PROGRESS) {
+			throw new IllegalStateException("진행중(IN_PROGRESS) 상태의 AS만 수정할 수 있습니다.");
+		}
+
+		boolean shouldSave = false;
+
+		String normalizedHandlerMemo = normalizeBlankToNull(handlerMemo);
+
+		if (!Objects.equals(task.getHandlerMemo(), normalizedHandlerMemo)) {
+			task.setHandlerMemo(normalizedHandlerMemo);
+			shouldSave = true;
+		}
+
+		if (!Objects.equals(task.getVisitPlannedTime(), visitPlannedTime)) {
+			task.setVisitPlannedTime(visitPlannedTime);
+			shouldSave = true;
+		}
+
+		if (updatedStatus != null && updatedStatus == AsStatus.COMPLETED) {
+			task.setStatus(AsStatus.COMPLETED);
+			task.setAsProcessDate(LocalDateTime.now());
+			shouldSave = true;
+		}
+
+		if (resultImages != null && !resultImages.isEmpty()) {
+			if (task.getRequestedBy() == null || task.getRequestedBy().getId() == null) {
+				throw new IllegalStateException("요청자 정보가 없어 결과 이미지를 저장할 수 없습니다.");
+			}
+
+			Long requesterId = task.getRequestedBy().getId();
+			String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+
+			Path saveDir = Paths.get(uploadPath, "as", String.valueOf(requesterId), dateStr, "result");
+			Files.createDirectories(saveDir);
+
+			for (MultipartFile file : resultImages) {
+				if (file == null || file.isEmpty()) {
+					continue;
+				}
+
+				String originalFilename = file.getOriginalFilename();
+				String filename = UUID.randomUUID() + "_"
+						+ (StringUtils.hasText(originalFilename) ? originalFilename : "image");
+				Path filePath = saveDir.resolve(filename);
+
+				file.transferTo(filePath.toFile());
+
+				AsImage image = new AsImage();
+				image.setAsTask(task);
+				image.setFilename(filename);
+				image.setPath(filePath.toString());
+				image.setUrl("/upload/as/" + requesterId + "/" + dateStr + "/result/" + filename);
+				image.setType("RESULT");
+
+				asImageRepository.save(image);
+			}
+
+			shouldSave = true;
+		}
+
+		if (shouldSave) {
+			task.setUpdatedAt(LocalDateTime.now());
+			asTaskRepository.save(task);
+		}
+	}
+
+	@Transactional(readOnly = true)
+	public TeamAsDetailModalResponse getAsTaskDetailModal(Long id, Member handler) {
+		AsTask task = asTaskRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("AS 요청이 존재하지 않습니다."));
+
+		if (handler == null || handler.getId() == null) {
+			throw new AccessDeniedException("잘못된 접근입니다.");
+		}
+
+		if (task.getAssignedHandler() == null || !Objects.equals(task.getAssignedHandler().getId(), handler.getId())) {
+			throw new AccessDeniedException("본인에게 배정된 AS만 조회할 수 있습니다.");
+		}
+
+		TeamAsDetailModalResponse response = new TeamAsDetailModalResponse();
+		response.setId(task.getId());
+		response.setStatus(task.getStatus() != null ? task.getStatus().name() : null);
+		response.setCompanyName(task.getRequestedCompanyNameSafe());
+		response.setRequesterName(task.getRequestedBy() != null ? safeText(task.getRequestedBy().getName()) : "-");
+		response.setFullAddress(buildFullAddress(task));
+		response.setReason(safeText(task.getReason()));
+		response.setAdminMemo(task.getAdminMemoSafe());
+		response.setHandlerMemo(task.getHandlerMemoSafe());
+		response.setVisitPlannedTime(
+				task.getVisitPlannedTime() != null ? task.getVisitPlannedTime().format(TIME_FORMATTER) : "-");
+		response.setProductName(safeText(task.getProductName()));
+		response.setProductSize(safeText(task.getProductSize()));
+		response.setProductColor(safeText(task.getProductColor()));
+		response.setOnsiteContact(safeText(task.getOnsiteContact()));
+		response.setRequestedAt(
+				task.getRequestedAt() != null ? task.getRequestedAt().format(DATE_TIME_FORMATTER) : "-");
+
+		task.getResultImages().stream()
+				.sorted(Comparator.comparing(AsImage::getUploadedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+				.forEach(img -> {
+					TeamAsDetailModalResponse.ImageItem item = new TeamAsDetailModalResponse.ImageItem();
+					item.setId(img.getId());
+					item.setFilename(img.getFilename());
+					item.setUrl(img.getUrl());
+					response.getResultImages().add(item);
+				});
+
+		return response;
+	}
+
+	private String normalizeBlankToNull(String value) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+		return value.trim();
+	}
+
+	private String normalizeVisitTimeSort(String value) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+		String normalized = value.trim().toLowerCase();
+		if ("asc".equals(normalized) || "desc".equals(normalized)) {
+			return normalized;
+		}
+		return null;
+	}
+
+	private String safeText(String value) {
+		if (!StringUtils.hasText(value)) {
+			return "-";
+		}
+		return value.trim();
+	}
+
+	private String buildFullAddress(AsTask task) {
+		List<String> parts = new ArrayList<>();
+
+		if (StringUtils.hasText(task.getZipCode())) {
+			parts.add("(" + task.getZipCode().trim() + ")");
+		}
+		if (StringUtils.hasText(task.getDoName())) {
+			parts.add(task.getDoName().trim());
+		}
+		if (StringUtils.hasText(task.getSiName())) {
+			parts.add(task.getSiName().trim());
+		}
+		if (StringUtils.hasText(task.getGuName())) {
+			parts.add(task.getGuName().trim());
+		}
+		if (StringUtils.hasText(task.getRoadAddress())) {
+			parts.add(task.getRoadAddress().trim());
+		}
+		if (StringUtils.hasText(task.getDetailAddress())) {
+			parts.add(task.getDetailAddress().trim());
+		}
+
+		if (parts.isEmpty()) {
+			return "-";
+		}
+		return String.join(" ", parts);
 	}
 
 	public List<AsTask> getFilteredAsList(Long memberId, AsStatus status, String dateType, LocalDateTime start,
@@ -188,8 +593,6 @@ public class AsTaskService {
 
 		asTaskRepository.save(asTask);
 	}
-
-
 
 	// =========================================================
 	// 1) 회사 검색(대리점 검색)
@@ -256,110 +659,112 @@ public class AsTaskService {
 	@Transactional
 	public void updateAsTaskThird(Long id, String priceStr, String statusStr, Long assignedHandlerId,
 
-	        Long companyId,
+			Long companyId,
 
-	        String zipCode, String doName, String siName, String guName,
-	        String roadAddress, String detailAddress,
-	        String customerName, String productName, String productSize,
-	        String productColor, String productOptions, String onsiteContact,
+			String zipCode, String doName, String siName, String guName, String roadAddress, String detailAddress,
+			String customerName, String productName, String productSize, String productColor, String productOptions,
+			String onsiteContact,
 
-	        String subject,
-	        String adminMemo,
+			String subject, String adminMemo,
 
-	        String deleteRequestImageIds, List<MultipartFile> newRequestImages) {
+			String deleteRequestImageIds, List<MultipartFile> newRequestImages) {
 
-	    AsTask asTask = getAsDetail(id);
+		AsTask asTask = getAsDetail(id);
 
-	    // 0) 담당자/상태
-	    if (statusStr != null && !statusStr.isBlank()) {
-	        AsStatus status = AsStatus.valueOf(statusStr.trim());
-	        asTask.setStatus(status);
-	    }
+		// 0) 담당자/상태
+		if (statusStr != null && !statusStr.isBlank()) {
+			AsStatus status = AsStatus.valueOf(statusStr.trim());
+			asTask.setStatus(status);
+		}
 
-	    // 담당자 필수
-	    if (assignedHandlerId == null) {
-	        throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
-	    }
+		// 담당자 필수
+		if (assignedHandlerId == null) {
+			throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
+		}
 
-	    Member handler = memberRepository.findById(assignedHandlerId)
-	            .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 담당자입니다."));
-	    asTask.setAssignedHandler(handler);
+		Member handler = memberRepository.findById(assignedHandlerId)
+				.orElseThrow(() -> new IllegalArgumentException("유효하지 않은 담당자입니다."));
+		asTask.setAssignedHandler(handler);
 
-	    // 가격
-	    int price = parsePriceOrZero(priceStr);
-	    asTask.setPrice(price);
+		// 가격
+		int price = parsePriceOrZero(priceStr);
+		asTask.setPrice(price);
 
-	    // 1) 회사 변경 시 requestedBy를 해당 회사 대표(CUSTOMER_REPRESENTATIVE)로 변경
-	    if (companyId != null) {
-	        Long currentCompanyId = (asTask.getRequestedBy() != null && asTask.getRequestedBy().getCompany() != null)
-	                ? asTask.getRequestedBy().getCompany().getId()
-	                : null;
+		// 1) 회사 변경 시 requestedBy를 해당 회사 대표(CUSTOMER_REPRESENTATIVE)로 변경
+		if (companyId != null) {
+			Long currentCompanyId = (asTask.getRequestedBy() != null && asTask.getRequestedBy().getCompany() != null)
+					? asTask.getRequestedBy().getCompany().getId()
+					: null;
 
-	        if (currentCompanyId == null || !currentCompanyId.equals(companyId)) {
+			if (currentCompanyId == null || !currentCompanyId.equals(companyId)) {
 
-	            Company newCompany = companyRepository.findById(companyId)
-	                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 대리점입니다."));
+				Company newCompany = companyRepository.findById(companyId)
+						.orElseThrow(() -> new IllegalArgumentException("유효하지 않은 대리점입니다."));
 
-	            Member representative = memberRepository
-	                    .findFirstByCompanyIdAndRoleOrderByIdAsc(companyId, MemberRole.CUSTOMER_REPRESENTATIVE)
-	                    .orElseThrow(() -> new IllegalArgumentException("해당 대리점에 대표(CUSTOMER_REPRESENTATIVE) 회원이 없습니다."));
+				Member representative = memberRepository
+						.findFirstByCompanyIdAndRoleOrderByIdAsc(companyId, MemberRole.CUSTOMER_REPRESENTATIVE)
+						.orElseThrow(
+								() -> new IllegalArgumentException("해당 대리점에 대표(CUSTOMER_REPRESENTATIVE) 회원이 없습니다."));
 
-	            // ✅ requestedBy 자체를 대표로 교체
-	            asTask.setRequestedBy(representative);
-	        }
-	    }
+				// ✅ requestedBy 자체를 대표로 교체
+				asTask.setRequestedBy(representative);
+			}
+		}
 
-	    // 2) 주소 업데이트
-	    asTask.setZipCode(normalize(zipCode));
-	    asTask.setDoName(normalize(doName));
-	    asTask.setSiName(normalize(siName));
-	    asTask.setGuName(normalize(guName));
-	    asTask.setRoadAddress(normalize(roadAddress));
-	    asTask.setDetailAddress(normalize(detailAddress));
+		// 2) 주소 업데이트
+		asTask.setZipCode(normalize(zipCode));
+		asTask.setDoName(normalize(doName));
+		asTask.setSiName(normalize(siName));
+		asTask.setGuName(normalize(guName));
+		asTask.setRoadAddress(normalize(roadAddress));
+		asTask.setDetailAddress(normalize(detailAddress));
 
-	    // 3) customerName/제품/연락처
-	    asTask.setCustomerName(normalize(customerName));
-	    asTask.setProductName(normalize(productName));
-	    asTask.setProductSize(normalize(productSize));
-	    asTask.setProductColor(normalize(productColor));
-	    asTask.setProductOptions(normalize(productOptions));
-	    asTask.setOnsiteContact(normalize(onsiteContact));
+		// 3) customerName/제품/연락처
+		asTask.setCustomerName(normalize(customerName));
+		asTask.setProductName(normalize(productName));
+		asTask.setProductSize(normalize(productSize));
+		asTask.setProductColor(normalize(productColor));
+		asTask.setProductOptions(normalize(productOptions));
+		asTask.setOnsiteContact(normalize(onsiteContact));
 
-	    // 4) subject - 2단계까지 선택된 값만 반영
-	    String normalizedSubject = normalize(subject);
-	    if (isValidTwoDepthSubject(normalizedSubject)) {
-	        asTask.setSubject(normalizedSubject);
-	    }
+		// 4) subject - 2단계까지 선택된 값만 반영
+		String normalizedSubject = normalize(subject);
+		if (isValidTwoDepthSubject(normalizedSubject)) {
+			asTask.setSubject(normalizedSubject);
+		}
 
-	    // 5) 관리자메모
-	    asTask.setAdminMemo(normalize(adminMemo));
+		// 5) 관리자메모
+		asTask.setAdminMemo(normalize(adminMemo));
 
-	    // 6) 이미지 삭제(고객 요청 이미지 type=REQUEST만)
-	    List<Long> deleteIds = parseIdCsv(deleteRequestImageIds);
-	    if (!deleteIds.isEmpty()) {
-	        for (Long imgId : deleteIds) {
-	            AsImage img = asImageRepository.findById(imgId).orElse(null);
-	            if (img == null) continue;
+		// 6) 이미지 삭제(고객 요청 이미지 type=REQUEST만)
+		List<Long> deleteIds = parseIdCsv(deleteRequestImageIds);
+		if (!deleteIds.isEmpty()) {
+			for (Long imgId : deleteIds) {
+				AsImage img = asImageRepository.findById(imgId).orElse(null);
+				if (img == null)
+					continue;
 
-	            // 소유/타입 검증
-	            if (img.getAsTask() == null || !Objects.equals(img.getAsTask().getId(), asTask.getId())) continue;
-	            if (img.getType() == null || !"REQUEST".equalsIgnoreCase(img.getType())) continue;
+				// 소유/타입 검증
+				if (img.getAsTask() == null || !Objects.equals(img.getAsTask().getId(), asTask.getId()))
+					continue;
+				if (img.getType() == null || !"REQUEST".equalsIgnoreCase(img.getType()))
+					continue;
 
-	            // 파일 삭제
-	            deletePhysicalFileSafe(img.getPath());
+				// 파일 삭제
+				deletePhysicalFileSafe(img.getPath());
 
-	            // DB 삭제
-	            asImageRepository.delete(img);
-	        }
-	    }
+				// DB 삭제
+				asImageRepository.delete(img);
+			}
+		}
 
-	    // 7) 신규 이미지 추가(REQUEST)
-	    if (newRequestImages != null && !newRequestImages.isEmpty()) {
-	        saveNewRequestImages(asTask, newRequestImages);
-	    }
+		// 7) 신규 이미지 추가(REQUEST)
+		if (newRequestImages != null && !newRequestImages.isEmpty()) {
+			saveNewRequestImages(asTask, newRequestImages);
+		}
 
-	    asTask.setUpdatedAt(LocalDateTime.now());
-	    asTaskRepository.save(asTask);
+		asTask.setUpdatedAt(LocalDateTime.now());
+		asTaskRepository.save(asTask);
 	}
 
 	private void saveNewRequestImages(AsTask asTask, List<MultipartFile> files) {

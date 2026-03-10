@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.repository.as;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,13 +14,104 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
-import com.dev.HiddenBATHAuto.model.task.AsImage;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 
 @Repository
 public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
 
+	Optional<AsTask> findByIdAndRequestedBy_Company_Id(Long id, Long companyId);
+	
+	@Query(value = """
+            select a
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and (:status is null or a.status = :status)
+              and (:start is null or a.requestedAt >= :start)
+              and (:end is null or a.requestedAt < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            order by
+              case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+              case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+              a.id desc
+            """,
+            countQuery = """
+            select count(a)
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and (:status is null or a.status = :status)
+              and (:start is null or a.requestedAt >= :start)
+              and (:end is null or a.requestedAt < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            """)
+    Page<AsTask> findByRequestedDateFlexible(@Param("handlerId") Long handlerId,
+                                             @Param("status") AsStatus status,
+                                             @Param("start") LocalDateTime start,
+                                             @Param("end") LocalDateTime end,
+                                             @Param("companyKeyword") String companyKeyword,
+                                             @Param("provinceNames") List<String> provinceNames,
+                                             @Param("cityName") String cityName,
+                                             @Param("districtName") String districtName,
+                                             @Param("visitTimeSort") String visitTimeSort,
+                                             Pageable pageable);
+
+    @Query(value = """
+            select a
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and (:status is null or a.status = :status)
+              and (:start is null or a.asProcessDate >= :start)
+              and (:end is null or a.asProcessDate < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            order by
+              case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+              case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+              a.id desc
+            """,
+            countQuery = """
+            select count(a)
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and (:status is null or a.status = :status)
+              and (:start is null or a.asProcessDate >= :start)
+              and (:end is null or a.asProcessDate < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            """)
+    Page<AsTask> findByProcessedDateFlexible(@Param("handlerId") Long handlerId,
+                                             @Param("status") AsStatus status,
+                                             @Param("start") LocalDateTime start,
+                                             @Param("end") LocalDateTime end,
+                                             @Param("companyKeyword") String companyKeyword,
+                                             @Param("provinceNames") List<String> provinceNames,
+                                             @Param("cityName") String cityName,
+                                             @Param("districtName") String districtName,
+                                             @Param("visitTimeSort") String visitTimeSort,
+                                             Pageable pageable);
+	
 	// ✅ (A) 신청일 기준 조회: requestedAt DESC 정렬 보장
 	@Query("""
 	      select t from AsTask t

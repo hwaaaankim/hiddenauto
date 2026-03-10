@@ -6,351 +6,604 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-    <th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
-    <th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
-    <div id="page" class="container">
-        <th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+	<div id="page" class="container">
+		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
 
-        <div class="page-content header-clear-medium">
-            <div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
-                <div class="card-center ms-3">
-                    <h1 class="color-white mb-0">AS 신청리스트</h1>
-                    <p class="color-white mt-n1 mb-0">AS 신청을 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
-                </div>
-                <div class="card-center me-3">
-                    <a href="/index" data-back-button
-                       class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
-                </div>
-                <div class="card-overlay bg-black opacity-80"></div>
-            </div>
+		<div class="page-content header-clear-medium">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
+				<div class="card-center ms-3">
+					<h1 class="color-white mb-0">AS 신청리스트</h1>
+					<p class="color-white mt-n1 mb-0">AS 신청을 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
+				</div>
+				<div class="card-center me-3">
+					<a href="/index" data-back-button
+						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+				</div>
+				<div class="card-overlay bg-black opacity-80"></div>
+			</div>
 
-            <!-- 검색 -->
-            <div class="card card-style">
-                <div class="content mb-0">
-                    <form method="get" th:action="@{/customer/asList}" class="row g-2 align-items-end">
-                        <div class="col-6">
-                            <div class="input-style no-borders has-icon mt-1">
-                                <input type="date" name="startDate" th:value="${startDate}"
-                                       class="form-control validate-text">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="input-style no-borders has-icon mt-1 d-flex gap-2">
-                                <input type="date" class="form-control" name="endDate" th:value="${endDate}">
-                                <button type="submit" class="btn btn-s bg-highlight color-white rounded-s">검색</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
+			<!-- 검색 -->
+			<div class="card card-style">
+				<div class="content mb-0">
+					<form method="get" th:action="@{/customer/asList}" class="row g-2 align-items-end">
+						<div class="col-6">
+							<div class="input-style no-borders has-icon mt-1">
+								<input type="date" name="startDate" th:value="${startDate}"
+									class="form-control validate-text">
+							</div>
+						</div>
+						<div class="col-6">
+							<div class="input-style no-borders has-icon mt-1 d-flex gap-2">
+								<input type="date" class="form-control" name="endDate" th:value="${endDate}">
+								<button type="submit" class="btn btn-s bg-highlight color-white rounded-s">검색</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
 
-            <!-- 리스트 -->
-            <div class="card card-style" th:each="asTask, i : ${asTaskPage.content}">
-                <div class="accordion" th:id="'accordion-as-' + ${i.index}">
-                    <div class="mb-0">
+			<!-- 리스트 -->
+			<div class="card card-style" th:each="asTask, i : ${asTaskPage.content}">
+				<div class="accordion" th:id="'accordion-as-' + ${i.index}">
+					<div class="mb-0">
 
-                        <!-- 헤더 버튼 (AS-53 제거 / AS 제목 제거) -->
-                        <button class="btn accordion-btn no-effect" data-bs-toggle="collapse"
-                                th:attr="data-bs-target='#as-'+${i.index}">
-                            <div class="content">
+						<!-- 헤더 -->
+						<button class="btn accordion-btn no-effect" data-bs-toggle="collapse"
+							th:attr="data-bs-target='#as-'+${i.index}">
+							<div class="content">
 
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <!-- ✅ 대표 타이틀: 제품명 우선 -->
-                                        <h3 class="mb-1 index-third-aslist-title"
-                                            th:text="${(asTask.productName != null and !#strings.isEmpty(asTask.productName)) ? asTask.productName : 'AS 신청'}">
-                                            AS 신청
-                                        </h3>
+								<div class="d-flex justify-content-between align-items-start">
+									<div>
+										<h3 class="mb-1 index-third-aslist-title"
+											th:text="${(asTask.productName != null and !#strings.isEmpty(asTask.productName)) ? asTask.productName : 'AS 신청'}">
+											AS 신청
+										</h3>
 
-                                        <p class="font-11 mt-n2 mb-0 opacity-50 index-third-aslist-subtitle">제품 AS신청</p>
-                                    </div>
+										<p class="font-11 mt-n2 mb-0 opacity-50 index-third-aslist-subtitle">제품 AS신청</p>
+									</div>
 
-                                    <!-- ✅ 고객용 상태 뱃지 -->
-                                    <div class="text-end">
-                                        <span class="badge rounded-pill px-3 py-2 font-12"
-                                              th:classappend="${asTask.customerStatusBadgeClass}"
-                                              th:text="${asTask.customerStatusText}">
-                                            신청중
-                                        </span>
-                                    </div>
-                                </div>
+									<div class="text-end">
+										<span class="badge rounded-pill px-3 py-2 font-12"
+											th:classappend="${asTask.customerStatusBadgeClass}"
+											th:text="${asTask.customerStatusText}">
+											신청중
+										</span>
+									</div>
+								</div>
 
-                                <div class="row mb-n2 color-theme mt-2">
-                                    <div class="col-6 font-10 text-start">
-                                        <span class="badge bg-black color-white font-10 mt-2">AS</span>
+								<div class="row mb-n2 color-theme mt-2">
+									<div class="col-6 font-10 text-start">
+										<span class="badge bg-black color-white font-10 mt-2">AS</span>
 
-                                        <span class="badge bg-black color-white font-10 mt-2"
-                                              th:text="${asTask.statusLabelKr}">처리상태</span>
-                                    </div>
-                                    <div class="col-6 font-10 text-end opacity-30">
-                                        <i class="fa fa-calendar pe-2"></i>
-                                        <span th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd')}"></span>
-                                    </div>
-                                </div>
+										<span class="badge bg-black color-white font-10 mt-2"
+											th:text="${asTask.statusLabelKr}">처리상태</span>
+									</div>
+									<div class="col-6 font-10 text-end opacity-30">
+										<i class="fa fa-calendar pe-2"></i>
+										<span th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd')}"></span>
+									</div>
+								</div>
 
-                            </div>
-                        </button>
+							</div>
+						</button>
 
-                        <!-- 상세 토글 -->
-                        <div th:id="'as-' + ${i.index}" class="collapse"
-                             th:attr="data-bs-parent='#accordion-as-' + ${i.index}">
-                            <div class="pt-1 pb-2 ps-3 pe-3">
-                                <div class="content task-content">
+						<!-- 상세 -->
+						<div th:id="'as-' + ${i.index}" class="collapse"
+							th:attr="data-bs-parent='#accordion-as-' + ${i.index}">
+							<div class="pt-1 pb-2 ps-3 pe-3">
+								<div class="content task-content">
 
-                                    <!-- =========================
-                                         ✅ 고객 정보
-                                         ========================= -->
-                                    <div class="index-third-aslist-section">
-                                        <div class="index-third-aslist-section-title">고객 정보</div>
+									<!-- 고객 정보 -->
+									<div class="index-third-aslist-section">
+										<div class="index-third-aslist-section-title">고객 정보</div>
 
-                                        <div class="row g-1">
-                                            <div class="col-lg-4 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">고객 성함</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.customerName != null ? asTask.customerName : '-'}">-</div>
-                                                </div>
-                                            </div>
+										<div class="row g-1">
+											<div class="col-lg-4 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">고객 성함</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.customerName != null ? asTask.customerName : '-'}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-4 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">연락처</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.requestedBy != null ? (asTask.requestedBy.phone != null ? asTask.requestedBy.phone : (asTask.requestedBy.telephone != null ? asTask.requestedBy.telephone : '-')) : '-'}">
-                                                        -
-                                                    </div>
-                                                </div>
-                                            </div>
+											<div class="col-lg-4 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">연락처</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.requestedBy != null ? (asTask.requestedBy.phone != null ? asTask.requestedBy.phone : (asTask.requestedBy.telephone != null ? asTask.requestedBy.telephone : '-')) : '-'}">
+														-
+													</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-4 col-md-12">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">현장 연락처</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.onsiteContact != null ? asTask.onsiteContact : '-'}">-</div>
-                                                </div>
-                                            </div>
+											<div class="col-lg-4 col-md-12">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">현장 연락처</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.onsiteContact != null ? asTask.onsiteContact : '-'}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-12">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">주소</div>
-                                                    <div class="index-third-aslist-value text-end"
-                                                         th:text="${(asTask.roadAddress != null and !#strings.isEmpty(asTask.roadAddress)) 
-                                                                    ? (asTask.detailAddress != null and !#strings.isEmpty(asTask.detailAddress) 
-                                                                        ? asTask.roadAddress + ' ' + asTask.detailAddress 
-                                                                        : asTask.roadAddress) 
+											<div class="col-12">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">주소</div>
+													<div class="index-third-aslist-value text-end" th:text="${(asTask.roadAddress != null and !#strings.isEmpty(asTask.roadAddress))
+                                                                    ? (asTask.detailAddress != null and !#strings.isEmpty(asTask.detailAddress)
+                                                                        ? asTask.roadAddress + ' ' + asTask.detailAddress
+                                                                        : asTask.roadAddress)
                                                                     : '-'}">
-                                                        -
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+														-
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
 
-                                    <!-- =========================
-                                         ✅ 제품 정보
-                                         ========================= -->
-                                    <div class="index-third-aslist-section mt-4">
-                                        <div class="index-third-aslist-section-title">제품 정보</div>
+									<!-- 제품 정보 -->
+									<div class="index-third-aslist-section mt-4">
+										<div class="index-third-aslist-section-title">제품 정보</div>
 
-                                        <div class="row g-1">
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">제품이름</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.productName != null ? asTask.productName : '-'}">-</div>
-                                                </div>
-                                            </div>
+										<div class="row g-1">
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">제품이름</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.productName != null ? asTask.productName : '-'}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">제품사이즈</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.productSize != null ? asTask.productSize : '-'}">-</div>
-                                                </div>
-                                            </div>
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">제품사이즈</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.productSize != null ? asTask.productSize : '-'}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">제품 컬러</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.productColor != null ? asTask.productColor : '-'}">-</div>
-                                                </div>
-                                            </div>
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">제품 컬러</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.productColor != null ? asTask.productColor : '-'}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">옵션 여부</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.productOptions != null ? asTask.productOptions : '-'}">-</div>
-                                                </div>
-                                            </div>
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">옵션 여부</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.productOptions != null ? asTask.productOptions : '-'}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-12">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">AS 증상</div>
-                                                    <div class="index-third-aslist-value text-end"
-                                                         th:text="${asTask.subjectSafe}">-</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+											<div class="col-12">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">AS 증상</div>
+													<div class="index-third-aslist-value text-end"
+														th:text="${asTask.subjectSafe}">-</div>
+												</div>
+											</div>
+										</div>
+									</div>
 
-                                    <!-- =========================
-                                         ✅ 진행 정보
-                                         ========================= -->
-                                    <div class="index-third-aslist-section mt-4">
-                                        <div class="index-third-aslist-section-title">진행 정보</div>
+									<!-- 진행 정보 -->
+									<div class="index-third-aslist-section mt-4">
+										<div class="index-third-aslist-section-title">진행 정보</div>
 
-                                        <div class="row g-1">
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">신청일</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd HH:mm:ss')}">-</div>
-                                                </div>
-                                            </div>
+										<div class="row g-1">
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">신청일</div>
+													<div class="index-third-aslist-value"
+														th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd HH:mm:ss')}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">처리일</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.asProcessDate != null ? #temporals.format(asTask.asProcessDate, 'yyyy.MM.dd HH:mm:ss') : '-'}">-</div>
-                                                </div>
-                                            </div>
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">처리일</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.asProcessDate != null ? #temporals.format(asTask.asProcessDate, 'yyyy.MM.dd HH:mm:ss') : '-'}">
+														-</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">예정일</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asScheduleDateMap[asTask.id] != null ? #temporals.format(asScheduleDateMap[asTask.id], 'yyyy.MM.dd') : '-'}">
-                                                        -
-                                                    </div>
-                                                </div>
-                                            </div>
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">예정일</div>
+													<div class="index-third-aslist-value"
+														th:text="${asScheduleDateMap[asTask.id] != null ? #temporals.format(asScheduleDateMap[asTask.id], 'yyyy.MM.dd') : '-'}">
+														-
+													</div>
+												</div>
+											</div>
 
-                                            <div class="col-lg-3 col-md-6">
-                                                <div class="index-third-aslist-field d-flex justify-content-between align-items-center">
-                                                    <div class="index-third-aslist-label">처리금액</div>
-                                                    <div class="index-third-aslist-value"
-                                                         th:text="${asTask.price > 0 ? (#numbers.formatInteger(asTask.price, 3, 'COMMA') + ' 원') : '-'}">
-                                                        -
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+											<div class="col-lg-3 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">처리금액</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.price > 0 ? (#numbers.formatInteger(asTask.price, 3, 'COMMA') + ' 원') : '-'}">
+														-
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
 
-                                    <!-- =========================
-                                         ✅ 이미지 (신청이미지 / 예정이미지(=결과이미지))
-                                         ========================= -->
-                                    <div class="index-third-aslist-section mt-4">
-                                        <div class="index-third-aslist-section-title">이미지</div>
+									<!-- 이미지 -->
+									<div class="index-third-aslist-section mt-4">
+										<div class="index-third-aslist-section-title">이미지</div>
 
-                                        <div class="row mt-1 g-1">
-                                            <!-- ✅ AS 신청 이미지 -->
-                                            <div class="col-sm-12 col-lg-6">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <strong class="color-theme">신청이미지</strong>
-                                                    <span class="font-11 opacity-50"
-                                                          th:text="${asTask.requestImages != null ? asTask.requestImages.size() : 0} + '장'">0장</span>
-                                                </div>
+										<div class="row mt-1 g-1">
+											<div class="col-sm-12 col-lg-6">
+												<div class="d-flex justify-content-between align-items-center">
+													<strong class="color-theme">신청이미지</strong>
+													<span class="font-11 opacity-50"
+														th:text="${asTask.requestImages != null ? asTask.requestImages.size() : 0} + '장'">0장</span>
+												</div>
 
-                                                <div class="d-flex flex-wrap gap-2 mt-2"
-                                                     th:if="${asTask.requestImages != null and !asTask.requestImages.isEmpty()}">
-                                                    <a th:each="img : ${asTask.requestImages}"
-                                                       th:href="${img.url}" target="_blank" rel="noopener">
-                                                        <img th:src="${img.url}" class="rounded shadow-sm" width="84" height="84"
-                                                             style="object-fit:cover;">
-                                                    </a>
-                                                </div>
+												<div class="d-flex flex-wrap gap-2 mt-2"
+													th:if="${asTask.requestImages != null and !asTask.requestImages.isEmpty()}">
+													<a th:each="img : ${asTask.requestImages}" th:href="${img.url}"
+														target="_blank" rel="noopener">
+														<img th:src="${img.url}" class="rounded shadow-sm" width="84"
+															height="84" style="object-fit:cover;">
+													</a>
+												</div>
 
-                                                <div class="mt-2 font-12 opacity-50"
-                                                     th:if="${asTask.requestImages == null or asTask.requestImages.isEmpty()}">
-                                                    등록된 신청 이미지가 없습니다.
-                                                </div>
-                                            </div>
+												<div class="mt-2 font-12 opacity-50"
+													th:if="${asTask.requestImages == null or asTask.requestImages.isEmpty()}">
+													등록된 신청 이미지가 없습니다.
+												</div>
+											</div>
 
-                                            <!-- ✅ AS 결과 이미지 (요청: 예정이미지로 표기) -->
-                                            <div class="col-sm-12 col-lg-6">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <strong class="color-theme">예정이미지</strong>
-                                                    <span class="font-11 opacity-50"
-                                                          th:text="${asTask.resultImages != null ? asTask.resultImages.size() : 0} + '장'">0장</span>
-                                                </div>
+											<div class="col-sm-12 col-lg-6">
+												<div class="d-flex justify-content-between align-items-center">
+													<strong class="color-theme">예정이미지</strong>
+													<span class="font-11 opacity-50"
+														th:text="${asTask.resultImages != null ? asTask.resultImages.size() : 0} + '장'">0장</span>
+												</div>
 
-                                                <div class="d-flex flex-wrap gap-2 mt-2"
-                                                     th:if="${asTask.resultImages != null and !asTask.resultImages.isEmpty()}">
-                                                    <a th:each="img : ${asTask.resultImages}"
-                                                       th:href="${img.url}" target="_blank" rel="noopener">
-                                                        <img th:src="${img.url}" class="rounded shadow-sm" width="84" height="84"
-                                                             style="object-fit:cover;">
-                                                    </a>
-                                                </div>
+												<div class="d-flex flex-wrap gap-2 mt-2"
+													th:if="${asTask.resultImages != null and !asTask.resultImages.isEmpty()}">
+													<a th:each="img : ${asTask.resultImages}" th:href="${img.url}"
+														target="_blank" rel="noopener">
+														<img th:src="${img.url}" class="rounded shadow-sm" width="84"
+															height="84" style="object-fit:cover;">
+													</a>
+												</div>
 
-                                                <div class="mt-2 font-12 opacity-50"
-                                                     th:if="${asTask.resultImages == null or asTask.resultImages.isEmpty()}">
-                                                    아직 결과 이미지가 등록되지 않았습니다.
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+												<div class="mt-2 font-12 opacity-50"
+													th:if="${asTask.resultImages == null or asTask.resultImages.isEmpty()}">
+													아직 결과 이미지가 등록되지 않았습니다.
+												</div>
+											</div>
+										</div>
+									</div>
 
-                                </div>
-                            </div>
-                        </div>
+									<!-- 수정하기 버튼 -->
+									<div class="client-as-update-first-trigger-wrap"
+										th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
+										<button type="button"
+											class="btn bg-highlight color-white rounded-s client-as-update-first-trigger-btn client-as-update-first-open-btn"
+											th:attr="
+                                                    data-as-id=${asTask.id},
+                                                    data-customer-name=${asTask.customerName},
+                                                    data-road-address=${asTask.roadAddress},
+                                                    data-detail-address=${asTask.detailAddress},
+                                                    data-do-name=${asTask.doName},
+                                                    data-si-name=${asTask.siName},
+                                                    data-gu-name=${asTask.guName},
+                                                    data-zip-code=${asTask.zipCode},
+                                                    data-onsite-contact=${asTask.onsiteContact},
+                                                    data-product-name=${asTask.productName},
+                                                    data-product-size=${asTask.productSize},
+                                                    data-product-color=${asTask.productColor},
+                                                    data-product-options=${asTask.productOptions},
+                                                    data-subject=${asTask.subject}">
+											수정하기
+										</button>
+									</div>
 
-                    </div>
-                </div>
-            </div>
+									<!-- JS 원본 데이터 -->
+									<div class="d-none client-as-update-first-origin-images"
+										th:attr="data-task-id=${asTask.id}">
+										<div th:each="img : ${asTask.requestImages}"
+											class="client-as-update-first-origin-image" th:attr="
+                                                data-image-id=${img.id},
+                                                data-image-url=${img.url},
+                                                data-image-filename=${img.filename}">
+										</div>
+									</div>
 
-            <!-- 페이지네이션 -->
-            <div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
-                <ul class="pagination">
+									<textarea class="d-none client-as-update-first-origin-reason"
+										th:attr="data-task-id=${asTask.id}" th:text="${asTask.reason}"></textarea>
 
-                    <li class="page-item" th:classappend="${asTaskPage.first} ? 'disabled'">
-                        <a class="page-link"
-                           th:href="@{/customer/asList(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
-                    </li>
+								</div>
+							</div>
+						</div>
 
-                    <li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
-                        <a class="page-link"
-                           th:href="@{/customer/asList(page=${asTaskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
-                            PREVIOUS
-                        </a>
-                    </li>
+					</div>
+				</div>
+			</div>
 
-                    <li class="page-item" th:each="p : ${#numbers.sequence(0, asTaskPage.totalPages - 1)}"
-                        th:classappend="${asTaskPage.number == p} ? 'active'">
-                        <a class="page-link"
-                           th:href="@{/customer/asList(page=${p}, startDate=${startDate}, endDate=${endDate})}"
-                           th:text="${p + 1}">1</a>
-                    </li>
+			<!-- 페이지네이션 -->
+			<div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
+				<ul class="pagination">
 
-                    <li class="page-item" th:classappend="${asTaskPage.hasNext()} ? '' : 'disabled'">
-                        <a class="page-link"
-                           th:href="@{/customer/asList(page=${asTaskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
-                            NEXT
-                        </a>
-                    </li>
+					<li class="page-item" th:classappend="${asTaskPage.first} ? 'disabled'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
+					</li>
 
-                    <li class="page-item" th:classappend="${asTaskPage.last} ? 'disabled'">
-                        <a class="page-link"
-                           th:href="@{/customer/asList(page=${asTaskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
-                            LAST
-                        </a>
-                    </li>
+					<li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${asTaskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
+							PREVIOUS
+						</a>
+					</li>
 
-                </ul>
-            </div>
+					<li class="page-item" th:each="p : ${#numbers.sequence(0, asTaskPage.totalPages - 1)}"
+						th:classappend="${asTaskPage.number == p} ? 'active'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${p}, startDate=${startDate}, endDate=${endDate})}"
+							th:text="${p + 1}">1</a>
+					</li>
 
-        </div>
+					<li class="page-item" th:classappend="${asTaskPage.hasNext()} ? '' : 'disabled'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${asTaskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
+							NEXT
+						</a>
+					</li>
 
-        <th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
-    </div>
+					<li class="page-item" th:classappend="${asTaskPage.last} ? 'disabled'">
+						<a class="page-link"
+							th:href="@{/customer/asList(page=${asTaskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
+							LAST
+						</a>
+					</li>
 
-    <th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
-    <th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+				</ul>
+			</div>
 
+		</div>
+
+		<!-- 수정 모달 -->
+
+
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+	</div>
+
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+
+	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+	<script src="/front/asListUpdate.js"></script>
+	<div class="modal fade client-as-update-first-modal" id="client-as-update-first-modal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+			<div class="modal-content">
+				<form id="client-as-update-first-form">
+					<div class="modal-header">
+						<h5 class="modal-title fw-bold">AS 신청 수정</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+					</div>
+
+					<div class="modal-body">
+
+						<input type="hidden" id="client-as-update-first-task-id">
+						<input type="hidden" id="client-as-update-first-doName">
+						<input type="hidden" id="client-as-update-first-siName">
+						<input type="hidden" id="client-as-update-first-guName">
+						<input type="hidden" id="client-as-update-first-zipCode">
+
+						<!-- 개인정보 -->
+						<div class="client-as-update-first-section">
+							<div class="client-as-update-first-section-title">개인정보</div>
+
+							<div class="row g-3">
+								<div class="col-lg-4 col-md-6">
+									<label for="client-as-update-first-customerName"
+										class="client-as-update-first-label">
+										고객 성함<span class="client-as-update-first-required">*</span>
+									</label>
+									<input type="text" id="client-as-update-first-customerName"
+										class="client-as-update-first-input" placeholder="고객 성함을 입력해 주세요.">
+								</div>
+
+								<div class="col-lg-8 col-md-6">
+									<label for="client-as-update-first-roadAddress"
+										class="client-as-update-first-label">
+										주소<span class="client-as-update-first-required">*</span>
+									</label>
+									<div class="input-group">
+										<input type="text" id="client-as-update-first-roadAddress"
+											class="form-control client-as-update-first-input" readonly
+											placeholder="주소를 검색해 주세요.">
+										<button type="button" id="client-as-update-first-searchAddressBtn"
+											class="btn btn-outline-secondary">
+											주소검색
+										</button>
+									</div>
+								</div>
+
+								<div class="col-lg-8 col-md-8">
+									<label for="client-as-update-first-detailAddress"
+										class="client-as-update-first-label">
+										상세 주소
+									</label>
+									<input type="text" id="client-as-update-first-detailAddress"
+										class="client-as-update-first-input" placeholder="상세 주소를 입력해 주세요.">
+								</div>
+
+								<div class="col-lg-4 col-md-4">
+									<label for="client-as-update-first-onsiteContact"
+										class="client-as-update-first-label">
+										현장 연락처<span class="client-as-update-first-required">*</span>
+									</label>
+									<input type="text" id="client-as-update-first-onsiteContact"
+										class="client-as-update-first-input" placeholder="- 없이 숫자만 입력해 주세요.">
+								</div>
+							</div>
+						</div>
+
+						<!-- 제품 정보 -->
+						<div class="client-as-update-first-section">
+							<div class="client-as-update-first-section-title">제품 정보</div>
+
+							<div class="row g-3">
+								<div class="col-lg-3 col-md-6">
+									<label for="client-as-update-first-productName"
+										class="client-as-update-first-label">
+										제품명<span class="client-as-update-first-required">*</span>
+									</label>
+									<input type="text" id="client-as-update-first-productName"
+										class="client-as-update-first-input" placeholder="제품명을 입력해 주세요.">
+								</div>
+
+								<div class="col-lg-3 col-md-6">
+									<label for="client-as-update-first-productSize"
+										class="client-as-update-first-label">
+										제품 사이즈<span class="client-as-update-first-required">*</span>
+									</label>
+									<input type="text" id="client-as-update-first-productSize"
+										class="client-as-update-first-input" placeholder="예) 600x800">
+								</div>
+
+								<div class="col-lg-3 col-md-6">
+									<label for="client-as-update-first-productColor"
+										class="client-as-update-first-label">
+										제품 컬러<span class="client-as-update-first-required">*</span>
+									</label>
+									<input type="text" id="client-as-update-first-productColor"
+										class="client-as-update-first-input" placeholder="예) 화이트">
+								</div>
+
+								<div class="col-lg-3 col-md-6">
+									<label for="client-as-update-first-productOptions"
+										class="client-as-update-first-label">
+										옵션 여부<span class="client-as-update-first-required">*</span>
+									</label>
+									<input type="text" id="client-as-update-first-productOptions"
+										class="client-as-update-first-input" placeholder="예) LED, 손잡이 없음">
+								</div>
+							</div>
+						</div>
+
+						<!-- AS 증상 -->
+						<div class="client-as-update-first-section">
+							<div class="client-as-update-first-section-title">AS 신청 증상</div>
+
+							<div class="row g-3">
+								<div class="col-lg-4 col-md-6">
+									<label for="client-as-update-first-subjectCategory"
+										class="client-as-update-first-label">
+										카테고리<span class="client-as-update-first-required">*</span>
+									</label>
+									<select id="client-as-update-first-subjectCategory"
+										class="client-as-update-first-select">
+										<option value="">== 카테고리 선택 ==</option>
+										<option value="상부장">상부장</option>
+										<option value="슬라이드장">슬라이드장</option>
+										<option value="플랩장">플랩장</option>
+										<option value="하부장">하부장</option>
+										<option value="거울">거울</option>
+									</select>
+								</div>
+
+								<div class="col-lg-8 col-md-6">
+									<label for="client-as-update-first-subject" class="client-as-update-first-label">
+										증상<span class="client-as-update-first-required">*</span>
+									</label>
+									<select id="client-as-update-first-subject" class="client-as-update-first-select"
+										disabled>
+										<option value="">== 증상 선택 ==</option>
+									</select>
+								</div>
+
+								<div class="col-12">
+									<label for="client-as-update-first-reason"
+										class="client-as-update-first-label">남김말</label>
+									<textarea id="client-as-update-first-reason" class="client-as-update-first-textarea"
+										placeholder="기타 필요하신 내용을 입력해 주세요."></textarea>
+								</div>
+							</div>
+						</div>
+
+						<!-- 이미지 -->
+						<div class="client-as-update-first-section">
+							<div class="client-as-update-first-section-title">신청 이미지 수정</div>
+
+							<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+								<button type="button" id="client-as-update-first-fileTrigger"
+									class="btn bg-highlight color-white rounded-s client-as-update-first-file-trigger">
+									이미지 추가
+								</button>
+								<input type="file" id="client-as-update-first-newImages" class="d-none" accept="image/*"
+									multiple>
+							</div>
+
+							<div class="client-as-update-first-file-guide">
+								기존 이미지는 유지/삭제할 수 있고, 새 이미지는 추가할 수 있습니다.
+								기존 이미지를 모두 삭제하고 새 이미지만 등록하는 교체 방식도 가능합니다.
+							</div>
+
+							<div class="mt-3">
+								<div class="fw-bold font-13 mb-2">기존 신청 이미지</div>
+								<div id="client-as-update-first-existingImages" class="row g-2"></div>
+							</div>
+
+							<div class="mt-3">
+								<div class="fw-bold font-13 mb-2">삭제 예정 이미지</div>
+								<div id="client-as-update-first-deletedImages" class="row g-2"></div>
+							</div>
+
+							<div class="mt-3">
+								<div class="fw-bold font-13 mb-2">새로 추가한 이미지</div>
+								<div id="client-as-update-first-addedImages" class="row g-2"></div>
+							</div>
+						</div>
+
+					</div>
+
+					<div class="modal-footer">
+						<div class="client-as-update-first-footer-guide">
+							변경사항이 있을 때만 수정 버튼이 활성화됩니다.
+						</div>
+						<button type="button" class="btn btn-light rounded-s" data-bs-dismiss="modal">닫기</button>
+						<button type="submit" id="client-as-update-first-submitBtn"
+							class="btn bg-highlight color-white rounded-s client-as-update-first-submit-btn" disabled>
+							수정하기
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
 </body>
+
 </html>

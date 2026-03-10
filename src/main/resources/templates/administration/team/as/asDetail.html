@@ -14,10 +14,11 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
-		<div class="main-content">
 
+		<div class="main-content">
 			<div class="page-content">
-				<div class="container-fluid">
+				<div class="container-fluid team-as-detail-fourth-page-wrap">
+
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -30,236 +31,425 @@
 										<li class="breadcrumb-item active">AS상세</li>
 									</ol>
 								</div>
-
 							</div>
 						</div>
 					</div>
 
-					<!-- 상단 생략 -->
 					<form th:action="@{/team/asUpdate/{id}(id=${asTask.id})}" method="POST"
 						enctype="multipart/form-data">
 
 						<div class="row">
-							<div class="col-lg-12">
-								<div class="card">
+							<div class="col-12">
+								<div class="card team-as-detail-fourth-card">
 									<div class="card-body">
 
-										<!-- ✅ (1) subject 표시 추가 -->
-										<div class="mb-3">
-											<label class="form-label">제목</label>
-											<input type="text" class="form-control" th:value="${asTask.subjectSafe}" disabled>
-										</div>
-
-										<div class="mb-3">
-											<label class="form-label">대리점명</label>
-											<input type="text" class="form-control" th:value="${asTask.requestedBy != null && asTask.requestedBy.company != null 
-									? asTask.requestedBy.company.companyName : '미지정'}" disabled>
-										</div>
-
-										<div class="mb-3">
-											<label class="form-label">신청자명</label>
-											<input type="text" class="form-control"
-												th:value="${asTask.requestedBy != null ? asTask.requestedBy.name : '미지정'}"
-												disabled>
-										</div>
-
-										<div class="mb-3">
-											<label class="form-label">AS 사유</label>
-											<textarea class="form-control" rows="3" disabled
-												th:text="${asTask.reason}"></textarea>
-										</div>
-										
-										<div class="mb-3">
-											<label class="form-label">관리자 메모</label>
-											<textarea class="form-control" rows="3" disabled
-												th:text="${asTask.adminMemo}"></textarea>
-										</div>
-										
-										<div class="mb-3">
-											<label class="form-label">AS 주소</label>
-											<input type="text" class="form-control"
-												th:value="|(${asTask.zipCode}) ${asTask.doName} ${asTask.siName} ${asTask.guName} ${asTask.roadAddress} ${asTask.detailAddress}|"
-												disabled>
-										</div>
-										<div class="row">
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">제품명</label>
-												<input type="text" class="form-control" th:value="${asTask.productName}"
-													disabled>
+										<!-- 기본 정보 -->
+										<div class="team-as-detail-fourth-section">
+											<div class="team-as-detail-fourth-section-head">
+												<div>
+													<h5 class="team-as-detail-fourth-section-title">
+														<i class="ri-file-list-3-line"></i>
+														기본 정보
+													</h5>
+													<div class="team-as-detail-fourth-section-sub">
+														AS 요청의 핵심 정보와 현재 진행 상태를 확인할 수 있습니다.
+													</div>
+												</div>
 											</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">사이즈</label>
-												<input type="text" class="form-control" th:value="${asTask.productSize}"
-													disabled>
-											</div>
+											<div class="row team-as-detail-fourth-grid">
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">제목</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${#strings.defaultString(asTask.subjectSafe, '-')}">
+															-</div>
+													</div>
+												</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">색상</label>
-												<input type="text" class="form-control"
-													th:value="${asTask.productColor}" disabled>
-											</div>
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">대리점명</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${asTask.requestedBy != null && asTask.requestedBy.company != null ? asTask.requestedBy.company.companyName : '미지정'}">
+															미지정
+														</div>
+													</div>
+												</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">옵션</label>
-												<input type="text" class="form-control"
-													th:value="${asTask.productOptions}" disabled>
-											</div>
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">신청자명</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${asTask.requestedBy != null ? asTask.requestedBy.name : '미지정'}">
+															미지정</div>
+													</div>
+												</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">현장 연락처</label>
-												<input type="text" class="form-control"
-													th:value="${asTask.onsiteContact}" disabled>
-											</div>
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">현장 연락처</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${#strings.defaultString(asTask.onsiteContact, '-')}">
+															-</div>
+													</div>
+												</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">AS 신청일</label>
-												<input type="text" class="form-control"
-													th:value="${#temporals.format(asTask.requestedAt, 'yyyy-MM-dd HH:mm')}"
-													disabled>
-											</div>
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">AS 신청일</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${asTask.requestedAt != null ? #temporals.format(asTask.requestedAt, 'yyyy-MM-dd HH:mm') : '-'}">
+															-</div>
+													</div>
+												</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">진행일자</label>
-												<!-- ✅ null 안전 처리 -->
-												<input type="text" class="form-control"
-													th:value="${asTask.asProcessDate != null ? #temporals.format(asTask.asProcessDate, 'yyyy-MM-dd HH:mm') : '-'}"
-													disabled>
-											</div>
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">진행일자</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${asTask.asProcessDate != null ? #temporals.format(asTask.asProcessDate, 'yyyy-MM-dd HH:mm') : '-'}">
+															-</div>
+													</div>
+												</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">AS 비용</label>
-												<input type="text" class="form-control" th:value="${asTask.price}"
-													disabled name="price">
-											</div>
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">AS 비용</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${asTask.price > 0 ? asTask.price + '원' : '-'}">
+															-</div>
+													</div>
+												</div>
 
-											<div class="col-lg-4 mb-3">
-												<label class="form-label">AS 상태관리</label>
+												<div class="col-12 col-md-6 col-xl-8 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">AS 상태관리</div>
 
-												<!-- ✅ 상태가 COMPLETED이면 select 비활성화 -->
-												<select class="form-select" name="status" disabled
-													th:if="${asTask.status != null && asTask.status.name() == 'COMPLETED'}">
-													<option value="COMPLETED" selected
-														th:text="${asStatusLabels['COMPLETED']}">완료</option>
-												</select>
+														<div
+															th:if="${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}">
+															<select class="form-select team-as-detail-fourth-select"
+																name="status">
+																<option value="IN_PROGRESS"
+																	th:selected="${asTask.status.name() == 'IN_PROGRESS'}"
+																	th:text="${asStatusLabels['IN_PROGRESS']}">진행중
+																</option>
+																<option value="COMPLETED"
+																	th:selected="${asTask.status.name() == 'COMPLETED'}"
+																	th:text="${asStatusLabels['COMPLETED']}">완료</option>
+															</select>
+															<span class="team-as-detail-fourth-info-help">
+																현재 진행중 상태이므로 완료 상태로 변경할 수 있습니다.
+															</span>
+														</div>
 
-												<!-- ✅ 상태가 IN_PROGRESS이면 COMPLETED로 변경 가능 -->
-												<select class="form-select" name="status"
-													th:if="${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}">
-													<option value="IN_PROGRESS"
-														th:selected="${asTask.status.name() == 'IN_PROGRESS'}"
-														th:text="${asStatusLabels['IN_PROGRESS']}">진행중</option>
-													<option value="COMPLETED"
-														th:selected="${asTask.status.name() == 'COMPLETED'}"
-														th:text="${asStatusLabels['COMPLETED']}">완료</option>
-												</select>
-
-												<!-- ✅ (2) 진행중이 아닌 경우: 상태관리 불가능 안내 (셀렉트 대신 표시) -->
-												<div class="alert alert-warning mt-2 mb-0"
-													th:if="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}">
-													<div class="d-flex">
-														<i class="ri-alert-line fs-20 me-2"></i>
-														<div>
-															<div class="fw-semibold">현재 상태에서는 상태관리가 불가능합니다.</div>
-															<div class="small text-muted">
-																진행중(IN_PROGRESS) 상태에서만 변경할 수 있습니다.
-																현재 상태:
-																<span class="fw-semibold" th:text="${asTask.statusLabelKr}">-</span>
+														<div
+															th:if="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}">
+															<div class="team-as-detail-fourth-info-value">
+																<span class="badge bg-light text-dark border px-3 py-2"
+																	th:text="${#strings.defaultString(asTask.statusLabelKr, '-')}">-</span>
+																<span class="team-as-detail-fourth-info-help">
+																	* 진행중(IN_PROGRESS) 상태에서만 상태 변경이 가능합니다.
+																</span>
 															</div>
 														</div>
 													</div>
 												</div>
 
 											</div>
-
 										</div>
 
-										<div class="col-12 mb-3">
-											<label class="form-label">AS 결과 이미지 업로드</label>
-											<div>
-												<input type="file" id="resultImageUpload" name="resultImages"
-													accept="image/*" multiple style="display: none;"
+										<!-- 상세 내용 -->
+										<div class="team-as-detail-fourth-section">
+											<div class="team-as-detail-fourth-section-head">
+												<div>
+													<h5 class="team-as-detail-fourth-section-title">
+														<i class="ri-article-line"></i>
+														상세 내용
+													</h5>
+													<div class="team-as-detail-fourth-section-sub">
+														요청 사유, 관리자 메모, 주소 정보를 확인할 수 있습니다.
+													</div>
+												</div>
+											</div>
+
+											<div class="row team-as-detail-fourth-grid">
+												<div class="col-12 col-lg-6 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">AS 사유</div>
+														<div class="team-as-detail-fourth-info-value team-as-detail-fourth-info-value-pre"
+															th:text="${#strings.defaultString(asTask.reason, '-')}">-
+														</div>
+													</div>
+												</div>
+
+												<div class="col-12 col-lg-6 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">관리자 메모</div>
+														<div class="team-as-detail-fourth-info-value team-as-detail-fourth-info-value-pre"
+															th:text="${#strings.defaultString(asTask.adminMemo, '-')}">-
+														</div>
+													</div>
+												</div>
+
+												<div class="col-12 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div
+															class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
+															<div class="team-as-detail-fourth-info-label mb-0">AS 주소
+															</div>
+															<button type="button"
+																class="btn btn-outline-secondary btn-sm team-as-detail-fourth-copy-btn"
+																id="team-as-detail-fourth-address-copy-btn"
+																th:attr="data-copy-text=|(${#strings.defaultString(asTask.zipCode,'-')}) ${#strings.defaultString(asTask.doName,'')} ${#strings.defaultString(asTask.siName,'')} ${#strings.defaultString(asTask.guName,'')} ${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
+																<i class="ri-file-copy-line"></i>
+																주소 복사
+															</button>
+														</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="|(${#strings.defaultString(asTask.zipCode,'-')}) ${#strings.defaultString(asTask.doName,'')} ${#strings.defaultString(asTask.siName,'')} ${#strings.defaultString(asTask.guName,'')} ${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
+															-
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- 담당자 관리 -->
+										<div class="team-as-detail-fourth-section">
+											<div class="team-as-detail-fourth-section-head">
+												<div>
+													<h5 class="team-as-detail-fourth-section-title">
+														<i class="ri-user-settings-line"></i>
+														담당자 관리
+													</h5>
+													<div class="team-as-detail-fourth-section-sub">
+														담당자용 메모와 방문예정시간은 진행중(IN_PROGRESS) 상태에서만 수정할 수 있습니다.
+													</div>
+												</div>
+											</div>
+
+											<div class="row team-as-detail-fourth-grid">
+												<div class="col-12 col-xl-8 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">담당자용 메모</div>
+														<textarea class="form-control" name="handlerMemo" rows="6"
+															maxlength="2000" placeholder="현장 담당자용 메모를 입력해 주세요."
+															th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}"
+															th:text="${asTask.handlerMemo}"></textarea>
+														<div class="team-as-detail-fourth-info-help mt-2">
+															줄바꿈 포함 입력 가능합니다.
+														</div>
+													</div>
+												</div>
+
+												<div class="col-12 col-md-6 col-xl-4 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">방문예정시간</div>
+														<input type="time" class="form-control" name="visitPlannedTime"
+															step="60" min="00:00" max="23:59"
+															th:value="${asTask.visitPlannedTime != null ? #temporals.format(asTask.visitPlannedTime, 'HH:mm') : ''}"
+															th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}" />
+														<div class="team-as-detail-fourth-info-help mt-2">
+															직접 입력하거나 위/아래 화살표로 1분 단위 조정이 가능합니다.
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- 제품 정보 -->
+										<div class="team-as-detail-fourth-section">
+											<div class="team-as-detail-fourth-section-head">
+												<div>
+													<h5 class="team-as-detail-fourth-section-title">
+														<i class="ri-box-3-line"></i>
+														제품 정보
+													</h5>
+													<div class="team-as-detail-fourth-section-sub">
+														제품 관련 정보는 보기 전용으로 정리되며, 버튼으로 한 번에 복사할 수 있습니다.
+													</div>
+												</div>
+
+												<button type="button"
+													class="btn btn-outline-primary btn-sm team-as-detail-fourth-copy-btn"
+													id="team-as-detail-fourth-product-copy-btn" th:attr="
+														data-product-name=${#strings.defaultString(asTask.productName,'-')},
+														data-product-size=${#strings.defaultString(asTask.productSize,'-')},
+														data-product-color=${#strings.defaultString(asTask.productColor,'-')},
+														data-product-options=${#strings.defaultString(asTask.productOptions,'-')}">
+													<i class="ri-file-copy-line"></i>
+													제품정보 복사
+												</button>
+											</div>
+
+											<div class="team-as-detail-fourth-product-summary mb-3">
+												<strong>복사 항목</strong> :
+												제품명 / 사이즈 / 색상 / 옵션
+											</div>
+
+											<div class="row team-as-detail-fourth-grid">
+												<div class="col-12 col-md-6 col-xl-3 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">제품명</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${#strings.defaultString(asTask.productName, '-')}">
+															-</div>
+													</div>
+												</div>
+
+												<div class="col-12 col-md-6 col-xl-3 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">사이즈</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${#strings.defaultString(asTask.productSize, '-')}">
+															-</div>
+													</div>
+												</div>
+
+												<div class="col-12 col-md-6 col-xl-3 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">색상</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${#strings.defaultString(asTask.productColor, '-')}">
+															-</div>
+													</div>
+												</div>
+
+												<div class="col-12 col-md-6 col-xl-3 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">옵션</div>
+														<div class="team-as-detail-fourth-info-value"
+															th:text="${#strings.defaultString(asTask.productOptions, '-')}">
+															-</div>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- 결과 이미지 업로드 -->
+										<div class="team-as-detail-fourth-section">
+											<div class="team-as-detail-fourth-section-head">
+												<div>
+													<h5 class="team-as-detail-fourth-section-title">
+														<i class="ri-image-add-line"></i>
+														AS 결과 이미지 업로드
+													</h5>
+													<div class="team-as-detail-fourth-section-sub">
+														진행중(IN_PROGRESS) 상태에서만 결과 이미지를 업로드할 수 있습니다.
+													</div>
+												</div>
+											</div>
+
+											<div class="team-as-detail-fourth-upload-wrap">
+												<input type="file" id="team-as-detail-fourth-result-image-upload"
+													name="resultImages" accept="image/*" multiple style="display:none;"
 													th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}" />
 
 												<button type="button" class="btn btn-outline-primary"
-													id="triggerUpload"
+													id="team-as-detail-fourth-trigger-upload"
 													th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}">
 													이미지 업로드
 												</button>
 
-												<div id="resultPreviewList" class="mt-3 d-flex flex-wrap gap-2"></div>
+												<div id="team-as-detail-fourth-result-preview-list"
+													class="team-as-detail-fourth-preview-list"></div>
 											</div>
 										</div>
 
-										<div class="row mb-3">
-											<!-- ✅ 고객 요청 이미지 -->
-											<div class="col-6 mt-3">
-												<label class="form-label">고객 요청 이미지</label>
-												<div class="row g-2">
-													<div class="col-lg-12" th:each="img : ${asTask.requestImages}">
-														<div class="border rounded p-2 d-flex flex-column align-items-center text-center">
-															<img th:src="@{${img.url}}" class="img-fluid mb-2"
-																style="max-height: 120px; max-width:100%;" />
-															<span class="text-truncate small" th:text="${img.filename}"
-																style="max-width: 100%;"></span>
-															<a th:href="@{${img.url}}" download class="mt-1">
-																<i class="ri-download-2-line fs-18 text-primary"></i>
-															</a>
+										<!-- 이미지 영역 -->
+										<div class="team-as-detail-fourth-section">
+											<div class="row team-as-detail-fourth-grid">
+
+												<!-- 고객 요청 이미지 -->
+												<div class="col-12 col-xl-6 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">고객 요청 이미지</div>
+
+														<div class="row g-3 mt-0">
+															<div class="col-6 col-md-4"
+																th:each="img : ${asTask.requestImages}">
+																<div class="team-as-detail-fourth-image-card">
+																	<img th:src="@{${img.url}}"
+																		class="team-as-detail-fourth-image-thumb"
+																		alt="고객 요청 이미지" />
+																	<span class="team-as-detail-fourth-image-name"
+																		th:text="${img.filename}">filename</span>
+																	<div class="team-as-detail-fourth-image-actions">
+																		<a th:href="@{${img.url}}" download
+																			class="btn btn-sm btn-light border">
+																			<i
+																				class="ri-download-2-line text-primary"></i>
+																		</a>
+																	</div>
+																</div>
+															</div>
+
+															<div class="col-12 mt-1"
+																th:if="${#lists.isEmpty(asTask.requestImages)}">
+																<p class="text-muted mb-0">이미지가 없습니다.</p>
+															</div>
 														</div>
 													</div>
-
-													<div class="col-12" th:if="${#lists.isEmpty(asTask.requestImages)}">
-														<p class="text-muted">이미지가 없습니다.</p>
-													</div>
 												</div>
-											</div>
 
-											<!-- ✅ AS 결과 이미지 -->
-											<div class="col-6 mt-3">
-												<label class="form-label">AS 결과 이미지</label>
-												<div class="row g-2">
-													<div class="col-lg-12 position-relative"
-														th:each="img : ${asTask.resultImages}">
-														<div class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
+												<!-- AS 결과 이미지 -->
+												<div class="col-12 col-xl-6 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">AS 결과 이미지</div>
 
-															<!-- ✅ 진행중이 아니면 삭제 버튼 숨김(또는 disabled) -->
-															<button type="button"
-																class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
-																th:if="${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}"
-																th:attr="data-id=${img.id}"
-																onclick="confirmDeleteImage(this)">
-																&times;
-															</button>
+														<div class="row g-3 mt-0">
+															<div class="col-6 col-md-4"
+																th:each="img : ${asTask.resultImages}">
+																<div class="team-as-detail-fourth-image-card">
 
-															<img th:src="@{${img.url}}" class="img-fluid mb-2"
-																style="max-height: 120px; max-width:100%;" />
-															<span class="text-truncate small" th:text="${img.filename}"
-																style="max-width: 100%;"></span>
-															<a th:href="@{${img.url}}" download class="mt-1">
-																<i class="ri-download-2-line fs-18 text-primary"></i>
-															</a>
+																	<button type="button"
+																		class="btn btn-danger btn-sm team-as-detail-fourth-image-delete"
+																		th:if="${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}"
+																		th:attr="data-id=${img.id}"
+																		onclick="teamAsDetailFourthConfirmDeleteImage(this)">
+																		<i class="ri-close-line"></i>
+																	</button>
+
+																	<img th:src="@{${img.url}}"
+																		class="team-as-detail-fourth-image-thumb"
+																		alt="AS 결과 이미지" />
+																	<span class="team-as-detail-fourth-image-name"
+																		th:text="${img.filename}">filename</span>
+																	<div class="team-as-detail-fourth-image-actions">
+																		<a th:href="@{${img.url}}" download
+																			class="btn btn-sm btn-light border">
+																			<i
+																				class="ri-download-2-line text-primary"></i>
+																		</a>
+																	</div>
+																</div>
+															</div>
+
+															<div class="col-12 mt-1"
+																th:if="${#lists.isEmpty(asTask.resultImages)}">
+																<p class="text-muted mb-0">이미지가 없습니다.</p>
+															</div>
 														</div>
 													</div>
-
-													<div class="col-12" th:if="${#lists.isEmpty(asTask.resultImages)}">
-														<p class="text-muted">이미지가 없습니다.</p>
-													</div>
 												</div>
-											</div>
 
+											</div>
 										</div>
 
-										<!-- ✅ (2) 진행중이 아닌 경우: "밑에" 안내문구(요청대로 하단 추가) -->
-										<div class="alert alert-warning mt-3 mb-0"
+										<!-- 하단 안내 -->
+										<div class="alert alert-warning team-as-detail-fourth-bottom-alert mt-4 mb-0"
 											th:if="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}">
 											<div class="d-flex">
 												<i class="ri-information-line fs-20 me-2"></i>
 												<div>
 													<div class="fw-semibold mb-1">현재 상태에서는 상세 관리가 불가능합니다.</div>
 													<div class="small text-muted">
-														상태 변경/이미지 업로드/저장 기능은 진행중(IN_PROGRESS) 상태에서만 가능합니다.
-														현재 상태:
-														<span class="fw-semibold" th:text="${asTask.statusLabelKr}">-</span>
+														상태 변경 / 담당자용 메모 / 방문예정시간 / 이미지 업로드 / 저장 기능은 진행중(IN_PROGRESS)
+														상태에서만 가능합니다.
+														현재 상태 :
+														<span class="fw-semibold"
+															th:text="${#strings.defaultString(asTask.statusLabelKr, '-')}">-</span>
 													</div>
 												</div>
 											</div>
@@ -268,18 +458,21 @@
 									</div>
 								</div>
 
-								<div class="text-end mb-4">
-									<!-- ✅ 진행중이 아니면 저장 불가 -->
-									<button class="btn btn-success w-sm"
+								<div class="team-as-detail-fourth-submit-wrap">
+									<button class="btn btn-success team-as-detail-fourth-submit-btn"
 										th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}">
 										저장
 									</button>
 								</div>
+
 							</div>
 						</div>
+
 					</form>
+
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
@@ -292,76 +485,167 @@
 		/*<![CDATA[*/
 		document.addEventListener("DOMContentLoaded", () => {
 
-			const fileInput = document.getElementById("resultImageUpload");
-			const triggerBtn = document.getElementById("triggerUpload");
-			const previewList = document.getElementById("resultPreviewList");
+			const teamAsDetailFourthFileInput = document.getElementById("team-as-detail-fourth-result-image-upload");
+			const teamAsDetailFourthTriggerBtn = document.getElementById("team-as-detail-fourth-trigger-upload");
+			const teamAsDetailFourthPreviewList = document.getElementById("team-as-detail-fourth-result-preview-list");
+			const teamAsDetailFourthAddressCopyBtn = document.getElementById("team-as-detail-fourth-address-copy-btn");
+			const teamAsDetailFourthProductCopyBtn = document.getElementById("team-as-detail-fourth-product-copy-btn");
 
-			// ✅ 진행중 여부(서버 값 기반) - 버튼/인풋이 disabled면 이벤트가 크게 의미 없지만, JS에서도 한 번 더 가드
-			const canEdit = /*[[${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}]]*/ false;
+			const teamAsDetailFourthCanEdit = /*[[${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}]]*/ false;
 
-			if (triggerBtn) {
-				triggerBtn.addEventListener("click", () => {
-					if (!canEdit) return;
+			function teamAsDetailFourthFallbackCopy(text) {
+				const textarea = document.createElement("textarea");
+				textarea.value = text;
+				textarea.style.position = "fixed";
+				textarea.style.left = "-9999px";
+				textarea.style.top = "0";
+				document.body.appendChild(textarea);
+				textarea.focus();
+				textarea.select();
 
-					const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-					if (isMobile) {
-						const useCamera = confirm("사진을 촬영하시겠습니까?\n취소를 누르면 갤러리에서 선택합니다.");
-						if (useCamera) {
-							fileInput.setAttribute("capture", "environment");
-						} else {
-							fileInput.removeAttribute("capture");
-						}
+				try {
+					document.execCommand("copy");
+					document.body.removeChild(textarea);
+					return true;
+				} catch (e) {
+					document.body.removeChild(textarea);
+					return false;
+				}
+			}
+
+			async function teamAsDetailFourthCopyText(text, successMessage) {
+				if (!text || !String(text).trim()) {
+					alert("복사할 내용이 없습니다.");
+					return;
+				}
+
+				try {
+					if (navigator.clipboard && window.isSecureContext) {
+						await navigator.clipboard.writeText(text);
+						alert(successMessage);
+						return;
 					}
-					fileInput.click();
+
+					const copied = teamAsDetailFourthFallbackCopy(text);
+					if (copied) {
+						alert(successMessage);
+					} else {
+						alert("복사에 실패했습니다.");
+					}
+				} catch (e) {
+					const copied = teamAsDetailFourthFallbackCopy(text);
+					if (copied) {
+						alert(successMessage);
+					} else {
+						alert("복사에 실패했습니다.");
+					}
+				}
+			}
+
+			if (teamAsDetailFourthAddressCopyBtn) {
+				teamAsDetailFourthAddressCopyBtn.addEventListener("click", () => {
+					const copyText = teamAsDetailFourthAddressCopyBtn.dataset.copyText || "";
+					teamAsDetailFourthCopyText(copyText, "주소가 복사 되었습니다");
 				});
 			}
 
-			if (fileInput) {
-				fileInput.addEventListener("change", () => {
-					if (!canEdit) return;
+			if (teamAsDetailFourthProductCopyBtn) {
+				teamAsDetailFourthProductCopyBtn.addEventListener("click", () => {
+					const productName = teamAsDetailFourthProductCopyBtn.dataset.productName || "-";
+					const productSize = teamAsDetailFourthProductCopyBtn.dataset.productSize || "-";
+					const productColor = teamAsDetailFourthProductCopyBtn.dataset.productColor || "-";
+					const productOptions = teamAsDetailFourthProductCopyBtn.dataset.productOptions || "-";
 
-					previewList.innerHTML = "";
-					Array.from(fileInput.files).forEach((file, index) => {
+					const copyText = [
+						`제품명: ${productName}`,
+						`사이즈: ${productSize}`,
+						`색상: ${productColor}`,
+						`옵션: ${productOptions}`
+					].join("\n");
+
+					teamAsDetailFourthCopyText(copyText, "제품 정보가 일괄 복사 되었습니다.");
+				});
+			}
+
+			if (teamAsDetailFourthTriggerBtn) {
+				teamAsDetailFourthTriggerBtn.addEventListener("click", () => {
+					if (!teamAsDetailFourthCanEdit) return;
+
+					const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+					if (isMobile && teamAsDetailFourthFileInput) {
+						const useCamera = confirm("사진을 촬영하시겠습니까?\n취소를 누르면 갤러리에서 선택합니다.");
+						if (useCamera) {
+							teamAsDetailFourthFileInput.setAttribute("capture", "environment");
+						} else {
+							teamAsDetailFourthFileInput.removeAttribute("capture");
+						}
+					}
+
+					if (teamAsDetailFourthFileInput) {
+						teamAsDetailFourthFileInput.click();
+					}
+				});
+			}
+
+			if (teamAsDetailFourthFileInput) {
+				teamAsDetailFourthFileInput.addEventListener("change", () => {
+					if (!teamAsDetailFourthCanEdit) return;
+
+					if (!teamAsDetailFourthPreviewList) return;
+					teamAsDetailFourthPreviewList.innerHTML = "";
+
+					Array.from(teamAsDetailFourthFileInput.files).forEach((file, index) => {
 						const reader = new FileReader();
+
 						reader.onload = (e) => {
 							const item = document.createElement("div");
-							item.className = "preview-item position-relative";
+							item.className = "team-as-detail-fourth-preview-item";
 
 							item.innerHTML = `
-								<img src="${e.target.result}" class="rounded" style="width: 120px; height: auto;" />
-								<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 me-1 mt-1"
-										data-index="${index}">×</button>
+								<img src="${e.target.result}" alt="미리보기" />
+								<button type="button"
+										class="btn btn-danger btn-sm team-as-detail-fourth-preview-remove"
+										data-index="${index}">
+										×
+								</button>
 							`;
-							previewList.appendChild(item);
+
+							teamAsDetailFourthPreviewList.appendChild(item);
 						};
+
 						reader.readAsDataURL(file);
 					});
 				});
 			}
 
-			if (previewList) {
-				previewList.addEventListener("click", (e) => {
-					if (!canEdit) return;
+			if (teamAsDetailFourthPreviewList) {
+				teamAsDetailFourthPreviewList.addEventListener("click", (e) => {
+					if (!teamAsDetailFourthCanEdit) return;
 
-					if (e.target.tagName === "BUTTON" && e.target.dataset.index !== undefined) {
-						const indexToRemove = parseInt(e.target.dataset.index);
-						const dt = new DataTransfer();
-						Array.from(fileInput.files).forEach((file, index) => {
-							if (index !== indexToRemove) dt.items.add(file);
-						});
-						fileInput.files = dt.files;
-						fileInput.dispatchEvent(new Event("change"));
-					}
+					const btn = e.target.closest("button[data-index]");
+					if (!btn || !teamAsDetailFourthFileInput) return;
+
+					const indexToRemove = parseInt(btn.dataset.index, 10);
+					const dt = new DataTransfer();
+
+					Array.from(teamAsDetailFourthFileInput.files).forEach((file, index) => {
+						if (index !== indexToRemove) {
+							dt.items.add(file);
+						}
+					});
+
+					teamAsDetailFourthFileInput.files = dt.files;
+					teamAsDetailFourthFileInput.dispatchEvent(new Event("change"));
 				});
 			}
 		});
 
-		function confirmDeleteImage(btn) {
-			const imageId = btn.getAttribute('data-id');
+		function teamAsDetailFourthConfirmDeleteImage(btn) {
+			const imageId = btn.getAttribute("data-id");
 			if (!imageId) return;
 
 			if (confirm("이 이미지를 삭제하시겠습니까?")) {
-				fetch(`/team/asImageDelete/${imageId}`, { method: 'DELETE' })
+				fetch(`/team/asImageDelete/${imageId}`, {method: "DELETE"})
 					.then(res => {
 						if (res.ok) {
 							alert("삭제되었습니다.");

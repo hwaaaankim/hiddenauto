@@ -29,12 +29,10 @@
 						</div>
 					</div>
 
-					<!-- ✅ 검색 폼 -->
 					<form method="get" th:action="@{/team/asList}" class="row">
 						<div class="col-lg-12">
 							<div class="row g-4 mb-3">
 
-								<!-- 상태 -->
 								<div class="col-lg-1">
 									<label class="form-label">상태</label>
 									<select name="status" class="form-select">
@@ -50,7 +48,6 @@
 									</select>
 								</div>
 
-								<!-- 조회조건 -->
 								<div class="col-lg-1">
 									<label class="form-label">조회조건</label>
 									<select name="dateType" class="form-select">
@@ -60,7 +57,6 @@
 									</select>
 								</div>
 
-								<!-- 시작일 -->
 								<div class="col-lg-2">
 									<label class="form-label">시작일</label>
 									<input type="date" name="startDate"
@@ -68,7 +64,6 @@
 										class="form-control">
 								</div>
 
-								<!-- 종료일 -->
 								<div class="col-lg-2">
 									<label class="form-label">종료일</label>
 									<input type="date" name="endDate"
@@ -76,14 +71,12 @@
 										class="form-control">
 								</div>
 
-								<!-- ✅ 업체명 검색 -->
 								<div class="col-lg-2">
 									<label class="form-label">업체명</label>
 									<input type="text" name="companyKeyword" class="form-control" placeholder="업체명 검색"
 										th:value="${companyKeyword}">
 								</div>
 
-								<!-- ✅ Province -->
 								<div class="col-lg-1">
 									<label class="form-label">도/광역시</label>
 									<select name="provinceId" id="as-province-select" class="form-select">
@@ -94,7 +87,6 @@
 									</select>
 								</div>
 
-								<!-- ✅ City/District(직접) : label도 같이 토글 -->
 								<div class="col-lg-1" id="as-child-wrapper" style="display:none;">
 									<label class="form-label" id="as-child-label">시/군</label>
 
@@ -107,7 +99,6 @@
 									</select>
 								</div>
 
-								<!-- ✅ District (City 선택 후) : label도 같이 토글 -->
 								<div class="col-lg-1" id="as-district-wrapper" style="display:none;">
 									<label class="form-label">구/읍/면</label>
 
@@ -116,25 +107,24 @@
 									</select>
 								</div>
 
-								<!-- 검색 버튼 -->
 								<div class="col-lg-1">
 									<label class="form-label">조회</label>
 									<button type="submit" class="btn btn-primary w-100">검색하기</button>
 								</div>
 
-								<!-- ✅ districtId는 hidden input 하나로만 전송 -->
 								<input type="hidden" name="districtId" id="as-district-hidden"
 									th:value="${districtId != null ? districtId : ''}" />
+
+								<input type="hidden" name="visitTimeSort"
+									th:value="${visitTimeSort != null ? visitTimeSort : ''}" />
 
 							</div>
 						</div>
 					</form>
 
-					<!-- ✅ 테이블 리스트 -->
 					<div class="row">
 						<div class="col-lg-12">
 
-							<!-- 데이터 있을 때 -->
 							<div class="as-list-added-table-card card" th:if="${asPage.totalElements > 0}">
 								<div class="card-body as-list-added-table-card-body">
 
@@ -142,22 +132,18 @@
 										<table class="table as-list-added-table align-middle mb-0 asList-second-table">
 											<thead class="as-list-added-thead">
 												<tr>
-													<!-- ✅ 모바일 숨김: ID -->
 													<th
 														class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														ID</th>
 
-													<!-- ✅ 모바일 표시 -->
 													<th
 														class="as-list-added-th as-list-added-col-status asList-second-col-status">
 														상태</th>
 
-													<!-- ✅ 변경: 신청자 -> 신청매장 -->
 													<th
 														class="as-list-added-th as-list-added-col-requester asList-second-col-requester">
 														신청매장</th>
 
-													<!-- ✅ 신규: 고객 성함 -->
 													<th
 														class="as-list-added-th as-list-added-col-customerName asList-second-col-customerName">
 														고객 성함</th>
@@ -166,18 +152,58 @@
 														class="as-list-added-th as-list-added-col-address asList-second-col-address">
 														주소</th>
 
-													<!-- ✅ 모바일 숨김: 현장연락처/신청일/처리일 -->
 													<th
 														class="as-list-added-th as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														현장연락처</th>
+
 													<th
 														class="as-list-added-th as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														신청일</th>
+
+													<th
+														class="as-list-added-th as-list-added-col-visitTime d-none d-lg-table-cell text-center">
+														<div class="d-inline-flex align-items-center gap-2">
+															<span>방문예정시간</span>
+															<span class="d-inline-flex flex-column lh-1">
+																<a th:href="@{|/team/asList?page=0
+																    &dateType=${dateType}
+																    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+																    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+																    &status=${selectedStatus != null ? selectedStatus.name() : ''}
+																    &companyKeyword=${companyKeyword != null ? companyKeyword : ''}
+																    &provinceId=${provinceId != null ? provinceId : ''}
+																    &cityId=${cityId != null ? cityId : ''}
+																    &districtId=${districtId != null ? districtId : ''}
+																    &visitTimeSort=asc
+																|}"
+																class="text-decoration-none"
+																th:classappend="${visitTimeSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
+																    <i class="ri-arrow-up-s-line"></i>
+																</a>
+																
+																<a th:href="@{|/team/asList?page=0
+																    &dateType=${dateType}
+																    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+																    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+																    &status=${selectedStatus != null ? selectedStatus.name() : ''}
+																    &companyKeyword=${companyKeyword != null ? companyKeyword : ''}
+																    &provinceId=${provinceId != null ? provinceId : ''}
+																    &cityId=${cityId != null ? cityId : ''}
+																    &districtId=${districtId != null ? districtId : ''}
+																    &visitTimeSort=desc
+																|}"
+																class="text-decoration-none"
+																th:classappend="${visitTimeSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
+																    <i class="ri-arrow-down-s-line"></i>
+																</a>
+															</span>
+														</div>
+													</th>
+
 													<th
 														class="as-list-added-th as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														처리일</th>
 
-													<!-- ✅ 모바일/PC 공용(비고) -->
 													<th
 														class="as-list-added-th as-list-added-col-actions text-center asList-second-col-actions">
 														비고</th>
@@ -190,13 +216,11 @@
                                                              data-task-id=${task.id},
                                                              data-onsite=${task.onsiteContact}">
 
-													<!-- ✅ 모바일 숨김: ID -->
 													<td
 														class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														<span class="as-list-added-id" th:text="${task.id}">1</span>
 													</td>
 
-													<!-- 상태 (모바일 표시) -->
 													<td
 														class="as-list-added-td as-list-added-col-status asList-second-col-status">
 														<span class="badge as-list-added-status-badge" th:classappend="${
@@ -210,30 +234,26 @@
 														</span>
 													</td>
 
-													<!-- ✅ 변경: 신청매장(Company.companyName) -->
 													<td
 														class="as-list-added-td as-list-added-col-requester asList-second-col-requester">
 														<span class="as-list-added-requester"
 															th:text="${task.requestedCompanyNameSafe}">-</span>
 													</td>
 
-													<!-- ✅ 신규: 고객 성함 -->
 													<td
 														class="as-list-added-td as-list-added-col-customerName asList-second-col-customerName">
 														<span class="as-list-added-customerName"
 															th:text="${task.customerNameSafe}">-</span>
 													</td>
 
-													<!-- 주소 (모바일 표시) -->
 													<td
 														class="as-list-added-td as-list-added-col-address asList-second-col-address">
 														<div class="as-list-added-address"
-															th:text="${task.roadAddress + ' ' + task.detailAddress}">
+															th:text="|${#strings.defaultString(task.roadAddress,'')} ${#strings.defaultString(task.detailAddress,'')}|">
 															주소
 														</div>
 													</td>
 
-													<!-- ✅ 모바일 숨김: 현장연락처 -->
 													<td
 														class="as-list-added-td as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														<div class="asList-second-onsiteContact text-truncate"
@@ -242,27 +262,28 @@
 														</div>
 													</td>
 
-													<!-- ✅ 모바일 숨김: 신청일 -->
 													<td
 														class="as-list-added-td as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														<span class="as-list-added-date"
 															th:text="${#temporals.format(task.requestedAt, 'yyyy-MM-dd')}">2026-01-01</span>
 													</td>
 
-													<!-- ✅ 모바일 숨김: 처리일 -->
+													<td class="as-list-added-td d-none d-lg-table-cell text-center">
+														<span class="as-list-added-date"
+															th:text="${task.visitPlannedTime != null ? #temporals.format(task.visitPlannedTime, 'HH:mm') : '-'}">-</span>
+													</td>
+
 													<td
 														class="as-list-added-td as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														<span class="as-list-added-date"
 															th:text="${task.asProcessDate != null ? #temporals.format(task.asProcessDate, 'yyyy-MM-dd') : '-'}">-</span>
 													</td>
 
-													<!-- ✅ 비고(모바일/PC 공용) : 모바일에서만 전화 버튼 노출 -->
 													<td
 														class="as-list-added-td as-list-added-col-actions text-center asList-second-col-actions">
 														<div
 															class="asList-second-actions d-inline-flex gap-2 align-items-center justify-content-end">
 
-															<!-- ✅ 전화 버튼: 모바일에서만 노출(d-lg-none 유지) -->
 															<a class="btn btn-sm btn-success asList-second-btn-call d-inline-flex d-lg-none"
 																th:if="${task.onsiteContact != null && !#strings.isEmpty(task.onsiteContact)}"
 																th:href="${'tel:' + task.onsiteContact}"
@@ -270,7 +291,6 @@
 																<i class="ri-phone-line"></i>
 															</a>
 
-															<!-- 연락처 없을 때 비활성(모바일에서만 노출) -->
 															<button type="button"
 																class="btn btn-sm btn-success asList-second-btn-call d-inline-flex d-lg-none"
 																th:if="${task.onsiteContact == null || #strings.isEmpty(task.onsiteContact)}"
@@ -278,7 +298,6 @@
 																<i class="ri-phone-line"></i>
 															</button>
 
-															<!-- ✅ 완료(모달 오픈): PC/모바일 공용 -->
 															<button type="button"
 																class="btn btn-sm btn-primary asList-second-btn-open-complete"
 																th:attr="data-task-id=${task.id},
@@ -297,7 +316,6 @@
 								</div>
 							</div>
 
-							<!-- 데이터 없을 때 -->
 							<div th:if="${asPage.totalElements == 0}" class="text-center mt-5 as-list-added-empty">
 								<p class="text-muted mb-0">조회된 AS 업무가 없습니다.</p>
 							</div>
@@ -305,75 +323,79 @@
 						</div>
 					</div>
 
-					<!-- ✅ 페이지네이션: 신규 파라미터까지 전부 유지 -->
 					<div class="row g-0 justify-content-center mt-4 production-pagination">
 						<div class="col-auto">
 							<ul class="pagination pagination-separated">
 
 								<li th:classappend="${asPage.first} ? 'disabled'" class="page-item">
 									<a class="page-link" th:href="@{|/team/asList?page=0
-                                    &dateType=${dateType}
-                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-                                    &status=${selectedStatus}
-                                    &companyKeyword=${companyKeyword}
-                                    &provinceId=${provinceId}
-                                    &cityId=${cityId}
-                                    &districtId=${districtId}
-                                |}">FIRST</a>
+									    &dateType=${dateType}
+									    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+									    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+									    &status=${selectedStatus != null ? selectedStatus.name() : ''}
+									    &companyKeyword=${companyKeyword != null ? companyKeyword : ''}
+									    &provinceId=${provinceId != null ? provinceId : ''}
+									    &cityId=${cityId != null ? cityId : ''}
+									    &districtId=${districtId != null ? districtId : ''}
+									    &visitTimeSort=${visitTimeSort != null ? visitTimeSort : ''}
+									|}">FIRST</a>
 								</li>
 
 								<li th:classappend="${asPage.first} ? 'disabled'" class="page-item">
 									<a class="page-link" th:href="@{|/team/asList?page=${asPage.number - 1}
-                                    &dateType=${dateType}
-                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-                                    &status=${selectedStatus}
-                                    &companyKeyword=${companyKeyword}
-                                    &provinceId=${provinceId}
-                                    &cityId=${cityId}
-                                    &districtId=${districtId}
-                                |}">PREV</a>
+									    &dateType=${dateType}
+									    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+									    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+									    &status=${selectedStatus != null ? selectedStatus.name() : ''}
+									    &companyKeyword=${companyKeyword != null ? companyKeyword : ''}
+									    &provinceId=${provinceId != null ? provinceId : ''}
+									    &cityId=${cityId != null ? cityId : ''}
+									    &districtId=${districtId != null ? districtId : ''}
+									    &visitTimeSort=${visitTimeSort != null ? visitTimeSort : ''}
+									|}">PREV</a>
 								</li>
 
 								<li th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
 									th:classappend="${asPage.number == i} ? 'active'" class="page-item">
 									<a class="page-link" th:text="${i + 1}" th:href="@{|/team/asList?page=${i}
-                                    &dateType=${dateType}
-                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-                                    &status=${selectedStatus}
-                                    &companyKeyword=${companyKeyword}
-                                    &provinceId=${provinceId}
-                                    &cityId=${cityId}
-                                    &districtId=${districtId}
-                                |}">1</a>
+									    &dateType=${dateType}
+									    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+									    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+									    &status=${selectedStatus != null ? selectedStatus.name() : ''}
+									    &companyKeyword=${companyKeyword != null ? companyKeyword : ''}
+									    &provinceId=${provinceId != null ? provinceId : ''}
+									    &cityId=${cityId != null ? cityId : ''}
+									    &districtId=${districtId != null ? districtId : ''}
+									    &visitTimeSort=${visitTimeSort != null ? visitTimeSort : ''}
+									|}">1</a>
 								</li>
 
 								<li th:classappend="${asPage.last} ? 'disabled'" class="page-item">
 									<a class="page-link" th:href="@{|/team/asList?page=${asPage.number + 1}
-                                    &dateType=${dateType}
-                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-                                    &status=${selectedStatus}
-                                    &companyKeyword=${companyKeyword}
-                                    &provinceId=${provinceId}
-                                    &cityId=${cityId}
-                                    &districtId=${districtId}
-                                |}">NEXT</a>
+									    &dateType=${dateType}
+									    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+									    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+									    &status=${selectedStatus != null ? selectedStatus.name() : ''}
+									    &companyKeyword=${companyKeyword != null ? companyKeyword : ''}
+									    &provinceId=${provinceId != null ? provinceId : ''}
+									    &cityId=${cityId != null ? cityId : ''}
+									    &districtId=${districtId != null ? districtId : ''}
+									    &visitTimeSort=${visitTimeSort != null ? visitTimeSort : ''}
+									|}">NEXT</a>
 								</li>
 
 								<li th:classappend="${asPage.last} ? 'disabled'" class="page-item">
 									<a class="page-link" th:href="@{|/team/asList?page=${asPage.totalPages - 1}
-                                    &dateType=${dateType}
-                                    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
-                                    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
-                                    &status=${selectedStatus}
-                                    &companyKeyword=${companyKeyword}
-                                    &provinceId=${provinceId}
-                                    &cityId=${cityId}
-                                    &districtId=${districtId}
-                                |}">LAST</a>
+									    &dateType=${dateType}
+									    &startDate=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}
+									    &endDate=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}
+									    &status=${selectedStatus != null ? selectedStatus.name() : ''}
+									    &companyKeyword=${companyKeyword != null ? companyKeyword : ''}
+									    &provinceId=${provinceId != null ? provinceId : ''}
+									    &cityId=${cityId != null ? cityId : ''}
+									    &districtId=${districtId != null ? districtId : ''}
+									    &visitTimeSort=${visitTimeSort != null ? visitTimeSort : ''}
+									|}">LAST</a>
 								</li>
 
 							</ul>
@@ -387,7 +409,6 @@
 		</div>
 	</div>
 
-	<!-- ✅ 완료처리 모달 (asList 전용) -->
 	<div class="modal fade" id="asList-second-complete-modal" tabindex="-1" aria-hidden="true">
 		<div class="modal-dialog modal-dialog-scrollable modal-lg">
 			<div class="modal-content asList-second-modal-content">
@@ -431,10 +452,24 @@
 								</div>
 							</div>
 
-							<div class="col-12">
+							<div class="col-12 col-md-6">
 								<div class="p-3 border rounded asList-second-box">
 									<div class="fw-semibold mb-1">관리자 메모</div>
 									<div id="asList-second-field-adminMemo" class="text-muted">-</div>
+								</div>
+							</div>
+
+							<div class="col-12 col-md-6">
+								<div class="p-3 border rounded asList-second-box">
+									<div class="fw-semibold mb-1">담당자용 메모</div>
+									<div id="asList-second-field-handlerMemo" class="text-muted">-</div>
+								</div>
+							</div>
+
+							<div class="col-12 col-md-6">
+								<div class="p-3 border rounded asList-second-box">
+									<div class="fw-semibold mb-1">방문예정시간</div>
+									<div id="asList-second-field-visitPlannedTime" class="text-muted">-</div>
 								</div>
 							</div>
 

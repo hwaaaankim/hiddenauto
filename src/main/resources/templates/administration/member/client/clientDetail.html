@@ -7,11 +7,9 @@
 
 <body class="twocolumn-panel">
 
-	<!-- Begin page -->
 	<div id="layout-wrapper">
 
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
-
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
@@ -27,8 +25,8 @@
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">대리점 관리</a></li>
-										<li class="breadcrumb-item"><a href="javascript: void(0);">대리점 리스트</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">대리점 관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">대리점 리스트</a></li>
 										<li class="breadcrumb-item active">대리점 상세</li>
 									</ol>
 								</div>
@@ -36,66 +34,208 @@
 						</div>
 					</div>
 
-					<!-- ✅ CSRF(ajax용): CSRF 꺼져있으면 값이 비어도 무해 -->
-					<meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
-					<meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+					<input type="hidden" id="admin-client-detail-fourth-company-id" th:value="${company.id}">
+					<input type="hidden" id="admin-client-detail-fourth-existing-license-url"
+						th:value="${company.businessLicenseUrl}">
+					<input type="hidden" id="admin-client-detail-fourth-existing-license-filename"
+						th:value="${company.businessLicenseFilename}">
 
 					<div class="row">
-						<div class="col-lg-6">
+						<!-- 회사 정보 수정 카드 -->
+						<div class="col-lg-7">
 							<div class="card mb-3">
+								<div class="card-header d-flex justify-content-between align-items-center">
+									<h5 class="card-title mb-0">고객 회사정보</h5>
+									<button type="button" id="admin-client-detail-fourth-company-save-btn"
+										class="btn btn-primary" disabled>
+										수정사항 반영
+									</button>
+								</div>
+
 								<div class="card-body">
-									<div class="table-card">
-										<table class="table mb-0">
-											<tbody>
-												<tr>
-													<td class="fw-medium">업체명</td>
-													<td th:text="${company.companyName}"></td>
-												</tr>
-												<tr>
-													<td class="fw-medium">적립금</td>
-													<td th:text="${company.point} + 'P'"></td>
-												</tr>
-												<tr>
-													<td class="fw-medium">주소</td>
-													<td
-														th:text="|${company.doName ?: ''} ${company.siName ?: ''} ${company.guName ?: ''} ${company.roadAddress ?: ''} ${company.detailAddress ?: ''}|">
-													</td>
-												</tr>
-												<tr>
-													<td class="fw-medium">우편번호</td>
-													<td th:text="${company.zipCode ?: '없음'}"></td>
-												</tr>
-											</tbody>
-										</table>
-									</div>
+									<form id="admin-client-detail-fourth-company-form" novalidate>
+										<div class="table-responsive">
+											<table class="table align-middle mb-0">
+												<tbody>
+													<tr>
+														<td class="fw-medium admin-client-detail-fourth-required"
+															style="width: 180px;">업체명</td>
+														<td>
+															<input type="text"
+																class="form-control admin-client-detail-fourth-table-input"
+																id="admin-client-detail-fourth-companyName"
+																name="companyName" th:value="${company.companyName}">
+														</td>
+													</tr>
+
+													<tr>
+														<td class="fw-medium admin-client-detail-fourth-required">적립금
+														</td>
+														<td>
+															<input type="number"
+																class="form-control admin-client-detail-fourth-table-input"
+																id="admin-client-detail-fourth-point" name="point"
+																min="0" step="1" th:value="${company.point}">
+														</td>
+													</tr>
+
+													<tr>
+														<td class="fw-medium admin-client-detail-fourth-required">
+															사업자등록번호</td>
+														<td>
+															<div class="d-flex flex-wrap gap-2 align-items-center">
+																<input type="text"
+																	class="form-control admin-client-detail-fourth-table-input"
+																	id="admin-client-detail-fourth-businessNumber"
+																	name="businessNumber" maxlength="10"
+																	placeholder="숫자만 10자리"
+																	th:value="${company.businessNumber}">
+
+																<a href="javascript:void(0);"
+																	id="admin-client-detail-fourth-open-business-license"
+																	class="btn btn-outline-primary"
+																	th:classappend="${company.businessLicenseUrl == null ? ' d-none' : ''}"
+																	th:attr="data-license-url=${company.businessLicenseUrl}">
+																	열람하기
+																</a>
+
+																<span id="admin-client-detail-fourth-no-license-text"
+																	class="text-muted"
+																	th:classappend="${company.businessLicenseUrl != null ? ' d-none' : ''}">
+																	등록된 사업자등록증 없음
+																</span>
+															</div>
+														</td>
+													</tr>
+
+													<tr>
+														<td class="fw-medium admin-client-detail-fourth-required">사업자등록증
+															파일</td>
+														<td>
+															<input type="file" class="form-control"
+																id="admin-client-detail-fourth-businessLicenseFile"
+																name="businessLicenseFile"
+																accept=".png,.jpg,.jpeg,.gif,.webp,.pdf">
+
+															<div class="mt-2 admin-client-detail-fourth-form-note">
+																이미지 또는 PDF 파일만 등록 가능합니다. 기존 파일 유지 / 삭제 / 교체 상태를 정확히
+																반영합니다.
+															</div>
+
+															<div class="mt-3">
+																<div id="admin-client-detail-fourth-license-preview-list"
+																	class="admin-client-detail-fourth-license-preview-list">
+																</div>
+															</div>
+														</td>
+													</tr>
+
+													<tr>
+														<td class="fw-medium admin-client-detail-fourth-required">우편번호
+														</td>
+														<td>
+															<div class="d-flex flex-wrap gap-2 align-items-center">
+																<input type="text"
+																	class="form-control admin-client-detail-fourth-table-input"
+																	id="admin-client-detail-fourth-zipCode"
+																	name="zipCode" th:value="${company.zipCode}"
+																	readonly>
+																<button type="button"
+																	id="admin-client-detail-fourth-search-address-btn"
+																	class="btn btn-outline-primary">
+																	주소 검색
+																</button>
+															</div>
+															<div class="mt-2 admin-client-detail-fourth-form-note">
+																주소는 직접 입력하지 않고 주소 검색으로만 반영됩니다.
+															</div>
+														</td>
+													</tr>
+
+													<tr>
+														<td class="fw-medium admin-client-detail-fourth-required">주소
+														</td>
+														<td>
+															<div class="mb-3">
+																<div class="admin-client-detail-fourth-readonly-box"
+																	id="admin-client-detail-fourth-address-preview-inline"
+																	th:text="|${company.doName ?: ''} ${company.siName ?: ''} ${company.guName ?: ''} ${company.roadAddress ?: ''} ${company.detailAddress ?: ''}|">
+																</div>
+															</div>
+
+															<div class="admin-client-detail-fourth-address-grid">
+																<div>
+																	<label
+																		class="admin-client-detail-fourth-modal-label"
+																		for="admin-client-detail-fourth-doName">도/시</label>
+																	<input type="text" class="form-control"
+																		id="admin-client-detail-fourth-doName"
+																		name="doName" th:value="${company.doName}"
+																		readonly>
+																</div>
+
+																<div>
+																	<label
+																		class="admin-client-detail-fourth-modal-label"
+																		for="admin-client-detail-fourth-siName">시/군</label>
+																	<input type="text" class="form-control"
+																		id="admin-client-detail-fourth-siName"
+																		name="siName" th:value="${company.siName}"
+																		readonly>
+																</div>
+
+																<div>
+																	<label
+																		class="admin-client-detail-fourth-modal-label"
+																		for="admin-client-detail-fourth-guName">구</label>
+																	<input type="text" class="form-control"
+																		id="admin-client-detail-fourth-guName"
+																		name="guName" th:value="${company.guName}"
+																		readonly>
+																</div>
+
+																<div>
+																	<label
+																		class="admin-client-detail-fourth-modal-label"
+																		for="admin-client-detail-fourth-roadAddress">기본주소</label>
+																	<input type="text" class="form-control"
+																		id="admin-client-detail-fourth-roadAddress"
+																		name="roadAddress"
+																		th:value="${company.roadAddress}" readonly>
+																</div>
+
+																<div class="col-12">
+																	<label
+																		class="admin-client-detail-fourth-modal-label"
+																		for="admin-client-detail-fourth-detailAddress">상세주소</label>
+																	<input type="text" class="form-control"
+																		id="admin-client-detail-fourth-detailAddress"
+																		name="detailAddress"
+																		th:value="${company.detailAddress}">
+																</div>
+															</div>
+														</td>
+													</tr>
+												</tbody>
+											</table>
+										</div>
+									</form>
 								</div>
 							</div>
 						</div>
 
-						<div class="col-lg-6">
+						<!-- 기본 정보 + 멤버 리스트 -->
+						<div class="col-lg-5">
 							<div class="card mb-3">
+								<div class="card-header">
+									<h5 class="card-title mb-0">기본 정보</h5>
+								</div>
 								<div class="card-body">
-									<div class="table-card">
-										<table class="table mb-0">
+									<div class="table-responsive">
+										<table class="table mb-0 align-middle">
 											<tbody>
 												<tr>
-													<td class="fw-medium">사업자등록증</td>
-													<td>
-														<!-- ✅ 컨트롤러 없이 DB에 저장된 businessLicenseUrl을 그대로 사용 -->
-														<a href="javascript:void(0);"
-															class="text-primary text-decoration-underline"
-															style="cursor:pointer;"
-															th:if="${company.businessLicenseUrl != null}"
-															th:attr="data-license-url=${company.businessLicenseUrl}"
-															id="open-business-license">
-															열람하기
-														</a>
-
-														<span th:if="${company.businessLicenseUrl == null}">없음</span>
-													</td>
-												</tr>
-												<tr>
-													<td class="fw-medium">등록일</td>
+													<td class="fw-medium" style="width: 160px;">등록일</td>
 													<td
 														th:text="${#temporals.format(company.createdAt, 'yyyy-MM-dd HH:mm')}">
 													</td>
@@ -103,42 +243,67 @@
 												<tr>
 													<td class="fw-medium">대표자</td>
 													<td
-														th:text="${members.?[role.name() == 'CUSTOMER_REPRESENTATIVE']?.get(0)?.name ?: '없음'}">
+														th:text="${representative != null ? representative.name : '없음'}">
 													</td>
 												</tr>
 												<tr>
 													<td class="fw-medium">직원 수</td>
 													<td th:text="${members.size()} + '명'"></td>
 												</tr>
+												<tr>
+													<td class="fw-medium">현재 주소 미리보기</td>
+													<td>
+														<div class="admin-client-detail-fourth-readonly-box"
+															id="admin-client-detail-fourth-current-address-preview"
+															th:text="|${company.doName ?: ''} ${company.siName ?: ''} ${company.guName ?: ''} ${company.roadAddress ?: ''} ${company.detailAddress ?: ''}|">
+														</div>
+													</td>
+												</tr>
 											</tbody>
 										</table>
 									</div>
-
 								</div>
 							</div>
-						</div>
 
-						<!-- 멤버 카드 -->
-						<div class="col-xxl-4 col-sm-6 project-card" th:each="member : ${members}">
-							<div class="card">
+							<div class="card mb-3">
+								<div class="card-header">
+									<h5 class="card-title mb-0">회사 멤버</h5>
+								</div>
 								<div class="card-body">
-									<div class="p-3 mt-n3 mx-n3 bg-primary-subtle rounded-top">
-										<div class="d-flex align-items-center">
-											<div class="flex-grow-1">
-												<h5 class="mb-0 fs-15">
-													<a href="#" class="text-body" th:text="${member.name}">이름</a>
-												</h5>
-											</div>
-											<div class="flex-shrink-0">
-												<div class="d-flex gap-1 align-items-center my-n2">
+									<div th:if="${#lists.isEmpty(members)}" class="text-muted">
+										등록된 멤버가 없습니다.
+									</div>
+
+									<div class="d-flex flex-column gap-3" th:if="${!#lists.isEmpty(members)}">
+										<div class="card border mb-0" th:each="member : ${members}">
+											<div class="card-body">
+												<div class="d-flex justify-content-between align-items-start gap-3">
+													<div>
+														<h5 class="mb-1 fs-15" th:text="${member.name}">이름</h5>
+														<div class="text-muted small" th:text="${member.username}">아이디
+														</div>
+													</div>
+
 													<div class="dropdown">
 														<button
 															class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
 															data-bs-toggle="dropdown" aria-haspopup="true"
-															aria-expanded="true">
+															aria-expanded="false">
 															<i data-feather="more-horizontal" class="icon-sm"></i>
 														</button>
+
 														<div class="dropdown-menu dropdown-menu-end">
+															<a class="dropdown-item admin-client-detail-fourth-edit-member-btn"
+																href="javascript:void(0);" th:attr="data-member-id=${member.id},
+																		 data-member-name=${member.name},
+																		 data-member-phone=${member.phone},
+																		 data-member-email=${member.email},
+																		 data-member-telephone=${member.telephone},
+																		 data-member-username=${member.username}">
+																<i
+																	class="ri-pencil-fill align-bottom me-2 text-muted"></i>
+																정보수정
+															</a>
 
 															<a class="dropdown-item js-reset-password"
 																href="javascript:void(0);"
@@ -155,70 +320,111 @@
 																	class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
 																접속금지
 															</a>
-
 														</div>
+													</div>
+												</div>
+
+												<div class="row gy-3 mt-1">
+													<div class="col-6">
+														<p class="text-muted mb-1">아이디</p>
+														<h5 class="fs-14 mb-0" th:text="${member.username}"></h5>
+													</div>
+													<div class="col-6">
+														<p class="text-muted mb-1">연락처</p>
+														<h5 class="fs-14 mb-0" th:text="${member.phone}"></h5>
+													</div>
+													<div class="col-6">
+														<p class="text-muted mb-1">이메일</p>
+														<h5 class="fs-14 mb-0" th:text="${member.email}"></h5>
+													</div>
+													<div class="col-6">
+														<p class="text-muted mb-1">가입일</p>
+														<h5 class="fs-14 mb-0"
+															th:text="${#temporals.format(member.createdAt, 'yyyy-MM-dd')}">
+														</h5>
 													</div>
 												</div>
 											</div>
 										</div>
 									</div>
-
-									<div class="py-3">
-										<div class="row gy-3">
-											<div class="col-6">
-												<p class="text-muted mb-1">아이디</p>
-												<h5 class="fs-14" th:text="${member.username}"></h5>
-											</div>
-											<div class="col-6">
-												<p class="text-muted mb-1">연락처</p>
-												<h5 class="fs-14" th:text="${member.phone}"></h5>
-											</div>
-											<div class="col-6">
-												<p class="text-muted mb-1">이메일</p>
-												<h5 class="fs-14" th:text="${member.email}"></h5>
-											</div>
-											<div class="col-6">
-												<p class="text-muted mb-1">가입일</p>
-												<h5 class="fs-14"
-													th:text="${#temporals.format(member.createdAt, 'yyyy-MM-dd')}"></h5>
-											</div>
-										</div>
-									</div>
-
 								</div>
 							</div>
 						</div>
-
-						<!-- ✅ 사업자등록증 팝업 모달 (이미지/ PDF 자동 전환) -->
-						<div class="modal fade" id="businessLicenseModal" tabindex="-1" aria-hidden="true">
-							<div class="modal-dialog modal-xl modal-dialog-centered">
-								<div class="modal-content">
-									<div class="modal-header">
-										<h5 class="modal-title">사업자등록증</h5>
-										<button type="button" class="btn-close" data-bs-dismiss="modal"
-											aria-label="Close"></button>
-									</div>
-
-									<div class="modal-body p-0" style="height: 80vh; overflow:auto;">
-										<!-- 이미지 -->
-										<img id="businessLicenseImg" alt="business-license"
-											style="width:100%; height:auto; display:none;" />
-
-										<!-- PDF/기타 -->
-										<iframe id="businessLicenseFrame"
-											style="width:100%;height:100%;border:0; display:none;"
-											title="business-license"></iframe>
-									</div>
-								</div>
-							</div>
-						</div>
-						<!-- ✅ 모달 끝 -->
-
 					</div>
+
 				</div>
 			</div>
 
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+	<!-- 사업자등록증 열람 모달 -->
+	<div class="modal fade" id="admin-client-detail-fourth-businessLicenseModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">사업자등록증</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+
+				<div class="modal-body p-0" style="height: 80vh; overflow:auto;">
+					<img id="admin-client-detail-fourth-businessLicenseImg" alt="business-license"
+						style="width:100%; height:auto; display:none;" />
+					<iframe id="admin-client-detail-fourth-businessLicenseFrame"
+						style="width:100%;height:100%;border:0; display:none;" title="business-license"></iframe>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- 고객정보 수정 모달 -->
+	<div class="modal fade" id="admin-client-detail-fourth-memberEditModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">고객정보 수정</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+
+				<div class="modal-body">
+					<input type="hidden" id="admin-client-detail-fourth-member-id">
+
+					<div class="row g-3">
+						<div class="col-md-6">
+							<label class="admin-client-detail-fourth-modal-label admin-client-detail-fourth-required"
+								for="admin-client-detail-fourth-member-name">이름</label>
+							<input type="text" class="form-control" id="admin-client-detail-fourth-member-name">
+						</div>
+
+						<div class="col-md-6">
+							<label class="admin-client-detail-fourth-modal-label admin-client-detail-fourth-required"
+								for="admin-client-detail-fourth-member-phone">연락처</label>
+							<input type="text" class="form-control" id="admin-client-detail-fourth-member-phone">
+						</div>
+
+						<div class="col-md-6">
+							<label class="admin-client-detail-fourth-modal-label"
+								for="admin-client-detail-fourth-member-email">이메일</label>
+							<input type="email" class="form-control" id="admin-client-detail-fourth-member-email">
+						</div>
+
+						<div class="col-md-6">
+							<label class="admin-client-detail-fourth-modal-label"
+								for="admin-client-detail-fourth-member-telephone">telephone</label>
+							<input type="text" class="form-control" id="admin-client-detail-fourth-member-telephone">
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
+					<button type="button" class="btn btn-primary" id="admin-client-detail-fourth-member-save-btn"
+						disabled>
+						수정사항 반영
+					</button>
+				</div>
+			</div>
 		</div>
 	</div>
 
@@ -227,134 +433,15 @@
 
 	<script src="/administration/assets/libs/dropzone/dropzone-min.js"></script>
 	<script src="/administration/assets/js/pages/project-create.init.js"></script>
+	<script src="https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 
-	<script>
-		(function () {
-			'use strict';
-
-			function getCsrf() {
-				const tokenMeta = document.querySelector('meta[name="_csrf"]');
-				const headerMeta = document.querySelector('meta[name="_csrf_header"]');
-				return {
-					token: tokenMeta ? tokenMeta.getAttribute('content') : null,
-					header: headerMeta ? headerMeta.getAttribute('content') : null
-				};
-			}
-
-			async function postJson(url, bodyObj) {
-				const csrf = getCsrf();
-				const headers = {'Content-Type': 'application/json'};
-				if (csrf.token && csrf.header) headers[csrf.header] = csrf.token;
-
-				const res = await fetch(url, {
-					method: 'POST',
-					headers,
-					body: JSON.stringify(bodyObj || {})
-				});
-
-				const text = await res.text();
-				let json = null;
-				try {json = JSON.parse(text);} catch (e) { /* ignore */}
-
-				if (!res.ok) {
-					const msg = (json && json.message) ? json.message : text || ('HTTP ' + res.status);
-					throw new Error(msg);
-				}
-				return json ?? {message: text};
-			}
-
-			// 1) 비밀번호 초기화
-			document.querySelectorAll('.js-reset-password').forEach(function (el) {
-				el.addEventListener('click', async function () {
-					const memberId = el.getAttribute('data-member-id');
-					const username = el.getAttribute('data-username') || '';
-					if (!memberId) return;
-
-					const ok = confirm('해당 유저의 비밀번호를 초기화 하시겠습니까?');
-					if (!ok) return;
-
-					try {
-						await postJson('/management/member/' + memberId + '/resetPassword', {});
-						alert('비밀번호가 초기화되었고, 해당 휴대폰번호로 안내 문자가 발송되었습니다.\n(아이디: ' + username + ')');
-					} catch (e) {
-						alert('실패: ' + (e && e.message ? e.message : e));
-					}
-				});
-			});
-
-			// 2) 접속금지(enabled=false)
-			document.querySelectorAll('.js-disable-member').forEach(function (el) {
-				el.addEventListener('click', async function () {
-					const memberId = el.getAttribute('data-member-id');
-					const username = el.getAttribute('data-username') || '';
-					if (!memberId) return;
-
-					const ok = confirm('해당 유저를 접속금지 처리하시겠습니까?');
-					if (!ok) return;
-
-					try {
-						await postJson('/management/member/' + memberId + '/disable', {});
-						alert('접속금지 처리되었습니다.\n(아이디: ' + username + ')');
-					} catch (e) {
-						alert('실패: ' + (e && e.message ? e.message : e));
-					}
-				});
-			});
-
-			// 3) 사업자등록증 모달 (businessLicenseUrl 직접 열기)
-			const openBtn = document.getElementById('open-business-license');
-			const modalEl = document.getElementById('businessLicenseModal');
-			const imgEl = document.getElementById('businessLicenseImg');
-			const frameEl = document.getElementById('businessLicenseFrame');
-
-			function isLikelyImageUrl(url) {
-				const u = (url || '').toLowerCase().split('?')[0].split('#')[0];
-				return u.endsWith('.png') || u.endsWith('.jpg') || u.endsWith('.jpeg') || u.endsWith('.gif') || u.endsWith('.webp');
-			}
-
-			function isLikelyPdfUrl(url) {
-				const u = (url || '').toLowerCase().split('?')[0].split('#')[0];
-				return u.endsWith('.pdf');
-			}
-
-			if (openBtn) {
-				openBtn.addEventListener('click', function () {
-					const url = openBtn.getAttribute('data-license-url');
-					if (!url) return;
-
-					// 초기화
-					if (imgEl) {imgEl.style.display = 'none'; imgEl.src = '';}
-					if (frameEl) {frameEl.style.display = 'none'; frameEl.src = '';}
-
-					// 이미지면 img, pdf/기타면 iframe
-					if (isLikelyImageUrl(url)) {
-						if (imgEl) {
-							imgEl.src = url;
-							imgEl.style.display = 'block';
-						}
-					} else {
-						if (frameEl) {
-							frameEl.src = url; // pdf 포함
-							frameEl.style.display = 'block';
-						}
-					}
-
-					if (modalEl) {
-						const modal = new bootstrap.Modal(modalEl);
-						modal.show();
-					}
-				});
-			}
-
-			// 모달 닫을 때 src 제거
-			if (modalEl) {
-				modalEl.addEventListener('hidden.bs.modal', function () {
-					if (imgEl) imgEl.src = '';
-					if (frameEl) frameEl.src = '';
-				});
-			}
-		})();
+	<script th:inline="javascript">
+		/*<![CDATA[*/
+		window.ADMIN_CLIENT_DETAIL_FOURTH_COMPANY_ID = /*[[${company.id}]]*/ 0;
+		/*]]>*/
 	</script>
+
+	<script src="/administration/assets/js/page/clientDetail.js"></script>
 
 </body>
 

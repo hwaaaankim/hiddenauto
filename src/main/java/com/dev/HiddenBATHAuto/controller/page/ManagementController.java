@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +44,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -63,6 +65,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.dev.HiddenBATHAuto.dto.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
 import com.dev.HiddenBATHAuto.dto.as.CompanySearchItemDto;
+import com.dev.HiddenBATHAuto.dto.client.AdminClientApiResponse;
+import com.dev.HiddenBATHAuto.dto.client.AdminClientCompanyUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.client.AdminClientMemberUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.client.CompanyListRowDto;
 import com.dev.HiddenBATHAuto.dto.employee.EmployeeUpdateResult;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
@@ -99,6 +104,7 @@ import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.auth.CompanyService;
 import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
+import com.dev.HiddenBATHAuto.service.client.AdminClientDetailService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
 import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -131,6 +137,7 @@ public class ManagementController {
 	private final MemberManagementService memberMgmtService;
 	// ✅ 추가 서비스
 	private final MemberAdminService memberAdminService;
+	private final AdminClientDetailService adminClientDetailService;
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -1740,23 +1747,59 @@ public class ManagementController {
 	}
 
 	@GetMapping("/clientDetail/{id}")
-	public String clientDetail(@PathVariable Long id, Model model) {
-		Company company = companyRepository.findById(id)
-				.orElseThrow(() -> new IllegalArgumentException("해당 대리점이 존재하지 않습니다. ID=" + id));
+    public String clientDetail(@PathVariable Long id, Model model) {
+        Company company = companyRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 대리점이 존재하지 않습니다. ID=" + id));
 
-		List<Member> memberList = memberRepository.findByCompany(companyRepository.findById(id).get());
+        List<Member> memberList = memberRepository.findByCompany(company);
 
-		model.addAttribute("company", company);
-		model.addAttribute("members", memberList);
+        Member representative = memberList.stream()
+                .filter(member -> member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
+                .min(Comparator.comparing(Member::getId))
+                .orElse(null);
 
-		return "administration/member/client/clientDetail";
-	}
+        model.addAttribute("company", company);
+        model.addAttribute("members", memberList);
+        model.addAttribute("representative", representative);
 
-	@PostMapping("/clientUpdate")
-	@ResponseBody
-	public String clientUpdate() {
-		return "success";
-	}
+        return "administration/member/client/clientDetail";
+    }
+
+    @PostMapping(value = "/clientDetail/{id}/updateCompany", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseBody
+    public ResponseEntity<AdminClientApiResponse> updateCompany(
+            @PathVariable Long id,
+            @ModelAttribute AdminClientCompanyUpdateRequest request
+    ) {
+        try {
+            adminClientDetailService.updateCompany(id, request);
+            return ResponseEntity.ok(new AdminClientApiResponse(true, "회사정보가 수정되었습니다."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new AdminClientApiResponse(false, e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new AdminClientApiResponse(false, "회사정보 수정 중 오류가 발생했습니다."));
+        }
+    }
+
+    @PostMapping("/member/{memberId}/updateInfo")
+    @ResponseBody
+    public ResponseEntity<AdminClientApiResponse> updateMemberInfo(
+            @PathVariable Long memberId,
+            @RequestBody AdminClientMemberUpdateRequest request
+    ) {
+        try {
+            adminClientDetailService.updateMemberInfo(memberId, request);
+            return ResponseEntity.ok(new AdminClientApiResponse(true, "고객정보가 수정되었습니다."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new AdminClientApiResponse(false, e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new AdminClientApiResponse(false, "고객정보 수정 중 오류가 발생했습니다."));
+        }
+    }
 
 	// =========================================================
 	// ✅ 추가 API 1) 멤버 비밀번호 초기화 + SMS 발송

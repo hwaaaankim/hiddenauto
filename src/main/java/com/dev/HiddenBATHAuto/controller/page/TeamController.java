@@ -5,9 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
-import com.dev.HiddenBATHAuto.dto.as.AsTaskModalDto;
+import com.dev.HiddenBATHAuto.dto.as.TeamAsDetailModalResponse;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryExcelRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
@@ -517,46 +516,123 @@ public class TeamController {
 	}
 
 	@GetMapping("/asList")
-	public String getAsList(@AuthenticationPrincipal PrincipalDetails principal,
+	public String getAsList(
+	        @AuthenticationPrincipal PrincipalDetails principal,
 
-			@RequestParam(required = false, defaultValue = "requested") String dateType, // ✅ 기본: 신청일
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-			@RequestParam(required = false) AsStatus status,
+	        @RequestParam(required = false, defaultValue = "requested") String dateType,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
 
-			@RequestParam(required = false) String companyKeyword,
+	        @RequestParam(required = false) String status,
 
-			@RequestParam(required = false) Long provinceId, @RequestParam(required = false) Long cityId,
-			@RequestParam(required = false) Long districtId,
+	        @RequestParam(required = false) String companyKeyword,
 
-			Pageable pageable, Model model) {
+	        @RequestParam(required = false) Long provinceId,
+	        @RequestParam(required = false) Long cityId,
+	        @RequestParam(required = false) Long districtId,
+
+	        @RequestParam(required = false) String visitTimeSort,
+
+	        Pageable pageable,
+	        Model model) {
+
+	    Member member = principal.getMember();
+
+	    if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
+	    }
+
+	    AsStatus statusEnum = parseAsStatus(status);
+
+	    LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+	    LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+
+	    Page<AsTask> asPage = asTaskService.getAsTasks(
+	            member,
+	            dateType,
+	            start,
+	            end,
+	            statusEnum,
+	            companyKeyword,
+	            provinceId,
+	            cityId,
+	            districtId,
+	            visitTimeSort,
+	            pageable
+	    );
+
+	    model.addAttribute("provinces", provinceRepository.findAll());
+
+	    model.addAttribute("asPage", asPage);
+	    model.addAttribute("startDate", startDate);
+	    model.addAttribute("endDate", endDate);
+	    model.addAttribute("dateType", dateType);
+	    model.addAttribute("selectedStatus", statusEnum);
+
+	    model.addAttribute("companyKeyword", companyKeyword);
+	    model.addAttribute("provinceId", provinceId);
+	    model.addAttribute("cityId", cityId);
+	    model.addAttribute("districtId", districtId);
+	    model.addAttribute("visitTimeSort", visitTimeSort);
+	    model.addAttribute("asStatusLabels", AsStatus.labelMap());
+
+	    return "administration/team/as/asList";
+	}
+
+	private AsStatus parseAsStatus(String status) {
+	    if (status == null) {
+	        return null;
+	    }
+
+	    String s = status.trim();
+	    if (s.isEmpty() || "null".equalsIgnoreCase(s)) {
+	        return null;
+	    }
+
+	    try {
+	        return AsStatus.valueOf(s);
+	    } catch (IllegalArgumentException e) {
+	        throw new IllegalArgumentException("잘못된 AS 상태값입니다: " + status);
+	    }
+	}
+
+	@PostMapping("/asUpdate/{id}")
+	public String updateAsTaskFromTeam(@PathVariable Long id, @AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(value = "status", required = false) AsStatus status,
+			@RequestParam(value = "handlerMemo", required = false) String handlerMemo,
+			@RequestParam(value = "visitPlannedTime", required = false) @DateTimeFormat(pattern = "HH:mm") LocalTime visitPlannedTime,
+			@RequestParam(value = "resultImages", required = false) List<MultipartFile> resultImages,
+			RedirectAttributes redirectAttributes) {
+
 		Member member = principal.getMember();
 
 		if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
 			throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
 		}
 
-		LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-		LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+		try {
+			asTaskService.updateAsTaskByHandler(id, member, status, handlerMemo, visitPlannedTime, resultImages);
+			redirectAttributes.addFlashAttribute("success", "AS 상태, 담당자용 메모, 방문예정시간, 결과 이미지가 저장되었습니다.");
+		} catch (Exception e) {
+			e.printStackTrace();
+			redirectAttributes.addFlashAttribute("error", e.getMessage() != null ? e.getMessage() : "저장 중 오류가 발생했습니다.");
+		}
 
-		Page<AsTask> asPage = asTaskService.getAsTasks(member, dateType, start, end, status, companyKeyword, provinceId,
-				cityId, districtId, pageable);
+		return "redirect:/team/asDetail/" + id;
+	}
 
-		model.addAttribute("provinces", provinceRepository.findAll());
+	@GetMapping("/asDetailModal/{id}")
+	@ResponseBody
+	public TeamAsDetailModalResponse getAsDetailModal(@PathVariable Long id,
+			@AuthenticationPrincipal PrincipalDetails principal) {
 
-		model.addAttribute("asPage", asPage);
-		model.addAttribute("startDate", startDate);
-		model.addAttribute("endDate", endDate);
-		model.addAttribute("dateType", dateType);
-		model.addAttribute("selectedStatus", status);
+		Member member = principal.getMember();
 
-		model.addAttribute("companyKeyword", companyKeyword);
-		model.addAttribute("provinceId", provinceId);
-		model.addAttribute("cityId", cityId);
-		model.addAttribute("districtId", districtId);
-		model.addAttribute("asStatusLabels", AsStatus.labelMap());
+		if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
+			throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
+		}
 
-		return "administration/team/as/asList";
+		return asTaskService.getAsTaskDetailModal(id, member);
 	}
 
 	@GetMapping("/asDetail/{id}")
@@ -568,92 +644,6 @@ public class TeamController {
 		model.addAttribute("asStatusLabels", AsStatus.labelMap());
 
 		return "administration/team/as/asDetail";
-	}
-
-	@PostMapping("/asUpdate/{id}")
-	public String updateAsTaskFromTeam(@PathVariable Long id,
-			@RequestParam(value = "status", required = false) AsStatus status,
-			@RequestParam(value = "resultImages", required = false) List<MultipartFile> resultImages,
-			RedirectAttributes redirectAttributes) {
-
-		try {
-			asTaskService.updateAsTaskByHandler(id, status, resultImages);
-			redirectAttributes.addFlashAttribute("success", "AS 상태 및 결과 이미지가 저장되었습니다.");
-		} catch (Exception e) {
-			e.printStackTrace();
-			redirectAttributes.addFlashAttribute("error", "저장 중 오류가 발생했습니다.");
-		}
-
-		return "redirect:/team/asDetail/" + id;
-	}
-
-	@GetMapping("/asDetailModal/{id}")
-	@ResponseBody
-	public AsTaskModalDto asDetailModal(@PathVariable Long id,
-	                                   @AuthenticationPrincipal PrincipalDetails principal) {
-
-	    Member member = principal.getMember();
-	    if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
-	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
-	    }
-
-	    AsTask asTask = asTaskService.getAsDetail(id);
-
-	    AsTaskModalDto dto = new AsTaskModalDto();
-	    dto.setId(asTask.getId());
-
-	    String companyName = "-";
-	    String requesterName = "-";
-	    if (asTask.getRequestedBy() != null) {
-	        requesterName = asTask.getRequestedBy().getName();
-	        if (asTask.getRequestedBy().getCompany() != null) {
-	            companyName = asTask.getRequestedBy().getCompany().getCompanyName();
-	        }
-	    }
-	    dto.setCompanyName(companyName);
-	    dto.setRequesterName(requesterName);
-
-	    String fullAddress = String.format("(%s) %s %s %s %s %s",
-	            safe(asTask.getZipCode()),
-	            safe(asTask.getDoName()),
-	            safe(asTask.getSiName()),
-	            safe(asTask.getGuName()),
-	            safe(asTask.getRoadAddress()),
-	            safe(asTask.getDetailAddress())
-	    ).replaceAll("\\s+", " ").trim();
-	    dto.setFullAddress(fullAddress);
-
-	    dto.setReason(asTask.getReason());
-	    dto.setProductName(asTask.getProductName());
-	    dto.setProductSize(asTask.getProductSize());
-	    dto.setProductColor(asTask.getProductColor());
-	    dto.setOnsiteContact(asTask.getOnsiteContact());
-
-	    // ✅ 날짜 문자열로 가공해서 내려주기
-	    dto.setRequestedAt(
-	            asTask.getRequestedAt() != null
-	                    ? asTask.getRequestedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-	                    : "-"
-	    );
-
-	    // ✅ 관리자 메모
-	    dto.setAdminMemo(asTask.getAdminMemoSafe());
-
-	    List<AsTaskModalDto.ImageDto> resultImages =
-	            (asTask.getResultImages() == null ? Collections.<AsImage>emptyList() : asTask.getResultImages())
-	            .stream()
-	            .map(img -> {
-	                AsTaskModalDto.ImageDto i = new AsTaskModalDto.ImageDto();
-	                i.setId(img.getId());
-	                i.setUrl(img.getUrl());
-	                i.setFilename(img.getFilename());
-	                return i;
-	            })
-	            .collect(Collectors.toList());
-
-	    dto.setResultImages(resultImages);
-
-	    return dto;
 	}
 
 	private String safe(String v) {

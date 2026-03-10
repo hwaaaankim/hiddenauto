@@ -42,6 +42,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.dev.HiddenBATHAuto.dto.as.CustomerAsUpdateRequest;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -217,6 +218,44 @@ public class CustomerController {
         return "front/customer/task/asList";
     }
 
+	@PostMapping("/asUpdate/{id}")
+	@ResponseBody
+	public ResponseEntity<Map<String, Object>> updateAsTask(
+	        @PathVariable Long id,
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @ModelAttribute CustomerAsUpdateRequest req,
+	        @RequestParam(value = "newImages", required = false) List<MultipartFile> newImages,
+	        @RequestParam(value = "deleteImageIds", required = false) List<Long> deleteImageIds) {
+
+	    try {
+	        Member loginMember = principal.getMember();
+
+	        asTaskService.updateCustomerAsTask(
+	                id,
+	                req,
+	                newImages,
+	                deleteImageIds,
+	                loginMember
+	        );
+
+	        return ResponseEntity.ok(Map.of(
+	                "success", true,
+	                "message", "AS 신청이 정상적으로 수정되었습니다."
+	        ));
+	    } catch (IllegalArgumentException | IllegalStateException e) {
+	        return ResponseEntity.badRequest().body(Map.of(
+	                "success", false,
+	                "message", e.getMessage()
+	        ));
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        return ResponseEntity.internalServerError().body(Map.of(
+	                "success", false,
+	                "message", "AS 수정 중 서버 오류가 발생했습니다."
+	        ));
+	    }
+	}
+	
     /**
      * ✅ 연락처: phone 우선, 없으면 telephone, 둘 다 없으면 "-"
      */
@@ -236,6 +275,7 @@ public class CustomerController {
         String t = s.trim();
         return t.isEmpty() ? null : t;
     }
+    
 	@GetMapping("/asRequest")
 	public String asRequest(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails) {
 

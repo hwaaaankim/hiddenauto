@@ -1,6 +1,8 @@
 package com.dev.HiddenBATHAuto.model.task;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -10,6 +12,7 @@ import com.dev.HiddenBATHAuto.model.auth.Team;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -26,6 +29,8 @@ import lombok.Data;
 @Data
 public class AsTask {
 
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -33,21 +38,21 @@ public class AsTask {
     @ManyToOne
     private Member requestedBy;
 
-    /** ✅ 고객이 남기는 제목(요청 내용 요약) */
+    /** 고객이 남기는 제목(요청 내용 요약) */
     private String subject;
 
-    /** ✅ (신규) 고객 성함 - AS 신청 시 입력 */
+    /** 고객 성함 - AS 신청 시 입력 */
     private String customerName;
 
-    // 우편번호
+    /** 우편번호 */
     private String zipCode;
 
-    // 행정구역
+    /** 행정구역 */
     private String doName;   // ex: 경기도
     private String siName;   // ex: 용인시
     private String guName;   // ex: 수지구
 
-    // 주소
+    /** 주소 */
     private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
     private String detailAddress;   // ex: 302동 1502호
 
@@ -58,19 +63,26 @@ public class AsTask {
 
     private String asComment;
 
-    /** ✅ 관리자 내부 메모 */
+    /** 관리자 내부 메모 */
     private String adminMemo;
 
-    // 신규 필드 추가
+    /** 신규 필드 */
     private String productName;
     private String productSize;
     private String productColor;
 
-    /** JSON 문자열로 저장하거나 단일 문자열로 처리 */
+    /** JSON 문자열 또는 단일 문자열 */
     private String productOptions;
 
     /** 현장 연락처 */
     private String onsiteContact;
+
+    /** 담당자용 메모 */
+    @Column(columnDefinition = "TEXT")
+    private String handlerMemo;
+
+    /** 방문예정시간 (00:00 ~ 23:59) */
+    private LocalTime visitPlannedTime;
 
     @Enumerated(EnumType.STRING)
     private AsStatus status;
@@ -85,11 +97,11 @@ public class AsTask {
     private LocalDateTime updatedAt;
     private LocalDateTime asProcessDate;
 
-    @OneToMany(mappedBy = "asTask", cascade = jakarta.persistence.CascadeType.ALL)
+    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
     private List<AsHistory> historyLogs;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "asTask", cascade = jakarta.persistence.CascadeType.ALL)
+    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
     private List<AsImage> images; // 모든 이미지 (type 구분 포함)
 
     /** type = "REQUEST" 인 이미지만 반환 */
@@ -108,34 +120,47 @@ public class AsTask {
                 .collect(Collectors.toList());
     }
 
-    /** ✅ 처리상태 한글 라벨(템플릿에서 안전하게 사용) */
+    /** 처리상태 한글 라벨 */
     public String getStatusLabelKr() {
         if (status == null) return "-";
         return status.getLabelKr();
     }
 
-    /** ✅ subject 안전표시(빈값/NULL이면 '-') */
+    /** subject 안전표시 */
     public String getSubjectSafe() {
         if (subject == null) return "-";
         String s = subject.trim();
         return s.isEmpty() ? "-" : s;
     }
 
-    /** ✅ customerName 안전표시(빈값/NULL이면 '-') */
+    /** customerName 안전표시 */
     public String getCustomerNameSafe() {
         if (customerName == null) return "-";
         String s = customerName.trim();
         return s.isEmpty() ? "-" : s;
     }
 
-    /** ✅ 관리자메모 안전표시(빈값/NULL이면 '-') */
+    /** 관리자메모 안전표시 */
     public String getAdminMemoSafe() {
         if (adminMemo == null) return "-";
         String s = adminMemo.trim();
         return s.isEmpty() ? "-" : s;
     }
 
-    /** ✅ 신청매장(요청자 Member → Company → companyName) 안전표시 */
+    /** 담당자용 메모 안전표시 */
+    public String getHandlerMemoSafe() {
+        if (handlerMemo == null) return "-";
+        String s = handlerMemo.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    /** 방문예정시간 안전표시 */
+    public String getVisitPlannedTimeText() {
+        if (visitPlannedTime == null) return "-";
+        return visitPlannedTime.format(TIME_FORMATTER);
+    }
+
+    /** 신청매장(요청자 Member → Company → companyName) 안전표시 */
     public String getRequestedCompanyNameSafe() {
         if (requestedBy == null) return "-";
         if (requestedBy.getCompany() == null) return "-";
@@ -146,7 +171,7 @@ public class AsTask {
     }
 
     /**
-     * ✅ 고객 화면에서 볼 상태 텍스트
+     * 고객 화면에서 볼 상태 텍스트
      * - REQUESTED/IN_PROGRESS => 신청중
      * - COMPLETED => 신청완료
      * - CANCELED => 취소
@@ -166,7 +191,7 @@ public class AsTask {
     }
 
     /**
-     * ✅ 고객 화면 상태 뱃지 색상(부트스트랩 클래스)
+     * 고객 화면 상태 뱃지 색상(부트스트랩 클래스)
      * - 신청중: bg-warning
      * - 신청완료: bg-success
      * - 취소: bg-danger

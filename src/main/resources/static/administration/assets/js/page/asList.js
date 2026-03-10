@@ -1,11 +1,6 @@
-/* /administration/assets/js/page/asList.js */
-
 (function() {
 	'use strict';
 
-	// =========================
-	// 1) 기존: 행정구역 동적 셀렉트
-	// =========================
 	const provinceSelect = document.getElementById('as-province-select');
 
 	const childWrapper = document.getElementById('as-child-wrapper');
@@ -181,27 +176,25 @@
 		}
 	}
 
-	// =========================
-	// 2) 신규: Row 클릭 이동 + 모달 완료처리
-	// =========================
 	const modalEl = document.getElementById('asList-second-complete-modal');
 	const formEl = document.getElementById('asList-second-complete-form');
 	const alertEl = document.getElementById('asList-second-modal-alert');
 
-	const btnUpload = document.getElementById('asList-second-btn-upload');   // PC: 업로드 / 모바일: 갤러리 선택
-	const btnCamera = document.getElementById('asList-second-btn-camera');   // 모바일 전용 촬영
+	const btnUpload = document.getElementById('asList-second-btn-upload');
+	const btnCamera = document.getElementById('asList-second-btn-camera');
 
 	const fileInput = document.getElementById('asList-second-file-input');
 	const imageList = document.getElementById('asList-second-image-list');
 	const btnComplete = document.getElementById('asList-second-btn-complete');
 
-	// 상세 표시 필드들
 	const field = {
 		company: document.getElementById('asList-second-field-company'),
 		requester: document.getElementById('asList-second-field-requester'),
 		address: document.getElementById('asList-second-field-address'),
 		reason: document.getElementById('asList-second-field-reason'),
-		adminMemo: document.getElementById('asList-second-field-adminMemo'), // ✅ 추가
+		adminMemo: document.getElementById('asList-second-field-adminMemo'),
+		handlerMemo: document.getElementById('asList-second-field-handlerMemo'),
+		visitPlannedTime: document.getElementById('asList-second-field-visitPlannedTime'),
 		productName: document.getElementById('asList-second-field-productName'),
 		productSize: document.getElementById('asList-second-field-productSize'),
 		productColor: document.getElementById('asList-second-field-productColor'),
@@ -209,17 +202,12 @@
 		requestedAt: document.getElementById('asList-second-field-requestedAt')
 	};
 
-	// bootstrap modal instance
 	let bsModal = null;
-
-	// 상태
 	let currentTaskId = null;
+	let currentTaskStatus = null;
 
-	// ✅ 추가: 현재 작업의 상태(리스트에서 받은 값 or 상세에서 받은 값)
-	let currentTaskStatus = null; // 'IN_PROGRESS' | 'REQUESTED' | ...
-
-	let existingResultImages = []; // [{id,url,filename}]
-	let selectedFiles = []; // File[] (fileInput과 동기화)
+	let existingResultImages = [];
+	let selectedFiles = [];
 
 	function isMobile() {
 		return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -257,7 +245,6 @@
 	}
 
 	function updateCompleteButtonState() {
-		// ✅ 진행중이 아니면 무조건 비활성
 		if (btnComplete) {
 			if (currentTaskStatus !== 'IN_PROGRESS') {
 				btnComplete.disabled = true;
@@ -273,7 +260,6 @@
 		if (!imageList) return;
 		imageList.innerHTML = '';
 
-		// 1) 기존(서버 저장) RESULT 이미지
 		(existingResultImages || []).forEach(img => {
 			const col = document.createElement('div');
 			col.className = 'col-6 col-sm-4 col-md-3';
@@ -291,7 +277,6 @@
 			imageList.appendChild(col);
 		});
 
-		// 2) 신규(미저장) 선택 파일 미리보기
 		(selectedFiles || []).forEach((file, idx) => {
 			const col = document.createElement('div');
 			col.className = 'col-6 col-sm-4 col-md-3';
@@ -314,7 +299,6 @@
 	}
 
 	async function deleteExistingImage(imageId) {
-		// ✅ 진행중이 아닌 상태에서는 삭제도 막는 게 안전합니다(원하시면 제거 가능)
 		if (currentTaskStatus !== 'IN_PROGRESS') {
 			alert('진행중 건에 대해서만 가능합니다.');
 			return;
@@ -327,7 +311,6 @@
 	}
 
 	function removeNewFileByIndex(idx) {
-		// ✅ 진행중 아니면 신규 선택도 의미가 없으니 막습니다(원하시면 제거 가능)
 		if (currentTaskStatus !== 'IN_PROGRESS') {
 			alert('진행중 건에 대해서만 가능합니다.');
 			return;
@@ -372,7 +355,6 @@
 		if (!fileInput) return;
 
 		fileInput.addEventListener('change', () => {
-			// ✅ 진행중이 아니면 파일 선택 자체를 막습니다
 			if (currentTaskStatus !== 'IN_PROGRESS') {
 				fileInput.value = '';
 				alert('진행중 건에 대해서만 가능합니다.');
@@ -391,29 +373,22 @@
 	}
 
 	function openFilePicker(mode) {
-		// mode: 'camera' | 'gallery'
 		if (!fileInput) return;
 
-		// ✅ 진행중이 아니면 막기
 		if (currentTaskStatus !== 'IN_PROGRESS') {
 			alert('진행중 건에 대해서만 가능합니다.');
 			return;
 		}
 
 		if (mode === 'camera') {
-			// 모바일 촬영
 			fileInput.setAttribute('capture', 'environment');
 		} else {
-			// 갤러리(기본 선택)
 			fileInput.removeAttribute('capture');
 		}
 		fileInput.click();
 	}
 
 	function bindUploadButtons() {
-		// ✅ 정책:
-		// - PC: 업로드 버튼만 있고, 클릭 시 기본 파일 선택
-		// - 모바일: 업로드(갤러리) 버튼 + 촬영 버튼 2개
 		if (btnUpload) {
 			btnUpload.addEventListener('click', (e) => {
 				e.preventDefault();
@@ -440,7 +415,6 @@
 	}
 
 	function lockModalIfNotInProgress() {
-		// ✅ 진행중 아니면 모달 내 액션 전부 비활성
 		if (currentTaskStatus !== 'IN_PROGRESS') {
 			setAlert('danger', '진행중 건에 대해서만 가능합니다.');
 			if (btnComplete) btnComplete.disabled = true;
@@ -453,20 +427,19 @@
 
 		const data = await fetchJson(`/team/asDetailModal/${taskId}`);
 
-		// 필드 채우기
 		setText(field.company, data.companyName);
 		setText(field.requester, data.requesterName);
 		setText(field.address, data.fullAddress);
 		setText(field.reason, data.reason);
-		setText(field.adminMemo, data.adminMemo); // ✅ 추가
+		setText(field.adminMemo, data.adminMemo);
+		setText(field.handlerMemo, data.handlerMemo);
+		setText(field.visitPlannedTime, data.visitPlannedTime);
 		setText(field.productName, data.productName);
 		setText(field.productSize, data.productSize);
 		setText(field.productColor, data.productColor);
 		setText(field.onsiteContact, data.onsiteContact);
 		setText(field.requestedAt, data.requestedAt);
 
-		// ✅ (강력 권장) 상세 API가 status를 내려주면 여기서 2중 검증
-		// - data.status 예: 'IN_PROGRESS'
 		if (data && data.status) {
 			currentTaskStatus = String(data.status);
 		}
@@ -477,7 +450,6 @@
 			filename: x.filename
 		}));
 
-		// 신규 선택 파일 초기화(모달 열 때마다 초기화)
 		selectedFiles = [];
 		if (fileInput) {
 			fileInput.value = '';
@@ -494,13 +466,11 @@
 		currentTaskId = taskId;
 		currentTaskStatus = statusFromRow ? String(statusFromRow) : null;
 
-		// ✅ 1차 방어: row status가 IN_PROGRESS가 아니면 모달 자체를 열지 않음
 		if (currentTaskStatus !== 'IN_PROGRESS') {
 			alert('진행중 건에 대해서만 가능합니다.');
 			return;
 		}
 
-		// form action 세팅: 기존 컨트롤러 그대로 사용
 		if (formEl) formEl.action = `/team/asUpdate/${taskId}`;
 
 		if (!bsModal && window.bootstrap && bootstrap.Modal) {
@@ -511,9 +481,7 @@
 
 		loadTaskForModal(taskId)
 			.then(() => {
-				// loadTaskForModal 안에서 status 재검증까지 수행
 				if (currentTaskStatus !== 'IN_PROGRESS') {
-					// 서버에서 상태가 바뀐 경우(경합 상황)
 					setAlert('danger', '진행중 건에 대해서만 가능합니다.');
 				} else {
 					setAlert(null, null);
@@ -538,10 +506,9 @@
 			e.stopPropagation();
 
 			const taskId = btn.getAttribute('data-task-id');
-			const status = btn.getAttribute('data-status'); // ✅ row에 심어둔 상태값
+			const status = btn.getAttribute('data-status');
 			if (!taskId) return;
 
-			// ✅ disabled여도 클릭이 들어오는 케이스가 있어(브라우저/DOM 상황) 2중 방어
 			if (String(status) !== 'IN_PROGRESS') {
 				alert('진행중 건에 대해서만 가능합니다.');
 				return;
@@ -571,7 +538,6 @@
 	function bindFormSubmitGuard() {
 		if (!formEl) return;
 		formEl.addEventListener('submit', (e) => {
-			// ✅ 최종 JS 방어: 진행중만 제출 가능
 			if (currentTaskStatus !== 'IN_PROGRESS') {
 				e.preventDefault();
 				alert('진행중 건에 대해서만 가능합니다.');
@@ -587,9 +553,6 @@
 		});
 	}
 
-	// =========================
-	// DOMContentLoaded
-	// =========================
 	document.addEventListener('DOMContentLoaded', () => {
 		bindRegion();
 		onProvinceChange(true).catch(console.error);
