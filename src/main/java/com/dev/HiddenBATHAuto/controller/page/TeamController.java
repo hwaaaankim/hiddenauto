@@ -24,6 +24,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -567,7 +568,9 @@ public class TeamController {
 	    model.addAttribute("startDate", startDate);
 	    model.addAttribute("endDate", endDate);
 	    model.addAttribute("dateType", dateType);
+
 	    model.addAttribute("selectedStatus", statusEnum);
+	    model.addAttribute("selectedStatusName", statusEnum != null ? statusEnum.name() : null);
 
 	    model.addAttribute("companyKeyword", companyKeyword);
 	    model.addAttribute("provinceId", provinceId);
@@ -579,20 +582,25 @@ public class TeamController {
 	    return "administration/team/as/asList";
 	}
 
-	private AsStatus parseAsStatus(String status) {
-	    if (status == null) {
+	private AsStatus parseAsStatus(String rawStatus) {
+	    if (!StringUtils.hasText(rawStatus)) {
 	        return null;
 	    }
 
-	    String s = status.trim();
-	    if (s.isEmpty() || "null".equalsIgnoreCase(s)) {
+	    String normalized = rawStatus.trim();
+
+	    if (!StringUtils.hasText(normalized)) {
+	        return null;
+	    }
+
+	    if ("null".equalsIgnoreCase(normalized) || "undefined".equalsIgnoreCase(normalized)) {
 	        return null;
 	    }
 
 	    try {
-	        return AsStatus.valueOf(s);
+	        return AsStatus.valueOf(normalized);
 	    } catch (IllegalArgumentException e) {
-	        throw new IllegalArgumentException("잘못된 AS 상태값입니다: " + status);
+	        return null;
 	    }
 	}
 
