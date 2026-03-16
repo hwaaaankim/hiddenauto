@@ -84,8 +84,8 @@ public class TeamController {
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final AsTaskService asTaskService;
 	private final AsImageRepository asImageRepository;
-	private final OrderService orderService;
 	private final ProvinceRepository provinceRepository;
+	private final OrderService orderService;
 	private final DeliveryOrderSummaryService deliveryOrderSummaryService;
 	private final DeliveryExcelService deliveryExcelService;
 
@@ -533,6 +533,7 @@ public class TeamController {
 	        @RequestParam(required = false) Long districtId,
 
 	        @RequestParam(required = false) String visitTimeSort,
+	        @RequestParam(required = false) String scheduledDateSort,
 
 	        Pageable pageable,
 	        Model model) {
@@ -545,8 +546,22 @@ public class TeamController {
 
 	    AsStatus statusEnum = parseAsStatus(status);
 
-	    LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-	    LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+	    LocalDateTime start = null;
+	    LocalDateTime end = null;
+
+	    /*
+	     * 중요:
+	     * requested / processed 는 [start, end+1day) 로 처리
+	     * scheduled 는 AsTaskSchedule.scheduledDate(LocalDate) 기준이므로
+	     * endDate 그대로 넘겨서 서비스에서 LocalDate 비교(<=) 하도록 처리
+	     */
+	    if ("scheduled".equalsIgnoreCase(dateType)) {
+	        start = (startDate != null) ? startDate.atStartOfDay() : null;
+	        end = (endDate != null) ? endDate.atStartOfDay() : null;
+	    } else {
+	        start = (startDate != null) ? startDate.atStartOfDay() : null;
+	        end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+	    }
 
 	    Page<AsTask> asPage = asTaskService.getAsTasks(
 	            member,
@@ -559,6 +574,7 @@ public class TeamController {
 	            cityId,
 	            districtId,
 	            visitTimeSort,
+	            scheduledDateSort,
 	            pageable
 	    );
 
@@ -576,8 +592,14 @@ public class TeamController {
 	    model.addAttribute("provinceId", provinceId);
 	    model.addAttribute("cityId", cityId);
 	    model.addAttribute("districtId", districtId);
+
 	    model.addAttribute("visitTimeSort", visitTimeSort);
+	    model.addAttribute("scheduledDateSort", scheduledDateSort);
+
 	    model.addAttribute("asStatusLabels", AsStatus.labelMap());
+
+	    // 방문예정일 + (n번째) 표시용
+	    model.addAttribute("asScheduleDisplayMap", asTaskService.getScheduleDisplayMap(asPage.getContent()));
 
 	    return "administration/team/as/asList";
 	}
@@ -603,11 +625,25 @@ public class TeamController {
 	        return null;
 	    }
 	}
+	
+	@GetMapping("/asDetail/{id}")
+	public String asDetail(@PathVariable Long id, Model model, @AuthenticationPrincipal PrincipalDetails principal) {
+		AsTask asTask = asTaskService.getAsDetail(id);
+		LocalDate visitPlannedDate = asTaskService.getVisitPlannedDate(id);
+
+		model.addAttribute("asTask", asTask);
+		model.addAttribute("visitPlannedDate", visitPlannedDate);
+		model.addAttribute("asStatuses", AsStatus.values());
+		model.addAttribute("asStatusLabels", AsStatus.labelMap());
+
+		return "administration/team/as/asDetail";
+	}
 
 	@PostMapping("/asUpdate/{id}")
 	public String updateAsTaskFromTeam(@PathVariable Long id, @AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(value = "status", required = false) AsStatus status,
 			@RequestParam(value = "handlerMemo", required = false) String handlerMemo,
+			@RequestParam(value = "visitPlannedDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate visitPlannedDate,
 			@RequestParam(value = "visitPlannedTime", required = false) @DateTimeFormat(pattern = "HH:mm") LocalTime visitPlannedTime,
 			@RequestParam(value = "resultImages", required = false) List<MultipartFile> resultImages,
 			RedirectAttributes redirectAttributes) {
@@ -619,8 +655,8 @@ public class TeamController {
 		}
 
 		try {
-			asTaskService.updateAsTaskByHandler(id, member, status, handlerMemo, visitPlannedTime, resultImages);
-			redirectAttributes.addFlashAttribute("success", "AS 상태, 담당자용 메모, 방문예정시간, 결과 이미지가 저장되었습니다.");
+			asTaskService.updateAsTaskByHandler(id, member, status, handlerMemo, visitPlannedDate, visitPlannedTime, resultImages);
+			redirectAttributes.addFlashAttribute("success", "AS 상태, 담당자용 메모, 방문예정일, 방문예정시간, 결과 이미지가 저장되었습니다.");
 		} catch (Exception e) {
 			e.printStackTrace();
 			redirectAttributes.addFlashAttribute("error", e.getMessage() != null ? e.getMessage() : "저장 중 오류가 발생했습니다.");
@@ -643,20 +679,7 @@ public class TeamController {
 		return asTaskService.getAsTaskDetailModal(id, member);
 	}
 
-	@GetMapping("/asDetail/{id}")
-	public String asDetail(@PathVariable Long id, Model model, @AuthenticationPrincipal PrincipalDetails principal) {
-		AsTask asTask = asTaskService.getAsDetail(id);
-
-		model.addAttribute("asTask", asTask);
-		model.addAttribute("asStatuses", AsStatus.values());
-		model.addAttribute("asStatusLabels", AsStatus.labelMap());
-
-		return "administration/team/as/asDetail";
-	}
-
-	private String safe(String v) {
-		return v == null ? "" : v;
-	}
+	
 
 	@DeleteMapping("/asImageDelete/{id}")
 	@ResponseBody

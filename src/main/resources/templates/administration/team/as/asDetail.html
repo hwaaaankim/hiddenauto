@@ -224,13 +224,13 @@
 														담당자 관리
 													</h5>
 													<div class="team-as-detail-fourth-section-sub">
-														담당자용 메모와 방문예정시간은 진행중(IN_PROGRESS) 상태에서만 수정할 수 있습니다.
+														담당자용 메모, 방문예정일, 방문예정시간은 진행중(IN_PROGRESS) 상태에서만 수정할 수 있습니다.
 													</div>
 												</div>
 											</div>
 
 											<div class="row team-as-detail-fourth-grid">
-												<div class="col-12 col-xl-8 mt-1">
+												<div class="col-12 col-xl-6 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">담당자용 메모</div>
 														<textarea class="form-control" name="handlerMemo" rows="6"
@@ -243,7 +243,19 @@
 													</div>
 												</div>
 
-												<div class="col-12 col-md-6 col-xl-4 mt-1">
+												<div class="col-12 col-md-6 col-xl-3 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">방문예정일</div>
+														<input type="date" class="form-control" name="visitPlannedDate"
+															th:value="${visitPlannedDate != null ? #temporals.format(visitPlannedDate, 'yyyy-MM-dd') : ''}"
+															th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}" />
+														<div class="team-as-detail-fourth-info-help mt-2">
+															이미 등록된 일정이 있으면 해당 날짜가 자동으로 표시됩니다.
+														</div>
+													</div>
+												</div>
+
+												<div class="col-12 col-md-6 col-xl-3 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">방문예정시간</div>
 														<input type="time" class="form-control" name="visitPlannedTime"

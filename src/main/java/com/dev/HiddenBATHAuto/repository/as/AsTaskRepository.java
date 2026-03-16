@@ -18,7 +18,7 @@ import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 
 @Repository
-public interface AsTaskRepository extends JpaRepository<AsTask, Long> {
+public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRepositoryCustom {
 
 	Optional<AsTask> findByIdAndRequestedBy_Company_Id(Long id, Long companyId);
 	

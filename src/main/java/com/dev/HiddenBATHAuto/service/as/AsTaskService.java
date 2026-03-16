@@ -32,6 +32,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.as.AsTaskCardDto;
+import com.dev.HiddenBATHAuto.dto.as.AsTaskScheduleSummaryProjection;
 import com.dev.HiddenBATHAuto.dto.as.CompanySearchItemDto;
 import com.dev.HiddenBATHAuto.dto.as.CustomerAsUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.as.TeamAsDetailModalResponse;
@@ -88,6 +89,14 @@ public class AsTaskService {
 	
 	private static final String AS_TEAM_NAME = "AS팀";
 
+	
+	@Transactional(readOnly = true)
+	public LocalDate getVisitPlannedDate(Long asTaskId) {
+		return asTaskScheduleRepository.findByAsTaskId(asTaskId)
+				.map(AsTaskSchedule::getScheduledDate)
+				.orElse(null);
+	}
+	
 	@Transactional
 	public AsTask updateCustomerAsTask(Long asTaskId, CustomerAsUpdateRequest req, List<MultipartFile> newImages,
 			List<Long> deleteImageIds, Member loginMember) throws IOException {
@@ -326,42 +335,134 @@ public class AsTaskService {
 
 	@Transactional(readOnly = true)
 	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
-			AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId, String visitTimeSort,
-			Pageable pageable) {
+	        AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId,
+	        String visitTimeSort, Pageable pageable) {
 
-		String normalizedCompanyKeyword = normalizeBlankToNull(companyKeyword);
-		String normalizedVisitTimeSort = normalizeVisitTimeSort(visitTimeSort);
+	    return getAsTasks(handler, dateType, start, end, status, companyKeyword,
+	            provinceId, cityId, districtId, visitTimeSort, null, pageable);
+	}
+	
+	@Transactional(readOnly = true)
+	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
+	        AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId,
+	        String visitTimeSort, String scheduledDateSort, Pageable pageable) {
 
-		String provinceName = regionLookupService.getProvinceName(provinceId);
-		String cityName = regionLookupService.getCityName(cityId);
-		String districtName = regionLookupService.getDistrictName(districtId);
+	    String normalizedCompanyKeyword = normalizeBlankToNull(companyKeyword);
+	    String normalizedVisitTimeSort = normalizeVisitTimeSort(visitTimeSort);
+	    String normalizedScheduledDateSort = normalizeScheduledDateSort(scheduledDateSort);
 
-		List<String> provinceNames = regionLookupService.getProvinceAliases(provinceName);
+	    String provinceName = regionLookupService.getProvinceName(provinceId);
+	    String cityName = regionLookupService.getCityName(cityId);
+	    String districtName = regionLookupService.getDistrictName(districtId);
 
-		if (provinceNames != null && provinceNames.isEmpty()) {
-			provinceNames = null;
-		}
+	    List<String> provinceNames = regionLookupService.getProvinceAliases(provinceName);
 
-		if ("scheduled".equalsIgnoreCase(dateType)) {
-			LocalDate startDate = (start != null) ? start.toLocalDate() : null;
-			LocalDate endDate = (end != null) ? end.toLocalDate() : null;
+	    if (provinceNames != null && provinceNames.isEmpty()) {
+	        provinceNames = null;
+	    }
 
-			return asTaskRepository.findByScheduledDateFlexible(handler.getId(), status, startDate, endDate,
-					normalizedCompanyKeyword, provinceNames, cityName, districtName, pageable);
-		}
+	    if ("scheduled".equalsIgnoreCase(dateType)) {
+	        LocalDate startDate = (start != null) ? start.toLocalDate() : null;
+	        LocalDate endDate = (end != null) ? end.toLocalDate() : null;
 
-		if ("requested".equalsIgnoreCase(dateType)) {
-			return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end,
-					normalizedCompanyKeyword, provinceNames, cityName, districtName, normalizedVisitTimeSort, pageable);
-		}
+	        return asTaskRepository.findByScheduledDateFlexible(
+	                handler.getId(),
+	                status,
+	                startDate,
+	                endDate,
+	                normalizedCompanyKeyword,
+	                provinceNames,
+	                cityName,
+	                districtName,
+	                normalizedVisitTimeSort,
+	                normalizedScheduledDateSort,
+	                pageable
+	        );
+	    }
 
-		return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end,
-				normalizedCompanyKeyword, provinceNames, cityName, districtName, normalizedVisitTimeSort, pageable);
+	    if ("requested".equalsIgnoreCase(dateType)) {
+	        return asTaskRepository.findByRequestedDateFlexible(
+	                handler.getId(),
+	                status,
+	                start,
+	                end,
+	                normalizedCompanyKeyword,
+	                provinceNames,
+	                cityName,
+	                districtName,
+	                normalizedVisitTimeSort,
+	                normalizedScheduledDateSort,
+	                pageable
+	        );
+	    }
+
+	    return asTaskRepository.findByProcessedDateFlexible(
+	            handler.getId(),
+	            status,
+	            start,
+	            end,
+	            normalizedCompanyKeyword,
+	            provinceNames,
+	            cityName,
+	            districtName,
+	            normalizedVisitTimeSort,
+	            normalizedScheduledDateSort,
+	            pageable
+	    );
 	}
 
+	@Transactional(readOnly = true)
+	public Map<Long, String> getScheduleDisplayMap(List<AsTask> tasks) {
+	    if (tasks == null || tasks.isEmpty()) {
+	        return Collections.emptyMap();
+	    }
+
+	    List<Long> taskIds = tasks.stream()
+	            .map(AsTask::getId)
+	            .filter(Objects::nonNull)
+	            .collect(Collectors.toList());
+
+	    if (taskIds.isEmpty()) {
+	        return Collections.emptyMap();
+	    }
+
+	    List<AsTaskScheduleSummaryProjection> schedules =
+	            asTaskScheduleRepository.findSummariesByTaskIdIn(taskIds);
+
+	    Map<Long, String> result = new HashMap<>();
+
+	    for (AsTaskScheduleSummaryProjection schedule : schedules) {
+	        if (schedule.getTaskId() == null || schedule.getScheduledDate() == null) {
+	            continue;
+	        }
+
+	        int displayOrder = schedule.getOrderIndex() + 1;
+	        String text = schedule.getScheduledDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
+	                + "(" + displayOrder + "번째)";
+
+	        result.put(schedule.getTaskId(), text);
+	    }
+
+	    return result;
+	}
+	
+	
+	private String normalizeScheduledDateSort(String scheduledDateSort) {
+	    if (!StringUtils.hasText(scheduledDateSort)) {
+	        return null;
+	    }
+
+	    String v = scheduledDateSort.trim().toLowerCase();
+
+	    if ("asc".equals(v) || "desc".equals(v)) {
+	        return v;
+	    }
+
+	    return null;
+	}	
 	@Transactional
 	public void updateAsTaskByHandler(Long id, Member handler, AsStatus updatedStatus, String handlerMemo,
-			LocalTime visitPlannedTime, List<MultipartFile> resultImages) throws IOException {
+			LocalDate visitPlannedDate, LocalTime visitPlannedTime, List<MultipartFile> resultImages) throws IOException {
 
 		AsTask task = asTaskRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("AS 요청이 존재하지 않습니다."));
@@ -379,6 +480,11 @@ public class AsTaskService {
 		}
 
 		boolean shouldSave = false;
+
+		boolean scheduleChanged = syncVisitPlannedDate(task, handler, visitPlannedDate);
+		if (scheduleChanged) {
+			shouldSave = true;
+		}
 
 		String normalizedHandlerMemo = normalizeBlankToNull(handlerMemo);
 
@@ -440,6 +546,45 @@ public class AsTaskService {
 		}
 	}
 
+	private boolean syncVisitPlannedDate(AsTask task, Member handler, LocalDate visitPlannedDate) {
+		AsTaskSchedule existingSchedule = asTaskScheduleRepository.findByAsTaskId(task.getId()).orElse(null);
+
+		// 1) 화면에서 날짜를 비운 경우 -> 기존 스케줄이 있으면 삭제
+		if (visitPlannedDate == null) {
+			if (existingSchedule != null) {
+				asTaskScheduleRepository.delete(existingSchedule);
+				asTaskScheduleRepository.flush();
+				return true;
+			}
+			return false;
+		}
+
+		// 2) 기존 스케줄이 있고 날짜가 그대로면 -> 유지 (orderIndex 변경 없음)
+		if (existingSchedule != null && visitPlannedDate.equals(existingSchedule.getScheduledDate())) {
+			return false;
+		}
+
+		// 3) 기존 스케줄이 있는데 날짜가 바뀌면 -> 기존 스케줄 삭제
+		if (existingSchedule != null) {
+			asTaskScheduleRepository.delete(existingSchedule);
+			asTaskScheduleRepository.flush();
+		}
+
+		// 4) 새 날짜 기준으로 최대 orderIndex + 1 계산 후 신규 등록
+		Integer maxOrderIndex = asTaskScheduleRepository.findMaxOrderIndexByScheduledDate(visitPlannedDate);
+		int nextOrderIndex = (maxOrderIndex == null ? -1 : maxOrderIndex) + 1;
+
+		AsTaskSchedule newSchedule = AsTaskSchedule.builder()
+				.asTask(task)
+				.scheduledDate(visitPlannedDate)
+				.orderIndex(nextOrderIndex)
+				.createdBy(handler)
+				.build();
+
+		asTaskScheduleRepository.save(newSchedule);
+		return true;
+	}
+	
 	@Transactional(readOnly = true)
 	public TeamAsDetailModalResponse getAsTaskDetailModal(Long id, Member handler) {
 		AsTask task = asTaskRepository.findById(id)

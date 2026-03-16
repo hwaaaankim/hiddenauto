@@ -10,11 +10,20 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.dev.HiddenBATHAuto.dto.as.AsTaskScheduleSummaryProjection;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTaskSchedule;
 
 public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, Long> {
 
+	@Query("select s.asTask.id as taskId, s.scheduledDate as scheduledDate, s.orderIndex as orderIndex " +
+	           "from AsTaskSchedule s " +
+	           "where s.asTask.id in :taskIds")
+    List<AsTaskScheduleSummaryProjection> findSummariesByTaskIdIn(@Param("taskIds") List<Long> taskIds);
+	
+	@Query("select coalesce(max(s.orderIndex), -1) from AsTaskSchedule s where s.scheduledDate = :scheduledDate")
+	Integer findMaxOrderIndexByScheduledDate(@Param("scheduledDate") LocalDate scheduledDate);
+	
 	List<AsTaskSchedule> findByAsTask_Id(Long asTaskId);
 	
 	/**
