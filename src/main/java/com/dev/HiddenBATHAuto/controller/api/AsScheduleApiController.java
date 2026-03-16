@@ -51,13 +51,12 @@ public class AsScheduleApiController {
             m.put("start", e.getDate().toString());
             m.put("allDay", true);
 
-            String status = e.getStatus(); // "REQUESTED" ...
+            String status = e.getStatus();
             List<String> classNames = new ArrayList<>();
             classNames.add("as-management-added-evt");
             classNames.add("as-management-added-evt-" + status);
             m.put("classNames", classNames);
 
-            // ✅ eventContent에서 status badge 그리기용
             m.put("extendedProps", Map.of("status", status));
 
             res.add(m);
@@ -104,6 +103,7 @@ public class AsScheduleApiController {
             m.put("requestedAt", task.getRequestedAt());
             m.put("asProcessDate", task.getAsProcessDate());
             m.put("orderIndex", s.getOrderIndex());
+            m.put("visitPlannedTime", task.getVisitPlannedTime() != null ? task.getVisitPlannedTime().toString() : null);
             res.add(m);
         }
         return res;
@@ -115,7 +115,6 @@ public class AsScheduleApiController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
-    // ✅ (4) 날짜 → 날짜 이동
     @PostMapping("/move")
     public ResponseEntity<?> move(
             @AuthenticationPrincipal PrincipalDetails principal,

@@ -30,13 +30,13 @@
 						</div>
 					</div>
 
-					<!-- ✅ 검색 폼(기존 유지) -->
-					<form method="get" th:action="@{/team/asManagement}" class="row">
+					<!-- ✅ 검색 폼 -->
+					<form method="get" th:action="@{/team/asManagement}" class="row" id="as-management-filter-form">
 						<div class="col-lg-12">
 							<div class="row g-4 mb-3">
-								<!-- ✅ 이 페이지는 드로어 목록이 중요하므로 기본 사이즈를 넉넉히(원하시면 200→100 등 조정) -->
 								<input type="hidden" name="page" value="0" />
 								<input type="hidden" name="size" value="200" />
+
 								<div class="col-lg-1">
 									<label class="form-label">상태</label>
 									<select name="status" class="form-select">
@@ -47,8 +47,8 @@
 											th:selected="${selectedStatus?.name() == 'IN_PROGRESS'}">진행중</option>
 										<option value="COMPLETED"
 											th:selected="${selectedStatus?.name() == 'COMPLETED'}">완료</option>
-										<option value="CANCELED" th:selected="${selectedStatus?.name() == 'CANCELED'}">
-											취소</option>
+										<option value="CANCELED"
+											th:selected="${selectedStatus?.name() == 'CANCELED'}">취소</option>
 									</select>
 								</div>
 
@@ -182,7 +182,6 @@
 												<div class="as-management-added-task-company"
 													th:text="${t.companyName}">업체명</div>
 
-												<!-- ✅ 표시만 한글 라벨로 -->
 												<span class="as-management-added-badge"
 													th:classappend="' as-management-added-badge-' + ${t.status}"
 													th:text="${asStatusLabels[t.status]}">
@@ -255,7 +254,21 @@
 								<div>
 									<div class="as-calendar-modal-title">해당 날짜 배정 업무</div>
 									<div class="as-calendar-modal-sub" id="as-calendar-modal-date-text">-</div>
+
+									<div class="mt-2">
+										<div class="btn-group btn-group-sm" role="group" aria-label="정렬 기준 선택">
+											<button type="button" class="btn btn-primary"
+												id="as-calendar-modal-sort-order">
+												지정순위기준
+											</button>
+											<button type="button" class="btn btn-outline-primary"
+												id="as-calendar-modal-sort-time">
+												시간순기준
+											</button>
+										</div>
+									</div>
 								</div>
+
 								<button type="button" class="btn btn-sm btn-light"
 									id="as-calendar-modal-close">닫기</button>
 							</div>
@@ -287,7 +300,6 @@
 			cityId: /*[[${cityId}]]*/ null,
 			districtId: /*[[${districtId}]]*/ null
 		};
-		// ✅ JS에서 라벨 필요할 수 있으니 같이 내려줌(선택)
 		window.__AS_STATUS_LABELS__ = /*[[${asStatusLabels}]]*/ {};
 	</script>
 

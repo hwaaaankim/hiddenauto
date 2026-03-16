@@ -21,6 +21,8 @@
 	const modalDateText = document.getElementById('as-calendar-modal-date-text');
 	const modalListEl = document.getElementById('as-calendar-modal-list');
 	const modalSaveBtn = document.getElementById('as-calendar-modal-save-order');
+	const modalSortOrderBtn = document.getElementById('as-calendar-modal-sort-order');
+	const modalSortTimeBtn = document.getElementById('as-calendar-modal-sort-time');
 
 	// ========================
 	// ===== DOM (REGION) =====
@@ -31,15 +33,16 @@
 	const childLabel = document.getElementById('as-child-label');
 
 	const citySelect = document.getElementById('as-city-select');
-	const districtDirectSelect = document.getElementById('as-district-direct-select'); // city 없는 province용(서울/세종 등)
+	const districtDirectSelect = document.getElementById('as-district-direct-select');
 
 	const districtWrapper = document.getElementById('as-district-wrapper');
-	const districtSelect = document.getElementById('as-district-select'); // city 있는 경우
+	const districtSelect = document.getElementById('as-district-select');
 
-	const districtHidden = document.getElementById('as-district-hidden'); // ✅ 실제 전송용
+	const districtHidden = document.getElementById('as-district-hidden');
 
 	// 서버에서 전달한 초기 선택값
 	const selected = window.__AS_SELECTED__ || {};
+	const statusLabels = window.__AS_STATUS_LABELS__ || {};
 
 	// =================
 	// ===== state =====
@@ -51,6 +54,9 @@
 
 	let externalDraggable = null;
 	let eventCountByDate = {};
+
+	let modalSortMode = 'ORDER'; // ORDER | TIME
+	let modalItemsCache = [];
 
 	let drawerDragWatch = {
 		active: false,
@@ -84,24 +90,83 @@
 		return s.length >= 10 ? s.substring(0, 10) : s;
 	}
 
+	function getStatusLabel(status) {
+		if (!status) return '-';
+		return statusLabels[status] || status;
+	}
+
+	function normalizeTimeText(v) {
+		if (!v) return '';
+		const s = String(v).trim();
+		if (!s) return '';
+
+		if (s.length >= 5) {
+			return s.substring(0, 5);
+		}
+		return s;
+	}
+
+	function displayTimeText(v) {
+		const t = normalizeTimeText(v);
+		return t || '-';
+	}
+
+	function toOrderNumber(v) {
+		const n = Number(v);
+		return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+	}
+
+	function compareOrderIndex(a, b) {
+		return toOrderNumber(a.orderIndex) - toOrderNumber(b.orderIndex);
+	}
+
+	function compareVisitPlannedTime(a, b) {
+		const ta = normalizeTimeText(a.visitPlannedTime);
+		const tb = normalizeTimeText(b.visitPlannedTime);
+
+		if (!ta && !tb) return 0;
+		if (!ta) return 1;
+		if (!tb) return -1;
+
+		return ta.localeCompare(tb);
+	}
+
+	function sortModalItems(items, mode) {
+		const arr = Array.isArray(items) ? items.slice() : [];
+
+		if (mode === 'TIME') {
+			arr.sort((a, b) => {
+				const byTime = compareVisitPlannedTime(a, b);
+				if (byTime !== 0) return byTime;
+				return compareOrderIndex(a, b);
+			});
+			return arr;
+		}
+
+		arr.sort((a, b) => {
+			const byOrder = compareOrderIndex(a, b);
+			if (byOrder !== 0) return byOrder;
+			return compareVisitPlannedTime(a, b);
+		});
+		return arr;
+	}
 
 	function bindFilterFormSubmitCleanup() {
 		const form = document.getElementById('as-management-filter-form');
 		if (!form) return;
 
 		form.addEventListener('submit', function() {
-			// 빈 값은 아예 전송하지 않도록 disable (서버에서 null 처리와 동일 효과)
 			const fields = form.querySelectorAll('input[name], select[name], textarea[name]');
 			fields.forEach(el => {
 				const v = (el.value == null) ? '' : String(el.value).trim();
 				if (v === '') el.disabled = true;
 			});
 
-			// 검색할 때는 항상 첫 페이지부터 보게(오늘 등록 건이 “안 보이는” 체감 방지)
 			const pageInput = form.querySelector('input[name="page"]');
 			if (pageInput) pageInput.value = '0';
 		});
 	}
+
 	function isSchedulableStatus(status) { return status === 'IN_PROGRESS'; }
 	function isBlockedStatus(status) { return status === 'COMPLETED' || status === 'CANCELED'; }
 
@@ -136,7 +201,7 @@
 			.replaceAll('<', '&lt;')
 			.replaceAll('>', '&gt;')
 			.replaceAll('"', '&quot;')
-			.replaceAll("'", "&#039;");
+			.replaceAll("'", '&#039;');
 	}
 
 	function getPointerXY(e) {
@@ -200,29 +265,119 @@
 	// ===== Modal =====
 	// ================
 	function openModal() {
+		if (!modalOverlay) return;
 		modalOverlay.style.display = 'flex';
 		document.body.classList.add('as-calendar-modal-open');
 	}
 
-	function closeModal() {
-		modalOverlay.style.display = 'none';
-		document.body.classList.remove('as-calendar-modal-open');
-		modalDate = null;
-		modalListEl.innerHTML = '';
+	function destroyModalSortable() {
 		if (modalSortable) {
-			modalSortable.destroy();
+			try {
+				modalSortable.destroy();
+			} catch (e) { }
 			modalSortable = null;
 		}
 	}
 
+	function closeModal() {
+		if (!modalOverlay) return;
+
+		modalOverlay.style.display = 'none';
+		document.body.classList.remove('as-calendar-modal-open');
+
+		modalDate = null;
+		modalItemsCache = [];
+		modalSortMode = 'ORDER';
+
+		if (modalListEl) modalListEl.innerHTML = '';
+		destroyModalSortable();
+		syncModalSortButtons();
+		syncModalSaveButton();
+	}
+
 	function bindModalClose() {
 		if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+
 		if (modalOverlay) {
 			modalOverlay.addEventListener('click', function(e) {
 				if (e.target === modalOverlay) closeModal();
 			});
 		}
+
 		if (modalSaveBtn) modalSaveBtn.addEventListener('click', saveModalOrder);
+
+		if (modalSortOrderBtn) {
+			modalSortOrderBtn.addEventListener('click', function() {
+				setModalSortMode('ORDER');
+			});
+		}
+
+		if (modalSortTimeBtn) {
+			modalSortTimeBtn.addEventListener('click', function() {
+				setModalSortMode('TIME');
+			});
+		}
+	}
+
+	function syncModalSortButtons() {
+		if (modalSortOrderBtn) {
+			if (modalSortMode === 'ORDER') {
+				modalSortOrderBtn.classList.remove('btn-outline-primary');
+				modalSortOrderBtn.classList.add('btn-primary');
+			} else {
+				modalSortOrderBtn.classList.remove('btn-primary');
+				modalSortOrderBtn.classList.add('btn-outline-primary');
+			}
+		}
+
+		if (modalSortTimeBtn) {
+			if (modalSortMode === 'TIME') {
+				modalSortTimeBtn.classList.remove('btn-outline-primary');
+				modalSortTimeBtn.classList.add('btn-primary');
+			} else {
+				modalSortTimeBtn.classList.remove('btn-primary');
+				modalSortTimeBtn.classList.add('btn-outline-primary');
+			}
+		}
+	}
+
+	function syncModalSaveButton() {
+		if (!modalSaveBtn) return;
+
+		if (modalSortMode === 'TIME') {
+			modalSaveBtn.disabled = true;
+			modalSaveBtn.textContent = '시간순기준에서는 변경 불가';
+			return;
+		}
+
+		modalSaveBtn.disabled = false;
+		modalSaveBtn.textContent = '순서변경';
+	}
+
+	function setModalSortMode(mode) {
+		if (mode !== 'ORDER' && mode !== 'TIME') return;
+		modalSortMode = mode;
+		syncModalSortButtons();
+		syncModalSaveButton();
+		renderModalList();
+		initModalSortableByMode();
+	}
+
+	function initModalSortableByMode() {
+		destroyModalSortable();
+
+		if (modalSortMode !== 'ORDER') {
+			return;
+		}
+
+		if (!modalListEl) return;
+		if (!qsa('.as-calendar-modal-item', modalListEl).length) return;
+
+		modalSortable = new Sortable(modalListEl, {
+			animation: 150,
+			handle: '.as-calendar-modal-drag-handle',
+			ghostClass: 'as-calendar-sort-ghost'
+		});
 	}
 
 	// ============================
@@ -350,9 +505,6 @@
 		window.setTimeout(() => { cell.style.boxShadow = prev; }, 700);
 	}
 
-	// ============================================================
-	// ✅ 외부 드래그 시 Drawer 자동 닫기/재오픈
-	// ============================================================
 	function bindExternalDragAutoCloseAndReopen() {
 		if (!externalListEl) return;
 		if (!drawer || !drawerOverlay) return;
@@ -564,8 +716,9 @@
 				const status = (arg.event.extendedProps && arg.event.extendedProps.status) ? String(arg.event.extendedProps.status) : '';
 				const title = escapeHtml(arg.event.title || '');
 
+				const badgeLabel = getStatusLabel(status);
 				const badgeHtml = status
-					? `<span class="as-management-added-evt-badge as-management-added-evt-badge-${escapeHtml(status)}">${escapeHtml(status)}</span>`
+					? `<span class="as-management-added-evt-badge as-management-added-evt-badge-${escapeHtml(status)}">${escapeHtml(badgeLabel)}</span>`
 					: '';
 
 				return {
@@ -797,6 +950,9 @@
 	function openDateModal(dateStr) {
 		modalDate = toYmd(dateStr);
 		modalDateText.textContent = modalDate;
+		modalSortMode = 'ORDER';
+		syncModalSortButtons();
+		syncModalSaveButton();
 		loadModalList(modalDate);
 	}
 
@@ -805,24 +961,25 @@
 
 		apiGet(`/team/asSchedule/date?date=${encodeURIComponent(ymd)}`)
 			.then((items) => {
-				renderModalList(items);
+				modalItemsCache = Array.isArray(items) ? items.slice() : [];
+				renderModalList();
 				openModal();
-
-				modalSortable = new Sortable(modalListEl, {
-					animation: 150,
-					handle: '.as-calendar-modal-drag-handle',
-					ghostClass: 'as-calendar-sort-ghost'
-				});
+				initModalSortableByMode();
 			})
 			.catch(() => {
-				modalListEl.innerHTML = '<div class="text-muted small">불러오기 실패</div>';
+				modalItemsCache = [];
+				renderModalList();
 				openModal();
+				initModalSortableByMode();
 			});
 	}
 
-	function renderModalList(items) {
+	function renderModalList() {
+		const items = sortModalItems(modalItemsCache, modalSortMode);
+
 		if (!items || items.length === 0) {
 			modalListEl.innerHTML = '<div class="text-muted small">배정된 업무가 없습니다.</div>';
+			bindModalItemButtons();
 			return;
 		}
 
@@ -839,17 +996,32 @@
 			const reqDate = it.requestedAt ? String(it.requestedAt).substring(0, 10) : '-';
 			const procDate = it.asProcessDate ? String(it.asProcessDate).substring(0, 10) : '-';
 			const schedDate = modalDate ? modalDate : '-';
+			const visitPlannedTime = displayTimeText(it.visitPlannedTime);
+			const statusLabel = getStatusLabel(status);
+
+			const dragHandleStyle = (modalSortMode === 'ORDER')
+				? ''
+				: 'opacity:.35;cursor:not-allowed;pointer-events:none;';
+
+			const dragHandleTitle = (modalSortMode === 'ORDER')
+				? '드래그로 순서 변경'
+				: '시간순기준에서는 순서 변경 불가';
 
 			return `
-        <div class="as-calendar-modal-item" data-task-id="${it.taskId}">
-          <div class="as-calendar-modal-drag-handle" title="드래그로 순서 변경">↕</div>
+        <div class="as-calendar-modal-item"
+             data-task-id="${escapeHtml(it.taskId)}"
+             data-order-index="${escapeHtml(it.orderIndex)}"
+             data-visit-planned-time="${escapeHtml(normalizeTimeText(it.visitPlannedTime))}">
+          <div class="as-calendar-modal-drag-handle"
+               title="${escapeHtml(dragHandleTitle)}"
+               style="${dragHandleStyle}">↕</div>
 
           <div class="as-calendar-modal-main">
             <div class="as-calendar-modal-row1">
               <div class="as-calendar-modal-company">${escapeHtml(it.companyName)}</div>
 
               <div class="as-calendar-modal-actions">
-                <span class="${badge}">${escapeHtml(status)}</span>
+                <span class="${badge}">${escapeHtml(statusLabel)}</span>
 
                 <button type="button"
                         class="btn btn-sm btn-light as-calendar-modal-toggle"
@@ -868,8 +1040,9 @@
             </div>
 
             <div class="as-calendar-modal-row2">
-              <div><span class="as-calendar-label">신청일</span> ${reqDate}</div>
-              <div><span class="as-calendar-label">처리일</span> ${procDate}</div>
+              <div><span class="as-calendar-label">신청일</span> ${escapeHtml(reqDate)}</div>
+              <div><span class="as-calendar-label">처리일</span> ${escapeHtml(procDate)}</div>
+              <div><span class="as-calendar-label">방문예정시간</span> ${escapeHtml(visitPlannedTime)}</div>
             </div>
 
             <div class="as-calendar-modal-detail" style="display:none;">
@@ -884,11 +1057,21 @@
                 </div>
                 <div>
                   <span class="as-calendar-modal-detail-label">상태</span>
-                  <span>${escapeHtml(status)}</span>
+                  <span>${escapeHtml(statusLabel)}</span>
+                </div>
+                <div>
+                  <span class="as-calendar-modal-detail-label">지정순위</span>
+                  <span>${escapeHtml(it.orderIndex)}</span>
+                </div>
+                <div>
+                  <span class="as-calendar-modal-detail-label">방문예정시간</span>
+                  <span>${escapeHtml(visitPlannedTime)}</span>
                 </div>
               </div>
 
               <div class="as-calendar-modal-detail-hint text-muted small mt-2">
+                - 지정순위기준: 저장된 지정순위(orderIndex) 기준 정렬 / 순서변경 가능<br />
+                - 시간순기준: 방문예정시간(visitPlannedTime) 기준 정렬 / 순서변경 불가<br />
                 - 완료/취소는 제거 불가, 진행중은 제거 후 다른 날짜로 재등록 가능합니다.
               </div>
             </div>
@@ -925,6 +1108,7 @@
 					window.alert('완료/취소된 업무는 제거할 수 없습니다.');
 					return;
 				}
+
 				const itemEl = btn.closest('.as-calendar-modal-item');
 				const taskId = Number(itemEl.getAttribute('data-task-id'));
 				const ok = window.confirm('해당 날짜에서 업무를 제거하시겠습니까?\n(미완료 상태라면 제거 후 다른 날짜로 재등록 가능합니다.)');
@@ -977,6 +1161,11 @@
 	function saveModalOrder() {
 		if (!modalDate) return;
 
+		if (modalSortMode !== 'ORDER') {
+			window.alert('시간순기준에서는 순서변경을 저장할 수 없습니다.');
+			return;
+		}
+
 		const ids = qsa('.as-calendar-modal-item', modalListEl)
 			.map(el => Number(el.getAttribute('data-task-id')))
 			.filter(Boolean);
@@ -994,7 +1183,7 @@
 	}
 
 	// =====================================
-	// ✅ REGION FILTER (Province/City/District)
+	// ===== REGION FILTER =====
 	// =====================================
 	function show(el) { if (el) el.style.display = ''; }
 	function hide(el) { if (el) el.style.display = 'none'; }
@@ -1049,10 +1238,8 @@
 			return;
 		}
 
-		// ✅ API: Province의 자식이 City인지, District 직행인지 판별
 		const data = await apiGet(`/api/regions/provinces/${encodeURIComponent(provinceId)}/children`);
 
-		// province 선택 시 child wrapper는 보여야 합니다.
 		show(childWrapper);
 
 		if (data && data.type === 'CITY') {
@@ -1073,7 +1260,6 @@
 			return;
 		}
 
-		// ✅ City 없는 케이스(서울/세종 등): District 직행
 		if (childLabel) childLabel.textContent = '구/군';
 
 		hide(citySelect);
@@ -1083,7 +1269,6 @@
 
 		fillOptions(districtDirectSelect, data.items || [], isInit ? selected.districtId : null);
 
-		// hidden 동기화
 		if (isInit && selected.districtId) {
 			setDistrictHidden(selected.districtId);
 		} else {
@@ -1164,9 +1349,8 @@
 		bindDrawer();
 		bindModalClose();
 
-		// ✅ 지역 필터 초기화(반드시 먼저 실행해도 무방)
 		initRegionFilter().catch(console.error);
-		bindFilterFormSubmitCleanup();   // ✅ 추가
+		bindFilterFormSubmitCleanup();
 		normalizeTaskList();
 		initExternalDraggable();
 		initCalendar();
