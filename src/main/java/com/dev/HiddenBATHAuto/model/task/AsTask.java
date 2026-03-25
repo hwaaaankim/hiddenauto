@@ -1,14 +1,18 @@
 package com.dev.HiddenBATHAuto.model.task;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.Team;
+import com.dev.HiddenBATHAuto.model.task.as.AsVideo;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
@@ -48,17 +52,18 @@ public class AsTask {
     private String zipCode;
 
     /** 행정구역 */
-    private String doName;   // ex: 경기도
-    private String siName;   // ex: 용인시
-    private String guName;   // ex: 수지구
+    private String doName;
+    private String siName;
+    private String guName;
 
     /** 주소 */
-    private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
-    private String detailAddress;   // ex: 302동 1502호
+    private String roadAddress;
+    private String detailAddress;
 
+    /** 증상 상세 설명 */
     private String reason;
 
-    /** 0이면 미정으로 간주(화면에서 '-' 처리) */
+    /** 0이면 미정으로 간주 */
     private int price;
 
     private String asComment;
@@ -66,7 +71,7 @@ public class AsTask {
     /** 관리자 내부 메모 */
     private String adminMemo;
 
-    /** 신규 필드 */
+    /** 제품 정보 */
     private String productName;
     private String productSize;
     private String productColor;
@@ -81,7 +86,7 @@ public class AsTask {
     @Column(columnDefinition = "TEXT")
     private String handlerMemo;
 
-    /** 방문예정시간 (00:00 ~ 23:59) */
+    /** 방문예정시간 */
     private LocalTime visitPlannedTime;
 
     @Enumerated(EnumType.STRING)
@@ -93,18 +98,43 @@ public class AsTask {
     @ManyToOne
     private Member assignedHandler;
 
+    /** =========================
+     * 신규 추가 필드
+     * ========================= */
+    private LocalDate purchaseDate;
+
+    @Column(length = 100)
+    private String applicantName;
+
+    @Column(length = 30)
+    private String applicantPhone;
+
+    @Column(length = 150)
+    private String applicantEmail;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private AsBillingTarget billingTarget;
+
+    @Column(name = "payment_collected", nullable = false)
+    private boolean paymentCollected = false;
+    
     private LocalDateTime requestedAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
     private LocalDateTime asProcessDate;
 
     @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
-    private List<AsHistory> historyLogs;
+    private List<AsHistory> historyLogs = new ArrayList<>();
 
     @JsonIgnore
-    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL)
-    private List<AsImage> images; // 모든 이미지 (type 구분 포함)
+    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AsImage> images = new ArrayList<>();
 
-    /** type = "REQUEST" 인 이미지만 반환 */
+    @JsonIgnore
+    @OneToMany(mappedBy = "asTask", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AsVideo> videos = new ArrayList<>();
+
+    /** type = REQUEST 인 이미지만 반환 */
     public List<AsImage> getRequestImages() {
         if (images == null || images.isEmpty()) return Collections.emptyList();
         return images.stream()
@@ -112,11 +142,27 @@ public class AsTask {
                 .collect(Collectors.toList());
     }
 
-    /** type = "RESULT" 인 이미지만 반환 */
+    /** type = RESULT 인 이미지만 반환 */
     public List<AsImage> getResultImages() {
         if (images == null || images.isEmpty()) return Collections.emptyList();
         return images.stream()
                 .filter(img -> img != null && "RESULT".equalsIgnoreCase(img.getType()))
+                .collect(Collectors.toList());
+    }
+
+    /** type = REQUEST 인 동영상만 반환 */
+    public List<AsVideo> getRequestVideos() {
+        if (videos == null || videos.isEmpty()) return Collections.emptyList();
+        return videos.stream()
+                .filter(v -> v != null && "REQUEST".equalsIgnoreCase(v.getType()))
+                .collect(Collectors.toList());
+    }
+
+    /** type = RESULT 인 동영상만 반환 */
+    public List<AsVideo> getResultVideos() {
+        if (videos == null || videos.isEmpty()) return Collections.emptyList();
+        return videos.stream()
+                .filter(v -> v != null && "RESULT".equalsIgnoreCase(v.getType()))
                 .collect(Collectors.toList());
     }
 
@@ -126,58 +172,72 @@ public class AsTask {
         return status.getLabelKr();
     }
 
-    /** subject 안전표시 */
     public String getSubjectSafe() {
         if (subject == null) return "-";
         String s = subject.trim();
         return s.isEmpty() ? "-" : s;
     }
 
-    /** customerName 안전표시 */
     public String getCustomerNameSafe() {
         if (customerName == null) return "-";
         String s = customerName.trim();
         return s.isEmpty() ? "-" : s;
     }
 
-    /** 관리자메모 안전표시 */
     public String getAdminMemoSafe() {
         if (adminMemo == null) return "-";
         String s = adminMemo.trim();
         return s.isEmpty() ? "-" : s;
     }
 
-    /** 담당자용 메모 안전표시 */
     public String getHandlerMemoSafe() {
         if (handlerMemo == null) return "-";
         String s = handlerMemo.trim();
         return s.isEmpty() ? "-" : s;
     }
 
-    /** 방문예정시간 안전표시 */
+    public String getRequestedCompanyNameSafe() {
+        if (requestedBy == null) return "-";
+        if (requestedBy.getCompany() == null) return "-";
+
+        String companyName = requestedBy.getCompany().getCompanyName();
+        if (companyName == null) return "-";
+
+        String s = companyName.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    public String getApplicantNameSafe() {
+        if (applicantName == null) return "-";
+        String s = applicantName.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    public String getApplicantPhoneSafe() {
+        if (applicantPhone == null) return "-";
+        String s = applicantPhone.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    public String getApplicantEmailSafe() {
+        if (applicantEmail == null) return "-";
+        String s = applicantEmail.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    public String getBillingTargetLabelSafe() {
+        if (billingTarget == null) return "-";
+        return billingTarget.getLabelKr();
+    }
+
     public String getVisitPlannedTimeText() {
         if (visitPlannedTime == null) return "-";
         return visitPlannedTime.format(TIME_FORMATTER);
     }
 
-    /** 신청매장(요청자 Member → Company → companyName) 안전표시 */
-    public String getRequestedCompanyNameSafe() {
-        if (requestedBy == null) return "-";
-        if (requestedBy.getCompany() == null) return "-";
-        String name = requestedBy.getCompany().getCompanyName();
-        if (name == null) return "-";
-        String s = name.trim();
-        return s.isEmpty() ? "-" : s;
-    }
-
-    /**
-     * 고객 화면에서 볼 상태 텍스트
-     * - REQUESTED/IN_PROGRESS => 신청중
-     * - COMPLETED => 신청완료
-     * - CANCELED => 취소
-     */
     public String getCustomerStatusText() {
         if (status == null) return "신청중";
+
         switch (status) {
             case COMPLETED:
                 return "신청완료";
@@ -190,14 +250,9 @@ public class AsTask {
         }
     }
 
-    /**
-     * 고객 화면 상태 뱃지 색상(부트스트랩 클래스)
-     * - 신청중: bg-warning
-     * - 신청완료: bg-success
-     * - 취소: bg-danger
-     */
     public String getCustomerStatusBadgeClass() {
         if (status == null) return "bg-warning color-white";
+
         switch (status) {
             case COMPLETED:
                 return "bg-success color-white";
@@ -208,5 +263,21 @@ public class AsTask {
             default:
                 return "bg-warning color-white";
         }
+    }
+    
+    public String getPaymentCollectedLabelKr() {
+        return paymentCollected ? "수납완료" : "미수납";
+    }
+    
+    public String getProductNameSafe() {
+        if (productName == null) return "-";
+        String s = productName.trim();
+        return s.isEmpty() ? "-" : s;
+    }
+
+    public String getOnsiteContactSafe() {
+        if (onsiteContact == null) return "-";
+        String s = onsiteContact.trim();
+        return s.isEmpty() ? "-" : s;
     }
 }

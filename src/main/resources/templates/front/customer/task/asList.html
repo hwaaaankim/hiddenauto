@@ -147,7 +147,58 @@
 											</div>
 										</div>
 									</div>
+									<!-- 추가 정보 -->
+									<div class="index-third-aslist-section mt-4">
+										<div class="index-third-aslist-section-title">추가 정보</div>
 
+										<div class="row g-1">
+											<div class="col-lg-4 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">접수 담당자명</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.applicantNameSafe}">-</div>
+												</div>
+											</div>
+
+											<div class="col-lg-4 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">접수 담당자 연락처</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.applicantPhoneSafe}">-</div>
+												</div>
+											</div>
+
+											<div class="col-lg-4 col-md-12">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">접수 담당자 이메일</div>
+													<div class="index-third-aslist-value text-end"
+														th:text="${asTask.applicantEmailSafe}">-</div>
+												</div>
+											</div>
+
+											<div class="col-lg-6 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">비용 청구 주체</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.billingTargetLabelSafe}">-</div>
+												</div>
+											</div>
+
+											<div class="col-lg-6 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">납품일자</div>
+													<div class="index-third-aslist-value"
+														th:text="${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy.MM.dd') : '-'}">
+														-</div>
+												</div>
+											</div>
+										</div>
+									</div>
 									<!-- 제품 정보 -->
 									<div class="index-third-aslist-section mt-4">
 										<div class="index-third-aslist-section-title">제품 정보</div>
@@ -303,27 +354,60 @@
 											</div>
 										</div>
 									</div>
+									<!-- 비디오 -->
+									<div class="index-third-aslist-section mt-4">
+										<div class="index-third-aslist-section-title">비디오</div>
 
+										<div class="row mt-1 g-1">
+											<div class="col-12">
+												<div class="d-flex justify-content-between align-items-center">
+													<strong class="color-theme">신청 비디오</strong>
+													<span class="font-11 opacity-50"
+														th:text="${asTask.requestVideos != null ? asTask.requestVideos.size() : 0} + '개'">0개</span>
+												</div>
+
+												<div class="d-flex flex-wrap gap-2 mt-2"
+													th:if="${asTask.requestVideos != null and !asTask.requestVideos.isEmpty()}">
+													<div th:each="video : ${asTask.requestVideos}" class="me-2">
+														<video th:src="${video.url}" controls preload="metadata"
+															style="width:180px; height:120px; object-fit:cover; border-radius:10px;"></video>
+														<div class="font-11 mt-1 opacity-70"
+															th:text="${video.filename}">video.mp4</div>
+													</div>
+												</div>
+
+												<div class="mt-2 font-12 opacity-50"
+													th:if="${asTask.requestVideos == null or asTask.requestVideos.isEmpty()}">
+													등록된 신청 비디오가 없습니다.
+												</div>
+											</div>
+										</div>
+									</div>
 									<!-- 수정하기 버튼 -->
 									<div class="client-as-update-first-trigger-wrap"
 										th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
 										<button type="button"
 											class="btn bg-highlight color-white rounded-s client-as-update-first-trigger-btn client-as-update-first-open-btn"
 											th:attr="
-                                                    data-as-id=${asTask.id},
-                                                    data-customer-name=${asTask.customerName},
-                                                    data-road-address=${asTask.roadAddress},
-                                                    data-detail-address=${asTask.detailAddress},
-                                                    data-do-name=${asTask.doName},
-                                                    data-si-name=${asTask.siName},
-                                                    data-gu-name=${asTask.guName},
-                                                    data-zip-code=${asTask.zipCode},
-                                                    data-onsite-contact=${asTask.onsiteContact},
-                                                    data-product-name=${asTask.productName},
-                                                    data-product-size=${asTask.productSize},
-                                                    data-product-color=${asTask.productColor},
-                                                    data-product-options=${asTask.productOptions},
-                                                    data-subject=${asTask.subject}">
+								                data-as-id=${asTask.id},
+								                data-customer-name=${asTask.customerName},
+								                data-road-address=${asTask.roadAddress},
+								                data-detail-address=${asTask.detailAddress},
+								                data-do-name=${asTask.doName},
+								                data-si-name=${asTask.siName},
+								                data-gu-name=${asTask.guName},
+								                data-zip-code=${asTask.zipCode},
+								                data-onsite-contact=${asTask.onsiteContact},
+								                data-product-name=${asTask.productName},
+								                data-product-size=${asTask.productSize},
+								                data-product-color=${asTask.productColor},
+								                data-product-options=${asTask.productOptions},
+								                data-subject=${asTask.subject},
+								                data-purchase-date=${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy-MM-dd') : ''},
+								                data-applicant-name=${asTask.applicantName},
+								                data-applicant-phone=${asTask.applicantPhone},
+								                data-applicant-email=${asTask.applicantEmail},
+								                data-billing-target=${asTask.billingTarget != null ? asTask.billingTarget.name() : ''}">
 											수정하기
 										</button>
 									</div>
@@ -338,7 +422,15 @@
                                                 data-image-filename=${img.filename}">
 										</div>
 									</div>
-
+									<div class="d-none client-as-update-first-origin-videos"
+										th:attr="data-task-id=${asTask.id}">
+										<div th:each="video : ${asTask.requestVideos}"
+											class="client-as-update-first-origin-video" th:attr="
+									            data-video-id=${video.id},
+									            data-video-url=${video.url},
+									            data-video-filename=${video.filename}">
+										</div>
+									</div>
 									<textarea class="d-none client-as-update-first-origin-reason"
 										th:attr="data-task-id=${asTask.id}" th:text="${asTask.reason}"></textarea>
 
@@ -511,6 +603,63 @@
 									<input type="text" id="client-as-update-first-productOptions"
 										class="client-as-update-first-input" placeholder="예) LED, 손잡이 없음">
 								</div>
+
+								<div class="col-lg-4 col-md-6">
+									<label for="client-as-update-first-purchaseDate"
+										class="client-as-update-first-label">
+										납품일자
+									</label>
+									<input type="date" id="client-as-update-first-purchaseDate"
+										class="client-as-update-first-input">
+								</div>
+
+								<div class="col-lg-4 col-md-6">
+									<label for="client-as-update-first-billingTarget"
+										class="client-as-update-first-label">
+										비용 청구 주체
+									</label>
+									<select id="client-as-update-first-billingTarget"
+										class="client-as-update-first-select">
+										<option value="">== 비용 청구 주체 선택 ==</option>
+										<option th:each="target : ${billingTargets}" th:value="${target.name()}"
+											th:text="${target.labelKr}">
+										</option>
+									</select>
+								</div>
+							</div>
+						</div>
+
+						<!-- 접수 담당자 정보 -->
+						<div class="client-as-update-first-section">
+							<div class="client-as-update-first-section-title">접수 담당자 정보</div>
+
+							<div class="row g-3">
+								<div class="col-lg-4 col-md-6">
+									<label for="client-as-update-first-applicantName"
+										class="client-as-update-first-label">
+										담당자명
+									</label>
+									<input type="text" id="client-as-update-first-applicantName"
+										class="client-as-update-first-input" placeholder="접수 담당자명을 입력해 주세요.">
+								</div>
+
+								<div class="col-lg-4 col-md-6">
+									<label for="client-as-update-first-applicantPhone"
+										class="client-as-update-first-label">
+										담당자 연락처
+									</label>
+									<input type="text" id="client-as-update-first-applicantPhone"
+										class="client-as-update-first-input" placeholder="- 없이 숫자만 입력해 주세요.">
+								</div>
+
+								<div class="col-lg-4 col-md-12">
+									<label for="client-as-update-first-applicantEmail"
+										class="client-as-update-first-label">
+										담당자 이메일
+									</label>
+									<input type="email" id="client-as-update-first-applicantEmail"
+										class="client-as-update-first-input" placeholder="example@domain.com">
+								</div>
 							</div>
 						</div>
 
@@ -569,7 +718,6 @@
 
 							<div class="client-as-update-first-file-guide">
 								기존 이미지는 유지/삭제할 수 있고, 새 이미지는 추가할 수 있습니다.
-								기존 이미지를 모두 삭제하고 새 이미지만 등록하는 교체 방식도 가능합니다.
 							</div>
 
 							<div class="mt-3">
@@ -585,6 +733,39 @@
 							<div class="mt-3">
 								<div class="fw-bold font-13 mb-2">새로 추가한 이미지</div>
 								<div id="client-as-update-first-addedImages" class="row g-2"></div>
+							</div>
+						</div>
+
+						<!-- 비디오 -->
+						<div class="client-as-update-first-section">
+							<div class="client-as-update-first-section-title">신청 비디오 수정</div>
+
+							<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+								<button type="button" id="client-as-update-first-videoTrigger"
+									class="btn bg-highlight color-white rounded-s client-as-update-first-file-trigger">
+									비디오 추가
+								</button>
+								<input type="file" id="client-as-update-first-newVideos" class="d-none" accept="video/*"
+									multiple>
+							</div>
+
+							<div class="client-as-update-first-file-guide">
+								기존 비디오는 유지/삭제할 수 있고, 새 비디오는 추가할 수 있습니다.
+							</div>
+
+							<div class="mt-3">
+								<div class="fw-bold font-13 mb-2">기존 신청 비디오</div>
+								<div id="client-as-update-first-existingVideos" class="row g-2"></div>
+							</div>
+
+							<div class="mt-3">
+								<div class="fw-bold font-13 mb-2">삭제 예정 비디오</div>
+								<div id="client-as-update-first-deletedVideos" class="row g-2"></div>
+							</div>
+
+							<div class="mt-3">
+								<div class="fw-bold font-13 mb-2">새로 추가한 비디오</div>
+								<div id="client-as-update-first-addedVideos" class="row g-2"></div>
 							</div>
 						</div>
 

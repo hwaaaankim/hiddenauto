@@ -115,13 +115,16 @@
 								</div>
 
 								<input type="hidden" name="districtId" id="as-district-hidden"
-									th:value="${districtId != null ? districtId : ''}" />
-
+								    th:value="${districtId != null ? districtId : ''}" />
+								
 								<input type="hidden" name="visitTimeSort"
-									th:value="${visitTimeSort != null ? visitTimeSort : ''}" />
-
+								    th:value="${visitTimeSort != null ? visitTimeSort : ''}" />
+								
 								<input type="hidden" name="scheduledDateSort"
-									th:value="${scheduledDateSort != null ? scheduledDateSort : ''}" />
+								    th:value="${scheduledDateSort != null ? scheduledDateSort : ''}" />
+								
+								<input type="hidden" name="addressSort"
+								    th:value="${addressSort != null ? addressSort : ''}" />
 
 							</div>
 						</div>
@@ -157,9 +160,53 @@
 														고객 성함
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-address asList-second-col-address">
-														주소
+													<th class="as-list-added-th as-list-added-col-address asList-second-col-address"
+													    th:with="
+													        startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
+													        endDateParam=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : null},
+													        companyKeywordParam=${#strings.isEmpty(companyKeyword) ? null : companyKeyword}">
+													    <div class="d-inline-flex align-items-center gap-2">
+													        <span>주소</span>
+													        <span class="d-inline-flex flex-column lh-1">
+													            <a class="text-decoration-none"
+													               th:href="@{/team/asList(
+													                    page=0,
+													                    dateType=${dateType},
+													                    startDate=${startDateParam},
+													                    endDate=${endDateParam},
+													                    status=${selectedStatusName},
+													                    companyKeyword=${companyKeywordParam},
+													                    provinceId=${provinceId},
+													                    cityId=${cityId},
+													                    districtId=${districtId},
+													                    visitTimeSort=${null},
+													                    scheduledDateSort=${null},
+													                    addressSort='asc'
+													               )}"
+													               th:classappend="${addressSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
+													                <i class="ri-arrow-up-s-line"></i>
+													            </a>
+													
+													            <a class="text-decoration-none"
+													               th:href="@{/team/asList(
+													                    page=0,
+													                    dateType=${dateType},
+													                    startDate=${startDateParam},
+													                    endDate=${endDateParam},
+													                    status=${selectedStatusName},
+													                    companyKeyword=${companyKeywordParam},
+													                    provinceId=${provinceId},
+													                    cityId=${cityId},
+													                    districtId=${districtId},
+													                    visitTimeSort=${null},
+													                    scheduledDateSort=${null},
+													                    addressSort='desc'
+													               )}"
+													               th:classappend="${addressSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
+													                <i class="ri-arrow-down-s-line"></i>
+													            </a>
+													        </span>
+													    </div>
 													</th>
 
 													<th
@@ -180,39 +227,41 @@
 															<span>방문예정일</span>
 															<span class="d-inline-flex flex-column lh-1">
 																<a class="text-decoration-none"
-																	th:href="@{/team/asList(
-																		page=0,
-																		dateType=${dateType},
-																		startDate=${startDateParam},
-																		endDate=${endDateParam},
-																		status=${selectedStatusName},
-																		companyKeyword=${companyKeywordParam},
-																		provinceId=${provinceId},
-																		cityId=${cityId},
-																		districtId=${districtId},
-																		visitTimeSort=${null},
-																		scheduledDateSort='asc'
-																	)}"
-																	th:classappend="${scheduledDateSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
-																	<i class="ri-arrow-up-s-line"></i>
+																   th:href="@{/team/asList(
+																        page=0,
+																        dateType=${dateType},
+																        startDate=${startDateParam},
+																        endDate=${endDateParam},
+																        status=${selectedStatusName},
+																        companyKeyword=${companyKeywordParam},
+																        provinceId=${provinceId},
+																        cityId=${cityId},
+																        districtId=${districtId},
+																        visitTimeSort=${null},
+																        scheduledDateSort='asc',
+																        addressSort=${null}
+																   )}"
+																   th:classappend="${scheduledDateSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
+																    <i class="ri-arrow-up-s-line"></i>
 																</a>
 													
 																<a class="text-decoration-none"
-																	th:href="@{/team/asList(
-																		page=0,
-																		dateType=${dateType},
-																		startDate=${startDateParam},
-																		endDate=${endDateParam},
-																		status=${selectedStatusName},
-																		companyKeyword=${companyKeywordParam},
-																		provinceId=${provinceId},
-																		cityId=${cityId},
-																		districtId=${districtId},
-																		visitTimeSort=${null},
-																		scheduledDateSort='desc'
-																	)}"
-																	th:classappend="${scheduledDateSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
-																	<i class="ri-arrow-down-s-line"></i>
+																   th:href="@{/team/asList(
+																        page=0,
+																        dateType=${dateType},
+																        startDate=${startDateParam},
+																        endDate=${endDateParam},
+																        status=${selectedStatusName},
+																        companyKeyword=${companyKeywordParam},
+																        provinceId=${provinceId},
+																        cityId=${cityId},
+																        districtId=${districtId},
+																        visitTimeSort=${null},
+																        scheduledDateSort='desc',
+																        addressSort=${null}
+																   )}"
+																   th:classappend="${scheduledDateSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
+																    <i class="ri-arrow-down-s-line"></i>
 																</a>
 															</span>
 														</div>
@@ -226,39 +275,41 @@
 															<span>방문예정시간</span>
 															<span class="d-inline-flex flex-column lh-1">
 																<a class="text-decoration-none"
-																	th:href="@{/team/asList(
-																		page=0,
-																		dateType=${dateType},
-																		startDate=${startDateParam},
-																		endDate=${endDateParam},
-																		status=${selectedStatusName},
-																		companyKeyword=${companyKeywordParam},
-																		provinceId=${provinceId},
-																		cityId=${cityId},
-																		districtId=${districtId},
-																		visitTimeSort='asc',
-																		scheduledDateSort=${null}
-																	)}"
-																	th:classappend="${visitTimeSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
-																	<i class="ri-arrow-up-s-line"></i>
+																   th:href="@{/team/asList(
+																        page=0,
+																        dateType=${dateType},
+																        startDate=${startDateParam},
+																        endDate=${endDateParam},
+																        status=${selectedStatusName},
+																        companyKeyword=${companyKeywordParam},
+																        provinceId=${provinceId},
+																        cityId=${cityId},
+																        districtId=${districtId},
+																        visitTimeSort='asc',
+																        scheduledDateSort=${null},
+																        addressSort=${null}
+																   )}"
+																   th:classappend="${visitTimeSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
+																    <i class="ri-arrow-up-s-line"></i>
 																</a>
 													
 																<a class="text-decoration-none"
-																	th:href="@{/team/asList(
-																		page=0,
-																		dateType=${dateType},
-																		startDate=${startDateParam},
-																		endDate=${endDateParam},
-																		status=${selectedStatusName},
-																		companyKeyword=${companyKeywordParam},
-																		provinceId=${provinceId},
-																		cityId=${cityId},
-																		districtId=${districtId},
-																		visitTimeSort='desc',
-																		scheduledDateSort=${null}
-																	)}"
-																	th:classappend="${visitTimeSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
-																	<i class="ri-arrow-down-s-line"></i>
+																   th:href="@{/team/asList(
+																        page=0,
+																        dateType=${dateType},
+																        startDate=${startDateParam},
+																        endDate=${endDateParam},
+																        status=${selectedStatusName},
+																        companyKeyword=${companyKeywordParam},
+																        provinceId=${provinceId},
+																        cityId=${cityId},
+																        districtId=${districtId},
+																        visitTimeSort='desc',
+																        scheduledDateSort=${null},
+																        addressSort=${null}
+																   )}"
+																   th:classappend="${visitTimeSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
+																    <i class="ri-arrow-down-s-line"></i>
 																</a>
 															</span>
 														</div>
@@ -278,9 +329,11 @@
 
 											<tbody class="as-list-added-tbody">
 												<tr th:each="task : ${asPage.content}"
-													class="as-list-added-tr asList-second-row-click" th:attr="data-href=@{/team/asDetail/{id}(id=${task.id})},
-                                                             data-task-id=${task.id},
-                                                             data-onsite=${task.onsiteContact}">
+												    class="as-list-added-tr asList-second-row-click"
+												    th:classappend="${addressGroupClassMap != null ? addressGroupClassMap[task.id] : ''}"
+												    th:attr="data-href=@{/team/asDetail/{id}(id=${task.id})},
+												             data-task-id=${task.id},
+												             data-onsite=${task.onsiteContact}">
 
 													<td
 														class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
@@ -393,103 +446,112 @@
 					</div>
 
 					<div class="row g-0 justify-content-center mt-4 production-pagination"
-	th:if="${asPage.totalPages > 0}"
-	th:with="
-		startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
-		endDateParam=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : null},
-		companyKeywordParam=${#strings.isEmpty(companyKeyword) ? null : companyKeyword},
-		visitTimeSortParam=${#strings.isEmpty(visitTimeSort) ? null : visitTimeSort},
-		scheduledDateSortParam=${#strings.isEmpty(scheduledDateSort) ? null : scheduledDateSort},
-		prevPage=${asPage.first ? 0 : asPage.number - 1},
-		nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
-		lastPage=${asPage.totalPages - 1}">
-
-						<div class="col-auto">
-							<ul class="pagination pagination-separated">
-
-								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-									<a class="page-link" th:href="@{/team/asList(
-											page=0,
-											dateType=${dateType},
-											startDate=${startDateParam},
-											endDate=${endDateParam},
-											status=${selectedStatusName},
-											companyKeyword=${companyKeywordParam},
-											provinceId=${provinceId},
-											cityId=${cityId},
-											scheduledDateSort=${scheduledDateSortParam},
-											districtId=${districtId},
-											visitTimeSort=${visitTimeSortParam}
-										)}">FIRST</a>
-								</li>
-
-								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-									<a class="page-link" th:href="@{/team/asList(
-											page=${prevPage},
-											dateType=${dateType},
-											startDate=${startDateParam},
-											endDate=${endDateParam},
-											status=${selectedStatusName},
-											companyKeyword=${companyKeywordParam},
-											provinceId=${provinceId},
-											cityId=${cityId},
-											scheduledDateSort=${scheduledDateSortParam},
-											districtId=${districtId},
-											visitTimeSort=${visitTimeSortParam}
-										)}">PREV</a>
-								</li>
-
-								<li class="page-item" th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
-									th:classappend="${asPage.number == i} ? 'active'">
-									<a class="page-link" th:text="${i + 1}" th:href="@{/team/asList(
-											page=${i},
-											dateType=${dateType},
-											startDate=${startDateParam},
-											endDate=${endDateParam},
-											status=${selectedStatusName},
-											companyKeyword=${companyKeywordParam},
-											provinceId=${provinceId},
-											cityId=${cityId},
-											scheduledDateSort=${scheduledDateSortParam},
-											districtId=${districtId},
-											visitTimeSort=${visitTimeSortParam}
-										)}">1</a>
-								</li>
-
-								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-									<a class="page-link" th:href="@{/team/asList(
-											page=${nextPage},
-											dateType=${dateType},
-											startDate=${startDateParam},
-											endDate=${endDateParam},
-											status=${selectedStatusName},
-											companyKeyword=${companyKeywordParam},
-											provinceId=${provinceId},
-											cityId=${cityId},
-											scheduledDateSort=${scheduledDateSortParam},
-											districtId=${districtId},
-											visitTimeSort=${visitTimeSortParam}
-										)}">NEXT</a>
-								</li>
-
-								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-									<a class="page-link" th:href="@{/team/asList(
-											page=${lastPage},
-											dateType=${dateType},
-											startDate=${startDateParam},
-											endDate=${endDateParam},
-											status=${selectedStatusName},
-											companyKeyword=${companyKeywordParam},
-											provinceId=${provinceId},
-											scheduledDateSort=${scheduledDateSortParam},
-											cityId=${cityId},
-											districtId=${districtId},
-											visitTimeSort=${visitTimeSortParam}
-										)}">LAST</a>
-								</li>
-
-							</ul>
-						</div>
+					     th:if="${asPage.totalPages > 0}"
+					     th:with="
+					        startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
+					        endDateParam=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : null},
+					        companyKeywordParam=${#strings.isEmpty(companyKeyword) ? null : companyKeyword},
+					        visitTimeSortParam=${#strings.isEmpty(visitTimeSort) ? null : visitTimeSort},
+					        scheduledDateSortParam=${#strings.isEmpty(scheduledDateSort) ? null : scheduledDateSort},
+					        addressSortParam=${#strings.isEmpty(addressSort) ? null : addressSort},
+					        prevPage=${asPage.first ? 0 : asPage.number - 1},
+					        nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
+					        lastPage=${asPage.totalPages - 1}">
+					
+					    <div class="col-auto">
+					        <ul class="pagination pagination-separated">
+					
+					            <li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+					                <a class="page-link" th:href="@{/team/asList(
+					                        page=0,
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">FIRST</a>
+					            </li>
+					
+					            <li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+					                <a class="page-link" th:href="@{/team/asList(
+					                        page=${prevPage},
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">PREV</a>
+					            </li>
+					
+					            <li class="page-item"
+					                th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
+					                th:classappend="${asPage.number == i} ? 'active'">
+					                <a class="page-link"
+					                   th:text="${i + 1}"
+					                   th:href="@{/team/asList(
+					                        page=${i},
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">1</a>
+					            </li>
+					
+					            <li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+					                <a class="page-link" th:href="@{/team/asList(
+					                        page=${nextPage},
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">NEXT</a>
+					            </li>
+					
+					            <li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+					                <a class="page-link" th:href="@{/team/asList(
+					                        page=${lastPage},
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">LAST</a>
+					            </li>
+					
+					        </ul>
+					    </div>
 					</div>
 
 				</div>

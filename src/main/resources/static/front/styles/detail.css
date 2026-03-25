@@ -2492,3 +2492,394 @@ h3#auto-modal-title {
 .client-as-update-first-modal .modal-body {
 	touch-action: pan-y;
 }
+
+.as-request-fifth-section-card {
+	padding: 18px 16px;
+}
+
+.as-request-fifth-section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+
+.as-request-fifth-section-head h2,
+.as-request-fifth-section-head h3 {
+	margin: 0;
+	font-size: 20px;
+	font-weight: 800;
+}
+
+.as-request-fifth-section-desc {
+	color: #7b8794;
+	font-size: 13px;
+	margin-bottom: 18px;
+}
+
+.as-request-fifth-inline-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	font-weight: 700;
+	color: #344054;
+}
+
+.as-request-fifth-grid-2 {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+
+.as-request-fifth-billing-wrap {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin: 10px 0 4px;
+}
+
+.as-request-fifth-billing-item {
+	flex: 1 1 140px;
+	border: 1px solid #e5e7eb;
+	border-radius: 14px;
+	padding: 12px 14px;
+	background: #fff;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.as-request-fifth-attachment-box {
+	border: 1px dashed #cbd5e1;
+	border-radius: 16px;
+	padding: 14px;
+	background: #f8fafc;
+}
+
+.as-request-fifth-attachment-trigger {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: 12px;
+	background: #d92027;
+	color: #fff;
+	font-weight: 800;
+	cursor: pointer;
+}
+
+.as-request-fifth-attachment-help {
+	margin-top: 10px;
+	font-size: 12px;
+	color: #667085;
+}
+
+.as-request-fifth-preview-list {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.as-request-fifth-preview-item {
+	position: relative;
+	border-radius: 14px;
+	overflow: hidden;
+	background: #fff;
+	border: 1px solid #e5e7eb;
+	min-height: 140px;
+}
+
+.as-request-fifth-preview-item img,
+.as-request-fifth-preview-item video {
+	width: 100%;
+	height: 140px;
+	object-fit: cover;
+	display: block;
+	background: #000;
+}
+
+.as-request-fifth-preview-file {
+	min-height: 140px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	padding: 16px;
+	text-align: center;
+	gap: 8px;
+	color: #344054;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.as-request-fifth-remove-attachment-btn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	width: 30px;
+	height: 30px;
+	border: 0;
+	border-radius: 50%;
+	background: rgba(17, 24, 39, 0.88);
+	color: #fff;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.as-request-fifth-product-section {
+	overflow: hidden;
+	max-height: 0;
+	opacity: 0;
+	transform: translateY(12px);
+	transition: max-height .35s ease, opacity .28s ease, transform .28s ease, margin .35s ease;
+	margin-bottom: 0;
+}
+
+.as-request-fifth-product-section.as-request-fifth-mounted {
+	max-height: 4000px;
+	opacity: 1;
+	transform: translateY(0);
+	margin-bottom: 16px;
+}
+
+.as-request-fifth-product-section-inner {
+	border: 1px solid #e5e7eb;
+	border-radius: 18px;
+	background: #fff;
+	padding: 18px 16px;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.as-request-fifth-product-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 14px;
+}
+
+.as-request-fifth-product-title h3 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 800;
+}
+
+.as-request-fifth-product-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.as-request-fifth-btn-soft {
+	border: 1px solid #e5e7eb;
+	background: #fff;
+	color: #344054;
+	border-radius: 12px;
+	min-height: 40px;
+	padding: 0 14px;
+	font-weight: 800;
+	cursor: pointer;
+}
+
+.as-request-fifth-btn-danger {
+	border: 1px solid #fecaca;
+	background: #fff5f5;
+	color: #d92d20;
+}
+
+.as-request-fifth-progress-card {
+	display: none;
+	margin-bottom: 16px;
+	border: 1px solid #f1f5f9;
+	border-radius: 16px;
+	background: #fff;
+	padding: 16px;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.as-request-fifth-progress-card.active {
+	display: block;
+}
+
+.as-request-fifth-progress-bar-wrap {
+	width: 100%;
+	height: 12px;
+	background: #edf2f7;
+	border-radius: 999px;
+	overflow: hidden;
+	margin-top: 10px;
+}
+
+.as-request-fifth-progress-bar {
+	width: 0%;
+	height: 100%;
+	background: linear-gradient(90deg, #d92027, #ff6b6b);
+	transition: width .2s ease;
+}
+
+.as-request-fifth-bottom-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-top: 8px;
+}
+
+.as-request-fifth-submit-btn[disabled],
+.as-request-fifth-add-btn[disabled],
+.as-request-fifth-btn-soft[disabled] {
+	opacity: .6;
+	cursor: not-allowed;
+}
+
+@media (max-width: 576px) {
+	.as-request-fifth-grid-2 {
+		grid-template-columns: 1fr;
+	}
+
+	.as-request-fifth-preview-list {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.as-request-fifth-inline-check {
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 8px !important;
+	font-size: 13px !important;
+	font-weight: 700 !important;
+	color: #344054 !important;
+	cursor: pointer !important;
+	opacity: 1 !important;
+	visibility: visible !important;
+}
+
+.as-request-fifth-inline-check:hover,
+.as-request-fifth-inline-check:focus,
+.as-request-fifth-inline-check:active {
+	opacity: 1 !important;
+	visibility: visible !important;
+}
+
+.as-request-fifth-inline-check input[type="checkbox"] {
+	appearance: auto !important;
+	-webkit-appearance: checkbox !important;
+	-moz-appearance: checkbox !important;
+	display: inline-block !important;
+	position: static !important;
+	width: 16px !important;
+	height: 16px !important;
+	min-width: 16px !important;
+	min-height: 16px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	opacity: 1 !important;
+	visibility: visible !important;
+	pointer-events: auto !important;
+	accent-color: #d92027 !important;
+	transform: none !important;
+	filter: none !important;
+	clip: auto !important;
+	overflow: visible !important;
+	z-index: auto !important;
+	vertical-align: middle !important;
+	box-shadow: none !important;
+	background: #fff !important;
+}
+
+.as-request-fifth-inline-check input[type="checkbox"]:hover,
+.as-request-fifth-inline-check input[type="checkbox"]:focus,
+.as-request-fifth-inline-check input[type="checkbox"]:active {
+	appearance: auto !important;
+	-webkit-appearance: checkbox !important;
+	-moz-appearance: checkbox !important;
+	opacity: 1 !important;
+	visibility: visible !important;
+	transform: none !important;
+	filter: none !important;
+	clip: auto !important;
+	background: #fff !important;
+}
+
+.as-request-fifth-inline-check span {
+	opacity: 1 !important;
+	visibility: visible !important;
+}
+
+.as-request-fifth-billing-item {
+	opacity: 1 !important;
+	visibility: visible !important;
+}
+
+.as-request-fifth-billing-item:hover,
+.as-request-fifth-billing-item:focus,
+.as-request-fifth-billing-item:active {
+	opacity: 1 !important;
+	visibility: visible !important;
+}
+
+.as-request-fifth-billing-item input[type="radio"] {
+	appearance: auto !important;
+	-webkit-appearance: radio !important;
+	-moz-appearance: radio !important;
+	display: inline-block !important;
+	position: static !important;
+	width: 16px !important;
+	height: 16px !important;
+	min-width: 16px !important;
+	min-height: 16px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	opacity: 1 !important;
+	visibility: visible !important;
+	pointer-events: auto !important;
+	accent-color: #d92027 !important;
+	transform: none !important;
+	filter: none !important;
+	clip: auto !important;
+	overflow: visible !important;
+	z-index: auto !important;
+	vertical-align: middle !important;
+	box-shadow: none !important;
+	background: #fff !important;
+}
+
+.as-request-fifth-billing-item input[type="radio"]:hover,
+.as-request-fifth-billing-item input[type="radio"]:focus,
+.as-request-fifth-billing-item input[type="radio"]:active {
+	appearance: auto !important;
+	-webkit-appearance: radio !important;
+	-moz-appearance: radio !important;
+	opacity: 1 !important;
+	visibility: visible !important;
+	transform: none !important;
+	filter: none !important;
+	clip: auto !important;
+	background: #fff !important;
+}
+
+.as-request-fifth-billing-item span {
+	opacity: 1 !important;
+	visibility: visible !important;
+}
+
+.as-management-third-preview-item {
+	position: relative;
+}
+
+.as-management-third-preview-remove,
+.as-management-third-img-remove-btn,
+.as-management-third-video-remove-btn,
+.as-management-third-img-download {
+	position: relative;
+	z-index: 30 !important;
+	pointer-events: auto !important;
+}
+
+.as-management-third-media-trigger {
+	cursor: zoom-in;
+}

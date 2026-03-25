@@ -4,18 +4,14 @@ document.addEventListener("DOMContentLoaded", function() {
 	const form = document.getElementById("as-management-third-form");
 	if (!form) return;
 
-	// ---------------------------------------------------------
-	// bootstrap tooltip (guard)
-	// ---------------------------------------------------------
 	try {
 		if (window.bootstrap && document.querySelectorAll('[data-bs-toggle="tooltip"]').length > 0) {
-			[...document.querySelectorAll('[data-bs-toggle="tooltip"]')].forEach(el => new bootstrap.Tooltip(el));
+			[...document.querySelectorAll('[data-bs-toggle="tooltip"]')].forEach(
+				el => new bootstrap.Tooltip(el)
+			);
 		}
 	} catch (e) { /* ignore */ }
 
-	// ---------------------------------------------------------
-	// Elements
-	// ---------------------------------------------------------
 	const saveBtn = document.getElementById("as-management-third-saveBtn");
 	const dirtyBadge = document.getElementById("as-management-third-dirtyBadge");
 
@@ -52,6 +48,13 @@ document.addEventListener("DOMContentLoaded", function() {
 	const productSizeEl = document.getElementById("as-management-third-productSize");
 	const productColorEl = document.getElementById("as-management-third-productColor");
 	const productOptionsEl = document.getElementById("as-management-third-productOptions");
+
+	const applicantNameEl = document.getElementById("as-management-third-applicantName");
+	const applicantPhoneEl = document.getElementById("as-management-third-applicantPhone");
+	const applicantEmailEl = document.getElementById("as-management-third-applicantEmail");
+	const purchaseDateEl = document.getElementById("as-management-third-purchaseDate");
+	const billingTargetEl = document.getElementById("as-management-third-billingTarget");
+
 	const adminMemoEl = document.getElementById("as-management-third-adminMemo");
 
 	const subjectInputEl = document.getElementById("as-management-third-subjectInput");
@@ -59,22 +62,35 @@ document.addEventListener("DOMContentLoaded", function() {
 	const subjectSymptomEl = document.getElementById("as-management-third-subjectSymptom");
 
 	const priceEl = document.getElementById("as-management-third-price");
+	const priceReadonlyHelpEl = document.getElementById("as-management-third-priceReadonlyHelp");
+	const paymentCollectedEl = document.getElementById("as-management-third-paymentCollected");
 	const statusEl = document.getElementById("as-management-third-status");
 	const assignedHandlerEl = document.getElementById("as-management-third-assignedHandlerId");
 
 	const existingImagesWrap = document.getElementById("as-management-third-existingRequestImages");
 	const deleteRequestImageIdsEl = document.getElementById("as-management-third-deleteRequestImageIds");
 
+	const existingVideosWrap = document.getElementById("as-management-third-existingRequestVideos");
+	const deleteRequestVideoIdsEl = document.getElementById("as-management-third-deleteRequestVideoIds");
+
 	const uploadBtn = document.getElementById("as-management-third-uploadBtn");
 	const newImagesInput = document.getElementById("as-management-third-newRequestImages");
 	const previewList = document.getElementById("as-management-third-previewList");
 
+	const uploadVideoBtn = document.getElementById("as-management-third-uploadVideoBtn");
+	const newVideosInput = document.getElementById("as-management-third-newRequestVideos");
+	const previewVideoList = document.getElementById("as-management-third-previewVideoList");
+
 	const deleteBtn = document.getElementById("as-management-third-deleteBtn");
 	const deleteForm = document.getElementById("as-management-third-deleteForm");
 
-	// ---------------------------------------------------------
-	// Dirty tracking
-	// ---------------------------------------------------------
+	const existingResultImagesWrap = document.getElementById("as-management-third-existingResultImages");
+	const existingResultVideosWrap = document.getElementById("as-management-third-existingResultVideos");
+
+	const mediaPreviewModalEl = document.getElementById("as-management-third-mediaPreviewModal");
+	const mediaPreviewTitleEl = document.getElementById("as-management-third-mediaPreviewTitle");
+	const mediaPreviewBodyEl = document.getElementById("as-management-third-mediaPreviewBody");
+
 	const initial = {
 		companyId: (companyIdEl?.value || "").trim(),
 		zipCode: (zipCodeEl?.value || "").trim(),
@@ -90,20 +106,57 @@ document.addEventListener("DOMContentLoaded", function() {
 		productSize: (productSizeEl?.value || "").trim(),
 		productColor: (productColorEl?.value || "").trim(),
 		productOptions: (productOptionsEl?.value || "").trim(),
-		adminMemo: (adminMemoEl?.value || "").trim(),
 
+		applicantName: (applicantNameEl?.value || "").trim(),
+		applicantPhone: (applicantPhoneEl?.value || "").trim(),
+		applicantEmail: (applicantEmailEl?.value || "").trim(),
+		purchaseDate: (purchaseDateEl?.value || "").trim(),
+		billingTarget: (billingTargetEl?.value || "").trim(),
+
+		adminMemo: (adminMemoEl?.value || "").trim(),
 		subject: (subjectInputEl?.value || "").trim(),
 
 		price: (priceEl?.value || "").trim(),
+		paymentCollected: (paymentCollectedEl?.value || "").trim(),
 		status: (statusEl?.value || "").trim(),
-		assignedHandlerId: (assignedHandlerEl?.value || "").trim(),
+		assignedHandlerId: (assignedHandlerEl?.value || "").trim()
 	};
 
-	let deletedRequestImageIds = []; // number[]
+	let deletedRequestImageIds = [];
+	let deletedRequestVideoIds = [];
 	let companySearchOpen = false;
+
+	function getV(el) {
+		return (el && typeof el.value === "string") ? el.value.trim() : "";
+	}
+
+	function isCompletedStatus() {
+		return getV(statusEl) === "COMPLETED";
+	}
+
+	function syncPriceReadonly() {
+		if (!priceEl) return;
+
+		const readonly = isCompletedStatus();
+
+		priceEl.readOnly = readonly;
+
+		if (readonly) {
+			priceEl.classList.add("bg-light", "text-muted");
+			if (priceReadonlyHelpEl) {
+				priceReadonlyHelpEl.classList.remove("d-none");
+			}
+		} else {
+			priceEl.classList.remove("bg-light", "text-muted");
+			if (priceReadonlyHelpEl) {
+				priceReadonlyHelpEl.classList.add("d-none");
+			}
+		}
+	}
 
 	function setDirty(isDirty) {
 		if (!saveBtn || !dirtyBadge) return;
+
 		saveBtn.disabled = !isDirty;
 
 		if (isDirty) {
@@ -112,13 +165,9 @@ document.addEventListener("DOMContentLoaded", function() {
 			dirtyBadge.classList.add("bg-warning", "text-dark");
 		} else {
 			dirtyBadge.textContent = "변경사항 없음";
-			dirtyBadge.classList.remove("bg-warning", "text-dark");
+			dirtyBadge.classList.remove("bg-warning");
 			dirtyBadge.classList.add("bg-light", "text-dark");
 		}
-	}
-
-	function getV(el) {
-		return (el && typeof el.value === "string") ? el.value.trim() : "";
 	}
 
 	function computeDirty() {
@@ -137,34 +186,89 @@ document.addEventListener("DOMContentLoaded", function() {
 			productSize: getV(productSizeEl),
 			productColor: getV(productColorEl),
 			productOptions: getV(productOptionsEl),
-			adminMemo: getV(adminMemoEl),
 
+			applicantName: getV(applicantNameEl),
+			applicantPhone: getV(applicantPhoneEl),
+			applicantEmail: getV(applicantEmailEl),
+			purchaseDate: getV(purchaseDateEl),
+			billingTarget: getV(billingTargetEl),
+
+			adminMemo: getV(adminMemoEl),
 			subject: getV(subjectInputEl),
 
 			price: getV(priceEl),
+			paymentCollected: getV(paymentCollectedEl),
 			status: getV(statusEl),
-			assignedHandlerId: getV(assignedHandlerEl),
+			assignedHandlerId: getV(assignedHandlerEl)
 		};
 
 		let dirty = false;
-		for (const k of Object.keys(initial)) {
-			if ((initial[k] || "") !== (now[k] || "")) {
+
+		for (const key of Object.keys(initial)) {
+			if ((initial[key] || "") !== (now[key] || "")) {
 				dirty = true;
 				break;
 			}
 		}
 
 		if (!dirty && deletedRequestImageIds.length > 0) dirty = true;
-		if (!dirty && newImagesInput && newImagesInput.files && newImagesInput.files.length > 0) dirty = true;
+		if (!dirty && deletedRequestVideoIds.length > 0) dirty = true;
+		if (!dirty && newImagesInput?.files?.length > 0) dirty = true;
+		if (!dirty && newVideosInput?.files?.length > 0) dirty = true;
 
 		setDirty(dirty);
 	}
 
 	setDirty(false);
+	syncPriceReadonly();
 
-	// ---------------------------------------------------------
-	// Company search (AJAX)
-	// ---------------------------------------------------------
+	function onlyDigits(v) {
+		return String(v || "").replace(/\D/g, "");
+	}
+
+	function formatKoreanPhone(digits) {
+		digits = onlyDigits(digits);
+		if (digits.length > 11) digits = digits.slice(0, 11);
+		if (digits.length <= 3) return digits;
+
+		if (digits.startsWith("02")) {
+			if (digits.length <= 5) return digits.slice(0, 2) + "-" + digits.slice(2);
+			if (digits.length === 9) return digits.slice(0, 2) + "-" + digits.slice(2, 5) + "-" + digits.slice(5);
+			if (digits.length >= 10) return digits.slice(0, 2) + "-" + digits.slice(2, 6) + "-" + digits.slice(6, 10);
+		}
+
+		if (digits.length === 10) return digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6);
+		if (digits.length >= 11) return digits.slice(0, 3) + "-" + digits.slice(3, 7) + "-" + digits.slice(7, 11);
+
+		return digits.slice(0, 3) + "-" + digits.slice(3);
+	}
+
+	function isValidPhoneByDigits(digits) {
+		digits = onlyDigits(digits);
+		if (!digits.startsWith("0")) return false;
+		return digits.length >= 9 && digits.length <= 11;
+	}
+
+	function isValidEmail(value) {
+		const email = String(value || "").trim();
+		if (!email) return true;
+		return /^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$/.test(email);
+	}
+
+	if (onsiteContactEl) {
+		onsiteContactEl.addEventListener("input", function() {
+			onsiteContactEl.value = formatKoreanPhone(onsiteContactEl.value);
+			computeDirty();
+		});
+	}
+
+	if (applicantPhoneEl) {
+		applicantPhoneEl.addEventListener("input", function() {
+			applicantPhoneEl.value = formatKoreanPhone(applicantPhoneEl.value);
+			computeDirty();
+		});
+	}
+
 	function toggleCompanySearch(open) {
 		if (!companySearchWrap) return;
 		companySearchOpen = open;
@@ -186,6 +290,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	let companySearchTimer = null;
+
 	function debounceCompanySearch(fn, waitMs) {
 		return function(...args) {
 			if (companySearchTimer) clearTimeout(companySearchTimer);
@@ -200,6 +305,176 @@ document.addEventListener("DOMContentLoaded", function() {
 			.replaceAll(">", "&gt;")
 			.replaceAll('"', "&quot;")
 			.replaceAll("'", "&#039;");
+	}
+
+	function resetMediaPreview() {
+		if (!mediaPreviewBodyEl) return;
+
+		mediaPreviewBodyEl.querySelectorAll("video").forEach(video => {
+			try {
+				video.pause();
+				video.currentTime = 0;
+			} catch (e) { /* ignore */ }
+		});
+
+		mediaPreviewBodyEl.innerHTML = "";
+		if (mediaPreviewTitleEl) mediaPreviewTitleEl.textContent = "미리보기";
+	}
+
+	function extractMediaPayload(targetEl) {
+		if (!targetEl) return null;
+
+		let mediaEl = null;
+
+		const tagName = String(targetEl.tagName || "").toLowerCase();
+		if (tagName === "img" || tagName === "video") {
+			mediaEl = targetEl;
+		} else {
+			mediaEl = targetEl.querySelector("img, video");
+		}
+
+		if (!mediaEl) return null;
+
+		const mediaTagName = String(mediaEl.tagName || "").toLowerCase();
+		const isVideo = mediaTagName === "video";
+		const sourceEl = isVideo ? mediaEl.querySelector("source") : null;
+
+		const url = isVideo
+			? (mediaEl.currentSrc || mediaEl.getAttribute("src") || sourceEl?.getAttribute("src") || sourceEl?.src || "")
+			: (mediaEl.currentSrc || mediaEl.getAttribute("src") || mediaEl.src || "");
+
+		if (!url) return null;
+
+		const cardEl = mediaEl.closest(
+			".as-management-third-img-card, [data-video-id] .border, #as-management-third-existingResultVideos .border, #as-management-third-previewVideoList .border, .as-management-third-preview-item"
+		);
+
+		const nameEl = cardEl
+			? cardEl.querySelector(".as-management-third-img-fn, .small.text-truncate")
+			: null;
+
+		return {
+			type: isVideo ? "video" : "image",
+			url: url,
+			name: nameEl ? nameEl.textContent.trim() : (mediaEl.getAttribute("alt") || "미리보기"),
+			contentType: isVideo ? (sourceEl?.getAttribute("type") || "video/mp4") : ""
+		};
+	}
+
+	function openMediaPreview(payload) {
+		if (!payload || !mediaPreviewBodyEl || !mediaPreviewModal) return;
+
+		resetMediaPreview();
+
+		if (mediaPreviewTitleEl) {
+			mediaPreviewTitleEl.textContent =
+				payload.name || (payload.type === "video" ? "비디오 미리보기" : "이미지 미리보기");
+		}
+
+		if (payload.type === "video") {
+			const video = document.createElement("video");
+			video.className = "w-100 rounded";
+			video.controls = true;
+			video.autoplay = true;
+			video.preload = "metadata";
+			video.playsInline = true;
+
+			const source = document.createElement("source");
+			source.src = payload.url;
+			source.type = payload.contentType || "video/mp4";
+
+			video.appendChild(source);
+			mediaPreviewBodyEl.appendChild(video);
+			mediaPreviewModal.show();
+
+			setTimeout(function() {
+				try {
+					video.load();
+					const playPromise = video.play();
+					if (playPromise && typeof playPromise.catch === "function") {
+						playPromise.catch(function() { /* ignore */ });
+					}
+				} catch (e) { /* ignore */ }
+			}, 120);
+
+			return;
+		}
+
+		const img = document.createElement("img");
+		img.className = "img-fluid rounded d-block mx-auto";
+		img.src = payload.url;
+		img.alt = payload.name || "미리보기 이미지";
+
+		mediaPreviewBodyEl.appendChild(img);
+		mediaPreviewModal.show();
+	}
+
+	function bindMediaPreview(containerEl) {
+		if (!containerEl) return;
+
+		function isIgnoredTarget(target) {
+			return !!target.closest(
+				".as-management-third-img-remove-btn, " +
+				".as-management-third-video-remove-btn, " +
+				".as-management-third-img-download, " +
+				".as-management-third-preview-remove, " +
+				"a[download], " +
+				".btn-outline-danger, " +
+				".btn-danger"
+			);
+		}
+
+		function openFromTarget(target) {
+			const triggerEl = target.closest(
+				".as-management-third-video-preview-trigger, " +
+				"img.as-management-third-media-trigger, " +
+				"video.as-management-third-media-trigger"
+			);
+			if (!triggerEl) return;
+
+			const payload = extractMediaPayload(triggerEl);
+			if (!payload) return;
+
+			openMediaPreview(payload);
+		}
+
+		containerEl.addEventListener("pointerdown", function(e) {
+			if (isIgnoredTarget(e.target)) {
+				e.stopPropagation();
+			}
+		}, true);
+
+		containerEl.addEventListener("click", function(e) {
+			if (isIgnoredTarget(e.target)) {
+				e.preventDefault();
+				e.stopPropagation();
+				return;
+			}
+
+			const triggerEl = e.target.closest(
+				".as-management-third-video-preview-trigger, " +
+				"img.as-management-third-media-trigger, " +
+				"video.as-management-third-media-trigger"
+			);
+			if (!triggerEl) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+
+			openFromTarget(triggerEl);
+		});
+
+		containerEl.addEventListener("keydown", function(e) {
+			const triggerEl = e.target.closest(".as-management-third-video-preview-trigger");
+			if (!triggerEl) return;
+
+			if (e.key !== "Enter" && e.key !== " ") return;
+
+			e.preventDefault();
+			e.stopPropagation();
+
+			openFromTarget(triggerEl);
+		});
 	}
 
 	async function searchCompanies(keyword) {
@@ -224,34 +499,35 @@ document.addEventListener("DOMContentLoaded", function() {
 				return;
 			}
 
-			const html = list.map(item => {
+			companyResultsEl.innerHTML = list.map(item => {
 				const disabled = item.hasRepresentative === false;
-				const cls = disabled ? "as-management-third-company-item as-management-third-company-disabled" : "as-management-third-company-item";
+				const cls = disabled
+					? "as-management-third-company-item as-management-third-company-disabled"
+					: "as-management-third-company-item";
 
-				const addr = escapeHtml(item.address || "-");
 				const name = escapeHtml(item.companyName || "-");
 				const rep = escapeHtml(item.representativeName || "(대표 없음)");
-
-				const hint = disabled ? `<div class="as-management-third-company-addr text-danger">대표(CUSTOMER_REPRESENTATIVE)가 없어 선택할 수 없습니다.</div>` : "";
+				const addr = escapeHtml(item.address || "-");
+				const hint = disabled
+					? `<div class="as-management-third-company-addr text-danger">대표(CUSTOMER_REPRESENTATIVE)가 없어 선택할 수 없습니다.</div>`
+					: "";
 
 				return `
-					<button type="button" class="${cls}"
-						${disabled ? "disabled" : ""}
-						data-company-id="${item.companyId}"
-						data-company-name="${name}"
-						data-rep-name="${rep}">
-						<div class="as-management-third-company-title">
-							<div class="as-management-third-company-name">${name}</div>
-							<div class="as-management-third-company-rep">${rep}</div>
-						</div>
-						<div class="as-management-third-company-addr">${addr}</div>
-						${hint}
-					</button>
-				`;
+                    <button type="button"
+                            class="${cls}"
+                            ${disabled ? "disabled" : ""}
+                            data-company-id="${item.companyId}"
+                            data-company-name="${name}"
+                            data-rep-name="${rep}">
+                        <div class="as-management-third-company-title">
+                            <div class="as-management-third-company-name">${name}</div>
+                            <div class="as-management-third-company-rep">${rep}</div>
+                        </div>
+                        <div class="as-management-third-company-addr">${addr}</div>
+                        ${hint}
+                    </button>
+                `;
 			}).join("");
-
-			companyResultsEl.innerHTML = html;
-
 		} catch (e) {
 			companyResultsEl.innerHTML = `<div class="list-group-item text-danger small">검색 중 오류가 발생했습니다.</div>`;
 		}
@@ -285,9 +561,6 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 	}
 
-	// ---------------------------------------------------------
-	// Address modal (Daum Postcode)
-	// ---------------------------------------------------------
 	let addressModal = null;
 	try {
 		if (window.bootstrap && addressModalEl) {
@@ -295,6 +568,15 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 	} catch (e) {
 		addressModal = null;
+	}
+
+	let mediaPreviewModal = null;
+	try {
+		if (window.bootstrap && mediaPreviewModalEl) {
+			mediaPreviewModal = new bootstrap.Modal(mediaPreviewModalEl);
+		}
+	} catch (e) {
+		mediaPreviewModal = null;
 	}
 
 	function openAddressModal() {
@@ -306,7 +588,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		if (modalDetail) modalDetail.value = getV(detailAddressEl);
 
 		if (addressModal) addressModal.show();
-		else alert("주소 모달을 열 수 없습니다. (bootstrap 모달 확인 필요)");
+		else alert("주소 모달을 열 수 없습니다.");
 	}
 
 	if (addressEditBtn) {
@@ -364,29 +646,16 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 	}
 
-	// ---------------------------------------------------------
-	// Subject 2-step select
-	// ---------------------------------------------------------
 	const SUBJECT_MAP = {
-		"상부장": [
-			"도어 파손", "도어 스크레치", "도어 휘어짐", "도어 변색", "도어 단차 불량", "도어 마감 불량",
+		"상부장": ["도어 파손", "도어 스크레치", "도어 휘어짐", "도어 변색", "도어 단차 불량", "도어 마감 불량",
 			"손잡이 불량", "바디 변색", "바디 스크래치", "바디 파손", "개폐 불량", "경첩 불량",
-			"LED 점등 불량", "오출고", "기타 사유"
-		],
-		"슬라이드장": [
-			"도어 파손", "도어 스크레치", "도어 변색", "도어 간격 불량", "바디 변색", "바디 스크레치",
-			"바디 파손", "개폐불량", "댐퍼불량", "손잡이 불량", "LED 점등 불량", "오출고", "기타 사유"
-		],
-		"플랩장": [
-			"도어 파손", "도어 스크레치", "도어 변색", "도어 단차 불량", "유압 불량", "바디 변색",
-			"바디 스크래치", "바디 파손", "개폐 불량", "경첩 불량", "LED 점등 불량", "오출고", "기타 사유"
-		],
-		"하부장": [
-			"도어 단차 불량", "서랍 개폐불량", "도어 마감 불량", "오출고", "기타 사유"
-		],
-		"거울": [
-			"테두리 도장 불량", "유리 스크레치", "유리 파손", "유리 변색", "LED 점등 불량", "오출고", "기타 사유"
-		]
+			"LED 점등 불량", "오출고", "기타 사유"],
+		"슬라이드장": ["도어 파손", "도어 스크레치", "도어 변색", "도어 간격 불량", "바디 변색", "바디 스크레치",
+			"바디 파손", "개폐불량", "댐퍼불량", "손잡이 불량", "LED 점등 불량", "오출고", "기타 사유"],
+		"플랩장": ["도어 파손", "도어 스크레치", "도어 변색", "도어 단차 불량", "유압 불량", "바디 변색",
+			"바디 스크래치", "바디 파손", "개폐 불량", "경첩 불량", "LED 점등 불량", "오출고", "기타 사유"],
+		"하부장": ["도어 단차 불량", "서랍 개폐불량", "도어 마감 불량", "오출고", "기타 사유"],
+		"거울": ["테두리 도장 불량", "유리 스크레치", "유리 파손", "유리 변색", "LED 점등 불량", "오출고", "기타 사유"]
 	};
 
 	function resetSymptomSelect() {
@@ -399,8 +668,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		resetSymptomSelect();
 		if (!category || !SUBJECT_MAP[category] || !subjectSymptomEl) return;
 
-		const unique = Array.from(new Set(SUBJECT_MAP[category]));
-		unique.forEach(symptom => {
+		Array.from(new Set(SUBJECT_MAP[category])).forEach(symptom => {
 			const opt = document.createElement("option");
 			opt.value = `${category} - ${symptom}`;
 			opt.textContent = symptom;
@@ -419,13 +687,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		const category = parts[0].trim();
 		const symptom = parts[1].trim();
-		if (!category || !symptom) return;
 
 		subjectCategoryEl.value = category;
 		fillSymptomSelect(category);
-
-		const targetValue = `${category} - ${symptom}`;
-		subjectSymptomEl.value = targetValue;
+		subjectSymptomEl.value = `${category} - ${symptom}`;
 	}
 
 	if (subjectCategoryEl && subjectSymptomEl) {
@@ -433,8 +698,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		initSubjectSelectFromCurrent();
 
 		subjectCategoryEl.addEventListener("change", function() {
-			const category = subjectCategoryEl.value;
-			fillSymptomSelect(category);
+			fillSymptomSelect(subjectCategoryEl.value);
 		});
 
 		subjectSymptomEl.addEventListener("change", function() {
@@ -446,50 +710,15 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 	}
 
-	// ---------------------------------------------------------
-	// Phone formatting (onsiteContact)
-	// ---------------------------------------------------------
-	function onlyDigits(v) {
-		return String(v || "").replace(/\D/g, "");
-	}
-
-	function formatKoreanPhone(digits) {
-		digits = onlyDigits(digits);
-		if (digits.length > 11) digits = digits.slice(0, 11);
-		if (digits.length <= 3) return digits;
-
-		if (digits.startsWith("02")) {
-			if (digits.length <= 5) return digits.slice(0, 2) + "-" + digits.slice(2);
-			if (digits.length === 9) return digits.slice(0, 2) + "-" + digits.slice(2, 5) + "-" + digits.slice(5);
-			if (digits.length >= 10) return digits.slice(0, 2) + "-" + digits.slice(2, 6) + "-" + digits.slice(6, 10);
-		}
-
-		if (digits.length === 10) return digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6);
-		if (digits.length >= 11) return digits.slice(0, 3) + "-" + digits.slice(3, 7) + "-" + digits.slice(7, 11);
-
-		return digits.slice(0, 3) + "-" + digits.slice(3);
-	}
-
-	function isValidPhoneByDigits(digits) {
-		digits = onlyDigits(digits);
-		if (!digits.startsWith("0")) return false;
-		return digits.length >= 9 && digits.length <= 11;
-	}
-
-	if (onsiteContactEl) {
-		onsiteContactEl.addEventListener("input", function() {
-			const digits = onlyDigits(onsiteContactEl.value);
-			onsiteContactEl.value = formatKoreanPhone(digits);
-			computeDirty();
-		});
-	}
-
-	// ---------------------------------------------------------
-	// Existing image delete (X)
-	// ---------------------------------------------------------
 	function syncDeletedImageIds() {
 		if (deleteRequestImageIdsEl) {
 			deleteRequestImageIdsEl.value = deletedRequestImageIds.join(",");
+		}
+	}
+
+	function syncDeletedVideoIds() {
+		if (deleteRequestVideoIdsEl) {
+			deleteRequestVideoIdsEl.value = deletedRequestVideoIds.join(",");
 		}
 	}
 
@@ -498,24 +727,66 @@ document.addEventListener("DOMContentLoaded", function() {
 			const btn = e.target.closest(".as-management-third-img-remove-btn");
 			if (!btn) return;
 
+			e.preventDefault();
+			e.stopPropagation();
+
 			const cardCol = btn.closest("[data-image-id]");
 			if (!cardCol) return;
 
 			const id = String(cardCol.getAttribute("data-image-id") || "").trim();
 			if (!id) return;
 
-			deletedRequestImageIds.push(Number(id));
-			syncDeletedImageIds();
+			const numId = Number(id);
+			if (!deletedRequestImageIds.includes(numId)) {
+				deletedRequestImageIds.push(numId);
+			}
 
+			syncDeletedImageIds();
 			cardCol.remove();
 			computeDirty();
 		});
 	}
 
-	// ---------------------------------------------------------
-	// New images upload + preview + remove
-	// ---------------------------------------------------------
-	function renderPreview() {
+	if (existingVideosWrap) {
+		existingVideosWrap.addEventListener("click", function(e) {
+			const btn = e.target.closest(".as-management-third-video-remove-btn");
+			if (!btn) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+
+			const cardCol = btn.closest("[data-video-id]");
+			if (!cardCol) return;
+
+			const id = String(cardCol.getAttribute("data-video-id") || "").trim();
+			if (!id) return;
+
+			const numId = Number(id);
+			if (!deletedRequestVideoIds.includes(numId)) {
+				deletedRequestVideoIds.push(numId);
+			}
+
+			syncDeletedVideoIds();
+			cardCol.remove();
+			computeDirty();
+		});
+	}
+
+	function removeFileFromInput(inputEl, indexToRemove, callback) {
+		if (!inputEl) return;
+
+		const dt = new DataTransfer();
+		Array.from(inputEl.files || []).forEach((file, idx) => {
+			if (idx !== indexToRemove) dt.items.add(file);
+		});
+
+		inputEl.files = dt.files;
+
+		if (typeof callback === "function") callback();
+		computeDirty();
+	}
+
+	function renderImagePreview() {
 		if (!previewList || !newImagesInput) return;
 		previewList.innerHTML = "";
 
@@ -527,41 +798,97 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		files.forEach((file, idx) => {
 			const reader = new FileReader();
+
 			reader.onload = function(ev) {
 				const item = document.createElement("div");
 				item.className = "as-management-third-preview-item";
-				item.dataset.index = String(idx);
 
 				const img = document.createElement("img");
 				img.src = ev.target.result;
+				img.className = "as-management-third-media-trigger";
+				img.title = "클릭하여 미리보기";
+				img.alt = file.name || "preview image";
 
 				const removeBtn = document.createElement("button");
 				removeBtn.type = "button";
 				removeBtn.className = "as-management-third-preview-remove";
 				removeBtn.textContent = "×";
-				removeBtn.addEventListener("click", function() {
-					removeNewImage(idx);
+				removeBtn.addEventListener("click", function(e) {
+					e.preventDefault();
+					e.stopPropagation();
+					removeFileFromInput(newImagesInput, idx, renderImagePreview);
 				});
 
 				item.appendChild(img);
 				item.appendChild(removeBtn);
 				previewList.appendChild(item);
 			};
+
 			reader.readAsDataURL(file);
 		});
 	}
 
-	function removeNewImage(indexToRemove) {
-		if (!newImagesInput) return;
+	function renderVideoPreview() {
+		if (!previewVideoList || !newVideosInput) return;
+		previewVideoList.innerHTML = "";
 
-		const dt = new DataTransfer();
-		Array.from(newImagesInput.files || []).forEach((file, idx) => {
-			if (idx !== indexToRemove) dt.items.add(file);
+		const files = Array.from(newVideosInput.files || []);
+		if (files.length === 0) {
+			previewVideoList.innerHTML = `<div class="col-12"><div class="text-muted small">추가 업로드된 비디오가 없습니다.</div></div>`;
+			return;
+		}
+
+		files.forEach((file, idx) => {
+			const url = URL.createObjectURL(file);
+
+			const col = document.createElement("div");
+			col.className = "col-md-6";
+
+			const box = document.createElement("div");
+			box.className = "as-management-third-video-card border rounded p-2 h-100 bg-light";
+
+			const previewTrigger = document.createElement("div");
+			previewTrigger.className = "as-management-third-video-preview-trigger";
+			previewTrigger.setAttribute("role", "button");
+			previewTrigger.setAttribute("tabindex", "0");
+			previewTrigger.setAttribute("title", "클릭하여 미리보기");
+			previewTrigger.setAttribute("aria-label", "비디오 미리보기 열기");
+
+			const video = document.createElement("video");
+			video.className = "w-100 rounded mb-2 as-management-third-media-trigger";
+			video.preload = "metadata";
+			video.muted = true;
+			video.playsInline = true;
+			video.setAttribute("playsinline", "");
+			video.src = url;
+
+			const previewBadge = document.createElement("span");
+			previewBadge.className = "as-management-third-video-preview-badge";
+			previewBadge.textContent = "미리보기";
+
+			const name = document.createElement("div");
+			name.className = "small text-truncate";
+			name.textContent = file.name;
+
+			const removeBtn = document.createElement("button");
+			removeBtn.type = "button";
+			removeBtn.className = "btn btn-sm btn-outline-danger mt-2";
+			removeBtn.textContent = "제거";
+			removeBtn.addEventListener("click", function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				URL.revokeObjectURL(url);
+				removeFileFromInput(newVideosInput, idx, renderVideoPreview);
+			});
+
+			previewTrigger.appendChild(video);
+			previewTrigger.appendChild(previewBadge);
+			box.appendChild(previewTrigger);
+			box.appendChild(name);
+			box.appendChild(removeBtn);
+			col.appendChild(box);
+			previewVideoList.appendChild(col);
 		});
-
-		newImagesInput.files = dt.files;
-		renderPreview();
-		computeDirty();
 	}
 
 	if (uploadBtn && newImagesInput) {
@@ -572,23 +899,46 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	if (newImagesInput) {
 		newImagesInput.addEventListener("change", function() {
-			renderPreview();
+			renderImagePreview();
 			computeDirty();
 		});
 	}
 
-	renderPreview();
+	if (uploadVideoBtn && newVideosInput) {
+		uploadVideoBtn.addEventListener("click", function() {
+			newVideosInput.click();
+		});
+	}
 
-	// ---------------------------------------------------------
-	// Input change watchers
-	// ---------------------------------------------------------
+	if (newVideosInput) {
+		newVideosInput.addEventListener("change", function() {
+			renderVideoPreview();
+			computeDirty();
+		});
+	}
+
+	renderImagePreview();
+	renderVideoPreview();
+
+	bindMediaPreview(existingImagesWrap);
+	bindMediaPreview(existingVideosWrap);
+	bindMediaPreview(existingResultImagesWrap);
+	bindMediaPreview(existingResultVideosWrap);
+	bindMediaPreview(previewList);
+	bindMediaPreview(previewVideoList);
+
+	if (mediaPreviewModalEl) {
+		mediaPreviewModalEl.addEventListener("hidden.bs.modal", resetMediaPreview);
+	}
+
 	const watchEls = [
 		companyIdEl,
 		zipCodeEl, doNameEl, siNameEl, guNameEl, roadAddressEl, detailAddressEl,
 		customerNameEl, onsiteContactEl, productNameEl, productSizeEl, productColorEl, productOptionsEl,
+		applicantNameEl, applicantPhoneEl, applicantEmailEl, purchaseDateEl, billingTargetEl,
 		adminMemoEl,
 		subjectInputEl,
-		priceEl, statusEl, assignedHandlerEl
+		priceEl, paymentCollectedEl, statusEl, assignedHandlerEl
 	];
 
 	watchEls.forEach(el => {
@@ -597,9 +947,13 @@ document.addEventListener("DOMContentLoaded", function() {
 		el.addEventListener("change", computeDirty);
 	});
 
-	// ---------------------------------------------------------
-	// Submit validation
-	// ---------------------------------------------------------
+	if (statusEl) {
+		statusEl.addEventListener("change", function() {
+			syncPriceReadonly();
+			computeDirty();
+		});
+	}
+
 	form.addEventListener("submit", function(e) {
 		if (saveBtn && saveBtn.disabled) {
 			e.preventDefault();
@@ -624,20 +978,35 @@ document.addEventListener("DOMContentLoaded", function() {
 			const digits = onlyDigits(onsiteContactEl.value);
 			if (digits && !isValidPhoneByDigits(digits)) {
 				e.preventDefault();
-				alert("현장연락처 형식이 올바르지 않습니다.\n예) 0311234567 / 01012345678");
+				alert("현장 연락처 형식이 올바르지 않습니다.\n예) 0311234567 / 01012345678");
 				onsiteContactEl.focus();
 				return;
 			}
 			onsiteContactEl.value = formatKoreanPhone(digits);
 		}
+
+		if (applicantPhoneEl) {
+			const digits = onlyDigits(applicantPhoneEl.value);
+			if (digits && !isValidPhoneByDigits(digits)) {
+				e.preventDefault();
+				alert("접수 담당자 연락처 형식이 올바르지 않습니다.\n예) 0311234567 / 01012345678");
+				applicantPhoneEl.focus();
+				return;
+			}
+			applicantPhoneEl.value = formatKoreanPhone(digits);
+		}
+
+		if (applicantEmailEl && !isValidEmail(applicantEmailEl.value)) {
+			e.preventDefault();
+			alert("접수 담당자 이메일 형식이 올바르지 않습니다.");
+			applicantEmailEl.focus();
+			return;
+		}
 	});
 
-	// ---------------------------------------------------------
-	// Delete
-	// ---------------------------------------------------------
 	if (deleteBtn && deleteForm) {
 		deleteBtn.addEventListener("click", function() {
-			const ok = confirm("등록한 일정 및 이미지 모두 삭제됩니다.\n정말 삭제하시겠습니까?");
+			const ok = confirm("등록한 일정 및 첨부파일(이미지/비디오)까지 모두 삭제됩니다.\n정말 삭제하시겠습니까?");
 			if (!ok) return;
 			deleteForm.submit();
 		});

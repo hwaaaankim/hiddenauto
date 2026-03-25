@@ -43,6 +43,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.as.CustomerAsUpdateRequest;
+import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -90,48 +91,47 @@ public class CustomerController {
 	private final AsTaskScheduleRepository asTaskScheduleRepository;
 
 	@GetMapping("/productMarkList")
-	public String productMarkList(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails) throws Exception {
-	    Member member = principalDetails.getMember();
-	    List<ProductMark> markList = productMarkRepository.findByMember(member);
+	public String productMarkList(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails)
+			throws Exception {
+		Member member = principalDetails.getMember();
+		List<ProductMark> markList = productMarkRepository.findByMember(member);
 
-	    ObjectMapper mapper = new ObjectMapper();
+		ObjectMapper mapper = new ObjectMapper();
 
-	    // JSON → Map으로 파싱된 리스트 준비
-	    List<Map<String, String>> localizedMapList = markList.stream()
-	            .map(mark -> {
-	                try {
-	                    return mapper.readValue(mark.getLocalizedOptionJson(), new TypeReference<Map<String, String>>() {});
-	                } catch (Exception e) {
-	                    return new HashMap<String, String>(); // fallback
-	                }
-	            })
-	            .collect(Collectors.toList());
+		// JSON → Map으로 파싱된 리스트 준비
+		List<Map<String, String>> localizedMapList = markList.stream().map(mark -> {
+			try {
+				return mapper.readValue(mark.getLocalizedOptionJson(), new TypeReference<Map<String, String>>() {
+				});
+			} catch (Exception e) {
+				return new HashMap<String, String>(); // fallback
+			}
+		}).collect(Collectors.toList());
 
-	    model.addAttribute("markList", markList);
-	    model.addAttribute("localizedOptionMapList", localizedMapList);
-	    return "front/order/productMarkList"; // 렌더할 HTML
+		model.addAttribute("markList", markList);
+		model.addAttribute("localizedOptionMapList", localizedMapList);
+		return "front/order/productMarkList"; // 렌더할 HTML
 	}
-	
+
 	@GetMapping("/taskList")
-	public String taskList(
-	        @AuthenticationPrincipal PrincipalDetails principal,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-	        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-	        Model model) {
+	public String taskList(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+			Model model) {
 
-	    Long companyId = principal.getMember().getCompany().getId();
+		Long companyId = principal.getMember().getCompany().getId();
 
-	    LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-	    LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+		LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+		LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
 
-	    Page<Task> taskPage = taskRepository.findByCompanyIdAndCreatedAtBetween(companyId, start, end, pageable);
+		Page<Task> taskPage = taskRepository.findByCompanyIdAndCreatedAtBetween(companyId, start, end, pageable);
 
-	    model.addAttribute("taskPage", taskPage);
-	    model.addAttribute("startDate", startDate);
-	    model.addAttribute("endDate", endDate);
+		model.addAttribute("taskPage", taskPage);
+		model.addAttribute("startDate", startDate);
+		model.addAttribute("endDate", endDate);
 
-	    return "front/customer/task/taskList";
+		return "front/customer/task/taskList";
 	}
 
 	@GetMapping("/taskDetail/{taskId}")
@@ -178,543 +178,547 @@ public class CustomerController {
 	}
 
 	@GetMapping("/asList")
-    public String asList(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
-            Model model) {
+	public String asList(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
+			Model model) {
 
-        Long companyId = principal.getMember().getCompany().getId();
+		Long companyId = principal.getMember().getCompany().getId();
 
-        LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-        LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
+		LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
+		LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
 
-        Page<AsTask> asTaskPage = asTaskRepository.findByCompanyIdAndRequestedAtRange(companyId, start, end, pageable);
+		Page<AsTask> asTaskPage = asTaskRepository.findByCompanyIdAndRequestedAtRange(companyId, start, end, pageable);
 
-        // ✅ 이번 페이지에 있는 AsTask들만 스케줄 조회해서 Map으로 내려줌
-        Map<Long, LocalDate> asScheduleDateMap = new HashMap<>();
-        List<Long> taskIds = asTaskPage.getContent().stream().map(AsTask::getId).toList();
+		Map<Long, LocalDate> asScheduleDateMap = new HashMap<>();
+		List<Long> taskIds = asTaskPage.getContent().stream().map(AsTask::getId).toList();
 
-        if (!taskIds.isEmpty()) {
-            asTaskScheduleRepository.findSimpleByAsTaskIdIn(taskIds).forEach(v -> {
-                asScheduleDateMap.put(v.getAsTaskId(), v.getScheduledDate());
-            });
-        }
+		if (!taskIds.isEmpty()) {
+			asTaskScheduleRepository.findSimpleByAsTaskIdIn(taskIds).forEach(v -> {
+				asScheduleDateMap.put(v.getAsTaskId(), v.getScheduledDate());
+			});
+		}
 
-        // ✅ 담당자 연락처도 템플릿에서 깔끔하게 쓰려고 Map으로 내려줌
-        Map<Long, String> asHandlerContactMap = new HashMap<>();
-        for (AsTask t : asTaskPage.getContent()) {
-            asHandlerContactMap.put(t.getId(), resolveContact(t.getAssignedHandler()));
-        }
+		Map<Long, String> asHandlerContactMap = new HashMap<>();
+		for (AsTask t : asTaskPage.getContent()) {
+			asHandlerContactMap.put(t.getId(), resolveContact(t.getAssignedHandler()));
+		}
 
-        model.addAttribute("asTaskPage", asTaskPage);
-        model.addAttribute("startDate", startDate);
-        model.addAttribute("endDate", endDate);
+		model.addAttribute("asTaskPage", asTaskPage);
+		model.addAttribute("startDate", startDate);
+		model.addAttribute("endDate", endDate);
+		model.addAttribute("asScheduleDateMap", asScheduleDateMap);
+		model.addAttribute("asHandlerContactMap", asHandlerContactMap);
 
-        model.addAttribute("asScheduleDateMap", asScheduleDateMap);
-        model.addAttribute("asHandlerContactMap", asHandlerContactMap);
+		// ✅ 추가
+		model.addAttribute("billingTargets", AsBillingTarget.values());
 
-        return "front/customer/task/asList";
-    }
+		return "front/customer/task/asList";
+	}
 
 	@PostMapping("/asUpdate/{id}")
 	@ResponseBody
-	public ResponseEntity<Map<String, Object>> updateAsTask(
-	        @PathVariable Long id,
-	        @AuthenticationPrincipal PrincipalDetails principal,
-	        @ModelAttribute CustomerAsUpdateRequest req,
-	        @RequestParam(value = "newImages", required = false) List<MultipartFile> newImages,
-	        @RequestParam(value = "deleteImageIds", required = false) List<Long> deleteImageIds) {
+	public ResponseEntity<Map<String, Object>> updateAsTask(@PathVariable Long id,
+			@AuthenticationPrincipal PrincipalDetails principal, @ModelAttribute CustomerAsUpdateRequest req,
+			@RequestParam(value = "newImages", required = false) List<MultipartFile> newImages,
+			@RequestParam(value = "deleteImageIds", required = false) List<Long> deleteImageIds,
+			@RequestParam(value = "newVideos", required = false) List<MultipartFile> newVideos,
+			@RequestParam(value = "deleteVideoIds", required = false) List<Long> deleteVideoIds) {
 
-	    try {
-	        Member loginMember = principal.getMember();
+		try {
+			Member loginMember = principal.getMember();
 
-	        asTaskService.updateCustomerAsTask(
-	                id,
-	                req,
-	                newImages,
-	                deleteImageIds,
-	                loginMember
-	        );
+			asTaskService.updateCustomerAsTask(id, req, newImages, deleteImageIds, newVideos, deleteVideoIds,
+					loginMember);
 
-	        return ResponseEntity.ok(Map.of(
-	                "success", true,
-	                "message", "AS 신청이 정상적으로 수정되었습니다."
-	        ));
-	    } catch (IllegalArgumentException | IllegalStateException e) {
-	        return ResponseEntity.badRequest().body(Map.of(
-	                "success", false,
-	                "message", e.getMessage()
-	        ));
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	        return ResponseEntity.internalServerError().body(Map.of(
-	                "success", false,
-	                "message", "AS 수정 중 서버 오류가 발생했습니다."
-	        ));
-	    }
+			return ResponseEntity.ok(Map.of("success", true, "message", "AS 신청이 정상적으로 수정되었습니다."));
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.internalServerError()
+					.body(Map.of("success", false, "message", "AS 수정 중 서버 오류가 발생했습니다."));
+		}
 	}
-	
-    /**
-     * ✅ 연락처: phone 우선, 없으면 telephone, 둘 다 없으면 "-"
-     */
-    private String resolveContact(Member m) {
-        if (m == null) return "-";
-        String phone = safeText(m.getPhone());
-        if (phone != null) return phone;
 
-        String tel = safeText(m.getTelephone());
-        if (tel != null) return tel;
+	private String resolveContact(Member m) {
+		if (m == null)
+			return "-";
+		String phone = safeText(m.getPhone());
+		if (phone != null)
+			return phone;
 
-        return "-";
-    }
+		String tel = safeText(m.getTelephone());
+		if (tel != null)
+			return tel;
 
-    private String safeText(String s) {
-        if (s == null) return null;
-        String t = s.trim();
-        return t.isEmpty() ? null : t;
-    }
-    
+		return "-";
+	}
+
+	private String safeText(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim();
+		return t.isEmpty() ? null : t;
+	}
+
 	@GetMapping("/asRequest")
-	public String asRequest(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails) {
+	public String asRequest(@AuthenticationPrincipal(expression = "member") Member loginMember, Model model) {
+		String mainAddress = "";
+		String detailAddress = "";
+		String doName = "";
+		String siName = "";
+		String guName = "";
+		String zipCode = "";
 
-		Company c = principalDetails.getMember().getCompany();
-		model.addAttribute("mainAddress", c.getRoadAddress());
-		model.addAttribute("detailAddress", c.getDetailAddress());
-		model.addAttribute("doName", c.getDoName());
-		model.addAttribute("siName", c.getSiName());
-		model.addAttribute("guName", c.getGuName());
-		model.addAttribute("zipCode", c.getZipCode());
+		if (loginMember != null && loginMember.getCompany() != null) {
+			mainAddress = safeText(loginMember.getCompany().getRoadAddress());
+			detailAddress = safeText(loginMember.getCompany().getDetailAddress());
+			doName = safeText(loginMember.getCompany().getDoName());
+			siName = safeText(loginMember.getCompany().getSiName());
+			guName = safeText(loginMember.getCompany().getGuName());
+			zipCode = safeText(loginMember.getCompany().getZipCode());
+		}
+
+		model.addAttribute("mainAddress", mainAddress);
+		model.addAttribute("detailAddress", detailAddress);
+		model.addAttribute("doName", doName);
+		model.addAttribute("siName", siName);
+		model.addAttribute("guName", guName);
+		model.addAttribute("zipCode", zipCode);
+
+		model.addAttribute("memberName", loginMember != null ? safeText(loginMember.getName()) : "");
+		model.addAttribute("memberPhone", loginMember != null ? safeText(loginMember.getPhone()) : "");
+		model.addAttribute("memberEmail", loginMember != null ? safeText(loginMember.getEmail()) : "");
 
 		return "front/customer/as/asRequest";
 	}
 
 	@PostMapping("/asSubmit")
 	@ResponseBody
-	public Map<String, Object> submitAsTask(
-			@AuthenticationPrincipal PrincipalDetails principal,
-			@ModelAttribute AsTask task, 
-			@RequestParam("imageFile") List<MultipartFile> imageFile) {
+	public ResponseEntity<Map<String, Object>> submitAsTask(AsTask task,
+			@RequestParam(value = "attachments", required = false) List<MultipartFile> attachments,
+			@RequestParam(value = "imageFile", required = false) List<MultipartFile> legacyImages,
+			@AuthenticationPrincipal(expression = "member") Member loginMember) {
 		Map<String, Object> result = new HashMap<>();
+
 		try {
-			AsTask saved = asTaskService.submitAsTask(task, imageFile, principal.getMember());
+			List<MultipartFile> mergedAttachments = new ArrayList<>();
+
+			if (attachments != null) {
+				mergedAttachments.addAll(attachments);
+			}
+
+			if (legacyImages != null) {
+				mergedAttachments.addAll(legacyImages);
+			}
+
+			AsTask savedTask = asTaskService.submitAsTask(task, mergedAttachments, loginMember);
+
 			result.put("success", true);
-			result.put("message", "AS 신청이 완료되었습니다.");
-			result.put("redirectUrl", "/index");
+			result.put("message", "AS 신청이 정상적으로 접수되었습니다.");
+			result.put("redirectUrl", "/customer/asList");
+			result.put("asTaskId", savedTask.getId());
+
+			return ResponseEntity.ok(result);
+
 		} catch (Exception e) {
-			e.printStackTrace();
 			result.put("success", false);
-			result.put("message", "AS 신청 중 오류가 발생했습니다.");
-			result.put("redirectUrl", "/customer/asRequest");
+			result.put("message", e.getMessage() != null ? e.getMessage() : "AS 신청 중 오류가 발생했습니다.");
+			return ResponseEntity.badRequest().body(result);
 		}
-		return result;
 	}
 
 	@GetMapping("/myInfo")
-    public String myInfoPage(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
+	public String myInfoPage(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
 
-        Long memberId = principal.getMember().getId();
+		Long memberId = principal.getMember().getId();
 
-        Member freshMember = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+		Member freshMember = memberRepository.findById(memberId)
+				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        Company company = freshMember.getCompany();
-        if (company == null) {
-            throw new IllegalStateException("회사 정보가 없습니다.");
-        }
+		Company company = freshMember.getCompany();
+		if (company == null) {
+			throw new IllegalStateException("회사 정보가 없습니다.");
+		}
 
-        // ✅ 배송지 목록 DTO 변환(엔티티 직접 노출 방지)
-        List<CompanyDeliveryAddressDto> deliveryAddresses = company.getDeliveryAddresses() == null
-                ? new ArrayList<>()
-                : company.getDeliveryAddresses().stream()
-                    .sorted(Comparator.comparing(CompanyDeliveryAddress::getId, Comparator.nullsLast(Long::compareTo)))
-                    .map(CompanyDeliveryAddressDto::from)
-                    .collect(Collectors.toList());
+		// ✅ 배송지 목록 DTO 변환(엔티티 직접 노출 방지)
+		List<CompanyDeliveryAddressDto> deliveryAddresses = company.getDeliveryAddresses() == null ? new ArrayList<>()
+				: company.getDeliveryAddresses().stream()
+						.sorted(Comparator.comparing(CompanyDeliveryAddress::getId,
+								Comparator.nullsLast(Long::compareTo)))
+						.map(CompanyDeliveryAddressDto::from).collect(Collectors.toList());
 
-        model.addAttribute("member", freshMember);
-        model.addAttribute("company", company);
-        model.addAttribute("deliveryAddresses", deliveryAddresses);
+		model.addAttribute("member", freshMember);
+		model.addAttribute("company", company);
+		model.addAttribute("deliveryAddresses", deliveryAddresses);
 
-        model.addAttribute("isRepresentative",
-                freshMember.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
+		model.addAttribute("isRepresentative", freshMember.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
 
-        return "front/customer/info/myInfo";
-    }
+		return "front/customer/info/myInfo";
+	}
 
 	// =========================
-    // ✅ 중복체크 API (휴대폰)
-    // =========================
-    @GetMapping("/api/dup-check/phone")
-    public ResponseEntity<?> checkPhoneDup(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam(required = false) String phone
-    ) {
-        Member me = memberRepository.findById(principal.getMember().getId())
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+	// ✅ 중복체크 API (휴대폰)
+	// =========================
+	@GetMapping("/api/dup-check/phone")
+	public ResponseEntity<?> checkPhoneDup(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) String phone) {
+		Member me = memberRepository.findById(principal.getMember().getId())
+				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        String normalized = normalizePhone(phone);
-        Map<String, Object> body = new HashMap<>();
+		String normalized = normalizePhone(phone);
+		Map<String, Object> body = new HashMap<>();
 
-        if (normalized.isEmpty() || normalized.length() < 12) { // 010-1234-5678 = 13, 010-123-4567 = 12
-            body.put("ok", false);
-            body.put("duplicate", false);
-            body.put("message", "휴대폰 번호 형식이 올바르지 않습니다.");
-            return ResponseEntity.ok(body);
-        }
+		if (normalized.isEmpty() || normalized.length() < 12) { // 010-1234-5678 = 13, 010-123-4567 = 12
+			body.put("ok", false);
+			body.put("duplicate", false);
+			body.put("message", "휴대폰 번호 형식이 올바르지 않습니다.");
+			return ResponseEntity.ok(body);
+		}
 
-        // 본인 값이면 중복 아님으로 처리
-        String myPhone = normalizePhone(me.getPhone());
-        if (!myPhone.isEmpty() && myPhone.equals(normalized)) {
-            body.put("ok", true);
-            body.put("duplicate", false);
-            body.put("message", "중복 아님");
-            return ResponseEntity.ok(body);
-        }
+		// 본인 값이면 중복 아님으로 처리
+		String myPhone = normalizePhone(me.getPhone());
+		if (!myPhone.isEmpty() && myPhone.equals(normalized)) {
+			body.put("ok", true);
+			body.put("duplicate", false);
+			body.put("message", "중복 아님");
+			return ResponseEntity.ok(body);
+		}
 
-        boolean dup = memberRepository.existsByPhoneAndIdNot(normalized, me.getId());
-        body.put("ok", true);
-        body.put("duplicate", dup);
-        body.put("message", dup ? "중복임" : "중복 아님");
-        return ResponseEntity.ok(body);
-    }
+		boolean dup = memberRepository.existsByPhoneAndIdNot(normalized, me.getId());
+		body.put("ok", true);
+		body.put("duplicate", dup);
+		body.put("message", dup ? "중복임" : "중복 아님");
+		return ResponseEntity.ok(body);
+	}
 
-    // =========================
-    // ✅ 중복체크 API (사업자등록번호)
-    // =========================
-    @GetMapping("/api/dup-check/business-number")
-    public ResponseEntity<?> checkBusinessNumberDup(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam(required = false) String businessNumber
-    ) {
-        Member me = memberRepository.findById(principal.getMember().getId())
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+	// =========================
+	// ✅ 중복체크 API (사업자등록번호)
+	// =========================
+	@GetMapping("/api/dup-check/business-number")
+	public ResponseEntity<?> checkBusinessNumberDup(@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) String businessNumber) {
+		Member me = memberRepository.findById(principal.getMember().getId())
+				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        Company company = me.getCompany();
-        if (company == null) {
-            throw new IllegalStateException("회사 정보가 없습니다.");
-        }
+		Company company = me.getCompany();
+		if (company == null) {
+			throw new IllegalStateException("회사 정보가 없습니다.");
+		}
 
-        String digits = onlyDigits(businessNumber); // DB에는 숫자 10자리만 저장 전제로
-        Map<String, Object> body = new HashMap<>();
+		String digits = onlyDigits(businessNumber); // DB에는 숫자 10자리만 저장 전제로
+		Map<String, Object> body = new HashMap<>();
 
-        if (digits.length() != 10) {
-            body.put("ok", false);
-            body.put("duplicate", false);
-            body.put("message", "사업자등록번호는 숫자 10자리여야 합니다.");
-            return ResponseEntity.ok(body);
-        }
+		if (digits.length() != 10) {
+			body.put("ok", false);
+			body.put("duplicate", false);
+			body.put("message", "사업자등록번호는 숫자 10자리여야 합니다.");
+			return ResponseEntity.ok(body);
+		}
 
-        // 본인 회사 값이면 중복 아님
-        String my = onlyDigits(company.getBusinessNumber());
-        if (!my.isEmpty() && my.equals(digits)) {
-            body.put("ok", true);
-            body.put("duplicate", false);
-            body.put("message", "중복 아님");
-            return ResponseEntity.ok(body);
-        }
+		// 본인 회사 값이면 중복 아님
+		String my = onlyDigits(company.getBusinessNumber());
+		if (!my.isEmpty() && my.equals(digits)) {
+			body.put("ok", true);
+			body.put("duplicate", false);
+			body.put("message", "중복 아님");
+			return ResponseEntity.ok(body);
+		}
 
-        boolean dup = companyRepository.existsByBusinessNumberAndIdNot(digits, company.getId());
-        body.put("ok", true);
-        body.put("duplicate", dup);
-        body.put("message", dup ? "중복임" : "중복 아님");
-        return ResponseEntity.ok(body);
-    }
+		boolean dup = companyRepository.existsByBusinessNumberAndIdNot(digits, company.getId());
+		body.put("ok", true);
+		body.put("duplicate", dup);
+		body.put("message", dup ? "중복임" : "중복 아님");
+		return ResponseEntity.ok(body);
+	}
 
- // =========================
-    // ✅ 헬퍼: 숫자만
-    // =========================
-    private String onlyDigits(String v) {
-        if (v == null) return "";
-        return v.replaceAll("[^0-9]", "");
-    }
+	// =========================
+	// ✅ 헬퍼: 숫자만
+	// =========================
+	private String onlyDigits(String v) {
+		if (v == null)
+			return "";
+		return v.replaceAll("[^0-9]", "");
+	}
 
-    // =========================
-    // ✅ 헬퍼: 휴대폰 정규화 (010-1234-5678 / 010-123-4567)
-    // - 숫자만 받은 뒤 일반 포맷으로 변환
-    // =========================
-    private String normalizePhone(String phone) {
-        String digits = onlyDigits(phone);
-        if (digits.isEmpty()) return "";
+	// =========================
+	// ✅ 헬퍼: 휴대폰 정규화 (010-1234-5678 / 010-123-4567)
+	// - 숫자만 받은 뒤 일반 포맷으로 변환
+	// =========================
+	private String normalizePhone(String phone) {
+		String digits = onlyDigits(phone);
+		if (digits.isEmpty())
+			return "";
 
-        // 02 지역번호 케이스까지 완벽히 하려면 규칙이 더 필요하지만,
-        // 현재 요구는 휴대폰 중심이므로 010/011/016/017/018/019 등을 우선 지원합니다.
-        if (digits.length() == 11) {
-            return digits.substring(0, 3) + "-" + digits.substring(3, 7) + "-" + digits.substring(7);
-        }
-        if (digits.length() == 10) {
-            return digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
-        }
-        return ""; // 형식 불가
-    }
-    
-    // =========================
-    // ✅ /myInfoUpdate (POST) - 변경(전체 교체 권장)
-    // =========================
-    @PostMapping("/myInfoUpdate")
-    public String updateMyInfo(
-            @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam String name,
-            @RequestParam String phone,
-            @RequestParam String email,
+		// 02 지역번호 케이스까지 완벽히 하려면 규칙이 더 필요하지만,
+		// 현재 요구는 휴대폰 중심이므로 010/011/016/017/018/019 등을 우선 지원합니다.
+		if (digits.length() == 11) {
+			return digits.substring(0, 3) + "-" + digits.substring(3, 7) + "-" + digits.substring(7);
+		}
+		if (digits.length() == 10) {
+			return digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+		}
+		return ""; // 형식 불가
+	}
 
-            @RequestParam(required = false) String companyName,
-            @RequestParam(required = false) String businessNumber, // ✅ 수정 가능하도록 받기
-            @RequestParam String roadAddress,
-            @RequestParam String detailAddress,
-            @RequestParam String doName,
-            @RequestParam String siName,
-            @RequestParam String guName,
-            @RequestParam String zipCode,
+	// =========================
+	// ✅ /myInfoUpdate (POST) - 변경(전체 교체 권장)
+	// =========================
+	@PostMapping("/myInfoUpdate")
+	public String updateMyInfo(@AuthenticationPrincipal PrincipalDetails principal, @RequestParam String name,
+			@RequestParam String phone, @RequestParam String email,
 
-            @RequestParam(required = false) String companyDeliveryAddressesJson,
+			@RequestParam(required = false) String companyName, @RequestParam(required = false) String businessNumber, // ✅
+																														// 수정
+																														// 가능하도록
+																														// 받기
+			@RequestParam String roadAddress, @RequestParam String detailAddress, @RequestParam String doName,
+			@RequestParam String siName, @RequestParam String guName, @RequestParam String zipCode,
 
-            @RequestParam(defaultValue = "false") boolean removeBusinessLicense,
-            @RequestParam(required = false) MultipartFile businessLicenseFile,
+			@RequestParam(required = false) String companyDeliveryAddressesJson,
 
-            RedirectAttributes ra
-    ) {
-        Long memberId = principal.getMember().getId();
+			@RequestParam(defaultValue = "false") boolean removeBusinessLicense,
+			@RequestParam(required = false) MultipartFile businessLicenseFile,
 
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+			RedirectAttributes ra) {
+		Long memberId = principal.getMember().getId();
 
-        Company company = member.getCompany();
-        if (company == null) {
-            throw new IllegalStateException("회사 정보가 없습니다.");
-        }
+		Member member = memberRepository.findById(memberId)
+				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        // ===== 0) 입력값 정규화 =====
-        String normalizedPhone = normalizePhone(phone);
-        if (normalizedPhone.isEmpty()) {
-            ra.addFlashAttribute("myInfoError", "휴대폰 번호 형식이 올바르지 않습니다.");
-            return "redirect:/customer/myInfo";
-        }
-        String normalizedBizDigits = (businessNumber == null) ? "" : onlyDigits(businessNumber);
+		Company company = member.getCompany();
+		if (company == null) {
+			throw new IllegalStateException("회사 정보가 없습니다.");
+		}
 
-        // ===== 1) 멤버 정보 =====
-        member.setName(name);
-        member.setPhone(normalizedPhone);
-        member.setEmail(email);
-        member.setUpdatedAt(LocalDateTime.now());
+		// ===== 0) 입력값 정규화 =====
+		String normalizedPhone = normalizePhone(phone);
+		if (normalizedPhone.isEmpty()) {
+			ra.addFlashAttribute("myInfoError", "휴대폰 번호 형식이 올바르지 않습니다.");
+			return "redirect:/customer/myInfo";
+		}
+		String normalizedBizDigits = (businessNumber == null) ? "" : onlyDigits(businessNumber);
 
-        // ✅ 휴대폰 중복 최종 방어(동시성 대비)
-        if (memberRepository.existsByPhoneAndIdNot(normalizedPhone, member.getId())) {
-            ra.addFlashAttribute("myInfoError", "휴대폰 번호가 이미 사용 중입니다.");
-            return "redirect:/customer/myInfo";
-        }
+		// ===== 1) 멤버 정보 =====
+		member.setName(name);
+		member.setPhone(normalizedPhone);
+		member.setEmail(email);
+		member.setUpdatedAt(LocalDateTime.now());
 
-        // ===== 2) 추가 배송지: 대표/직원 공통 회사 반영 =====
-        applyCompanyDeliveryAddresses(company, companyDeliveryAddressesJson);
+		// ✅ 휴대폰 중복 최종 방어(동시성 대비)
+		if (memberRepository.existsByPhoneAndIdNot(normalizedPhone, member.getId())) {
+			ra.addFlashAttribute("myInfoError", "휴대폰 번호가 이미 사용 중입니다.");
+			return "redirect:/customer/myInfo";
+		}
 
-        boolean isRepresentative = (member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
+		// ===== 2) 추가 배송지: 대표/직원 공통 회사 반영 =====
+		applyCompanyDeliveryAddresses(company, companyDeliveryAddressesJson);
 
-        // ===== 3) 회사 기본 정보: 대표만 수정 가능 =====
-        if (isRepresentative) {
+		boolean isRepresentative = (member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
 
-            if (companyName != null) {
-                company.setCompanyName(companyName);
-            }
+		// ===== 3) 회사 기본 정보: 대표만 수정 가능 =====
+		if (isRepresentative) {
 
-            // ✅ 사업자등록번호 수정 가능
-            if (normalizedBizDigits.length() != 10) {
-                ra.addFlashAttribute("myInfoError", "사업자등록번호는 숫자 10자리여야 합니다.");
-                return "redirect:/customer/myInfo";
-            }
+			if (companyName != null) {
+				company.setCompanyName(companyName);
+			}
 
-            // 중복 최종 방어
-            if (companyRepository.existsByBusinessNumberAndIdNot(normalizedBizDigits, company.getId())) {
-                ra.addFlashAttribute("myInfoError", "사업자등록번호가 이미 등록되어 있습니다.");
-                return "redirect:/customer/myInfo";
-            }
+			// ✅ 사업자등록번호 수정 가능
+			if (normalizedBizDigits.length() != 10) {
+				ra.addFlashAttribute("myInfoError", "사업자등록번호는 숫자 10자리여야 합니다.");
+				return "redirect:/customer/myInfo";
+			}
 
-            company.setBusinessNumber(normalizedBizDigits);
+			// 중복 최종 방어
+			if (companyRepository.existsByBusinessNumberAndIdNot(normalizedBizDigits, company.getId())) {
+				ra.addFlashAttribute("myInfoError", "사업자등록번호가 이미 등록되어 있습니다.");
+				return "redirect:/customer/myInfo";
+			}
 
-            company.setRoadAddress(roadAddress);
-            company.setDetailAddress(detailAddress);
-            company.setDoName(doName);
-            company.setSiName(siName);
-            company.setGuName(guName);
-            company.setZipCode(zipCode);
-            company.setUpdatedAt(LocalDateTime.now());
+			company.setBusinessNumber(normalizedBizDigits);
 
-            // ===== 4) 사업자등록증 파일 =====
-            // 케이스 A) 새 파일 업로드: 기존 파일 삭제 후 교체
-            if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
-                FileUtil.deleteIfExists(company.getBusinessLicensePath());
+			company.setRoadAddress(roadAddress);
+			company.setDetailAddress(detailAddress);
+			company.setDoName(doName);
+			company.setSiName(siName);
+			company.setGuName(guName);
+			company.setZipCode(zipCode);
+			company.setUpdatedAt(LocalDateTime.now());
 
-                String originalName = businessLicenseFile.getOriginalFilename();
-                String username = member.getUsername();
+			// ===== 4) 사업자등록증 파일 =====
+			// 케이스 A) 새 파일 업로드: 기존 파일 삭제 후 교체
+			if (businessLicenseFile != null && !businessLicenseFile.isEmpty()) {
+				FileUtil.deleteIfExists(company.getBusinessLicensePath());
 
-                String relativePath = username + "/signUp/licence";
-                String saveDir = java.nio.file.Paths.get(uploadPath, relativePath).toString();
-                FileUtil.createDirIfNotExists(saveDir);
+				String originalName = businessLicenseFile.getOriginalFilename();
+				String username = member.getUsername();
 
-                java.nio.file.Path filePath = java.nio.file.Paths.get(saveDir, originalName);
-                try {
-                    businessLicenseFile.transferTo(filePath.toFile());
+				String relativePath = username + "/signUp/licence";
+				String saveDir = java.nio.file.Paths.get(uploadPath, relativePath).toString();
+				FileUtil.createDirIfNotExists(saveDir);
 
-                    company.setBusinessLicenseFilename(originalName);
-                    company.setBusinessLicensePath(filePath.toString());
-                    company.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalName);
-                } catch (java.io.IOException e) {
-                    throw new RuntimeException("파일 저장 실패", e);
-                }
-            }
+				java.nio.file.Path filePath = java.nio.file.Paths.get(saveDir, originalName);
+				try {
+					businessLicenseFile.transferTo(filePath.toFile());
 
-            // 케이스 B) 삭제 요청(removeBusinessLicense=true)인데 새 파일이 없으면 => 업데이트 불가(필수)
-            if (removeBusinessLicense) {
-                boolean hasNewUpload = (businessLicenseFile != null && !businessLicenseFile.isEmpty());
-                if (!hasNewUpload) {
-                    ra.addFlashAttribute("myInfoError", "사업자등록증은 필수입니다. 삭제 후에는 새 파일을 업로드해 주세요.");
-                    return "redirect:/customer/myInfo";
-                }
-                // hasNewUpload=true 인 경우는 위에서 교체 저장되므로 별도 삭제 처리 불필요(이미 교체됨)
-            }
+					company.setBusinessLicenseFilename(originalName);
+					company.setBusinessLicensePath(filePath.toString());
+					company.setBusinessLicenseUrl("/upload/" + relativePath + "/" + originalName);
+				} catch (java.io.IOException e) {
+					throw new RuntimeException("파일 저장 실패", e);
+				}
+			}
 
-            companyRepository.save(company);
+			// 케이스 B) 삭제 요청(removeBusinessLicense=true)인데 새 파일이 없으면 => 업데이트 불가(필수)
+			if (removeBusinessLicense) {
+				boolean hasNewUpload = (businessLicenseFile != null && !businessLicenseFile.isEmpty());
+				if (!hasNewUpload) {
+					ra.addFlashAttribute("myInfoError", "사업자등록증은 필수입니다. 삭제 후에는 새 파일을 업로드해 주세요.");
+					return "redirect:/customer/myInfo";
+				}
+				// hasNewUpload=true 인 경우는 위에서 교체 저장되므로 별도 삭제 처리 불필요(이미 교체됨)
+			}
 
-        } else {
-            // 대표 아니어도 배송지 변경은 회사에 반영 -> 저장 필요
-            companyRepository.save(company);
-        }
+			companyRepository.save(company);
 
-        // ===== 5) 사업자등록증 최종 필수 방어(대표/직원 공통) =====
-        // 혹시라도 회사에 등록증이 없는 상태라면 업데이트 불가
-        // (정상 운영이라면 거의 발생하지 않지만, 데이터 꼬임 방지용)
-        Company savedCompany = companyRepository.findById(company.getId())
-                .orElseThrow(() -> new IllegalStateException("회사 저장 실패"));
-        if (savedCompany.getBusinessLicensePath() == null || savedCompany.getBusinessLicensePath().trim().isEmpty()) {
-            ra.addFlashAttribute("myInfoError", "사업자등록증은 필수입니다. 사업자등록증을 등록해 주세요.");
-            return "redirect:/customer/myInfo";
-        }
+		} else {
+			// 대표 아니어도 배송지 변경은 회사에 반영 -> 저장 필요
+			companyRepository.save(company);
+		}
 
-        try {
-            memberRepository.save(member);
-        } catch (DataIntegrityViolationException e) {
-            // unique 제약 등 최종 방어
-            ra.addFlashAttribute("myInfoError", "저장 중 오류가 발생했습니다. 중복 여부를 확인해 주세요.");
-            return "redirect:/customer/myInfo";
-        }
+		// ===== 5) 사업자등록증 최종 필수 방어(대표/직원 공통) =====
+		// 혹시라도 회사에 등록증이 없는 상태라면 업데이트 불가
+		// (정상 운영이라면 거의 발생하지 않지만, 데이터 꼬임 방지용)
+		Company savedCompany = companyRepository.findById(company.getId())
+				.orElseThrow(() -> new IllegalStateException("회사 저장 실패"));
+		if (savedCompany.getBusinessLicensePath() == null || savedCompany.getBusinessLicensePath().trim().isEmpty()) {
+			ra.addFlashAttribute("myInfoError", "사업자등록증은 필수입니다. 사업자등록증을 등록해 주세요.");
+			return "redirect:/customer/myInfo";
+		}
 
-        ra.addFlashAttribute("myInfoSuccess", "변경사항이 저장되었습니다.");
-        return "redirect:/customer/myInfo";
-    }
+		try {
+			memberRepository.save(member);
+		} catch (DataIntegrityViolationException e) {
+			// unique 제약 등 최종 방어
+			ra.addFlashAttribute("myInfoError", "저장 중 오류가 발생했습니다. 중복 여부를 확인해 주세요.");
+			return "redirect:/customer/myInfo";
+		}
 
-    /**
-     * ✅ 회사 배송지 목록을 JSON 기반으로 "추가/삭제/수정" 동기화합니다.
-     * - 기존 id가 있으면 업데이트
-     * - id가 없으면 신규 추가
-     * - 요청에 없는 기존 항목은 제거(orphanRemoval로 DB 삭제)
-     */
-    private void applyCompanyDeliveryAddresses(Company company, String json) {
-        List<CompanyDeliveryAddressInput> incoming = parseDeliveryJson(json);
+		ra.addFlashAttribute("myInfoSuccess", "변경사항이 저장되었습니다.");
+		return "redirect:/customer/myInfo";
+	}
 
-        if (company.getDeliveryAddresses() == null) {
-            company.setDeliveryAddresses(new ArrayList<>());
-        }
+	/**
+	 * ✅ 회사 배송지 목록을 JSON 기반으로 "추가/삭제/수정" 동기화합니다. - 기존 id가 있으면 업데이트 - id가 없으면 신규 추가 -
+	 * 요청에 없는 기존 항목은 제거(orphanRemoval로 DB 삭제)
+	 */
+	private void applyCompanyDeliveryAddresses(Company company, String json) {
+		List<CompanyDeliveryAddressInput> incoming = parseDeliveryJson(json);
 
-        // 기존 주소들을 id 기준 맵으로
-        Map<Long, CompanyDeliveryAddress> existingById = company.getDeliveryAddresses().stream()
-                .filter(x -> x.getId() != null)
-                .collect(Collectors.toMap(CompanyDeliveryAddress::getId, Function.identity(), (a, b) -> a));
+		if (company.getDeliveryAddresses() == null) {
+			company.setDeliveryAddresses(new ArrayList<>());
+		}
 
-        Set<Long> incomingIds = incoming.stream()
-                .map(CompanyDeliveryAddressInput::getId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+		// 기존 주소들을 id 기준 맵으로
+		Map<Long, CompanyDeliveryAddress> existingById = company.getDeliveryAddresses().stream()
+				.filter(x -> x.getId() != null)
+				.collect(Collectors.toMap(CompanyDeliveryAddress::getId, Function.identity(), (a, b) -> a));
 
-        // 1) 제거: incoming에 없는 기존 id는 삭제
-        company.getDeliveryAddresses().removeIf(addr ->
-                addr.getId() != null && !incomingIds.contains(addr.getId())
-        );
+		Set<Long> incomingIds = incoming.stream().map(CompanyDeliveryAddressInput::getId).filter(Objects::nonNull)
+				.collect(Collectors.toSet());
 
-        // 2) 업데이트/추가
-        for (CompanyDeliveryAddressInput in : incoming) {
-            if (in.getRoadAddress() == null || in.getRoadAddress().trim().isEmpty()) {
-                continue;
-            }
+		// 1) 제거: incoming에 없는 기존 id는 삭제
+		company.getDeliveryAddresses().removeIf(addr -> addr.getId() != null && !incomingIds.contains(addr.getId()));
 
-            if (in.getId() != null && existingById.containsKey(in.getId())) {
-                CompanyDeliveryAddress target = existingById.get(in.getId());
-                target.setZipCode(nvl(in.getZipCode()));
-                target.setDoName(nvl(in.getDoName()));
-                target.setSiName(nvl(in.getSiName()));
-                target.setGuName(nvl(in.getGuName()));
-                target.setRoadAddress(nvl(in.getRoadAddress()));
-                target.setDetailAddress(nvl(in.getDetailAddress()));
-                target.setUpdatedAt(LocalDateTime.now());
-            } else {
-                CompanyDeliveryAddress created = new CompanyDeliveryAddress();
-                created.setCompany(company);
-                created.setZipCode(nvl(in.getZipCode()));
-                created.setDoName(nvl(in.getDoName()));
-                created.setSiName(nvl(in.getSiName()));
-                created.setGuName(nvl(in.getGuName()));
-                created.setRoadAddress(nvl(in.getRoadAddress()));
-                created.setDetailAddress(nvl(in.getDetailAddress()));
-                created.setCreatedAt(LocalDateTime.now());
-                created.setUpdatedAt(null);
+		// 2) 업데이트/추가
+		for (CompanyDeliveryAddressInput in : incoming) {
+			if (in.getRoadAddress() == null || in.getRoadAddress().trim().isEmpty()) {
+				continue;
+			}
 
-                company.getDeliveryAddresses().add(created);
-            }
-        }
+			if (in.getId() != null && existingById.containsKey(in.getId())) {
+				CompanyDeliveryAddress target = existingById.get(in.getId());
+				target.setZipCode(nvl(in.getZipCode()));
+				target.setDoName(nvl(in.getDoName()));
+				target.setSiName(nvl(in.getSiName()));
+				target.setGuName(nvl(in.getGuName()));
+				target.setRoadAddress(nvl(in.getRoadAddress()));
+				target.setDetailAddress(nvl(in.getDetailAddress()));
+				target.setUpdatedAt(LocalDateTime.now());
+			} else {
+				CompanyDeliveryAddress created = new CompanyDeliveryAddress();
+				created.setCompany(company);
+				created.setZipCode(nvl(in.getZipCode()));
+				created.setDoName(nvl(in.getDoName()));
+				created.setSiName(nvl(in.getSiName()));
+				created.setGuName(nvl(in.getGuName()));
+				created.setRoadAddress(nvl(in.getRoadAddress()));
+				created.setDetailAddress(nvl(in.getDetailAddress()));
+				created.setCreatedAt(LocalDateTime.now());
+				created.setUpdatedAt(null);
 
-        // 회사 수정일
-        company.setUpdatedAt(LocalDateTime.now());
-    }
+				company.getDeliveryAddresses().add(created);
+			}
+		}
 
-    private List<CompanyDeliveryAddressInput> parseDeliveryJson(String json) {
-        if (json == null || json.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        try {
-            return objectMapper.readValue(json, new TypeReference<List<CompanyDeliveryAddressInput>>() {});
-        } catch (Exception e) {
-            throw new IllegalArgumentException("추가 배송지 JSON 파싱 실패", e);
-        }
-    }
+		// 회사 수정일
+		company.setUpdatedAt(LocalDateTime.now());
+	}
 
-    private String nvl(String v) {
-        return v == null ? "" : v.trim();
-    }
+	private List<CompanyDeliveryAddressInput> parseDeliveryJson(String json) {
+		if (json == null || json.trim().isEmpty()) {
+			return new ArrayList<>();
+		}
+		try {
+			return objectMapper.readValue(json, new TypeReference<List<CompanyDeliveryAddressInput>>() {
+			});
+		} catch (Exception e) {
+			throw new IllegalArgumentException("추가 배송지 JSON 파싱 실패", e);
+		}
+	}
 
-    // =========================
-    // DTO들
-    // =========================
-    @Data
-    public static class CompanyDeliveryAddressDto {
-        private Long id;
-        private String zipCode;
-        private String doName;
-        private String siName;
-        private String guName;
-        private String roadAddress;
-        private String detailAddress;
+	private String nvl(String v) {
+		return v == null ? "" : v.trim();
+	}
 
-        public static CompanyDeliveryAddressDto from(CompanyDeliveryAddress e) {
-            CompanyDeliveryAddressDto d = new CompanyDeliveryAddressDto();
-            d.setId(e.getId());
-            d.setZipCode(e.getZipCode());
-            d.setDoName(e.getDoName());
-            d.setSiName(e.getSiName());
-            d.setGuName(e.getGuName());
-            d.setRoadAddress(e.getRoadAddress());
-            d.setDetailAddress(e.getDetailAddress());
-            return d;
-        }
-    }
+	// =========================
+	// DTO들
+	// =========================
+	@Data
+	public static class CompanyDeliveryAddressDto {
+		private Long id;
+		private String zipCode;
+		private String doName;
+		private String siName;
+		private String guName;
+		private String roadAddress;
+		private String detailAddress;
 
-    @Data
-    public static class CompanyDeliveryAddressInput {
-        private Long id; // 기존 항목은 id 포함, 신규는 null
-        private String zipCode;
-        private String doName;
-        private String siName;
-        private String guName;
-        private String roadAddress;
-        private String detailAddress;
-    }
+		public static CompanyDeliveryAddressDto from(CompanyDeliveryAddress e) {
+			CompanyDeliveryAddressDto d = new CompanyDeliveryAddressDto();
+			d.setId(e.getId());
+			d.setZipCode(e.getZipCode());
+			d.setDoName(e.getDoName());
+			d.setSiName(e.getSiName());
+			d.setGuName(e.getGuName());
+			d.setRoadAddress(e.getRoadAddress());
+			d.setDetailAddress(e.getDetailAddress());
+			return d;
+		}
+	}
+
+	@Data
+	public static class CompanyDeliveryAddressInput {
+		private Long id; // 기존 항목은 id 포함, 신규는 null
+		private String zipCode;
+		private String doName;
+		private String siName;
+		private String guName;
+		private String roadAddress;
+		private String detailAddress;
+	}
 
 	@PostMapping("/generateRegistrationKey")
 	@ResponseBody
@@ -732,55 +736,54 @@ public class CustomerController {
 		return Map.of("key", newKey);
 	}
 
-	
 	@PostMapping("/changePassword")
 	public String changePassword(@AuthenticationPrincipal PrincipalDetails principal,
-	                             @RequestParam String newPassword) {
-	    Member member = principal.getMember();
-	    String encoded = passwordEncoder.encode(newPassword);
-	    member.setPassword(encoded);
-	    memberRepository.save(member);
+			@RequestParam String newPassword) {
+		Member member = principal.getMember();
+		String encoded = passwordEncoder.encode(newPassword);
+		member.setPassword(encoded);
+		memberRepository.save(member);
 
-	    return "redirect:/customer/myInfo";
+		return "redirect:/customer/myInfo";
 	}
-	
+
 	@PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
-    @GetMapping("/memberList")
-    public String memberList(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
-        Member loginMember = principal.getMember();
-        List<Member> employees = memberService.getCompanyEmployees(loginMember.getCompany());
+	@GetMapping("/memberList")
+	public String memberList(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
+		Member loginMember = principal.getMember();
+		List<Member> employees = memberService.getCompanyEmployees(loginMember.getCompany());
 
-        model.addAttribute("employees", employees);
-        return "front/customer/member/memberList";
-    }
+		model.addAttribute("employees", employees);
+		return "front/customer/member/memberList";
+	}
 
-    @PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
-    @GetMapping("/memberManager/{id}")
-    public String memberManager(@PathVariable Long id, Model model) {
-        Member member = memberService.getMemberById(id);
-        model.addAttribute("member", member);
-        return "front/customer/member/memberManager";
-    }
-    
-    @PostMapping("/toggleMemberEnabled")
-    @ResponseBody
-    @PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
-    public Map<String, String> toggleMemberEnabled(@RequestBody Map<String, Object> payload,
-                                                   @AuthenticationPrincipal PrincipalDetails principal) {
-    	Long memberId = Long.valueOf(payload.get("memberId").toString());
-    	Boolean enabled = Boolean.valueOf(payload.get("enabled").toString());
+	@PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
+	@GetMapping("/memberManager/{id}")
+	public String memberManager(@PathVariable Long id, Model model) {
+		Member member = memberService.getMemberById(id);
+		model.addAttribute("member", member);
+		return "front/customer/member/memberManager";
+	}
 
-    	Member member = memberService.getMemberById(memberId);
+	@PostMapping("/toggleMemberEnabled")
+	@ResponseBody
+	@PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
+	public Map<String, String> toggleMemberEnabled(@RequestBody Map<String, Object> payload,
+			@AuthenticationPrincipal PrincipalDetails principal) {
+		Long memberId = Long.valueOf(payload.get("memberId").toString());
+		Boolean enabled = Boolean.valueOf(payload.get("enabled").toString());
 
-    	// 소속 검증
-    	if (!member.getCompany().getId().equals(principal.getMember().getCompany().getId())) {
-    		throw new AccessDeniedException("해당 직원은 당신 회사 소속이 아닙니다.");
-    	}
+		Member member = memberService.getMemberById(memberId);
 
-    	member.setEnabled(enabled);
-    	memberRepository.save(member);
+		// 소속 검증
+		if (!member.getCompany().getId().equals(principal.getMember().getCompany().getId())) {
+			throw new AccessDeniedException("해당 직원은 당신 회사 소속이 아닙니다.");
+		}
 
-    	return Map.of("message", enabled ? "접속이 허용되었습니다." : "접속이 차단되었습니다.");
-    }
+		member.setEnabled(enabled);
+		memberRepository.save(member);
+
+		return Map.of("message", enabled ? "접속이 허용되었습니다." : "접속이 차단되었습니다.");
+	}
 
 }

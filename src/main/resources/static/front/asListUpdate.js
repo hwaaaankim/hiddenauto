@@ -22,6 +22,12 @@ document.addEventListener("DOMContentLoaded", function() {
 	const productSizeInput = document.getElementById("client-as-update-first-productSize");
 	const productColorInput = document.getElementById("client-as-update-first-productColor");
 	const productOptionsInput = document.getElementById("client-as-update-first-productOptions");
+	const purchaseDateInput = document.getElementById("client-as-update-first-purchaseDate");
+	const billingTargetSelect = document.getElementById("client-as-update-first-billingTarget");
+
+	const applicantNameInput = document.getElementById("client-as-update-first-applicantName");
+	const applicantPhoneInput = document.getElementById("client-as-update-first-applicantPhone");
+	const applicantEmailInput = document.getElementById("client-as-update-first-applicantEmail");
 
 	const subjectCategorySelect = document.getElementById("client-as-update-first-subjectCategory");
 	const subjectSelect = document.getElementById("client-as-update-first-subject");
@@ -32,83 +38,36 @@ document.addEventListener("DOMContentLoaded", function() {
 	const fileTriggerBtn = document.getElementById("client-as-update-first-fileTrigger");
 	const newImagesInput = document.getElementById("client-as-update-first-newImages");
 
+	const videoTriggerBtn = document.getElementById("client-as-update-first-videoTrigger");
+	const newVideosInput = document.getElementById("client-as-update-first-newVideos");
+
 	const existingImagesWrap = document.getElementById("client-as-update-first-existingImages");
 	const deletedImagesWrap = document.getElementById("client-as-update-first-deletedImages");
 	const addedImagesWrap = document.getElementById("client-as-update-first-addedImages");
 
+	const existingVideosWrap = document.getElementById("client-as-update-first-existingVideos");
+	const deletedVideosWrap = document.getElementById("client-as-update-first-deletedVideos");
+	const addedVideosWrap = document.getElementById("client-as-update-first-addedVideos");
+
 	const submitBtn = document.getElementById("client-as-update-first-submitBtn");
 
 	const SUBJECT_MAP = {
-		"상부장": [
-			"도어 파손",
-			"도어 스크레치",
-			"도어 휘어짐",
-			"도어 변색",
-			"도어 단차 불량",
-			"도어 마감 불량",
-			"손잡이 불량",
-			"바디 변색",
-			"바디 스크래치",
-			"바디 파손",
-			"개폐 불량",
-			"경첩 불량",
-			"LED 점등 불량",
-			"오출고",
-			"기타 사유"
-		],
-		"슬라이드장": [
-			"도어 파손",
-			"도어 스크레치",
-			"도어 변색",
-			"도어 간격 불량",
-			"바디 변색",
-			"바디 스크레치",
-			"바디 파손",
-			"개폐불량",
-			"댐퍼불량",
-			"손잡이 불량",
-			"LED 점등 불량",
-			"오출고",
-			"기타 사유"
-		],
-		"플랩장": [
-			"도어 파손",
-			"도어 스크레치",
-			"도어 변색",
-			"도어 단차 불량",
-			"유압 불량",
-			"바디 변색",
-			"바디 스크래치",
-			"바디 파손",
-			"개폐 불량",
-			"경첩 불량",
-			"LED 점등 불량",
-			"오출고",
-			"기타 사유"
-		],
-		"하부장": [
-			"도어 단차 불량",
-			"서랍 개폐불량",
-			"도어 마감 불량",
-			"오출고",
-			"기타 사유"
-		],
-		"거울": [
-			"테두리 도장 불량",
-			"유리 스크레치",
-			"유리 파손",
-			"유리 변색",
-			"LED 점등 불량",
-			"오출고",
-			"기타 사유"
-		]
+		"상부장": ["도어 파손", "도어 스크레치", "도어 휘어짐", "도어 변색", "도어 단차 불량", "도어 마감 불량", "손잡이 불량", "바디 변색", "바디 스크래치", "바디 파손", "개폐 불량", "경첩 불량", "LED 점등 불량", "오출고", "기타 사유"],
+		"슬라이드장": ["도어 파손", "도어 스크레치", "도어 변색", "도어 간격 불량", "바디 변색", "바디 스크레치", "바디 파손", "개폐불량", "댐퍼불량", "손잡이 불량", "LED 점등 불량", "오출고", "기타 사유"],
+		"플랩장": ["도어 파손", "도어 스크레치", "도어 변색", "도어 단차 불량", "유압 불량", "바디 변색", "바디 스크래치", "바디 파손", "개폐 불량", "경첩 불량", "LED 점등 불량", "오출고", "기타 사유"],
+		"하부장": ["도어 단차 불량", "서랍 개폐불량", "도어 마감 불량", "오출고", "기타 사유"],
+		"거울": ["테두리 도장 불량", "유리 스크레치", "유리 파손", "유리 변색", "LED 점등 불량", "오출고", "기타 사유"]
 	};
 
 	const state = {
 		original: null,
 		existingImages: [],
 		deletedImageIds: new Set(),
-		newFiles: new DataTransfer()
+		newImageFiles: new DataTransfer(),
+
+		existingVideos: [],
+		deletedVideoIds: new Set(),
+		newVideoFiles: new DataTransfer()
 	};
 
 	function str(v) {
@@ -134,7 +93,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	function formatKoreanPhone(digits) {
 		digits = onlyDigits(digits);
-
 		if (digits.length > 11) digits = digits.slice(0, 11);
 		if (digits.length <= 3) return digits;
 
@@ -161,6 +119,11 @@ document.addEventListener("DOMContentLoaded", function() {
 		return digits.length >= 9 && digits.length <= 11;
 	}
 
+	function isValidEmail(email) {
+		if (!trim(email)) return true;
+		return /^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$/.test(trim(email));
+	}
+
 	function resetSubjectSelect() {
 		subjectSelect.innerHTML = "";
 		const opt = document.createElement("option");
@@ -173,9 +136,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	function parseSubject(fullSubject) {
 		const s = trim(fullSubject);
-		if (!s) {
-			return { category: "", symptom: "", full: "" };
-		}
+		if (!s) return { category: "", symptom: "", full: "" };
 
 		const parts = s.split(" - ");
 		if (parts.length >= 2) {
@@ -185,17 +146,11 @@ document.addEventListener("DOMContentLoaded", function() {
 				full: s
 			};
 		}
-
-		return {
-			category: "",
-			symptom: s,
-			full: s
-		};
+		return { category: "", symptom: s, full: s };
 	}
 
 	function fillSubjectSelect(category, selectedFullValue) {
 		resetSubjectSelect();
-
 		if (!category) return;
 
 		const symptoms = Array.isArray(SUBJECT_MAP[category]) ? Array.from(new Set(SUBJECT_MAP[category])) : [];
@@ -218,10 +173,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 
 		subjectSelect.disabled = false;
-
-		if (selectedFullValue) {
-			subjectSelect.value = selectedFullValue;
-		}
+		if (selectedFullValue) subjectSelect.value = selectedFullValue;
 	}
 
 	function getOriginReason(taskId) {
@@ -247,6 +199,24 @@ document.addEventListener("DOMContentLoaded", function() {
 			});
 	}
 
+	function getOriginVideos(taskId) {
+		const wrap = document.querySelector('.client-as-update-first-origin-videos[data-task-id="' + taskId + '"]');
+		if (!wrap) return [];
+
+		return Array.from(wrap.querySelectorAll(".client-as-update-first-origin-video"))
+			.map(function(el) {
+				const id = Number(el.dataset.videoId);
+				return {
+					id: id,
+					url: str(el.dataset.videoUrl),
+					filename: str(el.dataset.videoFilename)
+				};
+			})
+			.filter(function(video) {
+				return Number.isFinite(video.id);
+			});
+	}
+
 	function getCurrentScalarState() {
 		return {
 			customerName: trim(customerNameInput.value),
@@ -257,45 +227,52 @@ document.addEventListener("DOMContentLoaded", function() {
 			guName: trim(guNameInput.value),
 			zipCode: trim(zipCodeInput.value),
 			onsiteContact: formatKoreanPhone(onlyDigits(onsiteContactInput.value)),
+
 			productName: trim(productNameInput.value),
 			productSize: trim(productSizeInput.value),
 			productColor: trim(productColorInput.value),
 			productOptions: trim(productOptionsInput.value),
+
+			purchaseDate: trim(purchaseDateInput.value),
+			billingTarget: trim(billingTargetSelect.value),
+
+			applicantName: trim(applicantNameInput.value),
+			applicantPhone: formatKoreanPhone(onlyDigits(applicantPhoneInput.value)),
+			applicantEmail: trim(applicantEmailInput.value),
+
 			subject: trim(subjectSelect.value),
-			reason: str(reasonInput.value).trim()
+			reason: trim(reasonInput.value)
 		};
 	}
 
 	function getKeptExistingImageIds() {
 		return state.existingImages
-			.filter(function(img) {
-				return !state.deletedImageIds.has(img.id);
-			})
-			.map(function(img) {
-				return img.id;
-			})
-			.sort(function(a, b) {
-				return a - b;
-			});
+			.filter(function(img) { return !state.deletedImageIds.has(img.id); })
+			.map(function(img) { return img.id; })
+			.sort(function(a, b) { return a - b; });
+	}
+
+	function getKeptExistingVideoIds() {
+		return state.existingVideos
+			.filter(function(video) { return !state.deletedVideoIds.has(video.id); })
+			.map(function(video) { return video.id; })
+			.sort(function(a, b) { return a - b; });
 	}
 
 	function hasChanges() {
 		if (!state.original) return false;
 
-		const currentScalars = getCurrentScalarState();
-		const currentImageIds = getKeptExistingImageIds();
-
-		if (JSON.stringify(state.original.scalars) !== JSON.stringify(currentScalars)) {
+		if (JSON.stringify(state.original.scalars) !== JSON.stringify(getCurrentScalarState())) {
 			return true;
 		}
-
-		if (JSON.stringify(state.original.imageIds) !== JSON.stringify(currentImageIds)) {
+		if (JSON.stringify(state.original.imageIds) !== JSON.stringify(getKeptExistingImageIds())) {
 			return true;
 		}
-
-		if (state.newFiles.files.length > 0) {
+		if (JSON.stringify(state.original.videoIds) !== JSON.stringify(getKeptExistingVideoIds())) {
 			return true;
 		}
+		if (state.newImageFiles.files.length > 0) return true;
+		if (state.newVideoFiles.files.length > 0) return true;
 
 		return false;
 	}
@@ -321,9 +298,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				+ '      <a href="' + escapeHtml(img.url) + '" target="_blank" rel="noopener">'
 				+ '          <img src="' + escapeHtml(img.url) + '" alt="">'
 				+ '      </a>'
-				+ '      <button type="button"'
-				+ '              class="client-as-update-first-image-action client-as-update-first-image-action-remove client-as-update-first-remove-existing-btn"'
-				+ '              data-image-id="' + img.id + '">삭제</button>'
+				+ '      <button type="button" class="client-as-update-first-image-action client-as-update-first-image-action-remove client-as-update-first-remove-existing-btn" data-image-id="' + img.id + '">삭제</button>'
 				+ '      <div class="client-as-update-first-image-name">' + escapeHtml(img.filename) + '</div>'
 				+ '  </div>'
 				+ '</div>';
@@ -347,9 +322,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				+ '      <a href="' + escapeHtml(img.url) + '" target="_blank" rel="noopener">'
 				+ '          <img src="' + escapeHtml(img.url) + '" alt="">'
 				+ '      </a>'
-				+ '      <button type="button"'
-				+ '              class="client-as-update-first-image-action client-as-update-first-image-action-restore client-as-update-first-restore-existing-btn"'
-				+ '              data-image-id="' + img.id + '">복원</button>'
+				+ '      <button type="button" class="client-as-update-first-image-action client-as-update-first-image-action-restore client-as-update-first-restore-existing-btn" data-image-id="' + img.id + '">복원</button>'
 				+ '      <div class="client-as-update-first-image-name">' + escapeHtml(img.filename) + '</div>'
 				+ '  </div>'
 				+ '</div>';
@@ -357,7 +330,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	function renderAddedImages() {
-		const files = Array.from(state.newFiles.files);
+		const files = Array.from(state.newImageFiles.files);
 
 		if (files.length === 0) {
 			addedImagesWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">새로 추가한 이미지가 없습니다.</div></div>';
@@ -366,24 +339,91 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		addedImagesWrap.innerHTML = files.map(function(file, index) {
 			const url = URL.createObjectURL(file);
-
 			return ''
 				+ '<div class="col-6 col-md-4 col-lg-3">'
 				+ '  <div class="client-as-update-first-image-card">'
 				+ '      <img src="' + escapeHtml(url) + '" alt="">'
-				+ '      <button type="button"'
-				+ '              class="client-as-update-first-image-action client-as-update-first-image-action-remove client-as-update-first-remove-new-btn"'
-				+ '              data-index="' + index + '">삭제</button>'
+				+ '      <button type="button" class="client-as-update-first-image-action client-as-update-first-image-action-remove client-as-update-first-remove-new-btn" data-index="' + index + '">삭제</button>'
 				+ '      <div class="client-as-update-first-image-name">' + escapeHtml(file.name) + '</div>'
 				+ '  </div>'
 				+ '</div>';
 		}).join("");
 	}
 
-	function rerenderImages() {
+	function renderExistingVideos() {
+		const kept = state.existingVideos.filter(function(video) {
+			return !state.deletedVideoIds.has(video.id);
+		});
+
+		if (kept.length === 0) {
+			existingVideosWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">유지 중인 신청 비디오가 없습니다.</div></div>';
+			return;
+		}
+
+		existingVideosWrap.innerHTML = kept.map(function(video) {
+			return ''
+				+ '<div class="col-12 col-md-6 col-lg-4">'
+				+ '  <div class="client-as-update-first-image-card">'
+				+ '      <video src="' + escapeHtml(video.url) + '" controls preload="metadata" style="width:100%; height:180px; object-fit:cover;"></video>'
+				+ '      <button type="button" class="client-as-update-first-image-action client-as-update-first-image-action-remove client-as-update-first-remove-existing-video-btn" data-video-id="' + video.id + '">삭제</button>'
+				+ '      <div class="client-as-update-first-image-name">' + escapeHtml(video.filename) + '</div>'
+				+ '  </div>'
+				+ '</div>';
+		}).join("");
+	}
+
+	function renderDeletedVideos() {
+		const deleted = state.existingVideos.filter(function(video) {
+			return state.deletedVideoIds.has(video.id);
+		});
+
+		if (deleted.length === 0) {
+			deletedVideosWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">삭제 예정인 비디오가 없습니다.</div></div>';
+			return;
+		}
+
+		deletedVideosWrap.innerHTML = deleted.map(function(video) {
+			return ''
+				+ '<div class="col-12 col-md-6 col-lg-4">'
+				+ '  <div class="client-as-update-first-image-card">'
+				+ '      <video src="' + escapeHtml(video.url) + '" controls preload="metadata" style="width:100%; height:180px; object-fit:cover;"></video>'
+				+ '      <button type="button" class="client-as-update-first-image-action client-as-update-first-image-action-restore client-as-update-first-restore-existing-video-btn" data-video-id="' + video.id + '">복원</button>'
+				+ '      <div class="client-as-update-first-image-name">' + escapeHtml(video.filename) + '</div>'
+				+ '  </div>'
+				+ '</div>';
+		}).join("");
+	}
+
+	function renderAddedVideos() {
+		const files = Array.from(state.newVideoFiles.files);
+
+		if (files.length === 0) {
+			addedVideosWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">새로 추가한 비디오가 없습니다.</div></div>';
+			return;
+		}
+
+		addedVideosWrap.innerHTML = files.map(function(file, index) {
+			const url = URL.createObjectURL(file);
+			return ''
+				+ '<div class="col-12 col-md-6 col-lg-4">'
+				+ '  <div class="client-as-update-first-image-card">'
+				+ '      <video src="' + escapeHtml(url) + '" controls preload="metadata" style="width:100%; height:180px; object-fit:cover;"></video>'
+				+ '      <button type="button" class="client-as-update-first-image-action client-as-update-first-image-action-remove client-as-update-first-remove-new-video-btn" data-index="' + index + '">삭제</button>'
+				+ '      <div class="client-as-update-first-image-name">' + escapeHtml(file.name) + '</div>'
+				+ '  </div>'
+				+ '</div>';
+		}).join("");
+	}
+
+	function rerenderAllFiles() {
 		renderExistingImages();
 		renderDeletedImages();
 		renderAddedImages();
+
+		renderExistingVideos();
+		renderDeletedVideos();
+		renderAddedVideos();
+
 		updateSubmitState();
 	}
 
@@ -391,7 +431,6 @@ document.addEventListener("DOMContentLoaded", function() {
 		form.reset();
 
 		taskIdInput.value = "";
-
 		doNameInput.value = "";
 		siNameInput.value = "";
 		guNameInput.value = "";
@@ -402,19 +441,27 @@ document.addEventListener("DOMContentLoaded", function() {
 		state.original = null;
 		state.existingImages = [];
 		state.deletedImageIds = new Set();
-		state.newFiles = new DataTransfer();
+		state.newImageFiles = new DataTransfer();
+
+		state.existingVideos = [];
+		state.deletedVideoIds = new Set();
+		state.newVideoFiles = new DataTransfer();
 
 		existingImagesWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">유지 중인 신청 이미지가 없습니다.</div></div>';
 		deletedImagesWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">삭제 예정인 이미지가 없습니다.</div></div>';
 		addedImagesWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">새로 추가한 이미지가 없습니다.</div></div>';
 
+		existingVideosWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">유지 중인 신청 비디오가 없습니다.</div></div>';
+		deletedVideosWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">삭제 예정인 비디오가 없습니다.</div></div>';
+		addedVideosWrap.innerHTML = '<div class="col-12"><div class="client-as-update-first-empty">새로 추가한 비디오가 없습니다.</div></div>';
+
 		submitBtn.disabled = true;
 	}
 
-	function appendNewFiles(files) {
+	function appendNewImages(files) {
 		const next = new DataTransfer();
 
-		Array.from(state.newFiles.files).forEach(function(file) {
+		Array.from(state.newImageFiles.files).forEach(function(file) {
 			next.items.add(file);
 		});
 
@@ -424,22 +471,49 @@ document.addEventListener("DOMContentLoaded", function() {
 			}
 		});
 
-		state.newFiles = next;
+		state.newImageFiles = next;
 		newImagesInput.value = "";
-		rerenderImages();
+		rerenderAllFiles();
 	}
 
-	function removeNewFile(indexToRemove) {
+	function appendNewVideos(files) {
 		const next = new DataTransfer();
 
-		Array.from(state.newFiles.files).forEach(function(file, index) {
-			if (index !== indexToRemove) {
+		Array.from(state.newVideoFiles.files).forEach(function(file) {
+			next.items.add(file);
+		});
+
+		Array.from(files || []).forEach(function(file) {
+			if (file && file.type && file.type.startsWith("video/")) {
 				next.items.add(file);
 			}
 		});
 
-		state.newFiles = next;
-		rerenderImages();
+		state.newVideoFiles = next;
+		newVideosInput.value = "";
+		rerenderAllFiles();
+	}
+
+	function removeNewImage(indexToRemove) {
+		const next = new DataTransfer();
+
+		Array.from(state.newImageFiles.files).forEach(function(file, index) {
+			if (index !== indexToRemove) next.items.add(file);
+		});
+
+		state.newImageFiles = next;
+		rerenderAllFiles();
+	}
+
+	function removeNewVideo(indexToRemove) {
+		const next = new DataTransfer();
+
+		Array.from(state.newVideoFiles.files).forEach(function(file, index) {
+			if (index !== indexToRemove) next.items.add(file);
+		});
+
+		state.newVideoFiles = next;
+		rerenderAllFiles();
 	}
 
 	function openUpdateModal(button) {
@@ -466,22 +540,30 @@ document.addEventListener("DOMContentLoaded", function() {
 		productColorInput.value = str(button.dataset.productColor);
 		productOptionsInput.value = str(button.dataset.productOptions);
 
+		purchaseDateInput.value = str(button.dataset.purchaseDate);
+		billingTargetSelect.value = str(button.dataset.billingTarget);
+
+		applicantNameInput.value = str(button.dataset.applicantName);
+		applicantPhoneInput.value = formatKoreanPhone(button.dataset.applicantPhone);
+		applicantEmailInput.value = str(button.dataset.applicantEmail);
+
 		const fullSubject = str(button.dataset.subject);
 		const parsedSubject = parseSubject(fullSubject);
-
 		subjectCategorySelect.value = parsedSubject.category;
 		fillSubjectSelect(parsedSubject.category, fullSubject);
 
 		reasonInput.value = getOriginReason(taskId);
 
 		state.existingImages = getOriginImages(taskId);
+		state.existingVideos = getOriginVideos(taskId);
 
 		state.original = {
 			scalars: getCurrentScalarState(),
-			imageIds: getKeptExistingImageIds()
+			imageIds: getKeptExistingImageIds(),
+			videoIds: getKeptExistingVideoIds()
 		};
 
-		rerenderImages();
+		rerenderAllFiles();
 		modal.show();
 	}
 
@@ -497,7 +579,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				let guName = "";
 
 				if (addrParts.length >= 2) {
-					if (addrParts[1].endsWith("시") || addrParts[1].endsWith("군")) {
+					if ((addrParts[1] || "").endsWith("시") || (addrParts[1] || "").endsWith("군")) {
 						siName = addrParts[1];
 						guName = addrParts[2] || "";
 					} else {
@@ -530,11 +612,11 @@ document.addEventListener("DOMContentLoaded", function() {
 			return false;
 		}
 
-		const phoneDigits = onlyDigits(onsiteContactInput.value);
-		onsiteContactInput.value = formatKoreanPhone(phoneDigits);
+		const onsiteDigits = onlyDigits(onsiteContactInput.value);
+		onsiteContactInput.value = formatKoreanPhone(onsiteDigits);
 
-		if (!isValidPhoneByDigits(phoneDigits)) {
-			alert("현장연락처를 '- 없이 숫자만' 입력해 주세요.\n예) 0311234567 / 01012345678");
+		if (!isValidPhoneByDigits(onsiteDigits)) {
+			alert("현장 연락처를 '- 없이 숫자만' 입력해 주세요.");
 			onsiteContactInput.focus();
 			return false;
 		}
@@ -575,6 +657,22 @@ document.addEventListener("DOMContentLoaded", function() {
 			return false;
 		}
 
+		const applicantDigits = onlyDigits(applicantPhoneInput.value);
+		if (applicantDigits) {
+			applicantPhoneInput.value = formatKoreanPhone(applicantDigits);
+			if (!isValidPhoneByDigits(applicantDigits)) {
+				alert("접수 담당자 연락처 형식이 올바르지 않습니다.");
+				applicantPhoneInput.focus();
+				return false;
+			}
+		}
+
+		if (!isValidEmail(applicantEmailInput.value)) {
+			alert("접수 담당자 이메일 형식이 올바르지 않습니다.");
+			applicantEmailInput.focus();
+			return false;
+		}
+
 		return true;
 	}
 
@@ -595,15 +693,30 @@ document.addEventListener("DOMContentLoaded", function() {
 		formData.append("productColor", trim(productColorInput.value));
 		formData.append("productOptions", trim(productOptionsInput.value));
 
+		formData.append("purchaseDate", trim(purchaseDateInput.value));
+		formData.append("billingTarget", trim(billingTargetSelect.value));
+
+		formData.append("applicantName", trim(applicantNameInput.value));
+		formData.append("applicantPhone", formatKoreanPhone(onlyDigits(applicantPhoneInput.value)));
+		formData.append("applicantEmail", trim(applicantEmailInput.value));
+
 		formData.append("subject", trim(subjectSelect.value));
-		formData.append("reason", str(reasonInput.value).trim());
+		formData.append("reason", trim(reasonInput.value));
 
 		Array.from(state.deletedImageIds).forEach(function(id) {
 			formData.append("deleteImageIds", String(id));
 		});
 
-		Array.from(state.newFiles.files).forEach(function(file) {
+		Array.from(state.deletedVideoIds).forEach(function(id) {
+			formData.append("deleteVideoIds", String(id));
+		});
+
+		Array.from(state.newImageFiles.files).forEach(function(file) {
 			formData.append("newImages", file);
+		});
+
+		Array.from(state.newVideoFiles.files).forEach(function(file) {
+			formData.append("newVideos", file);
 		});
 
 		return formData;
@@ -612,33 +725,26 @@ document.addEventListener("DOMContentLoaded", function() {
 	function getCsrfHeaders() {
 		const token = document.querySelector('meta[name="_csrf"]')?.content;
 		const header = document.querySelector('meta[name="_csrf_header"]')?.content;
-
-		if (token && header) {
-			return { [header]: token };
-		}
+		if (token && header) return { [header]: token };
 		return {};
 	}
 
-	// 연락처 자동 포맷
 	onsiteContactInput.addEventListener("input", function() {
-		const digits = onlyDigits(onsiteContactInput.value);
-		onsiteContactInput.value = formatKoreanPhone(digits);
+		onsiteContactInput.value = formatKoreanPhone(onsiteContactInput.value);
 		updateSubmitState();
 	});
 
-	// 일반 입력 변경 감지
+	applicantPhoneInput.addEventListener("input", function() {
+		applicantPhoneInput.value = formatKoreanPhone(applicantPhoneInput.value);
+		updateSubmitState();
+	});
+
 	[
-		customerNameInput,
-		roadAddressInput,
-		detailAddressInput,
-		doNameInput,
-		siNameInput,
-		guNameInput,
-		zipCodeInput,
-		productNameInput,
-		productSizeInput,
-		productColorInput,
-		productOptionsInput,
+		customerNameInput, roadAddressInput, detailAddressInput, doNameInput, siNameInput, guNameInput, zipCodeInput,
+		onsiteContactInput,
+		productNameInput, productSizeInput, productColorInput, productOptionsInput,
+		purchaseDateInput, billingTargetSelect,
+		applicantNameInput, applicantPhoneInput, applicantEmailInput,
 		reasonInput
 	].forEach(function(el) {
 		el.addEventListener("input", updateSubmitState);
@@ -656,8 +762,16 @@ document.addEventListener("DOMContentLoaded", function() {
 		newImagesInput.click();
 	});
 
+	videoTriggerBtn.addEventListener("click", function() {
+		newVideosInput.click();
+	});
+
 	newImagesInput.addEventListener("change", function() {
-		appendNewFiles(newImagesInput.files);
+		appendNewImages(newImagesInput.files);
+	});
+
+	newVideosInput.addEventListener("change", function() {
+		appendNewVideos(newVideosInput.files);
 	});
 
 	searchAddressBtn.addEventListener("click", openAddressSearch);
@@ -674,7 +788,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			const imageId = Number(removeExistingBtn.dataset.imageId);
 			if (Number.isFinite(imageId)) {
 				state.deletedImageIds.add(imageId);
-				rerenderImages();
+				rerenderAllFiles();
 			}
 			return;
 		}
@@ -684,7 +798,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			const imageId = Number(restoreExistingBtn.dataset.imageId);
 			if (Number.isFinite(imageId)) {
 				state.deletedImageIds.delete(imageId);
-				rerenderImages();
+				rerenderAllFiles();
 			}
 			return;
 		}
@@ -693,7 +807,36 @@ document.addEventListener("DOMContentLoaded", function() {
 		if (removeNewBtn) {
 			const index = Number(removeNewBtn.dataset.index);
 			if (Number.isFinite(index)) {
-				removeNewFile(index);
+				removeNewImage(index);
+			}
+			return;
+		}
+
+		const removeExistingVideoBtn = e.target.closest(".client-as-update-first-remove-existing-video-btn");
+		if (removeExistingVideoBtn) {
+			const videoId = Number(removeExistingVideoBtn.dataset.videoId);
+			if (Number.isFinite(videoId)) {
+				state.deletedVideoIds.add(videoId);
+				rerenderAllFiles();
+			}
+			return;
+		}
+
+		const restoreExistingVideoBtn = e.target.closest(".client-as-update-first-restore-existing-video-btn");
+		if (restoreExistingVideoBtn) {
+			const videoId = Number(restoreExistingVideoBtn.dataset.videoId);
+			if (Number.isFinite(videoId)) {
+				state.deletedVideoIds.delete(videoId);
+				rerenderAllFiles();
+			}
+			return;
+		}
+
+		const removeNewVideoBtn = e.target.closest(".client-as-update-first-remove-new-video-btn");
+		if (removeNewVideoBtn) {
+			const index = Number(removeNewVideoBtn.dataset.index);
+			if (Number.isFinite(index)) {
+				removeNewVideo(index);
 			}
 		}
 	});
@@ -717,7 +860,6 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 
 		const formData = buildRequestFormData();
-
 		submitBtn.disabled = true;
 
 		fetch("/customer/asUpdate/" + taskId, {
@@ -726,9 +868,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			body: formData
 		})
 			.then(async function(res) {
-				const data = await res.json().catch(function() {
-					return {};
-				});
+				const data = await res.json().catch(function() { return {}; });
 
 				if (!res.ok || !data.success) {
 					throw new Error(data.message || "AS 수정 중 오류가 발생했습니다.");

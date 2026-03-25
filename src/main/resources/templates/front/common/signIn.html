@@ -1,13 +1,10 @@
 <!DOCTYPE HTML>
-<html lang="ko" 
-xmlns:th="http://www.thymeleaf.org" 
-xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head th:replace="~{fragments/front/common :: autoHead}">
 </head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
-
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
@@ -17,49 +14,68 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 			<div class="sign-wrap">
 				<div class="ps-5 pe-5">
 					<h1 class="text-center font-800 font-40 mb-5">로그인</h1>
+
+					<!-- ✅ 로그인 실패 메시지 -->
+					<div th:if="${loginError}" class="login-message-box mb-4" role="alert" aria-live="polite">
+						<span class="login-message-icon">
+							<i class="fa fa-circle-exclamation"></i>
+						</span>
+
+						<span class="login-message-content">
+							<span class="login-message-title">로그인에 실패했습니다</span>
+							<span class="login-message-text" th:text="${loginErrorMessage}">
+								아이디 또는 비밀번호를 확인해주세요.
+							</span>
+						</span>
+					</div>
+
 					<form action="/signinProcess" method="post">
 						<div class="input-style no-borders has-icon">
 							<i class="fa fa-user"></i>
-							<input 
-							type="text" 
-							name="username"
-							required
-							class="form-control" 
-							placeholder="아이디를 입력 해 주세요.">
+							<input type="text" name="username" required class="form-control" th:value="${loginUsername}"
+								placeholder="아이디를 입력 해 주세요.">
 							<label class="color-blue-dark font-10 mt-1">USERNAME</label>
 							<em>(required)</em>
 						</div>
+
 						<div class="input-style no-borders has-icon mt-4">
 							<i class="fa fa-lock"></i>
-							<input 
-							type="password" 
-							class="form-control" 
-							name="password"
-							required
-							placeholder="비밀번호를 입력 해 주세요.">
+							<input type="password" class="form-control" name="password" required
+								placeholder="비밀번호를 입력 해 주세요.">
 							<label class="color-blue-dark font-10 mt-1">PASSWORD</label>
 							<em>(required)</em>
 						</div>
+
 						<div class="form-check icon-check">
-                            <input class="form-check-input" type="checkbox" name="remember" id="remember">
-                            <label class="form-check-label" for="remember">자동으로 로그인</label>
-                            <i class="icon-check-1 fa fa-square color-gray-dark font-16"></i>
-                            <i class="icon-check-2 fa fa-check-square font-16 color-highlight"></i>
-                        </div>
+							<input class="form-check-input" type="checkbox" name="remember" id="remember">
+							<label class="form-check-label" for="remember">자동으로 로그인</label>
+							<i class="icon-check-1 fa fa-square color-gray-dark font-16"></i>
+							<i class="icon-check-2 fa fa-check-square font-16 color-highlight"></i>
+						</div>
+
 						<div class="d-flex mt-1 mb-1">
-							<div class="w-50 font-11 pb-2 text-start"><a href="/signUp">회원가입</a>
+							<div class="w-50 font-11 pb-2 text-start">
+								<a href="/signUp">회원가입</a>
 							</div>
-							<div class="w-50 font-11 pb-2 text-end"><a href="/findPassword">비밀번호 찾기</a> / <a href="/findUsername">아이디 찾기</a>
+							<div class="w-50 font-11 pb-2 text-end">
+								<a href="/findPassword">비밀번호 찾기</a> /
+								<a href="/findUsername">아이디 찾기</a>
 							</div>
 						</div>
+
 						<div class="login-btn-wrap">
 							<button type="submit"
-								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-700 bg-highlight">LOGIN</button>
-						</div>	
-					</form>	
+								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-700 bg-highlight">
+								LOGIN
+							</button>
+						</div>
+					</form>
 				</div>
 			</div>
 		</div>
 	</div>
+
 	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}"></th:block>
 </body>
+
+</html>

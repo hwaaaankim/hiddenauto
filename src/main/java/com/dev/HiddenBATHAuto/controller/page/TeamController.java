@@ -9,6 +9,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -534,6 +535,7 @@ public class TeamController {
 
 	        @RequestParam(required = false) String visitTimeSort,
 	        @RequestParam(required = false) String scheduledDateSort,
+	        @RequestParam(required = false) String addressSort,
 
 	        Pageable pageable,
 	        Model model) {
@@ -563,6 +565,8 @@ public class TeamController {
 	        end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
 	    }
 
+	    String normalizedAddressSort = normalizeSortDirection(addressSort);
+
 	    Page<AsTask> asPage = asTaskService.getAsTasks(
 	            member,
 	            dateType,
@@ -575,6 +579,7 @@ public class TeamController {
 	            districtId,
 	            visitTimeSort,
 	            scheduledDateSort,
+	            normalizedAddressSort,
 	            pageable
 	    );
 
@@ -595,15 +600,32 @@ public class TeamController {
 
 	    model.addAttribute("visitTimeSort", visitTimeSort);
 	    model.addAttribute("scheduledDateSort", scheduledDateSort);
+	    model.addAttribute("addressSort", normalizedAddressSort);
 
 	    model.addAttribute("asStatusLabels", AsStatus.labelMap());
 
 	    // 방문예정일 + (n번째) 표시용
 	    model.addAttribute("asScheduleDisplayMap", asTaskService.getScheduleDisplayMap(asPage.getContent()));
 
+	    // 같은 주소끼리 옅은 배경색 그룹 표시용
+	    model.addAttribute("addressGroupClassMap", asTaskService.getAddressGroupClassMap(asPage.getContent()));
+
 	    return "administration/team/as/asList";
 	}
 
+	private String normalizeSortDirection(String raw) {
+	    if (!StringUtils.hasText(raw)) {
+	        return null;
+	    }
+
+	    String normalized = raw.trim().toLowerCase(Locale.ROOT);
+	    if (!"asc".equals(normalized) && !"desc".equals(normalized)) {
+	        return null;
+	    }
+
+	    return normalized;
+	}
+	
 	private AsStatus parseAsStatus(String rawStatus) {
 	    if (!StringUtils.hasText(rawStatus)) {
 	        return null;

@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +21,379 @@ import com.dev.HiddenBATHAuto.model.task.AsTask;
 @Repository
 public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRepositoryCustom {
 
+	
+	// ========= 신청일 기준 (화면 페이지) =========
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query(
+	    value = """
+	        SELECT a
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """,
+	    countQuery = """
+	        SELECT COUNT(a)
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """
+	)
+	Page<AsTask> findByRequestedDateRangePage(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        @Param("keywordType") String keywordType,
+	        @Param("keyword") String keyword,
+	        Pageable pageable
+	);
+
+	// ========= 처리일 기준 (화면 페이지) =========
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query(
+	    value = """
+	        SELECT a
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """,
+	    countQuery = """
+	        SELECT COUNT(a)
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """
+	)
+	Page<AsTask> findByProcessedDateRangePage(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        @Param("keywordType") String keywordType,
+	        @Param("keyword") String keyword,
+	        Pageable pageable
+	);
+
+	// ========= 신청일 기준 (엑셀 전체조회) =========
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query("""
+	        SELECT a
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """)
+	List<AsTask> findByRequestedDateRangeAll(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        @Param("keywordType") String keywordType,
+	        @Param("keyword") String keyword,
+	        Sort sort
+	);
+
+	// ========= 처리일 기준 (엑셀 전체조회) =========
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query("""
+	        SELECT a
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """)
+	List<AsTask> findByProcessedDateRangeAll(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        @Param("keywordType") String keywordType,
+	        @Param("keyword") String keyword,
+	        Sort sort
+	);
+	
 	Optional<AsTask> findByIdAndRequestedBy_Company_Id(Long id, Long companyId);
 	
 	@Query(value = """
@@ -471,28 +845,56 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 			@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
 	// ========= 신청일 기준 (화면 페이지) =========
-	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
-	@Query("""
-			    SELECT a FROM AsTask a
-			    WHERE (:status IS NULL OR a.status = :status)
-			      AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
-			      AND (:startDate IS NULL OR a.requestedAt >= :startDate)
-			      AND (:endDate IS NULL OR a.requestedAt < :endDate)
-			""")
-	Page<AsTask> findByRequestedDateRangePage(@Param("handlerId") Long handlerId, @Param("status") AsStatus status,
-			@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, Pageable pageable);
+    @EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+    @Query("""
+            SELECT a
+            FROM AsTask a
+            WHERE (:status IS NULL OR a.status = :status)
+              AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+              AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+              AND (:endDate IS NULL OR a.requestedAt < :endDate)
+              AND (
+                    :priceFilter IS NULL
+                    OR (:priceFilter = 'ZERO' AND a.price = 0)
+                    OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+                  )
+              AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+            """)
+    Page<AsTask> findByRequestedDateRangePage(
+            @Param("handlerId") Long handlerId,
+            @Param("status") AsStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("priceFilter") String priceFilter,
+            @Param("paymentCollected") Boolean paymentCollected,
+            Pageable pageable
+    );
 
-	// ========= 처리일 기준 (화면 페이지) =========
-	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
-	@Query("""
-			    SELECT a FROM AsTask a
-			    WHERE (:status IS NULL OR a.status = :status)
-			      AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
-			      AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
-			      AND (:endDate IS NULL OR a.asProcessDate < :endDate)
-			""")
-	Page<AsTask> findByProcessedDateRangePage(@Param("handlerId") Long handlerId, @Param("status") AsStatus status,
-			@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, Pageable pageable);
+    // ========= 처리일 기준 (화면 페이지) =========
+    @EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+    @Query("""
+            SELECT a
+            FROM AsTask a
+            WHERE (:status IS NULL OR a.status = :status)
+              AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+              AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+              AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+              AND (
+                    :priceFilter IS NULL
+                    OR (:priceFilter = 'ZERO' AND a.price = 0)
+                    OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+                  )
+              AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+            """)
+    Page<AsTask> findByProcessedDateRangePage(
+            @Param("handlerId") Long handlerId,
+            @Param("status") AsStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("priceFilter") String priceFilter,
+            @Param("paymentCollected") Boolean paymentCollected,
+            Pageable pageable
+    );
 
 	// requested/processed 조회용(기존이 있다면 그걸 사용)
 	@Query("""
@@ -587,4 +989,253 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 			@Param("companyKeyword") String companyKeyword, @Param("provinceNames") List<String> provinceNames,
 			@Param("cityNames") List<String> cityNames, @Param("districtNames") List<String> districtNames,
 			@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, Pageable pageable);
+	
+	
+	// ========= 신청일 기준 (엑셀 전체조회) =========
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query("""
+	        SELECT a
+	        FROM AsTask a
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	        """)
+	List<AsTask> findByRequestedDateRangeAll(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        Sort sort
+	);
+
+	// ========= 처리일 기준 (엑셀 전체조회) =========
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query("""
+	        SELECT a
+	        FROM AsTask a
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR a.assignedHandler.id = :handlerId)
+	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	        """)
+	List<AsTask> findByProcessedDateRangeAll(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        Sort sort
+	);
+	
+	@Query(value = """
+	        select a
+	        from AsTask a
+	        left join a.requestedBy rb
+	        left join rb.company company
+	        where a.assignedHandler.id = :handlerId
+	          and (:status is null or a.status = :status)
+	          and (:start is null or a.requestedAt >= :start)
+	          and (:end is null or a.requestedAt < :end)
+	          and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+	          and (:provinceNames is null or a.doName in :provinceNames)
+	          and (:cityName is null or a.siName = :cityName)
+	          and (:districtName is null or a.guName = :districtName)
+	        order by
+	          case when :addressSort = 'asc'
+	                    and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+	               then 1 else 0 end asc,
+	          case when :addressSort = 'asc'
+	               then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+	               else null end asc,
+
+	          case when :addressSort = 'desc'
+	                    and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+	               then 1 else 0 end asc,
+	          case when :addressSort = 'desc'
+	               then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+	               else null end desc,
+
+	          case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+	          case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+	          case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+	          case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+
+	          a.id desc
+	        """,
+	        countQuery = """
+	        select count(a)
+	        from AsTask a
+	        left join a.requestedBy rb
+	        left join rb.company company
+	        where a.assignedHandler.id = :handlerId
+	          and (:status is null or a.status = :status)
+	          and (:start is null or a.requestedAt >= :start)
+	          and (:end is null or a.requestedAt < :end)
+	          and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+	          and (:provinceNames is null or a.doName in :provinceNames)
+	          and (:cityName is null or a.siName = :cityName)
+	          and (:districtName is null or a.guName = :districtName)
+	        """)
+	Page<AsTask> findByRequestedDateFlexible(@Param("handlerId") Long handlerId,
+	                                         @Param("status") AsStatus status,
+	                                         @Param("start") LocalDateTime start,
+	                                         @Param("end") LocalDateTime end,
+	                                         @Param("companyKeyword") String companyKeyword,
+	                                         @Param("provinceNames") List<String> provinceNames,
+	                                         @Param("cityName") String cityName,
+	                                         @Param("districtName") String districtName,
+	                                         @Param("visitTimeSort") String visitTimeSort,
+	                                         @Param("addressSort") String addressSort,
+	                                         Pageable pageable);
+	
+	@Query(value = """
+	        select a
+	        from AsTask a
+	        left join a.requestedBy rb
+	        left join rb.company company
+	        where a.assignedHandler.id = :handlerId
+	          and (:status is null or a.status = :status)
+	          and (:start is null or a.asProcessDate >= :start)
+	          and (:end is null or a.asProcessDate < :end)
+	          and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+	          and (:provinceNames is null or a.doName in :provinceNames)
+	          and (:cityName is null or a.siName = :cityName)
+	          and (:districtName is null or a.guName = :districtName)
+	        order by
+	          case when :addressSort = 'asc'
+	                    and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+	               then 1 else 0 end asc,
+	          case when :addressSort = 'asc'
+	               then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+	               else null end asc,
+
+	          case when :addressSort = 'desc'
+	                    and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+	               then 1 else 0 end asc,
+	          case when :addressSort = 'desc'
+	               then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+	               else null end desc,
+
+	          case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+	          case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+	          case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+	          case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+
+	          a.id desc
+	        """,
+	        countQuery = """
+	        select count(a)
+	        from AsTask a
+	        left join a.requestedBy rb
+	        left join rb.company company
+	        where a.assignedHandler.id = :handlerId
+	          and (:status is null or a.status = :status)
+	          and (:start is null or a.asProcessDate >= :start)
+	          and (:end is null or a.asProcessDate < :end)
+	          and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+	          and (:provinceNames is null or a.doName in :provinceNames)
+	          and (:cityName is null or a.siName = :cityName)
+	          and (:districtName is null or a.guName = :districtName)
+	        """)
+	Page<AsTask> findByProcessedDateFlexible(@Param("handlerId") Long handlerId,
+	                                         @Param("status") AsStatus status,
+	                                         @Param("start") LocalDateTime start,
+	                                         @Param("end") LocalDateTime end,
+	                                         @Param("companyKeyword") String companyKeyword,
+	                                         @Param("provinceNames") List<String> provinceNames,
+	                                         @Param("cityName") String cityName,
+	                                         @Param("districtName") String districtName,
+	                                         @Param("visitTimeSort") String visitTimeSort,
+	                                         @Param("addressSort") String addressSort,
+	                                         Pageable pageable);
+	
+	@Query(value = """
+	        SELECT a
+	        FROM AsTaskSchedule s
+	        JOIN s.asTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company company
+	        WHERE a.assignedHandler.id = :handlerId
+	          AND (:status IS NULL OR a.status = :status)
+	          AND (:startDate IS NULL OR s.scheduledDate >= :startDate)
+	          AND (:endDate IS NULL OR s.scheduledDate <= :endDate)
+	          AND (:companyKeyword IS NULL OR :companyKeyword = '' OR lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+	          AND (:provinceNames IS NULL OR a.doName in :provinceNames)
+	          AND (:cityName IS NULL OR a.siName = :cityName)
+	          AND (:districtName IS NULL OR a.guName = :districtName)
+	        ORDER BY
+	          case when :addressSort = 'asc'
+	                    and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+	               then 1 else 0 end asc,
+	          case when :addressSort = 'asc'
+	               then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+	               else null end asc,
+
+	          case when :addressSort = 'desc'
+	                    and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+	               then 1 else 0 end asc,
+	          case when :addressSort = 'desc'
+	               then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+	               else null end desc,
+
+	          case when :scheduledDateSort = 'asc' and s.scheduledDate is null then 1 else 0 end asc,
+	          case when :scheduledDateSort = 'asc' then s.scheduledDate else null end asc,
+	          case when :scheduledDateSort = 'desc' and s.scheduledDate is null then 1 else 0 end asc,
+	          case when :scheduledDateSort = 'desc' then s.scheduledDate else null end desc,
+
+	          case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+	          case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+	          case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+	          case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+
+	          case when :scheduledDateSort is null and :visitTimeSort is null then s.scheduledDate else null end desc,
+	          case when :scheduledDateSort is null and :visitTimeSort is null then s.orderIndex else null end asc,
+
+	          a.id desc
+	        """,
+	        countQuery = """
+	        SELECT COUNT(a)
+	        FROM AsTaskSchedule s
+	        JOIN s.asTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company company
+	        WHERE a.assignedHandler.id = :handlerId
+	          AND (:status IS NULL OR a.status = :status)
+	          AND (:startDate IS NULL OR s.scheduledDate >= :startDate)
+	          AND (:endDate IS NULL OR s.scheduledDate <= :endDate)
+	          AND (:companyKeyword IS NULL OR :companyKeyword = '' OR lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+	          AND (:provinceNames IS NULL OR a.doName in :provinceNames)
+	          AND (:cityName IS NULL OR a.siName = :cityName)
+	          AND (:districtName IS NULL OR a.guName = :districtName)
+	        """)
+	Page<AsTask> findByScheduledDateFlexible(@Param("handlerId") Long handlerId,
+	                                         @Param("status") AsStatus status,
+	                                         @Param("startDate") LocalDate startDate,
+	                                         @Param("endDate") LocalDate endDate,
+	                                         @Param("companyKeyword") String companyKeyword,
+	                                         @Param("provinceNames") List<String> provinceNames,
+	                                         @Param("cityName") String cityName,
+	                                         @Param("districtName") String districtName,
+	                                         @Param("visitTimeSort") String visitTimeSort,
+	                                         @Param("scheduledDateSort") String scheduledDateSort,
+	                                         @Param("addressSort") String addressSort,
+	                                         Pageable pageable);
+	
+	
 }

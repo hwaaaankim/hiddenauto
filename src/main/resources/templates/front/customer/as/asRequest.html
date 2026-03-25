@@ -1,8 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<head th:replace="fragments/front/common :: autoHead">
-</head>
+<head th:replace="fragments/front/common :: autoHead"></head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
@@ -26,97 +25,268 @@
 				<div class="card-overlay bg-black opacity-80"></div>
 			</div>
 
-			<form action="/customer/asSubmit" enctype="multipart/form-data" method="POST">
-				<div class="card card-style">
-					<!-- =========================
-					     1) 개인정보(상단)
-					     ========================= -->
-					<div class="content">
-						<div class="payment-title">
-							<div>
-								<h2 class="mb-0">개인정보</h2>
-								<p>AS 진행을 위해 주소/연락처 정보를 정확히 입력해 주세요.</p>
-							</div>
-							<div class="same-address">
-								<input class="form-check-input" type="checkbox" id="same-address" />
-								<label for="same-address">회원 정보와 동일</label>
-							</div>
-						</div>
 
-						<!-- ✅ (신규) 고객 성함 -->
+			<form id="as-request-fifth-form" action="/customer/asSubmit" enctype="multipart/form-data" method="POST">
+				<div class="card card-style as-request-fifth-section-card">
+					<div class="as-request-fifth-section-head">
+						<div>
+							<h2>고객 정보</h2>
+							<div class="as-request-fifth-section-desc">AS 진행을 위한 기본 정보를 입력해 주세요.</div>
+						</div>
+						<label class="as-request-fifth-inline-check">
+							<input type="checkbox" id="as-request-fifth-same-address">
+							<span>회원 정보와 동일</span>
+						</label>
+					</div>
+
+					<div class="input-style no-borders no-icon mb-4">
+						<input type="text" id="as-request-fifth-customerName" class="form-control" required
+							placeholder="고객 성함을 입력해 주세요.">
+					</div>
+
+					<div class="input-style no-borders no-icon mt-1">
+						<input type="text" class="form-control" id="as-request-fifth-roadAddress" required readonly
+							placeholder="AS 장소의 주소를 검색해 주세요." autocomplete="off">
+						<button type="button" id="as-request-fifth-searchAddressBtn">주소검색</button>
+						<label for="as-request-fifth-roadAddress" class="color-blue-dark font-10 mt-1">주소</label>
+					</div>
+
+					<div class="input-style no-borders no-icon mb-4">
+						<input type="text" class="form-control" id="as-request-fifth-detailAddress"
+							placeholder="상세 주소를 작성해 주세요.">
+						<input type="hidden" id="as-request-fifth-doName">
+						<input type="hidden" id="as-request-fifth-siName">
+						<input type="hidden" id="as-request-fifth-guName">
+						<input type="hidden" id="as-request-fifth-zipCode">
+						<label for="as-request-fifth-detailAddress" class="color-blue-dark">상세주소</label>
+					</div>
+
+					<div class="input-style no-borders no-icon mb-1">
+						<input type="text" id="as-request-fifth-onsiteContact" class="form-control" required
+							placeholder="- 없이 숫자만 입력해 주세요. 예) 0311234567 / 01012345678" autocomplete="tel">
+					</div>
+				</div>
+
+				<div class="card card-style as-request-fifth-section-card">
+					<div class="as-request-fifth-section-head">
+						<div>
+							<h2>접수자 정보</h2>
+							<div class="as-request-fifth-section-desc">AS 신청을 실제로 접수하는 담당자 정보를 입력해 주세요.</div>
+						</div>
+						<label class="as-request-fifth-inline-check">
+							<input type="checkbox" id="as-request-fifth-same-member-info">
+							<span>계정정보와 동일</span>
+						</label>
+					</div>
+
+					<div class="as-request-fifth-grid-2">
 						<div class="input-style no-borders no-icon mb-4">
-							<input type="text"
-								   id="index-third-asrequest-customerName"
-								   name="customerName"
-								   class="form-control"
-								   required
-								   placeholder="고객 성함을 입력해 주세요.">
-						</div>
-
-						<div class="input-style no-borders no-icon mt-1">
-							<input type="text" class="form-control" id="searchAddress" name="roadAddress" required readonly
-								placeholder="AS 장소의 주소를 검색 해 주세요." autocomplete="off">
-							<button type="button" id="searchAddressBtn">주소검색</button>
-							<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
+							<input type="text" id="as-request-fifth-applicantName" class="form-control" required
+								placeholder="신청 담당자 이름">
 						</div>
 
 						<div class="input-style no-borders no-icon mb-4">
-							<input type="text" class="form-control" name="detailAddress" id="detailAddress"
-								placeholder="상세 주소를 작성 해 주세요.">
-							<input type="hidden" name="doName" id="doName">
-							<input type="hidden" name="siName" id="siName">
-							<input type="hidden" name="guName" id="guName">
-							<input type="hidden" name="zipCode" id="zipCode">
-							<label for="detailAddress" class="color-blue-dark">상세주소</label>
-							<em>(required)</em>
-						</div>
-
-						<div class="input-style no-borders no-icon mb-4">
-							<input type="text" id="onsiteContact" name="onsiteContact" class="form-control" required
-								placeholder="- 없이 숫자만 입력해 주세요. 예) 0311234567 / 01012345678" autocomplete="tel">
+							<input type="text" id="as-request-fifth-applicantPhone" class="form-control" required
+								placeholder="신청 담당자 연락처">
 						</div>
 					</div>
 
-					<!-- =========================
-					     2) 제품정보(개인정보 아래)
-					     ========================= -->
-					<div class="content">
-						<h2 class="mb-0">제품 정보</h2>
-						<p>제품 정보를 입력해 주세요.</p>
+					<div class="input-style no-borders no-icon mb-1">
+						<input type="email" id="as-request-fifth-applicantEmail" class="form-control"
+							placeholder="신청 담당자 이메일(선택)">
+					</div>
+				</div>
 
-						<div class="input-style has-borders no-icon mb-4">
-							<input type="text" id="productName" name="productName" class="form-control" required
-								placeholder="제품명을 입력해주세요.">
+				<div class="as-request-fifth-progress-card" id="as-request-fifth-progressCard">
+					<div class="font-700 color-dark" id="as-request-fifth-progressText">업로드 준비 중입니다.</div>
+					<div class="as-request-fifth-progress-bar-wrap">
+						<div class="as-request-fifth-progress-bar" id="as-request-fifth-progressBar"></div>
+					</div>
+				</div>
+
+				<div class="card card-style as-request-fifth-section-card">
+					<div class="as-request-fifth-section-head">
+						<div>
+							<h2>제품 정보 및 증상</h2>
+							<div class="as-request-fifth-section-desc">최대 3개 제품까지 한 번에 신청할 수 있습니다.</div>
 						</div>
-
-						<div class="input-style has-borders no-icon mb-4">
-							<input type="text" id="productSize" name="productSize" class="form-control" required
-								placeholder="사이즈를 입력 해 주세요. 예) 600x800">
-						</div>
-
-						<div class="input-style has-borders no-icon mb-4">
-							<input type="text" id="productColor" name="productColor" class="form-control" required
-								placeholder="색상을 입력 해 주세요. 예) 화이트">
-						</div>
-
-						<div class="input-style has-borders no-icon mb-4">
-							<input type="text" id="productOptions" name="productOptions" class="form-control" required
-								placeholder="옵션 여부를 입력 해 주세요. 예) LED, 손잡이 없음">
-						</div>
-
-						
+						<button type="button" class="as-request-fifth-btn-soft as-request-fifth-add-btn"
+							id="as-request-fifth-addProductBtnTop">
+							+ 제품추가
+						</button>
 					</div>
 
-					<!-- =========================
-					     3) AS 신청 증상 (2단계)
-					     ========================= -->
-					<div class="content">
-						<h2>AS 신청 증상</h2>
-						<p>카테고리를 먼저 선택하신 후, 증상을 선택해 주세요.</p>
+					<div id="as-request-fifth-productSections">
+						<div class="as-request-fifth-product-section as-request-fifth-mounted" data-section-index="1">
+							<div class="as-request-fifth-product-section-inner">
+								<div class="as-request-fifth-product-title">
+									<h3 class="as-request-fifth-product-title-text">제품 신청 1</h3>
+									<div class="as-request-fifth-product-actions">
+										<button type="button"
+											class="as-request-fifth-btn-soft as-request-fifth-btn-danger as-request-fifth-remove-section-btn"
+											style="display:none;">삭제</button>
+									</div>
+								</div>
+
+								<div class="as-request-fifth-grid-2">
+									<div class="input-style has-borders no-icon mb-4">
+										<input type="date" class="form-control as-request-fifth-purchaseDate">
+										<label class="color-blue-dark">구매일자</label>
+									</div>
+
+									<div class="mb-4">
+										<label class="color-blue-dark font-12 d-block mb-2">비용 청구 주체</label>
+										<div class="as-request-fifth-billing-wrap">
+											<label class="as-request-fifth-billing-item">
+												<input type="radio" value="CUSTOMER"
+													class="as-request-fifth-billingTarget">
+												<span>고객 청구</span>
+											</label>
+											<label class="as-request-fifth-billing-item">
+												<input type="radio" value="DEALER"
+													class="as-request-fifth-billingTarget">
+												<span>대리점 청구</span>
+											</label>
+										</div>
+									</div>
+								</div>
+
+								<div class="input-style has-borders no-icon mb-4">
+									<input type="text" class="form-control as-request-fifth-productName"
+										placeholder="제품명을 입력해 주세요.">
+								</div>
+
+								<div class="as-request-fifth-grid-2">
+									<div class="input-style has-borders no-icon mb-4">
+										<input type="text" class="form-control as-request-fifth-productSize"
+											placeholder="사이즈 예) 600x800">
+									</div>
+
+									<div class="input-style has-borders no-icon mb-4">
+										<input type="text" class="form-control as-request-fifth-productColor"
+											placeholder="색상 예) 화이트">
+									</div>
+								</div>
+
+								<div class="input-style has-borders no-icon mb-4">
+									<input type="text" class="form-control as-request-fifth-productOptions"
+										placeholder="옵션 예) LED, 손잡이 없음">
+								</div>
+
+								<div class="input-style has-borders no-icon mb-3">
+									<label class="color-blue-dark">카테고리</label>
+									<select class="as-request-fifth-subjectCategory">
+										<option value="" selected>== 카테고리 선택 ==</option>
+										<option value="상부장">상부장</option>
+										<option value="슬라이드장">슬라이드장</option>
+										<option value="플랩장">플랩장</option>
+										<option value="하부장">하부장</option>
+										<option value="거울">거울</option>
+									</select>
+									<span><i class="fa fa-chevron-down"></i></span>
+								</div>
+
+								<div class="input-style has-borders no-icon mb-4">
+									<label class="color-blue-dark">증상</label>
+									<select class="as-request-fifth-subject" disabled>
+										<option value="" selected>== 증상 선택 ==</option>
+									</select>
+									<span><i class="fa fa-chevron-down"></i></span>
+								</div>
+
+								<div class="input-style has-borders no-icon validate-field mb-4">
+									<textarea class="form-control as-request-fifth-reason"
+										placeholder="기타 필요하신 내용을 입력해 주세요."></textarea>
+									<label class="color-blue-dark">남김말</label>
+								</div>
+
+								<div class="as-request-fifth-attachment-box">
+									<input type="file" class="as-request-fifth-attachments-input"
+										accept="image/*,video/*" multiple hidden>
+									<button type="button" class="as-request-fifth-attachment-trigger">
+										사진 또는 동영상 첨부
+									</button>
+									<div class="as-request-fifth-attachment-help">
+										이미지 및 동영상 모두 첨부할 수 있습니다. 첨부 후 미리보기에서 삭제할 수 있습니다.
+									</div>
+									<div class="as-request-fifth-preview-list"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="as-request-fifth-bottom-actions">
+						<button type="button"
+							class="btn btn-full w-100 btn-m text-uppercase font-800 rounded-sm as-request-fifth-add-btn"
+							id="as-request-fifth-addProductBtnBottom">
+							+ 제품추가
+						</button>
+
+						<button type="submit" id="as-request-fifth-submitBtn"
+							class="btn btn-full w-100 btn-m text-uppercase font-800 rounded-sm as-request-fifth-submit-btn">
+							AS신청
+						</button>
+					</div>
+				</div>
+			</form>
+
+			<template id="as-request-fifth-productTemplate">
+				<div class="as-request-fifth-product-section" data-section-index="0">
+					<div class="as-request-fifth-product-section-inner">
+						<div class="as-request-fifth-product-title">
+							<h3 class="as-request-fifth-product-title-text">제품 신청</h3>
+							<div class="as-request-fifth-product-actions">
+								<button type="button"
+									class="as-request-fifth-btn-soft as-request-fifth-btn-danger as-request-fifth-remove-section-btn">삭제</button>
+							</div>
+						</div>
+
+						<div class="as-request-fifth-grid-2">
+							<div class="input-style has-borders no-icon mb-4">
+								<input type="date" class="form-control as-request-fifth-purchaseDate">
+								<label class="color-blue-dark">구매일자</label>
+							</div>
+
+							<div class="mb-4">
+								<label class="color-blue-dark font-12 d-block mb-2">비용 청구 주체</label>
+								<div class="as-request-fifth-billing-wrap">
+									<label class="as-request-fifth-billing-item">
+										<input type="radio" value="CUSTOMER" class="as-request-fifth-billingTarget">
+										<span>고객 청구</span>
+									</label>
+									<label class="as-request-fifth-billing-item">
+										<input type="radio" value="DEALER" class="as-request-fifth-billingTarget">
+										<span>대리점 청구</span>
+									</label>
+								</div>
+							</div>
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4">
+							<input type="text" class="form-control as-request-fifth-productName"
+								placeholder="제품명을 입력해 주세요.">
+						</div>
+
+						<div class="as-request-fifth-grid-2">
+							<div class="input-style has-borders no-icon mb-4">
+								<input type="text" class="form-control as-request-fifth-productSize"
+									placeholder="사이즈 예) 600x800">
+							</div>
+
+							<div class="input-style has-borders no-icon mb-4">
+								<input type="text" class="form-control as-request-fifth-productColor"
+									placeholder="색상 예) 화이트">
+							</div>
+						</div>
+
+						<div class="input-style has-borders no-icon mb-4">
+							<input type="text" class="form-control as-request-fifth-productOptions"
+								placeholder="옵션 예) LED, 손잡이 없음">
+						</div>
 
 						<div class="input-style has-borders no-icon mb-3">
-							<label for="subjectCategory" class="color-blue-dark">카테고리</label>
-							<select id="subjectCategory">
+							<label class="color-blue-dark">카테고리</label>
+							<select class="as-request-fifth-subjectCategory">
 								<option value="" selected>== 카테고리 선택 ==</option>
 								<option value="상부장">상부장</option>
 								<option value="슬라이드장">슬라이드장</option>
@@ -128,34 +298,33 @@
 						</div>
 
 						<div class="input-style has-borders no-icon mb-4">
-							<label for="subject" class="color-blue-dark">증상</label>
-							<!-- ✅ 실제 서버로 전송되는 필드: name="subject"
-							     ✅ value: "상부장 - 도어 파손" 형태로 세팅 -->
-							<select id="subject" name="subject" required disabled>
+							<label class="color-blue-dark">증상</label>
+							<select class="as-request-fifth-subject" disabled>
 								<option value="" selected>== 증상 선택 ==</option>
 							</select>
 							<span><i class="fa fa-chevron-down"></i></span>
-							<em></em>
-						</div>
-						<div class="input-style has-borders no-icon validate-field mb-4">
-							<textarea type="text" class="form-control" id="reason" name="reason"
-								placeholder="기타 필요하신 내용을 입력 해 주세요."></textarea>
-							<label for="reason" class="color-blue-dark">남김말</label>
-						</div>
-						<div class="file-data pb-1">
-							<input type="file" id="file-upload" name="imageFile" required
-								class="upload-file bg-highlight shadow-s rounded-s" accept="image/*" multiple>
-							<p id="custom-upload-button" class="upload-file-text color-white" style="cursor: pointer;">
-								사진 첨부
-							</p>
-							<div id="preview-list" class="mt-3 d-flex flex-wrap gap-2"></div>
 						</div>
 
-						<button id="orderConfirmButton"
-							class="btn btn-full w-100 btn-m text-uppercase font-800 rounded-sm">신청하기</button>
+						<div class="input-style has-borders no-icon validate-field mb-4">
+							<textarea class="form-control as-request-fifth-reason"
+								placeholder="기타 필요하신 내용을 입력해 주세요."></textarea>
+							<label class="color-blue-dark">남김말</label>
+						</div>
+
+						<div class="as-request-fifth-attachment-box">
+							<input type="file" class="as-request-fifth-attachments-input" accept="image/*,video/*"
+								multiple hidden>
+							<button type="button" class="as-request-fifth-attachment-trigger">
+								사진 또는 동영상 첨부
+							</button>
+							<div class="as-request-fifth-attachment-help">
+								이미지 및 동영상 모두 첨부할 수 있습니다. 첨부 후 미리보기에서 삭제할 수 있습니다.
+							</div>
+							<div class="as-request-fifth-preview-list"></div>
+						</div>
 					</div>
 				</div>
-			</form>
+			</template>
 		</div>
 
 		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
@@ -167,13 +336,19 @@
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 
 	<script th:inline="javascript">
-		const companyAddress = {
+		window.companyAddress = {
 			main: /*[[${mainAddress}]]*/ "",
 			detail: /*[[${detailAddress}]]*/ "",
 			doName: /*[[${doName}]]*/ "",
 			siName: /*[[${siName}]]*/ "",
 			guName: /*[[${guName}]]*/ "",
 			zipCode: /*[[${zipCode}]]*/ ""
+		};
+
+		window.loginMemberInfo = {
+			name: /*[[${memberName}]]*/ "",
+			phone: /*[[${memberPhone}]]*/ "",
+			email: /*[[${memberEmail}]]*/ ""
 		};
 	</script>
 

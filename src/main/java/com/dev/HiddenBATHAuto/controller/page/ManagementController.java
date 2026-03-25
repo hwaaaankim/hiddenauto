@@ -15,8 +15,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -74,6 +76,7 @@ import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionBulkSaveRequest;
+import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.District;
@@ -635,70 +638,6 @@ public class ManagementController {
 		return ResponseEntity.ok().build();
 	}
 
-	@GetMapping("/asList")
-	public String asList(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) Long handlerId, @RequestParam(required = false) AsStatus status,
-			@RequestParam(required = false) String dateType,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-
-			// ✅ 추가: 정렬 파라미터
-			@RequestParam(required = false) String sortField, @RequestParam(required = false) String sortDir,
-
-			// Pageable은 page/size를 자동 바인딩 받기 위해 유지
-			Pageable pageable, Model model) {
-		// 1) dateType 기본값 보정 (기존 유지)
-		String resolvedDateType = (dateType == null || dateType.isBlank()) ? "requested" : dateType;
-
-		// 2) 날짜 범위 변환 (기존 유지)
-		LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
-		LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
-
-		// 3) 정렬 + 페이지사이즈 반영 Pageable 생성
-		Pageable resolvedPageable = resolvePageable(pageable, resolvedDateType, sortField, sortDir);
-
-		// 4) 조회 (기존 유지)
-		Page<AsTask> asPage = asTaskService.getFilteredAsListPage(handlerId, status, resolvedDateType, start, end,
-				resolvedPageable);
-
-		// 5) 모델
-		model.addAttribute("asPage", asPage);
-		model.addAttribute("asHandlers", memberRepository.findByTeamName("AS팀"));
-		model.addAttribute("selectedHandlerId", handlerId);
-		model.addAttribute("selectedStatus", status);
-		model.addAttribute("selectedDateType", resolvedDateType);
-		model.addAttribute("selectedFromDate", fromDate);
-		model.addAttribute("selectedToDate", toDate);
-
-		// ✅ 추가: 화면 유지용
-		model.addAttribute("sortField", (sortField == null ? "" : sortField));
-		model.addAttribute("sortDir", (sortDir == null ? "" : sortDir));
-		model.addAttribute("pageSize", resolvedPageable.getPageSize());
-
-		return "administration/management/as/asList";
-	}
-
-	private Pageable resolvePageable(Pageable pageable, String dateType, String sortField, String sortDir) {
-
-		int page = pageable.getPageNumber();
-		int size = pageable.getPageSize();
-
-		String property = mapSortFieldToProperty(sortField);
-
-		// ✅ 사용자가 정렬을 선택한 경우만 적용
-		if (property != null) {
-			Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-
-			return PageRequest.of(page, size, Sort.by(direction, property));
-		}
-
-		// ✅ 기본 정렬: dateType 기준
-		if ("processed".equals(dateType)) {
-			return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "asProcessDate"));
-		}
-		return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "requestedAt"));
-	}
-
 	@GetMapping("/asDetail/{id}")
 	public String asDetail(@PathVariable Long id, Model model) {
 		AsTask asTask = asTaskService.getAsDetail(id);
@@ -706,109 +645,327 @@ public class ManagementController {
 		model.addAttribute("asTask", asTask);
 		model.addAttribute("asStatuses", AsStatus.values());
 		model.addAttribute("asTeamMembers", memberRepository.findByTeamName("AS팀"));
+		model.addAttribute("billingTargets", AsBillingTarget.values());
 
 		return "administration/management/as/asDetail";
 	}
+	
+	private static final Set<String> ALLOWED_KEYWORD_TYPES = Set.of(
+	        "all",
+	        "companyName",
+	        "requesterName",
+	        "customerName",
+	        "subject",
+	        "productName",
+	        "applicantName",
+	        "applicantPhone",
+	        "onsiteContact"
+	);
+
+	@GetMapping("/asList")
+	public String asList(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam(required = false) Long handlerId,
+	        @RequestParam(required = false) AsStatus status,
+	        @RequestParam(required = false) String dateType,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+
+	        @RequestParam(required = false) String priceFilter,
+	        @RequestParam(required = false) String paymentCollectedFilter,
+
+	        @RequestParam(required = false) String keywordType,
+	        @RequestParam(required = false) String keyword,
+
+	        @RequestParam(required = false) String sortField,
+	        @RequestParam(required = false) String sortDir,
+
+	        Pageable pageable,
+	        Model model
+	) {
+	    String resolvedDateType = (dateType == null || dateType.isBlank()) ? "requested" : dateType;
+
+	    LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
+	    LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
+
+	    String resolvedPriceFilter = normalizePriceFilter(priceFilter);
+	    Boolean resolvedPaymentCollected = normalizePaymentCollectedFilter(paymentCollectedFilter);
+	    String selectedPaymentCollectedFilter = resolvedPaymentCollected == null ? ""
+	            : (resolvedPaymentCollected ? "Y" : "N");
+
+	    String resolvedKeywordType = normalizeKeywordType(keywordType);
+	    String resolvedKeyword = normalizeKeyword(keyword);
+
+	    Pageable resolvedPageable = resolvePageable(pageable, resolvedDateType, sortField, sortDir);
+
+	    Page<AsTask> asPage = asTaskService.getFilteredAsListPage(
+	            handlerId,
+	            status,
+	            resolvedDateType,
+	            start,
+	            end,
+	            resolvedPriceFilter,
+	            resolvedPaymentCollected,
+	            resolvedKeywordType,
+	            resolvedKeyword,
+	            resolvedPageable
+	    );
+
+	    model.addAttribute("asPage", asPage);
+	    model.addAttribute("asHandlers", memberRepository.findByTeamName("AS팀"));
+	    model.addAttribute("selectedHandlerId", handlerId);
+	    model.addAttribute("selectedStatus", status);
+	    model.addAttribute("selectedDateType", resolvedDateType);
+	    model.addAttribute("selectedFromDate", fromDate);
+	    model.addAttribute("selectedToDate", toDate);
+	    model.addAttribute("selectedPriceFilter", resolvedPriceFilter == null ? "" : resolvedPriceFilter);
+	    model.addAttribute("selectedPaymentCollectedFilter", selectedPaymentCollectedFilter);
+	    model.addAttribute("selectedKeywordType", resolvedKeywordType);
+	    model.addAttribute("selectedKeyword", resolvedKeyword == null ? "" : resolvedKeyword);
+	    model.addAttribute("sortField", (sortField == null ? "" : sortField));
+	    model.addAttribute("sortDir", (sortDir == null ? "" : sortDir));
+	    model.addAttribute("pageSize", resolvedPageable.getPageSize());
+
+	    return "administration/management/as/asList";
+	}
 
 	@GetMapping("/asList/excel")
-	public void downloadAsListExcel(@RequestParam(required = false) Long handlerId,
-			@RequestParam(required = false) AsStatus status, @RequestParam(required = false) String dateType,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-			HttpServletResponse response) throws IOException {
+	public void downloadAsListExcel(
+	        @RequestParam(required = false) Long handlerId,
+	        @RequestParam(required = false) AsStatus status,
+	        @RequestParam(required = false) String dateType,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
 
-		// 1) dateType 기본값 보정
-		String resolvedDateType = (dateType == null || dateType.isBlank()) ? "requested" : dateType;
+	        @RequestParam(required = false) String priceFilter,
+	        @RequestParam(required = false) String paymentCollectedFilter,
 
-		// 2) 날짜 범위 변환
-		LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
-		LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
+	        @RequestParam(required = false) String keywordType,
+	        @RequestParam(required = false) String keyword,
 
-		// 3) ✅ 엑셀은 페이지네이션 없이 "검색 결과 전체" 조회
-		List<AsTask> asTasks = asTaskService.getFilteredAsListAll(handlerId, status, resolvedDateType, start, end);
+	        @RequestParam(required = false) String sortField,
+	        @RequestParam(required = false) String sortDir,
 
-		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-		response.setHeader("Content-Disposition", "attachment; filename=as_task_list.xlsx");
+	        HttpServletResponse response
+	) throws IOException {
 
-		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+	    String resolvedDateType = (dateType == null || dateType.isBlank()) ? "requested" : dateType;
 
-		try (Workbook workbook = new XSSFWorkbook()) {
-			Sheet sheet = workbook.createSheet("AS 목록");
+	    LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
+	    LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
 
-			// 스타일
-			CellStyle headerStyle = workbook.createCellStyle();
-			Font boldFont = workbook.createFont();
-			boldFont.setBold(true);
-			headerStyle.setFont(boldFont);
-			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-			headerStyle.setBorderTop(BorderStyle.THIN);
-			headerStyle.setBorderBottom(BorderStyle.THIN);
-			headerStyle.setBorderLeft(BorderStyle.THIN);
-			headerStyle.setBorderRight(BorderStyle.THIN);
+	    String resolvedPriceFilter = normalizePriceFilter(priceFilter);
+	    Boolean resolvedPaymentCollected = normalizePaymentCollectedFilter(paymentCollectedFilter);
+	    String resolvedKeywordType = normalizeKeywordType(keywordType);
+	    String resolvedKeyword = normalizeKeyword(keyword);
 
-			CellStyle borderedStyle = workbook.createCellStyle();
-			borderedStyle.setBorderTop(BorderStyle.THIN);
-			borderedStyle.setBorderBottom(BorderStyle.THIN);
-			borderedStyle.setBorderLeft(BorderStyle.THIN);
-			borderedStyle.setBorderRight(BorderStyle.THIN);
+	    Sort resolvedSort = resolveSortOnly(resolvedDateType, sortField, sortDir);
 
-			CellStyle wrapStyle = workbook.createCellStyle();
-			wrapStyle.cloneStyleFrom(borderedStyle);
-			wrapStyle.setWrapText(true);
+	    List<AsTask> asTasks = asTaskService.getFilteredAsListAll(
+	            handlerId,
+	            status,
+	            resolvedDateType,
+	            start,
+	            end,
+	            resolvedPriceFilter,
+	            resolvedPaymentCollected,
+	            resolvedKeywordType,
+	            resolvedKeyword,
+	            resolvedSort
+	    );
 
-			// 헤더
-			Row header = sheet.createRow(0);
-			String[] titles = { "대리점명", "요청자", "제목", "요청일", "상태", "배정팀", "담당자", "주소", "요청사유", "금액", "비고" };
-			for (int i = 0; i < titles.length; i++) {
-				Cell cell = header.createCell(i);
-				cell.setCellValue(titles[i]);
-				cell.setCellStyle(headerStyle);
-				sheet.setColumnWidth(i, (i == 7 || i == 8 || i == 10) ? 10000 : 5000);
-			}
+	    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+	    response.setHeader("Content-Disposition", "attachment; filename=as_task_list.xlsx");
 
-			// 데이터
-			int rowIdx = 1;
-			for (AsTask task : asTasks) {
-				Row row = sheet.createRow(rowIdx++);
-				row.setHeightInPoints(60);
+	    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-				String companyName = "-";
-				if (task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null) {
-					companyName = safe(task.getRequestedBy().getCompany().getCompanyName());
-				}
+	    try (Workbook workbook = new XSSFWorkbook()) {
+	        Sheet sheet = workbook.createSheet("AS 목록");
 
-				String requesterName = (task.getRequestedBy() != null) ? safe(task.getRequestedBy().getName()) : "-";
-				String subject = safe(task.getSubject());
+	        CellStyle headerStyle = workbook.createCellStyle();
+	        Font boldFont = workbook.createFont();
+	        boldFont.setBold(true);
+	        headerStyle.setFont(boldFont);
+	        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+	        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+	        headerStyle.setBorderTop(BorderStyle.THIN);
+	        headerStyle.setBorderBottom(BorderStyle.THIN);
+	        headerStyle.setBorderLeft(BorderStyle.THIN);
+	        headerStyle.setBorderRight(BorderStyle.THIN);
 
-				String requestedAt = (task.getRequestedAt() != null) ? task.getRequestedAt().format(dtf) : "";
-				String st = (task.getStatus() != null) ? task.getStatus().name() : "";
+	        CellStyle borderedStyle = workbook.createCellStyle();
+	        borderedStyle.setBorderTop(BorderStyle.THIN);
+	        borderedStyle.setBorderBottom(BorderStyle.THIN);
+	        borderedStyle.setBorderLeft(BorderStyle.THIN);
+	        borderedStyle.setBorderRight(BorderStyle.THIN);
 
-				String assignedTeam = (task.getAssignedTeam() != null) ? safe(task.getAssignedTeam().getName()) : "";
-				String handlerName = (task.getAssignedHandler() != null) ? safe(task.getAssignedHandler().getName())
-						: "";
+	        CellStyle wrapStyle = workbook.createCellStyle();
+	        wrapStyle.cloneStyleFrom(borderedStyle);
+	        wrapStyle.setWrapText(true);
 
-				String address = (safe(task.getRoadAddress()) + " " + safe(task.getDetailAddress())).trim();
-				String reason = safe(task.getReason());
-				String price = String.valueOf(task.getPrice());
-				String comment = safe(task.getAsComment());
+	        Row header = sheet.createRow(0);
 
-				createCell(row, 0, companyName, borderedStyle);
-				createCell(row, 1, requesterName, borderedStyle);
-				createCell(row, 2, subject, borderedStyle);
-				createCell(row, 3, requestedAt, borderedStyle);
-				createCell(row, 4, st, borderedStyle);
-				createCell(row, 5, assignedTeam, borderedStyle);
-				createCell(row, 6, handlerName, borderedStyle);
-				createCell(row, 7, address, wrapStyle);
-				createCell(row, 8, reason, wrapStyle);
-				createCell(row, 9, price, borderedStyle);
-				createCell(row, 10, comment, wrapStyle);
-			}
+	        String[] titles = {
+	                "대리점명",
+	                "요청자",
+	                "고객성함",
+	                "제목",
+	                "제품명",
+	                "신청인",
+	                "신청인연락처",
+	                "현장연락처",
+	                "요청일",
+	                "처리일",
+	                "상태",
+	                "배정팀",
+	                "담당자",
+	                "주소",
+	                "요청사유",
+	                "금액",
+	                "수납상태",
+	                "비고"
+	        };
 
-			workbook.write(response.getOutputStream());
-		}
+	        for (int i = 0; i < titles.length; i++) {
+	            Cell cell = header.createCell(i);
+	            cell.setCellValue(titles[i]);
+	            cell.setCellStyle(headerStyle);
+
+	            if (i == 3 || i == 4 || i == 13 || i == 14 || i == 17) {
+	                sheet.setColumnWidth(i, 10000);
+	            } else if (i == 6 || i == 7) {
+	                sheet.setColumnWidth(i, 6000);
+	            } else {
+	                sheet.setColumnWidth(i, 5000);
+	            }
+	        }
+
+	        int rowIdx = 1;
+	        for (AsTask task : asTasks) {
+	            Row row = sheet.createRow(rowIdx++);
+	            row.setHeightInPoints(60);
+
+	            String companyName = "-";
+	            if (task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null) {
+	                companyName = safe(task.getRequestedBy().getCompany().getCompanyName());
+	            }
+
+	            String requesterName = (task.getRequestedBy() != null) ? safe(task.getRequestedBy().getName()) : "-";
+	            String customerName = task.getCustomerNameSafe();
+	            String subject = task.getSubjectSafe();
+	            String productName = task.getProductNameSafe();
+	            String applicantName = task.getApplicantNameSafe();
+	            String applicantPhone = task.getApplicantPhoneSafe();
+	            String onsiteContact = task.getOnsiteContactSafe();
+	            String requestedAt = (task.getRequestedAt() != null) ? task.getRequestedAt().format(dtf) : "";
+	            String processedAt = (task.getAsProcessDate() != null) ? task.getAsProcessDate().format(dtf) : "";
+	            String st = (task.getStatus() != null) ? task.getStatus().name() : "";
+	            String assignedTeam = (task.getAssignedTeam() != null) ? safe(task.getAssignedTeam().getName()) : "";
+	            String handlerName = (task.getAssignedHandler() != null) ? safe(task.getAssignedHandler().getName()) : "";
+	            String address = (safe(task.getRoadAddress()) + " " + safe(task.getDetailAddress())).trim();
+	            String reason = safe(task.getReason());
+	            String price = (task.getPrice() > 0) ? String.format("%,d", task.getPrice()) : "0";
+	            String paymentCollected = task.isPaymentCollected() ? "수납완료" : "미수납";
+	            String comment = safe(task.getAsComment());
+
+	            createCell(row, 0, companyName, borderedStyle);
+	            createCell(row, 1, requesterName, borderedStyle);
+	            createCell(row, 2, customerName, borderedStyle);
+	            createCell(row, 3, subject, wrapStyle);
+	            createCell(row, 4, productName, wrapStyle);
+	            createCell(row, 5, applicantName, borderedStyle);
+	            createCell(row, 6, applicantPhone, borderedStyle);
+	            createCell(row, 7, onsiteContact, borderedStyle);
+	            createCell(row, 8, requestedAt, borderedStyle);
+	            createCell(row, 9, processedAt, borderedStyle);
+	            createCell(row, 10, st, borderedStyle);
+	            createCell(row, 11, assignedTeam, borderedStyle);
+	            createCell(row, 12, handlerName, borderedStyle);
+	            createCell(row, 13, address, wrapStyle);
+	            createCell(row, 14, reason, wrapStyle);
+	            createCell(row, 15, price, borderedStyle);
+	            createCell(row, 16, paymentCollected, borderedStyle);
+	            createCell(row, 17, comment, wrapStyle);
+	        }
+
+	        workbook.write(response.getOutputStream());
+	    }
 	}
+
+	private String normalizeKeyword(String keyword) {
+	    if (keyword == null) {
+	        return null;
+	    }
+
+	    String normalized = keyword.trim();
+	    return normalized.isEmpty() ? null : normalized;
+	}
+
+	private String normalizeKeywordType(String keywordType) {
+	    if (keywordType == null || keywordType.isBlank()) {
+	        return "all";
+	    }
+
+	    String normalized = keywordType.trim();
+	    return ALLOWED_KEYWORD_TYPES.contains(normalized) ? normalized : "all";
+	}
+
+	private String normalizePriceFilter(String priceFilter) {
+		if (priceFilter == null || priceFilter.isBlank()) {
+			return null;
+		}
+
+		String normalized = priceFilter.trim().toUpperCase(Locale.ROOT);
+
+		if ("ZERO".equals(normalized)) {
+			return "ZERO"; // 비용 0
+		}
+		if ("POSITIVE".equals(normalized)) {
+			return "POSITIVE"; // 비용 0 초과
+		}
+
+		return null;
+	}
+
+	private Boolean normalizePaymentCollectedFilter(String paymentCollectedFilter) {
+		if (paymentCollectedFilter == null || paymentCollectedFilter.isBlank()) {
+			return null;
+		}
+
+		String normalized = paymentCollectedFilter.trim().toUpperCase(Locale.ROOT);
+
+		if ("Y".equals(normalized)) {
+			return Boolean.TRUE;
+		}
+		if ("N".equals(normalized)) {
+			return Boolean.FALSE;
+		}
+
+		return null;
+	}
+
+	private Pageable resolvePageable(Pageable pageable, String dateType, String sortField, String sortDir) {
+		int page = pageable.getPageNumber();
+		int size = pageable.getPageSize();
+
+		String property = mapSortFieldToProperty(sortField);
+
+		// ✅ 사용자가 정렬 선택한 경우
+		if (property != null) {
+			Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+			return PageRequest.of(page, size, Sort.by(direction, property));
+		}
+
+		// ✅ 기본 정렬
+		if ("processed".equals(dateType)) {
+			return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "asProcessDate"));
+		}
+		return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "requestedAt"));
+	}
+
+	
+
 
 	private void createCell(Row row, int col, String value, CellStyle style) {
 		Cell c = row.createCell(col);
@@ -818,6 +975,21 @@ public class ManagementController {
 
 	private String safe(String v) {
 		return (v == null) ? "" : v;
+	}
+
+	private Sort resolveSortOnly(String dateType, String sortField, String sortDir) {
+		String property = mapSortFieldToProperty(sortField);
+
+		if (property != null) {
+			Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+			return Sort.by(direction, property);
+		}
+
+		if ("processed".equals(dateType)) {
+			return Sort.by(Sort.Direction.DESC, "asProcessDate");
+		}
+		return Sort.by(Sort.Direction.DESC, "requestedAt");
 	}
 
 	// =========================================================
@@ -836,62 +1008,48 @@ public class ManagementController {
 	@PostMapping(value = "/asUpdate/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public String updateAsTask(@PathVariable Long id,
 
-	        @RequestParam(required = false) String price,
-	        @RequestParam(required = false) String status,
-	        @RequestParam(required = false) Long assignedHandlerId,
+			@RequestParam(required = false) String price, @RequestParam(required = false) String status,
+			@RequestParam(required = false) Long assignedHandlerId,
 
-	        @RequestParam(required = false) Long companyId,
+			@RequestParam(required = false) Long companyId,
 
-	        @RequestParam(required = false) String zipCode,
-	        @RequestParam(required = false) String doName,
-	        @RequestParam(required = false) String siName,
-	        @RequestParam(required = false) String guName,
-	        @RequestParam(required = false) String roadAddress,
-	        @RequestParam(required = false) String detailAddress,
+			@RequestParam(required = false) String zipCode, @RequestParam(required = false) String doName,
+			@RequestParam(required = false) String siName, @RequestParam(required = false) String guName,
+			@RequestParam(required = false) String roadAddress, @RequestParam(required = false) String detailAddress,
 
-	        @RequestParam(required = false) String customerName,
-	        @RequestParam(required = false) String productName,
-	        @RequestParam(required = false) String productSize,
-	        @RequestParam(required = false) String productColor,
-	        @RequestParam(required = false) String productOptions,
-	        @RequestParam(required = false) String onsiteContact,
+			@RequestParam(required = false) String customerName, @RequestParam(required = false) String productName,
+			@RequestParam(required = false) String productSize, @RequestParam(required = false) String productColor,
+			@RequestParam(required = false) String productOptions, @RequestParam(required = false) String onsiteContact,
 
-	        @RequestParam(required = false) String subject,
+			@RequestParam(required = false) String applicantName, @RequestParam(required = false) String applicantPhone,
+			@RequestParam(required = false) String applicantEmail, @RequestParam(required = false) String purchaseDate,
+			@RequestParam(required = false) String billingTarget,
 
-	        @RequestParam(required = false) String adminMemo,
+			@RequestParam(required = false, defaultValue = "false") Boolean paymentCollected,
 
-	        @RequestParam(required = false) String deleteRequestImageIds,
-	        @RequestParam(value = "newRequestImages", required = false) List<MultipartFile> newRequestImages) {
+			@RequestParam(required = false) String subject, @RequestParam(required = false) String adminMemo,
 
-	    asTaskService.updateAsTaskThird(
-	            id,
-	            price,
-	            status,
-	            assignedHandlerId,
+			@RequestParam(required = false) String deleteRequestImageIds,
+			@RequestParam(value = "newRequestImages", required = false) List<MultipartFile> newRequestImages,
 
-	            companyId,
+			@RequestParam(required = false) String deleteRequestVideoIds,
+			@RequestParam(value = "newRequestVideos", required = false) List<MultipartFile> newRequestVideos) {
 
-	            zipCode,
-	            doName,
-	            siName,
-	            guName,
-	            roadAddress,
-	            detailAddress,
-	            customerName,
-	            productName,
-	            productSize,
-	            productColor,
-	            productOptions,
-	            onsiteContact,
+		asTaskService.updateAsTaskThird(id, price, status, assignedHandlerId,
 
-	            subject,
-	            adminMemo,
+				companyId,
 
-	            deleteRequestImageIds,
-	            newRequestImages
-	    );
+				zipCode, doName, siName, guName, roadAddress, detailAddress,
 
-	    return "redirect:/management/asDetail/" + id;
+				customerName, productName, productSize, productColor, productOptions, onsiteContact,
+
+				applicantName, applicantPhone, applicantEmail, purchaseDate, billingTarget, paymentCollected,
+
+				subject, adminMemo,
+
+				deleteRequestImageIds, newRequestImages, deleteRequestVideoIds, newRequestVideos);
+
+		return "redirect:/management/asDetail/" + id;
 	}
 
 	// =========================================================
@@ -1287,20 +1445,6 @@ public class ManagementController {
 		style.setBorderBottom(BorderStyle.THIN);
 		style.setBorderLeft(BorderStyle.THIN);
 		style.setBorderRight(BorderStyle.THIN);
-	}
-
-	// =========================
-	// Helper
-	// =========================
-
-	private static class StatusNormalizeResult {
-		final OrderStatus parsedStatus; // null이면 "전체"
-		final String statusParam; // 화면/링크 유지용(전체면 "")
-
-		StatusNormalizeResult(OrderStatus parsedStatus, String statusParam) {
-			this.parsedStatus = parsedStatus;
-			this.statusParam = statusParam;
-		}
 	}
 
 	@GetMapping("/productionDetail/{id}")
@@ -1747,59 +1891,54 @@ public class ManagementController {
 	}
 
 	@GetMapping("/clientDetail/{id}")
-    public String clientDetail(@PathVariable Long id, Model model) {
-        Company company = companyRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("해당 대리점이 존재하지 않습니다. ID=" + id));
+	public String clientDetail(@PathVariable Long id, Model model) {
+		Company company = companyRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("해당 대리점이 존재하지 않습니다. ID=" + id));
 
-        List<Member> memberList = memberRepository.findByCompany(company);
+		List<Member> memberList = memberRepository.findByCompany(company);
 
-        Member representative = memberList.stream()
-                .filter(member -> member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
-                .min(Comparator.comparing(Member::getId))
-                .orElse(null);
+		Member representative = memberList.stream()
+				.filter(member -> member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
+				.min(Comparator.comparing(Member::getId)).orElse(null);
 
-        model.addAttribute("company", company);
-        model.addAttribute("members", memberList);
-        model.addAttribute("representative", representative);
+		model.addAttribute("company", company);
+		model.addAttribute("members", memberList);
+		model.addAttribute("representative", representative);
 
-        return "administration/member/client/clientDetail";
-    }
+		return "administration/member/client/clientDetail";
+	}
 
-    @PostMapping(value = "/clientDetail/{id}/updateCompany", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseBody
-    public ResponseEntity<AdminClientApiResponse> updateCompany(
-            @PathVariable Long id,
-            @ModelAttribute AdminClientCompanyUpdateRequest request
-    ) {
-        try {
-            adminClientDetailService.updateCompany(id, request);
-            return ResponseEntity.ok(new AdminClientApiResponse(true, "회사정보가 수정되었습니다."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new AdminClientApiResponse(false, e.getMessage()));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new AdminClientApiResponse(false, "회사정보 수정 중 오류가 발생했습니다."));
-        }
-    }
+	@PostMapping(value = "/clientDetail/{id}/updateCompany", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@ResponseBody
+	public ResponseEntity<AdminClientApiResponse> updateCompany(@PathVariable Long id,
+			@ModelAttribute AdminClientCompanyUpdateRequest request) {
+		try {
+			adminClientDetailService.updateCompany(id, request);
+			return ResponseEntity.ok(new AdminClientApiResponse(true, "회사정보가 수정되었습니다."));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(new AdminClientApiResponse(false, e.getMessage()));
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(new AdminClientApiResponse(false, "회사정보 수정 중 오류가 발생했습니다."));
+		}
+	}
 
-    @PostMapping("/member/{memberId}/updateInfo")
-    @ResponseBody
-    public ResponseEntity<AdminClientApiResponse> updateMemberInfo(
-            @PathVariable Long memberId,
-            @RequestBody AdminClientMemberUpdateRequest request
-    ) {
-        try {
-            adminClientDetailService.updateMemberInfo(memberId, request);
-            return ResponseEntity.ok(new AdminClientApiResponse(true, "고객정보가 수정되었습니다."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new AdminClientApiResponse(false, e.getMessage()));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new AdminClientApiResponse(false, "고객정보 수정 중 오류가 발생했습니다."));
-        }
-    }
+	@PostMapping("/member/{memberId}/updateInfo")
+	@ResponseBody
+	public ResponseEntity<AdminClientApiResponse> updateMemberInfo(@PathVariable Long memberId,
+			@RequestBody AdminClientMemberUpdateRequest request) {
+		try {
+			adminClientDetailService.updateMemberInfo(memberId, request);
+			return ResponseEntity.ok(new AdminClientApiResponse(true, "고객정보가 수정되었습니다."));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(new AdminClientApiResponse(false, e.getMessage()));
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(new AdminClientApiResponse(false, "고객정보 수정 중 오류가 발생했습니다."));
+		}
+	}
 
 	// =========================================================
 	// ✅ 추가 API 1) 멤버 비밀번호 초기화 + SMS 발송

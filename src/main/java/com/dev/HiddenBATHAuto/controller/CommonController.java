@@ -47,8 +47,15 @@ public class CommonController {
 	}
 	
 	@GetMapping("/loginForm")
-	public String loginForm() {
-
+    public String loginForm(
+            @RequestParam(value = "error", required = false) String error,
+            @RequestParam(value = "message", required = false) String message,
+            @RequestParam(value = "username", required = false) String username,
+            Model model
+    ) {
+        model.addAttribute("loginError", error != null);
+        model.addAttribute("loginErrorMessage", message);
+        model.addAttribute("loginUsername", username);
 		return "front/common/signIn";
 	}
 
