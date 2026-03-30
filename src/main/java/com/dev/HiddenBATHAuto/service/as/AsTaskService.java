@@ -91,12 +91,11 @@ public class AsTaskService {
 
 	@Value("${spring.upload.path}")
 	private String uploadPath;
-
+	
+	private static final Long AS_TEAM_ID = 4L;
 	private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 	private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-
 	private static final String AS_TEAM_NAME = "AS팀";
-
 	private static final String REQUEST_TYPE = "REQUEST";
 	private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
 
@@ -369,301 +368,162 @@ public class AsTaskService {
 		return digits.substring(0, 3) + "-" + digits.substring(3);
 	}
 
-	public Page<AsTask> getFilteredAsListPage(
-	        Long handlerId,
-	        AsStatus status,
-	        String dateType,
-	        LocalDateTime start,
-	        LocalDateTime end,
-	        String priceFilter,
-	        Boolean paymentCollected,
-	        String keywordType,
-	        String keyword,
-	        Pageable pageable
-	) {
-	    if ("processed".equals(dateType)) {
-	        return asTaskRepository.findByProcessedDateRangePage(
-	                handlerId,
-	                status,
-	                start,
-	                end,
-	                priceFilter,
-	                paymentCollected,
-	                keywordType,
-	                keyword,
-	                pageable
-	        );
-	    }
+	public Page<AsTask> getFilteredAsListPage(Long handlerId, AsStatus status, String dateType, LocalDateTime start,
+			LocalDateTime end, String priceFilter, Boolean paymentCollected, String keywordType, String keyword,
+			Pageable pageable) {
+		if ("processed".equals(dateType)) {
+			return asTaskRepository.findByProcessedDateRangePage(handlerId, status, start, end, priceFilter,
+					paymentCollected, keywordType, keyword, pageable);
+		}
 
-	    return asTaskRepository.findByRequestedDateRangePage(
-	            handlerId,
-	            status,
-	            start,
-	            end,
-	            priceFilter,
-	            paymentCollected,
-	            keywordType,
-	            keyword,
-	            pageable
-	    );
+		return asTaskRepository.findByRequestedDateRangePage(handlerId, status, start, end, priceFilter,
+				paymentCollected, keywordType, keyword, pageable);
 	}
 
-	public List<AsTask> getFilteredAsListAll(
-	        Long handlerId,
-	        AsStatus status,
-	        String dateType,
-	        LocalDateTime start,
-	        LocalDateTime end,
-	        String priceFilter,
-	        Boolean paymentCollected,
-	        String keywordType,
-	        String keyword,
-	        Sort sort
-	) {
-	    if ("processed".equals(dateType)) {
-	        return asTaskRepository.findByProcessedDateRangeAll(
-	                handlerId,
-	                status,
-	                start,
-	                end,
-	                priceFilter,
-	                paymentCollected,
-	                keywordType,
-	                keyword,
-	                sort
-	        );
-	    }
+	public List<AsTask> getFilteredAsListAll(Long handlerId, AsStatus status, String dateType, LocalDateTime start,
+			LocalDateTime end, String priceFilter, Boolean paymentCollected, String keywordType, String keyword,
+			Sort sort) {
+		if ("processed".equals(dateType)) {
+			return asTaskRepository.findByProcessedDateRangeAll(handlerId, status, start, end, priceFilter,
+					paymentCollected, keywordType, keyword, sort);
+		}
 
-	    return asTaskRepository.findByRequestedDateRangeAll(
-	            handlerId,
-	            status,
-	            start,
-	            end,
-	            priceFilter,
-	            paymentCollected,
-	            keywordType,
-	            keyword,
-	            sort
-	    );
+		return asTaskRepository.findByRequestedDateRangeAll(handlerId, status, start, end, priceFilter,
+				paymentCollected, keywordType, keyword, sort);
 	}
 
-	public List<AsTask> getFilteredAsListAll(
-	        Long handlerId,
-	        AsStatus status,
-	        String dateType,
-	        LocalDateTime start,
-	        LocalDateTime end,
-	        String priceFilter,
-	        Boolean paymentCollected,
-	        Sort sort
-	) {
-	    if ("processed".equals(dateType)) {
-	        return asTaskRepository.findByProcessedDateRangeAll(
-	                handlerId,
-	                status,
-	                start,
-	                end,
-	                priceFilter,
-	                paymentCollected,
-	                sort
-	        );
-	    }
+	public List<AsTask> getFilteredAsListAll(Long handlerId, AsStatus status, String dateType, LocalDateTime start,
+			LocalDateTime end, String priceFilter, Boolean paymentCollected, Sort sort) {
+		if ("processed".equals(dateType)) {
+			return asTaskRepository.findByProcessedDateRangeAll(handlerId, status, start, end, priceFilter,
+					paymentCollected, sort);
+		}
 
-	    return asTaskRepository.findByRequestedDateRangeAll(
-	            handlerId,
-	            status,
-	            start,
-	            end,
-	            priceFilter,
-	            paymentCollected,
-	            sort
-	    );
+		return asTaskRepository.findByRequestedDateRangeAll(handlerId, status, start, end, priceFilter,
+				paymentCollected, sort);
 	}
 
 	@Transactional(readOnly = true)
 	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
-	        AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId,
-	        String visitTimeSort, String scheduledDateSort, Pageable pageable) {
+			AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId, String visitTimeSort,
+			String scheduledDateSort, Pageable pageable) {
 
-	    return getAsTasks(
-	            handler,
-	            dateType,
-	            start,
-	            end,
-	            status,
-	            companyKeyword,
-	            provinceId,
-	            cityId,
-	            districtId,
-	            visitTimeSort,
-	            scheduledDateSort,
-	            null,
-	            pageable
-	    );
-	}
-	
-	@Transactional(readOnly = true)
-	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
-	        AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId,
-	        String visitTimeSort, Pageable pageable) {
-
-	    return getAsTasks(
-	            handler,
-	            dateType,
-	            start,
-	            end,
-	            status,
-	            companyKeyword,
-	            provinceId,
-	            cityId,
-	            districtId,
-	            visitTimeSort,
-	            null,
-	            null,
-	            pageable
-	    );
+		return getAsTasks(handler, dateType, start, end, status, companyKeyword, provinceId, cityId, districtId,
+				visitTimeSort, scheduledDateSort, null, pageable);
 	}
 
 	@Transactional(readOnly = true)
 	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
-	        AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId,
-	        String visitTimeSort, String scheduledDateSort, String addressSort, Pageable pageable) {
+			AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId, String visitTimeSort,
+			Pageable pageable) {
 
-	    String normalizedCompanyKeyword = normalizeBlankToNull(companyKeyword);
-	    String normalizedVisitTimeSort = normalizeVisitTimeSort(visitTimeSort);
-	    String normalizedScheduledDateSort = normalizeScheduledDateSort(scheduledDateSort);
-	    String normalizedAddressSort = normalizeAddressSort(addressSort);
-
-	    String provinceName = regionLookupService.getProvinceName(provinceId);
-	    String cityName = regionLookupService.getCityName(cityId);
-	    String districtName = regionLookupService.getDistrictName(districtId);
-
-	    List<String> provinceNames = regionLookupService.getProvinceAliases(provinceName);
-
-	    if (provinceNames != null && provinceNames.isEmpty()) {
-	        provinceNames = null;
-	    }
-
-	    if ("scheduled".equalsIgnoreCase(dateType)) {
-	        LocalDate startDate = (start != null) ? start.toLocalDate() : null;
-	        LocalDate endDate = (end != null) ? end.toLocalDate() : null;
-
-	        return asTaskRepository.findByScheduledDateFlexible(
-	                handler.getId(),
-	                status,
-	                startDate,
-	                endDate,
-	                normalizedCompanyKeyword,
-	                provinceNames,
-	                cityName,
-	                districtName,
-	                normalizedVisitTimeSort,
-	                normalizedScheduledDateSort,
-	                normalizedAddressSort,
-	                pageable
-	        );
-	    }
-
-	    if ("requested".equalsIgnoreCase(dateType)) {
-	        return asTaskRepository.findByRequestedDateFlexible(
-	                handler.getId(),
-	                status,
-	                start,
-	                end,
-	                normalizedCompanyKeyword,
-	                provinceNames,
-	                cityName,
-	                districtName,
-	                normalizedVisitTimeSort,
-	                normalizedAddressSort,
-	                pageable
-	        );
-	    }
-
-	    return asTaskRepository.findByProcessedDateFlexible(
-	            handler.getId(),
-	            status,
-	            start,
-	            end,
-	            normalizedCompanyKeyword,
-	            provinceNames,
-	            cityName,
-	            districtName,
-	            normalizedVisitTimeSort,
-	            normalizedAddressSort,
-	            pageable
-	    );
+		return getAsTasks(handler, dateType, start, end, status, companyKeyword, provinceId, cityId, districtId,
+				visitTimeSort, null, null, pageable);
 	}
-	
+
+	@Transactional(readOnly = true)
+	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
+			AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId, String visitTimeSort,
+			String scheduledDateSort, String addressSort, Pageable pageable) {
+
+		String normalizedCompanyKeyword = normalizeBlankToNull(companyKeyword);
+		String normalizedVisitTimeSort = normalizeVisitTimeSort(visitTimeSort);
+		String normalizedScheduledDateSort = normalizeScheduledDateSort(scheduledDateSort);
+		String normalizedAddressSort = normalizeAddressSort(addressSort);
+
+		String provinceName = regionLookupService.getProvinceName(provinceId);
+		String cityName = regionLookupService.getCityName(cityId);
+		String districtName = regionLookupService.getDistrictName(districtId);
+
+		List<String> provinceNames = regionLookupService.getProvinceAliases(provinceName);
+
+		if (provinceNames != null && provinceNames.isEmpty()) {
+			provinceNames = null;
+		}
+
+		if ("scheduled".equalsIgnoreCase(dateType)) {
+			LocalDate startDate = (start != null) ? start.toLocalDate() : null;
+			LocalDate endDate = (end != null) ? end.toLocalDate() : null;
+
+			return asTaskRepository.findByScheduledDateFlexible(handler.getId(), status, startDate, endDate,
+					normalizedCompanyKeyword, provinceNames, cityName, districtName, normalizedVisitTimeSort,
+					normalizedScheduledDateSort, normalizedAddressSort, pageable);
+		}
+
+		if ("requested".equalsIgnoreCase(dateType)) {
+			return asTaskRepository.findByRequestedDateFlexible(handler.getId(), status, start, end,
+					normalizedCompanyKeyword, provinceNames, cityName, districtName, normalizedVisitTimeSort,
+					normalizedAddressSort, pageable);
+		}
+
+		return asTaskRepository.findByProcessedDateFlexible(handler.getId(), status, start, end,
+				normalizedCompanyKeyword, provinceNames, cityName, districtName, normalizedVisitTimeSort,
+				normalizedAddressSort, pageable);
+	}
+
 	private String normalizeAddressSort(String raw) {
-	    if (!StringUtils.hasText(raw)) {
-	        return null;
-	    }
+		if (!StringUtils.hasText(raw)) {
+			return null;
+		}
 
-	    String normalized = raw.trim().toLowerCase(Locale.ROOT);
-	    if (!"asc".equals(normalized) && !"desc".equals(normalized)) {
-	        return null;
-	    }
+		String normalized = raw.trim().toLowerCase(Locale.ROOT);
+		if (!"asc".equals(normalized) && !"desc".equals(normalized)) {
+			return null;
+		}
 
-	    return normalized;
+		return normalized;
 	}
 
 	@Transactional(readOnly = true)
 	public Map<Long, String> getAddressGroupClassMap(List<AsTask> tasks) {
-	    if (tasks == null || tasks.isEmpty()) {
-	        return Collections.emptyMap();
-	    }
+		if (tasks == null || tasks.isEmpty()) {
+			return Collections.emptyMap();
+		}
 
-	    List<String> palette = List.of(
-	            "as-list-added-address-group-1",
-	            "as-list-added-address-group-2",
-	            "as-list-added-address-group-3",
-	            "as-list-added-address-group-4",
-	            "as-list-added-address-group-5",
-	            "as-list-added-address-group-6"
-	    );
+		List<String> palette = List.of("as-list-added-address-group-1", "as-list-added-address-group-2",
+				"as-list-added-address-group-3", "as-list-added-address-group-4", "as-list-added-address-group-5",
+				"as-list-added-address-group-6");
 
-	    Map<Long, String> result = new LinkedHashMap<>();
-	    Map<String, String> classByAddress = new LinkedHashMap<>();
+		Map<Long, String> result = new LinkedHashMap<>();
+		Map<String, String> classByAddress = new LinkedHashMap<>();
 
-	    for (AsTask task : tasks) {
-	        if (task == null || task.getId() == null) {
-	            continue;
-	        }
+		for (AsTask task : tasks) {
+			if (task == null || task.getId() == null) {
+				continue;
+			}
 
-	        String addressKey = buildAddressGroupKey(task);
-	        if (!StringUtils.hasText(addressKey)) {
-	            result.put(task.getId(), "");
-	            continue;
-	        }
+			String addressKey = buildAddressGroupKey(task);
+			if (!StringUtils.hasText(addressKey)) {
+				result.put(task.getId(), "");
+				continue;
+			}
 
-	        String cssClass = classByAddress.get(addressKey);
-	        if (cssClass == null) {
-	            cssClass = palette.get(classByAddress.size() % palette.size());
-	            classByAddress.put(addressKey, cssClass);
-	        }
+			String cssClass = classByAddress.get(addressKey);
+			if (cssClass == null) {
+				cssClass = palette.get(classByAddress.size() % palette.size());
+				classByAddress.put(addressKey, cssClass);
+			}
 
-	        result.put(task.getId(), cssClass);
-	    }
+			result.put(task.getId(), cssClass);
+		}
 
-	    return result;
+		return result;
 	}
 
 	private String buildAddressGroupKey(AsTask task) {
-	    String roadAddress = normalizeBlankToNull(task.getRoadAddress());
-	    String detailAddress = normalizeBlankToNull(task.getDetailAddress());
+		String roadAddress = normalizeBlankToNull(task.getRoadAddress());
+		String detailAddress = normalizeBlankToNull(task.getDetailAddress());
 
-	    String merged = ((roadAddress != null ? roadAddress : "") + " " + (detailAddress != null ? detailAddress : ""))
-	            .replaceAll("\\s+", " ")
-	            .trim();
+		String merged = ((roadAddress != null ? roadAddress : "") + " " + (detailAddress != null ? detailAddress : ""))
+				.replaceAll("\\s+", " ").trim();
 
-	    if (!StringUtils.hasText(merged)) {
-	        return null;
-	    }
+		if (!StringUtils.hasText(merged)) {
+			return null;
+		}
 
-	    return merged.toLowerCase(Locale.ROOT);
+		return merged.toLowerCase(Locale.ROOT);
 	}
-	
+
 	@Transactional(readOnly = true)
 	public Map<Long, String> getScheduleDisplayMap(List<AsTask> tasks) {
 		if (tasks == null || tasks.isEmpty()) {
@@ -710,90 +570,122 @@ public class AsTaskService {
 	}
 
 	@Transactional
-	public void updateAsTaskByHandler(Long id, Member handler, AsStatus updatedStatus, String handlerMemo,
-			LocalDate visitPlannedDate, LocalTime visitPlannedTime, List<MultipartFile> resultImages)
-			throws IOException {
+	public boolean updateAsTaskByHandler(Long id,
+	                                     Member loginHandler,
+	                                     Long assignedHandlerId,
+	                                     AsStatus updatedStatus,
+	                                     String handlerMemo,
+	                                     LocalDate visitPlannedDate,
+	                                     LocalTime visitPlannedTime,
+	                                     List<MultipartFile> resultImages) throws IOException {
 
-		AsTask task = asTaskRepository.findById(id)
-				.orElseThrow(() -> new IllegalArgumentException("AS 요청이 존재하지 않습니다."));
+	    AsTask task = asTaskRepository.findById(id)
+	            .orElseThrow(() -> new IllegalArgumentException("AS 요청이 존재하지 않습니다."));
 
-		if (handler == null || handler.getId() == null) {
-			throw new AccessDeniedException("잘못된 접근입니다.");
-		}
+	    validateAssignedHandlerAccess(task, loginHandler);
 
-		if (task.getAssignedHandler() == null || !Objects.equals(task.getAssignedHandler().getId(), handler.getId())) {
-			throw new AccessDeniedException("본인에게 배정된 AS만 수정할 수 있습니다.");
-		}
+	    if (task.getStatus() != AsStatus.IN_PROGRESS) {
+	        throw new IllegalStateException("진행중(IN_PROGRESS) 상태의 AS만 수정할 수 있습니다.");
+	    }
 
-		if (task.getStatus() != AsStatus.IN_PROGRESS) {
-			throw new IllegalStateException("진행중(IN_PROGRESS) 상태의 AS만 수정할 수 있습니다.");
-		}
+	    Member targetHandler = resolveTargetAsHandler(assignedHandlerId, task);
+	    Long currentHandlerId = task.getAssignedHandler() != null ? task.getAssignedHandler().getId() : null;
+	    boolean handlerChanged = !Objects.equals(currentHandlerId, targetHandler.getId());
 
-		boolean shouldSave = false;
+	    boolean shouldSave = false;
 
-		boolean scheduleChanged = syncVisitPlannedDate(task, handler, visitPlannedDate);
-		if (scheduleChanged) {
-			shouldSave = true;
-		}
+	    // 1) 담당자 변경
+	    if (handlerChanged) {
+	        task.setAssignedHandler(targetHandler);
+	        task.setAssignedTeam(targetHandler.getTeam());
+	        shouldSave = true;
 
-		String normalizedHandlerMemo = normalizeBlankToNull(handlerMemo);
+	        // 담당자가 바뀌면 기존 일정 삭제
+	        boolean scheduleDeleted = clearVisitSchedule(task);
+	        if (scheduleDeleted) {
+	            shouldSave = true;
+	        }
 
-		if (!Objects.equals(task.getHandlerMemo(), normalizedHandlerMemo)) {
-			task.setHandlerMemo(normalizedHandlerMemo);
-			shouldSave = true;
-		}
+	        // 시간도 같이 초기화 (일정 삭제와 맞춰서 정리)
+	        if (task.getVisitPlannedTime() != null) {
+	            task.setVisitPlannedTime(null);
+	            shouldSave = true;
+	        }
 
-		if (!Objects.equals(task.getVisitPlannedTime(), visitPlannedTime)) {
-			task.setVisitPlannedTime(visitPlannedTime);
-			shouldSave = true;
-		}
+	    } else {
+	        // 담당자 변경이 없을 때만 일정/시간 수정 허용
+	        boolean scheduleChanged = syncVisitPlannedDate(task, loginHandler, visitPlannedDate);
+	        if (scheduleChanged) {
+	            shouldSave = true;
+	        }
 
-		if (updatedStatus != null && updatedStatus == AsStatus.COMPLETED) {
-			task.setStatus(AsStatus.COMPLETED);
-			task.setAsProcessDate(LocalDateTime.now());
-			shouldSave = true;
-		}
+	        if (!Objects.equals(task.getVisitPlannedTime(), visitPlannedTime)) {
+	            task.setVisitPlannedTime(visitPlannedTime);
+	            shouldSave = true;
+	        }
+	    }
 
-		if (resultImages != null && !resultImages.isEmpty()) {
-			if (task.getRequestedBy() == null || task.getRequestedBy().getId() == null) {
-				throw new IllegalStateException("요청자 정보가 없어 결과 이미지를 저장할 수 없습니다.");
-			}
+	    // 2) 메모
+	    String normalizedHandlerMemo = normalizeBlankToNull(handlerMemo);
+	    if (!Objects.equals(task.getHandlerMemo(), normalizedHandlerMemo)) {
+	        task.setHandlerMemo(normalizedHandlerMemo);
+	        shouldSave = true;
+	    }
 
-			Long requesterId = task.getRequestedBy().getId();
-			String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+	    // 3) 상태
+	    if (updatedStatus != null && updatedStatus == AsStatus.COMPLETED && task.getStatus() != AsStatus.COMPLETED) {
+	        task.setStatus(AsStatus.COMPLETED);
+	        task.setAsProcessDate(LocalDateTime.now());
+	        shouldSave = true;
+	    }
 
-			Path saveDir = Paths.get(uploadPath, "as", String.valueOf(requesterId), dateStr, "result");
-			Files.createDirectories(saveDir);
+	    // 4) 결과 이미지
+	    if (resultImages != null && !resultImages.isEmpty()) {
+	        if (task.getRequestedBy() == null || task.getRequestedBy().getId() == null) {
+	            throw new IllegalStateException("요청자 정보가 없어 결과 이미지를 저장할 수 없습니다.");
+	        }
 
-			for (MultipartFile file : resultImages) {
-				if (file == null || file.isEmpty()) {
-					continue;
-				}
+	        Long requesterId = task.getRequestedBy().getId();
+	        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
-				String originalFilename = file.getOriginalFilename();
-				String filename = UUID.randomUUID() + "_"
-						+ (StringUtils.hasText(originalFilename) ? originalFilename : "image");
-				Path filePath = saveDir.resolve(filename);
+	        Path saveDir = Paths.get(uploadPath, "as", String.valueOf(requesterId), dateStr, "result");
+	        Files.createDirectories(saveDir);
 
-				file.transferTo(filePath.toFile());
+	        for (MultipartFile file : resultImages) {
+	            if (file == null || file.isEmpty()) {
+	                continue;
+	            }
 
-				AsImage image = new AsImage();
-				image.setAsTask(task);
-				image.setFilename(filename);
-				image.setPath(filePath.toString());
-				image.setUrl("/upload/as/" + requesterId + "/" + dateStr + "/result/" + filename);
-				image.setType("RESULT");
+	            if (!isImageFile(file)) {
+	                throw new IllegalArgumentException("결과 이미지에는 이미지 파일만 업로드할 수 있습니다.");
+	            }
 
-				asImageRepository.save(image);
-			}
+	            String originalFilename = file.getOriginalFilename();
+	            String filename = UUID.randomUUID() + "_"
+	                    + (StringUtils.hasText(originalFilename) ? originalFilename : "image");
+	            Path filePath = saveDir.resolve(filename);
 
-			shouldSave = true;
-		}
+	            file.transferTo(filePath.toFile());
 
-		if (shouldSave) {
-			task.setUpdatedAt(LocalDateTime.now());
-			asTaskRepository.save(task);
-		}
+	            AsImage image = new AsImage();
+	            image.setAsTask(task);
+	            image.setFilename(filename);
+	            image.setPath(filePath.toString());
+	            image.setUrl("/upload/as/" + requesterId + "/" + dateStr + "/result/" + filename);
+	            image.setType("RESULT");
+
+	            asImageRepository.save(image);
+	        }
+
+	        shouldSave = true;
+	    }
+
+	    if (shouldSave) {
+	        task.setUpdatedAt(LocalDateTime.now());
+	        asTaskRepository.save(task);
+	    }
+
+	    return handlerChanged;
 	}
 
 	private boolean syncVisitPlannedDate(AsTask task, Member handler, LocalDate visitPlannedDate) {
@@ -1050,129 +942,129 @@ public class AsTaskService {
 	@Transactional
 	public void updateAsTaskThird(Long id, String priceStr, String statusStr, Long assignedHandlerId,
 
-	        Long companyId,
+			Long companyId,
 
-	        String zipCode, String doName, String siName, String guName, String roadAddress, String detailAddress,
+			String zipCode, String doName, String siName, String guName, String roadAddress, String detailAddress,
 
-	        String customerName, String productName, String productSize, String productColor, String productOptions,
-	        String onsiteContact,
+			String customerName, String productName, String productSize, String productColor, String productOptions,
+			String onsiteContact,
 
-	        String applicantName, String applicantPhone, String applicantEmail, String purchaseDateStr,
-	        String billingTargetStr, Boolean paymentCollected,
+			String applicantName, String applicantPhone, String applicantEmail, String purchaseDateStr,
+			String billingTargetStr, Boolean paymentCollected,
 
-	        String subject, String adminMemo,
+			String subject, String adminMemo,
 
-	        String deleteRequestImageIds, List<MultipartFile> newRequestImages,
+			String deleteRequestImageIds, List<MultipartFile> newRequestImages,
 
-	        String deleteRequestVideoIds, List<MultipartFile> newRequestVideos) {
+			String deleteRequestVideoIds, List<MultipartFile> newRequestVideos) {
 
-	    AsTask asTask = getAsDetail(id);
+		AsTask asTask = getAsDetail(id);
 
-	    // 완료 상태였는지 먼저 기억
-	    boolean wasCompleted = AsStatus.COMPLETED.equals(asTask.getStatus());
+		// 완료 상태였는지 먼저 기억
+		boolean wasCompleted = AsStatus.COMPLETED.equals(asTask.getStatus());
 
-	    // 0) 상태
-	    if (StringUtils.hasText(statusStr)) {
-	        AsStatus status = AsStatus.valueOf(statusStr.trim());
-	        asTask.setStatus(status);
-	    }
+		// 0) 상태
+		if (StringUtils.hasText(statusStr)) {
+			AsStatus status = AsStatus.valueOf(statusStr.trim());
+			asTask.setStatus(status);
+		}
 
-	    // 1) 담당자
-	    if (assignedHandlerId == null) {
-	        throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
-	    }
+		// 1) 담당자
+		if (assignedHandlerId == null) {
+			throw new IllegalArgumentException("담당자를 반드시 지정해야 합니다.");
+		}
 
-	    Member handler = memberRepository.findById(assignedHandlerId)
-	            .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 담당자입니다."));
-	    asTask.setAssignedHandler(handler);
-	    asTask.setAssignedTeam(handler.getTeam());
+		Member handler = memberRepository.findById(assignedHandlerId)
+				.orElseThrow(() -> new IllegalArgumentException("유효하지 않은 담당자입니다."));
+		asTask.setAssignedHandler(handler);
+		asTask.setAssignedTeam(handler.getTeam());
 
-	    // 2) 가격
-	    // 이미 완료된 건은 백엔드에서도 가격 변경 막음
-	    if (!wasCompleted) {
-	        int price = parsePriceOrZero(priceStr);
-	        asTask.setPrice(price);
-	    }
+		// 2) 가격
+		// 이미 완료된 건은 백엔드에서도 가격 변경 막음
+		if (!wasCompleted) {
+			int price = parsePriceOrZero(priceStr);
+			asTask.setPrice(price);
+		}
 
-	    // 3) 비용 수납 여부
-	    asTask.setPaymentCollected(Boolean.TRUE.equals(paymentCollected));
+		// 3) 비용 수납 여부
+		asTask.setPaymentCollected(Boolean.TRUE.equals(paymentCollected));
 
-	    // 4) 회사 변경 시 requestedBy 교체
-	    if (companyId != null) {
-	        Long currentCompanyId = (asTask.getRequestedBy() != null && asTask.getRequestedBy().getCompany() != null)
-	                ? asTask.getRequestedBy().getCompany().getId()
-	                : null;
+		// 4) 회사 변경 시 requestedBy 교체
+		if (companyId != null) {
+			Long currentCompanyId = (asTask.getRequestedBy() != null && asTask.getRequestedBy().getCompany() != null)
+					? asTask.getRequestedBy().getCompany().getId()
+					: null;
 
-	        if (currentCompanyId == null || !currentCompanyId.equals(companyId)) {
+			if (currentCompanyId == null || !currentCompanyId.equals(companyId)) {
 
-	            companyRepository.findById(companyId)
-	                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 대리점입니다."));
+				companyRepository.findById(companyId)
+						.orElseThrow(() -> new IllegalArgumentException("유효하지 않은 대리점입니다."));
 
-	            Member representative = memberRepository
-	                    .findFirstByCompanyIdAndRoleOrderByIdAsc(companyId, MemberRole.CUSTOMER_REPRESENTATIVE)
-	                    .orElseThrow(() -> new IllegalArgumentException(
-	                            "해당 대리점에 대표(CUSTOMER_REPRESENTATIVE) 회원이 없습니다."));
+				Member representative = memberRepository
+						.findFirstByCompanyIdAndRoleOrderByIdAsc(companyId, MemberRole.CUSTOMER_REPRESENTATIVE)
+						.orElseThrow(
+								() -> new IllegalArgumentException("해당 대리점에 대표(CUSTOMER_REPRESENTATIVE) 회원이 없습니다."));
 
-	            asTask.setRequestedBy(representative);
-	        }
-	    }
+				asTask.setRequestedBy(representative);
+			}
+		}
 
-	    // 5) 주소
-	    asTask.setZipCode(normalizeText(zipCode));
-	    asTask.setDoName(normalizeText(doName));
-	    asTask.setSiName(normalizeText(siName));
-	    asTask.setGuName(normalizeText(guName));
-	    asTask.setRoadAddress(normalizeText(roadAddress));
-	    asTask.setDetailAddress(normalizeText(detailAddress));
+		// 5) 주소
+		asTask.setZipCode(normalizeText(zipCode));
+		asTask.setDoName(normalizeText(doName));
+		asTask.setSiName(normalizeText(siName));
+		asTask.setGuName(normalizeText(guName));
+		asTask.setRoadAddress(normalizeText(roadAddress));
+		asTask.setDetailAddress(normalizeText(detailAddress));
 
-	    // 6) 고객/제품/현장
-	    asTask.setCustomerName(normalizeText(customerName));
-	    asTask.setProductName(normalizeText(productName));
-	    asTask.setProductSize(normalizeText(productSize));
-	    asTask.setProductColor(normalizeText(productColor));
-	    asTask.setProductOptions(normalizeText(productOptions));
-	    asTask.setOnsiteContact(formatOptionalPhone(onsiteContact, "현장 연락처"));
+		// 6) 고객/제품/현장
+		asTask.setCustomerName(normalizeText(customerName));
+		asTask.setProductName(normalizeText(productName));
+		asTask.setProductSize(normalizeText(productSize));
+		asTask.setProductColor(normalizeText(productColor));
+		asTask.setProductOptions(normalizeText(productOptions));
+		asTask.setOnsiteContact(formatOptionalPhone(onsiteContact, "현장 연락처"));
 
-	    // 7) 접수 담당자 / 납품일자 / 청구주체
-	    asTask.setApplicantName(normalizeText(applicantName));
-	    asTask.setApplicantPhone(formatOptionalPhone(applicantPhone, "접수 담당자 연락처"));
-	    asTask.setApplicantEmail(normalizeOptionalEmail(applicantEmail));
-	    asTask.setPurchaseDate(parseLocalDateOrNull(purchaseDateStr, "납품일자"));
-	    asTask.setBillingTarget(parseBillingTargetOrNull(billingTargetStr));
+		// 7) 접수 담당자 / 납품일자 / 청구주체
+		asTask.setApplicantName(normalizeText(applicantName));
+		asTask.setApplicantPhone(formatOptionalPhone(applicantPhone, "접수 담당자 연락처"));
+		asTask.setApplicantEmail(normalizeOptionalEmail(applicantEmail));
+		asTask.setPurchaseDate(parseLocalDateOrNull(purchaseDateStr, "납품일자"));
+		asTask.setBillingTarget(parseBillingTargetOrNull(billingTargetStr));
 
-	    // 8) subject
-	    String normalizedSubject = normalizeText(subject);
-	    if (isValidTwoDepthSubject(normalizedSubject)) {
-	        asTask.setSubject(normalizedSubject);
-	    }
+		// 8) subject
+		String normalizedSubject = normalizeText(subject);
+		if (isValidTwoDepthSubject(normalizedSubject)) {
+			asTask.setSubject(normalizedSubject);
+		}
 
-	    // 9) 관리자 메모
-	    asTask.setAdminMemo(normalizeText(adminMemo));
+		// 9) 관리자 메모
+		asTask.setAdminMemo(normalizeText(adminMemo));
 
-	    // 10) 요청 이미지 삭제
-	    List<Long> deleteImageIdList = parseIdCsv(deleteRequestImageIds);
-	    if (!deleteImageIdList.isEmpty()) {
-	        deleteRequestImages(asTask, deleteImageIdList);
-	    }
+		// 10) 요청 이미지 삭제
+		List<Long> deleteImageIdList = parseIdCsv(deleteRequestImageIds);
+		if (!deleteImageIdList.isEmpty()) {
+			deleteRequestImages(asTask, deleteImageIdList);
+		}
 
-	    // 11) 요청 비디오 삭제
-	    List<Long> deleteVideoIdList = parseIdCsv(deleteRequestVideoIds);
-	    if (!deleteVideoIdList.isEmpty()) {
-	        deleteRequestVideos(asTask, deleteVideoIdList);
-	    }
+		// 11) 요청 비디오 삭제
+		List<Long> deleteVideoIdList = parseIdCsv(deleteRequestVideoIds);
+		if (!deleteVideoIdList.isEmpty()) {
+			deleteRequestVideos(asTask, deleteVideoIdList);
+		}
 
-	    // 12) 요청 이미지 추가
-	    if (newRequestImages != null && !newRequestImages.isEmpty()) {
-	        saveNewRequestImages(asTask, newRequestImages);
-	    }
+		// 12) 요청 이미지 추가
+		if (newRequestImages != null && !newRequestImages.isEmpty()) {
+			saveNewRequestImages(asTask, newRequestImages);
+		}
 
-	    // 13) 요청 비디오 추가
-	    if (newRequestVideos != null && !newRequestVideos.isEmpty()) {
-	        saveNewRequestVideos(asTask, newRequestVideos);
-	    }
+		// 13) 요청 비디오 추가
+		if (newRequestVideos != null && !newRequestVideos.isEmpty()) {
+			saveNewRequestVideos(asTask, newRequestVideos);
+		}
 
-	    asTask.setUpdatedAt(LocalDateTime.now());
-	    asTaskRepository.save(asTask);
+		asTask.setUpdatedAt(LocalDateTime.now());
+		asTaskRepository.save(asTask);
 	}
 
 	private void deleteRequestImages(AsTask asTask, List<Long> deleteIds) {
@@ -2155,5 +2047,236 @@ public class AsTaskService {
 		// CITY / DISTRICT는 long 확장은 지역마다 케이스가 많아(예: ~시, ~군)
 		// 무리하게 붙이면 오탐 가능성이 있어서 strip 정도만으로 두는 것이 안전합니다.
 		return out;
+	}
+
+	// Member, AsTask, AsImage, AsVideo import 필요
+	// AsTaskRepository, AsImageRepository, AsVideoRepository import 필요
+
+	@Transactional
+	public void deleteCustomerAsTask(Long asTaskId, Member loginMember) {
+		if (loginMember == null || loginMember.getId() == null) {
+			throw new IllegalArgumentException("로그인 정보가 올바르지 않습니다.");
+		}
+
+		AsTask asTask = asTaskRepository.findByIdAndRequestedBy_Id(asTaskId, loginMember.getId())
+				.orElseThrow(() -> new IllegalArgumentException("삭제할 AS 신청 내역이 없거나 권한이 없습니다."));
+
+		if (asTask.getStatus() == null || !"REQUESTED".equals(asTask.getStatus().name())) {
+			throw new IllegalArgumentException("신청중 상태에서만 삭제할 수 있습니다.");
+		}
+
+		List<AsImage> images = asImageRepository.findAllByAsTask_Id(asTaskId);
+		List<AsVideo> videos = asVideoRepository.findAllByAsTask_Id(asTaskId);
+
+		for (AsImage image : images) {
+			deletePhysicalFileQuietly(image.getPath());
+		}
+
+		for (AsVideo video : videos) {
+			deletePhysicalFileQuietly(video.getPath());
+		}
+
+		if (!images.isEmpty()) {
+			asImageRepository.deleteAll(images);
+		}
+
+		if (!videos.isEmpty()) {
+			asVideoRepository.deleteAll(videos);
+		}
+
+		asTaskRepository.delete(asTask);
+	}
+
+	private void deletePhysicalFileQuietly(String filePath) {
+		if (!StringUtils.hasText(filePath)) {
+			return;
+		}
+
+		try {
+			Files.deleteIfExists(Path.of(filePath));
+		} catch (Exception e) {
+			throw new RuntimeException("첨부 파일 삭제 중 오류가 발생했습니다.", e);
+		}
+	}
+	
+	@Transactional(readOnly = true)
+	public AsTask getAsDetailForAssignedHandler(Long id, Member handler) {
+	    AsTask task = asTaskRepository.findById(id)
+	            .orElseThrow(() -> new IllegalArgumentException("해당 AS 요청을 찾을 수 없습니다. ID: " + id));
+
+	    validateAssignedHandlerAccess(task, handler);
+	    return task;
+	}
+
+	@Transactional(readOnly = true)
+	public List<Member> getActiveAsTeamMembers() {
+	    return memberRepository.findByTeam_IdAndEnabledTrueOrderByNameAscIdAsc(AS_TEAM_ID);
+	}
+	
+	private void validateAssignedHandlerAccess(AsTask task, Member handler) {
+	    if (handler == null || handler.getId() == null) {
+	        throw new AccessDeniedException("잘못된 접근입니다.");
+	    }
+
+	    if (handler.getTeam() == null || !AS_TEAM_ID.equals(handler.getTeam().getId())) {
+	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
+	    }
+
+	    if (task.getAssignedHandler() == null || !Objects.equals(task.getAssignedHandler().getId(), handler.getId())) {
+	        throw new AccessDeniedException("본인에게 배정된 AS만 접근할 수 있습니다.");
+	    }
+	}
+
+	private Member resolveTargetAsHandler(Long assignedHandlerId, AsTask task) {
+	    Long targetHandlerId = assignedHandlerId;
+
+	    if (targetHandlerId == null && task.getAssignedHandler() != null) {
+	        targetHandlerId = task.getAssignedHandler().getId();
+	    }
+
+	    if (targetHandlerId == null) {
+	        throw new IllegalArgumentException("담당자를 선택해 주세요.");
+	    }
+
+	    Member targetHandler = memberRepository.findById(targetHandlerId)
+	            .orElseThrow(() -> new IllegalArgumentException("선택한 담당자를 찾을 수 없습니다."));
+
+	    if (targetHandler.getTeam() == null || !AS_TEAM_ID.equals(targetHandler.getTeam().getId())) {
+	        throw new IllegalArgumentException("AS팀 소속 담당자만 지정할 수 있습니다.");
+	    }
+
+	    if (!targetHandler.isEnabled()) {
+	        throw new IllegalArgumentException("비활성화된 담당자는 지정할 수 없습니다.");
+	    }
+
+	    return targetHandler;
+	}
+
+	private boolean clearVisitSchedule(AsTask task) {
+	    AsTaskSchedule existingSchedule = asTaskScheduleRepository.findByAsTaskId(task.getId()).orElse(null);
+
+	    if (existingSchedule == null) {
+	        return false;
+	    }
+
+	    asTaskScheduleRepository.delete(existingSchedule);
+	    asTaskScheduleRepository.flush();
+	    return true;
+	}
+	
+	public Page<AsTask> getFilteredAsListPage(Long handlerId,
+	        AsStatus status,
+	        String dateType,
+	        LocalDateTime start,
+	        LocalDateTime end,
+	        String priceFilter,
+	        Boolean paymentCollected,
+	        String keywordType,
+	        String keyword,
+	        String sortField,
+	        String sortDir,
+	        Pageable pageable) {
+
+	    if ("processed".equals(dateType)) {
+	        return asTaskRepository.findByProcessedDateRangePageWithScheduleSort(
+	                handlerId,
+	                status,
+	                start,
+	                end,
+	                priceFilter,
+	                paymentCollected,
+	                keywordType,
+	                keyword,
+	                sortField,
+	                sortDir,
+	                pageable
+	        );
+	    }
+
+	    return asTaskRepository.findByRequestedDateRangePageWithScheduleSort(
+	            handlerId,
+	            status,
+	            start,
+	            end,
+	            priceFilter,
+	            paymentCollected,
+	            keywordType,
+	            keyword,
+	            sortField,
+	            sortDir,
+	            pageable
+	    );
+	}
+
+	@Transactional(readOnly = true)
+	public List<AsTask> getFilteredAsListAll(Long handlerId,
+	        AsStatus status,
+	        String dateType,
+	        LocalDateTime start,
+	        LocalDateTime end,
+	        String priceFilter,
+	        Boolean paymentCollected,
+	        String keywordType,
+	        String keyword,
+	        String sortField,
+	        String sortDir) {
+
+	    Pageable unpaged = Pageable.unpaged();
+
+	    if ("processed".equals(dateType)) {
+	        return asTaskRepository.findByProcessedDateRangePageWithScheduleSort(
+	                handlerId,
+	                status,
+	                start,
+	                end,
+	                priceFilter,
+	                paymentCollected,
+	                keywordType,
+	                keyword,
+	                sortField,
+	                sortDir,
+	                unpaged
+	        ).getContent();
+	    }
+
+	    return asTaskRepository.findByRequestedDateRangePageWithScheduleSort(
+	            handlerId,
+	            status,
+	            start,
+	            end,
+	            priceFilter,
+	            paymentCollected,
+	            keywordType,
+	            keyword,
+	            sortField,
+	            sortDir,
+	            unpaged
+	    ).getContent();
+	}
+
+	@Transactional(readOnly = true)
+	public Map<Long, LocalDate> getScheduledDateMap(List<AsTask> tasks) {
+	    if (tasks == null || tasks.isEmpty()) {
+	        return Collections.emptyMap();
+	    }
+
+	    List<Long> taskIds = tasks.stream()
+	            .map(AsTask::getId)
+	            .filter(Objects::nonNull)
+	            .toList();
+
+	    if (taskIds.isEmpty()) {
+	        return Collections.emptyMap();
+	    }
+
+	    return scheduleRepository.findByTaskIds(taskIds).stream()
+	            .filter(schedule -> schedule.getAsTask() != null)
+	            .filter(schedule -> schedule.getAsTask().getId() != null)
+	            .collect(Collectors.toMap(
+	                    schedule -> schedule.getAsTask().getId(),
+	                    AsTaskSchedule::getScheduledDate,
+	                    (left, right) -> left,
+	                    LinkedHashMap::new
+	            ));
 	}
 }

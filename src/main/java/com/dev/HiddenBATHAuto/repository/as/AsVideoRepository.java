@@ -13,4 +13,6 @@ public interface AsVideoRepository extends JpaRepository<AsVideo, Long> {
     List<AsVideo> findByAsTask_IdAndIdInAndType(Long asTaskId, List<Long> ids, String type);
     
     List<AsVideo> findByAsTaskIdAndIdInAndType(Long asTaskId, List<Long> ids, String type);
+    
+    List<AsVideo> findAllByAsTask_Id(Long asTaskId);
 }

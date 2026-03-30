@@ -21,7 +21,7 @@ import com.dev.HiddenBATHAuto.model.task.AsTask;
 @Repository
 public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRepositoryCustom {
 
-	
+	Optional<AsTask> findByIdAndRequestedBy_Id(Long id, Long requestedById);
 	// ========= 신청일 기준 (화면 페이지) =========
 	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
 	@Query(
@@ -1236,6 +1236,334 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                                         @Param("scheduledDateSort") String scheduledDateSort,
 	                                         @Param("addressSort") String addressSort,
 	                                         Pageable pageable);
+
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query(
+	    value = """
+	        SELECT a
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        LEFT JOIN AsTaskSchedule s ON s.asTask = a
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        ORDER BY
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'asc' AND TRIM(COALESCE(c.companyName, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'asc' THEN LOWER(COALESCE(c.companyName, '')) ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'desc' AND TRIM(COALESCE(c.companyName, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'desc' THEN LOWER(COALESCE(c.companyName, '')) ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'asc' AND TRIM(COALESCE(rb.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'asc' THEN LOWER(COALESCE(rb.name, '')) ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'desc' AND TRIM(COALESCE(rb.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'desc' THEN LOWER(COALESCE(rb.name, '')) ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'asc' AND TRIM(COALESCE(ah.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'asc' THEN LOWER(COALESCE(ah.name, '')) ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'desc' AND TRIM(COALESCE(ah.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'desc' THEN LOWER(COALESCE(ah.name, '')) ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'asc' AND a.requestedAt IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'asc' THEN a.requestedAt ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'desc' AND a.requestedAt IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'desc' THEN a.requestedAt ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'asc' AND s.scheduledDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'asc' THEN s.scheduledDate ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'asc' THEN s.orderIndex ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'desc' AND s.scheduledDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'desc' THEN s.scheduledDate ELSE NULL END DESC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'desc' THEN s.orderIndex ELSE NULL END ASC,
+
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'asc' AND a.asProcessDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'asc' THEN a.asProcessDate ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'desc' AND a.asProcessDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'desc' THEN a.asProcessDate ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'asc' AND a.status IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'asc' THEN a.status ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'desc' AND a.status IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'desc' THEN a.status ELSE NULL END DESC,
+
+	          CASE WHEN (:sortField IS NULL OR :sortField = '') AND a.requestedAt IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN (:sortField IS NULL OR :sortField = '') THEN a.requestedAt ELSE NULL END DESC,
+
+	          a.id DESC
+	        """,
+	    countQuery = """
+	        SELECT COUNT(a)
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
+	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """
+	)
+	Page<AsTask> findByRequestedDateRangePageWithScheduleSort(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        @Param("keywordType") String keywordType,
+	        @Param("keyword") String keyword,
+	        @Param("sortField") String sortField,
+	        @Param("sortDir") String sortDir,
+	        Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = { "requestedBy", "requestedBy.company", "assignedHandler", "assignedTeam" })
+	@Query(
+	    value = """
+	        SELECT a
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        LEFT JOIN AsTaskSchedule s ON s.asTask = a
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        ORDER BY
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'asc' AND TRIM(COALESCE(c.companyName, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'asc' THEN LOWER(COALESCE(c.companyName, '')) ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'desc' AND TRIM(COALESCE(c.companyName, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'companyName' AND :sortDir = 'desc' THEN LOWER(COALESCE(c.companyName, '')) ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'asc' AND TRIM(COALESCE(rb.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'asc' THEN LOWER(COALESCE(rb.name, '')) ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'desc' AND TRIM(COALESCE(rb.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requesterName' AND :sortDir = 'desc' THEN LOWER(COALESCE(rb.name, '')) ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'asc' AND TRIM(COALESCE(ah.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'asc' THEN LOWER(COALESCE(ah.name, '')) ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'desc' AND TRIM(COALESCE(ah.name, '')) = '' THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'handlerName' AND :sortDir = 'desc' THEN LOWER(COALESCE(ah.name, '')) ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'asc' AND a.requestedAt IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'asc' THEN a.requestedAt ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'desc' AND a.requestedAt IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'requestedAt' AND :sortDir = 'desc' THEN a.requestedAt ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'asc' AND s.scheduledDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'asc' THEN s.scheduledDate ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'asc' THEN s.orderIndex ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'desc' AND s.scheduledDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'desc' THEN s.scheduledDate ELSE NULL END DESC,
+	          CASE WHEN :sortField = 'scheduledDate' AND :sortDir = 'desc' THEN s.orderIndex ELSE NULL END ASC,
+
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'asc' AND a.asProcessDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'asc' THEN a.asProcessDate ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'desc' AND a.asProcessDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'asProcessDate' AND :sortDir = 'desc' THEN a.asProcessDate ELSE NULL END DESC,
+
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'asc' AND a.status IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'asc' THEN a.status ELSE NULL END ASC,
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'desc' AND a.status IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN :sortField = 'status' AND :sortDir = 'desc' THEN a.status ELSE NULL END DESC,
+
+	          CASE WHEN (:sortField IS NULL OR :sortField = '') AND a.asProcessDate IS NULL THEN 1 ELSE 0 END ASC,
+	          CASE WHEN (:sortField IS NULL OR :sortField = '') THEN a.asProcessDate ELSE NULL END DESC,
+
+	          a.id DESC
+	        """,
+	    countQuery = """
+	        SELECT COUNT(a)
+	        FROM AsTask a
+	        LEFT JOIN a.requestedBy rb
+	        LEFT JOIN rb.company c
+	        LEFT JOIN a.assignedHandler ah
+	        WHERE (:status IS NULL OR a.status = :status)
+	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
+	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
+	          AND (
+	                :priceFilter IS NULL
+	                OR (:priceFilter = 'ZERO' AND a.price = 0)
+	                OR (:priceFilter = 'POSITIVE' AND a.price > 0)
+	              )
+	          AND (:paymentCollected IS NULL OR a.paymentCollected = :paymentCollected)
+	          AND (
+	                :keyword IS NULL
+	                OR (
+	                    :keywordType = 'all' AND (
+	                        LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
+	                    )
+	                )
+	                OR (:keywordType = 'companyName'
+	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'requesterName'
+	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'customerName'
+	                    AND LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'subject'
+	                    AND LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'productName'
+	                    AND LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantName'
+	                    AND LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+	                OR (:keywordType = 'applicantPhone'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	                OR (:keywordType = 'onsiteContact'
+	                    AND LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
+	                        LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%')))
+	              )
+	        """
+	)
+	Page<AsTask> findByProcessedDateRangePageWithScheduleSort(
+	        @Param("handlerId") Long handlerId,
+	        @Param("status") AsStatus status,
+	        @Param("startDate") LocalDateTime startDate,
+	        @Param("endDate") LocalDateTime endDate,
+	        @Param("priceFilter") String priceFilter,
+	        @Param("paymentCollected") Boolean paymentCollected,
+	        @Param("keywordType") String keywordType,
+	        @Param("keyword") String keyword,
+	        @Param("sortField") String sortField,
+	        @Param("sortDir") String sortDir,
+	        Pageable pageable
+	);
 	
 	
 }

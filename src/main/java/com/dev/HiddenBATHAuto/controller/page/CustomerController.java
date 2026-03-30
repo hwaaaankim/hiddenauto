@@ -263,6 +263,39 @@ public class CustomerController {
 		return t.isEmpty() ? null : t;
 	}
 
+	@PostMapping("/asDelete/{id}")
+	@ResponseBody
+	public ResponseEntity<Map<String, Object>> deleteAsTask(
+	        @PathVariable Long id,
+	        @AuthenticationPrincipal PrincipalDetails principal) {
+
+	    Map<String, Object> result = new HashMap<>();
+
+	    try {
+	        if (principal == null || principal.getMember() == null) {
+	            result.put("success", false);
+	            result.put("message", "로그인이 필요합니다.");
+	            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result);
+	        }
+
+	        asTaskService.deleteCustomerAsTask(id, principal.getMember());
+
+	        result.put("success", true);
+	        result.put("message", "AS 신청이 삭제되었습니다.");
+	        return ResponseEntity.ok(result);
+
+	    } catch (IllegalArgumentException e) {
+	        result.put("success", false);
+	        result.put("message", e.getMessage());
+	        return ResponseEntity.badRequest().body(result);
+
+	    } catch (Exception e) {
+	        result.put("success", false);
+	        result.put("message", "AS 삭제 중 서버 오류가 발생했습니다.");
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
+	    }
+	}	
+	
 	@GetMapping("/asRequest")
 	public String asRequest(@AuthenticationPrincipal(expression = "member") Member loginMember, Model model) {
 		String mainAddress = "";

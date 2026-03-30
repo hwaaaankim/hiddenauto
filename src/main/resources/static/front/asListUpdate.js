@@ -50,6 +50,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	const addedVideosWrap = document.getElementById("client-as-update-first-addedVideos");
 
 	const submitBtn = document.getElementById("client-as-update-first-submitBtn");
+	let isDeleting = false;
 
 	const SUBJECT_MAP = {
 		"상부장": ["도어 파손", "도어 스크레치", "도어 휘어짐", "도어 변색", "도어 단차 불량", "도어 마감 불량", "손잡이 불량", "바디 변색", "바디 스크래치", "바디 파손", "개폐 불량", "경첩 불량", "LED 점등 불량", "오출고", "기타 사유"],
@@ -729,6 +730,56 @@ document.addEventListener("DOMContentLoaded", function() {
 		return {};
 	}
 
+	function requestDeleteAsTask(taskId, productName) {
+		const id = trim(taskId);
+		if (!id) {
+			alert("삭제 대상 정보가 올바르지 않습니다.");
+			return;
+		}
+
+		if (isDeleting) {
+			return;
+		}
+
+		const targetName = trim(productName) || "AS 신청";
+		const confirmed = window.confirm(
+			"'" + targetName + "' 신청건을 삭제하시겠습니까?\n신청중 상태에서만 삭제할 수 있으며, 첨부된 이미지와 비디오도 함께 삭제됩니다."
+		);
+
+		if (!confirmed) {
+			return;
+		}
+
+		isDeleting = true;
+
+		fetch("/customer/asDelete/" + id, {
+			method: "POST",
+			headers: getCsrfHeaders()
+		})
+			.then(async function(res) {
+				const data = await res.json().catch(function() { return {}; });
+
+				if (!res.ok || !data.success) {
+					throw new Error(data.message || "AS 삭제 중 오류가 발생했습니다.");
+				}
+
+				alert(data.message || "AS 신청이 삭제되었습니다.");
+
+				if (modalEl.classList.contains("show")) {
+					modal.hide();
+				}
+
+				window.location.reload();
+			})
+			.catch(function(err) {
+				alert(err.message || "서버 오류가 발생했습니다.");
+				console.error(err);
+			})
+			.finally(function() {
+				isDeleting = false;
+			});
+	}
+
 	onsiteContactInput.addEventListener("input", function() {
 		onsiteContactInput.value = formatKoreanPhone(onsiteContactInput.value);
 		updateSubmitState();
@@ -780,6 +831,12 @@ document.addEventListener("DOMContentLoaded", function() {
 		const openBtn = e.target.closest(".client-as-update-first-open-btn");
 		if (openBtn) {
 			openUpdateModal(openBtn);
+			return;
+		}
+
+		const deleteBtn = e.target.closest(".client-as-delete-btn");
+		if (deleteBtn) {
+			requestDeleteAsTask(deleteBtn.dataset.asId, deleteBtn.dataset.productName);
 			return;
 		}
 

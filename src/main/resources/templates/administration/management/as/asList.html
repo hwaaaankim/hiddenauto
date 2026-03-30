@@ -421,7 +421,51 @@
 															</span>
 														</div>
 													</th>
-
+													<th>
+													    <div class="as-list-new-added-th-sort">
+													        <span class="as-list-new-added-sort-label">방문예정일</span>
+													        <span class="as-list-new-added-sort-icons">
+													            <a class="as-list-new-added-sort-link"
+													                th:classappend="${sortField == 'scheduledDate' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+													                th:href="@{/management/asList(
+													                    page=0,
+													                    size=${pageSize},
+													                    handlerId=${selectedHandlerId},
+													                    status=${selectedStatus},
+													                    dateType=${selectedDateType},
+													                    fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+													                    toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+													                    priceFilter=${selectedPriceFilter},
+													                    paymentCollectedFilter=${selectedPaymentCollectedFilter},
+													                    keywordType=${selectedKeywordType},
+													                    keyword=${selectedKeyword},
+													                    sortField='scheduledDate',
+													                    sortDir='asc'
+													                )}">
+													                <i class="fa-solid fa-caret-up"></i>
+													            </a>
+													            <a class="as-list-new-added-sort-link"
+													                th:classappend="${sortField == 'scheduledDate' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+													                th:href="@{/management/asList(
+													                    page=0,
+													                    size=${pageSize},
+													                    handlerId=${selectedHandlerId},
+													                    status=${selectedStatus},
+													                    dateType=${selectedDateType},
+													                    fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
+													                    toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
+													                    priceFilter=${selectedPriceFilter},
+													                    paymentCollectedFilter=${selectedPaymentCollectedFilter},
+													                    keywordType=${selectedKeywordType},
+													                    keyword=${selectedKeyword},
+													                    sortField='scheduledDate',
+													                    sortDir='desc'
+													                )}">
+													                <i class="fa-solid fa-caret-down"></i>
+													            </a>
+													        </span>
+													    </div>
+													</th>
 													<th>최근수정일</th>
 
 													<th>
@@ -579,19 +623,20 @@
 															th:if="${as.assignedHandler == null}">미지정</span>
 													</td>
 
-													<td
-														th:text="${as.requestedAt != null ? #temporals.format(as.requestedAt, 'yyyy-MM-dd HH:mm') : '-'}">
-														00:00
+													<td th:text="${as.requestedAt != null ? #temporals.format(as.requestedAt, 'yyyy-MM-dd HH:mm') : '-'}">
+													    00:00
 													</td>
-
-													<td
-														th:text="${as.updatedAt != null ? #temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm') : '-'}">
-														00:00
+													
+													<td th:text="${scheduledDateMap[as.id] != null ? #temporals.format(scheduledDateMap[as.id], 'yyyy-MM-dd') : '-'}">
+													    -
 													</td>
-
-													<td
-														th:text="${as.asProcessDate != null ? #temporals.format(as.asProcessDate, 'yyyy-MM-dd HH:mm') : '-'}">
-														00:00
+													
+													<td th:text="${as.updatedAt != null ? #temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm') : '-'}">
+													    00:00
+													</td>
+													
+													<td th:text="${as.asProcessDate != null ? #temporals.format(as.asProcessDate, 'yyyy-MM-dd HH:mm') : '-'}">
+													    00:00
 													</td>
 
 													<td>

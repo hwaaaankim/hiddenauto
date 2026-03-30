@@ -35,8 +35,8 @@
 						</div>
 					</div>
 
-					<form th:action="@{/team/asUpdate/{id}(id=${asTask.id})}" method="POST"
-						enctype="multipart/form-data">
+					<form id="team-as-detail-fourth-form" th:action="@{/team/asUpdate/{id}(id=${asTask.id})}"
+						method="POST" enctype="multipart/form-data">
 
 						<div class="row">
 							<div class="col-12">
@@ -224,13 +224,45 @@
 														담당자 관리
 													</h5>
 													<div class="team-as-detail-fourth-section-sub">
-														담당자용 메모, 방문예정일, 방문예정시간은 진행중(IN_PROGRESS) 상태에서만 수정할 수 있습니다.
+														담당자 변경, 담당자용 메모, 방문예정일, 방문예정시간은 진행중(IN_PROGRESS) 상태에서만 수정할 수
+														있습니다.
 													</div>
 												</div>
 											</div>
 
 											<div class="row team-as-detail-fourth-grid">
-												<div class="col-12 col-xl-6 mt-1">
+												<div class="col-12 col-xl-3 mt-1">
+													<div class="team-as-detail-fourth-info-item">
+														<div class="team-as-detail-fourth-info-label">배정 담당자</div>
+
+														<select class="form-select team-as-detail-fourth-select"
+															id="team-as-detail-fourth-assigned-handler"
+															name="assignedHandlerId"
+															th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}">
+
+															<option value="">담당자를 선택해 주세요.</option>
+
+															<option th:each="teamMember : ${asTeamMembers}"
+																th:value="${teamMember.id}"
+																th:selected="${asTask.assignedHandler != null && teamMember.id == asTask.assignedHandler.id}"
+																th:text="${teamMember.name + (teamMember.username != null ? ' (' + teamMember.username + ')' : '')}">
+																담당자명
+															</option>
+														</select>
+
+														<div class="team-as-detail-fourth-info-help mt-2">
+															담당자를 변경하면 기존 방문예정일정은 자동 삭제됩니다.
+														</div>
+
+														<div class="alert alert-warning mt-2 mb-0 py-2 px-3 d-none"
+															id="team-as-detail-fourth-handler-change-alert">
+															담당자 변경이 감지되었습니다. 저장 시 기존 방문 일정이 삭제되며, 현재 계정에서는 더 이상 이 AS를
+															조회할 수 없습니다.
+														</div>
+													</div>
+												</div>
+
+												<div class="col-12 col-xl-5 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">담당자용 메모</div>
 														<textarea class="form-control" name="handlerMemo" rows="6"
@@ -243,10 +275,12 @@
 													</div>
 												</div>
 
-												<div class="col-12 col-md-6 col-xl-3 mt-1">
+												<div class="col-12 col-md-6 col-xl-2 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">방문예정일</div>
-														<input type="date" class="form-control" name="visitPlannedDate"
+														<input type="date" class="form-control"
+															id="team-as-detail-fourth-visit-date"
+															name="visitPlannedDate"
 															th:value="${visitPlannedDate != null ? #temporals.format(visitPlannedDate, 'yyyy-MM-dd') : ''}"
 															th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}" />
 														<div class="team-as-detail-fourth-info-help mt-2">
@@ -255,11 +289,12 @@
 													</div>
 												</div>
 
-												<div class="col-12 col-md-6 col-xl-3 mt-1">
+												<div class="col-12 col-md-6 col-xl-2 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">방문예정시간</div>
-														<input type="time" class="form-control" name="visitPlannedTime"
-															step="60" min="00:00" max="23:59"
+														<input type="time" class="form-control"
+															id="team-as-detail-fourth-visit-time"
+															name="visitPlannedTime" step="60" min="00:00" max="23:59"
 															th:value="${asTask.visitPlannedTime != null ? #temporals.format(asTask.visitPlannedTime, 'HH:mm') : ''}"
 															th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}" />
 														<div class="team-as-detail-fourth-info-help mt-2">
@@ -497,13 +532,27 @@
 		/*<![CDATA[*/
 		document.addEventListener("DOMContentLoaded", () => {
 
+			const teamAsDetailFourthForm = document.getElementById("team-as-detail-fourth-form");
 			const teamAsDetailFourthFileInput = document.getElementById("team-as-detail-fourth-result-image-upload");
 			const teamAsDetailFourthTriggerBtn = document.getElementById("team-as-detail-fourth-trigger-upload");
 			const teamAsDetailFourthPreviewList = document.getElementById("team-as-detail-fourth-result-preview-list");
 			const teamAsDetailFourthAddressCopyBtn = document.getElementById("team-as-detail-fourth-address-copy-btn");
 			const teamAsDetailFourthProductCopyBtn = document.getElementById("team-as-detail-fourth-product-copy-btn");
 
-			const teamAsDetailFourthCanEdit = /*[[${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}]]*/ false;
+			const teamAsDetailFourthAssignedHandlerSelect =
+				document.getElementById("team-as-detail-fourth-assigned-handler");
+			const teamAsDetailFourthHandlerChangeAlert =
+				document.getElementById("team-as-detail-fourth-handler-change-alert");
+			const teamAsDetailFourthVisitDateInput =
+				document.getElementById("team-as-detail-fourth-visit-date");
+			const teamAsDetailFourthVisitTimeInput =
+				document.getElementById("team-as-detail-fourth-visit-time");
+
+			const teamAsDetailFourthCanEdit =
+            /*[[${asTask.status != null && asTask.status.name() == 'IN_PROGRESS'}]]*/ false;
+
+			const teamAsDetailFourthCurrentHandlerId =
+            /*[[${asTask.assignedHandler != null ? asTask.assignedHandler.id : null}]]*/ null;
 
 			function teamAsDetailFourthFallbackCopy(text) {
 				const textarea = document.createElement("textarea");
@@ -554,6 +603,75 @@
 				}
 			}
 
+			function teamAsDetailFourthIsHandlerChanged() {
+				if (!teamAsDetailFourthAssignedHandlerSelect) {
+					return false;
+				}
+
+				const selectedValue = teamAsDetailFourthAssignedHandlerSelect.value || "";
+				const currentValue = teamAsDetailFourthCurrentHandlerId != null
+					? String(teamAsDetailFourthCurrentHandlerId)
+					: "";
+
+				if (!selectedValue || !currentValue) {
+					return false;
+				}
+
+				return selectedValue !== currentValue;
+			}
+
+			function teamAsDetailFourthSyncHandlerChangeUI() {
+				if (!teamAsDetailFourthAssignedHandlerSelect) {
+					return;
+				}
+
+				const changed = teamAsDetailFourthIsHandlerChanged();
+
+				if (teamAsDetailFourthHandlerChangeAlert) {
+					teamAsDetailFourthHandlerChangeAlert.classList.toggle("d-none", !changed);
+				}
+
+				// 담당자 변경 시 일정 입력은 비활성화
+				if (teamAsDetailFourthVisitDateInput) {
+					teamAsDetailFourthVisitDateInput.disabled = !teamAsDetailFourthCanEdit || changed;
+				}
+
+				if (teamAsDetailFourthVisitTimeInput) {
+					teamAsDetailFourthVisitTimeInput.disabled = !teamAsDetailFourthCanEdit || changed;
+				}
+			}
+
+			if (teamAsDetailFourthAssignedHandlerSelect) {
+				teamAsDetailFourthAssignedHandlerSelect.addEventListener("change", () => {
+					teamAsDetailFourthSyncHandlerChangeUI();
+				});
+
+				teamAsDetailFourthSyncHandlerChangeUI();
+			}
+
+			if (teamAsDetailFourthForm) {
+				teamAsDetailFourthForm.addEventListener("submit", (e) => {
+					if (!teamAsDetailFourthCanEdit) {
+						return;
+					}
+
+					const handlerChanged = teamAsDetailFourthIsHandlerChanged();
+					if (!handlerChanged) {
+						return;
+					}
+
+					const confirmed = confirm(
+						"담당자를 변경하면 기존 방문 일정이 삭제되며,\n" +
+						"저장 후 현재 계정에서는 이 AS 상세를 더 이상 조회할 수 없습니다.\n\n" +
+						"계속 진행하시겠습니까?"
+					);
+
+					if (!confirmed) {
+						e.preventDefault();
+					}
+				});
+			}
+
 			if (teamAsDetailFourthAddressCopyBtn) {
 				teamAsDetailFourthAddressCopyBtn.addEventListener("click", () => {
 					const copyText = teamAsDetailFourthAddressCopyBtn.dataset.copyText || "";
@@ -602,8 +720,8 @@
 			if (teamAsDetailFourthFileInput) {
 				teamAsDetailFourthFileInput.addEventListener("change", () => {
 					if (!teamAsDetailFourthCanEdit) return;
-
 					if (!teamAsDetailFourthPreviewList) return;
+
 					teamAsDetailFourthPreviewList.innerHTML = "";
 
 					Array.from(teamAsDetailFourthFileInput.files).forEach((file, index) => {
@@ -614,13 +732,13 @@
 							item.className = "team-as-detail-fourth-preview-item";
 
 							item.innerHTML = `
-								<img src="${e.target.result}" alt="미리보기" />
-								<button type="button"
-										class="btn btn-danger btn-sm team-as-detail-fourth-preview-remove"
-										data-index="${index}">
-										×
-								</button>
-							`;
+                            <img src="${e.target.result}" alt="미리보기" />
+                            <button type="button"
+                                    class="btn btn-danger btn-sm team-as-detail-fourth-preview-remove"
+                                    data-index="${index}">
+                                    ×
+                            </button>
+                        `;
 
 							teamAsDetailFourthPreviewList.appendChild(item);
 						};
@@ -669,7 +787,7 @@
 					.catch(() => alert("삭제 요청 중 오류가 발생했습니다."));
 			}
 		}
-		/*]]>*/
+    /*]]>*/
 	</script>
 
 </body>

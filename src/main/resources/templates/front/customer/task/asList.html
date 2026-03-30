@@ -383,33 +383,44 @@
 											</div>
 										</div>
 									</div>
-									<!-- 수정하기 버튼 -->
+									<!-- 수정/삭제 버튼 -->
 									<div class="client-as-update-first-trigger-wrap"
-										th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
-										<button type="button"
-											class="btn bg-highlight color-white rounded-s client-as-update-first-trigger-btn client-as-update-first-open-btn"
-											th:attr="
-								                data-as-id=${asTask.id},
-								                data-customer-name=${asTask.customerName},
-								                data-road-address=${asTask.roadAddress},
-								                data-detail-address=${asTask.detailAddress},
-								                data-do-name=${asTask.doName},
-								                data-si-name=${asTask.siName},
-								                data-gu-name=${asTask.guName},
-								                data-zip-code=${asTask.zipCode},
-								                data-onsite-contact=${asTask.onsiteContact},
-								                data-product-name=${asTask.productName},
-								                data-product-size=${asTask.productSize},
-								                data-product-color=${asTask.productColor},
-								                data-product-options=${asTask.productOptions},
-								                data-subject=${asTask.subject},
-								                data-purchase-date=${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy-MM-dd') : ''},
-								                data-applicant-name=${asTask.applicantName},
-								                data-applicant-phone=${asTask.applicantPhone},
-								                data-applicant-email=${asTask.applicantEmail},
-								                data-billing-target=${asTask.billingTarget != null ? asTask.billingTarget.name() : ''}">
-											수정하기
-										</button>
+									    th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
+									
+									    <div class="d-flex flex-wrap gap-2">
+									        <button type="button"
+									            class="btn bg-highlight color-white rounded-s client-as-update-first-trigger-btn client-as-update-first-open-btn"
+									            th:attr="
+									                data-as-id=${asTask.id},
+									                data-customer-name=${asTask.customerName},
+									                data-road-address=${asTask.roadAddress},
+									                data-detail-address=${asTask.detailAddress},
+									                data-do-name=${asTask.doName},
+									                data-si-name=${asTask.siName},
+									                data-gu-name=${asTask.guName},
+									                data-zip-code=${asTask.zipCode},
+									                data-onsite-contact=${asTask.onsiteContact},
+									                data-product-name=${asTask.productName},
+									                data-product-size=${asTask.productSize},
+									                data-product-color=${asTask.productColor},
+									                data-product-options=${asTask.productOptions},
+									                data-subject=${asTask.subject},
+									                data-purchase-date=${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy-MM-dd') : ''},
+									                data-applicant-name=${asTask.applicantName},
+									                data-applicant-phone=${asTask.applicantPhone},
+									                data-applicant-email=${asTask.applicantEmail},
+									                data-billing-target=${asTask.billingTarget != null ? asTask.billingTarget.name() : ''}">
+									            수정하기
+									        </button>
+									
+									        <button type="button" style="width:100%;"
+									            class="btn border border-danger text-danger bg-white rounded-s client-as-update-first-trigger-btn client-as-delete-btn"
+									            th:attr="
+									                data-as-id=${asTask.id},
+									                data-product-name=${(asTask.productName != null and !#strings.isEmpty(asTask.productName)) ? asTask.productName : 'AS 신청'}">
+									            삭제
+									        </button>
+									    </div>
 									</div>
 
 									<!-- JS 원본 데이터 -->

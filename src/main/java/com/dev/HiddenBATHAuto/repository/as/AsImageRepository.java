@@ -10,6 +10,8 @@ import com.dev.HiddenBATHAuto.model.task.AsImage;
 @Repository
 public interface AsImageRepository extends JpaRepository<AsImage, Long> {
 	
+	List<AsImage> findAllByAsTask_Id(Long asTaskId);
+	
 	List<AsImage> findByAsTask_Id(Long asTaskId);
 	
 	List<AsImage> findByAsTaskIdAndIdInAndType(Long asTaskId, List<Long> ids, String type);

@@ -89,6 +89,8 @@ public class TeamController {
 	private final OrderService orderService;
 	private final DeliveryOrderSummaryService deliveryOrderSummaryService;
 	private final DeliveryExcelService deliveryExcelService;
+	
+	private static final Long AS_TEAM_ID = 4L;
 
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
@@ -649,42 +651,82 @@ public class TeamController {
 	}
 	
 	@GetMapping("/asDetail/{id}")
-	public String asDetail(@PathVariable Long id, Model model, @AuthenticationPrincipal PrincipalDetails principal) {
-		AsTask asTask = asTaskService.getAsDetail(id);
-		LocalDate visitPlannedDate = asTaskService.getVisitPlannedDate(id);
+	public String asDetail(@PathVariable Long id,
+	                       Model model,
+	                       @AuthenticationPrincipal PrincipalDetails principal) {
 
-		model.addAttribute("asTask", asTask);
-		model.addAttribute("visitPlannedDate", visitPlannedDate);
-		model.addAttribute("asStatuses", AsStatus.values());
-		model.addAttribute("asStatusLabels", AsStatus.labelMap());
+	    Member loginMember = principal != null ? principal.getMember() : null;
+	    validateAsTeamMember(loginMember);
 
-		return "administration/team/as/asDetail";
+	    AsTask asTask = asTaskService.getAsDetailForAssignedHandler(id, loginMember);
+	    LocalDate visitPlannedDate = asTaskService.getVisitPlannedDate(id);
+	    List<Member> asTeamMembers = asTaskService.getActiveAsTeamMembers();
+
+	    model.addAttribute("asTask", asTask);
+	    model.addAttribute("visitPlannedDate", visitPlannedDate);
+	    model.addAttribute("asStatuses", AsStatus.values());
+	    model.addAttribute("asStatusLabels", AsStatus.labelMap());
+	    model.addAttribute("asTeamMembers", asTeamMembers);
+
+	    return "administration/team/as/asDetail";
 	}
 
 	@PostMapping("/asUpdate/{id}")
-	public String updateAsTaskFromTeam(@PathVariable Long id, @AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(value = "status", required = false) AsStatus status,
-			@RequestParam(value = "handlerMemo", required = false) String handlerMemo,
-			@RequestParam(value = "visitPlannedDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate visitPlannedDate,
-			@RequestParam(value = "visitPlannedTime", required = false) @DateTimeFormat(pattern = "HH:mm") LocalTime visitPlannedTime,
-			@RequestParam(value = "resultImages", required = false) List<MultipartFile> resultImages,
-			RedirectAttributes redirectAttributes) {
+	public String updateAsTaskFromTeam(@PathVariable Long id,
+	                                   @AuthenticationPrincipal PrincipalDetails principal,
+	                                   @RequestParam(value = "assignedHandlerId", required = false) Long assignedHandlerId,
+	                                   @RequestParam(value = "status", required = false) AsStatus status,
+	                                   @RequestParam(value = "handlerMemo", required = false) String handlerMemo,
+	                                   @RequestParam(value = "visitPlannedDate", required = false)
+	                                   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate visitPlannedDate,
+	                                   @RequestParam(value = "visitPlannedTime", required = false)
+	                                   @DateTimeFormat(pattern = "HH:mm") LocalTime visitPlannedTime,
+	                                   @RequestParam(value = "resultImages", required = false) List<MultipartFile> resultImages,
+	                                   RedirectAttributes redirectAttributes) {
 
-		Member member = principal.getMember();
+	    Member loginMember = principal != null ? principal.getMember() : null;
+	    validateAsTeamMember(loginMember);
 
-		if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
-		}
+	    try {
+	        boolean handlerChanged = asTaskService.updateAsTaskByHandler(
+	                id,
+	                loginMember,
+	                assignedHandlerId,
+	                status,
+	                handlerMemo,
+	                visitPlannedDate,
+	                visitPlannedTime,
+	                resultImages
+	        );
 
-		try {
-			asTaskService.updateAsTaskByHandler(id, member, status, handlerMemo, visitPlannedDate, visitPlannedTime, resultImages);
-			redirectAttributes.addFlashAttribute("success", "AS 상태, 담당자용 메모, 방문예정일, 방문예정시간, 결과 이미지가 저장되었습니다.");
-		} catch (Exception e) {
-			e.printStackTrace();
-			redirectAttributes.addFlashAttribute("error", e.getMessage() != null ? e.getMessage() : "저장 중 오류가 발생했습니다.");
-		}
+	        if (handlerChanged) {
+	            redirectAttributes.addFlashAttribute(
+	                    "success",
+	                    "담당자가 변경되어 기존 방문 일정이 삭제되었습니다. 현재 계정에서는 더 이상 해당 AS 상세를 조회할 수 없습니다."
+	            );
+	            return "redirect:/team/asList";
+	        }
 
-		return "redirect:/team/asDetail/" + id;
+	        redirectAttributes.addFlashAttribute(
+	                "success",
+	                "AS 상태, 담당자, 담당자용 메모, 방문예정일, 방문예정시간, 결과 이미지가 저장되었습니다."
+	        );
+	        return "redirect:/team/asDetail/" + id;
+
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        redirectAttributes.addFlashAttribute(
+	                "error",
+	                e.getMessage() != null ? e.getMessage() : "저장 중 오류가 발생했습니다."
+	        );
+	        return "redirect:/team/asDetail/" + id;
+	    }
+	}
+
+	private void validateAsTeamMember(Member member) {
+	    if (member == null || member.getTeam() == null || !AS_TEAM_ID.equals(member.getTeam().getId())) {
+	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
+	    }
 	}
 
 	@GetMapping("/asDetailModal/{id}")
