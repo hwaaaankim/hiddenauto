@@ -5,6 +5,214 @@
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body class="twocolumn-panel">
+
+	<style>
+		.as-list-added-table-card {
+			overflow: hidden;
+		}
+
+		.as-list-added-table-card-body {
+			padding-bottom: 1rem;
+		}
+
+		.as-list-added-table-responsive {
+			width: 100%;
+			overflow-x: auto;
+			overflow-y: hidden;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		.as-list-added-table {
+			width: 100%;
+			table-layout: fixed;
+			margin-bottom: 0;
+		}
+
+		.as-list-added-th,
+		.as-list-added-td {
+			vertical-align: middle;
+		}
+
+		.as-list-added-address {
+			white-space: normal;
+			word-break: keep-all;
+			overflow-wrap: anywhere;
+			line-height: 1.45;
+		}
+
+		.as-list-added-requester,
+		.as-list-added-customerName,
+		.as-list-added-date,
+		.asList-second-onsiteContact {
+			display: block;
+			word-break: keep-all;
+			overflow-wrap: anywhere;
+		}
+
+		.asList-second-actions {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			flex-wrap: nowrap;
+			gap: .5rem;
+		}
+
+		.asList-second-btn-call,
+		.asList-second-btn-open-complete {
+			height: 36px;
+			min-width: 44px;
+			padding: 0 .625rem;
+			border-radius: .375rem;
+			white-space: nowrap;
+			align-items: center;
+			justify-content: center;
+			line-height: 1;
+			flex-shrink: 0;
+		}
+
+		.asList-second-btn-call i {
+			font-size: 1rem;
+			line-height: 1;
+		}
+
+		.production-pagination .pagination,
+		.production-pagination-mobile .pagination {
+			flex-wrap: nowrap;
+			margin-bottom: 0;
+		}
+
+		.production-pagination-mobile .page-link {
+			min-width: 40px;
+			height: 40px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			padding: 0 .625rem;
+			white-space: nowrap;
+		}
+
+		.as-list-mobile-current-page .page-link {
+			min-width: 84px;
+			font-weight: 600;
+		}
+
+		@media (max-width: 991.98px) {
+			.as-list-added-table {
+				min-width: 820px;
+			}
+
+			.as-list-added-th,
+			.as-list-added-td {
+				padding: .75rem .625rem;
+				font-size: .875rem;
+			}
+
+			.as-list-added-col-id,
+			.as-list-added-col-customerName,
+			.as-list-added-col-onsiteContact,
+			.as-list-added-col-requestedAt,
+			.as-list-added-col-processedAt {
+				display: none !important;
+			}
+
+			.as-list-added-col-status {
+				display: table-cell !important;
+				width: 92px;
+				min-width: 92px;
+			}
+
+			.as-list-added-col-requester {
+				display: table-cell !important;
+				width: 130px;
+				min-width: 130px;
+			}
+
+			.as-list-added-col-scheduledDate {
+				display: table-cell !important;
+				width: 120px;
+				min-width: 120px;
+				text-align: center;
+			}
+
+			.as-list-added-col-visitTime {
+				display: table-cell !important;
+				width: 96px;
+				min-width: 96px;
+				text-align: center;
+			}
+
+			.as-list-added-col-address {
+				display: table-cell !important;
+				width: 270px;
+				min-width: 270px;
+			}
+
+			.as-list-added-col-actions {
+				display: table-cell !important;
+				width: 116px;
+				min-width: 116px;
+				text-align: center;
+			}
+
+			.as-list-added-status-badge {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				max-width: 78px;
+				width: 100%;
+				white-space: nowrap;
+			}
+
+			.as-list-added-col-requester .as-list-added-requester {
+				display: -webkit-box;
+				-webkit-line-clamp: 2;
+				-webkit-box-orient: vertical;
+				overflow: hidden;
+				line-height: 1.4;
+			}
+
+			.as-list-added-col-address .as-list-added-address {
+				min-width: 0;
+			}
+
+			.asList-second-actions {
+				width: 100%;
+				justify-content: center;
+				gap: .375rem;
+			}
+
+			.asList-second-btn-call,
+			.asList-second-btn-open-complete {
+				height: 36px;
+				min-width: 46px;
+				padding: 0 .55rem;
+				font-size: .8125rem;
+			}
+
+			.production-pagination {
+				display: none !important;
+			}
+
+			.production-pagination-mobile {
+				display: flex !important;
+				overflow-x: auto;
+				overflow-y: hidden;
+				-webkit-overflow-scrolling: touch;
+				padding-bottom: .25rem;
+			}
+		}
+
+		@media (min-width: 992px) {
+			.production-pagination-mobile {
+				display: none !important;
+			}
+
+			.asList-second-btn-open-complete {
+				min-width: 54px;
+			}
+		}
+	</style>
+
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
@@ -37,25 +245,19 @@
 									<label class="form-label">상태</label>
 									<select name="status" class="form-select">
 										<option value="" th:selected="${selectedStatusName == null}">전체</option>
-										<option value="REQUESTED" th:selected="${selectedStatusName == 'REQUESTED'}">요청됨
-										</option>
-										<option value="IN_PROGRESS"
-											th:selected="${selectedStatusName == 'IN_PROGRESS'}">진행중</option>
-										<option value="COMPLETED" th:selected="${selectedStatusName == 'COMPLETED'}">완료
-										</option>
-										<option value="CANCELED" th:selected="${selectedStatusName == 'CANCELED'}">취소
-										</option>
+										<option value="REQUESTED" th:selected="${selectedStatusName == 'REQUESTED'}">요청됨</option>
+										<option value="IN_PROGRESS" th:selected="${selectedStatusName == 'IN_PROGRESS'}">진행중</option>
+										<option value="COMPLETED" th:selected="${selectedStatusName == 'COMPLETED'}">완료</option>
+										<option value="CANCELED" th:selected="${selectedStatusName == 'CANCELED'}">취소</option>
 									</select>
 								</div>
 
 								<div class="col-lg-1">
 									<label class="form-label">조회조건</label>
 									<select name="dateType" class="form-select">
-										<option value="requested"
-											th:selected="${dateType == null || dateType == 'requested'}">신청일</option>
+										<option value="requested" th:selected="${dateType == null || dateType == 'requested'}">신청일</option>
 										<option value="processed" th:selected="${dateType == 'processed'}">처리일</option>
-										<option value="scheduled" th:selected="${dateType == 'scheduled'}">방문예정일
-										</option>
+										<option value="scheduled" th:selected="${dateType == 'scheduled'}">방문예정일</option>
 									</select>
 								</div>
 
@@ -115,16 +317,16 @@
 								</div>
 
 								<input type="hidden" name="districtId" id="as-district-hidden"
-								    th:value="${districtId != null ? districtId : ''}" />
-								
+									th:value="${districtId != null ? districtId : ''}" />
+
 								<input type="hidden" name="visitTimeSort"
-								    th:value="${visitTimeSort != null ? visitTimeSort : ''}" />
-								
+									th:value="${visitTimeSort != null ? visitTimeSort : ''}" />
+
 								<input type="hidden" name="scheduledDateSort"
-								    th:value="${scheduledDateSort != null ? scheduledDateSort : ''}" />
-								
+									th:value="${scheduledDateSort != null ? scheduledDateSort : ''}" />
+
 								<input type="hidden" name="addressSort"
-								    th:value="${addressSort != null ? addressSort : ''}" />
+									th:value="${addressSort != null ? addressSort : ''}" />
 
 							</div>
 						</div>
@@ -140,36 +342,32 @@
 										<table class="table as-list-added-table align-middle mb-0 asList-second-table">
 											<thead class="as-list-added-thead">
 												<tr>
-													<th
-														class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
+													<th class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														ID
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-status asList-second-col-status">
+													<th class="as-list-added-th as-list-added-col-status asList-second-col-status">
 														상태
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-requester asList-second-col-requester">
+													<th class="as-list-added-th as-list-added-col-requester asList-second-col-requester">
 														신청매장
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-customerName asList-second-col-customerName">
+													<th class="as-list-added-th as-list-added-col-customerName asList-second-col-customerName">
 														고객 성함
 													</th>
 
 													<th class="as-list-added-th as-list-added-col-address asList-second-col-address"
-													    th:with="
+														th:with="
 													        startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
 													        endDateParam=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : null},
 													        companyKeywordParam=${#strings.isEmpty(companyKeyword) ? null : companyKeyword}">
-													    <div class="d-inline-flex align-items-center gap-2">
-													        <span>주소</span>
-													        <span class="d-inline-flex flex-column lh-1">
-													            <a class="text-decoration-none"
-													               th:href="@{/team/asList(
+														<div class="d-inline-flex align-items-center gap-2">
+															<span>주소</span>
+															<span class="d-inline-flex flex-column lh-1">
+																<a class="text-decoration-none"
+																	th:href="@{/team/asList(
 													                    page=0,
 													                    dateType=${dateType},
 													                    startDate=${startDateParam},
@@ -183,12 +381,12 @@
 													                    scheduledDateSort=${null},
 													                    addressSort='asc'
 													               )}"
-													               th:classappend="${addressSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
-													                <i class="ri-arrow-up-s-line"></i>
-													            </a>
-													
-													            <a class="text-decoration-none"
-													               th:href="@{/team/asList(
+																	th:classappend="${addressSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
+																	<i class="ri-arrow-up-s-line"></i>
+																</a>
+
+																<a class="text-decoration-none"
+																	th:href="@{/team/asList(
 													                    page=0,
 													                    dateType=${dateType},
 													                    startDate=${startDateParam},
@@ -202,22 +400,21 @@
 													                    scheduledDateSort=${null},
 													                    addressSort='desc'
 													               )}"
-													               th:classappend="${addressSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
-													                <i class="ri-arrow-down-s-line"></i>
-													            </a>
-													        </span>
-													    </div>
+																	th:classappend="${addressSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
+																	<i class="ri-arrow-down-s-line"></i>
+																</a>
+															</span>
+														</div>
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
+													<th class="as-list-added-th as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														현장연락처
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
+													<th class="as-list-added-th as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														신청일
 													</th>
+
 													<th class="as-list-added-th as-list-added-col-scheduledDate d-none d-lg-table-cell text-center"
 														th:with="
 															startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
@@ -227,7 +424,7 @@
 															<span>방문예정일</span>
 															<span class="d-inline-flex flex-column lh-1">
 																<a class="text-decoration-none"
-																   th:href="@{/team/asList(
+																	th:href="@{/team/asList(
 																        page=0,
 																        dateType=${dateType},
 																        startDate=${startDateParam},
@@ -241,12 +438,12 @@
 																        scheduledDateSort='asc',
 																        addressSort=${null}
 																   )}"
-																   th:classappend="${scheduledDateSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
-																    <i class="ri-arrow-up-s-line"></i>
+																	th:classappend="${scheduledDateSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
+																	<i class="ri-arrow-up-s-line"></i>
 																</a>
-													
+
 																<a class="text-decoration-none"
-																   th:href="@{/team/asList(
+																	th:href="@{/team/asList(
 																        page=0,
 																        dateType=${dateType},
 																        startDate=${startDateParam},
@@ -260,12 +457,13 @@
 																        scheduledDateSort='desc',
 																        addressSort=${null}
 																   )}"
-																   th:classappend="${scheduledDateSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
-																    <i class="ri-arrow-down-s-line"></i>
+																	th:classappend="${scheduledDateSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
+																	<i class="ri-arrow-down-s-line"></i>
 																</a>
 															</span>
 														</div>
 													</th>
+
 													<th class="as-list-added-th as-list-added-col-visitTime d-none d-lg-table-cell text-center"
 														th:with="
 															startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
@@ -275,7 +473,7 @@
 															<span>방문예정시간</span>
 															<span class="d-inline-flex flex-column lh-1">
 																<a class="text-decoration-none"
-																   th:href="@{/team/asList(
+																	th:href="@{/team/asList(
 																        page=0,
 																        dateType=${dateType},
 																        startDate=${startDateParam},
@@ -289,12 +487,12 @@
 																        scheduledDateSort=${null},
 																        addressSort=${null}
 																   )}"
-																   th:classappend="${visitTimeSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
-																    <i class="ri-arrow-up-s-line"></i>
+																	th:classappend="${visitTimeSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
+																	<i class="ri-arrow-up-s-line"></i>
 																</a>
-													
+
 																<a class="text-decoration-none"
-																   th:href="@{/team/asList(
+																	th:href="@{/team/asList(
 																        page=0,
 																        dateType=${dateType},
 																        startDate=${startDateParam},
@@ -308,20 +506,18 @@
 																        scheduledDateSort=${null},
 																        addressSort=${null}
 																   )}"
-																   th:classappend="${visitTimeSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
-																    <i class="ri-arrow-down-s-line"></i>
+																	th:classappend="${visitTimeSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
+																	<i class="ri-arrow-down-s-line"></i>
 																</a>
 															</span>
 														</div>
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
+													<th class="as-list-added-th as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														처리일
 													</th>
 
-													<th
-														class="as-list-added-th as-list-added-col-actions text-center asList-second-col-actions">
+													<th class="as-list-added-th as-list-added-col-actions text-center asList-second-col-actions">
 														비고
 													</th>
 												</tr>
@@ -329,81 +525,73 @@
 
 											<tbody class="as-list-added-tbody">
 												<tr th:each="task : ${asPage.content}"
-												    class="as-list-added-tr asList-second-row-click"
-												    th:classappend="${addressGroupClassMap != null ? addressGroupClassMap[task.id] : ''}"
-												    th:attr="data-href=@{/team/asDetail/{id}(id=${task.id})},
+													class="as-list-added-tr asList-second-row-click"
+													th:classappend="${addressGroupClassMap != null ? addressGroupClassMap[task.id] : ''}"
+													th:attr="data-href=@{/team/asDetail/{id}(id=${task.id})},
 												             data-task-id=${task.id},
 												             data-onsite=${task.onsiteContact}">
 
-													<td
-														class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
+													<td class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
 														<span class="as-list-added-id" th:text="${task.id}">1</span>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-status asList-second-col-status">
-														<span class="badge as-list-added-status-badge" th:classappend="${
+													<td class="as-list-added-td as-list-added-col-status asList-second-col-status">
+														<span class="badge as-list-added-status-badge"
+															th:classappend="${
 																task.status?.name() == 'REQUESTED' ? ' as-list-added-badge-requested' :
 																task.status?.name() == 'IN_PROGRESS' ? ' as-list-added-badge-progress' :
 																task.status?.name() == 'COMPLETED' ? ' as-list-added-badge-completed' :
 																task.status?.name() == 'CANCELED' ? ' as-list-added-badge-canceled' : ''
-															}" th:text="${task.status != null ? asStatusLabels[task.status.name()] : '-'}">
+															}"
+															th:text="${task.status != null ? asStatusLabels[task.status.name()] : '-'}">
 															요청됨
 														</span>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-requester asList-second-col-requester">
-														<span class="as-list-added-requester"
-															th:text="${task.requestedCompanyNameSafe}">-</span>
+													<td class="as-list-added-td as-list-added-col-requester asList-second-col-requester">
+														<span class="as-list-added-requester" th:text="${task.requestedCompanyNameSafe}">-</span>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-customerName asList-second-col-customerName">
-														<span class="as-list-added-customerName"
-															th:text="${task.customerNameSafe}">-</span>
+													<td class="as-list-added-td as-list-added-col-customerName asList-second-col-customerName">
+														<span class="as-list-added-customerName" th:text="${task.customerNameSafe}">-</span>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-address asList-second-col-address">
+													<td class="as-list-added-td as-list-added-col-address asList-second-col-address">
 														<div class="as-list-added-address"
 															th:text="|${#strings.defaultString(task.roadAddress,'')} ${#strings.defaultString(task.detailAddress,'')}|">
 															주소
 														</div>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
+													<td class="as-list-added-td as-list-added-col-onsiteContact d-none d-lg-table-cell asList-second-col-onsiteContact">
 														<div class="asList-second-onsiteContact text-truncate"
 															th:text="${task.onsiteContact != null && !#strings.isEmpty(task.onsiteContact) ? task.onsiteContact : '-'}">
 															-
 														</div>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
+													<td class="as-list-added-td as-list-added-col-requestedAt d-none d-lg-table-cell asList-second-col-requestedAt">
 														<span class="as-list-added-date"
 															th:text="${#temporals.format(task.requestedAt, 'yyyy-MM-dd')}">2026-01-01</span>
 													</td>
+
 													<td class="as-list-added-td as-list-added-col-scheduledDate d-none d-lg-table-cell text-center">
 														<span class="as-list-added-date"
 															th:text="${asScheduleDisplayMap[task.id] != null ? asScheduleDisplayMap[task.id] : '-'}">-</span>
 													</td>
-													<td class="as-list-added-td d-none d-lg-table-cell text-center">
+
+													<td class="as-list-added-td as-list-added-col-visitTime d-none d-lg-table-cell text-center asList-second-col-visitTime">
 														<span class="as-list-added-date"
 															th:text="${task.visitPlannedTime != null ? #temporals.format(task.visitPlannedTime, 'HH:mm') : '-'}">-</span>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
+													<td class="as-list-added-td as-list-added-col-processedAt d-none d-lg-table-cell asList-second-col-processedAt">
 														<span class="as-list-added-date"
 															th:text="${task.asProcessDate != null ? #temporals.format(task.asProcessDate, 'yyyy-MM-dd') : '-'}">-</span>
 													</td>
 
-													<td
-														class="as-list-added-td as-list-added-col-actions text-center asList-second-col-actions">
-														<div
-															class="asList-second-actions d-inline-flex gap-2 align-items-center justify-content-end">
+													<td class="as-list-added-td as-list-added-col-actions text-center asList-second-col-actions">
+														<div class="asList-second-actions d-inline-flex gap-2 align-items-center justify-content-end">
 
 															<a class="btn btn-sm btn-success asList-second-btn-call d-inline-flex d-lg-none"
 																th:if="${task.onsiteContact != null && !#strings.isEmpty(task.onsiteContact)}"
@@ -445,9 +633,9 @@
 						</div>
 					</div>
 
-					<div class="row g-0 justify-content-center mt-4 production-pagination"
-					     th:if="${asPage.totalPages > 0}"
-					     th:with="
+					<div class="row g-0 justify-content-center mt-4 production-pagination d-none d-lg-flex"
+						th:if="${asPage.totalPages > 0}"
+						th:with="
 					        startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
 					        endDateParam=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : null},
 					        companyKeywordParam=${#strings.isEmpty(companyKeyword) ? null : companyKeyword},
@@ -457,12 +645,12 @@
 					        prevPage=${asPage.first ? 0 : asPage.number - 1},
 					        nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
 					        lastPage=${asPage.totalPages - 1}">
-					
-					    <div class="col-auto">
-					        <ul class="pagination pagination-separated">
-					
-					            <li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-					                <a class="page-link" th:href="@{/team/asList(
+
+						<div class="col-auto">
+							<ul class="pagination pagination-separated">
+
+								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+									<a class="page-link" th:href="@{/team/asList(
 					                        page=0,
 					                        dateType=${dateType},
 					                        startDate=${startDateParam},
@@ -476,10 +664,10 @@
 					                        scheduledDateSort=${scheduledDateSortParam},
 					                        addressSort=${addressSortParam}
 					                    )}">FIRST</a>
-					            </li>
-					
-					            <li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
-					                <a class="page-link" th:href="@{/team/asList(
+								</li>
+
+								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+									<a class="page-link" th:href="@{/team/asList(
 					                        page=${prevPage},
 					                        dateType=${dateType},
 					                        startDate=${startDateParam},
@@ -493,14 +681,14 @@
 					                        scheduledDateSort=${scheduledDateSortParam},
 					                        addressSort=${addressSortParam}
 					                    )}">PREV</a>
-					            </li>
-					
-					            <li class="page-item"
-					                th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
-					                th:classappend="${asPage.number == i} ? 'active'">
-					                <a class="page-link"
-					                   th:text="${i + 1}"
-					                   th:href="@{/team/asList(
+								</li>
+
+								<li class="page-item"
+									th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
+									th:classappend="${asPage.number == i} ? 'active'">
+									<a class="page-link"
+										th:text="${i + 1}"
+										th:href="@{/team/asList(
 					                        page=${i},
 					                        dateType=${dateType},
 					                        startDate=${startDateParam},
@@ -514,10 +702,10 @@
 					                        scheduledDateSort=${scheduledDateSortParam},
 					                        addressSort=${addressSortParam}
 					                    )}">1</a>
-					            </li>
-					
-					            <li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-					                <a class="page-link" th:href="@{/team/asList(
+								</li>
+
+								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+									<a class="page-link" th:href="@{/team/asList(
 					                        page=${nextPage},
 					                        dateType=${dateType},
 					                        startDate=${startDateParam},
@@ -531,10 +719,10 @@
 					                        scheduledDateSort=${scheduledDateSortParam},
 					                        addressSort=${addressSortParam}
 					                    )}">NEXT</a>
-					            </li>
-					
-					            <li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
-					                <a class="page-link" th:href="@{/team/asList(
+								</li>
+
+								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+									<a class="page-link" th:href="@{/team/asList(
 					                        page=${lastPage},
 					                        dateType=${dateType},
 					                        startDate=${startDateParam},
@@ -548,10 +736,106 @@
 					                        scheduledDateSort=${scheduledDateSortParam},
 					                        addressSort=${addressSortParam}
 					                    )}">LAST</a>
-					            </li>
-					
-					        </ul>
-					    </div>
+								</li>
+
+							</ul>
+						</div>
+					</div>
+
+					<div class="row g-0 justify-content-center mt-4 production-pagination-mobile d-lg-none"
+						th:if="${asPage.totalPages > 0}"
+						th:with="
+					        startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
+					        endDateParam=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : null},
+					        companyKeywordParam=${#strings.isEmpty(companyKeyword) ? null : companyKeyword},
+					        visitTimeSortParam=${#strings.isEmpty(visitTimeSort) ? null : visitTimeSort},
+					        scheduledDateSortParam=${#strings.isEmpty(scheduledDateSort) ? null : scheduledDateSort},
+					        addressSortParam=${#strings.isEmpty(addressSort) ? null : addressSort},
+					        prevPage=${asPage.first ? 0 : asPage.number - 1},
+					        nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
+					        lastPage=${asPage.totalPages - 1}">
+
+						<div class="col-auto">
+							<ul class="pagination pagination-separated">
+
+								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+									<a class="page-link" aria-label="첫 페이지"
+										th:href="@{/team/asList(
+					                        page=0,
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">&laquo;</a>
+								</li>
+
+								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
+									<a class="page-link" aria-label="이전 페이지"
+										th:href="@{/team/asList(
+					                        page=${prevPage},
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">&lsaquo;</a>
+								</li>
+
+								<li class="page-item active disabled as-list-mobile-current-page">
+									<span class="page-link" th:text="|${asPage.number + 1}/${asPage.totalPages}|">1/5</span>
+								</li>
+
+								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+									<a class="page-link" aria-label="다음 페이지"
+										th:href="@{/team/asList(
+					                        page=${nextPage},
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">&rsaquo;</a>
+								</li>
+
+								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
+									<a class="page-link" aria-label="마지막 페이지"
+										th:href="@{/team/asList(
+					                        page=${lastPage},
+					                        dateType=${dateType},
+					                        startDate=${startDateParam},
+					                        endDate=${endDateParam},
+					                        status=${selectedStatusName},
+					                        companyKeyword=${companyKeywordParam},
+					                        provinceId=${provinceId},
+					                        cityId=${cityId},
+					                        districtId=${districtId},
+					                        visitTimeSort=${visitTimeSortParam},
+					                        scheduledDateSort=${scheduledDateSortParam},
+					                        addressSort=${addressSortParam}
+					                    )}">&raquo;</a>
+								</li>
+
+							</ul>
+						</div>
 					</div>
 
 				</div>
