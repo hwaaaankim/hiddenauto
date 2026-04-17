@@ -422,12 +422,12 @@
 														</div>
 													</th>
 													<th>
-													    <div class="as-list-new-added-th-sort">
-													        <span class="as-list-new-added-sort-label">방문예정일</span>
-													        <span class="as-list-new-added-sort-icons">
-													            <a class="as-list-new-added-sort-link"
-													                th:classappend="${sortField == 'scheduledDate' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-													                th:href="@{/management/asList(
+														<div class="as-list-new-added-th-sort">
+															<span class="as-list-new-added-sort-label">방문예정일</span>
+															<span class="as-list-new-added-sort-icons">
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'scheduledDate' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
 													                    page=0,
 													                    size=${pageSize},
 													                    handlerId=${selectedHandlerId},
@@ -442,11 +442,11 @@
 													                    sortField='scheduledDate',
 													                    sortDir='asc'
 													                )}">
-													                <i class="fa-solid fa-caret-up"></i>
-													            </a>
-													            <a class="as-list-new-added-sort-link"
-													                th:classappend="${sortField == 'scheduledDate' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-													                th:href="@{/management/asList(
+																	<i class="fa-solid fa-caret-up"></i>
+																</a>
+																<a class="as-list-new-added-sort-link"
+																	th:classappend="${sortField == 'scheduledDate' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
+																	th:href="@{/management/asList(
 													                    page=0,
 													                    size=${pageSize},
 													                    handlerId=${selectedHandlerId},
@@ -461,10 +461,10 @@
 													                    sortField='scheduledDate',
 													                    sortDir='desc'
 													                )}">
-													                <i class="fa-solid fa-caret-down"></i>
-													            </a>
-													        </span>
-													    </div>
+																	<i class="fa-solid fa-caret-down"></i>
+																</a>
+															</span>
+														</div>
 													</th>
 													<th>최근수정일</th>
 
@@ -623,20 +623,24 @@
 															th:if="${as.assignedHandler == null}">미지정</span>
 													</td>
 
-													<td th:text="${as.requestedAt != null ? #temporals.format(as.requestedAt, 'yyyy-MM-dd HH:mm') : '-'}">
-													    00:00
+													<td
+														th:text="${as.requestedAt != null ? #temporals.format(as.requestedAt, 'yyyy-MM-dd HH:mm') : '-'}">
+														00:00
 													</td>
-													
-													<td th:text="${scheduledDateMap[as.id] != null ? #temporals.format(scheduledDateMap[as.id], 'yyyy-MM-dd') : '-'}">
-													    -
+
+													<td
+														th:text="${scheduledDateMap[as.id] != null ? #temporals.format(scheduledDateMap[as.id], 'yyyy-MM-dd') : '-'}">
+														-
 													</td>
-													
-													<td th:text="${as.updatedAt != null ? #temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm') : '-'}">
-													    00:00
+
+													<td
+														th:text="${as.updatedAt != null ? #temporals.format(as.updatedAt, 'yyyy-MM-dd HH:mm') : '-'}">
+														00:00
 													</td>
-													
-													<td th:text="${as.asProcessDate != null ? #temporals.format(as.asProcessDate, 'yyyy-MM-dd HH:mm') : '-'}">
-													    00:00
+
+													<td
+														th:text="${as.asProcessDate != null ? #temporals.format(as.asProcessDate, 'yyyy-MM-dd HH:mm') : '-'}">
+														00:00
 													</td>
 
 													<td>
@@ -689,7 +693,13 @@
 
 									<!-- ✅ 페이지네이션: 필터 + 정렬 + size + 키워드 반영 -->
 									<div class="d-flex justify-content-end mt-2"
-										th:if="${asPage != null and asPage.totalPages > 0}">
+										th:if="${asPage != null and asPage.totalPages > 0}" th:with="
+        totalPages=${asPage.totalPages},
+        currentPage=${asPage.number},
+        windowSize=${5},
+        startPage=${totalPages <= windowSize ? 0 : (currentPage <= 2 ? 0 : (currentPage >= totalPages - 3 ? totalPages - windowSize : currentPage - 2))},
+        endPage=${totalPages <= windowSize ? totalPages - 1 : (currentPage <= 2 ? windowSize - 1 : (currentPage >= totalPages - 3 ? totalPages - 1 : currentPage + 2))}
+     ">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
 												<ul class="pagination justify-content-center">
@@ -736,9 +746,9 @@
 														</a>
 													</li>
 
-													<!-- Number -->
+													<!-- Number: 최대 5개만 노출 -->
 													<li class="page-item"
-														th:each="pageNum : ${#numbers.sequence(0, asPage.totalPages - 1)}"
+														th:each="pageNum : ${#numbers.sequence(startPage, endPage)}"
 														th:classappend="${asPage.number == pageNum} ? 'active'">
 														<a class="page-link" th:href="@{/management/asList(
                         page=${pageNum},

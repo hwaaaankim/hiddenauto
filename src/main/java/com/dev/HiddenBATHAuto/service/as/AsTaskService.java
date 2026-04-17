@@ -421,6 +421,117 @@ public class AsTaskService {
 				visitTimeSort, null, null, pageable);
 	}
 
+	
+	@Transactional(readOnly = true)
+    public Page<AsTask> getAsTasksForAsTeamList(
+            Member handler,
+            String dateType,
+            LocalDateTime start,
+            LocalDateTime end,
+            AsStatus status,
+            String companyKeyword,
+            Long provinceId,
+            Long cityId,
+            Long districtId,
+            String visitTimeSort,
+            String scheduledDateSort,
+            String addressSort,
+            String statusSort,
+            Pageable pageable) {
+
+        String normalizedCompanyKeyword = normalizeBlankToNull(companyKeyword);
+        String normalizedVisitTimeSort = normalizeVisitTimeSort(visitTimeSort);
+        String normalizedScheduledDateSort = normalizeScheduledDateSort(scheduledDateSort);
+        String normalizedAddressSort = normalizeAddressSort(addressSort);
+        String normalizedStatusSort = normalizeStatusSort(statusSort);
+
+        String provinceName = regionLookupService.getProvinceName(provinceId);
+        String cityName = regionLookupService.getCityName(cityId);
+        String districtName = regionLookupService.getDistrictName(districtId);
+
+        List<String> provinceNames = regionLookupService.getProvinceAliases(provinceName);
+        if (provinceNames != null && provinceNames.isEmpty()) {
+            provinceNames = null;
+        }
+
+        // AS팀 리스트에서는 무조건 진행중/완료만 보이게 고정
+        List<AsStatus> visibleStatuses = List.of(AsStatus.IN_PROGRESS, AsStatus.COMPLETED);
+
+        if ("scheduled".equalsIgnoreCase(dateType)) {
+            LocalDate startDate = (start != null) ? start.toLocalDate() : null;
+            LocalDate endDate = (end != null) ? end.toLocalDate() : null;
+
+            return asTaskRepository.findVisibleByScheduledDateFlexible(
+                    handler.getId(),
+                    visibleStatuses,
+                    status,
+                    startDate,
+                    endDate,
+                    normalizedCompanyKeyword,
+                    provinceNames,
+                    cityName,
+                    districtName,
+                    normalizedVisitTimeSort,
+                    normalizedScheduledDateSort,
+                    normalizedAddressSort,
+                    normalizedStatusSort,
+                    AsStatus.IN_PROGRESS,
+                    AsStatus.COMPLETED,
+                    pageable
+            );
+        }
+
+        if ("requested".equalsIgnoreCase(dateType)) {
+            return asTaskRepository.findVisibleByRequestedDateFlexible(
+                    handler.getId(),
+                    visibleStatuses,
+                    status,
+                    start,
+                    end,
+                    normalizedCompanyKeyword,
+                    provinceNames,
+                    cityName,
+                    districtName,
+                    normalizedVisitTimeSort,
+                    normalizedAddressSort,
+                    normalizedStatusSort,
+                    AsStatus.IN_PROGRESS,
+                    AsStatus.COMPLETED,
+                    pageable
+            );
+        }
+
+        return asTaskRepository.findVisibleByProcessedDateFlexible(
+                handler.getId(),
+                visibleStatuses,
+                status,
+                start,
+                end,
+                normalizedCompanyKeyword,
+                provinceNames,
+                cityName,
+                districtName,
+                normalizedVisitTimeSort,
+                normalizedAddressSort,
+                normalizedStatusSort,
+                AsStatus.IN_PROGRESS,
+                AsStatus.COMPLETED,
+                pageable
+        );
+    }
+
+    private String normalizeStatusSort(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        String normalized = raw.trim().toLowerCase();
+        if (!"asc".equals(normalized) && !"desc".equals(normalized)) {
+            return null;
+        }
+        return normalized;
+    }
+	
 	@Transactional(readOnly = true)
 	public Page<AsTask> getAsTasks(Member handler, String dateType, LocalDateTime start, LocalDateTime end,
 			AsStatus status, String companyKeyword, Long provinceId, Long cityId, Long districtId, String visitTimeSort,

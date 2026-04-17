@@ -1564,6 +1564,290 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	        @Param("sortDir") String sortDir,
 	        Pageable pageable
 	);
+	@Query(value = """
+            SELECT a
+            FROM AsTaskSchedule s
+            JOIN s.asTask a
+            LEFT JOIN a.requestedBy rb
+            LEFT JOIN rb.company company
+            WHERE a.assignedHandler.id = :handlerId
+              AND a.status IN :visibleStatuses
+              AND (:selectedStatus IS NULL OR a.status = :selectedStatus)
+              AND (:startDate IS NULL OR s.scheduledDate >= :startDate)
+              AND (:endDate IS NULL OR s.scheduledDate <= :endDate)
+              AND (:companyKeyword IS NULL OR :companyKeyword = '' OR lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              AND (:provinceNames IS NULL OR a.doName in :provinceNames)
+              AND (:cityName IS NULL OR a.siName = :cityName)
+              AND (:districtName IS NULL OR a.guName = :districtName)
+            ORDER BY
+              case when :addressSort = 'asc'
+                        and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+                   then 1 else 0 end asc,
+              case when :addressSort = 'asc'
+                   then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+                   else null end asc,
+
+              case when :addressSort = 'desc'
+                        and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+                   then 1 else 0 end asc,
+              case when :addressSort = 'desc'
+                   then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+                   else null end desc,
+
+              case when :scheduledDateSort = 'asc' and s.scheduledDate is null then 1 else 0 end asc,
+              case when :scheduledDateSort = 'asc' then s.scheduledDate else null end asc,
+              case when :scheduledDateSort = 'desc' and s.scheduledDate is null then 1 else 0 end asc,
+              case when :scheduledDateSort = 'desc' then s.scheduledDate else null end desc,
+
+              case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+              case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+
+              case
+                  when :statusSort = 'asc' and a.status = :inProgressStatus then 1
+                  when :statusSort = 'asc' and a.status = :completedStatus then 2
+                  else null
+              end asc,
+              case
+                  when :statusSort = 'desc' and a.status = :inProgressStatus then 1
+                  when :statusSort = 'desc' and a.status = :completedStatus then 2
+                  else null
+              end desc,
+
+              case
+                  when :statusSort is null
+                   and :addressSort is null
+                   and :scheduledDateSort is null
+                   and :visitTimeSort is null
+                   and a.status = :inProgressStatus then 1
+                  when :statusSort is null
+                   and :addressSort is null
+                   and :scheduledDateSort is null
+                   and :visitTimeSort is null
+                   and a.status = :completedStatus then 2
+                  else null
+              end asc,
+
+              case when :scheduledDateSort is null and :visitTimeSort is null then s.scheduledDate else null end desc,
+              case when :scheduledDateSort is null and :visitTimeSort is null then s.orderIndex else null end asc,
+
+              a.id desc
+            """,
+            countQuery = """
+            SELECT COUNT(a)
+            FROM AsTaskSchedule s
+            JOIN s.asTask a
+            LEFT JOIN a.requestedBy rb
+            LEFT JOIN rb.company company
+            WHERE a.assignedHandler.id = :handlerId
+              AND a.status IN :visibleStatuses
+              AND (:selectedStatus IS NULL OR a.status = :selectedStatus)
+              AND (:startDate IS NULL OR s.scheduledDate >= :startDate)
+              AND (:endDate IS NULL OR s.scheduledDate <= :endDate)
+              AND (:companyKeyword IS NULL OR :companyKeyword = '' OR lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              AND (:provinceNames IS NULL OR a.doName in :provinceNames)
+              AND (:cityName IS NULL OR a.siName = :cityName)
+              AND (:districtName IS NULL OR a.guName = :districtName)
+            """)
+    Page<AsTask> findVisibleByScheduledDateFlexible(
+            @Param("handlerId") Long handlerId,
+            @Param("visibleStatuses") List<AsStatus> visibleStatuses,
+            @Param("selectedStatus") AsStatus selectedStatus,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("provinceNames") List<String> provinceNames,
+            @Param("cityName") String cityName,
+            @Param("districtName") String districtName,
+            @Param("visitTimeSort") String visitTimeSort,
+            @Param("scheduledDateSort") String scheduledDateSort,
+            @Param("addressSort") String addressSort,
+            @Param("statusSort") String statusSort,
+            @Param("inProgressStatus") AsStatus inProgressStatus,
+            @Param("completedStatus") AsStatus completedStatus,
+            Pageable pageable);
 	
+    @Query(value = """
+            select a
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and a.status in :visibleStatuses
+              and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:start is null or a.requestedAt >= :start)
+              and (:end is null or a.requestedAt < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            order by
+              case when :addressSort = 'asc'
+                        and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+                   then 1 else 0 end asc,
+              case when :addressSort = 'asc'
+                   then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+                   else null end asc,
+
+              case when :addressSort = 'desc'
+                        and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+                   then 1 else 0 end asc,
+              case when :addressSort = 'desc'
+                   then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+                   else null end desc,
+
+              case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+              case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+
+              case
+                  when :statusSort = 'asc' and a.status = :inProgressStatus then 1
+                  when :statusSort = 'asc' and a.status = :completedStatus then 2
+                  else null
+              end asc,
+              case
+                  when :statusSort = 'desc' and a.status = :inProgressStatus then 1
+                  when :statusSort = 'desc' and a.status = :completedStatus then 2
+                  else null
+              end desc,
+
+              case
+                  when :statusSort is null
+                   and :addressSort is null
+                   and :visitTimeSort is null
+                   and a.status = :inProgressStatus then 1
+                  when :statusSort is null
+                   and :addressSort is null
+                   and :visitTimeSort is null
+                   and a.status = :completedStatus then 2
+                  else null
+              end asc,
+
+              a.id desc
+            """,
+            countQuery = """
+            select count(a)
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and a.status in :visibleStatuses
+              and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:start is null or a.requestedAt >= :start)
+              and (:end is null or a.requestedAt < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            """)
+    Page<AsTask> findVisibleByRequestedDateFlexible(
+            @Param("handlerId") Long handlerId,
+            @Param("visibleStatuses") List<AsStatus> visibleStatuses,
+            @Param("selectedStatus") AsStatus selectedStatus,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("provinceNames") List<String> provinceNames,
+            @Param("cityName") String cityName,
+            @Param("districtName") String districtName,
+            @Param("visitTimeSort") String visitTimeSort,
+            @Param("addressSort") String addressSort,
+            @Param("statusSort") String statusSort,
+            @Param("inProgressStatus") AsStatus inProgressStatus,
+            @Param("completedStatus") AsStatus completedStatus,
+            Pageable pageable);
+    
+    @Query(value = """
+            select a
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and a.status in :visibleStatuses
+              and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:start is null or a.asProcessDate >= :start)
+              and (:end is null or a.asProcessDate < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            order by
+              case when :addressSort = 'asc'
+                        and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+                   then 1 else 0 end asc,
+              case when :addressSort = 'asc'
+                   then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+                   else null end asc,
+
+              case when :addressSort = 'desc'
+                        and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
+                   then 1 else 0 end asc,
+              case when :addressSort = 'desc'
+                   then lower(trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))))
+                   else null end desc,
+
+              case when :visitTimeSort = 'asc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'asc' then a.visitPlannedTime else null end asc,
+              case when :visitTimeSort = 'desc' and a.visitPlannedTime is null then 1 else 0 end asc,
+              case when :visitTimeSort = 'desc' then a.visitPlannedTime else null end desc,
+
+              case
+                  when :statusSort = 'asc' and a.status = :inProgressStatus then 1
+                  when :statusSort = 'asc' and a.status = :completedStatus then 2
+                  else null
+              end asc,
+              case
+                  when :statusSort = 'desc' and a.status = :inProgressStatus then 1
+                  when :statusSort = 'desc' and a.status = :completedStatus then 2
+                  else null
+              end desc,
+
+              case
+                  when :statusSort is null
+                   and :addressSort is null
+                   and :visitTimeSort is null
+                   and a.status = :inProgressStatus then 1
+                  when :statusSort is null
+                   and :addressSort is null
+                   and :visitTimeSort is null
+                   and a.status = :completedStatus then 2
+                  else null
+              end asc,
+
+              a.id desc
+            """,
+            countQuery = """
+            select count(a)
+            from AsTask a
+            left join a.requestedBy rb
+            left join rb.company company
+            where a.assignedHandler.id = :handlerId
+              and a.status in :visibleStatuses
+              and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:start is null or a.asProcessDate >= :start)
+              and (:end is null or a.asProcessDate < :end)
+              and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
+              and (:provinceNames is null or a.doName in :provinceNames)
+              and (:cityName is null or a.siName = :cityName)
+              and (:districtName is null or a.guName = :districtName)
+            """)
+    Page<AsTask> findVisibleByProcessedDateFlexible(
+            @Param("handlerId") Long handlerId,
+            @Param("visibleStatuses") List<AsStatus> visibleStatuses,
+            @Param("selectedStatus") AsStatus selectedStatus,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("companyKeyword") String companyKeyword,
+            @Param("provinceNames") List<String> provinceNames,
+            @Param("cityName") String cityName,
+            @Param("districtName") String districtName,
+            @Param("visitTimeSort") String visitTimeSort,
+            @Param("addressSort") String addressSort,
+            @Param("statusSort") String statusSort,
+            @Param("inProgressStatus") AsStatus inProgressStatus,
+            @Param("completedStatus") AsStatus completedStatus,
+            Pageable pageable);
 	
 }

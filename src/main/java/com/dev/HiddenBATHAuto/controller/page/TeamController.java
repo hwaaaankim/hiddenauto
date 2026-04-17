@@ -520,135 +520,137 @@ public class TeamController {
 	}
 
 	@GetMapping("/asList")
-	public String getAsList(
-	        @AuthenticationPrincipal PrincipalDetails principal,
+    public String getAsList(
+            @AuthenticationPrincipal PrincipalDetails principal,
 
-	        @RequestParam(required = false, defaultValue = "requested") String dateType,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false, defaultValue = "requested") String dateType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
 
-	        @RequestParam(required = false) String status,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String companyKeyword,
 
-	        @RequestParam(required = false) String companyKeyword,
+            @RequestParam(required = false) Long provinceId,
+            @RequestParam(required = false) Long cityId,
+            @RequestParam(required = false) Long districtId,
 
-	        @RequestParam(required = false) Long provinceId,
-	        @RequestParam(required = false) Long cityId,
-	        @RequestParam(required = false) Long districtId,
+            @RequestParam(required = false) String visitTimeSort,
+            @RequestParam(required = false) String scheduledDateSort,
+            @RequestParam(required = false) String addressSort,
+            @RequestParam(required = false) String statusSort,
 
-	        @RequestParam(required = false) String visitTimeSort,
-	        @RequestParam(required = false) String scheduledDateSort,
-	        @RequestParam(required = false) String addressSort,
+            Pageable pageable,
+            Model model) {
 
-	        Pageable pageable,
-	        Model model) {
+        Member member = principal.getMember();
 
-	    Member member = principal.getMember();
+        if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
+        }
 
-	    if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
-	        throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
-	    }
+        // AS팀 리스트에서는 진행중/완료만 허용
+        AsStatus statusEnum = parseAsTeamListStatus(status);
 
-	    AsStatus statusEnum = parseAsStatus(status);
+        LocalDateTime start = null;
+        LocalDateTime end = null;
 
-	    LocalDateTime start = null;
-	    LocalDateTime end = null;
+        /*
+         * 중요:
+         * requested / processed 는 [start, end+1day)
+         * scheduled 는 AsTaskSchedule.scheduledDate(LocalDate) 기준이므로
+         * endDate 그대로 넘겨서 서비스에서 LocalDate 비교(<=) 하도록 처리
+         */
+        if ("scheduled".equalsIgnoreCase(dateType)) {
+            start = (startDate != null) ? startDate.atStartOfDay() : null;
+            end = (endDate != null) ? endDate.atStartOfDay() : null;
+        } else {
+            start = (startDate != null) ? startDate.atStartOfDay() : null;
+            end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
+        }
 
-	    /*
-	     * 중요:
-	     * requested / processed 는 [start, end+1day) 로 처리
-	     * scheduled 는 AsTaskSchedule.scheduledDate(LocalDate) 기준이므로
-	     * endDate 그대로 넘겨서 서비스에서 LocalDate 비교(<=) 하도록 처리
-	     */
-	    if ("scheduled".equalsIgnoreCase(dateType)) {
-	        start = (startDate != null) ? startDate.atStartOfDay() : null;
-	        end = (endDate != null) ? endDate.atStartOfDay() : null;
-	    } else {
-	        start = (startDate != null) ? startDate.atStartOfDay() : null;
-	        end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
-	    }
+        String normalizedAddressSort = normalizeSortDirection(addressSort);
+        String normalizedStatusSort = normalizeSortDirection(statusSort);
 
-	    String normalizedAddressSort = normalizeSortDirection(addressSort);
+        Page<AsTask> asPage = asTaskService.getAsTasksForAsTeamList(
+                member,
+                dateType,
+                start,
+                end,
+                statusEnum,
+                companyKeyword,
+                provinceId,
+                cityId,
+                districtId,
+                visitTimeSort,
+                scheduledDateSort,
+                normalizedAddressSort,
+                normalizedStatusSort,
+                pageable
+        );
 
-	    Page<AsTask> asPage = asTaskService.getAsTasks(
-	            member,
-	            dateType,
-	            start,
-	            end,
-	            statusEnum,
-	            companyKeyword,
-	            provinceId,
-	            cityId,
-	            districtId,
-	            visitTimeSort,
-	            scheduledDateSort,
-	            normalizedAddressSort,
-	            pageable
-	    );
+        model.addAttribute("provinces", provinceRepository.findAll());
 
-	    model.addAttribute("provinces", provinceRepository.findAll());
+        model.addAttribute("asPage", asPage);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+        model.addAttribute("dateType", dateType);
 
-	    model.addAttribute("asPage", asPage);
-	    model.addAttribute("startDate", startDate);
-	    model.addAttribute("endDate", endDate);
-	    model.addAttribute("dateType", dateType);
+        model.addAttribute("selectedStatus", statusEnum);
+        model.addAttribute("selectedStatusName", statusEnum != null ? statusEnum.name() : null);
 
-	    model.addAttribute("selectedStatus", statusEnum);
-	    model.addAttribute("selectedStatusName", statusEnum != null ? statusEnum.name() : null);
+        model.addAttribute("companyKeyword", companyKeyword);
+        model.addAttribute("provinceId", provinceId);
+        model.addAttribute("cityId", cityId);
+        model.addAttribute("districtId", districtId);
 
-	    model.addAttribute("companyKeyword", companyKeyword);
-	    model.addAttribute("provinceId", provinceId);
-	    model.addAttribute("cityId", cityId);
-	    model.addAttribute("districtId", districtId);
+        model.addAttribute("visitTimeSort", visitTimeSort);
+        model.addAttribute("scheduledDateSort", scheduledDateSort);
+        model.addAttribute("addressSort", normalizedAddressSort);
+        model.addAttribute("statusSort", normalizedStatusSort);
 
-	    model.addAttribute("visitTimeSort", visitTimeSort);
-	    model.addAttribute("scheduledDateSort", scheduledDateSort);
-	    model.addAttribute("addressSort", normalizedAddressSort);
+        model.addAttribute("asStatusLabels", AsStatus.labelMap());
 
-	    model.addAttribute("asStatusLabels", AsStatus.labelMap());
+        // 방문예정일 + (n번째) 표시용
+        model.addAttribute("asScheduleDisplayMap", asTaskService.getScheduleDisplayMap(asPage.getContent()));
 
-	    // 방문예정일 + (n번째) 표시용
-	    model.addAttribute("asScheduleDisplayMap", asTaskService.getScheduleDisplayMap(asPage.getContent()));
+        // 같은 주소끼리 옅은 배경색 그룹 표시용
+        model.addAttribute("addressGroupClassMap", asTaskService.getAddressGroupClassMap(asPage.getContent()));
 
-	    // 같은 주소끼리 옅은 배경색 그룹 표시용
-	    model.addAttribute("addressGroupClassMap", asTaskService.getAddressGroupClassMap(asPage.getContent()));
+        return "administration/team/as/asList";
+    }
 
-	    return "administration/team/as/asList";
-	}
+    /**
+     * AS팀 리스트 전용 상태 파서
+     * - 진행중 / 완료만 허용
+     * - REQUESTED, CANCELED, 이상값은 전부 null 처리 => "전체(진행중+완료)"
+     */
+    private AsStatus parseAsTeamListStatus(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
 
-	private String normalizeSortDirection(String raw) {
-	    if (!StringUtils.hasText(raw)) {
-	        return null;
-	    }
+        try {
+            AsStatus parsed = AsStatus.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+            if (parsed == AsStatus.IN_PROGRESS || parsed == AsStatus.COMPLETED) {
+                return parsed;
+            }
+            return null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 
-	    String normalized = raw.trim().toLowerCase(Locale.ROOT);
-	    if (!"asc".equals(normalized) && !"desc".equals(normalized)) {
-	        return null;
-	    }
+    private String normalizeSortDirection(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
 
-	    return normalized;
-	}
-	
-	private AsStatus parseAsStatus(String rawStatus) {
-	    if (!StringUtils.hasText(rawStatus)) {
-	        return null;
-	    }
-
-	    String normalized = rawStatus.trim();
-
-	    if (!StringUtils.hasText(normalized)) {
-	        return null;
-	    }
-
-	    if ("null".equalsIgnoreCase(normalized) || "undefined".equalsIgnoreCase(normalized)) {
-	        return null;
-	    }
-
-	    try {
-	        return AsStatus.valueOf(normalized);
-	    } catch (IllegalArgumentException e) {
-	        return null;
-	    }
-	}
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        if (!"asc".equals(normalized) && !"desc".equals(normalized)) {
+            return null;
+        }
+        return normalized;
+    }
 	
 	@GetMapping("/asDetail/{id}")
 	public String asDetail(@PathVariable Long id,
