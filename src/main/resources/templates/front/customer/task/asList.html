@@ -46,7 +46,15 @@
 			</div>
 
 			<!-- 리스트 -->
-			<div class="card card-style" th:each="asTask, i : ${asTaskPage.content}">
+			<div class="card card-style"
+				th:each="asTask, i : ${asTaskPage.content}"
+				th:with="
+					customerDisplayStatus=${asTask.status == null ? '요청중'
+						: (asTask.status.name() == 'REQUESTED' ? '요청중'
+						: (asTask.status.name() == 'IN_PROGRESS' ? '진행중'
+						: (asTask.status.name() == 'COMPLETED' ? '완료'
+						: (asTask.status.name() == 'CANCELED' ? '취소됨' : '요청중'))))}
+				">
 				<div class="accordion" th:id="'accordion-as-' + ${i.index}">
 					<div class="mb-0">
 
@@ -68,8 +76,8 @@
 									<div class="text-end">
 										<span class="badge rounded-pill px-3 py-2 font-12"
 											th:classappend="${asTask.customerStatusBadgeClass}"
-											th:text="${asTask.customerStatusText}">
-											신청중
+											th:text="${customerDisplayStatus}">
+											요청됨
 										</span>
 									</div>
 								</div>
@@ -79,7 +87,7 @@
 										<span class="badge bg-black color-white font-10 mt-2">AS</span>
 
 										<span class="badge bg-black color-white font-10 mt-2"
-											th:text="${asTask.statusLabelKr}">처리상태</span>
+											th:text="${customerDisplayStatus}">요청됨</span>
 									</div>
 									<div class="col-6 font-10 text-end opacity-30">
 										<i class="fa fa-calendar pe-2"></i>
@@ -147,6 +155,7 @@
 											</div>
 										</div>
 									</div>
+
 									<!-- 추가 정보 -->
 									<div class="index-third-aslist-section mt-4">
 										<div class="index-third-aslist-section-title">추가 정보</div>
@@ -199,6 +208,7 @@
 											</div>
 										</div>
 									</div>
+
 									<!-- 제품 정보 -->
 									<div class="index-third-aslist-section mt-4">
 										<div class="index-third-aslist-section-title">제품 정보</div>
@@ -333,7 +343,7 @@
 
 											<div class="col-sm-12 col-lg-6">
 												<div class="d-flex justify-content-between align-items-center">
-													<strong class="color-theme">예정이미지</strong>
+													<strong class="color-theme">완료이미지</strong>
 													<span class="font-11 opacity-50"
 														th:text="${asTask.resultImages != null ? asTask.resultImages.size() : 0} + '장'">0장</span>
 												</div>
@@ -354,6 +364,7 @@
 											</div>
 										</div>
 									</div>
+
 									<!-- 비디오 -->
 									<div class="index-third-aslist-section mt-4">
 										<div class="index-third-aslist-section-title">비디오</div>
@@ -383,14 +394,15 @@
 											</div>
 										</div>
 									</div>
+
 									<!-- 수정/삭제 버튼 -->
 									<div class="client-as-update-first-trigger-wrap"
-									    th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
-									
-									    <div class="d-flex flex-wrap gap-2">
-									        <button type="button"
-									            class="btn bg-highlight color-white rounded-s client-as-update-first-trigger-btn client-as-update-first-open-btn"
-									            th:attr="
+										th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
+
+										<div class="d-flex flex-wrap gap-2">
+											<button type="button"
+												class="btn bg-highlight color-white rounded-s client-as-update-first-trigger-btn client-as-update-first-open-btn"
+												th:attr="
 									                data-as-id=${asTask.id},
 									                data-customer-name=${asTask.customerName},
 									                data-road-address=${asTask.roadAddress},
@@ -410,17 +422,17 @@
 									                data-applicant-phone=${asTask.applicantPhone},
 									                data-applicant-email=${asTask.applicantEmail},
 									                data-billing-target=${asTask.billingTarget != null ? asTask.billingTarget.name() : ''}">
-									            수정하기
-									        </button>
-									
-									        <button type="button" style="width:100%;"
-									            class="btn border border-danger text-danger bg-white rounded-s client-as-update-first-trigger-btn client-as-delete-btn"
-									            th:attr="
+												수정하기
+											</button>
+
+											<button type="button" style="width:100%;"
+												class="btn border border-danger text-danger bg-white rounded-s client-as-update-first-trigger-btn client-as-delete-btn"
+												th:attr="
 									                data-as-id=${asTask.id},
 									                data-product-name=${(asTask.productName != null and !#strings.isEmpty(asTask.productName)) ? asTask.productName : 'AS 신청'}">
-									            삭제
-									        </button>
-									    </div>
+												삭제
+											</button>
+										</div>
 									</div>
 
 									<!-- JS 원본 데이터 -->
@@ -497,7 +509,6 @@
 
 		<!-- 수정 모달 -->
 
-
 		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
 
@@ -506,6 +517,7 @@
 
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<script src="/front/asListUpdate.js"></script>
+
 	<div class="modal fade client-as-update-first-modal" id="client-as-update-first-modal" tabindex="-1"
 		aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
