@@ -41,14 +41,10 @@
 									<label class="form-label">상태</label>
 									<select name="status" class="form-select">
 										<option value="" th:selected="${selectedStatus == null}">전체</option>
-										<option value="REQUESTED"
-											th:selected="${selectedStatus?.name() == 'REQUESTED'}">요청됨</option>
 										<option value="IN_PROGRESS"
 											th:selected="${selectedStatus?.name() == 'IN_PROGRESS'}">진행중</option>
 										<option value="COMPLETED"
 											th:selected="${selectedStatus?.name() == 'COMPLETED'}">완료</option>
-										<option value="CANCELED"
-											th:selected="${selectedStatus?.name() == 'CANCELED'}">취소</option>
 									</select>
 								</div>
 
@@ -146,14 +142,10 @@
 								<div class="as-management-added-drawer-title">
 									<div class="fw-semibold">업무 리스트</div>
 									<div class="as-management-added-drawer-sub">
-										<span class="as-management-added-pill as-management-added-pill-info">등록
-											가능(IN_PROGRESS)</span>
-										<span class="as-management-added-pill as-management-added-pill-muted">등록
-											불가</span>
+										<span class="as-management-added-pill as-management-added-pill-info">진행중</span>
 										<span class="as-management-added-pill as-management-added-pill-outline">이미
 											등록</span>
-										<span
-											class="as-management-added-pill as-management-added-pill-warn">미컨펌(REQUESTED)</span>
+										<span class="as-management-added-pill as-management-added-pill-muted">완료</span>
 									</div>
 								</div>
 								<button type="button" class="btn btn-sm btn-light"
@@ -185,12 +177,6 @@
 												<span class="as-management-added-badge"
 													th:classappend="' as-management-added-badge-' + ${t.status}"
 													th:text="${asStatusLabels[t.status]}">
-												</span>
-
-												<span
-													class="as-management-added-badge as-management-added-badge-unconfirmed"
-													th:if="${t.status == 'REQUESTED'}">
-													UNCONFIRMED
 												</span>
 
 												<span
@@ -235,10 +221,9 @@
 											</div>
 
 											<div class="as-management-added-detail-hint text-muted small mt-2">
-												- 등록 가능: 진행중(IN_PROGRESS)만<br />
-												- 등록 불가: 요청됨(REQUESTED)/완료(COMPLETED)/취소(CANCELED)<br />
-												- 완료/취소는 제거 불가, 진행중은 제거 후 재등록 가능<br />
-												- 진행중(IN_PROGRESS) 등록된 일정은 캘린더에서 날짜 이동 가능(PC)
+												- 이 페이지에서는 진행중(IN_PROGRESS), 완료(COMPLETED)만 조회됩니다.<br />
+												- 진행중(IN_PROGRESS)만 달력 등록/이동이 가능합니다.<br />
+												- 완료(COMPLETED)는 조회만 가능하며 제거/이동할 수 없습니다.
 											</div>
 										</div>
 									</div>

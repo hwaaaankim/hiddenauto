@@ -135,8 +135,7 @@
 							<div class="as-list-added-table-card card" th:if="${asPage.totalElements > 0}">
 								<div class="card-body as-list-added-table-card-body">
 
-									<div
-										class="as-list-added-table-responsive table-responsive">
+									<div class="as-list-added-table-responsive table-responsive">
 										<table class="table as-list-added-table align-middle mb-0 asList-second-table">
 											<thead class="as-list-added-thead">
 												<tr>
@@ -565,100 +564,102 @@
         statusSortParam=${#strings.isEmpty(statusSort) ? null : statusSort},
         prevPage=${asPage.first ? 0 : asPage.number - 1},
         nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
-        lastPage=${asPage.totalPages - 1}">
+        lastPage=${asPage.totalPages - 1},
+        startPage=${T(java.lang.Math).max(0, T(java.lang.Math).min(asPage.number - 2, asPage.totalPages - 5))},
+        endPage=${T(java.lang.Math).min(asPage.totalPages - 1, startPage + 4)}">
 
 						<div class="col-auto">
 							<ul class="pagination pagination-separated">
 
 								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
 									<a class="page-link" th:href="@{/team/asList(
-                        page=0,
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">FIRST</a>
+                    page=0,
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">FIRST</a>
 								</li>
 
 								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
 									<a class="page-link" th:href="@{/team/asList(
-                        page=${prevPage},
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">PREV</a>
+                    page=${prevPage},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">PREV</a>
 								</li>
 
-								<li class="page-item" th:each="i : ${#numbers.sequence(0, asPage.totalPages - 1)}"
+								<li class="page-item" th:each="i : ${#numbers.sequence(startPage, endPage)}"
 									th:classappend="${asPage.number == i} ? 'active'">
 									<a class="page-link" th:text="${i + 1}" th:href="@{/team/asList(
-                        page=${i},
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">1</a>
+                    page=${i},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">1</a>
 								</li>
 
 								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
 									<a class="page-link" th:href="@{/team/asList(
-                        page=${nextPage},
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">NEXT</a>
+                    page=${nextPage},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">NEXT</a>
 								</li>
 
 								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
 									<a class="page-link" th:href="@{/team/asList(
-                        page=${lastPage},
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">LAST</a>
+                    page=${lastPage},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">LAST</a>
 								</li>
 
 							</ul>
@@ -676,86 +677,102 @@
         statusSortParam=${#strings.isEmpty(statusSort) ? null : statusSort},
         prevPage=${asPage.first ? 0 : asPage.number - 1},
         nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
-        lastPage=${asPage.totalPages - 1}">
+        lastPage=${asPage.totalPages - 1},
+        startPage=${T(java.lang.Math).max(0, T(java.lang.Math).min(asPage.number - 2, asPage.totalPages - 5))},
+        endPage=${T(java.lang.Math).min(asPage.totalPages - 1, startPage + 4)}">
 
 						<div class="col-auto">
-							<ul class="pagination pagination-separated">
+							<ul class="pagination pagination-separated flex-wrap justify-content-center">
 
 								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
 									<a class="page-link" aria-label="첫 페이지" th:href="@{/team/asList(
-                        page=0,
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">&laquo;</a>
+                    page=0,
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">&laquo;</a>
 								</li>
 
 								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
 									<a class="page-link" aria-label="이전 페이지" th:href="@{/team/asList(
-                        page=${prevPage},
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">&lsaquo;</a>
+                    page=${prevPage},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">&lsaquo;</a>
 								</li>
 
-								<li class="page-item active disabled as-list-mobile-current-page">
-									<span class="page-link"
-										th:text="|${asPage.number + 1}/${asPage.totalPages}|">1/5</span>
+								<li class="page-item" th:each="i : ${#numbers.sequence(startPage, endPage)}"
+									th:classappend="${asPage.number == i} ? 'active'">
+									<a class="page-link" th:text="${i + 1}" th:href="@{/team/asList(
+                    page=${i},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">1</a>
 								</li>
 
 								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
 									<a class="page-link" aria-label="다음 페이지" th:href="@{/team/asList(
-                        page=${nextPage},
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">&rsaquo;</a>
+                    page=${nextPage},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">&rsaquo;</a>
 								</li>
 
 								<li class="page-item" th:classappend="${asPage.last} ? 'disabled'">
 									<a class="page-link" aria-label="마지막 페이지" th:href="@{/team/asList(
-                        page=${lastPage},
-                        dateType=${dateType},
-                        startDate=${startDateParam},
-                        endDate=${endDateParam},
-                        status=${selectedStatusName},
-                        companyKeyword=${companyKeywordParam},
-                        provinceId=${provinceId},
-                        cityId=${cityId},
-                        districtId=${districtId},
-                        visitTimeSort=${visitTimeSortParam},
-                        scheduledDateSort=${scheduledDateSortParam},
-                        addressSort=${addressSortParam},
-                        statusSort=${statusSortParam}
-                    )}">&raquo;</a>
+                    page=${lastPage},
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${visitTimeSortParam},
+                    scheduledDateSort=${scheduledDateSortParam},
+                    addressSort=${addressSortParam},
+                    statusSort=${statusSortParam}
+                )}">&raquo;</a>
 								</li>
 
 							</ul>

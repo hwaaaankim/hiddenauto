@@ -83,7 +83,10 @@ public class AsScheduleService {
 
     @Transactional(readOnly = true)
     public List<AsTaskSchedule> getSchedulesByDate(LocalDate date) {
-        return scheduleRepository.findByScheduledDateOrderByOrderIndexAsc(date);
+        return scheduleRepository.findByScheduledDateOrderByOrderIndexAsc(date).stream()
+                .filter(schedule -> schedule.getAsTask() != null)
+                .filter(schedule -> isAsManagementVisibleStatus(schedule.getAsTask().getStatus()))
+                .toList();
     }
 
     @Transactional
@@ -154,12 +157,14 @@ public class AsScheduleService {
 
     @Transactional(readOnly = true)
     public List<CalendarEventDto> getCalendarEvents(LocalDate start, LocalDate end) {
-        // end는 FullCalendar에서 보통 "exclusive"로 넘어오므로 그대로 사용(>= start, < end)
         List<AsTaskSchedule> list = scheduleRepository.findBetweenDates(start, end);
 
         List<CalendarEventDto> res = new ArrayList<>();
         for (AsTaskSchedule s : list) {
             AsTask task = s.getAsTask();
+            if (task == null || !isAsManagementVisibleStatus(task.getStatus())) {
+                continue;
+            }
 
             String companyName =
                     (task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null)
@@ -174,5 +179,9 @@ public class AsScheduleService {
                     .build());
         }
         return res;
+    }
+    
+    private boolean isAsManagementVisibleStatus(AsStatus status) {
+        return status == AsStatus.IN_PROGRESS || status == AsStatus.COMPLETED;
     }
 }

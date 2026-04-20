@@ -14,7 +14,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import com.dev.HiddenBATHAuto.dto.as.AsTaskCardDto;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -38,16 +37,16 @@ public class AsMANAGEMENTController {
     public String asManagement(
             @AuthenticationPrincipal PrincipalDetails principal,
 
-            @RequestParam(required = false, defaultValue = "requested") String dateType,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) AsStatus status,
+            @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "requested") String dateType,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) AsStatus status,
 
-            @RequestParam(required = false) String companyKeyword,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String companyKeyword,
 
-            @RequestParam(required = false) Long provinceId,
-            @RequestParam(required = false) Long cityId,
-            @RequestParam(required = false) Long districtId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long provinceId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long cityId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long districtId,
 
             @PageableDefault(size = 200) Pageable pageable,
             Model model
@@ -61,12 +60,21 @@ public class AsMANAGEMENTController {
             throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
         }
 
+        AsStatus normalizedStatus = normalizeVisibleCalendarStatus(status);
+
         LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-        LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null; // end exclusive
+        LocalDateTime end = (endDate != null) ? endDate.plusDays(1).atStartOfDay() : null;
 
         Page<AsTaskCardDto> asPage = asTaskService.getAsTasksForCalendar(
-                member, dateType, start, end, status,
-                companyKeyword, provinceId, cityId, districtId,
+                member,
+                dateType,
+                start,
+                end,
+                normalizedStatus,
+                companyKeyword,
+                provinceId,
+                cityId,
+                districtId,
                 pageable
         );
 
@@ -76,7 +84,7 @@ public class AsMANAGEMENTController {
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
         model.addAttribute("dateType", dateType);
-        model.addAttribute("selectedStatus", status);
+        model.addAttribute("selectedStatus", normalizedStatus);
 
         model.addAttribute("companyKeyword", companyKeyword);
         model.addAttribute("provinceId", provinceId);
@@ -87,25 +95,14 @@ public class AsMANAGEMENTController {
 
         return "administration/team/as/asManagement";
     }
+
+    private AsStatus normalizeVisibleCalendarStatus(AsStatus status) {
+        if (status == null) {
+            return null;
+        }
+        if (status == AsStatus.IN_PROGRESS || status == AsStatus.COMPLETED) {
+            return status;
+        }
+        return null;
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
