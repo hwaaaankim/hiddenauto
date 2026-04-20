@@ -2,21 +2,22 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="fragments/administration/common :: autoAdminHead">
-</head>
+<head th:replace="fragments/administration/common :: autoAdminHead"></head>
 
 <body class="twocolumn-panel">
 
-	<div id="layout-wrapper">
+
+	<div id="layout-wrapper" class="admin-task-detail-page">
 		<header th:replace="fragments/administration/common :: autoAdminHeader"></header>
 
 		<div th:replace="fragments/administration/common :: autoAdminModal"></div>
 		<div th:replace="fragments/administration/common :: autoAdminSideMenu"></div>
 		<div class="vertical-overlay"></div>
-		<div class="main-content">
 
+		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
+					<input type="hidden" id="admin-task-detail-task-id" th:value="${task.id}">
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -24,519 +25,798 @@
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">발주관리</a></li>
-										<li class="breadcrumb-item"><a href="javascript: void(0);">비규격발주관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">발주관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">비규격발주관리</a></li>
 										<li class="breadcrumb-item active">비규격발주상세</li>
 									</ol>
 								</div>
-
 							</div>
 						</div>
 					</div>
+
+					<!-- 상단 요약 -->
 					<div class="row">
-						<div class="col-lg-12">
-							<div class="card mt-n4 mx-n4">
-								<div class="bg-warning-subtle">
-									<div class="card-body pb-0 px-4">
-										<div class="row mb-3">
-											<div class="col-md">
-												<div class="row align-items-center g-3">
-													<div class="col-md-auto">
-														<div class="avatar-md">
-															<div class="avatar-title bg-white rounded-circle">
-																<img src="/administration/assets/images/brands/slack.png"
-																	alt="" class="avatar-xs">
-															</div>
-														</div>
-													</div>
-													<div class="col-md">
-														<div>
-															<h4 class="fw-bold"
-																th:text="${task.requestedBy.company.companyName}">대리점명
-															</h4>
-															<div class="hstack gap-3 flex-wrap">
-																<!-- 대표자명 | 신청자명 -->
-																<div>
-																	<i class="ri-building-line align-bottom me-1"></i>
-																	<span
-																		th:text="${task.requestedBy.company.companyName}">대표자명</span>
-																	|
-																	<span th:text="${task.requestedBy.name}">신청자명</span>
-																</div>
-
-																<div class="vr"></div>
-
-																<!-- 발주일 -->
-																<div>
-																	발주일 :
-																	<span class="fw-medium"
-																		th:text="${#temporals.format(task.createdAt, 'yyyy.MM.dd HH:mm:ss')}">00.00.00
-																		00:00:00</span>
-																</div>
-
-																<div class="vr"></div>
-
-																<!-- 총금액 -->
-																<div>
-																	총금액 :
-																	<span class="fw-medium"
-																		th:text="${#numbers.formatInteger(task.totalPrice, 3, 'COMMA') + ' 원'}">120,000
-																		원</span>
-																</div>
-
-																<div class="vr"></div>
-
-																<!-- 상태 -->
-																<div th:switch="${task.status.name()}">
-																	<div th:case="'REQUESTED'"
-																		class="badge rounded-pill bg-info fs-12">대기중
-																	</div>
-																	<div th:case="'COMPLETED'"
-																		class="badge rounded-pill bg-success fs-12">완료
-																	</div>
-																	<div th:case="*"
-																		class="badge rounded-pill bg-secondary fs-12">
-																		알수없음</div>
-																</div>
-															</div>
-														</div>
-													</div>
+						<div class="col-12">
+							<div class="card admin-task-detail-summary-card">
+								<div class="admin-task-detail-summary-top">
+									<div
+										class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+										<div class="min-w-0">
+											<h2 class="admin-task-detail-summary-title"
+												th:text="${task.requestedBy != null and task.requestedBy.company != null ? task.requestedBy.company.companyName : '업체 정보 없음'}">
+												업체명
+											</h2>
+											<div class="admin-task-detail-summary-sub">
+												<div>
+													<i class="ri-user-3-line me-1"></i>
+													<span
+														th:text="${task.requestedBy != null ? task.requestedBy.name : '신청자 없음'}">신청자명</span>
+												</div>
+												<div class="vr"></div>
+												<div>
+													<i class="ri-calendar-line me-1"></i>
+													발주일
+													<span class="fw-semibold ms-1"
+														th:text="${task.createdAt != null ? #temporals.format(task.createdAt, 'yyyy.MM.dd HH:mm:ss') : '-'}">2026.04.20
+														13:16:19</span>
 												</div>
 											</div>
 										</div>
 
-										<ul class="nav nav-tabs-custom border-bottom-0" role="tablist">
-											<li class="nav-item">
-												<a class="nav-link active fw-bold" data-bs-toggle="tab"
-													href="#project-overview" role="tab">
-													개요
-												</a>
-											</li>
-											<li class="nav-item">
-												<a class="nav-link fw-bold" data-bs-toggle="tab"
-													href="#project-activities" role="tab">
-													처리내역
-												</a>
-											</li>
-											<li class="nav-item">
-												<a class="nav-link fw-bold" data-bs-toggle="tab" href="#sales-team"
-													role="tab">
-													담당영업사원
-												</a>
-											</li>
-										</ul>
+										<div th:switch="${task.status != null ? task.status.name() : 'UNKNOWN'}">
+											<span th:case="'REQUESTED'"
+												class="admin-task-detail-badge admin-task-detail-badge-requested">
+												REQUESTED
+											</span>
+
+											<span th:case="'COMPLETED'"
+												class="admin-task-detail-badge admin-task-detail-badge-completed">
+												COMPLETED
+											</span>
+
+											<span th:case="*"
+												class="admin-task-detail-badge admin-task-detail-badge-default"
+												th:text="${task.status != null ? task.status.name() : 'UNKNOWN'}">
+												UNKNOWN
+											</span>
+										</div>
+									</div>
+								</div>
+
+								<div class="admin-task-detail-summary-stats">
+									<div class="admin-task-detail-stat-box">
+										<div class="admin-task-detail-stat-label">총 금액</div>
+										<div class="admin-task-detail-stat-value"
+											th:text="${#numbers.formatInteger(task.totalPrice, 3, 'COMMA') + ' 원'}">
+											616,231,230 원</div>
+									</div>
+									<div class="admin-task-detail-stat-box">
+										<div class="admin-task-detail-stat-label">발주 건수</div>
+										<div class="admin-task-detail-stat-value"
+											th:text="${task.orders != null ? task.orders.size() : 0} + '건'">2건</div>
+									</div>
+									<div class="admin-task-detail-stat-box">
+										<div class="admin-task-detail-stat-label">고객 메모</div>
+										<div class="admin-task-detail-stat-value"
+											th:text="${task.customerNote != null and !#strings.isEmpty(task.customerNote) ? task.customerNote : '-'}">
+											-</div>
+									</div>
+									<div class="admin-task-detail-stat-box">
+										<div class="admin-task-detail-stat-label">내부 메모</div>
+										<div class="admin-task-detail-stat-value"
+											th:text="${task.internalNote != null and !#strings.isEmpty(task.internalNote) ? task.internalNote : '-'}">
+											-</div>
 									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-					<!-- end row -->
-					<div class="row">
-						<div class="col-lg-12">
-							<div class="tab-content text-muted">
-								<div class="tab-pane fade show active" id="project-overview" role="tabpanel">
-									<div class="row">
-										<div class="col-xl-12 col-lg-12">
-											<div class="card">
-												<div class="card-body">
-													<div class="text-muted">
-														<h6 class="mb-3 fw-bold text-uppercase">발주제품</h6>
 
-														<div class="row">
-															<div class="col-xxl-6 col-sm-6 project-card d-flex"
-																th:each="order : ${task.orders}">
-																<div class="card flex-fill h-100">
-																	<div
-																		class="card-body d-flex flex-column justify-content-between h-100">
+					<!-- 발주 제품 섹션 -->
+					<div class="row mt-3">
+						<div class="col-12">
+							<div class="card admin-task-detail-section-card">
+								<div class="card-body">
+									<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+										<h5 class="admin-task-detail-section-title">발주제품</h5>
+										<div class="text-muted small">주문 상세 이동은 카드 전체가 아니라 가운데 상세보기 버튼으로만 가능합니다.</div>
+									</div>
 
-																		<!-- 상단 헤더 -->
-																		<div>
+									<div th:if="${task.orders == null or #lists.isEmpty(task.orders)}"
+										class="admin-task-detail-empty-box">
+										<i class="ri-inbox-archive-line fs-2 d-block mb-2"></i>
+										등록된 주문이 없습니다.
+									</div>
+
+									<div class="row g-3"
+										th:if="${task.orders != null and !#lists.isEmpty(task.orders)}">
+										<div class="col-12 col-xl-6" th:each="order : ${task.orders}">
+											<div class="admin-task-detail-order-card">
+
+												<div class="admin-task-detail-order-header">
+													<div
+														class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+														<div class="min-w-0">
+															<div class="admin-task-detail-order-label">Order</div>
+															<h5 class="admin-task-detail-order-title"
+																th:text="${order.productCategory != null ? order.productCategory.name : '카테고리 미지정'}">
+																거울
+															</h5>
+															<div class="admin-task-detail-order-subtitle">
+																주문번호
+																<strong th:text="|#${order.id}|">#10</strong>
+															</div>
+														</div>
+
+														<div class="d-flex align-items-center flex-wrap gap-2">
+															<div
+																th:switch="${order.status != null ? order.status.name() : 'UNKNOWN'}">
+																<span th:case="'REQUESTED'"
+																	class="admin-task-detail-badge admin-task-detail-badge-requested">
+																	REQUESTED
+																</span>
+
+																<span th:case="'CONFIRMED'"
+																	class="admin-task-detail-badge admin-task-detail-badge-confirmed">
+																	CONFIRMED
+																</span>
+
+																<span th:case="'IN_PROGRESS'"
+																	class="admin-task-detail-badge admin-task-detail-badge-progress">
+																	IN_PROGRESS
+																</span>
+
+																<span th:case="'COMPLETED'"
+																	class="admin-task-detail-badge admin-task-detail-badge-completed">
+																	COMPLETED
+																</span>
+
+																<span th:case="'CANCELED'"
+																	class="admin-task-detail-badge admin-task-detail-badge-canceled">
+																	CANCELED
+																</span>
+
+																<span th:case="*"
+																	class="admin-task-detail-badge admin-task-detail-badge-default"
+																	th:text="${order.status != null ? order.status.name() : 'UNKNOWN'}">
+																	UNKNOWN
+																</span>
+															</div>
+
+															<span class="admin-task-detail-chip"
+																th:text="|수량 ${order.quantity}|">수량 5</span>
+														</div>
+													</div>
+												</div>
+
+												<div class="admin-task-detail-order-body">
+													<div class="admin-task-detail-order-main-grid">
+
+														<!-- 좌측 -->
+														<div class="admin-task-detail-order-left">
+
+															<div
+																class="admin-task-detail-panel admin-task-detail-panel-fixed">
+																<div class="admin-task-detail-panel-head">
+																	<h6 class="admin-task-detail-panel-title mb-0">제품 정보
+																	</h6>
+																</div>
+
+																<div class="admin-task-detail-scroll-body">
+																	<div class="admin-task-detail-product-name"
+																		th:text="${order.orderItem != null and order.orderItem.productName != null ? order.orderItem.productName : '제품명 없음'}">
+																		노프레임 거울
+																	</div>
+
+																	<div class="admin-task-detail-product-summary"
+																		th:text="${order.orderItem != null ? '주문수량 ' + order.orderItem.quantity + '개' : '주문 정보 없음'}">
+																		주문수량 5개
+																	</div>
+
+																	<div class="admin-task-detail-chip-wrap">
+																		<span class="admin-task-detail-chip"
+																			th:text="${order.productCategory != null ? '카테고리 · ' + order.productCategory.name : '카테고리 · -'}">
+																			카테고리 · 거울
+																		</span>
+
+																		<span class="admin-task-detail-chip"
+																			th:text="|제품시리즈 · ${(order.orderItem != null and order.orderItem.productName != null) ? order.orderItem.productName : '-'}|">
+																			제품시리즈 · 노프레임 거울
+																		</span>
+
+																		<span class="admin-task-detail-chip"
+																			th:text="|제품식별자 · #${order.id}|">
+																			제품식별자 · #10
+																		</span>
+																	</div>
+
+																	<div th:if="${order.orderItem != null and order.orderItem.parsedOptionMap != null and !order.orderItem.parsedOptionMap.isEmpty()}"
+																		class="admin-task-detail-option-list">
+																		<div class="admin-task-detail-option-row"
+																			th:each="entry : ${order.orderItem.parsedOptionMap}">
+																			<div class="admin-task-detail-option-key"
+																				th:text="${entry.key}">가로</div>
+																			<div class="admin-task-detail-option-value"
+																				th:text="${entry.value}">1200</div>
+																		</div>
+																	</div>
+
+																	<div th:if="${order.orderItem == null or order.orderItem.parsedOptionMap == null or order.orderItem.parsedOptionMap.isEmpty()}"
+																		class="admin-task-detail-empty-inline">
+																		옵션 정보가 없습니다.
+																	</div>
+																</div>
+															</div>
+
+															<div
+																class="admin-task-detail-panel admin-task-detail-panel-fixed">
+																<div class="admin-task-detail-panel-head">
+																	<h6 class="admin-task-detail-panel-title mb-0">주문 상세
+																	</h6>
+																</div>
+
+																<div class="admin-task-detail-scroll-body">
+																	<div class="admin-task-detail-kv-list">
+																		<div class="admin-task-detail-kv-item">
+																			<div class="admin-task-detail-kv-key">희망 납기일
+																			</div>
+																			<div class="admin-task-detail-kv-value"
+																				th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy.MM.dd HH:mm') : '-'}">
+																				2026.04.25 14:00
+																			</div>
+																		</div>
+
+																		<div class="admin-task-detail-kv-item">
+																			<div class="admin-task-detail-kv-key">주소
+																			</div>
+																			<div class="admin-task-detail-kv-value"
+																				th:text="${(order.roadAddress != null ? order.roadAddress : '') + ((order.detailAddress != null and !#strings.isEmpty(order.detailAddress)) ? ' ' + order.detailAddress : '')}">
+																				서울시 강남구 ...
+																			</div>
+																		</div>
+
+																		<div class="admin-task-detail-kv-item">
+																			<div class="admin-task-detail-kv-key">주문
+																				요청사항</div>
+																			<div class="admin-task-detail-kv-value"
+																				th:text="${order.orderComment != null and !#strings.isEmpty(order.orderComment) ? order.orderComment : '-'}">
+																				-
+																			</div>
+																		</div>
+
+																		<div class="admin-task-detail-kv-item">
+																			<div class="admin-task-detail-kv-key">관리자 메모
+																			</div>
+																			<div class="admin-task-detail-kv-value"
+																				th:text="${order.adminMemo != null and !#strings.isEmpty(order.adminMemo) ? order.adminMemo : '-'}">
+																				-
+																			</div>
+																		</div>
+																	</div>
+																</div>
+															</div>
+
+														</div>
+
+														<!-- 우측 -->
+														<div class="admin-task-detail-order-right">
+
+															<!-- 고객 업로드 -->
+															<div class="admin-task-detail-gallery-panel admin-task-detail-gallery-panel-fixed"
+																th:with="customerImages=${order.customerUploadedImages}"
+																th:attr="data-gallery-title=|고객 업로드 파일 · 주문 #${order.id}|">
+																<div class="admin-task-detail-panel-head">
+																	<h6 class="admin-task-detail-panel-title mb-0">고객
+																		업로드 파일</h6>
+																	<span class="admin-task-detail-panel-count"
+																		th:text="${customerImages != null ? customerImages.size() : 0} + '개'">0개</span>
+																</div>
+
+																<div class="admin-task-detail-gallery-content"
+																	th:if="${customerImages != null and !#lists.isEmpty(customerImages)}">
+
+																	<div class="admin-task-detail-gallery-cover-wrap"
+																		th:each="img, imgStat : ${customerImages}"
+																		th:if="${imgStat.first}">
+																		<div class="admin-task-detail-gallery-cover">
+																			<img class="admin-task-detail-gallery-cover-image"
+																				th:src="@{${img.url}}"
+																				th:alt="${img.filename}"
+																				onerror="this.style.display='none'; this.parentElement.querySelector('.admin-task-detail-file-fallback').classList.remove('d-none');" />
+
 																			<div
-																				class="p-3 mt-n3 mx-n3 bg-success-subtle rounded-top">
-																				<div class="d-flex align-items-center">
-																					<div class="flex-grow-1">
-																						<h5 class="mb-0 fs-15">
-																							<a href="#"
-																								class="text-body"
-																								th:text="${order.productCategory != null ? order.productCategory.name : '미지정'}">제품군</a>
-
-																						</h5>
-																					</div>
-																					<div class="flex-shrink-0">
-																						<div
-																							class="d-flex gap-1 align-items-center my-n2">
-																							<div class="dropdown">
-																								<button
-																									class="btn btn-link text-muted p-1 mt-n1 py-0 text-decoration-none fs-15"
-																									data-bs-toggle="dropdown"
-																									aria-haspopup="true"
-																									aria-expanded="true">
-																									<i data-feather="more-horizontal"
-																										class="icon-sm"></i>
-																								</button>
-																								<div
-																									class="dropdown-menu dropdown-menu-end">
-																									<a class="dropdown-item"
-																										th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}">
-																										<i
-																											class="ri-eye-fill align-bottom me-2 text-muted"></i>상세보기
-																									</a>
-																									<a class="dropdown-item"
-																										href="#"><i
-																											class="ri-check-double-line align-bottom me-2 text-success"></i>승인처리</a>
-																								</div>
-																							</div>
-																						</div>
-																					</div>
+																				class="admin-task-detail-file-fallback d-none">
+																				<i class="ri-file-image-line"></i>
+																				<div class="admin-task-detail-file-fallback-name"
+																					th:text="${img.filename}">image.png
 																				</div>
 																			</div>
 
-																			<!-- 생산개요 내용 -->
-																			<div class="py-3">
-																				<div class="flex-grow-1">
-																					<h5 class="mb-1 fs-16"><a href="#"
-																							class="text-body">생산개요</a>
-																					</h5>
+																			<span
+																				class="admin-task-detail-gallery-more-badge"
+																				th:if="${customerImages.size() > 1}"
+																				th:text="|총 ${customerImages.size()}개|">
+																				총 2개
+																			</span>
 
-																					<div
-																						th:if="${order.orderItem != null}">
-																						<p
-																							class="text-muted text-truncate-two-lines mb-3">
-																							<strong
-																								th:text="${order.orderItem.productName}"></strong>
-																							(수량: <span
-																								th:text="${order.orderItem.quantity}"></span>)
-																						</p>
-																						<div
-																							th:each="entry : ${order.orderItem.parsedOptionMap}">
-																							<span
-																								class="badge bg-light text-dark mb-1"
-																								th:text="${entry.key} + ' : ' + ${entry.value}"></span><br />
-																						</div>
-																					</div>
-																				</div>
+																			<div
+																				class="admin-task-detail-image-overlay">
+																				<button type="button"
+																					class="btn btn-light admin-task-detail-image-btn admin-task-detail-gallery-preview"
+																					data-open-gallery-index="0">
+																					<i class="ri-search-eye-line"></i>
+																					상세 보기
+																				</button>
 																			</div>
 																		</div>
 
-																		<!-- 하단 상태/수량 -->
-																		<div class="row gy-3 mt-3">
-																			<div class="col-6">
-																				<p class="text-muted mb-1">상태</p>
-																				<div class="badge bg-warning-subtle text-warning fs-12"
-																					th:text="${order.status}">상태</div>
-																			</div>
-																			<div class="col-6">
-																				<p class="text-muted mb-1">총 수량</p>
-																				<div class="badge bg-warning-subtle text-warning fs-12"
-																					th:text="${order.quantity}">수량</div>
-																			</div>
-																		</div>
-
-																	</div>
-
-																	<!-- 카드 푸터 (파일 다운로드) -->
-																	<div
-																		class="card-footer bg-transparent border-top-dashed py-2">
-																		<!-- 파일 영역 -->
-																		<div class="row mt-3">
-																			<!-- 고객 업로드 파일 리스트 -->
-																			<div class="col-6 mt-3">
-																				<h6 class="fw-semibold">고객 업로드 파일</h6>
-																				<div class="row row-cols-1 g-2">
-																					<div th:each="img : ${order.customerUploadedImages}"
-																						class="col">
-																						<div
-																							class="border rounded border-dashed p-2">
-																							<div
-																								class="d-flex align-items-center">
-																								<div
-																									class="flex-shrink-0 me-3">
-																									<div
-																										class="avatar-sm">
-																										<div
-																											class="avatar-title bg-light text-secondary rounded fs-24">
-																											<i
-																												class="ri-folder-zip-line"></i>
-																										</div>
-																									</div>
-																								</div>
-																								<div
-																									class="flex-grow-1 overflow-hidden">
-																									<h5
-																										class="fs-15 mb-1">
-																										<a th:href="@{${img.url}}"
-																											class="text-body text-truncate d-block"
-																											th:text="${img.filename}">고객파일</a>
-																									</h5>
-																									<div
-																										th:text="${img.fileSizeKb} + ' KB'">
-																										파일크기</div>
-																								</div>
-																								<div
-																									class="flex-shrink-0 ms-2">
-																									<a th:href="@{${img.url}}"
-																										class="btn btn-icon text-muted btn-sm fs-18">
-																										<i
-																											class="ri-download-2-line"></i>
-																									</a>
-																								</div>
-																							</div>
-																						</div>
-																					</div>
+																		<div class="admin-task-detail-gallery-meta">
+																			<div class="admin-task-detail-gallery-file">
+																				<div class="admin-task-detail-gallery-file-name"
+																					th:text="${img.filename}">
+																					250-300.png</div>
+																				<div class="admin-task-detail-gallery-file-size"
+																					th:text="${img.fileSizeKb != null ? (img.fileSizeKb >= 1024 ? #numbers.formatDecimal(img.fileSizeKb / 1024.0, 1, 1) + ' MB' : img.fileSizeKb + ' KB') : '0 KB'}">
+																					3 KB
 																				</div>
 																			</div>
 
-																			<!-- 관리자 업로드 파일 리스트 -->
-																			<div class="col-6 mt-3">
-																				<h6 class="fw-semibold">관리자 업로드 파일</h6>
-																				<div class="row row-cols-1 g-2">
-																					<div th:each="img : ${order.adminUploadedImages}"
-																						class="col">
-																						<div
-																							class="border rounded border-dashed p-2">
-																							<div
-																								class="d-flex align-items-center">
-																								<div
-																									class="flex-shrink-0 me-3">
-																									<div
-																										class="avatar-sm">
-																										<div
-																											class="avatar-title bg-light text-secondary rounded fs-24">
-																											<i
-																												class="ri-file-ppt-2-line"></i>
-																										</div>
-																									</div>
-																								</div>
-																								<div
-																									class="flex-grow-1 overflow-hidden">
-																									<h5
-																										class="fs-15 mb-1">
-																										<a th:href="@{${img.url}}"
-																											class="text-body text-truncate d-block"
-																											th:text="${img.filename}">관리자파일</a>
-																									</h5>
-																									<div
-																										th:text="${img.fileSizeKb} + ' KB'">
-																										파일크기</div>
-																								</div>
-																								<div
-																									class="flex-shrink-0 ms-2">
-																									<a th:href="@{${img.url}}"
-																										class="btn btn-icon text-muted btn-sm fs-18">
-																										<i
-																											class="ri-download-2-line"></i>
-																									</a>
-																								</div>
-																							</div>
-																						</div>
-																					</div>
+																			<a class="btn btn-outline-dark btn-sm admin-task-detail-image-btn"
+																				th:href="@{${img.url}}"
+																				th:download="${img.filename}">
+																				<i class="ri-download-2-line"></i>
+																				다운로드
+																			</a>
+																		</div>
+																	</div>
+
+																	<div class="d-none">
+																		<button type="button"
+																			class="admin-task-detail-gallery-item"
+																			th:each="img, imgStat : ${customerImages}"
+																			th:attr="data-image-url=${img.url},
+																				data-download-url=${img.url},
+																				data-filename=${img.filename},
+																				data-gallery-index=${imgStat.index}">
+																		</button>
+																	</div>
+																</div>
+
+																<div th:if="${customerImages == null or #lists.isEmpty(customerImages)}"
+																	class="admin-task-detail-gallery-empty">
+																	<i class="ri-image-line"></i>
+																	<div>등록된 고객 업로드 이미지가 없습니다.</div>
+																</div>
+															</div>
+
+															<!-- 관리자 업로드 -->
+															<div class="admin-task-detail-gallery-panel admin-task-detail-gallery-panel-fixed"
+																th:with="adminImages=${order.adminUploadedImages}"
+																th:attr="data-gallery-title=|관리자 업로드 파일 · 주문 #${order.id}|">
+																<div class="admin-task-detail-panel-head">
+																	<h6 class="admin-task-detail-panel-title mb-0">관리자
+																		업로드 파일</h6>
+																	<span class="admin-task-detail-panel-count"
+																		th:text="${adminImages != null ? adminImages.size() : 0} + '개'">0개</span>
+																</div>
+
+																<div class="admin-task-detail-gallery-content"
+																	th:if="${adminImages != null and !#lists.isEmpty(adminImages)}">
+
+																	<div class="admin-task-detail-gallery-cover-wrap"
+																		th:each="img, imgStat : ${adminImages}"
+																		th:if="${imgStat.first}">
+																		<div class="admin-task-detail-gallery-cover">
+																			<img class="admin-task-detail-gallery-cover-image"
+																				th:src="@{${img.url}}"
+																				th:alt="${img.filename}"
+																				onerror="this.style.display='none'; this.parentElement.querySelector('.admin-task-detail-file-fallback').classList.remove('d-none');" />
+
+																			<div
+																				class="admin-task-detail-file-fallback d-none">
+																				<i class="ri-file-image-line"></i>
+																				<div class="admin-task-detail-file-fallback-name"
+																					th:text="${img.filename}">image.png
 																				</div>
+																			</div>
+
+																			<span
+																				class="admin-task-detail-gallery-more-badge"
+																				th:if="${adminImages.size() > 1}"
+																				th:text="|총 ${adminImages.size()}개|">
+																				총 2개
+																			</span>
+
+																			<div
+																				class="admin-task-detail-image-overlay">
+																				<button type="button"
+																					class="btn btn-light admin-task-detail-image-btn admin-task-detail-gallery-preview"
+																					data-open-gallery-index="0">
+																					<i class="ri-search-eye-line"></i>
+																					상세 보기
+																				</button>
 																			</div>
 																		</div>
 
+																		<div class="admin-task-detail-gallery-meta">
+																			<div class="admin-task-detail-gallery-file">
+																				<div class="admin-task-detail-gallery-file-name"
+																					th:text="${img.filename}">
+																					400-250.png</div>
+																				<div class="admin-task-detail-gallery-file-size"
+																					th:text="${img.fileSizeKb != null ? (img.fileSizeKb >= 1024 ? #numbers.formatDecimal(img.fileSizeKb / 1024.0, 1, 1) + ' MB' : img.fileSizeKb + ' KB') : '0 KB'}">
+																					4 KB
+																				</div>
+																			</div>
 
+																			<a class="btn btn-outline-dark btn-sm admin-task-detail-image-btn"
+																				th:href="@{${img.url}}"
+																				th:download="${img.filename}">
+																				<i class="ri-download-2-line"></i>
+																				다운로드
+																			</a>
+																		</div>
+																	</div>
+
+																	<div class="d-none">
+																		<button type="button"
+																			class="admin-task-detail-gallery-item"
+																			th:each="img, imgStat : ${adminImages}"
+																			th:attr="data-image-url=${img.url},
+																				data-download-url=${img.url},
+																				data-filename=${img.filename},
+																				data-gallery-index=${imgStat.index}">
+																		</button>
 																	</div>
 																</div>
+
+																<div th:if="${adminImages == null or #lists.isEmpty(adminImages)}"
+																	class="admin-task-detail-gallery-empty">
+																	<i class="ri-gallery-line"></i>
+																	<div>등록된 관리자 업로드 이미지가 없습니다.</div>
+																</div>
 															</div>
+
 														</div>
 													</div>
 												</div>
-											</div>
 
-											<div class="card">
-												<div class="card-header align-items-center d-flex">
-													<h4 class="card-title mb-0 flex-grow-1">진행현황</h4>
-												</div>
-												<div class="card-body">
+												<div class="admin-task-detail-order-card-actions">
+													<button type="button"
+														class="btn btn-primary admin-task-detail-order-detail-btn"
+														th:attr="data-order-url=@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}">
+														<i class="ri-arrow-right-up-line"></i>
+														상세보기
+													</button>
 
-													<div data-simplebar style="height: 400px;" class="px-3 mx-n3 mb-2">
-														<div class="d-flex mb-4">
-															<div class="flex-grow-1 ms-3">
-																<h5 class="fs-14">대리점 <small
-																		class="text-muted ms-2">00.00.00
-																		00:00:00</small></h5>
-																<p class="text-muted">온라인 비규격 접수</p>
-																<a href="javascript: void(0);"
-																	class="badge text-muted bg-light"><i
-																		class="mdi mdi-reply"></i> Detail</a>
-																<div class="d-flex mt-4">
-																	<div class="flex-grow-1 ms-3">
-																		<h5 class="fs-14">담당자 <small
-																				class="text-muted ms-2">00.00.00
-																				00:00:00</small></h5>
-																		<p class="text-muted">접수 확인처리</p>
-																	</div>
-																</div>
-															</div>
-														</div>
-														<div class="d-flex mb-4">
-															<div class="flex-grow-1 ms-3">
-																<h5 class="fs-14">생산팀 <small
-																		class="text-muted ms-2">00.00.00
-																		00:00:00</small></h5>
-																<p class="text-muted">생산지시서 접수</a>.</p>
-																<a href="javascript: void(0);"
-																	class="badge text-muted bg-light"><i
-																		class="mdi mdi-reply"></i> Detail</a>
-															</div>
-														</div>
-														<div class="d-flex">
-															<div class="flex-grow-1 ms-3">
-																<h5 class="fs-14">생산팀 <small
-																		class="text-muted ms-2">00.00.00
-																		00:00:00</small></h5>
-																<p class="text-muted">생산 완료처리</p>
-																<a href="javascript: void(0);"
-																	class="badge text-muted bg-light"><i
-																		class="mdi mdi-reply"></i> Detail</a>
-																<div class="d-flex mt-4">
-																	<div class="flex-grow-1 ms-3">
-																		<h5 class="fs-14">배송팀 <small
-																				class="text-muted ms-2">00.00.00
-																				00:00:00</small></h5>
-																		<p class="text-muted">배송리스트 접수</p>
-																		<a href="javascript: void(0);"
-																			class="badge text-muted bg-light"><i
-																				class="mdi mdi-reply"></i> Detail</a>
-																	</div>
-																</div>
-															</div>
-														</div>
-													</div>
+													<button type="button"
+														class="btn btn-primary admin-task-detail-order-detail-btn admin-task-detail-order-delete-btn"
+														th:attr="data-order-id=${order.id}">
+														<i class="ri-delete-bin-6-line"></i>
+														삭제하기
+													</button>
 												</div>
 											</div>
 										</div>
-									</div>
-								</div>
-
-								<!-- end tab pane -->
-								<div class="tab-pane fade" id="project-activities" role="tabpanel">
-									<div class="card">
-										<div class="card-body">
-											<h5 class="card-title">처리내역</h5>
-											<div class="acitivity-timeline py-3">
-												<div class="acitivity-item d-flex">
-													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
-														<div
-															class="avatar-title bg-success-subtle text-success rounded-circle">
-															N
-														</div>
-													</div>
-													<div class="flex-grow-1 ms-3">
-														<h6 class="mb-1">대리점 <span
-																class="badge bg-primary-subtle text-primary align-middle">New</span>
-														</h6>
-														<p class="text-muted mb-2">온라인 비규격 접수</p>
-														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
-													</div>
-												</div>
-												<div class="acitivity-item py-3 d-flex">
-													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
-														<div
-															class="avatar-title bg-success-subtle text-success rounded-circle">
-															C
-														</div>
-													</div>
-													<div class="flex-grow-1 ms-3">
-														<h6 class="mb-1">담당자 <span
-																class="badge bg-secondary-subtle text-secondary align-middle">생산지시</span>
-														</h6>
-														<p class="text-muted mb-2"><i
-																class="ri-file-text-line align-middle ms-2"></i> 접수 확인처리
-														</p>
-														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
-													</div>
-												</div>
-												<div class="acitivity-item py-3 d-flex">
-													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
-														<div
-															class="avatar-title bg-success-subtle text-success rounded-circle">
-															M
-														</div>
-													</div>
-													<div class="flex-grow-1 ms-3">
-														<h6 class="mb-1">생산팀 <span
-																class="badge bg-success-subtle text-success align-middle">생산팀</span>
-														</h6>
-														<p class="text-muted mb-2">생산지시서 접수</p>
-														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
-													</div>
-												</div>
-												<div class="acitivity-item py-3 d-flex">
-													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
-														<div
-															class="avatar-title bg-success-subtle text-success rounded-circle">
-															F
-														</div>
-													</div>
-													<div class="flex-grow-1 ms-3">
-														<h6 class="mb-1">생산팀 </h6>
-														<p class="text-muted mb-2">생산 완료처리</p>
-														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
-													</div>
-												</div>
-
-												<div class="acitivity-item py-3 d-flex">
-													<div class="flex-shrink-0 avatar-xs acitivity-avatar">
-														<div
-															class="avatar-title bg-success-subtle text-success rounded-circle">
-															D
-														</div>
-													</div>
-													<div class="flex-grow-1 ms-3">
-														<h6 class="mb-1">배송팀 </h6>
-														<p class="text-muted mb-2">배송리스트 접수</p>
-														<small class="mb-0 text-muted">00.00.00 00:00:00</small>
-													</div>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-
-								<div class="tab-pane fade" id="sales-team" role="tabpanel">
-
-									<div class="team-list list-view-filter">
-										<div class="card team-box">
-											<div class="card-body px-4">
-												<div class="row align-items-center team-row">
-													<div class="col-lg-4 col">
-														<div class="team-profile-img">
-															<div class="avatar-lg img-thumbnail">
-																<div class="avatar-title bg-danger-subtle text-danger">
-																	HB
-																</div>
-															</div>
-															<div class="team-content">
-																<a href="#" class="d-block">
-																	<h5 class="fs-16 mb-1">담당자</h5>
-																</a>
-																<p class="text-muted mb-0">담당자직급</p>
-															</div>
-														</div>
-													</div>
-													<div class="col-lg-2 col">
-														<div class="text-end">
-															<a href="#" class="btn btn-light view-btn">상세보기</a>
-														</div>
-													</div>
-												</div>
-											</div>
-										</div>
-									</div>
+									</div> <!-- row -->
 								</div>
 							</div>
 						</div>
+					</div>
+
+				</div>
+			</div>
+
+			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
+		</div>
+		<!-- 이미지 상세 모달 -->
+		<div id="admin-task-detail-image-modal" class="admin-task-detail-image-modal">
+			<div class="admin-task-detail-image-modal-backdrop" data-admin-task-detail-modal-close="true"></div>
+
+			<div class="admin-task-detail-image-modal-dialog" role="dialog" aria-modal="true"
+				aria-labelledby="admin-task-detail-image-modal-title">
+				<div class="admin-task-detail-image-modal-head">
+					<div class="min-w-0">
+						<h5 id="admin-task-detail-image-modal-title" class="admin-task-detail-image-modal-title">이미지
+							미리보기</h5>
+						<div id="admin-task-detail-image-modal-subtitle" class="admin-task-detail-image-modal-sub">업로드
+							파일</div>
+					</div>
+
+					<div class="admin-task-detail-image-modal-actions">
+						<a id="admin-task-detail-image-modal-download" class="admin-task-detail-image-modal-download"
+							href="javascript:void(0);" download>
+							<i class="ri-download-2-line"></i>
+						</a>
+						<button type="button" class="admin-task-detail-image-modal-close"
+							data-admin-task-detail-modal-close="true">
+							<i class="ri-close-line"></i>
+						</button>
+					</div>
+				</div>
+
+				<div class="admin-task-detail-image-modal-body">
+					<button type="button" class="admin-task-detail-image-modal-nav admin-task-detail-image-modal-prev"
+						id="admin-task-detail-image-modal-prev">
+						<i class="ri-arrow-left-s-line"></i>
+					</button>
+
+					<div class="admin-task-detail-image-modal-stage">
+						<img id="admin-task-detail-image-modal-img" class="admin-task-detail-image-modal-img" src=""
+							alt="상세 이미지" />
+
+						<div id="admin-task-detail-image-modal-fallback" class="admin-task-detail-image-modal-fallback">
+							<i class="ri-file-image-line"></i>
+							<div id="admin-task-detail-image-modal-fallback-name"></div>
+						</div>
+					</div>
+
+					<button type="button" class="admin-task-detail-image-modal-nav admin-task-detail-image-modal-next"
+						id="admin-task-detail-image-modal-next">
+						<i class="ri-arrow-right-s-line"></i>
+					</button>
+				</div>
+
+				<div class="admin-task-detail-image-modal-footer">
+					<div class="admin-task-detail-image-modal-file">
+						<div id="admin-task-detail-image-modal-file-name"
+							class="admin-task-detail-image-modal-file-name">
+							file.png
+						</div>
+					</div>
+
+					<div id="admin-task-detail-image-modal-counter" class="admin-task-detail-image-modal-counter">
+						1 / 1
 					</div>
 				</div>
 			</div>
-			<footer th:replace="fragments/administration/common :: autoAdminFooter"></footer>
 		</div>
 	</div>
 
+
+
 	<th:block th:replace="fragments/administration/common :: autoAdminSetting"></th:block>
 	<th:block th:replace="fragments/administration/common :: authAdminScript"></th:block>
-	<script src="/administration/assets/js/pages/project-overview.init.js"></script>
+
+	<script>
+		(function () {
+			const modal = document.getElementById('admin-task-detail-image-modal');
+			const modalImg = document.getElementById('admin-task-detail-image-modal-img');
+			const modalFallback = document.getElementById('admin-task-detail-image-modal-fallback');
+			const modalFallbackName = document.getElementById('admin-task-detail-image-modal-fallback-name');
+			const modalTitle = document.getElementById('admin-task-detail-image-modal-title');
+			const modalSubtitle = document.getElementById('admin-task-detail-image-modal-subtitle');
+			const modalFileName = document.getElementById('admin-task-detail-image-modal-file-name');
+			const modalCounter = document.getElementById('admin-task-detail-image-modal-counter');
+			const modalDownload = document.getElementById('admin-task-detail-image-modal-download');
+			const modalPrev = document.getElementById('admin-task-detail-image-modal-prev');
+			const modalNext = document.getElementById('admin-task-detail-image-modal-next');
+			const currentTaskId = document.getElementById('admin-task-detail-task-id')?.value;
+
+			if (!modal) {
+				return;
+			}
+
+			const state = {
+				items: [],
+				index: 0,
+				title: '이미지 미리보기',
+				subtitle: '업로드 파일'
+			};
+
+			function getGalleryItems(panel) {
+				if (!panel) {
+					return [];
+				}
+
+				return Array.from(panel.querySelectorAll('.admin-task-detail-gallery-item'))
+					.map(function (item) {
+						return {
+							imageUrl: item.getAttribute('data-image-url') || '',
+							downloadUrl: item.getAttribute('data-download-url') || '',
+							filename: item.getAttribute('data-filename') || 'file',
+							index: Number(item.getAttribute('data-gallery-index') || 0)
+						};
+					})
+					.sort(function (a, b) {
+						return a.index - b.index;
+					});
+			}
+
+			function showModalFallback(filename) {
+				modalImg.style.display = 'none';
+				modalFallback.style.display = 'flex';
+				modalFallbackName.textContent = filename || '';
+			}
+
+			function hideModalFallback() {
+				modalImg.style.display = 'block';
+				modalFallback.style.display = 'none';
+				modalFallbackName.textContent = '';
+			}
+
+			function renderModal() {
+				if (!state.items.length) {
+					return;
+				}
+
+				const current = state.items[state.index];
+				const total = state.items.length;
+
+				modalTitle.textContent = state.title || '이미지 미리보기';
+				modalSubtitle.textContent = state.subtitle || '업로드 파일';
+				modalFileName.textContent = current.filename || '';
+				modalCounter.textContent = (state.index + 1) + ' / ' + total;
+
+				modalDownload.setAttribute('href', current.downloadUrl || current.imageUrl || '#');
+				modalDownload.setAttribute('download', current.filename || 'file');
+
+				hideModalFallback();
+				modalImg.setAttribute('src', current.imageUrl || '');
+				modalImg.setAttribute('alt', current.filename || '상세 이미지');
+
+				const navVisible = total > 1;
+				modalPrev.style.display = navVisible ? 'inline-flex' : 'none';
+				modalNext.style.display = navVisible ? 'inline-flex' : 'none';
+			}
+
+			function openModal(items, index, title, subtitle) {
+				if (!items || !items.length) {
+					return;
+				}
+
+				state.items = items;
+				state.index = index >= 0 ? index : 0;
+				state.title = title || '이미지 미리보기';
+				state.subtitle = subtitle || '업로드 파일';
+
+				renderModal();
+				modal.classList.add('is-open');
+				document.body.classList.add('admin-task-detail-modal-open');
+			}
+
+			function closeModal() {
+				modal.classList.remove('is-open');
+				document.body.classList.remove('admin-task-detail-modal-open');
+				modalImg.setAttribute('src', '');
+				hideModalFallback();
+			}
+
+			function moveModal(step) {
+				if (!state.items.length) {
+					return;
+				}
+				const total = state.items.length;
+				state.index = (state.index + step + total) % total;
+				renderModal();
+			}
+
+			async function deleteOrderFromTaskDetail(orderId) {
+				if (!orderId) {
+					return;
+				}
+
+				const confirmMessage =
+					'이 주문을 삭제하시겠습니까?\n\n' +
+					'주문 이미지, 주문항목, 배송순서 인덱스도 함께 삭제됩니다.\n' +
+					'삭제 후 Task 에 남은 Order 가 없으면 Task 도 자동 삭제됩니다.';
+
+				if (!confirm(confirmMessage)) {
+					return;
+				}
+
+				try {
+					const headers = {
+						'Content-Type': 'application/json'
+					};
+
+					const response = await fetch('/management/api/non-standard-task/delete-orders', {
+						method: 'POST',
+						headers: headers,
+						body: JSON.stringify({
+							orderIds: [Number(orderId)]
+						})
+					});
+
+					let data = null;
+					try {
+						data = await response.json();
+					} catch (e) {
+						data = null;
+					}
+
+					if (!response.ok || !data || data.success !== true) {
+						throw new Error(data?.message || '주문 삭제 중 오류가 발생했습니다.');
+					}
+
+					alert(data.message || '주문이 삭제되었습니다.');
+
+					if (data.deletedTaskCount && Number(data.deletedTaskCount) > 0) {
+						window.location.href = '/management/nonStandardTaskList';
+						return;
+					}
+
+					if (currentTaskId) {
+						window.location.href = '/management/nonStandardTaskDetail/' + currentTaskId;
+						return;
+					}
+
+					window.location.reload();
+				} catch (error) {
+					alert(error.message || '주문 삭제 중 오류가 발생했습니다.');
+				}
+			}
+
+			modalImg.addEventListener('error', function () {
+				showModalFallback(modalFileName.textContent);
+			});
+
+			modalPrev.addEventListener('click', function (e) {
+				e.preventDefault();
+				moveModal(-1);
+			});
+
+			modalNext.addEventListener('click', function (e) {
+				e.preventDefault();
+				moveModal(1);
+			});
+
+			document.addEventListener('click', function (e) {
+				const orderDeleteButton = e.target.closest('.admin-task-detail-order-delete-btn');
+				if (orderDeleteButton) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					const orderId = orderDeleteButton.getAttribute('data-order-id');
+					deleteOrderFromTaskDetail(orderId);
+					return;
+				}
+				const orderDetailButton = e.target.closest('.admin-task-detail-order-detail-btn');
+				if (orderDetailButton) {
+					e.preventDefault();
+					const url = orderDetailButton.getAttribute('data-order-url');
+					if (url) {
+						window.location.href = url;
+					}
+					return;
+				}
+
+				const previewButton = e.target.closest('.admin-task-detail-gallery-preview');
+				if (previewButton) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					const panel = previewButton.closest('.admin-task-detail-gallery-panel');
+					const items = getGalleryItems(panel);
+					const panelTitle = panel ? (panel.getAttribute('data-gallery-title') || '이미지 미리보기') : '이미지 미리보기';
+					const index = Number(previewButton.getAttribute('data-open-gallery-index') || 0);
+
+					openModal(items, index, '이미지 미리보기', panelTitle);
+					return;
+				}
+
+				const closeTrigger = e.target.closest('[data-admin-task-detail-modal-close="true"]');
+				if (closeTrigger) {
+					e.preventDefault();
+					closeModal();
+				}
+			});
+
+			document.addEventListener('keydown', function (e) {
+				if (!modal.classList.contains('is-open')) {
+					return;
+				}
+
+				if (e.key === 'Escape') {
+					closeModal();
+				} else if (e.key === 'ArrowLeft') {
+					moveModal(-1);
+				} else if (e.key === 'ArrowRight') {
+					moveModal(1);
+				}
+			});
+		})();
+	</script>
 </body>
 
 </html>

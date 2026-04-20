@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.model.task;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,7 +26,6 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import lombok.Data;
-
 @Entity
 @Table(name = "tb_order")
 @Data
@@ -39,34 +39,29 @@ public class Order {
     private Task task;
 
     @Column(nullable = false)
-    private boolean standard = false; // 규격 제품 주문 여부 (기본값 false)
+    private boolean standard = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_category_id")
     private TeamCategory productCategory;
 
-    // 우편번호
     private String zipCode;
+    private String doName;
+    private String siName;
+    private String guName;
 
-    // 행정구역
-    private String doName;   // ex: 경기도
-    private String siName;   // ex: 용인시
-    private String guName;   // ex: 수지구
-
-    // 주소
-    private String roadAddress;     // ex: 경기도 용인시 수지구 죽전로 55
-    private String detailAddress;   // ex: 302동 1502호
+    private String roadAddress;
+    private String detailAddress;
 
     private int quantity;
-    private int productCost;                     // 제품비용 (단위: 원)
+    private int productCost;
     private String orderComment;
 
-    // ✅ 추가 필드
-    private LocalDateTime preferredDeliveryDate; // 배송희망일
+    private LocalDateTime preferredDeliveryDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "delivery_method_id") // FK 이름 명시
-    private DeliveryMethod deliveryMethod; // ✅ 배송수단 엔티티 참조
+    @JoinColumn(name = "delivery_method_id")
+    private DeliveryMethod deliveryMethod;
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
@@ -87,22 +82,39 @@ public class Order {
     @JoinColumn(name = "assigned_delivery_handler_id", nullable = true)
     private Member assignedDeliveryHandler;
 
-    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private OrderItem orderItem;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderHistory> historyLogs;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderImage> orderImages; // 배송 완료 후 이미지 업로드
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderImage> orderImages = new ArrayList<>();
 
-    // ✅✅ 신규 추가: 관리자 남김말 (NULL 가능)
     @Lob
     @Column(name = "admin_memo", nullable = true)
     private String adminMemo;
 
-    private LocalDateTime createdAt = LocalDateTime.now(); // 주문 등록일
+    private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
+
+    public void setOrderItem(OrderItem orderItem) {
+        this.orderItem = orderItem;
+        if (orderItem != null) {
+            orderItem.setOrder(this);
+        }
+    }
+
+    public void addOrderImage(OrderImage image) {
+        if (image == null) {
+            return;
+        }
+        if (this.orderImages == null) {
+            this.orderImages = new ArrayList<>();
+        }
+        this.orderImages.add(image);
+        image.setOrder(this);
+    }
 
     public List<OrderImage> getCustomerUploadedImages() {
         if (orderImages == null) return List.of();

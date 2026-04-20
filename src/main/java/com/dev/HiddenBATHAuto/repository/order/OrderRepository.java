@@ -2,6 +2,7 @@ package com.dev.HiddenBATHAuto.repository.order;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,28 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long>{
 
+    @Query("""
+        select distinct o
+        from Order o
+        join fetch o.task t
+        left join fetch o.orderImages oi
+        left join fetch o.orderItem item
+        where o.id in :orderIds
+    """)
+    List<Order> findAllForBulkDeleteByIds(@Param("orderIds") Collection<Long> orderIds);
+
+    @Query("""
+        select distinct o
+        from Order o
+        join fetch o.task t
+        left join fetch o.orderImages oi
+        left join fetch o.orderItem item
+        where t.id in :taskIds
+    """)
+    List<Order> findAllForBulkDeleteByTaskIds(@Param("taskIds") Collection<Long> taskIds);
+
+    long countByTask_Id(Long taskId);
+	
 	List<Order> findByTask_RequestedByAndPreferredDeliveryDateBetween(Member member, LocalDateTime start, LocalDateTime end);
 
 	// =========================

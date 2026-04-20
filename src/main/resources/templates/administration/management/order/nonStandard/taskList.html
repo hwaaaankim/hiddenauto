@@ -17,7 +17,8 @@
 			<div class="page-content">
 				<div class="container-fluid">
 
-					<!-- start page title (변경없음) -->
+
+					<!-- start page title -->
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -32,19 +33,18 @@
 							</div>
 						</div>
 					</div>
-					<!-- end page title (변경없음) -->
+					<!-- end page title -->
 
 					<div class="row">
 						<div class="col-lg-12">
 							<div class="card" id="tasksList">
 
 								<div class="card-header border-0">
-									<div class="d-flex align-items-center">
+									<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
 										<h5 class="card-title mb-0 flex-grow-1">ORDER MANAGER</h5>
 
 										<div class="flex-shrink-0">
-											<div class="d-flex flex-wrap gap-2">
-												<!-- ✅ 엑셀 다운로드: 정렬/페이지사이즈 포함 (변경없음) -->
+											<div class="d-flex flex-wrap gap-2 align-items-center">
 												<a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
                                                     dateCriteria=${dateCriteria},
@@ -59,6 +59,16 @@
                                                 )}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
+
+												<button type="button" class="btn btn-danger"
+													id="task-list-delete-tasks-btn" disabled>
+													<i class="fa-solid fa-trash-can"></i> 태스크 삭제
+												</button>
+
+												<button type="button" class="btn btn-outline-danger"
+													id="task-list-delete-orders-btn" disabled>
+													<i class="fa-solid fa-trash"></i> 해당주문삭제
+												</button>
 											</div>
 										</div>
 									</div>
@@ -68,7 +78,6 @@
 									<form method="get" th:action="@{/management/nonStandardTaskList}">
 										<div class="row g-3">
 
-											<!-- 🔍 키워드 (변경없음) -->
 											<div class="col-xxl-3 col-sm-12">
 												<label class="form-label">키워드 검색</label>
 												<div class="search-box">
@@ -79,20 +88,15 @@
 												</div>
 											</div>
 
-											<!-- 📅 기준일 선택 (변경없음) -->
 											<div class="col-md-3">
 												<label class="form-label">기준일선택</label>
 												<select class="form-select" name="dateCriteria" id="dateCriteria">
-													<option value="all" th:selected="${dateCriteria == 'all'}">전체
-													</option>
-													<option value="order" th:selected="${dateCriteria == 'order'}">발주일
-														기준</option>
-													<option value="delivery"
-														th:selected="${dateCriteria == 'delivery'}">출고일 기준</option>
+													<option value="all" th:selected="${dateCriteria == 'all'}">전체</option>
+													<option value="order" th:selected="${dateCriteria == 'order'}">발주일 기준</option>
+													<option value="delivery" th:selected="${dateCriteria == 'delivery'}">출고일 기준</option>
 												</select>
 											</div>
 
-											<!-- 📅 시작일 (변경없음) -->
 											<div class="col-xxl-3 col-sm-6">
 												<label class="form-label">시작일</label>
 												<input type="date" id="startDate" name="startDate"
@@ -101,7 +105,6 @@
 													th:value="${startDateStr}">
 											</div>
 
-											<!-- 📅 종료일 (변경없음) -->
 											<div class="col-xxl-3 col-sm-6">
 												<label class="form-label">종료일</label>
 												<input type="date" id="endDate" name="endDate"
@@ -110,13 +113,11 @@
 													th:value="${endDateStr}">
 											</div>
 
-											<!-- 🛠 제품 (변경없음) -->
 											<div class="col-xxl-3 col-sm-4">
 												<label class="form-label">제품</label>
 												<div class="input-light">
 													<select class="form-control" name="productCategoryId">
-														<option value="all" th:selected="${productCategoryId == 'all'}">
-															All</option>
+														<option value="all" th:selected="${productCategoryId == 'all'}">All</option>
 														<option th:each="category : ${productionTeamCategories}"
 															th:value="${category.id}" th:text="${category.name}"
 															th:selected="${productCategoryId == category.id.toString()}">
@@ -126,13 +127,11 @@
 												</div>
 											</div>
 
-											<!-- 📦 발주상태 (변경없음) -->
 											<div class="col-xxl-3 col-sm-3">
 												<label class="form-label">발주상태</label>
 												<div class="input-light">
 													<select class="form-control" name="orderStatus">
-														<option value="all" th:selected="${orderStatus == 'all'}">All
-														</option>
+														<option value="all" th:selected="${orderStatus == 'all'}">All</option>
 														<option th:each="status : ${orderStatuses}"
 															th:value="${status.name()}" th:text="${status.label}"
 															th:selected="${orderStatus == status.name()}">상태</option>
@@ -140,44 +139,32 @@
 												</div>
 											</div>
 
-											<!-- 🚚 규격 여부 (필터용) (변경없음) -->
 											<div class="col-xxl-2 col-sm-3">
 												<label class="form-label">규격 여부</label>
 												<div class="input-light">
 													<select class="form-control" name="standard">
-														<option value="all" th:selected="${standard == 'all'}">전체
-														</option>
-														<option value="true" th:selected="${standard == 'true'}">규격
-														</option>
-														<option value="false" th:selected="${standard == 'false'}">비규격
-														</option>
+														<option value="all" th:selected="${standard == 'all'}">전체</option>
+														<option value="true" th:selected="${standard == 'true'}">규격</option>
+														<option value="false" th:selected="${standard == 'false'}">비규격</option>
 													</select>
 												</div>
 											</div>
 
-											<!-- ✅ 페이지 사이즈 (변경없음) -->
 											<div class="col-xxl-2 col-sm-3">
 												<label class="form-label">페이지 사이즈</label>
 												<div class="input-light">
-													<select class="form-control" id="task-list-added-pageSize"
-														name="size">
-														<option value="10" th:selected="${pageSize == 10}">10개씩 보기
-														</option>
-														<option value="30" th:selected="${pageSize == 30}">30개씩 보기
-														</option>
-														<option value="50" th:selected="${pageSize == 50}">50개씩 보기
-														</option>
-														<option value="100" th:selected="${pageSize == 100}">100개씩 보기
-														</option>
+													<select class="form-control" id="task-list-added-pageSize" name="size">
+														<option value="10" th:selected="${pageSize == 10}">10개씩 보기</option>
+														<option value="30" th:selected="${pageSize == 30}">30개씩 보기</option>
+														<option value="50" th:selected="${pageSize == 50}">50개씩 보기</option>
+														<option value="100" th:selected="${pageSize == 100}">100개씩 보기</option>
 													</select>
 												</div>
 											</div>
 
-											<!-- ✅ 정렬 유지용 hidden (변경없음) -->
 											<input type="hidden" name="sortField" th:value="${sortField}">
 											<input type="hidden" name="sortDir" th:value="${sortDir}">
 
-											<!-- 🔍 조회 버튼 (변경없음) -->
 											<div class="col-xxl-2 col-sm-3">
 												<label class="form-label">조회</label>
 												<button type="submit" class="btn btn-primary w-100">
@@ -188,17 +175,21 @@
 										</div>
 									</form>
 								</div>
-								<!--end card-body-->
 
 								<div class="card-body">
 									<div class="table-responsive table-card mb-4">
 										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
 											<thead class="table-light text-muted">
 												<tr>
+													<th style="width: 52px;" class="text-center">
+														<div class="form-check d-flex justify-content-center m-0">
+															<input class="form-check-input" type="checkbox" id="task-list-check-all">
+														</div>
+													</th>
+
 													<th>업무ID</th>
 													<th>오더ID</th>
 
-													<!-- ✅ 정렬: 대리점명 -->
 													<th>
 														<div class="task-list-added-sort-header">
 															<span>대리점명</span>
@@ -237,7 +228,6 @@
 														</div>
 													</th>
 
-													<!-- ✅ 정렬: 신청자 (※ 기존 asc 링크 깨짐 수정) -->
 													<th>
 														<div class="task-list-added-sort-header">
 															<span>신청자</span>
@@ -276,7 +266,6 @@
 														</div>
 													</th>
 
-													<!-- ✅ 정렬: 규격/비규격 (규격 먼저 = true 먼저를 원하면 desc/asc는 DB에 따라 달라서 “true 먼저”를 보장하려면 주의사항 아래 참고) -->
 													<th>
 														<div class="task-list-added-sort-header">
 															<span>규격/비규격</span>
@@ -315,7 +304,6 @@
 														</div>
 													</th>
 
-													<!-- ✅ 정렬: 발주일 -->
 													<th>
 														<div class="task-list-added-sort-header">
 															<span>발주일</span>
@@ -354,7 +342,6 @@
 														</div>
 													</th>
 
-													<!-- ✅ 정렬: 배송희망일 -->
 													<th>
 														<div class="task-list-added-sort-header">
 															<span>배송희망일</span>
@@ -393,7 +380,6 @@
 														</div>
 													</th>
 
-													<!-- ✅ 정렬: 상태 (enum string 기준 사전순: ABC/가나다 유사) -->
 													<th>
 														<div class="task-list-added-sort-header">
 															<span>상태</span>
@@ -436,35 +422,38 @@
 
 											<tbody class="list form-check-all">
 												<tr th:each="order : ${orders.content}">
+													<td class="text-center">
+														<div class="form-check d-flex justify-content-center m-0">
+															<input class="form-check-input task-list-order-checkbox"
+																type="checkbox"
+																th:value="${order.id}"
+																th:attr="data-task-id=${order.task.id}">
+														</div>
+													</td>
 
-													<!-- Task ID (변경없음) -->
 													<td class="id">
 														<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${order.task.id})}"
 															class="fw-medium link-secondary"
 															th:text="'#TASK_' + ${order.task.id}">#TASK_ID</a>
 													</td>
 
-													<!-- Order ID (변경없음) -->
 													<td class="id">
 														<a th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}"
 															class="fw-medium link-primary"
 															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
 													</td>
 
-													<!-- 대리점명 (변경없음) -->
 													<td class="project_name">
 														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
 															class="fw-medium link-primary"
 															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
 													</td>
 
-													<!-- 신청자 (변경없음) -->
 													<td class="client_name">
 														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
 															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
-													<!-- 규격/비규격 (변경없음) -->
 													<td class="assignedto">
 														<span th:if="${order.standard}"
 															class="badge bg-success-subtle text-success">규격</span>
@@ -472,22 +461,18 @@
 															class="badge bg-primary-subtle text-primary">비규격</span>
 													</td>
 
-													<!-- 발주일 (변경없음) -->
 													<td class="due_date"
 														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 
-													<!-- 배송희망일 (변경없음) -->
 													<td class="due_date"
 														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss')}">
 														00:00:00
 													</td>
 
-													<!-- 상태 (변경없음) -->
 													<td class="status">
-														<span
-															class="badge bg-secondary-subtle text-secondary text-uppercase"
+														<span class="badge bg-secondary-subtle text-secondary text-uppercase"
 															th:text="${order.status}">대기중</span>
 													</td>
 												</tr>
@@ -505,7 +490,6 @@
 										</div>
 									</div>
 
-									<!-- ✅ 페이지네이션(정렬/사이즈 포함) (변경없음) -->
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="navigation" style="text-align: center;">
@@ -635,12 +619,30 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<!-- ✅ JS 포함(기존 기능 + 페이지사이즈 자동 submit) (변경없음) -->
 	<script>
 		document.addEventListener("DOMContentLoaded", function () {
 			const dateCriteriaSelect = document.getElementById("dateCriteria");
 			const startDateInput = document.getElementById("startDate");
 			const endDateInput = document.getElementById("endDate");
+			const pageSizeSelect = document.getElementById("task-list-added-pageSize");
+
+			const checkAllBox = document.getElementById("task-list-check-all");
+			const deleteTasksBtn = document.getElementById("task-list-delete-tasks-btn");
+			const deleteOrdersBtn = document.getElementById("task-list-delete-orders-btn");
+
+			const csrfToken = document.getElementById("task-list-csrf-token")?.value;
+			const csrfHeader = document.getElementById("task-list-csrf-header")?.value;
+
+			function getOrderCheckboxes() {
+				return Array.from(document.querySelectorAll(".task-list-order-checkbox"));
+			}
+
+			function getSelectedOrderIds() {
+				return getOrderCheckboxes()
+					.filter(checkbox => checkbox.checked)
+					.map(checkbox => Number(checkbox.value))
+					.filter(id => !Number.isNaN(id));
+			}
 
 			function updateDateInputs() {
 				const selectedValue = dateCriteriaSelect.value;
@@ -649,10 +651,95 @@
 				endDateInput.disabled = !shouldEnable;
 			}
 
+			function updateBulkButtons() {
+				const checkboxes = getOrderCheckboxes();
+				const checkedCount = checkboxes.filter(cb => cb.checked).length;
+				const totalCount = checkboxes.length;
+
+				deleteTasksBtn.disabled = checkedCount === 0;
+				deleteOrdersBtn.disabled = checkedCount === 0;
+
+				if (checkAllBox) {
+					checkAllBox.checked = totalCount > 0 && checkedCount === totalCount;
+					checkAllBox.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+				}
+			}
+
+			function setBulkButtonsBusy(isBusy) {
+				deleteTasksBtn.disabled = isBusy || getSelectedOrderIds().length === 0;
+				deleteOrdersBtn.disabled = isBusy || getSelectedOrderIds().length === 0;
+
+				if (isBusy) {
+					deleteTasksBtn.dataset.originalText = deleteTasksBtn.innerHTML;
+					deleteOrdersBtn.dataset.originalText = deleteOrdersBtn.innerHTML;
+
+					deleteTasksBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 삭제중';
+					deleteOrdersBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 삭제중';
+				} else {
+					if (deleteTasksBtn.dataset.originalText) {
+						deleteTasksBtn.innerHTML = deleteTasksBtn.dataset.originalText;
+					}
+					if (deleteOrdersBtn.dataset.originalText) {
+						deleteOrdersBtn.innerHTML = deleteOrdersBtn.dataset.originalText;
+					}
+				}
+			}
+
+			async function callDeleteApi(url, confirmMessage) {
+				const selectedOrderIds = getSelectedOrderIds();
+
+				if (selectedOrderIds.length === 0) {
+					alert("삭제할 주문을 하나 이상 선택해 주세요.");
+					return;
+				}
+
+				if (!confirm(confirmMessage)) {
+					return;
+				}
+
+				try {
+					setBulkButtonsBusy(true);
+
+					const headers = {
+						"Content-Type": "application/json"
+					};
+
+					if (csrfHeader && csrfToken) {
+						headers[csrfHeader] = csrfToken;
+					}
+
+					const response = await fetch(url, {
+						method: "POST",
+						headers: headers,
+						body: JSON.stringify({
+							orderIds: selectedOrderIds
+						})
+					});
+
+					let data = null;
+					try {
+						data = await response.json();
+					} catch (e) {
+						data = null;
+					}
+
+					if (!response.ok || !data || data.success !== true) {
+						throw new Error(data?.message || "삭제 처리 중 오류가 발생했습니다.");
+					}
+
+					alert(data.message || "삭제가 완료되었습니다.");
+					window.location.reload();
+				} catch (error) {
+					alert(error.message || "삭제 처리 중 오류가 발생했습니다.");
+				} finally {
+					setBulkButtonsBusy(false);
+					updateBulkButtons();
+				}
+			}
+
 			updateDateInputs();
 			dateCriteriaSelect.addEventListener("change", updateDateInputs);
 
-			const pageSizeSelect = document.getElementById("task-list-added-pageSize");
 			if (pageSizeSelect) {
 				pageSizeSelect.addEventListener("change", function () {
 					const form = pageSizeSelect.closest("form");
@@ -660,6 +747,37 @@
 					form.submit();
 				});
 			}
+
+			if (checkAllBox) {
+				checkAllBox.addEventListener("change", function () {
+					getOrderCheckboxes().forEach(checkbox => {
+						checkbox.checked = checkAllBox.checked;
+					});
+					updateBulkButtons();
+				});
+			}
+
+			document.addEventListener("change", function (event) {
+				if (event.target.classList.contains("task-list-order-checkbox")) {
+					updateBulkButtons();
+				}
+			});
+
+			deleteTasksBtn.addEventListener("click", function () {
+				callDeleteApi(
+					"/management/api/non-standard-task/delete-tasks",
+					"선택한 주문이 속한 태스크 전체가 삭제됩니다.\n\n해당 태스크의 모든 주문, 주문항목, 주문이미지, 배송순서 인덱스까지 함께 삭제됩니다.\n\n계속 진행하시겠습니까?"
+				);
+			});
+
+			deleteOrdersBtn.addEventListener("click", function () {
+				callDeleteApi(
+					"/management/api/non-standard-task/delete-orders",
+					"선택한 주문만 삭제됩니다.\n\n삭제 후 태스크에 남은 주문이 하나도 없으면 태스크도 자동 삭제됩니다.\n\n계속 진행하시겠습니까?"
+				);
+			});
+
+			updateBulkButtons();
 		});
 	</script>
 

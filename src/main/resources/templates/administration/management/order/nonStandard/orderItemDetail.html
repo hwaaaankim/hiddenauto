@@ -7,7 +7,6 @@
 
 <body class="twocolumn-panel">
 
-	<!-- Begin page -->
 	<div id="layout-wrapper">
 
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
@@ -15,10 +14,13 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
-		<div class="main-content">
 
+		<div class="main-content">
 			<div class="page-content">
-				<div class="container-fluid">
+				<div class="container-fluid admin-order-item-detail-page">
+					<input type="hidden" id="admin-order-item-detail-order-id" th:value="${order.id}">
+					<input type="hidden" id="admin-order-item-detail-task-id"
+						th:value="${order.task != null ? order.task.id : ''}">
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -26,260 +28,148 @@
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">발주관리</a></li>
-										<li class="breadcrumb-item"><a href="javascript: void(0);">비규격발주관리</a></li>
-										<li class="breadcrumb-item"><a href="javascript: void(0);">비규격발주상세</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">발주관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">비규격발주관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">비규격발주상세</a></li>
 										<li class="breadcrumb-item active">비규격발주제품 상세</li>
 									</ol>
 								</div>
-
 							</div>
 						</div>
 					</div>
 
 					<form th:action="@{'/management/nonStandardOrderItemUpdate/' + ${order.id}}" method="POST"
-						enctype="multipart/form-data">
-						<div class="row">
-							<div class="col-lg-10">
-								<div class="card">
-									<div class="card-body">
-										<!-- 대리점명 -->
-										<div class="mb-3">
-											<label class="form-label">대리점명</label>
-											<select class="form-select" name="companyId" id="companyId">
-												<option value="">대리점 선택</option>
-												<option th:each="c : ${companies}" th:value="${c.id}"
-													th:text="${c.companyName}"
-													th:selected="${selectedCompanyId != null and selectedCompanyId == c.id}">
-												</option>
-											</select>
+						enctype="multipart/form-data" class="admin-order-item-detail-shell">
+
+						<input type="hidden" name="companyId" id="companyId" th:value="${selectedCompanyId}">
+						<input type="hidden" name="requesterMemberId" id="requesterMemberId"
+							th:value="${selectedMemberId}">
+
+						<!-- 회사 원본 데이터 -->
+						<div id="admin-order-item-detail-company-source" class="d-none">
+							<button type="button" th:each="c : ${companyOptions}" th:attr="data-company-id=${c.id},
+				data-company-name=${c.companyName},
+				data-representative-name=${c.representativeName}">
+							</button>
+						</div>
+
+						<div class="admin-order-item-detail-card">
+							<div class="admin-order-item-detail-hero">
+								<div>
+									<h2 class="admin-order-item-detail-hero-title">주문 상세 및 관리자 처리</h2>
+									<p class="admin-order-item-detail-hero-sub">
+										대리점, 담당자, 상태, 첨부파일을 한 화면에서 정리해서 수정할 수 있습니다.
+									</p>
+								</div>
+
+								<div class="admin-order-item-detail-hero-meta">
+									<span class="admin-order-item-detail-chip admin-order-item-detail-chip-primary"
+										th:text="|ORDER #${order.id}|">ORDER #1</span>
+									<span class="admin-order-item-detail-chip"
+										th:text="${order.status != null ? order.status.name() : '상태없음'}">REQUESTED</span>
+									<span class="admin-order-item-detail-chip"
+										th:text="|등록일 ${#temporals.format(order.createdAt, 'yyyy-MM-dd')}|">등록일</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="admin-order-item-detail-card">
+							<div class="admin-order-item-detail-card-header">
+								<h5 class="admin-order-item-detail-card-title">기본 정보 및 처리 설정</h5>
+								<p class="admin-order-item-detail-card-desc">
+									대리점 선택, 대표자 확인, 주문정보, 상태 및 담당 배정을 한 곳에서 관리합니다.
+								</p>
+							</div>
+							<div class="admin-order-item-detail-card-body">
+								<div class="admin-order-item-detail-section-grid">
+
+									<div class="admin-order-item-detail-col-6">
+										<div class="admin-order-item-detail-field-wrap">
+											<label for="admin-order-item-detail-company-search"
+												class="admin-order-item-detail-label">대리점명</label>
+											<div class="admin-order-item-detail-company-wrap">
+												<input type="text" id="admin-order-item-detail-company-search"
+													class="form-control admin-order-item-detail-form-control"
+													placeholder="대리점명 또는 대표자명을 입력하거나 클릭해서 선택하세요" autocomplete="off">
+												<div id="admin-order-item-detail-company-dropdown"
+													class="admin-order-item-detail-company-dropdown d-none"></div>
+											</div>
+											<div class="admin-order-item-detail-helper">
+												목록에 없는 대리점은 선택되지 않습니다. Enter 또는 마우스 클릭으로만 확정됩니다.
+											</div>
 										</div>
+									</div>
 
-										<!-- 신청자명 -->
-										<div class="mb-3">
-											<label class="form-label">신청자명</label>
-											<select class="form-select" name="requesterMemberId" id="requesterMemberId">
-												<option value="">신청자 선택</option>
-												<!-- 초기 렌더용(현재 회사의 멤버들) -->
-												<option th:each="m : ${companyMembers}" th:value="${m.id}"
-													th:text="${m.name + ' (' + m.username + ')'}"
-													th:selected="${selectedMemberId != null and selectedMemberId == m.id}">
-												</option>
-											</select>
+									<div class="admin-order-item-detail-col-6">
+										<div class="admin-order-item-detail-field-wrap">
+											<label for="admin-order-item-detail-representative-name"
+												class="admin-order-item-detail-label">대표자명</label>
+											<input type="text" id="admin-order-item-detail-representative-name"
+												class="form-control admin-order-item-detail-form-control" readonly
+												placeholder="대리점을 선택하면 자동 입력됩니다.">
 										</div>
+									</div>
 
-
-										<div class="mb-3">
-											<label class="form-label">배송주소</label>
-											<input type="text" class="form-control"
+									<div class="admin-order-item-detail-col-12">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">배송주소</label>
+											<input type="text" class="form-control admin-order-item-detail-form-control"
 												th:value="|(${order.zipCode}) ${order.doName} ${order.siName} ${order.guName} ${order.roadAddress} ${order.detailAddress}|"
 												readonly>
 										</div>
+									</div>
 
-										<div class="row">
-											<div class="col-lg-4">
-												<label class="form-label">수량</label>
-												<input type="text" class="form-control" th:value="${order.quantity}"
-													readonly>
-											</div>
-											<div class="col-lg-4">
-												<label class="form-label">발주일</label>
-												<input type="text" class="form-control"
-													th:value="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}"
-													readonly>
-											</div>
-
-											<div class="col-lg-4">
-												<label class="form-label">제품비용</label>
-												<input type="text" class="form-control" name="productCost"
-													th:value="${order.productCost}">
-											</div>
-
-											<div class="col-lg-4">
-												<label class="form-label">배송희망일</label>
-												<input type="date" class="form-control" name="preferredDeliveryDate"
-													th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}" />
-											</div>
-											<div class="col-12 mt-3">
-												<label class="form-label">요청 메모</label>
-												<textarea class="form-control" rows="3" readonly
-													th:text="${order.orderComment}">요청사항</textarea>
-											</div>
-
-											<!-- ✅ 추가 -->
-											<div class="col-12 mt-3">
-												<label class="form-label">관리자 남김말</label>
-												<textarea class="form-control" rows="3" name="adminMemo"
-													th:text="${order.adminMemo}"></textarea>
-												<small class="text-muted">비워두면 저장되지 않습니다(Null 처리).</small>
-											</div>
-
-
-										</div>
-
-										<div class="row mt-3">
-											<div class="col-12">
-												<label class="form-label">제품 옵션</label>
-											</div>
-
-											<div class="row">
-												<div class="col-lg-2" th:each="entry : ${optionMap}">
-													<div>
-														<label class="form-label" th:text="${entry.key}">옵션명</label>
-														<input type="text" class="form-control"
-															th:value="${entry.value}" readonly>
-													</div>
-												</div>
-											</div>
-										</div>
-										<div class="row mt-4">
-											<div class="col-12">
-												<label class="form-label">이미지 첨부 파일</label>
-											</div>
-
-											<div class="col-12">
-												<div class="row g-2">
-													<!-- 고객 업로드 이미지 -->
-													<div th:if="${!#lists.isEmpty(order.customerUploadedImages)}"
-														class="col-12 mt-3">
-														<h6>고객 업로드</h6>
-														<div class="row g-2">
-															<div class="col-lg-2"
-																th:each="img : ${order.customerUploadedImages}">
-																<div
-																	class="border rounded p-2 d-flex flex-column align-items-center text-center">
-																	<img th:src="${img.url}" class="img-fluid mb-2"
-																		style="max-height: 120px;" />
-																	<span class="text-truncate small"
-																		th:text="${img.filename}"
-																		style="max-width: 100%;"></span>
-																	<a th:href="${img.url}" download class="mt-1">
-																		<i
-																			class="ri-download-2-line fs-18 text-primary"></i>
-																	</a>
-																</div>
-															</div>
-														</div>
-													</div>
-
-													<!-- 관리자 업로드 이미지 -->
-													<div th:if="${!#lists.isEmpty(order.adminUploadedImages)}"
-														class="col-12 mt-3">
-														<h6>관리자 업로드</h6>
-														<div class="row g-2" id="admin-uploaded-list">
-															<div class="col-lg-2"
-																th:each="img : ${order.adminUploadedImages}"
-																th:attr="data-id=${img.id}">
-																<div
-																	class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
-																	<button type="button"
-																		class="btn-close position-absolute top-0 end-0 delete-uploaded-img"
-																		th:data-id="${img.id}" aria-label="삭제"></button>
-																	<img th:src="${img.url}" class="img-fluid mb-2"
-																		style="max-height: 120px;" />
-																	<span class="text-truncate small"
-																		th:text="${img.filename}"
-																		style="max-width: 100%;"></span>
-																	<a th:href="${img.url}" download class="mt-1">
-																		<i
-																			class="ri-download-2-line fs-18 text-primary"></i>
-																	</a>
-																</div>
-															</div>
-														</div>
-													</div>
-
-													<!-- 배송 완료 이미지 -->
-													<div th:if="${!#lists.isEmpty(order.deliveryImages)}"
-														class="col-12 mt-3">
-														<h6>배송 완료</h6>
-														<div class="row g-2">
-															<div class="col-lg-2"
-																th:each="img : ${order.deliveryImages}">
-																<div
-																	class="border rounded p-2 d-flex flex-column align-items-center text-center">
-																	<img th:src="${img.url}" class="img-fluid mb-2"
-																		style="max-height: 120px;" />
-																	<span class="text-truncate small"
-																		th:text="${img.filename}"
-																		style="max-width: 100%;"></span>
-																	<a th:href="${img.url}" download class="mt-1">
-																		<i
-																			class="ri-download-2-line fs-18 text-primary"></i>
-																	</a>
-																</div>
-															</div>
-														</div>
-													</div>
-
-													<!-- 배송 증빙 이미지 -->
-													<div th:if="${!#lists.isEmpty(order.proofImages)}"
-														class="col-12 mt-3">
-														<h6>배송 증빙</h6>
-														<div class="row g-2">
-															<div class="col-lg-2" th:each="img : ${order.proofImages}">
-																<div
-																	class="border rounded p-2 d-flex flex-column align-items-center text-center">
-																	<img th:src="${img.url}" class="img-fluid mb-2"
-																		style="max-height: 120px;" />
-																	<span class="text-truncate small"
-																		th:text="${img.filename}"
-																		style="max-width: 100%;"></span>
-																	<a th:href="${img.url}" download class="mt-1">
-																		<i
-																			class="ri-download-2-line fs-18 text-primary"></i>
-																	</a>
-																</div>
-															</div>
-														</div>
-													</div>
-												</div>
-											</div>
+									<div class="admin-order-item-detail-col-4">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">수량</label>
+											<input type="text" class="form-control admin-order-item-detail-form-control"
+												th:value="${order.quantity}" readonly>
 										</div>
 									</div>
-								</div>
 
-
-								<div class="card">
-									<div class="card-header">
-										<h5 class="card-title mb-0">첨부파일</h5>
-									</div>
-									<div class="card-body">
-										<div class="row mb-2">
-											<div class="col-lg-12">
-												<input type="file" class="form-control" name="adminImages"
-													id="adminImages" multiple>
-											</div>
-										</div>
-										<div class="row g-2" id="preview-area">
-											<!-- JS에서 동적 생성 -->
+									<div class="admin-order-item-detail-col-4">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">발주일</label>
+											<input type="text" class="form-control admin-order-item-detail-form-control"
+												th:value="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}" readonly>
 										</div>
 									</div>
-								</div>
-								<div class="text-end mb-4">
-									<button class="btn btn-success w-sm">확인</button>
-								</div>
-							</div>
 
-							<div class="col-lg-2">
-								<div class="card">
-									<div class="card-header">
-										<h5 class="card-title mb-0">상태</h5>
+									<div class="admin-order-item-detail-col-4">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">제품비용</label>
+											<input type="text" class="form-control admin-order-item-detail-form-control"
+												name="productCost" th:value="${order.productCost}">
+										</div>
 									</div>
-									<div class="card-body">
-										<div class="mb-3">
-											<label class="form-label">발주상태관리</label>
-											<select class="form-select" name="status">
+
+									<div class="admin-order-item-detail-col-4">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">배송희망일</label>
+											<input type="date" class="form-control admin-order-item-detail-form-control"
+												name="preferredDeliveryDate"
+												th:value="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}" />
+										</div>
+									</div>
+
+									<div class="admin-order-item-detail-col-4">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">발주상태관리</label>
+											<select class="form-select admin-order-item-detail-form-select"
+												name="status">
 												<option th:each="status : ${orderStatuses}" th:value="${status.name()}"
 													th:text="${status.name()}"
 													th:selected="${order.status?.name() == status.name()}">
 												</option>
 											</select>
-
 										</div>
-										<div>
-											<label class="form-label">배송수단</label>
-											<select class="form-select" name="deliveryMethodId">
+									</div>
+
+									<div class="admin-order-item-detail-col-4">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">배송수단</label>
+											<select class="form-select admin-order-item-detail-form-select"
+												name="deliveryMethodId">
 												<option value="" th:selected="${order.deliveryMethod == null}">미지정
 												</option>
 												<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
@@ -289,42 +179,276 @@
 											</select>
 										</div>
 									</div>
-								</div>
 
-
-								<div class="card">
-									<div class="card-header">
-										<h5 class="card-title mb-0">담당자</h5>
-									</div>
-									<div class="card-body">
-										<div class="mb-3">
-											<label class="form-label">배송팀</label>
-											<select class="form-select" name="assignedDeliveryHandlerId">
+									<div class="admin-order-item-detail-col-6">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">배송팀 담당자</label>
+											<select class="form-select admin-order-item-detail-form-select"
+												name="assignedDeliveryHandlerId">
 												<option value="" th:selected="${order.assignedDeliveryHandler == null}">
-													배정 필요함</option>
+													배정 필요함
+												</option>
 												<option th:each="member : ${deliveryTeamMembers}"
 													th:value="${member.id}" th:text="${member.name}"
 													th:selected="${order.assignedDeliveryHandler?.id == member.id}">
 												</option>
 											</select>
-
 										</div>
-										<div class="mb-3">
-											<label class="form-label">생산팀</label>
-											<select class="form-select" name="productCategoryId">
-												<option value="" th:selected="${order.productCategory == null}">배정 필요함
-												</option>
+									</div>
 
+									<div class="admin-order-item-detail-col-6">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">생산팀 카테고리</label>
+											<select class="form-select admin-order-item-detail-form-select"
+												name="productCategoryId">
+												<option value="" th:selected="${order.productCategory == null}">
+													배정 필요함
+												</option>
 												<option th:each="category : ${productionTeamCategories}"
 													th:value="${category.id}" th:text="${category.name}"
 													th:selected="${order.productCategory != null and order.productCategory.id == category.id}">
 												</option>
-
 											</select>
+										</div>
+									</div>
+
+									<div class="admin-order-item-detail-col-6">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">요청 메모</label>
+											<textarea class="form-control admin-order-item-detail-textarea" rows="4"
+												readonly th:text="${order.orderComment}">요청사항</textarea>
+										</div>
+									</div>
+
+									<div class="admin-order-item-detail-col-6">
+										<div class="admin-order-item-detail-field-wrap">
+											<label class="admin-order-item-detail-label">관리자 남김말</label>
+											<textarea class="form-control admin-order-item-detail-textarea" rows="4"
+												name="adminMemo" th:text="${order.adminMemo}"></textarea>
+											<div class="admin-order-item-detail-helper">
+												비워두면 저장되지 않습니다(Null 처리).
+											</div>
+										</div>
+									</div>
+
+								</div>
+							</div>
+						</div>
+
+						<div class="admin-order-item-detail-card">
+							<div class="admin-order-item-detail-card-header">
+								<h5 class="admin-order-item-detail-card-title">제품 옵션</h5>
+								<p class="admin-order-item-detail-card-desc">
+									주문 당시 선택된 옵션 내용을 읽기 편한 형태로 정리했습니다.
+								</p>
+							</div>
+							<div class="admin-order-item-detail-card-body">
+								<div class="admin-order-item-detail-option-grid">
+									<div class="admin-order-item-detail-option-box" th:each="entry : ${optionMap}">
+										<div class="admin-order-item-detail-option-title" th:text="${entry.key}">옵션명
+										</div>
+										<div class="admin-order-item-detail-option-value" th:text="${entry.value}">옵션값
 										</div>
 									</div>
 								</div>
 							</div>
+						</div>
+
+						<div class="admin-order-item-detail-card">
+							<div class="admin-order-item-detail-card-header">
+								<h5 class="admin-order-item-detail-card-title">첨부 이미지</h5>
+								<p class="admin-order-item-detail-card-desc">
+									마우스를 올리면 다운로드와 크게보기 버튼이 표시됩니다. 크게보기에서는 같은 카테고리 내 이미지 이동이 가능합니다.
+								</p>
+							</div>
+							<div class="admin-order-item-detail-card-body">
+
+								<div th:if="${!#lists.isEmpty(order.customerUploadedImages)}"
+									class="admin-order-item-detail-gallery-section">
+									<div class="admin-order-item-detail-gallery-title">
+										<h6>고객 업로드</h6>
+										<span class="admin-order-item-detail-gallery-count"
+											th:text="|총 ${#lists.size(order.customerUploadedImages)}장|">총 0장</span>
+									</div>
+
+									<div class="admin-order-item-detail-gallery-grid">
+										<div class="admin-order-item-detail-gallery-item"
+											th:each="img, stat : ${order.customerUploadedImages}" th:attr="data-gallery-group='customer',
+													data-gallery-label='고객 업로드',
+													data-gallery-index=${stat.index},
+													data-image-url=${img.url},
+													data-image-name=${img.filename}">
+											<div class="admin-order-item-detail-gallery-thumb">
+												<img th:src="${img.url}" th:alt="${img.filename}">
+												<div class="admin-order-item-detail-gallery-actions">
+													<a class="admin-order-item-detail-gallery-action-btn"
+														th:href="${img.url}" th:attr="download=${img.filename}"
+														title="다운로드">
+														<i class="ri-download-2-line"></i>
+													</a>
+													<button type="button"
+														class="admin-order-item-detail-gallery-action-btn admin-order-item-detail-view-image-btn"
+														title="크게보기">
+														<i class="ri-eye-line"></i>
+													</button>
+												</div>
+											</div>
+											<div class="admin-order-item-detail-gallery-filename"
+												th:text="${img.filename}">
+												filename
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<div th:if="${!#lists.isEmpty(order.adminUploadedImages)}"
+									class="admin-order-item-detail-gallery-section">
+									<div class="admin-order-item-detail-gallery-title">
+										<h6>관리자 업로드</h6>
+										<span class="admin-order-item-detail-gallery-count"
+											th:text="|총 ${#lists.size(order.adminUploadedImages)}장|">총 0장</span>
+									</div>
+
+									<div class="admin-order-item-detail-gallery-grid" id="admin-uploaded-list">
+										<div class="admin-order-item-detail-gallery-item"
+											th:each="img, stat : ${order.adminUploadedImages}" th:attr="data-gallery-group='admin',
+													data-gallery-label='관리자 업로드',
+													data-gallery-index=${stat.index},
+													data-image-url=${img.url},
+													data-image-name=${img.filename},
+													data-image-id=${img.id}">
+											<button type="button"
+												class="admin-order-item-detail-gallery-delete-btn admin-order-item-detail-delete-uploaded-img"
+												th:data-delete-id="${img.id}" title="삭제">
+												<i class="ri-delete-bin-6-line"></i>
+											</button>
+
+											<div class="admin-order-item-detail-gallery-thumb">
+												<img th:src="${img.url}" th:alt="${img.filename}">
+												<div class="admin-order-item-detail-gallery-actions">
+													<a class="admin-order-item-detail-gallery-action-btn"
+														th:href="${img.url}" th:attr="download=${img.filename}"
+														title="다운로드">
+														<i class="ri-download-2-line"></i>
+													</a>
+													<button type="button"
+														class="admin-order-item-detail-gallery-action-btn admin-order-item-detail-view-image-btn"
+														title="크게보기">
+														<i class="ri-eye-line"></i>
+													</button>
+												</div>
+											</div>
+											<div class="admin-order-item-detail-gallery-filename"
+												th:text="${img.filename}">
+												filename
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<div th:if="${!#lists.isEmpty(order.deliveryImages)}"
+									class="admin-order-item-detail-gallery-section">
+									<div class="admin-order-item-detail-gallery-title">
+										<h6>배송 완료</h6>
+										<span class="admin-order-item-detail-gallery-count"
+											th:text="|총 ${#lists.size(order.deliveryImages)}장|">총 0장</span>
+									</div>
+
+									<div class="admin-order-item-detail-gallery-grid">
+										<div class="admin-order-item-detail-gallery-item"
+											th:each="img, stat : ${order.deliveryImages}" th:attr="data-gallery-group='delivery',
+													data-gallery-label='배송 완료',
+													data-gallery-index=${stat.index},
+													data-image-url=${img.url},
+													data-image-name=${img.filename}">
+											<div class="admin-order-item-detail-gallery-thumb">
+												<img th:src="${img.url}" th:alt="${img.filename}">
+												<div class="admin-order-item-detail-gallery-actions">
+													<a class="admin-order-item-detail-gallery-action-btn"
+														th:href="${img.url}" th:attr="download=${img.filename}"
+														title="다운로드">
+														<i class="ri-download-2-line"></i>
+													</a>
+													<button type="button"
+														class="admin-order-item-detail-gallery-action-btn admin-order-item-detail-view-image-btn"
+														title="크게보기">
+														<i class="ri-eye-line"></i>
+													</button>
+												</div>
+											</div>
+											<div class="admin-order-item-detail-gallery-filename"
+												th:text="${img.filename}">
+												filename
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<div th:if="${!#lists.isEmpty(order.proofImages)}"
+									class="admin-order-item-detail-gallery-section">
+									<div class="admin-order-item-detail-gallery-title">
+										<h6>배송 증빙</h6>
+										<span class="admin-order-item-detail-gallery-count"
+											th:text="|총 ${#lists.size(order.proofImages)}장|">총 0장</span>
+									</div>
+
+									<div class="admin-order-item-detail-gallery-grid">
+										<div class="admin-order-item-detail-gallery-item"
+											th:each="img, stat : ${order.proofImages}" th:attr="data-gallery-group='proof',
+													data-gallery-label='배송 증빙',
+													data-gallery-index=${stat.index},
+													data-image-url=${img.url},
+													data-image-name=${img.filename}">
+											<div class="admin-order-item-detail-gallery-thumb">
+												<img th:src="${img.url}" th:alt="${img.filename}">
+												<div class="admin-order-item-detail-gallery-actions">
+													<a class="admin-order-item-detail-gallery-action-btn"
+														th:href="${img.url}" th:attr="download=${img.filename}"
+														title="다운로드">
+														<i class="ri-download-2-line"></i>
+													</a>
+													<button type="button"
+														class="admin-order-item-detail-gallery-action-btn admin-order-item-detail-view-image-btn"
+														title="크게보기">
+														<i class="ri-eye-line"></i>
+													</button>
+												</div>
+											</div>
+											<div class="admin-order-item-detail-gallery-filename"
+												th:text="${img.filename}">
+												filename
+											</div>
+										</div>
+									</div>
+								</div>
+
+							</div>
+						</div>
+
+						<div class="admin-order-item-detail-card">
+							<div class="admin-order-item-detail-card-header">
+								<h5 class="admin-order-item-detail-card-title">관리자 첨부파일 추가</h5>
+								<p class="admin-order-item-detail-card-desc">
+									새 이미지를 여러 장 선택하면 아래에서 즉시 미리보기가 가능합니다.
+								</p>
+							</div>
+							<div class="admin-order-item-detail-card-body">
+								<div class="admin-order-item-detail-upload-box">
+									<input type="file" class="form-control admin-order-item-detail-form-control"
+										name="adminImages" id="adminImages" multiple>
+									<div id="admin-order-item-detail-preview-area"
+										class="admin-order-item-detail-preview-grid"></div>
+								</div>
+							</div>
+						</div>
+
+						<div class="admin-order-item-detail-actions d-flex justify-content-end gap-2 flex-wrap">
+							<button type="submit" class="btn btn-success px-4">저장</button>
+							<button type="button" class="btn btn-outline-danger px-4"
+								id="admin-order-item-detail-delete-btn">
+								<i class="ri-delete-bin-6-line me-1"></i>
+								삭제
+							</button>
 						</div>
 					</form>
 				</div>
@@ -334,10 +458,129 @@
 		</div>
 	</div>
 
+	<!-- 이미지 뷰어 모달 -->
+	<div id="admin-order-item-detail-image-modal" class="admin-order-item-detail-modal" aria-hidden="true">
+		<div class="admin-order-item-detail-modal-overlay"></div>
+
+		<div class="admin-order-item-detail-modal-dialog" role="dialog" aria-modal="true"
+			aria-labelledby="admin-order-item-detail-modal-filename">
+			<button type="button" id="admin-order-item-detail-modal-close" class="admin-order-item-detail-modal-close"
+				aria-label="닫기">
+				×
+			</button>
+
+			<button type="button" id="admin-order-item-detail-modal-prev"
+				class="admin-order-item-detail-modal-nav admin-order-item-detail-modal-prev" aria-label="이전 이미지">
+				<i class="ri-arrow-left-s-line"></i>
+			</button>
+
+			<div id="admin-order-item-detail-modal-image-wrap" class="admin-order-item-detail-modal-image-wrap">
+				<img id="admin-order-item-detail-modal-image" class="admin-order-item-detail-modal-image" src=""
+					alt="주문 이미지">
+			</div>
+
+			<button type="button" id="admin-order-item-detail-modal-next"
+				class="admin-order-item-detail-modal-nav admin-order-item-detail-modal-next" aria-label="다음 이미지">
+				<i class="ri-arrow-right-s-line"></i>
+			</button>
+
+			<div class="admin-order-item-detail-modal-bottom">
+				<div class="admin-order-item-detail-modal-meta">
+					<div id="admin-order-item-detail-modal-group" class="admin-order-item-detail-modal-group">카테고리</div>
+					<div id="admin-order-item-detail-modal-filename" class="admin-order-item-detail-modal-filename">
+						filename
+					</div>
+					<div id="admin-order-item-detail-modal-count" class="admin-order-item-detail-modal-count">
+						1 / 1
+					</div>
+				</div>
+
+				<a id="admin-order-item-detail-modal-download" class="admin-order-item-detail-modal-download" href="#"
+					download>
+					<i class="ri-download-2-line"></i>
+					다운로드
+				</a>
+			</div>
+		</div>
+	</div>
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 	<script src="/administration/assets/js/pages/orderItemDetail.js"></script>
+	<script>
+		(function () {
+			const deleteBtn = document.getElementById('admin-order-item-detail-delete-btn');
+			const orderId = document.getElementById('admin-order-item-detail-order-id')?.value;
+			const taskId = document.getElementById('admin-order-item-detail-task-id')?.value;
+
+			if (!deleteBtn || !orderId) {
+				return;
+			}
+
+			async function deleteCurrentOrder() {
+				const confirmMessage =
+					'이 주문을 삭제하시겠습니까?\n\n' +
+					'주문 이미지, 주문항목, 배송순서 인덱스도 함께 삭제됩니다.\n' +
+					'삭제 후 Task 에 남은 Order 가 없으면 Task 도 자동 삭제됩니다.';
+
+				if (!confirm(confirmMessage)) {
+					return;
+				}
+
+				const originalHtml = deleteBtn.innerHTML;
+				deleteBtn.disabled = true;
+				deleteBtn.innerHTML = '<i class="ri-loader-4-line me-1"></i> 삭제중';
+
+				try {
+					const headers = {
+						'Content-Type': 'application/json'
+					};
+
+					const response = await fetch('/management/api/non-standard-task/delete-orders', {
+						method: 'POST',
+						headers: headers,
+						body: JSON.stringify({
+							orderIds: [Number(orderId)]
+						})
+					});
+
+					let data = null;
+					try {
+						data = await response.json();
+					} catch (e) {
+						data = null;
+					}
+
+					if (!response.ok || !data || data.success !== true) {
+						throw new Error(data?.message || '주문 삭제 중 오류가 발생했습니다.');
+					}
+
+					alert(data.message || '주문이 삭제되었습니다.');
+
+					if (data.deletedTaskCount && Number(data.deletedTaskCount) > 0) {
+						window.location.href = '/management/nonStandardTaskList';
+						return;
+					}
+
+					if (taskId) {
+						window.location.href = '/management/nonStandardTaskDetail/' + taskId;
+						return;
+					}
+
+					window.location.href = '/management/nonStandardTaskList';
+				} catch (error) {
+					alert(error.message || '주문 삭제 중 오류가 발생했습니다.');
+					deleteBtn.disabled = false;
+					deleteBtn.innerHTML = originalHtml;
+				}
+			}
+
+			deleteBtn.addEventListener('click', function (e) {
+				e.preventDefault();
+				deleteCurrentOrder();
+			});
+		})();
+	</script>
 
 </body>
 

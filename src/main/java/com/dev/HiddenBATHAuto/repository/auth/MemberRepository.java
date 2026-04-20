@@ -19,6 +19,58 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
+	@EntityGraph(attributePaths = "company")
+    @Query("""
+        select m
+        from Member m
+        where m.role = :role
+          and m.company is not null
+          and (
+                :keyword is null or :keyword = ''
+                or lower(coalesce(m.company.companyName, '')) like lower(concat('%', :keyword, '%'))
+                or lower(coalesce(m.name, '')) like lower(concat('%', :keyword, '%'))
+          )
+        order by m.company.companyName asc, m.createdAt asc, m.id asc
+    """)
+    List<Member> searchCompanyRepresentativeMembers(
+            @Param("role") MemberRole role,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
+
+    @Query("""
+        select m
+        from Member m
+        where m.company.id = :companyId
+          and m.role = :role
+        order by m.createdAt asc, m.id asc
+    """)
+    List<Member> findCompanyMembersByRole(
+            @Param("companyId") Long companyId,
+            @Param("role") MemberRole role,
+            Pageable pageable
+    );
+
+    @Query("""
+        select m
+        from Member m
+        where m.team.id = :teamId
+          and (
+                :keyword is null or :keyword = ''
+                or lower(coalesce(m.name, '')) like lower(concat('%', :keyword, '%'))
+                or lower(coalesce(m.username, '')) like lower(concat('%', :keyword, '%'))
+                or lower(coalesce(m.phone, '')) like lower(concat('%', :keyword, '%'))
+          )
+        order by m.name asc, m.createdAt asc, m.id asc
+    """)
+    List<Member> searchMembersByTeamId(
+            @Param("teamId") Long teamId,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
+
+    Optional<Member> findByIdAndTeam_Id(Long id, Long teamId);
+	
 	List<Member> findByTeam_IdAndEnabledTrueOrderByNameAscIdAsc(Long teamId);
 	
 	Optional<Member> findFirstByCompanyIdAndRoleOrderByIdAsc(Long companyId, MemberRole role);

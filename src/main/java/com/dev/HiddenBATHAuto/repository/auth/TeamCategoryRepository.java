@@ -17,10 +17,17 @@ public interface TeamCategoryRepository extends JpaRepository<TeamCategory, Long
 	Optional<TeamCategory> findByName(String name);
 
 	Optional<TeamCategory> findByNameAndTeam(String name, Team team);
-	
+
 	@Query("SELECT tc FROM TeamCategory tc WHERE tc.team.name = :teamName")
 	List<TeamCategory> findByTeamName(@Param("teamName") String teamName);
-	
+
 	List<TeamCategory> findByTeamId(Long teamId);
 
+	List<TeamCategory> findByTeam_IdOrderByNameAsc(Long teamId);
+
+	List<TeamCategory> findByTeam_IdAndNameContainingIgnoreCaseOrderByNameAsc(Long teamId, String keyword);
+
+	Optional<TeamCategory> findByIdAndTeam_Id(Long id, Long teamId);
+
+	Optional<TeamCategory> findFirstByTeam_IdAndNameIgnoreCase(Long teamId, String name);
 }

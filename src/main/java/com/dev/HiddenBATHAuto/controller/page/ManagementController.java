@@ -66,6 +66,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
+import com.dev.HiddenBATHAuto.dto.NonStandardOrderCompanyOptionDto;
 import com.dev.HiddenBATHAuto.dto.as.CompanySearchItemDto;
 import com.dev.HiddenBATHAuto.dto.client.AdminClientApiResponse;
 import com.dev.HiddenBATHAuto.dto.client.AdminClientCompanyUpdateRequest;
@@ -593,11 +594,34 @@ public class ManagementController {
 		// 모든 회사 목록
 		List<Company> companies = companyRepository.findAll();
 
-		// 현재 선택된 회사의 멤버 목록(초기 렌더용)
-		List<Member> companyMembers = (selectedCompanyId != null) ? memberRepository.findByCompany_Id(selectedCompanyId)
-				: List.of();
+		// 화면 자동완성용 DTO
+		List<NonStandardOrderCompanyOptionDto> companyOptions = companies.stream()
+		        .map(company -> {
+		            String representativeName = memberRepository
+		                    .findCompanyMembersByRole(
+		                            company.getId(),
+		                            MemberRole.CUSTOMER_REPRESENTATIVE,
+		                            PageRequest.of(0, 1)
+		                    )
+		                    .stream()
+		                    .findFirst()
+		                    .map(Member::getName)
+		                    .orElse("");
 
-		model.addAttribute("companies", companies);
+		            return new NonStandardOrderCompanyOptionDto(
+		                    company.getId(),
+		                    company.getCompanyName(),
+		                    representativeName
+		            );
+		        })
+		        .toList();
+
+		// 현재 선택된 회사의 멤버 목록(기존 hidden requesterMemberId 보정용)
+		List<Member> companyMembers = (selectedCompanyId != null)
+		        ? memberRepository.findByCompany_Id(selectedCompanyId)
+		        : List.of();
+
+		model.addAttribute("companyOptions", companyOptions);
 		model.addAttribute("companyMembers", companyMembers);
 		model.addAttribute("selectedCompanyId", selectedCompanyId);
 		model.addAttribute("selectedMemberId", selectedMemberId);

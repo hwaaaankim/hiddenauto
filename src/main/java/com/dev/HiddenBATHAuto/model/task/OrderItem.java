@@ -7,7 +7,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import lombok.Data;
@@ -21,23 +22,22 @@ public class OrderItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @OneToOne
+    @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
 
     private String productName;
     private int quantity;
 
     @Column(columnDefinition = "TEXT")
-    private String optionJson; // JSON 문자열로 비규격 옵션 저장
+    private String optionJson;
 
     @Transient
     private Map<String, String> parsedOptionMap;
 
-    // ✅ 목록/상세에서 깔끔 출력용(키:값 <br>)
     @Transient
     private String formattedOptionHtml;
 
-    // ✅ "카테고리: ... / 제품명: ... / ..." 한 줄 요약
     @Transient
     private String formattedOptionText;
 }
