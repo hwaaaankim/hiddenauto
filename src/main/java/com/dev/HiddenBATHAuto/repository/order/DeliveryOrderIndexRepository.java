@@ -22,6 +22,17 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 @Repository
 public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrderIndex, Long> {
 
+	 @Query("""
+        select max(d.orderIndex)
+        from DeliveryOrderIndex d
+        where d.deliveryHandler.id = :deliveryHandlerId
+          and d.deliveryDate = :deliveryDate
+    """)
+    Optional<Integer> findMaxOrderIndexByDeliveryHandlerAndDeliveryDate(
+            @Param("deliveryHandlerId") Long deliveryHandlerId,
+            @Param("deliveryDate") LocalDate deliveryDate
+    );
+	
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
 			    delete from DeliveryOrderIndex d

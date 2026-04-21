@@ -1,7 +1,7 @@
 # ===================== 공통 설정 =====================
 spring:
   profiles:
-    active: test
+    active: mac
   application:
     name: HiddenBATHAuto
 as:

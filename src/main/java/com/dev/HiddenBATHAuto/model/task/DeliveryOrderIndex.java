@@ -24,7 +24,8 @@ import lombok.Data;
 @Table(
     name = "tb_delivery_order_index",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_delivery_order_index_order", columnNames = {"order_id"})
+        @UniqueConstraint(name = "uk_delivery_order_index_order", columnNames = {"order_id"}),
+        @UniqueConstraint(name = "uk_doi_handler_date_order_index", columnNames = {"delivery_handler_id", "delivery_date", "order_index"})
     },
     indexes = {
         @Index(name = "idx_doi_handler_date_idx", columnList = "delivery_handler_id, delivery_date, order_index"),
@@ -53,7 +54,6 @@ public class DeliveryOrderIndex {
     @Column(name = "order_index", nullable = false)
     private int orderIndex;
 
-    // 동시 업데이트로 인한 꼬임 방지(권장)
     @Version
     private Long version;
 }
