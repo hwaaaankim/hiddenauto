@@ -21,8 +21,8 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 
 @Repository
 public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrderIndex, Long> {
-
-	 @Query("""
+	
+	@Query("""
         select max(d.orderIndex)
         from DeliveryOrderIndex d
         where d.deliveryHandler.id = :deliveryHandlerId

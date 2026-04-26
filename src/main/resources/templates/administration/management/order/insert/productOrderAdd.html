@@ -106,6 +106,25 @@
 													<h6>공통 배송지</h6>
 												</div>
 
+												<div class="product-admin-add-address-tools mb-3">
+													<div class="form-check product-admin-add-company-address-check">
+														<input type="checkbox"
+															id="product-admin-add-use-company-address"
+															class="form-check-input" checked>
+														<label for="product-admin-add-use-company-address"
+															class="form-check-label">
+															회원주소와 동일
+														</label>
+													</div>
+
+													<button type="button"
+														id="product-admin-add-company-address-search-btn"
+														class="btn btn-outline-secondary product-admin-add-main-btn"
+														disabled>
+														회원주소검색
+													</button>
+												</div>
+
 												<div class="row g-3">
 													<div class="col-12 col-lg-2">
 														<label for="product-admin-add-zip-code"
@@ -238,7 +257,24 @@
 			</div>
 		</div>
 	</div>
+	<div class="modal fade" id="product-admin-add-company-address-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+			<div class="modal-content product-admin-add-summary-modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">회원주소검색</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+				<div class="modal-body">
+					<div id="product-admin-add-company-address-empty" class="alert alert-light border d-none mb-0">
+						등록된 추가 배송지가 없습니다.
+					</div>
 
+					<div id="product-admin-add-company-address-list" class="product-admin-add-company-address-list">
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 

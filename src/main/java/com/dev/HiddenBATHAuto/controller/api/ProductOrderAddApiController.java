@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,6 +16,7 @@ import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddRequest;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddSaveResponse;
+import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyDeliveryAddressResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyOptionResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderMemberOptionResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderSimpleOptionResponse;
@@ -38,6 +40,13 @@ public class ProductOrderAddApiController {
             @RequestParam(required = false) String keyword
     ) {
         return queryService.searchCompanies(keyword);
+    }
+
+    @GetMapping("/companies/{companyId}/delivery-addresses")
+    public List<ProductOrderCompanyDeliveryAddressResponse> getCompanyDeliveryAddresses(
+            @PathVariable Long companyId
+    ) {
+        return queryService.getCompanyDeliveryAddresses(companyId);
     }
 
     @GetMapping("/delivery-handlers")
@@ -72,7 +81,10 @@ public class ProductOrderAddApiController {
             MultipartHttpServletRequest multipartRequest
     ) {
         try {
-            ProductOrderAddSaveResponse response = commandService.create(request, multipartRequest.getMultiFileMap());
+            ProductOrderAddSaveResponse response = commandService.create(
+                    request,
+                    multipartRequest.getMultiFileMap()
+            );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()

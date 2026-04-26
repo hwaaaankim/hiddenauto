@@ -4942,3 +4942,91 @@ body.admin-task-detail-modal-open {
 .admin-task-detail-image-overlay .admin-task-detail-image-btn {
 	pointer-events: auto;
 }
+
+.product-admin-add-address-tools {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.product-admin-add-company-address-check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 38px;
+}
+
+.product-admin-add-company-address-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.product-admin-add-company-address-item {
+	width: 100%;
+	text-align: left;
+	border: 1px solid #e5e7eb;
+	border-radius: 12px;
+	background: #fff;
+	padding: 14px 16px;
+	transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+
+.product-admin-add-company-address-item:hover {
+	border-color: #405189;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, .08);
+	background: #f8f9ff;
+}
+
+.product-admin-add-company-address-main {
+	display: block;
+	font-weight: 700;
+	color: #111827;
+	margin-bottom: 4px;
+}
+
+.product-admin-add-company-address-sub {
+	display: block;
+	color: #6b7280;
+	font-size: 13px;
+}
+
+.product-admin-add-fixed-option-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.product-admin-add-drop-zone {
+	border: 1px dashed #cbd5e1;
+	border-radius: 14px;
+	padding: 16px;
+	background: #f8fafc;
+	transition: border-color .15s ease, background-color .15s ease;
+}
+
+.product-admin-add-drop-zone.is-drag-over {
+	border-color: #405189;
+	background: #eef2ff;
+}
+
+.product-admin-add-drop-help {
+	font-size: 13px;
+	color: #64748b;
+}
+
+@media (max-width: 991.98px) {
+	.product-admin-add-fixed-option-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.product-admin-add-address-tools {
+		align-items: stretch;
+	}
+
+	.product-admin-add-address-tools .btn {
+		width: 100%;
+	}
+}

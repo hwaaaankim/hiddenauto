@@ -252,14 +252,34 @@ public class ProductOrderAddCommandService {
             optionMap.put("제품시리즈ID", String.valueOf(resolved.seriesId()));
         }
 
-        if (request.getOptionEntries() == null || request.getOptionEntries().isEmpty()) {
-            throw new IllegalArgumentException("주문 옵션은 최소 1개 이상 입력해야 합니다.");
-        }
+        optionMap.put("제품명", normalizeRequired(request.getProductName(), "제품명"));
+        optionMap.put("사이즈", normalizeRequired(request.getProductSize(), "사이즈"));
+        optionMap.put("색상", normalizeRequired(request.getProductColor(), "색상"));
 
-        for (ProductOrderOptionEntryRequest entry : request.getOptionEntries()) {
-            String title = normalizeRequired(entry.getTitle(), "옵션 제목");
-            String answer = normalizeRequired(entry.getAnswer(), "옵션 답변");
-            optionMap.put(title, answer);
+        int optionNo = 1;
+
+        if (request.getOptionEntries() != null) {
+            for (ProductOrderOptionEntryRequest entry : request.getOptionEntries()) {
+                if (entry == null) {
+                    continue;
+                }
+
+                String answer = trimToNull(entry.getAnswer());
+
+                if (answer == null) {
+                    continue;
+                }
+
+                String key = optionNo == 1 ? "옵션" : "옵션" + optionNo;
+
+                while (optionMap.containsKey(key)) {
+                    optionNo++;
+                    key = optionNo == 1 ? "옵션" : "옵션" + optionNo;
+                }
+
+                optionMap.put(key, answer);
+                optionNo++;
+            }
         }
 
         return optionMap;
@@ -267,6 +287,7 @@ public class ProductOrderAddCommandService {
 
     private String resolveProductName(LinkedHashMap<String, String> optionMap, ResolvedOrderMeta resolved) {
         String productName = optionMap.get("제품명");
+
         if (productName != null && !productName.isBlank()) {
             return productName.trim();
         }
@@ -274,6 +295,7 @@ public class ProductOrderAddCommandService {
         if (resolved.seriesName() != null && !resolved.seriesName().isBlank()) {
             return resolved.seriesName();
         }
+
         return resolved.categoryName();
     }
 

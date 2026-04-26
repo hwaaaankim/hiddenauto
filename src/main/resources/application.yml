@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: mac
+    active: test
 
   application:
     name: HiddenBATHAuto

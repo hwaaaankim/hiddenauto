@@ -5,9 +5,8 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,21 +18,28 @@ public class ProductOrderCreateRequest {
     private Boolean standard;
 
     private Long standardCategoryId;
+
     private Long standardProductSeriesId;
+
     private Long productionCategoryId;
 
-    @Valid
-    @NotEmpty
-    private List<ProductOrderOptionEntryRequest> optionEntries = new ArrayList<>();
+    @NotBlank(message = "제품명은 필수입니다.")
+    private String productName;
 
-    @Size(max = 3000)
+    @NotBlank(message = "사이즈는 필수입니다.")
+    private String productSize;
+
+    @NotBlank(message = "색상은 필수입니다.")
+    private String productColor;
+
+    @Min(value = 0, message = "제품가격은 0원 이상이어야 합니다.")
+    private int productCost;
+
+    @Min(value = 1, message = "수량은 1개 이상이어야 합니다.")
+    private int quantity;
+
     private String orderComment;
 
-    @NotNull
-    @Min(0)
-    private Integer productCost;
-
-    @NotNull
-    @Min(1)
-    private Integer quantity;
+    @Valid
+    private List<ProductOrderOptionEntryRequest> optionEntries = new ArrayList<>();
 }

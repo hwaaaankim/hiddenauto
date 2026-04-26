@@ -9,15 +9,18 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyDeliveryAddressResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyOptionResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderMemberOptionResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderSimpleOptionResponse;
 import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.standard.StandardCategory;
 import com.dev.HiddenBATHAuto.model.standard.StandardProductSeries;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyDeliveryAddressRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardCategoryRepository;
@@ -37,6 +40,7 @@ public class ProductOrderAddQueryService {
     private final TeamCategoryRepository teamCategoryRepository;
     private final StandardCategoryRepository standardCategoryRepository;
     private final StandardProductSeriesRepository standardProductSeriesRepository;
+    private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
 
     public List<ProductOrderCompanyOptionResponse> searchCompanies(String keyword) {
         List<Member> reps = memberRepository.searchCompanyRepresentativeMembers(
@@ -46,8 +50,10 @@ public class ProductOrderAddQueryService {
         );
 
         Map<Long, ProductOrderCompanyOptionResponse> result = new LinkedHashMap<>();
+
         for (Member rep : reps) {
             Company company = rep.getCompany();
+
             if (company == null || result.containsKey(company.getId())) {
                 continue;
             }
@@ -57,11 +63,39 @@ public class ProductOrderAddQueryService {
                     company.getCompanyName(),
                     rep.getName(),
                     company.getCreatedAt(),
-                    buildCompanyAddress(company)
+                    buildCompanyAddress(company),
+                    trimToEmpty(company.getZipCode()),
+                    trimToEmpty(company.getDoName()),
+                    trimToEmpty(company.getSiName()),
+                    trimToEmpty(company.getGuName()),
+                    trimToEmpty(company.getRoadAddress()),
+                    trimToEmpty(company.getDetailAddress())
             ));
         }
 
         return new ArrayList<>(result.values());
+    }
+
+    public List<ProductOrderCompanyDeliveryAddressResponse> getCompanyDeliveryAddresses(Long companyId) {
+        List<CompanyDeliveryAddress> addresses =
+                companyDeliveryAddressRepository.findByCompany_IdOrderByCreatedAtDescIdDesc(companyId);
+
+        List<ProductOrderCompanyDeliveryAddressResponse> result = new ArrayList<>();
+
+        for (CompanyDeliveryAddress address : addresses) {
+            result.add(new ProductOrderCompanyDeliveryAddressResponse(
+                    address.getId(),
+                    trimToEmpty(address.getZipCode()),
+                    trimToEmpty(address.getDoName()),
+                    trimToEmpty(address.getSiName()),
+                    trimToEmpty(address.getGuName()),
+                    trimToEmpty(address.getRoadAddress()),
+                    trimToEmpty(address.getDetailAddress()),
+                    buildDeliveryAddress(address)
+            ));
+        }
+
+        return result;
     }
 
     public List<ProductOrderMemberOptionResponse> searchDeliveryHandlers(String keyword) {
@@ -72,6 +106,7 @@ public class ProductOrderAddQueryService {
         );
 
         List<ProductOrderMemberOptionResponse> result = new ArrayList<>();
+
         for (Member member : members) {
             result.add(new ProductOrderMemberOptionResponse(
                     member.getId(),
@@ -81,39 +116,51 @@ public class ProductOrderAddQueryService {
                     member.getCreatedAt()
             ));
         }
+
         return result;
     }
 
     public List<ProductOrderSimpleOptionResponse> getStandardCategories() {
         List<StandardCategory> categories = standardCategoryRepository.findAllByOrderByNameAsc();
+
         List<ProductOrderSimpleOptionResponse> result = new ArrayList<>();
+
         for (StandardCategory category : categories) {
             result.add(new ProductOrderSimpleOptionResponse(category.getId(), category.getName()));
         }
+
         return result;
     }
 
     public List<ProductOrderSimpleOptionResponse> getStandardSeries(Long categoryId) {
-        List<StandardProductSeries> seriesList = standardProductSeriesRepository.findByCategory_IdOrderByNameAsc(categoryId);
+        List<StandardProductSeries> seriesList =
+                standardProductSeriesRepository.findByCategory_IdOrderByNameAsc(categoryId);
+
         List<ProductOrderSimpleOptionResponse> result = new ArrayList<>();
+
         for (StandardProductSeries series : seriesList) {
             result.add(new ProductOrderSimpleOptionResponse(series.getId(), series.getName()));
         }
+
         return result;
     }
 
     public List<ProductOrderSimpleOptionResponse> getProductionCategories(String keyword) {
         List<TeamCategory> categories;
+
         if (keyword == null || keyword.isBlank()) {
             categories = teamCategoryRepository.findByTeam_IdOrderByNameAsc(PRODUCTION_TEAM_ID);
         } else {
-            categories = teamCategoryRepository.findByTeam_IdAndNameContainingIgnoreCaseOrderByNameAsc(PRODUCTION_TEAM_ID, keyword.trim());
+            categories = teamCategoryRepository
+                    .findByTeam_IdAndNameContainingIgnoreCaseOrderByNameAsc(PRODUCTION_TEAM_ID, keyword.trim());
         }
 
         List<ProductOrderSimpleOptionResponse> result = new ArrayList<>();
+
         for (TeamCategory category : categories) {
             result.add(new ProductOrderSimpleOptionResponse(category.getId(), category.getName()));
         }
+
         return result;
     }
 
@@ -122,15 +169,29 @@ public class ProductOrderAddQueryService {
     }
 
     private String buildCompanyAddress(Company company) {
-        String road = company.getRoadAddress() == null ? "" : company.getRoadAddress().trim();
-        String detail = company.getDetailAddress() == null ? "" : company.getDetailAddress().trim();
+        return joinAddress(company.getRoadAddress(), company.getDetailAddress());
+    }
+
+    private String buildDeliveryAddress(CompanyDeliveryAddress address) {
+        return joinAddress(address.getRoadAddress(), address.getDetailAddress());
+    }
+
+    private String joinAddress(String roadAddress, String detailAddress) {
+        String road = trimToEmpty(roadAddress);
+        String detail = trimToEmpty(detailAddress);
 
         if (!road.isBlank() && !detail.isBlank()) {
             return road + " " + detail;
         }
+
         if (!road.isBlank()) {
             return road;
         }
+
         return detail;
+    }
+
+    private String trimToEmpty(String value) {
+        return value == null ? "" : value.trim();
     }
 }
