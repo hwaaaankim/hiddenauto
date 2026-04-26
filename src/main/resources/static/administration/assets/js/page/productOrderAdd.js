@@ -1222,14 +1222,16 @@
                                 placeholder="옵션 내용을 입력 후 Enter">${escapeHtml(order.optionDraft || '')}</textarea>
                         </div>
 
-                        <div class="col-12 col-lg-3 d-flex align-items-end">
-                            <button type="button"
-                                class="btn btn-outline-primary w-100 product-admin-add-main-btn"
-                                data-action="add-option"
-                                data-order-id="${order.id}">
-                                옵션 추가
-                            </button>
-                        </div>
+                       <div class="col-12 col-lg-3">
+						    <label class="form-label product-admin-add-label product-admin-add-option-btn-label">&nbsp;</label>
+						
+						    <button type="button"
+						        class="btn btn-outline-primary w-100 product-admin-add-main-btn product-admin-add-option-add-btn"
+						        data-action="add-option"
+						        data-order-id="${order.id}">
+						        옵션 추가
+						    </button>
+						</div>
                     </div>
 
                     <div class="mt-3 product-admin-add-option-list" data-order-id="${order.id}">

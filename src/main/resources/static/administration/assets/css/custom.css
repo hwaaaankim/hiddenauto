@@ -5030,3 +5030,63 @@ body.admin-task-detail-modal-open {
 		width: 100%;
 	}
 }
+
+/* 오더추가 > 옵션 textarea / 옵션 추가 버튼 높이 통일 */
+.product-admin-add-option-textarea {
+	height: 72px !important;
+	min-height: 72px !important;
+	resize: none;
+}
+
+.product-admin-add-option-textarea+.invalid-feedback {
+	margin-top: 4px;
+}
+
+.product-admin-add-main-btn[data-action="add-option"] {
+	height: 72px !important;
+	min-height: 72px !important;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 600;
+}
+
+/* 옵션 버튼 컬럼이 textarea 높이에 맞게 늘어나도록 */
+.product-admin-add-main-btn[data-action="add-option"] {
+	align-self: stretch;
+}
+
+/* 옵션 textarea 높이 */
+.product-admin-add-option-textarea {
+	height: 72px !important;
+	min-height: 72px !important;
+	resize: none;
+}
+
+/* 옵션 추가 버튼 높이 */
+.product-admin-add-option-add-btn {
+	height: 72px !important;
+	min-height: 72px !important;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 600;
+}
+
+/* 버튼 위 label 공간 확보 */
+.product-admin-add-option-btn-label {
+	display: block;
+	visibility: hidden;
+}
+
+/* 모바일에서는 버튼 위 빈 label 공간 제거 */
+@media (max-width: 991.98px) {
+	.product-admin-add-option-btn-label {
+		display: none;
+	}
+
+	.product-admin-add-option-add-btn {
+		height: 52px !important;
+		min-height: 52px !important;
+	}
+}
