@@ -1,186 +1,44 @@
-# ===================== 공통 설정 =====================
 spring:
   profiles:
     active: mac
+
   application:
     name: HiddenBATHAuto
+
 as:
   sms:
     reminder:
       template: |
-        [히든바스]
-        내일({date}) 신청하신 AS에 대한 기사님이 방문하실 예정입니다.
+        [히든바스] 내일({date}) 신청하신 AS에 대한 기사님이 방문하실 예정입니다.
         기사님 성함 : {engineerName}
         기사님 연락처 : {engineerPhone}
+
 server:
   port: 8080
+  address: 0.0.0.0
+  forward-headers-strategy: native
   servlet:
     session:
-      timeout: 43200m       # 30일 = 1440m * 30
+      timeout: 43200m
       cookie:
-        max-age: 2592000    # 30일 = 60 * 60 * 24 * 30
+        max-age: 2592000
         name: SID
         http-only: true
         secure: false
+
 kakao:
   base-url: https://dapi.kakao.com
   rest:
-    api-key: "0daa583a542a7c7639b42072873d05b9"   # <-- 제공해주신 키(예시). 실제 운영에선 환경변수로 주입 권장.
+    api-key: "0daa583a542a7c7639b42072873d05b9"
   throttle-ms: 120
 
 juso:
-  confm-key: devU01TX0FVVEgyMDI2MDExMDEzMDkyNjExNzQyMDk=
+  confm-key: "devU01TX0FVVEgyMDI2MDExMDEzMDkyNjExNzQyMDk="
   base-url: https://business.juso.go.kr
   first-sort: location
   throttle-ms: 0
   count-per-page: 10
   timeout-seconds: 5
-  
+
 logging:
   config: classpath:logback-spring.xml
-
-# ===================== 테스트(Windows) =====================
----
-spring:
-  config:
-    activate:
-      on-profile: test
-
-  datasource:
-    driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto?useUnicode=true&characterEncoding=utf8
-    username: root
-    password: hidden3660!@
-    hikari:
-      connectionTimeout: 30000
-      maximumPoolSize: 10
-      maxLifetime: 1800000
-      poolName: HikariCP
-      readOnly: false
-      connectionTestQuery: SELECT 1
-
-  h2:
-    console:
-      enabled: true
-
-  jpa:
-    database-platform: org.hibernate.dialect.MariaDBDialect
-
-  servlet:
-    multipart:
-      maxFileSize: 5000MB
-      maxRequestSize: -1
-
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: 'admin@hiddenbath.co.kr'
-    password: 'hfdpehjnemsxvhre'
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
-  upload:
-    # Windows: D 드라이브 고정. 역슬래시 대신 슬래시 사용해도 WebMvcConfig가 정규화합니다.
-    path: "D:/hiddenauto/"
-    env: windows
-
-# ===================== 맥(mac) =====================
----
-spring:
-  config:
-    activate:
-      on-profile: mac
-
-  datasource:
-    driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto?useUnicode=true&characterEncoding=utf8
-    username: root
-    password: hidden3660!@
-    hikari:
-      connectionTimeout: 30000
-      maximumPoolSize: 10
-      maxLifetime: 1800000
-      poolName: HikariCP
-      readOnly: false
-      connectionTestQuery: SELECT 1
-
-  h2:
-    console:
-      enabled: true
-
-  jpa:
-    database-platform: org.hibernate.dialect.MariaDBDialect
-
-  servlet:
-    multipart:
-      maxFileSize: 5000MB
-      maxRequestSize: -1
-
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: 'admin@hiddenbath.co.kr'
-    password: 'hfdpehjnemsxvhre'
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
-  upload:
-    # ✅ mac: 바탕화면 Desktop/product 폴더 아래로 저장
-    path: "${user.home}/Desktop/product/"
-    env: mac
-
-# ===================== 배포(prod) =====================
----
-spring:
-  config:
-    activate:
-      on-profile: prod
-
-  datasource:
-    driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://localhost:3306/hiddenauto?useUnicode=true&characterEncoding=utf8
-    username: root
-    password: hidden3660!@
-    hikari:
-      connectionTimeout: 30000
-      maximumPoolSize: 10
-      maxLifetime: 1800000
-      poolName: HikariCP
-      readOnly: false
-      connectionTestQuery: SELECT 1
-
-  h2:
-    console:
-      enabled: true
-
-  jpa:
-    database-platform: org.hibernate.dialect.MariaDBDialect
-
-  servlet:
-    multipart:
-      maxFileSize: 5000MB
-      maxRequestSize: -1
-
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: 'admin@hiddenbath.co.kr'
-    password: 'hfdpehjnemsxvhre'
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
-  upload:
-    path: /home/ubuntu/hiddenauto/files/
-    env: prod

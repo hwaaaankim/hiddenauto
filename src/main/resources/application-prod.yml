@@ -1,0 +1,47 @@
+spring:
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://localhost:3306/hiddenauto?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+    username: root
+    password: 'hidden3660!@'
+    hikari:
+      connectionTimeout: 30000
+      maximumPoolSize: 10
+      maxLifetime: 1800000
+      poolName: HikariCP
+      readOnly: false
+      connectionTestQuery: SELECT 1
+
+  h2:
+    console:
+      enabled: false
+
+  jpa:
+    database-platform: org.hibernate.dialect.MariaDBDialect
+
+  servlet:
+    multipart:
+      maxFileSize: 5000MB
+      maxRequestSize: -1
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: 'admin@hiddenbath.co.kr'
+    password: 'hfdpehjnemsxvhre'
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  upload:
+    path: /home/ubuntu/hiddenauto/files/
+    env: prod
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
