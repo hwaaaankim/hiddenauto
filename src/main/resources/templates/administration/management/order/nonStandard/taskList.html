@@ -6,7 +6,8 @@
 
 <body class="twocolumn-panel">
 
-	<!-- Begin page -->
+	<link rel="stylesheet" href="/administration/assets/css/pages/adminTaskListSecond.css">
+
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
@@ -15,8 +16,28 @@
 
 		<div class="main-content">
 			<div class="page-content">
-				<div class="container-fluid">
+				<div class="container-fluid admin-task-list-second-page">
 
+					<input type="hidden" id="admin-task-list-second-csrf-token" th:if="${_csrf != null}"
+						th:value="${_csrf.token}">
+					<input type="hidden" id="admin-task-list-second-csrf-header" th:if="${_csrf != null}"
+						th:value="${_csrf.headerName}">
+
+					<!-- 회사 원본 데이터 -->
+					<div id="admin-task-list-second-company-source" class="d-none">
+						<button type="button" th:each="company : ${companyOptions}" th:attr="data-company-id=${company.id},
+									 data-company-name=${company.companyName},
+									 data-representative-name=${company.representativeName}">
+						</button>
+					</div>
+
+					<!-- 회사별 멤버 원본 데이터 -->
+					<div id="admin-task-list-second-member-source" class="d-none">
+						<button type="button" th:each="member : ${companyMemberOptions}" th:attr="data-company-id=${member.companyId},
+									 data-member-id=${member.memberId},
+									 data-member-name=${member.memberName}">
+						</button>
+					</div>
 
 					<!-- start page title -->
 					<div class="row">
@@ -26,7 +47,7 @@
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">발주관리</a></li>
+										<li class="breadcrumb-item"><a href="javascript:void(0);">발주관리</a></li>
 										<li class="breadcrumb-item active">발주관리</li>
 									</ol>
 								</div>
@@ -45,6 +66,15 @@
 
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2 align-items-center">
+
+												<button type="button" class="btn btn-primary"
+													id="admin-task-list-second-bulk-open-btn">
+													<i class="fa-solid fa-layer-group"></i>
+													일괄보기
+													<span class="admin-task-list-second-bulk-count"
+														th:text="${bulkOrderCount}">0</span>
+												</button>
+
 												<a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
                                                     dateCriteria=${dateCriteria},
@@ -91,9 +121,12 @@
 											<div class="col-md-3">
 												<label class="form-label">기준일선택</label>
 												<select class="form-select" name="dateCriteria" id="dateCriteria">
-													<option value="all" th:selected="${dateCriteria == 'all'}">전체</option>
-													<option value="order" th:selected="${dateCriteria == 'order'}">발주일 기준</option>
-													<option value="delivery" th:selected="${dateCriteria == 'delivery'}">출고일 기준</option>
+													<option value="all" th:selected="${dateCriteria == 'all'}">전체
+													</option>
+													<option value="order" th:selected="${dateCriteria == 'order'}">발주일
+														기준</option>
+													<option value="delivery"
+														th:selected="${dateCriteria == 'delivery'}">출고일 기준</option>
 												</select>
 											</div>
 
@@ -117,7 +150,8 @@
 												<label class="form-label">제품</label>
 												<div class="input-light">
 													<select class="form-control" name="productCategoryId">
-														<option value="all" th:selected="${productCategoryId == 'all'}">All</option>
+														<option value="all" th:selected="${productCategoryId == 'all'}">
+															All</option>
 														<option th:each="category : ${productionTeamCategories}"
 															th:value="${category.id}" th:text="${category.name}"
 															th:selected="${productCategoryId == category.id.toString()}">
@@ -131,10 +165,13 @@
 												<label class="form-label">발주상태</label>
 												<div class="input-light">
 													<select class="form-control" name="orderStatus">
-														<option value="all" th:selected="${orderStatus == 'all'}">All</option>
+														<option value="all" th:selected="${orderStatus == 'all'}">All
+														</option>
 														<option th:each="status : ${orderStatuses}"
 															th:value="${status.name()}" th:text="${status.label}"
-															th:selected="${orderStatus == status.name()}">상태</option>
+															th:selected="${orderStatus == status.name()}">
+															상태
+														</option>
 													</select>
 												</div>
 											</div>
@@ -143,9 +180,12 @@
 												<label class="form-label">규격 여부</label>
 												<div class="input-light">
 													<select class="form-control" name="standard">
-														<option value="all" th:selected="${standard == 'all'}">전체</option>
-														<option value="true" th:selected="${standard == 'true'}">규격</option>
-														<option value="false" th:selected="${standard == 'false'}">비규격</option>
+														<option value="all" th:selected="${standard == 'all'}">전체
+														</option>
+														<option value="true" th:selected="${standard == 'true'}">규격
+														</option>
+														<option value="false" th:selected="${standard == 'false'}">비규격
+														</option>
 													</select>
 												</div>
 											</div>
@@ -153,11 +193,16 @@
 											<div class="col-xxl-2 col-sm-3">
 												<label class="form-label">페이지 사이즈</label>
 												<div class="input-light">
-													<select class="form-control" id="task-list-added-pageSize" name="size">
-														<option value="10" th:selected="${pageSize == 10}">10개씩 보기</option>
-														<option value="30" th:selected="${pageSize == 30}">30개씩 보기</option>
-														<option value="50" th:selected="${pageSize == 50}">50개씩 보기</option>
-														<option value="100" th:selected="${pageSize == 100}">100개씩 보기</option>
+													<select class="form-control" id="task-list-added-pageSize"
+														name="size">
+														<option value="10" th:selected="${pageSize == 10}">10개씩 보기
+														</option>
+														<option value="30" th:selected="${pageSize == 30}">30개씩 보기
+														</option>
+														<option value="50" th:selected="${pageSize == 50}">50개씩 보기
+														</option>
+														<option value="100" th:selected="${pageSize == 100}">100개씩 보기
+														</option>
 													</select>
 												</div>
 											</div>
@@ -177,309 +222,632 @@
 								</div>
 
 								<div class="card-body">
-									<div class="table-responsive table-card mb-4">
-										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
+									<div class="table-responsive table-card mb-4 admin-task-list-second-table-wrap">
+										<table class="table align-middle mb-0 admin-task-list-second-table"
+											id="tasksTable">
 											<thead class="table-light text-muted">
 												<tr>
-													<th style="width: 52px;" class="text-center">
+													<th style="width:52px;" class="text-center">
 														<div class="form-check d-flex justify-content-center m-0">
-															<input class="form-check-input" type="checkbox" id="task-list-check-all">
+															<input class="form-check-input" type="checkbox"
+																id="task-list-check-all">
 														</div>
 													</th>
 
-													<th>업무ID</th>
-													<th>오더ID</th>
+													<th style="width:76px;">업무ID</th>
+													<th style="width:76px;">오더ID</th>
 
-													<th>
+													<th style="min-width:150px;">
 														<div class="task-list-added-sort-header">
 															<span>대리점명</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='agencyName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='agencyName',
-                                                                sortDir='asc'
-                                                           )}">▲</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='agencyName',
+                                                                        sortDir='asc'
+                                                                   )}">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='agencyName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='agencyName',
-                                                                sortDir='desc'
-                                                           )}">▼</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='agencyName',
+                                                                        sortDir='desc'
+                                                                   )}">▼</a>
 															</span>
 														</div>
 													</th>
 
-													<th>
+													<th style="min-width:110px;">
 														<div class="task-list-added-sort-header">
 															<span>신청자</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='requesterName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='requesterName',
-                                                                sortDir='asc'
-                                                           )}">▲</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='requesterName',
+                                                                        sortDir='asc'
+                                                                   )}">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='requesterName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='requesterName',
-                                                                sortDir='desc'
-                                                           )}">▼</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='requesterName',
+                                                                        sortDir='desc'
+                                                                   )}">▼</a>
 															</span>
 														</div>
 													</th>
 
-													<th>
+													<th style="min-width:280px;">제품정보</th>
+
+													<th style="width:96px;">
 														<div class="task-list-added-sort-header">
-															<span>규격/비규격</span>
+															<span>규격</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='standard' and sortDir=='desc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='standard',
-                                                                sortDir='desc'
-                                                           )}">▲</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='standard',
+                                                                        sortDir='desc'
+                                                                   )}">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='standard' and sortDir=='asc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='standard',
-                                                                sortDir='asc'
-                                                           )}">▼</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='standard',
+                                                                        sortDir='asc'
+                                                                   )}">▼</a>
 															</span>
 														</div>
 													</th>
 
-													<th>
+													<th style="min-width:180px;">비고</th>
+
+													<th style="width:142px;">
 														<div class="task-list-added-sort-header">
 															<span>발주일</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='orderDate' and sortDir=='asc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='orderDate',
-                                                                sortDir='asc'
-                                                           )}">▲</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='orderDate',
+                                                                        sortDir='asc'
+                                                                   )}">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='orderDate' and sortDir=='desc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='orderDate',
-                                                                sortDir='desc'
-                                                           )}">▼</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='orderDate',
+                                                                        sortDir='desc'
+                                                                   )}">▼</a>
 															</span>
 														</div>
 													</th>
 
-													<th>
+													<th style="width:132px;">
 														<div class="task-list-added-sort-header">
 															<span>배송희망일</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='preferredDeliveryDate' and sortDir=='asc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='preferredDeliveryDate',
-                                                                sortDir='asc'
-                                                           )}">▲</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='preferredDeliveryDate',
+                                                                        sortDir='asc'
+                                                                   )}">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='preferredDeliveryDate' and sortDir=='desc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='preferredDeliveryDate',
-                                                                sortDir='desc'
-                                                           )}">▼</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='preferredDeliveryDate',
+                                                                        sortDir='desc'
+                                                                   )}">▼</a>
 															</span>
 														</div>
 													</th>
 
-													<th>
+													<th style="width:118px;">
 														<div class="task-list-added-sort-header">
 															<span>상태</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='status' and sortDir=='asc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='status',
-                                                                sortDir='asc'
-                                                           )}">▲</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='status',
+                                                                        sortDir='asc'
+                                                                   )}">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${sortField=='status' and sortDir=='desc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
-                                                                page=0,
-                                                                size=${pageSize},
-                                                                keyword=${keyword},
-                                                                dateCriteria=${dateCriteria},
-                                                                startDate=${startDateStr},
-                                                                endDate=${endDateStr},
-                                                                productCategoryId=${productCategoryId},
-                                                                orderStatus=${orderStatus},
-                                                                standard=${standard},
-                                                                sortField='status',
-                                                                sortDir='desc'
-                                                           )}">▼</a>
+                                                                        page=0,
+                                                                        size=${pageSize},
+                                                                        keyword=${keyword},
+                                                                        dateCriteria=${dateCriteria},
+                                                                        startDate=${startDateStr},
+                                                                        endDate=${endDateStr},
+                                                                        productCategoryId=${productCategoryId},
+                                                                        orderStatus=${orderStatus},
+                                                                        standard=${standard},
+                                                                        sortField='status',
+                                                                        sortDir='desc'
+                                                                   )}">▼</a>
 															</span>
 														</div>
 													</th>
+
+													<th style="width:116px;" class="text-center">상세</th>
 												</tr>
 											</thead>
 
 											<tbody class="list form-check-all">
-												<tr th:each="order : ${orders.content}">
-													<td class="text-center">
-														<div class="form-check d-flex justify-content-center m-0">
-															<input class="form-check-input task-list-order-checkbox"
-																type="checkbox"
-																th:value="${order.id}"
-																th:attr="data-task-id=${order.task.id}">
-														</div>
-													</td>
+												<th:block th:each="row : ${orderRows.content}">
+													<tr class="admin-task-list-second-main-row"
+														th:classappend="${row.checked} ? ' admin-task-list-second-row-checked' : ''"
+														th:attr="data-order-id=${row.orderId}">
+														<td class="text-center">
+															<div class="form-check d-flex justify-content-center m-0">
+																<input class="form-check-input task-list-order-checkbox"
+																	type="checkbox" th:value="${row.orderId}"
+																	th:attr="data-task-id=${row.taskId}">
+															</div>
+														</td>
 
-													<td class="id">
-														<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${order.task.id})}"
-															class="fw-medium link-secondary"
-															th:text="'#TASK_' + ${order.task.id}">#TASK_ID</a>
-													</td>
+														<td>
+															<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${row.taskId})}"
+																class="fw-medium link-secondary"
+																th:text="${row.taskId}">1</a>
+														</td>
 
-													<td class="id">
-														<a th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${order.id})}"
-															class="fw-medium link-primary"
-															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
-													</td>
+														<td>
+															<a th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${row.orderId})}"
+																class="fw-medium link-primary"
+																th:text="${row.orderId}">1</a>
+														</td>
 
-													<td class="project_name">
-														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
-															class="fw-medium link-primary"
-															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
-													</td>
+														<td>
+															<a th:if="${row.companyId != null}"
+																th:href="@{'/management/agency/' + ${row.companyId}}"
+																class="fw-medium link-primary admin-task-list-second-ellipsis"
+																th:text="${row.companyName}">대리점명</a>
+															<span th:if="${row.companyId == null}"
+																class="admin-task-list-second-ellipsis"
+																th:text="${row.companyName}">-</span>
+														</td>
 
-													<td class="client_name">
-														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
-															th:text="${order.task.requestedBy.name}">신청자명</a>
-													</td>
+														<td>
+															<a th:if="${row.requesterMemberId != null}"
+																th:href="@{'/management/customer/' + ${row.requesterMemberId}}"
+																class="admin-task-list-second-ellipsis"
+																th:text="${row.requesterName}">신청자명</a>
+															<span th:if="${row.requesterMemberId == null}"
+																class="admin-task-list-second-ellipsis"
+																th:text="${row.requesterName}">-</span>
+														</td>
 
-													<td class="assignedto">
-														<span th:if="${order.standard}"
-															class="badge bg-success-subtle text-success">규격</span>
-														<span th:if="${!order.standard}"
-															class="badge bg-primary-subtle text-primary">비규격</span>
-													</td>
+														<td>
+															<div class="admin-task-list-second-product-cell"
+																th:title="${row.productSummary}">
+																<span class="admin-task-list-second-product-name"
+																	th:text="${row.productName}">제품명</span>
+																<span class="admin-task-list-second-product-summary"
+																	th:text="${row.productSummary}">제품정보</span>
+															</div>
+														</td>
 
-													<td class="due_date"
-														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
-														00:00:00
-													</td>
+														<td>
+															<span th:if="${row.standard}"
+																class="badge bg-success-subtle text-success">규격</span>
+															<span th:if="${!row.standard}"
+																class="badge bg-primary-subtle text-primary">비규격</span>
+														</td>
 
-													<td class="due_date"
-														th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss')}">
-														00:00:00
-													</td>
+														<td>
+															<div class="admin-task-list-second-note-cell"
+																th:title="${row.noteSummary}"
+																th:text="${row.noteSummary}">
+																비고
+															</div>
+														</td>
 
-													<td class="status">
-														<span class="badge bg-secondary-subtle text-secondary text-uppercase"
-															th:text="${order.status}">대기중</span>
-													</td>
-												</tr>
+														<td
+															th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
+															-
+														</td>
+
+														<td
+															th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+															-
+														</td>
+
+														<td>
+															<span class="badge bg-secondary-subtle text-secondary"
+																th:text="${row.statusLabel}">상태</span>
+														</td>
+
+														<td class="text-center">
+															<button type="button"
+																class="btn btn-sm btn-outline-primary admin-task-list-second-wide-toggle-btn"
+																th:attr="data-order-id=${row.orderId}">
+																넓게보기
+															</button>
+														</td>
+													</tr>
+
+													<tr class="admin-task-list-second-detail-row d-none"
+														th:attr="data-order-id=${row.orderId}">
+														<td colspan="12">
+															<div class="admin-task-list-second-detail-panel">
+
+																<div class="admin-task-list-second-detail-head">
+																	<div>
+																		<h5 class="admin-task-list-second-detail-title">
+																			주문 상세 수정
+																			<span
+																				th:text="|ORDER ${row.orderId}|">ORDER</span>
+																		</h5>
+																		<p class="admin-task-list-second-detail-desc">
+																			상세 화면에서 수정 가능했던 항목을 현재 목록에서도 바로 수정합니다.
+																		</p>
+																	</div>
+
+																	<div
+																		class="admin-task-list-second-detail-link-wrap">
+																		<a class="btn btn-sm btn-light"
+																			th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${row.taskId})}">
+																			Task 상세
+																		</a>
+																		<a class="btn btn-sm btn-primary"
+																			th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${row.orderId})}">
+																			Order 상세
+																		</a>
+																	</div>
+																</div>
+
+																<form
+																	th:action="@{'/management/nonStandardOrderItemUpdate/' + ${row.orderId}}"
+																	method="POST" enctype="multipart/form-data"
+																	class="admin-task-list-second-update-form">
+
+																	<input type="hidden" th:if="${_csrf != null}"
+																		th:name="${_csrf.parameterName}"
+																		th:value="${_csrf.token}">
+
+																	<div class="row g-3 align-items-stretch">
+
+																		<div class="col-lg-4 col-md-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">대리점명</label>
+																				<select
+																					class="form-select admin-task-list-second-company-select"
+																					name="companyId" th:attr="data-selected-company-id=${row.companyId},
+																							 data-order-id=${row.orderId}">
+																					<option value="">대리점 선택</option>
+																					<option
+																						th:each="company : ${companyOptions}"
+																						th:value="${company.id}"
+																						th:text="${company.companyName}"
+																						th:selected="${row.companyId != null and row.companyId == company.id}">
+																					</option>
+																				</select>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-4 col-md-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">신청자</label>
+																				<select
+																					class="form-select admin-task-list-second-requester-select"
+																					name="requesterMemberId" th:attr="data-selected-member-id=${row.requesterMemberId},
+																							 data-order-id=${row.orderId}">
+																					<option value="">신청자 선택</option>
+																				</select>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-4 col-md-12">
+																			<div
+																				class="admin-task-list-second-field admin-task-list-second-readonly-field">
+																				<label
+																					class="admin-task-list-second-label">배송주소</label>
+																				<input type="text" class="form-control"
+																					readonly
+																					th:value="${row.fullAddress}">
+																			</div>
+																		</div>
+
+																		<div class="col-lg-3 col-md-6">
+																			<div
+																				class="admin-task-list-second-field admin-task-list-second-readonly-field">
+																				<label
+																					class="admin-task-list-second-label">수량</label>
+																				<input type="text" class="form-control"
+																					readonly th:value="${row.quantity}">
+																			</div>
+																		</div>
+
+																		<div class="col-lg-3 col-md-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">제품비용</label>
+																				<input type="number"
+																					class="form-control"
+																					name="productCost"
+																					th:value="${row.productCost}">
+																			</div>
+																		</div>
+
+																		<div class="col-lg-3 col-md-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">배송희망일</label>
+																				<input type="date" class="form-control"
+																					name="preferredDeliveryDate"
+																					th:value="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : ''}">
+																			</div>
+																		</div>
+
+																		<div class="col-lg-3 col-md-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">발주상태</label>
+																				<select class="form-select"
+																					name="status">
+																					<option
+																						th:each="status : ${orderStatuses}"
+																						th:value="${status.name()}"
+																						th:text="${status.label}"
+																						th:selected="${row.statusName == status.name()}">
+																					</option>
+																				</select>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-4 col-md-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">배송수단</label>
+																				<select class="form-select"
+																					name="deliveryMethodId">
+																					<option value=""
+																						th:selected="${row.deliveryMethodId == null}">
+																						미지정</option>
+																					<option
+																						th:each="method : ${deliveryMethods}"
+																						th:value="${method.id}"
+																						th:text="${method.methodName + ' (금액: ' + method.methodPrice + ')'}"
+																						th:selected="${row.deliveryMethodId != null and row.deliveryMethodId == method.id}">
+																					</option>
+																				</select>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-4 col-md-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">배송팀
+																					담당자</label>
+																				<select class="form-select"
+																					name="assignedDeliveryHandlerId">
+																					<option value=""
+																						th:selected="${row.assignedDeliveryHandlerId == null}">
+																						배정 필요함
+																					</option>
+																					<option
+																						th:each="member : ${deliveryTeamMembers}"
+																						th:value="${member.id}"
+																						th:text="${member.name}"
+																						th:selected="${row.assignedDeliveryHandlerId != null and row.assignedDeliveryHandlerId == member.id}">
+																					</option>
+																				</select>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-4 col-md-12">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">생산팀
+																					카테고리</label>
+																				<select class="form-select"
+																					name="productCategoryId">
+																					<option value=""
+																						th:selected="${row.productCategoryId == null}">
+																						배정 필요함
+																					</option>
+																					<option
+																						th:each="category : ${productionTeamCategories}"
+																						th:value="${category.id}"
+																						th:text="${category.name}"
+																						th:selected="${row.productCategoryId != null and row.productCategoryId == category.id}">
+																					</option>
+																				</select>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-6">
+																			<div
+																				class="admin-task-list-second-field admin-task-list-second-readonly-field">
+																				<label
+																					class="admin-task-list-second-label">요청
+																					메모</label>
+																				<textarea
+																					class="form-control admin-task-list-second-textarea"
+																					readonly
+																					th:text="${row.orderComment}"></textarea>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">관리자
+																					남김말</label>
+																				<textarea
+																					class="form-control admin-task-list-second-textarea"
+																					name="adminMemo"
+																					th:text="${row.adminMemo}"></textarea>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-12">
+																			<div
+																				class="admin-task-list-second-option-box">
+																				<div
+																					class="admin-task-list-second-option-head">
+																					<strong>제품 옵션</strong>
+																					<span>ReadOnly</span>
+																				</div>
+
+																				<div
+																					class="admin-task-list-second-option-grid">
+																					<div class="admin-task-list-second-option-item"
+																						th:each="entry : ${row.optionMap}">
+																						<div class="admin-task-list-second-option-key"
+																							th:text="${entry.key}">옵션명
+																						</div>
+																						<div class="admin-task-list-second-option-value"
+																							th:text="${entry.value}">옵션값
+																						</div>
+																					</div>
+
+																					<div class="admin-task-list-second-empty-option"
+																						th:if="${#maps.isEmpty(row.optionMap)}">
+																						옵션 정보가 없습니다.
+																					</div>
+																				</div>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-12">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">관리자
+																					첨부파일 추가</label>
+																				<input type="file" class="form-control"
+																					name="adminImages" multiple>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-12">
+																			<div
+																				class="admin-task-list-second-detail-actions">
+																				<button type="submit"
+																					class="btn btn-success px-4">
+																					저장
+																				</button>
+																				<button type="button"
+																					class="btn btn-outline-secondary px-4 admin-task-list-second-wide-close-btn"
+																					th:attr="data-order-id=${row.orderId}">
+																					닫기
+																				</button>
+																			</div>
+																		</div>
+
+																	</div>
+																</form>
+															</div>
+														</td>
+													</tr>
+												</th:block>
 											</tbody>
 										</table>
 
-										<div class="noresult" style="display: none">
+										<div class="noresult" style="display:none">
 											<div class="text-center">
 												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
 													colors="primary:#121331,secondary:#08a88a"
@@ -492,7 +860,7 @@
 
 									<div class="d-flex justify-content-end mt-2">
 										<div class="pagination-wrap hstack gap-2">
-											<nav aria-label="navigation" style="text-align: center;">
+											<nav aria-label="navigation" style="text-align:center;">
 												<ul class="pagination justify-content-center">
 													<th:block th:with="
                                                         totalPages=${orders.totalPages},
@@ -616,170 +984,219 @@
 		</div>
 	</div>
 
+	<!-- 일괄보기 모달 -->
+	<div id="admin-task-list-second-bulk-modal" class="admin-task-list-second-bulk-modal" aria-hidden="true">
+		<div id="admin-task-list-second-bulk-overlay" class="admin-task-list-second-bulk-overlay"></div>
+
+		<div class="admin-task-list-second-bulk-dialog" role="dialog" aria-modal="true">
+			<div class="admin-task-list-second-bulk-header">
+				<div>
+					<h3 class="admin-task-list-second-bulk-title">일괄보기</h3>
+					<p class="admin-task-list-second-bulk-desc">
+						현재 조회된 오더를 카드 형태로 한눈에 확인하고, 생산팀 전달 여부를 체크완료 처리합니다.
+					</p>
+				</div>
+
+				<button type="button" id="admin-task-list-second-bulk-close-btn"
+					class="admin-task-list-second-bulk-close-btn" aria-label="닫기">
+					×
+				</button>
+			</div>
+
+			<div class="admin-task-list-second-bulk-toolbar">
+				<div class="admin-task-list-second-bulk-summary">
+					<span>현재 조회</span>
+					<strong th:text="${bulkOrderCount}">0</strong>
+					<span>건</span>
+				</div>
+
+				<div class="admin-task-list-second-bulk-actions">
+					<button type="button" id="admin-task-list-second-bulk-check-all-btn"
+						class="btn btn-outline-primary">
+						일괄체크
+					</button>
+
+					<button type="button" id="admin-task-list-second-bulk-complete-btn" class="btn btn-success"
+						disabled>
+						체크완료
+					</button>
+				</div>
+			</div>
+
+			<div class="admin-task-list-second-bulk-body">
+				<div class="admin-task-list-second-bulk-list">
+
+					<div class="admin-task-list-second-bulk-card" th:each="row : ${bulkOrderRows}"
+						th:classappend="${row.checked} ? ' admin-task-list-second-bulk-card-completed' : ' admin-task-list-second-bulk-card-pending'"
+						th:attr="data-order-id=${row.orderId},
+			 data-checked=${row.checked}">
+
+						<div class="admin-task-list-second-bulk-check-wrap">
+							<input type="checkbox" class="form-check-input admin-task-list-second-bulk-checkbox"
+								th:value="${row.orderId}" th:checked="${row.checked}" th:disabled="${row.checked}">
+						</div>
+
+						<div class="admin-task-list-second-bulk-content">
+
+							<div class="admin-task-list-second-bulk-layout">
+
+								<!-- 좌측 60%: 옵션을 제외한 모든 정보 -->
+								<div class="admin-task-list-second-bulk-left">
+
+									<div class="admin-task-list-second-bulk-card-top">
+										<div class="admin-task-list-second-bulk-id-box">
+											<span th:text="|TASK ${row.taskId}|">TASK</span>
+											<span th:text="|ORDER ${row.orderId}|">ORDER</span>
+										</div>
+
+										<div class="admin-task-list-second-bulk-badges">
+											<span class="badge"
+												th:classappend="${row.checked} ? ' bg-success-subtle text-success' : ' bg-warning-subtle text-warning'"
+												th:text="${row.checked} ? '체크완료' : '체크미완료'">
+												체크
+											</span>
+
+											<span class="badge bg-secondary-subtle text-secondary"
+												th:text="${row.statusLabel}">상태</span>
+
+											<span th:if="${row.standard}"
+												class="badge bg-success-subtle text-success">규격</span>
+											<span th:if="${!row.standard}"
+												class="badge bg-primary-subtle text-primary">비규격</span>
+										</div>
+									</div>
+
+									<div class="admin-task-list-second-bulk-info-grid">
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+											<label>대리점</label>
+											<div th:text="${row.companyName}">대리점명</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+											<label>신청자</label>
+											<div th:text="${row.requesterName}">신청자</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+											<label>수량</label>
+											<div th:text="${row.quantity}">0</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+											<label>제품비용</label>
+											<div th:text="${#numbers.formatInteger(row.productCost, 0, 'COMMA')}">0
+											</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
+											<label>제품정보</label>
+											<div th:text="${row.productSummary}">제품정보</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
+											<label>배송주소</label>
+											<div th:text="${row.fullAddress}">주소</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+											<label>발주일</label>
+											<div
+												th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
+												-
+											</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+											<label>배송희망일</label>
+											<div
+												th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+												-
+											</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+											<label>생산카테고리</label>
+											<div th:text="${row.productCategoryName}">카테고리</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+											<label>배송담당자</label>
+											<div th:text="${row.assignedDeliveryHandlerName}">담당자</div>
+										</div>
+
+										<div
+											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-6">
+											<label>비고</label>
+											<div th:text="${row.noteSummary}">비고</div>
+										</div>
+
+										<div class="admin-task-list-second-bulk-complete-meta admin-task-list-second-bulk-span-6"
+											th:if="${row.checked}">
+											체크완료:
+											<span
+												th:text="${row.checkedByUsername != null ? row.checkedByUsername : '-'}">-</span>
+											/
+											<span
+												th:text="${row.checkedAt != null ? #temporals.format(row.checkedAt, 'yyyy-MM-dd HH:mm') : '-'}">-</span>
+										</div>
+
+									</div>
+								</div>
+
+								<!-- 우측 40%: 옵션 전용 영역 -->
+								<div class="admin-task-list-second-bulk-option-panel">
+									<div class="admin-task-list-second-bulk-option-head">
+										<div>
+											<strong>옵션</strong>
+											<p>생산팀 확인용 핵심 옵션 정보입니다.</p>
+										</div>
+										<span>READ ONLY</span>
+									</div>
+
+									<div class="admin-task-list-second-bulk-option-list">
+										<div class="admin-task-list-second-bulk-option-item"
+											th:each="entry : ${row.optionMap}">
+											<div class="admin-task-list-second-bulk-option-key" th:text="${entry.key}">
+												옵션명</div>
+											<div class="admin-task-list-second-bulk-option-value"
+												th:text="${entry.value}">옵션값</div>
+										</div>
+
+										<div class="admin-task-list-second-bulk-option-empty"
+											th:if="${#maps.isEmpty(row.optionMap)}">
+											옵션 정보가 없습니다.
+										</div>
+									</div>
+								</div>
+
+							</div>
+						</div>
+					</div>
+
+					<div class="admin-task-list-second-bulk-empty" th:if="${#lists.isEmpty(bulkOrderRows)}">
+						현재 조회된 오더가 없습니다.
+					</div>
+
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<script>
-		document.addEventListener("DOMContentLoaded", function () {
-			const dateCriteriaSelect = document.getElementById("dateCriteria");
-			const startDateInput = document.getElementById("startDate");
-			const endDateInput = document.getElementById("endDate");
-			const pageSizeSelect = document.getElementById("task-list-added-pageSize");
-
-			const checkAllBox = document.getElementById("task-list-check-all");
-			const deleteTasksBtn = document.getElementById("task-list-delete-tasks-btn");
-			const deleteOrdersBtn = document.getElementById("task-list-delete-orders-btn");
-
-			const csrfToken = document.getElementById("task-list-csrf-token")?.value;
-			const csrfHeader = document.getElementById("task-list-csrf-header")?.value;
-
-			function getOrderCheckboxes() {
-				return Array.from(document.querySelectorAll(".task-list-order-checkbox"));
-			}
-
-			function getSelectedOrderIds() {
-				return getOrderCheckboxes()
-					.filter(checkbox => checkbox.checked)
-					.map(checkbox => Number(checkbox.value))
-					.filter(id => !Number.isNaN(id));
-			}
-
-			function updateDateInputs() {
-				const selectedValue = dateCriteriaSelect.value;
-				const shouldEnable = selectedValue === "order" || selectedValue === "delivery";
-				startDateInput.disabled = !shouldEnable;
-				endDateInput.disabled = !shouldEnable;
-			}
-
-			function updateBulkButtons() {
-				const checkboxes = getOrderCheckboxes();
-				const checkedCount = checkboxes.filter(cb => cb.checked).length;
-				const totalCount = checkboxes.length;
-
-				deleteTasksBtn.disabled = checkedCount === 0;
-				deleteOrdersBtn.disabled = checkedCount === 0;
-
-				if (checkAllBox) {
-					checkAllBox.checked = totalCount > 0 && checkedCount === totalCount;
-					checkAllBox.indeterminate = checkedCount > 0 && checkedCount < totalCount;
-				}
-			}
-
-			function setBulkButtonsBusy(isBusy) {
-				deleteTasksBtn.disabled = isBusy || getSelectedOrderIds().length === 0;
-				deleteOrdersBtn.disabled = isBusy || getSelectedOrderIds().length === 0;
-
-				if (isBusy) {
-					deleteTasksBtn.dataset.originalText = deleteTasksBtn.innerHTML;
-					deleteOrdersBtn.dataset.originalText = deleteOrdersBtn.innerHTML;
-
-					deleteTasksBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 삭제중';
-					deleteOrdersBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 삭제중';
-				} else {
-					if (deleteTasksBtn.dataset.originalText) {
-						deleteTasksBtn.innerHTML = deleteTasksBtn.dataset.originalText;
-					}
-					if (deleteOrdersBtn.dataset.originalText) {
-						deleteOrdersBtn.innerHTML = deleteOrdersBtn.dataset.originalText;
-					}
-				}
-			}
-
-			async function callDeleteApi(url, confirmMessage) {
-				const selectedOrderIds = getSelectedOrderIds();
-
-				if (selectedOrderIds.length === 0) {
-					alert("삭제할 주문을 하나 이상 선택해 주세요.");
-					return;
-				}
-
-				if (!confirm(confirmMessage)) {
-					return;
-				}
-
-				try {
-					setBulkButtonsBusy(true);
-
-					const headers = {
-						"Content-Type": "application/json"
-					};
-
-					if (csrfHeader && csrfToken) {
-						headers[csrfHeader] = csrfToken;
-					}
-
-					const response = await fetch(url, {
-						method: "POST",
-						headers: headers,
-						body: JSON.stringify({
-							orderIds: selectedOrderIds
-						})
-					});
-
-					let data = null;
-					try {
-						data = await response.json();
-					} catch (e) {
-						data = null;
-					}
-
-					if (!response.ok || !data || data.success !== true) {
-						throw new Error(data?.message || "삭제 처리 중 오류가 발생했습니다.");
-					}
-
-					alert(data.message || "삭제가 완료되었습니다.");
-					window.location.reload();
-				} catch (error) {
-					alert(error.message || "삭제 처리 중 오류가 발생했습니다.");
-				} finally {
-					setBulkButtonsBusy(false);
-					updateBulkButtons();
-				}
-			}
-
-			updateDateInputs();
-			dateCriteriaSelect.addEventListener("change", updateDateInputs);
-
-			if (pageSizeSelect) {
-				pageSizeSelect.addEventListener("change", function () {
-					const form = pageSizeSelect.closest("form");
-					if (!form) return;
-					form.submit();
-				});
-			}
-
-			if (checkAllBox) {
-				checkAllBox.addEventListener("change", function () {
-					getOrderCheckboxes().forEach(checkbox => {
-						checkbox.checked = checkAllBox.checked;
-					});
-					updateBulkButtons();
-				});
-			}
-
-			document.addEventListener("change", function (event) {
-				if (event.target.classList.contains("task-list-order-checkbox")) {
-					updateBulkButtons();
-				}
-			});
-
-			deleteTasksBtn.addEventListener("click", function () {
-				callDeleteApi(
-					"/management/api/non-standard-task/delete-tasks",
-					"선택한 주문이 속한 태스크 전체가 삭제됩니다.\n\n해당 태스크의 모든 주문, 주문항목, 주문이미지, 배송순서 인덱스까지 함께 삭제됩니다.\n\n계속 진행하시겠습니까?"
-				);
-			});
-
-			deleteOrdersBtn.addEventListener("click", function () {
-				callDeleteApi(
-					"/management/api/non-standard-task/delete-orders",
-					"선택한 주문만 삭제됩니다.\n\n삭제 후 태스크에 남은 주문이 하나도 없으면 태스크도 자동 삭제됩니다.\n\n계속 진행하시겠습니까?"
-				);
-			});
-
-			updateBulkButtons();
-		});
-	</script>
+	<script src="/administration/assets/js/page/taskList.js"></script>
 
 </body>
 

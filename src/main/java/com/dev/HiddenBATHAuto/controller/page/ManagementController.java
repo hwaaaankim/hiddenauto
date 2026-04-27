@@ -77,6 +77,9 @@ import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionBulkSaveRequest;
+import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyMemberOptionDto;
+import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyOptionDto;
+import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderRowDto;
 import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
@@ -109,6 +112,7 @@ import com.dev.HiddenBATHAuto.service.auth.CompanyService;
 import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.client.AdminClientDetailService;
+import com.dev.HiddenBATHAuto.service.order.NonStandardTaskListViewService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
 import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -142,97 +146,158 @@ public class ManagementController {
 	// ✅ 추가 서비스
 	private final MemberAdminService memberAdminService;
 	private final AdminClientDetailService adminClientDetailService;
+	
+	private final NonStandardTaskListViewService nonStandardTaskListViewService;
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
-			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
-			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
-			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
-			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
-			@RequestParam(required = false, defaultValue = "all") String standard,
+	        @RequestParam(required = false, defaultValue = "all") String dateCriteria,
+	        @RequestParam(required = false) String startDate,
+	        @RequestParam(required = false) String endDate,
+	        @RequestParam(required = false, defaultValue = "all") String productCategoryId,
+	        @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+	        @RequestParam(required = false, defaultValue = "all") String standard,
 
-			// ✅ 정렬 파라미터 (기본값 정리)
-			@RequestParam(required = false, defaultValue = "orderDate") String sortField,
-			@RequestParam(required = false, defaultValue = "desc") String sortDir,
+	        @RequestParam(required = false, defaultValue = "orderDate") String sortField,
+	        @RequestParam(required = false, defaultValue = "desc") String sortDir,
 
-			@PageableDefault(size = 10) Pageable pageable, Model model) {
-		// 1) dateCriteria 정규화
-		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
+	        @PageableDefault(size = 10) Pageable pageable,
+	        Model model) {
 
-		// 2) 날짜 범위
-		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
+	    String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
-		// 3) standard 파싱
-		Boolean standardBool = parseStandardOrNull(standard);
+	    DateRange range = buildDateRangeForCriteria(
+	            finalDateCriteria,
+	            startDate,
+	            endDate
+	    );
 
-		// 4) category/status 파싱
-		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
-		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+	    Boolean standardBool = parseStandardOrNull(standard);
+	    Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+	    OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+	    String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-		// 5) keyword 정리
-		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+	    String sortProperty = mapSortFieldToProperty(sortField);
 
-		// ✅ 6) 정렬 매핑
-		String sortProperty = mapSortFieldToProperty(sortField);
+	    String safeSortDir = (sortDir == null) ? "desc" : sortDir.trim();
+	    Sort.Direction direction = "asc".equalsIgnoreCase(safeSortDir)
+	            ? Sort.Direction.ASC
+	            : Sort.Direction.DESC;
 
-		// ✅ 6-1) sortDir 안정화 (공백/줄바꿈 방지)
-		String safeSortDir = (sortDir == null) ? "desc" : sortDir.trim();
-		Sort.Direction direction = "asc".equalsIgnoreCase(safeSortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+	    if (sortProperty == null || sortProperty.isBlank()) {
+	        sortProperty = "createdAt";
+	        direction = Sort.Direction.DESC;
+	        safeSortDir = "desc";
+	        sortField = "orderDate";
+	    }
 
-		// ✅ 6-2) 핵심: sortProperty가 null/blank면 Sort.by()가 터집니다 -> fallback
-		if (sortProperty == null || sortProperty.isBlank()) {
-			// 기본 정렬 필드(엔티티에 확실히 존재하는 걸로 지정하세요)
-			// 보통 BaseEntity면 createdAt이 있을 가능성이 높습니다.
-			sortProperty = "createdAt";
-			direction = Sort.Direction.DESC;
-			safeSortDir = "desc";
-			sortField = "orderDate"; // UI 유지용(원하시면 제거 가능)
-		}
+	    Pageable sortedPageable = PageRequest.of(
+	            pageable.getPageNumber(),
+	            pageable.getPageSize(),
+	            Sort.by(direction, sortProperty)
+	    );
 
-		// ✅ 7) Pageable에 정렬 적용
-		Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
-				Sort.by(direction, sortProperty));
+	    Page<Order> orders = orderRepository.findFilteredOrders(
+	            finalKeyword,
+	            finalDateCriteria,
+	            range.getStart(),
+	            range.getEnd(),
+	            categoryId,
+	            statusEnum,
+	            standardBool,
+	            sortedPageable
+	    );
 
-		// ✅ 8) Repository: JPQL에 ORDER BY가 없어야 pageable sort가 먹습니다.
-		Page<Order> orders = orderRepository.findFilteredOrders(finalKeyword, finalDateCriteria, range.getStart(),
-				range.getEnd(), categoryId, statusEnum, standardBool, sortedPageable);
+	    Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(
+	            nonStandardTaskListViewService::toRow
+	    );
 
-		// ✅ 페이지네이션 계산
-		int currentPage1 = orders.getPageable().getPageNumber() + 1;
-		int startPageNum = Math.max(1, currentPage1 - 4);
-		int endPageNum = Math.min(orders.getTotalPages(), currentPage1 + 4);
+	    List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkView(
+	            finalKeyword,
+	            finalDateCriteria,
+	            range.getStart(),
+	            range.getEnd(),
+	            categoryId,
+	            statusEnum,
+	            standardBool
+	    );
 
-		model.addAttribute("orders", orders);
-		model.addAttribute("startPage", startPageNum);
-		model.addAttribute("endPage", endPageNum);
+	    List<NonStandardTaskListOrderRowDto> bulkOrderRows =
+	            nonStandardTaskListViewService.toBulkRows(bulkOrders);
 
-		// 필터 데이터
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
-		model.addAttribute("orderStatuses", OrderStatus.values());
+	    int currentPage1 = orders.getPageable().getPageNumber() + 1;
+	    int startPageNum = Math.max(1, currentPage1 - 4);
+	    int endPageNum = Math.min(orders.getTotalPages(), currentPage1 + 4);
 
-		// 필터 유지
-		model.addAttribute("keyword", (keyword == null) ? "" : keyword);
-		model.addAttribute("dateCriteria", finalDateCriteria);
+	    List<Company> companies = companyRepository.findAll();
 
-		model.addAttribute("startDate", range.getStartDateStr());
-		model.addAttribute("endDate", range.getEndDateStr());
-		model.addAttribute("startDateStr", range.getStartDateStr());
-		model.addAttribute("endDateStr", range.getEndDateStr());
+	    List<NonStandardTaskListCompanyOptionDto> companyOptions = companies.stream()
+	            .map(company -> {
+	                String representativeName = memberRepository
+	                        .findCompanyMembersByRole(
+	                                company.getId(),
+	                                MemberRole.CUSTOMER_REPRESENTATIVE,
+	                                PageRequest.of(0, 1)
+	                        )
+	                        .stream()
+	                        .findFirst()
+	                        .map(Member::getName)
+	                        .orElse("");
 
-		model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
-		model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
-		model.addAttribute("standard", (standard == null) ? "all" : standard);
+	                return new NonStandardTaskListCompanyOptionDto(
+	                        company.getId(),
+	                        company.getCompanyName(),
+	                        representativeName
+	                );
+	            })
+	            .toList();
 
-		// ✅ 정렬 유지 (safe 값으로 내려줌)
-		model.addAttribute("sortField", sortField);
-		model.addAttribute("sortDir", "asc".equalsIgnoreCase(safeSortDir) ? "asc" : "desc");
+	    List<NonStandardTaskListCompanyMemberOptionDto> companyMemberOptions = companies.stream()
+	            .flatMap(company -> memberRepository.findByCompany_Id(company.getId()).stream()
+	                    .map(member -> new NonStandardTaskListCompanyMemberOptionDto(
+	                            company.getId(),
+	                            member.getId(),
+	                            member.getName()
+	                    )))
+	            .toList();
 
-		// ✅ 페이지 사이즈 유지
-		model.addAttribute("pageSize", orders.getSize());
+	    model.addAttribute("orders", orders);
+	    model.addAttribute("orderRows", orderRows);
 
-		return "administration/management/order/nonStandard/taskList";
+	    model.addAttribute("bulkOrderRows", bulkOrderRows);
+	    model.addAttribute("bulkOrderCount", bulkOrderRows.size());
+
+	    model.addAttribute("startPage", startPageNum);
+	    model.addAttribute("endPage", endPageNum);
+
+	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+	    model.addAttribute("orderStatuses", OrderStatus.values());
+	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+	    model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
+
+	    model.addAttribute("companyOptions", companyOptions);
+	    model.addAttribute("companyMemberOptions", companyMemberOptions);
+
+	    model.addAttribute("keyword", (keyword == null) ? "" : keyword);
+	    model.addAttribute("dateCriteria", finalDateCriteria);
+
+	    model.addAttribute("startDate", range.getStartDateStr());
+	    model.addAttribute("endDate", range.getEndDateStr());
+	    model.addAttribute("startDateStr", range.getStartDateStr());
+	    model.addAttribute("endDateStr", range.getEndDateStr());
+
+	    model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
+	    model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
+	    model.addAttribute("standard", (standard == null) ? "all" : standard);
+
+	    model.addAttribute("sortField", sortField);
+	    model.addAttribute("sortDir", "asc".equalsIgnoreCase(safeSortDir) ? "asc" : "desc");
+
+	    model.addAttribute("pageSize", orders.getSize());
+
+	    return "administration/management/order/nonStandard/taskList";
 	}
 
 	/**
