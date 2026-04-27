@@ -45,7 +45,9 @@ public class Order {
     @JoinColumn(name = "product_category_id")
     private TeamCategory productCategory;
 
+    @Column(name = "zip_code", length = 20)
     private String zipCode;
+    
     private String doName;
     private String siName;
     private String guName;

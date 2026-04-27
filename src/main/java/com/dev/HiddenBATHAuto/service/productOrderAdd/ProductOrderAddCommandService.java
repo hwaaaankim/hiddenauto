@@ -11,6 +11,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -60,6 +62,9 @@ public class ProductOrderAddCommandService {
     private static final Long DEFAULT_PRODUCTION_TEAM_CATEGORY_ID = 1L;
     private static final String MANAGEMENT_UPLOAD_TYPE = "MANAGEMENT";
     private static final Long DEFAULT_FALLBACK_TEAM_ID = 1L;
+    private static final int ZIP_CODE_MAX_LENGTH = 20;
+    private static final Pattern KOREA_ZONE_CODE_PATTERN = Pattern.compile("\\b\\d{5}\\b");
+    private static final String NO_STANDARD_SERIES_NAME = "중분류 없음";
 
     private final CompanyRepository companyRepository;
     private final MemberRepository memberRepository;
@@ -176,13 +181,13 @@ public class ProductOrderAddCommandService {
     }
 
     private void validateCommonDeliveryAddress(ProductOrderAddRequest request) {
-        normalizeRequired(request.getZipCode(), "우편번호");
+        normalizeZipCodeRequired(request.getZipCode());
         normalizeRequired(request.getDoName(), "도/시");
         normalizeRequired(request.getRoadAddress(), "도로명 주소");
     }
 
     private void applyCommonDeliveryAddress(Order order, ProductOrderAddRequest request) {
-        order.setZipCode(normalizeRequired(request.getZipCode(), "우편번호"));
+        order.setZipCode(normalizeZipCodeRequired(request.getZipCode()));
         order.setDoName(normalizeRequired(request.getDoName(), "도/시"));
         order.setSiName(trimToNull(request.getSiName()));
         order.setGuName(trimToNull(request.getGuName()));
@@ -197,20 +202,28 @@ public class ProductOrderAddCommandService {
             if (request.getStandardCategoryId() == null) {
                 throw new IllegalArgumentException("규격 주문은 대분류를 선택해야 합니다.");
             }
-            if (request.getStandardProductSeriesId() == null) {
-                throw new IllegalArgumentException("규격 주문은 중분류를 선택해야 합니다.");
-            }
 
             StandardCategory category = standardCategoryRepository.findById(request.getStandardCategoryId())
                     .orElseThrow(() -> new IllegalArgumentException("선택한 규격 대분류를 찾을 수 없습니다."));
 
-            StandardProductSeries series = standardProductSeriesRepository
-                    .findByIdAndCategory_Id(request.getStandardProductSeriesId(), request.getStandardCategoryId())
-                    .orElseThrow(() -> new IllegalArgumentException("선택한 규격 중분류를 찾을 수 없습니다."));
+            Long standardProductSeriesId = normalizePositiveId(request.getStandardProductSeriesId());
+
+            StandardProductSeries series = null;
+
+            if (standardProductSeriesId != null) {
+                series = standardProductSeriesRepository
+                        .findByIdAndCategory_Id(standardProductSeriesId, request.getStandardCategoryId())
+                        .orElseThrow(() -> new IllegalArgumentException("선택한 규격 중분류를 찾을 수 없습니다."));
+            }
 
             TeamCategory productCategory = resolveProductionCategoryForStandardCategory(category.getName());
 
-            return new ResolvedOrderMeta(productCategory, category.getName(), series.getName(), series.getId());
+            return new ResolvedOrderMeta(
+                    productCategory,
+                    category.getName(),
+                    series == null ? null : series.getName(),
+                    series == null ? null : series.getId()
+            );
         }
 
         if (request.getProductionCategoryId() == null) {
@@ -248,8 +261,17 @@ public class ProductOrderAddCommandService {
         optionMap.put("카테고리", resolved.categoryName());
 
         if (Boolean.TRUE.equals(request.getStandard())) {
-            optionMap.put("제품시리즈", resolved.seriesName());
-            optionMap.put("제품시리즈ID", String.valueOf(resolved.seriesId()));
+            optionMap.put(
+                    "제품시리즈",
+                    resolved.seriesName() == null || resolved.seriesName().isBlank()
+                            ? NO_STANDARD_SERIES_NAME
+                            : resolved.seriesName()
+            );
+
+            optionMap.put(
+                    "제품시리즈ID",
+                    resolved.seriesId() == null ? "" : String.valueOf(resolved.seriesId())
+            );
         }
 
         optionMap.put("제품명", normalizeRequired(request.getProductName(), "제품명"));
@@ -285,6 +307,32 @@ public class ProductOrderAddCommandService {
         return optionMap;
     }
 
+    private Long normalizePositiveId(Long id) {
+        if (id == null || id <= 0) {
+            return null;
+        }
+
+        return id;
+    }
+
+    private String normalizeZipCodeRequired(String value) {
+        String trimmed = normalizeRequired(value, "우편번호");
+
+        Matcher matcher = KOREA_ZONE_CODE_PATTERN.matcher(trimmed);
+
+        if (matcher.find()) {
+            return matcher.group();
+        }
+
+        if (trimmed.length() <= ZIP_CODE_MAX_LENGTH) {
+            return trimmed;
+        }
+
+        throw new IllegalArgumentException(
+                "우편번호가 너무 깁니다. 주소검색으로 우편번호를 다시 선택해 주세요. 입력값: " + trimmed
+        );
+    }
+    
     private String resolveProductName(LinkedHashMap<String, String> optionMap, ResolvedOrderMeta resolved) {
         String productName = optionMap.get("제품명");
 

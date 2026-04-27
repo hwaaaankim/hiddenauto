@@ -17,7 +17,7 @@
 		seriesCache: {},
 		orders: [],
 		saving: false,
-
+		activePasteOrderId: null,
 		companyDeliveryAddresses: [],
 		companyDeliveryAddressLoadedForCompanyId: null,
 
@@ -183,6 +183,14 @@
 		els.orderList.addEventListener('dragover', handleOrderListDragOver);
 		els.orderList.addEventListener('dragleave', handleOrderListDragLeave);
 		els.orderList.addEventListener('drop', handleOrderListDrop);
+
+		els.orderList.addEventListener('pointerdown', rememberPasteTargetByEvent);
+		els.orderList.addEventListener('pointerdown', handleProductionDropdownPointerDown);
+		els.orderList.addEventListener('dragover', handleOrderListDragOver);
+		els.orderList.addEventListener('dragleave', handleOrderListDragLeave);
+		els.orderList.addEventListener('drop', handleOrderListDrop);
+
+		document.addEventListener('paste', handleDocumentPaste);
 
 		document.addEventListener('click', (event) => {
 			const companyWrap = els.companyInput.closest('.product-admin-add-autocomplete-wrap');
@@ -871,6 +879,7 @@
 
 		const order = createEmptyOrder();
 		state.orders.push(order);
+		state.activePasteOrderId = order.id;
 
 		els.emptyState.classList.add('d-none');
 		appendOrderCard(order, state.orders.length - 1);
@@ -1086,7 +1095,7 @@
                                 <select class="form-select"
                                     data-field="standardSeriesId"
                                     data-order-id="${order.id}">
-                                    <option value="">중분류 선택</option>
+                                    <option value="">중분류 없음 / 선택 안 함</option>
                                     ${(order.standardSeriesOptions || []).map(item => `
                                         <option value="${item.id}" ${String(order.standardSeriesId) === String(item.id) ? 'selected' : ''}>
                                             ${escapeHtml(item.name)}
@@ -1251,14 +1260,16 @@
                     </div>
 
                     <div class="product-admin-add-upload-box product-admin-add-drop-zone"
-                        data-drop-zone="true"
-                        data-order-id="${order.id}">
+					    data-drop-zone="true"
+					    data-order-id="${order.id}"
+					    tabindex="0"
+					    aria-label="파일 업로드 영역">
 
                         <div class="product-admin-add-file-toolbar">
                             <div>
                                 <div class="text-muted">0장 ~ 여러 장까지 업로드할 수 있습니다.</div>
                                 <div class="product-admin-add-drop-help">
-                                    파일을 이 영역으로 드래그 앤 드랍하거나 파일 선택 버튼을 눌러 주세요.
+                                    파일을 이 영역으로 드래그 앤 드랍하거나, 파일 선택 또는 Ctrl+V로 복사한 이미지를 추가해 주세요.
                                 </div>
                             </div>
 
@@ -1652,6 +1663,8 @@
 	}
 
 	function handleOrderListFocusIn(event) {
+		rememberPasteTargetByEvent(event);
+
 		const target = event.target;
 		const orderId = target.dataset.orderId;
 		const order = findOrder(orderId);
@@ -1924,6 +1937,154 @@
 		updateFileList(orderId);
 	}
 
+	function handleDocumentPaste(event) {
+		if (!state.orders.length) {
+			return;
+		}
+
+		if (els.summaryModalEl && els.summaryModalEl.classList.contains('show')) {
+			return;
+		}
+
+		const files = extractClipboardImageFiles(event.clipboardData);
+
+		if (!files.length) {
+			return;
+		}
+
+		const orderId = resolvePasteOrderId(event);
+		const order = findOrder(orderId);
+
+		if (!order) {
+			showTopMessage('이미지를 추가할 주문 영역을 먼저 클릭한 뒤 Ctrl+V 해주세요.', true);
+			return;
+		}
+
+		event.preventDefault();
+
+		appendFiles(order, files);
+		updateFileList(orderId);
+		hideTopMessage();
+	}
+
+	function rememberPasteTargetByEvent(event) {
+		if (!event || !event.target || !event.target.closest) {
+			return;
+		}
+
+		const orderElement = event.target.closest('[data-order-id]');
+
+		if (!orderElement) {
+			return;
+		}
+
+		const orderId = orderElement.dataset.orderId;
+
+		if (findOrder(orderId)) {
+			state.activePasteOrderId = orderId;
+		}
+	}
+
+	function resolvePasteOrderId(event) {
+		if (event && event.target && event.target.closest) {
+			const orderElement = event.target.closest('[data-order-id]');
+
+			if (orderElement && findOrder(orderElement.dataset.orderId)) {
+				return orderElement.dataset.orderId;
+			}
+		}
+
+		if (state.activePasteOrderId && findOrder(state.activePasteOrderId)) {
+			return state.activePasteOrderId;
+		}
+
+		if (state.orders.length === 1) {
+			return state.orders[0].id;
+		}
+
+		return null;
+	}
+
+	function extractClipboardImageFiles(clipboardData) {
+		if (!clipboardData) {
+			return [];
+		}
+
+		const result = [];
+
+		const items = Array.from(clipboardData.items || []);
+
+		items.forEach((item, index) => {
+			if (!item || item.kind !== 'file' || !item.type || !item.type.startsWith('image/')) {
+				return;
+			}
+
+			const file = item.getAsFile();
+
+			if (!file) {
+				return;
+			}
+
+			result.push(convertClipboardImageFile(file, index));
+		});
+
+		if (result.length) {
+			return result;
+		}
+
+		return Array.from(clipboardData.files || [])
+			.filter(file => file && file.type && file.type.startsWith('image/'))
+			.map((file, index) => convertClipboardImageFile(file, index));
+	}
+
+	function convertClipboardImageFile(file, index) {
+		const extension = getExtensionFromMimeType(file.type);
+		const fallbackName = `clipboard-${formatDateTimeForFileName(new Date())}-${index + 1}.${extension}`;
+		const filename = file.name && file.name.trim() ? file.name : fallbackName;
+
+		try {
+			return new File([file], filename, {
+				type: file.type || 'image/png',
+				lastModified: Date.now()
+			});
+		} catch (error) {
+			return file;
+		}
+	}
+
+	function getExtensionFromMimeType(mimeType) {
+		const type = String(mimeType || '').toLowerCase();
+
+		if (type.includes('jpeg') || type.includes('jpg')) {
+			return 'jpg';
+		}
+
+		if (type.includes('webp')) {
+			return 'webp';
+		}
+
+		if (type.includes('gif')) {
+			return 'gif';
+		}
+
+		if (type.includes('bmp')) {
+			return 'bmp';
+		}
+
+		return 'png';
+	}
+
+	function formatDateTimeForFileName(date) {
+		const y = date.getFullYear();
+		const m = String(date.getMonth() + 1).padStart(2, '0');
+		const d = String(date.getDate()).padStart(2, '0');
+		const hh = String(date.getHours()).padStart(2, '0');
+		const mm = String(date.getMinutes()).padStart(2, '0');
+		const ss = String(date.getSeconds()).padStart(2, '0');
+
+		return `${y}${m}${d}-${hh}${mm}${ss}`;
+	}
+
 	function updateOptionList(orderId) {
 		const order = findOrder(orderId);
 		const list = els.orderList.querySelector(
@@ -1965,6 +2126,10 @@
 		}
 
 		state.orders = state.orders.filter(order => order.id !== orderId);
+
+		if (state.activePasteOrderId === orderId) {
+			state.activePasteOrderId = state.orders.length ? state.orders[0].id : null;
+		}
 
 		renderOrders();
 		refreshBottomSummary();
@@ -2108,13 +2273,6 @@
 					return false;
 				}
 
-				if (!order.standardSeriesId) {
-					if (showMessage) {
-						showTopMessage(`주문 ${orderNo}: 규격 중분류를 선택해 주세요.`, true);
-					}
-					return false;
-				}
-
 				if (!order.assignedProductionCategoryId) {
 					if (showMessage) {
 						showTopMessage(`주문 ${orderNo}: 대분류 기준 생산팀 분류를 찾지 못했습니다.`, true);
@@ -2219,8 +2377,10 @@
 				? getStandardCategoryName(order.standardCategoryId)
 				: (order.customProductionCategoryName || '-');
 
+			const seriesLabel = getStandardSeriesName(order) || '중분류 없음';
+
 			const detailLabel = order.standard
-				? `${getStandardSeriesName(order)} / 생산팀: ${order.assignedProductionCategoryName || '-'}`
+				? `${seriesLabel} / 생산팀: ${order.assignedProductionCategoryName || '-'}`
 				: `생산팀 분류: ${order.customProductionCategoryName || '-'}`;
 
 			return `
@@ -2360,7 +2520,7 @@
 						? Number(order.standardCategoryId)
 						: null,
 
-					standardProductSeriesId: order.standard
+					standardProductSeriesId: order.standard && order.standardSeriesId
 						? Number(order.standardSeriesId)
 						: null,
 
