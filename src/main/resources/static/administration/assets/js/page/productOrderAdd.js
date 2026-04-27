@@ -604,7 +604,17 @@
 		renderAddressSummary();
 		refreshActionButtons();
 	}
+	function normalizeZipCode(value) {
+		const raw = String(value || '').trim();
 
+		const matched = raw.match(/\b\d{5}\b/);
+
+		if (matched) {
+			return matched[0];
+		}
+
+		return raw.length <= 20 ? raw : '';
+	}
 	function normalizeZipCode(value) {
 		const raw = String(value || '').trim();
 

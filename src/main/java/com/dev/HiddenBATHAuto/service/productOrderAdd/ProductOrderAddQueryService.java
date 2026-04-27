@@ -58,19 +58,19 @@ public class ProductOrderAddQueryService {
                 continue;
             }
 
-            result.put(company.getId(), new ProductOrderCompanyOptionResponse(
-                    company.getId(),
-                    company.getCompanyName(),
-                    rep.getName(),
-                    company.getCreatedAt(),
-                    buildCompanyAddress(company),
-                    trimToEmpty(company.getZipCode()),
-                    trimToEmpty(company.getDoName()),
-                    trimToEmpty(company.getSiName()),
-                    trimToEmpty(company.getGuName()),
-                    trimToEmpty(company.getRoadAddress()),
-                    trimToEmpty(company.getDetailAddress())
-            ));
+            result.put(company.getId(), ProductOrderCompanyOptionResponse.builder()
+                    .companyId(company.getId())
+                    .companyName(company.getCompanyName())
+                    .representativeName(rep.getName())
+                    .joinedAt(company.getCreatedAt())
+                    .address(buildCompanyAddress(company))
+                    .zipCode(trimToEmpty(company.getZipCode()))
+                    .doName(trimToEmpty(company.getDoName()))
+                    .siName(trimToEmpty(company.getSiName()))
+                    .guName(trimToEmpty(company.getGuName()))
+                    .roadAddress(trimToEmpty(company.getRoadAddress()))
+                    .detailAddress(trimToEmpty(company.getDetailAddress()))
+                    .build());
         }
 
         return new ArrayList<>(result.values());
@@ -83,16 +83,16 @@ public class ProductOrderAddQueryService {
         List<ProductOrderCompanyDeliveryAddressResponse> result = new ArrayList<>();
 
         for (CompanyDeliveryAddress address : addresses) {
-            result.add(new ProductOrderCompanyDeliveryAddressResponse(
-                    address.getId(),
-                    trimToEmpty(address.getZipCode()),
-                    trimToEmpty(address.getDoName()),
-                    trimToEmpty(address.getSiName()),
-                    trimToEmpty(address.getGuName()),
-                    trimToEmpty(address.getRoadAddress()),
-                    trimToEmpty(address.getDetailAddress()),
-                    buildDeliveryAddress(address)
-            ));
+        	result.add(ProductOrderCompanyDeliveryAddressResponse.builder()
+        	        .id(address.getId())
+        	        .zipCode(trimToEmpty(address.getZipCode()))
+        	        .doName(trimToEmpty(address.getDoName()))
+        	        .siName(trimToEmpty(address.getSiName()))
+        	        .guName(trimToEmpty(address.getGuName()))
+        	        .roadAddress(trimToEmpty(address.getRoadAddress()))
+        	        .detailAddress(trimToEmpty(address.getDetailAddress()))
+        	        .address(buildDeliveryAddress(address))
+        	        .build());
         }
 
         return result;
