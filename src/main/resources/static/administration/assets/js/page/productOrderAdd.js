@@ -589,7 +589,7 @@
 
 	function setAddressState(address, source) {
 		state.address = {
-			zipCode: (address.zipCode || '').trim(),
+			zipCode: normalizeZipCode(address.zipCode || ''),
 			doName: (address.doName || '').trim(),
 			siName: (address.siName || '').trim(),
 			guName: (address.guName || '').trim(),
@@ -603,6 +603,18 @@
 		clearAddressFeedback();
 		renderAddressSummary();
 		refreshActionButtons();
+	}
+
+	function normalizeZipCode(value) {
+		const raw = String(value || '').trim();
+
+		const matched = raw.match(/\b\d{5}\b/);
+
+		if (matched) {
+			return matched[0];
+		}
+
+		return raw;
 	}
 
 	function syncAddressInputs() {

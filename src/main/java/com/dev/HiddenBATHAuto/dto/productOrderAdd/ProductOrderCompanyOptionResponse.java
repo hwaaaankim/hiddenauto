@@ -10,18 +10,45 @@ import lombok.Getter;
 public class ProductOrderCompanyOptionResponse {
 
     private Long companyId;
+
     private String companyName;
+
     private String representativeName;
+
     private LocalDateTime joinedAt;
 
-    // 드롭다운/요약 표시용 전체 주소
+    /**
+     * 화면 표시용 전체 주소
+     */
     private String address;
 
-    // 회원주소와 동일 체크 시 자동 입력할 실제 주소 필드
+    /**
+     * 우편번호
+     */
     private String zipCode;
+
+    /**
+     * 도/시
+     */
     private String doName;
+
+    /**
+     * 시
+     */
     private String siName;
+
+    /**
+     * 구/군
+     */
     private String guName;
+
+    /**
+     * 도로명 주소
+     */
     private String roadAddress;
+
+    /**
+     * 상세주소
+     */
     private String detailAddress;
 }
