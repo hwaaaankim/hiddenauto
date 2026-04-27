@@ -183,10 +183,13 @@
 											<h5 class="card-title mb-1">주문 목록</h5>
 											<p class="text-muted mb-0">규격/비규격을 선택한 뒤 옵션, 첨부파일, 가격, 수량을 입력해 주세요.</p>
 										</div>
-										<button type="button" id="product-admin-add-order-add-btn"
-											class="btn btn-primary product-admin-add-main-btn" disabled>
-											<i class="ri-add-line align-bottom me-1"></i> 주문추가
-										</button>
+										<div id="product-admin-add-order-add-top-slot"
+											class="product-admin-add-order-add-top-slot">
+											<button type="button" id="product-admin-add-order-add-btn"
+												class="btn btn-primary product-admin-add-main-btn" disabled>
+												<i class="ri-add-line align-bottom me-1"></i> 주문추가
+											</button>
+										</div>
 									</div>
 								</div>
 
@@ -226,6 +229,9 @@
 										class="btn btn-success product-admin-add-main-btn" disabled>
 										발주등록
 									</button>
+
+									<div id="product-admin-add-order-add-bottom-slot"
+										class="product-admin-add-order-add-bottom-slot d-none"></div>
 								</div>
 							</div>
 						</div>

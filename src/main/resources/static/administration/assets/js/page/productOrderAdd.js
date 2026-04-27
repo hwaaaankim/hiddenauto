@@ -86,6 +86,9 @@
 		els.addressFeedback = document.getElementById('product-admin-add-address-feedback');
 		els.addressSummary = document.getElementById('product-admin-add-address-summary');
 
+		els.orderAddTopSlot = document.getElementById('product-admin-add-order-add-top-slot');
+		els.orderAddBottomSlot = document.getElementById('product-admin-add-order-add-bottom-slot');
+
 		els.orderAddBtn = document.getElementById('product-admin-add-order-add-btn');
 		els.orderList = document.getElementById('product-admin-add-order-list');
 		els.emptyState = document.getElementById('product-admin-add-empty-state');
@@ -890,6 +893,8 @@
 		if (els.companyAddressSearchBtn) {
 			els.companyAddressSearchBtn.disabled = !state.company;
 		}
+
+		syncOrderAddButtonPosition();
 	}
 
 	function handleAddOrder() {
@@ -1093,9 +1098,12 @@
                 <div class="col-12">
                     <div class="product-admin-add-section-box">
                         <div class="product-admin-add-section-title">
-                            <h6>규격 주문 정보</h6>
-                            ${renderStandardAssignedBadge(order)}
-                        </div>
+						    <h6>규격 주문 정보</h6>
+						    <span id="product-admin-add-standard-badge-${order.id}"
+						        class="product-admin-add-standard-badge-wrap">
+						        ${renderStandardAssignedBadge(order)}
+						    </span>
+						</div>
 
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
@@ -1198,6 +1206,41 @@
 		return `<span class="badge bg-soft-danger text-danger">생산팀 분류 자동 지정 실패</span>`;
 	}
 
+	function updateStandardAssignedBadge(orderId) {
+		const order = findOrder(orderId);
+		const badgeWrap = document.getElementById(`product-admin-add-standard-badge-${orderId}`);
+
+		if (!order || !badgeWrap) {
+			return;
+		}
+
+		badgeWrap.innerHTML = renderStandardAssignedBadge(order);
+	}
+
+	function updateStandardSeriesSelect(orderId) {
+		const order = findOrder(orderId);
+
+		if (!order) {
+			return;
+		}
+
+		const select = els.orderList.querySelector(
+			`select[data-field="standardSeriesId"][data-order-id="${orderId}"]`
+		);
+
+		if (!select) {
+			return;
+		}
+
+		select.innerHTML = `
+		<option value="">중분류 없음 / 선택 안 함</option>
+		${(order.standardSeriesOptions || []).map(item => `
+			<option value="${item.id}" ${String(order.standardSeriesId) === String(item.id) ? 'selected' : ''}>
+				${escapeHtml(item.name)}
+			</option>
+		`).join('')}
+	`;
+	}
 	function renderProductOptionSection(order) {
 		return `
             <div class="col-12">
@@ -1504,17 +1547,53 @@
 		}
 
 		if (target.matches('[data-field="standardCategoryId"]')) {
-			order.standardCategoryId = target.value;
+			const selectedCategoryId = target.value;
+
+			order.standardCategoryId = selectedCategoryId;
 			order.standardSeriesId = '';
-			order.standardSeriesOptions = order.standardCategoryId
-				? await loadStandardSeries(order.standardCategoryId)
-				: [];
+			order.standardSeriesOptions = [];
 
 			assignProductionCategoryByStandardCategory(order);
+			updateStandardAssignedBadge(orderId);
+			updateStandardSeriesSelect(orderId);
 
-			rerenderSingleOrder(orderId, {
-				focusSelector: '[data-field="standardSeriesId"]'
-			});
+			const seriesSelect = els.orderList.querySelector(
+				`select[data-field="standardSeriesId"][data-order-id="${orderId}"]`
+			);
+
+			if (seriesSelect) {
+				seriesSelect.disabled = true;
+				seriesSelect.innerHTML = '<option value="">중분류 불러오는 중...</option>';
+			}
+
+			try {
+				const series = selectedCategoryId
+					? await loadStandardSeries(selectedCategoryId)
+					: [];
+
+				if (String(order.standardCategoryId) !== String(selectedCategoryId)) {
+					return;
+				}
+
+				order.standardSeriesOptions = series;
+				order.standardSeriesId = '';
+
+				updateStandardSeriesSelect(orderId);
+				updateStandardAssignedBadge(orderId);
+
+				focusOrderField(orderId, '[data-field="standardSeriesId"]');
+			} finally {
+				const latestSeriesSelect = els.orderList.querySelector(
+					`select[data-field="standardSeriesId"][data-order-id="${orderId}"]`
+				);
+
+				if (latestSeriesSelect) {
+					latestSeriesSelect.disabled = false;
+				}
+			}
+
+			hideTopMessage();
+			refreshActionButtons();
 			return;
 		}
 
@@ -2244,7 +2323,23 @@
 		els.bottomOrderCount.textContent = `${totalOrderCount}건`;
 		els.bottomTotalPrice.textContent = formatCurrency(totalPrice);
 	}
+	function syncOrderAddButtonPosition() {
+		if (!els.orderAddBtn || !els.orderAddTopSlot || !els.orderAddBottomSlot) {
+			return;
+		}
 
+		const shouldMoveToBottom = state.orders.length > 0;
+		const targetSlot = shouldMoveToBottom
+			? els.orderAddBottomSlot
+			: els.orderAddTopSlot;
+
+		if (els.orderAddBtn.parentElement !== targetSlot) {
+			targetSlot.appendChild(els.orderAddBtn);
+		}
+
+		els.orderAddBottomSlot.classList.toggle('d-none', !shouldMoveToBottom);
+		els.orderAddBtn.classList.toggle('product-admin-add-order-add-btn-bottom', shouldMoveToBottom);
+	}
 	function validateCommonFields(showMessage = false) {
 		const companyValid = validateExactCompanySelection(showMessage);
 		const deliveryValid = validateExactDeliverySelection(showMessage);
