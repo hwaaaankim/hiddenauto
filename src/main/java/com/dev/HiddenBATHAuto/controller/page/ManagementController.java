@@ -63,6 +63,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.MemberSaveDTO;
@@ -119,6 +120,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
@@ -152,19 +154,20 @@ public class ManagementController {
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
 	@GetMapping("/nonStandardTaskList")
-	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
+	public String nonStandardTaskList(
+	        @RequestParam(required = false, defaultValue = "") String keyword,
 	        @RequestParam(required = false, defaultValue = "all") String dateCriteria,
 	        @RequestParam(required = false) String startDate,
 	        @RequestParam(required = false) String endDate,
 	        @RequestParam(required = false, defaultValue = "all") String productCategoryId,
 	        @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
 	        @RequestParam(required = false, defaultValue = "all") String standard,
-
 	        @RequestParam(required = false, defaultValue = "orderDate") String sortField,
 	        @RequestParam(required = false, defaultValue = "desc") String sortDir,
-
 	        @PageableDefault(size = 10) Pageable pageable,
-	        Model model) {
+	        HttpServletRequest request,
+	        Model model
+	) {
 
 	    String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
@@ -214,19 +217,6 @@ public class ManagementController {
 	            nonStandardTaskListViewService::toRow
 	    );
 
-	    List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkView(
-	            finalKeyword,
-	            finalDateCriteria,
-	            range.getStart(),
-	            range.getEnd(),
-	            categoryId,
-	            statusEnum,
-	            standardBool
-	    );
-
-	    List<NonStandardTaskListOrderRowDto> bulkOrderRows =
-	            nonStandardTaskListViewService.toBulkRows(bulkOrders);
-
 	    int currentPage1 = orders.getPageable().getPageNumber() + 1;
 	    int startPageNum = Math.max(1, currentPage1 - 4);
 	    int endPageNum = Math.min(orders.getTotalPages(), currentPage1 + 4);
@@ -266,8 +256,8 @@ public class ManagementController {
 	    model.addAttribute("orders", orders);
 	    model.addAttribute("orderRows", orderRows);
 
-	    model.addAttribute("bulkOrderRows", bulkOrderRows);
-	    model.addAttribute("bulkOrderCount", bulkOrderRows.size());
+	    model.addAttribute("bulkOrderRows", List.of());
+	    model.addAttribute("bulkOrderCount", orders.getTotalElements());
 
 	    model.addAttribute("startPage", startPageNum);
 	    model.addAttribute("endPage", endPageNum);
@@ -294,12 +284,64 @@ public class ManagementController {
 
 	    model.addAttribute("sortField", sortField);
 	    model.addAttribute("sortDir", "asc".equalsIgnoreCase(safeSortDir) ? "asc" : "desc");
-
+	    model.addAttribute("currentListUrl", buildCurrentRequestUrl(request));
 	    model.addAttribute("pageSize", orders.getSize());
 
 	    return "administration/management/order/nonStandard/taskList";
 	}
+	
+	@GetMapping("/nonStandardTaskList/bulk-fragment")
+	public String nonStandardTaskListBulkFragment(
+	        @RequestParam(required = false, defaultValue = "") String keyword,
+	        @RequestParam(required = false, defaultValue = "all") String dateCriteria,
+	        @RequestParam(required = false) String startDate,
+	        @RequestParam(required = false) String endDate,
+	        @RequestParam(required = false, defaultValue = "all") String productCategoryId,
+	        @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+	        @RequestParam(required = false, defaultValue = "all") String standard,
+	        Model model
+	) {
+	    String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
+	    DateRange range = buildDateRangeForCriteria(
+	            finalDateCriteria,
+	            startDate,
+	            endDate
+	    );
+
+	    Boolean standardBool = parseStandardOrNull(standard);
+	    Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+	    OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+	    String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+
+	    List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkView(
+	            finalKeyword,
+	            finalDateCriteria,
+	            range.getStart(),
+	            range.getEnd(),
+	            categoryId,
+	            statusEnum,
+	            standardBool
+	    );
+
+	    List<NonStandardTaskListOrderRowDto> bulkOrderRows =
+	            nonStandardTaskListViewService.toBulkRows(bulkOrders);
+
+	    model.addAttribute("bulkOrderRows", bulkOrderRows);
+
+	    return "administration/management/order/nonStandard/taskList :: bulkOrderCards";
+	}
+	
+	private String buildCurrentRequestUrl(HttpServletRequest request) {
+	    String queryString = request.getQueryString();
+
+	    if (queryString == null || queryString.isBlank()) {
+	        return request.getRequestURI();
+	    }
+
+	    return request.getRequestURI() + "?" + queryString;
+	}
+	
 	/**
 	 * ✅ UI에서 선택한 필드명을 실제 JPA 정렬 property로 변환 - 중요: HTML에서 보내는 sortField 값과 반드시 일치해야
 	 * 합니다. - 현재 HTML에선 agencyName, requesterName, standard, orderDate,
@@ -695,22 +737,73 @@ public class ManagementController {
 	}
 
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
-	public String updateNonStandardOrderItem(@PathVariable Long orderId, @RequestParam("productCost") int productCost,
-			@RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
-			@RequestParam("status") String statusStr, @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
-			@RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
-			@RequestParam("productCategoryId") Optional<Long> productCategoryId,
-			@RequestParam(value = "companyId", required = false) Optional<Long> companyId,
-			@RequestParam(value = "requesterMemberId", required = false) Optional<Long> requesterMemberId,
-			@RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
+	public String updateNonStandardOrderItem(
+	        @PathVariable Long orderId,
 
-			// ✅✅ 추가
-			@RequestParam(value = "adminMemo", required = false) String adminMemo) {
-		orderUpdateService.updateOrder(orderId, productCost, preferredDeliveryDate, statusStr, deliveryMethodId,
-				deliveryHandlerId, productCategoryId, companyId, requesterMemberId, adminImages, adminMemo // ✅✅ 추가
-		);
+	        @RequestParam("productCost") int productCost,
 
-		return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
+	        @RequestParam("preferredDeliveryDate")
+	        @DateTimeFormat(pattern = "yyyy-MM-dd")
+	        LocalDate preferredDeliveryDate,
+
+	        @RequestParam("status") String statusStr,
+
+	        @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
+
+	        @RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
+
+	        @RequestParam("productCategoryId") Optional<Long> productCategoryId,
+
+	        @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+
+	        @RequestParam(value = "requesterMemberId", required = false) Optional<Long> requesterMemberId,
+
+	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
+
+	        @RequestParam(value = "adminMemo", required = false) String adminMemo,
+
+	        // 넓게보기 리스트에서 수정 후 다시 현재 리스트 조건으로 복귀하기 위한 값
+	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
+
+	        RedirectAttributes redirectAttributes
+	) {
+	    orderUpdateService.updateOrder(
+	            orderId,
+	            productCost,
+	            preferredDeliveryDate,
+	            statusStr,
+	            deliveryMethodId,
+	            deliveryHandlerId,
+	            productCategoryId,
+	            companyId,
+	            requesterMemberId,
+	            adminImages,
+	            adminMemo
+	    );
+
+	    redirectAttributes.addFlashAttribute("message", "수정이 완료되었습니다.");
+
+	    // 리스트 넓게보기에서 넘어온 수정이면 기존 검색조건/페이지 유지한 채 리스트로 복귀
+	    if (isSafeNonStandardTaskListReturnUrl(returnUrl)) {
+	        return "redirect:" + returnUrl;
+	    }
+
+	    // 기존 상세페이지 수정 흐름은 그대로 유지
+	    return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
+	}
+
+	private boolean isSafeNonStandardTaskListReturnUrl(String returnUrl) {
+	    if (returnUrl == null || returnUrl.isBlank()) {
+	        return false;
+	    }
+
+	    String trimmedReturnUrl = returnUrl.trim();
+
+	    return trimmedReturnUrl.startsWith("/management/nonStandardTaskList")
+	            && !trimmedReturnUrl.startsWith("//")
+	            && !trimmedReturnUrl.contains("://")
+	            && !trimmedReturnUrl.contains("\r")
+	            && !trimmedReturnUrl.contains("\n");
 	}
 
 	@DeleteMapping("/order-image/delete/{id}")

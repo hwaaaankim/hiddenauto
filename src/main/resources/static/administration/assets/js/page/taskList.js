@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function() {
 	const dateCriteriaSelect = document.getElementById("dateCriteria");
 	const startDateInput = document.getElementById("startDate");
 	const endDateInput = document.getElementById("endDate");
@@ -17,6 +17,34 @@ document.addEventListener("DOMContentLoaded", function () {
 	const bulkCloseBtn = document.getElementById("admin-task-list-second-bulk-close-btn");
 	const bulkCheckAllBtn = document.getElementById("admin-task-list-second-bulk-check-all-btn");
 	const bulkCompleteBtn = document.getElementById("admin-task-list-second-bulk-complete-btn");
+	const pageLoadingOverlay = document.getElementById("admin-task-list-second-loading-overlay");
+	const pageLoadingMessage = document.getElementById("admin-task-list-second-loading-message");
+
+	function showPageLoading(message) {
+		if (!pageLoadingOverlay) {
+			return;
+		}
+
+		if (pageLoadingMessage && message) {
+			pageLoadingMessage.textContent = message;
+		}
+
+		pageLoadingOverlay.classList.add("is-active");
+		pageLoadingOverlay.setAttribute("aria-hidden", "false");
+	}
+
+	function hidePageLoading() {
+		if (!pageLoadingOverlay) {
+			return;
+		}
+
+		pageLoadingOverlay.classList.remove("is-active");
+		pageLoadingOverlay.setAttribute("aria-hidden", "true");
+	}
+
+	window.addEventListener("load", function() {
+		hidePageLoading();
+	});
 
 	function getOrderCheckboxes() {
 		return Array.from(document.querySelectorAll(".task-list-order-checkbox"));
@@ -142,6 +170,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			}
 
 			alert(data.message || "삭제가 완료되었습니다.");
+			showPageLoading("목록을 다시 불러오는 중입니다.");
 			window.location.reload();
 		} catch (error) {
 			alert(error.message || "삭제 처리 중 오류가 발생했습니다.");
@@ -245,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		document.querySelectorAll(".admin-task-list-second-company-select").forEach(companySelect => {
 			syncRequesterSelect(companySelect);
 
-			companySelect.addEventListener("change", function () {
+			companySelect.addEventListener("change", function() {
 				const form = companySelect.closest(".admin-task-list-second-update-form");
 				const requesterSelect = form?.querySelector(".admin-task-list-second-requester-select");
 
@@ -258,13 +287,86 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 
 		document.querySelectorAll(".admin-task-list-second-requester-select").forEach(requesterSelect => {
-			requesterSelect.addEventListener("change", function () {
+			requesterSelect.addEventListener("change", function() {
 				requesterSelect.dataset.selectedMemberId = requesterSelect.value || "";
 			});
 		});
 	}
 
-	function openBulkModal() {
+	let bulkRowsLoaded = false;
+
+	function showPageLoading(message) {
+		const overlay = document.getElementById("admin-task-list-second-loading-overlay");
+		const messageEl = document.getElementById("admin-task-list-second-loading-message");
+
+		if (!overlay) {
+			return;
+		}
+
+		if (messageEl && message) {
+			messageEl.textContent = message;
+		}
+
+		overlay.classList.add("is-active");
+		overlay.setAttribute("aria-hidden", "false");
+	}
+
+	function hidePageLoading() {
+		const overlay = document.getElementById("admin-task-list-second-loading-overlay");
+
+		if (!overlay) {
+			return;
+		}
+
+		overlay.classList.remove("is-active");
+		overlay.setAttribute("aria-hidden", "true");
+	}
+
+	async function loadBulkRowsIfNeeded() {
+		if (bulkRowsLoaded) {
+			return;
+		}
+
+		const bulkList = document.getElementById("admin-task-list-second-bulk-list");
+
+		if (!bulkList) {
+			return;
+		}
+
+		const url = new URL("/management/nonStandardTaskList/bulk-fragment", window.location.origin);
+		const params = new URLSearchParams(window.location.search);
+
+		params.delete("page");
+		url.search = params.toString();
+
+		try {
+			showPageLoading("일괄보기 데이터를 불러오는 중입니다.");
+
+			const response = await fetch(url.toString(), {
+				method: "GET",
+				headers: {
+					"X-Requested-With": "XMLHttpRequest"
+				}
+			});
+
+			if (!response.ok) {
+				throw new Error("일괄보기 데이터를 불러오지 못했습니다.");
+			}
+
+			const html = await response.text();
+
+			bulkList.innerHTML = html;
+			bulkRowsLoaded = true;
+
+			updateBulkModalButtons();
+		} catch (error) {
+			alert(error.message || "일괄보기 데이터를 불러오는 중 오류가 발생했습니다.");
+		} finally {
+			hidePageLoading();
+		}
+	}
+
+	async function openBulkModal() {
 		if (!bulkModal) {
 			return;
 		}
@@ -272,6 +374,9 @@ document.addEventListener("DOMContentLoaded", function () {
 		bulkModal.classList.add("is-open");
 		bulkModal.setAttribute("aria-hidden", "false");
 		document.body.classList.add("admin-task-list-second-modal-open");
+
+		await loadBulkRowsIfNeeded();
+
 		updateBulkModalButtons();
 	}
 
@@ -390,6 +495,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			}
 
 			alert(data.message || "체크완료 처리되었습니다.");
+			showPageLoading("목록을 다시 불러오는 중입니다.");
 			window.location.reload();
 		} catch (error) {
 			alert(error.message || "체크완료 처리 중 오류가 발생했습니다.");
@@ -406,19 +512,20 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 
 		if (pageSizeSelect) {
-			pageSizeSelect.addEventListener("change", function () {
+			pageSizeSelect.addEventListener("change", function() {
 				const form = pageSizeSelect.closest("form");
 
 				if (!form) {
 					return;
 				}
 
+				showPageLoading("목록을 불러오는 중입니다.");
 				form.submit();
 			});
 		}
 
 		if (checkAllBox) {
-			checkAllBox.addEventListener("change", function () {
+			checkAllBox.addEventListener("change", function() {
 				getOrderCheckboxes().forEach(checkbox => {
 					checkbox.checked = checkAllBox.checked;
 				});
@@ -427,7 +534,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			});
 		}
 
-		document.addEventListener("change", function (event) {
+		document.addEventListener("change", function(event) {
 			if (event.target.classList.contains("task-list-order-checkbox")) {
 				updateBulkButtons();
 			}
@@ -437,8 +544,20 @@ document.addEventListener("DOMContentLoaded", function () {
 			}
 		});
 
+		document.querySelectorAll("form").forEach(form => {
+			form.addEventListener("submit", function() {
+				showPageLoading("처리 중입니다. 잠시만 기다려 주세요.");
+			});
+		});
+
+		document.querySelectorAll(".pagination a, .task-list-added-sort-link").forEach(link => {
+			link.addEventListener("click", function() {
+				showPageLoading("목록을 불러오는 중입니다.");
+			});
+		});
+
 		if (deleteTasksBtn) {
-			deleteTasksBtn.addEventListener("click", function () {
+			deleteTasksBtn.addEventListener("click", function() {
 				callDeleteApi(
 					"/management/api/non-standard-task/delete-tasks",
 					"선택한 주문이 속한 태스크 전체가 삭제됩니다.\n\n해당 태스크의 모든 주문, 주문항목, 주문이미지, 배송순서 인덱스까지 함께 삭제됩니다.\n\n계속 진행하시겠습니까?"
@@ -447,7 +566,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 
 		if (deleteOrdersBtn) {
-			deleteOrdersBtn.addEventListener("click", function () {
+			deleteOrdersBtn.addEventListener("click", function() {
 				callDeleteApi(
 					"/management/api/non-standard-task/delete-orders",
 					"선택한 주문만 삭제됩니다.\n\n삭제 후 태스크에 남은 주문이 하나도 없으면 태스크도 자동 삭제됩니다.\n\n계속 진행하시겠습니까?"
@@ -455,7 +574,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			});
 		}
 
-		document.addEventListener("click", function (event) {
+		document.addEventListener("click", function(event) {
 			const toggleButton = event.target.closest(".admin-task-list-second-wide-toggle-btn");
 
 			if (toggleButton) {
@@ -496,7 +615,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			bulkCompleteBtn.addEventListener("click", completeBulkChecks);
 		}
 
-		document.addEventListener("keydown", function (event) {
+		document.addEventListener("keydown", function(event) {
 			if (event.key === "Escape" && bulkModal?.classList.contains("is-open")) {
 				closeBulkModal();
 			}

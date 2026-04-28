@@ -5,9 +5,18 @@
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body class="twocolumn-panel">
-
-	<link rel="stylesheet" href="/administration/assets/css/pages/adminTaskListSecond.css">
-
+	<div id="admin-task-list-second-loading-overlay" class="admin-task-list-second-loading-overlay is-active"
+		aria-hidden="false">
+		<div class="admin-task-list-second-loading-box">
+			<div class="admin-task-list-second-loading-title">데이터를 불러오는 중입니다.</div>
+			<div class="admin-task-list-second-loading-desc" id="admin-task-list-second-loading-message">
+				잠시만 기다려 주세요.
+			</div>
+			<div class="admin-task-list-second-progress">
+				<div class="admin-task-list-second-progress-bar"></div>
+			</div>
+		</div>
+	</div>
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
@@ -17,11 +26,6 @@
 		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid admin-task-list-second-page">
-
-					<input type="hidden" id="admin-task-list-second-csrf-token" th:if="${_csrf != null}"
-						th:value="${_csrf.token}">
-					<input type="hidden" id="admin-task-list-second-csrf-header" th:if="${_csrf != null}"
-						th:value="${_csrf.headerName}">
 
 					<!-- 회사 원본 데이터 -->
 					<div id="admin-task-list-second-company-source" class="d-none">
@@ -602,10 +606,8 @@
 																	method="POST" enctype="multipart/form-data"
 																	class="admin-task-list-second-update-form">
 
-																	<input type="hidden" th:if="${_csrf != null}"
-																		th:name="${_csrf.parameterName}"
-																		th:value="${_csrf.token}">
-
+																	<input type="hidden" name="returnUrl"
+																		th:value="${currentListUrl}">
 																	<div class="row g-3 align-items-stretch">
 
 																		<div class="col-lg-4 col-md-6">
@@ -1024,170 +1026,173 @@
 			</div>
 
 			<div class="admin-task-list-second-bulk-body">
-				<div class="admin-task-list-second-bulk-list">
+				<div id="admin-task-list-second-bulk-list" class="admin-task-list-second-bulk-list">
 
-					<div class="admin-task-list-second-bulk-card" th:each="row : ${bulkOrderRows}"
-						th:classappend="${row.checked} ? ' admin-task-list-second-bulk-card-completed' : ' admin-task-list-second-bulk-card-pending'"
-						th:attr="data-order-id=${row.orderId},
+					<th:block th:fragment="bulkOrderCards">
+
+						<div class="admin-task-list-second-bulk-card" th:each="row : ${bulkOrderRows}"
+							th:classappend="${row.checked} ? ' admin-task-list-second-bulk-card-completed' : ' admin-task-list-second-bulk-card-pending'"
+							th:attr="data-order-id=${row.orderId},
 			 data-checked=${row.checked}">
 
-						<div class="admin-task-list-second-bulk-check-wrap">
-							<input type="checkbox" class="form-check-input admin-task-list-second-bulk-checkbox"
-								th:value="${row.orderId}" th:checked="${row.checked}" th:disabled="${row.checked}">
-						</div>
+							<div class="admin-task-list-second-bulk-check-wrap">
+								<input type="checkbox" class="form-check-input admin-task-list-second-bulk-checkbox"
+									th:value="${row.orderId}" th:checked="${row.checked}" th:disabled="${row.checked}">
+							</div>
 
-						<div class="admin-task-list-second-bulk-content">
+							<div class="admin-task-list-second-bulk-content">
 
-							<div class="admin-task-list-second-bulk-layout">
+								<div class="admin-task-list-second-bulk-layout">
 
-								<!-- 좌측 60%: 옵션을 제외한 모든 정보 -->
-								<div class="admin-task-list-second-bulk-left">
+									<!-- 좌측 60%: 옵션을 제외한 모든 정보 -->
+									<div class="admin-task-list-second-bulk-left">
 
-									<div class="admin-task-list-second-bulk-card-top">
-										<div class="admin-task-list-second-bulk-id-box">
-											<span th:text="|TASK ${row.taskId}|">TASK</span>
-											<span th:text="|ORDER ${row.orderId}|">ORDER</span>
-										</div>
+										<div class="admin-task-list-second-bulk-card-top">
+											<div class="admin-task-list-second-bulk-id-box">
+												<span th:text="|TASK ${row.taskId}|">TASK</span>
+												<span th:text="|ORDER ${row.orderId}|">ORDER</span>
+											</div>
 
-										<div class="admin-task-list-second-bulk-badges">
-											<span class="badge"
-												th:classappend="${row.checked} ? ' bg-success-subtle text-success' : ' bg-warning-subtle text-warning'"
-												th:text="${row.checked} ? '체크완료' : '체크미완료'">
-												체크
-											</span>
+											<div class="admin-task-list-second-bulk-badges">
+												<span class="badge"
+													th:classappend="${row.checked} ? ' bg-success-subtle text-success' : ' bg-warning-subtle text-warning'"
+													th:text="${row.checked} ? '체크완료' : '체크미완료'">
+													체크
+												</span>
 
-											<span class="badge bg-secondary-subtle text-secondary"
-												th:text="${row.statusLabel}">상태</span>
+												<span class="badge bg-secondary-subtle text-secondary"
+													th:text="${row.statusLabel}">상태</span>
 
-											<span th:if="${row.standard}"
-												class="badge bg-success-subtle text-success">규격</span>
-											<span th:if="${!row.standard}"
-												class="badge bg-primary-subtle text-primary">비규격</span>
-										</div>
-									</div>
-
-									<div class="admin-task-list-second-bulk-info-grid">
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
-											<label>대리점</label>
-											<div th:text="${row.companyName}">대리점명</div>
-										</div>
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
-											<label>신청자</label>
-											<div th:text="${row.requesterName}">신청자</div>
-										</div>
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
-											<label>수량</label>
-											<div th:text="${row.quantity}">0</div>
-										</div>
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
-											<label>제품비용</label>
-											<div th:text="${#numbers.formatInteger(row.productCost, 0, 'COMMA')}">0
+												<span th:if="${row.standard}"
+													class="badge bg-success-subtle text-success">규격</span>
+												<span th:if="${!row.standard}"
+													class="badge bg-primary-subtle text-primary">비규격</span>
 											</div>
 										</div>
 
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
-											<label>제품정보</label>
-											<div th:text="${row.productSummary}">제품정보</div>
-										</div>
+										<div class="admin-task-list-second-bulk-info-grid">
 
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
-											<label>배송주소</label>
-											<div th:text="${row.fullAddress}">주소</div>
-										</div>
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
-											<label>발주일</label>
 											<div
-												th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
-												-
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+												<label>대리점</label>
+												<div th:text="${row.companyName}">대리점명</div>
 											</div>
-										</div>
 
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
-											<label>배송희망일</label>
 											<div
-												th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
-												-
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+												<label>신청자</label>
+												<div th:text="${row.requesterName}">신청자</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>수량</label>
+												<div th:text="${row.quantity}">0</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>제품비용</label>
+												<div th:text="${#numbers.formatInteger(row.productCost, 0, 'COMMA')}">0
+												</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
+												<label>제품정보</label>
+												<div th:text="${row.productSummary}">제품정보</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
+												<label>배송주소</label>
+												<div th:text="${row.fullAddress}">주소</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+												<label>발주일</label>
+												<div
+													th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
+													-
+												</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+												<label>배송희망일</label>
+												<div
+													th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+													-
+												</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>생산카테고리</label>
+												<div th:text="${row.productCategoryName}">카테고리</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>배송담당자</label>
+												<div th:text="${row.assignedDeliveryHandlerName}">담당자</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-6">
+												<label>비고</label>
+												<div th:text="${row.noteSummary}">비고</div>
+											</div>
+
+											<div class="admin-task-list-second-bulk-complete-meta admin-task-list-second-bulk-span-6"
+												th:if="${row.checked}">
+												체크완료:
+												<span
+													th:text="${row.checkedByUsername != null ? row.checkedByUsername : '-'}">-</span>
+												/
+												<span
+													th:text="${row.checkedAt != null ? #temporals.format(row.checkedAt, 'yyyy-MM-dd HH:mm') : '-'}">-</span>
+											</div>
+
+										</div>
+									</div>
+
+									<!-- 우측 40%: 옵션 전용 영역 -->
+									<div class="admin-task-list-second-bulk-option-panel">
+										<div class="admin-task-list-second-bulk-option-head">
+											<div>
+												<strong>옵션</strong>
+												<p>생산팀 확인용 핵심 옵션 정보입니다.</p>
+											</div>
+											<span>READ ONLY</span>
+										</div>
+
+										<div class="admin-task-list-second-bulk-option-list">
+											<div class="admin-task-list-second-bulk-option-item"
+												th:each="entry : ${row.optionMap}">
+												<div class="admin-task-list-second-bulk-option-key"
+													th:text="${entry.key}">
+													옵션명</div>
+												<div class="admin-task-list-second-bulk-option-value"
+													th:text="${entry.value}">옵션값</div>
+											</div>
+
+											<div class="admin-task-list-second-bulk-option-empty"
+												th:if="${#maps.isEmpty(row.optionMap)}">
+												옵션 정보가 없습니다.
 											</div>
 										</div>
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
-											<label>생산카테고리</label>
-											<div th:text="${row.productCategoryName}">카테고리</div>
-										</div>
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
-											<label>배송담당자</label>
-											<div th:text="${row.assignedDeliveryHandlerName}">담당자</div>
-										</div>
-
-										<div
-											class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-6">
-											<label>비고</label>
-											<div th:text="${row.noteSummary}">비고</div>
-										</div>
-
-										<div class="admin-task-list-second-bulk-complete-meta admin-task-list-second-bulk-span-6"
-											th:if="${row.checked}">
-											체크완료:
-											<span
-												th:text="${row.checkedByUsername != null ? row.checkedByUsername : '-'}">-</span>
-											/
-											<span
-												th:text="${row.checkedAt != null ? #temporals.format(row.checkedAt, 'yyyy-MM-dd HH:mm') : '-'}">-</span>
-										</div>
-
 									</div>
+
 								</div>
-
-								<!-- 우측 40%: 옵션 전용 영역 -->
-								<div class="admin-task-list-second-bulk-option-panel">
-									<div class="admin-task-list-second-bulk-option-head">
-										<div>
-											<strong>옵션</strong>
-											<p>생산팀 확인용 핵심 옵션 정보입니다.</p>
-										</div>
-										<span>READ ONLY</span>
-									</div>
-
-									<div class="admin-task-list-second-bulk-option-list">
-										<div class="admin-task-list-second-bulk-option-item"
-											th:each="entry : ${row.optionMap}">
-											<div class="admin-task-list-second-bulk-option-key" th:text="${entry.key}">
-												옵션명</div>
-											<div class="admin-task-list-second-bulk-option-value"
-												th:text="${entry.value}">옵션값</div>
-										</div>
-
-										<div class="admin-task-list-second-bulk-option-empty"
-											th:if="${#maps.isEmpty(row.optionMap)}">
-											옵션 정보가 없습니다.
-										</div>
-									</div>
-								</div>
-
 							</div>
 						</div>
-					</div>
 
-					<div class="admin-task-list-second-bulk-empty" th:if="${#lists.isEmpty(bulkOrderRows)}">
-						현재 조회된 오더가 없습니다.
-					</div>
-
+						<div class="admin-task-list-second-bulk-empty" th:if="${#lists.isEmpty(bulkOrderRows)}">
+							현재 조회된 오더가 없습니다.
+						</div>
+					</th:block>
 				</div>
 			</div>
 		</div>
@@ -1195,7 +1200,12 @@
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
-
+	<script th:if="${message != null}" th:inline="javascript">
+		document.addEventListener("DOMContentLoaded", function () {
+			const message = /*[[${message}]]*/ "";
+			alert(message);
+		});
+	</script>
 	<script src="/administration/assets/js/page/taskList.js"></script>
 
 </body>
