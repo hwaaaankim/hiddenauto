@@ -292,11 +292,14 @@ public class TeamTaskService {
 				size = "-";
 
 			// 옵션여부(4개)
+			// 1순위: 기존 key 직접 조회
+			// 2순위: 해당 key가 없거나 비어 있으면 전체 value에서 키워드 포함 여부 조회
+			// 3순위: 둘 다 없으면 "없음"으로 출력
 			List<String> optionFlags = new ArrayList<>();
-			addOptIfPresent(optionFlags, "티슈위치", optMap);
-			addOptIfPresent(optionFlags, "드라이걸이", optMap);
-			addOptIfPresent(optionFlags, "콘센트", optMap);
-			addOptIfPresent(optionFlags, "LED", optMap);
+			addOptOrNone(optionFlags, "티슈위치", optMap, "티슈");
+			addOptOrNone(optionFlags, "드라이걸이", optMap, "드라이");
+			addOptOrNone(optionFlags, "콘센트", optMap, "콘센트");
+			addOptOrNone(optionFlags, "LED", optMap, "LED");
 
 			// 비고
 			String adminMemo = nvl(o.getAdminMemo()).trim();
@@ -336,10 +339,115 @@ public class TeamTaskService {
 		}
 	}
 
-	private void addOptIfPresent(List<String> out, String key, Map<String, String> map) {
-		String v = nvl(map.get(key)).trim();
-		if (!isBlank(v))
-			out.add(key + ": " + v);
+	private void addOptOrNone(
+	        List<String> out,
+	        String key,
+	        Map<String, String> map,
+	        String... fallbackKeywords
+	) {
+	    if (out == null) {
+	        return;
+	    }
+
+	    // 1) 기존 방식: 정확한 key 우선 조회
+	    String directValue = getDirectOptionValue(map, key);
+
+	    if (!isBlank(directValue)) {
+	        out.add(key + ": " + directValue);
+	        return;
+	    }
+
+	    // 2) 확장 방식: key가 없으면 전체 value에서 키워드 포함 여부 조회
+	    String matchedValue = findFirstPositiveValueContainsAnyKeyword(map, fallbackKeywords);
+
+	    if (!isBlank(matchedValue)) {
+	        out.add(key + ": " + matchedValue);
+	        return;
+	    }
+
+	    // 3) 둘 다 없으면 없음
+	    out.add(key + ": 없음");
+	}
+
+	private String getDirectOptionValue(Map<String, String> map, String key) {
+	    if (map == null || map.isEmpty() || isBlank(key)) {
+	        return "";
+	    }
+
+	    String value = nvl(map.get(key)).trim();
+
+	    if (isBlank(value)) {
+	        return "";
+	    }
+
+	    if (isNoneOptionValue(value)) {
+	        return "없음";
+	    }
+
+	    return value;
+	}
+
+	private String findFirstPositiveValueContainsAnyKeyword(Map<String, String> map, String... keywords) {
+	    if (map == null || map.isEmpty() || keywords == null || keywords.length == 0) {
+	        return "";
+	    }
+
+	    for (Map.Entry<String, String> entry : map.entrySet()) {
+	        String value = nvl(entry.getValue()).trim();
+
+	        if (isBlank(value)) {
+	            continue;
+	        }
+
+	        // "드라이걸이 추가안함", "콘센트 없음" 같은 값은 선택된 옵션으로 보지 않음
+	        if (isNoneOptionValue(value)) {
+	            continue;
+	        }
+
+	        for (String keyword : keywords) {
+	            if (isBlank(keyword)) {
+	                continue;
+	            }
+
+	            if (containsIgnoreCase(value, keyword)) {
+	                return value;
+	            }
+	        }
+	    }
+
+	    return "";
+	}
+
+	private boolean containsIgnoreCase(String text, String keyword) {
+	    if (text == null || keyword == null) {
+	        return false;
+	    }
+
+	    return text.toLowerCase().contains(keyword.toLowerCase());
+	}
+
+	private boolean isNoneOptionValue(String value) {
+	    if (isBlank(value)) {
+	        return true;
+	    }
+
+	    String v = value.trim().toLowerCase();
+
+	    return v.equals("없음")
+	            || v.equals("없다")
+	            || v.equals("무")
+	            || v.equals("x")
+	            || v.equals("no")
+	            || v.equals("n")
+	            || v.equals("false")
+	            || v.contains("없음")
+	            || v.contains("추가안함")
+	            || v.contains("추가 안함")
+	            || v.contains("선택안함")
+	            || v.contains("선택 안함")
+	            || v.contains("미선택")
+	            || v.contains("해당없음")
+	            || v.contains("해당 없음");
 	}
 
 	private String nvl(String v) {
