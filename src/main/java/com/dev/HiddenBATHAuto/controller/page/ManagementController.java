@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -80,6 +81,7 @@ import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionBulkSaveRequest;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyMemberOptionDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyOptionDto;
+import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderImageDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderRowDto;
 import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
 import com.dev.HiddenBATHAuto.model.auth.City;
@@ -113,9 +115,9 @@ import com.dev.HiddenBATHAuto.service.auth.CompanyService;
 import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.client.AdminClientDetailService;
+import com.dev.HiddenBATHAuto.service.order.NonStandardOrderItemService;
 import com.dev.HiddenBATHAuto.service.order.NonStandardTaskListViewService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
-import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -134,17 +136,19 @@ public class ManagementController {
 	private final MemberRepository memberRepository;
 	private final DeliveryMethodRepository deliveryMethodRepository;
 	private final TeamCategoryRepository teamCategoryRepository;
-	private final OrderUpdateService orderUpdateService;
-	private final AsTaskService asTaskService;
-	private final OrderStatusService orderStatusService;
+	
 	private final TeamRepository teamRepository;
+	private final CompanyRepository companyRepository;
 	private final ProvinceRepository provinceRepository;
+	private final OrderImageRepository orderImageRepository;
+
 	private final MemberService memberService;
 	private final CompanyService companyService;
-	private final CompanyRepository companyRepository;
 	private final ObjectMapper objectMapper;
-	private final OrderImageRepository orderImageRepository;
 	private final MemberManagementService memberMgmtService;
+	private final NonStandardOrderItemService nonStandardOrderItemService;
+	private final AsTaskService asTaskService;
+	private final OrderStatusService orderStatusService;
 	// ✅ 추가 서비스
 	private final MemberAdminService memberAdminService;
 	private final AdminClientDetailService adminClientDetailService;
@@ -213,8 +217,34 @@ public class ManagementController {
 	            sortedPageable
 	    );
 
-	    Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(
-	            nonStandardTaskListViewService::toRow
+	    List<Long> currentPageOrderIds = orders.getContent().stream()
+	            .map(Order::getId)
+	            .toList();
+
+	    Map<Long, List<NonStandardTaskListOrderImageDto>> adminImageMap =
+	            currentPageOrderIds.isEmpty()
+	                    ? Map.of()
+	                    : orderImageRepository
+	                            .findByOrder_IdInAndTypeIgnoreCase(currentPageOrderIds, "MANAGEMENT")
+	                            .stream()
+	                            .collect(Collectors.groupingBy(
+	                                    image -> image.getOrder().getId(),
+	                                    Collectors.mapping(
+	                                            image -> NonStandardTaskListOrderImageDto.builder()
+	                                                    .id(image.getId())
+	                                                    .type(image.getType())
+	                                                    .filename(image.getFilename())
+	                                                    .url(image.getUrl())
+	                                                    .build(),
+	                                            Collectors.toList()
+	                                    )
+	                            ));
+
+	    Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(order ->
+	            nonStandardTaskListViewService.toRow(
+	                    order,
+	                    adminImageMap.getOrDefault(order.getId(), List.of())
+	            )
 	    );
 
 	    int currentPage1 = orders.getPageable().getPageNumber() + 1;
@@ -739,35 +769,21 @@ public class ManagementController {
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
 	public String updateNonStandardOrderItem(
 	        @PathVariable Long orderId,
-
 	        @RequestParam("productCost") int productCost,
-
-	        @RequestParam("preferredDeliveryDate")
-	        @DateTimeFormat(pattern = "yyyy-MM-dd")
-	        LocalDate preferredDeliveryDate,
-
+	        @RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
 	        @RequestParam("status") String statusStr,
-
 	        @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
-
 	        @RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
-
 	        @RequestParam("productCategoryId") Optional<Long> productCategoryId,
-
-	        @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
-
-	        @RequestParam(value = "requesterMemberId", required = false) Optional<Long> requesterMemberId,
-
-	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
-
+	        @RequestParam("companyId") Optional<Long> companyId,
+	        @RequestParam("requesterMemberId") Optional<Long> requesterMemberId,
 	        @RequestParam(value = "adminMemo", required = false) String adminMemo,
-
-	        // 넓게보기 리스트에서 수정 후 다시 현재 리스트 조건으로 복귀하기 위한 값
+	        @RequestParam(value = "deleteAdminImageIds", required = false) List<Long> deleteAdminImageIds,
+	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
 	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
-
 	        RedirectAttributes redirectAttributes
 	) {
-	    orderUpdateService.updateOrder(
+	    nonStandardOrderItemService.updateNonStandardOrderItem(
 	            orderId,
 	            productCost,
 	            preferredDeliveryDate,
@@ -777,19 +793,18 @@ public class ManagementController {
 	            productCategoryId,
 	            companyId,
 	            requesterMemberId,
-	            adminImages,
-	            adminMemo
+	            adminMemo,
+	            deleteAdminImageIds,
+	            adminImages
 	    );
 
-	    redirectAttributes.addFlashAttribute("message", "수정이 완료되었습니다.");
+	    redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
 
-	    // 리스트 넓게보기에서 넘어온 수정이면 기존 검색조건/페이지 유지한 채 리스트로 복귀
 	    if (isSafeNonStandardTaskListReturnUrl(returnUrl)) {
-	        return "redirect:" + returnUrl;
+	        return "redirect:" + returnUrl.trim();
 	    }
 
-	    // 기존 상세페이지 수정 흐름은 그대로 유지
-	    return "redirect:/management/nonStandardOrderItemDetail/" + orderId;
+	    return "redirect:/management/nonStandardTaskList";
 	}
 
 	private boolean isSafeNonStandardTaskListReturnUrl(String returnUrl) {

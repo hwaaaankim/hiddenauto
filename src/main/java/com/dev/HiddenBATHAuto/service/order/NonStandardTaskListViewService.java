@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderImageDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderRowDto;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -30,6 +31,13 @@ public class NonStandardTaskListViewService {
     private final ObjectMapper objectMapper;
 
     public NonStandardTaskListOrderRowDto toRow(Order order) {
+        return toRow(order, List.of());
+    }
+
+    public NonStandardTaskListOrderRowDto toRow(
+            Order order,
+            List<NonStandardTaskListOrderImageDto> adminImages
+    ) {
         if (order == null) {
             return null;
         }
@@ -115,9 +123,12 @@ public class NonStandardTaskListViewService {
                 .checked(checked)
                 .checkedByUsername(checkStatus != null ? checkStatus.getCheckedByUsername() : null)
                 .checkedAt(checkStatus != null ? checkStatus.getCheckedAt() : null)
+
+                .adminImages(adminImages != null ? adminImages : List.of())
+
                 .build();
     }
-
+    
     public List<NonStandardTaskListOrderRowDto> toBulkRows(List<Order> orders) {
         return orders.stream()
                 .filter(Objects::nonNull)

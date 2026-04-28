@@ -624,7 +624,167 @@ document.addEventListener("DOMContentLoaded", function() {
 		updateBulkModalButtons();
 	}
 
+	function refreshNewImageEmptyState(section) {
+		if (!section) {
+			return;
+		}
+
+		const preview = section.querySelector(".admin-task-list-second-new-image-preview");
+		const empty = section.querySelector(".admin-task-list-second-new-image-empty");
+
+		if (!preview || !empty) {
+			return;
+		}
+
+		const hasImages = preview.querySelectorAll(".admin-task-list-second-new-image-card").length > 0;
+		empty.style.display = hasImages ? "none" : "block";
+	}
+
+	function rebuildFileInput(input, files) {
+		const dataTransfer = new DataTransfer();
+
+		files.forEach(file => {
+			dataTransfer.items.add(file);
+		});
+
+		input.files = dataTransfer.files;
+	}
+
+	function renderNewImagePreviews(input) {
+		if (!input) {
+			return;
+		}
+
+		const section = input.closest(".admin-task-list-second-image-section");
+		const preview = section?.querySelector(".admin-task-list-second-new-image-preview");
+
+		if (!section || !preview) {
+			return;
+		}
+
+		preview.innerHTML = "";
+
+		const files = Array.from(input.files || []);
+
+		files.forEach((file, index) => {
+			const card = document.createElement("div");
+			card.className = "admin-task-list-second-image-card admin-task-list-second-new-image-card";
+			card.dataset.fileIndex = String(index);
+
+			const removeButton = document.createElement("button");
+			removeButton.type = "button";
+			removeButton.className = "admin-task-list-second-image-remove-btn admin-task-list-second-new-image-remove-btn";
+			removeButton.textContent = "×";
+			removeButton.dataset.fileIndex = String(index);
+
+			const img = document.createElement("img");
+			img.alt = file.name;
+
+			const reader = new FileReader();
+			reader.onload = function(event) {
+				img.src = event.target.result;
+			};
+			reader.readAsDataURL(file);
+
+			const name = document.createElement("div");
+			name.className = "admin-task-list-second-image-name";
+			name.textContent = file.name;
+
+			card.appendChild(removeButton);
+			card.appendChild(img);
+			card.appendChild(name);
+			preview.appendChild(card);
+		});
+
+		refreshNewImageEmptyState(section);
+	}
+
+	function markExistingImageForDelete(button) {
+		const imageId = button?.dataset?.imageId;
+
+		if (!imageId) {
+			return;
+		}
+
+		const section = button.closest(".admin-task-list-second-image-section");
+		const card = button.closest(".admin-task-list-second-existing-image-card");
+		const holder = section?.querySelector(".admin-task-list-second-delete-image-holder");
+
+		if (!section || !card || !holder) {
+			return;
+		}
+
+		const existingHidden = holder.querySelector(`input[name="deleteAdminImageIds"][value="${imageId}"]`);
+
+		if (existingHidden) {
+			existingHidden.remove();
+			card.classList.remove("is-delete-pending");
+			button.textContent = "×";
+			return;
+		}
+
+		const hidden = document.createElement("input");
+		hidden.type = "hidden";
+		hidden.name = "deleteAdminImageIds";
+		hidden.value = imageId;
+
+		holder.appendChild(hidden);
+		card.classList.add("is-delete-pending");
+		button.textContent = "↺";
+	}
+
+	function removeNewImage(button) {
+		const fileIndex = Number(button?.dataset?.fileIndex);
+
+		if (Number.isNaN(fileIndex)) {
+			return;
+		}
+
+		const section = button.closest(".admin-task-list-second-image-section");
+		const input = section?.querySelector(".admin-task-list-second-admin-image-input");
+
+		if (!section || !input) {
+			return;
+		}
+
+		const files = Array.from(input.files || []);
+		files.splice(fileIndex, 1);
+
+		rebuildFileInput(input, files);
+		renderNewImagePreviews(input);
+	}
+
+	function initializeAdminImageEvents() {
+		document.addEventListener("change", function(event) {
+			if (event.target.classList.contains("admin-task-list-second-admin-image-input")) {
+				renderNewImagePreviews(event.target);
+			}
+		});
+
+		document.addEventListener("click", function(event) {
+			const existingRemoveButton = event.target.closest(".admin-task-list-second-existing-image-remove-btn");
+
+			if (existingRemoveButton) {
+				event.preventDefault();
+				markExistingImageForDelete(existingRemoveButton);
+				return;
+			}
+
+			const newRemoveButton = event.target.closest(".admin-task-list-second-new-image-remove-btn");
+
+			if (newRemoveButton) {
+				event.preventDefault();
+				removeNewImage(newRemoveButton);
+			}
+		});
+
+		document.querySelectorAll(".admin-task-list-second-image-section").forEach(section => {
+			refreshNewImageEmptyState(section);
+		});
+	}
+
 	initializeBaseEvents();
 	initializeCompanyMemberSelects();
+	initializeAdminImageEvents();
 	initializeBulkModalEvents();
 });

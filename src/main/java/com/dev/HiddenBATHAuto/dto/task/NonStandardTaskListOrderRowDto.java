@@ -1,7 +1,9 @@
 package com.dev.HiddenBATHAuto.dto.task;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
@@ -65,4 +67,7 @@ public class NonStandardTaskListOrderRowDto {
     private boolean checked;
     private String checkedByUsername;
     private LocalDateTime checkedAt;
+    
+    @Builder.Default
+    private List<NonStandardTaskListOrderImageDto> adminImages = new ArrayList<>();
 }

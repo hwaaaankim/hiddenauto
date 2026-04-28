@@ -1,325 +1,373 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
-	data-sidebar-image="none" data-preloader="disable">
+<html xmlns:th="http://www.thymeleaf.org"
+      lang="ko"
+      data-layout="twocolumn"
+      data-sidebar="light"
+      data-sidebar-size="lg"
+      data-sidebar-image="none"
+      data-preloader="disable">
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
 <body class="twocolumn-panel">
 
-	<div id="layout-wrapper">
-		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
-		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
-		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
-		<div class="vertical-overlay"></div>
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
 
-		<div class="main-content">
-			<div class="page-content">
-				<div class="container-fluid">
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid">
 
-					<!-- ✅ 추가 CSS (충돌 방지: product-detail-added- prefix만 사용) -->
-					<style>
-						/* =========================
-						   Product Detail Added Styles
-						   ========================= */
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                            <h4 class="mb-sm-0">팀별업무관리</h4>
+                            <div class="page-title-right">
+                                <ol class="breadcrumb m-0">
+                                    <li class="breadcrumb-item"><a href="#">생산팀</a></li>
+                                    <li class="breadcrumb-item active">제작상세</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-						/* 섹션 전체 감싸는 래퍼 */
-						.product-detail-added-spec-wrap {
-							width: 100%;
-							margin-top: 8px;
-						}
+                <form th:action="@{/team/updateStatus/{orderId}(orderId=${order.id})}"
+                      method="post"
+                      id="product-detail-added-production-done-form"
+                      class="product-detail-added-form">
 
-						/* 타이틀 영역 */
-						.product-detail-added-spec-title {
-							display: flex;
-							align-items: center;
-							justify-content: space-between;
-							gap: 12px;
-							margin-bottom: 12px;
-						}
+                    <input type="hidden" name="status" value="PRODUCTION_DONE">
 
-						.product-detail-added-spec-title h5 {
-							margin: 0;
-							font-weight: 700;
-							letter-spacing: -0.2px;
-						}
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card product-detail-added-shell">
+                                <div class="card-body product-detail-added-card-body">
 
-						/* "중요" 느낌의 배지 (선택) */
-						.product-detail-added-spec-badge {
-							font-size: 12px;
-							font-weight: 600;
-							padding: 6px 10px;
-							border-radius: 999px;
-							background: rgba(0, 0, 0, 0.06);
-							color: #333;
-							white-space: nowrap;
-						}
+                                    <div class="product-detail-added-top">
+                                        <div class="product-detail-added-title-area">
+                                            <div class="product-detail-added-eyebrow">Production Detail</div>
+                                            <h4 class="product-detail-added-title"
+                                                th:text="${orderItem != null and !#strings.isEmpty(orderItem.productName) ? orderItem.productName : '제작 상세'}">
+                                                제작 상세
+                                            </h4>
+                                            <div class="product-detail-added-status-line">
+                                                <span class="product-detail-added-status-badge"
+                                                      th:classappend="${order.status != null ? ' product-detail-added-status-' + order.status.name() : ''}"
+                                                      th:text="${order.status != null ? order.status.label : '-'}">
+                                                    상태
+                                                </span>
+                                                <span class="product-detail-added-order-id"
+                                                      th:text="|주문번호 #${order.id}|">주문번호 #1</span>
+                                            </div>
+                                        </div>
 
-						/* 옵션 카드 컨테이너 */
-						.product-detail-added-spec-card {
-							border: 1px solid rgba(0, 0, 0, 0.08);
-							border-radius: 14px;
-							background: #fff;
-							padding: 14px;
-						}
+                                        <div class="product-detail-added-action-area">
+                                            <button type="submit"
+                                                    class="btn btn-success product-detail-added-done-button"
+                                                    th:disabled="${!canChangeStatus}"
+                                                    th:text="${canChangeStatus ? '생산완료' : (order.status != null and order.status.name() == 'PRODUCTION_DONE' ? '생산완료됨' : '처리불가')}">
+                                                생산완료
+                                            </button>
+                                            <p class="product-detail-added-action-help"
+                                               th:text="${canChangeStatus ? '내 팀 제품의 승인 완료 주문만 생산완료 처리할 수 있습니다.' : '현재 상태에서는 생산완료 처리가 불가능합니다.'}">
+                                                내 팀 제품의 승인 완료 주문만 생산완료 처리할 수 있습니다.
+                                            </p>
+                                        </div>
+                                    </div>
 
-						/* 옵션 그리드(화면 넓게 사용) */
-						.product-detail-added-spec-grid {
-							display: grid;
-							grid-template-columns: repeat(2, minmax(0, 1fr));
-							gap: 10px;
-						}
+                                    <div class="product-detail-added-summary-grid">
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">대리점명</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.task != null and order.task.requestedBy != null and order.task.requestedBy.company != null ? order.task.requestedBy.company.companyName : '-'}">
+                                                대리점명
+                                            </strong>
+                                        </div>
 
-						/* 화면이 매우 넓으면 3열까지 */
-						@media (min-width: 1400px) {
-							.product-detail-added-spec-grid {
-								grid-template-columns: repeat(3, minmax(0, 1fr));
-							}
-						}
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">신청자</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.task != null and order.task.requestedBy != null ? order.task.requestedBy.name : '-'}">
+                                                신청자
+                                            </strong>
+                                        </div>
 
-						/* 태블릿/모바일은 1열 */
-						@media (max-width: 991.98px) {
-							.product-detail-added-spec-grid {
-								grid-template-columns: 1fr;
-							}
-						}
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">발주일</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.createdAt != null ? #temporals.format(order.createdAt, 'yyyy-MM-dd') : '-'}">
+                                                2025-12-19
+                                            </strong>
+                                        </div>
 
-						/* 각 옵션 아이템 (키/값 한 덩어리) */
-						.product-detail-added-spec-item {
-							border: 1px solid rgba(0, 0, 0, 0.08);
-							border-radius: 12px;
-							padding: 12px 12px;
-							display: flex;
-							gap: 12px;
-							align-items: flex-start;
-							min-height: 62px;
-						}
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">배정일</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy-MM-dd') : '-'}">
+                                                2025-12-19
+                                            </strong>
+                                        </div>
 
-						/* 왼쪽 키 */
-						.product-detail-added-spec-key {
-							flex: 0 0 120px;
-							max-width: 120px;
-							color: #6c757d;
-							font-weight: 700;
-							font-size: 14px;
-							line-height: 1.2;
-							letter-spacing: -0.1px;
-							padding-top: 2px;
-						}
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">배송일</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+                                                2025-12-24
+                                            </strong>
+                                        </div>
+                                    </div>
 
-						/* 오른쪽 값 */
-						.product-detail-added-spec-val {
-							flex: 1 1 auto;
-							color: #111;
-							font-weight: 800;
-							font-size: 16px;
-							line-height: 1.25;
-							letter-spacing: -0.2px;
+                                    <div class="product-detail-added-note-box">
+                                        <div class="product-detail-added-note-label">고객 남김말</div>
+                                        <div class="product-detail-added-note-text"
+                                             th:text="${!#strings.isEmpty(order.orderComment) ? order.orderComment : '남김말이 없습니다.'}">
+                                            고객 남김말
+                                        </div>
+                                    </div>
 
-							/* 길어질 때 정리 */
-							word-break: break-word;
-							overflow-wrap: anywhere;
-						}
+                                    <div class="product-detail-added-section-head">
+                                        <div>
+                                            <h5 class="product-detail-added-section-title">제품정보 및 이미지</h5>
+                                            <p class="product-detail-added-section-desc">
+                                                제품 옵션을 확인하고, 우측 이미지 영역에서 첨부 이미지를 넘겨보거나 크게 확인할 수 있습니다.
+                                            </p>
+                                        </div>
 
-						/* 키가 긴 경우 대비(모바일에서 키 폭 자동) */
-						@media (max-width: 575.98px) {
-							.product-detail-added-spec-item {
-								flex-direction: column;
-								gap: 6px;
-							}
+                                        <div class="product-detail-added-view-toggle" role="group" aria-label="보기 전환">
+                                            <button type="button"
+                                                    class="product-detail-added-toggle-button product-detail-added-toggle-active"
+                                                    data-product-detail-added-layout="info"
+                                                    aria-pressed="true">
+                                                제품정보
+                                            </button>
+                                            <button type="button"
+                                                    class="product-detail-added-toggle-button"
+                                                    data-product-detail-added-layout="image"
+                                                    aria-pressed="false">
+                                                이미지
+                                            </button>
+                                        </div>
+                                    </div>
 
-							.product-detail-added-spec-key {
-								flex: 0 0 auto;
-								max-width: 100%;
-								font-size: 13px;
-							}
+                                    <div class="row g-3 product-detail-added-detail-area"
+                                         th:with="adminImages=${order.adminUploadedImages}">
 
-							.product-detail-added-spec-val {
-								font-size: 16px;
-							}
-						}
+                                        <div class="col-lg-8 product-detail-added-info-col">
+                                            <section class="product-detail-added-panel product-detail-added-info-panel">
+                                                <div class="product-detail-added-panel-head">
+                                                    <div>
+                                                        <h6 class="product-detail-added-panel-title">제품 옵션정보</h6>
+                                                        <p class="product-detail-added-panel-subtitle">생산 시 우선 확인해야 하는 옵션입니다.</p>
+                                                    </div>
+                                                    <span class="product-detail-added-important-pill">중요 옵션</span>
+                                                </div>
 
-						/* 아이템 hover로 가독성/클릭감(시각적 강조) */
-						.product-detail-added-spec-item:hover {
-							background: rgba(0, 0, 0, 0.02);
-							border-color: rgba(0, 0, 0, 0.14);
-						}
+                                                <div class="product-detail-added-option-grid">
+                                                    <div class="product-detail-added-option-item">
+                                                        <span class="product-detail-added-option-key">제품분류</span>
+                                                        <strong class="product-detail-added-option-value"
+                                                                th:text="${order.productCategory != null ? order.productCategory.name : '-'}">
+                                                            제품분류
+                                                        </strong>
+                                                    </div>
 
-						/* 구분선 느낌의 얇은 상단 라인 */
-						.product-detail-added-divider {
-							height: 1px;
-							background: rgba(0, 0, 0, 0.08);
-							margin: 10px 0 14px;
-						}
-					</style>
+                                                    <div class="product-detail-added-option-item">
+                                                        <span class="product-detail-added-option-key">주문수량</span>
+                                                        <strong class="product-detail-added-option-value"
+                                                                th:text="|${order.quantity}개|">
+                                                            1개
+                                                        </strong>
+                                                    </div>
 
-					<div class="row">
-						<div class="col-12">
-							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">팀별업무관리</h4>
-								<div class="page-title-right">
-									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="#">생산팀</a></li>
-										<li class="breadcrumb-item active">제작상세</li>
-									</ol>
-								</div>
-							</div>
-						</div>
-					</div>
+                                                    <div class="product-detail-added-option-item"
+                                                         th:if="${orderItem != null and !#strings.isEmpty(orderItem.productName)}">
+                                                        <span class="product-detail-added-option-key">제품명</span>
+                                                        <strong class="product-detail-added-option-value"
+                                                                th:text="${orderItem.productName}">
+                                                            제품명
+                                                        </strong>
+                                                    </div>
 
-					<form th:action="@{/team/updateStatus/{orderId}(orderId=${order.id})}" method="post" class="row">
-						<div class="col-lg-4">
-							<div class="row g-4 mb-3">
-								<div class="col-lg-8">
-									<label class="form-label">생산 상태관리</label>
-									<select class="form-select" name="status" th:disabled="${!canChangeStatus}">
-										<option value="CONFIRMED" th:selected="${order.status.name() == 'CONFIRMED'}"
-											th:if="${order.status.name() == 'CONFIRMED'}">
-											관리자 승인됨
-										</option>
-										<option value="PRODUCTION_DONE"
-											th:selected="${order.status.name() == 'PRODUCTION_DONE'}"
-											th:if="${order.status.name() == 'CONFIRMED' or order.status.name() == 'PRODUCTION_DONE'}"
-											th:disabled="${order.status.name() != 'CONFIRMED'}">
-											생산 완료
-										</option>
-										<option th:if="${order.status.name() == 'DELIVERY_DONE'}" selected disabled>
-											배송 완료
-										</option>
-									</select>
-								</div>
-								<div class="col-lg-4">
-									<label class="form-label">액션</label>
-									<button type="submit" class="btn btn-success w-100"
-										th:disabled="${!canChangeStatus}">상태변경</button>
-								</div>
-							</div>
-						</div>
-					</form>
+                                                    <th:block th:if="${orderItem != null and orderItem.parsedOptionMap != null and !#maps.isEmpty(orderItem.parsedOptionMap)}">
+                                                        <div class="product-detail-added-option-item"
+                                                             th:each="entry : ${orderItem.parsedOptionMap}">
+                                                            <span class="product-detail-added-option-key"
+                                                                  th:text="${entry.key}">옵션명</span>
+                                                            <strong class="product-detail-added-option-value"
+                                                                    th:text="${entry.value}">옵션값</strong>
+                                                        </div>
+                                                    </th:block>
 
-					<div class="row">
-						<div class="col-lg-12">
-							<div class="card">
-								<div class="card-body">
-									<div class="row gx-lg-5">
-										<div class="col-xl-12">
-											<div class="mt-xl-0 mt-5">
-												<div class="d-flex">
-													<div class="flex-grow-1">
-														<div class="hstack gap-3 flex-wrap">
-															<div class="text-muted">대리점명 : <span class="text-body fw-medium"
-																	th:text="${order.task.requestedBy.company.companyName}">신청자명</span>
-															</div>
-															<div class="vr"></div>
-															<div class="text-muted">신청자 : <span class="text-body fw-medium"
-																	th:text="${order.task.requestedBy.name}">신청자명</span>
-															</div>
-															<div class="vr"></div>
-															<div class="text-muted">발주일 : <span class="text-body fw-medium"
-																	th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}"></span>
-															</div>
-															<div class="vr"></div>
-															<div class="text-muted">배정일 : <span class="text-body fw-medium"
-																	th:text="${#temporals.format(order.updatedAt, 'yyyy-MM-dd')}"></span>
-															</div>
-															<div class="vr"></div>
-															<div class="text-muted">배송일 : <span class="text-body fw-medium"
-																	th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"></span>
-															</div>
-														</div>
-													</div>
-												</div>
+                                                    <div class="product-detail-added-empty-options"
+                                                         th:if="${orderItem == null or orderItem.parsedOptionMap == null or #maps.isEmpty(orderItem.parsedOptionMap)}">
+                                                        등록된 옵션 정보가 없습니다.
+                                                    </div>
+                                                </div>
+                                            </section>
+                                        </div>
 
-												<div class="mt-4 text-muted">
-													<h5 class="fs-15">고객 남김말 :</h5>
-													<p th:text="${order.orderComment}">고객 남김말 영역</p>
-												</div>
+                                        <div class="col-lg-4 product-detail-added-image-col">
+                                            <section class="product-detail-added-panel product-detail-added-image-panel">
+                                                <div class="product-detail-added-panel-head">
+                                                    <div>
+                                                        <h6 class="product-detail-added-panel-title">관리자 업로드 이미지</h6>
+                                                        <p class="product-detail-added-panel-subtitle">이미지를 넘겨보고 클릭하면 크게 볼 수 있습니다.</p>
+                                                    </div>
+                                                    <span class="product-detail-added-image-count"
+                                                          th:text="${adminImages != null ? #lists.size(adminImages) + '장' : '0장'}">
+                                                        0장
+                                                    </span>
+                                                </div>
 
-												<!-- ✅ 여기부터 “상세스펙 및 옵션” 레이아웃 변경 -->
-												<div class="product-detail-added-spec-wrap">
-													<div class="product-detail-added-spec-title">
-														<h5 class="fs-15">상세스펙 및 옵션 :</h5>
-														<span class="product-detail-added-spec-badge">중요 옵션</span>
-													</div>
+                                                <div class="product-detail-added-image-empty"
+                                                     th:if="${adminImages == null or #lists.isEmpty(adminImages)}">
+                                                    첨부된 관리자 이미지가 없습니다.
+                                                </div>
 
-													<div class="product-detail-added-divider"></div>
+                                                <div class="product-detail-added-image-viewer"
+                                                     th:if="${adminImages != null and !#lists.isEmpty(adminImages)}">
 
-													<div class="product-detail-added-spec-card">
-														<div class="product-detail-added-spec-grid">
+                                                    <div class="product-detail-added-preview-box">
+                                                        <button type="button"
+                                                                class="product-detail-added-preview-nav product-detail-added-preview-prev"
+                                                                aria-label="이전 이미지">
+                                                            ‹
+                                                        </button>
 
-															<!-- 제품분류 -->
-															<div class="product-detail-added-spec-item">
-																<div class="product-detail-added-spec-key">제품분류</div>
-																<div class="product-detail-added-spec-val"
-																	th:text="${order.productCategory.name}">하부장</div>
-															</div>
+                                                        <button type="button"
+                                                                id="product-detail-added-preview-open"
+                                                                class="product-detail-added-preview-open"
+                                                                data-product-detail-added-index="0"
+                                                                aria-label="이미지 크게보기">
+                                                            <img id="product-detail-added-preview-image"
+                                                                 th:src="${adminImages[0].url}"
+                                                                 th:alt="${adminImages[0].filename}">
+                                                        </button>
 
-															<!-- 옵션 리스트 -->
-															<div class="product-detail-added-spec-item"
-																th:each="entry : ${orderItem.parsedOptionMap}">
-																<div class="product-detail-added-spec-key"
-																	th:text="${entry.key}">옵션키</div>
-																<div class="product-detail-added-spec-val"
-																	th:text="${entry.value}">옵션값</div>
-															</div>
+                                                        <button type="button"
+                                                                class="product-detail-added-preview-nav product-detail-added-preview-next"
+                                                                aria-label="다음 이미지">
+                                                            ›
+                                                        </button>
 
-														</div>
-													</div>
-												</div>
-												<!-- ✅ 여기까지 “상세스펙 및 옵션” 레이아웃 변경 끝 -->
+                                                        <div class="product-detail-added-preview-meta">
+                                                            <span id="product-detail-added-preview-name"
+                                                                  th:text="${adminImages[0].filename}">
+                                                                filename
+                                                            </span>
+                                                            <span id="product-detail-added-preview-counter"
+                                                                  th:text="|1 / ${#lists.size(adminImages)}|">
+                                                                1 / 1
+                                                            </span>
+                                                        </div>
+                                                    </div>
 
-												<div class="row mt-4">
-													<div class="col-12">
-														<label class="form-label">이미지 첨부 파일</label>
-													</div>
+                                                    <div class="product-detail-added-thumb-strip">
+                                                        <button type="button"
+                                                                class="product-detail-added-thumb"
+                                                                th:classappend="${stat.index == 0} ? ' product-detail-added-thumb-active' : ''"
+                                                                th:each="img, stat : ${adminImages}"
+                                                                th:attr="data-product-detail-added-url=${img.url},
+                                                                         data-product-detail-added-name=${img.filename},
+                                                                         data-product-detail-added-index=${stat.index}">
+                                                            <img th:src="${img.url}" th:alt="${img.filename}">
+                                                            <span th:text="${img.filename}">filename</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </section>
+                                        </div>
+                                    </div>
 
-													<div class="col-12">
-														<div class="row g-2">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
 
-															<!-- 관리자 업로드 이미지 -->
-															<div th:if="${!#lists.isEmpty(order.adminUploadedImages)}"
-																class="col-12 mt-3">
-																<div class="row g-2">
-																	<div class="col-lg-2"
-																		th:each="img : ${order.adminUploadedImages}"
-																		th:attr="data-id=${img.id}">
-																		<div
-																			class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
-																			<img th:src="${img.url}" class="img-fluid mb-2"
-																				style="max-height: 120px;" />
-																			<span class="text-truncate small"
-																				th:text="${img.filename}"
-																				style="max-width: 100%;"></span>
-																			<a th:href="${img.url}" download class="mt-1">
-																				<i class="ri-download-2-line fs-18 text-primary"></i>
-																			</a>
-																		</div>
-																	</div>
-																</div>
-															</div>
+                <div class="modal fade product-detail-added-modal"
+                     id="product-detail-added-image-modal"
+                     tabindex="-1"
+                     aria-hidden="true">
+                    <div class="modal-dialog modal-xl modal-dialog-centered">
+                        <div class="modal-content product-detail-added-modal-content">
+                            <div class="modal-header product-detail-added-modal-header">
+                                <div>
+                                    <h5 class="modal-title product-detail-added-modal-title">이미지 크게보기</h5>
+                                    <div id="product-detail-added-modal-name"
+                                         class="product-detail-added-modal-name">filename</div>
+                                </div>
+                                <button type="button"
+                                        class="btn-close"
+                                        data-bs-dismiss="modal"
+                                        aria-label="닫기"></button>
+                            </div>
 
-														</div>
-													</div>
-												</div>
+                            <div class="modal-body product-detail-added-modal-body">
+                                <div class="product-detail-added-modal-toolbar">
+                                    <button type="button"
+                                            id="product-detail-added-zoom-out"
+                                            class="product-detail-added-tool-button">축소</button>
+                                    <button type="button"
+                                            id="product-detail-added-zoom-reset"
+                                            class="product-detail-added-tool-button">원본</button>
+                                    <button type="button"
+                                            id="product-detail-added-zoom-in"
+                                            class="product-detail-added-tool-button">확대</button>
+                                    <a id="product-detail-added-download"
+                                       class="product-detail-added-tool-button product-detail-added-download"
+                                       href="#"
+                                       download>
+                                        다운로드
+                                    </a>
+                                </div>
 
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
+                                <div class="product-detail-added-modal-stage"
+                                     id="product-detail-added-modal-stage">
+                                    <button type="button"
+                                            id="product-detail-added-modal-prev"
+                                            class="product-detail-added-modal-nav product-detail-added-modal-prev"
+                                            aria-label="이전 이미지">
+                                        ‹
+                                    </button>
 
-					</div>
-				</div>
-			</div>
+                                    <img id="product-detail-added-modal-image"
+                                         class="product-detail-added-modal-image"
+                                         src=""
+                                         alt="">
 
-			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
-		</div>
-	</div>
+                                    <button type="button"
+                                            id="product-detail-added-modal-next"
+                                            class="product-detail-added-modal-nav product-detail-added-modal-next"
+                                            aria-label="다음 이미지">
+                                        ›
+                                    </button>
+                                </div>
 
-	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
-	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
-	<script src="/administration/assets/js/pages/project-overview.init.js"></script>
+                                <div class="product-detail-added-modal-footer-info">
+                                    <span id="product-detail-added-modal-counter">1 / 1</span>
+                                    <span>마우스 휠 확대/축소, 확대 상태에서 드래그 이동 가능</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+<script src="/administration/assets/js/page/productionDetail.js"></script>
 </body>
-
 </html>
