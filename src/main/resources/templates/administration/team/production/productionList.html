@@ -115,7 +115,7 @@
 									</button>
 								</div>
 
-								<div class="col-lg-12 col-xl-2">
+								<div class="col-lg-12 col-xl-6">
 									<label class="form-label">&nbsp;</label>
 									<div class="team-production-overview-action-group">
 										<button type="button" class="btn btn-success" id="team-production-bulk-done-btn"
@@ -131,6 +131,11 @@
 										<button type="button" class="btn btn-dark"
 											id="team-production-overview-open-btn">
 											일괄보기
+										</button>
+
+										<button type="button" class="btn btn-secondary"
+											id="team-production-overview-list-open-btn">
+											일괄보기-리스트형
 										</button>
 									</div>
 								</div>
@@ -463,6 +468,94 @@
 						</div>
 					</div>
 
+					<!-- ===== 생산팀 일괄보기 리스트형 모달 ===== -->
+					<div class="modal fade team-production-overview-list-modal" id="team-production-overview-list-modal"
+						tabindex="-1" aria-hidden="true">
+						<div class="modal-dialog modal-fullscreen team-production-overview-list-dialog">
+							<div class="modal-content team-production-overview-list-content">
+
+								<div class="modal-header team-production-overview-list-header">
+									<div>
+										<div class="team-production-overview-list-title">
+											생산 발주 일괄보기 - 리스트형
+										</div>
+										<div class="team-production-overview-list-subtitle">
+											현재 조회된 화면 기준
+											<span id="team-production-overview-list-counter">0건</span>
+										</div>
+									</div>
+
+									<div class="team-production-overview-list-header-actions">
+										<button type="button" class="btn btn-outline-primary btn-sm"
+											id="team-production-overview-list-refresh-btn">
+											새로고침
+										</button>
+
+										<button type="button" class="btn-close" data-bs-dismiss="modal"
+											aria-label="닫기"></button>
+									</div>
+								</div>
+
+								<div class="modal-body team-production-overview-list-body">
+									<div id="team-production-overview-list-host"
+										class="team-production-overview-list-host">
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- ===== 생산팀 일괄보기 리스트형 이미지 확대 모달 ===== -->
+					<div class="team-production-overview-list-image-modal"
+						id="team-production-overview-list-image-modal" aria-hidden="true">
+						<div class="team-production-overview-list-image-modal-inner">
+
+							<div class="team-production-overview-list-image-toolbar">
+								<div class="team-production-overview-list-image-title">
+									<span id="team-production-overview-list-image-counter">0 / 0</span>
+								</div>
+
+								<div class="team-production-overview-list-image-controls">
+									<button type="button" class="btn btn-light btn-sm"
+										id="team-production-overview-list-image-original-btn">
+										원본
+									</button>
+
+									<button type="button" class="btn btn-light btn-sm"
+										id="team-production-overview-list-image-zoom-in-btn">
+										확대
+									</button>
+
+									<button type="button" class="btn btn-light btn-sm"
+										id="team-production-overview-list-image-zoom-out-btn">
+										축소
+									</button>
+
+									<button type="button" class="btn btn-danger btn-sm"
+										id="team-production-overview-list-image-close-btn">
+										닫기
+									</button>
+								</div>
+							</div>
+
+							<button type="button"
+								class="team-production-overview-list-image-nav team-production-overview-list-image-prev"
+								id="team-production-overview-list-image-prev-btn" aria-label="이전 이미지">
+								‹
+							</button>
+
+							<div class="team-production-overview-list-image-stage">
+								<img id="team-production-overview-list-image-viewer" src="" alt="관리자 업로드 이미지">
+							</div>
+
+							<button type="button"
+								class="team-production-overview-list-image-nav team-production-overview-list-image-next"
+								id="team-production-overview-list-image-next-btn" aria-label="다음 이미지">
+								›
+							</button>
+						</div>
+					</div>
+
 					<!-- ===== 이미지 확대 모달 ===== -->
 					<div class="team-production-overview-image-modal" id="team-production-overview-image-modal"
 						aria-hidden="true">
@@ -534,6 +627,7 @@
 	<script th:src="@{/administration/assets/team/production/productionList.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionPrint.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOverview.js}"></script>
+	<script th:src="@{/administration/assets/team/production/productionOverviewList.js}"></script>
 
 </body>
 

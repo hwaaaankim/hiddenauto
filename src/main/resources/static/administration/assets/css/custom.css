@@ -7926,3 +7926,573 @@ body.admin-task-list-second-modal-open {
 	will-change: transform;
 	backface-visibility: hidden;
 }
+
+/* =========================================================
+   생산팀 일괄보기 - 리스트형 추가 CSS
+   기존 productionOverview.css 하단에 그대로 추가
+   ========================================================= */
+
+/* 버튼 4개 대응 */
+.team-production-overview-action-group {
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* =========================
+   리스트형 모달 기본
+   ========================= */
+.team-production-overview-list-modal .modal-content {
+	border: 0;
+	border-radius: 0;
+}
+
+.team-production-overview-list-dialog {
+	width: 100vw;
+	max-width: none;
+	height: 100vh;
+	margin: 0;
+}
+
+.team-production-overview-list-content {
+	height: 100vh;
+	max-height: 100vh;
+	overflow: hidden;
+	background: #f3f5f8;
+}
+
+.team-production-overview-list-header {
+	flex: 0 0 48px;
+	min-height: 48px;
+	padding: 7px 16px;
+	border-bottom: 1px solid #e9edf3;
+	background: #fff;
+}
+
+.team-production-overview-list-title {
+	font-size: 15px;
+	line-height: 1.15;
+	font-weight: 900;
+	color: #111827;
+}
+
+.team-production-overview-list-subtitle {
+	margin-top: 2px;
+	font-size: 11px;
+	line-height: 1.15;
+	color: #6b7280;
+}
+
+.team-production-overview-list-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.team-production-overview-list-header-actions .btn {
+	border-radius: 5px;
+	font-size: 12px;
+	padding: 4px 10px;
+}
+
+.team-production-overview-list-body {
+	flex: 1 1 auto;
+	height: calc(100vh - 48px);
+	padding: 8px 12px;
+	background: #f3f5f8;
+	overflow: hidden;
+}
+
+.team-production-overview-list-host {
+	height: 100%;
+	min-height: 0;
+	overflow-y: auto;
+	padding-right: 5px;
+}
+
+/* =========================
+   카드: 전체 높이 45%
+   상단 정보 약 10%, 본문 6:4
+   ========================= */
+.team-production-overview-list-card {
+	height: 45vh;
+	min-height: 360px;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	margin-bottom: 10px;
+	padding: 8px;
+	border: 1px solid #dfe4ec;
+	border-radius: 8px;
+	background: #fff;
+	box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.team-production-overview-list-card:last-child {
+	margin-bottom: 0;
+}
+
+.team-production-overview-list-top {
+	flex: 0 0 10%;
+	min-height: 52px;
+	display: grid;
+	grid-template-columns: minmax(260px, 1.5fr) repeat(5, minmax(110px, 0.75fr));
+	gap: 6px;
+}
+
+.team-production-overview-list-company,
+.team-production-overview-list-top-item {
+	min-width: 0;
+	padding: 5px 7px;
+	border: 1px solid #edf0f4;
+	border-radius: 6px;
+	background: #f9fafb;
+}
+
+.team-production-overview-list-company-name {
+	font-size: 14px;
+	line-height: 1.2;
+	font-weight: 900;
+	color: #111827;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.team-production-overview-list-address {
+	margin-top: 3px;
+	font-size: 11px;
+	line-height: 1.28;
+	font-weight: 700;
+	color: #374151;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+.team-production-overview-list-top-label {
+	margin-bottom: 2px;
+	font-size: 10px;
+	line-height: 1.1;
+	font-weight: 700;
+	color: #8a93a3;
+}
+
+.team-production-overview-list-top-value {
+	font-size: 12px;
+	line-height: 1.2;
+	font-weight: 900;
+	color: #111827;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.team-production-overview-list-main {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+	gap: 8px;
+}
+
+.team-production-overview-list-panel {
+	height: 100%;
+	min-height: 0;
+	padding: 8px;
+	border: 1px solid #e4e8ef;
+	border-radius: 7px;
+	background: #fff;
+	overflow: hidden;
+}
+
+.team-production-overview-list-panel-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 22px;
+	margin-bottom: 6px;
+	font-size: 13px;
+	line-height: 1.15;
+	font-weight: 900;
+	color: #111827;
+}
+
+.team-production-overview-list-panel-title small {
+	font-size: 10px;
+	font-weight: 700;
+	color: #8a93a3;
+}
+
+/* =========================
+   리스트형 옵션 영역
+   ========================= */
+.team-production-overview-list-option-scroll {
+	height: calc(100% - 28px);
+	min-height: 0;
+	overflow: hidden;
+	padding-right: 0;
+}
+
+.team-production-overview-list-option-scroll.has-overflow {
+	overflow-y: auto;
+	padding-right: 3px;
+}
+
+.team-production-overview-list-option-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.team-production-overview-list-option-item {
+	min-height: 48px;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	gap: 4px;
+	padding: 7px 8px;
+	border: 1px solid #e9edf3;
+	border-radius: 6px;
+	background: #fbfcfe;
+	min-width: 0;
+}
+
+.team-production-overview-list-option-item-important {
+	background: #f7fbff;
+	border-color: #d8eaff;
+}
+
+.team-production-overview-list-option-label {
+	display: block;
+	margin: 0 0 2px 0;
+	font-size: 11px;
+	line-height: 1.15;
+	font-weight: 900;
+	color: #2563eb;
+	letter-spacing: -0.2px;
+}
+
+.team-production-overview-list-option-value {
+	display: block;
+	font-size: 15px;
+	line-height: 1.28;
+	font-weight: 900;
+	color: #0f172a;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+.team-production-overview-list-option-empty {
+	height: calc(100% - 28px);
+	min-height: 160px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px dashed #d7dde7;
+	border-radius: 6px;
+	background: #fbfcfe;
+	color: #9ca3af;
+	font-size: 14px;
+	font-weight: 900;
+}
+
+/* =========================
+   리스트형 이미지 영역
+   ========================= */
+.team-production-overview-list-image-panel {
+	display: flex;
+	flex-direction: column;
+}
+
+.team-production-overview-list-image-main {
+	position: relative;
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid #e9edf3;
+	border-radius: 6px;
+	background: #f9fafb;
+	overflow: hidden;
+}
+
+.team-production-overview-list-image-main img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	cursor: zoom-in;
+	user-select: none;
+	-webkit-user-drag: none;
+	will-change: transform;
+	backface-visibility: hidden;
+}
+
+.team-production-overview-list-image-empty {
+	color: #9ca3af;
+	font-size: 14px;
+	font-weight: 800;
+}
+
+.team-production-overview-list-inner-image-nav {
+	position: absolute;
+	top: 50%;
+	z-index: 3;
+	width: 30px;
+	height: 44px;
+	transform: translateY(-50%);
+	border: 0;
+	border-radius: 5px;
+	background: rgba(17, 24, 39, 0.58);
+	color: #fff;
+	font-size: 27px;
+	line-height: 1;
+}
+
+.team-production-overview-list-inner-image-prev {
+	left: 7px;
+}
+
+.team-production-overview-list-inner-image-next {
+	right: 7px;
+}
+
+.team-production-overview-list-image-thumbs {
+	flex: 0 0 auto;
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+	overflow-x: auto;
+	padding-bottom: 1px;
+}
+
+.team-production-overview-list-image-thumb {
+	flex: 0 0 54px;
+	width: 54px;
+	height: 40px;
+	padding: 0;
+	border: 2px solid transparent;
+	border-radius: 5px;
+	background: #f3f4f6;
+	overflow: hidden;
+}
+
+.team-production-overview-list-image-thumb.active {
+	border-color: #2563eb;
+}
+
+.team-production-overview-list-image-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.team-production-overview-list-loading,
+.team-production-overview-list-empty {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #6b7280;
+	font-size: 16px;
+	font-weight: 900;
+}
+
+/* =========================
+   리스트형 이미지 확대 모달
+   기존 일괄보기 이미지 모달과 ID/class 분리
+   ========================= */
+.team-production-overview-list-image-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 21000;
+	display: none;
+	background: rgba(0, 0, 0, 0.88);
+}
+
+.team-production-overview-list-image-modal.is-open {
+	display: block;
+}
+
+.team-production-overview-list-image-modal-inner {
+	position: relative;
+	width: 100%;
+	height: 100%;
+}
+
+.team-production-overview-list-image-toolbar {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	right: 10px;
+	z-index: 4;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+}
+
+.team-production-overview-list-image-title {
+	color: #fff;
+	font-weight: 900;
+}
+
+.team-production-overview-list-image-controls {
+	display: flex;
+	gap: 6px;
+}
+
+.team-production-overview-list-image-controls .btn {
+	border-radius: 5px;
+}
+
+.team-production-overview-list-image-stage {
+	width: 100%;
+	height: 100%;
+	padding: 64px 60px 30px;
+	overflow: auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.team-production-overview-list-image-stage img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	transform-origin: center center;
+	transition: transform 0.12s ease;
+	user-select: none;
+	-webkit-user-drag: none;
+	will-change: transform;
+	backface-visibility: hidden;
+}
+
+.team-production-overview-list-image-nav {
+	position: absolute;
+	top: 50%;
+	z-index: 5;
+	width: 42px;
+	height: 80px;
+	transform: translateY(-50%);
+	border: 0;
+	border-radius: 5px;
+	background: rgba(255, 255, 255, 0.18);
+	color: #fff;
+	font-size: 42px;
+}
+
+.team-production-overview-list-image-prev {
+	left: 10px;
+}
+
+.team-production-overview-list-image-next {
+	right: 10px;
+}
+
+.team-production-overview-list-image-nav:disabled {
+	opacity: 0.3;
+	cursor: not-allowed;
+}
+
+@media (max-width: 1399px) {
+	.team-production-overview-action-group .btn {
+		font-size: 12px;
+	}
+
+	.team-production-overview-list-top {
+		grid-template-columns: minmax(240px, 1.4fr) repeat(4, minmax(105px, 0.75fr));
+	}
+
+	.team-production-overview-list-option-value {
+		font-size: 14px;
+	}
+}
+
+@media (max-width: 1199px) {
+	.team-production-overview-action-group {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		max-width: 640px;
+	}
+
+	.team-production-overview-list-top {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.team-production-overview-list-company {
+		grid-column: span 3;
+	}
+
+	.team-production-overview-list-main {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+	}
+}
+
+@media (max-width: 991px) {
+	.team-production-overview-list-card {
+		height: auto;
+		min-height: 0;
+	}
+
+	.team-production-overview-list-main {
+		grid-template-columns: 1fr;
+	}
+
+	.team-production-overview-list-image-panel {
+		min-height: 280px;
+	}
+
+	.team-production-overview-list-image-main {
+		min-height: 220px;
+	}
+}
+
+@media (max-width: 767px) {
+	.team-production-overview-list-body {
+		padding: 8px;
+	}
+
+	.team-production-overview-list-top {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.team-production-overview-list-company {
+		grid-column: span 2;
+	}
+
+	.team-production-overview-list-option-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.team-production-overview-list-image-toolbar {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.team-production-overview-list-image-stage {
+		padding: 108px 44px 28px;
+	}
+
+	.team-production-overview-list-image-nav {
+		width: 36px;
+		height: 68px;
+		font-size: 36px;
+	}
+}
+
+@media (max-width: 575px) {
+	.team-production-overview-action-group {
+		grid-template-columns: 1fr;
+		max-width: none;
+	}
+
+	.team-production-overview-list-top {
+		grid-template-columns: 1fr;
+	}
+
+	.team-production-overview-list-company {
+		grid-column: auto;
+	}
+}
