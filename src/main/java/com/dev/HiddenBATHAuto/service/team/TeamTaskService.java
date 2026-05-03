@@ -2,15 +2,19 @@ package com.dev.HiddenBATHAuto.service.team;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +22,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
+import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
+import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewImageDto;
+import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewOrderDto;
 import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
@@ -530,5 +538,315 @@ public class TeamTaskService {
 			return "";
 		String url = img.getUrl(); // TODO: 실제 필드명 맞으면 그대로 사용
 		return url == null ? "" : url.trim();
+	}
+	
+	@Transactional(readOnly = true)
+	public Map<Long, List<ProductionOverviewFieldDto>> buildProductionOverviewBriefFieldMap(List<Order> orders) {
+	    Map<Long, List<ProductionOverviewFieldDto>> result = new LinkedHashMap<>();
+
+	    if (orders == null || orders.isEmpty()) {
+	        return result;
+	    }
+
+	    for (Order order : orders) {
+	        result.put(order.getId(), buildProductionOverviewFields(order, true));
+	    }
+
+	    return result;
+	}
+
+	@Transactional(readOnly = true)
+	public List<ProductionOverviewOrderDto> getProductionOverviewOrders(List<Long> orderIds, Member loginMember) {
+	    validateProductionTeamMember(loginMember);
+
+	    if (orderIds == null || orderIds.isEmpty()) {
+	        return List.of();
+	    }
+
+	    List<Long> distinctIds = orderIds.stream()
+	            .filter(Objects::nonNull)
+	            .collect(Collectors.toCollection(LinkedHashSet::new))
+	            .stream()
+	            .toList();
+
+	    if (distinctIds.isEmpty()) {
+	        return List.of();
+	    }
+
+	    List<Order> orders = orderRepository.findAllForProductionOverviewByIds(distinctIds);
+
+	    Map<Long, Order> orderMap = orders.stream()
+	            .collect(Collectors.toMap(Order::getId, o -> o, (a, b) -> a, LinkedHashMap::new));
+
+	    List<ProductionOverviewOrderDto> result = new ArrayList<>();
+
+	    for (Long orderId : distinctIds) {
+	        Order order = orderMap.get(orderId);
+
+	        if (order == null) {
+	            continue;
+	        }
+
+	        if (!canAccessProductionOrder(loginMember, order)) {
+	            continue;
+	        }
+
+	        result.add(toProductionOverviewOrderDto(order, loginMember));
+	    }
+
+	    return result;
+	}
+
+	@Transactional
+	public ProductionOverviewCompleteResponse completeProductionOrderFromOverview(Long orderId, Member loginMember) {
+	    validateProductionTeamMember(loginMember);
+
+	    if (orderId == null) {
+	        throw new IllegalArgumentException("주문 ID가 없습니다.");
+	    }
+
+	    Order order = orderRepository.findByIdForProductionStatusUpdate(orderId)
+	            .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
+
+	    if (!canAccessProductionOrder(loginMember, order)) {
+	        throw new AccessDeniedException("해당 발주를 생산완료 처리할 권한이 없습니다.");
+	    }
+
+	    if (order.getStatus() != OrderStatus.CONFIRMED) {
+	        throw new IllegalStateException("승인 완료 상태의 발주만 생산완료 처리할 수 있습니다.");
+	    }
+
+	    int updated = orderRepository.updateProductionStatusIfCurrentStatus(
+	            orderId,
+	            OrderStatus.CONFIRMED,
+	            OrderStatus.PRODUCTION_DONE,
+	            LocalDateTime.now()
+	    );
+
+	    if (updated != 1) {
+	        throw new IllegalStateException("이미 상태가 변경되었습니다. 새로고침 후 다시 확인해 주세요.");
+	    }
+
+	    return ProductionOverviewCompleteResponse.builder()
+	            .orderId(orderId)
+	            .status(OrderStatus.PRODUCTION_DONE.name())
+	            .statusLabel(OrderStatus.PRODUCTION_DONE.getLabel())
+	            .message("생산완료 처리되었습니다.")
+	            .build();
+	}
+
+	private ProductionOverviewOrderDto toProductionOverviewOrderDto(Order order, Member loginMember) {
+	    OrderItem item = order.getOrderItem();
+
+	    String companyName = "-";
+	    try {
+	        if (order.getTask() != null
+	                && order.getTask().getRequestedBy() != null
+	                && order.getTask().getRequestedBy().getCompany() != null
+	                && order.getTask().getRequestedBy().getCompany().getCompanyName() != null
+	                && !order.getTask().getRequestedBy().getCompany().getCompanyName().isBlank()) {
+
+	            companyName = order.getTask().getRequestedBy().getCompany().getCompanyName();
+	        }
+	    } catch (Exception ignore) {
+	        companyName = "-";
+	    }
+
+	    List<ProductionOverviewImageDto> adminImages = new ArrayList<>();
+	    try {
+	        List<OrderImage> images = order.getAdminUploadedImages();
+	        if (images != null) {
+	            for (OrderImage img : images) {
+	                String url = resolveAdminImageUrl(img);
+	                if (!isBlank(url)) {
+	                    adminImages.add(ProductionOverviewImageDto.builder()
+	                            .imageId(img.getId())
+	                            .url(url)
+	                            .filename(safeText(img.getFilename()))
+	                            .type(safeText(img.getType()))
+	                            .build());
+	                }
+	            }
+	        }
+	    } catch (Exception ignore) {
+	        adminImages = new ArrayList<>();
+	    }
+
+	    OrderStatus status = order.getStatus();
+
+	    return ProductionOverviewOrderDto.builder()
+	            .orderId(order.getId())
+	            .status(status != null ? status.name() : "")
+	            .statusLabel(status != null ? status.getLabel() : "-")
+	            .canComplete(status == OrderStatus.CONFIRMED && canAccessProductionOrder(loginMember, order))
+	            .companyName(companyName)
+	            .productName(item != null ? safeText(item.getProductName()) : "-")
+	            .categoryName(order.getProductCategory() != null ? safeText(order.getProductCategory().getName()) : "-")
+	            .standardLabel(order.isStandard() ? "규격" : "비규격")
+	            .quantity(item != null ? item.getQuantity() : order.getQuantity())
+	            .createdDateText(formatDateTime(order.getCreatedAt()))
+	            .preferredDeliveryDateText(formatDateTime(order.getPreferredDeliveryDate()))
+	            .orderComment(safeText(order.getOrderComment()))
+	            .adminMemo(safeText(order.getAdminMemo()))
+	            .fields(buildProductionOverviewFields(order, false))
+	            .adminImages(adminImages)
+	            .build();
+	}
+
+	private List<ProductionOverviewFieldDto> buildProductionOverviewFields(Order order, boolean briefMode) {
+	    List<ProductionOverviewFieldDto> fields = new ArrayList<>();
+
+	    if (order == null) {
+	        return fields;
+	    }
+
+	    OrderItem item = order.getOrderItem();
+
+	    fields.add(ProductionOverviewFieldDto.important(
+	            "제품명",
+	            item != null ? safeText(item.getProductName()) : "-"
+	    ));
+
+	    fields.add(ProductionOverviewFieldDto.of(
+	            "수량",
+	            String.valueOf(item != null ? item.getQuantity() : order.getQuantity())
+	    ));
+
+	    fields.add(ProductionOverviewFieldDto.of(
+	            "제품분류",
+	            order.getProductCategory() != null ? safeText(order.getProductCategory().getName()) : "-"
+	    ));
+
+	    fields.add(ProductionOverviewFieldDto.of(
+	            "규격여부",
+	            order.isStandard() ? "규격" : "비규격"
+	    ));
+
+	    String address = buildProductionAddress(order);
+	    if (!isBlank(address)) {
+	        fields.add(ProductionOverviewFieldDto.of("주소", address));
+	    }
+
+	    if (!isBlank(order.getOrderComment())) {
+	        fields.add(ProductionOverviewFieldDto.of("발주메모", safeText(order.getOrderComment())));
+	    }
+
+	    if (!isBlank(order.getAdminMemo())) {
+	        fields.add(ProductionOverviewFieldDto.of("관리자메모", safeText(order.getAdminMemo())));
+	    }
+
+	    Map<String, Object> optionMap = parseJsonToMap(item != null ? item.getOptionJson() : null);
+
+	    for (Map.Entry<String, Object> entry : optionMap.entrySet()) {
+	        String label = safeText(entry.getKey());
+	        String value = safeText(flattenOptionValue(entry.getValue()));
+
+	        if (isBlank(label) || isBlank(value)) {
+	            continue;
+	        }
+
+	        fields.add(ProductionOverviewFieldDto.of(label, value));
+	    }
+
+	    if (briefMode && fields.size() > 12) {
+	        return new ArrayList<>(fields.subList(0, 12));
+	    }
+
+	    return fields;
+	}
+
+	@SuppressWarnings("unchecked")
+	private String flattenOptionValue(Object value) {
+	    if (value == null) {
+	        return "";
+	    }
+
+	    if (value instanceof Map<?, ?> mapValue) {
+	        List<String> tokens = new ArrayList<>();
+
+	        for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
+	            String k = safeText(entry.getKey());
+	            String v = flattenOptionValue(entry.getValue());
+
+	            if (!isBlank(k) && !isBlank(v)) {
+	                tokens.add(k + ": " + v);
+	            } else if (!isBlank(v)) {
+	                tokens.add(v);
+	            }
+	        }
+
+	        return String.join(" / ", tokens);
+	    }
+
+	    if (value instanceof List<?> listValue) {
+	        return listValue.stream()
+	                .map(this::flattenOptionValue)
+	                .filter(v -> v != null && !v.isBlank())
+	                .collect(Collectors.joining(" / "));
+	    }
+
+	    return safeText(value);
+	}
+
+	private String buildProductionAddress(Order order) {
+	    if (order == null) {
+	        return "";
+	    }
+
+	    List<String> tokens = new ArrayList<>();
+
+	    if (!isBlank(order.getRoadAddress())) {
+	        tokens.add(safeText(order.getRoadAddress()));
+	    }
+
+	    if (!isBlank(order.getDetailAddress())) {
+	        tokens.add(safeText(order.getDetailAddress()));
+	    }
+
+	    String region = String.join(" ",
+	            List.of(
+	                    safeText(order.getDoName()),
+	                    safeText(order.getSiName()),
+	                    safeText(order.getGuName())
+	            ).stream().filter(v -> !v.isBlank()).toList()
+	    );
+
+	    if (!isBlank(region)) {
+	        tokens.add(region);
+	    }
+
+	    if (!isBlank(order.getZipCode())) {
+	        tokens.add("(" + safeText(order.getZipCode()) + ")");
+	    }
+
+	    return String.join(" ", tokens);
+	}
+
+	private String formatDateTime(LocalDateTime dateTime) {
+	    if (dateTime == null) {
+	        return "-";
+	    }
+
+	    return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+	}
+
+	private void validateProductionTeamMember(Member member) {
+	    if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+	    }
+	}
+
+	private boolean canAccessProductionOrder(Member member, Order order) {
+	    if (member == null || order == null) {
+	        return false;
+	    }
+
+	    if (member.getTeamCategory() != null && "하부장".equals(member.getTeamCategory().getName())) {
+	        return order.getProductCategory() != null
+	                && order.getProductCategory().getId() != null
+	                && order.getProductCategory().getId().equals(member.getTeamCategory().getId());
+	    }
+
+	    return true;
 	}
 }

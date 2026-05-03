@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -944,6 +945,44 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
             @Param("status") OrderStatus status,
             @Param("standard") Boolean standard
     );
+    
+    @Query("""
+	    select distinct o
+	    from Order o
+	    left join fetch o.task t
+	    left join fetch t.requestedBy rb
+	    left join fetch rb.company c
+	    left join fetch o.productCategory pc
+	    left join fetch o.orderItem oi
+	    left join fetch o.orderImages imgs
+	    where o.id in :orderIds
+	""")
+	List<Order> findAllForProductionOverviewByIds(@Param("orderIds") List<Long> orderIds);
+
+
+	@Query("""
+	    select o
+	    from Order o
+	    left join fetch o.productCategory pc
+	    where o.id = :orderId
+	""")
+	Optional<Order> findByIdForProductionStatusUpdate(@Param("orderId") Long orderId);
+
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("""
+	    update Order o
+	    set o.status = :toStatus,
+	        o.updatedAt = :updatedAt
+	    where o.id = :orderId
+	      and o.status = :fromStatus
+	""")
+	int updateProductionStatusIfCurrentStatus(
+	        @Param("orderId") Long orderId,
+	        @Param("fromStatus") OrderStatus fromStatus,
+	        @Param("toStatus") OrderStatus toStatus,
+	        @Param("updatedAt") LocalDateTime updatedAt
+	);
     
 }
 
