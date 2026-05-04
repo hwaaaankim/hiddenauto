@@ -8496,3 +8496,45 @@ body.admin-task-list-second-modal-open {
 		grid-column: auto;
 	}
 }
+
+.team-production-overview-list-complete-btn {
+	white-space: nowrap;
+	font-weight: 700;
+}
+
+.team-production-overview-list-complete-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+.team-production-overview-list-top {
+	position: relative;
+	padding-right: 120px;
+	min-height: 58px;
+	overflow: visible;
+}
+
+.team-production-overview-list-top-complete-wrap {
+	position: absolute;
+	top: 50%;
+	right: 12px;
+	transform: translateY(-50%);
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.team-production-overview-list-complete-btn {
+	min-width: 86px;
+	height: 32px;
+	padding: 0 12px;
+	white-space: nowrap;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.team-production-overview-list-complete-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}

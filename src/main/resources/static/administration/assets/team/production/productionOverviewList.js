@@ -828,6 +828,7 @@
 			buildListTopItemHtml('분류', order.productCategoryName || '-'),
 			buildListTopItemHtml('규격', order.standardLabel || '-'),
 			buildListTopItemHtml('일자', order.dateText || '-'),
+			buildListCompleteButtonHtml(order),
 			'</section>'
 		].join('');
 	}
@@ -837,6 +838,22 @@
 			'<div class="team-production-overview-list-top-item">',
 			'<div class="team-production-overview-list-top-label">' + escapeHtml(label) + '</div>',
 			'<div class="team-production-overview-list-top-value" title="' + escapeAttr(value || '-') + '">' + escapeHtml(value || '-') + '</div>',
+			'</div>'
+		].join('');
+	}
+
+	function buildListCompleteButtonHtml(order) {
+		const completeState = getOrderCompleteState(order);
+		const disabledAttr = completeState.available ? '' : ' disabled';
+
+		return [
+			'<div class="team-production-overview-list-top-complete-wrap">',
+			'<button type="button"',
+			' class="btn btn-success btn-sm team-production-overview-list-complete-btn"',
+			' data-list-complete-order="true"',
+			' title="' + escapeAttr(completeState.message) + '"',
+			disabledAttr,
+			'>생산완료</button>',
 			'</div>'
 		].join('');
 	}
@@ -922,6 +939,14 @@
 
 		const orderIndex = Number(card.getAttribute('data-list-order-index')) || 0;
 
+		const completeBtn = event.target.closest('[data-list-complete-order="true"]');
+
+		if (completeBtn) {
+			event.preventDefault();
+			completeListOrderByExistingBulkButton(orderIndex);
+			return;
+		}
+
 		const imageMoveBtn = event.target.closest('[data-list-image-move]');
 
 		if (imageMoveBtn) {
@@ -944,6 +969,115 @@
 			event.preventDefault();
 			openImageModal(orderIndex);
 		}
+	}
+
+	function completeListOrderByExistingBulkButton(orderIndex) {
+		const order = state.orders[orderIndex];
+
+		if (!order) {
+			return;
+		}
+
+		const completeState = getOrderCompleteState(order);
+
+		if (!completeState.available) {
+			alert(completeState.message);
+			return;
+		}
+
+		triggerProductionCompleteForOrder(order.id);
+	}
+
+	function getOrderCompleteState(order) {
+		if (!order || !order.id) {
+			return {
+				available: false,
+				message: '주문 정보가 없습니다.'
+			};
+		}
+
+		if (!isBulkCompleteAllowed()) {
+			return {
+				available: false,
+				message: '생산완료 처리 권한이 없습니다.'
+			};
+		}
+
+		if (!isCompletableOrderStatus(order)) {
+			return {
+				available: false,
+				message: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.'
+			};
+		}
+
+		const checkbox = getOrderCheckbox(order.id);
+
+		if (!checkbox || checkbox.disabled) {
+			return {
+				available: false,
+				message: '현재 주문은 이 화면에서 생산완료 처리할 수 없습니다.'
+			};
+		}
+
+		return {
+			available: true,
+			message: '생산완료 처리'
+		};
+	}
+
+	function triggerProductionCompleteForOrder(orderId) {
+		const currentCheckbox = getOrderCheckbox(orderId);
+		const bulkButton = document.getElementById('team-production-bulk-done-btn');
+
+		if (!currentCheckbox || currentCheckbox.disabled || !bulkButton) {
+			alert('현재 주문은 이 화면에서 생산완료 처리할 수 없습니다.');
+			return;
+		}
+
+		document.querySelectorAll('.team-production-check-item').forEach(function(checkbox) {
+			checkbox.checked = false;
+			checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+		});
+
+		currentCheckbox.checked = true;
+		currentCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+
+		if (bulkButton.disabled) {
+			alert('생산완료 처리 버튼이 활성화되지 않았습니다. 주문 상태 또는 권한을 확인해 주세요.');
+			return;
+		}
+
+		bulkButton.click();
+	}
+
+	function getOrderCheckbox(orderId) {
+		return document.querySelector('.team-production-check-item[data-order-id="' + cssEscape(orderId) + '"]');
+	}
+
+	function isBulkCompleteAllowed() {
+		const flag = document.getElementById('team-production-can-bulk-complete');
+
+		if (!flag) {
+			return true;
+		}
+
+		return String(flag.value || '').trim().toLowerCase() === 'true';
+	}
+
+	function isCompletableOrderStatus(order) {
+		const status = normalizeOrderStatus(order.status);
+
+		if (status === 'CONFIRMED') {
+			return true;
+		}
+
+		const statusLabel = toText(order.statusLabel).replace(/\s+/g, '');
+
+		return statusLabel === '승인완료';
+	}
+
+	function normalizeOrderStatus(status) {
+		return toText(status).replace(/\s+/g, '').toUpperCase();
 	}
 
 	function moveListCardImage(orderIndex, direction) {
@@ -1349,5 +1483,14 @@
 
 	function escapeAttr(value) {
 		return escapeHtml(value);
+	}
+	function cssEscape(value) {
+		const text = String(value || '');
+
+		if (window.CSS && typeof window.CSS.escape === 'function') {
+			return window.CSS.escape(text);
+		}
+
+		return text.replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, '\\$1');
 	}
 })();
