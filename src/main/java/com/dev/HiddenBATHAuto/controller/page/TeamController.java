@@ -46,6 +46,7 @@ import com.dev.HiddenBATHAuto.dto.delivery.DeliveryExcelRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskResponse;
+import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewOrderDto;
@@ -150,16 +151,43 @@ public class TeamController {
 	        }
 	    }
 
-	    Pageable pageable = PageRequest.of(page, size, buildProductionSort(sortKey, sortDir, dateType));
+	    String normalizedSortKey = (sortKey == null || sortKey.isBlank()) ? "checked" : sortKey.trim();
+	    String normalizedSortDir = (sortDir == null || sortDir.isBlank()) ? "ASC" : sortDir.trim().toUpperCase();
 
-	    Page<Order> orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
-	            targetCategoryId,
-	            dateType,
-	            statusEnum,
-	            start,
-	            end,
-	            pageable
+	    if (!"ASC".equals(normalizedSortDir) && !"DESC".equals(normalizedSortDir)) {
+	        normalizedSortDir = "ASC";
+	    }
+
+	    boolean checkedSort = "checked".equalsIgnoreCase(normalizedSortKey);
+
+	    Pageable pageable = PageRequest.of(
+	            page,
+	            size,
+	            checkedSort ? Sort.unsorted() : buildProductionSort(normalizedSortKey, normalizedSortDir, dateType)
 	    );
+
+	    Page<Order> orderPage;
+
+	    if (checkedSort) {
+	        orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+	                targetCategoryId,
+	                dateType,
+	                statusEnum,
+	                start,
+	                end,
+	                normalizedSortDir,
+	                pageable
+	        );
+	    } else {
+	        orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
+	                targetCategoryId,
+	                dateType,
+	                statusEnum,
+	                start,
+	                end,
+	                pageable
+	        );
+	    }
 
 	    boolean isSubLeaderTeam = member.getTeamCategory() != null
 	            && "하부장".equals(member.getTeamCategory().getName());
@@ -222,33 +250,43 @@ public class TeamController {
 	    model.addAttribute("orderBriefFieldMap", orderBriefFieldMap);
 	    model.addAttribute("currentPageOrderIds", currentPageOrderIds);
 
-	    model.addAttribute("sortKey", sortKey);
-	    model.addAttribute("sortDir", sortDir);
+	    model.addAttribute("sortKey", normalizedSortKey);
+	    model.addAttribute("sortDir", normalizedSortDir);
 
 	    return "administration/team/production/productionList";
 	}
 
 	private Sort buildProductionSort(String sortKey, String sortDir, String dateType) {
-		if (sortKey == null || sortKey.isBlank()) {
-			return Sort.unsorted();
-		}
-		String dir = (sortDir == null || sortDir.isBlank()) ? "ASC" : sortDir.trim().toUpperCase();
-		Sort.Direction direction = "DESC".equals(dir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+	    String key = (sortKey == null || sortKey.isBlank()) ? "date" : sortKey.trim();
+	    String dir = (sortDir == null || sortDir.isBlank()) ? "DESC" : sortDir.trim().toUpperCase();
 
-		if ("standard".equalsIgnoreCase(sortKey)) {
-			return Sort.by(direction, "standard").and(Sort.by(Sort.Direction.DESC, "id"));
-		}
+	    Sort.Direction direction = "ASC".equals(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
-		if ("productName".equalsIgnoreCase(sortKey)) {
-			return Sort.by(direction, "orderItem.productName").and(Sort.by(Sort.Direction.DESC, "id"));
-		}
+	    if ("standard".equalsIgnoreCase(key)) {
+	        return Sort.by(direction, "standard")
+	                .and(Sort.by(Sort.Direction.DESC, "id"));
+	    }
 
-		if ("date".equalsIgnoreCase(sortKey)) {
-			String field = "created".equalsIgnoreCase(dateType) ? "createdAt" : "preferredDeliveryDate";
-			return Sort.by(direction, field).and(Sort.by(Sort.Direction.DESC, "id"));
-		}
+	    if ("productName".equalsIgnoreCase(key)) {
+	        return Sort.by(direction, "orderItem.productName")
+	                .and(Sort.by(Sort.Direction.DESC, "id"));
+	    }
 
-		return Sort.unsorted();
+	    if ("date".equalsIgnoreCase(key)) {
+	        String field = "created".equalsIgnoreCase(dateType)
+	                ? "createdAt"
+	                : "preferredDeliveryDate";
+
+	        return Sort.by(direction, field)
+	                .and(Sort.by(Sort.Direction.DESC, "id"));
+	    }
+
+	    String field = "created".equalsIgnoreCase(dateType)
+	            ? "createdAt"
+	            : "preferredDeliveryDate";
+
+	    return Sort.by(Sort.Direction.DESC, field)
+	            .and(Sort.by(Sort.Direction.DESC, "id"));
 	}
 
 	@GetMapping("/productionList/overview-data")
@@ -319,40 +357,69 @@ public class TeamController {
 	    }
 	}
 	
+	@PostMapping("/productionList/{orderId}/check")
+	@ResponseBody
+	public ResponseEntity<?> checkProductionOrder(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @PathVariable Long orderId) {
+
+	    try {
+	        Member member = principal.getMember();
+
+	        ProductionOrderCheckResponse response =
+	                teamTaskService.markProductionOrderChecked(orderId, member);
+
+	        return ResponseEntity.ok(response);
+
+	    } catch (AccessDeniedException e) {
+	        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+	                .body(Map.of("message", e.getMessage()));
+
+	    } catch (Exception e) {
+	        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+	                .body(Map.of("message", e.getMessage()));
+	    }
+	}
+	
 	@GetMapping("/productionDetail/{orderId}")
-	public String getProductionDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,
-			Model model) {
-		// 주문 조회
-		Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
+	public String getProductionDetail(
+	        @PathVariable Long orderId,
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        Model model) {
 
-		// 옵션 파싱
-		OrderItem orderItem = order.getOrderItem();
-		if (orderItem != null && orderItem.getOptionJson() != null) {
-			try {
-				ObjectMapper mapper = new ObjectMapper();
-				Map<String, String> parsedMap = mapper.readValue(orderItem.getOptionJson(), new TypeReference<>() {
-				});
-				orderItem.setParsedOptionMap(parsedMap);
-			} catch (Exception e) {
-				e.printStackTrace(); // 또는 로그 처리
-			}
-		}
+	    Member loginMember = principal.getMember();
 
-		// 로그인한 멤버의 팀카테고리와 주문의 제품분류 일치 여부
-		Member loginMember = principal.getMember();
-		boolean canChangeStatus = false;
+	    Order order = orderRepository.findById(orderId)
+	            .orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
 
-		if (loginMember.getTeamCategory() != null && order.getProductCategory() != null
-				&& loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())
-				&& order.getStatus() == OrderStatus.CONFIRMED) {
-			canChangeStatus = true;
-		}
+	    teamTaskService.markProductionOrderChecked(orderId, loginMember);
 
-		model.addAttribute("order", order);
-		model.addAttribute("orderItem", orderItem);
-		model.addAttribute("canChangeStatus", canChangeStatus);
+	    OrderItem orderItem = order.getOrderItem();
 
-		return "administration/team/production/productionDetail";
+	    if (orderItem != null && orderItem.getOptionJson() != null) {
+	        try {
+	            ObjectMapper mapper = new ObjectMapper();
+	            Map<String, String> parsedMap = mapper.readValue(orderItem.getOptionJson(), new TypeReference<>() {});
+	            orderItem.setParsedOptionMap(parsedMap);
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	        }
+	    }
+
+	    boolean canChangeStatus = false;
+
+	    if (loginMember.getTeamCategory() != null
+	            && order.getProductCategory() != null
+	            && loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())
+	            && order.getStatus() == OrderStatus.CONFIRMED) {
+	        canChangeStatus = true;
+	    }
+
+	    model.addAttribute("order", order);
+	    model.addAttribute("orderItem", orderItem);
+	    model.addAttribute("canChangeStatus", canChangeStatus);
+
+	    return "administration/team/production/productionDetail";
 	}
 
 	@PostMapping("/updateStatus/{orderId}")

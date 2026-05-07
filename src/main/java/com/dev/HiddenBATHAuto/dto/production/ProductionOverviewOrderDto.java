@@ -37,4 +37,8 @@ public class ProductionOverviewOrderDto {
 
     @Builder.Default
     private List<ProductionOverviewImageDto> adminImages = new ArrayList<>();
+    
+    private boolean checked;
+    private String checkedByUsername;
+    private String checkedAtText;
 }

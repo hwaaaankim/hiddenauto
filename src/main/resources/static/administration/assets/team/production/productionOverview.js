@@ -159,7 +159,7 @@
 			const data = await response.json();
 			const normalizedOrders = normalizeOrders(data);
 
-			state.orders = normalizedOrders.length > 0 ? normalizedOrders : buildOrdersFromCurrentTable();
+			state.orders = sortUncheckedFirst(normalizedOrders.length > 0 ? normalizedOrders : buildOrdersFromCurrentTable());
 			state.currentIndex = 0;
 			state.loaded = true;
 
@@ -167,7 +167,7 @@
 		} catch (error) {
 			console.error(error);
 
-			state.orders = buildOrdersFromCurrentTable();
+			state.orders = sortUncheckedFirst(buildOrdersFromCurrentTable());
 			state.currentIndex = 0;
 			state.loaded = true;
 
@@ -214,7 +214,13 @@
 	function normalizeOrders(data) {
 		const rawOrders = extractOrderArray(data);
 
-		return rawOrders.map(normalizeOrder).filter(function(order) {
+		return rawOrders.map(function(raw, index) {
+			const order = normalizeOrder(raw);
+			if (order) {
+				order.originalIndex = index;
+			}
+			return order;
+		}).filter(function(order) {
 			return order && order.id !== '';
 		});
 	}
@@ -285,6 +291,9 @@
 			standardLabel: normalizeStandardLabel(standardRaw),
 			dateText: normalizeDateText(raw),
 			options: normalizeOptionFields(raw, orderItem),
+			checked: raw.checked === true || raw.checked === 'true',
+			checkedByUsername: toText(raw.checkedByUsername),
+			checkedAtText: toText(raw.checkedAtText),
 			images: normalizeImages(raw)
 		};
 
@@ -921,6 +930,8 @@
 				productName: getText(cells[4]),
 				productCategoryName: '',
 				productSeries: '',
+				checked: String(row.getAttribute('data-checked') || '').toLowerCase() === 'true',
+				checkedByUsername: toText(row.getAttribute('data-checked-by')),
 				quantity: '',
 				standardLabel: getText(cells[5]),
 				dateText: getText(cells[6]),
@@ -951,6 +962,7 @@
 		state.currentIndex = clamp(state.currentIndex, 0, state.orders.length - 1);
 
 		const order = state.orders[state.currentIndex];
+		markCurrentOrderViewed(order);
 		const imageIndex = getOrderImageIndex(order);
 		const image = order.images[imageIndex];
 
@@ -970,6 +982,26 @@
 			'</div>',
 			'</article>'
 		].join('');
+	}
+
+	function markCurrentOrderViewed(order) {
+		if (!order || !order.id) {
+			return;
+		}
+
+		order.checked = true;
+
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
+			window.TeamProductionOrderCheck.mark(order.id);
+		}
+	}
+
+	function sortUncheckedFirst(orders) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.sortUncheckedFirst === 'function') {
+			return window.TeamProductionOrderCheck.sortUncheckedFirst(orders);
+		}
+
+		return orders;
 	}
 
 	function buildTopInfoHtml(order) {

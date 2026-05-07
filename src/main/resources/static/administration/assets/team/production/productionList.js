@@ -1,5 +1,4 @@
 /* /administration/assets/team/production/productionList.js */
-/* global document, window, fetch */
 
 (function () {
 	'use strict';

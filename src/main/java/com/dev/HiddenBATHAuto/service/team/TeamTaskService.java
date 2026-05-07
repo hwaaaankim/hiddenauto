@@ -22,6 +22,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewImageDto;
@@ -31,10 +32,12 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderCheckStatus;
 import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
+import com.dev.HiddenBATHAuto.repository.order.OrderCheckStatusRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,7 +51,102 @@ public class TeamTaskService {
 	private final OrderRepository orderRepository;
 	private final AsTaskRepository asTaskRepository;
 	private final ObjectMapper objectMapper;
+	private final OrderCheckStatusRepository orderCheckStatusRepository;
 
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+	        Long categoryId,
+	        String dateType,
+	        OrderStatus statusFilter,
+	        LocalDateTime start,
+	        LocalDateTime end,
+	        String sortDir,
+	        Pageable pageable
+	) {
+	    boolean useCreated = "created".equalsIgnoreCase(dateType);
+	    boolean allStatus = (statusFilter == null);
+	    String normalizedSortDir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
+
+	    Page<Order> page;
+
+	    if (useCreated) {
+	        page = orderRepository.findProductionListByCreatedRangeStatusCheckSorted(
+	                categoryId,
+	                allStatus,
+	                statusFilter,
+	                start,
+	                end,
+	                normalizedSortDir,
+	                pageable
+	        );
+	    } else {
+	        page = orderRepository.findProductionListByPreferredRangeStatusCheckSorted(
+	                categoryId,
+	                allStatus,
+	                statusFilter,
+	                start,
+	                end,
+	                normalizedSortDir,
+	                pageable
+	        );
+	    }
+
+	    applySingleLineOptionSummary(page);
+
+	    return page;
+	}
+	
+	@Transactional
+	public ProductionOrderCheckResponse markProductionOrderChecked(Long orderId, Member loginMember) {
+	    validateProductionTeamMember(loginMember);
+
+	    if (orderId == null) {
+	        throw new IllegalArgumentException("주문 ID가 없습니다.");
+	    }
+
+	    Order order = orderRepository.findByIdForProductionCheck(orderId)
+	            .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
+
+	    if (!canAccessProductionOrder(loginMember, order)) {
+	        throw new AccessDeniedException("해당 발주를 확인 처리할 권한이 없습니다.");
+	    }
+
+	    OrderCheckStatus checkStatus = orderCheckStatusRepository.findByOrder_Id(orderId)
+	            .orElse(null);
+
+	    if (checkStatus == null) {
+	        checkStatus = OrderCheckStatus.unchecked(order);
+	    }
+
+	    if (!checkStatus.isChecked()) {
+	        checkStatus.markChecked(resolveCheckedByUsername(loginMember));
+	        orderCheckStatusRepository.save(checkStatus);
+	    }
+
+	    return ProductionOrderCheckResponse.builder()
+	            .orderId(orderId)
+	            .checked(true)
+	            .checkedByUsername(checkStatus.getCheckedByUsername())
+	            .checkedAtText(formatDateTime(checkStatus.getCheckedAt()))
+	            .message("확인 처리되었습니다.")
+	            .build();
+	}
+
+	private String resolveCheckedByUsername(Member member) {
+	    if (member == null) {
+	        return "UNKNOWN";
+	    }
+
+	    if (member.getName() != null && !member.getName().isBlank()) {
+	        return member.getName();
+	    }
+
+	    if (member.getId() != null) {
+	        return "MEMBER-" + member.getId();
+	    }
+
+	    return "UNKNOWN";
+	}
+	
 	/**
 	 * ✅ 기존 메서드(유지): productionFilter(IN_PROGRESS/DONE/ALL) 기반 조회
 	 */
@@ -673,6 +771,8 @@ public class TeamTaskService {
 	    }
 
 	    OrderStatus status = order.getStatus();
+	    OrderCheckStatus checkStatus = order.getCheckStatus();
+	    boolean checked = checkStatus != null && checkStatus.isChecked();
 
 	    return ProductionOverviewOrderDto.builder()
 	            .orderId(order.getId())
@@ -690,6 +790,9 @@ public class TeamTaskService {
 	            .adminMemo(safeText(order.getAdminMemo()))
 	            .fields(buildProductionOverviewFields(order, false))
 	            .adminImages(adminImages)
+	            .checked(checked)
+	            .checkedByUsername(checked ? safeText(checkStatus.getCheckedByUsername()) : "")
+	            .checkedAtText(checked ? formatDateTime(checkStatus.getCheckedAt()) : "")
 	            .build();
 	}
 

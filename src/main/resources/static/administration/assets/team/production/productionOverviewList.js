@@ -15,7 +15,8 @@
 		imageModalOpen: false,
 		imageOrderIndex: 0,
 		imageIndex: 0,
-		zoom: 1
+		zoom: 1,
+		viewObserver: null
 	};
 
 	document.addEventListener('DOMContentLoaded', init);
@@ -148,14 +149,14 @@
 			const data = await response.json();
 			const normalizedOrders = normalizeOrders(data);
 
-			state.orders = normalizedOrders.length > 0 ? normalizedOrders : buildOrdersFromCurrentTable();
+			state.orders = sortUncheckedFirst(normalizedOrders.length > 0 ? normalizedOrders : buildOrdersFromCurrentTable());
 			state.loaded = true;
 
 			renderListOrders();
 		} catch (error) {
 			console.error(error);
 
-			state.orders = buildOrdersFromCurrentTable();
+			state.orders = sortUncheckedFirst(buildOrdersFromCurrentTable());
 			state.loaded = true;
 
 			if (state.orders.length > 0) {
@@ -201,11 +202,18 @@
 	function normalizeOrders(data) {
 		const rawOrders = extractOrderArray(data);
 
-		return rawOrders.map(normalizeOrder).filter(function(order) {
+		return rawOrders.map(function(raw, index) {
+			const order = normalizeOrder(raw);
+
+			if (order) {
+				order.originalIndex = index;
+			}
+
+			return order;
+		}).filter(function(order) {
 			return order && order.id !== '';
 		});
 	}
-
 	function extractOrderArray(data) {
 		if (Array.isArray(data)) {
 			return data;
@@ -278,6 +286,9 @@
 			adminMemo: toText(firstValue(raw.adminMemo, findFieldValue(raw.fields, ['관리자메모', 'adminMemo']))),
 			options: fields,
 			images: normalizeImages(raw),
+			checked: raw.checked === true || raw.checked === 'true',
+			checkedByUsername: toText(raw.checkedByUsername),
+			checkedAtText: toText(raw.checkedAtText),
 			listImageIndex: 0
 		};
 
@@ -775,6 +786,8 @@
 					}
 				],
 				images: [],
+				checked: String(row.getAttribute('data-checked') || '').toLowerCase() === 'true',
+				checkedByUsername: toText(row.getAttribute('data-checked-by')),
 				listImageIndex: 0
 			};
 		}).filter(function(order) {
@@ -799,6 +812,7 @@
 		}
 
 		updateListOptionOverflow();
+		setupListViewedObserver();
 	}
 
 	function buildListCardHtml(order, orderIndex) {
@@ -806,7 +820,7 @@
 		const image = order.images[imageIndex];
 
 		return [
-			'<article class="team-production-overview-list-card" data-list-order-index="' + orderIndex + '" data-order-id="' + escapeAttr(order.id) + '">',
+			'<article class="team-production-overview-list-card ' + (order.checked ? 'is-checked' : 'is-unchecked') + '" data-list-order-index="' + orderIndex + '" data-order-id="' + escapeAttr(order.id) + '" data-checked="' + (order.checked ? 'true' : 'false') + '">',
 			buildListTopHtml(order),
 			'<div class="team-production-overview-list-main">',
 			buildListOptionPanelHtml(order),
@@ -856,6 +870,81 @@
 			'>생산완료</button>',
 			'</div>'
 		].join('');
+	}
+
+	function setupListViewedObserver() {
+		if (!els.host || typeof IntersectionObserver === 'undefined') {
+			markFirstVisibleFallback();
+			return;
+		}
+
+		if (state.viewObserver) {
+			state.viewObserver.disconnect();
+			state.viewObserver = null;
+		}
+
+		state.viewObserver = new IntersectionObserver(function(entries) {
+			entries.forEach(function(entry) {
+				if (!entry.isIntersecting || entry.intersectionRatio < 0.55) {
+					return;
+				}
+
+				const card = entry.target;
+				const orderIndex = Number(card.getAttribute('data-list-order-index')) || 0;
+				const order = state.orders[orderIndex];
+
+				if (!order || !order.id || order.checked) {
+					return;
+				}
+
+				order.checked = true;
+				card.setAttribute('data-checked', 'true');
+				card.classList.add('is-checked');
+				card.classList.remove('is-unchecked');
+
+				if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
+					window.TeamProductionOrderCheck.mark(order.id);
+				}
+
+				state.viewObserver.unobserve(card);
+			});
+		}, {
+			root: els.host,
+			threshold: [0.55]
+		});
+
+		els.host.querySelectorAll('.team-production-overview-list-card').forEach(function(card) {
+			state.viewObserver.observe(card);
+		});
+	}
+
+	function markFirstVisibleFallback() {
+		const firstCard = els.host && els.host.querySelector('.team-production-overview-list-card');
+
+		if (!firstCard) {
+			return;
+		}
+
+		const orderIndex = Number(firstCard.getAttribute('data-list-order-index')) || 0;
+		const order = state.orders[orderIndex];
+
+		if (!order || !order.id || order.checked) {
+			return;
+		}
+
+		order.checked = true;
+
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
+			window.TeamProductionOrderCheck.mark(order.id);
+		}
+	}
+
+	function sortUncheckedFirst(orders) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.sortUncheckedFirst === 'function') {
+			return window.TeamProductionOrderCheck.sortUncheckedFirst(orders);
+		}
+
+		return orders;
 	}
 
 	function buildListOptionPanelHtml(order) {

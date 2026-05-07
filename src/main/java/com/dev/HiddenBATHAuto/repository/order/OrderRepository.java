@@ -790,7 +790,8 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
  			"productCategory",
  			"task",
  			"task.requestedBy",
- 			"task.requestedBy.company"
+ 			"task.requestedBy.company",
+ 	        "checkStatus"
  	})
  	@Query("""
  		SELECT o FROM Order o
@@ -814,7 +815,8 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
  			"productCategory",
  			"task",
  			"task.requestedBy",
- 			"task.requestedBy.company"
+ 			"task.requestedBy.company",
+ 	        "checkStatus"
  	})
  	@Query("""
  		SELECT o FROM Order o
@@ -955,10 +957,19 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	    left join fetch o.productCategory pc
 	    left join fetch o.orderItem oi
 	    left join fetch o.orderImages imgs
+	    left join fetch o.checkStatus cs
 	    where o.id in :orderIds
 	""")
 	List<Order> findAllForProductionOverviewByIds(@Param("orderIds") List<Long> orderIds);
 
+    @Query("""
+	    select o
+	    from Order o
+	    left join fetch o.productCategory pc
+	    left join fetch o.checkStatus cs
+	    where o.id = :orderId
+	""")
+	Optional<Order> findByIdForProductionCheck(@Param("orderId") Long orderId);	
 
 	@Query("""
 	    select o
@@ -982,6 +993,104 @@ public interface OrderRepository extends JpaRepository<Order, Long>{
 	        @Param("fromStatus") OrderStatus fromStatus,
 	        @Param("toStatus") OrderStatus toStatus,
 	        @Param("updatedAt") LocalDateTime updatedAt
+	);
+	
+	@EntityGraph(attributePaths = {
+	        "orderItem",
+	        "productCategory",
+	        "task",
+	        "task.requestedBy",
+	        "task.requestedBy.company",
+	        "checkStatus"
+	})
+	@Query(
+	    value = """
+	        SELECT o
+	        FROM Order o
+	        LEFT JOIN o.checkStatus cs
+	        WHERE o.productCategory.id = :categoryId
+	          AND (:allStatus = true OR o.status = :statusFilter)
+	          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+	          AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+	        ORDER BY
+	          CASE
+	            WHEN :sortDir = 'DESC' THEN
+	              CASE WHEN cs.checked = true THEN 1 ELSE 0 END
+	          END DESC,
+	          CASE
+	            WHEN :sortDir <> 'DESC' THEN
+	              CASE WHEN cs.checked = true THEN 1 ELSE 0 END
+	          END ASC,
+	          o.preferredDeliveryDate ASC,
+	          o.id DESC
+	    """,
+	    countQuery = """
+	        SELECT COUNT(o)
+	        FROM Order o
+	        LEFT JOIN o.checkStatus cs
+	        WHERE o.productCategory.id = :categoryId
+	          AND (:allStatus = true OR o.status = :statusFilter)
+	          AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+	          AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+	    """
+	)
+	Page<Order> findProductionListByPreferredRangeStatusCheckSorted(
+	        @Param("categoryId") Long categoryId,
+	        @Param("allStatus") boolean allStatus,
+	        @Param("statusFilter") OrderStatus statusFilter,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        @Param("sortDir") String sortDir,
+	        Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = {
+	        "orderItem",
+	        "productCategory",
+	        "task",
+	        "task.requestedBy",
+	        "task.requestedBy.company",
+	        "checkStatus"
+	})
+	@Query(
+	    value = """
+	        SELECT o
+	        FROM Order o
+	        LEFT JOIN o.checkStatus cs
+	        WHERE o.productCategory.id = :categoryId
+	          AND (:allStatus = true OR o.status = :statusFilter)
+	          AND (:start IS NULL OR o.createdAt >= :start)
+	          AND (:end IS NULL OR o.createdAt < :end)
+	        ORDER BY
+	          CASE
+	            WHEN :sortDir = 'DESC' THEN
+	              CASE WHEN cs.checked = true THEN 1 ELSE 0 END
+	          END DESC,
+	          CASE
+	            WHEN :sortDir <> 'DESC' THEN
+	              CASE WHEN cs.checked = true THEN 1 ELSE 0 END
+	          END ASC,
+	          o.createdAt ASC,
+	          o.id DESC
+	    """,
+	    countQuery = """
+	        SELECT COUNT(o)
+	        FROM Order o
+	        LEFT JOIN o.checkStatus cs
+	        WHERE o.productCategory.id = :categoryId
+	          AND (:allStatus = true OR o.status = :statusFilter)
+	          AND (:start IS NULL OR o.createdAt >= :start)
+	          AND (:end IS NULL OR o.createdAt < :end)
+	    """
+	)
+	Page<Order> findProductionListByCreatedRangeStatusCheckSorted(
+	        @Param("categoryId") Long categoryId,
+	        @Param("allStatus") boolean allStatus,
+	        @Param("statusFilter") OrderStatus statusFilter,
+	        @Param("start") LocalDateTime start,
+	        @Param("end") LocalDateTime end,
+	        @Param("sortDir") String sortDir,
+	        Pageable pageable
 	);
     
 }

@@ -13,4 +13,7 @@ public interface OrderCheckStatusRepository extends JpaRepository<OrderCheckStat
     Optional<OrderCheckStatus> findByOrder_Id(Long orderId);
 
     List<OrderCheckStatus> findByOrder_IdIn(Collection<Long> orderIds);
+
+    boolean existsByOrder_Id(Long orderId);
+
 }
