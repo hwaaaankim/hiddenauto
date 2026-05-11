@@ -39,3 +39,22 @@ spring:
   upload:
     path: "D:/hiddenauto/"
     env: windows
+
+app:
+  notification:
+    solapi:
+      # 테스트/윈도우 환경에서는 실발송 방지
+      enabled: false
+      base-url: "https://api.solapi.com"
+      api-key: "NCSGC2QXIZYWKYN5"
+      api-secret: "AEKLD58N5T3RIEHWG03NN9XAJSIUB1JN"
+      pf-id: "KA01PF260511070059999uAZVskW1K4k"
+      default-from: "01038993660"
+      webhook-secret: "hiddenauto-dev-solapi-webhook-secret"
+      strict: true
+      allow-duplicates: false
+      request-timeout-seconds: 10
+
+logging:
+  level:
+    com.dev.HiddenBATHAuto.notification: DEBUG

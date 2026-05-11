@@ -37,6 +37,7 @@ public class WebSecurityConfig {
             "/signUp",
             "/api/v1/**",
             "/api/v2/**",
+            "/api/public/solapi/webhook/**",
             "/signUpProcess",
             "/findPasswordProcess",
             "/findPassword",

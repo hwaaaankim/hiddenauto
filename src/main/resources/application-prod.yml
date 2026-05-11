@@ -45,3 +45,23 @@ server:
     session:
       cookie:
         secure: true
+
+app:
+  notification:
+    solapi:
+      # 프로젝트 내부 prod 파일은 기본 false 권장
+      # 실제 운영 발송은 서버 www/config/application.yml 기준으로 관리
+      enabled: false
+      base-url: "https://api.solapi.com"
+      api-key: "NCSGC2QXIZYWKYN5"
+      api-secret: "AEKLD58N5T3RIEHWG03NN9XAJSIUB1JN"
+      pf-id: "KA01PF260511070059999uAZVskW1K4k"
+      default-from: "01038993660"
+      webhook-secret: "hiddenauto-www-solapi-webhook-secret"
+      strict: true
+      allow-duplicates: false
+      request-timeout-seconds: 10
+
+logging:
+  level:
+    com.dev.HiddenBATHAuto.notification: INFO
