@@ -146,6 +146,165 @@ public class ProcessTestService {
 		return toSessionResponse(saved);
 	}
 
+	@Transactional
+	public SessionResponse resetFromAnswer(String sessionKey, String unitKey) {
+	    if (unitKey == null || unitKey.isBlank()) {
+	        throw new IllegalArgumentException("초기화할 UNIT 정보가 없습니다.");
+	    }
+
+	    ProcessExecutionSession session = getSessionWithAll(sessionKey);
+	    ProcessDefinition process = session.getProcess();
+
+	    ProcessUnit restartUnit = findUnitByKey(process, unitKey);
+
+	    if (restartUnit == null) {
+	        throw new IllegalArgumentException("초기화할 UNIT을 찾을 수 없습니다: " + unitKey);
+	    }
+
+	    List<ProcessExecutionAnswer> answers = answerRepository.findBySessionOrderByCreatedAtAsc(session);
+
+	    int resetIndex = -1;
+
+	    for (int i = 0; i < answers.size(); i++) {
+	        ProcessExecutionAnswer answer = answers.get(i);
+
+	        if (unitKey.equals(answer.getUnitKey())) {
+	            resetIndex = i;
+	            break;
+	        }
+	    }
+
+	    if (resetIndex < 0) {
+	        throw new IllegalArgumentException("초기화할 답변 이력을 찾을 수 없습니다.");
+	    }
+
+	    List<ProcessExecutionAnswer> remainingAnswers = new ArrayList<>(answers.subList(0, resetIndex));
+	    List<ProcessExecutionAnswer> deleteTargets = new ArrayList<>(answers.subList(resetIndex, answers.size()));
+
+	    deleteStoredFiles(deleteTargets);
+
+	    /*
+	     * 중요:
+	     * session.answers가 orphanRemoval=true이므로,
+	     * Repository delete 전에 부모 컬렉션에서도 제거해주는 것이 안전합니다.
+	     */
+	    if (session.getAnswers() != null && !session.getAnswers().isEmpty()) {
+	        session.getAnswers().removeIf(answer ->
+	                deleteTargets.stream()
+	                        .anyMatch(target -> target.getId() != null && target.getId().equals(answer.getId()))
+	        );
+	    }
+
+	    answerRepository.deleteAll(deleteTargets);
+
+	    session.reopen(restartUnit.getUnitKey());
+
+	    /*
+	     * 이전 답변들 기준으로 DEFER_TO_UNIT 예약 상태 복원
+	     */
+	    replayDeferredUnitKeys(session, process, remainingAnswers);
+
+	    /*
+	     * 남은 답변 기준으로 가격 재계산
+	     */
+	    refreshPriceResult(session, remainingAnswers);
+
+	    ProcessExecutionSession saved = sessionRepository.save(session);
+
+	    return toSessionResponse(saved);
+	}
+	
+	private void replayDeferredUnitKeys(
+	        ProcessExecutionSession session,
+	        ProcessDefinition process,
+	        List<ProcessExecutionAnswer> remainingAnswers
+	) {
+	    setDeferredUnitKeys(session, new ArrayList<>());
+
+	    if (remainingAnswers == null || remainingAnswers.isEmpty()) {
+	        return;
+	    }
+
+	    for (ProcessExecutionAnswer answer : remainingAnswers) {
+	        ProcessUnit answeredUnit = findUnitByKey(process, answer.getUnitKey());
+
+	        if (answeredUnit == null) {
+	            continue;
+	        }
+
+	        SubmitAnswerRequest replayRequest = toSubmitAnswerRequest(answer);
+	        boolean answerHasFiles = answer.getFiles() != null && !answer.getFiles().isEmpty();
+
+	        /*
+	         * resolveNextUnitKey 내부에서 DEFER_TO_UNIT 예약/소비가 처리됩니다.
+	         * 여기서는 다음 UNIT 자체보다, reset 시점 직전의 예약 상태를 복원하는 것이 목적입니다.
+	         */
+	        resolveNextUnitKey(session, answeredUnit, replayRequest, answerHasFiles);
+	    }
+	}
+
+	private SubmitAnswerRequest toSubmitAnswerRequest(ProcessExecutionAnswer answer) {
+	    SubmitAnswerRequest request = new SubmitAnswerRequest();
+	    request.setUnitKey(answer.getUnitKey());
+	    request.setSelectedOptionKey(answer.getSelectedOptionKey());
+	    request.setSelectedOptionLabel(answer.getSelectedOptionLabel());
+
+	    try {
+	        if (answer.getAnswerValueJson() == null || answer.getAnswerValueJson().isBlank()) {
+	            request.setAnswerValues(new LinkedHashMap<>());
+	        } else {
+	            Map<String, Object> values = objectMapper.readValue(
+	                    answer.getAnswerValueJson(),
+	                    new TypeReference<LinkedHashMap<String, Object>>() {
+	                    }
+	            );
+
+	            request.setAnswerValues(values == null ? new LinkedHashMap<>() : values);
+	        }
+	    } catch (Exception e) {
+	        request.setAnswerValues(new LinkedHashMap<>());
+	    }
+
+	    return request;
+	}
+
+	private void refreshPriceResult(ProcessExecutionSession session, List<ProcessExecutionAnswer> answers) {
+	    List<ProcessExecutionAnswer> safeAnswers = answers == null ? List.of() : answers;
+	    PriceCalculationResult result = processPriceCalculator.calculate(safeAnswers);
+
+	    session.setCalculatedPriceAmount(result.getAmount());
+	    session.setPriceResultJson(result.getDetailJson());
+	}
+
+	private void deleteStoredFiles(List<ProcessExecutionAnswer> answers) {
+	    if (answers == null || answers.isEmpty()) {
+	        return;
+	    }
+
+	    for (ProcessExecutionAnswer answer : answers) {
+	        if (answer.getFiles() == null || answer.getFiles().isEmpty()) {
+	            continue;
+	        }
+
+	        answer.getFiles().forEach(file -> {
+	            String filePath = trimToNull(file.getFilePath());
+
+	            if (filePath == null) {
+	                return;
+	            }
+
+	            try {
+	                Files.deleteIfExists(Path.of(filePath));
+	            } catch (Exception ignored) {
+	                /*
+	                 * 테스트 답변 초기화 중 실제 파일 삭제 실패가 세션 복구를 막으면 안 됩니다.
+	                 * 운영 로그가 필요하면 여기서 log.warn 처리하시면 됩니다.
+	                 */
+	            }
+	        });
+	    }
+	}
+	
 	private void saveAnswer(ProcessExecutionSession session, ProcessUnit unit, SubmitAnswerRequest request,
 			List<MultipartFile> files) {
 		ProcessQuestion question = unit.getQuestion();
@@ -615,11 +774,8 @@ public class ProcessTestService {
 	}
 
 	private void refreshPriceResult(ProcessExecutionSession session) {
-		List<ProcessExecutionAnswer> answers = answerRepository.findBySessionOrderByCreatedAtAsc(session);
-		PriceCalculationResult result = processPriceCalculator.calculate(answers);
-
-		session.setCalculatedPriceAmount(result.getAmount());
-		session.setPriceResultJson(result.getDetailJson());
+	    List<ProcessExecutionAnswer> answers = answerRepository.findBySessionOrderByCreatedAtAsc(session);
+	    refreshPriceResult(session, answers);
 	}
 
 	private SessionResponse toSessionResponse(ProcessExecutionSession session) {

@@ -103,6 +103,12 @@ public class ProcessExecutionSession {
         this.currentUnitKey = null;
         this.completedAt = LocalDateTime.now();
     }
+    
+    public void reopen(String currentUnitKey) {
+        this.status = ProcessExecutionStatus.IN_PROGRESS;
+        this.currentUnitKey = currentUnitKey;
+        this.completedAt = null;
+    }
 
     @PrePersist
     public void prePersist() {

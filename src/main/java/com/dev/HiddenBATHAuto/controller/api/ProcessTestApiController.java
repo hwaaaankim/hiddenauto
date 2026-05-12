@@ -35,7 +35,10 @@ public class ProcessTestApiController {
         return ResponseEntity.ok(processTestService.getProcessListForTest());
     }
 
-    @PostMapping("/sessions")
+    @PostMapping(
+            value = "/sessions",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<SessionResponse> startSession(@RequestPart("payload") StartSessionRequest request) {
         return ResponseEntity.ok(processTestService.startSession(request));
     }
@@ -57,8 +60,33 @@ public class ProcessTestApiController {
         return ResponseEntity.ok(processTestService.submitAnswer(sessionKey, request, files));
     }
 
+    /**
+     * 특정 답변부터 다시 진행.
+     *
+     * 동작:
+     * - unitKey에 해당하는 답변 포함 이후 답변 삭제
+     * - 현재 UNIT을 unitKey로 되돌림
+     * - 완료 상태였어도 다시 IN_PROGRESS로 변경
+     * - 가격 계산 결과 재계산
+     */
+    @PostMapping("/sessions/{sessionKey}/answers/{unitKey}/reset")
+    public ResponseEntity<SessionResponse> resetFromAnswer(
+            @PathVariable String sessionKey,
+            @PathVariable String unitKey
+    ) {
+        return ResponseEntity.ok(processTestService.resetFromAnswer(sessionKey, unitKey));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Map.of(
+                "result", "fail",
+                "message", e.getMessage()
+        ));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalStateException(IllegalStateException e) {
         return ResponseEntity.badRequest().body(Map.of(
                 "result", "fail",
                 "message", e.getMessage()
