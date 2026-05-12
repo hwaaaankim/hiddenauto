@@ -1,0 +1,126 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+	<div id="layout-wrapper">
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+
+		<div class="main-content">
+			<div class="page-content">
+				<div class="container-fluid process-test-wrap">
+
+					<div class="row mb-3">
+						<div class="col-12 d-flex align-items-center justify-content-between">
+							<div>
+								<h4 class="mb-1">프로세스 테스트</h4>
+								<p class="text-muted mb-0">등록된 발주 프로세스를 실제 입력 흐름으로 테스트하고 답변을 저장합니다.</p>
+							</div>
+							<div class="d-flex gap-2">
+								<a href="/administration/process/processMaker" class="btn btn-outline-secondary">프로세스 등록 화면</a>
+								<button type="button" class="btn btn-outline-primary" id="process-test-reload-btn">새로고침</button>
+							</div>
+						</div>
+					</div>
+
+					<div class="row g-3">
+						<div class="col-lg-3">
+							<div class="card process-test-card">
+								<div class="card-header">
+									<strong>프로세스 선택</strong>
+								</div>
+								<div class="card-body">
+									<div id="process-test-process-list" class="process-test-process-list"></div>
+								</div>
+							</div>
+
+							<div class="card process-test-card mt-3">
+								<div class="card-header">
+									<strong>테스트 사용자</strong>
+								</div>
+								<div class="card-body">
+									<div class="mb-2">
+										<label class="form-label">구분</label>
+										<select class="form-select" id="process-test-actor-type">
+											<option value="ADMIN">관리자</option>
+											<option value="EMPLOYEE">직원</option>
+											<option value="CUSTOMER">고객</option>
+										</select>
+									</div>
+									<div class="mb-2">
+										<label class="form-label">이름</label>
+										<input type="text" class="form-control" id="process-test-actor-name" placeholder="테스트 사용자">
+									</div>
+									<div class="mb-2">
+										<label class="form-label">연락처</label>
+										<input type="text" class="form-control" id="process-test-actor-phone" placeholder="010-0000-0000">
+									</div>
+									<button type="button" class="btn btn-dark w-100" id="process-test-start-btn">
+										선택 프로세스 테스트 시작
+									</button>
+								</div>
+							</div>
+						</div>
+
+						<div class="col-lg-6">
+							<div class="card process-test-card process-test-main-card">
+								<div class="card-header d-flex justify-content-between align-items-center">
+									<div>
+										<strong id="process-test-session-title">테스트 세션 없음</strong>
+										<div class="small text-muted" id="process-test-session-meta">프로세스를 선택 후 테스트를 시작해주세요.</div>
+									</div>
+									<div>
+										<span class="badge bg-light text-dark" id="process-test-status-badge">READY</span>
+									</div>
+								</div>
+								<div class="card-body">
+									<div id="process-test-current-area" class="process-test-current-area">
+										<div class="text-center text-muted py-5">
+											프로세스를 선택하고 테스트를 시작하면 현재 질문이 표시됩니다.
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="card process-test-card mt-3">
+								<div class="card-header d-flex justify-content-between align-items-center">
+									<strong>가격 계산 결과</strong>
+									<span id="process-test-price-amount" class="process-test-price">0원</span>
+								</div>
+								<div class="card-body">
+									<pre id="process-test-price-json" class="process-test-json-box mb-0">{}</pre>
+								</div>
+							</div>
+						</div>
+
+						<div class="col-lg-3">
+							<div class="card process-test-card">
+								<div class="card-header">
+									<strong>답변 저장 이력</strong>
+								</div>
+								<div class="card-body p-0">
+									<div id="process-test-answer-history" class="process-test-answer-history"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+				</div>
+			</div>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+	<script src="/administration/assets/js/processTest.js"></script>
+</body>
+
+</html>

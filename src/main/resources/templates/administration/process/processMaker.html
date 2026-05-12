@@ -1,0 +1,273 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+	<div id="layout-wrapper">
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+
+		<div class="main-content">
+			<div class="page-content">
+				<div class="container-fluid process-maker-wrap">
+
+					<div class="row mb-3">
+						<div class="col-12 d-flex align-items-center justify-content-between">
+							<div>
+								<h4 class="mb-1">프로세스등록</h4>
+								<p class="text-muted mb-0">발주 질문, 답변, 조건 분기, 이동 흐름을 관리합니다.</p>
+							</div>
+							<div class="d-flex gap-2">
+								<button type="button" class="btn btn-outline-secondary"
+									id="process-maker-refresh-btn">새로고침</button>
+								<button type="button" class="btn btn-primary d-none" id="process-maker-save-btn">프로세스
+									등록완료</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- 최초 진입 화면: 프로세스 생성 / 프로세스 리스트 -->
+					<div id="process-maker-home-screen" class="process-maker-home-screen d-none">
+						<div class="process-maker-home-inner">
+							<div class="row justify-content-center w-100">
+								<div class="col-12 col-xl-10 col-xxl-8">
+									<div class="row g-3 align-items-stretch">
+										<div class="col-lg-5">
+											<div class="card process-maker-card h-100">
+												<div class="card-header">
+													<strong>프로세스 생성</strong>
+												</div>
+												<div class="card-body">
+													<div class="mb-2">
+														<label for="process-maker-create-name" class="form-label">프로세스
+															이름</label>
+														<input type="text" class="form-control"
+															id="process-maker-create-name" placeholder="예: 상부장 발주 프로세스">
+													</div>
+													<div class="mb-3">
+														<label for="process-maker-create-description"
+															class="form-label">설명</label>
+														<textarea class="form-control"
+															id="process-maker-create-description" rows="4"
+															placeholder="관리용 설명"></textarea>
+													</div>
+													<button type="button" class="btn btn-dark w-100"
+														id="process-maker-create-btn">
+														프로세스 생성 후 관리화면으로 이동
+													</button>
+												</div>
+											</div>
+										</div>
+
+										<div class="col-lg-7">
+											<div class="card process-maker-card h-100">
+												<div
+													class="card-header d-flex justify-content-between align-items-center">
+													<strong>등록된 프로세스</strong>
+													<span class="badge bg-light text-dark"
+														id="process-maker-list-count">0</span>
+												</div>
+												<div class="card-body p-0">
+													<div id="process-maker-list"
+														class="process-maker-process-list process-maker-home-process-list">
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<div class="text-center text-muted small mt-3">
+										프로세스를 새로 생성하거나 기존 프로세스를 선택하면 등록 / 관리 화면으로 이동합니다.
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- 프로세스 작업 화면: 전체 관리 -->
+					<div id="process-maker-workspace-screen" class="process-maker-workspace-screen d-none">
+						<div class="row mb-2">
+							<div class="col-12 d-flex justify-content-between align-items-center">
+								<button type="button" class="btn btn-outline-secondary btn-sm"
+									id="process-maker-back-home-btn">
+									← 프로세스 목록으로
+								</button>
+								<div class="small text-muted">
+									STEP / UNIT / 질문 / 답변 / 분기를 구성한 뒤 상단의 프로세스 등록완료를 눌러 저장합니다.
+								</div>
+							</div>
+						</div>
+
+						<div class="row g-3">
+							<div class="col-lg-8 col-xl-9">
+								<div class="card process-maker-card process-maker-canvas-card">
+									<div class="card-header d-flex align-items-center justify-content-between">
+										<div>
+											<strong id="process-maker-current-title">프로세스를 선택해주세요</strong>
+											<div class="small text-muted" id="process-maker-current-meta">STEP / UNIT을
+												구성합니다.</div>
+										</div>
+										<div class="d-flex gap-2 align-items-center">
+											<div class="btn-group btn-group-sm" role="group" aria-label="zoom controls">
+												<button type="button" class="btn btn-outline-secondary"
+													id="process-maker-zoom-out-btn">-</button>
+												<button type="button" class="btn btn-outline-secondary"
+													id="process-maker-zoom-reset-btn">100%</button>
+												<button type="button" class="btn btn-outline-secondary"
+													id="process-maker-zoom-in-btn">+</button>
+											</div>
+
+											<button type="button" class="btn btn-sm btn-outline-primary"
+												id="process-maker-add-step-btn">
+												STEP 추가
+											</button>
+										</div>
+									</div>
+									<div class="card-body process-maker-canvas-body position-relative"
+										id="process-maker-canvas-scroll">
+										<div id="process-maker-canvas-viewport" class="process-maker-canvas-viewport">
+											<svg id="process-maker-arrow-layer" class="process-maker-arrow-layer"></svg>
+											<div id="process-maker-step-area" class="process-maker-step-area"></div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="col-lg-4 col-xl-3">
+								<div class="card process-maker-card process-maker-editor-card">
+									<div class="card-header">
+										<strong>선택 항목 설정</strong>
+									</div>
+									<div class="card-body">
+										<div id="process-maker-editor-empty" class="text-muted small">
+											프로세스, STEP, UNIT 중 하나를 선택해주세요.
+										</div>
+
+										<div id="process-maker-editor-process"
+											class="process-maker-editor-section d-none">
+											<div class="mb-2">
+												<label class="form-label">프로세스 이름</label>
+												<input type="text" class="form-control" id="process-maker-process-name">
+											</div>
+											<div class="mb-2">
+												<label class="form-label">상태</label>
+												<select class="form-select" id="process-maker-process-status">
+													<option value="DRAFT">DRAFT</option>
+													<option value="ACTIVE">ACTIVE</option>
+													<option value="INACTIVE">INACTIVE</option>
+												</select>
+											</div>
+											<div class="mb-2">
+												<label class="form-label">설명</label>
+												<textarea class="form-control" id="process-maker-process-description"
+													rows="3"></textarea>
+											</div>
+										</div>
+
+										<div id="process-maker-editor-step" class="process-maker-editor-section d-none">
+											<div class="mb-2">
+												<label class="form-label">STEP 제목</label>
+												<input type="text" class="form-control" id="process-maker-step-title">
+											</div>
+											<div class="mb-2">
+												<label class="form-label">STEP 설명</label>
+												<textarea class="form-control" id="process-maker-step-description"
+													rows="3"></textarea>
+											</div>
+											<button type="button" class="btn btn-outline-danger btn-sm w-100"
+												id="process-maker-delete-step-btn">
+												STEP 삭제
+											</button>
+										</div>
+
+										<div id="process-maker-editor-unit" class="process-maker-editor-section d-none">
+											<div class="mb-2">
+												<label class="form-label">UNIT 제목</label>
+												<input type="text" class="form-control" id="process-maker-unit-title">
+											</div>
+											<div class="mb-2">
+												<label class="form-label">질문</label>
+												<textarea class="form-control" id="process-maker-question-text"
+													rows="2"></textarea>
+											</div>
+											<div class="mb-2">
+												<label class="form-label">답변 형태</label>
+												<select class="form-select" id="process-maker-answer-type">
+													<option value="SINGLE_SELECT">여러 개 중 하나 선택</option>
+													<option value="TEXT_INPUT">텍스트 입력</option>
+													<option value="NUMBER_INPUT">숫자 입력</option>
+													<option value="FILE_UPLOAD">파일 등록</option>
+												</select>
+											</div>
+
+											<div class="process-maker-sub-box" id="process-maker-options-box">
+												<div class="d-flex justify-content-between align-items-center mb-2">
+													<strong class="small">선택 답변</strong>
+													<button type="button" class="btn btn-sm btn-outline-primary"
+														id="process-maker-add-option-btn">
+														답변 추가
+													</button>
+												</div>
+												<div id="process-maker-option-list"></div>
+											</div>
+
+											<div class="process-maker-sub-box d-none" id="process-maker-fields-box">
+												<div class="d-flex justify-content-between align-items-center mb-2">
+													<strong class="small">입력 필드</strong>
+													<button type="button" class="btn btn-sm btn-outline-primary"
+														id="process-maker-add-field-btn">
+														필드 추가
+													</button>
+												</div>
+												<div id="process-maker-field-list"></div>
+											</div>
+
+											<div class="process-maker-sub-box mt-3">
+												<div class="d-flex justify-content-between align-items-center mb-2">
+													<strong class="small">분기 설정</strong>
+													<button type="button" class="btn btn-sm btn-outline-success"
+														id="process-maker-add-branch-btn">
+														분기 추가
+													</button>
+												</div>
+												<div class="small text-muted mb-2">
+													AUTO_NEXT는 다음 STEP의 첫 번째 UNIT으로 진행합니다.
+													JUMP_UNIT은 지정한 UNIT으로 즉시 이동하고,
+													DEFER_TO_UNIT은 나중 STEP 도착 시 특정 UNIT을 활성화하는 방식입니다.
+												</div>
+												<div id="process-maker-branch-list"></div>
+												<div id="process-maker-branch-tree-box"
+													class="process-maker-branch-tree-box d-none"></div>
+											</div>
+
+											<button type="button" class="btn btn-outline-danger btn-sm w-100 mt-3"
+												id="process-maker-delete-unit-btn">
+												UNIT 삭제
+											</button>
+										</div>
+
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+				</div>
+			</div>
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
+	<script src="/administration/assets/js/processMaker.js"></script>
+</body>
+
+</html>

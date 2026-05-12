@@ -1,0 +1,958 @@
+.process-maker-wrap {
+	min-height: calc(100vh - 170px);
+}
+
+.process-maker-card {
+	border: 0;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+	border-radius: 16px;
+	overflow: hidden;
+}
+
+.process-maker-card .card-header {
+	background: #fff;
+	border-bottom: 1px solid #edf0f5;
+	padding: 14px 16px;
+}
+
+.process-maker-canvas-card .card-body {
+	min-height: 720px;
+	background:
+		linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+		linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+	background-size: 22px 22px;
+	overflow: auto;
+}
+
+.process-maker-process-list {
+	max-height: 560px;
+	overflow-y: auto;
+}
+
+.process-maker-process-item {
+	padding: 13px 16px;
+	border-bottom: 1px solid #edf0f5;
+	cursor: pointer;
+	transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.process-maker-process-item:hover {
+	background: #f8fafc;
+}
+
+.process-maker-process-item.active {
+	background: #eef5ff;
+	border-left: 4px solid #0d6efd;
+}
+
+.process-maker-process-name {
+	font-weight: 700;
+	color: #1f2937;
+}
+
+.process-maker-process-desc {
+	font-size: 12px;
+	color: #6b7280;
+	margin-top: 3px;
+}
+
+.process-maker-step-area {
+	position: relative;
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	min-width: 760px;
+}
+
+.process-maker-step {
+	border: 1px solid #dbe4f0;
+	background: rgba(255, 255, 255, 0.96);
+	border-radius: 16px;
+	padding: 12px;
+	transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.process-maker-step.selected {
+	border-color: #0d6efd;
+	box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.process-maker-step-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding-bottom: 10px;
+	border-bottom: 1px dashed #dbe4f0;
+}
+
+.process-maker-step-title {
+	font-weight: 800;
+	color: #111827;
+}
+
+.process-maker-step-key {
+	font-size: 11px;
+	color: #8a94a6;
+}
+
+.process-maker-unit-area {
+	display: flex;
+	gap: 12px;
+	padding-top: 12px;
+	min-height: 110px;
+	overflow-x: auto;
+}
+
+.process-maker-unit {
+	min-width: 220px;
+	max-width: 260px;
+	background: #fff;
+	border: 1px solid #e4e9f2;
+	border-radius: 14px;
+	padding: 12px;
+	cursor: pointer;
+	position: relative;
+	transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.process-maker-unit:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.process-maker-unit.selected {
+	border-color: #198754;
+	box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.13);
+}
+
+.process-maker-unit-title {
+	font-weight: 800;
+	color: #1f2937;
+	margin-bottom: 8px;
+}
+
+.process-maker-question-preview {
+	font-size: 12px;
+	color: #4b5563;
+	line-height: 1.35;
+	min-height: 34px;
+}
+
+.process-maker-badge-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 10px;
+}
+
+.process-maker-mini-badge {
+	font-size: 11px;
+	background: #f1f5f9;
+	border: 1px solid #e2e8f0;
+	color: #475569;
+	border-radius: 999px;
+	padding: 3px 7px;
+}
+
+.process-maker-handle {
+	cursor: grab;
+	color: #9aa4b2;
+	font-weight: 700;
+	user-select: none;
+}
+
+.process-maker-sub-box {
+	border: 1px solid #e6ebf3;
+	background: #fbfcfe;
+	border-radius: 12px;
+	padding: 12px;
+	margin-top: 10px;
+}
+
+.process-maker-option-item,
+.process-maker-field-item,
+.process-maker-branch-item,
+.process-maker-condition-item {
+	background: #fff;
+	border: 1px solid #edf0f5;
+	border-radius: 10px;
+	padding: 10px;
+	margin-bottom: 8px;
+}
+
+.process-maker-branch-item {
+	border-left: 4px solid #20c997;
+}
+
+.process-maker-condition-item {
+	background: #f8fafc;
+}
+
+.process-maker-arrow-layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 1;
+}
+
+.process-maker-arrow-line {
+	stroke: #0d6efd;
+	stroke-width: 2.2;
+	fill: none;
+	opacity: 0.75;
+}
+
+.process-maker-arrow-line.defer {
+	stroke: #fd7e14;
+	stroke-dasharray: 7 5;
+}
+
+.sortable-ghost {
+	opacity: 0.35;
+}
+
+.sortable-chosen {
+	box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
+@media (max-width: 991px) {
+	.process-maker-canvas-card .card-body {
+		min-height: 520px;
+	}
+
+	.process-maker-step-area {
+		min-width: 640px;
+	}
+}
+
+.process-test-wrap {
+	min-height: calc(100vh - 170px);
+}
+
+.process-test-card {
+	border: 0;
+	border-radius: 16px;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+	overflow: hidden;
+}
+
+.process-test-card .card-header {
+	background: #fff;
+	border-bottom: 1px solid #edf0f5;
+	padding: 14px 16px;
+}
+
+.process-test-process-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 520px;
+	overflow-y: auto;
+}
+
+.process-test-process-item {
+	border: 1px solid #e6ebf3;
+	border-radius: 12px;
+	padding: 12px;
+	cursor: pointer;
+	transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+	background: #fff;
+}
+
+.process-test-process-item:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.process-test-process-item.active {
+	border-color: #0d6efd;
+	box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.process-test-process-name {
+	font-weight: 800;
+	color: #1f2937;
+}
+
+.process-test-process-desc {
+	font-size: 12px;
+	color: #6b7280;
+	margin-top: 4px;
+}
+
+.process-test-main-card .card-body {
+	min-height: 540px;
+}
+
+.process-test-current-area {
+	min-height: 490px;
+}
+
+.process-test-step-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	border-radius: 999px;
+	background: #eef5ff;
+	color: #0d6efd;
+	padding: 5px 10px;
+	font-size: 12px;
+	font-weight: 700;
+	margin-bottom: 10px;
+}
+
+.process-test-question-title {
+	font-size: 22px;
+	font-weight: 900;
+	color: #111827;
+	margin-bottom: 8px;
+	line-height: 1.35;
+}
+
+.process-test-helper {
+	color: #6b7280;
+	margin-bottom: 18px;
+}
+
+.process-test-answer-box {
+	border: 1px solid #e6ebf3;
+	background: #fbfcfe;
+	border-radius: 14px;
+	padding: 16px;
+}
+
+.process-test-option {
+	border: 1px solid #e6ebf3;
+	border-radius: 12px;
+	padding: 12px;
+	margin-bottom: 8px;
+	background: #fff;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.process-test-option:hover {
+	border-color: #0d6efd;
+	background: #f8fbff;
+}
+
+.process-test-option input {
+	margin-right: 8px;
+}
+
+.process-test-field-row {
+	margin-bottom: 12px;
+}
+
+.process-test-field-row label {
+	font-weight: 700;
+	color: #374151;
+	margin-bottom: 5px;
+}
+
+.process-test-answer-history {
+	max-height: 720px;
+	overflow-y: auto;
+}
+
+.process-test-history-item {
+	padding: 13px 16px;
+	border-bottom: 1px solid #edf0f5;
+}
+
+.process-test-history-question {
+	font-size: 12px;
+	color: #6b7280;
+	margin-bottom: 5px;
+}
+
+.process-test-history-answer {
+	font-weight: 800;
+	color: #1f2937;
+	line-height: 1.35;
+}
+
+.process-test-history-file {
+	display: block;
+	font-size: 12px;
+	margin-top: 5px;
+}
+
+.process-test-price {
+	font-size: 18px;
+	font-weight: 900;
+	color: #0d6efd;
+}
+
+.process-test-json-box {
+	background: #0f172a;
+	color: #d1fae5;
+	border-radius: 12px;
+	padding: 14px;
+	font-size: 12px;
+	max-height: 180px;
+	overflow: auto;
+}
+
+.process-test-complete-box {
+	border: 1px solid #d1e7dd;
+	background: #f0fdf4;
+	border-radius: 16px;
+	padding: 28px;
+	text-align: center;
+}
+
+.process-test-complete-title {
+	font-size: 24px;
+	font-weight: 900;
+	color: #198754;
+	margin-bottom: 8px;
+}
+
+.process-maker-home-screen {
+	min-height: calc(100vh - 230px);
+}
+
+.process-maker-home-inner {
+	min-height: calc(100vh - 260px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.process-maker-home-process-list {
+	max-height: 430px;
+}
+
+.process-maker-workspace-screen {
+	width: 100%;
+}
+
+.process-maker-workspace-screen .process-maker-canvas-card .card-body {
+	min-height: calc(100vh - 285px);
+}
+
+.process-maker-editor-card .card-body {
+	max-height: calc(100vh - 285px);
+	overflow-y: auto;
+}
+
+@media (max-width: 991px) {
+	.process-maker-home-inner {
+		min-height: auto;
+		align-items: flex-start;
+	}
+
+	.process-maker-workspace-screen .process-maker-canvas-card .card-body {
+		min-height: 560px;
+	}
+
+	.process-maker-editor-card .card-body {
+		max-height: none;
+	}
+}
+
+/* =========================================================
+   Process Maker 개선: 캔버스 / 줌 / 분기 트리
+========================================================= */
+
+.process-maker-canvas-body {
+	min-height: calc(100vh - 285px);
+	overflow: auto;
+	background:
+		linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+		linear-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+	background-size: 24px 24px;
+	background-color: #f8fafc;
+}
+
+.process-maker-canvas-viewport {
+	position: relative;
+	transform-origin: top left;
+	min-width: 1280px;
+	min-height: 760px;
+	padding: 18px;
+	transition: transform 0.18s ease;
+}
+
+.process-maker-step-area {
+	position: relative;
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	min-width: 1080px;
+}
+
+.process-maker-step {
+	border: 1px solid #dbe4f0;
+	background: rgba(255, 255, 255, 0.96);
+	border-radius: 16px;
+	padding: 12px;
+	transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.process-maker-step.selected {
+	border-color: #0d6efd;
+	box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.process-maker-unit-area {
+	display: flex;
+	gap: 12px;
+	padding-top: 12px;
+	min-height: 118px;
+	overflow-x: visible;
+	flex-wrap: nowrap;
+}
+
+.process-maker-unit {
+	min-width: 220px;
+	max-width: 260px;
+	background: #fff;
+	border: 1px solid #e4e9f2;
+	border-radius: 14px;
+	padding: 12px;
+	cursor: pointer;
+	position: relative;
+	transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.process-maker-unit.branch-tree-related {
+	border-color: #7c3aed;
+	box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.process-maker-unit.selected {
+	border-color: #198754;
+	box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.13);
+}
+
+.process-maker-branch-disabled-box {
+	border: 1px dashed #ced4da;
+	border-radius: 10px;
+	background: #f8f9fa;
+	color: #6c757d;
+	padding: 12px;
+	font-size: 12px;
+}
+
+.process-maker-branch-readonly {
+	background: #f8fafc;
+	border-left-color: #94a3b8;
+}
+
+.process-maker-branch-warning {
+	border: 1px solid #ffe8a1;
+	background: #fff8db;
+	color: #7a5b00;
+	border-radius: 10px;
+	padding: 10px;
+	font-size: 12px;
+	margin-bottom: 8px;
+}
+
+.process-maker-condition-range-item {
+	background: #f8fafc;
+	border: 1px solid #edf0f5;
+	border-radius: 10px;
+	padding: 10px;
+	margin-bottom: 8px;
+}
+
+.process-maker-branch-tree-box {
+	margin-top: 12px;
+	border: 1px solid #d8b4fe;
+	background: #faf5ff;
+	border-radius: 12px;
+	padding: 12px;
+}
+
+.process-maker-branch-tree-title {
+	font-weight: 800;
+	color: #5b21b6;
+	margin-bottom: 8px;
+	font-size: 13px;
+}
+
+.process-maker-branch-tree-row {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.process-maker-branch-tree-node {
+	border: 1px solid #d8b4fe;
+	background: #fff;
+	border-radius: 10px;
+	padding: 8px;
+	min-height: 48px;
+}
+
+.process-maker-branch-tree-node-title {
+	font-weight: 800;
+	font-size: 12px;
+	color: #312e81;
+}
+
+.process-maker-branch-tree-node-desc {
+	font-size: 11px;
+	color: #6b7280;
+	margin-top: 2px;
+}
+
+.process-maker-branch-tree-arrow {
+	font-weight: 900;
+	color: #7c3aed;
+}
+
+.process-maker-branch-tree-condition {
+	font-size: 11px;
+	color: #581c87;
+	margin-top: 4px;
+}
+
+.process-maker-arrow-layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 1;
+	overflow: visible;
+}
+
+.process-maker-arrow-line {
+	stroke: #0d6efd;
+	stroke-width: 2.2;
+	fill: none;
+	opacity: 0.75;
+}
+
+.process-maker-arrow-line.defer {
+	stroke: #fd7e14;
+	stroke-dasharray: 7 5;
+}
+
+@media (max-width: 991px) {
+	.process-maker-canvas-body {
+		min-height: 560px;
+	}
+
+	.process-maker-canvas-viewport {
+		min-width: 980px;
+	}
+
+	.process-maker-step-area {
+		min-width: 900px;
+	}
+}
+
+/* =========================================================
+   Process Maker 수정: 줌 시 STEP 100% 유지 / 좌우 높이 동일 / 연결선 상단 표시
+   - 기존 중복 CSS를 건드리지 않고 맨 아래에서 최종 override
+========================================================= */
+
+/* 좌측 캔버스 카드와 우측 설정 카드 높이 맞춤 */
+.process-maker-workspace-screen>.row.g-3 {
+	align-items: stretch;
+}
+
+.process-maker-workspace-screen>.row.g-3>[class*="col-"] {
+	display: flex;
+	flex-direction: column;
+}
+
+.process-maker-workspace-screen .process-maker-canvas-card,
+.process-maker-workspace-screen .process-maker-editor-card {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.process-maker-workspace-screen .process-maker-canvas-card .card-body,
+.process-maker-workspace-screen .process-maker-editor-card .card-body {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+/* 우측 설정 영역: 좌측 캔버스 높이와 동일하게 늘어나고 내부만 스크롤 */
+.process-maker-workspace-screen .process-maker-editor-card .card-body {
+	max-height: none !important;
+	overflow-y: auto;
+}
+
+/* 좌측 캔버스는 기존처럼 스크롤 유지 */
+.process-maker-canvas-body {
+	position: relative;
+	overflow: auto;
+	min-height: calc(100vh - 285px);
+}
+
+/*
+   줌 핵심:
+   transform scale만 걸면 화면상 STEP이 줄어들면서 빈 공간이 생김.
+   width/min-width를 100% / zoom으로 같이 조정해서
+   실제 화면에서는 STEP이 계속 꽉 차 보이도록 처리.
+*/
+.process-maker-canvas-viewport {
+	--process-maker-zoom: 1;
+
+	position: relative;
+	transform-origin: top left;
+
+	width: calc(100% / var(--process-maker-zoom));
+	min-width: calc(100% / var(--process-maker-zoom));
+	min-height: calc((100vh - 285px) / var(--process-maker-zoom));
+
+	padding: 18px;
+	transition:
+		transform 0.18s ease,
+		width 0.18s ease,
+		min-width 0.18s ease;
+}
+
+/* STEP 영역은 더 이상 고정 min-width로 밀지 않고 캔버스 폭을 100% 사용 */
+.process-maker-step-area {
+	position: relative;
+	z-index: 2;
+	width: 100%;
+	min-width: 100% !important;
+	max-width: none;
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.process-maker-step {
+	position: relative;
+	z-index: 2;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* UNIT이 많으면 STEP 자체가 깨지지 않고 UNIT 영역 안에서만 가로 스크롤 */
+.process-maker-unit-area {
+	overflow-x: auto;
+	overflow-y: visible;
+	padding-bottom: 4px;
+}
+
+.process-maker-unit {
+	position: relative;
+	z-index: 3;
+}
+
+/*
+   연결선 SVG를 STEP/UNIT보다 위로 올림.
+   pointer-events:none 이므로 클릭/드래그는 막지 않음.
+*/
+.process-maker-arrow-layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 8 !important;
+	overflow: visible;
+}
+
+/* 기본 연결선: 너무 진하지 않게 */
+.process-maker-arrow-line {
+	stroke: #0d6efd;
+	stroke-width: 2.6;
+	fill: none;
+	opacity: 0.55;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
+}
+
+/* DEFER_TO_UNIT 연결선 */
+.process-maker-arrow-line.defer {
+	stroke: #fd7e14;
+	stroke-dasharray: 7 5;
+	opacity: 0.6;
+}
+
+/* 선택된 STEP/UNIT과 관련된 활성 연결선 */
+.process-maker-arrow-line.active {
+	stroke: #7c3aed;
+	stroke-width: 3;
+	opacity: 0.78;
+}
+
+/* 선택된 DEFER 연결선은 주황색 유지 */
+.process-maker-arrow-line.defer.active {
+	stroke: #fd7e14;
+	opacity: 0.78;
+}
+
+/* 연결 관계가 있는 UNIT 외곽선 */
+.process-maker-unit.branch-tree-related {
+	border-color: #7c3aed;
+	box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+}
+
+/* 선택 UNIT도 연결 관계가 있으면 연결선과 같은 보라색 계열로 통일 */
+.process-maker-unit.selected.branch-tree-related {
+	border-color: #7c3aed;
+	box-shadow:
+		0 0 0 3px rgba(124, 58, 237, 0.18),
+		0 10px 22px rgba(124, 58, 237, 0.12);
+}
+
+/* 선택 STEP은 기존 파란색 유지 */
+.process-maker-step.selected {
+	border-color: #0d6efd;
+	box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.14);
+}
+
+/* 모바일에서는 과도한 높이 강제 방지 */
+@media (max-width: 991px) {
+	.process-maker-workspace-screen>.row.g-3>[class*="col-"] {
+		display: block;
+	}
+
+	.process-maker-workspace-screen .process-maker-editor-card {
+		height: auto;
+	}
+
+	.process-maker-workspace-screen .process-maker-editor-card .card-body {
+		max-height: none !important;
+		overflow-y: visible;
+	}
+
+	.process-maker-canvas-viewport {
+		min-height: calc(560px / var(--process-maker-zoom));
+	}
+}
+
+.process-maker-arrow-line.auto-next {
+	stroke: #6f42c1;
+	stroke-width: 2.4;
+	opacity: 0.52;
+	stroke-dasharray: 5 4;
+}
+
+.process-maker-arrow-line.auto-next.active {
+	stroke: #7c3aed;
+	stroke-width: 3;
+	opacity: 0.78;
+}
+
+.process-maker-canvas-body {
+	position: relative;
+	overflow-x: hidden !important;
+	overflow-y: auto;
+}
+
+.process-maker-canvas-viewport {
+	--process-maker-zoom: 1;
+	position: relative;
+	width: 100% !important;
+	min-width: 0 !important;
+	max-width: 100%;
+	transform: none !important;
+	transform-origin: top left;
+	overflow: visible;
+}
+
+.process-maker-arrow-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	overflow: visible;
+	z-index: 1;
+}
+
+.process-maker-step-area {
+	position: relative;
+	z-index: 2;
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: calc(16px * var(--process-maker-zoom));
+}
+
+.process-maker-step {
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.process-maker-unit-area {
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: calc(10px * var(--process-maker-zoom));
+}
+
+.process-maker-unit {
+	flex: 0 1 clamp(180px, calc(31% * var(--process-maker-zoom)), 360px);
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.process-maker-unit-title {
+	font-size: calc(14px * var(--process-maker-zoom));
+}
+
+.process-maker-question-preview,
+.process-maker-mini-badge {
+	font-size: calc(12px * var(--process-maker-zoom));
+}
+
+.process-maker-arrow-line {
+	fill: none;
+	stroke: #0d6efd;
+	stroke-width: 2;
+	opacity: 0.55;
+}
+
+.process-maker-arrow-line.auto-next {
+	stroke: #6f42c1;
+	stroke-dasharray: 5 4;
+}
+
+.process-maker-arrow-line.defer {
+	stroke: #fd7e14;
+	stroke-dasharray: 7 4;
+}
+
+.process-maker-arrow-line.active {
+	stroke-width: 3;
+	opacity: 0.95;
+}
+
+.process-maker-unit.branch-tree-related {
+	box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.28);
+}
+
+@media (max-width: 1400px) {
+	.process-maker-unit {
+		flex-basis: clamp(170px, calc(47% * var(--process-maker-zoom)), 100%);
+	}
+}
+
+@media (max-width: 768px) {
+	.process-maker-unit {
+		flex-basis: 100%;
+	}
+}

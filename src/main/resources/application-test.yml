@@ -44,7 +44,7 @@ app:
   notification:
     solapi:
       # 테스트/윈도우 환경에서는 실발송 방지
-      enabled: false
+      enabled: true
       base-url: "https://api.solapi.com"
       api-key: "NCSGC2QXIZYWKYN5"
       api-secret: "AEKLD58N5T3RIEHWG03NN9XAJSIUB1JN"
