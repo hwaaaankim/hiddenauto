@@ -1377,3 +1377,82 @@
 		font-size: 18px;
 	}
 }
+
+.process-maker-price-rule-item {
+	border: 1px solid #e5e7eb;
+	border-radius: 10px;
+	padding: 10px;
+	margin-bottom: 10px;
+	background: #ffffff;
+}
+
+.process-maker-price-rule-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.process-maker-price-rule-title {
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.process-maker-price-rule-desc {
+	font-size: 11px;
+	color: #6b7280;
+}
+
+.process-maker-price-grid {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+
+.process-maker-price-grid th,
+.process-maker-price-grid td {
+	border: 1px solid #e5e7eb;
+	padding: 4px;
+	vertical-align: middle;
+}
+
+.process-maker-price-grid th {
+	background: #f8fafc;
+	font-weight: 600;
+}
+
+.process-maker-price-grid input,
+.process-maker-price-grid select {
+	min-width: 80px;
+}
+
+.process-maker-price-warning {
+	border: 1px solid #fde68a;
+	background: #fffbeb;
+	color: #92400e;
+	border-radius: 8px;
+	padding: 8px;
+	font-size: 11px;
+	margin-bottom: 8px;
+}
+
+.process-maker-price-disabled-box {
+	border: 1px dashed #d1d5db;
+	border-radius: 8px;
+	padding: 10px;
+	color: #6b7280;
+	font-size: 12px;
+	background: #f9fafb;
+}
+
+.process-maker-price-json-preview {
+	max-height: 160px;
+	overflow: auto;
+	font-size: 11px;
+	background: #111827;
+	color: #f9fafb;
+	border-radius: 8px;
+	padding: 8px;
+	white-space: pre-wrap;
+}

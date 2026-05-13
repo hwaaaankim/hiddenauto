@@ -270,7 +270,8 @@ public class ProcessTestService {
 
 	private void refreshPriceResult(ProcessExecutionSession session, List<ProcessExecutionAnswer> answers) {
 	    List<ProcessExecutionAnswer> safeAnswers = answers == null ? List.of() : answers;
-	    PriceCalculationResult result = processPriceCalculator.calculate(safeAnswers);
+
+	    PriceCalculationResult result = processPriceCalculator.calculate(session, safeAnswers);
 
 	    session.setCalculatedPriceAmount(result.getAmount());
 	    session.setPriceResultJson(result.getDetailJson());

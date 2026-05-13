@@ -17,6 +17,7 @@ import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.AnswerFieldDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.AnswerOptionDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.BranchDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.CreateProcessRequest;
+import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.PriceRuleDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.ProcessDetailRequest;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.ProcessDetailResponse;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.ProcessSummaryResponse;
@@ -27,6 +28,7 @@ import com.dev.HiddenBATHAuto.enums.process.ProcessAnswerType;
 import com.dev.HiddenBATHAuto.enums.process.ProcessBranchTargetMode;
 import com.dev.HiddenBATHAuto.enums.process.ProcessInputValueType;
 import com.dev.HiddenBATHAuto.enums.process.ProcessStatus;
+import com.dev.HiddenBATHAuto.model.calculator.ProcessUnitPriceRule;
 import com.dev.HiddenBATHAuto.model.process.ProcessAnswerField;
 import com.dev.HiddenBATHAuto.model.process.ProcessAnswerOption;
 import com.dev.HiddenBATHAuto.model.process.ProcessDefinition;
@@ -35,6 +37,7 @@ import com.dev.HiddenBATHAuto.model.process.ProcessStep;
 import com.dev.HiddenBATHAuto.model.process.ProcessUnit;
 import com.dev.HiddenBATHAuto.model.process.ProcessUnitBranch;
 import com.dev.HiddenBATHAuto.repository.process.ProcessDefinitionRepository;
+import com.dev.HiddenBATHAuto.service.calculator.ProcessPriceRuleValidator;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -49,6 +52,7 @@ public class ProcessMakerService {
     private final ProcessDefinitionGraphValidator processDefinitionGraphValidator;
     private final ObjectMapper objectMapper;
     private final EntityManager entityManager;
+    private final ProcessPriceRuleValidator processPriceRuleValidator;
 
     @Transactional(readOnly = true)
     public List<ProcessSummaryResponse> getProcessList() {
@@ -90,6 +94,7 @@ public class ProcessMakerService {
                 .orElseThrow(() -> new IllegalArgumentException("프로세스를 찾을 수 없습니다."));
 
         validateProcessRequest(request);
+        processPriceRuleValidator.validate(request);
 
         ProcessDefinitionValidationResult validationResult = processDefinitionGraphValidator.validate(request);
         if (validationResult.hasErrors()) {
@@ -139,6 +144,14 @@ public class ProcessMakerService {
                             BranchDto branchDto = unitDto.getBranches().get(branchIndex);
                             ProcessUnitBranch branch = toBranchEntity(branchDto, branchIndex);
                             unit.addBranch(branch);
+                        }
+                    }
+
+                    if (unitDto.getPriceRules() != null) {
+                        for (int priceRuleIndex = 0; priceRuleIndex < unitDto.getPriceRules().size(); priceRuleIndex++) {
+                            PriceRuleDto priceRuleDto = unitDto.getPriceRules().get(priceRuleIndex);
+                            ProcessUnitPriceRule priceRule = toPriceRuleEntity(priceRuleDto, priceRuleIndex);
+                            unit.addPriceRule(priceRule);
                         }
                     }
 
@@ -223,7 +236,25 @@ public class ProcessMakerService {
         branch.setUseYn(dto.isUseYn());
         return branch;
     }
+    
+    private ProcessUnitPriceRule toPriceRuleEntity(PriceRuleDto dto, int index) {
+        ProcessUnitPriceRule priceRule = new ProcessUnitPriceRule();
 
+        priceRule.setRuleKey(required(dto.getRuleKey(), "가격 규칙 ruleKey가 없습니다."));
+        priceRule.setRuleName(defaultText(dto.getRuleName(), "가격 규칙 " + (index + 1)));
+
+        if (dto.getRuleType() == null) {
+            throw new IllegalArgumentException("가격 규칙 타입이 없습니다: " + priceRule.getRuleName());
+        }
+
+        priceRule.setRuleType(dto.getRuleType());
+        priceRule.setEnabledYn(dto.isEnabledYn());
+        priceRule.setSortOrder(index);
+        priceRule.setRuleJson(required(dto.getRuleJson(), "가격 규칙 JSON이 없습니다: " + priceRule.getRuleName()));
+
+        return priceRule;
+    }
+    
     private void validateProcessRequest(ProcessDetailRequest request) {
         if (request.getName() == null || request.getName().isBlank()) {
             throw new IllegalArgumentException("프로세스 이름을 입력해주세요.");
@@ -362,9 +393,26 @@ public class ProcessMakerService {
             dto.setBranches(unit.getBranches().stream().map(this::toBranchDto).toList());
         }
 
+        if (unit.getPriceRules() != null) {
+            dto.setPriceRules(unit.getPriceRules().stream().map(this::toPriceRuleDto).toList());
+        }
+
         return dto;
     }
 
+    private PriceRuleDto toPriceRuleDto(ProcessUnitPriceRule priceRule) {
+        PriceRuleDto dto = new PriceRuleDto();
+
+        dto.setRuleKey(priceRule.getRuleKey());
+        dto.setRuleName(priceRule.getRuleName());
+        dto.setRuleType(priceRule.getRuleType());
+        dto.setEnabledYn(priceRule.isEnabledYn());
+        dto.setSortOrder(priceRule.getSortOrder());
+        dto.setRuleJson(priceRule.getRuleJson());
+
+        return dto;
+    }
+    
     private QuestionDto toQuestionDto(ProcessQuestion question) {
         QuestionDto dto = new QuestionDto();
         dto.setQuestionText(question.getQuestionText());

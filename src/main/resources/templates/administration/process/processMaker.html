@@ -225,7 +225,32 @@
 												</div>
 												<div id="process-maker-field-list"></div>
 											</div>
+											<div class="process-maker-sub-box mt-3 d-none" id="process-maker-price-box">
+												<div class="d-flex justify-content-between align-items-center mb-2">
+													<strong class="small">가격계산 설정</strong>
+													<span class="badge bg-light text-dark border"
+														id="process-maker-price-count">0</span>
+												</div>
 
+												<div class="form-check form-switch mb-2">
+													<input class="form-check-input" type="checkbox"
+														id="process-maker-price-enabled">
+													<label class="form-check-label small"
+														for="process-maker-price-enabled">
+														이 UNIT 답변이 가격에 영향을 줍니다.
+													</label>
+												</div>
+
+												<div class="small text-muted mb-2" id="process-maker-price-help">
+													가격계산은 여러 개 중 하나 선택 또는 숫자 입력 답변에서만 설정할 수 있습니다.
+												</div>
+
+												<div id="process-maker-price-action-box" class="d-none">
+													<div class="d-grid gap-2 mb-2" id="process-maker-price-add-buttons">
+													</div>
+													<div id="process-maker-price-rule-list"></div>
+												</div>
+											</div>
 											<div class="process-maker-sub-box mt-3">
 												<div class="d-flex justify-content-between align-items-center mb-2">
 													<strong class="small">분기 설정</strong>
@@ -267,6 +292,7 @@
 
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 	<script src="/administration/assets/js/processMaker.js"></script>
 </body>
 

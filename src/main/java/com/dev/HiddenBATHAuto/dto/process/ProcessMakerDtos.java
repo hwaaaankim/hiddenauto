@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.dev.HiddenBATHAuto.enums.calculator.ProcessPriceRuleType;
 import com.dev.HiddenBATHAuto.enums.process.ProcessAnswerType;
 import com.dev.HiddenBATHAuto.enums.process.ProcessBranchTargetMode;
 import com.dev.HiddenBATHAuto.enums.process.ProcessBranchType;
@@ -11,10 +12,32 @@ import com.dev.HiddenBATHAuto.enums.process.ProcessInputValueType;
 import com.dev.HiddenBATHAuto.enums.process.ProcessStatus;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 public class ProcessMakerDtos {
+	
+	@Getter
+	@Setter
+	@NoArgsConstructor
+	public static class PriceRuleDto {
 
+	    private String ruleKey;
+
+	    private String ruleName;
+
+	    private ProcessPriceRuleType ruleType;
+
+	    private boolean enabledYn = true;
+
+	    private int sortOrder;
+
+	    /**
+	     * 타입별 가격 규칙 JSON.
+	     */
+	    private String ruleJson;
+	}
+	
     @Getter
     @Setter
     public static class CreateProcessRequest {
@@ -76,6 +99,12 @@ public class ProcessMakerDtos {
         private boolean useYn = true;
         private QuestionDto question = new QuestionDto();
         private List<BranchDto> branches = new ArrayList<>();
+
+        /**
+         * 이 UNIT에 연결된 가격 계산 규칙 목록.
+         * 답변 형태가 SINGLE_SELECT 또는 NUMBER_INPUT일 때만 사용합니다.
+         */
+        private List<PriceRuleDto> priceRules = new ArrayList<>();
     }
 
     @Getter

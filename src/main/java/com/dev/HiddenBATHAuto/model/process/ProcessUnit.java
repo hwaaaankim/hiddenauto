@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.hibernate.annotations.BatchSize;
 
+import com.dev.HiddenBATHAuto.model.calculator.ProcessUnitPriceRule;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -97,5 +99,15 @@ public class ProcessUnit {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+    
+    @OneToMany(mappedBy = "unit", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    @BatchSize(size = 50)
+    private List<ProcessUnitPriceRule> priceRules = new ArrayList<>();
+    
+    public void addPriceRule(ProcessUnitPriceRule priceRule) {
+        this.priceRules.add(priceRule);
+        priceRule.setUnit(this);
     }
 }

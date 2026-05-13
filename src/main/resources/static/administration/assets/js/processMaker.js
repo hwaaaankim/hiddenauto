@@ -28,6 +28,46 @@
 		byId('process-maker-save-btn').addEventListener('click', saveCurrentProcess);
 		byId('process-maker-add-step-btn').addEventListener('click', addStep);
 
+		const priceEnabledEl = byId('process-maker-price-enabled');
+		if (priceEnabledEl) {
+			priceEnabledEl.addEventListener('change', function() {
+				const unit = getSelectedUnit();
+				if (!unit) return;
+
+				const question = ensureQuestion(unit);
+				const answerType = normalizeAnswerType(question.answerType);
+
+				if (!isPriceSupportedAnswerType(answerType)) {
+					this.checked = false;
+					unit.priceRules = [];
+					alert('가격계산은 여러 개 중 하나 선택 또는 숫자 입력 답변에서만 가능합니다.');
+					renderPriceEditor(unit);
+					return;
+				}
+
+				unit.priceRules = normalizePriceRules(unit);
+
+				if (this.checked) {
+					if (unit.priceRules.length === 0) {
+						unit.priceRules.push(createDefaultPriceRuleByAnswerType(unit, answerType));
+					}
+				} else {
+					if (unit.priceRules.length > 0) {
+						const confirmed = confirm('이 UNIT에 등록된 가격계산 규칙을 모두 삭제하시겠습니까?');
+						if (!confirmed) {
+							this.checked = true;
+							return;
+						}
+					}
+
+					unit.priceRules = [];
+				}
+
+				markDirty();
+				renderPriceEditor(unit);
+				renderCanvas();
+			});
+		}
 		const backHomeBtn = byId('process-maker-back-home-btn');
 		if (backHomeBtn) {
 			backHomeBtn.addEventListener('click', goBackToProcessHome);
@@ -91,11 +131,26 @@
 			if (!unit) return;
 
 			const question = ensureQuestion(unit);
+			const previousType = normalizeAnswerType(question.answerType || 'SINGLE_SELECT');
 			const nextType = normalizeAnswerType(this.value);
+
+			if (previousType !== nextType && Array.isArray(unit.priceRules) && unit.priceRules.length > 0) {
+				const confirmed = confirm(
+					'답변 형태를 변경하면 현재 UNIT의 가격계산 규칙이 초기화됩니다.\n\n계속 진행하시겠습니까?'
+				);
+
+				if (!confirmed) {
+					this.value = previousType;
+					return;
+				}
+
+				unit.priceRules = [];
+			}
 
 			question.answerType = nextType;
 			question.options = question.options || [];
 			question.fields = question.fields || [];
+			unit.priceRules = unit.priceRules || [];
 
 			if (nextType === 'SINGLE_SELECT') {
 				if (question.options.length === 0) {
@@ -115,6 +170,7 @@
 					field.unitText = '';
 				});
 				unit.branches = [];
+				unit.priceRules = [];
 			}
 
 			if (nextType === 'NUMBER_INPUT') {
@@ -140,6 +196,7 @@
 					field.inputValueType = 'FILE';
 					field.unitText = '';
 				});
+				unit.priceRules = [];
 				removeInvalidBranchesForAnswerType(unit);
 			}
 
@@ -584,6 +641,7 @@
 			byId('process-maker-answer-type').value = question.answerType;
 
 			renderAnswerEditor(unit);
+			renderPriceEditor(unit);
 			renderBranchEditor(unit);
 			renderBranchTree(unit);
 
@@ -656,6 +714,7 @@
 
 				if (removed && removed.optionKey) {
 					removeBranchesByOption(unit, removed.optionKey);
+					removePriceRulesByOptionKey(unit, removed.optionKey);
 				}
 
 				markDirty();
@@ -758,6 +817,7 @@
 
 				if (removed && removed.fieldKey) {
 					removeNumberConditionsByField(unit, removed.fieldKey);
+					removePriceRulesByFieldKey(unit, removed.fieldKey);
 				}
 
 				markDirty();
@@ -1148,7 +1208,8 @@
 				options: [createAnswerOption('답변 1')],
 				fields: []
 			},
-			branches: []
+			branches: [],
+			priceRules: []
 		};
 
 		step.units.push(unit);
@@ -1708,13 +1769,24 @@
 				&& relatedUnitKeys.has(edge.sourceUnitKey)
 				&& relatedUnitKeys.has(edge.targetUnitKey);
 
+			const isDeferLine =
+				edge.targetMode === 'DEFER_TO_UNIT'
+				|| edge.branchType === 'DEFER_CONTINUE'
+				|| edge.deferredArriveYn === true;
+
+			const isAutoNextLine =
+				!isDeferLine
+				&& (
+					edge.targetMode === 'AUTO_NEXT'
+					|| edge.implicitYn === true
+					|| edge.fallbackYn === true
+				);
+
 			const classNames = ['process-maker-arrow-line'];
 
-			if (edge.targetMode === 'DEFER_TO_UNIT') {
+			if (isDeferLine) {
 				classNames.push('defer');
-			}
-
-			if (edge.targetMode === 'AUTO_NEXT' || edge.implicitYn === true || edge.fallbackYn === true) {
+			} else if (isAutoNextLine) {
 				classNames.push('auto-next');
 			}
 
@@ -1723,23 +1795,41 @@
 			}
 
 			let markerId = 'process-maker-arrow-head';
+			let strokeColor = '#0d6efd';
+			let strokeWidth = isActiveLine ? 3 : 2.4;
+			let strokeDashArray = '';
 
-			if (edge.targetMode === 'DEFER_TO_UNIT') {
+			if (isDeferLine) {
 				markerId = isActiveLine
 					? 'process-maker-arrow-head-defer-active'
 					: 'process-maker-arrow-head-defer';
-			} else if (edge.targetMode === 'AUTO_NEXT' || edge.implicitYn === true || edge.fallbackYn === true) {
+
+				strokeColor = '#fd7e14';
+				strokeDashArray = '7 5';
+			} else if (isAutoNextLine) {
 				markerId = isActiveLine
 					? 'process-maker-arrow-head-auto-next-active'
 					: 'process-maker-arrow-head-auto-next';
+
+				strokeColor = '#6f42c1';
+				strokeDashArray = '6 5';
 			} else if (isActiveLine) {
 				markerId = 'process-maker-arrow-head-active';
+				strokeColor = '#7c3aed';
 			}
 
 			lines.push(`
-			<path class="${classNames.join(' ')}" marker-end="url(#${markerId})"
-				d="${pathD}"></path>
-		`);
+	<path class="${classNames.join(' ')}"
+		marker-end="url(#${markerId})"
+		d="${pathD}"
+		fill="none"
+		stroke="${strokeColor}"
+		stroke-width="${strokeWidth}"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		stroke-dasharray="${strokeDashArray}"
+		vector-effect="non-scaling-stroke"></path>
+`);
 		});
 
 		const viewBoxWidth = Math.max(
@@ -1809,7 +1899,9 @@
 		if (unit.branches && unit.branches.length > 0) {
 			badges.push(`<span class="process-maker-mini-badge">분기 ${unit.branches.length}</span>`);
 		}
-
+		if (unit.priceRules && unit.priceRules.length > 0) {
+			badges.push(`<span class="process-maker-mini-badge">가격 ${unit.priceRules.length}</span>`);
+		}
 		return badges.join('');
 	}
 
@@ -1941,7 +2033,7 @@
 			step.units = step.units || [];
 			step.units.forEach(function(unit) {
 				unit.branches = unit.branches || [];
-
+				unit.priceRules = normalizePriceRules(unit);
 				const question = ensureQuestion(unit);
 				question.answerType = normalizeAnswerType(question.answerType);
 
@@ -1956,6 +2048,7 @@
 					});
 
 					unit.branches = [];
+					unit.priceRules = [];
 				}
 
 				if (question.answerType === 'NUMBER_INPUT') {
@@ -2000,6 +2093,10 @@
 
 				unit.branches.forEach(function(branch, branchIndex) {
 					branch.priority = branchIndex;
+				});
+				unit.priceRules = unit.priceRules || [];
+				unit.priceRules.forEach(function(priceRule, priceRuleIndex) {
+					priceRule.sortOrder = priceRuleIndex;
 				});
 			});
 		});
@@ -2416,9 +2513,199 @@
 			if (answerType === 'FILE_UPLOAD') {
 				validateCommonBranchTargets(unit, errors, validUnitKeys, unitTitle);
 			}
+			validatePriceRulesForSave(unit, errors, unitTitle);
 		});
 
 		return errors;
+	}
+
+	function validatePriceRulesForSave(unit, errors, unitTitle) {
+		const question = ensureQuestion(unit);
+		const answerType = normalizeAnswerType(question.answerType);
+		const rules = unit.priceRules || [];
+
+		if (!isPriceSupportedAnswerType(answerType)) {
+			if (rules.length > 0) {
+				errors.push(`${unitTitle}: 가격계산은 선택형 또는 숫자 입력 답변에서만 가능합니다.`);
+			}
+			return;
+		}
+
+		rules.forEach(function(rule, index) {
+			const title = `${unitTitle} / 가격규칙 ${index + 1}`;
+
+			if (!rule.ruleKey) {
+				errors.push(`${title}: ruleKey가 없습니다.`);
+			}
+
+			if (!rule.ruleType) {
+				errors.push(`${title}: ruleType이 없습니다.`);
+				return;
+			}
+
+			const parsed = parseJsonSafe(rule.ruleJson, null);
+
+			if (!parsed) {
+				errors.push(`${title}: ruleJson 형식이 올바르지 않습니다.`);
+				return;
+			}
+
+			if (rule.ruleType === 'SELECT_OPTION_AMOUNT') {
+				validateSelectOptionAmountRule(unit, parsed, errors, title);
+			}
+
+			if (rule.ruleType === 'NUMBER_RANGE_TABLE') {
+				validateNumberRangeTableRule(unit, parsed, errors, title);
+			}
+
+			if (rule.ruleType === 'NUMBER_CONDITION_AMOUNT') {
+				validateNumberConditionAmountRule(unit, parsed, errors, title);
+			}
+
+			if (rule.ruleType === 'MULTIPLY_VALUE') {
+				validateMultiplyValueRule(unit, parsed, errors, title);
+			}
+
+			if (rule.ruleType === 'LINEAR_SUM_BY_OPTION_RATE') {
+				validateLinearSumByOptionRateRule(unit, parsed, errors, title);
+			}
+		});
+	}
+
+	function validateSelectOptionAmountRule(unit, parsed, errors, title) {
+		const optionKeys = new Set((ensureQuestion(unit).options || []).map(function(option) {
+			return option.optionKey;
+		}));
+
+		(parsed.optionAmounts || []).forEach(function(item) {
+			if (!optionKeys.has(item.optionKey)) {
+				errors.push(`${title}: 존재하지 않는 선택 답변에 가격이 설정되었습니다.`);
+			}
+
+			if (item.amount === null || item.amount === undefined || item.amount === '') {
+				errors.push(`${title}: 선택 답변 가격이 비어 있습니다.`);
+			}
+		});
+	}
+
+	function validateNumberRangeTableRule(unit, parsed, errors, title) {
+		if (!Array.isArray(parsed.axes) || parsed.axes.length < 1 || parsed.axes.length > 2) {
+			errors.push(`${title}: 숫자 가격표는 1차원 또는 2차원만 가능합니다.`);
+			return;
+		}
+
+		parsed.axes.forEach(function(axis, axisIndex) {
+			if (!axis.fieldKey) {
+				errors.push(`${title}: ${axisIndex + 1}축 필드가 선택되지 않았습니다.`);
+			}
+
+			if (!Array.isArray(axis.ranges) || axis.ranges.length === 0) {
+				errors.push(`${title}: ${axisIndex + 1}축 범위가 없습니다.`);
+				return;
+			}
+
+			validatePriceRangeOverlapAndGap(axis.ranges, parsed.requireFullCoverage !== false, errors, `${title} / ${axisIndex + 1}축`);
+		});
+
+		if (!Array.isArray(parsed.cells) || parsed.cells.length === 0) {
+			errors.push(`${title}: 가격표 금액 cell이 없습니다.`);
+		}
+	}
+
+	function validateNumberConditionAmountRule(unit, parsed, errors, title) {
+		if (!Array.isArray(parsed.conditions) || parsed.conditions.length === 0) {
+			errors.push(`${title}: 숫자 조건 추가금은 조건이 최소 1개 필요합니다.`);
+		}
+
+		if (parsed.amount === null || parsed.amount === undefined || parsed.amount === '') {
+			errors.push(`${title}: 추가금이 비어 있습니다.`);
+		}
+	}
+
+	function validateMultiplyValueRule(unit, parsed, errors, title) {
+		if (!parsed.leftOperand || !parsed.leftOperand.operandType) {
+			errors.push(`${title}: 왼쪽 operand가 없습니다.`);
+		}
+
+		if (!parsed.rightOperand || !parsed.rightOperand.operandType) {
+			errors.push(`${title}: 오른쪽 operand가 없습니다.`);
+		}
+	}
+
+	function validateLinearSumByOptionRateRule(unit, parsed, errors, title) {
+		if (!parsed.rateSourceUnitKey) {
+			errors.push(`${title}: 단가 기준 UNIT이 선택되지 않았습니다.`);
+		}
+
+		if (!Array.isArray(parsed.optionRates) || parsed.optionRates.length === 0) {
+			errors.push(`${title}: 옵션별 단가가 없습니다.`);
+		}
+
+		if (!Array.isArray(parsed.lengthTerms) || parsed.lengthTerms.length === 0) {
+			errors.push(`${title}: 길이 합산 항목이 없습니다.`);
+		}
+
+		if (!parsed.lengthDivisor || Number(parsed.lengthDivisor) === 0) {
+			errors.push(`${title}: 길이 나누기 값은 0일 수 없습니다.`);
+		}
+	}
+
+	function validatePriceRangeOverlapAndGap(ranges, requireFullCoverage, errors, title) {
+		const normalized = (ranges || []).map(function(range) {
+			return {
+				label: range.label || range.rangeKey,
+				minValue: range.minValue === null || range.minValue === undefined || range.minValue === '' ? null : Number(range.minValue),
+				minInclusive: range.minInclusive !== false,
+				maxValue: range.maxValue === null || range.maxValue === undefined || range.maxValue === '' ? null : Number(range.maxValue),
+				maxInclusive: range.maxInclusive !== false
+			};
+		});
+
+		normalized.sort(function(a, b) {
+			if (a.minValue === null && b.minValue === null) return 0;
+			if (a.minValue === null) return -1;
+			if (b.minValue === null) return 1;
+			return a.minValue - b.minValue;
+		});
+
+		if (requireFullCoverage && normalized[0] && normalized[0].minValue !== null) {
+			errors.push(`${title}: 첫 범위는 최소값 없이 시작해야 합니다.`);
+		}
+
+		if (requireFullCoverage && normalized[normalized.length - 1] && normalized[normalized.length - 1].maxValue !== null) {
+			errors.push(`${title}: 마지막 범위는 최대값 없이 끝나야 합니다.`);
+		}
+
+		for (let i = 0; i < normalized.length - 1; i++) {
+			const current = normalized[i];
+			const next = normalized[i + 1];
+
+			if (current.maxValue === null) {
+				errors.push(`${title}: [${current.label}] 범위가 무한 종료라 뒤 범위와 겹칩니다.`);
+				continue;
+			}
+
+			if (next.minValue === null) {
+				errors.push(`${title}: [${next.label}] 범위가 무한 시작이라 앞 범위와 겹칩니다.`);
+				continue;
+			}
+
+			if (current.maxValue > next.minValue) {
+				errors.push(`${title}: 범위가 겹칩니다. [${current.label}] / [${next.label}]`);
+			}
+
+			if (current.maxValue === next.minValue && current.maxInclusive && next.minInclusive) {
+				errors.push(`${title}: 경계값 ${current.maxValue}이 중복 포함됩니다.`);
+			}
+
+			if (requireFullCoverage && current.maxValue < next.minValue) {
+				errors.push(`${title}: ${current.maxValue} ~ ${next.minValue} 사이 빈 구간이 있습니다.`);
+			}
+
+			if (requireFullCoverage && current.maxValue === next.minValue && !current.maxInclusive && !next.minInclusive) {
+				errors.push(`${title}: 경계값 ${current.maxValue}이 양쪽에서 모두 제외됩니다.`);
+			}
+		}
 	}
 
 	function validateAutoNextFlow(process, errors) {
@@ -2676,7 +2963,8 @@
 									})
 									: []
 							},
-							branches: buildSaveBranches(unit, normalizedAnswerType)
+							branches: buildSaveBranches(unit, normalizedAnswerType),
+							priceRules: buildSavePriceRules(unit, normalizedAnswerType)
 						};
 					})
 				};
@@ -2726,6 +3014,2054 @@
 					useYn: branch.useYn !== false
 				};
 			});
+	}
+
+	function buildSavePriceRules(unit, answerType) {
+		if (!isPriceSupportedAnswerType(answerType)) {
+			return [];
+		}
+
+		return (unit.priceRules || [])
+			.filter(function(rule) {
+				return rule && rule.ruleType && rule.ruleJson;
+			})
+			.map(function(rule, index) {
+				return {
+					ruleKey: rule.ruleKey || createKey('price_rule'),
+					ruleName: rule.ruleName || getDefaultPriceRuleName(rule.ruleType),
+					ruleType: rule.ruleType,
+					enabledYn: rule.enabledYn !== false,
+					sortOrder: index,
+					ruleJson: typeof rule.ruleJson === 'string'
+						? rule.ruleJson
+						: JSON.stringify(rule.ruleJson || {})
+				};
+			});
+	}
+
+	function isPriceSupportedAnswerType(answerType) {
+		return answerType === 'SINGLE_SELECT' || answerType === 'NUMBER_INPUT';
+	}
+
+	function normalizePriceRules(unit) {
+		const question = ensureQuestion(unit);
+		const answerType = normalizeAnswerType(question.answerType);
+
+		if (!isPriceSupportedAnswerType(answerType)) {
+			return [];
+		}
+
+		return (unit.priceRules || []).filter(function(rule) {
+			return rule && rule.ruleType && rule.ruleJson;
+		}).map(function(rule, index) {
+			return {
+				ruleKey: rule.ruleKey || createKey('price_rule'),
+				ruleName: rule.ruleName || `가격 규칙 ${index + 1}`,
+				ruleType: rule.ruleType,
+				enabledYn: rule.enabledYn !== false,
+				sortOrder: index,
+				ruleJson: typeof rule.ruleJson === 'string'
+					? rule.ruleJson
+					: JSON.stringify(rule.ruleJson || {})
+			};
+		});
+	}
+
+	function renderPriceEditor(unit) {
+		const box = byId('process-maker-price-box');
+		const enabledEl = byId('process-maker-price-enabled');
+		const countEl = byId('process-maker-price-count');
+		const actionBox = byId('process-maker-price-action-box');
+		const addButtonsEl = byId('process-maker-price-add-buttons');
+		const listEl = byId('process-maker-price-rule-list');
+		const helpEl = byId('process-maker-price-help');
+
+		if (!box || !enabledEl || !actionBox || !addButtonsEl || !listEl || !helpEl) {
+			return;
+		}
+
+		const question = ensureQuestion(unit);
+		const answerType = normalizeAnswerType(question.answerType);
+
+		unit.priceRules = normalizePriceRules(unit);
+
+		// 중요: 가격계산 박스는 UNIT 편집 시 항상 표시해야 함
+		box.classList.remove('d-none');
+
+		if (!isPriceSupportedAnswerType(answerType)) {
+			enabledEl.checked = false;
+			enabledEl.disabled = true;
+			actionBox.classList.add('d-none');
+			countEl.textContent = '0';
+			helpEl.innerHTML = '텍스트 입력 / 파일 등록 답변은 가격계산을 설정할 수 없습니다.';
+			listEl.innerHTML = '';
+			addButtonsEl.innerHTML = '';
+			return;
+		}
+
+		enabledEl.disabled = false;
+		enabledEl.checked = unit.priceRules.length > 0;
+		countEl.textContent = String(unit.priceRules.length);
+
+		helpEl.innerHTML = answerType === 'SINGLE_SELECT'
+			? '선택형 답변은 답변별 단순 증감 또는 다른 UNIT 값과의 곱셈 계산을 설정할 수 있습니다.'
+			: '숫자 입력 답변은 1/2차원 가격표, 조건 추가금, 곱셈, 길이 합산 단가 계산을 설정할 수 있습니다.';
+
+		actionBox.classList.toggle('d-none', unit.priceRules.length === 0);
+
+		if (unit.priceRules.length === 0) {
+			addButtonsEl.innerHTML = '';
+			listEl.innerHTML = '';
+			return;
+		}
+
+		addButtonsEl.innerHTML = buildPriceAddButtonsHtml(answerType);
+
+		addButtonsEl.querySelectorAll('[data-price-add-type]').forEach(function(btn) {
+			btn.addEventListener('click', function() {
+				addPriceRule(unit, this.dataset.priceAddType);
+			});
+		});
+
+		listEl.innerHTML = unit.priceRules.map(function(rule, index) {
+			return buildPriceRuleHtml(unit, rule, index);
+		}).join('');
+
+		bindPriceRuleEvents(unit, listEl);
+	}
+
+	function buildPriceAddButtonsHtml(answerType) {
+		if (answerType === 'SINGLE_SELECT') {
+			return `
+            <button type="button" class="btn btn-sm btn-outline-primary" data-price-add-type="SELECT_OPTION_AMOUNT">
+                선택 답변별 단순 증감 추가
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-price-add-type="MULTIPLY_VALUE">
+                다른 UNIT 값과 곱셈 추가
+            </button>
+        `;
+		}
+
+		return `
+        <button type="button" class="btn btn-sm btn-outline-primary" data-price-add-type="NUMBER_RANGE_TABLE">
+            숫자 1/2차원 기본 가격표 추가
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-primary" data-price-add-type="NUMBER_CONDITION_AMOUNT">
+            숫자 AND 조건 추가금 추가
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-price-add-type="MULTIPLY_VALUE">
+            다른 UNIT 값과 곱셈 추가
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-price-add-type="LINEAR_SUM_BY_OPTION_RATE">
+            마구리/길이 합산 단가 추가
+        </button>
+    `;
+	}
+
+	function createDefaultPriceRuleByAnswerType(unit, answerType) {
+		const normalizedAnswerType = normalizeAnswerType(answerType);
+
+		const ruleType = normalizedAnswerType === 'NUMBER_INPUT'
+			? 'NUMBER_RANGE_TABLE'
+			: 'SELECT_OPTION_AMOUNT';
+
+		const ruleJson = createDefaultPriceRuleJson(unit, ruleType);
+
+		if (ruleType === 'NUMBER_RANGE_TABLE') {
+			ruleJson.cells = rebuildCellsByAxes(ruleJson.axes || [], ruleJson.cells || []);
+		}
+
+		return {
+			ruleKey: createKey('price_rule'),
+			ruleName: getDefaultPriceRuleName(ruleType),
+			ruleType: ruleType,
+			enabledYn: true,
+			sortOrder: (unit.priceRules || []).length,
+			ruleJson: JSON.stringify(ruleJson)
+		};
+	}
+
+	function addPriceRule(unit, ruleType) {
+		const question = ensureQuestion(unit);
+		const answerType = normalizeAnswerType(question.answerType);
+
+		unit.priceRules = unit.priceRules || [];
+
+		const rule = {
+			ruleKey: createKey('price_rule'),
+			ruleName: getDefaultPriceRuleName(ruleType),
+			ruleType: ruleType,
+			enabledYn: true,
+			sortOrder: unit.priceRules.length,
+			ruleJson: JSON.stringify(createDefaultPriceRuleJson(unit, ruleType))
+		};
+
+		if (ruleType === 'SELECT_OPTION_AMOUNT' && answerType !== 'SINGLE_SELECT') {
+			alert('선택 답변별 단순 증감은 선택형 답변에서만 사용할 수 있습니다.');
+			return;
+		}
+
+		if (
+			(ruleType === 'NUMBER_RANGE_TABLE' || ruleType === 'NUMBER_CONDITION_AMOUNT')
+			&& answerType !== 'NUMBER_INPUT'
+		) {
+			alert('숫자 가격표/숫자 조건 추가금은 숫자 입력 답변에서만 사용할 수 있습니다.');
+			return;
+		}
+
+		unit.priceRules.push(rule);
+		markDirty();
+
+		renderPriceEditor(unit);
+		renderCanvas();
+	}
+
+	function getDefaultPriceRuleName(ruleType) {
+		if (ruleType === 'SELECT_OPTION_AMOUNT') return '선택 답변별 단순 증감';
+		if (ruleType === 'NUMBER_RANGE_TABLE') return '숫자 기본 가격표';
+		if (ruleType === 'NUMBER_CONDITION_AMOUNT') return '숫자 조건 추가금';
+		if (ruleType === 'MULTIPLY_VALUE') return '다른 UNIT 값 곱셈';
+		if (ruleType === 'LINEAR_SUM_BY_OPTION_RATE') return '마구리/길이 합산 단가';
+		return '가격 규칙';
+	}
+
+	function createDefaultPriceRuleJson(unit, ruleType) {
+		const question = ensureQuestion(unit);
+
+		if (ruleType === 'SELECT_OPTION_AMOUNT') {
+			return {
+				optionAmounts: (question.options || []).map(function(option) {
+					return {
+						optionKey: option.optionKey,
+						amount: 0
+					};
+				})
+			};
+		}
+
+		if (ruleType === 'NUMBER_RANGE_TABLE') {
+			const numberFields = getNumberFields(unit);
+			const first = numberFields[0] || null;
+
+			return {
+				requireFullCoverage: true,
+				axes: first ? [
+					{
+						axisKey: 'AXIS_1',
+						unitKey: 'CURRENT',
+						fieldKey: first.fieldKey,
+						ranges: [
+							{
+								rangeKey: createKey('range'),
+								minValue: null,
+								minInclusive: true,
+								maxValue: 500,
+								maxInclusive: true,
+								label: '500 이하'
+							},
+							{
+								rangeKey: createKey('range'),
+								minValue: 500,
+								minInclusive: false,
+								maxValue: null,
+								maxInclusive: true,
+								label: '500 초과'
+							}
+						]
+					}
+				] : [],
+				cells: []
+			};
+		}
+
+		if (ruleType === 'NUMBER_CONDITION_AMOUNT') {
+			const numberFields = getNumberFields(unit);
+			const first = numberFields[0] || null;
+
+			return {
+				conditions: first ? [
+					{
+						unitKey: 'CURRENT',
+						fieldKey: first.fieldKey,
+						operator: 'GT',
+						value: 500
+					}
+				] : [],
+				amount: 0
+			};
+		}
+
+		if (ruleType === 'MULTIPLY_VALUE') {
+			return {
+				conditions: [],
+				leftOperand: {
+					operandType: 'FIXED',
+					fixedValue: 0,
+					optionAmounts: []
+				},
+				rightOperand: {
+					operandType: 'FIXED',
+					fixedValue: 0,
+					optionAmounts: []
+				},
+				multiplier: 1
+			};
+		}
+
+		if (ruleType === 'LINEAR_SUM_BY_OPTION_RATE') {
+			return {
+				conditions: [],
+				rateSourceUnitKey: '',
+				optionRates: [],
+				lengthTerms: [],
+				lengthDivisor: 1000,
+				multiplier: 1
+			};
+		}
+
+		return {};
+	}
+
+	function buildPriceRuleHtml(unit, rule, index) {
+		const parsed = parseJsonSafe(rule.ruleJson, {});
+		const enabledChecked = rule.enabledYn !== false ? 'checked' : '';
+
+		return `
+        <div class="process-maker-price-rule-item" data-price-rule-index="${index}">
+            <div class="process-maker-price-rule-header">
+                <div>
+                    <div class="process-maker-price-rule-title">
+                        ${escapeHtml(rule.ruleName || getDefaultPriceRuleName(rule.ruleType))}
+                    </div>
+                    <div class="process-maker-price-rule-desc">
+                        ${escapeHtml(rule.ruleType)}
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger process-maker-remove-price-rule-btn">
+                    삭제
+                </button>
+            </div>
+
+            <div class="row g-2 mb-2">
+                <div class="col-8">
+                    <label class="form-label small">규칙명</label>
+                    <input type="text" class="form-control form-control-sm process-maker-price-rule-name"
+                        value="${escapeAttr(rule.ruleName || '')}">
+                </div>
+                <div class="col-4">
+                    <label class="form-label small">사용</label>
+                    <select class="form-select form-select-sm process-maker-price-rule-enabled">
+                        <option value="true" ${rule.enabledYn !== false ? 'selected' : ''}>사용</option>
+                        <option value="false" ${rule.enabledYn === false ? 'selected' : ''}>미사용</option>
+                    </select>
+                </div>
+            </div>
+
+            ${buildPriceRuleBodyHtml(unit, rule, parsed, index)}
+
+            <div class="mt-2">
+                <button type="button" class="btn btn-sm btn-outline-dark w-100 process-maker-price-json-toggle-btn">
+                    JSON 보기
+                </button>
+                <pre class="process-maker-price-json-preview d-none">${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>
+            </div>
+        </div>
+    `;
+	}
+
+	function buildPriceRuleBodyHtml(unit, rule, parsed, index) {
+		if (rule.ruleType === 'SELECT_OPTION_AMOUNT') {
+			return buildSelectOptionAmountHtml(unit, parsed);
+		}
+
+		if (rule.ruleType === 'NUMBER_RANGE_TABLE') {
+			return buildNumberRangeTableHtml(unit, parsed);
+		}
+
+		if (rule.ruleType === 'NUMBER_CONDITION_AMOUNT') {
+			return buildNumberConditionAmountHtml(unit, parsed);
+		}
+
+		if (rule.ruleType === 'MULTIPLY_VALUE') {
+			return buildMultiplyValueHtml(unit, parsed);
+		}
+
+		if (rule.ruleType === 'LINEAR_SUM_BY_OPTION_RATE') {
+			return buildLinearSumByOptionRateHtml(unit, parsed);
+		}
+
+		return '<div class="process-maker-price-disabled-box">지원하지 않는 가격 규칙입니다.</div>';
+	}
+	function buildSelectOptionAmountHtml(unit, parsed) {
+		const question = ensureQuestion(unit);
+		const optionAmounts = parsed.optionAmounts || [];
+
+		const amountMap = new Map(optionAmounts.map(function(item) {
+			return [item.optionKey, item.amount];
+		}));
+
+		return `
+        <div class="process-maker-price-warning">
+            선택된 답변의 금액이 현재 UNIT의 가격으로 더해집니다. 음수 입력 시 차감 처리됩니다.
+        </div>
+
+        <table class="process-maker-price-grid">
+            <thead>
+                <tr>
+                    <th>선택 답변</th>
+                    <th>증감 금액</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${(question.options || []).map(function(option) {
+			return `
+                        <tr data-option-key="${escapeAttr(option.optionKey)}">
+                            <td>${escapeHtml(option.label)}</td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm process-maker-price-option-amount"
+                                    value="${escapeAttr(amountMap.get(option.optionKey) ?? 0)}">
+                            </td>
+                        </tr>
+                    `;
+		}).join('')}
+            </tbody>
+        </table>
+    `;
+	}
+
+	function buildNumberRangeTableHtml(unit, parsed) {
+		parsed.axes = parsed.axes || [];
+		parsed.cells = parsed.cells || [];
+
+		const numberFields = getNumberFields(unit);
+
+		return `
+        <div class="process-maker-price-warning">
+            기본 가격표는 1차원 또는 2차원까지만 가능합니다. 범위가 비거나 겹치면 저장할 수 없습니다.
+        </div>
+
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label small">차원</label>
+                <select class="form-select form-select-sm process-maker-price-table-dimension">
+                    <option value="1" ${parsed.axes.length !== 2 ? 'selected' : ''}>1차원</option>
+                    <option value="2" ${parsed.axes.length === 2 ? 'selected' : ''}>2차원</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="form-label small">전체 범위 필수</label>
+                <select class="form-select form-select-sm process-maker-price-table-full-coverage">
+                    <option value="true" ${parsed.requireFullCoverage !== false ? 'selected' : ''}>필수</option>
+                    <option value="false" ${parsed.requireFullCoverage === false ? 'selected' : ''}>필수 아님</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mb-2">
+            <button type="button" class="btn btn-sm btn-outline-primary w-100 process-maker-price-table-rebuild-btn">
+                선택한 차원 기준 가격표 다시 만들기
+            </button>
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label small">엑셀 업로드</label>
+            <input type="file" class="form-control form-control-sm process-maker-price-excel-input"
+                accept=".xlsx,.xls,.csv">
+            <div class="small text-muted mt-1">
+                1차원: A열 범위, B열 금액 / 2차원: 첫 행 X축 범위, 첫 열 Y축 범위, 교차셀 금액
+            </div>
+        </div>
+
+        <div class="process-maker-price-axis-box">
+            ${buildAxisEditorHtml(unit, parsed, numberFields)}
+        </div>
+
+        <div class="process-maker-price-cell-box mt-2">
+            ${buildPriceTableCellsHtml(parsed)}
+        </div>
+    `;
+	}
+
+	function buildAxisEditorHtml(unit, parsed, numberFields) {
+		const axes = parsed.axes || [];
+
+		if (numberFields.length === 0) {
+			return '<div class="process-maker-price-disabled-box">숫자 필드가 없습니다.</div>';
+		}
+
+		return axes.map(function(axis, axisIndex) {
+			const ranges = axis.ranges || [];
+
+			return `
+            <div class="border rounded p-2 mb-2 process-maker-price-axis-item" data-axis-index="${axisIndex}">
+                <div class="row g-2 mb-2">
+                    <div class="col-12">
+                        <label class="form-label small">${axisIndex + 1}축 필드</label>
+                        <select class="form-select form-select-sm process-maker-price-axis-field">
+                            ${numberFields.map(function(field) {
+				return `
+                                    <option value="${escapeAttr(field.fieldKey)}" ${field.fieldKey === axis.fieldKey ? 'selected' : ''}>
+                                        ${escapeHtml(field.label)}
+                                    </option>
+                                `;
+			}).join('')}
+                        </select>
+                    </div>
+                </div>
+
+                <table class="process-maker-price-grid">
+                    <thead>
+                        <tr>
+                            <th>라벨</th>
+                            <th>시작</th>
+                            <th>포함</th>
+                            <th>종료</th>
+                            <th>포함</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${ranges.map(function(range, rangeIndex) {
+				return `
+                                <tr data-range-index="${rangeIndex}">
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm process-maker-price-range-label"
+                                            value="${escapeAttr(range.label || '')}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm process-maker-price-range-min"
+                                            value="${escapeAttr(range.minValue ?? '')}">
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm process-maker-price-range-min-inc">
+                                            <option value="true" ${range.minInclusive !== false ? 'selected' : ''}>이상</option>
+                                            <option value="false" ${range.minInclusive === false ? 'selected' : ''}>초과</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm process-maker-price-range-max"
+                                            value="${escapeAttr(range.maxValue ?? '')}">
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm process-maker-price-range-max-inc">
+                                            <option value="true" ${range.maxInclusive !== false ? 'selected' : ''}>이하</option>
+                                            <option value="false" ${range.maxInclusive === false ? 'selected' : ''}>미만</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger process-maker-price-remove-range-btn"
+                                            ${ranges.length <= 1 ? 'disabled' : ''}>
+                                            삭제
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+			}).join('')}
+                    </tbody>
+                </table>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2 process-maker-price-add-range-btn">
+                    범위 추가
+                </button>
+            </div>
+        `;
+		}).join('');
+	}
+
+	function buildPriceTableCellsHtml(parsed) {
+		const axes = parsed.axes || [];
+		const cells = parsed.cells || [];
+
+		if (axes.length === 0) {
+			return '<div class="process-maker-price-disabled-box">축을 먼저 설정해주세요.</div>';
+		}
+
+		if (axes.length === 1) {
+			const ranges = axes[0].ranges || [];
+
+			return `
+            <table class="process-maker-price-grid">
+                <thead>
+                    <tr>
+                        <th>범위</th>
+                        <th>금액</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${ranges.map(function(range) {
+				const cell = findCellByRangeKeys(cells, [range.rangeKey]);
+				return `
+                            <tr data-cell-range-keys="${escapeAttr(JSON.stringify([range.rangeKey]))}">
+                                <td>${escapeHtml(range.label || range.rangeKey)}</td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm process-maker-price-cell-amount"
+                                        value="${escapeAttr(cell ? cell.amount : 0)}">
+                                </td>
+                            </tr>
+                        `;
+			}).join('')}
+                </tbody>
+            </table>
+        `;
+		}
+
+		const xRanges = axes[0].ranges || [];
+		const yRanges = axes[1].ranges || [];
+
+		return `
+        <table class="process-maker-price-grid">
+            <thead>
+                <tr>
+                    <th>Y \\ X</th>
+                    ${xRanges.map(function(x) {
+			return `<th>${escapeHtml(x.label || x.rangeKey)}</th>`;
+		}).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                ${yRanges.map(function(y) {
+			return `
+                        <tr>
+                            <th>${escapeHtml(y.label || y.rangeKey)}</th>
+                            ${xRanges.map(function(x) {
+				const keys = [x.rangeKey, y.rangeKey];
+				const cell = findCellByRangeKeys(cells, keys);
+				return `
+                                    <td data-cell-range-keys="${escapeAttr(JSON.stringify(keys))}">
+                                        <input type="number" class="form-control form-control-sm process-maker-price-cell-amount"
+                                            value="${escapeAttr(cell ? cell.amount : 0)}">
+                                    </td>
+                                `;
+			}).join('')}
+                        </tr>
+                    `;
+		}).join('')}
+            </tbody>
+        </table>
+    `;
+	}
+
+	function buildNumberConditionAmountHtml(unit, parsed) {
+		parsed.conditions = parsed.conditions || [];
+
+		return `
+        <div class="process-maker-price-warning">
+            모든 조건을 만족할 때만 아래 추가금이 현재 UNIT 가격에 더해집니다.
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label small">추가/차감 금액</label>
+            <input type="number" class="form-control form-control-sm process-maker-price-condition-amount"
+                value="${escapeAttr(parsed.amount ?? 0)}">
+        </div>
+
+        <div class="process-maker-price-condition-list">
+            ${parsed.conditions.map(function(condition, index) {
+			return buildPriceConditionRowHtml(unit, condition, index);
+		}).join('')}
+        </div>
+
+        <button type="button" class="btn btn-sm btn-outline-secondary w-100 process-maker-price-add-condition-row-btn">
+            AND 조건 추가
+        </button>
+    `;
+	}
+
+	function buildMultiplyValueHtml(unit, parsed) {
+		return `
+        <div class="process-maker-price-warning">
+            왼쪽 값 × 오른쪽 값 × 배수로 계산됩니다. 예: 손잡이 단가 × 손잡이 개수.
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label small">조건</label>
+            <div class="process-maker-price-condition-list">
+                ${(parsed.conditions || []).map(function(condition, index) {
+			return buildPriceConditionRowHtml(unit, condition, index);
+		}).join('')}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 process-maker-price-add-condition-row-btn">
+                AND 조건 추가
+            </button>
+        </div>
+
+        <div class="row g-2">
+            <div class="col-12">
+                <label class="form-label small">왼쪽 값</label>
+                ${buildOperandHtml(unit, parsed.leftOperand || {}, 'left')}
+            </div>
+            <div class="col-12">
+                <label class="form-label small">오른쪽 값</label>
+                ${buildOperandHtml(unit, parsed.rightOperand || {}, 'right')}
+            </div>
+            <div class="col-12">
+                <label class="form-label small">추가 배수</label>
+                <input type="number" class="form-control form-control-sm process-maker-price-multiply-multiplier"
+                    value="${escapeAttr(parsed.multiplier ?? 1)}">
+            </div>
+        </div>
+    `;
+	}
+
+	function buildLinearSumByOptionRateHtml(unit, parsed) {
+		const selectableUnits = getPreviousAndCurrentUnits(unit).filter(function(item) {
+			return normalizeAnswerType(ensureQuestion(item).answerType) === 'SINGLE_SELECT';
+		});
+
+		const numberUnits = getPreviousAndCurrentUnits(unit).filter(function(item) {
+			return normalizeAnswerType(ensureQuestion(item).answerType) === 'NUMBER_INPUT';
+		});
+
+		const rateSourceUnit = findUnitByKey(parsed.rateSourceUnitKey);
+		const rateOptions = rateSourceUnit ? ensureQuestion(rateSourceUnit).options || [] : [];
+
+		const rateMap = new Map((parsed.optionRates || []).map(function(item) {
+			return [item.optionKey, item.amount];
+		}));
+
+		return `
+        <div class="process-maker-price-warning">
+            선택형 UNIT의 옵션별 단가 × 숫자 UNIT들의 길이 합산으로 계산합니다. 마구리 계산에 사용합니다.
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label small">계산 조건</label>
+            <div class="process-maker-price-condition-list">
+                ${(parsed.conditions || []).map(function(condition, index) {
+			return buildPriceConditionRowHtml(unit, condition, index);
+		}).join('')}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 process-maker-price-add-condition-row-btn">
+                AND 조건 추가
+            </button>
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label small">단가 기준 선택형 UNIT</label>
+            <select class="form-select form-select-sm process-maker-price-rate-source-unit">
+                <option value="">선택</option>
+                ${selectableUnits.map(function(item) {
+			return `
+                        <option value="${escapeAttr(item.unitKey)}" ${item.unitKey === parsed.rateSourceUnitKey ? 'selected' : ''}>
+                            ${escapeHtml(item.title)}
+                        </option>
+                    `;
+		}).join('')}
+            </select>
+        </div>
+
+        <table class="process-maker-price-grid mb-2">
+            <thead>
+                <tr>
+                    <th>옵션</th>
+                    <th>단가</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rateOptions.map(function(option) {
+			return `
+                        <tr data-option-key="${escapeAttr(option.optionKey)}">
+                            <td>${escapeHtml(option.label)}</td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm process-maker-price-rate-option-amount"
+                                    value="${escapeAttr(rateMap.get(option.optionKey) ?? 0)}">
+                            </td>
+                        </tr>
+                    `;
+		}).join('')}
+            </tbody>
+        </table>
+
+        <div class="mb-2">
+            <label class="form-label small">길이 합산 항목</label>
+            <div class="process-maker-price-length-term-list">
+                ${(parsed.lengthTerms || []).map(function(term, index) {
+			return buildLengthTermHtml(numberUnits, term, index);
+		}).join('')}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 process-maker-price-add-length-term-btn">
+                길이 항목 추가
+            </button>
+        </div>
+
+        <div class="row g-2">
+            <div class="col-6">
+                <label class="form-label small">길이 나누기</label>
+                <input type="number" class="form-control form-control-sm process-maker-price-length-divisor"
+                    value="${escapeAttr(parsed.lengthDivisor ?? 1000)}">
+            </div>
+            <div class="col-6">
+                <label class="form-label small">추가 배수</label>
+                <input type="number" class="form-control form-control-sm process-maker-price-linear-multiplier"
+                    value="${escapeAttr(parsed.multiplier ?? 1)}">
+            </div>
+        </div>
+    `;
+	}
+
+	function buildPriceConditionRowHtml(currentUnit, condition, index) {
+		const units = getPreviousAndCurrentUnits(currentUnit);
+		const selectedUnitKey = condition.unitKey || 'CURRENT';
+		const actualUnitKey = selectedUnitKey === 'CURRENT' ? currentUnit.unitKey : selectedUnitKey;
+		const targetUnit = actualUnitKey === currentUnit.unitKey ? currentUnit : findUnitByKey(actualUnitKey);
+		const targetQuestion = targetUnit ? ensureQuestion(targetUnit) : null;
+		const targetType = targetQuestion ? normalizeAnswerType(targetQuestion.answerType) : 'NUMBER_INPUT';
+
+		const numericMode = condition.fieldKey || targetType === 'NUMBER_INPUT';
+
+		return `
+        <div class="border rounded p-2 mb-2 process-maker-price-condition-row" data-condition-index="${index}">
+            <div class="row g-2 align-items-end">
+                <div class="col-12">
+                    <label class="form-label small">조건 UNIT</label>
+                    <select class="form-select form-select-sm process-maker-price-condition-unit">
+                        <option value="CURRENT" ${selectedUnitKey === 'CURRENT' ? 'selected' : ''}>현재 UNIT</option>
+                        ${units.filter(function(item) {
+			return item.unitKey !== currentUnit.unitKey;
+		}).map(function(item) {
+			return `
+                                <option value="${escapeAttr(item.unitKey)}" ${item.unitKey === selectedUnitKey ? 'selected' : ''}>
+                                    ${escapeHtml(item.title)}
+                                </option>
+                            `;
+		}).join('')}
+                    </select>
+                </div>
+
+                <div class="col-12 ${numericMode ? '' : 'd-none'}">
+                    <label class="form-label small">숫자 필드</label>
+                    <select class="form-select form-select-sm process-maker-price-condition-field">
+                        ${buildNumberFieldSelectHtml(targetUnit || currentUnit, condition.fieldKey)}
+                    </select>
+                </div>
+
+                <div class="col-12 ${numericMode ? 'd-none' : ''}">
+                    <label class="form-label small">선택 옵션</label>
+                    <select class="form-select form-select-sm process-maker-price-condition-option">
+                        ${buildConditionOptionSelectHtml(targetUnit || currentUnit, condition.optionKey)}
+                    </select>
+                </div>
+
+                <div class="col-5">
+                    <label class="form-label small">연산자</label>
+                    <select class="form-select form-select-sm process-maker-price-condition-operator">
+                        ${buildConditionOperatorOptions(numericMode, condition.operator)}
+                    </select>
+                </div>
+
+                <div class="col-5 ${numericMode ? '' : 'd-none'}">
+                    <label class="form-label small">값</label>
+                    <input type="number" class="form-control form-control-sm process-maker-price-condition-value"
+                        value="${escapeAttr(condition.value ?? '')}">
+                </div>
+
+                <div class="col-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger w-100 process-maker-price-remove-condition-row-btn">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+	}
+
+	function buildConditionOperatorOptions(numericMode, selected) {
+		const operators = numericMode
+			? [
+				['EQ', '='],
+				['NE', '≠'],
+				['GT', '초과'],
+				['GTE', '이상'],
+				['LT', '미만'],
+				['LTE', '이하']
+			]
+			: [
+				['EQ', '같음'],
+				['NE', '다름']
+			];
+
+		return operators.map(function(row) {
+			return `<option value="${row[0]}" ${row[0] === selected ? 'selected' : ''}>${row[1]}</option>`;
+		}).join('');
+	}
+
+	function buildConditionOptionSelectHtml(unit, selectedKey) {
+		const question = ensureQuestion(unit);
+
+		if (!question.options || question.options.length === 0) {
+			return '<option value="">선택 옵션 없음</option>';
+		}
+
+		return question.options.map(function(option) {
+			return `
+            <option value="${escapeAttr(option.optionKey)}" ${option.optionKey === selectedKey ? 'selected' : ''}>
+                ${escapeHtml(option.label)}
+            </option>
+        `;
+		}).join('');
+	}
+
+	function buildOperandHtml(currentUnit, operand, side) {
+		const type = operand.operandType || 'FIXED';
+		const units = getPreviousAndCurrentUnits(currentUnit);
+
+		const selectedUnitKey = operand.unitKey || '';
+		const selectedUnit = selectedUnitKey ? findUnitByKey(selectedUnitKey) : currentUnit;
+
+		return `
+        <div class="border rounded p-2 process-maker-price-operand" data-operand-side="${escapeAttr(side)}">
+            <div class="row g-2">
+                <div class="col-12">
+                    <select class="form-select form-select-sm process-maker-price-operand-type">
+                        <option value="FIXED" ${type === 'FIXED' ? 'selected' : ''}>고정값</option>
+                        <option value="CURRENT_SELECTED_OPTION_AMOUNT" ${type === 'CURRENT_SELECTED_OPTION_AMOUNT' ? 'selected' : ''}>현재 UNIT 선택 옵션별 금액</option>
+                        <option value="CURRENT_SELECTED_OPTION_VALUE_NUMBER" ${type === 'CURRENT_SELECTED_OPTION_VALUE_NUMBER' ? 'selected' : ''}>현재 UNIT 선택 옵션 저장값 숫자</option>
+                        <option value="CURRENT_NUMBER_FIELD_VALUE" ${type === 'CURRENT_NUMBER_FIELD_VALUE' ? 'selected' : ''}>현재 UNIT 숫자 필드값</option>
+                        <option value="UNIT_SELECTED_OPTION_AMOUNT" ${type === 'UNIT_SELECTED_OPTION_AMOUNT' ? 'selected' : ''}>다른 UNIT 선택 옵션별 금액</option>
+                        <option value="UNIT_SELECTED_OPTION_VALUE_NUMBER" ${type === 'UNIT_SELECTED_OPTION_VALUE_NUMBER' ? 'selected' : ''}>다른 UNIT 선택 옵션 저장값 숫자</option>
+                        <option value="UNIT_NUMBER_FIELD_VALUE" ${type === 'UNIT_NUMBER_FIELD_VALUE' ? 'selected' : ''}>다른 UNIT 숫자 필드값</option>
+                    </select>
+                </div>
+
+                <div class="col-12 process-maker-operand-unit-box ${type.startsWith('UNIT_') ? '' : 'd-none'}">
+                    <label class="form-label small">참조 UNIT</label>
+                    <select class="form-select form-select-sm process-maker-price-operand-unit">
+                        <option value="">선택</option>
+                        ${units.filter(function(item) {
+			return item.unitKey !== currentUnit.unitKey;
+		}).map(function(item) {
+			return `
+                                <option value="${escapeAttr(item.unitKey)}" ${item.unitKey === selectedUnitKey ? 'selected' : ''}>
+                                    ${escapeHtml(item.title)}
+                                </option>
+                            `;
+		}).join('')}
+                    </select>
+                </div>
+
+                <div class="col-12 process-maker-operand-field-box ${type.endsWith('NUMBER_FIELD_VALUE') ? '' : 'd-none'}">
+                    <label class="form-label small">숫자 필드</label>
+                    <select class="form-select form-select-sm process-maker-price-operand-field">
+                        ${buildNumberFieldSelectHtml(selectedUnit || currentUnit, operand.fieldKey)}
+                    </select>
+                </div>
+
+                <div class="col-12 process-maker-operand-fixed-box ${type === 'FIXED' ? '' : 'd-none'}">
+                    <label class="form-label small">고정값</label>
+                    <input type="number" class="form-control form-control-sm process-maker-price-operand-fixed"
+                        value="${escapeAttr(operand.fixedValue ?? 0)}">
+                </div>
+
+                <div class="col-12 process-maker-operand-option-amount-box ${type.endsWith('SELECTED_OPTION_AMOUNT') ? '' : 'd-none'}">
+                    ${buildOperandOptionAmountHtml(selectedUnit || currentUnit, operand)}
+                </div>
+            </div>
+        </div>
+    `;
+	}
+
+	function buildOperandOptionAmountHtml(unit, operand) {
+		const question = ensureQuestion(unit);
+		const amountMap = new Map((operand.optionAmounts || []).map(function(item) {
+			return [item.optionKey, item.amount];
+		}));
+
+		if (normalizeAnswerType(question.answerType) !== 'SINGLE_SELECT') {
+			return '<div class="process-maker-price-disabled-box">선택형 UNIT을 선택해야 옵션별 금액을 입력할 수 있습니다.</div>';
+		}
+
+		return `
+        <table class="process-maker-price-grid">
+            <thead>
+                <tr>
+                    <th>옵션</th>
+                    <th>금액</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${(question.options || []).map(function(option) {
+			return `
+                        <tr data-option-key="${escapeAttr(option.optionKey)}">
+                            <td>${escapeHtml(option.label)}</td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm process-maker-price-operand-option-amount"
+                                    value="${escapeAttr(amountMap.get(option.optionKey) ?? 0)}">
+                            </td>
+                        </tr>
+                    `;
+		}).join('')}
+            </tbody>
+        </table>
+    `;
+	}
+
+	function buildLengthTermHtml(numberUnits, term, index) {
+		const selectedUnit = term.unitKey ? findUnitByKey(term.unitKey) : numberUnits[0];
+
+		return `
+        <div class="border rounded p-2 mb-2 process-maker-price-length-term" data-length-term-index="${index}">
+            <div class="row g-2 align-items-end">
+                <div class="col-12">
+                    <label class="form-label small">숫자 UNIT</label>
+                    <select class="form-select form-select-sm process-maker-price-length-unit">
+                        <option value="">선택</option>
+                        ${numberUnits.map(function(item) {
+			return `
+                                <option value="${escapeAttr(item.unitKey)}" ${item.unitKey === term.unitKey ? 'selected' : ''}>
+                                    ${escapeHtml(item.title)}
+                                </option>
+                            `;
+		}).join('')}
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small">필드</label>
+                    <select class="form-select form-select-sm process-maker-price-length-field">
+                        ${selectedUnit ? buildNumberFieldSelectHtml(selectedUnit, term.fieldKey) : '<option value="">선택</option>'}
+                    </select>
+                </div>
+                <div class="col-4">
+                    <label class="form-label small">배수</label>
+                    <input type="number" class="form-control form-control-sm process-maker-price-length-multiplier"
+                        value="${escapeAttr(term.multiplier ?? 1)}">
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger w-100 process-maker-price-remove-length-term-btn">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+	}
+
+	function bindPriceRuleEvents(unit, rootEl) {
+		rootEl.querySelectorAll('.process-maker-price-rule-item').forEach(function(item) {
+			const index = Number(item.dataset.priceRuleIndex);
+			const rule = unit.priceRules[index];
+			if (!rule) return;
+
+			item.querySelector('.process-maker-remove-price-rule-btn').addEventListener('click', function() {
+				unit.priceRules.splice(index, 1);
+				markDirty();
+				renderPriceEditor(unit);
+				renderCanvas();
+			});
+
+			item.querySelector('.process-maker-price-rule-name').addEventListener('input', function() {
+				rule.ruleName = this.value;
+				markDirty();
+			});
+
+			item.querySelector('.process-maker-price-rule-enabled').addEventListener('change', function() {
+				rule.enabledYn = this.value === 'true';
+				markDirty();
+			});
+
+			const jsonToggleBtn = item.querySelector('.process-maker-price-json-toggle-btn');
+			if (jsonToggleBtn) {
+				jsonToggleBtn.addEventListener('click', function() {
+					const preview = item.querySelector('.process-maker-price-json-preview');
+					if (preview) {
+						preview.classList.toggle('d-none');
+					}
+				});
+			}
+
+			if (rule.ruleType === 'SELECT_OPTION_AMOUNT') {
+				bindSelectOptionAmountEvents(unit, rule, item);
+			}
+
+			if (rule.ruleType === 'NUMBER_RANGE_TABLE') {
+				bindNumberRangeTableEvents(unit, rule, item);
+			}
+
+			if (rule.ruleType === 'NUMBER_CONDITION_AMOUNT') {
+				bindNumberConditionAmountEvents(unit, rule, item);
+			}
+
+			if (rule.ruleType === 'MULTIPLY_VALUE') {
+				bindMultiplyValueEvents(unit, rule, item);
+			}
+
+			if (rule.ruleType === 'LINEAR_SUM_BY_OPTION_RATE') {
+				bindLinearSumByOptionRateEvents(unit, rule, item);
+			}
+		});
+	}
+
+	function bindSelectOptionAmountEvents(unit, rule, item) {
+		const parsed = parseJsonSafe(rule.ruleJson, { optionAmounts: [] });
+
+		item.querySelectorAll('tr[data-option-key]').forEach(function(row) {
+			const optionKey = row.dataset.optionKey;
+			const input = row.querySelector('.process-maker-price-option-amount');
+
+			input.addEventListener('input', function() {
+				parsed.optionAmounts = parsed.optionAmounts || [];
+
+				let target = parsed.optionAmounts.find(function(item) {
+					return item.optionKey === optionKey;
+				});
+
+				if (!target) {
+					target = { optionKey: optionKey, amount: 0 };
+					parsed.optionAmounts.push(target);
+				}
+
+				target.amount = toNumberOrZero(this.value);
+				rule.ruleJson = JSON.stringify(parsed);
+
+				markDirty();
+			});
+		});
+	}
+
+	function bindNumberRangeTableEvents(unit, rule, item) {
+		const parsed = parseJsonSafe(rule.ruleJson, createDefaultPriceRuleJson(unit, 'NUMBER_RANGE_TABLE'));
+
+		const dimensionSelect = item.querySelector('.process-maker-price-table-dimension');
+		const fullCoverageSelect = item.querySelector('.process-maker-price-table-full-coverage');
+		const rebuildBtn = item.querySelector('.process-maker-price-table-rebuild-btn');
+		const excelInput = item.querySelector('.process-maker-price-excel-input');
+
+		if (dimensionSelect) {
+			dimensionSelect.addEventListener('change', function() {
+				rebuildNumberPriceTable(unit, rule, Number(this.value));
+			});
+		}
+
+		if (fullCoverageSelect) {
+			fullCoverageSelect.addEventListener('change', function() {
+				parsed.requireFullCoverage = this.value === 'true';
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			});
+		}
+
+		if (rebuildBtn) {
+			rebuildBtn.addEventListener('click', function() {
+				const dimension = Number(dimensionSelect ? dimensionSelect.value : 1);
+				rebuildNumberPriceTable(unit, rule, dimension);
+			});
+		}
+
+		if (excelInput) {
+			excelInput.addEventListener('change', function(event) {
+				handlePriceExcelUpload(event, unit, rule);
+			});
+		}
+
+		item.querySelectorAll('.process-maker-price-axis-item').forEach(function(axisEl) {
+			const axisIndex = Number(axisEl.dataset.axisIndex);
+
+			const fieldSelect = axisEl.querySelector('.process-maker-price-axis-field');
+			if (fieldSelect) {
+				fieldSelect.addEventListener('change', function() {
+					const latest = parseJsonSafe(rule.ruleJson, parsed);
+					latest.axes[axisIndex].fieldKey = this.value;
+					rule.ruleJson = JSON.stringify(latest);
+					markDirty();
+				});
+			}
+
+			axisEl.querySelectorAll('tr[data-range-index]').forEach(function(row) {
+				const rangeIndex = Number(row.dataset.rangeIndex);
+
+				bindRangeInput(row, rule, axisIndex, rangeIndex);
+			});
+
+			const addRangeBtn = axisEl.querySelector('.process-maker-price-add-range-btn');
+			if (addRangeBtn) {
+				addRangeBtn.addEventListener('click', function() {
+					const latest = parseJsonSafe(rule.ruleJson, parsed);
+					latest.axes[axisIndex].ranges = latest.axes[axisIndex].ranges || [];
+					latest.axes[axisIndex].ranges.push({
+						rangeKey: createKey('range'),
+						minValue: null,
+						minInclusive: true,
+						maxValue: null,
+						maxInclusive: true,
+						label: '새 범위'
+					});
+					latest.cells = rebuildCellsByAxes(latest.axes, latest.cells || []);
+					rule.ruleJson = JSON.stringify(latest);
+					markDirty();
+					renderPriceEditor(unit);
+				});
+			}
+
+			axisEl.querySelectorAll('.process-maker-price-remove-range-btn').forEach(function(btn) {
+				btn.addEventListener('click', function() {
+					const row = btn.closest('tr[data-range-index]');
+					const rangeIndex = Number(row.dataset.rangeIndex);
+
+					const latest = parseJsonSafe(rule.ruleJson, parsed);
+					if (latest.axes[axisIndex].ranges.length <= 1) {
+						alert('범위는 최소 1개 필요합니다.');
+						return;
+					}
+
+					latest.axes[axisIndex].ranges.splice(rangeIndex, 1);
+					latest.cells = rebuildCellsByAxes(latest.axes, latest.cells || []);
+					rule.ruleJson = JSON.stringify(latest);
+					markDirty();
+					renderPriceEditor(unit);
+				});
+			});
+		});
+
+		item.querySelectorAll('[data-cell-range-keys]').forEach(function(cellEl) {
+			const input = cellEl.querySelector('.process-maker-price-cell-amount');
+			if (!input) return;
+
+			input.addEventListener('input', function() {
+				const latest = parseJsonSafe(rule.ruleJson, parsed);
+				const rangeKeys = JSON.parse(cellEl.dataset.cellRangeKeys);
+
+				latest.cells = latest.cells || [];
+
+				let cell = findCellByRangeKeys(latest.cells, rangeKeys);
+				if (!cell) {
+					cell = {
+						rangeKeys: rangeKeys,
+						amount: 0
+					};
+					latest.cells.push(cell);
+				}
+
+				cell.amount = toNumberOrZero(this.value);
+				rule.ruleJson = JSON.stringify(latest);
+				markDirty();
+			});
+		});
+	}
+
+	function bindRangeInput(row, rule, axisIndex, rangeIndex) {
+		function updateRange(key, value) {
+			const parsed = parseJsonSafe(rule.ruleJson, {});
+			if (!parsed.axes || !parsed.axes[axisIndex] || !parsed.axes[axisIndex].ranges[rangeIndex]) return;
+
+			parsed.axes[axisIndex].ranges[rangeIndex][key] = value;
+			parsed.cells = rebuildCellsByAxes(parsed.axes, parsed.cells || []);
+			rule.ruleJson = JSON.stringify(parsed);
+			markDirty();
+		}
+
+		row.querySelector('.process-maker-price-range-label').addEventListener('input', function() {
+			updateRange('label', this.value);
+		});
+
+		row.querySelector('.process-maker-price-range-min').addEventListener('input', function() {
+			updateRange('minValue', this.value === '' ? null : Number(this.value));
+		});
+
+		row.querySelector('.process-maker-price-range-min-inc').addEventListener('change', function() {
+			updateRange('minInclusive', this.value === 'true');
+		});
+
+		row.querySelector('.process-maker-price-range-max').addEventListener('input', function() {
+			updateRange('maxValue', this.value === '' ? null : Number(this.value));
+		});
+
+		row.querySelector('.process-maker-price-range-max-inc').addEventListener('change', function() {
+			updateRange('maxInclusive', this.value === 'true');
+		});
+	}
+
+	function bindNumberConditionAmountEvents(unit, rule, item) {
+		const parsed = parseJsonSafe(rule.ruleJson, createDefaultPriceRuleJson(unit, 'NUMBER_CONDITION_AMOUNT'));
+
+		const amountInput = item.querySelector('.process-maker-price-condition-amount');
+		if (amountInput) {
+			amountInput.addEventListener('input', function() {
+				parsed.amount = toNumberOrZero(this.value);
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			});
+		}
+
+		bindPriceConditionEvents(unit, rule, item, parsed);
+	}
+
+	function bindMultiplyValueEvents(unit, rule, item) {
+		const parsed = parseJsonSafe(rule.ruleJson, createDefaultPriceRuleJson(unit, 'MULTIPLY_VALUE'));
+
+		bindPriceConditionEvents(unit, rule, item, parsed);
+
+		const multiplierInput = item.querySelector('.process-maker-price-multiply-multiplier');
+		if (multiplierInput) {
+			multiplierInput.addEventListener('input', function() {
+				parsed.multiplier = toNumberOrZero(this.value);
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			});
+		}
+
+		item.querySelectorAll('.process-maker-price-operand').forEach(function(operandEl) {
+			bindOperandEvents(unit, rule, operandEl, parsed);
+		});
+	}
+
+	function bindLinearSumByOptionRateEvents(unit, rule, item) {
+		const parsed = parseJsonSafe(rule.ruleJson, createDefaultPriceRuleJson(unit, 'LINEAR_SUM_BY_OPTION_RATE'));
+
+		bindPriceConditionEvents(unit, rule, item, parsed);
+
+		const rateSourceSelect = item.querySelector('.process-maker-price-rate-source-unit');
+		if (rateSourceSelect) {
+			rateSourceSelect.addEventListener('change', function() {
+				parsed.rateSourceUnitKey = this.value;
+				const sourceUnit = findUnitByKey(this.value);
+
+				parsed.optionRates = sourceUnit
+					? (ensureQuestion(sourceUnit).options || []).map(function(option) {
+						return {
+							optionKey: option.optionKey,
+							amount: 0
+						};
+					})
+					: [];
+
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+				renderPriceEditor(unit);
+			});
+		}
+
+		item.querySelectorAll('tr[data-option-key] .process-maker-price-rate-option-amount').forEach(function(input) {
+			input.addEventListener('input', function() {
+				const row = input.closest('tr[data-option-key]');
+				const optionKey = row.dataset.optionKey;
+
+				parsed.optionRates = parsed.optionRates || [];
+
+				let target = parsed.optionRates.find(function(item) {
+					return item.optionKey === optionKey;
+				});
+
+				if (!target) {
+					target = { optionKey: optionKey, amount: 0 };
+					parsed.optionRates.push(target);
+				}
+
+				target.amount = toNumberOrZero(this.value);
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			});
+		});
+
+		const addLengthBtn = item.querySelector('.process-maker-price-add-length-term-btn');
+		if (addLengthBtn) {
+			addLengthBtn.addEventListener('click', function() {
+				const numberUnit = getPreviousAndCurrentUnits(unit).find(function(item) {
+					return normalizeAnswerType(ensureQuestion(item).answerType) === 'NUMBER_INPUT';
+				});
+
+				if (!numberUnit) {
+					alert('참조할 숫자 입력 UNIT이 없습니다.');
+					return;
+				}
+
+				const firstField = getNumberFields(numberUnit)[0];
+
+				parsed.lengthTerms = parsed.lengthTerms || [];
+				parsed.lengthTerms.push({
+					unitKey: numberUnit.unitKey,
+					fieldKey: firstField ? firstField.fieldKey : '',
+					multiplier: 1
+				});
+
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+				renderPriceEditor(unit);
+			});
+		}
+
+		item.querySelectorAll('.process-maker-price-length-term').forEach(function(termEl) {
+			bindLengthTermEvents(unit, rule, termEl, parsed);
+		});
+
+		const divisorInput = item.querySelector('.process-maker-price-length-divisor');
+		if (divisorInput) {
+			divisorInput.addEventListener('input', function() {
+				parsed.lengthDivisor = toNumberOrOne(this.value);
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			});
+		}
+
+		const multiplierInput = item.querySelector('.process-maker-price-linear-multiplier');
+		if (multiplierInput) {
+			multiplierInput.addEventListener('input', function() {
+				parsed.multiplier = toNumberOrOne(this.value);
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			});
+		}
+	}
+
+	function bindPriceConditionEvents(unit, rule, item, parsed) {
+		const addConditionBtn = item.querySelector('.process-maker-price-add-condition-row-btn');
+
+		if (addConditionBtn) {
+			addConditionBtn.addEventListener('click', function() {
+				parsed.conditions = parsed.conditions || [];
+				parsed.conditions.push({
+					unitKey: 'CURRENT',
+					fieldKey: getNumberFields(unit)[0] ? getNumberFields(unit)[0].fieldKey : '',
+					operator: 'GT',
+					value: 0
+				});
+
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+				renderPriceEditor(unit);
+			});
+		}
+
+		item.querySelectorAll('.process-maker-price-condition-row').forEach(function(row) {
+			const conditionIndex = Number(row.dataset.conditionIndex);
+
+			function updateCondition(key, value) {
+				parsed.conditions = parsed.conditions || [];
+				if (!parsed.conditions[conditionIndex]) return;
+
+				parsed.conditions[conditionIndex][key] = value;
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			}
+
+			const unitSelect = row.querySelector('.process-maker-price-condition-unit');
+			if (unitSelect) {
+				unitSelect.addEventListener('change', function() {
+					const selectedUnitKey = this.value;
+					const targetUnit = selectedUnitKey === 'CURRENT' ? unit : findUnitByKey(selectedUnitKey);
+					const targetType = targetUnit ? normalizeAnswerType(ensureQuestion(targetUnit).answerType) : 'NUMBER_INPUT';
+
+					parsed.conditions[conditionIndex] = targetType === 'SINGLE_SELECT'
+						? {
+							unitKey: selectedUnitKey,
+							optionKey: ensureQuestion(targetUnit).options[0] ? ensureQuestion(targetUnit).options[0].optionKey : '',
+							operator: 'EQ'
+						}
+						: {
+							unitKey: selectedUnitKey,
+							fieldKey: getNumberFields(targetUnit || unit)[0] ? getNumberFields(targetUnit || unit)[0].fieldKey : '',
+							operator: 'GT',
+							value: 0
+						};
+
+					rule.ruleJson = JSON.stringify(parsed);
+					markDirty();
+					renderPriceEditor(unit);
+				});
+			}
+
+			const fieldSelect = row.querySelector('.process-maker-price-condition-field');
+			if (fieldSelect) {
+				fieldSelect.addEventListener('change', function() {
+					updateCondition('fieldKey', this.value);
+					delete parsed.conditions[conditionIndex].optionKey;
+				});
+			}
+
+			const optionSelect = row.querySelector('.process-maker-price-condition-option');
+			if (optionSelect) {
+				optionSelect.addEventListener('change', function() {
+					updateCondition('optionKey', this.value);
+					delete parsed.conditions[conditionIndex].fieldKey;
+					delete parsed.conditions[conditionIndex].value;
+				});
+			}
+
+			const operatorSelect = row.querySelector('.process-maker-price-condition-operator');
+			if (operatorSelect) {
+				operatorSelect.addEventListener('change', function() {
+					updateCondition('operator', this.value);
+				});
+			}
+
+			const valueInput = row.querySelector('.process-maker-price-condition-value');
+			if (valueInput) {
+				valueInput.addEventListener('input', function() {
+					updateCondition('value', toNumberOrZero(this.value));
+				});
+			}
+
+			const removeBtn = row.querySelector('.process-maker-price-remove-condition-row-btn');
+			if (removeBtn) {
+				removeBtn.addEventListener('click', function() {
+					parsed.conditions.splice(conditionIndex, 1);
+					rule.ruleJson = JSON.stringify(parsed);
+					markDirty();
+					renderPriceEditor(unit);
+				});
+			}
+		});
+	}
+
+	function bindOperandEvents(unit, rule, operandEl, parsed) {
+		const side = operandEl.dataset.operandSide;
+		const key = side === 'left' ? 'leftOperand' : 'rightOperand';
+
+		parsed[key] = parsed[key] || {};
+
+		function updateOperand(next) {
+			parsed[key] = {
+				...parsed[key],
+				...next
+			};
+
+			rule.ruleJson = JSON.stringify(parsed);
+			markDirty();
+		}
+
+		const typeSelect = operandEl.querySelector('.process-maker-price-operand-type');
+		if (typeSelect) {
+			typeSelect.addEventListener('change', function() {
+				parsed[key] = {
+					operandType: this.value,
+					fixedValue: this.value === 'FIXED' ? 0 : null,
+					unitKey: null,
+					fieldKey: null,
+					optionAmounts: []
+				};
+
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+				renderPriceEditor(unit);
+			});
+		}
+
+		const unitSelect = operandEl.querySelector('.process-maker-price-operand-unit');
+		if (unitSelect) {
+			unitSelect.addEventListener('change', function() {
+				updateOperand({
+					unitKey: this.value,
+					fieldKey: null,
+					optionAmounts: []
+				});
+				renderPriceEditor(unit);
+			});
+		}
+
+		const fieldSelect = operandEl.querySelector('.process-maker-price-operand-field');
+		if (fieldSelect) {
+			fieldSelect.addEventListener('change', function() {
+				updateOperand({
+					fieldKey: this.value
+				});
+			});
+		}
+
+		const fixedInput = operandEl.querySelector('.process-maker-price-operand-fixed');
+		if (fixedInput) {
+			fixedInput.addEventListener('input', function() {
+				updateOperand({
+					fixedValue: toNumberOrZero(this.value)
+				});
+			});
+		}
+
+		operandEl.querySelectorAll('tr[data-option-key] .process-maker-price-operand-option-amount').forEach(function(input) {
+			input.addEventListener('input', function() {
+				const optionKey = input.closest('tr[data-option-key]').dataset.optionKey;
+
+				parsed[key].optionAmounts = parsed[key].optionAmounts || [];
+
+				let target = parsed[key].optionAmounts.find(function(item) {
+					return item.optionKey === optionKey;
+				});
+
+				if (!target) {
+					target = {
+						optionKey: optionKey,
+						amount: 0
+					};
+					parsed[key].optionAmounts.push(target);
+				}
+
+				target.amount = toNumberOrZero(this.value);
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+			});
+		});
+	}
+
+	function bindLengthTermEvents(unit, rule, termEl, parsed) {
+		const termIndex = Number(termEl.dataset.lengthTermIndex);
+
+		function updateTerm(key, value) {
+			parsed.lengthTerms = parsed.lengthTerms || [];
+			if (!parsed.lengthTerms[termIndex]) return;
+
+			parsed.lengthTerms[termIndex][key] = value;
+			rule.ruleJson = JSON.stringify(parsed);
+			markDirty();
+		}
+
+		const unitSelect = termEl.querySelector('.process-maker-price-length-unit');
+		if (unitSelect) {
+			unitSelect.addEventListener('change', function() {
+				const targetUnit = findUnitByKey(this.value);
+				const firstField = targetUnit ? getNumberFields(targetUnit)[0] : null;
+
+				parsed.lengthTerms[termIndex].unitKey = this.value;
+				parsed.lengthTerms[termIndex].fieldKey = firstField ? firstField.fieldKey : '';
+
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+				renderPriceEditor(unit);
+			});
+		}
+
+		const fieldSelect = termEl.querySelector('.process-maker-price-length-field');
+		if (fieldSelect) {
+			fieldSelect.addEventListener('change', function() {
+				updateTerm('fieldKey', this.value);
+			});
+		}
+
+		const multiplierInput = termEl.querySelector('.process-maker-price-length-multiplier');
+		if (multiplierInput) {
+			multiplierInput.addEventListener('input', function() {
+				updateTerm('multiplier', toNumberOrOne(this.value));
+			});
+		}
+
+		const removeBtn = termEl.querySelector('.process-maker-price-remove-length-term-btn');
+		if (removeBtn) {
+			removeBtn.addEventListener('click', function() {
+				parsed.lengthTerms.splice(termIndex, 1);
+				rule.ruleJson = JSON.stringify(parsed);
+				markDirty();
+				renderPriceEditor(unit);
+			});
+		}
+	}
+
+	function handlePriceExcelUpload(event, unit, rule) {
+		const file = event.target.files && event.target.files[0];
+
+		if (!file) {
+			return;
+		}
+
+		if (!window.XLSX) {
+			alert('엑셀 파서가 로드되지 않았습니다. xlsx.full.min.js 추가 여부를 확인해주세요.');
+			return;
+		}
+
+		const reader = new FileReader();
+
+		reader.onload = function(e) {
+			try {
+				const data = new Uint8Array(e.target.result);
+				const workbook = XLSX.read(data, { type: 'array' });
+				const firstSheetName = workbook.SheetNames[0];
+				const sheet = workbook.Sheets[firstSheetName];
+				const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+				const parsed = parsePriceExcelRows(unit, rows);
+				rule.ruleJson = JSON.stringify(parsed);
+
+				markDirty();
+				renderPriceEditor(unit);
+			} catch (error) {
+				alert(error.message || '엑셀 파일을 읽는 중 오류가 발생했습니다.');
+			} finally {
+				event.target.value = '';
+			}
+		};
+
+		reader.readAsArrayBuffer(file);
+	}
+
+	function parsePriceExcelRows(unit, rows) {
+		const cleanRows = (rows || []).filter(function(row) {
+			return row.some(function(cell) {
+				return String(cell ?? '').trim() !== '';
+			});
+		});
+
+		if (cleanRows.length < 2) {
+			throw new Error('엑셀 가격표는 최소 2행 이상 필요합니다.');
+		}
+
+		const numberFields = getNumberFields(unit);
+
+		if (numberFields.length === 0) {
+			throw new Error('숫자 필드가 없습니다.');
+		}
+
+		const firstRow = cleanRows[0];
+		const isTwoDimension = firstRow.length >= 3 && String(firstRow[0] ?? '').trim() === '';
+
+		if (!isTwoDimension) {
+			const field = numberFields[0];
+
+			const axis = {
+				axisKey: 'AXIS_1',
+				unitKey: 'CURRENT',
+				fieldKey: field.fieldKey,
+				ranges: []
+			};
+
+			const cells = [];
+
+			cleanRows.forEach(function(row, index) {
+				const label = String(row[0] ?? '').trim();
+				const amount = toNumberOrZero(row[1]);
+
+				if (!label) return;
+
+				const range = parseRangeLabelToRange(label);
+				range.rangeKey = createKey('range');
+				range.label = label;
+
+				axis.ranges.push(range);
+
+				cells.push({
+					rangeKeys: [range.rangeKey],
+					amount: amount
+				});
+			});
+
+			return {
+				requireFullCoverage: true,
+				axes: [axis],
+				cells: cells
+			};
+		}
+
+		if (numberFields.length < 2) {
+			throw new Error('2차원 엑셀 가격표를 사용하려면 숫자 필드가 2개 이상 필요합니다.');
+		}
+
+		const xField = numberFields[0];
+		const yField = numberFields[1];
+
+		const xRanges = firstRow.slice(1).map(function(cell) {
+			const label = String(cell ?? '').trim();
+			const range = parseRangeLabelToRange(label);
+			range.rangeKey = createKey('range');
+			range.label = label;
+			return range;
+		}).filter(function(range) {
+			return !!range.label;
+		});
+
+		const yRanges = [];
+		const cells = [];
+
+		cleanRows.slice(1).forEach(function(row) {
+			const yLabel = String(row[0] ?? '').trim();
+			if (!yLabel) return;
+
+			const yRange = parseRangeLabelToRange(yLabel);
+			yRange.rangeKey = createKey('range');
+			yRange.label = yLabel;
+			yRanges.push(yRange);
+
+			xRanges.forEach(function(xRange, xIndex) {
+				cells.push({
+					rangeKeys: [xRange.rangeKey, yRange.rangeKey],
+					amount: toNumberOrZero(row[xIndex + 1])
+				});
+			});
+		});
+
+		return {
+			requireFullCoverage: true,
+			axes: [
+				{
+					axisKey: 'AXIS_1',
+					unitKey: 'CURRENT',
+					fieldKey: xField.fieldKey,
+					ranges: xRanges
+				},
+				{
+					axisKey: 'AXIS_2',
+					unitKey: 'CURRENT',
+					fieldKey: yField.fieldKey,
+					ranges: yRanges
+				}
+			],
+			cells: cells
+		};
+	}
+
+	function parseRangeLabelToRange(label) {
+		const text = String(label ?? '').replace(/\s/g, '');
+
+		if (!text) {
+			return {
+				minValue: null,
+				minInclusive: true,
+				maxValue: null,
+				maxInclusive: true
+			};
+		}
+
+		if (text.includes('이하')) {
+			return {
+				minValue: null,
+				minInclusive: true,
+				maxValue: Number(text.replace('이하', '')),
+				maxInclusive: true
+			};
+		}
+
+		if (text.includes('미만')) {
+			return {
+				minValue: null,
+				minInclusive: true,
+				maxValue: Number(text.replace('미만', '')),
+				maxInclusive: false
+			};
+		}
+
+		if (text.includes('이상')) {
+			return {
+				minValue: Number(text.replace('이상', '')),
+				minInclusive: true,
+				maxValue: null,
+				maxInclusive: true
+			};
+		}
+
+		if (text.includes('초과')) {
+			return {
+				minValue: Number(text.replace('초과', '')),
+				minInclusive: false,
+				maxValue: null,
+				maxInclusive: true
+			};
+		}
+
+		if (text.includes('~')) {
+			const parts = text.split('~');
+			return {
+				minValue: Number(parts[0]),
+				minInclusive: true,
+				maxValue: Number(parts[1]),
+				maxInclusive: true
+			};
+		}
+
+		const exact = Number(text);
+
+		return {
+			minValue: exact,
+			minInclusive: true,
+			maxValue: exact,
+			maxInclusive: true
+		};
+	}
+
+	function rebuildNumberPriceTable(unit, rule, dimension) {
+		const numberFields = getNumberFields(unit);
+
+		if (numberFields.length === 0) {
+			alert('숫자 필드가 없습니다.');
+			return;
+		}
+
+		if (dimension === 2 && numberFields.length < 2) {
+			alert('2차원 가격표를 만들려면 숫자 필드가 2개 이상 필요합니다.');
+			return;
+		}
+
+		const axes = [];
+
+		axes.push({
+			axisKey: 'AXIS_1',
+			unitKey: 'CURRENT',
+			fieldKey: numberFields[0].fieldKey,
+			ranges: [
+				{
+					rangeKey: createKey('range'),
+					minValue: null,
+					minInclusive: true,
+					maxValue: 500,
+					maxInclusive: true,
+					label: '500 이하'
+				},
+				{
+					rangeKey: createKey('range'),
+					minValue: 500,
+					minInclusive: false,
+					maxValue: null,
+					maxInclusive: true,
+					label: '500 초과'
+				}
+			]
+		});
+
+		if (dimension === 2) {
+			axes.push({
+				axisKey: 'AXIS_2',
+				unitKey: 'CURRENT',
+				fieldKey: numberFields[1].fieldKey,
+				ranges: [
+					{
+						rangeKey: createKey('range'),
+						minValue: null,
+						minInclusive: true,
+						maxValue: 500,
+						maxInclusive: true,
+						label: '500 이하'
+					},
+					{
+						rangeKey: createKey('range'),
+						minValue: 500,
+						minInclusive: false,
+						maxValue: null,
+						maxInclusive: true,
+						label: '500 초과'
+					}
+				]
+			});
+		}
+
+		const next = {
+			requireFullCoverage: true,
+			axes: axes,
+			cells: rebuildCellsByAxes(axes, [])
+		};
+
+		rule.ruleJson = JSON.stringify(next);
+		markDirty();
+		renderPriceEditor(unit);
+	}
+
+	function rebuildCellsByAxes(axes, previousCells) {
+		const result = [];
+
+		if (!axes || axes.length === 0) {
+			return result;
+		}
+
+		if (axes.length === 1) {
+			(axes[0].ranges || []).forEach(function(range) {
+				const keys = [range.rangeKey];
+				const previous = findCellByRangeKeys(previousCells, keys);
+
+				result.push({
+					rangeKeys: keys,
+					amount: previous ? previous.amount : 0
+				});
+			});
+
+			return result;
+		}
+
+		const xRanges = axes[0].ranges || [];
+		const yRanges = axes[1].ranges || [];
+
+		yRanges.forEach(function(y) {
+			xRanges.forEach(function(x) {
+				const keys = [x.rangeKey, y.rangeKey];
+				const previous = findCellByRangeKeys(previousCells, keys);
+
+				result.push({
+					rangeKeys: keys,
+					amount: previous ? previous.amount : 0
+				});
+			});
+		});
+
+		return result;
+	}
+
+	function findCellByRangeKeys(cells, rangeKeys) {
+		return (cells || []).find(function(cell) {
+			if (!cell.rangeKeys || cell.rangeKeys.length !== rangeKeys.length) {
+				return false;
+			}
+
+			for (let i = 0; i < rangeKeys.length; i++) {
+				if (cell.rangeKeys[i] !== rangeKeys[i]) {
+					return false;
+				}
+			}
+
+			return true;
+		});
+	}
+
+	function getPreviousAndCurrentUnits(currentUnit) {
+		if (!state.currentProcess || !currentUnit) {
+			return [];
+		}
+
+		const all = getAllUnits();
+		const currentIndex = all.findIndex(function(unit) {
+			return unit.unitKey === currentUnit.unitKey;
+		});
+
+		if (currentIndex < 0) {
+			return [];
+		}
+
+		return all.slice(0, currentIndex + 1);
+	}
+
+	function parseJsonSafe(json, fallback) {
+		if (!json) {
+			return fallback;
+		}
+
+		try {
+			return typeof json === 'string' ? JSON.parse(json) : json;
+		} catch (e) {
+			return fallback;
+		}
+	}
+
+	function toNumberOrZero(value) {
+		if (value === null || value === undefined || value === '') {
+			return 0;
+		}
+
+		const number = Number(value);
+		return Number.isFinite(number) ? number : 0;
+	}
+
+	function toNumberOrOne(value) {
+		if (value === null || value === undefined || value === '') {
+			return 1;
+		}
+
+		const number = Number(value);
+		return Number.isFinite(number) && number !== 0 ? number : 1;
+	}
+
+	function removePriceRulesByOptionKey(unit, optionKey) {
+		unit.priceRules = (unit.priceRules || []).filter(function(rule) {
+			const parsed = parseJsonSafe(rule.ruleJson, {});
+
+			if (rule.ruleType === 'SELECT_OPTION_AMOUNT') {
+				parsed.optionAmounts = (parsed.optionAmounts || []).filter(function(item) {
+					return item.optionKey !== optionKey;
+				});
+				rule.ruleJson = JSON.stringify(parsed);
+				return true;
+			}
+
+			return !JSON.stringify(parsed).includes(optionKey);
+		});
+	}
+
+	function removePriceRulesByFieldKey(unit, fieldKey) {
+		unit.priceRules = (unit.priceRules || []).filter(function(rule) {
+			const parsedText = typeof rule.ruleJson === 'string'
+				? rule.ruleJson
+				: JSON.stringify(rule.ruleJson || {});
+
+			return !parsedText.includes(fieldKey);
+		});
 	}
 
 	function getDefaultInputValueTypeByAnswerType(answerType) {
@@ -2957,6 +5293,7 @@
 		const edges = [];
 		const reachableUnitKeys = new Set();
 		const edgeKeySet = new Set();
+		const visitedStateKeys = new Set();
 
 		const startUnit = getProcessStartUnit();
 
@@ -2967,30 +5304,48 @@
 			};
 		}
 
-		const queue = [startUnit.unitKey];
+		const queue = [
+			{
+				unitKey: startUnit.unitKey,
+				deferredUnitKeys: []
+			}
+		];
+
 		reachableUnitKeys.add(startUnit.unitKey);
 
 		while (queue.length > 0) {
-			const sourceUnitKey = queue.shift();
+			const graphState = queue.shift();
+			const sourceUnitKey = graphState.unitKey;
+			const deferredUnitKeys = normalizeDeferredUnitKeys(graphState.deferredUnitKeys);
+
+			const stateKey = makeExecutionGraphStateKey(sourceUnitKey, deferredUnitKeys);
+			if (visitedStateKeys.has(stateKey)) {
+				continue;
+			}
+			visitedStateKeys.add(stateKey);
+
 			const sourceUnit = findUnitByKey(sourceUnitKey);
 
 			if (!sourceUnit) {
 				continue;
 			}
 
-			const unitEdges = buildExecutionEdgesForUnit(sourceUnit);
+			const unitEdges = buildExecutionEdgesForUnit(sourceUnit, deferredUnitKeys);
 
 			unitEdges.forEach(function(edge) {
 				if (!edge.targetUnitKey) {
 					return;
 				}
 
+				const nextDeferredUnitKeys = normalizeDeferredUnitKeys(edge.nextDeferredUnitKeys || []);
+
 				const edgeKey = [
 					edge.sourceUnitKey,
 					edge.targetUnitKey,
 					edge.targetMode || 'AUTO_NEXT',
 					edge.branchKey || '',
-					edge.fallbackYn === true ? 'fallback' : ''
+					edge.fallbackYn === true ? 'fallback' : '',
+					nextDeferredUnitKeys.join('|')
 				].join('__');
 
 				if (edgeKeySet.has(edgeKey)) {
@@ -3002,8 +5357,12 @@
 
 				if (!reachableUnitKeys.has(edge.targetUnitKey)) {
 					reachableUnitKeys.add(edge.targetUnitKey);
-					queue.push(edge.targetUnitKey);
 				}
+
+				queue.push({
+					unitKey: edge.targetUnitKey,
+					deferredUnitKeys: nextDeferredUnitKeys
+				});
 			});
 		}
 
@@ -3013,28 +5372,44 @@
 		};
 	}
 
-	function buildExecutionEdgesForUnit(sourceUnit) {
+	function buildExecutionEdgesForUnit(sourceUnit, deferredUnitKeys) {
 		if (!sourceUnit) {
 			return [];
 		}
 
 		const edges = [];
 		const branches = Array.isArray(sourceUnit.branches) ? sourceUnit.branches : [];
-		const normalNextUnit = findNextStepFirstUnitBySourceUnitKey(sourceUnit.unitKey);
-		const normalNextUnitKey = normalNextUnit ? normalNextUnit.unitKey : null;
+		const currentDeferredUnitKeys = normalizeDeferredUnitKeys(deferredUnitKeys);
+
+		function pushAutoNextEdge(branch, branchType, branchKey, implicitYn, fallbackYn, pendingDeferredUnitKeys) {
+			const resolution = resolveAutoNextTargetBySourceUnitKey(sourceUnit.unitKey, pendingDeferredUnitKeys);
+
+			if (!resolution.targetUnitKey) {
+				return;
+			}
+
+			edges.push({
+				sourceUnitKey: sourceUnit.unitKey,
+				targetUnitKey: resolution.targetUnitKey,
+				targetMode: resolution.deferredYn ? 'DEFER_TO_UNIT' : 'AUTO_NEXT',
+				branchType: branchType,
+				branchKey: branchKey,
+				implicitYn: implicitYn === true,
+				fallbackYn: fallbackYn === true,
+				deferredArriveYn: resolution.deferredYn === true,
+				nextDeferredUnitKeys: resolution.nextDeferredUnitKeys
+			});
+		}
 
 		if (branches.length === 0) {
-			if (normalNextUnitKey) {
-				edges.push({
-					sourceUnitKey: sourceUnit.unitKey,
-					targetUnitKey: normalNextUnitKey,
-					targetMode: 'AUTO_NEXT',
-					branchType: 'IMPLICIT_AUTO_NEXT',
-					branchKey: `implicit_auto_next_${sourceUnit.unitKey}`,
-					implicitYn: true,
-					fallbackYn: false
-				});
-			}
+			pushAutoNextEdge(
+				null,
+				'IMPLICIT_AUTO_NEXT',
+				`implicit_auto_next_${sourceUnit.unitKey}`,
+				true,
+				false,
+				currentDeferredUnitKeys
+			);
 
 			return edges;
 		}
@@ -3061,7 +5436,8 @@
 						branchType: branch.branchType,
 						branchKey: branch.branchKey,
 						implicitYn: false,
-						fallbackYn: false
+						fallbackYn: false,
+						nextDeferredUnitKeys: currentDeferredUnitKeys.slice()
 					});
 				}
 				return;
@@ -3069,66 +5445,158 @@
 
 			if (targetMode === 'DEFER_TO_UNIT') {
 				/*
-				 * DEFER는 현재 진행 흐름도 다음 STEP 1번으로 이어지고,
-				 * 예약 대상 UNIT도 별도 표시합니다.
+				 * 핵심:
+				 * DEFER는 source -> target 직접 연결이 아닙니다.
+				 * targetUnitKey를 예약해두고, 현재 진행은 AUTO_NEXT처럼 다음 STEP으로 갑니다.
+				 * 이후 target이 속한 STEP에 도착하면 해당 STEP의 1번 UNIT 대신 예약 UNIT으로 이동합니다.
 				 */
-				if (normalNextUnitKey) {
-					edges.push({
-						sourceUnitKey: sourceUnit.unitKey,
-						targetUnitKey: normalNextUnitKey,
-						targetMode: 'AUTO_NEXT',
-						branchType: 'DEFER_CONTINUE',
-						branchKey: `${branch.branchKey || createKey('branch')}_continue`,
-						implicitYn: true,
-						fallbackYn: false
-					});
-				}
+				const nextDeferredUnitKeys = addDeferredUnitKeyToGraphState(
+					currentDeferredUnitKeys,
+					branch.targetUnitKey
+				);
 
-				if (branch.targetUnitKey) {
-					edges.push({
-						sourceUnitKey: sourceUnit.unitKey,
-						targetUnitKey: branch.targetUnitKey,
-						targetMode: 'DEFER_TO_UNIT',
-						branchType: branch.branchType,
-						branchKey: branch.branchKey,
-						implicitYn: false,
-						fallbackYn: false
-					});
-				}
+				pushAutoNextEdge(
+					branch,
+					'DEFER_CONTINUE',
+					`${branch.branchKey || sourceUnit.unitKey}_defer_continue`,
+					false,
+					false,
+					nextDeferredUnitKeys
+				);
 
 				return;
 			}
 
-			if (normalNextUnitKey) {
-				edges.push({
-					sourceUnitKey: sourceUnit.unitKey,
-					targetUnitKey: normalNextUnitKey,
-					targetMode: 'AUTO_NEXT',
-					branchType: branch.branchType,
-					branchKey: branch.branchKey,
-					implicitYn: false,
-					fallbackYn: branch.branchType === 'DEFAULT'
-				});
-			}
+			pushAutoNextEdge(
+				branch,
+				branch.branchType,
+				branch.branchKey,
+				false,
+				branch.branchType === 'DEFAULT',
+				currentDeferredUnitKeys
+			);
 		});
 
 		/*
 		 * DEFAULT가 없으면 조건/선택에 매칭되지 않는 경우도
 		 * 다음 STEP의 첫 번째 UNIT으로 fallback 됩니다.
 		 */
-		if (!hasDefault && normalNextUnitKey) {
-			edges.push({
-				sourceUnitKey: sourceUnit.unitKey,
-				targetUnitKey: normalNextUnitKey,
-				targetMode: 'AUTO_NEXT',
-				branchType: 'IMPLICIT_FALLBACK_AUTO_NEXT',
-				branchKey: `implicit_fallback_auto_next_${sourceUnit.unitKey}`,
-				implicitYn: true,
-				fallbackYn: true
-			});
+		if (!hasDefault) {
+			pushAutoNextEdge(
+				null,
+				'IMPLICIT_FALLBACK_AUTO_NEXT',
+				`implicit_fallback_auto_next_${sourceUnit.unitKey}`,
+				true,
+				true,
+				currentDeferredUnitKeys
+			);
 		}
 
 		return edges;
+	}
+
+	function resolveAutoNextTargetBySourceUnitKey(sourceUnitKey, deferredUnitKeys) {
+		const nextDeferredUnitKeys = normalizeDeferredUnitKeys(deferredUnitKeys);
+		const normalNextUnit = findNextStepFirstUnitBySourceUnitKey(sourceUnitKey);
+
+		if (!normalNextUnit) {
+			return {
+				targetUnitKey: null,
+				targetUnit: null,
+				deferredYn: false,
+				nextDeferredUnitKeys: nextDeferredUnitKeys
+			};
+		}
+
+		const normalNextLocation = findStepAndUnitIndexByUnitKey(normalNextUnit.unitKey);
+
+		if (!normalNextLocation) {
+			return {
+				targetUnitKey: normalNextUnit.unitKey,
+				targetUnit: normalNextUnit,
+				deferredYn: false,
+				nextDeferredUnitKeys: nextDeferredUnitKeys
+			};
+		}
+
+		for (let i = 0; i < nextDeferredUnitKeys.length; i++) {
+			const deferredUnitKey = nextDeferredUnitKeys[i];
+			const deferredLocation = findStepAndUnitIndexByUnitKey(deferredUnitKey);
+
+			if (!deferredLocation) {
+				continue;
+			}
+
+			if (deferredLocation.stepIndex === normalNextLocation.stepIndex) {
+				const consumedDeferredUnitKeys = nextDeferredUnitKeys.slice();
+				consumedDeferredUnitKeys.splice(i, 1);
+
+				return {
+					targetUnitKey: deferredLocation.unit.unitKey,
+					targetUnit: deferredLocation.unit,
+					deferredYn: true,
+					nextDeferredUnitKeys: consumedDeferredUnitKeys
+				};
+			}
+		}
+
+		return {
+			targetUnitKey: normalNextUnit.unitKey,
+			targetUnit: normalNextUnit,
+			deferredYn: false,
+			nextDeferredUnitKeys: nextDeferredUnitKeys
+		};
+	}
+
+	function normalizeDeferredUnitKeys(deferredUnitKeys) {
+		const result = [];
+
+		if (!Array.isArray(deferredUnitKeys)) {
+			return result;
+		}
+
+		deferredUnitKeys.forEach(function(unitKey) {
+			if (!unitKey) {
+				return;
+			}
+
+			if (!findUnitByKey(unitKey)) {
+				return;
+			}
+
+			if (result.includes(unitKey)) {
+				return;
+			}
+
+			result.push(unitKey);
+		});
+
+		return result;
+	}
+
+	function addDeferredUnitKeyToGraphState(deferredUnitKeys, unitKey) {
+		const result = normalizeDeferredUnitKeys(deferredUnitKeys);
+
+		if (!unitKey) {
+			return result;
+		}
+
+		if (!findUnitByKey(unitKey)) {
+			return result;
+		}
+
+		if (!result.includes(unitKey)) {
+			result.push(unitKey);
+		}
+
+		return result;
+	}
+
+	function makeExecutionGraphStateKey(unitKey, deferredUnitKeys) {
+		return [
+			unitKey || '',
+			normalizeDeferredUnitKeys(deferredUnitKeys).join('|')
+		].join('__defer__');
 	}
 
 	function getProcessStartUnit() {
