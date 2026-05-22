@@ -190,7 +190,15 @@
 												<input type="text" class="form-control" id="process-maker-unit-title">
 											</div>
 											<div class="mb-2">
-												<label class="form-label">질문</label>
+												<div class="d-flex justify-content-between align-items-center mb-1">
+													<label class="form-label mb-0">질문</label>
+													<button type="button" class="btn btn-sm btn-outline-secondary"
+														id="process-maker-question-info-btn">
+														? 질문 부가정보 등록
+														<span class="badge bg-light text-dark border ms-1"
+															id="process-maker-question-info-count">0</span>
+													</button>
+												</div>
 												<textarea class="form-control" id="process-maker-question-text"
 													rows="2"></textarea>
 											</div>
@@ -290,10 +298,55 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
+	<div class="modal fade" id="process-maker-info-image-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="process-maker-info-image-modal-title">
+						부가정보 이미지 등록
+					</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="alert alert-light border small mb-3">
+						이미지만 등록할 수 있습니다. 등록 버튼을 누르는 경우 최소 1장 이상 필요합니다.
+						부가정보가 필요 없으면 전체 삭제를 누르면 0장 상태로 저장됩니다.
+					</div>
+
+					<input type="file" class="form-control" id="process-maker-info-image-file-input" accept="image/*"
+						multiple>
+
+					<div class="small text-muted mt-2">
+						여러 장 등록 시 테스트 화면에서 슬라이드로 표시됩니다.
+					</div>
+
+					<div id="process-maker-info-image-preview-list" class="process-maker-info-image-preview-list">
+</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-danger me-auto"
+						id="process-maker-info-image-clear-btn">
+						전체 삭제
+					</button>
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+						닫기
+					</button>
+					<button type="button" class="btn btn-primary" id="process-maker-info-image-save-btn">
+						등록하기
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 	<script src="/administration/assets/js/processMaker.js"></script>
+
+
 </body>
 
 </html>

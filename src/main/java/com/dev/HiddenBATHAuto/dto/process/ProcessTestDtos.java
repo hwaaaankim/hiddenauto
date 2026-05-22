@@ -75,6 +75,7 @@ public class ProcessTestDtos {
         private String helperText;
         private List<OptionResponse> options = new ArrayList<>();
         private List<FieldResponse> fields = new ArrayList<>();
+        private List<InfoImageResponse> infoImages = new ArrayList<>();
     }
 
     @Getter
@@ -83,6 +84,7 @@ public class ProcessTestDtos {
         private String optionKey;
         private String label;
         private String valueText;
+        private List<InfoImageResponse> infoImages = new ArrayList<>();
     }
 
     @Getter
@@ -116,5 +118,14 @@ public class ProcessTestDtos {
         private String originalFilename;
         private String fileUrl;
         private long fileSize;
+    }
+    
+    @Getter
+    @Setter
+    public static class InfoImageResponse {
+        private String imageKey;
+        private String originalFilename;
+        private String fileUrl;
+        private int sortOrder;
     }
 }

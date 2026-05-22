@@ -116,6 +116,7 @@ public class ProcessMakerDtos {
         private String helperText;
         private List<AnswerOptionDto> options = new ArrayList<>();
         private List<AnswerFieldDto> fields = new ArrayList<>();
+        private List<InfoImageDto> infoImages = new ArrayList<>();
     }
 
     @Getter
@@ -125,6 +126,7 @@ public class ProcessMakerDtos {
         private String label;
         private String valueText;
         private int sortOrder;
+        private List<InfoImageDto> infoImages = new ArrayList<>();
     }
 
     @Getter
@@ -151,5 +153,39 @@ public class ProcessMakerDtos {
         private String targetUnitKey;
         private int priority;
         private boolean useYn = true;
+    }
+    
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class InfoImageDto {
+
+        private String imageKey;
+
+        private String originalFilename;
+
+        private String storedFilename;
+
+        private String contentType;
+
+        private long fileSize;
+
+        /**
+         * 관리자 저장 payload에서만 사용합니다.
+         * 테스트 화면 응답에는 노출하지 않는 것이 좋습니다.
+         */
+        private String filePath;
+
+        private String fileUrl;
+
+        private int sortOrder;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class DeleteInfoImageRequest {
+        private String imageKey;
+        private String filePath;
     }
 }

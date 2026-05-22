@@ -72,6 +72,16 @@ public class ProcessQuestion {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    @BatchSize(size = 50)
+    private List<ProcessQuestionInfoImage> infoImages = new ArrayList<>();
+
+    public void addInfoImage(ProcessQuestionInfoImage image) {
+        this.infoImages.add(image);
+        image.setQuestion(this);
+    }
+    
     public void addOption(ProcessAnswerOption option) {
         this.options.add(option);
         option.setQuestion(this);

@@ -22,6 +22,7 @@ import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.AnswerHistoryResponse;
 import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.CurrentUnitResponse;
 import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.FieldResponse;
 import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.FileResponse;
+import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.InfoImageResponse;
 import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.OptionResponse;
 import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.SessionResponse;
 import com.dev.HiddenBATHAuto.dto.process.ProcessTestDtos.StartSessionRequest;
@@ -34,11 +35,13 @@ import com.dev.HiddenBATHAuto.enums.process.ProcessExecutionStatus;
 import com.dev.HiddenBATHAuto.enums.process.ProcessStatus;
 import com.dev.HiddenBATHAuto.model.process.ProcessAnswerField;
 import com.dev.HiddenBATHAuto.model.process.ProcessAnswerOption;
+import com.dev.HiddenBATHAuto.model.process.ProcessAnswerOptionInfoImage;
 import com.dev.HiddenBATHAuto.model.process.ProcessDefinition;
 import com.dev.HiddenBATHAuto.model.process.ProcessExecutionAnswer;
 import com.dev.HiddenBATHAuto.model.process.ProcessExecutionFile;
 import com.dev.HiddenBATHAuto.model.process.ProcessExecutionSession;
 import com.dev.HiddenBATHAuto.model.process.ProcessQuestion;
+import com.dev.HiddenBATHAuto.model.process.ProcessQuestionInfoImage;
 import com.dev.HiddenBATHAuto.model.process.ProcessStep;
 import com.dev.HiddenBATHAuto.model.process.ProcessUnit;
 import com.dev.HiddenBATHAuto.model.process.ProcessUnitBranch;
@@ -805,37 +808,66 @@ public class ProcessTestService {
 	}
 
 	private CurrentUnitResponse toCurrentUnitResponse(ProcessUnit unit) {
-		ProcessQuestion question = unit.getQuestion();
+	    ProcessQuestion question = unit.getQuestion();
 
-		CurrentUnitResponse response = new CurrentUnitResponse();
-		response.setUnitKey(unit.getUnitKey());
-		response.setUnitTitle(unit.getTitle());
-		response.setStepTitle(unit.getStep().getTitle());
+	    CurrentUnitResponse response = new CurrentUnitResponse();
+	    response.setUnitKey(unit.getUnitKey());
+	    response.setUnitTitle(unit.getTitle());
+	    response.setStepTitle(unit.getStep().getTitle());
 
-		if (question != null) {
-			response.setQuestionText(question.getQuestionText());
-			response.setAnswerType(normalizeAnswerType(question.getAnswerType()));
-			response.setRequiredYn(question.isRequiredYn());
-			response.setHelperText(question.getHelperText());
+	    if (question != null) {
+	        response.setQuestionText(question.getQuestionText());
+	        response.setAnswerType(normalizeAnswerType(question.getAnswerType()));
+	        response.setRequiredYn(question.isRequiredYn());
+	        response.setHelperText(question.getHelperText());
 
-			response.setOptions(
-					question.getOptions().stream().sorted(Comparator.comparingInt(ProcessAnswerOption::getSortOrder))
-							.map(this::toOptionResponse).toList());
+	        if (question.getInfoImages() != null) {
+	            response.setInfoImages(
+	                    question.getInfoImages()
+	                            .stream()
+	                            .sorted(Comparator.comparingInt(ProcessQuestionInfoImage::getSortOrder))
+	                            .map(this::toInfoImageResponse)
+	                            .toList()
+	            );
+	        }
 
-			response.setFields(
-					question.getFields().stream().sorted(Comparator.comparingInt(ProcessAnswerField::getSortOrder))
-							.map(this::toFieldResponse).toList());
-		}
+	        response.setOptions(
+	                question.getOptions()
+	                        .stream()
+	                        .sorted(Comparator.comparingInt(ProcessAnswerOption::getSortOrder))
+	                        .map(this::toOptionResponse)
+	                        .toList()
+	        );
 
-		return response;
+	        response.setFields(
+	                question.getFields()
+	                        .stream()
+	                        .sorted(Comparator.comparingInt(ProcessAnswerField::getSortOrder))
+	                        .map(this::toFieldResponse)
+	                        .toList()
+	        );
+	    }
+
+	    return response;
 	}
 
 	private OptionResponse toOptionResponse(ProcessAnswerOption option) {
-		OptionResponse response = new OptionResponse();
-		response.setOptionKey(option.getOptionKey());
-		response.setLabel(option.getLabel());
-		response.setValueText(option.getValueText());
-		return response;
+	    OptionResponse response = new OptionResponse();
+	    response.setOptionKey(option.getOptionKey());
+	    response.setLabel(option.getLabel());
+	    response.setValueText(option.getValueText());
+
+	    if (option.getInfoImages() != null) {
+	        response.setInfoImages(
+	                option.getInfoImages()
+	                        .stream()
+	                        .sorted(Comparator.comparingInt(ProcessAnswerOptionInfoImage::getSortOrder))
+	                        .map(this::toInfoImageResponse)
+	                        .toList()
+	        );
+	    }
+
+	    return response;
 	}
 
 	private FieldResponse toFieldResponse(ProcessAnswerField field) {
@@ -849,6 +881,24 @@ public class ProcessTestService {
 		return response;
 	}
 
+	private InfoImageResponse toInfoImageResponse(ProcessQuestionInfoImage image) {
+	    InfoImageResponse response = new InfoImageResponse();
+	    response.setImageKey(image.getImageKey());
+	    response.setOriginalFilename(image.getOriginalFilename());
+	    response.setFileUrl(image.getFileUrl());
+	    response.setSortOrder(image.getSortOrder());
+	    return response;
+	}
+
+	private InfoImageResponse toInfoImageResponse(ProcessAnswerOptionInfoImage image) {
+	    InfoImageResponse response = new InfoImageResponse();
+	    response.setImageKey(image.getImageKey());
+	    response.setOriginalFilename(image.getOriginalFilename());
+	    response.setFileUrl(image.getFileUrl());
+	    response.setSortOrder(image.getSortOrder());
+	    return response;
+	}
+	
 	private AnswerHistoryResponse toAnswerHistory(ProcessExecutionAnswer answer) {
 		AnswerHistoryResponse response = new AnswerHistoryResponse();
 		response.setUnitKey(answer.getUnitKey());

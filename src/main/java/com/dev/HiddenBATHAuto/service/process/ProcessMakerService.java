@@ -1,6 +1,10 @@
 package com.dev.HiddenBATHAuto.service.process;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -10,13 +14,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.AnswerFieldDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.AnswerOptionDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.BranchDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.CreateProcessRequest;
+import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.DeleteInfoImageRequest;
+import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.InfoImageDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.PriceRuleDto;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.ProcessDetailRequest;
 import com.dev.HiddenBATHAuto.dto.process.ProcessMakerDtos.ProcessDetailResponse;
@@ -31,8 +40,10 @@ import com.dev.HiddenBATHAuto.enums.process.ProcessStatus;
 import com.dev.HiddenBATHAuto.model.calculator.ProcessUnitPriceRule;
 import com.dev.HiddenBATHAuto.model.process.ProcessAnswerField;
 import com.dev.HiddenBATHAuto.model.process.ProcessAnswerOption;
+import com.dev.HiddenBATHAuto.model.process.ProcessAnswerOptionInfoImage;
 import com.dev.HiddenBATHAuto.model.process.ProcessDefinition;
 import com.dev.HiddenBATHAuto.model.process.ProcessQuestion;
+import com.dev.HiddenBATHAuto.model.process.ProcessQuestionInfoImage;
 import com.dev.HiddenBATHAuto.model.process.ProcessStep;
 import com.dev.HiddenBATHAuto.model.process.ProcessUnit;
 import com.dev.HiddenBATHAuto.model.process.ProcessUnitBranch;
@@ -54,6 +65,9 @@ public class ProcessMakerService {
     private final EntityManager entityManager;
     private final ProcessPriceRuleValidator processPriceRuleValidator;
 
+    @Value("${spring.upload.path:uploads}")
+    private String uploadPath;
+    
     @Transactional(readOnly = true)
     public List<ProcessSummaryResponse> getProcessList() {
         return processDefinitionRepository.findAllByOrderByCreatedAtDesc()
@@ -94,6 +108,8 @@ public class ProcessMakerService {
                 .orElseThrow(() -> new IllegalArgumentException("프로세스를 찾을 수 없습니다."));
 
         validateProcessRequest(request);
+        Set<String> requestedInfoImageKeys = collectRequestedInfoImageKeys(request);
+        List<InfoImageFileSnapshot> oldInfoImageSnapshots = collectCurrentInfoImageSnapshots(process);
         processPriceRuleValidator.validate(request);
 
         ProcessDefinitionValidationResult validationResult = processDefinitionGraphValidator.validate(request);
@@ -163,7 +179,8 @@ public class ProcessMakerService {
         }
 
         ProcessDefinition saved = processDefinitionRepository.save(process);
-
+        deleteRemovedInfoImageFiles(oldInfoImageSnapshots, requestedInfoImageKeys);
+        
         ProcessDetailResponse response = toDetail(saved);
         response.setValidationWarnings(validationResult.getWarnings());
 
@@ -189,6 +206,13 @@ public class ProcessMakerService {
         question.setRequiredYn(dto.isRequiredYn());
         question.setHelperText(trimToNull(dto.getHelperText()));
 
+        if (dto.getInfoImages() != null) {
+            for (int i = 0; i < dto.getInfoImages().size(); i++) {
+                ProcessQuestionInfoImage image = toQuestionInfoImageEntity(dto.getInfoImages().get(i), i);
+                question.addInfoImage(image);
+            }
+        }
+
         if (dto.getOptions() != null) {
             for (int i = 0; i < dto.getOptions().size(); i++) {
                 AnswerOptionDto optionDto = dto.getOptions().get(i);
@@ -198,6 +222,14 @@ public class ProcessMakerService {
                 option.setLabel(defaultText(optionDto.getLabel(), "옵션 " + (i + 1)));
                 option.setValueText(trimToNull(optionDto.getValueText()));
                 option.setSortOrder(i);
+
+                if (optionDto.getInfoImages() != null) {
+                    for (int imageIndex = 0; imageIndex < optionDto.getInfoImages().size(); imageIndex++) {
+                        ProcessAnswerOptionInfoImage image =
+                                toAnswerOptionInfoImageEntity(optionDto.getInfoImages().get(imageIndex), imageIndex);
+                        option.addInfoImage(image);
+                    }
+                }
 
                 question.addOption(option);
             }
@@ -420,6 +452,10 @@ public class ProcessMakerService {
         dto.setRequiredYn(question.isRequiredYn());
         dto.setHelperText(question.getHelperText());
 
+        if (question.getInfoImages() != null) {
+            dto.setInfoImages(question.getInfoImages().stream().map(this::toInfoImageDto).toList());
+        }
+
         if (question.getOptions() != null) {
             dto.setOptions(question.getOptions().stream().map(this::toOptionDto).toList());
         }
@@ -437,9 +473,14 @@ public class ProcessMakerService {
         dto.setLabel(option.getLabel());
         dto.setValueText(option.getValueText());
         dto.setSortOrder(option.getSortOrder());
+
+        if (option.getInfoImages() != null) {
+            dto.setInfoImages(option.getInfoImages().stream().map(this::toInfoImageDto).toList());
+        }
+
         return dto;
     }
-
+    
     private AnswerFieldDto toFieldDto(ProcessAnswerField field) {
         AnswerFieldDto dto = new AnswerFieldDto();
         dto.setFieldKey(field.getFieldKey());
@@ -534,6 +575,315 @@ public class ProcessMakerService {
         }
     }
 
+    @Transactional
+    public List<InfoImageDto> uploadInfoImages(Long processId, List<MultipartFile> files) {
+        if (processId == null) {
+            throw new IllegalArgumentException("프로세스 정보가 없습니다.");
+        }
+
+        if (!processDefinitionRepository.existsById(processId)) {
+            throw new IllegalArgumentException("프로세스를 찾을 수 없습니다.");
+        }
+
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("부가정보 이미지는 1장 이상 등록해야 합니다.");
+        }
+
+        List<InfoImageDto> result = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+
+            if (!isImageFile(file)) {
+                throw new IllegalArgumentException("이미지 파일만 등록할 수 있습니다.");
+            }
+
+            result.add(storeInfoImage(processId, file, result.size()));
+        }
+
+        if (result.isEmpty()) {
+            throw new IllegalArgumentException("부가정보 이미지는 1장 이상 등록해야 합니다.");
+        }
+
+        return result;
+    }
+
+    @Transactional
+    public void deleteUploadedInfoImage(Long processId, DeleteInfoImageRequest request) {
+        if (processId == null) {
+            throw new IllegalArgumentException("프로세스 정보가 없습니다.");
+        }
+
+        if (request == null || request.getFilePath() == null || request.getFilePath().isBlank()) {
+            return;
+        }
+
+        Path processInfoRoot = Path.of(uploadPath, "process-info", String.valueOf(processId))
+                .toAbsolutePath()
+                .normalize();
+
+        Path target = Path.of(request.getFilePath())
+                .toAbsolutePath()
+                .normalize();
+
+        if (!target.startsWith(processInfoRoot)) {
+            throw new IllegalArgumentException("삭제할 수 없는 파일 경로입니다.");
+        }
+
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("부가정보 이미지 삭제 중 오류가 발생했습니다.");
+        }
+    }
+
+    private InfoImageDto storeInfoImage(Long processId, MultipartFile file, int sortOrder) {
+        try {
+            String originalFilename = StringUtils.cleanPath(
+                    file.getOriginalFilename() == null ? "image" : file.getOriginalFilename()
+            );
+
+            String extension = "";
+            int dotIndex = originalFilename.lastIndexOf(".");
+            if (dotIndex >= 0) {
+                extension = originalFilename.substring(dotIndex);
+            }
+
+            String imageKey = "info_img_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+            String storedFilename = UUID.randomUUID().toString().replace("-", "") + extension;
+            String datePath = LocalDate.now().toString();
+
+            Path directory = Path.of(uploadPath, "process-info", String.valueOf(processId), datePath);
+            Files.createDirectories(directory);
+
+            Path targetPath = directory.resolve(storedFilename);
+            file.transferTo(targetPath.toFile());
+
+            String fileUrl = "/administration/upload/process-info/"
+                    + processId + "/"
+                    + datePath + "/"
+                    + storedFilename;
+
+            InfoImageDto dto = new InfoImageDto();
+            dto.setImageKey(imageKey);
+            dto.setOriginalFilename(originalFilename);
+            dto.setStoredFilename(storedFilename);
+            dto.setContentType(file.getContentType());
+            dto.setFileSize(file.getSize());
+            dto.setFilePath(targetPath.toString());
+            dto.setFileUrl(fileUrl);
+            dto.setSortOrder(sortOrder);
+
+            return dto;
+        } catch (IOException e) {
+            throw new IllegalArgumentException("부가정보 이미지 저장 중 오류가 발생했습니다.");
+        }
+    }
+
+    private boolean isImageFile(MultipartFile file) {
+        String contentType = file.getContentType();
+
+        if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+            return false;
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || filename.isBlank()) {
+            return true;
+        }
+
+        String lower = filename.toLowerCase();
+
+        return lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg")
+                || lower.endsWith(".png")
+                || lower.endsWith(".gif")
+                || lower.endsWith(".webp")
+                || lower.endsWith(".bmp");
+    }
+
+    private ProcessQuestionInfoImage toQuestionInfoImageEntity(InfoImageDto dto, int index) {
+        ProcessQuestionInfoImage image = new ProcessQuestionInfoImage();
+        image.setImageKey(required(dto.getImageKey(), "질문 부가이미지 imageKey가 없습니다."));
+        image.setOriginalFilename(required(dto.getOriginalFilename(), "질문 부가이미지 원본 파일명이 없습니다."));
+        image.setStoredFilename(required(dto.getStoredFilename(), "질문 부가이미지 저장 파일명이 없습니다."));
+        image.setContentType(trimToNull(dto.getContentType()));
+        image.setFileSize(dto.getFileSize());
+        image.setFilePath(required(dto.getFilePath(), "질문 부가이미지 파일 경로가 없습니다."));
+        image.setFileUrl(required(dto.getFileUrl(), "질문 부가이미지 URL이 없습니다."));
+        image.setSortOrder(index);
+        return image;
+    }
+
+    private ProcessAnswerOptionInfoImage toAnswerOptionInfoImageEntity(InfoImageDto dto, int index) {
+        ProcessAnswerOptionInfoImage image = new ProcessAnswerOptionInfoImage();
+        image.setImageKey(required(dto.getImageKey(), "답변 부가이미지 imageKey가 없습니다."));
+        image.setOriginalFilename(required(dto.getOriginalFilename(), "답변 부가이미지 원본 파일명이 없습니다."));
+        image.setStoredFilename(required(dto.getStoredFilename(), "답변 부가이미지 저장 파일명이 없습니다."));
+        image.setContentType(trimToNull(dto.getContentType()));
+        image.setFileSize(dto.getFileSize());
+        image.setFilePath(required(dto.getFilePath(), "답변 부가이미지 파일 경로가 없습니다."));
+        image.setFileUrl(required(dto.getFileUrl(), "답변 부가이미지 URL이 없습니다."));
+        image.setSortOrder(index);
+        return image;
+    }
+
+    private InfoImageDto toInfoImageDto(ProcessQuestionInfoImage image) {
+        InfoImageDto dto = new InfoImageDto();
+        dto.setImageKey(image.getImageKey());
+        dto.setOriginalFilename(image.getOriginalFilename());
+        dto.setStoredFilename(image.getStoredFilename());
+        dto.setContentType(image.getContentType());
+        dto.setFileSize(image.getFileSize());
+        dto.setFilePath(image.getFilePath());
+        dto.setFileUrl(image.getFileUrl());
+        dto.setSortOrder(image.getSortOrder());
+        return dto;
+    }
+
+    private InfoImageDto toInfoImageDto(ProcessAnswerOptionInfoImage image) {
+        InfoImageDto dto = new InfoImageDto();
+        dto.setImageKey(image.getImageKey());
+        dto.setOriginalFilename(image.getOriginalFilename());
+        dto.setStoredFilename(image.getStoredFilename());
+        dto.setContentType(image.getContentType());
+        dto.setFileSize(image.getFileSize());
+        dto.setFilePath(image.getFilePath());
+        dto.setFileUrl(image.getFileUrl());
+        dto.setSortOrder(image.getSortOrder());
+        return dto;
+    }
+
+    private Set<String> collectRequestedInfoImageKeys(ProcessDetailRequest request) {
+        Set<String> keys = new HashSet<>();
+
+        if (request == null || request.getSteps() == null) {
+            return keys;
+        }
+
+        for (StepDto step : request.getSteps()) {
+            if (step.getUnits() == null) {
+                continue;
+            }
+
+            for (UnitDto unit : step.getUnits()) {
+                QuestionDto question = unit.getQuestion();
+
+                if (question == null) {
+                    continue;
+                }
+
+                if (question.getInfoImages() != null) {
+                    question.getInfoImages().forEach(image -> {
+                        if (image.getImageKey() != null && !image.getImageKey().isBlank()) {
+                            keys.add(image.getImageKey());
+                        }
+                    });
+                }
+
+                if (question.getOptions() != null) {
+                    for (AnswerOptionDto option : question.getOptions()) {
+                        if (option.getInfoImages() == null) {
+                            continue;
+                        }
+
+                        option.getInfoImages().forEach(image -> {
+                            if (image.getImageKey() != null && !image.getImageKey().isBlank()) {
+                                keys.add(image.getImageKey());
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        return keys;
+    }
+
+    private List<InfoImageFileSnapshot> collectCurrentInfoImageSnapshots(ProcessDefinition process) {
+        List<InfoImageFileSnapshot> snapshots = new ArrayList<>();
+
+        if (process == null || process.getSteps() == null) {
+            return snapshots;
+        }
+
+        for (ProcessStep step : process.getSteps()) {
+            if (step.getUnits() == null) {
+                continue;
+            }
+
+            for (ProcessUnit unit : step.getUnits()) {
+                ProcessQuestion question = unit.getQuestion();
+
+                if (question == null) {
+                    continue;
+                }
+
+                if (question.getInfoImages() != null) {
+                    for (ProcessQuestionInfoImage image : question.getInfoImages()) {
+                        snapshots.add(new InfoImageFileSnapshot(image.getImageKey(), image.getFilePath()));
+                    }
+                }
+
+                if (question.getOptions() != null) {
+                    for (ProcessAnswerOption option : question.getOptions()) {
+                        if (option.getInfoImages() == null) {
+                            continue;
+                        }
+
+                        for (ProcessAnswerOptionInfoImage image : option.getInfoImages()) {
+                            snapshots.add(new InfoImageFileSnapshot(image.getImageKey(), image.getFilePath()));
+                        }
+                    }
+                }
+            }
+        }
+
+        return snapshots;
+    }
+
+    private void deleteRemovedInfoImageFiles(
+            List<InfoImageFileSnapshot> oldSnapshots,
+            Set<String> requestedImageKeys
+    ) {
+        if (oldSnapshots == null || oldSnapshots.isEmpty()) {
+            return;
+        }
+
+        Set<String> safeRequestedKeys = requestedImageKeys == null ? Set.of() : requestedImageKeys;
+
+        for (InfoImageFileSnapshot snapshot : oldSnapshots) {
+            if (snapshot == null || snapshot.imageKey == null || snapshot.filePath == null) {
+                continue;
+            }
+
+            if (safeRequestedKeys.contains(snapshot.imageKey)) {
+                continue;
+            }
+
+            try {
+                Files.deleteIfExists(Path.of(snapshot.filePath));
+            } catch (Exception ignored) {
+                /*
+                 * 운영 로그가 필요하면 log.warn 처리하시면 됩니다.
+                 * 파일 삭제 실패 때문에 프로세스 저장 자체가 실패하면 관리자가 저장을 못 하게 됩니다.
+                 */
+            }
+        }
+    }
+
+    private static class InfoImageFileSnapshot {
+        private final String imageKey;
+        private final String filePath;
+
+        private InfoImageFileSnapshot(String imageKey, String filePath) {
+            this.imageKey = imageKey;
+            this.filePath = filePath;
+        }
+    }
+    
     private void validateSingleSelectBranches(
             String unitTitle,
             QuestionDto question,

@@ -35,7 +35,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Value("${spring.upload.env}")
     private String env;
 
-    /** 애플리케이션 기동 시 업로드 폴더가 없으면 생성 */
     @PostConstruct
     public void ensureUploadDir() {
         try {
@@ -55,36 +54,42 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
         String normalized = normalizeDir(uploadPath);
-        String location = "file:" + normalized; // file: 프리픽스
+        String location = "file:" + normalized;
 
         System.out.println("[WebMvcConfig] Active profile: " + String.join(",", environment.getActiveProfiles()));
         System.out.println("[WebMvcConfig] Upload env: " + env);
         System.out.println("[WebMvcConfig] Upload path: " + normalized);
         System.out.println("[WebMvcConfig] Resource location: " + location);
 
+        /*
+         * 사용자/공통 접근용
+         * 예: /upload/process-info/1/2026-05-22/xxx.jpg
+         */
         registry.addResourceHandler("/upload/**")
+                .addResourceLocations(location);
+
+        /*
+         * 관리자 화면 접근용
+         * ProcessMakerService에서 현재 fileUrl을
+         * /administration/upload/process-info/... 형태로 만들고 있으므로 반드시 필요합니다.
+         */
+        registry.addResourceHandler("/administration/upload/**")
                 .addResourceLocations(location);
     }
 
-    /**
-     * ✅ 디렉터리 경로를 OS별로 안전하게 정규화
-     * - \ -> /
-     * - ${user.home} 문자열이 그대로 들어온 경우 실제 홈으로 치환
-     * - ~ 로 시작하면 홈으로 치환
-     * - 마지막에 / 보장
-     */
     private String normalizeDir(String dir) {
-        if (!StringUtils.hasText(dir)) return dir;
+        if (!StringUtils.hasText(dir)) {
+            return dir;
+        }
 
         String d = dir.replace("\\", "/").trim();
 
         String userHome = System.getProperty("user.home");
         if (StringUtils.hasText(userHome)) {
             userHome = userHome.replace("\\", "/");
-            // ${user.home} 문자열이 그대로 들어온 경우 치환
+
             d = d.replace("${user.home}", userHome);
 
-            // ~ 처리
             if (d.equals("~")) {
                 d = userHome;
             } else if (d.startsWith("~/")) {
@@ -92,7 +97,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
             }
         }
 
-        if (!d.endsWith("/")) d = d + "/";
+        if (!d.endsWith("/")) {
+            d = d + "/";
+        }
+
         return d;
     }
 

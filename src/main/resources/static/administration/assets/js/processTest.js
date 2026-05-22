@@ -45,7 +45,7 @@
 			}
 
 			renderProcessList();
-		 } catch (e) {
+		} catch (e) {
 			alert(e.message || '프로세스 목록 조회 중 오류가 발생했습니다.');
 		}
 	}
@@ -284,12 +284,12 @@
 			? `
 				<div class="process-test-bubble-files">
 					${answer.files.map(function(file) {
-						return `
+				return `
 							<a href="${escapeAttr(file.fileUrl)}" target="_blank" class="process-test-bubble-file">
 								${escapeHtml(file.originalFilename || '첨부파일')}
 							</a>
 						`;
-					}).join('')}
+			}).join('')}
 				</div>
 			`
 			: '';
@@ -323,21 +323,24 @@
 
 	function buildCurrentQuestion(unit) {
 		return `
-			<div class="process-test-message-row bot process-test-current-question process-test-animate-in"
-				data-current-question="true">
-				<div class="process-test-avatar">Q</div>
-				<div class="process-test-bubble bot process-test-current-bubble">
-					<div class="process-test-step-chip">
-						${escapeHtml(unit.stepTitle || '-')} · ${escapeHtml(unit.unitTitle || '-')}
-					</div>
-					<div class="process-test-question-title">${escapeHtml(unit.questionText || '질문 없음')}</div>
-					${unit.helperText ? `<div class="process-test-helper">${escapeHtml(unit.helperText)}</div>` : ''}
-					<div class="process-test-answer-box">
-						${buildAnswerInput(unit)}
-					</div>
-				</div>
-			</div>
-		`;
+        <div class="process-test-message-row bot process-test-current-question process-test-animate-in"
+            data-current-question="true">
+            <div class="process-test-avatar">Q</div>
+            <div class="process-test-bubble bot process-test-current-bubble">
+                <div class="process-test-step-chip">
+                    ${escapeHtml(unit.stepTitle || '-')} · ${escapeHtml(unit.unitTitle || '-')}
+                </div>
+                <div class="process-test-question-title-wrap">
+                    <div class="process-test-question-title">${escapeHtml(unit.questionText || '질문 없음')}</div>
+                    ${buildInfoHelpButton(unit.infoImages, '질문 부가정보')}
+                </div>
+                ${unit.helperText ? `<div class="process-test-helper">${escapeHtml(unit.helperText)}</div>` : ''}
+                <div class="process-test-answer-box">
+                    ${buildAnswerInput(unit)}
+                </div>
+            </div>
+        </div>
+    `;
 	}
 
 	function buildCompleteMessage() {
@@ -363,17 +366,20 @@
 			return `
 				<div class="process-test-option-button-list">
 					${unit.options.map(function(option) {
-						return `
+				return `
 							<button type="button"
-								class="process-test-option-button"
-								data-action="select-option"
-								data-option-key="${escapeAttr(option.optionKey)}"
-								data-option-label="${escapeAttr(option.label)}">
-								<span class="process-test-option-label">${escapeHtml(option.label)}</span>
-								${option.valueText ? `<span class="process-test-option-desc">${escapeHtml(option.valueText)}</span>` : ''}
+							    class="process-test-option-button"
+							    data-action="select-option"
+							    data-option-key="${escapeAttr(option.optionKey)}"
+							    data-option-label="${escapeAttr(option.label)}">
+							    <span class="process-test-option-label">
+							        ${escapeHtml(option.label)}
+							        ${buildInfoHelpButton(option.infoImages, `${option.label || '답변'} 부가정보`)}
+							    </span>
+							    ${option.valueText ? `<span class="process-test-option-desc">${escapeHtml(option.valueText)}</span>` : ''}
 							</button>
 						`;
-					}).join('')}
+			}).join('')}
 				</div>
 			`;
 		}
@@ -386,9 +392,9 @@
 			return `
 				<form class="process-test-answer-form" data-answer-type="${escapeAttr(answerType)}">
 					${unit.fields.map(function(field) {
-						const inputType = getFieldInputType(answerType, field);
+				const inputType = getFieldInputType(answerType, field);
 
-						return `
+				return `
 							<div class="process-test-field-row">
 								<label>
 									${escapeHtml(field.label)}
@@ -406,7 +412,7 @@
 								</div>
 							</div>
 						`;
-					}).join('')}
+			}).join('')}
 
 					<div class="d-flex justify-content-end mt-3">
 						<button type="submit" class="btn btn-primary">
@@ -461,6 +467,90 @@
 		threadEl.querySelectorAll('[data-action="reload-session"]').forEach(function(button) {
 			button.addEventListener('click', reloadSession);
 		});
+
+		threadEl.querySelectorAll('[data-action="show-info-images"]').forEach(function(button) {
+			button.addEventListener('click', function(event) {
+				event.preventDefault();
+				event.stopPropagation();
+
+				const title = button.dataset.title || '부가정보';
+				const images = parseJsonAttr(button.dataset.imagesJson || '[]');
+
+				showInfoImageViewModal(title, images);
+			});
+		});
+	}
+
+	function buildInfoHelpButton(images, title) {
+		const safeImages = Array.isArray(images) ? images : [];
+
+		if (safeImages.length === 0) {
+			return '';
+		}
+
+		return `
+        <button type="button"
+                class="process-test-info-help-btn"
+                data-action="show-info-images"
+                data-title="${escapeAttr(title || '부가정보')}"
+                data-images-json="${escapeAttr(JSON.stringify(safeImages))}"
+                title="부가정보 보기">
+            ?
+        </button>
+    `;
+	}
+
+	function showInfoImageViewModal(title, images) {
+		const safeImages = Array.isArray(images) ? images : [];
+
+		if (safeImages.length === 0) {
+			return;
+		}
+
+		const titleEl = byId('process-test-info-image-view-title');
+		const innerEl = byId('process-test-info-image-carousel-inner');
+
+		if (titleEl) {
+			titleEl.textContent = title || '부가정보';
+		}
+
+		if (!innerEl) {
+			return;
+		}
+
+		innerEl.innerHTML = safeImages.map(function(image, index) {
+			return `
+            <div class="carousel-item ${index === 0 ? 'active' : ''}">
+                <img src="${escapeAttr(image.fileUrl)}"
+                     class="process-test-info-slide-image"
+                     alt="${escapeAttr(image.originalFilename || '부가정보 이미지')}">
+            </div>
+        `;
+		}).join('');
+
+		const carouselEl = byId('process-test-info-image-carousel');
+		const prevBtn = carouselEl ? carouselEl.querySelector('.carousel-control-prev') : null;
+		const nextBtn = carouselEl ? carouselEl.querySelector('.carousel-control-next') : null;
+
+		if (prevBtn) {
+			prevBtn.classList.toggle('d-none', safeImages.length <= 1);
+		}
+
+		if (nextBtn) {
+			nextBtn.classList.toggle('d-none', safeImages.length <= 1);
+		}
+
+		const modalEl = byId('process-test-info-image-view-modal');
+		const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+		modal.show();
+	}
+
+	function parseJsonAttr(value) {
+		try {
+			return JSON.parse(value);
+		} catch (e) {
+			return [];
+		}
 	}
 
 	async function submitSelectedOption(button) {

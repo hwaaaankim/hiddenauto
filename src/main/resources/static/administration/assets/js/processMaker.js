@@ -13,7 +13,13 @@
 		},
 		sortables: [],
 		isDirty: false,
-		zoom: 1
+		zoom: 1,
+		infoImageModal: {
+			modal: null,
+			targetType: null,
+			optionIndex: null,
+			draftImages: []
+		}
 	};
 
 	document.addEventListener('DOMContentLoaded', function() {
@@ -77,6 +83,28 @@
 		if (workspaceScreen) {
 			workspaceScreen.addEventListener('input', markDirty);
 			workspaceScreen.addEventListener('change', markDirty);
+		}
+
+		const questionInfoBtn = byId('process-maker-question-info-btn');
+		if (questionInfoBtn) {
+			questionInfoBtn.addEventListener('click', function() {
+				openInfoImageModal('QUESTION', null);
+			});
+		}
+
+		const infoImageInput = byId('process-maker-info-image-file-input');
+		if (infoImageInput) {
+			infoImageInput.addEventListener('change', uploadSelectedInfoImages);
+		}
+
+		const infoImageSaveBtn = byId('process-maker-info-image-save-btn');
+		if (infoImageSaveBtn) {
+			infoImageSaveBtn.addEventListener('click', saveInfoImageModal);
+		}
+
+		const infoImageClearBtn = byId('process-maker-info-image-clear-btn');
+		if (infoImageClearBtn) {
+			infoImageClearBtn.addEventListener('click', clearInfoImagesInModal);
 		}
 
 		byId('process-maker-process-name').addEventListener('input', function() {
@@ -641,6 +669,7 @@
 			byId('process-maker-answer-type').value = question.answerType;
 
 			renderAnswerEditor(unit);
+			renderQuestionInfoButton(unit);
 			renderPriceEditor(unit);
 			renderBranchEditor(unit);
 			renderBranchTree(unit);
@@ -649,6 +678,15 @@
 		}
 
 		byId('process-maker-editor-empty').classList.remove('d-none');
+	}
+
+	function renderQuestionInfoButton(unit) {
+		const question = ensureQuestion(unit);
+		const countEl = byId('process-maker-question-info-count');
+
+		if (countEl) {
+			countEl.textContent = String((question.infoImages || []).length);
+		}
 	}
 
 	function renderAnswerEditor(unit) {
@@ -675,19 +713,30 @@
 		}
 
 		listEl.innerHTML = question.options.map(function(option, index) {
+			option.infoImages = option.infoImages || [];
+
 			return `
 			<div class="process-maker-option-item" data-index="${index}">
 				<div class="row g-2 align-items-center">
-					<div class="col-5">
+					<div class="col-4">
 						<input type="text" class="form-control form-control-sm process-maker-option-label"
 							value="${escapeAttr(option.label)}" placeholder="라벨">
 					</div>
-					<div class="col-5">
+					<div class="col-4">
 						<input type="text" class="form-control form-control-sm process-maker-option-value"
 							value="${escapeAttr(option.valueText || '')}" placeholder="저장값">
 					</div>
 					<div class="col-2">
-						<button type="button" class="btn btn-sm btn-outline-danger w-100 process-maker-remove-option-btn">삭제</button>
+						<button type="button"
+							class="btn btn-sm btn-outline-secondary w-100 process-maker-option-info-btn">
+							?
+							<span class="badge bg-light text-dark border ms-1">${option.infoImages.length}</span>
+						</button>
+					</div>
+					<div class="col-2">
+						<button type="button" class="btn btn-sm btn-outline-danger w-100 process-maker-remove-option-btn">
+							삭제
+						</button>
 					</div>
 				</div>
 			</div>
@@ -700,13 +749,18 @@
 			item.querySelector('.process-maker-option-label').addEventListener('input', function() {
 				question.options[index].label = this.value;
 				markDirty();
-
 				renderCanvas();
 			});
 
 			item.querySelector('.process-maker-option-value').addEventListener('input', function() {
 				question.options[index].valueText = this.value;
 				markDirty();
+			});
+
+			item.querySelector('.process-maker-option-info-btn').addEventListener('click', function(event) {
+				event.preventDefault();
+				event.stopPropagation();
+				openInfoImageModal('OPTION', index);
 			});
 
 			item.querySelector('.process-maker-remove-option-btn').addEventListener('click', function() {
@@ -1795,41 +1849,25 @@
 			}
 
 			let markerId = 'process-maker-arrow-head';
-			let strokeColor = '#0d6efd';
-			let strokeWidth = isActiveLine ? 3 : 2.4;
-			let strokeDashArray = '';
 
 			if (isDeferLine) {
 				markerId = isActiveLine
 					? 'process-maker-arrow-head-defer-active'
 					: 'process-maker-arrow-head-defer';
-
-				strokeColor = '#fd7e14';
-				strokeDashArray = '7 5';
 			} else if (isAutoNextLine) {
 				markerId = isActiveLine
 					? 'process-maker-arrow-head-auto-next-active'
 					: 'process-maker-arrow-head-auto-next';
-
-				strokeColor = '#6f42c1';
-				strokeDashArray = '6 5';
 			} else if (isActiveLine) {
 				markerId = 'process-maker-arrow-head-active';
-				strokeColor = '#7c3aed';
 			}
 
 			lines.push(`
-	<path class="${classNames.join(' ')}"
-		marker-end="url(#${markerId})"
-		d="${pathD}"
-		fill="none"
-		stroke="${strokeColor}"
-		stroke-width="${strokeWidth}"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-		stroke-dasharray="${strokeDashArray}"
-		vector-effect="non-scaling-stroke"></path>
-`);
+			<path
+				class="${classNames.join(' ')}"
+				marker-end="url(#${markerId})"
+				d="${escapeAttr(pathD)}"></path>
+		`);
 		});
 
 		const viewBoxWidth = Math.max(
@@ -1847,39 +1885,78 @@
 		svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
 		svg.setAttribute('width', viewBoxWidth);
 		svg.setAttribute('height', viewBoxHeight);
+		svg.setAttribute('aria-hidden', 'true');
+		svg.setAttribute('focusable', 'false');
 
 		svg.innerHTML = `
 		<defs>
-			<marker id="process-maker-arrow-head" markerWidth="10" markerHeight="10" refX="8" refY="3"
-				orient="auto" markerUnits="strokeWidth">
-				<path d="M0,0 L0,6 L9,3 z" fill="#0d6efd" opacity="0.65"></path>
+			<marker id="process-maker-arrow-head"
+					markerWidth="10"
+					markerHeight="10"
+					refX="8"
+					refY="3"
+					orient="auto"
+					markerUnits="strokeWidth">
+				<path class="process-maker-arrow-head-shape"
+					  d="M0,0 L0,6 L9,3 z"></path>
 			</marker>
 
-			<marker id="process-maker-arrow-head-active" markerWidth="10" markerHeight="10" refX="8" refY="3"
-				orient="auto" markerUnits="strokeWidth">
-				<path d="M0,0 L0,6 L9,3 z" fill="#7c3aed" opacity="0.85"></path>
+			<marker id="process-maker-arrow-head-active"
+					markerWidth="10"
+					markerHeight="10"
+					refX="8"
+					refY="3"
+					orient="auto"
+					markerUnits="strokeWidth">
+				<path class="process-maker-arrow-head-shape active"
+					  d="M0,0 L0,6 L9,3 z"></path>
 			</marker>
 
-			<marker id="process-maker-arrow-head-auto-next" markerWidth="10" markerHeight="10" refX="8" refY="3"
-				orient="auto" markerUnits="strokeWidth">
-				<path d="M0,0 L0,6 L9,3 z" fill="#6f42c1" opacity="0.65"></path>
+			<marker id="process-maker-arrow-head-auto-next"
+					markerWidth="10"
+					markerHeight="10"
+					refX="8"
+					refY="3"
+					orient="auto"
+					markerUnits="strokeWidth">
+				<path class="process-maker-arrow-head-shape auto-next"
+					  d="M0,0 L0,6 L9,3 z"></path>
 			</marker>
 
-			<marker id="process-maker-arrow-head-auto-next-active" markerWidth="10" markerHeight="10" refX="8" refY="3"
-				orient="auto" markerUnits="strokeWidth">
-				<path d="M0,0 L0,6 L9,3 z" fill="#7c3aed" opacity="0.9"></path>
+			<marker id="process-maker-arrow-head-auto-next-active"
+					markerWidth="10"
+					markerHeight="10"
+					refX="8"
+					refY="3"
+					orient="auto"
+					markerUnits="strokeWidth">
+				<path class="process-maker-arrow-head-shape auto-next active"
+					  d="M0,0 L0,6 L9,3 z"></path>
 			</marker>
 
-			<marker id="process-maker-arrow-head-defer" markerWidth="10" markerHeight="10" refX="8" refY="3"
-				orient="auto" markerUnits="strokeWidth">
-				<path d="M0,0 L0,6 L9,3 z" fill="#fd7e14" opacity="0.7"></path>
+			<marker id="process-maker-arrow-head-defer"
+					markerWidth="10"
+					markerHeight="10"
+					refX="8"
+					refY="3"
+					orient="auto"
+					markerUnits="strokeWidth">
+				<path class="process-maker-arrow-head-shape defer"
+					  d="M0,0 L0,6 L9,3 z"></path>
 			</marker>
 
-			<marker id="process-maker-arrow-head-defer-active" markerWidth="10" markerHeight="10" refX="8" refY="3"
-				orient="auto" markerUnits="strokeWidth">
-				<path d="M0,0 L0,6 L9,3 z" fill="#fd7e14" opacity="0.9"></path>
+			<marker id="process-maker-arrow-head-defer-active"
+					markerWidth="10"
+					markerHeight="10"
+					refX="8"
+					refY="3"
+					orient="auto"
+					markerUnits="strokeWidth">
+				<path class="process-maker-arrow-head-shape defer active"
+					  d="M0,0 L0,6 L9,3 z"></path>
 			</marker>
 		</defs>
+
 		${lines.join('')}
 	`;
 	}
@@ -2014,12 +2091,18 @@
 				requiredYn: true,
 				helperText: '',
 				options: [],
-				fields: []
+				fields: [],
+				infoImages: []
 			};
 		}
 
 		unit.question.options = unit.question.options || [];
 		unit.question.fields = unit.question.fields || [];
+		unit.question.infoImages = unit.question.infoImages || [];
+
+		unit.question.options.forEach(function(option) {
+			option.infoImages = option.infoImages || [];
+		});
 
 		return unit.question;
 	}
@@ -2114,7 +2197,8 @@
 			optionKey: createKey('option'),
 			label: label,
 			valueText: label,
-			sortOrder: 0
+			sortOrder: 0,
+			infoImages: []
 		};
 	}
 
@@ -2939,13 +3023,15 @@
 								answerType: normalizedAnswerType,
 								requiredYn: question.requiredYn !== false,
 								helperText: question.helperText || '',
+								infoImages: buildSaveInfoImages(question.infoImages || []),
 								options: normalizedAnswerType === 'SINGLE_SELECT'
 									? (question.options || []).map(function(option, optionIndex) {
 										return {
 											optionKey: option.optionKey,
 											label: option.label || `답변 ${optionIndex + 1}`,
 											valueText: option.valueText || '',
-											sortOrder: optionIndex
+											sortOrder: optionIndex,
+											infoImages: buildSaveInfoImages(option.infoImages || [])
 										};
 									})
 									: [],
@@ -2970,6 +3056,50 @@
 				};
 			})
 		};
+	}
+
+	function buildSaveInfoImages(images) {
+		return (images || []).map(function(image, index) {
+			return {
+				imageKey: image.imageKey,
+				originalFilename: image.originalFilename,
+				storedFilename: image.storedFilename,
+				contentType: image.contentType || '',
+				fileSize: Number(image.fileSize || 0),
+				filePath: image.filePath,
+				fileUrl: image.fileUrl,
+				sortOrder: index
+			};
+		}).filter(function(image) {
+			return image.imageKey && image.fileUrl && image.filePath;
+		});
+	}
+
+
+	async function apiFetchForm(url, options) {
+		const opts = options || {};
+		const headers = opts.headers || {};
+
+		const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+		const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+		if (csrfToken && csrfHeader) {
+			headers[csrfHeader] = csrfToken;
+		}
+
+		const response = await fetch(url, {
+			...opts,
+			headers: headers
+		});
+
+		const text = await response.text();
+		const data = text ? JSON.parse(text) : null;
+
+		if (!response.ok) {
+			throw new Error(data && data.message ? data.message : '요청 처리 중 오류가 발생했습니다.');
+		}
+
+		return data;
 	}
 
 	function buildSaveBranches(unit, answerType) {
@@ -3066,7 +3196,261 @@
 			};
 		});
 	}
+	function cloneInfoImages(images) {
+		return (images || []).map(function(image) {
+			return { ...image };
+		});
+	}
 
+	function createLocalInfoImageDraft(file) {
+		return {
+			localYn: true,
+			temporaryYn: false,
+			file: file,
+			previewUrl: URL.createObjectURL(file),
+			imageKey: null,
+			originalFilename: file.name || 'image',
+			storedFilename: null,
+			contentType: file.type || '',
+			fileSize: file.size || 0,
+			filePath: null,
+			fileUrl: null,
+			sortOrder: 0
+		};
+	}
+
+	function isLocalInfoImage(image) {
+		return image && image.localYn === true && image.file instanceof File;
+	}
+
+	function getInfoImagePreviewUrl(image) {
+		if (!image) {
+			return '';
+		}
+
+		if (image.previewUrl) {
+			return image.previewUrl;
+		}
+
+		if (image.fileUrl) {
+			return image.fileUrl;
+		}
+
+		return '';
+	}
+
+	function revokeLocalInfoImageUrl(image) {
+		if (image && image.localYn === true && image.previewUrl) {
+			try {
+				URL.revokeObjectURL(image.previewUrl);
+			} catch (e) {
+				console.warn(e);
+			}
+		}
+	}
+
+	function revokeLocalInfoImageUrls(images) {
+		(images || []).forEach(function(image) {
+			revokeLocalInfoImageUrl(image);
+		});
+	}
+
+	async function uploadSelectedInfoImages() {
+		const input = byId('process-maker-info-image-file-input');
+		if (!input || !input.files || input.files.length === 0) {
+			return;
+		}
+
+		const files = Array.from(input.files);
+
+		for (const file of files) {
+			if (!file.type || !file.type.toLowerCase().startsWith('image/')) {
+				alert('이미지 파일만 등록할 수 있습니다.');
+				input.value = '';
+				return;
+			}
+		}
+
+		const localDrafts = files.map(function(file) {
+			return createLocalInfoImageDraft(file);
+		});
+
+		state.infoImageModal.draftImages = (state.infoImageModal.draftImages || []).concat(localDrafts);
+
+		input.value = '';
+		renderInfoImageModalPreview();
+	}
+
+	function renderInfoImageModalPreview() {
+		const listEl = byId('process-maker-info-image-preview-list');
+		const images = state.infoImageModal.draftImages || [];
+
+		if (!listEl) return;
+
+		if (images.length === 0) {
+			listEl.innerHTML = `
+		<div class="process-maker-info-image-empty text-muted small">
+			등록된 부가정보 이미지가 없습니다.
+		</div>
+	`;
+			return;
+		}
+
+		listEl.innerHTML = images.map(function(image, index) {
+			const previewUrl = getInfoImagePreviewUrl(image);
+
+			return `
+			<div class="process-maker-info-image-preview-item" data-index="${index}">
+				<img src="${escapeAttr(previewUrl)}" alt="${escapeAttr(image.originalFilename || '부가정보 이미지')}">
+				<button type="button"
+						class="process-maker-info-image-remove-btn"
+						title="삭제">×</button>
+			</div>
+		`;
+		}).join('');
+
+		listEl.querySelectorAll('.process-maker-info-image-preview-item').forEach(function(item) {
+			const index = Number(item.dataset.index);
+
+			item.querySelector('.process-maker-info-image-remove-btn').addEventListener('click', async function() {
+				const image = state.infoImageModal.draftImages[index];
+
+				if (isLocalInfoImage(image)) {
+					revokeLocalInfoImageUrl(image);
+				}
+
+				if (image && image.temporaryYn === true && image.filePath) {
+					await deleteInfoImageFile(image);
+				}
+
+				state.infoImageModal.draftImages.splice(index, 1);
+				renderInfoImageModalPreview();
+			});
+		});
+	}
+
+	async function deleteInfoImageFile(image) {
+		try {
+			await apiFetch(`${API_BASE}/${encodeURIComponent(state.currentProcess.id)}/info-images`, {
+				method: 'DELETE',
+				body: JSON.stringify({
+					imageKey: image.imageKey,
+					filePath: image.filePath
+				})
+			});
+		} catch (e) {
+			console.warn(e);
+		}
+	}
+
+	async function uploadLocalInfoImageDrafts(images) {
+		const localImages = (images || []).filter(isLocalInfoImage);
+
+		if (localImages.length === 0) {
+			return images || [];
+		}
+
+		const formData = new FormData();
+
+		localImages.forEach(function(image) {
+			formData.append('files', image.file);
+		});
+
+		const uploaded = await apiFetchForm(
+			`${API_BASE}/${encodeURIComponent(state.currentProcess.id)}/info-images`,
+			{
+				method: 'POST',
+				body: formData
+			}
+		);
+
+		let uploadedIndex = 0;
+
+		const result = (images || []).map(function(image) {
+			if (!isLocalInfoImage(image)) {
+				return image;
+			}
+
+			const uploadedImage = uploaded[uploadedIndex++];
+			revokeLocalInfoImageUrl(image);
+
+			return {
+				...uploadedImage,
+				temporaryYn: true
+			};
+		});
+
+		return result;
+	}
+
+	async function saveInfoImageModal() {
+		const unit = getSelectedUnit();
+		if (!unit) return;
+
+		const images = state.infoImageModal.draftImages || [];
+
+		if (images.length === 0) {
+			alert('등록하기를 누르는 경우 부가정보 이미지는 1장 이상 필요합니다. 부가정보를 없애려면 전체 삭제를 눌러주세요.');
+			return;
+		}
+
+		try {
+			const uploadedImages = await uploadLocalInfoImageDrafts(images);
+			applyInfoImagesToTarget(uploadedImages);
+		} catch (e) {
+			alert(e.message || '부가정보 이미지 등록 중 오류가 발생했습니다.');
+		}
+	}
+
+	async function clearInfoImagesInModal() {
+		const confirmed = confirm('부가정보 이미지를 모두 삭제하고 0장 상태로 저장하시겠습니까?');
+
+		if (!confirmed) {
+			return;
+		}
+
+		const images = state.infoImageModal.draftImages || [];
+
+		for (const image of images) {
+			if (isLocalInfoImage(image)) {
+				revokeLocalInfoImageUrl(image);
+			}
+
+			if (image && image.temporaryYn === true && image.filePath) {
+				await deleteInfoImageFile(image);
+			}
+		}
+
+		state.infoImageModal.draftImages = [];
+		applyInfoImagesToTarget([]);
+	}
+
+	function applyInfoImagesToTarget(images) {
+		const unit = getSelectedUnit();
+		if (!unit) return;
+
+		const question = ensureQuestion(unit);
+
+		if (state.infoImageModal.targetType === 'QUESTION') {
+			question.infoImages = cloneInfoImages(images);
+		}
+
+		if (state.infoImageModal.targetType === 'OPTION') {
+			const option = question.options[state.infoImageModal.optionIndex];
+			if (option) {
+				option.infoImages = cloneInfoImages(images);
+			}
+		}
+
+		markDirty();
+
+		renderEditor();
+		renderCanvas();
+
+		if (state.infoImageModal.modal) {
+			state.infoImageModal.modal.hide();
+		}
+	}
 	function renderPriceEditor(unit) {
 		const box = byId('process-maker-price-box');
 		const enabledEl = byId('process-maker-price-enabled');
@@ -3223,6 +3607,48 @@
 		if (ruleType === 'MULTIPLY_VALUE') return '다른 UNIT 값 곱셈';
 		if (ruleType === 'LINEAR_SUM_BY_OPTION_RATE') return '마구리/길이 합산 단가';
 		return '가격 규칙';
+	}
+
+	function openInfoImageModal(targetType, optionIndex) {
+		const unit = getSelectedUnit();
+		if (!unit) return;
+
+		if (!state.currentProcess || !state.currentProcess.id) {
+			alert('프로세스 저장 정보가 없습니다.');
+			return;
+		}
+
+		revokeLocalInfoImageUrls(state.infoImageModal.draftImages || []);
+
+		const question = ensureQuestion(unit);
+
+		state.infoImageModal.targetType = targetType;
+		state.infoImageModal.optionIndex = optionIndex;
+
+		if (targetType === 'QUESTION') {
+			state.infoImageModal.draftImages = cloneInfoImages(question.infoImages || []);
+			byId('process-maker-info-image-modal-title').textContent = '질문 부가정보 이미지 등록';
+		} else {
+			const option = question.options[optionIndex];
+			if (!option) return;
+
+			option.infoImages = option.infoImages || [];
+			state.infoImageModal.draftImages = cloneInfoImages(option.infoImages);
+			byId('process-maker-info-image-modal-title').textContent = `답변 부가정보 이미지 등록 - ${option.label || '-'}`;
+		}
+
+		const input = byId('process-maker-info-image-file-input');
+		if (input) {
+			input.value = '';
+		}
+
+		renderInfoImageModalPreview();
+
+		if (!state.infoImageModal.modal) {
+			state.infoImageModal.modal = new bootstrap.Modal(byId('process-maker-info-image-modal'));
+		}
+
+		state.infoImageModal.modal.show();
 	}
 
 	function createDefaultPriceRuleJson(unit, ruleType) {
