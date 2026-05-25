@@ -117,10 +117,9 @@ public class TeamController {
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
 	        @RequestParam(required = false) Long productCategoryId,
 	        @RequestParam(required = false, defaultValue = "preferred") String dateType,
-
 	        @RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
 
-	        // ✅ 기본 50개
+	        // 기본 50개
 	        @RequestParam(required = false, defaultValue = "50") int size,
 	        @RequestParam(required = false, defaultValue = "0") int page,
 	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -138,6 +137,14 @@ public class TeamController {
 	    Long targetCategoryId = productCategoryId != null
 	            ? productCategoryId
 	            : (member.getTeamCategory() != null ? member.getTeamCategory().getId() : null);
+
+	    String normalizedDateType = (dateType == null || dateType.isBlank())
+	            ? "preferred"
+	            : dateType.trim();
+
+	    if (!"preferred".equals(normalizedDateType) && !"created".equals(normalizedDateType)) {
+	        normalizedDateType = "preferred";
+	    }
 
 	    LocalDateTime start = startDate != null ? startDate.atStartOfDay() : null;
 	    LocalDateTime end = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
@@ -165,8 +172,13 @@ public class TeamController {
 	        }
 	    }
 
-	    String normalizedSortKey = (sortKey == null || sortKey.isBlank()) ? "checked" : sortKey.trim();
-	    String normalizedSortDir = (sortDir == null || sortDir.isBlank()) ? "ASC" : sortDir.trim().toUpperCase();
+	    String normalizedSortKey = (sortKey == null || sortKey.isBlank())
+	            ? "checked"
+	            : sortKey.trim();
+
+	    String normalizedSortDir = (sortDir == null || sortDir.isBlank())
+	            ? "ASC"
+	            : sortDir.trim().toUpperCase();
 
 	    if (!"ASC".equals(normalizedSortDir) && !"DESC".equals(normalizedSortDir)) {
 	        normalizedSortDir = "ASC";
@@ -177,7 +189,9 @@ public class TeamController {
 	    Pageable pageable = PageRequest.of(
 	            page,
 	            size,
-	            checkedSort ? Sort.unsorted() : buildProductionSort(normalizedSortKey, normalizedSortDir, dateType)
+	            checkedSort
+	                    ? Sort.unsorted()
+	                    : buildProductionSort(normalizedSortKey, normalizedSortDir, normalizedDateType)
 	    );
 
 	    Page<Order> orderPage;
@@ -185,7 +199,7 @@ public class TeamController {
 	    if (checkedSort) {
 	        orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
 	                targetCategoryId,
-	                dateType,
+	                normalizedDateType,
 	                statusEnum,
 	                start,
 	                end,
@@ -195,7 +209,7 @@ public class TeamController {
 	    } else {
 	        orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
 	                targetCategoryId,
-	                dateType,
+	                normalizedDateType,
 	                statusEnum,
 	                start,
 	                end,
@@ -247,13 +261,12 @@ public class TeamController {
 
 	    List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
 
-	    
 	    model.addAttribute("canMaterialCutting", canMaterialCutting);
 	    model.addAttribute("orders", orderPage.getContent());
 	    model.addAttribute("page", orderPage);
 
 	    model.addAttribute("productCategoryId", targetCategoryId);
-	    model.addAttribute("dateType", dateType);
+	    model.addAttribute("dateType", normalizedDateType);
 	    model.addAttribute("statusFilter", sf);
 
 	    model.addAttribute("size", size);
