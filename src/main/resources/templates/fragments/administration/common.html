@@ -1,13 +1,7 @@
 <!doctype html>
-<html 
-xmlns:th="http://www.thymeleaf.org" 
-xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-lang="ko" 
-data-layout="twocolumn" 
-data-sidebar="light" 
-data-sidebar-size="lg"
-data-sidebar-image="none" 
-data-preloader="disable">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="ko"
+	data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg" data-sidebar-image="none"
+	data-preloader="disable">
 
 <head th:fragment="autoAdminHead">
 	<meta charset="utf-8" />
@@ -31,418 +25,409 @@ data-preloader="disable">
 
 <body>
 
-		<header id="page-topbar" th:fragment="autoAdminHeader">
-			<div class="layout-width">
-				<div class="navbar-header">
-					<div class="d-flex">
-						<div class="navbar-brand-box horizontal-logo">
-							<a href="/common/main" class="logo logo-dark">
-								<span class="logo-sm">
-									HiddenBath
-								</span>
-								<span class="logo-lg">
-									HiddenBath
-								</span>
-							</a>
+	<header id="page-topbar" th:fragment="autoAdminHeader">
+		<div class="layout-width">
+			<div class="navbar-header">
+				<div class="d-flex">
+					<div class="navbar-brand-box horizontal-logo">
+						<a href="/common/main" class="logo logo-dark">
+							<span class="logo-sm">
+								HiddenBath
+							</span>
+							<span class="logo-lg">
+								HiddenBath
+							</span>
+						</a>
 
-							<a href="/common/main" class="logo logo-light">
-								<span class="logo-sm">
-									HiddenBath
-								</span>
-								<span class="logo-lg">
-									HiddenBath
-								</span>
-							</a>
-						</div>
+						<a href="/common/main" class="logo logo-light">
+							<span class="logo-sm">
+								HiddenBath
+							</span>
+							<span class="logo-lg">
+								HiddenBath
+							</span>
+						</a>
+					</div>
 
-						<button type="button"
-							class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger"
-							id="topnav-hamburger-icon">
-							<span class="hamburger-icon">
-								<span></span>
-								<span></span>
-								<span></span>
+					<button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger"
+						id="topnav-hamburger-icon">
+						<span class="hamburger-icon">
+							<span></span>
+							<span></span>
+							<span></span>
+						</span>
+					</button>
+
+				</div>
+
+				<div class="d-flex align-items-center">
+					<div class="ms-1 header-item d-none d-sm-flex">
+						<button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle"
+							data-toggle="fullscreen">
+							<i class='bx bx-fullscreen fs-22'></i>
+						</button>
+					</div>
+					<div class="dropdown ms-sm-3 header-item topbar-user">
+						<button type="button" class="btn" id="page-header-user-dropdown" data-bs-toggle="dropdown"
+							aria-haspopup="true" aria-expanded="false">
+							<span class="d-flex align-items-center">
+								<span class="text-start" style="margin-left:10px; margin-right:10px;">
+									<span class="d-none d-xl-inline-block ms-1 fw-semibold user-name-text"
+										sec:authentication="name">회원이름</span>
+
+									<span class="d-none d-xl-block ms-1 fs-12 user-name-sub-text">
+										<span sec:authorize="hasAuthority('ROLE_ADMIN')">관리자</span>
+										<span sec:authorize="hasAuthority('ROLE_MANAGEMENT')">운영진</span>
+										<span sec:authorize="hasAuthority('ROLE_INTERNAL_EMPLOYEE')">현장팀</span>
+										<span sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">고객대표</span>
+										<span sec:authorize="hasAuthority('ROLE_CUSTOMER_EMPLOYEE')">고객직원</span>
+									</span>
+
+								</span>
 							</span>
 						</button>
-
-					</div>
-
-					<div class="d-flex align-items-center">
-
-						<div class="dropdown ms-sm-3 header-item topbar-user">
-							<button type="button" class="btn" id="page-header-user-dropdown" data-bs-toggle="dropdown"
-								aria-haspopup="true" aria-expanded="false">
-								<span class="d-flex align-items-center">
-									<span class="text-start" style="margin-left:10px; margin-right:10px;">
-										<span class="d-none d-xl-inline-block ms-1 fw-semibold user-name-text"
-										      sec:authentication="name">회원이름</span>
-										
-										<span class="d-none d-xl-block ms-1 fs-12 user-name-sub-text">
-										    <span sec:authorize="hasAuthority('ROLE_ADMIN')">관리자</span>
-										    <span sec:authorize="hasAuthority('ROLE_MANAGEMENT')">운영진</span>
-										    <span sec:authorize="hasAuthority('ROLE_INTERNAL_EMPLOYEE')">현장팀</span>
-										    <span sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">고객대표</span>
-										    <span sec:authorize="hasAuthority('ROLE_CUSTOMER_EMPLOYEE')">고객직원</span>
-										</span>
-
-									</span>
-								</span>
-							</button>
-							<div class="dropdown-menu dropdown-menu-end">
-								<!-- item-->
-								<a class="dropdown-item" href="#"><i
-										class="mdi mdi-account-circle text-muted fs-16 align-middle me-1"></i> <span
-										class="align-middle">내 정보</span></a>
-								<div class="dropdown-divider"></div>
-								<a class="dropdown-item" href="/logout"><i
-										class="mdi mdi-logout text-muted fs-16 align-middle me-1"></i> <span
-										class="align-middle" data-key="t-logout">Logout</span></a>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</header>
-		<div id="removeNotificationModal" class="modal fade zoomIn" tabindex="-1" aria-hidden="true" th:fragment="autoAdminModal">
-			<div class="modal-dialog modal-dialog-centered">
-				<div class="modal-content">
-					<div class="modal-header">
-						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-							id="NotificationModalbtn-close"></button>
-					</div>
-					<div class="modal-body">
-						<div class="mt-2 text-center">
-							<lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
-								colors="primary:#495057,secondary:#f06548" style="width:100px;height:100px"></lord-icon>
-							<div class="mt-4 pt-2 fs-15 mx-4 mx-sm-5">
-								<h4 class="fw-bold">업무 리스트 삭제</h4>
-								<p class="text-muted mx-4 mb-0">해당 알림을 삭제 하시겠습니까?</p>
-							</div>
-						</div>
-						<div class="d-flex gap-2 justify-content-center mt-4 mb-2">
-							<button type="button" class="btn w-sm btn-light" data-bs-dismiss="modal">닫기</button>
-							<button type="button" class="btn w-sm btn-danger" id="delete-notification">삭제</button>
+						<div class="dropdown-menu dropdown-menu-end">
+							<!-- item-->
+							<a class="dropdown-item" href="#"><i
+									class="mdi mdi-account-circle text-muted fs-16 align-middle me-1"></i> <span
+									class="align-middle">내 정보</span></a>
+							<div class="dropdown-divider"></div>
+							<a class="dropdown-item" href="/logout"><i
+									class="mdi mdi-logout text-muted fs-16 align-middle me-1"></i> <span
+									class="align-middle" data-key="t-logout">Logout</span></a>
 						</div>
 					</div>
 				</div>
 			</div>
 		</div>
-
-		<div class="app-menu navbar-menu" th:fragment="autoAdminSideMenu">
-			<div class="navbar-brand-box">
-				<a href="/common/main" class="logo logo-dark">
-					<span class="logo-sm">
-						HiddenBath
-					</span>
-					<span class="logo-lg">
-						HiddenBath
-					</span>
-				</a>
-				<a href="/common/main" class="logo logo-light">
-					<span class="logo-sm">
-						HiddenBath
-					</span>
-					<span class="logo-lg">
-						HiddenBath
-					</span>
-				</a>
-				<button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover"
-					id="vertical-hover">
-					<i class="ri-record-circle-line"></i>
-				</button>
-			</div>
-
-			<div id="scrollbar">
-				<div class="container-fluid">
-
-					<div id="two-column-menu">
-					</div>
-					<ul class="navbar-nav" id="navbar-nav">
-						<li class="menu-title"><span data-key="t-menu">MENU</span></li>
-						<li class="nav-item"  th:if="${(#authentication.principal.member.role.name() == 'ADMIN') or (#authentication.principal.member.role.name() == 'MANAGEMENT')}">
-							<a 
-								class="nav-link menu-link" 
-								href="#sidebarDashboards" 
-								data-bs-toggle="collapse"
-								role="button"
-								aria-expanded="false" 
-								aria-controls="sidebarDashboards">
-								<i class="ri-dashboard-2-line"></i> <span data-key="t-dashboards">Dashboards</span>
-							</a>
-							<div class="collapse menu-dropdown" id="sidebarDashboards">
-								<ul class="nav nav-sm flex-column">
-									<li class="nav-item">
-										<a href="/common/main" class="nav-link" data-key="t-home">
-											홈 </a>
-									</li>
-									<li class="nav-item">
-										<a href="#sidebarMemberManager" class="nav-link" data-bs-toggle="collapse" role="button"
-											aria-expanded="false" aria-controls="sidebarMemberManager" data-key="t-membermanager">
-											직원관리
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarMemberManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/management/employeeList" class="nav-link" data-key="t-memberlist">
-														직원리스트 </a>
-												</li>
-												<li class="nav-item">
-													<a href="/management/employeeInsertForm" class="nav-link" data-key="t-memberadd">
-														직원등록 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item">
-										<a href="#sidebarAgencyManager" class="nav-link" data-bs-toggle="collapse" role="button"
-											aria-expanded="false" aria-controls="sidebarAgencyManager" data-key="t-agencymanager">
-											대리점관리
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarAgencyManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/management/clientList" class="nav-link" data-key="t-agencylist">
-														대리점리스트 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-								</ul>
-							</div>
-						</li> 
-						<li class="nav-item">
-							<a class="nav-link menu-link" href="#sidebarTask" data-bs-toggle="collapse" role="button"
-								aria-expanded="false" aria-controls="sidebarTask">
-								<i class="ri-apps-2-line"></i> <span data-key="t-apps">TASK</span>
-							</a>
-							<div class="collapse menu-dropdown" id="sidebarTask">
-								<ul class="nav nav-sm flex-column">
-									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
-										<a 
-											href="#sidebarOrderManager" 
-											class="nav-link" 
-											data-bs-toggle="collapse" 
-											role="button"
-											aria-expanded="false" 
-											aria-controls="sidebarOrderManager" 
-											data-key="t-ordermanager">
-											관리자-발주관리
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarOrderManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/management/nonStandardTaskList" class="nav-link" data-key="t-dumpmanager">
-														발주관리 </a>
-												</li>
-												<li class="nav-item">
-													<a href="/management/productOrderAdd" class="nav-link" data-key="t-dumpmanager">
-														발주등록 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
-										<a 
-											href="#sidebarAdminAsManager" 
-											class="nav-link" 
-											data-bs-toggle="collapse" 
-											role="button"
-											aria-expanded="false" 
-											aria-controls="sidebarAdminAsManager" 
-											data-key="t-ordermanager">
-											관리자-AS관리
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarAdminAsManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/management/asList" class="nav-link" data-key="t-orderadd">
-														AS 관리 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
-										<a 
-											href="#sidebarAdminDeliveryManager" 
-											class="nav-link" 
-											data-bs-toggle="collapse" 
-											role="button"
-											aria-expanded="false" 
-											aria-controls="sidebarAdminDeliveryManager" 
-											data-key="t-ordermanager">
-											관리자-배송관리
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarAdminDeliveryManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/management/deliveryList" class="nav-link" data-key="t-orderadd">
-														배송 관리 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
-										<a 
-											href="#sidebarAdminProductionManager" 
-											class="nav-link" 
-											data-bs-toggle="collapse" 
-											role="button"
-											aria-expanded="false" 
-											aria-controls="sidebarAdminProductionManager" 
-											data-key="t-ordermanager">
-											관리자-생산관리
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarAdminProductionManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/management/productionList" class="nav-link" data-key="t-orderadd">
-														생산관리 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'MANAGEMENT'}">
-										<a 
-											href="#sidebarManagementManager" 
-											class="nav-link" 
-											data-bs-toggle="collapse" 
-											role="button"
-											aria-expanded="false" 
-											aria-controls="sidebarManagementManager" 
-											data-key="t-ordermanager">
-											관리팀-발주관리
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarManagementManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/management/nonStandardTaskList" class="nav-link" data-key="t-orderadd">
-														비규격발주관리 </a>
-												</li>
-												<li class="nav-item">
-													<a href="/management/standardTaskList" class="nav-link" data-key="t-dumpmanager">
-														규격발주관리 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item" th:if="${#authentication.principal.member.role.name == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '배송팀'}">
-										<a href="#sidebarDeliveryTaskManager" class="nav-link" data-bs-toggle="collapse" role="button"
-											aria-expanded="false" aria-controls="sidebarDeliveryTaskManager" data-key="t-membertaskmanager">
-											배송팀
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarDeliveryTaskManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/team/deliveryList"
-													 class="nav-link" data-key="t-salesteam">
-														배송 리스트 </a>
-												</li>
-											
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item"th:if="${#authentication.principal.member.role.name == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '생산팀'}">
-										<a href="#sidebarProductionTaskManager" class="nav-link" data-bs-toggle="collapse" role="button"
-											aria-expanded="false" aria-controls="sidebarProductionTaskManager" data-key="t-membertaskmanager">
-											생산팀
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarProductionTaskManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/team/productionList"
-													 class="nav-link" data-key="t-salesteam">
-														생산관리리스트 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-									<li class="nav-item"th:if="${#authentication.principal.member.role.name == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == 'AS팀'}">
-										<a href="#sidebarASTaskManager" class="nav-link" data-bs-toggle="collapse" role="button"
-											aria-expanded="false" aria-controls="sidebarASTaskManager" data-key="t-membertaskmanager">
-											AS팀
-										</a>
-										<div class="collapse menu-dropdown" id="sidebarASTaskManager">
-											<ul class="nav nav-sm flex-column">
-												<li class="nav-item">
-													<a href="/team/asList"
-													 class="nav-link" data-key="t-salesteam">
-														AS리스트 </a>
-												</li>
-												<li class="nav-item">
-													<a href="/team/asManagement"
-													 class="nav-link" data-key="t-salesteam">
-														AS업무관리 </a>
-												</li>
-											</ul>
-										</div>
-									</li>
-								</ul>
-							</div>
-						</li>
-						<li class="nav-item" th:if="${(#authentication.principal.member.role.name() == 'ADMIN') or (#authentication.principal.member.role.name() == 'MANAGEMENT')}">
-							<a class="nav-link menu-link" href="#sidebarManagement" data-bs-toggle="collapse" role="button"
-								aria-expanded="false" aria-controls="sidebarManagement">
-								<i class="ri-settings-3-line"></i> <span data-key="t-manager">MANAGEMENT</span>
-							</a>
-							<div class="collapse menu-dropdown" id="sidebarManagement">
-								<ul class="nav nav-sm flex-column">
-									<li class="nav-item">
-										<a href="/management/popupManager" class="nav-link" data-key="t-manager">
-											팝업관리 </a>
-									</li>
-									<li class="nav-item">
-										<a href="/analytics" class="nav-link" data-key="t-manager">
-											매출분석 </a>
-									</li>
-									<li class="nav-item">
-										<a href="/admin/process/processMaker" class="nav-link" data-key="t-manager">
-											발주프로세스등록 </a>
-									</li>
-									<li class="nav-item">
-										<a href="/admin/process/processTest" class="nav-link" data-key="t-manager">
-											발주프로세스실행 </a>
-									</li>
-									<li class="nav-item">
-										<a href="/admin/notification/test" class="nav-link" data-key="t-manager">
-											카카오톡발송 </a>
-									</li>
-								</ul>
-							</div>
-						</li>
-					</ul>
+	</header>
+	<div id="removeNotificationModal" class="modal fade zoomIn" tabindex="-1" aria-hidden="true"
+		th:fragment="autoAdminModal">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+						id="NotificationModalbtn-close"></button>
 				</div>
-			</div>
-			<div class="sidebar-background"></div>
-		</div>
-
-
-<th:block th:fragment="autoAdminSetting">
-	<button onclick="topFunction()" class="btn btn-danger btn-icon" id="back-to-top">
-		<i class="ri-arrow-up-line"></i>
-	</button>
-
-	<div id="preloader">
-		<div id="status">
-			<div class="spinner-border text-primary avatar-sm" role="status">
-				<span class="visually-hidden">Loading...</span>
+				<div class="modal-body">
+					<div class="mt-2 text-center">
+						<lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
+							colors="primary:#495057,secondary:#f06548" style="width:100px;height:100px"></lord-icon>
+						<div class="mt-4 pt-2 fs-15 mx-4 mx-sm-5">
+							<h4 class="fw-bold">업무 리스트 삭제</h4>
+							<p class="text-muted mx-4 mb-0">해당 알림을 삭제 하시겠습니까?</p>
+						</div>
+					</div>
+					<div class="d-flex gap-2 justify-content-center mt-4 mb-2">
+						<button type="button" class="btn w-sm btn-light" data-bs-dismiss="modal">닫기</button>
+						<button type="button" class="btn w-sm btn-danger" id="delete-notification">삭제</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
-</th:block>
- <footer class="footer" th:fragment="autoAdminFooter">
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-sm-6">
-                <script>document.write(new Date().getFullYear())</script> © HiddenBath.
-            </div>
-            <div class="col-sm-6">
-                <div class="text-sm-end d-none d-sm-block">
-                    Design & Develop by HiddenBath
-                </div>
-            </div>
-        </div>
-    </div>
-</footer>
+
+	<div class="app-menu navbar-menu" th:fragment="autoAdminSideMenu">
+		<div class="navbar-brand-box">
+			<a href="/common/main" class="logo logo-dark">
+				<span class="logo-sm">
+					HiddenBath
+				</span>
+				<span class="logo-lg">
+					HiddenBath
+				</span>
+			</a>
+			<a href="/common/main" class="logo logo-light">
+				<span class="logo-sm">
+					HiddenBath
+				</span>
+				<span class="logo-lg">
+					HiddenBath
+				</span>
+			</a>
+			<button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover"
+				id="vertical-hover">
+				<i class="ri-record-circle-line"></i>
+			</button>
+		</div>
+
+		<div id="scrollbar">
+			<div class="container-fluid">
+
+				<div id="two-column-menu">
+				</div>
+				<ul class="navbar-nav" id="navbar-nav">
+					<li class="menu-title"><span data-key="t-menu">MENU</span></li>
+					<li class="nav-item"
+						th:if="${(#authentication.principal.member.role.name() == 'ADMIN') or (#authentication.principal.member.role.name() == 'MANAGEMENT')}">
+						<a class="nav-link menu-link" href="#sidebarDashboards" data-bs-toggle="collapse" role="button"
+							aria-expanded="false" aria-controls="sidebarDashboards">
+							<i class="ri-dashboard-2-line"></i> <span data-key="t-dashboards">Dashboards</span>
+						</a>
+						<div class="collapse menu-dropdown" id="sidebarDashboards">
+							<ul class="nav nav-sm flex-column">
+								<li class="nav-item">
+									<a href="/common/main" class="nav-link" data-key="t-home">
+										홈 </a>
+								</li>
+								<li class="nav-item">
+									<a href="#sidebarMemberManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarMemberManager"
+										data-key="t-membermanager">
+										직원관리
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarMemberManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/management/employeeList" class="nav-link"
+													data-key="t-memberlist">
+													직원리스트 </a>
+											</li>
+											<li class="nav-item">
+												<a href="/management/employeeInsertForm" class="nav-link"
+													data-key="t-memberadd">
+													직원등록 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item">
+									<a href="#sidebarAgencyManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarAgencyManager"
+										data-key="t-agencymanager">
+										대리점관리
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarAgencyManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/management/clientList" class="nav-link"
+													data-key="t-agencylist">
+													대리점리스트 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+							</ul>
+						</div>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link menu-link" href="#sidebarTask" data-bs-toggle="collapse" role="button"
+							aria-expanded="false" aria-controls="sidebarTask">
+							<i class="ri-apps-2-line"></i> <span data-key="t-apps">TASK</span>
+						</a>
+						<div class="collapse menu-dropdown" id="sidebarTask">
+							<ul class="nav nav-sm flex-column">
+								<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
+									<a href="#sidebarOrderManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarOrderManager"
+										data-key="t-ordermanager">
+										관리자-발주관리
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarOrderManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/management/nonStandardTaskList" class="nav-link"
+													data-key="t-dumpmanager">
+													발주관리 </a>
+											</li>
+											<li class="nav-item">
+												<a href="/management/productOrderAdd" class="nav-link"
+													data-key="t-dumpmanager">
+													발주등록 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
+									<a href="#sidebarAdminAsManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarAdminAsManager"
+										data-key="t-ordermanager">
+										관리자-AS관리
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarAdminAsManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/management/asList" class="nav-link" data-key="t-orderadd">
+													AS 관리 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
+									<a href="#sidebarAdminDeliveryManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarAdminDeliveryManager"
+										data-key="t-ordermanager">
+										관리자-배송관리
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarAdminDeliveryManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/management/deliveryList" class="nav-link"
+													data-key="t-orderadd">
+													배송 관리 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item" th:if="${#authentication.principal.member.role.name() == 'ADMIN'}">
+									<a href="#sidebarAdminProductionManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false"
+										aria-controls="sidebarAdminProductionManager" data-key="t-ordermanager">
+										관리자-생산관리
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarAdminProductionManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/management/productionList" class="nav-link"
+													data-key="t-orderadd">
+													생산관리 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item"
+									th:if="${#authentication.principal.member.role.name() == 'MANAGEMENT'}">
+									<a href="#sidebarManagementManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarManagementManager"
+										data-key="t-ordermanager">
+										관리팀-발주관리
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarManagementManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/management/nonStandardTaskList" class="nav-link"
+													data-key="t-orderadd">
+													비규격발주관리 </a>
+											</li>
+											<li class="nav-item">
+												<a href="/management/standardTaskList" class="nav-link"
+													data-key="t-dumpmanager">
+													규격발주관리 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item"
+									th:if="${#authentication.principal.member.role.name == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '배송팀'}">
+									<a href="#sidebarDeliveryTaskManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarDeliveryTaskManager"
+										data-key="t-membertaskmanager">
+										배송팀
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarDeliveryTaskManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/team/deliveryList" class="nav-link" data-key="t-salesteam">
+													배송 리스트 </a>
+											</li>
+
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item"
+									th:if="${#authentication.principal.member.role.name == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '생산팀'}">
+									<a href="#sidebarProductionTaskManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarProductionTaskManager"
+										data-key="t-membertaskmanager">
+										생산팀
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarProductionTaskManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/team/productionList" class="nav-link" data-key="t-salesteam">
+													생산관리리스트 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item"
+									th:if="${#authentication.principal.member.role.name == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == 'AS팀'}">
+									<a href="#sidebarASTaskManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarASTaskManager"
+										data-key="t-membertaskmanager">
+										AS팀
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarASTaskManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/team/asList" class="nav-link" data-key="t-salesteam">
+													AS리스트 </a>
+											</li>
+											<li class="nav-item">
+												<a href="/team/asManagement" class="nav-link" data-key="t-salesteam">
+													AS업무관리 </a>
+											</li>
+										</ul>
+									</div>
+								</li>
+							</ul>
+						</div>
+					</li>
+					<li class="nav-item"
+						th:if="${(#authentication.principal.member.role.name() == 'ADMIN') or (#authentication.principal.member.role.name() == 'MANAGEMENT')}">
+						<a class="nav-link menu-link" href="#sidebarManagement" data-bs-toggle="collapse" role="button"
+							aria-expanded="false" aria-controls="sidebarManagement">
+							<i class="ri-settings-3-line"></i> <span data-key="t-manager">MANAGEMENT</span>
+						</a>
+						<div class="collapse menu-dropdown" id="sidebarManagement">
+							<ul class="nav nav-sm flex-column">
+								<li class="nav-item">
+									<a href="/management/popupManager" class="nav-link" data-key="t-manager">
+										팝업관리 </a>
+								</li>
+								<li class="nav-item">
+									<a href="/analytics" class="nav-link" data-key="t-manager">
+										매출분석 </a>
+								</li>
+								<li class="nav-item">
+									<a href="/admin/process/processMaker" class="nav-link" data-key="t-manager">
+										발주프로세스등록 </a>
+								</li>
+								<li class="nav-item">
+									<a href="/admin/process/processTest" class="nav-link" data-key="t-manager">
+										발주프로세스실행 </a>
+								</li>
+								<li class="nav-item">
+									<a href="/admin/notification/test" class="nav-link" data-key="t-manager">
+										카카오톡발송 </a>
+								</li>
+							</ul>
+						</div>
+					</li>
+				</ul>
+			</div>
+		</div>
+		<div class="sidebar-background"></div>
+	</div>
+
+
+	<th:block th:fragment="autoAdminSetting">
+		<button onclick="topFunction()" class="btn btn-danger btn-icon" id="back-to-top">
+			<i class="ri-arrow-up-line"></i>
+		</button>
+
+		<div id="preloader">
+			<div id="status">
+				<div class="spinner-border text-primary avatar-sm" role="status">
+					<span class="visually-hidden">Loading...</span>
+				</div>
+			</div>
+		</div>
+	</th:block>
+	<footer class="footer" th:fragment="autoAdminFooter">
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-sm-6">
+					<script>document.write(new Date().getFullYear())</script> © HiddenBath.
+				</div>
+				<div class="col-sm-6">
+					<div class="text-sm-end d-none d-sm-block">
+						Design & Develop by HiddenBath
+					</div>
+				</div>
+			</div>
+		</div>
+	</footer>
 	<th:block th:fragment="authAdminScript">
 		<script src="/administration/assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 		<script src="/administration/assets/libs/simplebar/simplebar.min.js"></script>

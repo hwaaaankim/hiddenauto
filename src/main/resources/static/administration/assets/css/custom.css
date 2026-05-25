@@ -7934,7 +7934,7 @@ body.admin-task-list-second-modal-open {
 
 /* 버튼 4개 대응 */
 .team-production-overview-action-group {
-	grid-template-columns: repeat(4, minmax(0, 1fr));
+	grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 /* =========================

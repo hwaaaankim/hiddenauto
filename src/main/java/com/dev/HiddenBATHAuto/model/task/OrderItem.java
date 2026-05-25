@@ -40,4 +40,16 @@ public class OrderItem {
 
     @Transient
     private String formattedOptionText;
+    
+    @Transient
+    private String productionProductName;
+
+    @Transient
+    private String productionColor;
+
+    @Transient
+    private String productionSize;
+
+    @Transient
+    private String productionCategory;
 }

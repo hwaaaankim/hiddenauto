@@ -22,6 +22,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.production.ProductionListExcelRowDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
@@ -215,17 +216,266 @@ public class TeamTaskService {
 
 	// ✅ 옵션 한줄 요약 세팅(공통화)
 	private void applySingleLineOptionSummary(Page<Order> page) {
-		if (page == null || page.getContent() == null)
-			return;
+	    if (page == null || page.getContent() == null) {
+	        return;
+	    }
 
-		for (Order o : page.getContent()) {
-			OrderItem item = o.getOrderItem();
-			if (item == null)
-				continue;
-			item.setFormattedOptionText(buildOptionSummarySingleLine(o, item));
-		}
+	    for (Order order : page.getContent()) {
+	        OrderItem item = order.getOrderItem();
+
+	        if (item == null) {
+	            continue;
+	        }
+
+	        item.setFormattedOptionText(buildOptionSummarySingleLine(order, item));
+
+	        ProductionListDisplayParts displayParts = buildProductionListDisplayParts(order, item);
+	        item.setProductionProductName(displayParts.productName());
+	        item.setProductionColor(displayParts.color());
+	        item.setProductionSize(displayParts.size());
+	        item.setProductionCategory(displayParts.category());
+	    }
+	}
+	
+	private ProductionListDisplayParts buildProductionListDisplayParts(Order order, OrderItem item) {
+	    Map<String, Object> optionMap = parseJsonToMap(item != null ? item.getOptionJson() : null);
+
+	    String category = firstNonBlank(
+	            pickFirstValue(optionMap, List.of("카테고리", "category", "Category")),
+	            order != null && order.getProductCategory() != null ? order.getProductCategory().getName() : null
+	    );
+
+	    String productName;
+
+	    if (order != null && !order.isStandard()) {
+	        String productSeries = pickFirstValue(optionMap, List.of(
+	                "제품시리즈",
+	                "시리즈",
+	                "series",
+	                "Series",
+	                "productSeries",
+	                "ProductSeries"
+	        ));
+
+	        String product = pickFirstValue(optionMap, List.of(
+	                "제품",
+	                "제품명",
+	                "product",
+	                "Product",
+	                "productName",
+	                "ProductName"
+	        ));
+
+	        productName = joinNonBlank(" / ", productSeries, product);
+	    } else {
+	        productName = pickFirstValue(optionMap, List.of(
+	                "제품명",
+	                "제품",
+	                "productName",
+	                "ProductName",
+	                "product",
+	                "Product"
+	        ));
+	    }
+
+	    productName = firstNonBlank(
+	            productName,
+	            item != null ? item.getProductName() : null
+	    );
+
+	    String colorRaw = pickFirstValue(optionMap, List.of(
+	            "색상",
+	            "제품색상",
+	            "컬러",
+	            "color",
+	            "Color",
+	            "productColor",
+	            "ProductColor"
+	    ));
+
+	    String sizeRaw = pickFirstValue(optionMap, List.of(
+	            "사이즈",
+	            "제품사이즈",
+	            "size",
+	            "Size",
+	            "productSize",
+	            "ProductSize"
+	    ));
+
+	    String color = buildColorDisplay(colorRaw);
+	    String size = buildSizeWithWidthMm(sizeRaw);
+
+	    return new ProductionListDisplayParts(
+	            valueOrDash(productName),
+	            valueOrDash(color),
+	            valueOrDash(size),
+	            valueOrDash(category)
+	    );
 	}
 
+	private record ProductionListDisplayParts(
+	        String productName,
+	        String color,
+	        String size,
+	        String category
+	) {
+	}
+
+	private String firstNonBlank(String... values) {
+	    if (values == null || values.length == 0) {
+	        return "";
+	    }
+
+	    for (String value : values) {
+	        String text = safeText(value);
+
+	        if (!text.isBlank() && !"-".equals(text)) {
+	            return text;
+	        }
+	    }
+
+	    return "";
+	}
+
+	private String joinNonBlank(String delimiter, String... values) {
+	    if (values == null || values.length == 0) {
+	        return "";
+	    }
+
+	    List<String> tokens = new ArrayList<>();
+
+	    for (String value : values) {
+	        String text = safeText(value);
+
+	        if (!text.isBlank() && !"-".equals(text)) {
+	            tokens.add(text);
+	        }
+	    }
+
+	    return String.join(delimiter, tokens);
+	}
+
+	private String valueOrDash(String value) {
+	    String text = safeText(value);
+	    return text.isBlank() ? "-" : text;
+	}
+	
+	@Transactional(readOnly = true)
+	public List<ProductionOverviewImageDto> getProductionManagementImages(Long orderId, Member loginMember) {
+	    validateProductionTeamMember(loginMember);
+
+	    if (orderId == null) {
+	        throw new IllegalArgumentException("주문 ID가 없습니다.");
+	    }
+
+	    List<Order> orders = orderRepository.findAllForProductionOverviewByIds(List.of(orderId));
+
+	    if (orders == null || orders.isEmpty()) {
+	        throw new IllegalArgumentException("해당 발주를 찾을 수 없습니다.");
+	    }
+
+	    Order order = orders.get(0);
+
+	    if (!canAccessProductionOrder(loginMember, order)) {
+	        throw new AccessDeniedException("해당 발주 이미지를 조회할 권한이 없습니다.");
+	    }
+
+	    return buildManagementImageDtos(order);
+	}
+
+	@Transactional(readOnly = true)
+	public List<ProductionListExcelRowDto> getProductionListExcelRowsByOrderIds(
+	        List<Long> orderIds,
+	        Member loginMember
+	) {
+	    validateProductionTeamMember(loginMember);
+
+	    if (orderIds == null || orderIds.isEmpty()) {
+	        return List.of();
+	    }
+
+	    List<Long> distinctIds = orderIds.stream()
+	            .filter(Objects::nonNull)
+	            .collect(Collectors.toCollection(LinkedHashSet::new))
+	            .stream()
+	            .toList();
+
+	    if (distinctIds.isEmpty()) {
+	        return List.of();
+	    }
+
+	    List<Order> orders = orderRepository.findAllForProductionOverviewByIds(distinctIds);
+
+	    Map<Long, Order> orderMap = orders.stream()
+	            .collect(Collectors.toMap(Order::getId, o -> o, (a, b) -> a, LinkedHashMap::new));
+
+	    List<ProductionListExcelRowDto> result = new ArrayList<>();
+
+	    for (Long orderId : distinctIds) {
+	        Order order = orderMap.get(orderId);
+
+	        if (order == null) {
+	            continue;
+	        }
+
+	        if (!canAccessProductionOrder(loginMember, order)) {
+	            continue;
+	        }
+
+	        OrderItem item = order.getOrderItem();
+	        ProductionListDisplayParts displayParts = buildProductionListDisplayParts(order, item);
+
+	        int quantity = item != null ? item.getQuantity() : order.getQuantity();
+
+	        result.add(ProductionListExcelRowDto.builder()
+	                .orderId(order.getId())
+	                .productName(displayParts.productName())
+	                .productColor(displayParts.color())
+	                .productSize(displayParts.size())
+	                .quantity(quantity)
+	                .adminMemo(valueOrDash(order.getAdminMemo()))
+	                .categoryName(displayParts.category())
+	                .build());
+	    }
+
+	    return result;
+	}
+
+	private List<ProductionOverviewImageDto> buildManagementImageDtos(Order order) {
+	    if (order == null) {
+	        return List.of();
+	    }
+
+	    List<ProductionOverviewImageDto> result = new ArrayList<>();
+
+	    try {
+	        List<OrderImage> images = order.getAdminUploadedImages();
+
+	        if (images == null || images.isEmpty()) {
+	            return List.of();
+	        }
+
+	        for (OrderImage img : images) {
+	            String url = resolveAdminImageUrl(img);
+
+	            if (isBlank(url)) {
+	                continue;
+	            }
+
+	            result.add(ProductionOverviewImageDto.builder()
+	                    .imageId(img.getId())
+	                    .url(url)
+	                    .filename(safeText(img.getFilename()))
+	                    .type(safeText(img.getType()))
+	                    .build());
+	        }
+	    } catch (Exception ignore) {
+	        return List.of();
+	    }
+
+	    return result;
+	}
+	
 	/**
 	 * "카테고리 / 제품명 / 사이즈 / 색상" 처럼 줄바꿈 없이 한 줄로 생성
 	 */

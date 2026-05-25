@@ -1,6 +1,8 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
@@ -16,11 +18,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,9 +50,12 @@ import com.dev.HiddenBATHAuto.dto.delivery.DeliveryExcelRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskResponse;
+import com.dev.HiddenBATHAuto.dto.production.MaterialCuttingDtos.MaterialCuttingPageResponse;
+import com.dev.HiddenBATHAuto.dto.production.ProductionListExcelRowDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
+import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewImageDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewOrderDto;
 import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -69,6 +76,8 @@ import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.order.OrderService;
+import com.dev.HiddenBATHAuto.service.production.MaterialCuttingService;
+import com.dev.HiddenBATHAuto.service.production.ProductionListExcelService;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryExcelService;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryOrderSummaryService;
@@ -77,6 +86,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -96,6 +106,10 @@ public class TeamController {
 	private final OrderService orderService;
 	private final DeliveryOrderSummaryService deliveryOrderSummaryService;
 	private final DeliveryExcelService deliveryExcelService;
+	private final ProductionListExcelService productionListExcelService;
+	
+	private final MaterialCuttingService materialCuttingService;
+	private final ObjectMapper objectMapper;
 	
 	private static final Long AS_TEAM_ID = 4L;
 
@@ -189,15 +203,16 @@ public class TeamController {
 	        );
 	    }
 
-	    boolean isSubLeaderTeam = member.getTeamCategory() != null
-	            && "하부장".equals(member.getTeamCategory().getName());
+	    boolean isSubLeaderTeam = isLowerCabinetProductionMember(member);
 
 	    boolean canBulkComplete = true;
 
 	    if (isSubLeaderTeam) {
 	        canBulkComplete = member.getTeamCategory() != null
-	                && member.getTeamCategory().getId().equals(targetCategoryId);
+	                && Objects.equals(member.getTeamCategory().getId(), targetCategoryId);
 	    }
+
+	    boolean canMaterialCutting = isSubLeaderTeam;
 
 	    Map<Long, String> orderCompanyNameMap = new HashMap<>();
 
@@ -232,6 +247,8 @@ public class TeamController {
 
 	    List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
 
+	    
+	    model.addAttribute("canMaterialCutting", canMaterialCutting);
 	    model.addAttribute("orders", orderPage.getContent());
 	    model.addAttribute("page", orderPage);
 
@@ -256,6 +273,39 @@ public class TeamController {
 	    return "administration/team/production/productionList";
 	}
 
+	@GetMapping("/productionList/cutting")
+	public String getProductionMaterialCuttingPage(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam("orderIds") List<Long> orderIds,
+	        Model model
+	) throws Exception {
+
+	    Member member = principal.getMember();
+
+	    MaterialCuttingPageResponse cuttingData =
+	            materialCuttingService.buildCuttingPage(orderIds, member);
+
+	    model.addAttribute("cuttingData", cuttingData);
+	    model.addAttribute("cuttingDataJson", objectMapper.writeValueAsString(cuttingData));
+
+	    return "administration/team/production/productionCutting";
+	}
+	
+	private boolean isLowerCabinetProductionMember(Member member) {
+	    if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+	        return false;
+	    }
+
+	    if (member.getTeamCategory() == null) {
+	        return false;
+	    }
+
+	    Long categoryId = member.getTeamCategory().getId();
+	    String categoryName = member.getTeamCategory().getName();
+
+	    return Objects.equals(categoryId, 2L) || "하부장".equals(categoryName);
+	}
+		
 	private Sort buildProductionSort(String sortKey, String sortDir, String dateType) {
 	    String key = (sortKey == null || sortKey.isBlank()) ? "date" : sortKey.trim();
 	    String dir = (sortDir == null || sortDir.isBlank()) ? "DESC" : sortDir.trim().toUpperCase();
@@ -289,6 +339,41 @@ public class TeamController {
 	            .and(Sort.by(Sort.Direction.DESC, "id"));
 	}
 
+	@GetMapping("/productionList/{orderId}/management-images")
+    @ResponseBody
+    public ResponseEntity<List<ProductionOverviewImageDto>> getProductionManagementImages(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal(expression = "member") Member loginMember
+    ) {
+        return ResponseEntity.ok(teamTaskService.getProductionManagementImages(orderId, loginMember));
+    }
+
+    @GetMapping("/productionList/excel")
+    public void downloadProductionListExcel(
+            @RequestParam("orderIds") List<Long> orderIds,
+            @AuthenticationPrincipal(expression = "member") Member loginMember,
+            HttpServletResponse response
+    ) throws IOException {
+
+        List<ProductionListExcelRowDto> rows =
+                teamTaskService.getProductionListExcelRowsByOrderIds(orderIds, loginMember);
+
+        String encodedFileName = URLEncoder
+                .encode("생산팀_제작목록_" + LocalDate.now() + ".xlsx", StandardCharsets.UTF_8)
+                .replace("+", "%20");
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename*=UTF-8''" + encodedFileName
+        );
+
+        try (Workbook workbook = productionListExcelService.createProductionListWorkbook(rows)) {
+            workbook.write(response.getOutputStream());
+            response.flushBuffer();
+        }
+    }
+	
 	@GetMapping("/productionList/overview-data")
 	@ResponseBody
 	public ResponseEntity<?> getProductionOverviewData(

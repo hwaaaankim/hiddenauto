@@ -1,0 +1,341 @@
+.production-cutting-page {
+    background: #eef1f5;
+    color: #111827;
+}
+
+.production-cutting-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 22px;
+    background: #ffffff;
+    border-bottom: 1px solid #d8dee8;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.production-cutting-toolbar-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.production-cutting-toolbar-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.production-cutting-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.production-cutting-print-root {
+    padding: 18px 0 40px;
+}
+
+.production-cutting-empty {
+    max-width: 720px;
+    margin: 80px auto;
+    padding: 40px;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #d8dee8;
+    border-radius: 8px;
+    color: #64748b;
+}
+
+.cutting-sheet {
+    width: 297mm;
+    height: 210mm;
+    margin: 0 auto 18px;
+    background: #ffffff;
+    border: 1px solid #111827;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+    page-break-after: always;
+    overflow: hidden;
+}
+
+.cutting-sheet-header {
+    height: 18mm;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4mm 6mm;
+    border-bottom: 1px solid #111827;
+}
+
+.cutting-sheet-title {
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.1;
+}
+
+.cutting-sheet-subtitle {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #374151;
+}
+
+.cutting-sheet-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3px;
+    min-width: 52mm;
+    font-size: 11px;
+}
+
+.cutting-sheet-meta > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    border-bottom: 1px dotted #9ca3af;
+}
+
+.cutting-meta-label {
+    color: #6b7280;
+}
+
+.cutting-sheet-body {
+    height: calc(210mm - 18mm);
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+}
+
+.cutting-sheet-half {
+    position: relative;
+    display: grid;
+    grid-template-columns: 82mm 1fr;
+    gap: 4mm;
+    padding: 4mm 5mm;
+}
+
+.cutting-sheet-half-top {
+    border-bottom: 1.5px solid #111827;
+}
+
+.cutting-sheet-half-bottom {
+    grid-template-columns: 1fr 86mm;
+}
+
+.cutting-info-card {
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 3mm;
+    background: #f8fafc;
+    overflow: hidden;
+}
+
+.cutting-info-title {
+    margin-bottom: 2mm;
+    font-size: 12px;
+    font-weight: 900;
+    color: #111827;
+}
+
+.cutting-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.8mm 3mm;
+}
+
+.cutting-info-grid > div,
+.cutting-option-line {
+    min-width: 0;
+}
+
+.cutting-info-grid span,
+.cutting-option-line span {
+    display: block;
+    font-size: 8.5px;
+    color: #64748b;
+    line-height: 1.15;
+}
+
+.cutting-info-grid strong,
+.cutting-option-line strong {
+    display: block;
+    margin-top: 1px;
+    font-size: 10px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.2;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.cutting-option-line {
+    margin-top: 2mm;
+    padding-top: 1.5mm;
+    border-top: 1px dotted #cbd5e1;
+}
+
+.cutting-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3mm;
+    align-items: stretch;
+}
+
+.cutting-panel-grid-bottom {
+    grid-column: 1 / 2;
+}
+
+.cutting-panel-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: 1px solid #111827;
+    border-radius: 5px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.cutting-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2mm 2.5mm;
+    border-bottom: 1px solid #111827;
+    background: #f3f4f6;
+}
+
+.cutting-panel-head strong {
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.cutting-panel-head span {
+    font-size: 10px;
+    font-weight: 800;
+    color: #374151;
+}
+
+.cutting-panel-stage {
+    flex: 1;
+    min-height: 30mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2mm;
+}
+
+.cutting-panel-drawing {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34mm;
+    min-height: 18mm;
+    border: 2px solid #111827;
+    background:
+            linear-gradient(45deg, rgba(17, 24, 39, 0.05) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(17, 24, 39, 0.05) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(17, 24, 39, 0.05) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(17, 24, 39, 0.05) 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+}
+
+.cutting-panel-size {
+    padding: 1.5mm 2mm;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #111827;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.cutting-panel-axis {
+    padding: 1.3mm 2.5mm 0;
+    font-size: 9px;
+    font-weight: 800;
+    color: #111827;
+    text-align: center;
+}
+
+.cutting-panel-note {
+    min-height: 10mm;
+    padding: 1mm 2.5mm 2mm;
+    font-size: 8.5px;
+    line-height: 1.25;
+    color: #4b5563;
+    text-align: center;
+    word-break: keep-all;
+}
+
+.cutting-warning-box {
+    border: 1px solid #f59e0b;
+    border-radius: 5px;
+    background: #fffbeb;
+    padding: 3mm;
+    font-size: 10px;
+    color: #92400e;
+}
+
+.cutting-warning-title {
+    margin-bottom: 1.5mm;
+    font-weight: 900;
+}
+
+.cutting-warning-box ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.cutting-formula-box {
+    align-self: end;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    background: #f8fafc;
+    padding: 3mm;
+    font-size: 9.5px;
+    line-height: 1.35;
+    color: #374151;
+}
+
+.cutting-formula-title {
+    margin-bottom: 1.5mm;
+    font-size: 11px;
+    font-weight: 900;
+    color: #111827;
+}
+
+@page {
+    size: A4 landscape;
+    margin: 0;
+}
+
+@media print {
+    html,
+    body {
+        width: 297mm;
+        min-height: 210mm;
+        background: #ffffff !important;
+    }
+
+    .production-cutting-toolbar {
+        display: none !important;
+    }
+
+    .production-cutting-print-root {
+        padding: 0 !important;
+    }
+
+    .cutting-sheet {
+        width: 297mm;
+        height: 210mm;
+        margin: 0 !important;
+        border: none;
+        box-shadow: none;
+        page-break-after: always;
+    }
+}
