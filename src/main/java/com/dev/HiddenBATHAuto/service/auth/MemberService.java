@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -351,99 +352,112 @@ public class MemberService {
 		}
 	}
 
+	@Transactional
 	public void saveMember(MemberSaveDTO dto) {
 
-		Team team = teamRepository.findById(dto.getTeamId())
-				.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 팀"));
+	    Team team = teamRepository.findById(dto.getTeamId())
+	            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 팀"));
 
-		// 생산팀이면 사용자가 선택한 카테고리
-		TeamCategory category;
-		if ("생산팀".equals(team.getName())) {
-			category = teamCategoryRepository.findById(dto.getTeamCategoryId())
-					.orElseThrow(() -> new IllegalArgumentException("카테고리 없음"));
-		} else {
-			// 그 외 팀이면 고정된 값 사용
-			Long forcedCategoryId = switch (team.getName()) {
-			case "관리팀" -> 1L;
-			case "배송팀" -> 8L;
-			case "AS팀" -> 10L;
-			default -> throw new IllegalArgumentException("지원하지 않는 팀");
-			};
-			category = teamCategoryRepository.findById(forcedCategoryId)
-					.orElseThrow(() -> new IllegalArgumentException("고정된 카테고리 없음"));
-		}
+	    TeamCategory category = resolveTeamCategoryForEmployeeSave(team, dto.getTeamCategoryId());
 
-		// 기본 Member 생성
-		Member member = new Member();
-		member.setUsername(dto.getUsername());
-		member.setPassword(passwordEncoder.encode(dto.getPassword()));
-		member.setName(dto.getName());
-		member.setPhone(dto.getPhone());
-		member.setEmail(dto.getEmail());
-		member.setRole(dto.getRole());
-		member.setTeam(team);
-		member.setTeamCategory(category);
-		member.setEnabled(true);
-		member.setCreatedAt(LocalDateTime.now());
+	    Member member = new Member();
+	    member.setUsername(dto.getUsername());
+	    member.setPassword(passwordEncoder.encode(dto.getPassword()));
+	    member.setName(dto.getName());
+	    member.setPhone(dto.getPhone());
+	    member.setEmail(dto.getEmail());
+	    member.setRole(dto.getRole());
+	    member.setTeam(team);
+	    member.setTeamCategory(category);
+	    member.setEnabled(true);
+	    member.setCreatedAt(LocalDateTime.now());
 
-		// 지역 등록 처리
-		List<MemberRegion> addressScopes = new ArrayList<>();
-		if (dto.getRegionJson() != null && !dto.getRegionJson().isBlank()) {
-			try {
-				List<MemberRegionDto> regions = objectMapper.readValue(dto.getRegionJson(),
-						new TypeReference<List<MemberRegionDto>>() {});
+	    List<MemberRegion> addressScopes = new ArrayList<>();
 
-				for (MemberRegionDto r : regions) {
-					Province province = provinceRepository.findById(Long.parseLong(r.getProvinceId()))
-							.orElseThrow(() -> new IllegalArgumentException("도 없음"));
+	    if (dto.getRegionJson() != null && !dto.getRegionJson().isBlank()) {
+	        try {
+	            List<MemberRegionDto> regions = objectMapper.readValue(
+	                    dto.getRegionJson(),
+	                    new TypeReference<List<MemberRegionDto>>() {}
+	            );
 
-					City city = (r.getCityId() != null && !r.getCityId().isBlank())
-							? cityRepository.findById(Long.parseLong(r.getCityId())).orElse(null)
-							: null;
+	            for (MemberRegionDto r : regions) {
+	                Province province = provinceRepository.findById(Long.parseLong(r.getProvinceId()))
+	                        .orElseThrow(() -> new IllegalArgumentException("도 없음"));
 
-					District district = (r.getDistrictId() != null && !r.getDistrictId().isBlank())
-							? districtRepository.findById(Long.parseLong(r.getDistrictId())).orElse(null)
-							: null;
+	                City city = (r.getCityId() != null && !r.getCityId().isBlank())
+	                        ? cityRepository.findById(Long.parseLong(r.getCityId())).orElse(null)
+	                        : null;
 
-					MemberRegion mr = MemberRegion.builder()
-							.province(province)
-							.city(city)
-							.district(district)
-							.member(member)
-							.build();
+	                District district = (r.getDistrictId() != null && !r.getDistrictId().isBlank())
+	                        ? districtRepository.findById(Long.parseLong(r.getDistrictId())).orElse(null)
+	                        : null;
 
-					addressScopes.add(mr);
-				}
+	                MemberRegion mr = MemberRegion.builder()
+	                        .province(province)
+	                        .city(city)
+	                        .district(district)
+	                        .member(member)
+	                        .build();
 
-			} catch (Exception e) {
-				throw new RuntimeException("지역 JSON 파싱 오류", e);
-			}
-		}
+	                addressScopes.add(mr);
+	            }
 
-		// === 서버측 2차 방어: 팀 기준 충돌 검사 (배송/AS만)
-		if ("배송팀".equals(team.getName()) || "AS팀".equals(team.getName())) {
-			// RegionSelectionDTO 목록으로 변환
-			List<RegionSelectionDTO> selections = addressScopes.stream().map(mr -> {
-				RegionSelectionDTO s = new RegionSelectionDTO();
-				s.setProvinceId(mr.getProvince() != null ? mr.getProvince().getId() : null);
-				s.setCityId(mr.getCity() != null ? mr.getCity().getId() : null);
-				s.setDistrictId(mr.getDistrict() != null ? mr.getDistrict().getId() : null);
-				return s;
-			}).toList();
+	        } catch (Exception e) {
+	            throw new RuntimeException("지역 JSON 파싱 오류", e);
+	        }
+	    }
 
-			List<ConflictDTO> conflicts =
-					memberManagementService.checkRegionConflictsForNewMember(team.getId(), selections);
+	    if ("배송팀".equals(team.getName()) || "AS팀".equals(team.getName())) {
+	        List<RegionSelectionDTO> selections = addressScopes.stream()
+	                .map(mr -> {
+	                    RegionSelectionDTO s = new RegionSelectionDTO();
+	                    s.setProvinceId(mr.getProvince() != null ? mr.getProvince().getId() : null);
+	                    s.setCityId(mr.getCity() != null ? mr.getCity().getId() : null);
+	                    s.setDistrictId(mr.getDistrict() != null ? mr.getDistrict().getId() : null);
+	                    return s;
+	                })
+	                .toList();
 
-			if (!conflicts.isEmpty()) {
-				String msg = conflicts.stream()
-						.map(c -> "[" + c.getConflictMemberName() + "] " + c.getConflictPath())
-						.collect(Collectors.joining(", "));
-				throw new IllegalStateException("담당구역 충돌: " + msg);
-			}
-		}
+	        List<ConflictDTO> conflicts =
+	                memberManagementService.checkRegionConflictsForNewMember(team.getId(), selections);
 
-		member.setAddressScopes(addressScopes);
-		memberRepository.save(member);
+	        if (!conflicts.isEmpty()) {
+	            String msg = conflicts.stream()
+	                    .map(c -> "[" + c.getConflictMemberName() + "] " + c.getConflictPath())
+	                    .collect(Collectors.joining(", "));
+
+	            throw new IllegalStateException("담당구역 충돌: " + msg);
+	        }
+	    }
+
+	    member.setAddressScopes(addressScopes);
+	    memberRepository.save(member);
+	}
+
+	private TeamCategory resolveTeamCategoryForEmployeeSave(Team team, Long teamCategoryId) {
+	    String teamName = team.getName() != null ? team.getName().trim() : "";
+
+	    Set<String> categoryRequiredTeams = Set.of("생산팀", "출고팀");
+
+	    if (teamCategoryId != null) {
+	        TeamCategory selectedCategory = teamCategoryRepository.findById(teamCategoryId)
+	                .orElseThrow(() -> new IllegalArgumentException("카테고리 없음"));
+
+	        if (selectedCategory.getTeam() == null ||
+	                !Objects.equals(selectedCategory.getTeam().getId(), team.getId())) {
+	            throw new IllegalArgumentException("선택한 카테고리가 해당 팀 소속이 아닙니다.");
+	        }
+
+	        return selectedCategory;
+	    }
+
+	    if (categoryRequiredTeams.contains(teamName)) {
+	        throw new IllegalArgumentException(teamName + "은 카테고리 선택이 필수입니다.");
+	    }
+
+	    return teamCategoryRepository.findFirstByTeam_IdOrderByIdAsc(team.getId())
+	            .orElseThrow(() -> new IllegalArgumentException(teamName + "에 등록된 기본 카테고리가 없습니다."));
 	}
 
 	@Getter

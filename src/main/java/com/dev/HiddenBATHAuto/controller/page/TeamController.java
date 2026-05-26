@@ -119,7 +119,6 @@ public class TeamController {
 	        @RequestParam(required = false, defaultValue = "preferred") String dateType,
 	        @RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
 
-	        // 기본 50개
 	        @RequestParam(required = false, defaultValue = "50") int size,
 	        @RequestParam(required = false, defaultValue = "0") int page,
 	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -134,9 +133,25 @@ public class TeamController {
 	        throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
 	    }
 
-	    Long targetCategoryId = productCategoryId != null
-	            ? productCategoryId
-	            : (member.getTeamCategory() != null ? member.getTeamCategory().getId() : null);
+	    boolean isCuttingProductionMember = isCuttingProductionMember(member);
+	    boolean isLowerCabinetProductionMember = isLowerCabinetProductionMember(member);
+
+	    /*
+	     * 핵심 변경점
+	     * - 일반 생산팀 직원: productCategoryId 없으면 자기 팀 카테고리 기준
+	     * - 재단 직원: productCategoryId 없으면 null 유지 => 전체 제품분류 조회
+	     */
+	    Long targetCategoryId;
+
+	    if (productCategoryId != null) {
+	        targetCategoryId = productCategoryId;
+	    } else if (isCuttingProductionMember) {
+	        targetCategoryId = null;
+	    } else {
+	        targetCategoryId = member.getTeamCategory() != null
+	                ? member.getTeamCategory().getId()
+	                : null;
+	    }
 
 	    String normalizedDateType = (dateType == null || dateType.isBlank())
 	            ? "preferred"
@@ -217,16 +232,25 @@ public class TeamController {
 	        );
 	    }
 
-	    boolean isSubLeaderTeam = isLowerCabinetProductionMember(member);
-
+	    /*
+	     * 생산완료 가능 여부
+	     * - 재단 직원: 무조건 불가
+	     * - 하부장 등 기존 제한 대상: 자기 카테고리 조회일 때만 가능
+	     * - 그 외 생산팀 직원: 가능
+	     */
 	    boolean canBulkComplete = true;
 
-	    if (isSubLeaderTeam) {
+	    if (isCuttingProductionMember) {
+	        canBulkComplete = false;
+	    } else if (isLowerCabinetProductionMember) {
 	        canBulkComplete = member.getTeamCategory() != null
 	                && Objects.equals(member.getTeamCategory().getId(), targetCategoryId);
 	    }
 
-	    boolean canMaterialCutting = isSubLeaderTeam;
+	    /*
+	     * 자재재단 버튼은 하부장 직원에게만 노출
+	     */
+	    boolean canMaterialCutting = isLowerCabinetProductionMember;
 
 	    Map<Long, String> orderCompanyNameMap = new HashMap<>();
 
@@ -275,6 +299,9 @@ public class TeamController {
 	    model.addAttribute("productCategories", productCategories);
 
 	    model.addAttribute("canBulkComplete", canBulkComplete);
+	    model.addAttribute("canChangeProductionStatus", canBulkComplete);
+	    model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
+
 	    model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
 
 	    model.addAttribute("orderBriefFieldMap", orderBriefFieldMap);
@@ -285,7 +312,21 @@ public class TeamController {
 
 	    return "administration/team/production/productionList";
 	}
+	
+	private boolean isCuttingProductionMember(Member member) {
+	    if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+	        return false;
+	    }
 
+	    if (member.getTeamCategory() == null) {
+	        return false;
+	    }
+
+	    String categoryName = member.getTeamCategory().getName();
+
+	    return "재단".equals(categoryName);
+	}
+	
 	@GetMapping("/productionList/cutting")
 	public String getProductionMaterialCuttingPage(
 	        @AuthenticationPrincipal PrincipalDetails principal,
@@ -293,7 +334,15 @@ public class TeamController {
 	        Model model
 	) throws Exception {
 
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
+
 	    Member member = principal.getMember();
+
+	    if (!isLowerCabinetProductionMember(member)) {
+	        throw new AccessDeniedException("자재재단 화면은 하부장 직원만 접근할 수 있습니다.");
+	    }
 
 	    MaterialCuttingPageResponse cuttingData =
 	            materialCuttingService.buildCuttingPage(orderIds, member);
@@ -313,10 +362,9 @@ public class TeamController {
 	        return false;
 	    }
 
-	    Long categoryId = member.getTeamCategory().getId();
 	    String categoryName = member.getTeamCategory().getName();
 
-	    return Objects.equals(categoryId, 2L) || "하부장".equals(categoryName);
+	    return "하부장".equals(categoryName);
 	}
 		
 	private Sort buildProductionSort(String sortKey, String sortDir, String dateType) {
@@ -436,6 +484,10 @@ public class TeamController {
 	    try {
 	        Member member = principal.getMember();
 
+	        if (isCuttingProductionMember(member)) {
+	            throw new AccessDeniedException("재단 직원은 생산완료 처리를 할 수 없습니다.");
+	        }
+
 	        ProductionOverviewCompleteResponse response =
 	                teamTaskService.completeProductionOrderFromOverview(orderId, member);
 
@@ -485,181 +537,288 @@ public class TeamController {
 	        @AuthenticationPrincipal PrincipalDetails principal,
 	        Model model) {
 
+	    // 1. 로그인 멤버 확인
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
+
 	    Member loginMember = principal.getMember();
 
+	    // 2. 생산팀 접근 여부 확인
+	    if (loginMember.getTeam() == null || !"생산팀".equals(loginMember.getTeam().getName())) {
+	        throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
+	    }
+
+	    // 3. 주문 조회
 	    Order order = orderRepository.findById(orderId)
 	            .orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
 
+	    // 4. 상세 진입 시 확인 처리
 	    teamTaskService.markProductionOrderChecked(orderId, loginMember);
 
+	    // 5. 주문 상품 옵션 JSON 파싱
 	    OrderItem orderItem = order.getOrderItem();
 
-	    if (orderItem != null && orderItem.getOptionJson() != null) {
+	    if (orderItem != null && orderItem.getOptionJson() != null && !orderItem.getOptionJson().isBlank()) {
 	        try {
 	            ObjectMapper mapper = new ObjectMapper();
-	            Map<String, String> parsedMap = mapper.readValue(orderItem.getOptionJson(), new TypeReference<>() {});
+
+	            Map<String, String> parsedMap = mapper.readValue(
+	                    orderItem.getOptionJson(),
+	                    new TypeReference<Map<String, String>>() {}
+	            );
+
 	            orderItem.setParsedOptionMap(parsedMap);
+
 	        } catch (Exception e) {
 	            e.printStackTrace();
 	        }
 	    }
 
+	    // 6. 재단 직원 여부
+	    boolean isCuttingProductionMember = isCuttingProductionMember(loginMember);
+
+	    // 7. 생산완료 가능 여부
 	    boolean canChangeStatus = false;
 
-	    if (loginMember.getTeamCategory() != null
+	    /*
+	     * 생산완료 가능 조건
+	     * 1) 재단 직원이 아니어야 함
+	     * 2) 로그인 직원의 팀 카테고리와 주문 제품 카테고리가 같아야 함
+	     * 3) 주문 상태가 CONFIRMED 여야 함
+	     */
+	    if (!isCuttingProductionMember
+	            && loginMember.getTeamCategory() != null
 	            && order.getProductCategory() != null
 	            && loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())
 	            && order.getStatus() == OrderStatus.CONFIRMED) {
 	        canChangeStatus = true;
 	    }
 
+	    // 8. 모델 세팅
 	    model.addAttribute("order", order);
 	    model.addAttribute("orderItem", orderItem);
 	    model.addAttribute("canChangeStatus", canChangeStatus);
+	    model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
 
 	    return "administration/team/production/productionDetail";
 	}
 
 	@PostMapping("/updateStatus/{orderId}")
-	public String updateProductionStatus(@PathVariable Long orderId, @RequestParam("status") OrderStatus newStatus,
-			@AuthenticationPrincipal PrincipalDetails principal, RedirectAttributes redirectAttributes) {
-		// 1. 로그인한 멤버 확인
-		Member loginMember = principal.getMember();
+	public String updateProductionStatus(@PathVariable Long orderId,
+	                                     @RequestParam("status") OrderStatus newStatus,
+	                                     @AuthenticationPrincipal PrincipalDetails principal,
+	                                     RedirectAttributes redirectAttributes) {
 
-		// 2. 오더 조회
-		Order order = orderRepository.findById(orderId)
-				.orElseThrow(() -> new IllegalArgumentException("주문이 존재하지 않습니다."));
+	    // 1. 로그인한 멤버 확인
+	    if (principal == null || principal.getMember() == null) {
+	        redirectAttributes.addFlashAttribute("errorMessage", "로그인이 필요합니다.");
+	        return "redirect:/loginForm";
+	    }
 
-		// 3. 권한 체크: 로그인한 멤버의 팀 카테고리와 오더의 제품 카테고리가 같아야 함
-		if (!loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())) {
-			redirectAttributes.addFlashAttribute("errorMessage", "상태 변경 권한이 없습니다.");
-			return "redirect:/team/productionDetail/" + orderId;
-		}
+	    Member loginMember = principal.getMember();
 
-		// 4. 상태 변경 허용 조건 확인
-		if (order.getStatus() != OrderStatus.CONFIRMED || newStatus != OrderStatus.PRODUCTION_DONE) {
-			redirectAttributes.addFlashAttribute("errorMessage", "변경 가능한 상태가 아닙니다.");
-			return "redirect:/team/productionDetail/" + orderId;
-		}
+	    // 2. 오더 조회
+	    Order order = orderRepository.findById(orderId)
+	            .orElseThrow(() -> new IllegalArgumentException("주문이 존재하지 않습니다."));
 
-		// 5. 상태 변경
-		order.setStatus(OrderStatus.PRODUCTION_DONE);
-		order.setUpdatedAt(LocalDateTime.now());
-		orderRepository.save(order);
+	    // 3. 생산팀 여부 확인
+	    if (loginMember.getTeam() == null || !"생산팀".equals(loginMember.getTeam().getName())) {
+	        redirectAttributes.addFlashAttribute("errorMessage", "생산팀만 상태를 변경할 수 있습니다.");
+	        return "redirect:/team/productionDetail/" + orderId;
+	    }
 
-		redirectAttributes.addFlashAttribute("successMessage", "상태가 성공적으로 변경되었습니다.");
-		return "redirect:/team/productionDetail/" + orderId;
+	    // 4. 재단 직원은 생산완료 처리 불가
+	    if (isCuttingProductionMember(loginMember)) {
+	        redirectAttributes.addFlashAttribute("errorMessage", "재단 직원은 생산완료 처리를 할 수 없습니다.");
+	        return "redirect:/team/productionDetail/" + orderId;
+	    }
+
+	    // 5. 상태 변경 허용 조건 확인
+	    if (order.getStatus() != OrderStatus.CONFIRMED || newStatus != OrderStatus.PRODUCTION_DONE) {
+	        redirectAttributes.addFlashAttribute("errorMessage", "변경 가능한 상태가 아닙니다.");
+	        return "redirect:/team/productionDetail/" + orderId;
+	    }
+
+	    // 6. 권한 체크: 로그인한 멤버의 팀 카테고리와 오더의 제품 카테고리가 같아야 함
+	    if (loginMember.getTeamCategory() == null || order.getProductCategory() == null) {
+	        redirectAttributes.addFlashAttribute("errorMessage", "상태 변경 권한을 확인할 수 없습니다.");
+	        return "redirect:/team/productionDetail/" + orderId;
+	    }
+
+	    if (!loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())) {
+	        redirectAttributes.addFlashAttribute("errorMessage", "상태 변경 권한이 없습니다.");
+	        return "redirect:/team/productionDetail/" + orderId;
+	    }
+
+	    // 7. 상태 변경
+	    order.setStatus(OrderStatus.PRODUCTION_DONE);
+	    order.setUpdatedAt(LocalDateTime.now());
+	    orderRepository.save(order);
+
+	    redirectAttributes.addFlashAttribute("successMessage", "상태가 성공적으로 변경되었습니다.");
+	    return "redirect:/team/productionDetail/" + orderId;
 	}
 
 	@GetMapping("/deliveryList")
-	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
-			@RequestParam(required = false) OrderStatus status, Model model) {
-		Member member = principal.getMember();
+	public String getDeliveryOrders(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
+	        @RequestParam(required = false) OrderStatus status,
+	        Model model
+	) {
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
 
-		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-		}
+	    Member member = principal.getMember();
 
-		if (preferredDate == null) {
-			preferredDate = LocalDate.now().plusDays(1);
-		}
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
 
-		List<OrderStatus> statuses = (status != null) ? List.of(status)
-				: List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE);
+	    if (preferredDate == null) {
+	        preferredDate = LocalDate.now().plusDays(1);
+	    }
 
-		List<DeliveryOrderIndex> all = deliveryOrderIndexRepository.findListByHandlerAndDateAndStatusIn(member.getId(),
-				preferredDate, statuses);
+	    /*
+	     * 배송팀 리스트에서 허용하는 조회 상태
+	     * - CONFIRMED: 승인완료, 상세확인만 가능
+	     * - PRODUCTION_DONE: 생산완료, 출고 전이므로 배송완료 처리 불가
+	     * - DISPATCH_DONE: 출고완료, 배송완료 처리 가능
+	     * - DELIVERY_DONE: 배송완료, 상세확인만 가능
+	     *
+	     * CANCELED, REQUESTED 등은 배송팀 업무 상태 조회 대상에서 제외합니다.
+	     */
+	    List<OrderStatus> availableDeliveryStatuses = List.of(
+	            OrderStatus.CONFIRMED,
+	            OrderStatus.PRODUCTION_DONE,
+	            OrderStatus.DISPATCH_DONE,
+	            OrderStatus.DELIVERY_DONE
+	    );
 
-		List<DeliveryOrderIndex> pendingOrders = all.stream()
-				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
-				.collect(Collectors.toList());
+	    OrderStatus selectedStatus = status;
 
-		List<DeliveryOrderIndex> doneOrders = all.stream()
-				.filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
-				.collect(Collectors.toList());
+	    if (selectedStatus != null && !availableDeliveryStatuses.contains(selectedStatus)) {
+	        selectedStatus = null;
+	    }
 
-		// ✅ 여기서 optionJson 파싱해서 formattedOptionText 채우기 (요청하신 기존 로직 그대로 사용)
-		enrichOrderItems(pendingOrders);
-		enrichOrderItems(doneOrders);
+	    List<OrderStatus> statuses = selectedStatus != null
+	            ? List.of(selectedStatus)
+	            : availableDeliveryStatuses;
 
-		model.addAttribute("deliveryHandlerId", member.getId());
-		model.addAttribute("preferredDate", preferredDate);
+	    List<DeliveryOrderIndex> all = deliveryOrderIndexRepository.findListByHandlerAndDateAndStatusIn(
+	            member.getId(),
+	            preferredDate,
+	            statuses
+	    );
 
-		model.addAttribute("pendingOrders", pendingOrders);
-		model.addAttribute("doneOrders", doneOrders);
+	    List<DeliveryOrderIndex> pendingOrders = all.stream()
+	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
+	            .collect(Collectors.toList());
 
-		model.addAttribute("status", status);
-		model.addAttribute("availableStatuses",
-				List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DELIVERY_DONE));
+	    List<DeliveryOrderIndex> doneOrders = all.stream()
+	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+	            .collect(Collectors.toList());
 
-		return "administration/team/delivery/deliveryList";
+	    enrichOrderItems(pendingOrders);
+	    enrichOrderItems(doneOrders);
+
+	    model.addAttribute("deliveryHandlerId", member.getId());
+	    model.addAttribute("preferredDate", preferredDate);
+
+	    model.addAttribute("pendingOrders", pendingOrders);
+	    model.addAttribute("doneOrders", doneOrders);
+
+	    model.addAttribute("status", selectedStatus);
+	    model.addAttribute("availableStatuses", availableDeliveryStatuses);
+
+	    return "administration/team/delivery/deliveryList";
 	}
 
-	// ✅ 기존에 쓰시던 enrich 코드 그대로
 	private void enrichOrderItems(List<DeliveryOrderIndex> list) {
-		if (list == null)
-			return;
-		for (DeliveryOrderIndex doi : list) {
-			if (doi == null || doi.getOrder() == null)
-				continue;
-			OrderItem item = doi.getOrder().getOrderItem();
-			if (item == null)
-				continue;
+	    if (list == null) {
+	        return;
+	    }
 
-			OrderItemOptionJsonUtil.enrich(item);
-		}
+	    for (DeliveryOrderIndex doi : list) {
+	        if (doi == null || doi.getOrder() == null) {
+	            continue;
+	        }
+
+	        OrderItem item = doi.getOrder().getOrderItem();
+
+	        if (item == null) {
+	            continue;
+	        }
+
+	        OrderItemOptionJsonUtil.enrich(item);
+	    }
 	}
 
 	@PostMapping("/updateOrderIndex")
 	@ResponseBody
-	public ResponseEntity<?> updateOrderIndex(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestBody DeliveryOrderIndexUpdateRequest request) {
-		Member member = principal.getMember();
+	public ResponseEntity<?> updateOrderIndex(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestBody DeliveryOrderIndexUpdateRequest request
+	) {
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
 
-		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-		}
+	    Member member = principal.getMember();
 
-		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-			return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
-		}
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
 
-		// ✅ 기존 저장 로직(완료 고정 guard 포함) 그대로 사용
-		deliveryOrderIndexService.updateIndexesWithDoneGuard(request);
-		return ResponseEntity.ok().build();
+	    if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+	    }
+
+	    deliveryOrderIndexService.updateIndexesWithDoneGuard(request);
+
+	    return ResponseEntity.ok().build();
 	}
-
 	/**
 	 * ✅ 업체별정렬 API (pending DOM 순서 기반 stable grouping) - DB 저장은 '순서 저장'
 	 * 버튼(updateOrderIndex)에서 수행하는 구조
 	 */
 	@PostMapping("/reorderByTask")
 	@ResponseBody
-	public ResponseEntity<?> reorderByTask(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestBody DeliveryReorderByTaskRequest request) {
-		Member member = principal.getMember();
+	public ResponseEntity<?> reorderByTask(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestBody DeliveryReorderByTaskRequest request
+	) {
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
 
-		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-		}
+	    Member member = principal.getMember();
 
-		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-			return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
-		}
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
 
-		if (request.getDeliveryDate() == null) {
-			return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
-		}
+	    if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+	    }
 
-		if (request.getPendingOrderIds() == null || request.getPendingOrderIds().isEmpty()) {
-			return ResponseEntity.badRequest().body("잘못된 요청입니다.(정렬 대상 없음)");
-		}
+	    if (request.getDeliveryDate() == null) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
+	    }
 
-		List<Long> reordered = deliveryOrderIndexService.reorderPendingOrderIdsByTask(member.getId(),
-				request.getDeliveryDate(), request.getPendingOrderIds());
+	    if (request.getPendingOrderIds() == null || request.getPendingOrderIds().isEmpty()) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(정렬 대상 없음)");
+	    }
 
-		return ResponseEntity.ok(new DeliveryReorderByTaskResponse(reordered));
+	    List<Long> reordered = deliveryOrderIndexService.reorderPendingOrderIdsByTask(
+	            member.getId(),
+	            request.getDeliveryDate(),
+	            request.getPendingOrderIds()
+	    );
+
+	    return ResponseEntity.ok(new DeliveryReorderByTaskResponse(reordered));
 	}
 
 	/**
@@ -667,120 +826,191 @@ public class TeamController {
 	 * fetch 요청(X-Requested-With=fetch)인 경우 JSON 응답으로 처리
 	 */
 	@PostMapping("/deliveryStatus/{orderId}")
-	public Object updateDeliveryStatusAndUploadImages(@AuthenticationPrincipal PrincipalDetails principal,
-			@PathVariable Long orderId, @RequestParam(value = "status", required = false) String status,
-			@RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
-			org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes,
-			HttpServletRequest httpServletRequest) {
-		try {
-			Member member = principal.getMember();
-			if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-				throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-			}
+	public Object updateDeliveryStatusAndUploadImages(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @PathVariable Long orderId,
+	        @RequestParam(value = "status", required = false) String status,
+	        @RequestParam(value = "files", required = false) List<MultipartFile> files,
+	        RedirectAttributes redirectAttributes,
+	        HttpServletRequest httpServletRequest
+	) {
+	    boolean fetchRequest = httpServletRequest != null
+	            && "fetch".equalsIgnoreCase(httpServletRequest.getHeader("X-Requested-With"));
 
-			Order order = orderRepository.findById(orderId)
-					.orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+	    try {
+	        if (principal == null || principal.getMember() == null) {
+	            throw new AccessDeniedException("로그인이 필요합니다.");
+	        }
 
-			// CONFIRMED 상태 변경 차단(기존 요구)
-			if (order.getStatus() == OrderStatus.CONFIRMED) {
-				throw new IllegalStateException("관리자승인(생산 전) 상태에서는 배송완료 처리 및 증빙 업로드가 불가능합니다.");
-			}
+	        Member member = principal.getMember();
 
-			orderService.updateDeliveryStatusAndImages(orderId, status, files);
+	        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	        }
 
-			// fetch 요청이면 JSON 응답
-			String xrw = httpServletRequest.getHeader("X-Requested-With");
-			if ("fetch".equalsIgnoreCase(xrw)) {
-				java.util.Map<String, Object> body = new java.util.HashMap<>();
-				body.put("success", true);
-				body.put("orderId", orderId);
-				body.put("status", status);
-				return ResponseEntity.ok(body);
-			}
+	        Order order = orderRepository.findById(orderId)
+	                .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
 
-			redirectAttributes.addFlashAttribute("successMessage", "배송 상태가 변경되었습니다.");
-		} catch (Exception e) {
-			e.printStackTrace();
+	        /*
+	         * 핵심 검증
+	         * 배송팀은 출고완료(DISPATCH_DONE) 상태의 주문만
+	         * 배송완료(DELIVERY_DONE)로 변경할 수 있습니다.
+	         */
+	        if (order.getStatus() != OrderStatus.DISPATCH_DONE) {
+	            throw new IllegalStateException("출고완료 상태의 주문만 배송완료 처리할 수 있습니다.");
+	        }
 
-			String xrw = httpServletRequest.getHeader("X-Requested-With");
-			if ("fetch".equalsIgnoreCase(xrw)) {
-				return ResponseEntity.badRequest().body("배송 상태 변경 실패: " + e.getMessage());
-			}
+	        if (!OrderStatus.DELIVERY_DONE.name().equals(status)) {
+	            throw new IllegalStateException("배송팀은 배송완료 처리만 할 수 있습니다.");
+	        }
 
-			redirectAttributes.addFlashAttribute("errorMessage", "배송 상태 변경 실패: " + e.getMessage());
-		}
+	        orderService.updateDeliveryStatusAndImages(
+	                orderId,
+	                OrderStatus.DELIVERY_DONE.name(),
+	                files
+	        );
 
-		return "redirect:/team/deliveryDetail/" + orderId;
+	        if (fetchRequest) {
+	            Map<String, Object> body = new HashMap<>();
+	            body.put("success", true);
+	            body.put("orderId", orderId);
+	            body.put("status", OrderStatus.DELIVERY_DONE.name());
+	            body.put("message", "배송완료 처리되었습니다.");
+
+	            return ResponseEntity.ok(body);
+	        }
+
+	        redirectAttributes.addFlashAttribute("successMessage", "배송완료 처리되었습니다.");
+
+	    } catch (Exception e) {
+	        e.printStackTrace();
+
+	        if (fetchRequest) {
+	            Map<String, Object> body = new HashMap<>();
+	            body.put("success", false);
+	            body.put("orderId", orderId);
+	            body.put("message", e.getMessage() != null ? e.getMessage() : "배송 상태 변경 실패");
+
+	            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+	        }
+
+	        redirectAttributes.addFlashAttribute(
+	                "errorMessage",
+	                "배송 상태 변경 실패: " + (e.getMessage() != null ? e.getMessage() : "알 수 없는 오류")
+	        );
+	    }
+
+	    return "redirect:/team/deliveryDetail/" + orderId;
 	}
 
 	@GetMapping("/deliveryOrderSummary/{orderId}")
 	@ResponseBody
-	public ResponseEntity<?> getDeliveryOrderSummary(@AuthenticationPrincipal PrincipalDetails principal,
-			@PathVariable Long orderId) {
-		Member member = principal.getMember();
+	public ResponseEntity<?> getDeliveryOrderSummary(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @PathVariable Long orderId
+	) {
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
 
-		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-		}
+	    Member member = principal.getMember();
 
-		DeliveryOrderSummaryRes res = deliveryOrderSummaryService.getSummary(member.getId(), orderId);
-		return ResponseEntity.ok(res);
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
+
+	    DeliveryOrderSummaryRes res = deliveryOrderSummaryService.getSummary(member.getId(), orderId);
+
+	    return ResponseEntity.ok(res);
 	}
 
 	/**
 	 * ✅ 엑셀 출력 (현재 DOM 순서 그대로 전송받아 A4 맞춤 XLSX 생성)
 	 */
 	@PostMapping("/deliveryExcel")
-	public ResponseEntity<?> downloadDeliveryExcel(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestBody DeliveryExcelRequest request) {
-		Member member = principal.getMember();
+	public ResponseEntity<?> downloadDeliveryExcel(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestBody DeliveryExcelRequest request
+	) {
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
 
-		if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
-			throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
-		}
+	    Member member = principal.getMember();
 
-		if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-			return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
-		}
-		if (request.getDeliveryDate() == null) {
-			return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
-		}
-		if (request.getOrderedOrderIds() == null || request.getOrderedOrderIds().isEmpty()) {
-			return ResponseEntity.badRequest().body("잘못된 요청입니다.(출력 대상 없음)");
-		}
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
 
-		byte[] bytes = deliveryExcelService.buildExcel(member.getId(), request.getDeliveryDate(),
-				request.getOrderedOrderIds());
+	    if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+	    }
 
-		String filename = "delivery_" + request.getDeliveryDate().toString() + ".xlsx";
+	    if (request.getDeliveryDate() == null) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
+	    }
 
-		return ResponseEntity.ok()
-				.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-				.header("Content-Disposition", "attachment; filename=\"" + filename + "\"").body(bytes);
+	    if (request.getOrderedOrderIds() == null || request.getOrderedOrderIds().isEmpty()) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(출력 대상 없음)");
+	    }
+
+	    byte[] bytes = deliveryExcelService.buildExcel(
+	            member.getId(),
+	            request.getDeliveryDate(),
+	            request.getOrderedOrderIds()
+	    );
+
+	    String filename = "delivery_" + request.getDeliveryDate() + ".xlsx";
+
+	    return ResponseEntity.ok()
+	            .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	            .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+	            .body(bytes);
 	}
 
 	@GetMapping("/deliveryDetail/{id}")
-	public String getDeliveryDetailPage(@PathVariable Long id, Model model) {
-		// 주문 조회
-		Order order = orderRepository.findById(id).orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
+	public String getDeliveryDetailPage(
+	        @PathVariable Long id,
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        Model model
+	) {
+	    if (principal == null || principal.getMember() == null) {
+	        throw new AccessDeniedException("로그인이 필요합니다.");
+	    }
 
-		// 옵션 파싱
-		OrderItem orderItem = order.getOrderItem();
-		if (orderItem != null && orderItem.getOptionJson() != null) {
-			try {
-				ObjectMapper mapper = new ObjectMapper();
-				Map<String, String> parsedMap = mapper.readValue(orderItem.getOptionJson(), new TypeReference<>() {
-				});
-				orderItem.setParsedOptionMap(parsedMap);
-			} catch (Exception e) {
-				e.printStackTrace(); // 또는 로그 처리
-			}
-		}
+	    Member member = principal.getMember();
 
-		model.addAttribute("order", order);
-		model.addAttribute("orderItem", orderItem);
+	    if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	    }
 
-		return "administration/team/delivery/deliveryDetail"; // 뷰 이름
+	    Order order = orderRepository.findById(id)
+	            .orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
+
+	    OrderItem orderItem = order.getOrderItem();
+
+	    if (orderItem != null && orderItem.getOptionJson() != null && !orderItem.getOptionJson().isBlank()) {
+	        try {
+	            Map<String, String> parsedMap = objectMapper.readValue(
+	                    orderItem.getOptionJson(),
+	                    new TypeReference<Map<String, String>>() {}
+	            );
+
+	            orderItem.setParsedOptionMap(parsedMap);
+
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	        }
+	    }
+
+	    if (orderItem != null) {
+	        OrderItemOptionJsonUtil.enrich(orderItem);
+	    }
+
+	    model.addAttribute("order", order);
+	    model.addAttribute("orderItem", orderItem);
+
+	    return "administration/team/delivery/deliveryDetail";
 	}
 
 	@GetMapping("/asList")

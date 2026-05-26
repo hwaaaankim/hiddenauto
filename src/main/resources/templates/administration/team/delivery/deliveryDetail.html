@@ -12,9 +12,11 @@
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
 		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
 		<div class="vertical-overlay"></div>
+
 		<div class="main-content">
 			<div class="page-content">
 				<div class="container-fluid">
+
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -28,44 +30,55 @@
 							</div>
 						</div>
 					</div>
-					<form th:action="@{/team/deliveryStatus/{orderId}(orderId=${order.id})}" method="post"
-						enctype="multipart/form-data" class="row">
+
+					<form th:action="@{/team/deliveryStatus/{orderId}(orderId=${order.id})}"
+						method="post"
+						enctype="multipart/form-data"
+						class="row">
+
 						<div class="col-lg-12">
 							<div class="row g-4 mb-3 align-items-end">
+
 								<div class="col-lg-3">
 									<label class="form-label">배송 상태</label>
 
-									<!-- ✅ 1) 생산완료: 배송완료로 변경 가능 -->
-									<th:block th:if="${order.status.name() == 'PRODUCTION_DONE'}">
-										<select class="form-select" name="status">
-											<option value="PRODUCTION_DONE" selected disabled>생산 완료</option>
-											<option value="DELIVERY_DONE">배송 완료</option>
+									<!-- 출고완료: 배송완료 처리 가능 -->
+									<th:block th:if="${order.status != null and order.status.name() == 'DISPATCH_DONE'}">
+										<input type="hidden" name="status" value="DELIVERY_DONE" />
+										<select class="form-select" disabled>
+											<option selected>출고 완료 → 배송 완료 처리 가능</option>
 										</select>
 									</th:block>
 
-									<!-- ✅ 2) 배송완료: 비활성 + hidden 유지 -->
-									<th:block th:if="${order.status.name() == 'DELIVERY_DONE'}">
-										<input type="hidden" name="status" value="DELIVERY_DONE" />
+									<!-- 배송완료: 상태변경 불가 -->
+									<th:block th:if="${order.status != null and order.status.name() == 'DELIVERY_DONE'}">
 										<select class="form-select" disabled>
 											<option selected>배송 완료</option>
 										</select>
 									</th:block>
 
-									<!-- ✅ 3) 관리자승인(컨펌): 상태 표시는 하되 완전 비활성 -->
-									<!-- TODO: 'CONFIRMED' 를 실제 enum 이름으로 바꾸세요 -->
-									<th:block th:if="${order.status.name() == 'CONFIRMED'}">
-										<!-- 서버로 값이 넘어가지 않게 name 제거(또는 disabled) -->
+									<!-- 승인완료: 배송완료 처리 불가 -->
+									<th:block th:if="${order.status != null and order.status.name() == 'CONFIRMED'}">
 										<select class="form-select" disabled>
-											<option selected>관리자승인-생산전</option>
+											<option selected>승인 완료 - 배송완료 처리 불가</option>
 										</select>
 									</th:block>
 
-									<!-- ✅ (선택) 혹시 모르는 기타 상태는 안전하게 표시만 -->
-									<th:block th:if="${order.status.name() != 'PRODUCTION_DONE'
-                   and order.status.name() != 'DELIVERY_DONE'
-                   and order.status.name() != 'CONFIRMED'}">
+									<!-- 생산완료: 출고 전이므로 배송완료 처리 불가 -->
+									<th:block th:if="${order.status != null and order.status.name() == 'PRODUCTION_DONE'}">
 										<select class="form-select" disabled>
-											<option selected th:text="${order.status}">상태</option>
+											<option selected>생산 완료 - 출고완료 전</option>
+										</select>
+									</th:block>
+
+									<!-- 기타 상태: 안전하게 표시만 -->
+									<th:block th:if="${order.status == null
+										or (order.status.name() != 'DISPATCH_DONE'
+										and order.status.name() != 'DELIVERY_DONE'
+										and order.status.name() != 'CONFIRMED'
+										and order.status.name() != 'PRODUCTION_DONE')}">
+										<select class="form-select" disabled>
+											<option selected th:text="${order.status != null ? order.status.label : '상태 없음'}">상태</option>
 										</select>
 									</th:block>
 								</div>
@@ -73,22 +86,38 @@
 								<div class="col-lg-3">
 									<label class="form-label">배송 증빙 이미지</label>
 
-									<!-- ✅ 컨펌상태에서는 업로드 막기 -->
-									<input id="delivery-images" class="form-control" type="file" name="files" multiple
-										accept="image/*" capture="environment"
-										th:disabled="${order.status.name() == 'CONFIRMED'}">
+									<input id="delivery-images"
+										class="form-control"
+										type="file"
+										name="files"
+										multiple
+										accept="image/*"
+										capture="environment"
+										th:disabled="${order.status == null or order.status.name() != 'DISPATCH_DONE'}">
 								</div>
 
 								<div class="col-lg-2">
-									<!-- ✅ 컨펌상태에서는 버튼 막기 -->
-									<button type="submit" class="btn btn-success w-100"
-										th:disabled="${order.status.name() == 'CONFIRMED'}">
+									<button type="submit"
+										class="btn btn-success w-100"
+										th:disabled="${order.status == null or order.status.name() != 'DISPATCH_DONE'}">
 										배송 완료 처리
 									</button>
 								</div>
-							</div>
 
+								<div class="col-lg-4">
+									<div class="text-muted small">
+										<span th:if="${order.status != null and order.status.name() == 'DISPATCH_DONE'}">
+											출고완료 상태이므로 배송완료 처리가 가능합니다.
+										</span>
+										<span th:if="${order.status == null or order.status.name() != 'DISPATCH_DONE'}">
+											배송완료 처리는 출고완료 상태에서만 가능합니다.
+										</span>
+									</div>
+								</div>
+
+							</div>
 						</div>
+
 						<div id="preview-container" class="row g-2 mt-3"></div>
 					</form>
 
@@ -99,39 +128,73 @@
 									<div class="row gx-lg-5">
 										<div class="col-xl-12">
 											<div class="mt-xl-0 mt-5">
+
 												<div class="d-flex">
 													<div class="flex-grow-1">
 														<div class="hstack gap-3 flex-wrap">
-															<div class="text-muted">대리점명 : <span
-																	class="text-body fw-medium"
-																	th:text="${order.task.requestedBy.company.companyName}">신청자명</span>
+															<div class="text-muted">
+																대리점명 :
+																<span class="text-body fw-medium"
+																	th:text="${order.task != null and order.task.requestedBy != null and order.task.requestedBy.company != null ? order.task.requestedBy.company.companyName : '-'}">
+																	대리점명
+																</span>
 															</div>
+
 															<div class="vr"></div>
-															<div class="text-muted">신청자 : <span
-																	class="text-body fw-medium"
-																	th:text="${order.task.requestedBy.name}">신청자명</span>
+
+															<div class="text-muted">
+																신청자 :
+																<span class="text-body fw-medium"
+																	th:text="${order.task != null and order.task.requestedBy != null ? order.task.requestedBy.name : '-'}">
+																	신청자명
+																</span>
 															</div>
+
 															<div class="vr"></div>
-															<div class="text-muted">발주일 : <span
-																	class="text-body fw-medium"
-																	th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd')}"></span>
+
+															<div class="text-muted">
+																발주일 :
+																<span class="text-body fw-medium"
+																	th:text="${order.createdAt != null ? #temporals.format(order.createdAt, 'yyyy-MM-dd') : '-'}">
+																</span>
 															</div>
+
 															<div class="vr"></div>
-															<div class="text-muted">배정일 : <span
-																	class="text-body fw-medium"
-																	th:text="${#temporals.format(order.updatedAt, 'yyyy-MM-dd')}"></span>
+
+															<div class="text-muted">
+																배정일 :
+																<span class="text-body fw-medium"
+																	th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy-MM-dd') : '-'}">
+																</span>
 															</div>
+
 															<div class="vr"></div>
-															<div class="text-muted">배송일 : <span
-																	class="text-body fw-medium"
-																	th:text="${#temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd')}"></span>
+
+															<div class="text-muted">
+																배송일 :
+																<span class="text-body fw-medium"
+																	th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+																</span>
+															</div>
+
+															<div class="vr"></div>
+
+															<div class="text-muted">
+																현재상태 :
+																<span class="badge bg-secondary"
+																	th:text="${order.status != null ? order.status.label : '-'}">
+																	상태
+																</span>
 															</div>
 														</div>
 													</div>
 												</div>
+
 												<div class="mt-4 text-muted">
 													<h5 class="fs-15">고객 남김말 :</h5>
-													<p th:text="${order.orderComment}">고객 남김말 영역</p>
+													<p th:text="${!#strings.isEmpty(order.orderComment) ? order.orderComment : '고객 남김말이 없습니다.'}">
+														고객 남김말 영역
+													</p>
 												</div>
 
 												<div class="row">
@@ -139,144 +202,172 @@
 														<div class="mt-3">
 															<h5 class="fs-15">상세스펙 및 옵션 :</h5>
 															<ul class="list-unstyled">
-																<li class="py-1"><i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>제품분류
-																	: <span
-																		th:text="${order.productCategory.name}"></span>
+																<li class="py-1">
+																	<i class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
+																	제품분류 :
+																	<span th:text="${order.productCategory != null ? order.productCategory.name : '-'}"></span>
 																</li>
+
 																<li class="py-1"
+																	th:if="${orderItem != null and orderItem.parsedOptionMap != null and !#maps.isEmpty(orderItem.parsedOptionMap)}"
 																	th:each="entry : ${orderItem.parsedOptionMap}">
-																	<i
-																		class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
-																	<span
-																		th:text="${entry.key} + ' : ' + ${entry.value}">옵션</span>
+																	<i class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
+																	<span th:text="${entry.key} + ' : ' + ${entry.value}">옵션</span>
+																</li>
+
+																<li class="py-1 text-muted"
+																	th:if="${orderItem == null or orderItem.parsedOptionMap == null or #maps.isEmpty(orderItem.parsedOptionMap)}">
+																	<i class="mdi mdi-circle-medium me-1 text-muted align-middle"></i>
+																	등록된 옵션 정보가 없습니다.
 																</li>
 															</ul>
 														</div>
 													</div>
 												</div>
+
 												<div class="row mt-4">
 													<div class="col-12">
 														<div class="row g-2">
 
 															<!-- 관리자 업로드 이미지 -->
-															<div th:if="${!#lists.isEmpty(order.adminUploadedImages)}"
+															<div th:if="${order.adminUploadedImages != null and !#lists.isEmpty(order.adminUploadedImages)}"
 																class="col-12 mt-3">
 																<h6>관리자 업로드</h6>
 																<div class="row g-2">
 																	<div class="col-lg-2"
 																		th:each="img : ${order.adminUploadedImages}"
 																		th:attr="data-id=${img.id}">
-																		<div
-																			class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
+																		<div class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
 																			<img th:src="${img.url}"
 																				class="img-fluid mb-2"
-																				style="max-height: 120px;" />
+																				style="max-height: 120px;"
+																				alt="관리자 업로드 이미지" />
 																			<span class="text-truncate small"
 																				th:text="${img.filename}"
 																				style="max-width: 100%;"></span>
-																			<a th:href="${img.url}" download
-																				class="mt-1">
-																				<i
-																					class="ri-download-2-line fs-18 text-primary"></i>
+																			<a th:href="${img.url}" download class="mt-1">
+																				<i class="ri-download-2-line fs-18 text-primary"></i>
 																			</a>
 																		</div>
 																	</div>
 																</div>
 															</div>
+
 															<!-- 배송 완료 이미지 -->
-															<div th:if="${!#lists.isEmpty(order.deliveryImages)}"
+															<div th:if="${order.deliveryImages != null and !#lists.isEmpty(order.deliveryImages)}"
 																class="col-12 mt-3">
 																<h6>배송 완료 증빙</h6>
 																<div class="row g-2">
 																	<div class="col-lg-2"
 																		th:each="img : ${order.deliveryImages}"
 																		th:attr="data-id=${img.id}">
-																		<div
-																			class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
+																		<div class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
 																			<img th:src="${img.url}"
 																				class="img-fluid mb-2"
-																				style="max-height: 120px;" />
+																				style="max-height: 120px;"
+																				alt="배송 완료 증빙 이미지" />
 																			<span class="text-truncate small"
 																				th:text="${img.filename}"
 																				style="max-width: 100%;"></span>
-																			<a th:href="${img.url}" download
-																				class="mt-1">
-																				<i
-																					class="ri-download-2-line fs-18 text-primary"></i>
+																			<a th:href="${img.url}" download class="mt-1">
+																				<i class="ri-download-2-line fs-18 text-primary"></i>
 																			</a>
 																		</div>
 																	</div>
 																</div>
 															</div>
 
+															<div th:if="${(order.adminUploadedImages == null or #lists.isEmpty(order.adminUploadedImages))
+																and (order.deliveryImages == null or #lists.isEmpty(order.deliveryImages))}"
+																class="col-12 mt-3">
+																<div class="text-muted">
+																	등록된 이미지가 없습니다.
+																</div>
+															</div>
+
 														</div>
 													</div>
 												</div>
+
 											</div>
 										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-
 					</div>
+
 				</div>
 			</div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
 	<script src="/administration/assets/js/pages/project-overview.init.js"></script>
+
 	<script>
 		document.addEventListener("DOMContentLoaded", function () {
 			const fileInput = document.getElementById("delivery-images");
 			const previewContainer = document.getElementById("preview-container");
 
+			if (!fileInput || !previewContainer) {
+				return;
+			}
+
 			let selectedFiles = [];
 
 			fileInput.addEventListener("change", function () {
-				const files = Array.from(fileInput.files);
+				const files = Array.from(fileInput.files || []);
 				previewContainer.innerHTML = "";
 				selectedFiles = files;
 
 				files.forEach((file, index) => {
 					const reader = new FileReader();
+
 					reader.onload = function (e) {
 						const col = document.createElement("div");
 						col.className = "col-lg-2 position-relative";
 
 						col.innerHTML = `
-                    <div class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
-                        <img src="${e.target.result}" class="img-fluid mb-2" style="max-height: 120px;" />
-                        <span class="text-truncate small" title="${file.name}" style="max-width: 100%;">${file.name}</span>
-                        <button type="button" class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 remove-image" data-index="${index}">
-                            &times;
-                        </button>
-                    </div>
-                `;
+							<div class="border rounded p-2 d-flex flex-column align-items-center text-center position-relative">
+								<img src="${e.target.result}" class="img-fluid mb-2" style="max-height: 120px;" alt="배송 증빙 미리보기" />
+								<span class="text-truncate small" title="${file.name}" style="max-width: 100%;">${file.name}</span>
+								<button type="button" class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 remove-image" data-index="${index}">
+									&times;
+								</button>
+							</div>
+						`;
+
 						previewContainer.appendChild(col);
 					};
+
 					reader.readAsDataURL(file);
 				});
 			});
 
 			previewContainer.addEventListener("click", function (e) {
-				if (e.target.classList.contains("remove-image")) {
-					const index = parseInt(e.target.getAttribute("data-index"));
-					selectedFiles.splice(index, 1);
-
-					// 새로운 FileList를 만들어서 input에 재할당
-					const dataTransfer = new DataTransfer();
-					selectedFiles.forEach(file => dataTransfer.items.add(file));
-					fileInput.files = dataTransfer.files;
-
-					// 다시 렌더링
-					const changeEvent = new Event("change");
-					fileInput.dispatchEvent(changeEvent);
+				if (!e.target.classList.contains("remove-image")) {
+					return;
 				}
+
+				const index = parseInt(e.target.getAttribute("data-index"), 10);
+
+				if (Number.isNaN(index)) {
+					return;
+				}
+
+				selectedFiles.splice(index, 1);
+
+				const dataTransfer = new DataTransfer();
+				selectedFiles.forEach(file => dataTransfer.items.add(file));
+				fileInput.files = dataTransfer.files;
+
+				const changeEvent = new Event("change");
+				fileInput.dispatchEvent(changeEvent);
 			});
 		});
 	</script>

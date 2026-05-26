@@ -17,6 +17,7 @@
 	<link href="/administration/assets/css/app.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/custom.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/add.css" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/dispatch.css" rel="stylesheet" type="text/css" />
 	<script src="/administration/assets/js/layout.js"></script>
 	<link href="/administration/assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -321,6 +322,24 @@
 													배송 리스트 </a>
 											</li>
 
+										</ul>
+									</div>
+								</li>
+								<li class="nav-item"
+									th:if="${#authentication.principal.member.role.name == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '출고팀'}">
+									<a href="#sidebarDispatchTaskManager" class="nav-link" data-bs-toggle="collapse"
+										role="button" aria-expanded="false" aria-controls="sidebarDispatchTaskManager"
+										data-key="t-membertaskmanager">
+										출고팀
+									</a>
+									<div class="collapse menu-dropdown" id="sidebarDispatchTaskManager">
+										<ul class="nav nav-sm flex-column">
+											<li class="nav-item">
+												<a href="/team/dispatchList" class="nav-link"
+													data-key="t-dispatch-list">
+													출고관리
+												</a>
+											</li>
 										</ul>
 									</div>
 								</li>

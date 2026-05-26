@@ -1,0 +1,489 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+
+	<div id="layout-wrapper">
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+
+		<input type="hidden" id="dispatch-list-csrf-token" th:value="${_csrf != null ? _csrf.token : ''}">
+		<input type="hidden" id="dispatch-list-csrf-header" th:value="${_csrf != null ? _csrf.headerName : ''}">
+		<input type="hidden" id="dispatch-list-today" th:value="${#temporals.format(today, 'yyyy-MM-dd')}">
+
+		<div class="main-content">
+			<div class="page-content">
+				<div class="container-fluid">
+
+					<div class="row">
+						<div class="col-12">
+							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+								<div>
+									<h4 class="mb-sm-0 dispatch-list-page-title">
+										<i class="ri-truck-line"></i>
+										<span>출고팀 업무현황</span>
+									</h4>
+
+									<div class="dispatch-list-status-guide">
+										<span class="dispatch-list-guide-pill dispatch-list-guide-confirmed">승인완료: 출고완료
+											가능</span>
+										<span class="dispatch-list-guide-pill dispatch-list-guide-production">생산완료: 출고완료
+											가능</span>
+										<span class="dispatch-list-guide-pill dispatch-list-guide-dispatch">출고완료: 완료된
+											건</span>
+									</div>
+								</div>
+
+								<div class="page-title-right">
+									<ol class="breadcrumb m-0">
+										<li class="breadcrumb-item"><a href="#">팀별업무관리</a></li>
+										<li class="breadcrumb-item active">출고팀</li>
+									</ol>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="card dispatch-list-filter-card mb-3" id="dispatch-list-filter-card">
+						<div class="card-body">
+							<div class="row g-2 align-items-end">
+								<div class="col-lg-2 col-md-4 col-12">
+									<label class="dispatch-list-label" for="dispatch-list-keyword-type">키워드 구분</label>
+									<select id="dispatch-list-keyword-type"
+										class="form-select dispatch-list-form-select">
+										<option value="COMPANY_NAME">거래처명</option>
+										<option value="MEMBER_NAME">멤버 이름</option>
+										<option value="MEMBER_USERNAME">멤버 아이디</option>
+										<option value="MEMBER_PHONE">멤버 휴대폰</option>
+										<option value="MEMBER_EMAIL">멤버 이메일</option>
+									</select>
+								</div>
+
+								<div class="col-lg-3 col-md-8 col-12">
+									<label class="dispatch-list-label" for="dispatch-list-keyword">키워드</label>
+									<input type="text" id="dispatch-list-keyword"
+										class="form-control dispatch-list-form-control" placeholder="검색어를 입력하세요">
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label"
+										for="dispatch-list-product-category-id">카테고리</label>
+									<select id="dispatch-list-product-category-id"
+										class="form-select dispatch-list-form-select">
+										<option value="">전체</option>
+										<option th:each="category : ${productCategories}" th:value="${category.id}"
+											th:text="${category.name}">
+											카테고리
+										</option>
+									</select>
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label" for="dispatch-list-standard">규격 구분</label>
+									<select id="dispatch-list-standard" class="form-select dispatch-list-form-select">
+										<option value="ALL">전체</option>
+										<option value="STANDARD">규격</option>
+										<option value="NON_STANDARD">비규격</option>
+									</select>
+								</div>
+
+								<div class="col-lg-3 col-md-4 col-12">
+									<label class="dispatch-list-label" for="dispatch-list-order-date">출고일</label>
+									<input type="date" id="dispatch-list-order-date"
+										class="form-control dispatch-list-form-control"
+										th:value="${#temporals.format(today, 'yyyy-MM-dd')}">
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label" for="dispatch-list-province-id">도/특별시</label>
+									<select id="dispatch-list-province-id"
+										class="form-select dispatch-list-form-select">
+										<option value="" data-name="">전체</option>
+										<option th:each="province : ${provinces}" th:value="${province.id}"
+											th:attr="data-name=${province.name}" th:text="${province.name}">
+											도
+										</option>
+									</select>
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label" for="dispatch-list-city-id">시</label>
+									<select id="dispatch-list-city-id" class="form-select dispatch-list-form-select"
+										disabled>
+										<option value="" data-name="">전체</option>
+									</select>
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label" for="dispatch-list-district-id">구/군</label>
+									<select id="dispatch-list-district-id" class="form-select dispatch-list-form-select"
+										disabled>
+										<option value="" data-name="">전체</option>
+									</select>
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label"
+										for="dispatch-list-delivery-method-id">배송수단</label>
+									<select id="dispatch-list-delivery-method-id"
+										class="form-select dispatch-list-form-select">
+										<option value="">전체</option>
+										<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
+											th:text="${method.methodName}">
+											배송수단
+										</option>
+									</select>
+								</div>
+
+								<div class="col-lg-4 col-md-8 col-12">
+									<div class="dispatch-list-filter-actions">
+										<button type="button" id="dispatch-list-search-btn" class="btn btn-primary">
+											<i class="ri-search-line me-1"></i>검색
+										</button>
+										<button type="button" id="dispatch-list-reset-btn"
+											class="btn btn-outline-secondary">
+											초기화
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="dispatch-list-toolbar mb-2" id="dispatch-list-toolbar">
+						<div class="dispatch-list-toolbar-left">
+							<span class="dispatch-list-count-text">
+								조회 <span id="dispatch-list-loaded-count">0</span>건
+							</span>
+							<span class="dispatch-list-selected-text">
+								선택 <span id="dispatch-list-selected-count">0</span>건
+							</span>
+						</div>
+
+						<div class="dispatch-list-toolbar-right">
+							<button type="button" id="dispatch-list-bulk-complete-btn" class="btn btn-success" disabled>
+								<i class="ri-check-double-line me-1"></i>일괄 출고완료
+							</button>
+						</div>
+					</div>
+
+					<div class="dispatch-list-table-card">
+						<div class="dispatch-list-table-responsive">
+							<table class="table dispatch-list-table">
+								<colgroup>
+									<col style="width: 120px;">
+									<col style="width: 110px;">
+									<col style="width: 220px;">
+									<col style="width: 190px;">
+									<col style="width: 130px;">
+									<col style="width: 170px;">
+									<col style="width: 70px;">
+									<col style="width: 230px;">
+									<col style="width: 150px;">
+									<col style="width: 130px;">
+								</colgroup>
+								<thead>
+									<tr>
+										<th>
+											<div class="dispatch-list-order-cell">
+												<input type="checkbox" id="dispatch-list-check-all">
+												<span>오더ID</span>
+											</div>
+										</th>
+										<th>카테고리</th>
+										<th>거래처 / 멤버</th>
+										<th>품목명</th>
+										<th>색상</th>
+										<th>규격</th>
+										<th class="text-center">수량</th>
+										<th>adminMemo</th>
+										<th>배송수단</th>
+										<th class="text-center">출고완료</th>
+									</tr>
+								</thead>
+
+								<tbody id="dispatch-list-tbody">
+									<tr>
+										<td colspan="10" class="dispatch-list-empty">
+											출고 데이터를 불러오는 중입니다.
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					<div id="dispatch-list-more-status" class="text-center text-muted fw-bold py-3">
+						스크롤하면 50개씩 추가 조회됩니다.
+					</div>
+
+				</div>
+			</div>
+
+			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+	<button type="button" id="dispatch-list-floating-control-btn" class="btn btn-primary dispatch-list-floating-btn"
+		data-bs-toggle="modal" data-bs-target="#dispatch-list-control-modal">
+		<i class="ri-equalizer-line"></i>
+		<span>필터 / 완료</span>
+		<span class="dispatch-list-floating-count" id="dispatch-list-floating-selected-count">0</span>
+	</button>
+
+	<div class="modal fade dispatch-list-control-modal" id="dispatch-list-control-modal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered modal-lg">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-0">출고관리 빠른 제어</h5>
+						<div class="text-muted small mt-1">
+							현재 화면 위치와 상관없이 검색 및 일괄 출고완료를 처리합니다.
+						</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="dispatch-list-control-summary mb-3">
+						<div class="dispatch-list-control-summary-item">
+							<span class="dispatch-list-control-summary-label">현재 조회</span>
+							<strong><span id="dispatch-list-modal-loaded-count">0</span>건</strong>
+						</div>
+
+						<div class="dispatch-list-control-summary-item">
+							<span class="dispatch-list-control-summary-label">선택</span>
+							<strong><span id="dispatch-list-modal-selected-count-info">0</span>건</strong>
+						</div>
+
+						<div class="dispatch-list-control-summary-item">
+							<span class="dispatch-list-control-summary-label">출고완료 처리</span>
+							<strong>선택 <span id="dispatch-list-modal-complete-count">0</span>건</strong>
+						</div>
+
+						<div class="dispatch-list-control-summary-item dispatch-list-control-summary-item-wide">
+							<span class="dispatch-list-control-summary-label">조회 상태</span>
+							<strong id="dispatch-list-modal-more-status">스크롤하면 50개씩 추가 조회됩니다.</strong>
+						</div>
+					</div>
+
+					<div class="row g-2 align-items-end">
+						<div class="col-md-4 col-12">
+							<label class="dispatch-list-label" for="dispatch-list-modal-keyword-type">키워드 구분</label>
+							<select id="dispatch-list-modal-keyword-type" class="form-select dispatch-list-form-select">
+								<option value="COMPANY_NAME">거래처명</option>
+								<option value="MEMBER_NAME">멤버 이름</option>
+								<option value="MEMBER_USERNAME">멤버 아이디</option>
+								<option value="MEMBER_PHONE">멤버 휴대폰</option>
+								<option value="MEMBER_EMAIL">멤버 이메일</option>
+							</select>
+						</div>
+
+						<div class="col-md-8 col-12">
+							<label class="dispatch-list-label" for="dispatch-list-modal-keyword">키워드</label>
+							<input type="text" id="dispatch-list-modal-keyword"
+								class="form-control dispatch-list-form-control">
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label"
+								for="dispatch-list-modal-product-category-id">카테고리</label>
+							<select id="dispatch-list-modal-product-category-id"
+								class="form-select dispatch-list-form-select">
+								<option value="">전체</option>
+								<option th:each="category : ${productCategories}" th:value="${category.id}"
+									th:text="${category.name}">
+									카테고리
+								</option>
+							</select>
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-standard">규격 구분</label>
+							<select id="dispatch-list-modal-standard" class="form-select dispatch-list-form-select">
+								<option value="ALL">전체</option>
+								<option value="STANDARD">규격</option>
+								<option value="NON_STANDARD">비규격</option>
+							</select>
+						</div>
+
+						<div class="col-md-4 col-12">
+							<label class="dispatch-list-label" for="dispatch-list-modal-order-date">출고일</label>
+							<input type="date" id="dispatch-list-modal-order-date"
+								class="form-control dispatch-list-form-control">
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-province-id">도/특별시</label>
+							<select id="dispatch-list-modal-province-id" class="form-select dispatch-list-form-select">
+								<option value="" data-name="">전체</option>
+								<option th:each="province : ${provinces}" th:value="${province.id}"
+									th:attr="data-name=${province.name}" th:text="${province.name}">
+									도
+								</option>
+							</select>
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-city-id">시</label>
+							<select id="dispatch-list-modal-city-id" class="form-select dispatch-list-form-select"
+								disabled>
+								<option value="" data-name="">전체</option>
+							</select>
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-district-id">구/군</label>
+							<select id="dispatch-list-modal-district-id" class="form-select dispatch-list-form-select"
+								disabled>
+								<option value="" data-name="">전체</option>
+							</select>
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-delivery-method-id">배송수단</label>
+							<select id="dispatch-list-modal-delivery-method-id"
+								class="form-select dispatch-list-form-select">
+								<option value="">전체</option>
+								<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
+									th:text="${method.methodName}">
+									배송수단
+								</option>
+							</select>
+						</div>
+
+						<div class="col-12">
+							<div class="d-flex flex-wrap justify-content-between gap-2 mt-2">
+								<button type="button" id="dispatch-list-modal-search-btn" class="btn btn-primary">
+									<i class="ri-search-line me-1"></i>이 조건으로 검색
+								</button>
+
+								<button type="button" id="dispatch-list-modal-bulk-complete-btn" class="btn btn-success"
+									disabled>
+									<i class="ri-check-double-line me-1"></i>
+									선택 <span id="dispatch-list-modal-selected-count">0</span>건 출고완료
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="dispatch-list-delivery-method-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-0">배송수단 변경</h5>
+						<div class="text-muted small mt-1">
+							선택한 오더의 배송수단을 변경합니다.
+						</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<input type="hidden" id="dispatch-list-delivery-modal-order-id">
+
+					<div class="dispatch-list-delivery-method-list">
+						<button type="button" class="btn btn-outline-primary dispatch-list-delivery-method-option"
+							th:each="method : ${deliveryMethods}"
+							th:attr="data-delivery-method-id=${method.id}, data-delivery-method-name=${method.methodName}"
+							th:text="${method.methodName}">
+							배송수단
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal fade dispatch-list-message-modal" id="dispatch-list-confirm-modal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-0">
+							<i class="ri-check-double-line me-1"></i>
+							출고완료 처리
+						</h5>
+						<div class="text-muted small mt-1">
+							선택한 주문의 상태를 출고완료로 변경합니다.
+						</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="dispatch-list-message-box">
+						<div class="dispatch-list-message-icon dispatch-list-message-icon-confirm">
+							<i class="ri-question-line"></i>
+						</div>
+						<div class="dispatch-list-message-text" id="dispatch-list-confirm-message">
+							선택한 주문을 출고완료 처리하시겠습니까?
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+						취소
+					</button>
+					<button type="button" class="btn btn-success" id="dispatch-list-confirm-ok-btn">
+						<i class="ri-check-line me-1"></i>
+						처리
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade dispatch-list-message-modal" id="dispatch-list-alert-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-0">
+							<i class="ri-information-line me-1"></i>
+							알림
+						</h5>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="dispatch-list-message-box">
+						<div class="dispatch-list-message-icon dispatch-list-message-icon-info">
+							<i class="ri-information-line"></i>
+						</div>
+						<div class="dispatch-list-message-text" id="dispatch-list-alert-message">
+							처리되었습니다.
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+						확인
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+	<script th:src="@{/administration/assets/team/dispatch/dispatchList.js}"></script>
+
+</body>
+
+</html>

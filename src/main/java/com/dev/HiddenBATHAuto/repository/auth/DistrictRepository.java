@@ -43,6 +43,8 @@ public interface DistrictRepository extends JpaRepository<District, Long> {
 	
 	List<District> findByProvinceIdAndCityIsNullOrderByNameAsc(Long provinceId); // 서울/세종 등
     List<District> findByCityIdOrderByNameAsc(Long cityId); // 일반 케이스
+    List<District> findByProvinceIdAndCityIsNullOrderByIdAsc(Long provinceId);
+    List<District> findByCityIdOrderByIdAsc(Long cityId);
     
 
 }

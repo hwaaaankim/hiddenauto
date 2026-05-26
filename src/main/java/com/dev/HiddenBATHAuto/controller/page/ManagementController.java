@@ -2399,22 +2399,22 @@ public class ManagementController {
 
 	@GetMapping("/employeeInsertForm")
 	public String employeeInsertForm(Model model) {
-		// 팀 목록
-		List<Team> teams = teamRepository.findAll();
+	    // 팀 목록
+	    List<Team> teams = teamRepository.findAll();
 
-		// 팀 카테고리 목록 (모두 불러와서 JS에서 필터링할 수 있게)
-		List<TeamCategory> teamCategories = teamCategoryRepository.findByTeamName("생산팀");
+	    // 전체 팀 카테고리 목록
+	    // HTML option에 data-team-id를 심어두고 JS에서 선택한 팀 기준으로 필터링
+	    List<TeamCategory> teamCategories = teamCategoryRepository.findAll();
 
-		// 시도 정보 (도)
-		List<Province> provinces = provinceRepository.findAll();
+	    // 시도 정보
+	    List<Province> provinces = provinceRepository.findAll();
 
-		model.addAttribute("teams", teams);
-		model.addAttribute("teamCategories", teamCategories);
-		model.addAttribute("provinces", provinces);
+	    model.addAttribute("teams", teams);
+	    model.addAttribute("teamCategories", teamCategories);
+	    model.addAttribute("provinces", provinces);
 
-		return "administration/member/employee/employeeInsertForm";
+	    return "administration/member/employee/employeeInsertForm";
 	}
-
 	@PostMapping("/employeeInsert")
 	public String employeeInsert(@ModelAttribute MemberSaveDTO request) {
 		System.out.println("📥 regionJson 수신: " + request.getRegionJson());

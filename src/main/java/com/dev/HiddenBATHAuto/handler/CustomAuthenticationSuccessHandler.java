@@ -57,20 +57,31 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
     private String getDefaultRedirectUrl(String role, PrincipalDetails principal) {
         return switch (role) {
             case "ADMIN", "MANAGEMENT" -> "/common/main";
+
             case "INTERNAL_EMPLOYEE" -> {
-                String teamName = principal.getMember().getTeam().getName();
+                String teamName = "";
+
+                if (principal != null
+                        && principal.getMember() != null
+                        && principal.getMember().getTeam() != null
+                        && principal.getMember().getTeam().getName() != null) {
+                    teamName = principal.getMember().getTeam().getName();
+                }
+
                 yield switch (teamName) {
                     case "생산팀" -> "/team/productionList";
                     case "배송팀" -> "/team/deliveryList";
                     case "AS팀" -> "/team/asList";
-                    default -> "/common/main"; // 기본 fallback
+                    case "출고팀" -> "/team/dispatchList";
+                    default -> "/common/main";
                 };
             }
+
             case "CUSTOMER_REPRESENTATIVE", "CUSTOMER_EMPLOYEE" -> "/index";
+
             default -> "/loginForm?error=unauthorized";
         };
     }
-
 
     private boolean isInvalidRedirectUrl(String url) {
         return url.contains("/ws/") || !url.startsWith("/");

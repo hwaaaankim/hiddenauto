@@ -30,4 +30,6 @@ public interface TeamCategoryRepository extends JpaRepository<TeamCategory, Long
 	Optional<TeamCategory> findByIdAndTeam_Id(Long id, Long teamId);
 
 	Optional<TeamCategory> findFirstByTeam_IdAndNameIgnoreCase(Long teamId, String name);
+
+	Optional<TeamCategory> findFirstByTeam_IdOrderByIdAsc(Long teamId);
 }
