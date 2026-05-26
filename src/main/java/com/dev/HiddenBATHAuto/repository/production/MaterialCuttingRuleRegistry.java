@@ -18,6 +18,10 @@ public class MaterialCuttingRuleRegistry {
     private final List<MaterialCuttingRule> rules;
 
     public MaterialCuttingRule resolve(Order order, MaterialCuttingParsedOptionsDto parsedOptions) {
+        if (rules == null || rules.isEmpty()) {
+            throw new IllegalStateException("등록된 재단 규칙이 없습니다.");
+        }
+
         return rules.stream()
                 .filter(rule -> rule.supports(order, parsedOptions))
                 .sorted(Comparator.comparingInt(MaterialCuttingRule::getPriority).reversed())

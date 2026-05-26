@@ -63,9 +63,11 @@
 
         <div class="cutting-sheet-body">
 
-            <section class="cutting-sheet-half cutting-sheet-half-top">
+            <!-- 왼쪽: 제품정보 + 계산근거 -->
+            <aside class="cutting-sheet-info-column">
+
                 <div class="cutting-info-card">
-                    <div class="cutting-info-title">기준 옵션</div>
+                    <div class="cutting-info-title">제품정보 / 기준 옵션</div>
 
                     <div class="cutting-info-grid">
                         <div>
@@ -81,14 +83,25 @@
                             <strong th:text="${order.productName}">제품명</strong>
                         </div>
                         <div>
-                            <span>요청 사이즈</span>
-                            <strong>
-                                <span th:text="${order.parsedOptions.widthMm != null ? order.parsedOptions.widthMm : '-'}">1200</span>
-                                ×
-                                <span th:text="${order.parsedOptions.depthMm != null ? order.parsedOptions.depthMm : '-'}">500</span>
-                                ×
-                                <span th:text="${order.parsedOptions.heightMm != null ? order.parsedOptions.heightMm : '-'}">800</span>
-                                mm
+                            <span>수량</span>
+                            <strong th:text="|${order.quantity}장|">1장</strong>
+                        </div>
+                        <div>
+                            <span>요청 W</span>
+                            <strong th:text="|${order.parsedOptions.widthMm != null ? order.parsedOptions.widthMm : '-'} mm|">
+                                1200 mm
+                            </strong>
+                        </div>
+                        <div>
+                            <span>요청 D</span>
+                            <strong th:text="|${order.parsedOptions.depthMm != null ? order.parsedOptions.depthMm : '-'} mm|">
+                                500 mm
+                            </strong>
+                        </div>
+                        <div>
+                            <span>요청 H</span>
+                            <strong th:text="|${order.parsedOptions.heightMm != null ? order.parsedOptions.heightMm : '-'} mm|">
+                                800 mm
                             </strong>
                         </div>
                         <div>
@@ -103,14 +116,14 @@
                             <span>문 타입</span>
                             <strong th:text="${order.parsedOptions.doorModeLabel}">아웃도어</strong>
                         </div>
-                        <div>
+                        <div class="cutting-info-grid-wide">
                             <span>마구리</span>
                             <strong th:text="${order.parsedOptions.edgeLabel}">전좌우</strong>
                         </div>
                     </div>
 
                     <div class="cutting-option-line">
-                        <span>옵션</span>
+                        <span>옵션 원문</span>
                         <strong th:text="${order.productOptionText}">옵션</strong>
                     </div>
 
@@ -118,70 +131,6 @@
                         <span>관리자 비고</span>
                         <strong th:text="${order.adminMemo}">-</strong>
                     </div>
-                </div>
-
-                <div class="cutting-panel-grid">
-                    <article class="cutting-panel-card"
-                             th:each="panel : ${order.panels}"
-                             th:if="${panel.faceCode == 'TOP' or panel.faceCode == 'BOTTOM' or panel.faceCode == 'FRONT'}">
-
-                        <div class="cutting-panel-head">
-                            <strong th:text="${panel.faceLabel}">위판</strong>
-                            <span th:text="|${panel.quantity}장|">1장</span>
-                        </div>
-
-                        <div class="cutting-panel-stage">
-                            <div class="cutting-panel-drawing"
-                                 th:attr="data-width=${panel.widthMm}, data-height=${panel.heightMm}">
-                                <div class="cutting-panel-size"
-                                     th:text="|${panel.widthMm} × ${panel.heightMm} mm|">
-                                    1170 × 485 mm
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="cutting-panel-axis"
-                             th:text="|${panel.widthLabel} × ${panel.heightLabel}|">
-                            W × D
-                        </div>
-
-                        <div class="cutting-panel-note" th:text="${panel.note}">
-                            note
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <section class="cutting-sheet-half cutting-sheet-half-bottom">
-                <div class="cutting-panel-grid cutting-panel-grid-bottom">
-                    <article class="cutting-panel-card"
-                             th:each="panel : ${order.panels}"
-                             th:if="${panel.faceCode == 'LEFT' or panel.faceCode == 'RIGHT' or panel.faceCode == 'BACK'}">
-
-                        <div class="cutting-panel-head">
-                            <strong th:text="${panel.faceLabel}">좌측판</strong>
-                            <span th:text="|${panel.quantity}장|">1장</span>
-                        </div>
-
-                        <div class="cutting-panel-stage">
-                            <div class="cutting-panel-drawing"
-                                 th:attr="data-width=${panel.widthMm}, data-height=${panel.heightMm}">
-                                <div class="cutting-panel-size"
-                                     th:text="|${panel.widthMm} × ${panel.heightMm} mm|">
-                                    470 × 650 mm
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="cutting-panel-axis"
-                             th:text="|${panel.widthLabel} × ${panel.heightLabel}|">
-                            D × H
-                        </div>
-
-                        <div class="cutting-panel-note" th:text="${panel.note}">
-                            note
-                        </div>
-                    </article>
                 </div>
 
                 <div class="cutting-warning-box"
@@ -196,12 +145,160 @@
 
                 <div class="cutting-formula-box">
                     <div class="cutting-formula-title">하부장 V1 계산 기준</div>
-                    <div>
-                        위/아래판 = 요청 W/D - 마구리 방향별 두께 차감,
-                        다리형 H = 요청 H - 150,
-                        아웃도어 좌/우판 D = 계산 D - 문 두께,
-                        인도어 전면 W = 계산 W - 좌우 두께
+
+                    <div class="cutting-formula-summary">
+                        <div>
+                            <span>요청 사이즈</span>
+                            <strong>
+                                <span th:text="${order.parsedOptions.widthMm != null ? order.parsedOptions.widthMm : '-'}">1200</span>
+                                ×
+                                <span th:text="${order.parsedOptions.depthMm != null ? order.parsedOptions.depthMm : '-'}">500</span>
+                                ×
+                                <span th:text="${order.parsedOptions.heightMm != null ? order.parsedOptions.heightMm : '-'}">800</span>
+                                mm
+                            </strong>
+                        </div>
+                        <div>
+                            <span>적용 두께</span>
+                            <strong th:text="|${order.parsedOptions.materialThicknessMm}T|">15T</strong>
+                        </div>
                     </div>
+
+                    <ul class="cutting-formula-list">
+                        <li>위/아래판: 요청 W/D 기준에서 마구리 방향별 두께를 차감합니다.</li>
+                        <li>좌/우판: 형태와 문 타입에 따라 D/H 기준 치수를 적용합니다.</li>
+                        <li>전면판: 인도어/아웃도어 여부에 따라 좌우 두께 차감 여부가 달라집니다.</li>
+                        <li>다리형: 다리 높이 기준값을 H에서 차감한 뒤 판재 높이를 계산합니다.</li>
+                    </ul>
+
+                    <div class="cutting-formula-help">
+                        각 도면 하단의 “계산근거”는 서버의 재단 규칙에서 생성된 panel.note 값을 표시합니다.
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 오른쪽: 6면 도면 한눈에 보기 -->
+            <section class="cutting-panel-column">
+                <div class="cutting-panel-column-title">
+                    6면 재단 도면
+                </div>
+
+                <div class="cutting-panel-grid cutting-panel-grid-all">
+
+                    <!-- 1행: 위판 / 아래판 / 전면 -->
+                    <th:block th:each="panel : ${order.panels}">
+                        <article class="cutting-panel-card"
+                                 th:if="${panel.faceCode == 'TOP' or panel.faceCode == 'BOTTOM' or panel.faceCode == 'FRONT'}">
+
+                            <div class="cutting-panel-head">
+                                <strong th:text="${panel.faceLabel}">위판</strong>
+                                <span th:text="|${panel.quantity}장|">1장</span>
+                            </div>
+
+                            <div class="cutting-panel-stage">
+                                <div class="cutting-panel-measure-frame">
+
+                                    <div class="cutting-dimension cutting-dimension-top">
+                                        <span th:text="|${panel.widthLabel} ${panel.widthMm} mm|">W 1170 mm</span>
+                                    </div>
+
+                                    <div class="cutting-dimension cutting-dimension-bottom">
+                                        <span th:text="|${panel.widthLabel} ${panel.widthMm} mm|">W 1170 mm</span>
+                                    </div>
+
+                                    <div class="cutting-dimension cutting-dimension-left">
+                                        <span th:text="|${panel.heightLabel} ${panel.heightMm} mm|">D 485 mm</span>
+                                    </div>
+
+                                    <div class="cutting-dimension cutting-dimension-right">
+                                        <span th:text="|${panel.heightLabel} ${panel.heightMm} mm|">D 485 mm</span>
+                                    </div>
+
+                                    <div class="cutting-panel-drawing"
+                                         th:attr="data-width=${panel.widthMm}, data-height=${panel.heightMm}">
+                                        <div class="cutting-panel-face-tag" th:text="${panel.faceLabel}">
+                                            위판
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="cutting-panel-calculation">
+                                <div class="cutting-panel-calc-row">
+                                    <span>가로</span>
+                                    <strong th:text="|${panel.widthLabel} = ${panel.widthMm} mm|">W = 1170 mm</strong>
+                                </div>
+                                <div class="cutting-panel-calc-row">
+                                    <span>세로</span>
+                                    <strong th:text="|${panel.heightLabel} = ${panel.heightMm} mm|">D = 485 mm</strong>
+                                </div>
+                                <div class="cutting-panel-calc-note">
+                                    <span>계산근거</span>
+                                    <strong th:text="${panel.note != null and panel.note != '' ? panel.note : '-'}">
+                                        note
+                                    </strong>
+                                </div>
+                            </div>
+                        </article>
+                    </th:block>
+
+                    <!-- 2행: 좌측판 / 우측판 / 뒷판 -->
+                    <th:block th:each="panel : ${order.panels}">
+                        <article class="cutting-panel-card"
+                                 th:if="${panel.faceCode == 'LEFT' or panel.faceCode == 'RIGHT' or panel.faceCode == 'BACK'}">
+
+                            <div class="cutting-panel-head">
+                                <strong th:text="${panel.faceLabel}">좌측판</strong>
+                                <span th:text="|${panel.quantity}장|">1장</span>
+                            </div>
+
+                            <div class="cutting-panel-stage">
+                                <div class="cutting-panel-measure-frame">
+
+                                    <div class="cutting-dimension cutting-dimension-top">
+                                        <span th:text="|${panel.widthLabel} ${panel.widthMm} mm|">D 470 mm</span>
+                                    </div>
+
+                                    <div class="cutting-dimension cutting-dimension-bottom">
+                                        <span th:text="|${panel.widthLabel} ${panel.widthMm} mm|">D 470 mm</span>
+                                    </div>
+
+                                    <div class="cutting-dimension cutting-dimension-left">
+                                        <span th:text="|${panel.heightLabel} ${panel.heightMm} mm|">H 650 mm</span>
+                                    </div>
+
+                                    <div class="cutting-dimension cutting-dimension-right">
+                                        <span th:text="|${panel.heightLabel} ${panel.heightMm} mm|">H 650 mm</span>
+                                    </div>
+
+                                    <div class="cutting-panel-drawing"
+                                         th:attr="data-width=${panel.widthMm}, data-height=${panel.heightMm}">
+                                        <div class="cutting-panel-face-tag" th:text="${panel.faceLabel}">
+                                            좌측판
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="cutting-panel-calculation">
+                                <div class="cutting-panel-calc-row">
+                                    <span>가로</span>
+                                    <strong th:text="|${panel.widthLabel} = ${panel.widthMm} mm|">D = 470 mm</strong>
+                                </div>
+                                <div class="cutting-panel-calc-row">
+                                    <span>세로</span>
+                                    <strong th:text="|${panel.heightLabel} = ${panel.heightMm} mm|">H = 650 mm</strong>
+                                </div>
+                                <div class="cutting-panel-calc-note">
+                                    <span>계산근거</span>
+                                    <strong th:text="${panel.note != null and panel.note != '' ? panel.note : '-'}">
+                                        note
+                                    </strong>
+                                </div>
+                            </div>
+                        </article>
+                    </th:block>
+
                 </div>
             </section>
         </div>
