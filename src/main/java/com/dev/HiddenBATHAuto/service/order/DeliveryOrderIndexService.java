@@ -247,4 +247,21 @@ public class DeliveryOrderIndexService {
 
         return reordered;
     }
+    
+    /**
+     * 오더에 연결된 배송순서 인덱스를 제거합니다.
+     *
+     * 사용 위치:
+     * - 배송수단이 직배송이 아닌 경우
+     * - 주문 상태가 CANCELED 인 경우
+     * - 배송담당자 화면에 노출되면 안 되는 경우
+     */
+    public void removeIndex(Order order) {
+        if (order == null || order.getId() == null) {
+            return;
+        }
+
+        deliveryOrderIndexRepository.findByOrder(order)
+                .ifPresent(deliveryOrderIndexRepository::delete);
+    }
 }

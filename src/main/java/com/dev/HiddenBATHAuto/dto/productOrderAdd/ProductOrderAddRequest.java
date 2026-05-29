@@ -5,48 +5,46 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class ProductOrderAddRequest {
 
-    @NotNull
+    @NotNull(message = "대리점을 선택해 주세요.")
     private Long companyId;
 
-    @NotNull
+    @NotNull(message = "배송수단을 선택해 주세요.")
+    private Long deliveryMethodId;
+
+    @NotNull(message = "배송 희망일을 선택해 주세요.")
     private LocalDate preferredDeliveryDate;
 
-    @NotNull
+    /**
+     * 배송수단이 직배송인 경우에만 필수입니다.
+     * 직배송이 아닌 경우에는 null이어야 하며, 서버에서 저장하지 않습니다.
+     */
     private Long deliveryHandlerId;
 
-    @NotBlank
-    @Size(max = 20)
+    private String ordererName;
+    private String ordererPhone;
+
     private String zipCode;
-
-    @NotBlank
-    @Size(max = 100)
     private String doName;
-
-    @Size(max = 100)
     private String siName;
-
-    @Size(max = 100)
     private String guName;
-
-    @NotBlank
-    @Size(max = 255)
     private String roadAddress;
-
-    @Size(max = 255)
     private String detailAddress;
 
+    private int packingCost = 0;
+    private int deliveryCost = 0;
+
     @Valid
-    @NotEmpty
+    @NotEmpty(message = "최소 1개의 주문이 필요합니다.")
     private List<ProductOrderCreateRequest> orders = new ArrayList<>();
 }

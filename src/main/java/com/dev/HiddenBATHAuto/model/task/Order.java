@@ -26,134 +26,162 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import lombok.Data;
+
 @Entity
 @Table(name = "tb_order")
 @Data
 public class Order {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    @ManyToOne
-    private Task task;
+	@ManyToOne
+	private Task task;
 
-    @Column(nullable = false)
-    private boolean standard = false;
+	@Column(nullable = false)
+	private boolean standard = false;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_category_id")
-    private TeamCategory productCategory;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "product_category_id")
+	private TeamCategory productCategory;
 
-    @Column(name = "zip_code", length = 20)
-    private String zipCode;
-    
-    private String doName;
-    private String siName;
-    private String guName;
+	@Column(name = "zip_code", length = 20)
+	private String zipCode;
 
-    private String roadAddress;
-    private String detailAddress;
+	private String doName;
+	private String siName;
+	private String guName;
 
-    private int quantity;
-    private int productCost;
-    private String orderComment;
+	private String roadAddress;
+	private String detailAddress;
 
-    private LocalDateTime preferredDeliveryDate;
+	@Column(nullable = false)
+	private int quantity = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "delivery_method_id")
-    private DeliveryMethod deliveryMethod;
+	@Column(nullable = false)
+	private int productCost = 0;
 
-    @Enumerated(EnumType.STRING)
-    private OrderStatus status;
+	@Column(name = "supply_price", nullable = false)
+	private int supplyPrice = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_production_team_category_id", nullable = true)
-    private TeamCategory assignedProductionTeam;
+	@Column(name = "total_amount", nullable = false)
+	private int totalAmount = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_delivery_team_category_id", nullable = true)
-    private TeamCategory assignedDeliveryTeam;
+	@Column(name = "packing_cost", nullable = false)
+	private int packingCost = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_production_handler_id", nullable = true)
-    private Member assignedProductionHandler;
+	@Column(name = "delivery_cost", nullable = false)
+	private int deliveryCost = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_delivery_handler_id", nullable = true)
-    private Member assignedDeliveryHandler;
+	private String orderComment;
 
-    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private OrderItem orderItem;
+	private LocalDateTime preferredDeliveryDate;
 
-    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private OrderCheckStatus checkStatus;
-    
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderHistory> historyLogs;
+	@Column(name = "orderer_name", length = 50)
+	private String ordererName;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderImage> orderImages = new ArrayList<>();
+	@Column(name = "orderer_phone", length = 30)
+	private String ordererPhone;
 
-    @Lob
-    @Column(name = "admin_memo", nullable = true)
-    private String adminMemo;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "delivery_method_id")
+	private DeliveryMethod deliveryMethod;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
-    private LocalDateTime updatedAt;
+	@Enumerated(EnumType.STRING)
+	private OrderStatus status;
 
-    public void setOrderItem(OrderItem orderItem) {
-        this.orderItem = orderItem;
-        if (orderItem != null) {
-            orderItem.setOrder(this);
-        }
-    }
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "assigned_production_team_category_id", nullable = true)
+	private TeamCategory assignedProductionTeam;
 
-    public void addOrderImage(OrderImage image) {
-        if (image == null) {
-            return;
-        }
-        if (this.orderImages == null) {
-            this.orderImages = new ArrayList<>();
-        }
-        this.orderImages.add(image);
-        image.setOrder(this);
-    }
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "assigned_delivery_team_category_id", nullable = true)
+	private TeamCategory assignedDeliveryTeam;
 
-    public List<OrderImage> getCustomerUploadedImages() {
-        if (orderImages == null) return List.of();
-        return orderImages.stream()
-                .filter(img -> "CUSTOMER".equalsIgnoreCase(img.getType()))
-                .collect(Collectors.toList());
-    }
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "assigned_production_handler_id", nullable = true)
+	private Member assignedProductionHandler;
 
-    public List<OrderImage> getAdminUploadedImages() {
-        if (orderImages == null) return List.of();
-        return orderImages.stream()
-                .filter(img -> "MANAGEMENT".equalsIgnoreCase(img.getType()))
-                .collect(Collectors.toList());
-    }
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "assigned_delivery_handler_id", nullable = true)
+	private Member assignedDeliveryHandler;
 
-    public List<OrderImage> getDeliveryImages() {
-        if (orderImages == null) return List.of();
-        return orderImages.stream()
-                .filter(img -> "DELIVERY".equalsIgnoreCase(img.getType()))
-                .collect(Collectors.toList());
-    }
+	@OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+	private OrderItem orderItem;
 
-    public List<OrderImage> getProofImages() {
-        if (orderImages == null) return List.of();
-        return orderImages.stream()
-                .filter(img -> "PROOF".equalsIgnoreCase(img.getType()))
-                .collect(Collectors.toList());
-    }
+	@OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+	private OrderCheckStatus checkStatus;
 
-    @Transient
-    public List<OrderImage> getImagesByType(String type) {
-        if (orderImages == null) return List.of();
-        return orderImages.stream()
-                .filter(img -> type != null && type.equalsIgnoreCase(img.getType()))
-                .collect(Collectors.toList());
-    }
+	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<OrderHistory> historyLogs;
+
+	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<OrderImage> orderImages = new ArrayList<>();
+
+	@Lob
+	@Column(name = "admin_memo", nullable = true)
+	private String adminMemo;
+
+	private LocalDateTime createdAt = LocalDateTime.now();
+	private LocalDateTime updatedAt;
+
+	public void setOrderItem(OrderItem orderItem) {
+		this.orderItem = orderItem;
+		if (orderItem != null) {
+			orderItem.setOrder(this);
+		}
+	}
+
+	public void addOrderImage(OrderImage image) {
+		if (image == null) {
+			return;
+		}
+		if (this.orderImages == null) {
+			this.orderImages = new ArrayList<>();
+		}
+		this.orderImages.add(image);
+		image.setOrder(this);
+	}
+
+	public List<OrderImage> getCustomerUploadedImages() {
+		if (orderImages == null) {
+			return List.of();
+		}
+		return orderImages.stream().filter(img -> "CUSTOMER".equalsIgnoreCase(img.getType()))
+				.collect(Collectors.toList());
+	}
+
+	public List<OrderImage> getAdminUploadedImages() {
+		if (orderImages == null) {
+			return List.of();
+		}
+		return orderImages.stream().filter(img -> "MANAGEMENT".equalsIgnoreCase(img.getType()))
+				.collect(Collectors.toList());
+	}
+
+	public List<OrderImage> getDeliveryImages() {
+		if (orderImages == null) {
+			return List.of();
+		}
+		return orderImages.stream().filter(img -> "DELIVERY".equalsIgnoreCase(img.getType()))
+				.collect(Collectors.toList());
+	}
+
+	public List<OrderImage> getProofImages() {
+		if (orderImages == null) {
+			return List.of();
+		}
+		return orderImages.stream().filter(img -> "PROOF".equalsIgnoreCase(img.getType())).collect(Collectors.toList());
+	}
+
+	@Transient
+	public List<OrderImage> getImagesByType(String type) {
+		if (orderImages == null) {
+			return List.of();
+		}
+		return orderImages.stream().filter(img -> type != null && type.equalsIgnoreCase(img.getType()))
+				.collect(Collectors.toList());
+	}
 }
+

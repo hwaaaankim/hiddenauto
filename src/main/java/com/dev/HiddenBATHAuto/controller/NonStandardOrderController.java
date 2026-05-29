@@ -22,12 +22,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.CartOrderRequestDTO;
 import com.dev.HiddenBATHAuto.dto.CompanyDeliveryAddressViewDTO;
+import com.dev.HiddenBATHAuto.dto.auth.CompanyOrdererInfoViewDTO;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.task.Cart;
 import com.dev.HiddenBATHAuto.model.task.CartImage;
 import com.dev.HiddenBATHAuto.model.task.ProductMark;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyOrdererInfoRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductMarkRepository;
@@ -46,30 +48,30 @@ public class NonStandardOrderController {
 
 	@Value("${spring.upload.path}")
 	private String uploadPath;
-	
+
 	private final DeliveryMethodRepository deliveryMethodRepository;
 	private final CartRepository cartRepository;
 	private final CartService cartService;
 	private final ProductMarkRepository productMarkRepository;
 	private final CompanyRepository companyRepository;
-	
-	@GetMapping("/nonStandardOrderProduct")
-	public String nonStandardOrderPage(
-	    @RequestParam(value = "markId", required = false) Long markId,
-	    Model model
-	) throws Exception {
-	    if (markId != null) {
-	        Optional<ProductMark> optionalMark = productMarkRepository.findById(markId);
-	        if (optionalMark.isPresent()) {
-	            ProductMark mark = optionalMark.get();
-	            ObjectMapper mapper = new ObjectMapper();
+	private final CompanyOrdererInfoRepository companyOrdererInfoRepository;
 
-	            // 🚨 문자열이 아니라 Map으로 바꾸기
-	            Map<String, Object> parsedMap = mapper.readValue(mark.getOptionJson(), new TypeReference<>() {});
-	            model.addAttribute("preloadedDataSet", parsedMap);
-	        }
-	    }
-	    return "front/order/nonStandardOrderProduct";
+	@GetMapping("/nonStandardOrderProduct")
+	public String nonStandardOrderPage(@RequestParam(value = "markId", required = false) Long markId, Model model)
+			throws Exception {
+		if (markId != null) {
+			Optional<ProductMark> optionalMark = productMarkRepository.findById(markId);
+			if (optionalMark.isPresent()) {
+				ProductMark mark = optionalMark.get();
+				ObjectMapper mapper = new ObjectMapper();
+
+				// 🚨 문자열이 아니라 Map으로 바꾸기
+				Map<String, Object> parsedMap = mapper.readValue(mark.getOptionJson(), new TypeReference<>() {
+				});
+				model.addAttribute("preloadedDataSet", parsedMap);
+			}
+		}
+		return "front/order/nonStandardOrderProduct";
 	}
 
 	@GetMapping("/cart")
@@ -80,189 +82,196 @@ public class NonStandardOrderController {
 	}
 
 	@PostMapping("/orderConfirm")
-	public String orderConfirm(
-	        @RequestParam String from,
-	        @AuthenticationPrincipal PrincipalDetails principalDetails,
-	        Model model,
-	        @RequestParam(required = false) Boolean standard,
-	        @RequestParam(required = false) String ordersJson, // from=cart
-	        @RequestParam(required = false) String optionJson, // from=direct
-	        @RequestParam(required = false) String localizedOptionJson,
-	        @RequestParam(required = false) Integer quantity,
-	        @RequestParam(required = false) Integer price,
-	        @RequestParam(required = false) String additionalInfo,
-	        @RequestParam(value = "files", required = false) List<MultipartFile> files
-	) throws IOException {
-	    Member member = principalDetails.getMember();
-	    log.info("📥 [orderConfirm 호출됨] from={}", from);
+	public String orderConfirm(@RequestParam String from, @AuthenticationPrincipal PrincipalDetails principalDetails,
+			Model model, @RequestParam(required = false) Boolean standard,
+			@RequestParam(required = false) String ordersJson, // from=cart
+			@RequestParam(required = false) String optionJson, // from=direct
+			@RequestParam(required = false) String localizedOptionJson,
+			@RequestParam(required = false) Integer quantity, @RequestParam(required = false) Integer price,
+			@RequestParam(required = false) String additionalInfo,
+			@RequestParam(value = "files", required = false) List<MultipartFile> files) throws IOException {
+		Member member = principalDetails.getMember();
+		log.info("📥 [orderConfirm 호출됨] from={}", from);
 
-	    List<Cart> orderList = new ArrayList<>();
+		List<Cart> orderList = new ArrayList<>();
 
-	    // ✅ 1. 카트 → 넘겨받은 cartId만 처리
-	    if ("cart".equals(from) && ordersJson != null) {
-	        ObjectMapper mapper = new ObjectMapper();
-	        List<CartOrderRequestDTO> orders = mapper.readValue(ordersJson, new TypeReference<>() {});
+		// ✅ 1. 카트 → 넘겨받은 cartId만 처리
+		if ("cart".equals(from) && ordersJson != null) {
+			ObjectMapper mapper = new ObjectMapper();
+			List<CartOrderRequestDTO> orders = mapper.readValue(ordersJson, new TypeReference<>() {
+			});
 
-	        for (CartOrderRequestDTO dto : orders) {
-	            Cart cart = cartRepository.findById(dto.getCartId())
-	                    .orElseThrow(() -> new IllegalArgumentException("해당 cartId 없음: " + dto.getCartId()));
-	            cart.setQuantity(dto.getQuantity());
-	            cart.setDirectOrder(true); // 필요시 유지
-	            cartRepository.save(cart);
+			for (CartOrderRequestDTO dto : orders) {
+				Cart cart = cartRepository.findById(dto.getCartId())
+						.orElseThrow(() -> new IllegalArgumentException("해당 cartId 없음: " + dto.getCartId()));
+				cart.setQuantity(dto.getQuantity());
+				cart.setDirectOrder(true); // 필요시 유지
+				cartRepository.save(cart);
 
-	            log.info("🛒 [카트발주→업데이트] cartId: {}, quantity: {}", dto.getCartId(), dto.getQuantity());
-	            orderList.add(cart);
-	        }
-	    }
+				log.info("🛒 [카트발주→업데이트] cartId: {}, quantity: {}", dto.getCartId(), dto.getQuantity());
+				orderList.add(cart);
+			}
+		}
 
-	    // ✅ 2. 바로주문 → 새 Cart insert + 이미지 저장
-	    if ("direct".equals(from) && optionJson != null && quantity != null && price != null) {
-	        LocalDate today = LocalDate.now();
-	        String datePath = today.toString(); // yyyy-MM-dd
-	        String relativePath = String.format("/order/cart/%d/%s/", member.getId(), datePath);
-	        String absolutePath = Paths.get(uploadPath, relativePath).toString();
+		// ✅ 2. 바로주문 → 새 Cart insert + 이미지 저장
+		if ("direct".equals(from) && optionJson != null && quantity != null && price != null) {
+			LocalDate today = LocalDate.now();
+			String datePath = today.toString(); // yyyy-MM-dd
+			String relativePath = String.format("/order/cart/%d/%s/", member.getId(), datePath);
+			String absolutePath = Paths.get(uploadPath, relativePath).toString();
 
-	        Files.createDirectories(Paths.get(absolutePath)); // 폴더 생성
+			Files.createDirectories(Paths.get(absolutePath)); // 폴더 생성
 
-	        Cart cart = new Cart();
-	        cart.setMember(member);
-	        cart.setQuantity(quantity);
-	        cart.setPrice(price);
-	        cart.setOptionJson(optionJson);
-	        cart.setLocalizedOptionJson(localizedOptionJson);
-	        cart.setAdditionalInfo(additionalInfo);
-	        cart.setDirectOrder(true); // 필요시 유지
-	        cart.setStandard(standard); 
-	        List<CartImage> imageList = new ArrayList<>();
-	        if (files != null) {
-	            for (MultipartFile file : files) {
-	                if (file.isEmpty()) continue;
+			Cart cart = new Cart();
+			cart.setMember(member);
+			cart.setQuantity(quantity);
+			cart.setPrice(price);
+			cart.setOptionJson(optionJson);
+			cart.setLocalizedOptionJson(localizedOptionJson);
+			cart.setAdditionalInfo(additionalInfo);
+			cart.setDirectOrder(true); // 필요시 유지
+			cart.setStandard(Boolean.TRUE.equals(standard));
+			List<CartImage> imageList = new ArrayList<>();
+			if (files != null) {
+				for (MultipartFile file : files) {
+					if (file.isEmpty())
+						continue;
 
-	                String uuid = UUID.randomUUID().toString();
-	                String filename = uuid + "_" + file.getOriginalFilename();
-	                String fullPath = Paths.get(absolutePath, filename).toString();
+					String uuid = UUID.randomUUID().toString();
+					String filename = uuid + "_" + file.getOriginalFilename();
+					String fullPath = Paths.get(absolutePath, filename).toString();
 
-	                file.transferTo(Paths.get(fullPath));
+					file.transferTo(Paths.get(fullPath));
 
-	                CartImage image = new CartImage();
-	                image.setCart(cart);
-	                image.setImagePath(fullPath);
-	                image.setImageUrl("/upload" + relativePath + filename);
-	                imageList.add(image);
+					CartImage image = new CartImage();
+					image.setCart(cart);
+					image.setImagePath(fullPath);
+					image.setImageUrl("/upload" + relativePath + filename);
+					imageList.add(image);
 
-	                log.info("📂 파일 저장: {}", filename);
-	            }
-	        }
+					log.info("📂 파일 저장: {}", filename);
+				}
+			}
 
-	        cart.setImages(imageList);
-	        cartRepository.save(cart);
-	        log.info("💬 [바로주문 저장 완료] cartId: {}, memberId: {}", cart.getId(), member.getId());
+			cart.setImages(imageList);
+			cartRepository.save(cart);
+			log.info("💬 [바로주문 저장 완료] cartId: {}, memberId: {}", cart.getId(), member.getId());
 
-	        orderList.add(cart);
-	    }
+			orderList.add(cart);
+		}
 
-	    Company company = member.getCompany();
-	    if (company != null) {
+		Company company = member.getCompany();
 
-	        // ✅ 배송지까지 포함해서 다시 로딩 (OSIV 없어도 안전)
-	        Company companyFetched = companyRepository
-	                .findWithDeliveryAddressesById(company.getId())
-	                .orElseThrow(() -> new IllegalArgumentException("회사 없음: " + company.getId()));
+		model.addAttribute("loginMemberName", member.getName() == null ? "" : member.getName());
+		model.addAttribute("loginMemberPhone", member.getPhone() == null ? "" : member.getPhone());
 
-	        model.addAttribute("mainAddress", companyFetched.getRoadAddress());
-	        model.addAttribute("detailAddress", companyFetched.getDetailAddress());
-	        model.addAttribute("zipCode", companyFetched.getZipCode());
-	        model.addAttribute("doName", companyFetched.getDoName());
-	        model.addAttribute("siName", companyFetched.getSiName());
-	        model.addAttribute("guName", companyFetched.getGuName());
-	        model.addAttribute("point", companyFetched.getPoint());
+		if (company != null) {
 
-	        // ✅ JS로 내려줄 배송지 리스트는 DTO로 변환해서 안전하게 전달
-	        List<CompanyDeliveryAddressViewDTO> addrDtos = companyFetched.getDeliveryAddresses()
-	                .stream()
-	                .map(CompanyDeliveryAddressViewDTO::fromEntity)
-	                .collect(Collectors.toList());
+			Company companyFetched = companyRepository.findWithDeliveryAddressesById(company.getId())
+					.orElseThrow(() -> new IllegalArgumentException("회사 없음: " + company.getId()));
 
-	        model.addAttribute("companyDeliveryAddresses", addrDtos);
+			model.addAttribute("mainAddress", companyFetched.getRoadAddress());
+			model.addAttribute("detailAddress", companyFetched.getDetailAddress());
+			model.addAttribute("zipCode", companyFetched.getZipCode());
+			model.addAttribute("doName", companyFetched.getDoName());
+			model.addAttribute("siName", companyFetched.getSiName());
+			model.addAttribute("guName", companyFetched.getGuName());
+			model.addAttribute("point", companyFetched.getPoint());
 
-	    } else {
-	        model.addAttribute("mainAddress", "");
-	        model.addAttribute("detailAddress", "");
-	        model.addAttribute("zipCode", "");
-	        model.addAttribute("doName", "");
-	        model.addAttribute("siName", "");
-	        model.addAttribute("guName", "");
-	        model.addAttribute("point", 0);
+			List<CompanyDeliveryAddressViewDTO> addrDtos = companyFetched.getDeliveryAddresses().stream()
+					.map(CompanyDeliveryAddressViewDTO::fromEntity).collect(Collectors.toList());
 
-	        model.addAttribute("companyDeliveryAddresses", List.of());
-	    }
+			model.addAttribute("companyDeliveryAddresses", addrDtos);
 
-	    // ✅ 4. 현재 요청에 의해 만들어진 Cart 데이터만 전달
-	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
-	    model.addAttribute("from", from);
-	    model.addAttribute("orderList", orderList); // 🔥 이전 directOrder 조회 제거됨
+			// ✅ 주문자 정보 목록은 별도 조회
+			// deliveryAddresses + ordererInfos 를 Company에서 동시에 fetch join 하면
+			// MultipleBagFetchException 가능성이 있으므로 분리
+			List<CompanyOrdererInfoViewDTO> ordererDtos = companyOrdererInfoRepository
+					.findByCompanyIdOrderByCreatedAtDesc(companyFetched.getId()).stream()
+					.map(CompanyOrdererInfoViewDTO::fromEntity).collect(Collectors.toList());
 
-	    return "front/order/orderConfirm";
+			model.addAttribute("companyOrdererInfos", ordererDtos);
+
+		} else {
+			model.addAttribute("mainAddress", "");
+			model.addAttribute("detailAddress", "");
+			model.addAttribute("zipCode", "");
+			model.addAttribute("doName", "");
+			model.addAttribute("siName", "");
+			model.addAttribute("guName", "");
+			model.addAttribute("point", 0);
+
+			model.addAttribute("companyDeliveryAddresses", List.of());
+			model.addAttribute("companyOrdererInfos", List.of());
+		}
+
+		// ✅ 4. 현재 요청에 의해 만들어진 Cart 데이터만 전달
+		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+		model.addAttribute("from", from);
+		model.addAttribute("orderList", orderList); // 🔥 이전 directOrder 조회 제거됨
+
+		return "front/order/orderConfirm";
 	}
 
 	@PostMapping("/modeling")
-    public String showModelingView(@RequestParam Map<String, String> formData, Model model) {
-        return processDataAndReturnView(formData, model, "front/order/modeling");
-    }
+	public String showModelingView(@RequestParam Map<String, String> formData, Model model) {
+		return processDataAndReturnView(formData, model, "front/order/modeling");
+	}
 
-    @PostMapping("/blueprint")
-    public String showBluePrintView(@RequestParam Map<String, String> formData, Model model) {
-        return processDataAndReturnView(formData, model, "front/order/blueprint");
-    }
+	@PostMapping("/blueprint")
+	public String showBluePrintView(@RequestParam Map<String, String> formData, Model model) {
+		return processDataAndReturnView(formData, model, "front/order/blueprint");
+	}
 
-    private String processDataAndReturnView(Map<String, String> formData, Model model, String viewName) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            // JSON 문자열을 Map<String, Object>로 변환
-            Map<String, Object> dataMap = objectMapper.readValue(formData.get("data"),
-                    new TypeReference<Map<String, Object>>() {});
+	private String processDataAndReturnView(Map<String, String> formData, Model model, String viewName) {
+		ObjectMapper objectMapper = new ObjectMapper();
+		try {
+			// JSON 문자열을 Map<String, Object>로 변환
+			Map<String, Object> dataMap = objectMapper.readValue(formData.get("data"),
+					new TypeReference<Map<String, Object>>() {
+					});
 
-            // 사이즈 값 처리
-            if (dataMap.containsKey("size")) {
-                String sizeValue = dataMap.get("size").toString();
-                if (sizeValue.contains("넓이")) {
-                    // 사용자가 직접 입력한 경우
-                    processManualSizeInput(sizeValue, dataMap);
-                } else {
-                    // DB에서 사이즈 조회
-                    // processSizeFromDatabase(sizeValue, dataMap);
-                }
-            }
+			// 사이즈 값 처리
+			if (dataMap.containsKey("size")) {
+				String sizeValue = dataMap.get("size").toString();
+				if (sizeValue.contains("넓이")) {
+					// 사용자가 직접 입력한 경우
+					processManualSizeInput(sizeValue, dataMap);
+				} else {
+					// DB에서 사이즈 조회
+					// processSizeFromDatabase(sizeValue, dataMap);
+				}
+			}
 
-            model.addAttribute("selectedData", dataMap);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return viewName;
-    }
+			model.addAttribute("selectedData", dataMap);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return viewName;
+	}
 
-    // 사용자가 직접 입력한 사이즈 처리
-    private void processManualSizeInput(String sizeValue, Map<String, Object> dataMap) {
-        try {
-            String[] sizeParts = sizeValue.split(","); // "넓이: ___, 높이: ___, 깊이: ___"
-            for (String part : sizeParts) {
-                String[] keyValue = part.split(":");
-                if (keyValue.length == 2) {
-                    String key = keyValue[0].trim();
-                    String value = keyValue[1].trim();
-                    if (key.equals("넓이")) {
-                        dataMap.put("width", Integer.parseInt(value));
-                    } else if (key.equals("높이")) {
-                        dataMap.put("height", Integer.parseInt(value));
-                    } else if (key.equals("깊이")) {
-                        dataMap.put("depth", Integer.parseInt(value));
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+	// 사용자가 직접 입력한 사이즈 처리
+	private void processManualSizeInput(String sizeValue, Map<String, Object> dataMap) {
+		try {
+			String[] sizeParts = sizeValue.split(","); // "넓이: ___, 높이: ___, 깊이: ___"
+			for (String part : sizeParts) {
+				String[] keyValue = part.split(":");
+				if (keyValue.length == 2) {
+					String key = keyValue[0].trim();
+					String value = keyValue[1].trim();
+					if (key.equals("넓이")) {
+						dataMap.put("width", Integer.parseInt(value));
+					} else if (key.equals("높이")) {
+						dataMap.put("height", Integer.parseInt(value));
+					} else if (key.equals("깊이")) {
+						dataMap.put("depth", Integer.parseInt(value));
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
 	@GetMapping("/productMark")
 	public String productMark() {

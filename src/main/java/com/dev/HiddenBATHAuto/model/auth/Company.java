@@ -20,6 +20,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
 @Entity
@@ -80,6 +81,13 @@ public class Company implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sales_manager_id")
     private Member salesManager; // ✅ 담당 영업사원
+    
+    // ✅ 회사 주문자 정보 목록
+    @JsonManagedReference("company-ordererInfo")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CompanyOrdererInfo> ordererInfos = new ArrayList<>();
 
     // ✅ 회사 추가 배송지들
     @JsonManagedReference("company-deliveryAddress")

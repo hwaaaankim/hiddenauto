@@ -1,18 +1,23 @@
 package com.dev.HiddenBATHAuto.dto.task;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class NonStandardTaskListOrderRowDto {
 
     private Long orderId;
@@ -34,6 +39,11 @@ public class NonStandardTaskListOrderRowDto {
     private String productName;
     private int quantity;
     private int productCost;
+    private int supplyPrice;
+    private int vatPrice;
+    private int totalAmount;
+    private int packingCost;
+    private int deliveryCost;
     private String productSummary;
 
     @Builder.Default
@@ -46,6 +56,10 @@ public class NonStandardTaskListOrderRowDto {
     private String roadAddress;
     private String detailAddress;
     private String fullAddress;
+
+    private String ordererName;
+    private String ordererPhone;
+    private String ordererSummary;
 
     private String orderComment;
     private String adminMemo;
@@ -67,7 +81,7 @@ public class NonStandardTaskListOrderRowDto {
     private boolean checked;
     private String checkedByUsername;
     private LocalDateTime checkedAt;
-    
+
     @Builder.Default
-    private List<NonStandardTaskListOrderImageDto> adminImages = new ArrayList<>();
+    private List<NonStandardTaskListOrderImageDto> adminImages = List.of();
 }

@@ -18,6 +18,8 @@ import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddRequest;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddSaveResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyDeliveryAddressResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyOptionResponse;
+import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyOrdererInfoResponse;
+import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderDeliveryMethodResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderMemberOptionResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderSimpleOptionResponse;
 import com.dev.HiddenBATHAuto.service.productOrderAdd.ProductOrderAddCommandService;
@@ -47,6 +49,18 @@ public class ProductOrderAddApiController {
             @PathVariable Long companyId
     ) {
         return queryService.getCompanyDeliveryAddresses(companyId);
+    }
+
+    @GetMapping("/companies/{companyId}/orderer-infos")
+    public List<ProductOrderCompanyOrdererInfoResponse> getCompanyOrdererInfos(
+            @PathVariable Long companyId
+    ) {
+        return queryService.getCompanyOrdererInfos(companyId);
+    }
+
+    @GetMapping("/delivery-methods")
+    public List<ProductOrderDeliveryMethodResponse> getDeliveryMethods() {
+        return queryService.getDeliveryMethods();
     }
 
     @GetMapping("/delivery-handlers")

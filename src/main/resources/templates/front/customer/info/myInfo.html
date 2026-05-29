@@ -22,12 +22,13 @@
 					<p class="mb-4">아이디는 변경할 수 없습니다.</p>
 
 					<!-- ✅ 서버 메시지(백엔드 최종 방어) -->
-					<div class="myinfo-added-alert myinfo-added-alert-danger"
-						th:if="${myInfoError != null}" th:text="${myInfoError}"></div>
-					<div class="myinfo-added-alert myinfo-added-alert-success"
-						th:if="${myInfoSuccess != null}" th:text="${myInfoSuccess}"></div>
+					<div class="myinfo-added-alert myinfo-added-alert-danger" th:if="${myInfoError != null}"
+						th:text="${myInfoError}"></div>
+					<div class="myinfo-added-alert myinfo-added-alert-success" th:if="${myInfoSuccess != null}"
+						th:text="${myInfoSuccess}"></div>
 
-					<form class="myinfo-added-form" method="POST" action="/customer/myInfoUpdate" enctype="multipart/form-data">
+					<form class="myinfo-added-form" method="POST" action="/customer/myInfoUpdate"
+						enctype="multipart/form-data">
 						<!-- 사용자 성함 -->
 						<div class="input-style input-style-always-active has-borders has-icon">
 							<i class="fa fa-user font-12"></i>
@@ -39,10 +40,9 @@
 						<!-- 연락처 -->
 						<div class="input-style input-style-always-active has-borders has-icon mt-4">
 							<i class="fa fa-phone font-12"></i>
-							<input type="text" class="form-control" id="myinfo-added-phone"
-								   name="phone" th:value="${member.phone}"
-								   placeholder="휴대폰 번호(숫자만 입력, 자동 '-' 적용)"
-								   required autocomplete="off">
+							<input type="text" class="form-control" id="myinfo-added-phone" name="phone"
+								th:value="${member.phone}" placeholder="휴대폰 번호(숫자만 입력, 자동 '-' 적용)" required
+								autocomplete="off">
 							<label class="color-blue-dark font-13">연락처</label>
 							<div class="myinfo-added-help" id="myinfo-added-phone-help"></div>
 						</div>
@@ -67,18 +67,30 @@
 							<label class="color-blue-dark font-13">대리점명</label>
 						</div>
 
+						<hr class="my-4" />
+						<div class="customer-myInfo-section-head">
+							<div>
+								<h2 class="mb-1">주문자 정보</h2>
+								<p class="mb-0">회사에 등록된 주문자 이름과 연락처를 관리할 수 있습니다.</p>
+							</div>
+						</div>
+
+						<div class="mb-3 mt-3">
+							<a href="javascript:void(0);" id="customer-myInfo-orderer-add-btn"
+								class="btn btn-full bg-blue-dark btn-m text-uppercase rounded-sm shadow-l font-900">
+								+ 주문자 정보 추가
+							</a>
+						</div>
+
+						<div id="customer-myInfo-orderer-list" class="customer-myInfo-orderer-list mb-3"></div>
+
 						<!-- ✅ 사업자등록번호 (수정 가능) -->
 						<div class="input-style input-style-always-active has-borders has-icon mt-3">
 							<i class="fa-solid fa-receipt font-12"></i>
-							<input type="text"
-								   class="form-control"
-								   id="myinfo-added-businessNumber"
-								   name="businessNumber"
-								   th:value="${company.businessNumber}"
-								   placeholder="사업자등록번호(숫자만 입력, 자동 '-' 적용)"
-								   required
-								   autocomplete="off"
-								   th:readonly="${!isRepresentative}">
+							<input type="text" class="form-control" id="myinfo-added-businessNumber"
+								name="businessNumber" th:value="${company.businessNumber}"
+								placeholder="사업자등록번호(숫자만 입력, 자동 '-' 적용)" required autocomplete="off"
+								th:readonly="${!isRepresentative}">
 							<label class="color-blue-dark font-13">사업자등록번호</label>
 							<div class="myinfo-added-help" id="myinfo-added-businessNumber-help"></div>
 						</div>
@@ -135,57 +147,51 @@
 						     ✅ 사업자등록증(대표만)
 						     ========================= -->
 						<hr class="my-4" />
-				     	<h2>사업자등록증</h2>
-				     	<p class="mb-3">사업자등록증은 필수 항목입니다.</p>
+						<h2>사업자등록증</h2>
+						<p class="mb-3">사업자등록증은 필수 항목입니다.</p>
 
 						<div class="pb-1" th:if="${isRepresentative}">
 							<label class="signUpImageBtn">
-								<input type="file" id="myinfo-added-license-input"
-									   name="businessLicenseFile"
-									   class="signUpImageInput"
-									   accept="image/*">
+								<input type="file" id="myinfo-added-license-input" name="businessLicenseFile"
+									class="signUpImageInput" accept="image/*">
 								<i class="fa-regular fa-file"></i> 사업자등록증 업로드
 							</label>
 
 							<!-- ✅ 프리뷰 영역(기존/신규 공통) -->
 							<div class="myinfo-added-license-wrap">
 								<!-- 기존 이미지가 있으면 표시 -->
-								<div id="myinfo-added-license-existing"
-									 class="myinfo-added-license-box"
-									 th:classappend="${company.businessLicenseUrl == null} ? ' d-none' : ''">
-									<a class="myinfo-added-license-link" th:href="@{${company.businessLicenseUrl}}" target="_blank">
+								<div id="myinfo-added-license-existing" class="myinfo-added-license-box"
+									th:classappend="${company.businessLicenseUrl == null} ? ' d-none' : ''">
+									<a class="myinfo-added-license-link" th:href="@{${company.businessLicenseUrl}}"
+										target="_blank">
 										<img id="myinfo-added-license-existing-img"
-											 th:src="@{${company.businessLicenseUrl}}"
-											 alt="사업자등록증"
-											 class="myinfo-added-license-img">
+											th:src="@{${company.businessLicenseUrl}}" alt="사업자등록증"
+											class="myinfo-added-license-img">
 									</a>
-									<button type="button"
-											class="myinfo-added-license-x"
-											id="myinfo-added-license-existing-remove"
-											aria-label="삭제">×</button>
+									<button type="button" class="myinfo-added-license-x"
+										id="myinfo-added-license-existing-remove" aria-label="삭제">×</button>
 								</div>
 
 								<!-- 신규 선택 프리뷰(기본 숨김) -->
 								<div id="myinfo-added-license-new" class="myinfo-added-license-box d-none">
-									<img id="myinfo-added-license-new-img" alt="사업자등록증(신규)" class="myinfo-added-license-img">
-									<button type="button"
-											class="myinfo-added-license-x"
-											id="myinfo-added-license-new-remove"
-											aria-label="삭제">×</button>
+									<img id="myinfo-added-license-new-img" alt="사업자등록증(신규)"
+										class="myinfo-added-license-img">
+									<button type="button" class="myinfo-added-license-x"
+										id="myinfo-added-license-new-remove" aria-label="삭제">×</button>
 								</div>
 							</div>
 
 							<!-- 필수 상태 안내 -->
 							<div class="myinfo-added-help" id="myinfo-added-license-help"></div>
 
-							<input type="hidden" id="removeBusinessLicense" name="removeBusinessLicense" value="false" />
+							<input type="hidden" id="removeBusinessLicense" name="removeBusinessLicense"
+								value="false" />
 						</div>
 
 						<!-- 수정 버튼 -->
 						<div class="mt-4 mb-2">
-							<button type="submit"
-									id="myinfo-added-submit"
-									class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l font-900">
+							<button type="submit" id="myinfo-added-submit"
+								class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l font-900">
 								변경사항 저장
 							</button>
 						</div>
@@ -242,6 +248,7 @@
 
 	<script th:inline="javascript">
 		window.__COMPANY_DELIVERY_ADDRESSES__ = /*[[${deliveryAddresses}]]*/[];
+		window.__CUSTOMER_MYINFO_ORDERER_INFOS__ = /*[[${ordererInfos}]]*/[];
 		window.__MYINFO_EXISTING_LICENSE_URL__ = /*[[${company.businessLicenseUrl}]]*/ null;
 		window.__MYINFO_IS_REPRESENTATIVE__ = /*[[${isRepresentative}]]*/ false;
 	</script>
@@ -281,6 +288,39 @@
 			</div>
 		</div>
 	</div>
+	<!-- =========================
+	     ✅ 주문자 정보 등록 모달
+	     ========================= -->
+	<div class="modal fade" id="customer-myInfo-orderer-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content customer-myInfo-orderer-modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">주문자 정보 추가</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
 
+				<div class="modal-body">
+					<div class="mb-3">
+						<label for="customer-myInfo-orderer-name" class="form-label font-600">이름</label>
+						<input type="text" class="form-control" id="customer-myInfo-orderer-name"
+							placeholder="이름을 입력해 주세요." maxlength="50" autocomplete="off">
+					</div>
+
+					<div class="mb-2">
+						<label for="customer-myInfo-orderer-phone" class="form-label font-600">연락처</label>
+						<input type="text" class="form-control" id="customer-myInfo-orderer-phone"
+							placeholder="숫자만 입력해 주세요. 자동으로 '-'가 적용됩니다." inputmode="numeric" autocomplete="off">
+						<div class="customer-myInfo-orderer-help" id="customer-myInfo-orderer-phone-help"></div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary" id="customer-myInfo-orderer-save-btn">등록</button>
+				</div>
+			</div>
+		</div>
+	</div>
 </body>
+
 </html>

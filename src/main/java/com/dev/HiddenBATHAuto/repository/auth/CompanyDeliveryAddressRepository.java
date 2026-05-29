@@ -19,4 +19,6 @@ public interface CompanyDeliveryAddressRepository extends JpaRepository<CompanyD
     List<CompanyDeliveryAddress> findAllByCompanyIds(@Param("companyIds") List<Long> companyIds);
 	
 	List<CompanyDeliveryAddress> findByCompany_IdOrderByCreatedAtDescIdDesc(Long companyId);
+	
+	List<CompanyDeliveryAddress> findByCompany_IdOrderByIdAsc(Long companyId);
 }

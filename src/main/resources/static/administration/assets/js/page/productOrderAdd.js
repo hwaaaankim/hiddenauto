@@ -7,11 +7,13 @@
 
 	const state = {
 		company: null,
+		deliveryMethod: null,
 		deliveryHandler: null,
 		companyResults: [],
 		deliveryResults: [],
 		companyActiveIndex: -1,
 		deliveryActiveIndex: -1,
+		deliveryMethods: [],
 		standardCategories: [],
 		productionCategories: [],
 		seriesCache: {},
@@ -20,9 +22,17 @@
 		activePasteOrderId: null,
 		companyDeliveryAddresses: [],
 		companyDeliveryAddressLoadedForCompanyId: null,
+		companyOrdererInfos: [],
+		companyOrdererInfoLoadedForCompanyId: null,
 
 		addressSource: 'COMPANY',
 		useCompanyAddress: true,
+
+		ordererSource: 'COMPANY',
+		useCompanyOrderer: true,
+
+		packingCost: '0',
+		deliveryCost: '0',
 
 		address: {
 			zipCode: '',
@@ -31,6 +41,11 @@
 			guName: '',
 			roadAddress: '',
 			detailAddress: ''
+		},
+
+		orderer: {
+			ordererName: '',
+			ordererPhone: ''
 		}
 	};
 
@@ -43,6 +58,7 @@
 		bindStaticEvents();
 
 		await Promise.all([
+			loadDeliveryMethods(),
 			loadStandardCategories(),
 			loadProductionCategories()
 		]);
@@ -51,6 +67,8 @@
 		refreshBottomSummary();
 		refreshActionButtons();
 		renderAddressSummary();
+		renderOrdererSummary();
+		syncDeliveryHandlerAvailability();
 	}
 
 	function cacheElements() {
@@ -62,6 +80,11 @@
 
 		els.preferredDate = document.getElementById('product-admin-add-preferred-date');
 		els.preferredDateFeedback = document.getElementById('product-admin-add-preferred-date-feedback');
+
+		els.deliveryMethod = document.getElementById('product-admin-add-delivery-method');
+		els.deliveryMethodFeedback = document.getElementById('product-admin-add-delivery-method-feedback');
+		els.packingCost = document.getElementById('product-admin-add-packing-cost');
+		els.deliveryCost = document.getElementById('product-admin-add-delivery-cost');
 
 		els.deliveryInput = document.getElementById('product-admin-add-delivery-member-input');
 		els.deliveryId = document.getElementById('product-admin-add-delivery-member-id');
@@ -75,6 +98,17 @@
 		els.companyAddressModal = els.companyAddressModalEl ? new bootstrap.Modal(els.companyAddressModalEl) : null;
 		els.companyAddressList = document.getElementById('product-admin-add-company-address-list');
 		els.companyAddressEmpty = document.getElementById('product-admin-add-company-address-empty');
+
+		els.useCompanyOrderer = document.getElementById('product-admin-add-use-company-orderer');
+		els.companyOrdererSearchBtn = document.getElementById('product-admin-add-company-orderer-search-btn');
+		els.companyOrdererModalEl = document.getElementById('product-admin-add-company-orderer-modal');
+		els.companyOrdererModal = els.companyOrdererModalEl ? new bootstrap.Modal(els.companyOrdererModalEl) : null;
+		els.companyOrdererList = document.getElementById('product-admin-add-company-orderer-list');
+		els.companyOrdererEmpty = document.getElementById('product-admin-add-company-orderer-empty');
+		els.ordererName = document.getElementById('product-admin-add-orderer-name');
+		els.ordererPhone = document.getElementById('product-admin-add-orderer-phone');
+		els.ordererFeedback = document.getElementById('product-admin-add-orderer-feedback');
+		els.ordererSummary = document.getElementById('product-admin-add-orderer-summary');
 
 		els.searchAddressBtn = document.getElementById('product-admin-add-search-address-btn');
 		els.zipCode = document.getElementById('product-admin-add-zip-code');
@@ -96,6 +130,7 @@
 
 		els.bottomOrderCount = document.getElementById('product-admin-add-bottom-order-count');
 		els.bottomTotalPrice = document.getElementById('product-admin-add-bottom-total-price');
+		els.bottomOrderSummaryBody = document.getElementById('product-admin-add-bottom-order-summary-body');
 
 		els.previewBtn = document.getElementById('product-admin-add-preview-btn');
 		els.summaryContent = document.getElementById('product-admin-add-summary-content');
@@ -128,8 +163,36 @@
 			refreshActionButtons();
 		});
 
-		els.deliveryInput.addEventListener('focus', () => loadDeliveryHandlers(els.deliveryInput.value.trim()));
+		if (els.deliveryMethod) {
+			els.deliveryMethod.addEventListener('change', handleDeliveryMethodChange);
+		}
+
+		if (els.packingCost) {
+			els.packingCost.addEventListener('input', () => {
+				state.packingCost = sanitizeMoneyInputElement(els.packingCost);
+				refreshBottomSummary();
+			});
+		}
+
+		if (els.deliveryCost) {
+			els.deliveryCost.addEventListener('input', () => {
+				state.deliveryCost = sanitizeMoneyInputElement(els.deliveryCost);
+				refreshBottomSummary();
+			});
+		}
+
+		els.deliveryInput.addEventListener('focus', () => {
+			if (isDirectDeliverySelected()) {
+				loadDeliveryHandlers(els.deliveryInput.value.trim());
+			}
+		});
 		els.deliveryInput.addEventListener('input', () => {
+			if (!isDirectDeliverySelected()) {
+				clearSelectedDeliveryHandler(false);
+				refreshActionButtons();
+				return;
+			}
+
 			clearSelectedDeliveryHandler(false);
 			debouncedDeliverySearch();
 			refreshActionButtons();
@@ -152,6 +215,44 @@
 
 		if (els.companyAddressList) {
 			els.companyAddressList.addEventListener('click', handleCompanyAddressModalClick);
+		}
+
+		if (els.useCompanyOrderer) {
+			els.useCompanyOrderer.addEventListener('change', handleUseCompanyOrdererChange);
+		}
+
+		if (els.companyOrdererSearchBtn) {
+			els.companyOrdererSearchBtn.addEventListener('click', openCompanyOrdererModal);
+		}
+
+		if (els.companyOrdererList) {
+			els.companyOrdererList.addEventListener('click', handleCompanyOrdererModalClick);
+		}
+
+		if (els.ordererName) {
+			els.ordererName.addEventListener('input', () => {
+				if (state.useCompanyOrderer && els.useCompanyOrderer) {
+					els.useCompanyOrderer.checked = false;
+					state.useCompanyOrderer = false;
+					state.ordererSource = 'MANUAL';
+				}
+
+				state.orderer.ordererName = (els.ordererName.value || '').trim();
+				renderOrdererSummary();
+			});
+		}
+
+		if (els.ordererPhone) {
+			els.ordererPhone.addEventListener('input', () => {
+				if (state.useCompanyOrderer && els.useCompanyOrderer) {
+					els.useCompanyOrderer.checked = false;
+					state.useCompanyOrderer = false;
+					state.ordererSource = 'MANUAL';
+				}
+
+				state.orderer.ordererPhone = (els.ordererPhone.value || '').trim();
+				renderOrdererSummary();
+			});
 		}
 
 		els.searchAddressBtn.addEventListener('click', openAddressSearch);
@@ -222,6 +323,11 @@
 	async function loadProductionCategories(keyword = '') {
 		const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
 		state.productionCategories = await fetchJson(`${API_BASE}/production-categories${query}`);
+	}
+
+	async function loadDeliveryMethods() {
+		state.deliveryMethods = await fetchJson(`${API_BASE}/delivery-methods`);
+		renderDeliveryMethodOptions();
 	}
 
 	async function loadStandardSeries(categoryId) {
@@ -405,11 +511,12 @@
 			closeDeliveryDropdown();
 		}
 	}
-
 	function selectCompany(item) {
 		state.company = item;
 		state.companyDeliveryAddresses = [];
 		state.companyDeliveryAddressLoadedForCompanyId = null;
+		state.companyOrdererInfos = [];
+		state.companyOrdererInfoLoadedForCompanyId = null;
 
 		els.companyId.value = item.companyId;
 		els.companyInput.value = item.companyName;
@@ -418,6 +525,7 @@
 
 		els.companySummary.innerHTML = `
             <div><strong>대표자</strong> ${escapeHtml(item.representativeName || '-')}</div>
+            <div><strong>대표자 연락처</strong> ${escapeHtml(item.representativePhone || '-')}</div>
             <div><strong>가입일</strong> ${formatDate(item.joinedAt)}</div>
             <div><strong>업체 기본주소</strong> ${escapeHtml(item.address || '-')}</div>
         `;
@@ -427,18 +535,25 @@
 			els.useCompanyAddress.checked = true;
 		}
 
+		if (els.useCompanyOrderer) {
+			els.useCompanyOrderer.checked = true;
+		}
+
 		state.useCompanyAddress = true;
+		state.useCompanyOrderer = true;
 		applyCompanyDefaultAddress();
+		applyCompanyDefaultOrderer();
 
 		closeCompanyDropdown();
 		refreshActionButtons();
 		els.companyInput.blur();
 	}
-
 	function clearSelectedCompany(clearInput = true) {
 		state.company = null;
 		state.companyDeliveryAddresses = [];
 		state.companyDeliveryAddressLoadedForCompanyId = null;
+		state.companyOrdererInfos = [];
+		state.companyOrdererInfoLoadedForCompanyId = null;
 
 		els.companyId.value = '';
 
@@ -453,9 +568,16 @@
 			els.useCompanyAddress.checked = true;
 		}
 
+		if (els.useCompanyOrderer) {
+			els.useCompanyOrderer.checked = true;
+		}
+
 		state.useCompanyAddress = true;
 		state.addressSource = 'COMPANY';
+		state.useCompanyOrderer = true;
+		state.ordererSource = 'COMPANY';
 		clearAddressFields();
+		clearOrdererFields();
 		refreshActionButtons();
 	}
 
@@ -513,15 +635,24 @@
 		els.deliverySummary.classList.add('d-none');
 		els.deliverySummary.innerHTML = '';
 	}
-
 	function validateExactDeliverySelection(showMessage = false) {
+		if (!isDirectDeliverySelected()) {
+			clearSelectedDeliveryHandler(false);
+			els.deliveryInput.classList.remove('product-admin-add-invalid');
+			els.deliveryFeedback.textContent = '';
+			return true;
+		}
+
 		const value = (els.deliveryInput.value || '').trim();
 
 		if (!value) {
 			clearSelectedDeliveryHandler(false);
 			els.deliveryInput.classList.remove('product-admin-add-invalid');
-			els.deliveryFeedback.textContent = '';
-			return true;
+			els.deliveryFeedback.textContent = showMessage ? '직배송은 배송 담당자를 선택해야 합니다.' : '';
+			if (showMessage) {
+				els.deliveryInput.classList.add('product-admin-add-invalid');
+			}
+			return false;
 		}
 
 		if (state.deliveryHandler && String(state.deliveryHandler.memberId) === String(els.deliveryId.value)) {
@@ -550,6 +681,97 @@
 		els.preferredDate.classList.remove('product-admin-add-invalid');
 		els.preferredDateFeedback.textContent = '';
 	}
+	function renderDeliveryMethodOptions() {
+		if (!els.deliveryMethod) {
+			return;
+		}
+
+		els.deliveryMethod.innerHTML = `
+            <option value="">배송수단 선택</option>
+            ${state.deliveryMethods.map(method => `
+                <option value="${method.id}" data-direct="${method.directDelivery ? 'true' : 'false'}">
+                    ${escapeHtml(method.methodName || '-')}${method.methodPrice ? ` (${formatCurrency(method.methodPrice)})` : ''}
+                </option>
+            `).join('')}
+        `;
+	}
+
+	function handleDeliveryMethodChange() {
+		const selectedId = els.deliveryMethod ? els.deliveryMethod.value : '';
+
+		state.deliveryMethod = state.deliveryMethods.find(method =>
+			String(method.id) === String(selectedId)
+		) || null;
+
+		if (els.deliveryMethod) {
+			els.deliveryMethod.classList.remove('product-admin-add-invalid');
+		}
+
+		if (els.deliveryMethodFeedback) {
+			els.deliveryMethodFeedback.textContent = '';
+		}
+
+		if (!isDirectDeliverySelected()) {
+			clearSelectedDeliveryHandler(true);
+		}
+
+		syncDeliveryHandlerAvailability();
+		refreshActionButtons();
+	}
+
+	function isDirectDeliverySelected() {
+		if (!state.deliveryMethod) {
+			return false;
+		}
+
+		return Boolean(state.deliveryMethod.directDelivery) ||
+			normalizeText(state.deliveryMethod.methodName).replaceAll(' ', '').includes('직배송');
+	}
+
+	function syncDeliveryHandlerAvailability() {
+		const direct = isDirectDeliverySelected();
+
+		if (!els.deliveryInput || !els.deliveryId) {
+			return;
+		}
+
+		els.deliveryInput.disabled = !direct;
+		els.deliveryInput.placeholder = direct
+			? '배송 담당자를 입력 후 리스트에서 선택해 주세요.'
+			: '직배송 선택 시에만 담당자를 지정합니다.';
+
+		if (!direct) {
+			els.deliveryInput.classList.remove('product-admin-add-invalid');
+			els.deliveryFeedback.textContent = '';
+			closeDeliveryDropdown();
+		}
+	}
+
+	function validateDeliveryMethod(showMessage = false) {
+		const valid = Boolean(state.deliveryMethod && state.deliveryMethod.id);
+
+		if (valid) {
+			if (els.deliveryMethod) {
+				els.deliveryMethod.classList.remove('product-admin-add-invalid');
+			}
+			if (els.deliveryMethodFeedback) {
+				els.deliveryMethodFeedback.textContent = '';
+			}
+			return true;
+		}
+
+		if (showMessage) {
+			if (els.deliveryMethod) {
+				els.deliveryMethod.classList.add('product-admin-add-invalid');
+			}
+			if (els.deliveryMethodFeedback) {
+				els.deliveryMethodFeedback.textContent = '배송수단을 선택해 주세요.';
+			}
+		}
+
+		return false;
+	}
+
 
 	function handleUseCompanyAddressChange() {
 		state.useCompanyAddress = Boolean(els.useCompanyAddress.checked);
@@ -740,6 +962,176 @@
 			els.detailAddress.focus();
 		}, 120);
 	}
+	function handleUseCompanyOrdererChange() {
+		state.useCompanyOrderer = Boolean(els.useCompanyOrderer.checked);
+
+		if (state.useCompanyOrderer) {
+			applyCompanyDefaultOrderer();
+			return;
+		}
+
+		state.ordererSource = 'MANUAL';
+		clearOrdererFields();
+	}
+
+	function applyCompanyDefaultOrderer() {
+		if (!state.company) {
+			clearOrdererFields();
+			return;
+		}
+
+		setOrdererState({
+			ordererName: state.company.representativeName || '',
+			ordererPhone: state.company.representativePhone || ''
+		}, 'COMPANY');
+	}
+
+	function clearOrdererFields() {
+		setOrdererState({
+			ordererName: '',
+			ordererPhone: ''
+		}, state.ordererSource || 'MANUAL');
+	}
+
+	function setOrdererState(orderer, source) {
+		state.orderer = {
+			ordererName: (orderer.ordererName || '').trim(),
+			ordererPhone: (orderer.ordererPhone || '').trim()
+		};
+
+		state.ordererSource = source || 'MANUAL';
+
+		syncOrdererInputs();
+		renderOrdererSummary();
+	}
+
+	function syncOrdererInputs() {
+		if (els.ordererName) {
+			els.ordererName.value = state.orderer.ordererName || '';
+		}
+
+		if (els.ordererPhone) {
+			els.ordererPhone.value = state.orderer.ordererPhone || '';
+		}
+	}
+
+	async function openCompanyOrdererModal() {
+		if (!state.company) {
+			alert('먼저 대리점을 선택해 주세요.');
+			return;
+		}
+
+		if (!els.companyOrdererModal || !els.companyOrdererList || !els.companyOrdererEmpty) {
+			alert('주문자정보검색 모달 HTML이 없습니다.');
+			return;
+		}
+
+		try {
+			await loadCompanyOrdererInfosIfNeeded();
+			renderCompanyOrdererModal();
+			els.companyOrdererModal.show();
+		} catch (error) {
+			alert(error.message || '주문자 정보 목록을 불러오지 못했습니다.');
+		}
+	}
+
+	async function loadCompanyOrdererInfosIfNeeded() {
+		if (
+			state.companyOrdererInfoLoadedForCompanyId &&
+			String(state.companyOrdererInfoLoadedForCompanyId) === String(state.company.companyId)
+		) {
+			return;
+		}
+
+		state.companyOrdererInfos = await fetchJson(
+			`${API_BASE}/companies/${encodeURIComponent(state.company.companyId)}/orderer-infos`
+		);
+		state.companyOrdererInfoLoadedForCompanyId = state.company.companyId;
+	}
+
+	function renderCompanyOrdererModal() {
+		if (!state.companyOrdererInfos.length) {
+			els.companyOrdererEmpty.classList.remove('d-none');
+			els.companyOrdererList.innerHTML = '';
+			return;
+		}
+
+		els.companyOrdererEmpty.classList.add('d-none');
+
+		els.companyOrdererList.innerHTML = state.companyOrdererInfos.map(item => `
+            <button type="button"
+                class="product-admin-add-company-orderer-item"
+                data-action="select-company-orderer"
+                data-orderer-id="${item.id}">
+                <span class="product-admin-add-company-orderer-main">
+                    ${escapeHtml(item.ordererName || '-')}
+                </span>
+                <span class="product-admin-add-company-orderer-sub">
+                    ${escapeHtml(item.ordererPhone || '-')}
+                </span>
+            </button>
+        `).join('');
+	}
+
+	function handleCompanyOrdererModalClick(event) {
+		const button = event.target.closest('[data-action="select-company-orderer"][data-orderer-id]');
+		if (!button) {
+			return;
+		}
+
+		const item = state.companyOrdererInfos.find(orderer =>
+			String(orderer.id) === String(button.dataset.ordererId)
+		);
+
+		if (!item) {
+			return;
+		}
+
+		if (els.useCompanyOrderer) {
+			els.useCompanyOrderer.checked = false;
+		}
+
+		state.useCompanyOrderer = false;
+
+		setOrdererState({
+			ordererName: item.ordererName,
+			ordererPhone: item.ordererPhone
+		}, 'COMPANY_ORDERER_INFO');
+
+		if (els.companyOrdererModal) {
+			els.companyOrdererModal.hide();
+		}
+
+		setTimeout(() => {
+			if (els.ordererName) {
+				els.ordererName.focus();
+			}
+		}, 120);
+	}
+
+	function renderOrdererSummary() {
+		if (!els.ordererSummary) {
+			return;
+		}
+
+		const hasOrderer = Boolean(
+			(state.orderer.ordererName || '').trim() ||
+			(state.orderer.ordererPhone || '').trim()
+		);
+
+		if (!hasOrderer) {
+			els.ordererSummary.classList.add('d-none');
+			els.ordererSummary.innerHTML = '';
+			return;
+		}
+
+		els.ordererSummary.innerHTML = `
+            <div><strong>주문자</strong> ${escapeHtml(state.orderer.ordererName || '-')}</div>
+            <div><strong>연락처</strong> ${escapeHtml(state.orderer.ordererPhone || '-')}</div>
+        `;
+		els.ordererSummary.classList.remove('d-none');
+	}
+
 
 	function openAddressSearch() {
 		if (!window.daum || !window.daum.Postcode) {
@@ -878,11 +1270,11 @@
 
 		return false;
 	}
-
 	function refreshActionButtons() {
 		const commonReady = Boolean(
 			state.company &&
-			state.deliveryHandler &&
+			state.deliveryMethod &&
+			(!isDirectDeliverySelected() || state.deliveryHandler) &&
 			els.preferredDate.value &&
 			hasAddressCoreFields()
 		);
@@ -894,9 +1286,13 @@
 			els.companyAddressSearchBtn.disabled = !state.company;
 		}
 
+		if (els.companyOrdererSearchBtn) {
+			els.companyOrdererSearchBtn.disabled = !state.company;
+		}
+
+		syncDeliveryHandlerAvailability();
 		syncOrderAddButtonPosition();
 	}
-
 	function handleAddOrder() {
 		hideTopMessage();
 
@@ -904,22 +1300,27 @@
 			return;
 		}
 
+		state.orders.forEach(item => {
+			item.collapsed = true;
+		});
+
 		const order = createEmptyOrder();
 		state.orders.push(order);
 		state.activePasteOrderId = order.id;
 
 		els.emptyState.classList.add('d-none');
-		appendOrderCard(order, state.orders.length - 1);
+		renderOrders();
 
 		refreshBottomSummary();
 		refreshActionButtons();
 
 		smoothScrollToOrder(order.id, '.product-admin-add-type-btn[data-standard="true"]');
 	}
-
 	function createEmptyOrder() {
 		return {
 			id: `order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+			collapsed: false,
+			validationErrors: {},
 
 			standard: null,
 			standardCategoryId: '',
@@ -945,7 +1346,10 @@
 			files: [],
 			productCost: '',
 			quantity: 1,
-			orderComment: ''
+			supplyPrice: '',
+			totalAmount: '',
+			orderComment: '',
+			adminMemo: ''
 		};
 	}
 
@@ -1031,18 +1435,31 @@
             </div>
         `;
 	}
-
 	function renderOrderCard(order, index) {
+		const collapsed = Boolean(order.collapsed);
+		const orderTotal = getOrderTotalAmount(order);
+		const orderTypeLabel = order.standard === true ? '규격' : order.standard === false ? '비규격' : '미선택';
+		const errorCount = Object.keys(order.validationErrors || {}).length;
+
 		return `
-            <div class="card product-admin-add-order-card" id="product-admin-add-order-card-${order.id}">
+            <div class="card product-admin-add-order-card ${errorCount ? 'product-admin-add-order-card-has-error' : ''}"
+                id="product-admin-add-order-card-${order.id}">
                 <div class="card-header">
                     <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-                        <div class="product-admin-add-order-no">주문 ${index + 1}</div>
+                        <button type="button"
+                            class="product-admin-add-order-toggle"
+                            data-action="toggle-order"
+                            data-order-id="${order.id}"
+                            aria-expanded="${collapsed ? 'false' : 'true'}">
+                            <i class="${collapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'}"></i>
+                            <span class="product-admin-add-order-no">주문 ${index + 1}</span>
+                            <span class="product-admin-add-order-title">${escapeHtml(getOrderDisplayName(order))}</span>
+                        </button>
 
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-soft-primary text-primary">
-                                ${order.standard === true ? '규격' : order.standard === false ? '비규격' : '미선택'}
-                            </span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                            ${errorCount ? `<span class="badge bg-danger-subtle text-danger">미비 ${errorCount}건</span>` : ''}
+                            <span class="badge bg-soft-primary text-primary">${orderTypeLabel}</span>
+                            <span class="badge bg-light text-dark border">${formatCurrency(orderTotal)}</span>
 
                             <button type="button"
                                 class="btn btn-outline-danger btn-sm"
@@ -1054,44 +1471,47 @@
                     </div>
                 </div>
 
-                <div class="card-body">
-                    <div class="row g-4">
-                        <div class="col-12">
-                            <div class="product-admin-add-section-box">
-                                <div class="product-admin-add-section-title">
-                                    <h6>주문 타입 선택</h6>
-                                </div>
+                <div class="product-admin-add-order-collapse ${collapsed ? 'd-none' : ''}" id="product-admin-add-order-body-${order.id}">
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <div class="product-admin-add-section-box">
+                                    <div class="product-admin-add-section-title">
+                                        <h6>주문 타입 선택</h6>
+                                    </div>
 
-                                <div class="product-admin-add-type-toggle">
-                                    <button type="button"
-                                        class="product-admin-add-type-btn ${order.standard === true ? 'active' : ''}"
-                                        data-action="set-type"
-                                        data-order-id="${order.id}"
-                                        data-standard="true">
-                                        규격 주문
-                                    </button>
+                                    <div class="product-admin-add-type-toggle" data-error-anchor="standard">
+                                        <button type="button"
+                                            class="product-admin-add-type-btn ${order.standard === true ? 'active' : ''}"
+                                            data-action="set-type"
+                                            data-order-id="${order.id}"
+                                            data-standard="true">
+                                            규격 주문
+                                        </button>
 
-                                    <button type="button"
-                                        class="product-admin-add-type-btn ${order.standard === false ? 'active' : ''}"
-                                        data-action="set-type"
-                                        data-order-id="${order.id}"
-                                        data-standard="false">
-                                        비규격 주문
-                                    </button>
+                                        <button type="button"
+                                            class="product-admin-add-type-btn ${order.standard === false ? 'active' : ''}"
+                                            data-action="set-type"
+                                            data-order-id="${order.id}"
+                                            data-standard="false">
+                                            비규격 주문
+                                        </button>
+                                    </div>
+
+                                    ${renderFieldError(order, 'standard')}
                                 </div>
                             </div>
-                        </div>
 
-                        ${renderOrderTypeSection(order)}
-                        ${renderProductOptionSection(order)}
-                        ${renderFileUploadSection(order)}
-                        ${renderOrderMetaSection(order)}
+                            ${renderOrderTypeSection(order)}
+                            ${renderProductOptionSection(order)}
+                            ${renderFileUploadSection(order)}
+                            ${renderOrderMetaSection(order)}
+                        </div>
                     </div>
                 </div>
             </div>
         `;
 	}
-
 	function renderOrderTypeSection(order) {
 		if (order.standard === true) {
 			return `
@@ -1108,8 +1528,9 @@
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
                                 <label class="form-label product-admin-add-label">규격 대분류</label>
-                                <select class="form-select"
+                                <select class="form-select ${hasFieldError(order, 'standardCategoryId') ? 'product-admin-add-invalid' : ''}"
                                     data-field="standardCategoryId"
+                                    data-error-anchor="standardCategoryId"
                                     data-order-id="${order.id}">
                                     <option value="">대분류 선택</option>
                                     ${state.standardCategories.map(item => `
@@ -1118,6 +1539,7 @@
                                         </option>
                                     `).join('')}
                                 </select>
+                                ${renderFieldError(order, 'standardCategoryId')}
                             </div>
 
                             <div class="col-12 col-lg-6">
@@ -1149,9 +1571,9 @@
 
                         <label class="form-label product-admin-add-label">생산팀 분류 선택</label>
 
-                        <div class="position-relative">
+                        <div class="position-relative" data-error-anchor="customProductionCategoryId">
                             <input type="text"
-                                class="form-control product-admin-add-control product-admin-add-production-input"
+                                class="form-control product-admin-add-control product-admin-add-production-input ${hasFieldError(order, 'customProductionCategoryId') ? 'product-admin-add-invalid' : ''}"
                                 data-order-id="${order.id}"
                                 value="${escapeHtml(order.customProductionInput || '')}"
                                 autocomplete="off"
@@ -1160,6 +1582,8 @@
                             <div class="product-admin-add-autocomplete product-admin-add-production-dropdown d-none"
                                 id="product-admin-add-production-dropdown-${order.id}"></div>
                         </div>
+
+                        ${renderFieldError(order, 'customProductionCategoryId')}
 
                         <div class="invalid-feedback d-block product-admin-add-feedback"
                             id="product-admin-add-production-feedback-${order.id}"></div>
@@ -1258,31 +1682,37 @@
                         <div>
                             <label class="form-label product-admin-add-label">제품명</label>
                             <input type="text"
-                                class="form-control product-admin-add-control product-admin-add-product-name"
+                                class="form-control product-admin-add-control product-admin-add-product-name ${hasFieldError(order, 'productName') ? 'product-admin-add-invalid' : ''}"
                                 data-field="productName"
+                                data-error-anchor="productName"
                                 data-order-id="${order.id}"
                                 value="${escapeHtml(order.productName || '')}"
                                 placeholder="제품명을 입력해 주세요.">
+                            ${renderFieldError(order, 'productName')}
                         </div>
 
                         <div>
                             <label class="form-label product-admin-add-label">사이즈</label>
                             <input type="text"
-                                class="form-control product-admin-add-control product-admin-add-product-size"
+                                class="form-control product-admin-add-control product-admin-add-product-size ${hasFieldError(order, 'productSize') ? 'product-admin-add-invalid' : ''}"
                                 data-field="productSize"
+                                data-error-anchor="productSize"
                                 data-order-id="${order.id}"
                                 value="${escapeHtml(order.productSize || '')}"
                                 placeholder="사이즈를 입력해 주세요.">
+                            ${renderFieldError(order, 'productSize')}
                         </div>
 
                         <div>
                             <label class="form-label product-admin-add-label">색상</label>
                             <input type="text"
-                                class="form-control product-admin-add-control product-admin-add-product-color"
+                                class="form-control product-admin-add-control product-admin-add-product-color ${hasFieldError(order, 'productColor') ? 'product-admin-add-invalid' : ''}"
                                 data-field="productColor"
+                                data-error-anchor="productColor"
                                 data-order-id="${order.id}"
                                 value="${escapeHtml(order.productColor || '')}"
                                 placeholder="색상을 입력해 주세요.">
+                            ${renderFieldError(order, 'productColor')}
                         </div>
                     </div>
 
@@ -1362,8 +1792,11 @@
             </div>
         `;
 	}
-
 	function renderOrderMetaSection(order) {
+		const supplyPrice = getOrderSupplyPrice(order);
+		const totalAmount = getOrderTotalAmount(order);
+		const vatAmount = getOrderVatAmount(order);
+
 		return `
             <div class="col-12">
                 <div class="product-admin-add-section-box">
@@ -1372,43 +1805,87 @@
                     </div>
 
                     <div class="row g-3 product-admin-add-order-meta-row">
-                        <div class="col-12 col-lg-4">
-                            <label class="form-label product-admin-add-label">제품가격</label>
-                            <input type="number"
-                                min="0"
-                                class="form-control product-admin-add-control"
+                        <div class="col-12 col-lg-2">
+                            <label class="form-label product-admin-add-label">단가</label>
+                            <input type="text"
+                                inputmode="numeric"
+                                class="form-control product-admin-add-control product-admin-add-money-input ${hasFieldError(order, 'productCost') ? 'product-admin-add-invalid' : ''}"
                                 data-field="productCost"
+                                data-error-anchor="productCost"
                                 data-order-id="${order.id}"
-                                value="${escapeHtml(order.productCost)}"
-                                placeholder="제품가격 입력">
+                                value="${escapeHtml(formatNumberInput(order.productCost))}"
+                                placeholder="0">
+                            ${renderFieldError(order, 'productCost')}
                         </div>
 
-                        <div class="col-12 col-lg-4">
+                        <div class="col-12 col-lg-2">
                             <label class="form-label product-admin-add-label">수량</label>
-                            <input type="number"
-                                min="1"
-                                class="form-control product-admin-add-control"
+                            <input type="text"
+                                inputmode="numeric"
+                                class="form-control product-admin-add-control product-admin-add-money-input ${hasFieldError(order, 'quantity') ? 'product-admin-add-invalid' : ''}"
                                 data-field="quantity"
+                                data-error-anchor="quantity"
                                 data-order-id="${order.id}"
-                                value="${escapeHtml(String(order.quantity ?? 1))}"
-                                placeholder="수량 입력">
+                                value="${escapeHtml(formatNumberInput(order.quantity))}"
+                                placeholder="1">
+                            ${renderFieldError(order, 'quantity')}
                         </div>
 
-                        <div class="col-12 col-lg-4">
-                            <label class="form-label product-admin-add-label">예상 합계</label>
-                            <div class="form-control product-admin-add-control d-flex align-items-center bg-light">
-                                <strong>${formatCurrency(toNumber(order.productCost) * toNumber(order.quantity || 0))}</strong>
+                        <div class="col-12 col-lg-3">
+                            <label class="form-label product-admin-add-label">공급가</label>
+                            <input type="text"
+                                inputmode="numeric"
+                                class="form-control product-admin-add-control product-admin-add-money-input"
+                                data-field="supplyPrice"
+                                data-order-id="${order.id}"
+                                value="${escapeHtml(formatNumberInput(order.supplyPrice))}"
+                                placeholder="0">
+                        </div>
+
+                        <div class="col-12 col-lg-2">
+                            <label class="form-label product-admin-add-label">부가세 10%</label>
+                            <div class="form-control product-admin-add-control d-flex align-items-center bg-light product-admin-add-vat-display"
+                                data-price-display="vatAmount"
+                                data-order-id="${order.id}">
+                                <strong>${formatCurrency(vatAmount)}</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-3">
+                            <label class="form-label product-admin-add-label">총액</label>
+                            <input type="text"
+                                inputmode="numeric"
+                                class="form-control product-admin-add-control product-admin-add-money-input"
+                                data-field="totalAmount"
+                                data-order-id="${order.id}"
+                                value="${escapeHtml(formatNumberInput(order.totalAmount))}"
+                                placeholder="0">
+                        </div>
+
+                        <div class="col-12">
+                            <div class="product-admin-add-price-help">
+                                단가 또는 수량 입력 시 공급가와 총액이 자동 계산됩니다. 공급가 또는 총액은 할인/DP/무상 지급 상황에 맞게 직접 수정할 수 있습니다.
                             </div>
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label product-admin-add-label">주문 메모 (선택)</label>
+                            <label class="form-label product-admin-add-label">고객 남김말 (선택)</label>
                             <textarea
                                 class="form-control"
                                 rows="3"
                                 data-field="orderComment"
                                 data-order-id="${order.id}"
-                                placeholder="관리자 메모가 필요하면 입력해 주세요.">${escapeHtml(order.orderComment || '')}</textarea>
+                                placeholder="고객 남김말로 저장됩니다.">${escapeHtml(order.orderComment || '')}</textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label product-admin-add-label">관리자 남김말 (선택)</label>
+                            <textarea
+                                class="form-control"
+                                rows="3"
+                                data-field="adminMemo"
+                                data-order-id="${order.id}"
+                                placeholder="관리자 내부 메모로 저장됩니다.">${escapeHtml(order.adminMemo || '')}</textarea>
                         </div>
                     </div>
                 </div>
@@ -1482,9 +1959,16 @@
 		const orderId = actionEl.dataset.orderId;
 		const order = findOrder(orderId);
 
+		if (action === 'toggle-order' && order) {
+			order.collapsed = !Boolean(order.collapsed);
+			renderOrders();
+			return;
+		}
+
 		if (action === 'set-type' && order) {
 			const standard = actionEl.dataset.standard === 'true';
 			resetOrderTypeState(order, standard);
+			clearOrderValidationError(order, 'standard');
 
 			rerenderSingleOrder(orderId, {
 				focusSelector: standard
@@ -1552,6 +2036,7 @@
 			order.standardCategoryId = selectedCategoryId;
 			order.standardSeriesId = '';
 			order.standardSeriesOptions = [];
+			clearOrderValidationError(order, 'standardCategoryId');
 
 			assignProductionCategoryByStandardCategory(order);
 			updateStandardAssignedBadge(orderId);
@@ -1609,7 +2094,6 @@
 			updateFileList(orderId);
 		}
 	}
-
 	function handleOrderListInput(event) {
 		const target = event.target;
 		const orderId = target.dataset.orderId;
@@ -1621,16 +2105,19 @@
 
 		if (target.matches('[data-field="productName"]')) {
 			order.productName = target.value;
+			clearOrderValidationError(order, 'productName');
 			return;
 		}
 
 		if (target.matches('[data-field="productSize"]')) {
 			order.productSize = target.value;
+			clearOrderValidationError(order, 'productSize');
 			return;
 		}
 
 		if (target.matches('[data-field="productColor"]')) {
 			order.productColor = target.value;
+			clearOrderValidationError(order, 'productColor');
 			return;
 		}
 
@@ -1640,16 +2127,36 @@
 		}
 
 		if (target.matches('[data-field="productCost"]')) {
-			order.productCost = target.value;
+			order.productCost = sanitizeMoneyInputElement(target);
+			clearOrderValidationError(order, 'productCost');
+			recalculateOrderByUnitAndQuantity(order);
+			updateOrderCardPriceSummary(orderId);
 			refreshBottomSummary();
-			updateOrderCardTotal(orderId);
 			return;
 		}
 
 		if (target.matches('[data-field="quantity"]')) {
-			order.quantity = target.value;
+			order.quantity = sanitizeMoneyInputElement(target);
+			clearOrderValidationError(order, 'quantity');
+			recalculateOrderByUnitAndQuantity(order);
+			updateOrderCardPriceSummary(orderId);
 			refreshBottomSummary();
-			updateOrderCardTotal(orderId);
+			return;
+		}
+
+		if (target.matches('[data-field="supplyPrice"]')) {
+			order.supplyPrice = sanitizeMoneyInputElement(target);
+			recalculateOrderBySupplyPrice(order);
+			updateOrderCardPriceSummary(orderId);
+			refreshBottomSummary();
+			return;
+		}
+
+		if (target.matches('[data-field="totalAmount"]')) {
+			order.totalAmount = sanitizeMoneyInputElement(target);
+			recalculateOrderByTotalAmount(order);
+			updateOrderCardPriceSummary(orderId);
+			refreshBottomSummary();
 			return;
 		}
 
@@ -1658,10 +2165,16 @@
 			return;
 		}
 
+		if (target.matches('[data-field="adminMemo"]')) {
+			order.adminMemo = target.value;
+			return;
+		}
+
 		if (target.matches('.product-admin-add-production-input')) {
 			order.customProductionInput = target.value;
 			order.customProductionCategoryId = null;
 			order.customProductionCategoryName = '';
+			clearOrderValidationError(order, 'customProductionCategoryId');
 			renderProductionDropdown(order);
 		}
 	}
@@ -1696,6 +2209,30 @@
 		if (target.matches('.product-admin-add-option-textarea') && event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
 			addOptionFromTextarea(order, target);
+			return;
+		}
+
+		if (event.key === 'Enter' && target.matches('[data-field="productCost"]')) {
+			event.preventDefault();
+			focusOrderField(orderId, '[data-field="quantity"]');
+			return;
+		}
+
+		if (event.key === 'Enter' && target.matches('[data-field="quantity"]')) {
+			event.preventDefault();
+			focusOrderField(orderId, '[data-field="supplyPrice"]');
+			return;
+		}
+
+		if (event.key === 'Enter' && target.matches('[data-field="supplyPrice"]')) {
+			event.preventDefault();
+			focusOrderField(orderId, '[data-field="totalAmount"]');
+			return;
+		}
+
+		if (event.key === 'Enter' && target.matches('[data-field="totalAmount"]')) {
+			event.preventDefault();
+			focusOrderField(orderId, '[data-field="orderComment"]');
 			return;
 		}
 
@@ -1875,6 +2412,7 @@
 		order.customProductionCategoryId = item.id;
 		order.customProductionCategoryName = item.name;
 		order.customProductionInput = item.name;
+		clearOrderValidationError(order, 'customProductionCategoryId');
 
 		setProductionFeedback(orderId, '');
 		closeProductionDropdown(orderId);
@@ -2290,8 +2828,11 @@
 		order.assignedProductionCategoryName = DEFAULT_PRODUCTION_CATEGORY_LABEL;
 		order.assignedProductionCategoryFallback = true;
 	}
-
 	function updateOrderCardTotal(orderId) {
+		updateOrderCardPriceSummary(orderId);
+	}
+
+	function updateOrderCardPriceSummary(orderId) {
 		const order = findOrder(orderId);
 
 		if (!order) {
@@ -2304,24 +2845,31 @@
 			return;
 		}
 
-		const totalCell = card.querySelector('.product-admin-add-order-meta-row .bg-light strong');
+		const vatDisplay = card.querySelector(`[data-price-display="vatAmount"][data-order-id="${orderId}"] strong`);
 
-		if (totalCell) {
-			totalCell.textContent = formatCurrency(
-				toNumber(order.productCost) * toNumber(order.quantity)
-			);
+		if (vatDisplay) {
+			vatDisplay.textContent = formatCurrency(getOrderVatAmount(order));
+		}
+
+		const totalBadge = card.querySelector('.card-header .badge.bg-light');
+
+		if (totalBadge) {
+			totalBadge.textContent = formatCurrency(getOrderTotalAmount(order));
 		}
 	}
-
 	function refreshBottomSummary() {
 		const totalOrderCount = state.orders.length;
-
-		const totalPrice = state.orders.reduce((sum, order) => {
-			return sum + (toNumber(order.productCost) * toNumber(order.quantity));
+		const ordersTotalAmount = state.orders.reduce((sum, order) => {
+			return sum + getOrderTotalAmount(order);
 		}, 0);
+		const grandTotal = ordersTotalAmount + toNumber(state.packingCost) + toNumber(state.deliveryCost);
 
 		els.bottomOrderCount.textContent = `${totalOrderCount}건`;
-		els.bottomTotalPrice.textContent = formatCurrency(totalPrice);
+		els.bottomTotalPrice.textContent = formatCurrency(grandTotal);
+
+		if (els.bottomOrderSummaryBody) {
+			renderBottomOrderSummary();
+		}
 	}
 	function syncOrderAddButtonPosition() {
 		if (!els.orderAddBtn || !els.orderAddTopSlot || !els.orderAddBottomSlot) {
@@ -2342,6 +2890,7 @@
 	}
 	function validateCommonFields(showMessage = false) {
 		const companyValid = validateExactCompanySelection(showMessage);
+		const deliveryMethodValid = validateDeliveryMethod(showMessage);
 		const deliveryValid = validateExactDeliverySelection(showMessage);
 		const addressValid = validateAddressFields(showMessage);
 
@@ -2360,10 +2909,17 @@
 
 		refreshActionButtons();
 
-		return companyValid && deliveryValid && addressValid && dateValid;
-	}
+		if (showMessage && !(companyValid && deliveryMethodValid && deliveryValid && addressValid && dateValid)) {
+			scrollToFirstCommonError();
+		}
 
+		return companyValid && deliveryMethodValid && deliveryValid && addressValid && dateValid;
+	}
 	function validateOrders(showMessage = false) {
+		state.orders.forEach(order => {
+			order.validationErrors = {};
+		});
+
 		if (!state.orders.length) {
 			if (showMessage) {
 				showTopMessage('최소 1개의 주문을 추가해 주세요.', true);
@@ -2371,79 +2927,80 @@
 			return false;
 		}
 
+		let firstError = null;
+
 		for (let i = 0; i < state.orders.length; i++) {
 			const order = state.orders[i];
 			const orderNo = i + 1;
 
 			if (order.standard === null) {
-				if (showMessage) {
-					showTopMessage(`주문 ${orderNo}: 규격 / 비규격을 선택해 주세요.`, true);
-				}
-				return false;
+				firstError = firstError || buildOrderError(order.id, 'standard');
+				setOrderValidationError(order, 'standard', `주문 ${orderNo}: 규격 / 비규격을 선택해 주세요.`);
 			}
 
 			if (order.standard === true) {
 				if (!order.standardCategoryId) {
-					if (showMessage) {
-						showTopMessage(`주문 ${orderNo}: 규격 대분류를 선택해 주세요.`, true);
-					}
-					return false;
+					firstError = firstError || buildOrderError(order.id, 'standardCategoryId');
+					setOrderValidationError(order, 'standardCategoryId', `주문 ${orderNo}: 규격 대분류를 선택해 주세요.`);
 				}
 
 				if (!order.assignedProductionCategoryId) {
-					if (showMessage) {
-						showTopMessage(`주문 ${orderNo}: 대분류 기준 생산팀 분류를 찾지 못했습니다.`, true);
-					}
-					return false;
+					firstError = firstError || buildOrderError(order.id, 'standardCategoryId');
+					setOrderValidationError(order, 'standardCategoryId', `주문 ${orderNo}: 대분류 기준 생산팀 분류를 찾지 못했습니다.`);
 				}
 			}
 
 			if (order.standard === false) {
 				if (!order.customProductionCategoryId) {
-					if (showMessage) {
-						showTopMessage(`주문 ${orderNo}: 비규격 생산팀 분류를 정확히 선택해 주세요.`, true);
-					}
-					return false;
+					firstError = firstError || buildOrderError(order.id, 'customProductionCategoryId');
+					setOrderValidationError(order, 'customProductionCategoryId', `주문 ${orderNo}: 비규격 생산팀 분류를 정확히 선택해 주세요.`);
 				}
 			}
 
 			if (!(order.productName || '').trim()) {
-				if (showMessage) {
-					showTopMessage(`주문 ${orderNo}: 제품명을 입력해 주세요.`, true);
-				}
-				return false;
+				firstError = firstError || buildOrderError(order.id, 'productName');
+				setOrderValidationError(order, 'productName', `주문 ${orderNo}: 제품명을 입력해 주세요.`);
 			}
 
 			if (!(order.productSize || '').trim()) {
-				if (showMessage) {
-					showTopMessage(`주문 ${orderNo}: 사이즈를 입력해 주세요.`, true);
-				}
-				return false;
+				firstError = firstError || buildOrderError(order.id, 'productSize');
+				setOrderValidationError(order, 'productSize', `주문 ${orderNo}: 사이즈를 입력해 주세요.`);
 			}
 
 			if (!(order.productColor || '').trim()) {
-				if (showMessage) {
-					showTopMessage(`주문 ${orderNo}: 색상을 입력해 주세요.`, true);
-				}
-				return false;
+				firstError = firstError || buildOrderError(order.id, 'productColor');
+				setOrderValidationError(order, 'productColor', `주문 ${orderNo}: 색상을 입력해 주세요.`);
 			}
 
 			if (`${order.productCost}`.trim() === '' || toNumber(order.productCost) < 0) {
-				if (showMessage) {
-					showTopMessage(`주문 ${orderNo}: 제품가격을 입력해 주세요.`, true);
-				}
-				return false;
+				firstError = firstError || buildOrderError(order.id, 'productCost');
+				setOrderValidationError(order, 'productCost', `주문 ${orderNo}: 단가를 입력해 주세요.`);
 			}
 
-			if (toNumber(order.quantity) <= 0) {
-				if (showMessage) {
-					showTopMessage(`주문 ${orderNo}: 수량은 1 이상이어야 합니다.`, true);
-				}
-				return false;
+			if (`${order.quantity}`.trim() === '' || toNumber(order.quantity) <= 0) {
+				firstError = firstError || buildOrderError(order.id, 'quantity');
+				setOrderValidationError(order, 'quantity', `주문 ${orderNo}: 수량은 1 이상이어야 합니다.`);
 			}
 		}
 
-		return true;
+		if (!firstError) {
+			renderOrders();
+			return true;
+		}
+
+		state.orders.forEach(order => {
+			if (Object.keys(order.validationErrors || {}).length > 0) {
+				order.collapsed = false;
+			}
+		});
+
+		if (showMessage) {
+			hideTopMessage();
+			renderOrders();
+			scrollToOrderFieldError(firstError.orderId, firstError.field);
+		}
+
+		return false;
 	}
 
 	function showTopMessage(message, shouldScroll = false) {
@@ -2462,12 +3019,10 @@
 		els.topMessage.textContent = '';
 		els.topMessage.classList.add('d-none');
 	}
-
 	function openSummaryModal() {
 		hideTopMessage();
 
 		if (!validateCommonFields(true)) {
-			showTopMessage('상단 공통 정보를 먼저 정확히 입력해 주세요.', true);
 			return;
 		}
 
@@ -2481,11 +3036,11 @@
 			els.summaryModal.show();
 		}
 	}
-
 	function renderSummary() {
-		const totalPrice = state.orders.reduce((sum, order) => {
-			return sum + (toNumber(order.productCost) * toNumber(order.quantity));
+		const ordersTotalAmount = state.orders.reduce((sum, order) => {
+			return sum + getOrderTotalAmount(order);
 		}, 0);
+		const grandTotal = ordersTotalAmount + toNumber(state.packingCost) + toNumber(state.deliveryCost);
 
 		const rows = state.orders.map((order, index) => {
 			const productName = getOrderDisplayName(order);
@@ -2514,7 +3069,9 @@
                     <td>${order.standard ? '규격' : '비규격'}</td>
                     <td>${toNumber(order.quantity)}개</td>
                     <td>${formatCurrency(toNumber(order.productCost))}</td>
-                    <td>${formatCurrency(toNumber(order.productCost) * toNumber(order.quantity))}</td>
+                    <td>${formatCurrency(getOrderSupplyPrice(order))}</td>
+                    <td>${formatCurrency(getOrderVatAmount(order))}</td>
+                    <td>${formatCurrency(getOrderTotalAmount(order))}</td>
                 </tr>
             `;
 		}).join('');
@@ -2535,14 +3092,24 @@
                     </div>
 
                     <div class="product-admin-add-summary-item">
+                        <span class="product-admin-add-summary-item-label">주문자</span>
+                        <span class="product-admin-add-summary-item-value">${escapeHtml(getOrdererSummaryText())}</span>
+                    </div>
+
+                    <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">배송 희망일</span>
                         <span class="product-admin-add-summary-item-value">${escapeHtml(els.preferredDate.value)}</span>
                     </div>
 
                     <div class="product-admin-add-summary-item">
+                        <span class="product-admin-add-summary-item-label">배송수단</span>
+                        <span class="product-admin-add-summary-item-value">${escapeHtml(state.deliveryMethod ? state.deliveryMethod.methodName : '-')}</span>
+                    </div>
+
+                    <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">배송 담당자</span>
                         <span class="product-admin-add-summary-item-value">
-                            ${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})
+                            ${isDirectDeliverySelected() && state.deliveryHandler ? `${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})` : '지정 없음'}
                         </span>
                     </div>
 
@@ -2552,8 +3119,18 @@
                     </div>
 
                     <div class="product-admin-add-summary-item">
+                        <span class="product-admin-add-summary-item-label">포장비</span>
+                        <span class="product-admin-add-summary-item-value">${formatCurrency(toNumber(state.packingCost))}</span>
+                    </div>
+
+                    <div class="product-admin-add-summary-item">
+                        <span class="product-admin-add-summary-item-label">운임비</span>
+                        <span class="product-admin-add-summary-item-value">${formatCurrency(toNumber(state.deliveryCost))}</span>
+                    </div>
+
+                    <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">총 예상 금액</span>
-                        <span class="product-admin-add-summary-item-value">${formatCurrency(totalPrice)}</span>
+                        <span class="product-admin-add-summary-item-value">${formatCurrency(grandTotal)}</span>
                     </div>
                 </div>
             </div>
@@ -2571,7 +3148,9 @@
                                 <th>구분</th>
                                 <th>수량</th>
                                 <th>단가</th>
-                                <th>합계</th>
+                                <th>공급가</th>
+                                <th>부가세</th>
+                                <th>총액</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2582,6 +3161,197 @@
             </div>
         `;
 	}
+	function getOrdererSummaryText() {
+		return [
+			state.orderer.ordererName || '',
+			state.orderer.ordererPhone || ''
+		].filter(Boolean).join(' / ') || '-';
+	}
+
+	function renderBottomOrderSummary() {
+		if (!els.bottomOrderSummaryBody) {
+			return;
+		}
+
+		if (!state.orders.length) {
+			els.bottomOrderSummaryBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">등록된 주문이 없습니다.</td>
+                </tr>
+            `;
+			return;
+		}
+
+		els.bottomOrderSummaryBody.innerHTML = state.orders.map((order, index) => `
+            <tr>
+                <td>주문 ${index + 1}</td>
+                <td>${escapeHtml(getOrderDisplayName(order))}</td>
+                <td class="text-end">${formatCurrency(toNumber(order.productCost))}</td>
+                <td class="text-end">${toNumber(order.quantity)}</td>
+                <td class="text-end">${formatCurrency(getOrderSupplyPrice(order))}</td>
+                <td class="text-end">${formatCurrency(getOrderVatAmount(order))}</td>
+                <td class="text-end fw-semibold">${formatCurrency(getOrderTotalAmount(order))}</td>
+            </tr>
+        `).join('');
+	}
+
+	function recalculateOrderByUnitAndQuantity(order) {
+		const supplyPrice = toNumber(order.productCost) * toNumber(order.quantity);
+		order.supplyPrice = String(supplyPrice);
+		order.totalAmount = String(calculateTotalFromSupply(supplyPrice));
+		syncPriceInputs(order.id);
+	}
+
+	function recalculateOrderBySupplyPrice(order) {
+		const supplyPrice = toNumber(order.supplyPrice);
+		order.totalAmount = String(calculateTotalFromSupply(supplyPrice));
+		syncPriceInputs(order.id);
+	}
+
+	function recalculateOrderByTotalAmount(order) {
+		const totalAmount = toNumber(order.totalAmount);
+		const supplyPrice = calculateSupplyFromTotal(totalAmount);
+		order.supplyPrice = String(supplyPrice);
+		order.totalAmount = String(totalAmount);
+		syncPriceInputs(order.id);
+	}
+
+	function syncPriceInputs(orderId) {
+		const order = findOrder(orderId);
+		const card = document.getElementById(`product-admin-add-order-card-${orderId}`);
+
+		if (!order || !card) {
+			return;
+		}
+
+		const supplyInput = card.querySelector(`[data-field="supplyPrice"][data-order-id="${orderId}"]`);
+		const totalInput = card.querySelector(`[data-field="totalAmount"][data-order-id="${orderId}"]`);
+
+		if (supplyInput && document.activeElement !== supplyInput) {
+			supplyInput.value = formatNumberInput(order.supplyPrice);
+		}
+
+		if (totalInput && document.activeElement !== totalInput) {
+			totalInput.value = formatNumberInput(order.totalAmount);
+		}
+	}
+
+	function calculateTotalFromSupply(supplyPrice) {
+		return Math.floor(toNumber(supplyPrice) * 1.1);
+	}
+
+	function calculateSupplyFromTotal(totalAmount) {
+		return Math.floor(toNumber(totalAmount) / 1.1);
+	}
+
+	function getOrderSupplyPrice(order) {
+		return toNumber(order.supplyPrice);
+	}
+
+	function getOrderTotalAmount(order) {
+		return toNumber(order.totalAmount);
+	}
+
+	function getOrderVatAmount(order) {
+		return Math.max(getOrderTotalAmount(order) - getOrderSupplyPrice(order), 0);
+	}
+
+	function sanitizeMoneyInputElement(input) {
+		const sanitized = String(input.value || '').replace(/[^0-9]/g, '');
+		input.value = sanitized;
+		return sanitized;
+	}
+
+	function formatNumberInput(value) {
+		const raw = String(value ?? '').replace(/[^0-9]/g, '');
+		return raw;
+	}
+
+	function hasFieldError(order, field) {
+		return Boolean(order && order.validationErrors && order.validationErrors[field]);
+	}
+
+	function renderFieldError(order, field) {
+		if (!hasFieldError(order, field)) {
+			return '';
+		}
+
+		return `
+            <div class="product-admin-add-field-error" data-error-anchor="${field}">
+                ${escapeHtml(order.validationErrors[field])}
+            </div>
+        `;
+	}
+
+	function setOrderValidationError(order, field, message) {
+		if (!order.validationErrors) {
+			order.validationErrors = {};
+		}
+		order.validationErrors[field] = message;
+	}
+
+	function clearOrderValidationError(order, field) {
+		if (!order || !order.validationErrors) {
+			return;
+		}
+		delete order.validationErrors[field];
+	}
+
+	function buildOrderError(orderId, field) {
+		return { orderId, field };
+	}
+
+	function scrollToOrderFieldError(orderId, field) {
+		requestAnimationFrame(() => {
+			const card = document.getElementById(`product-admin-add-order-card-${orderId}`);
+			const target = card
+				? card.querySelector(`[data-error-anchor="${field}"]`) || card
+				: null;
+
+			if (!target) {
+				return;
+			}
+
+			target.scrollIntoView({
+				behavior: 'smooth',
+				block: 'center'
+			});
+
+			const focusable = card.querySelector(`[data-error-anchor="${field}"][data-order-id], [data-field][data-error-anchor="${field}"]`);
+			if (focusable && typeof focusable.focus === 'function') {
+				setTimeout(() => focusable.focus(), 250);
+			}
+		});
+	}
+
+	function scrollToFirstCommonError() {
+		const candidates = [
+			els.companyInput,
+			els.deliveryMethod,
+			els.preferredDate,
+			isDirectDeliverySelected() ? els.deliveryInput : null,
+			els.zipCode,
+			els.roadAddress
+		].filter(Boolean);
+
+		const target = candidates.find(el => el.classList && el.classList.contains('product-admin-add-invalid'));
+
+		if (!target) {
+			return;
+		}
+
+		target.scrollIntoView({
+			behavior: 'smooth',
+			block: 'center'
+		});
+
+		setTimeout(() => {
+			if (typeof target.focus === 'function' && !target.readOnly && !target.disabled) {
+				target.focus();
+			}
+		}, 250);
+	}
+
 
 	function getDeliveryAddressSummaryText() {
 		const address = [
@@ -2601,7 +3371,6 @@
 			region ? `[${region}]` : ''
 		].filter(Boolean).join(' ');
 	}
-
 	async function submitForm() {
 		if (state.saving) {
 			return;
@@ -2621,7 +3390,16 @@
 			const payload = {
 				companyId: state.company.companyId,
 				preferredDeliveryDate: els.preferredDate.value,
-				deliveryHandlerId: state.deliveryHandler.memberId,
+				deliveryMethodId: state.deliveryMethod ? Number(state.deliveryMethod.id) : null,
+				deliveryHandlerId: isDirectDeliverySelected() && state.deliveryHandler
+					? Number(state.deliveryHandler.memberId)
+					: null,
+
+				packingCost: toNumber(state.packingCost),
+				deliveryCost: toNumber(state.deliveryCost),
+
+				ordererName: (state.orderer.ordererName || '').trim() || null,
+				ordererPhone: (state.orderer.ordererPhone || '').trim() || null,
 
 				zipCode: (state.address.zipCode || '').trim(),
 				doName: (state.address.doName || '').trim(),
@@ -2651,7 +3429,10 @@
 
 					productCost: toNumber(order.productCost),
 					quantity: toNumber(order.quantity),
+					supplyPrice: getOrderSupplyPrice(order),
+					totalAmount: getOrderTotalAmount(order),
 					orderComment: (order.orderComment || '').trim() || null,
+					adminMemo: (order.adminMemo || '').trim() || null,
 
 					optionEntries: order.optionPairs.map(pair => ({
 						title: '옵션',

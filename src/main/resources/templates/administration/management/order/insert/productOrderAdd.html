@@ -39,13 +39,13 @@
 								<div class="card-header product-admin-add-card-header">
 									<div>
 										<h5 class="card-title mb-1">주문 공통 정보</h5>
-										<p class="text-muted mb-0">업체, 배송 희망일, 배송 담당자를 먼저 정확하게 선택해 주세요.</p>
+										<p class="text-muted mb-0">업체, 배송수단, 배송 희망일, 주문자 정보, 배송지를 먼저 정확하게 선택해 주세요.</p>
 									</div>
 								</div>
 
 								<div class="card-body product-admin-add-card-body">
 									<div class="row g-4 align-items-start">
-										<div class="col-12 col-lg-5 product-admin-add-autocomplete-col">
+										<div class="col-12 col-lg-4 product-admin-add-autocomplete-col">
 											<label for="product-admin-add-company-input"
 												class="form-label product-admin-add-label">
 												대리점 선택
@@ -68,6 +68,19 @@
 										</div>
 
 										<div class="col-12 col-lg-3">
+											<label for="product-admin-add-delivery-method"
+												class="form-label product-admin-add-label">
+												배송수단
+											</label>
+											<select id="product-admin-add-delivery-method"
+												class="form-select product-admin-add-control">
+												<option value="">배송수단 선택</option>
+											</select>
+											<div id="product-admin-add-delivery-method-feedback"
+												class="invalid-feedback d-block product-admin-add-feedback"></div>
+										</div>
+
+										<div class="col-12 col-lg-2">
 											<label for="product-admin-add-preferred-date"
 												class="form-label product-admin-add-label">
 												배송 희망일
@@ -78,7 +91,7 @@
 												class="invalid-feedback d-block product-admin-add-feedback"></div>
 										</div>
 
-										<div class="col-12 col-lg-4 product-admin-add-autocomplete-col">
+										<div class="col-12 col-lg-3 product-admin-add-autocomplete-col">
 											<label for="product-admin-add-delivery-member-input"
 												class="form-label product-admin-add-label">
 												배송 담당자 선택
@@ -87,7 +100,7 @@
 											<div class="position-relative product-admin-add-autocomplete-wrap">
 												<input type="text" id="product-admin-add-delivery-member-input"
 													class="form-control product-admin-add-control" autocomplete="off"
-													placeholder="배송 담당자를 입력 후 리스트에서 선택해 주세요.">
+													placeholder="직배송일 때만 선택합니다." disabled>
 												<input type="hidden" id="product-admin-add-delivery-member-id">
 
 												<div id="product-admin-add-delivery-member-dropdown"
@@ -98,6 +111,80 @@
 
 											<div id="product-admin-add-delivery-member-summary"
 												class="product-admin-add-selected-summary d-none"></div>
+										</div>
+
+										<div class="col-12">
+											<div class="product-admin-add-section-box">
+												<div class="product-admin-add-section-title">
+													<h6>배송 비용</h6>
+												</div>
+
+												<div class="row g-3">
+													<div class="col-12 col-lg-6">
+														<label for="product-admin-add-packing-cost"
+															class="form-label product-admin-add-label">포장비</label>
+														<input type="text" id="product-admin-add-packing-cost"
+															class="form-control product-admin-add-control product-admin-add-money-input"
+															inputmode="numeric" placeholder="0" value="0">
+													</div>
+													<div class="col-12 col-lg-6">
+														<label for="product-admin-add-delivery-cost"
+															class="form-label product-admin-add-label">운임비</label>
+														<input type="text" id="product-admin-add-delivery-cost"
+															class="form-control product-admin-add-control product-admin-add-money-input"
+															inputmode="numeric" placeholder="0" value="0">
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<div class="col-12">
+											<div class="product-admin-add-section-box">
+												<div class="product-admin-add-section-title">
+													<h6>주문자 정보</h6>
+												</div>
+
+												<div class="product-admin-add-address-tools mb-3">
+													<div class="form-check product-admin-add-company-address-check">
+														<input type="checkbox"
+															id="product-admin-add-use-company-orderer"
+															class="form-check-input" checked>
+														<label for="product-admin-add-use-company-orderer"
+															class="form-check-label">
+															회원정보와 동일
+														</label>
+													</div>
+
+													<button type="button"
+														id="product-admin-add-company-orderer-search-btn"
+														class="btn btn-outline-secondary product-admin-add-main-btn"
+														disabled>
+														주문자정보검색
+													</button>
+												</div>
+
+												<div class="row g-3">
+													<div class="col-12 col-lg-6">
+														<label for="product-admin-add-orderer-name"
+															class="form-label product-admin-add-label">이름</label>
+														<input type="text" id="product-admin-add-orderer-name"
+															class="form-control product-admin-add-control"
+															maxlength="50" placeholder="주문자명을 입력해 주세요.">
+													</div>
+													<div class="col-12 col-lg-6">
+														<label for="product-admin-add-orderer-phone"
+															class="form-label product-admin-add-label">연락처</label>
+														<input type="text" id="product-admin-add-orderer-phone"
+															class="form-control product-admin-add-control"
+															maxlength="30" placeholder="연락처를 입력해 주세요.">
+													</div>
+												</div>
+
+												<div id="product-admin-add-orderer-feedback"
+													class="invalid-feedback d-block product-admin-add-feedback"></div>
+												<div id="product-admin-add-orderer-summary"
+													class="product-admin-add-selected-summary d-none mt-2"></div>
+											</div>
 										</div>
 
 										<div class="col-12">
@@ -212,7 +299,7 @@
 						</div>
 
 						<div class="col-12">
-							<div class="product-admin-add-bottom-bar">
+							<div class="product-admin-add-bottom-bar product-admin-add-bottom-bar-expanded">
 								<div class="product-admin-add-bottom-bar-left">
 									<div class="product-admin-add-bottom-stat">
 										<span class="product-admin-add-bottom-stat-label">주문 수</span>
@@ -222,6 +309,28 @@
 										<span class="product-admin-add-bottom-stat-label">총 예상 금액</span>
 										<strong id="product-admin-add-bottom-total-price">0원</strong>
 									</div>
+								</div>
+
+								<div class="product-admin-add-bottom-summary-wrap">
+									<table
+										class="table table-sm align-middle mb-0 product-admin-add-bottom-summary-table">
+										<thead>
+											<tr>
+												<th>주문</th>
+												<th>제품명</th>
+												<th class="text-end">단가</th>
+												<th class="text-end">수량</th>
+												<th class="text-end">공급가</th>
+												<th class="text-end">부가세</th>
+												<th class="text-end">총액</th>
+											</tr>
+										</thead>
+										<tbody id="product-admin-add-bottom-order-summary-body">
+											<tr>
+												<td colspan="7" class="text-center text-muted py-3">등록된 주문이 없습니다.</td>
+											</tr>
+										</tbody>
+									</table>
 								</div>
 
 								<div class="product-admin-add-bottom-bar-right">
@@ -263,6 +372,7 @@
 			</div>
 		</div>
 	</div>
+
 	<div class="modal fade" id="product-admin-add-company-address-modal" tabindex="-1" aria-hidden="true">
 		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
 			<div class="modal-content product-admin-add-summary-modal-content">
@@ -281,6 +391,26 @@
 			</div>
 		</div>
 	</div>
+
+	<div class="modal fade" id="product-admin-add-company-orderer-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+			<div class="modal-content product-admin-add-summary-modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">주문자정보검색</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+				<div class="modal-body">
+					<div id="product-admin-add-company-orderer-empty" class="alert alert-light border d-none mb-0">
+						등록된 주문자 정보가 없습니다.
+					</div>
+
+					<div id="product-admin-add-company-orderer-list" class="product-admin-add-company-orderer-list">
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 

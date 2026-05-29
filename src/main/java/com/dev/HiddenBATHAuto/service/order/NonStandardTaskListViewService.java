@@ -72,6 +72,12 @@ public class NonStandardTaskListViewService {
 
         boolean checked = checkStatus != null && checkStatus.isChecked();
 
+        int supplyPrice = order.getSupplyPrice();
+        int totalAmount = order.getTotalAmount();
+        int vatPrice = Math.max(0, totalAmount - supplyPrice);
+
+        String ordererSummary = joinNonBlank(" / ", order.getOrdererName(), order.getOrdererPhone());
+
         return NonStandardTaskListOrderRowDto.builder()
                 .orderId(order.getId())
                 .taskId(order.getTask() != null ? order.getTask().getId() : null)
@@ -92,6 +98,11 @@ public class NonStandardTaskListViewService {
                 .productName(productName)
                 .quantity(order.getQuantity())
                 .productCost(order.getProductCost())
+                .supplyPrice(supplyPrice)
+                .vatPrice(vatPrice)
+                .totalAmount(totalAmount)
+                .packingCost(order.getPackingCost())
+                .deliveryCost(order.getDeliveryCost())
                 .productSummary(buildProductSummary(productName, optionMap, order.getQuantity()))
                 .optionMap(optionMap)
 
@@ -102,6 +113,10 @@ public class NonStandardTaskListViewService {
                 .roadAddress(order.getRoadAddress())
                 .detailAddress(order.getDetailAddress())
                 .fullAddress(fullAddress.isBlank() ? "-" : fullAddress)
+
+                .ordererName(order.getOrdererName())
+                .ordererPhone(order.getOrdererPhone())
+                .ordererSummary(ordererSummary.isBlank() ? "-" : ordererSummary)
 
                 .orderComment(order.getOrderComment())
                 .adminMemo(order.getAdminMemo())
@@ -128,7 +143,7 @@ public class NonStandardTaskListViewService {
 
                 .build();
     }
-    
+
     public List<NonStandardTaskListOrderRowDto> toBulkRows(List<Order> orders) {
         return orders.stream()
                 .filter(Objects::nonNull)

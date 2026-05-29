@@ -17,5 +17,7 @@ public class OrderRequestItemDTO {
     private String guName;
     private Long deliveryMethodId; // ✅ 반드시 Long으로
     private LocalDate preferredDeliveryDate;
+    private String ordererName;
+    private String ordererPhone;
 
 }

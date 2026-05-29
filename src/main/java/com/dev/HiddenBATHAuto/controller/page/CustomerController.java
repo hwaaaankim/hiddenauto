@@ -62,6 +62,7 @@ import com.dev.HiddenBATHAuto.repository.nonstandard.ProductMarkRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
+import com.dev.HiddenBATHAuto.service.auth.CustomerOrdererInfoService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.utils.FileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -89,7 +90,8 @@ public class CustomerController {
 	private final MemberService memberService;
 	private final ProductMarkRepository productMarkRepository;
 	private final AsTaskScheduleRepository asTaskScheduleRepository;
-
+	private final CustomerOrdererInfoService customerOrdererInfoService;
+	
 	@GetMapping("/productMarkList")
 	public String productMarkList(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails)
 			throws Exception {
@@ -386,6 +388,7 @@ public class CustomerController {
 		model.addAttribute("member", freshMember);
 		model.addAttribute("company", company);
 		model.addAttribute("deliveryAddresses", deliveryAddresses);
+		model.addAttribute("ordererInfos", customerOrdererInfoService.getOrdererInfosForCompany(company.getId()));
 
 		model.addAttribute("isRepresentative", freshMember.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
 

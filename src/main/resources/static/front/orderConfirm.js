@@ -8,13 +8,15 @@ document.addEventListener("DOMContentLoaded", () => {
 	const cancelButton = document.getElementById("cancel-button");
 	const shippingAmountElem = document.getElementById("shipping-amount");
 
-	const orderSource = window.orderSource || 'cart';
+	const orderSource = window.orderSource || "cart";
 	const cart = window.cart || [];
 
 	let appliedPoint = 0;
 	let unloadConfirm = true;
 
-	// ✅ 공통 주소/배송 입력만 사용
+	// =========================
+	// 공통 주소/배송 입력
+	// =========================
 	const mainAddr = document.getElementById("main-address");
 	const detailAddr = document.getElementById("main-detail");
 	const doInput = document.getElementById("main-do");
@@ -24,54 +26,86 @@ document.addEventListener("DOMContentLoaded", () => {
 	const deliverySelect = document.getElementById("delivery-method");
 	const deliveryDate = document.getElementById("delivery-date");
 
-	const pointLimit = typeof userPoint !== 'undefined' ? userPoint : 0;
-	const dmList = (typeof deliveryMethods !== 'undefined' && Array.isArray(deliveryMethods)) ? deliveryMethods : [];
+	// =========================
+	// 주문자 정보 입력
+	// =========================
+	const ordererNameInput = document.getElementById("orderer-name");
+	const ordererPhoneInput = document.getElementById("orderer-phone");
+	const ordererSameAsMemberCheck = document.getElementById("orderer-same-as-member");
+
+	const $openOrdererModalBtn = document.getElementById("order-confirm-orderer-open-modal");
+	const $ordererModalOverlay = document.getElementById("order-confirm-orderer-modal-overlay");
+	const $ordererModalClose = document.getElementById("order-confirm-orderer-modal-close");
+	const $ordererList = document.getElementById("order-confirm-orderer-list");
+
+	const memberInfo = (typeof loginMemberInfo !== "undefined" && loginMemberInfo)
+		? loginMemberInfo
+		: { name: "", phone: "" };
+
+	const ordererInfos = (typeof companyOrdererInfos !== "undefined" && Array.isArray(companyOrdererInfos))
+		? companyOrdererInfos
+		: [];
+
+	const pointLimit = typeof userPoint !== "undefined" ? userPoint : 0;
+	const dmList = (typeof deliveryMethods !== "undefined" && Array.isArray(deliveryMethods)) ? deliveryMethods : [];
 
 	// =========================
-	// ✅ 추가: 배송지 선택 모달 DOM
+	// 배송지 선택 모달 DOM
 	// =========================
 	const $openAddressModalBtn = document.getElementById("order-confirm-added-open-address-modal");
 	const $modalOverlay = document.getElementById("order-confirm-added-modal-overlay");
-	const $modal = document.getElementById("order-confirm-added-modal");
 	const $modalClose = document.getElementById("order-confirm-added-modal-close");
 	const $addressList = document.getElementById("order-confirm-added-address-list");
 
-	const deliveryAddresses = (typeof companyDeliveryAddresses !== 'undefined' && Array.isArray(companyDeliveryAddresses))
+	const deliveryAddresses = (typeof companyDeliveryAddresses !== "undefined" && Array.isArray(companyDeliveryAddresses))
 		? companyDeliveryAddresses
 		: [];
 
 	document.getElementById("user-point-view").innerText = `${Number(pointLimit || 0).toLocaleString()} 원`;
 
 	function getCategoryLabel(optionJson) {
-		return optionJson["카테고리"] || optionJson?.category?.label || '';
+		return optionJson["카테고리"] || optionJson?.category?.label || "";
+	}
+
+	function escapeHtml(s) {
+		return String(s ?? "")
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&#039;");
+	}
+
+	function normalizeText(value) {
+		return String(value || "").trim();
 	}
 
 	// =========================
-	// 이탈 경고/직접구매 beacon 삭제 로직 유지
+	// 이탈 경고/직접구매 beacon 삭제 로직
 	// =========================
-	if (orderSource === 'direct' || orderSource === 'cart') {
-		window.addEventListener('beforeunload', (e) => {
+	if (orderSource === "direct" || orderSource === "cart") {
+		window.addEventListener("beforeunload", (e) => {
 			if (unloadConfirm) {
 				e.preventDefault();
-				e.returnValue = '';
+				e.returnValue = "";
 			}
 		});
 
-		if (orderSource === 'direct') {
-			window.addEventListener('unload', () => {
+		if (orderSource === "direct") {
+			window.addEventListener("unload", () => {
 				if (!unloadConfirm) return;
 
 				const cartIds = (window.cart || []).map(item => item.id);
 				if (cartIds.length > 0) {
-					const blob = new Blob([JSON.stringify(cartIds)], { type: 'application/json' });
-					navigator.sendBeacon('/api/v2/cartDeleteAll', blob);
+					const blob = new Blob([JSON.stringify(cartIds)], { type: "application/json" });
+					navigator.sendBeacon("/api/v2/cartDeleteAll", blob);
 				}
 			});
 		}
 	}
 
 	// =========================
-	// 리드타임(기존 로직 유지)
+	// 리드타임
 	// =========================
 	function getAdjustedLeadDate() {
 		const now = new Date();
@@ -94,8 +128,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 
 		const y = d.getFullYear();
-		const m = String(d.getMonth() + 1).padStart(2, '0');
-		const dd = String(d.getDate()).padStart(2, '0');
+		const m = String(d.getMonth() + 1).padStart(2, "0");
+		const dd = String(d.getDate()).padStart(2, "0");
 		return `${y}-${m}-${dd}`;
 	}
 
@@ -106,7 +140,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		return cart.reduce((sum, item) => sum + (item.quantity || 1) * (item.price || 10000), 0);
 	}
 
-	// ✅ 배송비는 “공통 배송수단 1개” 기준으로만 계산
 	function calculateTotalShipping() {
 		const methodId = deliverySelect?.value;
 		if (!methodId) return 0;
@@ -172,26 +205,23 @@ document.addEventListener("DOMContentLoaded", () => {
 		dmList.forEach(method => {
 			const opt = document.createElement("option");
 			opt.value = method.id;
-			opt.text = `${method.methodName} (금액: ${method.methodPrice})`;
+			opt.text = `${method.methodName} (금액: ${Number(method.methodPrice || 0).toLocaleString()}원)`;
 			deliverySelect.appendChild(opt);
 		});
 	}
 
-	// =========================
-	// 공통 배송희망일 min 설정
-	// =========================
 	function setGlobalDeliveryMinDate() {
 		if (!deliveryDate) return;
 		deliveryDate.min = getAdjustedLeadDate();
 	}
 
 	// =========================
-	// 주문 아이템 렌더 (✅ 주소 입력 UI 제거)
+	// 주문 아이템 렌더
 	// =========================
 	function renderOrderItems() {
 		if (!cart.length) {
-			alert('발주 정보가 없습니다. 주문을 시작 해 주세요.');
-			location.href = '/index';
+			alert("발주 정보가 없습니다. 주문을 시작 해 주세요.");
+			location.href = "/index";
 			return;
 		}
 
@@ -216,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
 					<div class="row vertical-center" style="gap:20px;">
 						<div class="col-auto">
 							<span class="font-11">제품분류</span>
-							<p class="mt-n2 mb-1"><strong class="color-theme">${categoryLabel}</strong></p>
+							<p class="mt-n2 mb-1"><strong class="color-theme">${escapeHtml(categoryLabel)}</strong></p>
 						</div>
 						<div class="col-auto">
 							<span class="font-11">수량</span>
@@ -252,10 +282,9 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// =========================
-	// ✅ 주소 세팅(서버 검증 통과용 필드 정확히 채움)
+	// 주소 세팅
 	// =========================
 	function applyAddressToInputs(addr) {
-		// addr = { roadAddress, detailAddress, zipCode, doName, siName, guName }
 		mainAddr.value = addr.roadAddress || "";
 		detailAddr.value = addr.detailAddress || "";
 		zipInput.value = addr.zipCode || "";
@@ -264,11 +293,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		guInput.value = addr.guName || "";
 	}
 
-	// =========================
-	// ✅ 배송지 선택 모달 렌더
-	//  - 첫 번째 항목: 회원 주소(= 회사 기본 주소) + sup 표시
-	//  - 나머지: CompanyDeliveryAddress 목록
-	// =========================
 	function renderAddressModalList() {
 		if (!$addressList) return;
 
@@ -303,7 +327,9 @@ document.addEventListener("DOMContentLoaded", () => {
 			const line2Parts = [];
 
 			if (item.zipCode) line2Parts.push(`(${item.zipCode})`);
-			if (item.doName || item.siName || item.guName) line2Parts.push(`${item.doName || ""} ${item.siName || ""} ${item.guName || ""}`.trim());
+			if (item.doName || item.siName || item.guName) {
+				line2Parts.push(`${item.doName || ""} ${item.siName || ""} ${item.guName || ""}`.trim());
+			}
 			if (item.detailAddress) line2Parts.push(item.detailAddress);
 
 			const line2 = line2Parts.join(" · ");
@@ -345,19 +371,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		});
 	}
 
-	// XSS 방지용(회원주소 sup를 위해 line1만 escape)
-	function escapeHtml(s) {
-		return String(s ?? "")
-			.replace(/&/g, "&amp;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;")
-			.replace(/"/g, "&quot;")
-			.replace(/'/g, "&#039;");
-	}
-
-	// =========================
-	// ✅ 모달 열기/닫기 + 오버레이 클릭 닫기
-	// =========================
 	function openAddressModal() {
 		if (!$modalOverlay) return;
 		renderAddressModalList();
@@ -371,6 +384,84 @@ document.addEventListener("DOMContentLoaded", () => {
 		$modalOverlay.setAttribute("aria-hidden", "true");
 	}
 
+	// =========================
+	// 주문자 정보 세팅
+	// =========================
+	function applyOrdererToInputs(orderer) {
+		ordererNameInput.value = orderer.ordererName || "";
+		ordererPhoneInput.value = orderer.phone || orderer.ordererPhone || "";
+	}
+
+	function clearOrdererInputs() {
+		ordererNameInput.value = "";
+		ordererPhoneInput.value = "";
+	}
+
+	function renderOrdererModalList() {
+		if (!$ordererList) return;
+
+		$ordererList.innerHTML = "";
+
+		if (!ordererInfos.length) {
+			const empty = document.createElement("div");
+			empty.className = "order-confirm-added-address-item";
+			empty.textContent = "등록된 주문자 정보가 없습니다.";
+			$ordererList.appendChild(empty);
+			return;
+		}
+
+		ordererInfos.forEach(item => {
+			const wrap = document.createElement("div");
+			wrap.className = "order-confirm-added-address-item";
+
+			const text = document.createElement("div");
+			text.className = "order-confirm-added-address-text";
+
+			const t1 = document.createElement("div");
+			t1.className = "order-confirm-added-address-line1";
+			t1.textContent = item.ordererName || "-";
+
+			const t2 = document.createElement("div");
+			t2.className = "order-confirm-added-address-line2";
+			t2.textContent = item.phone || "-";
+
+			text.appendChild(t1);
+			text.appendChild(t2);
+
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "order-confirm-added-address-select-btn";
+			btn.textContent = "선택";
+			btn.addEventListener("click", () => {
+				if (ordererSameAsMemberCheck) {
+					ordererSameAsMemberCheck.checked = false;
+				}
+				applyOrdererToInputs(item);
+				closeOrdererModal();
+			});
+
+			wrap.appendChild(text);
+			wrap.appendChild(btn);
+			$ordererList.appendChild(wrap);
+		});
+	}
+
+	function openOrdererModal() {
+		if (!$ordererModalOverlay) return;
+		renderOrdererModalList();
+		$ordererModalOverlay.classList.add("order-confirm-added-open");
+		$ordererModalOverlay.setAttribute("aria-hidden", "false");
+	}
+
+	function closeOrdererModal() {
+		if (!$ordererModalOverlay) return;
+		$ordererModalOverlay.classList.remove("order-confirm-added-open");
+		$ordererModalOverlay.setAttribute("aria-hidden", "true");
+	}
+
+	// =========================
+	// 이벤트 바인딩
+	// =========================
 	if ($openAddressModalBtn) {
 		$openAddressModalBtn.addEventListener("click", openAddressModal);
 	}
@@ -381,33 +472,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	if ($modalOverlay) {
 		$modalOverlay.addEventListener("click", (e) => {
-			// 오버레이 영역 클릭 시에만 닫기 (모달 내부 클릭은 무시)
 			if (e.target === $modalOverlay) closeAddressModal();
 		});
 	}
 
-	// =========================
-	// ✅ 주소검색(daum.post) 유지 + 값 정확히 갱신
-	// =========================
+	if ($openOrdererModalBtn) {
+		$openOrdererModalBtn.addEventListener("click", openOrdererModal);
+	}
+
+	if ($ordererModalClose) {
+		$ordererModalClose.addEventListener("click", closeOrdererModal);
+	}
+
+	if ($ordererModalOverlay) {
+		$ordererModalOverlay.addEventListener("click", (e) => {
+			if (e.target === $ordererModalOverlay) closeOrdererModal();
+		});
+	}
+
+	if (ordererSameAsMemberCheck) {
+		ordererSameAsMemberCheck.addEventListener("change", () => {
+			if (ordererSameAsMemberCheck.checked) {
+				applyOrdererToInputs({
+					ordererName: memberInfo.name || "",
+					phone: memberInfo.phone || ""
+				});
+			} else {
+				clearOrdererInputs();
+			}
+		});
+	}
+
+	[ordererNameInput, ordererPhoneInput].forEach(el => {
+		if (!el) return;
+		el.addEventListener("input", () => {
+			if (!ordererSameAsMemberCheck || !ordererSameAsMemberCheck.checked) return;
+
+			const isStillSame =
+				normalizeText(ordererNameInput.value) === normalizeText(memberInfo.name) &&
+				normalizeText(ordererPhoneInput.value) === normalizeText(memberInfo.phone);
+
+			if (!isStillSame) {
+				ordererSameAsMemberCheck.checked = false;
+			}
+		});
+	});
+
 	document.getElementById("main-addr-search").addEventListener("click", () => {
 		new daum.Postcode({
 			oncomplete: function (data) {
 				const road = data.roadAddress || data.jibunAddress || "";
 				applyAddressToInputs({
 					roadAddress: road,
-					detailAddress: "", // 상세주소는 사용자가 입력
+					detailAddress: "",
 					doName: data.sido || "",
 					siName: data.sigungu || "",
 					guName: data.bname || "",
 					zipCode: data.zonecode || ""
 				});
-				// 상세주소 포커스(기존 UX 자연스럽게)
 				detailAddr.focus();
 			}
 		}).open();
 	});
 
-	// ✅ 공통 배송수단 변경 시 배송비/최종금액 반영
 	if (deliverySelect) {
 		deliverySelect.addEventListener("change", () => {
 			updateAmounts();
@@ -415,19 +542,32 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// =========================
-	// 공통 입력 검증(✅ 제품별 검증 제거)
+	// 입력 검증
 	// =========================
 	function validateDeliveryInputs() {
+		const ordererFields = [
+			{ el: ordererNameInput, label: "주문자 이름" },
+			{ el: ordererPhoneInput, label: "주문자 연락처" }
+		];
+
+		for (const f of ordererFields) {
+			if (!f.el || !normalizeText(f.el.value)) {
+				alert(`${f.label}을 입력해주세요.`);
+				f.el?.focus();
+				return false;
+			}
+		}
+
 		const commonFields = [
-			{ el: mainAddr, label: '공통 주소' },
-			{ el: detailAddr, label: '공통 상세주소' },
-			{ el: zipInput, label: '공통 우편번호' },
-			{ el: deliverySelect, label: '공통 배송수단' },
-			{ el: deliveryDate, label: '공통 배송희망일' }
+			{ el: mainAddr, label: "공통 주소" },
+			{ el: detailAddr, label: "공통 상세주소" },
+			{ el: zipInput, label: "공통 우편번호" },
+			{ el: deliverySelect, label: "공통 배송수단" },
+			{ el: deliveryDate, label: "공통 배송희망일" }
 		];
 
 		for (const f of commonFields) {
-			if (!f.el || !String(f.el.value || '').trim()) {
+			if (!f.el || !normalizeText(f.el.value)) {
 				alert(`${f.label}를 입력해주세요.`);
 				f.el?.focus();
 				return false;
@@ -444,12 +584,14 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// =========================
-	// 발주하기 클릭(✅ 모든 item에 동일 주소/배송정보를 채워서 전송)
+	// 발주하기
 	// =========================
 	document.getElementById("orderConfirmButton").addEventListener("click", () => {
 		if (!validateDeliveryInputs()) return;
 
-		const commonAddressInfo = {
+		const commonOrderInfo = {
+			ordererName: normalizeText(ordererNameInput.value),
+			ordererPhone: normalizeText(ordererPhoneInput.value),
 			preferredDeliveryDate: deliveryDate.value || "",
 			mainAddress: mainAddr.value || "",
 			detailAddress: detailAddr.value || "",
@@ -464,8 +606,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		const orderData = [];
 		cart.forEach((item) => {
 			orderData.push({
-				cartId: item.id, // ✅ 오직 cartId만 사용
-				...commonAddressInfo
+				cartId: item.id,
+				...commonOrderInfo
 			});
 		});
 
@@ -483,7 +625,11 @@ document.addEventListener("DOMContentLoaded", () => {
 			body: JSON.stringify(payload)
 		})
 			.then(res => {
-				if (!res.ok) throw new Error("서버 오류 발생");
+				if (!res.ok) {
+					return res.text().then(text => {
+						throw new Error(text || "서버 오류 발생");
+					});
+				}
 				return res.text();
 			})
 			.then(msg => {
@@ -493,12 +639,13 @@ document.addEventListener("DOMContentLoaded", () => {
 			})
 			.catch(err => {
 				hidePreloader();
+				unloadConfirm = true;
 				alert("발주 처리 중 오류 발생: " + err.message);
 			});
 	});
 
 	// =========================
-	// 세션 중복 방지 로직(기존 유지)
+	// 세션 중복 방지 로직
 	// =========================
 	const cartIds = (window.cart || []).map(item => item.id);
 	const stored = sessionStorage.getItem("lastCartIds");

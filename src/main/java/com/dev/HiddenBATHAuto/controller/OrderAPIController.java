@@ -47,6 +47,8 @@ public class OrderAPIController {
 	        System.out.println("우편번호 : " + item.getZipCode());
 	        System.out.println("배송수단 : " + item.getDeliveryMethodId());
 	        System.out.println("행정구역 : " + item.getDoName() + " " + item.getSiName() + " " + item.getGuName());
+	        System.out.println("주문자 이름 : " + item.getOrdererName());
+	        System.out.println("주문자 연락처 : " + item.getOrdererPhone());
 	        System.out.println("----------------------");
 	    }
 

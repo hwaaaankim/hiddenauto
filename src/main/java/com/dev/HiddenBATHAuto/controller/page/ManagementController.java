@@ -79,13 +79,16 @@ import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionBulkSaveRequest;
+import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyDeliveryAddressOptionDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyMemberOptionDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyOptionDto;
+import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyOrdererInfoOptionDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderImageDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderRowDto;
 import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
 import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
@@ -100,6 +103,8 @@ import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyDeliveryAddressRepository;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyOrdererInfoRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
@@ -139,6 +144,8 @@ public class ManagementController {
 	
 	private final TeamRepository teamRepository;
 	private final CompanyRepository companyRepository;
+	private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
+	private final CompanyOrdererInfoRepository companyOrdererInfoRepository;
 	private final ProvinceRepository provinceRepository;
 	private final OrderImageRepository orderImageRepository;
 
@@ -283,6 +290,12 @@ public class ManagementController {
 	                    )))
 	            .toList();
 
+	    List<NonStandardTaskListCompanyDeliveryAddressOptionDto> companyDeliveryAddressOptions =
+	            buildOrderListCompanyDeliveryAddressOptions(companies);
+
+	    List<NonStandardTaskListCompanyOrdererInfoOptionDto> companyOrdererInfoOptions =
+	            buildOrderListCompanyOrdererInfoOptions(companies);
+
 	    model.addAttribute("orders", orders);
 	    model.addAttribute("orderRows", orderRows);
 
@@ -299,6 +312,8 @@ public class ManagementController {
 
 	    model.addAttribute("companyOptions", companyOptions);
 	    model.addAttribute("companyMemberOptions", companyMemberOptions);
+	    model.addAttribute("companyDeliveryAddressOptions", companyDeliveryAddressOptions);
+	    model.addAttribute("companyOrdererInfoOptions", companyOrdererInfoOptions);
 
 	    model.addAttribute("keyword", (keyword == null) ? "" : keyword);
 	    model.addAttribute("dateCriteria", finalDateCriteria);
@@ -318,6 +333,90 @@ public class ManagementController {
 	    model.addAttribute("pageSize", orders.getSize());
 
 	    return "administration/management/order/nonStandard/taskList";
+	}
+
+	private List<NonStandardTaskListCompanyDeliveryAddressOptionDto> buildOrderListCompanyDeliveryAddressOptions(
+	        List<Company> companies
+	) {
+	    if (companies == null || companies.isEmpty()) {
+	        return List.of();
+	    }
+
+	    return companies.stream()
+	            .flatMap(company -> companyDeliveryAddressRepository
+	                    .findByCompany_IdOrderByIdAsc(company.getId())
+	                    .stream()
+	                    .map(address -> new NonStandardTaskListCompanyDeliveryAddressOptionDto(
+	                            company.getId(),
+	                            address.getId(),
+	                            orderListText(address.getZipCode()),
+	                            orderListText(address.getDoName()),
+	                            orderListText(address.getSiName()),
+	                            orderListText(address.getGuName()),
+	                            orderListText(address.getRoadAddress()),
+	                            orderListText(address.getDetailAddress()),
+	                            buildOrderListFullAddress(address)
+	                    )))
+	            .toList();
+	}
+
+	private List<NonStandardTaskListCompanyOrdererInfoOptionDto> buildOrderListCompanyOrdererInfoOptions(
+	        List<Company> companies
+	) {
+	    if (companies == null || companies.isEmpty()) {
+	        return List.of();
+	    }
+
+	    return companies.stream()
+	            .flatMap(company -> companyOrdererInfoRepository
+	                    .findByCompany_IdOrderByIdAsc(company.getId())
+	                    .stream()
+	                    .map(ordererInfo -> new NonStandardTaskListCompanyOrdererInfoOptionDto(
+	                            company.getId(),
+	                            ordererInfo.getId(),
+	                            orderListText(ordererInfo.getOrdererName()),
+	                            orderListText(ordererInfo.getPhone())
+	                    )))
+	            .toList();
+	}
+
+	private String buildOrderListFullAddress(CompanyDeliveryAddress address) {
+	    if (address == null) {
+	        return "";
+	    }
+
+	    String fullAddress = orderListJoinNonBlank(" ",
+	            orderListWrapIfNotBlank(address.getZipCode(), "(", ")"),
+	            address.getDoName(),
+	            address.getSiName(),
+	            address.getGuName(),
+	            address.getRoadAddress(),
+	            address.getDetailAddress()
+	    );
+
+	    return fullAddress.isBlank() ? "-" : fullAddress;
+	}
+
+	private String orderListText(String value) {
+	    return value == null ? "" : value;
+	}
+
+	private String orderListWrapIfNotBlank(String value, String prefix, String suffix) {
+	    if (value == null || value.isBlank()) {
+	        return null;
+	    }
+
+	    return prefix + value + suffix;
+	}
+
+	private String orderListJoinNonBlank(String delimiter, String... values) {
+	    if (values == null) {
+	        return "";
+	    }
+
+	    return java.util.Arrays.stream(values)
+	            .filter(value -> value != null && !value.isBlank())
+	            .collect(Collectors.joining(delimiter));
 	}
 	
 	@GetMapping("/nonStandardTaskList/bulk-fragment")
@@ -769,42 +868,76 @@ public class ManagementController {
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
 	public String updateNonStandardOrderItem(
 	        @PathVariable Long orderId,
-	        @RequestParam("productCost") int productCost,
-	        @RequestParam("preferredDeliveryDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
+	        @RequestParam(value = "productCost", defaultValue = "0") int productCost,
+	        @RequestParam(value = "quantity", defaultValue = "0") int quantity,
+	        @RequestParam(value = "supplyPrice", defaultValue = "0") int supplyPrice,
+	        @RequestParam(value = "totalAmount", defaultValue = "0") int totalAmount,
+	        @RequestParam(value = "packingCost", defaultValue = "0") int packingCost,
+	        @RequestParam(value = "deliveryCost", defaultValue = "0") int deliveryCost,
+	        @RequestParam(value = "preferredDeliveryDate", required = false)
+	        @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
 	        @RequestParam("status") String statusStr,
 	        @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
 	        @RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
 	        @RequestParam("productCategoryId") Optional<Long> productCategoryId,
 	        @RequestParam("companyId") Optional<Long> companyId,
 	        @RequestParam("requesterMemberId") Optional<Long> requesterMemberId,
+	        @RequestParam(value = "zipCode", required = false) String zipCode,
+	        @RequestParam(value = "doName", required = false) String doName,
+	        @RequestParam(value = "siName", required = false) String siName,
+	        @RequestParam(value = "guName", required = false) String guName,
+	        @RequestParam(value = "roadAddress", required = false) String roadAddress,
+	        @RequestParam(value = "detailAddress", required = false) String detailAddress,
+	        @RequestParam(value = "ordererName", required = false) String ordererName,
+	        @RequestParam(value = "ordererPhone", required = false) String ordererPhone,
+	        @RequestParam(value = "optionJson", required = false) String optionJson,
 	        @RequestParam(value = "adminMemo", required = false) String adminMemo,
 	        @RequestParam(value = "deleteAdminImageIds", required = false) List<Long> deleteAdminImageIds,
 	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
 	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
 	        RedirectAttributes redirectAttributes
 	) {
-	    nonStandardOrderItemService.updateNonStandardOrderItem(
-	            orderId,
-	            productCost,
-	            preferredDeliveryDate,
-	            statusStr,
-	            deliveryMethodId,
-	            deliveryHandlerId,
-	            productCategoryId,
-	            companyId,
-	            requesterMemberId,
-	            adminMemo,
-	            deleteAdminImageIds,
-	            adminImages
-	    );
+	    String redirectUrl = isSafeNonStandardTaskListReturnUrl(returnUrl)
+	            ? "redirect:" + returnUrl.trim()
+	            : "redirect:/management/nonStandardTaskList";
 
-	    redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
+	    try {
+	        nonStandardOrderItemService.updateNonStandardOrderItem(
+	                orderId,
+	                productCost,
+	                quantity,
+	                supplyPrice,
+	                totalAmount,
+	                packingCost,
+	                deliveryCost,
+	                preferredDeliveryDate,
+	                statusStr,
+	                deliveryMethodId,
+	                deliveryHandlerId,
+	                productCategoryId,
+	                companyId,
+	                requesterMemberId,
+	                zipCode,
+	                doName,
+	                siName,
+	                guName,
+	                roadAddress,
+	                detailAddress,
+	                ordererName,
+	                ordererPhone,
+	                optionJson,
+	                adminMemo,
+	                deleteAdminImageIds,
+	                adminImages
+	        );
 
-	    if (isSafeNonStandardTaskListReturnUrl(returnUrl)) {
-	        return "redirect:" + returnUrl.trim();
+	        redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
+	        return redirectUrl;
+
+	    } catch (IllegalArgumentException | IllegalStateException e) {
+	        redirectAttributes.addFlashAttribute("message", e.getMessage());
+	        return redirectUrl;
 	    }
-
-	    return "redirect:/management/nonStandardTaskList";
 	}
 
 	private boolean isSafeNonStandardTaskListReturnUrl(String returnUrl) {

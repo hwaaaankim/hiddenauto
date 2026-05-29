@@ -143,3 +143,116 @@
 	font-size: 12px !important;
 	line-height: 1 !important;
 }
+
+/* =========================
+   주문자 정보 관리
+   Prefix: customer-myInfo-
+   ========================= */
+
+.customer-myInfo-section-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.customer-myInfo-orderer-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.customer-myInfo-orderer-empty {
+	padding: 13px 14px;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 5px;
+	background: rgba(0, 0, 0, 0.02);
+	color: #777;
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.customer-myInfo-orderer-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 12px 12px 14px;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 5px;
+	background: #fff;
+}
+
+.customer-myInfo-orderer-item-left {
+	min-width: 0;
+	flex: 1;
+}
+
+.customer-myInfo-orderer-name {
+	color: #222;
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1.35;
+	word-break: break-all;
+}
+
+.customer-myInfo-orderer-phone {
+	margin-top: 3px;
+	color: #666;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.35;
+	word-break: break-all;
+}
+
+.customer-myInfo-orderer-delete-btn {
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	border: 1px solid rgba(220, 53, 69, 0.35);
+	border-radius: 5px;
+	background: rgba(220, 53, 69, 0.06);
+	color: #dc3545;
+	font-size: 20px;
+	font-weight: 800;
+	line-height: 28px;
+	text-align: center;
+	cursor: pointer;
+}
+
+.customer-myInfo-orderer-delete-btn:hover {
+	background: rgba(220, 53, 69, 0.12);
+}
+
+.customer-myInfo-orderer-modal-content {
+	border-radius: 5px;
+	overflow: hidden;
+}
+
+.customer-myInfo-orderer-help {
+	min-height: 18px;
+	margin-top: 5px;
+	font-size: 12px;
+	line-height: 1.35;
+}
+
+.customer-myInfo-orderer-help.ok {
+	color: #198754;
+}
+
+.customer-myInfo-orderer-help.bad {
+	color: #dc3545;
+}
+
+@media (max-width: 480px) {
+	.customer-myInfo-orderer-item {
+		padding: 11px 10px 11px 12px;
+	}
+
+	.customer-myInfo-orderer-delete-btn {
+		width: 30px;
+		height: 30px;
+		min-width: 30px;
+		font-size: 19px;
+	}
+}

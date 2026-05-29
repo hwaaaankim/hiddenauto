@@ -11,18 +11,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyDeliveryAddressResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyOptionResponse;
+import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCompanyOrdererInfoResponse;
+import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderDeliveryMethodResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderMemberOptionResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderSimpleOptionResponse;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
+import com.dev.HiddenBATHAuto.model.auth.CompanyOrdererInfo;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
+import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.model.standard.StandardCategory;
 import com.dev.HiddenBATHAuto.model.standard.StandardProductSeries;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyDeliveryAddressRepository;
+import com.dev.HiddenBATHAuto.repository.auth.CompanyOrdererInfoRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
+import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardProductSeriesRepository;
 
@@ -41,6 +47,8 @@ public class ProductOrderAddQueryService {
     private final StandardCategoryRepository standardCategoryRepository;
     private final StandardProductSeriesRepository standardProductSeriesRepository;
     private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
+    private final CompanyOrdererInfoRepository companyOrdererInfoRepository;
+    private final DeliveryMethodRepository deliveryMethodRepository;
 
     public List<ProductOrderCompanyOptionResponse> searchCompanies(String keyword) {
         List<Member> reps = memberRepository.searchCompanyRepresentativeMembers(
@@ -61,7 +69,8 @@ public class ProductOrderAddQueryService {
             result.put(company.getId(), ProductOrderCompanyOptionResponse.builder()
                     .companyId(company.getId())
                     .companyName(company.getCompanyName())
-                    .representativeName(rep.getName())
+                    .representativeName(trimToEmpty(rep.getName()))
+                    .representativePhone(trimToEmpty(rep.getPhone()))
                     .joinedAt(company.getCreatedAt())
                     .address(buildCompanyAddress(company))
                     .zipCode(trimToEmpty(company.getZipCode()))
@@ -83,16 +92,50 @@ public class ProductOrderAddQueryService {
         List<ProductOrderCompanyDeliveryAddressResponse> result = new ArrayList<>();
 
         for (CompanyDeliveryAddress address : addresses) {
-        	result.add(ProductOrderCompanyDeliveryAddressResponse.builder()
-        	        .id(address.getId())
-        	        .zipCode(trimToEmpty(address.getZipCode()))
-        	        .doName(trimToEmpty(address.getDoName()))
-        	        .siName(trimToEmpty(address.getSiName()))
-        	        .guName(trimToEmpty(address.getGuName()))
-        	        .roadAddress(trimToEmpty(address.getRoadAddress()))
-        	        .detailAddress(trimToEmpty(address.getDetailAddress()))
-        	        .address(buildDeliveryAddress(address))
-        	        .build());
+            result.add(ProductOrderCompanyDeliveryAddressResponse.builder()
+                    .id(address.getId())
+                    .zipCode(trimToEmpty(address.getZipCode()))
+                    .doName(trimToEmpty(address.getDoName()))
+                    .siName(trimToEmpty(address.getSiName()))
+                    .guName(trimToEmpty(address.getGuName()))
+                    .roadAddress(trimToEmpty(address.getRoadAddress()))
+                    .detailAddress(trimToEmpty(address.getDetailAddress()))
+                    .address(buildDeliveryAddress(address))
+                    .build());
+        }
+
+        return result;
+    }
+
+    public List<ProductOrderCompanyOrdererInfoResponse> getCompanyOrdererInfos(Long companyId) {
+        List<CompanyOrdererInfo> infos = companyOrdererInfoRepository
+                .findByCompany_IdOrderByCreatedAtDescIdDesc(companyId);
+
+        List<ProductOrderCompanyOrdererInfoResponse> result = new ArrayList<>();
+
+        for (CompanyOrdererInfo info : infos) {
+            result.add(ProductOrderCompanyOrdererInfoResponse.builder()
+                    .id(info.getId())
+                    .ordererName(trimToEmpty(info.getOrdererName()))
+                    .ordererPhone(trimToEmpty(resolveOrdererPhone(info)))
+                    .createdAt(info.getCreatedAt())
+                    .build());
+        }
+
+        return result;
+    }
+
+    public List<ProductOrderDeliveryMethodResponse> getDeliveryMethods() {
+        List<DeliveryMethod> methods = deliveryMethodRepository.findAllByOrderByMethodNameAsc();
+        List<ProductOrderDeliveryMethodResponse> result = new ArrayList<>();
+
+        for (DeliveryMethod method : methods) {
+            result.add(new ProductOrderDeliveryMethodResponse(
+                    method.getId(),
+                    trimToEmpty(method.getMethodName()),
+                    method.getMethodPrice(),
+                    isDirectDeliveryMethod(method)
+            ));
         }
 
         return result;
@@ -162,6 +205,19 @@ public class ProductOrderAddQueryService {
         }
 
         return result;
+    }
+
+    private boolean isDirectDeliveryMethod(DeliveryMethod method) {
+        String name = trimToEmpty(method == null ? null : method.getMethodName()).replace(" ", "");
+        return name.contains("직배송");
+    }
+
+    /**
+     * 현재 올려주신 CompanyOrdererInfo에는 phone 컬럼 필드명이 phone으로 되어 있습니다.
+     * 엔티티를 ordererPhone으로 변경하셨다면 이 메서드만 info.getOrdererPhone()으로 바꾸시면 됩니다.
+     */
+    private String resolveOrdererPhone(CompanyOrdererInfo info) {
+        return info.getPhone();
     }
 
     private String safeKeyword(String keyword) {

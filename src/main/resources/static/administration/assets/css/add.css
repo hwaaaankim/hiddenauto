@@ -1745,3 +1745,461 @@ body.team-production-image-modal-open {
 		font-size: 36px;
 	}
 }
+
+/* productOrderAdd 추가 CSS: 기존 productOrderAdd 관련 CSS 맨 아래에 추가하세요. */
+
+.product-admin-add-bottom-bar-expanded {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.product-admin-add-bottom-summary-wrap {
+	width: 100%;
+	overflow-x: auto;
+	border: 1px solid #e9ebec;
+	border-radius: 8px;
+	background: #fff;
+}
+
+.product-admin-add-bottom-summary-table {
+	min-width: 860px;
+	font-size: 13px;
+}
+
+.product-admin-add-bottom-summary-table thead th {
+	background: #f8f9fa;
+	color: #495057;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.product-admin-add-bottom-summary-table td,
+.product-admin-add-bottom-summary-table th {
+	padding: 10px 12px;
+	vertical-align: middle;
+}
+
+.product-admin-add-collapse-btn {
+	color: #212529;
+	font-weight: 700;
+}
+
+.product-admin-add-collapse-btn:hover {
+	color: #0d6efd;
+}
+
+.product-admin-add-order-card-invalid {
+	border-color: #f7b84b;
+	box-shadow: 0 0 0 1px rgba(247, 184, 75, .15);
+}
+
+.product-admin-add-order-error {
+	margin-bottom: 16px;
+	padding: 10px 12px;
+	border: 1px solid rgba(247, 184, 75, .45);
+	border-radius: 6px;
+	background: rgba(247, 184, 75, .12);
+	color: #7a4b00;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.product-admin-add-money-input {
+	text-align: right;
+}
+
+.product-admin-add-company-orderer-list,
+.product-admin-add-company-address-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.product-admin-add-company-address-item {
+	width: 100%;
+	border: 1px solid #e9ebec;
+	background: #fff;
+	border-radius: 6px;
+	padding: 12px 14px;
+	text-align: left;
+	transition: border-color .15s ease, background .15s ease;
+}
+
+.product-admin-add-company-address-item:hover {
+	border-color: #0d6efd;
+	background: #f8fbff;
+}
+
+.product-admin-add-company-address-main,
+.product-admin-add-company-address-sub {
+	display: block;
+}
+
+.product-admin-add-company-address-main {
+	font-weight: 700;
+	color: #212529;
+}
+
+.product-admin-add-company-address-sub {
+	margin-top: 4px;
+	color: #6c757d;
+	font-size: 13px;
+}
+
+@media (min-width: 992px) {
+	.product-admin-add-bottom-bar-expanded {
+		align-items: stretch;
+	}
+}
+
+.product-admin-add-order-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	border: 0;
+	background: transparent;
+	padding: 0;
+	color: #212529;
+	font-weight: 700;
+	text-align: left;
+}
+
+.product-admin-add-order-toggle:hover {
+	color: #0d6efd;
+}
+
+.product-admin-add-order-title {
+	color: #6c757d;
+	font-weight: 500;
+	max-width: 360px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.product-admin-add-order-card-has-error {
+	border-color: rgba(220, 53, 69, .55);
+	box-shadow: 0 0 0 1px rgba(220, 53, 69, .08);
+}
+
+.product-admin-add-field-error {
+	margin-bottom: 6px;
+	padding: 7px 10px;
+	border: 1px solid rgba(220, 53, 69, .3);
+	border-radius: 6px;
+	background: rgba(220, 53, 69, .08);
+	color: #b02a37;
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.product-admin-add-price-help {
+	padding: 9px 12px;
+	border: 1px dashed #d7dce1;
+	border-radius: 6px;
+	background: #f8f9fa;
+	color: #6c757d;
+	font-size: 13px;
+}
+
+.product-admin-add-company-orderer-item {
+	width: 100%;
+	border: 1px solid #e9ebec;
+	background: #fff;
+	border-radius: 6px;
+	padding: 12px 14px;
+	text-align: left;
+	transition: border-color .15s ease, background .15s ease;
+}
+
+.product-admin-add-company-orderer-item:hover {
+	border-color: #0d6efd;
+	background: #f8fbff;
+}
+
+.product-admin-add-company-orderer-main,
+.product-admin-add-company-orderer-sub {
+	display: block;
+}
+
+.product-admin-add-company-orderer-main {
+	font-weight: 700;
+	color: #212529;
+}
+
+.product-admin-add-company-orderer-sub {
+	margin-top: 4px;
+	color: #6c757d;
+	font-size: 13px;
+}
+
+.product-admin-add-field-error {
+	margin-top: 6px;
+	margin-bottom: 0;
+}
+
+.admin-task-list-second-address-preview {
+	min-height: 34px;
+	padding: 8px 10px;
+	border: 1px dashed #d7dde8;
+	border-radius: 8px;
+	background: #f8fafc;
+	color: #475569;
+	font-size: 13px;
+	line-height: 1.45;
+}
+
+.admin-task-list-second-money-box,
+.admin-task-list-second-option-box {
+	border: 1px solid #e5e7eb;
+	border-radius: 12px;
+	background: #ffffff;
+	padding: 16px;
+}
+
+.admin-task-list-second-money-head,
+.admin-task-list-second-option-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.admin-task-list-second-money-head strong,
+.admin-task-list-second-option-head strong {
+	display: block;
+	color: #111827;
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.admin-task-list-second-money-head p,
+.admin-task-list-second-option-head p {
+	margin: 4px 0 0;
+	color: #64748b;
+	font-size: 12px;
+}
+
+.admin-task-list-second-money-head span,
+.admin-task-list-second-option-head span {
+	flex: 0 0 auto;
+	padding: 4px 8px;
+	border-radius: 999px;
+	background: #eff6ff;
+	color: #2563eb;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .03em;
+}
+
+.admin-task-list-second-option-edit-list {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 8px;
+}
+
+.admin-task-list-second-option-edit-item {
+	display: grid;
+	grid-template-columns: minmax(120px, 180px) minmax(180px, 1fr) auto;
+	gap: 8px;
+	align-items: center;
+	padding: 10px;
+	border: 1px solid #edf0f5;
+	border-radius: 10px;
+	background: #f9fafb;
+}
+
+.admin-task-list-second-option-edit-item-locked {
+	background: #f8fafc;
+}
+
+.admin-task-list-second-option-key {
+	color: #334155;
+	font-size: 13px;
+	font-weight: 700;
+	word-break: keep-all;
+}
+
+.admin-task-list-second-option-value-wrap {
+	min-width: 0;
+}
+
+.admin-task-list-second-option-value-input:disabled {
+	background: #ffffff;
+	color: #111827;
+	opacity: 1;
+}
+
+.admin-task-list-second-option-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+.admin-task-list-second-option-lock-text {
+	display: inline-flex;
+	align-items: center;
+	min-height: 30px;
+	padding: 0 8px;
+	border-radius: 8px;
+	background: #e2e8f0;
+	color: #475569;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.admin-task-list-second-picker-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 1065;
+	display: none;
+}
+
+.admin-task-list-second-picker-modal.is-open {
+	display: block;
+}
+
+.admin-task-list-second-picker-overlay {
+	position: absolute;
+	inset: 0;
+	background: rgba(15, 23, 42, .52);
+}
+
+.admin-task-list-second-picker-dialog {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: min(720px, calc(100vw - 32px));
+	max-height: min(760px, calc(100vh - 48px));
+	transform: translate(-50%, -50%);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border-radius: 16px;
+	background: #ffffff;
+	box-shadow: 0 24px 80px rgba(15, 23, 42, .25);
+}
+
+.admin-task-list-second-picker-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 18px 20px 14px;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.admin-task-list-second-picker-head h5 {
+	margin: 0;
+	color: #111827;
+	font-size: 18px;
+	font-weight: 800;
+}
+
+.admin-task-list-second-picker-head p {
+	margin: 6px 0 0;
+	color: #64748b;
+	font-size: 13px;
+}
+
+.admin-task-list-second-picker-close-btn {
+	width: 34px;
+	height: 34px;
+	border: 0;
+	border-radius: 10px;
+	background: #f1f5f9;
+	color: #334155;
+	font-size: 22px;
+	line-height: 1;
+}
+
+.admin-task-list-second-picker-search {
+	padding: 14px 20px;
+	border-bottom: 1px solid #eef2f7;
+}
+
+.admin-task-list-second-picker-list {
+	overflow: auto;
+	padding: 14px 20px 20px;
+}
+
+.admin-task-list-second-picker-item {
+	width: 100%;
+	display: block;
+	margin: 0 0 8px;
+	padding: 13px 14px;
+	border: 1px solid #e5e7eb;
+	border-radius: 12px;
+	background: #ffffff;
+	text-align: left;
+	transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
+}
+
+.admin-task-list-second-picker-item:hover {
+	border-color: #3b82f6;
+	background: #f8fbff;
+	transform: translateY(-1px);
+}
+
+.admin-task-list-second-picker-item strong {
+	display: block;
+	color: #0f172a;
+	font-size: 14px;
+	font-weight: 800;
+}
+
+.admin-task-list-second-picker-item span {
+	display: block;
+	margin-top: 4px;
+	color: #64748b;
+	font-size: 12px;
+}
+
+.admin-task-list-second-picker-empty {
+	padding: 30px 12px;
+	border: 1px dashed #cbd5e1;
+	border-radius: 12px;
+	background: #f8fafc;
+	color: #64748b;
+	text-align: center;
+	font-size: 13px;
+}
+
+.admin-task-list-second-existing-image-card.is-marked-delete {
+	opacity: .42;
+	filter: grayscale(1);
+	position: relative;
+}
+
+.admin-task-list-second-existing-image-card.is-marked-delete::after {
+	content: "삭제 예정";
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	padding: 3px 7px;
+	border-radius: 999px;
+	background: #dc2626;
+	color: #ffffff;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+@media (max-width: 768px) {
+	.admin-task-list-second-option-edit-item {
+		grid-template-columns: 1fr;
+		align-items: stretch;
+	}
+
+	.admin-task-list-second-option-actions {
+		justify-content: flex-start;
+	}
+
+	.admin-task-list-second-picker-dialog {
+		width: calc(100vw - 20px);
+		max-height: calc(100vh - 28px);
+	}
+}

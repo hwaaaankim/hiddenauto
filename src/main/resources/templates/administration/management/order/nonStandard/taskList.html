@@ -43,6 +43,29 @@
 						</button>
 					</div>
 
+					<!-- 회사별 등록 배송지 원본 데이터 -->
+					<div id="admin-task-list-second-delivery-address-source" class="d-none">
+						<button type="button" th:each="address : ${companyDeliveryAddressOptions}" th:attr="data-company-id=${address.companyId},
+									 data-address-id=${address.addressId},
+									 data-zip-code=${address.zipCode},
+									 data-do-name=${address.doName},
+									 data-si-name=${address.siName},
+									 data-gu-name=${address.guName},
+									 data-road-address=${address.roadAddress},
+									 data-detail-address=${address.detailAddress},
+									 data-full-address=${address.fullAddress}">
+						</button>
+					</div>
+
+					<!-- 회사별 주문자 정보 원본 데이터 -->
+					<div id="admin-task-list-second-orderer-source" class="d-none">
+						<button type="button" th:each="orderer : ${companyOrdererInfoOptions}" th:attr="data-company-id=${orderer.companyId},
+									 data-orderer-info-id=${orderer.ordererInfoId},
+									 data-orderer-name=${orderer.ordererName},
+									 data-orderer-phone=${orderer.ordererPhone}">
+						</button>
+					</div>
+
 					<!-- start page title -->
 					<div class="row">
 						<div class="col-12">
@@ -491,15 +514,19 @@
 														</td>
 
 														<td>
-															<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${row.taskId})}"
-																class="fw-medium link-secondary"
+															<a class="fw-medium link-secondary"
 																th:text="${row.taskId}">1</a>
+															<!--<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${row.taskId})}"
+																class="fw-medium link-secondary"
+																th:text="${row.taskId}">1</a>-->
 														</td>
 
 														<td>
-															<a th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${row.orderId})}"
-																class="fw-medium link-primary"
+															<a class="fw-medium link-primary"
 																th:text="${row.orderId}">1</a>
+															<!--<a th:href="@{/management/nonStandardOrderItemDetail/{orderId}(orderId=${row.orderId})}"
+																class="fw-medium link-primary"
+																th:text="${row.orderId}">1</a>-->
 														</td>
 
 														<td>
@@ -643,34 +670,127 @@
 																		</div>
 
 																		<div class="col-lg-4 col-md-12">
-																			<div
-																				class="admin-task-list-second-field admin-task-list-second-readonly-field">
-																				<label
-																					class="admin-task-list-second-label">배송주소</label>
-																				<input type="text" class="form-control"
-																					readonly
-																					th:value="${row.fullAddress}">
-																			</div>
-																		</div>
-
-																		<div class="col-lg-3 col-md-6">
-																			<div
-																				class="admin-task-list-second-field admin-task-list-second-readonly-field">
-																				<label
-																					class="admin-task-list-second-label">수량</label>
-																				<input type="text" class="form-control"
-																					readonly th:value="${row.quantity}">
-																			</div>
-																		</div>
-
-																		<div class="col-lg-3 col-md-6">
 																			<div class="admin-task-list-second-field">
-																				<label
-																					class="admin-task-list-second-label">제품비용</label>
-																				<input type="number"
-																					class="form-control"
-																					name="productCost"
-																					th:value="${row.productCost}">
+																				<div
+																					class="d-flex align-items-center justify-content-between gap-2 mb-1">
+																					<label
+																						class="admin-task-list-second-label mb-0">배송주소</label>
+																					<div class="d-flex gap-1">
+																						<button type="button"
+																							class="btn btn-sm btn-outline-primary admin-task-list-second-address-search-btn">
+																							주소검색
+																						</button>
+																						<button type="button"
+																							class="btn btn-sm btn-outline-secondary admin-task-list-second-address-book-btn">
+																							등록 주소지 검색
+																						</button>
+																					</div>
+																				</div>
+
+																				<input type="hidden" name="zipCode"
+																					class="admin-task-list-second-zip-code"
+																					th:value="${row.zipCode}">
+																				<input type="hidden" name="doName"
+																					class="admin-task-list-second-do-name"
+																					th:value="${row.doName}">
+																				<input type="hidden" name="siName"
+																					class="admin-task-list-second-si-name"
+																					th:value="${row.siName}">
+																				<input type="hidden" name="guName"
+																					class="admin-task-list-second-gu-name"
+																					th:value="${row.guName}">
+
+																				<input type="text"
+																					class="form-control admin-task-list-second-road-address"
+																					name="roadAddress"
+																					placeholder="도로명주소" readonly
+																					th:value="${row.roadAddress}">
+																				<input type="text"
+																					class="form-control admin-task-list-second-detail-address mt-2"
+																					name="detailAddress"
+																					placeholder="상세주소"
+																					th:value="${row.detailAddress}">
+																				<div class="admin-task-list-second-address-preview mt-2"
+																					th:text="${row.fullAddress}">
+																					주소
+																				</div>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-12">
+																			<div
+																				class="admin-task-list-second-money-box">
+																				<div
+																					class="admin-task-list-second-money-head">
+																					<div>
+																						<strong>금액 계산</strong>
+																						<p>총비용과 부가세는 공급가 기준으로 계산됩니다.
+																							공급가가 0이면 부가세와 총비용도 0입니다.</p>
+																					</div>
+																					<span>자동계산</span>
+																				</div>
+
+																				<div class="row g-2">
+																					<div
+																						class="col-xl-2 col-md-4 col-sm-6">
+																						<label
+																							class="admin-task-list-second-label">단가</label>
+																						<input type="number" min="0"
+																							step="1"
+																							class="form-control admin-task-list-second-money-input"
+																							name="productCost"
+																							data-money-role="unit"
+																							th:value="${row.productCost}">
+																					</div>
+
+																					<div
+																						class="col-xl-2 col-md-4 col-sm-6">
+																						<label
+																							class="admin-task-list-second-label">수량</label>
+																						<input type="number" min="0"
+																							step="1"
+																							class="form-control admin-task-list-second-money-input"
+																							name="quantity"
+																							data-money-role="quantity"
+																							th:value="${row.quantity}">
+																					</div>
+
+																					<div
+																						class="col-xl-2 col-md-4 col-sm-6">
+																						<label
+																							class="admin-task-list-second-label">공급가</label>
+																						<input type="number" min="0"
+																							step="1"
+																							class="form-control admin-task-list-second-money-input"
+																							name="supplyPrice"
+																							data-money-role="supply"
+																							th:value="${row.supplyPrice}">
+																					</div>
+
+																					<div
+																						class="col-xl-2 col-md-4 col-sm-6">
+																						<label
+																							class="admin-task-list-second-label">부가세</label>
+																						<input type="number"
+																							class="form-control admin-task-list-second-money-input"
+																							data-money-role="vat"
+																							th:value="${row.vatPrice}"
+																							readonly>
+																					</div>
+
+																					<div
+																						class="col-xl-2 col-md-4 col-sm-6">
+																						<label
+																							class="admin-task-list-second-label">총비용</label>
+																						<input type="number" min="0"
+																							step="1"
+																							class="form-control admin-task-list-second-money-input"
+																							name="totalAmount"
+																							data-money-role="total"
+																							th:value="${row.totalAmount}"
+																							readonly>
+																					</div>
+																				</div>
 																			</div>
 																		</div>
 
@@ -704,18 +824,47 @@
 																			<div class="admin-task-list-second-field">
 																				<label
 																					class="admin-task-list-second-label">배송수단</label>
-																				<select class="form-select"
+																				<select
+																					class="form-select admin-task-list-second-delivery-method-select"
 																					name="deliveryMethodId">
 																					<option value=""
+																						data-delivery-method-name=""
 																						th:selected="${row.deliveryMethodId == null}">
-																						미지정</option>
+																						미지정
+																					</option>
 																					<option
 																						th:each="method : ${deliveryMethods}"
 																						th:value="${method.id}"
 																						th:text="${method.methodName + ' (금액: ' + method.methodPrice + ')'}"
+																						th:attr="data-delivery-method-name=${method.methodName}"
 																						th:selected="${row.deliveryMethodId != null and row.deliveryMethodId == method.id}">
 																					</option>
 																				</select>
+																				<div class="form-text">
+																					직배송 선택 시에만 배송팀 담당자를 지정할 수 있습니다.
+																				</div>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-2 col-md-3 col-sm-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">배송비</label>
+																				<input type="number" min="0" step="1"
+																					class="form-control"
+																					name="deliveryCost"
+																					th:value="${row.deliveryCost}">
+																			</div>
+																		</div>
+
+																		<div class="col-lg-2 col-md-3 col-sm-6">
+																			<div class="admin-task-list-second-field">
+																				<label
+																					class="admin-task-list-second-label">포장비</label>
+																				<input type="number" min="0" step="1"
+																					class="form-control"
+																					name="packingCost"
+																					th:value="${row.packingCost}">
 																			</div>
 																		</div>
 
@@ -724,7 +873,8 @@
 																				<label
 																					class="admin-task-list-second-label">배송팀
 																					담당자</label>
-																				<select class="form-select"
+																				<select
+																					class="form-select admin-task-list-second-delivery-handler-select"
 																					name="assignedDeliveryHandlerId">
 																					<option value=""
 																						th:selected="${row.assignedDeliveryHandlerId == null}">
@@ -737,6 +887,11 @@
 																						th:selected="${row.assignedDeliveryHandlerId != null and row.assignedDeliveryHandlerId == member.id}">
 																					</option>
 																				</select>
+																				<div
+																					class="form-text admin-task-list-second-delivery-handler-help">
+																					직배송 선택 시 필수입니다. 직배송이 아니면 저장 시 자동으로
+																					제거됩니다.
+																				</div>
 																			</div>
 																		</div>
 
@@ -758,6 +913,38 @@
 																						th:selected="${row.productCategoryId != null and row.productCategoryId == category.id}">
 																					</option>
 																				</select>
+																			</div>
+																		</div>
+
+																		<div class="col-lg-6">
+																			<div class="admin-task-list-second-field">
+																				<div
+																					class="d-flex align-items-center justify-content-between gap-2 mb-1">
+																					<label
+																						class="admin-task-list-second-label mb-0">주문자
+																						정보</label>
+																					<button type="button"
+																						class="btn btn-sm btn-outline-secondary admin-task-list-second-orderer-search-btn">
+																						주문자검색
+																					</button>
+																				</div>
+
+																				<div class="row g-2">
+																					<div class="col-md-6">
+																						<input type="text"
+																							class="form-control admin-task-list-second-orderer-name"
+																							name="ordererName"
+																							placeholder="주문자 이름"
+																							th:value="${row.ordererName}">
+																					</div>
+																					<div class="col-md-6">
+																						<input type="text"
+																							class="form-control admin-task-list-second-orderer-phone"
+																							name="ordererPhone"
+																							placeholder="주문자 연락처"
+																							th:value="${row.ordererPhone}">
+																					</div>
+																				</div>
 																			</div>
 																		</div>
 
@@ -791,19 +978,55 @@
 																				class="admin-task-list-second-option-box">
 																				<div
 																					class="admin-task-list-second-option-head">
-																					<strong>제품 옵션</strong>
-																					<span>ReadOnly</span>
+																					<div>
+																						<strong>제품 옵션</strong>
+																						<p>카테고리/제품시리즈/제품시리즈ID는 DB 연동값이라
+																							수정할 수 없습니다. 그 외 값은 수정 후 저장
+																							가능합니다.</p>
+																					</div>
+																					<span>EDITABLE</span>
 																				</div>
 
+																				<input type="hidden" name="optionJson"
+																					class="admin-task-list-second-option-json-input">
+
 																				<div
-																					class="admin-task-list-second-option-grid">
-																					<div class="admin-task-list-second-option-item"
-																						th:each="entry : ${row.optionMap}">
+																					class="admin-task-list-second-option-edit-list">
+																					<div class="admin-task-list-second-option-edit-item"
+																						th:each="entry : ${row.optionMap}"
+																						th:classappend="${entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID'} ? ' admin-task-list-second-option-edit-item-locked' : ''"
+																						th:attr="data-option-key=${entry.key},
+																								 data-option-editable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID')},
+																								 data-option-deletable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID' or entry.key == '제품명' or entry.key == '사이즈' or entry.key == '색상')}">
 																						<div class="admin-task-list-second-option-key"
 																							th:text="${entry.key}">옵션명
 																						</div>
-																						<div class="admin-task-list-second-option-value"
-																							th:text="${entry.value}">옵션값
+
+																						<div
+																							class="admin-task-list-second-option-value-wrap">
+																							<input type="text"
+																								class="form-control form-control-sm admin-task-list-second-option-value-input"
+																								th:value="${entry.value}"
+																								disabled>
+																						</div>
+
+																						<div
+																							class="admin-task-list-second-option-actions">
+																							<button type="button"
+																								class="btn btn-sm btn-outline-primary admin-task-list-second-option-edit-btn"
+																								th:if="${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID')}">
+																								수정
+																							</button>
+																							<button type="button"
+																								class="btn btn-sm btn-outline-danger admin-task-list-second-option-delete-btn"
+																								th:if="${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID' or entry.key == '제품명' or entry.key == '사이즈' or entry.key == '색상')}">
+																								삭제
+																							</button>
+																							<span
+																								class="admin-task-list-second-option-lock-text"
+																								th:if="${entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID'}">
+																								고정
+																							</span>
 																						</div>
 																					</div>
 
@@ -1155,6 +1378,12 @@
 											</div>
 
 											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
+												<label>주문자</label>
+												<div th:text="${row.ordererSummary}">주문자</div>
+											</div>
+
+											<div
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
 												<label>수량</label>
 												<div th:text="${row.quantity}">0</div>
@@ -1162,8 +1391,42 @@
 
 											<div
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
-												<label>제품비용</label>
+												<label>단가</label>
 												<div th:text="${#numbers.formatInteger(row.productCost, 0, 'COMMA')}">0
+												</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>공급가</label>
+												<div th:text="${#numbers.formatInteger(row.supplyPrice, 0, 'COMMA')}">0
+												</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>부가세</label>
+												<div th:text="${#numbers.formatInteger(row.vatPrice, 0, 'COMMA')}">0
+												</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>총비용</label>
+												<div th:text="${#numbers.formatInteger(row.totalAmount, 0, 'COMMA')}">0
+												</div>
+											</div>
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>배송비</label>
+												<div th:text="${#numbers.formatInteger(row.deliveryCost, 0, 'COMMA')}">0
+												</div>
+											</div>
+
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>포장비</label>
+												<div th:text="${#numbers.formatInteger(row.packingCost, 0, 'COMMA')}">0
 												</div>
 											</div>
 
@@ -1208,7 +1471,14 @@
 												<label>배송담당자</label>
 												<div th:text="${row.assignedDeliveryHandlerName}">담당자</div>
 											</div>
-
+											<div
+												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-1">
+												<label>배송수단</label>
+												<div
+													th:text="${row.deliveryMethodName != null and row.deliveryMethodName != '' ? row.deliveryMethodName : '미지정'}">
+													미지정
+												</div>
+											</div>
 											<div
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-6">
 												<label>비고</label>
@@ -1268,6 +1538,29 @@
 		</div>
 	</div>
 
+	<!-- 등록 주소지 / 주문자 검색 모달 -->
+	<div id="admin-task-list-second-picker-modal" class="admin-task-list-second-picker-modal" aria-hidden="true">
+		<div class="admin-task-list-second-picker-overlay"></div>
+		<div class="admin-task-list-second-picker-dialog" role="dialog" aria-modal="true">
+			<div class="admin-task-list-second-picker-head">
+				<div>
+					<h5 id="admin-task-list-second-picker-title">검색</h5>
+					<p id="admin-task-list-second-picker-desc">등록된 항목 중 하나를 선택해 주세요.</p>
+				</div>
+				<button type="button" class="admin-task-list-second-picker-close-btn" aria-label="닫기">×</button>
+			</div>
+
+			<div class="admin-task-list-second-picker-search">
+				<input type="text" class="form-control" id="admin-task-list-second-picker-keyword"
+					placeholder="검색어를 입력하세요.">
+			</div>
+
+			<div id="admin-task-list-second-picker-list" class="admin-task-list-second-picker-list"></div>
+		</div>
+	</div>
+
+	<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 	<script th:if="${message != null}" th:inline="javascript">
@@ -1277,6 +1570,7 @@
 		});
 	</script>
 	<script src="/administration/assets/js/page/taskList.js"></script>
+	<script src="/administration/assets/js/page/taskListOrderEditExtension.js"></script>
 
 </body>
 

@@ -30,6 +30,7 @@ import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
+import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.model.standard.StandardCategory;
 import com.dev.HiddenBATHAuto.model.standard.StandardProductSeries;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
@@ -42,6 +43,7 @@ import com.dev.HiddenBATHAuto.model.task.TaskStatus;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
+import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
@@ -74,6 +76,7 @@ public class ProductOrderAddCommandService {
     private final TaskRepository taskRepository;
     private final OrderRepository orderRepository;
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private final DeliveryMethodRepository deliveryMethodRepository;
     private final ObjectMapper objectMapper;
 
     @Value("${spring.upload.path}")
@@ -90,14 +93,19 @@ public class ProductOrderAddCommandService {
                 .stream().findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("해당 업체에 CUSTOMER_REPRESENTATIVE 멤버가 없습니다."));
 
-        Member deliveryHandler = memberRepository.findByIdAndTeam_Id(request.getDeliveryHandlerId(), DELIVERY_TEAM_ID)
-                .orElseThrow(() -> new IllegalArgumentException("배송 담당자는 팀 ID 3 소속 멤버만 선택할 수 있습니다."));
+        DeliveryMethod deliveryMethod = deliveryMethodRepository.findById(request.getDeliveryMethodId())
+                .orElseThrow(() -> new IllegalArgumentException("선택한 배송수단을 찾을 수 없습니다."));
+
+        boolean directDelivery = isDirectDeliveryMethod(deliveryMethod);
+        Member deliveryHandler = resolveDeliveryHandler(request, directDelivery);
 
         if (request.getOrders() == null || request.getOrders().isEmpty()) {
             throw new IllegalArgumentException("최소 1개의 주문이 필요합니다.");
         }
 
         validateCommonDeliveryAddress(request);
+        validateMoney(request.getPackingCost(), "포장비");
+        validateMoney(request.getDeliveryCost(), "운임비");
 
         LocalDateTime now = LocalDateTime.now();
         LocalDate deliveryDate = request.getPreferredDeliveryDate();
@@ -110,38 +118,50 @@ public class ProductOrderAddCommandService {
         task.setUpdatedAt(now);
         task = taskRepository.save(task);
 
-        int totalPrice = 0;
+        int ordersTotalAmount = 0;
+        int nextDeliveryOrderIndex = 0;
 
-        int nextDeliveryOrderIndex = deliveryOrderIndexRepository
-                .findMaxOrderIndexByDeliveryHandlerAndDeliveryDate(deliveryHandler.getId(), deliveryDate)
-                .orElse(0) + 1;
+        if (directDelivery) {
+            nextDeliveryOrderIndex = deliveryOrderIndexRepository
+                    .findMaxOrderIndexByDeliveryHandlerAndDeliveryDate(deliveryHandler.getId(), deliveryDate)
+                    .orElse(0) + 1;
+        }
 
         for (int i = 0; i < request.getOrders().size(); i++) {
             ProductOrderCreateRequest orderRequest = request.getOrders().get(i);
-            ResolvedOrderMeta resolved = resolveOrderMeta(orderRequest);
+            validateOrderMoney(orderRequest, i + 1);
 
+            ResolvedOrderMeta resolved = resolveOrderMeta(orderRequest);
             LinkedHashMap<String, String> optionMap = buildOptionMap(orderRequest, resolved);
 
             Order order = new Order();
             order.setTask(task);
             order.setStandard(Boolean.TRUE.equals(orderRequest.getStandard()));
-
-            // productCategory 만 저장
             order.setProductCategory(resolved.productCategory());
-
-            // assignedProductionTeam 은 비움
             order.setAssignedProductionTeam(null);
 
-            order.setAssignedDeliveryTeam(deliveryHandler.getTeamCategory());
-            order.setAssignedDeliveryHandler(deliveryHandler);
+            order.setDeliveryMethod(deliveryMethod);
+            order.setPackingCost(request.getPackingCost());
+            order.setDeliveryCost(request.getDeliveryCost());
 
-            // 공통 배송지: 관리자 주소검색 결과 저장
+            if (directDelivery) {
+                order.setAssignedDeliveryTeam(deliveryHandler.getTeamCategory());
+                order.setAssignedDeliveryHandler(deliveryHandler);
+            } else {
+                order.setAssignedDeliveryTeam(null);
+                order.setAssignedDeliveryHandler(null);
+            }
+
             applyCommonDeliveryAddress(order, request);
+            applyCommonOrdererInfo(order, request);
 
             order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
             order.setProductCost(orderRequest.getProductCost());
             order.setQuantity(orderRequest.getQuantity());
+            order.setSupplyPrice(orderRequest.getSupplyPrice());
+            order.setTotalAmount(orderRequest.getTotalAmount());
             order.setOrderComment(trimToNull(orderRequest.getOrderComment()));
+            order.setAdminMemo(trimToNull(orderRequest.getAdminMemo()));
             order.setStatus(OrderStatus.REQUESTED);
             order.setCreatedAt(now);
             order.setUpdatedAt(now);
@@ -155,19 +175,43 @@ public class ProductOrderAddCommandService {
 
             order = orderRepository.save(order);
 
-            registerDeliveryOrderIndex(order, deliveryHandler, deliveryDate, nextDeliveryOrderIndex);
-            nextDeliveryOrderIndex++;
+            if (directDelivery) {
+                registerDeliveryOrderIndex(order, deliveryHandler, deliveryDate, nextDeliveryOrderIndex);
+                nextDeliveryOrderIndex++;
+            }
 
             saveOrderFiles(fileMap == null ? null : fileMap.get("orderFiles_" + i), task.getId(), order);
 
-            totalPrice += order.getProductCost() * order.getQuantity();
+            ordersTotalAmount += order.getTotalAmount();
         }
 
-        task.setTotalPrice(totalPrice);
+        // 포장비/운임비는 화면상 공통 금액이므로 Task 총액에는 1회만 더합니다.
+        task.setTotalPrice(ordersTotalAmount + request.getPackingCost() + request.getDeliveryCost());
         task.setUpdatedAt(LocalDateTime.now());
         taskRepository.save(task);
 
         return new ProductOrderAddSaveResponse(true, "발주가 등록되었습니다.", task.getId());
+    }
+
+    private Member resolveDeliveryHandler(ProductOrderAddRequest request, boolean directDelivery) {
+        if (!directDelivery) {
+            return null;
+        }
+
+        if (request.getDeliveryHandlerId() == null || request.getDeliveryHandlerId() <= 0) {
+            throw new IllegalArgumentException("직배송은 배송 담당자를 선택해야 합니다.");
+        }
+
+        return memberRepository.findByIdAndTeam_Id(request.getDeliveryHandlerId(), DELIVERY_TEAM_ID)
+                .orElseThrow(() -> new IllegalArgumentException("배송 담당자는 팀 ID 3 소속 멤버만 선택할 수 있습니다."));
+    }
+
+    private boolean isDirectDeliveryMethod(DeliveryMethod deliveryMethod) {
+        String methodName = trimToNull(deliveryMethod == null ? null : deliveryMethod.getMethodName());
+        if (methodName == null) {
+            return false;
+        }
+        return methodName.replace(" ", "").contains("직배송");
     }
 
     private void registerDeliveryOrderIndex(Order order, Member deliveryHandler, LocalDate deliveryDate, int orderIndex) {
@@ -193,6 +237,11 @@ public class ProductOrderAddCommandService {
         order.setGuName(trimToNull(request.getGuName()));
         order.setRoadAddress(normalizeRequired(request.getRoadAddress(), "도로명 주소"));
         order.setDetailAddress(trimToNull(request.getDetailAddress()));
+    }
+
+    private void applyCommonOrdererInfo(Order order, ProductOrderAddRequest request) {
+        order.setOrdererName(trimToNull(request.getOrdererName()));
+        order.setOrdererPhone(trimToNull(request.getOrdererPhone()));
     }
 
     private ResolvedOrderMeta resolveOrderMeta(ProductOrderCreateRequest request) {
@@ -307,6 +356,27 @@ public class ProductOrderAddCommandService {
         return optionMap;
     }
 
+    private void validateOrderMoney(ProductOrderCreateRequest request, int orderNo) {
+        if (request.getProductCost() < 0) {
+            throw new IllegalArgumentException("주문 " + orderNo + ": 제품단가는 0 이상이어야 합니다.");
+        }
+        if (request.getQuantity() <= 0) {
+            throw new IllegalArgumentException("주문 " + orderNo + ": 수량은 1 이상이어야 합니다.");
+        }
+        if (request.getSupplyPrice() < 0) {
+            throw new IllegalArgumentException("주문 " + orderNo + ": 공급가는 0 이상이어야 합니다.");
+        }
+        if (request.getTotalAmount() < 0) {
+            throw new IllegalArgumentException("주문 " + orderNo + ": 총액은 0 이상이어야 합니다.");
+        }
+    }
+
+    private void validateMoney(int value, String fieldName) {
+        if (value < 0) {
+            throw new IllegalArgumentException(fieldName + "은(는) 0 이상이어야 합니다.");
+        }
+    }
+
     private Long normalizePositiveId(Long id) {
         if (id == null || id <= 0) {
             return null;
@@ -332,7 +402,7 @@ public class ProductOrderAddCommandService {
                 "우편번호가 너무 깁니다. 주소검색으로 우편번호를 다시 선택해 주세요. 입력값: " + trimmed
         );
     }
-    
+
     private String resolveProductName(LinkedHashMap<String, String> optionMap, ResolvedOrderMeta resolved) {
         String productName = optionMap.get("제품명");
 

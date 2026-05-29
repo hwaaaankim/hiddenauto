@@ -1,12 +1,10 @@
 <!DOCTYPE HTML>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org"
-	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head th:replace="~{fragments/front/common :: autoHead}">
 </head>
 
-<body class="theme-light" data-highlight="highlight-red"
-	data-gradient="body-default">
+<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
@@ -16,8 +14,7 @@
 
 		<div class="page-content header-clear-medium">
 
-			<div class="card card-style preload-img"
-				data-src="/front/images/pictures/18.jpg" data-card-height="130">
+			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
 				<div class="card-center ms-3">
 					<h1 class="color-white mb-0">발주하기</h1>
 					<p class="color-white mt-n1 mb-0">발주에 대한 정보 입력 후 확정할 수 있습니다.</p>
@@ -35,7 +32,41 @@
 					<!-- 제품 정보는 JavaScript에서 동적으로 추가됩니다. -->
 				</div>
 			</div>
+			<!-- ✅ 주문자 정보 -->
+			<div class="card card-style">
+				<div class="content">
+					<div class="payment-check-container">
+						<div class="payment-title">
+							<div>
+								<h2 class="mb-0">주문자정보</h2>
+								<p>주문자 이름과 연락처를 입력해 주세요.</p>
+							</div>
 
+							<div class="order-confirm-added-address-select-wrap">
+								<button type="button" id="order-confirm-orderer-open-modal"
+									class="btn btn-s rounded-s shadow-l bg-highlight text-uppercase font-800">
+									주문자리스트조회
+								</button>
+							</div>
+						</div>
+
+						<div class="payment-inputs">
+							<div class="input-group order-confirm-orderer-same-row">
+								<input type="checkbox" id="orderer-same-as-member" />
+								<label for="orderer-same-as-member">회원정보와 동일</label>
+							</div>
+
+							<div class="input-group">
+								<input type="text" id="orderer-name" placeholder="주문자 이름을 입력해 주세요." />
+							</div>
+
+							<div class="input-group">
+								<input type="text" id="orderer-phone" placeholder="주문자 연락처를 입력해 주세요." />
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 			<!-- ✅ 공통 배송/주소 입력(= 모든 상품에 동일하게 적용) -->
 			<div class="card card-style">
 				<div class="content">
@@ -48,8 +79,7 @@
 
 							<!-- ✅ 기존 체크박스 삭제 → 버튼으로 변경 -->
 							<div class="order-confirm-added-address-select-wrap">
-								<button type="button"
-									id="order-confirm-added-open-address-modal"
+								<button type="button" id="order-confirm-added-open-address-modal"
 									class="btn btn-s rounded-s shadow-l bg-highlight text-uppercase font-800">
 									등록 배송지 선택
 								</button>
@@ -97,8 +127,7 @@
 					<div class="row">
 						<div class="align-self-center w-100">
 							<div class="input-group mt-3 mb-3">
-								<input type="text" placeholder="사용하실 포인트를 입력 해 주세요."
-									id="point-input" />
+								<input type="text" placeholder="사용하실 포인트를 입력 해 주세요." id="point-input" />
 								<button id="apply-button" type="button">적용</button>
 								<button id="cancel-button" type="button">취소</button>
 							</div>
@@ -148,8 +177,7 @@
 
 					<div class="divider"></div>
 
-					<a id="orderConfirmButton"
-						class="btn btn-full btn-m text-uppercase font-800 rounded-sm">발주하기</a>
+					<a id="orderConfirmButton" class="btn btn-full btn-m text-uppercase font-800 rounded-sm">발주하기</a>
 				</div>
 			</div>
 
@@ -165,122 +193,35 @@
 		<div id="order-confirm-added-modal" class="order-confirm-added-modal" role="dialog" aria-modal="true">
 			<div class="order-confirm-added-modal-header">
 				<div class="order-confirm-added-modal-title">등록 배송지 선택</div>
-				<button type="button" id="order-confirm-added-modal-close" class="order-confirm-added-modal-close" aria-label="닫기">×</button>
+				<button type="button" id="order-confirm-added-modal-close" class="order-confirm-added-modal-close"
+					aria-label="닫기">×</button>
 			</div>
 			<div id="order-confirm-added-address-list" class="order-confirm-added-address-list">
 				<!-- JS에서 렌더링 -->
 			</div>
 		</div>
 	</div>
-
-	<!-- ✅ 모달 전용 CSS (기존 CSS 영향 최소화: 접두사 사용) -->
-	<style>
-		#order-confirm-added-open-address-modal{
-			border-radius: 0px !important;
-			background-color: white !important;
-			border: 1px solid #DA4453 !important;;
-			color: #DA4453 !important;;
-		}
-		.order-confirm-added-modal-overlay{
-			position: fixed;
-			inset: 0;
-			display: none;
-			align-items: center;
-			justify-content: center;
-			background: rgba(0,0,0,0.7);
-			z-index: 9999;
-			padding: 16px;
-		}
-		.order-confirm-added-modal-overlay.order-confirm-added-open{
-			display: flex;
-		}
-		.order-confirm-added-modal{
-			width: 450px;
-			max-width: 92vw;
-			max-height: 90vh;
-			overflow: auto;
-			background: #fff;
-			border-radius: 14px;
-			box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-		}
-		.order-confirm-added-modal-header{
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 14px 14px 10px 14px;
-			border-bottom: 1px solid rgba(0,0,0,0.08);
-		}
-		.order-confirm-added-modal-title{
-			font-weight: 800;
-			font-size: 15px;
-		}
-		.order-confirm-added-modal-close{
-			border: 0;
-			background: transparent;
-			font-size: 22px;
-			line-height: 1;
-			cursor: pointer;
-			padding: 6px 10px;
-			border-radius: 10px;
-		}
-		.order-confirm-added-address-list{
-			padding: 10px 14px 14px 14px;
-		}
-		.order-confirm-added-address-item{
-			display: flex;
-			gap: 10px;
-			align-items: flex-start;
-			padding: 12px 0;
-			border-bottom: 1px solid rgba(0,0,0,0.08);
-		}
-		.order-confirm-added-address-item:last-child{
-			border-bottom: 0;
-		}
-		.order-confirm-added-address-text{
-			flex: 1;
-			min-width: 0;
-		}
-		.order-confirm-added-address-line1{
-			font-weight: 800;
-			font-size: 13px;
-			color: #111;
-			word-break: break-word;
-		}
-		.order-confirm-added-address-line2{
-			line-height: 1.4;
-			margin-top: 4px;
-			font-size: 12px;
-			color: rgba(0,0,0,0.65);
-			word-break: break-word;
-		}
-		.order-confirm-added-address-badge sup{
-			font-size: 10px;
-			font-weight: 800;
-			color: rgba(0,0,0,0.55);
-			margin-left: 6px;
-		}
-		.order-confirm-added-address-select-btn{
-			flex: 0 0 auto;
-			border: 0;
-			padding: 8px 10px;
-			border-radius: 10px;
-			cursor: pointer;
-			background: rgba(0,0,0,0.06);
-			font-weight: 800;
-			font-size: 12px;
-		}
-		.order-confirm-added-address-select-btn:active{
-			transform: translateY(1px);
-		}
-	</style>
+	<!-- ✅ 주문자 리스트 모달 -->
+	<div id="order-confirm-orderer-modal-overlay" class="order-confirm-added-modal-overlay" aria-hidden="true">
+		<div id="order-confirm-orderer-modal" class="order-confirm-added-modal" role="dialog" aria-modal="true">
+			<div class="order-confirm-added-modal-header">
+				<div class="order-confirm-added-modal-title">주문자 정보 선택</div>
+				<button type="button" id="order-confirm-orderer-modal-close" class="order-confirm-added-modal-close"
+					aria-label="닫기">×</button>
+			</div>
+			<div id="order-confirm-orderer-list" class="order-confirm-added-address-list">
+				<!-- JS에서 렌더링 -->
+			</div>
+		</div>
+	</div>
 
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 
 	<script th:inline="javascript">
-		const deliveryMethods = /*[[${deliveryMethods}]]*/ [];
-		window.cart = /*[[${orderList}]]*/ [];
-		const orderSource = /*[[${from}]]*/ 'direct';
+		const deliveryMethods = /*[[${deliveryMethods}]]*/[];
+		window.cart = /*[[${orderList}]]*/[];
+		window.orderSource = /*[[${from}]]*/ 'direct';
 
 		const companyAddress = {
 			main: /*[[${mainAddress}]]*/ "",
@@ -291,14 +232,19 @@
 			zipCode: /*[[${zipCode}]]*/ ""
 		};
 
-		// ✅ 추가 배송지 리스트 (CompanyDeliveryAddress)
-		// 컨트롤러에서 model.addAttribute("companyDeliveryAddresses", company.getDeliveryAddresses());
-		const companyDeliveryAddresses = /*[[${companyDeliveryAddresses}]]*/ [];
+		const companyDeliveryAddresses = /*[[${companyDeliveryAddresses}]]*/[];
+		const companyOrdererInfos = /*[[${companyOrdererInfos}]]*/[];
 
-		const userPoint = /*[[${point}]]*/ 0; // ✅ 사용자 포인트 전달
+		const loginMemberInfo = {
+			name: /*[[${loginMemberName}]]*/ "",
+			phone: /*[[${loginMemberPhone}]]*/ ""
+		};
+
+		const userPoint = /*[[${point}]]*/ 0;
 	</script>
 
 	<script src="/front/orderConfirm.js"></script>
 
 </body>
+
 </html>
