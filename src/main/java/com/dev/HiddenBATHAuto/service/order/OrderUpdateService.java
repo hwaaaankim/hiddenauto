@@ -49,10 +49,21 @@ public class OrderUpdateService {
 
 	private static final String ADMIN_IMAGE_TYPE = "MANAGEMENT";
 	private static final String DIRECT_DELIVERY_METHOD_NAME = "직배송";
-	private static final Set<String> OPTION_VALUE_FIXED_KEYS = Set.of("카테고리", "제품시리즈", "제품시리즈ID");
 
-	private static final Set<String> OPTION_DELETE_BLOCKED_KEYS = Set.of("카테고리", "제품시리즈", "제품시리즈ID", "제품명", "사이즈",
-			"색상");
+	private static final Set<String> OPTION_VALUE_FIXED_KEYS = Set.of(
+			"카테고리",
+			"제품시리즈",
+			"제품시리즈ID"
+	);
+
+	private static final Set<String> OPTION_DELETE_BLOCKED_KEYS = Set.of(
+			"카테고리",
+			"제품시리즈",
+			"제품시리즈ID",
+			"제품명",
+			"사이즈",
+			"색상"
+	);
 
 	private final OrderRepository orderRepository;
 	private final DeliveryMethodRepository deliveryMethodRepository;
@@ -63,187 +74,454 @@ public class OrderUpdateService {
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final OrderImageRepository orderImageRepository;
 	private final ObjectMapper objectMapper;
+	private final OrderCheckStatusService orderCheckStatusService;
 
 	@Value("${spring.upload.path}")
 	private String uploadRootPath;
 
 	/**
-	 * 기존 호출부 보호용 오버로드입니다. 새 화면에서 추가된 필드는 현재 DB 값을 유지한 채 기존 수정 항목만 반영합니다.
+	 * 기존 호출부 보호용 오버로드입니다.
+	 * 새 화면에서 추가된 필드는 현재 DB 값을 유지한 채 기존 수정 항목만 반영합니다.
 	 */
 	@Transactional
-	public void updateOrder(Long orderId, int productCost, LocalDate preferredDeliveryDate, String statusStr,
-			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
-			Optional<Long> companyId, Optional<Long> requesterMemberId, List<Long> deleteAdminImageIds,
-			List<MultipartFile> adminImages, String adminMemo) {
+	public void updateOrder(
+			Long orderId,
+			int productCost,
+			LocalDate preferredDeliveryDate,
+			String statusStr,
+			Optional<Long> deliveryMethodId,
+			Optional<Long> deliveryHandlerId,
+			Optional<Long> productCategoryId,
+			Optional<Long> companyId,
+			Optional<Long> requesterMemberId,
+			List<Long> deleteAdminImageIds,
+			List<MultipartFile> adminImages,
+			String adminMemo
+	) {
 		Order order = orderRepository.findById(orderId)
 				.orElseThrow(() -> new IllegalArgumentException("Order not found. orderId=" + orderId));
 
-		updateOrder(orderId, productCost, order.getQuantity(), order.getSupplyPrice(), order.getTotalAmount(),
-				order.getPackingCost(), order.getDeliveryCost(), preferredDeliveryDate, statusStr, deliveryMethodId,
-				deliveryHandlerId, productCategoryId, companyId, requesterMemberId, order.getZipCode(),
-				order.getDoName(), order.getSiName(), order.getGuName(), order.getRoadAddress(),
-				order.getDetailAddress(), order.getOrdererName(), order.getOrdererPhone(),
-				order.getOrderItem() != null ? order.getOrderItem().getOptionJson() : null, deleteAdminImageIds,
-				adminImages, adminMemo);
+		updateOrder(
+				orderId,
+				productCost,
+				order.getQuantity(),
+				order.getSupplyPrice(),
+				order.getTotalAmount(),
+				order.getPackingCost(),
+				order.getDeliveryCost(),
+				preferredDeliveryDate,
+				statusStr,
+				deliveryMethodId,
+				deliveryHandlerId,
+				productCategoryId,
+				companyId,
+				requesterMemberId,
+				order.getZipCode(),
+				order.getDoName(),
+				order.getSiName(),
+				order.getGuName(),
+				order.getRoadAddress(),
+				order.getDetailAddress(),
+				order.getOrdererName(),
+				order.getOrdererPhone(),
+				order.getOrderItem() != null ? order.getOrderItem().getOptionJson() : null,
+				deleteAdminImageIds,
+				adminImages,
+				adminMemo,
+				null,
+				false,
+				null
+		);
 	}
 
 	@Transactional
 	public void updateOrder(
-	        Long orderId,
-	        int productCost,
-	        int quantity,
-	        int supplyPrice,
-	        int totalAmount,
-	        int packingCost,
-	        int deliveryCost,
-	        LocalDate preferredDeliveryDate,
-	        String statusStr,
-	        Optional<Long> deliveryMethodId,
-	        Optional<Long> deliveryHandlerId,
-	        Optional<Long> productCategoryId,
-	        Optional<Long> companyId,
-	        Optional<Long> requesterMemberId,
-	        String zipCode,
-	        String doName,
-	        String siName,
-	        String guName,
-	        String roadAddress,
-	        String detailAddress,
-	        String ordererName,
-	        String ordererPhone,
-	        String optionJson,
-	        List<Long> deleteAdminImageIds,
-	        List<MultipartFile> adminImages,
-	        String adminMemo
+			Long orderId,
+			int productCost,
+			int quantity,
+			int supplyPrice,
+			int totalAmount,
+			int packingCost,
+			int deliveryCost,
+			LocalDate preferredDeliveryDate,
+			String statusStr,
+			Optional<Long> deliveryMethodId,
+			Optional<Long> deliveryHandlerId,
+			Optional<Long> productCategoryId,
+			Optional<Long> companyId,
+			Optional<Long> requesterMemberId,
+			String zipCode,
+			String doName,
+			String siName,
+			String guName,
+			String roadAddress,
+			String detailAddress,
+			String ordererName,
+			String ordererPhone,
+			String optionJson,
+			List<Long> deleteAdminImageIds,
+			List<MultipartFile> adminImages,
+			String adminMemo
 	) {
-	    Order order = orderRepository.findById(orderId)
-	            .orElseThrow(() -> new IllegalArgumentException("Order not found. orderId=" + orderId));
+		updateOrder(
+				orderId,
+				productCost,
+				quantity,
+				supplyPrice,
+				totalAmount,
+				packingCost,
+				deliveryCost,
+				preferredDeliveryDate,
+				statusStr,
+				deliveryMethodId,
+				deliveryHandlerId,
+				productCategoryId,
+				companyId,
+				requesterMemberId,
+				zipCode,
+				doName,
+				siName,
+				guName,
+				roadAddress,
+				detailAddress,
+				ordererName,
+				ordererPhone,
+				optionJson,
+				deleteAdminImageIds,
+				adminImages,
+				adminMemo,
+				null,
+				false,
+				null
+		);
+	}
 
-	    OrderStatus status = parseOrderStatus(statusStr);
+	@Transactional
+	public void updateOrder(
+			Long orderId,
+			int productCost,
+			int quantity,
+			int supplyPrice,
+			int totalAmount,
+			int packingCost,
+			int deliveryCost,
+			LocalDate preferredDeliveryDate,
+			String statusStr,
+			Optional<Long> deliveryMethodId,
+			Optional<Long> deliveryHandlerId,
+			Optional<Long> productCategoryId,
+			Optional<Long> companyId,
+			Optional<Long> requesterMemberId,
+			String zipCode,
+			String doName,
+			String siName,
+			String guName,
+			String roadAddress,
+			String detailAddress,
+			String ordererName,
+			String ordererPhone,
+			String optionJson,
+			List<Long> deleteAdminImageIds,
+			List<MultipartFile> adminImages,
+			String adminMemo,
+			String updatedByUsername
+	) {
+		updateOrder(
+				orderId,
+				productCost,
+				quantity,
+				supplyPrice,
+				totalAmount,
+				packingCost,
+				deliveryCost,
+				preferredDeliveryDate,
+				statusStr,
+				deliveryMethodId,
+				deliveryHandlerId,
+				productCategoryId,
+				companyId,
+				requesterMemberId,
+				zipCode,
+				doName,
+				siName,
+				guName,
+				roadAddress,
+				detailAddress,
+				ordererName,
+				ordererPhone,
+				optionJson,
+				deleteAdminImageIds,
+				adminImages,
+				adminMemo,
+				null,
+				false,
+				updatedByUsername
+		);
+	}
 
-	    MoneySnapshot moneySnapshot = normalizeMoney(productCost, quantity, supplyPrice, totalAmount);
+	/**
+	 * 출고완료 메시지까지 수정하는 신규 오버로드입니다.
+	 *
+	 * dispatchCompleteMessageSubmitted 값이 true일 때만 dispatchCompleteMessage를 DB에 반영합니다.
+	 * 이 처리가 없으면 기존 상세 화면처럼 해당 input이 없는 폼에서 저장할 때 기존 메시지가 null로 지워질 수 있습니다.
+	 */
+	@Transactional
+	public void updateOrder(
+			Long orderId,
+			int productCost,
+			int quantity,
+			int supplyPrice,
+			int totalAmount,
+			int packingCost,
+			int deliveryCost,
+			LocalDate preferredDeliveryDate,
+			String statusStr,
+			Optional<Long> deliveryMethodId,
+			Optional<Long> deliveryHandlerId,
+			Optional<Long> productCategoryId,
+			Optional<Long> companyId,
+			Optional<Long> requesterMemberId,
+			String zipCode,
+			String doName,
+			String siName,
+			String guName,
+			String roadAddress,
+			String detailAddress,
+			String ordererName,
+			String ordererPhone,
+			String optionJson,
+			List<Long> deleteAdminImageIds,
+			List<MultipartFile> adminImages,
+			String adminMemo,
+			String dispatchCompleteMessage,
+			boolean dispatchCompleteMessageSubmitted,
+			String updatedByUsername
+	) {
+		Order order = orderRepository.findById(orderId)
+				.orElseThrow(() -> new IllegalArgumentException("Order not found. orderId=" + orderId));
 
-	    order.setProductCost(moneySnapshot.productCost());
-	    order.setQuantity(moneySnapshot.quantity());
-	    order.setSupplyPrice(moneySnapshot.supplyPrice());
-	    order.setTotalAmount(moneySnapshot.totalAmount());
-	    order.setPackingCost(nonNegative(packingCost, "포장비"));
-	    order.setDeliveryCost(nonNegative(deliveryCost, "배송비"));
+		ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
+		boolean adminImageChanged = hasDeleteIds(deleteAdminImageIds) || hasUploadFiles(adminImages);
 
-	    order.setPreferredDeliveryDate(preferredDeliveryDate != null ? preferredDeliveryDate.atStartOfDay() : null);
-	    order.setStatus(status);
+		OrderStatus status = parseOrderStatus(statusStr);
 
-	    order.setZipCode(normalizeNullableText(zipCode));
-	    order.setDoName(normalizeNullableText(doName));
-	    order.setSiName(normalizeNullableText(siName));
-	    order.setGuName(normalizeNullableText(guName));
-	    order.setRoadAddress(normalizeNullableText(roadAddress));
-	    order.setDetailAddress(normalizeNullableText(detailAddress));
+		MoneySnapshot moneySnapshot = normalizeMoney(productCost, quantity, supplyPrice, totalAmount);
 
-	    order.setOrdererName(normalizeNullableText(ordererName));
-	    order.setOrdererPhone(normalizeNullableText(ordererPhone));
+		order.setProductCost(moneySnapshot.productCost());
+		order.setQuantity(moneySnapshot.quantity());
+		order.setSupplyPrice(moneySnapshot.supplyPrice());
+		order.setTotalAmount(moneySnapshot.totalAmount());
+		order.setPackingCost(nonNegative(packingCost, "포장비"));
+		order.setDeliveryCost(nonNegative(deliveryCost, "배송비"));
 
-	    String normalizedAdminMemo = normalizeNullableText(adminMemo);
-	    order.setAdminMemo(normalizedAdminMemo);
+		if (order.getOrderItem() != null) {
+			order.getOrderItem().setQuantity(moneySnapshot.quantity());
+		}
 
-	    /*
-	     * 배송수단 먼저 저장합니다.
-	     * 이후 배송수단이 직배송인지 판단해서 배송담당자/배송순서 인덱스를 동기화합니다.
-	     */
-	    normalizeId(deliveryMethodId).ifPresentOrElse(id -> {
-	        var method = deliveryMethodRepository.findById(id)
-	                .orElseThrow(() -> new IllegalArgumentException("Invalid deliveryMethodId. id=" + id));
-	        order.setDeliveryMethod(method);
-	    }, () -> order.setDeliveryMethod(null));
+		order.setPreferredDeliveryDate(preferredDeliveryDate != null ? preferredDeliveryDate.atStartOfDay() : null);
+		order.setStatus(status);
 
-	    boolean canceled = status == OrderStatus.CANCELED;
-	    boolean directDelivery = isDirectDeliveryMethod(order);
+		order.setZipCode(normalizeNullableText(zipCode));
+		order.setDoName(normalizeNullableText(doName));
+		order.setSiName(normalizeNullableText(siName));
+		order.setGuName(normalizeNullableText(guName));
+		order.setRoadAddress(normalizeNullableText(roadAddress));
+		order.setDetailAddress(normalizeNullableText(detailAddress));
 
-	    /*
-	     * 배송담당자 규칙
-	     *
-	     * 1. 취소 상태면 배송담당자 제거
-	     * 2. 직배송이 아니면 배송담당자 제거
-	     * 3. 직배송이면 배송담당자와 배송희망일 필수
-	     */
-	    if (canceled || !directDelivery) {
-	        order.setAssignedDeliveryHandler(null);
-	    } else {
-	        if (preferredDeliveryDate == null) {
-	            throw new IllegalArgumentException("직배송 선택 시 배송희망일은 필수입니다.");
-	        }
+		order.setOrdererName(normalizeNullableText(ordererName));
+		order.setOrdererPhone(normalizeNullableText(ordererPhone));
 
-	        Long handlerId = normalizeId(deliveryHandlerId)
-	                .orElseThrow(() -> new IllegalArgumentException("직배송 선택 시 배송팀 담당자는 필수입니다."));
+		String normalizedAdminMemo = normalizeNullableText(adminMemo);
+		order.setAdminMemo(normalizedAdminMemo);
 
-	        Member member = memberRepository.findById(handlerId)
-	                .orElseThrow(() -> new IllegalArgumentException("Invalid deliveryHandlerId. id=" + handlerId));
+		if (dispatchCompleteMessageSubmitted) {
+			order.setDispatchCompleteMessage(normalizeNullableText(dispatchCompleteMessage));
+		}
 
-	        order.setAssignedDeliveryHandler(member);
-	    }
+		normalizeId(deliveryMethodId).ifPresentOrElse(id -> {
+			var method = deliveryMethodRepository.findById(id)
+					.orElseThrow(() -> new IllegalArgumentException("Invalid deliveryMethodId. id=" + id));
+			order.setDeliveryMethod(method);
+		}, () -> order.setDeliveryMethod(null));
 
-	    normalizeId(productCategoryId).ifPresentOrElse(id -> {
-	        var category = teamCategoryRepository.findById(id)
-	                .orElseThrow(() -> new IllegalArgumentException("Invalid productCategoryId. id=" + id));
-	        order.setProductCategory(category);
-	    }, () -> order.setProductCategory(null));
+		boolean canceled = status == OrderStatus.CANCELED;
+		boolean directDelivery = isDirectDeliveryMethod(order);
 
-	    updateRequesterIfNeeded(
-	            order,
-	            normalizeId(companyId),
-	            normalizeId(requesterMemberId)
-	    );
+		if (canceled || !directDelivery) {
+			order.setAssignedDeliveryHandler(null);
+		} else {
+			if (preferredDeliveryDate == null) {
+				throw new IllegalArgumentException("직배송 선택 시 배송희망일은 필수입니다.");
+			}
 
-	    updateOrderItemOptionJson(order, optionJson);
+			Long handlerId = normalizeId(deliveryHandlerId)
+					.orElseThrow(() -> new IllegalArgumentException("직배송 선택 시 배송팀 담당자는 필수입니다."));
 
-	    order.setUpdatedAt(LocalDateTime.now());
+			Member member = memberRepository.findById(handlerId)
+					.orElseThrow(() -> new IllegalArgumentException("Invalid deliveryHandlerId. id=" + handlerId));
 
-	    /*
-	     * 중요:
-	     * 1. 기존 이미지 삭제 먼저
-	     * 2. 새 이미지 저장
-	     */
-	    deleteAdminImages(order, deleteAdminImageIds);
-	    saveAdminImages(order, adminImages);
+			order.setAssignedDeliveryHandler(member);
+		}
 
-	    /*
-	     * 배송순서 인덱스 동기화
-	     *
-	     * - 취소: 무조건 삭제
-	     * - 직배송 아님: 무조건 삭제
-	     * - 직배송: ensureIndex(order)
-	     */
-	    if (canceled || !directDelivery) {
-	        deliveryOrderIndexService.removeIndex(order);
-	    } else {
-	        deliveryOrderIndexService.ensureIndex(order);
-	    }
+		normalizeId(productCategoryId).ifPresentOrElse(id -> {
+			var category = teamCategoryRepository.findById(id)
+					.orElseThrow(() -> new IllegalArgumentException("Invalid productCategoryId. id=" + id));
+			order.setProductCategory(category);
+		}, () -> order.setProductCategory(null));
+
+		updateRequesterIfNeeded(
+				order,
+				normalizeId(companyId),
+				normalizeId(requesterMemberId)
+		);
+
+		updateOrderItemOptionJson(order, optionJson);
+
+		order.setUpdatedAt(LocalDateTime.now());
+
+		deleteAdminImages(order, deleteAdminImageIds);
+		saveAdminImages(order, adminImages);
+
+		if (canceled || !directDelivery) {
+			deliveryOrderIndexService.removeIndex(order);
+		} else {
+			deliveryOrderIndexService.ensureIndex(order);
+		}
+
+		ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
+		boolean productionVisibleChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
+
+		orderCheckStatusService.markRevisedAfterProductionCheckIfNeeded(
+				order,
+				updatedByUsername,
+				productionVisibleChanged,
+				buildProductionRevisionReason(beforeSnapshot, afterSnapshot, adminImageChanged)
+		);
+	}
+
+	private boolean hasDeleteIds(List<Long> ids) {
+		if (ids == null || ids.isEmpty()) {
+			return false;
+		}
+
+		return ids.stream().anyMatch(id -> id != null && id > 0);
+	}
+
+	private boolean hasUploadFiles(List<MultipartFile> files) {
+		if (files == null || files.isEmpty()) {
+			return false;
+		}
+
+		return files.stream().anyMatch(file -> file != null && !file.isEmpty());
+	}
+
+	private String buildProductionRevisionReason(
+			ProductionVisibleOrderSnapshot before,
+			ProductionVisibleOrderSnapshot after,
+			boolean adminImageChanged
+	) {
+		List<String> reasons = new ArrayList<>();
+
+		if (!Objects.equals(before.statusName(), after.statusName())) {
+			reasons.add("발주상태");
+		}
+
+		if (!Objects.equals(before.productCategoryId(), after.productCategoryId())) {
+			reasons.add("생산팀 카테고리");
+		}
+
+		if (!Objects.equals(before.preferredDeliveryDate(), after.preferredDeliveryDate())) {
+			reasons.add("배송희망일");
+		}
+
+		if (before.quantity() != after.quantity()) {
+			reasons.add("수량");
+		}
+
+		if (!Objects.equals(before.adminMemo(), after.adminMemo())) {
+			reasons.add("관리자 남김말");
+		}
+
+		if (!Objects.equals(before.optionJson(), after.optionJson())) {
+			reasons.add("제품 옵션");
+		}
+
+		if (!Objects.equals(before.orderItemProductName(), after.orderItemProductName())) {
+			reasons.add("제품명");
+		}
+
+		if (adminImageChanged) {
+			reasons.add("관리자 첨부파일");
+		}
+
+		if (reasons.isEmpty()) {
+			return "관리자 수정";
+		}
+
+		return String.join(", ", reasons) + " 수정";
+	}
+
+	private record ProductionVisibleOrderSnapshot(
+			String statusName,
+			Long productCategoryId,
+			String preferredDeliveryDate,
+			int quantity,
+			String adminMemo,
+			String optionJson,
+			String orderItemProductName
+	) {
+		static ProductionVisibleOrderSnapshot from(Order order) {
+			if (order == null) {
+				return new ProductionVisibleOrderSnapshot(null, null, null, 0, null, null, null);
+			}
+
+			OrderItem orderItem = order.getOrderItem();
+
+			return new ProductionVisibleOrderSnapshot(
+					order.getStatus() != null ? order.getStatus().name() : null,
+					order.getProductCategory() != null ? order.getProductCategory().getId() : null,
+					order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : null,
+					order.getQuantity(),
+					normalize(order.getAdminMemo()),
+					orderItem != null ? normalize(orderItem.getOptionJson()) : null,
+					orderItem != null ? normalize(orderItem.getProductName()) : null
+			);
+		}
+
+		private static String normalize(String value) {
+			if (value == null) {
+				return null;
+			}
+
+			String trimmed = value.trim();
+			return trimmed.isEmpty() ? null : trimmed;
+		}
 	}
 
 	private Optional<Long> normalizeId(Optional<Long> id) {
-	    if (id == null || id.isEmpty()) {
-	        return Optional.empty();
-	    }
+		if (id == null || id.isEmpty()) {
+			return Optional.empty();
+		}
 
-	    Long value = id.get();
+		Long value = id.get();
 
-	    if (value == null || value <= 0) {
-	        return Optional.empty();
-	    }
+		if (value == null || value <= 0) {
+			return Optional.empty();
+		}
 
-	    return Optional.of(value);
+		return Optional.of(value);
 	}
 
 	private boolean isDirectDeliveryMethod(Order order) {
-	    if (order == null || order.getDeliveryMethod() == null) {
-	        return false;
-	    }
+		if (order == null || order.getDeliveryMethod() == null) {
+			return false;
+		}
 
-	    String methodName = normalizeNullableText(order.getDeliveryMethod().getMethodName());
+		String methodName = normalizeNullableText(order.getDeliveryMethod().getMethodName());
 
-	    return DIRECT_DELIVERY_METHOD_NAME.equals(methodName);
+		return DIRECT_DELIVERY_METHOD_NAME.equals(methodName);
 	}
-	
+
 	private MoneySnapshot normalizeMoney(int productCost, int quantity, int supplyPrice, int totalAmount) {
 		int normalizedProductCost = Math.max(0, productCost);
 		int normalizedQuantity = Math.max(0, quantity);
@@ -275,8 +553,12 @@ public class OrderUpdateService {
 			normalizedTotalAmount = Math.round(normalizedSupplyPrice * 1.1f);
 		}
 
-		return new MoneySnapshot(nonNegative(normalizedProductCost, "단가"), nonNegative(normalizedQuantity, "수량"),
-				nonNegative(normalizedSupplyPrice, "공급가"), nonNegative(normalizedTotalAmount, "총비용"));
+		return new MoneySnapshot(
+				nonNegative(normalizedProductCost, "단가"),
+				nonNegative(normalizedQuantity, "수량"),
+				nonNegative(normalizedSupplyPrice, "공급가"),
+				nonNegative(normalizedTotalAmount, "총비용")
+		);
 	}
 
 	private int nonNegative(int value, String label) {
@@ -308,80 +590,80 @@ public class OrderUpdateService {
 	}
 
 	private void updateRequesterIfNeeded(Order order, Optional<Long> companyId, Optional<Long> requesterMemberId) {
-	    Optional<Long> normalizedCompanyId = normalizeId(companyId);
-	    Optional<Long> normalizedRequesterMemberId = normalizeId(requesterMemberId);
+		Optional<Long> normalizedCompanyId = normalizeId(companyId);
+		Optional<Long> normalizedRequesterMemberId = normalizeId(requesterMemberId);
 
-	    /*
-	     * 1. 신청자를 직접 선택한 경우:
-	     *    - 해당 멤버로 requestedBy 변경
-	     *    - companyId가 같이 넘어왔으면 선택한 회사 소속인지 검증
-	     *
-	     * 2. 대리점은 선택했지만 신청자를 선택하지 않은 경우:
-	     *    - 해당 대리점의 CUSTOMER_REPRESENTATIVE 대표회원으로 자동 지정
-	     *
-	     * 3. 대리점도 신청자도 비어 있는 경우:
-	     *    - 기존 신청자 유지
-	     */
+		/*
+		 * 1. 신청자를 직접 선택한 경우:
+		 *    - 해당 멤버로 requestedBy 변경
+		 *    - companyId가 같이 넘어왔으면 선택한 회사 소속인지 검증
+		 *
+		 * 2. 대리점은 선택했지만 신청자를 선택하지 않은 경우:
+		 *    - 해당 대리점의 CUSTOMER_REPRESENTATIVE 대표회원으로 자동 지정
+		 *
+		 * 3. 대리점도 신청자도 비어 있는 경우:
+		 *    - 기존 신청자 유지
+		 */
 
-	    Member newRequester = null;
+		Member newRequester = null;
 
-	    if (normalizedRequesterMemberId.isPresent()) {
-	        Long requesterId = normalizedRequesterMemberId.get();
+		if (normalizedRequesterMemberId.isPresent()) {
+			Long requesterId = normalizedRequesterMemberId.get();
 
-	        newRequester = memberRepository.findById(requesterId)
-	                .orElseThrow(() -> new IllegalArgumentException("Invalid requesterMemberId. id=" + requesterId));
+			newRequester = memberRepository.findById(requesterId)
+					.orElseThrow(() -> new IllegalArgumentException("Invalid requesterMemberId. id=" + requesterId));
 
-	        if (normalizedCompanyId.isPresent()) {
-	            Long selectedCompanyId = normalizedCompanyId.get();
+			if (normalizedCompanyId.isPresent()) {
+				Long selectedCompanyId = normalizedCompanyId.get();
 
-	            Company selectedCompany = companyRepository.findById(selectedCompanyId)
-	                    .orElseThrow(() -> new IllegalArgumentException("Invalid companyId. id=" + selectedCompanyId));
+				Company selectedCompany = companyRepository.findById(selectedCompanyId)
+						.orElseThrow(() -> new IllegalArgumentException("Invalid companyId. id=" + selectedCompanyId));
 
-	            if (newRequester.getCompany() == null
-	                    || !Objects.equals(newRequester.getCompany().getId(), selectedCompany.getId())) {
-	                throw new IllegalStateException("선택한 멤버가 해당 대리점에 소속되어 있지 않습니다.");
-	            }
-	        }
+				if (newRequester.getCompany() == null
+						|| !Objects.equals(newRequester.getCompany().getId(), selectedCompany.getId())) {
+					throw new IllegalStateException("선택한 멤버가 해당 대리점에 소속되어 있지 않습니다.");
+				}
+			}
 
-	    } else if (normalizedCompanyId.isPresent()) {
-	        Long selectedCompanyId = normalizedCompanyId.get();
+		} else if (normalizedCompanyId.isPresent()) {
+			Long selectedCompanyId = normalizedCompanyId.get();
 
-	        Company selectedCompany = companyRepository.findById(selectedCompanyId)
-	                .orElseThrow(() -> new IllegalArgumentException("Invalid companyId. id=" + selectedCompanyId));
+			Company selectedCompany = companyRepository.findById(selectedCompanyId)
+					.orElseThrow(() -> new IllegalArgumentException("Invalid companyId. id=" + selectedCompanyId));
 
-	        newRequester = findRepresentativeMember(selectedCompany)
-	                .orElseThrow(() -> new IllegalStateException(
-	                        "선택한 대리점에 대표회원이 없어 신청자를 자동 지정할 수 없습니다. 대리점 상세에서 대표회원(CUSTOMER_REPRESENTATIVE)을 먼저 등록해 주세요."
-	                ));
-	    }
+			newRequester = findRepresentativeMember(selectedCompany)
+					.orElseThrow(() -> new IllegalStateException(
+							"선택한 대리점에 대표회원이 없어 신청자를 자동 지정할 수 없습니다. 대리점 상세에서 대표회원(CUSTOMER_REPRESENTATIVE)을 먼저 등록해 주세요."
+					));
+		}
 
-	    if (newRequester == null) {
-	        return;
-	    }
+		if (newRequester == null) {
+			return;
+		}
 
-	    Task task = order.getTask();
+		Task task = order.getTask();
 
-	    if (task == null) {
-	        throw new IllegalStateException("Order에 Task가 존재하지 않습니다. orderId=" + order.getId());
-	    }
+		if (task == null) {
+			throw new IllegalStateException("Order에 Task가 존재하지 않습니다. orderId=" + order.getId());
+		}
 
-	    task.setRequestedBy(newRequester);
-	    task.setUpdatedAt(LocalDateTime.now());
-	    taskRepository.save(task);
+		task.setRequestedBy(newRequester);
+		task.setUpdatedAt(LocalDateTime.now());
+		taskRepository.save(task);
 	}
 
 	private Optional<Member> findRepresentativeMember(Company company) {
-	    if (company == null || company.getId() == null) {
-	        return Optional.empty();
-	    }
+		if (company == null || company.getId() == null) {
+			return Optional.empty();
+		}
 
-	    return memberRepository.findByCompany_Id(company.getId())
-	            .stream()
-	            .filter(member -> member != null && member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
-	            .min((left, right) -> Long.compare(
-	                    left.getId() == null ? Long.MAX_VALUE : left.getId(),
-	                    right.getId() == null ? Long.MAX_VALUE : right.getId()
-	            ));
+		return memberRepository.findByCompany_Id(company.getId())
+				.stream()
+				.filter(member -> member != null && member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
+				.min((left, right) -> Long.compare(
+						left.getId() == null ? Long.MAX_VALUE : left.getId(),
+						right.getId() == null ? Long.MAX_VALUE : right.getId()
+				));
 	}
 
 	private void updateOrderItemOptionJson(Order order, String submittedOptionJson) {
@@ -408,7 +690,8 @@ public class OrderUpdateService {
 			String originalValue = originalEntry.getValue();
 
 			if (OPTION_DELETE_BLOCKED_KEYS.contains(key)) {
-				String value = OPTION_VALUE_FIXED_KEYS.contains(key) ? originalValue
+				String value = OPTION_VALUE_FIXED_KEYS.contains(key)
+						? originalValue
 						: submittedMap.getOrDefault(key, originalValue);
 
 				if (value == null || value.isBlank()) {
@@ -448,10 +731,16 @@ public class OrderUpdateService {
 		try {
 			orderItem.setOptionJson(objectMapper.writeValueAsString(normalizedMap));
 
-			String productName = normalizedMap.get("제품명");
-			if (productName != null && !productName.isBlank()) {
-				orderItem.setProductName(productName.trim());
+			String color = normalizedMap.get("색상");
+			if (color != null && !color.isBlank()) {
+				orderItem.setProductionColor(color.trim());
 			}
+
+			String size = normalizedMap.get("사이즈");
+			if (size != null && !size.isBlank()) {
+				orderItem.setProductionSize(size.trim());
+			}
+
 		} catch (Exception e) {
 			throw new IllegalArgumentException("옵션 JSON 저장 중 오류가 발생했습니다.", e);
 		}
@@ -463,9 +752,10 @@ public class OrderUpdateService {
 		}
 
 		try {
-			LinkedHashMap<String, String> parsed = objectMapper.readValue(optionJson,
-					new TypeReference<LinkedHashMap<String, String>>() {
-					});
+			LinkedHashMap<String, String> parsed = objectMapper.readValue(
+					optionJson,
+					new TypeReference<LinkedHashMap<String, String>>() {}
+			);
 
 			return parsed != null ? parsed : new LinkedHashMap<>();
 		} catch (Exception e) {
@@ -522,7 +812,8 @@ public class OrderUpdateService {
 			}
 
 			OrderImage image = orderImageRepository
-					.findByIdAndOrder_IdAndTypeIgnoreCase(imageId, orderId, ADMIN_IMAGE_TYPE).orElse(null);
+					.findByIdAndOrder_IdAndTypeIgnoreCase(imageId, orderId, ADMIN_IMAGE_TYPE)
+					.orElse(null);
 
 			if (image == null) {
 				continue;
@@ -535,7 +826,8 @@ public class OrderUpdateService {
 			 */
 			if (order.getOrderImages() != null) {
 				order.getOrderImages().removeIf(
-						orderImage -> orderImage != null && Objects.equals(orderImage.getId(), image.getId()));
+						orderImage -> orderImage != null && Objects.equals(orderImage.getId(), image.getId())
+				);
 			}
 
 			orderImageRepository.delete(image);
@@ -553,8 +845,8 @@ public class OrderUpdateService {
 			Files.deleteIfExists(filePath);
 		} catch (IOException e) {
 			/*
-			 * 여기서 RuntimeException을 던지면 DB 수정까지 롤백됩니다. 이미지 파일 삭제 실패 때문에 주문 수정 전체를 실패시키고 싶으면
-			 * RuntimeException으로 바꾸시면 됩니다.
+			 * 여기서 RuntimeException을 던지면 DB 수정까지 롤백됩니다.
+			 * 이미지 파일 삭제 실패 때문에 주문 수정 전체를 실패시키고 싶으면 RuntimeException으로 유지하시면 됩니다.
 			 */
 			throw new RuntimeException("관리자 이미지 파일 삭제 중 오류가 발생했습니다. path=" + filePath, e);
 		}
@@ -570,8 +862,13 @@ public class OrderUpdateService {
 		}
 
 		/*
-		 * 예외 대비: 과거 데이터 중 path가 없고 url만 있는 경우 /upload/ 뒤 경로를 uploadRootPath와 합칩니다. url
-		 * 예시: /upload/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename} 실제 경로:
+		 * 예외 대비:
+		 * 과거 데이터 중 path가 없고 url만 있는 경우 /upload/ 뒤 경로를 uploadRootPath와 합칩니다.
+		 *
+		 * url 예시:
+		 * /upload/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename}
+		 *
+		 * 실제 경로:
 		 * {spring.upload.path}/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename}
 		 */
 		String url = image.getUrl();
@@ -600,7 +897,9 @@ public class OrderUpdateService {
 			return;
 		}
 
-		List<MultipartFile> validFiles = files.stream().filter(file -> file != null && !file.isEmpty()).toList();
+		List<MultipartFile> validFiles = files.stream()
+				.filter(file -> file != null && !file.isEmpty())
+				.toList();
 
 		if (validFiles.isEmpty()) {
 			return;
@@ -612,9 +911,17 @@ public class OrderUpdateService {
 		String dateFolder = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
 		/*
-		 * 저장 경로: {spring.upload.path}/order/order/{memberId}/{yyyy-MM-dd}/admin/
+		 * 저장 경로:
+		 * {spring.upload.path}/order/order/{memberId}/{yyyy-MM-dd}/admin/
 		 */
-		Path saveDir = Paths.get(uploadRootPath, "order", "order", String.valueOf(memberId), dateFolder, "admin");
+		Path saveDir = Paths.get(
+				uploadRootPath,
+				"order",
+				"order",
+				String.valueOf(memberId),
+				dateFolder,
+				"admin"
+		);
 
 		try {
 			Files.createDirectories(saveDir);
@@ -631,7 +938,8 @@ public class OrderUpdateService {
 				Files.copy(file.getInputStream(), savedPath, StandardCopyOption.REPLACE_EXISTING);
 
 				/*
-				 * 웹 접근 경로: /upload/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename}
+				 * 웹 접근 경로:
+				 * /upload/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename}
 				 */
 				String urlPath = "/upload/order/order/" + memberId + "/" + dateFolder + "/admin/" + uuidFileName;
 
@@ -685,6 +993,11 @@ public class OrderUpdateService {
 		return ext.toLowerCase();
 	}
 
-	private record MoneySnapshot(int productCost, int quantity, int supplyPrice, int totalAmount) {
+	private record MoneySnapshot(
+			int productCost,
+			int quantity,
+			int supplyPrice,
+			int totalAmount
+	) {
 	}
 }

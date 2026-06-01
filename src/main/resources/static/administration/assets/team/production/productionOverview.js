@@ -291,9 +291,15 @@
 			standardLabel: normalizeStandardLabel(standardRaw),
 			dateText: normalizeDateText(raw),
 			options: normalizeOptionFields(raw, orderItem),
-			checked: raw.checked === true || raw.checked === 'true',
+			checkState: normalizeCheckState(raw),
+			checkStateLabel: normalizeCheckStateLabel(raw),
+			checked: isLatestCheckedRaw(raw),
 			checkedByUsername: toText(raw.checkedByUsername),
 			checkedAtText: toText(raw.checkedAtText),
+			revisionMarkedByUsername: toText(raw.revisionMarkedByUsername),
+			revisionMarkedAtText: toText(raw.revisionMarkedAtText),
+			revisionReason: toText(raw.revisionReason),
+			revisionCount: Number(raw.revisionCount || 0),
 			images: normalizeImages(raw)
 		};
 
@@ -303,6 +309,92 @@
 
 		return order;
 	}
+	function normalizeCheckState(raw) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.normalizeState === 'function') {
+			return window.TeamProductionOrderCheck.normalizeState(raw);
+		}
+
+		const state = toText(firstValue(raw && raw.checkState, raw && raw.check_state)).toUpperCase();
+
+		if (state === 'REVISED_AFTER_CHECK' || state === 'REVISED' || state === '재수정') {
+			return 'REVISED_AFTER_CHECK';
+		}
+
+		if (state === 'CHECKED' || state === '확인') {
+			return 'CHECKED';
+		}
+
+		if (raw && (raw.checked === true || raw.checked === 'true' || raw.checked === '1')) {
+			return 'CHECKED';
+		}
+
+		return 'UNCHECKED';
+	}
+
+	function normalizeCheckStateLabel(raw) {
+		const explicit = toText(firstValue(raw && raw.checkStateLabel, raw && raw.check_state_label));
+
+		if (explicit) {
+			return explicit;
+		}
+
+		const state = normalizeCheckState(raw);
+		const labels = {
+			REVISED_AFTER_CHECK: '재수정',
+			UNCHECKED: '미확인',
+			CHECKED: '확인'
+		};
+
+		return labels[state] || '미확인';
+	}
+
+	function isLatestCheckedRaw(raw) {
+		return normalizeCheckState(raw) === 'CHECKED';
+	}
+
+	function isLatestCheckedOrder(order) {
+		return normalizeCheckState(order) === 'CHECKED';
+	}
+
+	function markOrderObjectChecked(order) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.markObjectChecked === 'function') {
+			return window.TeamProductionOrderCheck.markObjectChecked(order);
+		}
+
+		if (order) {
+			order.checked = true;
+			order.checkState = 'CHECKED';
+			order.checkStateLabel = '확인';
+		}
+
+		return order;
+	}
+
+	function getCheckStateClass(order) {
+		const state = normalizeCheckState(order);
+
+		if (state === 'REVISED_AFTER_CHECK') {
+			return 'is-revised';
+		}
+
+		return state === 'CHECKED' ? 'is-checked' : 'is-unchecked';
+	}
+
+	function buildCheckStateText(order) {
+		const state = normalizeCheckState(order);
+		const label = normalizeCheckStateLabel(order);
+
+		if (state === 'CHECKED' && order && order.checkedByUsername) {
+			return label + ' / ' + order.checkedByUsername;
+		}
+
+		if (state === 'REVISED_AFTER_CHECK' && order && order.revisionMarkedByUsername) {
+			return label + ' / ' + order.revisionMarkedByUsername;
+		}
+
+		return label;
+	}
+
 	function findFieldValue(fields, labels) {
 		if (!Array.isArray(fields)) {
 			return '';
@@ -930,8 +1022,19 @@
 				productName: getText(cells[4]),
 				productCategoryName: '',
 				productSeries: '',
+				checkState: normalizeCheckState({
+					checkState: row.getAttribute('data-check-state'),
+					checked: row.getAttribute('data-checked')
+				}),
+				checkStateLabel: toText(row.getAttribute('data-check-state-label')) || normalizeCheckStateLabel({
+					checkState: row.getAttribute('data-check-state'),
+					checked: row.getAttribute('data-checked')
+				}),
 				checked: String(row.getAttribute('data-checked') || '').toLowerCase() === 'true',
 				checkedByUsername: toText(row.getAttribute('data-checked-by')),
+				revisionMarkedByUsername: toText(row.getAttribute('data-revision-marked-by')),
+				revisionMarkedAtText: toText(row.getAttribute('data-revision-marked-at')),
+				revisionReason: toText(row.getAttribute('data-revision-reason')),
 				quantity: '',
 				standardLabel: getText(cells[5]),
 				dateText: getText(cells[6]),
@@ -974,7 +1077,7 @@
 
 	function buildOrderCardHtml(order, image, imageIndex) {
 		return [
-			'<article class="team-production-overview-order-card" data-order-id="' + escapeAttr(order.id) + '">',
+			'<article class="team-production-overview-order-card ' + getCheckStateClass(order) + '" data-order-id="' + escapeAttr(order.id) + '" data-checked="' + (isLatestCheckedOrder(order) ? 'true' : 'false') + '" data-check-state="' + escapeAttr(normalizeCheckState(order)) + '" data-check-state-label="' + escapeAttr(normalizeCheckStateLabel(order)) + '">',
 			buildTopInfoHtml(order),
 			'<div class="team-production-overview-main-row">',
 			buildOptionsPanelHtml(order),
@@ -989,7 +1092,7 @@
 			return;
 		}
 
-		order.checked = true;
+		markOrderObjectChecked(order);
 
 		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
 			window.TeamProductionOrderCheck.mark(order.id);
@@ -1013,6 +1116,7 @@
 			'<div class="team-production-overview-address" title="' + escapeAttr(order.address || '-') + '">' + escapeHtml(order.address || '-') + '</div>',
 			'</div>',
 			buildTopItemHtml('ID / 상태', '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-')),
+			buildTopItemHtml('확인상태', buildCheckStateText(order)),
 			buildTopItemHtml('제품명', order.productName || '-'),
 			buildTopItemHtml('제품분류', order.productCategoryName || '-'),
 			buildTopItemHtml('제품시리즈', order.productSeries || '-'),

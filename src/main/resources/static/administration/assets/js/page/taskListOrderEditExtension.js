@@ -8,8 +8,8 @@
 		deliveryHandlerSelect: ".admin-task-list-second-delivery-handler-select",
 		preferredDeliveryDateInput: 'input[name="preferredDeliveryDate"]',
 		statusSelect: 'select[name="status"]',
-		addressSource: "#admin-task-list-second-delivery-address-source button",
-		ordererSource: "#admin-task-list-second-orderer-source button",
+		addressSource: ".admin-task-list-second-delivery-address-source button, #admin-task-list-second-delivery-address-source button",
+		ordererSource: ".admin-task-list-second-orderer-source button, #admin-task-list-second-orderer-source button",
 		pickerModal: "#admin-task-list-second-picker-modal",
 		pickerTitle: "#admin-task-list-second-picker-title",
 		pickerDesc: "#admin-task-list-second-picker-desc",
@@ -34,36 +34,53 @@
 
 	let activePicker = null;
 
+	window.AdminTaskListSecondOrderEditExtension = {
+		initForms: initForms,
+		initForm: initForm
+	};
+
 	document.addEventListener("DOMContentLoaded", function() {
-		initForms();
+		initForms(document);
 		initPickerModal();
 	});
 
-	function initForms() {
-		document.querySelectorAll(SELECTORS.form).forEach(function(form) {
-			initMoneyBox(form);
-			initDeliveryMethodRule(form);
-			initAddressButtons(form);
-			initOrdererButtons(form);
-			initOptionEditor(form);
+	function initForms(root) {
+		const base = root || document;
 
-			/*
-			 * capture=true:
-			 * taskList.js 쪽의 공통 submit loading보다 먼저 검증하기 위함입니다.
-			 * 검증 실패 시 overlay가 켜진 채 멈추는 문제를 방지합니다.
-			 */
-			form.addEventListener("submit", function(event) {
-				try {
-					validateDeliveryMethodBeforeSubmit(form);
-					normalizeMoneyBeforeSubmit(form);
-					buildOptionJsonBeforeSubmit(form);
-				} catch (error) {
-					event.preventDefault();
-					event.stopPropagation();
-					alert(error.message || "입력값을 확인해 주세요.");
-				}
-			}, true);
+		base.querySelectorAll(SELECTORS.form).forEach(function(form) {
+			initForm(form);
 		});
+	}
+
+	function initForm(form) {
+		if (!form || form.dataset.orderEditInitialized === "true") {
+			return;
+		}
+
+		form.dataset.orderEditInitialized = "true";
+
+		initMoneyBox(form);
+		initDeliveryMethodRule(form);
+		initAddressButtons(form);
+		initOrdererButtons(form);
+		initOptionEditor(form);
+
+		/*
+		 * capture=true:
+		 * taskList.js 쪽의 공통 submit loading보다 먼저 검증하기 위함입니다.
+		 * 검증 실패 시 overlay가 켜진 채 멈추는 문제를 방지합니다.
+		 */
+		form.addEventListener("submit", function(event) {
+			try {
+				validateDeliveryMethodBeforeSubmit(form);
+				normalizeMoneyBeforeSubmit(form);
+				buildOptionJsonBeforeSubmit(form);
+			} catch (error) {
+				event.preventDefault();
+				event.stopPropagation();
+				alert(error.message || "입력값을 확인해 주세요.");
+			}
+		}, true);
 	}
 
 	// =========================================================
@@ -345,7 +362,7 @@
 					return;
 				}
 
-				const items = getAddressSourceItems().filter(function(item) {
+				const items = getAddressSourceItems(form).filter(function(item) {
 					return item.companyId === companyId;
 				});
 
@@ -492,7 +509,7 @@
 				return;
 			}
 
-			const items = getOrdererSourceItems().filter(function(item) {
+			const items = getOrdererSourceItems(form).filter(function(item) {
 				return item.companyId === companyId;
 			});
 
@@ -732,9 +749,11 @@
 	function initPickerModal() {
 		const modal = document.querySelector(SELECTORS.pickerModal);
 
-		if (!modal) {
+		if (!modal || modal.dataset.pickerInitialized === "true") {
 			return;
 		}
+
+		modal.dataset.pickerInitialized = "true";
 
 		modal.addEventListener("click", function(event) {
 			if (
@@ -881,8 +900,9 @@
 		return companySelect.value || companySelect.dataset.selectedCompanyId || "";
 	}
 
-	function getAddressSourceItems() {
-		return Array.from(document.querySelectorAll(SELECTORS.addressSource)).map(function(el) {
+	function getAddressSourceItems(form) {
+		const root = form?.closest(".admin-task-list-second-detail-panel") || document;
+		return Array.from(root.querySelectorAll(SELECTORS.addressSource)).map(function(el) {
 			return {
 				companyId: el.dataset.companyId || "",
 				addressId: el.dataset.addressId || "",
@@ -897,8 +917,9 @@
 		});
 	}
 
-	function getOrdererSourceItems() {
-		return Array.from(document.querySelectorAll(SELECTORS.ordererSource)).map(function(el) {
+	function getOrdererSourceItems(form) {
+		const root = form?.closest(".admin-task-list-second-detail-panel") || document;
+		return Array.from(root.querySelectorAll(SELECTORS.ordererSource)).map(function(el) {
 			return {
 				companyId: el.dataset.companyId || "",
 				ordererInfoId: el.dataset.ordererInfoId || "",

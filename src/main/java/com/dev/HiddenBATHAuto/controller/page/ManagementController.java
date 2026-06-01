@@ -50,6 +50,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -164,6 +165,12 @@ public class ManagementController {
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
+	/*
+	 * ManagementController 안에서 기존 nonStandardTaskList 메서드를 아래 메서드로 교체하고,
+	 * nonStandardTaskListOrderDetailFragment, buildOrderListCompanyOptions 메서드를 같은 클래스 안에 추가해 주세요.
+	 * 기존 nonStandardTaskListBulkFragment 메서드는 그대로 사용해도 됩니다.
+	 */
+
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(
 	        @RequestParam(required = false, defaultValue = "") String keyword,
@@ -179,7 +186,6 @@ public class ManagementController {
 	        HttpServletRequest request,
 	        Model model
 	) {
-
 	    String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
 	    DateRange range = buildDateRangeForCriteria(
@@ -224,77 +230,16 @@ public class ManagementController {
 	            sortedPageable
 	    );
 
-	    List<Long> currentPageOrderIds = orders.getContent().stream()
-	            .map(Order::getId)
-	            .toList();
-
-	    Map<Long, List<NonStandardTaskListOrderImageDto>> adminImageMap =
-	            currentPageOrderIds.isEmpty()
-	                    ? Map.of()
-	                    : orderImageRepository
-	                            .findByOrder_IdInAndTypeIgnoreCase(currentPageOrderIds, "MANAGEMENT")
-	                            .stream()
-	                            .collect(Collectors.groupingBy(
-	                                    image -> image.getOrder().getId(),
-	                                    Collectors.mapping(
-	                                            image -> NonStandardTaskListOrderImageDto.builder()
-	                                                    .id(image.getId())
-	                                                    .type(image.getType())
-	                                                    .filename(image.getFilename())
-	                                                    .url(image.getUrl())
-	                                                    .build(),
-	                                            Collectors.toList()
-	                                    )
-	                            ));
-
-	    Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(order ->
-	            nonStandardTaskListViewService.toRow(
-	                    order,
-	                    adminImageMap.getOrDefault(order.getId(), List.of())
-	            )
-	    );
+	    /*
+	     * 속도 개선 핵심:
+	     * 목록에서는 화면에 즉시 보이는 행 정보만 DTO로 변환합니다.
+	     * 관리자 이미지, 회사 전체목록, 회원 전체목록, 주소록, 주문자 정보는 넓게보기 AJAX에서 개별 오더 단위로 가져옵니다.
+	     */
+	    Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(nonStandardTaskListViewService::toRow);
 
 	    int currentPage1 = orders.getPageable().getPageNumber() + 1;
 	    int startPageNum = Math.max(1, currentPage1 - 4);
 	    int endPageNum = Math.min(orders.getTotalPages(), currentPage1 + 4);
-
-	    List<Company> companies = companyRepository.findAll();
-
-	    List<NonStandardTaskListCompanyOptionDto> companyOptions = companies.stream()
-	            .map(company -> {
-	                String representativeName = memberRepository
-	                        .findCompanyMembersByRole(
-	                                company.getId(),
-	                                MemberRole.CUSTOMER_REPRESENTATIVE,
-	                                PageRequest.of(0, 1)
-	                        )
-	                        .stream()
-	                        .findFirst()
-	                        .map(Member::getName)
-	                        .orElse("");
-
-	                return new NonStandardTaskListCompanyOptionDto(
-	                        company.getId(),
-	                        company.getCompanyName(),
-	                        representativeName
-	                );
-	            })
-	            .toList();
-
-	    List<NonStandardTaskListCompanyMemberOptionDto> companyMemberOptions = companies.stream()
-	            .flatMap(company -> memberRepository.findByCompany_Id(company.getId()).stream()
-	                    .map(member -> new NonStandardTaskListCompanyMemberOptionDto(
-	                            company.getId(),
-	                            member.getId(),
-	                            member.getName()
-	                    )))
-	            .toList();
-
-	    List<NonStandardTaskListCompanyDeliveryAddressOptionDto> companyDeliveryAddressOptions =
-	            buildOrderListCompanyDeliveryAddressOptions(companies);
-
-	    List<NonStandardTaskListCompanyOrdererInfoOptionDto> companyOrdererInfoOptions =
-	            buildOrderListCompanyOrdererInfoOptions(companies);
 
 	    model.addAttribute("orders", orders);
 	    model.addAttribute("orderRows", orderRows);
@@ -307,13 +252,17 @@ public class ManagementController {
 
 	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
 	    model.addAttribute("orderStatuses", OrderStatus.values());
-	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
-	    model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
 
-	    model.addAttribute("companyOptions", companyOptions);
-	    model.addAttribute("companyMemberOptions", companyMemberOptions);
-	    model.addAttribute("companyDeliveryAddressOptions", companyDeliveryAddressOptions);
-	    model.addAttribute("companyOrdererInfoOptions", companyOrdererInfoOptions);
+	    /*
+	     * 기존 템플릿/스크립트와의 안전 호환용입니다.
+	     * 실제 상세 수정용 데이터는 /nonStandardTaskList/order-detail-fragment/{orderId} 에서 내려줍니다.
+	     */
+	    model.addAttribute("deliveryMethods", List.of());
+	    model.addAttribute("deliveryTeamMembers", List.of());
+	    model.addAttribute("companyOptions", List.of());
+	    model.addAttribute("companyMemberOptions", List.of());
+	    model.addAttribute("companyDeliveryAddressOptions", List.of());
+	    model.addAttribute("companyOrdererInfoOptions", List.of());
 
 	    model.addAttribute("keyword", (keyword == null) ? "" : keyword);
 	    model.addAttribute("dateCriteria", finalDateCriteria);
@@ -334,6 +283,91 @@ public class ManagementController {
 
 	    return "administration/management/order/nonStandard/taskList";
 	}
+
+	@GetMapping("/nonStandardTaskList/order-detail-fragment/{orderId}")
+	public String nonStandardTaskListOrderDetailFragment(
+	        @PathVariable Long orderId,
+	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
+	        Model model
+	) {
+	    Order order = orderRepository.findById(orderId)
+	            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 오더입니다. orderId=" + orderId));
+
+	    Map<Long, List<NonStandardTaskListOrderImageDto>> adminImageMap = orderImageRepository
+	            .findByOrder_IdInAndTypeIgnoreCase(List.of(orderId), "MANAGEMENT")
+	            .stream()
+	            .collect(Collectors.groupingBy(
+	                    image -> image.getOrder().getId(),
+	                    Collectors.mapping(
+	                            image -> NonStandardTaskListOrderImageDto.builder()
+	                                    .id(image.getId())
+	                                    .type(image.getType())
+	                                    .filename(image.getFilename())
+	                                    .url(image.getUrl())
+	                                    .build(),
+	                            Collectors.toList()
+	                    )
+	            ));
+
+	    NonStandardTaskListOrderRowDto row = nonStandardTaskListViewService.toRow(
+	            order,
+	            adminImageMap.getOrDefault(orderId, List.of())
+	    );
+
+	    List<Company> companies = companyRepository.findAll();
+
+	    model.addAttribute("row", row);
+	    model.addAttribute("orderStatuses", OrderStatus.values());
+	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+	    model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
+	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+
+	    model.addAttribute("companyOptions", buildOrderListCompanyOptions(companies));
+	    model.addAttribute("companyMemberOptions", companies.stream()
+	            .flatMap(company -> memberRepository.findByCompany_Id(company.getId()).stream()
+	                    .map(member -> new NonStandardTaskListCompanyMemberOptionDto(
+	                            company.getId(),
+	                            member.getId(),
+	                            member.getName()
+	                    )))
+	            .toList());
+	    model.addAttribute("companyDeliveryAddressOptions", buildOrderListCompanyDeliveryAddressOptions(companies));
+	    model.addAttribute("companyOrdererInfoOptions", buildOrderListCompanyOrdererInfoOptions(companies));
+
+	    model.addAttribute("currentListUrl", isSafeNonStandardTaskListReturnUrl(returnUrl)
+	            ? returnUrl.trim()
+	            : "/management/nonStandardTaskList");
+
+	    return "administration/management/order/nonStandard/taskListOrderDetailFragment :: orderDetailRow";
+	}
+
+	private List<NonStandardTaskListCompanyOptionDto> buildOrderListCompanyOptions(List<Company> companies) {
+	    if (companies == null || companies.isEmpty()) {
+	        return List.of();
+	    }
+
+	    return companies.stream()
+	            .map(company -> {
+	                String representativeName = memberRepository
+	                        .findCompanyMembersByRole(
+	                                company.getId(),
+	                                MemberRole.CUSTOMER_REPRESENTATIVE,
+	                                PageRequest.of(0, 1)
+	                        )
+	                        .stream()
+	                        .findFirst()
+	                        .map(Member::getName)
+	                        .orElse("");
+
+	                return new NonStandardTaskListCompanyOptionDto(
+	                        company.getId(),
+	                        company.getCompanyName(),
+	                        representativeName
+	                );
+	            })
+	            .toList();
+	}
+
 
 	private List<NonStandardTaskListCompanyDeliveryAddressOptionDto> buildOrderListCompanyDeliveryAddressOptions(
 	        List<Company> companies
@@ -892,9 +926,12 @@ public class ManagementController {
 	        @RequestParam(value = "ordererPhone", required = false) String ordererPhone,
 	        @RequestParam(value = "optionJson", required = false) String optionJson,
 	        @RequestParam(value = "adminMemo", required = false) String adminMemo,
+	        @RequestParam(value = "dispatchCompleteMessage", required = false) String dispatchCompleteMessage,
+	        @RequestParam(value = "dispatchCompleteMessageSubmitted", defaultValue = "false") boolean dispatchCompleteMessageSubmitted,
 	        @RequestParam(value = "deleteAdminImageIds", required = false) List<Long> deleteAdminImageIds,
 	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
 	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
+	        Authentication authentication,
 	        RedirectAttributes redirectAttributes
 	) {
 	    String redirectUrl = isSafeNonStandardTaskListReturnUrl(returnUrl)
@@ -902,6 +939,8 @@ public class ManagementController {
 	            : "redirect:/management/nonStandardTaskList";
 
 	    try {
+	        String updatedByUsername = resolveAuthenticatedUsername(authentication);
+
 	        nonStandardOrderItemService.updateNonStandardOrderItem(
 	                orderId,
 	                productCost,
@@ -927,8 +966,11 @@ public class ManagementController {
 	                ordererPhone,
 	                optionJson,
 	                adminMemo,
+	                dispatchCompleteMessage,
+	                dispatchCompleteMessageSubmitted,
 	                deleteAdminImageIds,
-	                adminImages
+	                adminImages,
+	                updatedByUsername
 	        );
 
 	        redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
@@ -938,6 +980,14 @@ public class ManagementController {
 	        redirectAttributes.addFlashAttribute("message", e.getMessage());
 	        return redirectUrl;
 	    }
+	}
+
+	private String resolveAuthenticatedUsername(Authentication authentication) {
+	    if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+	        return "UNKNOWN";
+	    }
+
+	    return authentication.getName().trim();
 	}
 
 	private boolean isSafeNonStandardTaskListReturnUrl(String returnUrl) {

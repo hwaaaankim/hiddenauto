@@ -2203,3 +2203,38 @@ body.team-production-image-modal-open {
 		max-height: calc(100vh - 28px);
 	}
 }
+
+/* 재수정 상태만 강조합니다. CHECKED(체크완료)는 목록 행 강조 대상에서 제외합니다. */
+.admin-task-list-second-row-revised>td {
+	background-color: rgba(220, 53, 69, 0.06);
+}
+
+.admin-task-list-second-check-state-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	align-items: center;
+}
+
+.admin-task-list-second-bulk-card-revised {
+	border-color: rgba(220, 53, 69, 0.35);
+}
+
+.admin-task-list-second-detail-loading-row td {
+	padding: 0 !important;
+}
+
+.admin-task-list-second-detail-loading-box,
+.admin-task-list-second-detail-error-box {
+	margin: 10px 0;
+	padding: 18px;
+	border: 1px dashed rgba(0, 0, 0, 0.18);
+	border-radius: 12px;
+	background: rgba(0, 0, 0, 0.02);
+	text-align: center;
+	font-size: 14px;
+}
+
+.admin-task-list-second-detail-error-box {
+	border-color: rgba(220, 53, 69, 0.4);
+}

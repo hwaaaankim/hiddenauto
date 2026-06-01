@@ -20,4 +20,8 @@ public class ProductionListExcelRowDto {
     private String adminMemo;
 
     private String categoryName;
+    
+    private String checkState;
+    
+    private String checkStateLabel;
 }

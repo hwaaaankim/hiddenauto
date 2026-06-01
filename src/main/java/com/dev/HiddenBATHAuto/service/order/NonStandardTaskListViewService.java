@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderImageDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderRowDto;
+import com.dev.HiddenBATHAuto.enums.order.OrderCheckState;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
@@ -51,6 +52,32 @@ public class NonStandardTaskListViewService {
         OrderItem orderItem = order.getOrderItem();
         OrderCheckStatus checkStatus = order.getCheckStatus();
 
+        /*
+         * checked 하나로만 판단하면 의미가 섞입니다.
+         *
+         * checked/latestChecked:
+         * - 생산팀이 현재 최신 상태를 확인 완료한 상태입니다.
+         *
+         * revisedAfterCheck:
+         * - 생산팀이 한번 확인한 뒤 관리자가 생산팀이 봐야 할 항목을 다시 수정한 상태입니다.
+         * - 관리자 목록에서 강조 표시해야 하는 기준입니다.
+         *
+         * needProductionCheck:
+         * - 생산팀 확인이 필요한 상태입니다.
+         * - UNCHECKED 또는 REVISED_AFTER_CHECK이면 true입니다.
+         */
+        OrderCheckState checkState = resolveCheckState(checkStatus);
+
+        boolean latestChecked = checkState.isLatestChecked();
+        boolean revisedAfterCheck = checkState == OrderCheckState.REVISED_AFTER_CHECK;
+        boolean needProductionCheck = checkState.isNeedProductionCheck();
+
+        /*
+         * 기존 화면/코드 호환을 위해 checked 필드는 유지합니다.
+         * 단, 이 값은 "재수정 여부"가 아니라 "현재 체크완료 여부"입니다.
+         */
+        boolean checked = latestChecked;
+
         Map<String, String> optionMap = parseOptionMap(orderItem != null ? orderItem.getOptionJson() : null);
 
         String productName = firstNotBlank(
@@ -70,13 +97,13 @@ public class NonStandardTaskListViewService {
                 order.getDetailAddress()
         );
 
-        boolean checked = checkStatus != null && checkStatus.isChecked();
-
         int supplyPrice = order.getSupplyPrice();
         int totalAmount = order.getTotalAmount();
         int vatPrice = Math.max(0, totalAmount - supplyPrice);
 
         String ordererSummary = joinNonBlank(" / ", order.getOrdererName(), order.getOrdererPhone());
+
+        String dispatchCompleteMessage = normalizeNullableText(order.getDispatchCompleteMessage());
 
         return NonStandardTaskListOrderRowDto.builder()
                 .orderId(order.getId())
@@ -120,7 +147,12 @@ public class NonStandardTaskListViewService {
 
                 .orderComment(order.getOrderComment())
                 .adminMemo(order.getAdminMemo())
-                .noteSummary(buildNoteSummary(order.getOrderComment(), order.getAdminMemo()))
+                .dispatchCompleteMessage(dispatchCompleteMessage)
+                .noteSummary(buildNoteSummary(
+                        order.getOrderComment(),
+                        order.getAdminMemo(),
+                        dispatchCompleteMessage
+                ))
 
                 .createdAt(order.getCreatedAt())
                 .preferredDeliveryDate(order.getPreferredDeliveryDate())
@@ -129,15 +161,29 @@ public class NonStandardTaskListViewService {
                 .deliveryMethodName(deliveryMethod != null ? safe(deliveryMethod.getMethodName()) : "미지정")
 
                 .assignedDeliveryHandlerId(deliveryHandler != null ? deliveryHandler.getId() : null)
-                .assignedDeliveryHandlerName(deliveryHandler != null ? safe(deliveryHandler.getName()) : "배정 필요함")
+                .assignedDeliveryHandlerName(deliveryHandler != null
+                        ? formatMemberNameWithUsername(deliveryHandler)
+                        : "배정 필요함")
 
                 .status(orderStatus)
                 .statusName(orderStatus != null ? orderStatus.name() : "")
                 .statusLabel(orderStatus != null ? orderStatus.getLabel() : "상태없음")
 
                 .checked(checked)
+                .latestChecked(latestChecked)
+                .revisedAfterCheck(revisedAfterCheck)
+                .needProductionCheck(needProductionCheck)
+                .checkState(checkState)
+                .checkStateName(checkState.name())
+                .checkStateLabel(checkState.getLabel())
+
                 .checkedByUsername(checkStatus != null ? checkStatus.getCheckedByUsername() : null)
                 .checkedAt(checkStatus != null ? checkStatus.getCheckedAt() : null)
+
+                .revisionMarkedByUsername(checkStatus != null ? checkStatus.getRevisionMarkedByUsername() : null)
+                .revisionMarkedAt(checkStatus != null ? checkStatus.getRevisionMarkedAt() : null)
+                .revisionReason(checkStatus != null ? checkStatus.getRevisionReason() : null)
+                .revisionCount(checkStatus != null ? checkStatus.getRevisionCount() : 0)
 
                 .adminImages(adminImages != null ? adminImages : List.of())
 
@@ -145,16 +191,48 @@ public class NonStandardTaskListViewService {
     }
 
     public List<NonStandardTaskListOrderRowDto> toBulkRows(List<Order> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return List.of();
+        }
+
         return orders.stream()
                 .filter(Objects::nonNull)
                 .map(this::toRow)
+                .filter(Objects::nonNull)
                 .sorted(Comparator
-                        .comparing(NonStandardTaskListOrderRowDto::isChecked)
+                        /*
+                         * 일괄보기에서는 생산팀 확인이 필요한 항목을 먼저 보여줍니다.
+                         * needProductionCheck=true:
+                         * - UNCHECKED
+                         * - REVISED_AFTER_CHECK
+                         */
+                        .comparingInt((NonStandardTaskListOrderRowDto row) ->
+                                row.isNeedProductionCheck() ? 0 : 1
+                        )
+                        /*
+                         * 그중에서도 재수정 건을 일반 미확인 건보다 위에 배치합니다.
+                         */
+                        .thenComparingInt(row ->
+                                row.isRevisedAfterCheck() ? 0 : 1
+                        )
+                        /*
+                         * 같은 상태 안에서는 최신 발주가 위로 오도록 정렬합니다.
+                         */
                         .thenComparing(
                                 NonStandardTaskListOrderRowDto::getCreatedAt,
                                 Comparator.nullsLast(Comparator.reverseOrder())
-                        ))
+                        )
+                )
                 .collect(Collectors.toList());
+    }
+
+    private OrderCheckState resolveCheckState(OrderCheckStatus checkStatus) {
+        if (checkStatus == null) {
+            return OrderCheckState.UNCHECKED;
+        }
+
+        OrderCheckState resolved = checkStatus.getResolvedCheckState();
+        return resolved != null ? resolved : OrderCheckState.UNCHECKED;
     }
 
     private Map<String, String> parseOptionMap(String optionJson) {
@@ -192,17 +270,54 @@ public class NonStandardTaskListViewService {
         return summary.isBlank() ? "-" : summary;
     }
 
-    private String buildNoteSummary(String orderComment, String adminMemo) {
+    private String buildNoteSummary(
+            String orderComment,
+            String adminMemo,
+            String dispatchCompleteMessage
+    ) {
         String summary = joinNonBlank(" / ",
                 isBlank(orderComment) ? null : "요청: " + orderComment,
-                isBlank(adminMemo) ? null : "관리자: " + adminMemo
+                isBlank(adminMemo) ? null : "관리자: " + adminMemo,
+                isBlank(dispatchCompleteMessage) ? null : "출고완료: " + dispatchCompleteMessage
         );
 
         return summary.isBlank() ? "-" : summary;
     }
 
+    private String formatMemberNameWithUsername(Member member) {
+        if (member == null) {
+            return "-";
+        }
+
+        String name = normalizeNullableText(member.getName());
+        String username = normalizeNullableText(member.getUsername());
+
+        if (name != null && username != null) {
+            return name + "(" + username + ")";
+        }
+
+        if (name != null) {
+            return name;
+        }
+
+        if (username != null) {
+            return username;
+        }
+
+        return "-";
+    }
+
     private String safe(String value) {
         return value == null || value.isBlank() ? "-" : value;
+    }
+
+    private String normalizeNullableText(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private boolean isBlank(String value) {

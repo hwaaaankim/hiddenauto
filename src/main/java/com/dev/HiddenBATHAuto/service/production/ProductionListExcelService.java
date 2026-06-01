@@ -60,17 +60,24 @@ public class ProductionListExcelService {
         sheet.setAutobreaks(true);
         sheet.setHorizontallyCenter(true);
 
-        sheet.setColumnWidth(0, 26 * 256); // 제품명
-        sheet.setColumnWidth(1, 18 * 256); // 제품색상
-        sheet.setColumnWidth(2, 30 * 256); // 제품사이즈
-        sheet.setColumnWidth(3, 8 * 256);  // 수량
-        sheet.setColumnWidth(4, 60 * 256); // 남김말
-        sheet.setColumnWidth(5, 16 * 256); // 카테고리
+        sheet.setColumnWidth(0, 10 * 256); // 오더ID
+        sheet.setColumnWidth(1, 26 * 256); // 제품명
+        sheet.setColumnWidth(2, 18 * 256); // 제품색상
+        sheet.setColumnWidth(3, 30 * 256); // 제품사이즈
+        sheet.setColumnWidth(4, 8 * 256);  // 수량
+        sheet.setColumnWidth(5, 60 * 256); // 남김말
+        sheet.setColumnWidth(6, 16 * 256); // 카테고리
+        sheet.setColumnWidth(7, 12 * 256); // 체크상태
 
         sheet.createFreezePane(0, 3);
 
         int lastRow = Math.max(3, (rows == null ? 0 : rows.size()) + 2);
-        workbook.setPrintArea(0, 0, 5, 0, lastRow);
+
+        /*
+         * 0열: 오더ID
+         * 7열: 체크상태
+         */
+        workbook.setPrintArea(0, 0, 7, 0, lastRow);
     }
 
     private void createTitleRows(
@@ -86,7 +93,7 @@ public class ProductionListExcelService {
         titleCell.setCellValue("생산팀 제작 목록");
         titleCell.setCellStyle(titleStyle);
 
-        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 5));
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));
 
         Row infoRow = sheet.createRow(1);
         infoRow.setHeightInPoints(20F);
@@ -95,7 +102,7 @@ public class ProductionListExcelService {
         infoCell.setCellValue("출력일: " + LocalDate.now() + " / 현재 화면 기준 " + safeSize(rows) + "건");
         infoCell.setCellStyle(infoStyle);
 
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 5));
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 7));
     }
 
     private void createHeaderRow(Sheet sheet, CellStyle headerStyle) {
@@ -103,12 +110,14 @@ public class ProductionListExcelService {
         headerRow.setHeightInPoints(24F);
 
         String[] headers = {
+                "오더ID",
                 "제품명",
                 "제품색상",
                 "제품사이즈",
                 "수량",
                 "남김말",
-                "카테고리"
+                "카테고리",
+                "체크상태"
         };
 
         for (int i = 0; i < headers.length; i++) {
@@ -132,7 +141,7 @@ public class ProductionListExcelService {
             cell.setCellValue("조회된 생산 주문이 없습니다.");
             cell.setCellStyle(bodyStyle);
 
-            sheet.addMergedRegion(new CellRangeAddress(3, 3, 0, 5));
+            sheet.addMergedRegion(new CellRangeAddress(3, 3, 0, 7));
             return;
         }
 
@@ -142,13 +151,43 @@ public class ProductionListExcelService {
             Row row = sheet.createRow(rowIndex++);
             row.setHeightInPoints(estimateRowHeight(dto.getAdminMemo()));
 
-            setCell(row, 0, text(dto.getProductName()), bodyStyle);
-            setCell(row, 1, text(dto.getProductColor()), bodyStyle);
-            setCell(row, 2, text(dto.getProductSize()), bodyStyle);
-            setCell(row, 3, dto.getQuantity() == null ? "-" : String.valueOf(dto.getQuantity()), centerStyle);
-            setCell(row, 4, text(dto.getAdminMemo()), bodyStyle);
-            setCell(row, 5, text(dto.getCategoryName()), bodyStyle);
+            setCell(row, 0, dto.getOrderId() == null ? "-" : String.valueOf(dto.getOrderId()), centerStyle);
+            setCell(row, 1, text(dto.getProductName()), bodyStyle);
+            setCell(row, 2, text(dto.getProductColor()), bodyStyle);
+            setCell(row, 3, text(dto.getProductSize()), bodyStyle);
+            setCell(row, 4, dto.getQuantity() == null ? "-" : String.valueOf(dto.getQuantity()), centerStyle);
+            setCell(row, 5, text(dto.getAdminMemo()), bodyStyle);
+            setCell(row, 6, text(dto.getCategoryName()), bodyStyle);
+            setCell(row, 7, resolveCheckStateLabel(dto), centerStyle);
         }
+    }
+
+    private String resolveCheckStateLabel(ProductionListExcelRowDto dto) {
+        if (dto == null) {
+            return "-";
+        }
+
+        String label = text(dto.getCheckStateLabel());
+
+        if (!"-".equals(label)) {
+            return label;
+        }
+
+        String state = text(dto.getCheckState());
+
+        if ("CHECKED".equalsIgnoreCase(state)) {
+            return "확인";
+        }
+
+        if ("REVISED_AFTER_CHECK".equalsIgnoreCase(state)) {
+            return "재수정";
+        }
+
+        if ("UNCHECKED".equalsIgnoreCase(state)) {
+            return "미확인";
+        }
+
+        return "-";
     }
 
     private void setCell(Row row, int index, String value, CellStyle style) {

@@ -29,6 +29,7 @@ import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewImageDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewOrderDto;
 import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
+import com.dev.HiddenBATHAuto.enums.order.OrderCheckState;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
@@ -56,6 +57,7 @@ public class TeamTaskService {
 
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
 	        Long categoryId,
+	        Long orderId,
 	        String dateType,
 	        OrderStatus statusFilter,
 	        LocalDateTime start,
@@ -72,6 +74,7 @@ public class TeamTaskService {
 	    if (useCreated) {
 	        page = orderRepository.findProductionListByCreatedRangeStatusCheckSorted(
 	                categoryId,
+	                orderId,
 	                allStatus,
 	                statusFilter,
 	                start,
@@ -82,6 +85,7 @@ public class TeamTaskService {
 	    } else {
 	        page = orderRepository.findProductionListByPreferredRangeStatusCheckSorted(
 	                categoryId,
+	                orderId,
 	                allStatus,
 	                statusFilter,
 	                start,
@@ -111,25 +115,33 @@ public class TeamTaskService {
 	        throw new AccessDeniedException("해당 발주를 확인 처리할 권한이 없습니다.");
 	    }
 
-	    OrderCheckStatus checkStatus = orderCheckStatusRepository.findByOrder_Id(orderId)
-	            .orElse(null);
+	    OrderCheckStatus checkStatus = orderCheckStatusRepository.findByOrderIdForUpdate(orderId)
+	            .orElseGet(() -> OrderCheckStatus.unchecked(order));
 
-	    if (checkStatus == null) {
-	        checkStatus = OrderCheckStatus.unchecked(order);
-	    }
-
-	    if (!checkStatus.isChecked()) {
+	    if (!checkStatus.isLatestChecked()) {
 	        checkStatus.markChecked(resolveCheckedByUsername(loginMember));
 	        orderCheckStatusRepository.save(checkStatus);
 	    }
 
+	    OrderCheckState state = resolveCheckState(checkStatus);
+
 	    return ProductionOrderCheckResponse.builder()
 	            .orderId(orderId)
-	            .checked(true)
+	            .checked(state == OrderCheckState.CHECKED)
+	            .checkState(state.name())
+	            .checkStateLabel(state.getLabel())
 	            .checkedByUsername(checkStatus.getCheckedByUsername())
 	            .checkedAtText(formatDateTime(checkStatus.getCheckedAt()))
 	            .message("확인 처리되었습니다.")
 	            .build();
+	}
+
+	private OrderCheckState resolveCheckState(OrderCheckStatus checkStatus) {
+	    if (checkStatus == null) {
+	        return OrderCheckState.UNCHECKED;
+	    }
+
+	    return checkStatus.getResolvedCheckState();
 	}
 
 	private String resolveCheckedByUsername(Member member) {
@@ -191,9 +203,15 @@ public class TeamTaskService {
 	 * findProductionListByPreferredRangeStatusSortable 메서드가 존재해야 합니다(아래 2)에서 전체 코드
 	 * 제공).
 	 */
-	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(Long categoryId, String dateType,
-			OrderStatus statusFilter, // null이면 ALL
-			LocalDateTime start, LocalDateTime end, Pageable pageable) {
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
+	        Long categoryId,
+	        Long orderId,
+	        String dateType,
+	        OrderStatus statusFilter,
+	        LocalDateTime start,
+	        LocalDateTime end,
+	        Pageable pageable
+	) {
 
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
 		boolean allStatus = (statusFilter == null);
@@ -202,11 +220,25 @@ public class TeamTaskService {
 		// (Query 내부에 ORDER BY를 넣지 않는 방식)
 		Page<Order> page;
 		if (useCreated) {
-			page = orderRepository.findProductionListByCreatedRangeStatusSortable(categoryId, allStatus, statusFilter,
-					start, end, pageable);
+		    page = orderRepository.findProductionListByCreatedRangeStatusSortable(
+		            categoryId,
+		            orderId,
+		            allStatus,
+		            statusFilter,
+		            start,
+		            end,
+		            pageable
+		    );
 		} else {
-			page = orderRepository.findProductionListByPreferredRangeStatusSortable(categoryId, allStatus, statusFilter,
-					start, end, pageable);
+		    page = orderRepository.findProductionListByPreferredRangeStatusSortable(
+		            categoryId,
+		            orderId,
+		            allStatus,
+		            statusFilter,
+		            start,
+		            end,
+		            pageable
+		    );
 		}
 
 		applySingleLineOptionSummary(page);
@@ -427,6 +459,8 @@ public class TeamTaskService {
 
 	        int quantity = item != null ? item.getQuantity() : order.getQuantity();
 
+	        OrderCheckState checkState = resolveCheckState(order.getCheckStatus());
+
 	        result.add(ProductionListExcelRowDto.builder()
 	                .orderId(order.getId())
 	                .productName(displayParts.productName())
@@ -435,6 +469,8 @@ public class TeamTaskService {
 	                .quantity(quantity)
 	                .adminMemo(valueOrDash(order.getAdminMemo()))
 	                .categoryName(displayParts.category())
+	                .checkState(checkState.name())
+	                .checkStateLabel(checkState.getLabel())
 	                .build());
 	    }
 
@@ -1022,7 +1058,8 @@ public class TeamTaskService {
 
 	    OrderStatus status = order.getStatus();
 	    OrderCheckStatus checkStatus = order.getCheckStatus();
-	    boolean checked = checkStatus != null && checkStatus.isChecked();
+	    OrderCheckState checkState = resolveCheckState(checkStatus);
+	    boolean checked = checkState == OrderCheckState.CHECKED;
 
 	    return ProductionOverviewOrderDto.builder()
 	            .orderId(order.getId())
@@ -1041,8 +1078,14 @@ public class TeamTaskService {
 	            .fields(buildProductionOverviewFields(order, false))
 	            .adminImages(adminImages)
 	            .checked(checked)
-	            .checkedByUsername(checked ? safeText(checkStatus.getCheckedByUsername()) : "")
-	            .checkedAtText(checked ? formatDateTime(checkStatus.getCheckedAt()) : "")
+	            .checkState(checkState.name())
+	            .checkStateLabel(checkState.getLabel())
+	            .checkedByUsername(checked && checkStatus != null ? safeText(checkStatus.getCheckedByUsername()) : "")
+	            .checkedAtText(checked && checkStatus != null ? formatDateTime(checkStatus.getCheckedAt()) : "")
+	            .revisionMarkedByUsername(checkStatus != null ? safeText(checkStatus.getRevisionMarkedByUsername()) : "")
+	            .revisionMarkedAtText(checkStatus != null ? formatDateTime(checkStatus.getRevisionMarkedAt()) : "")
+	            .revisionReason(checkStatus != null ? safeText(checkStatus.getRevisionReason()) : "")
+	            .revisionCount(checkStatus != null ? checkStatus.getRevisionCount() : 0)
 	            .build();
 	}
 

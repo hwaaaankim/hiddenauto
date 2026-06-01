@@ -34,7 +34,12 @@
 					<form method="get" th:action="@{/team/productionList}" class="row" id="team-production-filter-form">
 						<div class="col-lg-12">
 							<div class="row g-3 mb-3 align-items-end">
-
+								<div class="col-lg-2 col-xl-1">
+									<label class="form-label">오더ID</label>
+									<input type="number" name="orderId" class="form-control w-100"
+										id="team-production-orderId" min="1" step="1" placeholder="ID"
+										th:value="${orderId != null ? orderId : ''}">
+								</div>
 								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">제품분류</label>
 									<select name="productCategoryId" class="form-control w-100"
@@ -236,14 +241,25 @@
 											</td>
 										</tr>
 
-										<th:block th:each="order : ${orders}">
+										<th:block th:each="order : ${orders}" th:with="
+                                                      checkState=${order.checkStatus != null ? order.checkStatus.checkStateName : 'UNCHECKED'},
+                                                      checkStateLabel=${order.checkStatus != null ? order.checkStatus.checkStateLabel : '미확인'},
+                                                      isLatestChecked=${checkState == 'CHECKED'},
+                                                      isRevisedAfterCheck=${checkState == 'REVISED_AFTER_CHECK'}
+                                                  ">
 											<tr class="team-production-overview-row team-production-clickable-row"
-												th:classappend="${order.checkStatus != null and order.checkStatus.checked} ? ' team-production-row-checked' : ' team-production-row-unchecked'"
+												th:classappend="${isRevisedAfterCheck} ? ' team-production-row-revised' : (${isLatestChecked} ? ' team-production-row-checked' : ' team-production-row-unchecked')"
 												th:attr="
                     data-overview-order-id=${order.id},
                     data-overview-status=${order.status != null ? order.status.name() : ''},
-                    data-checked=${order.checkStatus != null and order.checkStatus.checked},
+                    data-checked=${isLatestChecked},
+                    data-check-state=${checkState},
+                    data-check-state-label=${checkStateLabel},
                     data-checked-by=${order.checkStatus != null ? order.checkStatus.checkedByUsername : ''},
+                    data-checked-at=${order.checkStatus != null and order.checkStatus.checkedAt != null ? #temporals.format(order.checkStatus.checkedAt, 'yyyy-MM-dd HH:mm') : ''},
+                    data-revision-marked-by=${order.checkStatus != null ? order.checkStatus.revisionMarkedByUsername : ''},
+                    data-revision-marked-at=${order.checkStatus != null and order.checkStatus.revisionMarkedAt != null ? #temporals.format(order.checkStatus.revisionMarkedAt, 'yyyy-MM-dd HH:mm') : ''},
+                    data-revision-reason=${order.checkStatus != null ? order.checkStatus.revisionReason : ''},
                     data-detail-url=@{|/team/productionDetail/${order.id}|}
                 ">
 
@@ -302,13 +318,15 @@
 
 												<td
 													class="team-production-td text-center team-production-check-status-td">
-													<span class="badge team-production-check-badge" th:classappend="${order.checkStatus != null and order.checkStatus.checked}
-                            ? ' bg-success-subtle text-success'
-                            : ' bg-secondary-subtle text-secondary'"
-														th:text="${order.checkStatus != null and order.checkStatus.checked ? '확인' : '미확인'}"
-														th:title="${order.checkStatus != null and order.checkStatus.checked
-                            ? '확인자: ' + (order.checkStatus.checkedByUsername != null ? order.checkStatus.checkedByUsername : '-')
-                            : '아직 확인하지 않은 발주입니다.'}">
+													<span class="badge team-production-check-badge"
+														th:classappend="${isRevisedAfterCheck}
+                            ? ' bg-warning-subtle text-warning'
+                            : (${isLatestChecked} ? ' bg-success-subtle text-success' : ' bg-secondary-subtle text-secondary')" th:text="${checkStateLabel}"
+														th:title="${isRevisedAfterCheck
+                            ? '관리자 수정 후 재확인이 필요한 발주입니다.'
+                            : (isLatestChecked
+                                ? '확인자: ' + (order.checkStatus != null and order.checkStatus.checkedByUsername != null ? order.checkStatus.checkedByUsername : '-')
+                                : '아직 확인하지 않은 발주입니다.')}">
 														미확인
 													</span>
 												</td>
@@ -357,7 +375,6 @@
 					</div>
 
 					<!-- ===== 페이지네이션 ===== -->
-					<!-- ===== 페이지네이션 ===== -->
 					<div class="row g-0 justify-content-center mt-4 production-pagination"
 						th:if="${page != null and page.totalPages > 0}">
 						<div class="col-auto">
@@ -370,6 +387,7 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=0,
                         size=${size},
+                        orderId=${orderId},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -386,6 +404,7 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=${page.number - 1},
                         size=${size},
+                        orderId=${orderId},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -403,6 +422,7 @@
 									<a class="page-link" th:text="${i + 1}" th:href="@{/team/productionList(
                         page=${i},
                         size=${size},
+                        orderId=${orderId},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -419,6 +439,7 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=${page.number + 1},
                         size=${size},
+                        orderId=${orderId},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -435,6 +456,7 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=${page.totalPages - 1},
                         size=${size},
+                        orderId=${orderId},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -751,6 +773,26 @@
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
+
+
+	<style>
+		.team-production-row-revised>td {
+			background-color: #fff8e1 !important;
+		}
+
+		.team-production-row-revised .team-production-check-badge {
+			font-weight: 700;
+		}
+
+		.team-production-row-revised .team-production-order-id::after {
+			content: " 재수정";
+			display: inline-block;
+			margin-left: 4px;
+			font-size: 10px;
+			font-weight: 700;
+			color: #b58100;
+		}
+	</style>
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>

@@ -209,8 +209,8 @@
 
 		if (state.orderCache.has(orderId)) {
 			const cachedOrder = state.orderCache.get(orderId);
-			renderDetail(orderId, cachedOrder);
 			markOrderViewed(orderId, cachedOrder);
+			renderDetail(orderId, cachedOrder);
 			scrollDetailIntoView(detailRow);
 			return;
 		}
@@ -226,8 +226,8 @@
 			}
 
 			state.orderCache.set(orderId, order);
-			renderDetail(orderId, order);
 			markOrderViewed(orderId, order);
+			renderDetail(orderId, order);
 			scrollDetailIntoView(detailRow);
 		} catch (error) {
 			console.error(error);
@@ -415,9 +415,15 @@
 			options: optionFields,
 			images: normalizeImages(raw),
 			canComplete: Boolean(raw.canComplete),
-			checked: raw.checked === true || raw.checked === 'true',
+			checkState: normalizeCheckState(raw),
+			checkStateLabel: normalizeCheckStateLabel(raw),
+			checked: isLatestCheckedRaw(raw),
 			checkedByUsername: toText(raw.checkedByUsername),
 			checkedAtText: toText(raw.checkedAtText),
+			revisionMarkedByUsername: toText(raw.revisionMarkedByUsername),
+			revisionMarkedAtText: toText(raw.revisionMarkedAtText),
+			revisionReason: toText(raw.revisionReason),
+			revisionCount: Number(raw.revisionCount || 0),
 			inlineImageIndex: 0
 		};
 
@@ -426,6 +432,107 @@
 		}
 
 		return order;
+	}
+
+	function normalizeCheckState(raw) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.normalizeState === 'function') {
+			return window.TeamProductionOrderCheck.normalizeState(raw);
+		}
+
+		const state = toText(firstValue(raw && raw.checkState, raw && raw.check_state)).toUpperCase();
+
+		if (state === 'REVISED_AFTER_CHECK' || state === 'REVISED' || state === '재수정') {
+			return 'REVISED_AFTER_CHECK';
+		}
+
+		if (state === 'CHECKED' || state === '확인') {
+			return 'CHECKED';
+		}
+
+		if (raw && (raw.checked === true || raw.checked === 'true' || raw.checked === '1')) {
+			return 'CHECKED';
+		}
+
+		return 'UNCHECKED';
+	}
+
+	function normalizeCheckStateLabel(raw) {
+		const explicit = toText(firstValue(raw && raw.checkStateLabel, raw && raw.check_state_label));
+
+		if (explicit) {
+			return explicit;
+		}
+
+		const state = normalizeCheckState(raw);
+		const labels = {
+			REVISED_AFTER_CHECK: '재수정',
+			UNCHECKED: '미확인',
+			CHECKED: '확인'
+		};
+
+		return labels[state] || '미확인';
+	}
+
+	function isLatestCheckedRaw(raw) {
+		return normalizeCheckState(raw) === 'CHECKED';
+	}
+
+	function markOrderObjectChecked(order) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.markObjectChecked === 'function') {
+			return window.TeamProductionOrderCheck.markObjectChecked(order);
+		}
+
+		if (order) {
+			order.checked = true;
+			order.checkState = 'CHECKED';
+			order.checkStateLabel = '확인';
+		}
+
+		return order;
+	}
+
+	function buildCheckStateBadgeHtml(order) {
+		const state = normalizeCheckState(order);
+		const label = normalizeCheckStateLabel(order);
+		let className = 'badge bg-secondary-subtle text-secondary';
+
+		if (state === 'CHECKED') {
+			className = 'badge bg-success-subtle text-success';
+		} else if (state === 'REVISED_AFTER_CHECK') {
+			className = 'badge bg-warning-subtle text-warning';
+		}
+
+		return '<span class="' + className + '">' + escapeHtml(label) + '</span>';
+	}
+
+	function buildCheckStateMetaHtml(order) {
+		const state = normalizeCheckState(order);
+
+		if (state === 'CHECKED' && order && order.checkedByUsername) {
+			return '<span class="team-production-inline-check-user">확인자: ' + escapeHtml(order.checkedByUsername) + '</span>';
+		}
+
+		if (state === 'REVISED_AFTER_CHECK') {
+			const tokens = [];
+
+			if (order && order.revisionMarkedByUsername) {
+				tokens.push('수정자: ' + escapeHtml(order.revisionMarkedByUsername));
+			}
+
+			if (order && order.revisionMarkedAtText) {
+				tokens.push('수정일: ' + escapeHtml(order.revisionMarkedAtText));
+			}
+
+			if (order && order.revisionReason) {
+				tokens.push('사유: ' + escapeHtml(order.revisionReason));
+			}
+
+			return tokens.length > 0
+				? '<span class="team-production-inline-check-user">' + tokens.join(' / ') + '</span>'
+				: '<span class="team-production-inline-check-user">관리자 수정 후 재확인이 필요합니다.</span>';
+		}
+
+		return '';
 	}
 
 	function normalizeFields(raw, orderItem) {
@@ -735,12 +842,8 @@
 		return [
 			'<section class="team-production-inline-action-row">',
 			'<div class="team-production-inline-check-state">',
-			order.checked
-				? '<span class="badge bg-success-subtle text-success">확인됨</span>'
-				: '<span class="badge bg-secondary-subtle text-secondary">미확인</span>',
-			order.checkedByUsername
-				? '<span class="team-production-inline-check-user">확인자: ' + escapeHtml(order.checkedByUsername) + '</span>'
-				: '',
+			buildCheckStateBadgeHtml(order),
+			buildCheckStateMetaHtml(order),
 			'</div>',
 			'<button type="button"',
 			' class="btn btn-success btn-sm team-production-inline-complete-btn"',
@@ -1349,9 +1452,7 @@
 		return text.replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, '\\$1');
 	}
 	function markOrderViewed(orderId, order) {
-		if (order) {
-			order.checked = true;
-		}
+		markOrderObjectChecked(order);
 
 		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
 			window.TeamProductionOrderCheck.mark(orderId);

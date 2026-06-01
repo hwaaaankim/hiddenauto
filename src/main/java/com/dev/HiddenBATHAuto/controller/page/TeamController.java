@@ -116,6 +116,7 @@ public class TeamController {
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
 	        @RequestParam(required = false) Long productCategoryId,
+	        @RequestParam(required = false) String orderId,
 	        @RequestParam(required = false, defaultValue = "preferred") String dateType,
 	        @RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
 
@@ -128,7 +129,8 @@ public class TeamController {
 	        Model model) {
 
 	    Member member = principal.getMember();
-
+	    Long orderIdFilter = parsePositiveLongOrNull(orderId);
+	    
 	    if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
 	        throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
 	    }
@@ -201,6 +203,15 @@ public class TeamController {
 
 	    boolean checkedSort = "checked".equalsIgnoreCase(normalizedSortKey);
 
+	    /*
+	     * 확인상태 정렬은 업무 순서가 고정입니다.
+	     * REVISED_AFTER_CHECK(재수정) -> UNCHECKED(미확인) -> CHECKED(확인)
+	     * 따라서 사용자가 체크 컬럼을 다시 클릭해 sortDir=DESC가 넘어와도 뒤집지 않습니다.
+	     */
+	    if (checkedSort) {
+	        normalizedSortDir = "ASC";
+	    }
+
 	    Pageable pageable = PageRequest.of(
 	            page,
 	            size,
@@ -214,6 +225,7 @@ public class TeamController {
 	    if (checkedSort) {
 	        orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
 	                targetCategoryId,
+	                orderIdFilter,
 	                normalizedDateType,
 	                statusEnum,
 	                start,
@@ -224,6 +236,7 @@ public class TeamController {
 	    } else {
 	        orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
 	                targetCategoryId,
+	                orderIdFilter,
 	                normalizedDateType,
 	                statusEnum,
 	                start,
@@ -290,6 +303,7 @@ public class TeamController {
 	    model.addAttribute("page", orderPage);
 
 	    model.addAttribute("productCategoryId", targetCategoryId);
+	    model.addAttribute("orderId", orderIdFilter);
 	    model.addAttribute("dateType", normalizedDateType);
 	    model.addAttribute("statusFilter", sf);
 
@@ -311,6 +325,19 @@ public class TeamController {
 	    model.addAttribute("sortDir", normalizedSortDir);
 
 	    return "administration/team/production/productionList";
+	}
+	
+	private Long parsePositiveLongOrNull(String value) {
+	    if (!StringUtils.hasText(value)) {
+	        return null;
+	    }
+
+	    try {
+	        long parsed = Long.parseLong(value.trim());
+	        return parsed > 0 ? parsed : null;
+	    } catch (NumberFormatException e) {
+	        return null;
+	    }
 	}
 	
 	private boolean isCuttingProductionMember(Member member) {

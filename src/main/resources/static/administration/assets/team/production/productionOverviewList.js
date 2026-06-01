@@ -286,13 +286,116 @@
 			adminMemo: toText(firstValue(raw.adminMemo, findFieldValue(raw.fields, ['관리자메모', 'adminMemo']))),
 			options: fields,
 			images: normalizeImages(raw),
-			checked: raw.checked === true || raw.checked === 'true',
+			checkState: normalizeCheckState(raw),
+			checkStateLabel: normalizeCheckStateLabel(raw),
+			checked: isLatestCheckedRaw(raw),
 			checkedByUsername: toText(raw.checkedByUsername),
 			checkedAtText: toText(raw.checkedAtText),
+			revisionMarkedByUsername: toText(raw.revisionMarkedByUsername),
+			revisionMarkedAtText: toText(raw.revisionMarkedAtText),
+			revisionReason: toText(raw.revisionReason),
+			revisionCount: Number(raw.revisionCount || 0),
 			listImageIndex: 0
 		};
 
 		return order;
+	}
+
+	function normalizeCheckState(raw) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.normalizeState === 'function') {
+			return window.TeamProductionOrderCheck.normalizeState(raw);
+		}
+
+		const state = toText(firstValue(raw && raw.checkState, raw && raw.check_state)).toUpperCase();
+
+		if (state === 'REVISED_AFTER_CHECK' || state === 'REVISED' || state === '재수정') {
+			return 'REVISED_AFTER_CHECK';
+		}
+
+		if (state === 'CHECKED' || state === '확인') {
+			return 'CHECKED';
+		}
+
+		if (raw && (raw.checked === true || raw.checked === 'true' || raw.checked === '1')) {
+			return 'CHECKED';
+		}
+
+		return 'UNCHECKED';
+	}
+
+	function normalizeCheckStateLabel(raw) {
+		const explicit = toText(firstValue(raw && raw.checkStateLabel, raw && raw.check_state_label));
+
+		if (explicit) {
+			return explicit;
+		}
+
+		const state = normalizeCheckState(raw);
+		const labels = {
+			REVISED_AFTER_CHECK: '재수정',
+			UNCHECKED: '미확인',
+			CHECKED: '확인'
+		};
+
+		return labels[state] || '미확인';
+	}
+
+	function isLatestCheckedRaw(raw) {
+		return normalizeCheckState(raw) === 'CHECKED';
+	}
+
+	function isLatestCheckedOrder(order) {
+		return normalizeCheckState(order) === 'CHECKED';
+	}
+
+	function markOrderObjectChecked(order) {
+		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.markObjectChecked === 'function') {
+			return window.TeamProductionOrderCheck.markObjectChecked(order);
+		}
+
+		if (order) {
+			order.checked = true;
+			order.checkState = 'CHECKED';
+			order.checkStateLabel = '확인';
+		}
+
+		return order;
+	}
+
+	function getCheckStateClass(order) {
+		const state = normalizeCheckState(order);
+
+		if (state === 'REVISED_AFTER_CHECK') {
+			return 'is-revised';
+		}
+
+		return state === 'CHECKED' ? 'is-checked' : 'is-unchecked';
+	}
+
+	function buildCheckStateText(order) {
+		const state = normalizeCheckState(order);
+		const label = normalizeCheckStateLabel(order);
+
+		if (state === 'CHECKED' && order && order.checkedByUsername) {
+			return label + ' / ' + order.checkedByUsername;
+		}
+
+		if (state === 'REVISED_AFTER_CHECK' && order && order.revisionMarkedByUsername) {
+			return label + ' / ' + order.revisionMarkedByUsername;
+		}
+
+		return label;
+	}
+
+	function buildListTopCheckStateHtml(order) {
+		const text = buildCheckStateText(order);
+
+		return [
+			'<div class="team-production-overview-list-top-item">',
+			'<div class="team-production-overview-list-top-label">확인상태</div>',
+			'<div class="team-production-overview-list-top-value" data-list-check-state-text="true" data-order-id="' + escapeAttr(order.id || '') + '" title="' + escapeAttr(text || '-') + '">' + escapeHtml(text || '-') + '</div>',
+			'</div>'
+		].join('');
 	}
 
 	function normalizeOptionFields(raw, orderItem) {
@@ -786,8 +889,19 @@
 					}
 				],
 				images: [],
+				checkState: normalizeCheckState({
+					checkState: row.getAttribute('data-check-state'),
+					checked: row.getAttribute('data-checked')
+				}),
+				checkStateLabel: toText(row.getAttribute('data-check-state-label')) || normalizeCheckStateLabel({
+					checkState: row.getAttribute('data-check-state'),
+					checked: row.getAttribute('data-checked')
+				}),
 				checked: String(row.getAttribute('data-checked') || '').toLowerCase() === 'true',
 				checkedByUsername: toText(row.getAttribute('data-checked-by')),
+				revisionMarkedByUsername: toText(row.getAttribute('data-revision-marked-by')),
+				revisionMarkedAtText: toText(row.getAttribute('data-revision-marked-at')),
+				revisionReason: toText(row.getAttribute('data-revision-reason')),
 				listImageIndex: 0
 			};
 		}).filter(function(order) {
@@ -820,7 +934,7 @@
 		const image = order.images[imageIndex];
 
 		return [
-			'<article class="team-production-overview-list-card ' + (order.checked ? 'is-checked' : 'is-unchecked') + '" data-list-order-index="' + orderIndex + '" data-order-id="' + escapeAttr(order.id) + '" data-checked="' + (order.checked ? 'true' : 'false') + '">',
+			'<article class="team-production-overview-list-card ' + getCheckStateClass(order) + '" data-list-order-index="' + orderIndex + '" data-order-id="' + escapeAttr(order.id) + '" data-checked="' + (isLatestCheckedOrder(order) ? 'true' : 'false') + '" data-check-state="' + escapeAttr(normalizeCheckState(order)) + '" data-check-state-label="' + escapeAttr(normalizeCheckStateLabel(order)) + '">',
 			buildListTopHtml(order),
 			'<div class="team-production-overview-list-main">',
 			buildListOptionPanelHtml(order),
@@ -838,6 +952,7 @@
 			'<div class="team-production-overview-list-address" title="' + escapeAttr(order.address || '-') + '">' + escapeHtml(order.address || '-') + '</div>',
 			'</div>',
 			buildListTopItemHtml('ID / 상태', '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-')),
+			buildListTopCheckStateHtml(order),
 			buildListTopItemHtml('제품명', order.productName || '-'),
 			buildListTopItemHtml('분류', order.productCategoryName || '-'),
 			buildListTopItemHtml('규격', order.standardLabel || '-'),
@@ -893,14 +1008,22 @@
 				const orderIndex = Number(card.getAttribute('data-list-order-index')) || 0;
 				const order = state.orders[orderIndex];
 
-				if (!order || !order.id || order.checked) {
+				if (!order || !order.id || isLatestCheckedOrder(order)) {
 					return;
 				}
 
-				order.checked = true;
+				markOrderObjectChecked(order);
 				card.setAttribute('data-checked', 'true');
+				card.setAttribute('data-check-state', 'CHECKED');
+				card.setAttribute('data-check-state-label', '확인');
 				card.classList.add('is-checked');
-				card.classList.remove('is-unchecked');
+				card.classList.remove('is-unchecked', 'is-revised');
+
+				const stateText = card.querySelector('[data-list-check-state-text]');
+				if (stateText) {
+					stateText.textContent = '확인';
+					stateText.title = '확인된 발주입니다.';
+				}
 
 				if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
 					window.TeamProductionOrderCheck.mark(order.id);
@@ -928,11 +1051,11 @@
 		const orderIndex = Number(firstCard.getAttribute('data-list-order-index')) || 0;
 		const order = state.orders[orderIndex];
 
-		if (!order || !order.id || order.checked) {
+		if (!order || !order.id || isLatestCheckedOrder(order)) {
 			return;
 		}
 
-		order.checked = true;
+		markOrderObjectChecked(order);
 
 		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
 			window.TeamProductionOrderCheck.mark(order.id);

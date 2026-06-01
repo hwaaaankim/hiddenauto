@@ -90,6 +90,10 @@ public class Order {
 
 	@Enumerated(EnumType.STRING)
 	private OrderStatus status;
+	
+	@Lob
+	@Column(name = "dispatch_complete_message", nullable = true)
+	private String dispatchCompleteMessage;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "assigned_production_team_category_id", nullable = true)
