@@ -42,8 +42,8 @@ public class DispatchDtos {
         private String guName;
 
         /**
-         * 발주일 기준.
-         * Order.createdAt 날짜와 비교합니다.
+         * 출고일 기준.
+         * Order.preferredDeliveryDate 날짜와 비교합니다.
          */
         private LocalDate orderDate;
 
@@ -51,25 +51,10 @@ public class DispatchDtos {
 
         private Integer size = 50;
 
-        /**
-         * 무한스크롤 커서.
-         * 상태 정렬값:
-         * CONFIRMED = 1
-         * PRODUCTION_DONE = 2
-         * DISPATCH_DONE = 3
-         */
         private Integer lastStatusSort;
 
-        /**
-         * 같은 상태 정렬값 안에서 id desc 기준 커서.
-         */
         private Long lastOrderId;
 
-        /**
-         * 이미 화면에 로드된 주문 ID.
-         * 완료 처리 후 상태가 DISPATCH_DONE으로 바뀌어도
-         * 다음 조회에서 중복으로 다시 내려오지 않게 막기 위함입니다.
-         */
         private List<Long> loadedOrderIds = new ArrayList<>();
     }
 
@@ -85,6 +70,11 @@ public class DispatchDtos {
     @NoArgsConstructor
     public static class UpdateDeliveryMethodRequest {
         private Long deliveryMethodId;
+
+        /**
+         * 새 배송수단이 직배송일 때만 필수입니다.
+         */
+        private Long deliveryHandlerId;
     }
 
     @Getter
@@ -143,6 +133,10 @@ public class DispatchDtos {
         private Long deliveryMethodId;
         private String deliveryMethodName;
 
+        private Long deliveryHandlerId;
+        private String deliveryHandlerName;
+        private Integer deliveryOrderIndex;
+
         private String doName;
         private String siName;
         private String guName;
@@ -190,6 +184,12 @@ public class DispatchDtos {
         private Long id;
         private String methodName;
         private int methodPrice;
+
+        private boolean directDelivery;
+
+        private Long deliveryHandlerId;
+        private String deliveryHandlerName;
+        private Integer deliveryOrderIndex;
     }
 
     @Getter

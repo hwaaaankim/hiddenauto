@@ -306,14 +306,72 @@
 	.delivery-list-added-existing-item img {
 		height: 84px;
 	}
+
 	/* ✅ 모바일에서 '배송완료(done) 리스트'의 '배송상세' 버튼도 숨김 */
 	#doneList .delivery-list-added-action,
 	#doneList .delivery-list-added-open-detail-modal {
 		display: none !important;
 	}
 }
-@media(max-width:760px){
-	.m-d-n{
-		display:none !important;
+
+@media(max-width:760px) {
+	.m-d-n {
+		display: none !important;
+	}
+}
+
+/* =========================================================
+   배송완료/담당자변경 버튼 반응형 보완
+   - 기존 CSS의 모바일 배송완료 숨김 규칙을 아래 규칙이 덮어씁니다.
+   ========================================================= */
+
+.delivery-list-added-btn-icon {
+	display: none;
+}
+
+.delivery-list-added-action {
+	flex-wrap: wrap;
+}
+
+.delivery-list-added-action .btn-change-handler {
+	background: #fff;
+	border: 1px solid rgba(13, 110, 253, 0.35);
+	color: #0d6efd;
+}
+
+.delivery-list-added-handler-modal-dialog {
+	max-width: 520px;
+}
+
+@media (max-width: 576px) {
+
+	.delivery-list-added-open-complete-modal,
+	.action-btn.btn-complete {
+		display: inline-flex !important;
+	}
+
+	.delivery-list-added-btn-text {
+		display: none !important;
+	}
+
+	.delivery-list-added-btn-icon {
+		display: inline !important;
+		font-size: 13px;
+		line-height: 1;
+	}
+
+	.delivery-list-added-action .action-btn {
+		min-width: 34px;
+		height: 32px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 6px 8px;
+		white-space: nowrap;
+	}
+
+	.delivery-list-added-item-content .delivery-list-added-action {
+		min-width: 80px;
+		gap: 5px;
 	}
 }

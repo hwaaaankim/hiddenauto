@@ -2,15 +2,18 @@ package com.dev.HiddenBATHAuto.service.order;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +24,7 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
+import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,9 +33,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DeliveryOrderIndexService {
 
-	private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private static final String DELIVERY_TEAM_NAME = "배송팀";
+
+    private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final MemberRepository memberRepository;
-	/**
+    private final OrderRepository orderRepository;
+
+    /**
      * 규칙:
      * - 레코드 존재 + (담당자/날짜 동일) => 아무 것도 안 함.
      * - 레코드 미존재 + (담당자/날짜 지정) => 새로 생성 (해당 큐 max+1).
@@ -41,11 +49,9 @@ public class DeliveryOrderIndexService {
     public void ensureIndex(Order order) {
         DeliveryOrderIndex existing = deliveryOrderIndexRepository.findByOrder(order).orElse(null);
 
-        // 현재 오더의 담당자/희망배송일(날짜) 추출
         Member handler = order.getAssignedDeliveryHandler();
         LocalDate date = order.getPreferredDeliveryDate() == null ? null : order.getPreferredDeliveryDate().toLocalDate();
 
-        // (D) 담당자 또는 날짜가 비어 있으면 인덱스 제거
         if (handler == null || date == null) {
             if (existing != null) {
                 deliveryOrderIndexRepository.delete(existing);
@@ -53,20 +59,17 @@ public class DeliveryOrderIndexService {
             return;
         }
 
-        // (A) 이미 존재하고, (담당자/날짜) 모두 동일하면: 유지(아무 것도 안 함)
         if (existing != null
                 && existing.getDeliveryHandler() != null
                 && handler.getId().equals(existing.getDeliveryHandler().getId())
                 && date.equals(existing.getDeliveryDate())) {
-            return; // ★ 관리자 업데이트 때 뒤로 밀리는 현상 방지 핵심 라인
+            return;
         }
 
-        // (B) or (C): 새 큐의 끝으로 배치(신규 생성 또는 이동)
         Integer maxIndex = deliveryOrderIndexRepository.findMaxIndexByHandlerAndDate(handler.getId(), date);
         int next = (maxIndex == null ? 1 : (maxIndex + 1));
 
         if (existing == null) {
-            // (B) 신규 생성
             DeliveryOrderIndex created = new DeliveryOrderIndex();
             created.setOrder(order);
             created.setDeliveryHandler(handler);
@@ -74,16 +77,13 @@ public class DeliveryOrderIndexService {
             created.setOrderIndex(next);
             deliveryOrderIndexRepository.save(created);
         } else {
-            // (C) 이동(담당자/날짜 변경)
             existing.setDeliveryHandler(handler);
             existing.setDeliveryDate(date);
             existing.setOrderIndex(next);
-            // version 칼럼 덕에 동시성 충돌 시 OptimisticLockException 발생 → 상위에서 재시도 정책 고려 가능
             deliveryOrderIndexRepository.save(existing);
         }
     }
 
-    // (추가) 일괄 재정렬 API는 기존 코드 유지
     public void updateIndexes(DeliveryOrderIndexUpdateRequest request) {
         Member handler = memberRepository.findById(request.getDeliveryHandlerId())
                 .orElseThrow(() -> new IllegalArgumentException("배송 담당자 없음"));
@@ -95,22 +95,16 @@ public class DeliveryOrderIndexService {
                     .findByDeliveryHandlerIdAndDeliveryDateAndOrderId(handler.getId(), date, dto.getOrderId())
                     .orElseThrow(() -> new IllegalStateException("해당 주문 인덱스 없음"));
             index.setOrderIndex(dto.getOrderIndex());
-            // save 호출은 트랜잭션 커밋 시 플러시되므로 생략 가능(JPA dirty checking)
         }
     }
-    
-    /**
-     * 요구사항 반영:
-     * - 화면에서는 미완료만 드래그 가능, 배송완료는 하단 고정
-     * - 저장 시에는 "미완료(드래그된 순서) + 배송완료(기존 순서)"를 합친 DOM 순서를 그대로 1..N 인덱스로 저장
-     * - 혹시 API를 직접 호출해 배송완료의 상대순서를 바꾸려는 경우 서버에서 차단
-     */
+
     @Transactional
     public void updateIndexesWithDoneGuard(DeliveryOrderIndexUpdateRequest request) {
         if (request == null) throw new IllegalArgumentException("요청이 비어있습니다.");
         if (request.getDeliveryHandlerId() == null) throw new IllegalArgumentException("담당자 ID가 없습니다.");
-        if (request.getDeliveryDate() == null || request.getDeliveryDate().isBlank())
+        if (request.getDeliveryDate() == null || request.getDeliveryDate().isBlank()) {
             throw new IllegalArgumentException("날짜가 없습니다.");
+        }
         if (request.getOrderList() == null) throw new IllegalArgumentException("orderList가 없습니다.");
 
         Member handler = memberRepository.findById(request.getDeliveryHandlerId())
@@ -123,20 +117,18 @@ public class DeliveryOrderIndexService {
             throw new IllegalArgumentException("날짜 형식이 올바르지 않습니다. yyyy-MM-dd");
         }
 
-        // 1) 현재 DB 기준(정상 규칙) 순서 조회
-        List<DeliveryOrderIndex> current =
-                deliveryOrderIndexRepository.findAllByHandlerAndDateForTaskGrouping(
-                		handler.getId(),
-                		date
-                );
+        List<DeliveryOrderIndex> current = deliveryOrderIndexRepository
+                .findAllByHandlerAndDateForTaskGrouping(handler.getId(), date)
+                .stream()
+                .filter(x -> x.getOrder() != null)
+                .filter(x -> isDirectDeliveryOrder(x.getOrder()))
+                .collect(Collectors.toList());
 
-        // 2) 현재 done 순서(상대순서) 추출
         List<Long> currentDoneOrderIds = current.stream()
-                .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+                .filter(x -> x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
                 .map(x -> x.getOrder().getId())
                 .collect(Collectors.toList());
 
-        // 3) 요청된 done 순서 추출(요청 orderList 중에서 현재 done에 해당하는 것만 뽑아서 순서 유지)
         Set<Long> doneSet = new HashSet<>(currentDoneOrderIds);
 
         List<Long> requestedDoneOrderIds = request.getOrderList().stream()
@@ -145,13 +137,10 @@ public class DeliveryOrderIndexService {
                 .filter(doneSet::contains)
                 .collect(Collectors.toList());
 
-        // 4) 서버 검증: 배송완료 상대순서가 바뀌면 차단
-        // - UI에서는 doneList가 고정이라 정상이라면 항상 동일해야 함
         if (!currentDoneOrderIds.equals(requestedDoneOrderIds)) {
             throw new IllegalStateException("배송완료 항목의 순서는 변경할 수 없습니다.");
         }
 
-        // 5) 요청 orderId 중복/누락 방지(기본 방어)
         List<Long> reqIds = request.getOrderList().stream()
                 .map(DeliveryOrderIndexUpdateRequest.OrderIndexDto::getOrderId)
                 .filter(Objects::nonNull)
@@ -162,49 +151,32 @@ public class DeliveryOrderIndexService {
             throw new IllegalArgumentException("중복된 orderId가 존재합니다.");
         }
 
-        // 6) 현재 존재하는 인덱스 맵
         Map<Long, DeliveryOrderIndex> indexByOrderId = current.stream()
-                .filter(x -> x.getOrder() != null)
                 .collect(Collectors.toMap(
                         x -> x.getOrder().getId(),
                         x -> x,
                         (a, b) -> a
                 ));
 
-        // 7) 요청에 들어온 orderId는 현재 목록에 모두 있어야 함(누락/조작 방어)
         for (Long oid : reqIds) {
             if (!indexByOrderId.containsKey(oid)) {
                 throw new IllegalArgumentException("해당 주문 인덱스 없음: orderId=" + oid);
             }
         }
 
-        // 8) 핵심 저장: 요청 순서대로 1..N 재부여(유니크 제약/충돌 방지)
-        //    orderIndexDto.orderIndex 값은 신뢰하지 않고, request의 리스트 순서 자체를 기준으로 재계산합니다.
         int newIndex = 1;
         for (DeliveryOrderIndexUpdateRequest.OrderIndexDto dto : request.getOrderList()) {
             if (dto == null || dto.getOrderId() == null) continue;
 
             DeliveryOrderIndex idx = indexByOrderId.get(dto.getOrderId());
             idx.setOrderIndex(newIndex++);
-            // dirty checking
         }
     }
-    
-    /**
-     * ✅ 업체별정렬 핵심: pendingOrderIds를 Task 기준으로 stable grouping 해서 반환
-     *
-     * 규칙:
-     * - Task의 "첫 등장 순서" 유지
-     * - 같은 Task 내부 order들의 "상대 순서" 유지
-     */
+
     @Transactional(readOnly = true)
     public List<Long> reorderPendingOrderIdsByTask(Long handlerId, LocalDate deliveryDate, List<Long> pendingOrderIds) {
+        List<DeliveryOrderIndex> all = getDirectDeliveryIndexes(handlerId, deliveryDate, null);
 
-        // 1) 해당 날짜/기사의 index들을 order+task join fetch로 가져오기
-        List<DeliveryOrderIndex> all =
-                deliveryOrderIndexRepository.findAllByHandlerAndDateForTaskGrouping(handlerId, deliveryDate);
-
-        // 2) pending 대상 orderId -> taskId 매핑 구성 (DELIVERY_DONE 제외)
         Map<Long, Long> orderIdToTaskId = new HashMap<>();
         Set<Long> validPendingOrderIds = new HashSet<>();
 
@@ -215,7 +187,7 @@ public class DeliveryOrderIndexService {
             if (orderId == null) continue;
 
             if (doi.getOrder().getStatus() == OrderStatus.DELIVERY_DONE) {
-                continue; // done은 정렬 대상 아님
+                continue;
             }
 
             Long taskId = (doi.getOrder().getTask() != null) ? doi.getOrder().getTask().getId() : 0L;
@@ -223,7 +195,6 @@ public class DeliveryOrderIndexService {
             validPendingOrderIds.add(orderId);
         }
 
-        // 3) 요청으로 들어온 orderId 검증 (서버 기준 pending에 없는 값이면 실패)
         List<Long> invalid = pendingOrderIds.stream()
                 .filter(id -> id == null || !validPendingOrderIds.contains(id))
                 .collect(Collectors.toList());
@@ -232,14 +203,12 @@ public class DeliveryOrderIndexService {
             throw new IllegalArgumentException("업체별정렬 불가: pending 대상이 아닌 orderId 포함 - " + invalid);
         }
 
-        // 4) stable grouping (LinkedHashMap = task 첫 등장 순서 유지)
         Map<Long, List<Long>> groups = new LinkedHashMap<>();
         for (Long orderId : pendingOrderIds) {
             Long taskId = orderIdToTaskId.getOrDefault(orderId, 0L);
             groups.computeIfAbsent(taskId, k -> new ArrayList<>()).add(orderId);
         }
 
-        // 5) flatten
         List<Long> reordered = new ArrayList<>(pendingOrderIds.size());
         for (List<Long> g : groups.values()) {
             reordered.addAll(g);
@@ -247,15 +216,7 @@ public class DeliveryOrderIndexService {
 
         return reordered;
     }
-    
-    /**
-     * 오더에 연결된 배송순서 인덱스를 제거합니다.
-     *
-     * 사용 위치:
-     * - 배송수단이 직배송이 아닌 경우
-     * - 주문 상태가 CANCELED 인 경우
-     * - 배송담당자 화면에 노출되면 안 되는 경우
-     */
+
     public void removeIndex(Order order) {
         if (order == null || order.getId() == null) {
             return;
@@ -263,5 +224,262 @@ public class DeliveryOrderIndexService {
 
         deliveryOrderIndexRepository.findByOrder(order)
                 .ifPresent(deliveryOrderIndexRepository::delete);
+    }
+
+    /**
+     * 배송리스트 조회용입니다.
+     * 기존 deliveryOrderIndex에 잘못 남은 비직배송 건이 있더라도 화면에서 한 번 더 제외합니다.
+     */
+    @Transactional(readOnly = true)
+    public List<DeliveryOrderIndex> getDirectDeliveryIndexes(
+            Long handlerId,
+            LocalDate deliveryDate,
+            List<OrderStatus> statuses
+    ) {
+        List<OrderStatus> safeStatuses = statuses == null || statuses.isEmpty()
+                ? List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE, OrderStatus.DISPATCH_DONE, OrderStatus.DELIVERY_DONE)
+                : statuses;
+
+        return deliveryOrderIndexRepository.findListByHandlerAndDateAndStatusIn(
+                        handlerId,
+                        deliveryDate,
+                        safeStatuses
+                )
+                .stream()
+                .filter(x -> x != null && x.getOrder() != null)
+                .filter(x -> isDirectDeliveryOrder(x.getOrder()))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Member> getActiveDeliveryTeamMembers() {
+        return memberRepository.findByTeam_NameAndEnabledTrueOrderByNameAsc(DELIVERY_TEAM_NAME);
+    }
+
+    @Transactional(readOnly = true)
+    public Order getSingleCompletableOrder(Member loginMember, Long orderId) {
+        validateDeliveryTeamMember(loginMember);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+
+        DeliveryOrderIndex index = deliveryOrderIndexRepository.findByOrder(order)
+                .orElseThrow(() -> new IllegalStateException("배송순서 정보가 없습니다."));
+
+        validateCurrentHandler(loginMember, index);
+        validateDirectDelivery(order);
+        validateCompletableStatus(order);
+
+        return order;
+    }
+
+    /**
+     * 동일 업체 + 동일 주소 + 동일 배송일 기준 배송완료 대상 조회
+     *
+     * 기준 배송일은 서버의 오늘 날짜가 아니라,
+     * 사용자가 배송완료를 누른 기준 주문의 deliveryOrderIndex.deliveryDate 입니다.
+     */
+    @Transactional(readOnly = true)
+    public List<Order> findSameCompanySameAddressSameDeliveryDateCompletableOrders(
+            Member loginMember,
+            Long sourceOrderId
+    ) {
+        validateDeliveryTeamMember(loginMember);
+
+        if (sourceOrderId == null) {
+            throw new IllegalArgumentException("주문 ID가 없습니다.");
+        }
+
+        Order sourceOrder = orderRepository.findById(sourceOrderId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+
+        DeliveryOrderIndex sourceIndex = deliveryOrderIndexRepository.findByOrder(sourceOrder)
+                .orElseThrow(() -> new IllegalStateException("배송순서 정보가 없습니다."));
+
+        validateCurrentHandler(loginMember, sourceIndex);
+        validateDirectDelivery(sourceOrder);
+        validateCompletableStatus(sourceOrder);
+
+        LocalDate sourceDeliveryDate = sourceIndex.getDeliveryDate();
+
+        if (sourceDeliveryDate == null) {
+            throw new IllegalStateException("선택 주문의 배송일 정보가 없습니다.");
+        }
+
+        Long sourceCompanyId = resolveCompanyId(sourceOrder);
+
+        if (sourceCompanyId == null) {
+            throw new IllegalStateException("선택 주문의 업체 정보를 확인할 수 없습니다.");
+        }
+
+        String sourceAddressKey = buildAddressKey(sourceOrder);
+
+        if (sourceAddressKey.isBlank()) {
+            throw new IllegalStateException("선택 주문의 주소 정보를 확인할 수 없습니다.");
+        }
+
+        return deliveryOrderIndexRepository.findAllByHandlerAndDateForTaskGrouping(
+                        loginMember.getId(),
+                        sourceDeliveryDate
+                )
+                .stream()
+                .filter(x -> x != null && x.getOrder() != null)
+                .filter(x -> isDirectDeliveryOrder(x.getOrder()))
+                .filter(x -> isCompletableByDeliveryTeam(x.getOrder()))
+                .filter(x -> sourceCompanyId.equals(resolveCompanyId(x.getOrder())))
+                .filter(x -> sourceAddressKey.equals(buildAddressKey(x.getOrder())))
+                .sorted(Comparator.comparingInt(DeliveryOrderIndex::getOrderIndex))
+                .map(DeliveryOrderIndex::getOrder)
+                .collect(Collectors.toList());
+    }
+
+    private Long resolveCompanyId(Order order) {
+        if (order == null
+                || order.getTask() == null
+                || order.getTask().getRequestedBy() == null
+                || order.getTask().getRequestedBy().getCompany() == null) {
+            return null;
+        }
+
+        return order.getTask().getRequestedBy().getCompany().getId();
+    }
+
+    @Transactional
+    public void changeDeliveryHandler(Member loginMember, Long orderId, Long newHandlerId) {
+        validateDeliveryTeamMember(loginMember);
+
+        if (newHandlerId == null) {
+            throw new IllegalArgumentException("변경할 담당자를 선택해주세요.");
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+
+        DeliveryOrderIndex index = deliveryOrderIndexRepository.findByOrder(order)
+                .orElseThrow(() -> new IllegalStateException("배송순서 정보가 없습니다."));
+
+        validateCurrentHandler(loginMember, index);
+        validateDirectDelivery(order);
+
+        if (order.getStatus() == OrderStatus.DELIVERY_DONE) {
+            throw new IllegalStateException("배송완료 건은 담당자를 변경할 수 없습니다.");
+        }
+
+        Member newHandler = memberRepository.findById(newHandlerId)
+                .orElseThrow(() -> new IllegalArgumentException("변경할 배송 담당자가 존재하지 않습니다."));
+
+        if (newHandler.getTeam() == null || !DELIVERY_TEAM_NAME.equals(newHandler.getTeam().getName())) {
+            throw new IllegalArgumentException("배송팀 직원만 담당자로 지정할 수 있습니다.");
+        }
+
+        if (!newHandler.isEnabled()) {
+            throw new IllegalArgumentException("비활성화된 직원은 담당자로 지정할 수 없습니다.");
+        }
+
+        if (newHandler.getId() != null && newHandler.getId().equals(loginMember.getId())) {
+            return;
+        }
+
+        LocalDate deliveryDate = index.getDeliveryDate();
+        if (deliveryDate == null) {
+            throw new IllegalStateException("배송일 정보가 없습니다.");
+        }
+
+        Integer maxIndex = deliveryOrderIndexRepository.findMaxIndexByHandlerAndDate(newHandler.getId(), deliveryDate);
+        int nextIndex = (maxIndex == null ? 1 : maxIndex + 1);
+
+        order.setAssignedDeliveryHandler(newHandler);
+        order.setUpdatedAt(java.time.LocalDateTime.now());
+
+        index.setDeliveryHandler(newHandler);
+        index.setDeliveryDate(deliveryDate);
+        index.setOrderIndex(nextIndex);
+    }
+
+    public boolean isDirectDeliveryOrder(Order order) {
+        if (order == null) {
+            return false;
+        }
+
+        /*
+         * deliveryOrderIndex 자체가 직배송 건을 기준으로 관리되고 있으므로,
+         * deliveryMethod가 비어 있는 과거 데이터 때문에 화면 전체가 비는 것을 막습니다.
+         */
+        if (order.getDeliveryMethod() == null) {
+            return true;
+        }
+
+        String methodName = safeText(order.getDeliveryMethod().getMethodName());
+
+        /*
+         * 배송수단명이 비어 있는 데이터도 deliveryOrderIndex 기준을 우선 신뢰합니다.
+         */
+        if (methodName.isBlank()) {
+            return true;
+        }
+
+        String normalized = methodName.replaceAll("\\s+", "");
+
+        return normalized.contains("직배송");
+    }
+
+    public boolean isCompletableByDeliveryTeam(Order order) {
+        if (order == null || order.getStatus() == null) {
+            return false;
+        }
+
+        return order.getStatus() == OrderStatus.PRODUCTION_DONE
+                || order.getStatus() == OrderStatus.DISPATCH_DONE;
+    }
+
+    private void validateDeliveryTeamMember(Member member) {
+        if (member == null || member.getTeam() == null || !DELIVERY_TEAM_NAME.equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+        }
+    }
+
+    private void validateCurrentHandler(Member loginMember, DeliveryOrderIndex index) {
+        if (index == null || index.getDeliveryHandler() == null || index.getDeliveryHandler().getId() == null) {
+            throw new AccessDeniedException("배송 담당자 정보를 확인할 수 없습니다.");
+        }
+
+        if (!index.getDeliveryHandler().getId().equals(loginMember.getId())) {
+            throw new AccessDeniedException("현재 로그인한 배송 담당자의 주문만 처리할 수 있습니다.");
+        }
+    }
+
+    private void validateDirectDelivery(Order order) {
+        if (!isDirectDeliveryOrder(order)) {
+            throw new IllegalStateException("직배송 주문만 배송팀에서 처리할 수 있습니다.");
+        }
+    }
+
+    private void validateCompletableStatus(Order order) {
+        if (!isCompletableByDeliveryTeam(order)) {
+            throw new IllegalStateException("생산완료 또는 출고완료 상태의 주문만 배송완료 처리할 수 있습니다.");
+        }
+    }
+
+    private String buildAddressKey(Order order) {
+        if (order == null) {
+            return "";
+        }
+
+        return String.join("|",
+                normalizeKey(order.getZipCode()),
+                normalizeKey(order.getDoName()),
+                normalizeKey(order.getSiName()),
+                normalizeKey(order.getGuName()),
+                normalizeKey(order.getRoadAddress()),
+                normalizeKey(order.getDetailAddress())
+        );
+    }
+
+    private String normalizeKey(String value) {
+        return safeText(value).toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
+    }
+
+    private String safeText(String value) {
+        return value == null ? "" : value.trim();
     }
 }

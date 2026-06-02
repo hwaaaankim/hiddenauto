@@ -1,0 +1,222 @@
+.delivery-manager-added-filter-card,
+.delivery-manager-added-table-card,
+.delivery-manager-added-detail-card {
+	border: 0;
+	border-radius: 14px;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.delivery-manager-added-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: #495057;
+	margin-bottom: 6px;
+}
+
+.delivery-manager-added-control {
+	min-height: 40px;
+	border-radius: 8px;
+	font-size: 14px;
+}
+
+.delivery-manager-added-search-btn,
+.delivery-manager-added-submit-btn,
+.delivery-manager-added-handler-change-btn {
+	min-height: 40px;
+	border-radius: 8px;
+	font-size: 14px;
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	white-space: nowrap;
+}
+
+.delivery-manager-added-handler-group {
+	align-items: stretch;
+}
+
+.delivery-manager-added-help-text {
+	min-height: 22px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: #f8f9fa;
+	color: #6c757d;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.delivery-manager-added-summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+	font-size: 14px;
+}
+
+.delivery-manager-added-table-scroll {
+	width: 100%;
+	overflow-x: auto;
+	border: 1px solid #edf0f4;
+	border-radius: 12px;
+}
+
+.delivery-manager-added-table {
+	min-width: 1320px;
+	table-layout: fixed;
+}
+
+.delivery-manager-added-table thead th {
+	height: 48px;
+	background: #f8fafc;
+	color: #343a40;
+	font-size: 13px;
+	font-weight: 700;
+	vertical-align: middle;
+	border-bottom: 1px solid #e9ecef;
+	white-space: nowrap;
+}
+
+.delivery-manager-added-table tbody td {
+	height: 58px;
+	font-size: 13px;
+	vertical-align: middle;
+	border-bottom: 1px solid #f1f3f5;
+	color: #343a40;
+}
+
+.delivery-manager-added-table tbody tr.delivery-manager-added-row {
+	cursor: pointer;
+	transition: background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.delivery-manager-added-table tbody tr.delivery-manager-added-row:hover {
+	background: #f4f8ff;
+	box-shadow: inset 3px 0 0 #405189;
+}
+
+.delivery-manager-added-table tbody tr.delivery-manager-added-row:active {
+	transform: scale(0.998);
+}
+
+.delivery-manager-added-sort-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: #343a40;
+	text-decoration: none;
+	line-height: 1;
+}
+
+.delivery-manager-added-sort-link:hover {
+	color: #405189;
+}
+
+.delivery-manager-added-order-id {
+	width: 90px;
+	font-weight: 700;
+	color: #405189;
+}
+
+.delivery-manager-added-company,
+.delivery-manager-added-product,
+.delivery-manager-added-size,
+.delivery-manager-added-address {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	line-height: 1.35;
+	word-break: keep-all;
+}
+
+.delivery-manager-added-company {
+	font-weight: 700;
+	color: #212529;
+}
+
+.delivery-manager-added-product {
+	font-weight: 600;
+}
+
+.delivery-manager-added-address {
+	color: #495057;
+}
+
+.delivery-manager-added-date {
+	white-space: nowrap;
+	font-weight: 600;
+}
+
+.delivery-manager-added-category,
+.delivery-manager-added-status {
+	min-width: 72px;
+	min-height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+}
+
+.delivery-manager-added-pagination-wrap {
+	display: flex;
+	justify-content: center;
+	margin-top: 18px;
+}
+
+.delivery-manager-added-preview-card {
+	position: relative;
+	border: 1px solid #e9ecef;
+	border-radius: 10px;
+	padding: 8px;
+	min-height: 158px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	background: #fff;
+}
+
+.delivery-manager-added-preview-img {
+	width: 100%;
+	max-height: 112px;
+	object-fit: contain;
+	border-radius: 8px;
+	margin-bottom: 8px;
+}
+
+.delivery-manager-added-preview-name {
+	width: 100%;
+	font-size: 12px;
+	color: #495057;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: center;
+	padding: 0 18px;
+}
+
+.delivery-manager-added-remove-image-btn {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+}
+
+@media (max-width: 991.98px) {
+	.delivery-manager-added-summary {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.delivery-manager-added-table {
+		min-width: 1180px;
+	}
+}

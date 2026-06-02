@@ -3,6 +3,7 @@
 
 	const API = {
 		search: '/team/dispatchList/api/orders/search',
+		excel: '/team/dispatchList/api/orders/excel',
 		complete: '/team/dispatchList/api/orders/complete',
 		updateDeliveryMethod: function(orderId) {
 			return '/team/dispatchList/api/orders/' + encodeURIComponent(orderId) + '/delivery-method';
@@ -94,6 +95,12 @@
 
 		els.alertModal = document.getElementById('dispatch-list-alert-modal');
 		els.alertMessage = document.getElementById('dispatch-list-alert-message');
+		els.excelBtn = document.getElementById('dispatch-list-excel-btn');
+
+		els.deliveryModalSelectedMethodId = document.getElementById('dispatch-list-delivery-modal-selected-method-id');
+		els.directHandlerArea = document.getElementById('dispatch-list-direct-handler-area');
+		els.deliveryHandlerId = document.getElementById('dispatch-list-delivery-handler-id');
+		els.deliveryMethodSaveBtn = document.getElementById('dispatch-list-delivery-method-save-btn');
 	}
 
 	function bindEvents() {
@@ -171,7 +178,9 @@
 				copyMainFiltersToModal();
 			});
 		}
-
+		if (els.excelBtn) {
+			els.excelBtn.addEventListener('click', downloadExcel);
+		}
 		if (els.deliveryModal) {
 			els.deliveryModal.addEventListener('click', function(event) {
 				const btn = event.target.closest('.dispatch-list-delivery-method-option');
@@ -179,10 +188,21 @@
 					return;
 				}
 
-				const orderId = Number(els.deliveryModalOrderId.value);
-				const deliveryMethodId = Number(btn.getAttribute('data-delivery-method-id'));
+				selectDeliveryMethodInModal(btn);
+			});
+		}
 
-				updateDeliveryMethod(orderId, deliveryMethodId);
+		if (els.deliveryHandlerId) {
+			els.deliveryHandlerId.addEventListener('change', updateDeliveryMethodSaveButtonState);
+		}
+
+		if (els.deliveryMethodSaveBtn) {
+			els.deliveryMethodSaveBtn.addEventListener('click', function() {
+				const orderId = Number(els.deliveryModalOrderId.value);
+				const deliveryMethodId = Number(els.deliveryModalSelectedMethodId.value);
+				const deliveryHandlerId = numberOrNull(valueOf(els.deliveryHandlerId));
+
+				updateDeliveryMethod(orderId, deliveryMethodId, deliveryHandlerId);
 			});
 		}
 		if (els.confirmOkBtn) {
@@ -589,10 +609,73 @@
 		state.activeDeliveryOrderId = Number(orderId);
 		els.deliveryModalOrderId.value = orderId;
 
+		if (els.deliveryModalSelectedMethodId) {
+			els.deliveryModalSelectedMethodId.value = '';
+		}
+
+		if (els.deliveryHandlerId) {
+			els.deliveryHandlerId.value = '';
+		}
+
+		if (els.directHandlerArea) {
+			els.directHandlerArea.classList.add('d-none');
+		}
+
+		if (els.deliveryMethodSaveBtn) {
+			els.deliveryMethodSaveBtn.disabled = true;
+		}
+
+		document.querySelectorAll('.dispatch-list-delivery-method-option').forEach(function(optionBtn) {
+			optionBtn.classList.remove('active');
+		});
+
 		showModal(els.deliveryModal);
 	}
+	function selectDeliveryMethodInModal(button) {
+		const deliveryMethodId = button.getAttribute('data-delivery-method-id');
+		const isDirectDelivery = button.getAttribute('data-direct-delivery') === 'true';
 
-	async function updateDeliveryMethod(orderId, deliveryMethodId) {
+		document.querySelectorAll('.dispatch-list-delivery-method-option').forEach(function(optionBtn) {
+			optionBtn.classList.remove('active');
+		});
+
+		button.classList.add('active');
+
+		els.deliveryModalSelectedMethodId.value = deliveryMethodId;
+
+		if (isDirectDelivery) {
+			els.directHandlerArea.classList.remove('d-none');
+		} else {
+			els.directHandlerArea.classList.add('d-none');
+			els.deliveryHandlerId.value = '';
+		}
+
+		updateDeliveryMethodSaveButtonState();
+	}
+
+	function updateDeliveryMethodSaveButtonState() {
+		const deliveryMethodId = numberOrNull(valueOf(els.deliveryModalSelectedMethodId));
+
+		if (!deliveryMethodId) {
+			els.deliveryMethodSaveBtn.disabled = true;
+			return;
+		}
+
+		const selectedButton = document.querySelector(
+			'.dispatch-list-delivery-method-option.active'
+		);
+
+		const isDirectDelivery = selectedButton
+			&& selectedButton.getAttribute('data-direct-delivery') === 'true';
+
+		if (isDirectDelivery && !numberOrNull(valueOf(els.deliveryHandlerId))) {
+			els.deliveryMethodSaveBtn.disabled = true;
+			return;
+		}
+
+		els.deliveryMethodSaveBtn.disabled = false;
+	}
+	async function updateDeliveryMethod(orderId, deliveryMethodId, deliveryHandlerId) {
 		if (!orderId || !deliveryMethodId) {
 			alertMessage('배송수단 변경 정보가 올바르지 않습니다.');
 			return;
@@ -603,7 +686,8 @@
 				method: 'POST',
 				headers: buildJsonHeaders(),
 				body: JSON.stringify({
-					deliveryMethodId: deliveryMethodId
+					deliveryMethodId: deliveryMethodId,
+					deliveryHandlerId: deliveryHandlerId || null
 				})
 			});
 
@@ -612,16 +696,41 @@
 			document.querySelectorAll('.dispatch-list-delivery-method-btn[data-order-id="' + cssEscape(orderId) + '"]')
 				.forEach(function(button) {
 					button.setAttribute('data-delivery-method-id', data.id || '');
-					button.setAttribute('title', data.methodName || '미지정');
+					button.setAttribute('title', buildDeliveryMethodTitle(data));
 					button.textContent = data.methodName || '미지정';
 				});
 
 			hideModal(els.deliveryModal);
 
+			if (data.directDelivery) {
+				alertMessage(
+					'직배송으로 변경되었습니다.\n담당자: '
+					+ (data.deliveryHandlerName || '-')
+					+ '\n오늘 배송순번: '
+					+ (data.deliveryOrderIndex || '-')
+				);
+			}
+
 		} catch (error) {
 			console.error(error);
 			alertMessage(error.message || '배송수단 변경 중 오류가 발생했습니다.');
 		}
+	}
+
+	function buildDeliveryMethodTitle(data) {
+		if (!data) {
+			return '미지정';
+		}
+
+		if (!data.directDelivery) {
+			return data.methodName || '미지정';
+		}
+
+		return (data.methodName || '직배송')
+			+ ' / 담당자: '
+			+ (data.deliveryHandlerName || '-')
+			+ ' / 순번: '
+			+ (data.deliveryOrderIndex || '-');
 	}
 
 	async function handleProvinceChange(scope, provinceSelect, citySelect, districtSelect) {
@@ -663,6 +772,59 @@
 		}
 	}
 
+
+	async function downloadExcel() {
+		if (els.excelBtn) {
+			els.excelBtn.disabled = true;
+			els.excelBtn.innerHTML = '<i class="ri-loader-4-line me-1"></i>엑셀 생성 중';
+		}
+
+		try {
+			const payload = buildSearchPayload();
+
+			payload.size = null;
+			payload.lastStatusSort = null;
+			payload.lastOrderId = null;
+			payload.loadedOrderIds = [];
+
+			const response = await fetch(API.excel, {
+				method: 'POST',
+				headers: buildJsonHeaders(),
+				body: JSON.stringify(payload)
+			});
+
+			if (!response.ok) {
+				const errorData = await parseJsonResponse(response);
+				throw new Error(errorData.message || '엑셀 출력 중 오류가 발생했습니다.');
+			}
+
+			const blob = await response.blob();
+
+			const today = valueOf(els.today) || new Date().toISOString().slice(0, 10);
+			const filename = '출고팀_업무현황_' + today + '.xlsx';
+
+			const url = window.URL.createObjectURL(blob);
+			const link = document.createElement('a');
+
+			link.href = url;
+			link.download = filename;
+
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+
+			window.URL.revokeObjectURL(url);
+
+		} catch (error) {
+			console.error(error);
+			alertMessage(error.message || '엑셀 출력 중 오류가 발생했습니다.');
+		} finally {
+			if (els.excelBtn) {
+				els.excelBtn.disabled = false;
+				els.excelBtn.innerHTML = '<i class="ri-file-excel-2-line me-1"></i>엑셀출력';
+			}
+		}
+	}
 	async function handleCityChange(scope, citySelect, districtSelect) {
 		resetSelect(districtSelect, '전체');
 		districtSelect.disabled = true;

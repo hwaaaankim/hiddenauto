@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.repository.auth;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,15 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
+    List<Member> findByCompany_IdInAndRoleAndEnabledTrueOrderByNameAsc(
+            Collection<Long> companyIds,
+            MemberRole role
+    );
+	
+	List<Member> findByTeam_NameAndEnabledTrueOrderByNameAsc(String teamName);
+	
+	List<Member> findByTeam_NameAndEnabledTrueOrderByNameAscUsernameAsc(String teamName);
+	
 	@EntityGraph(attributePaths = "company")
     @Query("""
         select m

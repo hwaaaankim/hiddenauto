@@ -47,6 +47,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.as.TeamAsDetailModalResponse;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryExcelRequest;
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryHandlerChangeRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskResponse;
@@ -71,7 +72,6 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.as.AsImageRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
-import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
@@ -98,7 +98,6 @@ public class TeamController {
 	private final TeamTaskService teamTaskService;
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final OrderRepository orderRepository;
-	private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final AsTaskService asTaskService;
 	private final AsImageRepository asImageRepository;
@@ -709,13 +708,11 @@ public class TeamController {
 	    }
 
 	    /*
-	     * 배송팀 리스트에서 허용하는 조회 상태
-	     * - CONFIRMED: 승인완료, 상세확인만 가능
-	     * - PRODUCTION_DONE: 생산완료, 출고 전이므로 배송완료 처리 불가
-	     * - DISPATCH_DONE: 출고완료, 배송완료 처리 가능
-	     * - DELIVERY_DONE: 배송완료, 상세확인만 가능
-	     *
-	     * CANCELED, REQUESTED 등은 배송팀 업무 상태 조회 대상에서 제외합니다.
+	     * 배송팀 리스트 허용 상태
+	     * - CONFIRMED: 상세확인만 가능
+	     * - PRODUCTION_DONE: 배송완료 가능
+	     * - DISPATCH_DONE: 배송완료 가능
+	     * - DELIVERY_DONE: 상세확인만 가능
 	     */
 	    List<OrderStatus> availableDeliveryStatuses = List.of(
 	            OrderStatus.CONFIRMED,
@@ -725,7 +722,6 @@ public class TeamController {
 	    );
 
 	    OrderStatus selectedStatus = status;
-
 	    if (selectedStatus != null && !availableDeliveryStatuses.contains(selectedStatus)) {
 	        selectedStatus = null;
 	    }
@@ -734,7 +730,8 @@ public class TeamController {
 	            ? List.of(selectedStatus)
 	            : availableDeliveryStatuses;
 
-	    List<DeliveryOrderIndex> all = deliveryOrderIndexRepository.findListByHandlerAndDateAndStatusIn(
+	    // 핵심: deliveryOrderIndex에 남아있더라도 직배송이 아닌 건은 화면에서 한 번 더 제외합니다.
+	    List<DeliveryOrderIndex> all = deliveryOrderIndexService.getDirectDeliveryIndexes(
 	            member.getId(),
 	            preferredDate,
 	            statuses
@@ -759,6 +756,9 @@ public class TeamController {
 
 	    model.addAttribute("status", selectedStatus);
 	    model.addAttribute("availableStatuses", availableDeliveryStatuses);
+
+	    // 담당자변경 모달 select용
+	    model.addAttribute("deliveryTeamMembers", deliveryOrderIndexService.getActiveDeliveryTeamMembers());
 
 	    return "administration/team/delivery/deliveryList";
 	}
@@ -875,26 +875,23 @@ public class TeamController {
 	            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
 	        }
 
-	        Order order = orderRepository.findById(orderId)
-	                .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
-
-	        /*
-	         * 핵심 검증
-	         * 배송팀은 출고완료(DISPATCH_DONE) 상태의 주문만
-	         * 배송완료(DELIVERY_DONE)로 변경할 수 있습니다.
-	         */
-	        if (order.getStatus() != OrderStatus.DISPATCH_DONE) {
-	            throw new IllegalStateException("출고완료 상태의 주문만 배송완료 처리할 수 있습니다.");
-	        }
-
 	        if (!OrderStatus.DELIVERY_DONE.name().equals(status)) {
 	            throw new IllegalStateException("배송팀은 배송완료 처리만 할 수 있습니다.");
 	        }
 
+	        // 핵심: 생산완료/출고완료 + 직배송 + 현재 로그인 배송담당자 건만 허용
+	        Order order = deliveryOrderIndexService.getSingleCompletableOrder(member, orderId);
+
+	        List<MultipartFile> validFiles = filterValidImageFiles(files);
+
+	        if (validFiles.size() != 1) {
+	            throw new IllegalStateException("배송완료 이미지가 1장 필요합니다. 현재 업로드 이미지 수: " + validFiles.size());
+	        }
+
 	        orderService.updateDeliveryStatusAndImages(
-	                orderId,
+	                order.getId(),
 	                OrderStatus.DELIVERY_DONE.name(),
-	                files
+	                List.of(validFiles.get(0))
 	        );
 
 	        if (fetchRequest) {
@@ -930,6 +927,157 @@ public class TeamController {
 	    return "redirect:/team/deliveryDetail/" + orderId;
 	}
 
+	@PostMapping("/deliveryStatus/{orderId}/same-address")
+	@ResponseBody
+	public ResponseEntity<?> updateSameAddressDeliveryStatusAndUploadImages(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @PathVariable Long orderId,
+	        @RequestParam(value = "status", required = false) String status,
+	        @RequestParam(value = "files", required = false) List<MultipartFile> files
+	) {
+	    try {
+	        if (principal == null || principal.getMember() == null) {
+	            throw new AccessDeniedException("로그인이 필요합니다.");
+	        }
+
+	        Member member = principal.getMember();
+
+	        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	        }
+
+	        if (!OrderStatus.DELIVERY_DONE.name().equals(status)) {
+	            throw new IllegalStateException("배송팀은 배송완료 처리만 할 수 있습니다.");
+	        }
+
+	        List<Order> targetOrders =
+	                deliveryOrderIndexService.findSameCompanySameAddressSameDeliveryDateCompletableOrders(member, orderId);
+
+	        if (targetOrders == null || targetOrders.isEmpty()) {
+	            throw new IllegalStateException("동일 업체/동일 주소/동일 배송일 기준 배송완료 처리 대상이 없습니다.");
+	        }
+
+	        List<MultipartFile> validFiles = filterValidImageFiles(files);
+
+	        if (validFiles.size() != targetOrders.size()) {
+	            throw new IllegalStateException(
+	                    "배송완료 대상 건수와 이미지 수가 일치해야 합니다. "
+	                            + "대상 건수: " + targetOrders.size()
+	                            + "건, 업로드 이미지 수: " + validFiles.size() + "장"
+	            );
+	        }
+
+	        List<Long> completedOrderIds = new ArrayList<>();
+
+	        for (int i = 0; i < targetOrders.size(); i++) {
+	            Order targetOrder = targetOrders.get(i);
+	            MultipartFile imageFile = validFiles.get(i);
+
+	            orderService.updateDeliveryStatusAndImages(
+	                    targetOrder.getId(),
+	                    OrderStatus.DELIVERY_DONE.name(),
+	                    List.of(imageFile)
+	            );
+
+	            completedOrderIds.add(targetOrder.getId());
+	        }
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", true);
+	        body.put("completedOrderIds", completedOrderIds);
+	        body.put("completedCount", completedOrderIds.size());
+	        body.put("uploadedImageCount", validFiles.size());
+	        body.put("message", completedOrderIds.size() + "건 배송완료 처리되었습니다.");
+
+	        return ResponseEntity.ok(body);
+
+	    } catch (Exception e) {
+	        e.printStackTrace();
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", false);
+	        body.put("orderId", orderId);
+	        body.put("message", e.getMessage() != null ? e.getMessage() : "동일주소 배송완료 처리 실패");
+
+	        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+	    }
+	}
+	
+	private List<MultipartFile> filterValidImageFiles(List<MultipartFile> files) {
+	    if (files == null || files.isEmpty()) {
+	        return List.of();
+	    }
+
+	    return files.stream()
+	            .filter(Objects::nonNull)
+	            .filter(file -> !file.isEmpty())
+	            .filter(file -> {
+	                String contentType = file.getContentType();
+	                return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("image/");
+	            })
+	            .collect(Collectors.toList());
+	}
+	
+	@GetMapping("/deliveryStatus/{orderId}/same-address/preview")
+	@ResponseBody
+	public ResponseEntity<?> getSameAddressDeliveryCompletePreview(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @PathVariable Long orderId
+	) {
+	    try {
+	        if (principal == null || principal.getMember() == null) {
+	            throw new AccessDeniedException("로그인이 필요합니다.");
+	        }
+
+	        Member member = principal.getMember();
+
+	        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	        }
+
+	        List<Order> targetOrders =
+	                deliveryOrderIndexService.findSameCompanySameAddressSameDeliveryDateCompletableOrders(member, orderId);
+
+	        List<Long> targetOrderIds = targetOrders.stream()
+	                .map(Order::getId)
+	                .collect(Collectors.toList());
+
+	        String sourceDeliveryDateText = targetOrders.isEmpty()
+	                ? ""
+	                : resolveDeliveryDateText(targetOrders.get(0));
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", true);
+	        body.put("targetOrderIds", targetOrderIds);
+	        body.put("targetCount", targetOrderIds.size());
+	        body.put("requiredImageCount", targetOrderIds.size());
+	        body.put("deliveryDate", sourceDeliveryDateText);
+	        body.put("message", "완료 대상 " + targetOrderIds.size() + "건 / 이미지 " + targetOrderIds.size() + "장 필요");
+
+	        return ResponseEntity.ok(body);
+
+	    } catch (Exception e) {
+	        e.printStackTrace();
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", false);
+	        body.put("orderId", orderId);
+	        body.put("targetCount", 0);
+	        body.put("requiredImageCount", 0);
+	        body.put("message", e.getMessage() != null ? e.getMessage() : "배송완료 대상 조회 실패");
+
+	        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+	    }
+	}
+	
+	private String resolveDeliveryDateText(Order order) {
+	    if (order == null || order.getPreferredDeliveryDate() == null) {
+	        return "";
+	    }
+
+	    return order.getPreferredDeliveryDate().toLocalDate().toString();
+	}
+	
 	@GetMapping("/deliveryOrderSummary/{orderId}")
 	@ResponseBody
 	public ResponseEntity<?> getDeliveryOrderSummary(
@@ -983,6 +1131,7 @@ public class TeamController {
 
 	    byte[] bytes = deliveryExcelService.buildExcel(
 	            member.getId(),
+	            member.getName(),
 	            request.getDeliveryDate(),
 	            request.getOrderedOrderIds()
 	    );
@@ -995,6 +1144,49 @@ public class TeamController {
 	            .body(bytes);
 	}
 
+	@PostMapping("/deliveryHandler/{orderId}")
+	@ResponseBody
+	public ResponseEntity<?> changeDeliveryHandler(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @PathVariable Long orderId,
+	        @RequestBody DeliveryHandlerChangeRequest request
+	) {
+	    try {
+	        if (principal == null || principal.getMember() == null) {
+	            throw new AccessDeniedException("로그인이 필요합니다.");
+	        }
+
+	        Member member = principal.getMember();
+
+	        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	        }
+
+	        deliveryOrderIndexService.changeDeliveryHandler(
+	                member,
+	                orderId,
+	                request != null ? request.getNewHandlerId() : null
+	        );
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", true);
+	        body.put("orderId", orderId);
+	        body.put("message", "담당자가 변경되었습니다.");
+
+	        return ResponseEntity.ok(body);
+
+	    } catch (Exception e) {
+	        e.printStackTrace();
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", false);
+	        body.put("orderId", orderId);
+	        body.put("message", e.getMessage() != null ? e.getMessage() : "담당자 변경 실패");
+
+	        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+	    }
+	}
+	
 	@GetMapping("/deliveryDetail/{id}")
 	public String getDeliveryDetailPage(
 	        @PathVariable Long id,
@@ -1034,8 +1226,19 @@ public class TeamController {
 	        OrderItemOptionJsonUtil.enrich(orderItem);
 	    }
 
+	    boolean canCompleteDelivery =
+	            order.getStatus() == OrderStatus.PRODUCTION_DONE
+	                    || order.getStatus() == OrderStatus.DISPATCH_DONE;
+
+	    boolean canChangeDeliveryHandler =
+	            order.getStatus() != OrderStatus.DELIVERY_DONE;
+
 	    model.addAttribute("order", order);
 	    model.addAttribute("orderItem", orderItem);
+
+	    model.addAttribute("canCompleteDelivery", canCompleteDelivery);
+	    model.addAttribute("canChangeDeliveryHandler", canChangeDeliveryHandler);
+	    model.addAttribute("deliveryTeamMembers", deliveryOrderIndexService.getActiveDeliveryTeamMembers());
 
 	    return "administration/team/delivery/deliveryDetail";
 	}

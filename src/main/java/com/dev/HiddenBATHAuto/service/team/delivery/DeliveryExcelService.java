@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,6 +17,7 @@ import org.apache.poi.ss.usermodel.PageMargin;
 import org.apache.poi.ss.usermodel.PrintSetup;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
@@ -28,7 +30,8 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
-import com.dev.HiddenBATHAuto.utils.OrderItemOptionJsonUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,24 +40,36 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DeliveryExcelService {
 
-    private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private static final String DIRECT_DELIVERY_METHOD_NAME = "직배송";
 
-    public byte[] buildExcel(Long handlerId, LocalDate deliveryDate, List<Long> orderedOrderIds) {
+    private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private final ObjectMapper objectMapper;
+
+    public byte[] buildExcel(Long handlerId, String handlerName, LocalDate deliveryDate, List<Long> orderedOrderIds) {
 
         List<DeliveryOrderIndex> list = deliveryOrderIndexRepository
                 .findAllByHandlerAndDateForTaskGrouping(handlerId, deliveryDate);
 
         Map<Long, DeliveryOrderIndex> map = new HashMap<>();
         for (DeliveryOrderIndex doi : list) {
-            if (doi == null || doi.getOrder() == null || doi.getOrder().getId() == null) continue;
+            if (doi == null || doi.getOrder() == null || doi.getOrder().getId() == null) {
+                continue;
+            }
+            if (!isDirectDelivery(doi.getOrder())) {
+                continue;
+            }
             map.put(doi.getOrder().getId(), doi);
         }
 
         List<DeliveryOrderIndex> ordered = new ArrayList<>();
         for (Long id : orderedOrderIds) {
-            if (id == null) continue;
+            if (id == null) {
+                continue;
+            }
             DeliveryOrderIndex doi = map.get(id);
-            if (doi != null) ordered.add(doi);
+            if (doi != null) {
+                ordered.add(doi);
+            }
         }
 
         try (XSSFWorkbook wb = new XSSFWorkbook();
@@ -62,25 +77,36 @@ public class DeliveryExcelService {
 
             XSSFSheet sheet = wb.createSheet("배송리스트");
 
-            // A4 프린트 설정
             PrintSetup ps = sheet.getPrintSetup();
             ps.setPaperSize(PrintSetup.A4_PAPERSIZE);
-            sheet.setFitToPage(true);
+            ps.setLandscape(true);
             ps.setFitWidth((short) 1);
             ps.setFitHeight((short) 0);
+            sheet.setFitToPage(true);
             sheet.setHorizontallyCenter(true);
+            sheet.setAutobreaks(true);
 
-            // Column widths: 업체명 / 주문자 / 업체 연락처 / 배송지 주소 / 제품내용(50% 폭)
-            sheet.setColumnWidth(0, 18 * 256);
-            sheet.setColumnWidth(1, 12 * 256);
-            sheet.setColumnWidth(2, 16 * 256);
-            sheet.setColumnWidth(3, 30 * 256);
-            sheet.setColumnWidth(4, 60 * 256);
+            sheet.setColumnWidth(0, 18 * 256); // 거래처명
+            sheet.setColumnWidth(1, 26 * 256); // 품목
+            sheet.setColumnWidth(2, 24 * 256); // 규격
+            sheet.setColumnWidth(3, 8 * 256);  // 수량
+            sheet.setColumnWidth(4, 34 * 256); // 비고
+            sheet.setColumnWidth(5, 12 * 256); // 단위
+            sheet.setColumnWidth(6, 13 * 256); // 담당자
 
-            // styles
+            Font titleFont = wb.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 14);
+
+            CellStyle titleStyle = wb.createCellStyle();
+            titleStyle.setFont(titleFont);
+            titleStyle.setAlignment(HorizontalAlignment.CENTER);
+            titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            titleStyle.setWrapText(true);
+
             Font headerFont = wb.createFont();
             headerFont.setBold(true);
-            headerFont.setFontHeightInPoints((short) 12);
+            headerFont.setFontHeightInPoints((short) 10);
 
             CellStyle headerStyle = wb.createCellStyle();
             headerStyle.setFont(headerFont);
@@ -90,7 +116,7 @@ public class DeliveryExcelService {
             setAllBorders(headerStyle);
 
             Font bodyFont = wb.createFont();
-            bodyFont.setFontHeightInPoints((short) 10);
+            bodyFont.setFontHeightInPoints((short) 9);
 
             CellStyle bodyStyle = wb.createCellStyle();
             bodyStyle.setFont(bodyFont);
@@ -99,76 +125,71 @@ public class DeliveryExcelService {
             bodyStyle.setWrapText(true);
             setAllBorders(bodyStyle);
 
-            // header
+            CellStyle centerBodyStyle = wb.createCellStyle();
+            centerBodyStyle.cloneStyleFrom(bodyStyle);
+            centerBodyStyle.setAlignment(HorizontalAlignment.CENTER);
+
             int r = 0;
-            Row hr = sheet.createRow(r++);
-            hr.setHeightInPoints(22);
 
-            createCell(hr, 0, "업체명", headerStyle);
-            createCell(hr, 1, "주문자", headerStyle);
-            createCell(hr, 2, "업체 연락처", headerStyle);
-            createCell(hr, 3, "배송지 주소(우편번호 포함)", headerStyle);
-            createCell(hr, 4, "주문 제품 내용", headerStyle);
+            Row titleRow = sheet.createRow(r++);
+            titleRow.setHeightInPoints(24);
+            createCell(titleRow, 0, "배송리스트  " + safe(deliveryDate) + "  /  담당자: " + valueOrDash(handlerName), titleStyle);
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 6));
 
-            // body rows
+            Row headerRow = sheet.createRow(r++);
+            headerRow.setHeightInPoints(22);
+
+            createCell(headerRow, 0, "거래처명", headerStyle);
+            createCell(headerRow, 1, "품목", headerStyle);
+            createCell(headerRow, 2, "규격(사이즈)", headerStyle);
+            createCell(headerRow, 3, "수량", headerStyle);
+            createCell(headerRow, 4, "비고", headerStyle);
+            createCell(headerRow, 5, "단위", headerStyle);
+            createCell(headerRow, 6, "담당자", headerStyle);
+
             for (DeliveryOrderIndex doi : ordered) {
                 Order order = doi.getOrder();
-                if (order == null) continue;
+                if (order == null) {
+                    continue;
+                }
+
+                OrderItem item = order.getOrderItem();
+                Map<String, Object> optionMap = parseOptionJsonToMap(item != null ? item.getOptionJson() : null);
 
                 Task task = order.getTask();
-                Member requester = (task != null ? task.getRequestedBy() : null);
-                Company company = (requester != null ? requester.getCompany() : null);
+                Member requester = task != null ? task.getRequestedBy() : null;
+                Company company = requester != null ? requester.getCompany() : null;
 
                 String companyName = company != null ? safe(company.getCompanyName()) : "";
-                String requesterName = requester != null ? safe(requester.getName()) : "";
 
-                // 업체 연락처: company에 필드가 없어서 requester 우선 사용
-                String contact = "";
-                if (requester != null) {
-                    String p1 = safe(requester.getPhone());
-                    String p2 = safe(requester.getTelephone());
-                    contact = !isBlank(p1) ? p1 : (!isBlank(p2) ? p2 : "");
-                }
+                String productName = firstNonBlank(
+                        pickFirstValue(optionMap, List.of("제품명", "제품", "productName", "ProductName", "product", "Product")),
+                        item != null ? item.getProductName() : null
+                );
 
-                // 배송지 주소(우편번호+도로명+상세)
-                String deliveryAddr;
-                {
-                    String zip = safe(order.getZipCode());
-                    String road = safe(order.getRoadAddress());
-                    String detail = safe(order.getDetailAddress());
+                String size = firstNonBlank(
+                        pickFirstValue(optionMap, List.of("사이즈", "규격", "size", "Size", "productSize", "ProductSize")),
+                        ""
+                );
 
-                    StringBuilder sb = new StringBuilder();
-                    if (!isBlank(zip)) sb.append("(").append(zip).append(") ");
-                    if (!isBlank(road)) sb.append(road);
-                    if (!isBlank(detail)) sb.append("\n").append(detail);
-                    deliveryAddr = sb.toString().trim();
-                }
-
-                // 제품 내용(optionJson 예쁘게)
-                String productText = "";
-                OrderItem item = order.getOrderItem();
-                if (item != null) {
-                    OrderItemOptionJsonUtil.enrich(item);
-
-                    String t = safe(item.getFormattedOptionText());
-                    if (!isBlank(t)) {
-                        productText = t.replace(" / ", "\n").replace(" | ", "\n");
-                    } else {
-                        productText = safe(item.getProductName());
-                    }
-                }
+                String category = firstNonBlank(
+                        pickFirstValue(optionMap, List.of("카테고리", "category", "Category")),
+                        order.getProductCategory() != null ? order.getProductCategory().getName() : null
+                );
 
                 Row row = sheet.createRow(r++);
-                row.setHeightInPoints(52);
+                row.setHeightInPoints(42);
 
-                createCell(row, 0, companyName, bodyStyle);
-                createCell(row, 1, requesterName, bodyStyle);
-                createCell(row, 2, contact, bodyStyle);
-                createCell(row, 3, deliveryAddr, bodyStyle);
-                createCell(row, 4, productText, bodyStyle);
+                createCell(row, 0, valueOrDash(companyName), bodyStyle);
+                createCell(row, 1, valueOrDash(productName), bodyStyle);
+                createCell(row, 2, valueOrDash(size), bodyStyle);
+                createCell(row, 3, String.valueOf(order.getQuantity()), centerBodyStyle);
+                createCell(row, 4, valueOrDash(order.getAdminMemo()), bodyStyle);
+                createCell(row, 5, valueOrDash(category), centerBodyStyle);
+                createCell(row, 6, valueOrDash(handlerName), centerBodyStyle);
             }
 
-            // ✅ 출력용 여백 (POI 5.2.3+ : PageMargin 사용, deprecated 없음)
+            sheet.setRepeatingRows(new CellRangeAddress(1, 1, 0, 6));
             applyPrintMargins(sheet);
 
             wb.write(bos);
@@ -177,6 +198,94 @@ public class DeliveryExcelService {
         } catch (Exception e) {
             throw new RuntimeException("엑셀 생성 실패: " + e.getMessage(), e);
         }
+    }
+
+    private Map<String, Object> parseOptionJsonToMap(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+
+        try {
+            return objectMapper.readValue(json, new TypeReference<LinkedHashMap<String, Object>>() {});
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
+
+    private String pickFirstValue(Map<String, Object> map, List<String> keys) {
+        if (map == null || map.isEmpty() || keys == null) {
+            return "";
+        }
+
+        for (String key : keys) {
+            if (key == null) {
+                continue;
+            }
+
+            Object value = map.get(key);
+            String text = safeObject(value);
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+
+        return "";
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+
+        for (String value : values) {
+            String text = safe(value);
+            if (!text.isBlank() && !"-".equals(text)) {
+                return text;
+            }
+        }
+
+        return "";
+    }
+
+    private String safeObject(Object value) {
+        if (value == null) {
+            return "";
+        }
+
+        if (value instanceof Map<?, ?> mapValue) {
+            List<String> parts = new ArrayList<>();
+            for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
+                String k = safeObject(entry.getKey());
+                String v = safeObject(entry.getValue());
+                if (!k.isBlank() && !v.isBlank()) {
+                    parts.add(k + ": " + v);
+                } else if (!v.isBlank()) {
+                    parts.add(v);
+                }
+            }
+            return String.join(" / ", parts).trim();
+        }
+
+        if (value instanceof List<?> listValue) {
+            List<String> parts = new ArrayList<>();
+            for (Object item : listValue) {
+                String text = safeObject(item);
+                if (!text.isBlank()) {
+                    parts.add(text);
+                }
+            }
+            return String.join(" / ", parts).trim();
+        }
+
+        return safe(String.valueOf(value));
+    }
+
+    private boolean isDirectDelivery(Order order) {
+        if (order == null || order.getDeliveryMethod() == null) {
+            return false;
+        }
+
+        return DIRECT_DELIVERY_METHOD_NAME.equals(safe(order.getDeliveryMethod().getMethodName()));
     }
 
     private static void createCell(Row row, int col, String val, CellStyle style) {
@@ -199,11 +308,12 @@ public class DeliveryExcelService {
         sheet.setMargin(PageMargin.BOTTOM, 0.35);
     }
 
-    private static String safe(String s) {
-        return s == null ? "" : s;
+    private static String valueOrDash(String s) {
+        String text = safe(s);
+        return text.isBlank() ? "-" : text;
     }
 
-    private static boolean isBlank(String s) {
-        return s == null || s.trim().isEmpty();
+    private static String safe(Object value) {
+        return value == null ? "" : String.valueOf(value).replace("\r", " ").replace("\t", " ").trim();
     }
 }

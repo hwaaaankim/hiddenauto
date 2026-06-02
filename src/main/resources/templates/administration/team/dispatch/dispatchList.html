@@ -166,6 +166,10 @@
 						</div>
 
 						<div class="dispatch-list-toolbar-right">
+							<button type="button" id="dispatch-list-excel-btn" class="btn btn-outline-success">
+								<i class="ri-file-excel-2-line me-1"></i>엑셀출력
+							</button>
+
 							<button type="button" id="dispatch-list-bulk-complete-btn" class="btn btn-success" disabled>
 								<i class="ri-check-double-line me-1"></i>일괄 출고완료
 							</button>
@@ -393,15 +397,50 @@
 
 				<div class="modal-body">
 					<input type="hidden" id="dispatch-list-delivery-modal-order-id">
+					<input type="hidden" id="dispatch-list-delivery-modal-selected-method-id">
 
-					<div class="dispatch-list-delivery-method-list">
-						<button type="button" class="btn btn-outline-primary dispatch-list-delivery-method-option"
-							th:each="method : ${deliveryMethods}"
-							th:attr="data-delivery-method-id=${method.id}, data-delivery-method-name=${method.methodName}"
-							th:text="${method.methodName}">
-							배송수단
-						</button>
+					<div class="mb-3">
+						<label class="dispatch-list-label mb-2">배송수단 선택</label>
+
+						<div class="dispatch-list-delivery-method-list">
+							<button type="button" class="btn btn-outline-primary dispatch-list-delivery-method-option"
+								th:each="method : ${deliveryMethods}" th:attr="
+                        data-delivery-method-id=${method.id},
+                        data-delivery-method-name=${method.methodName},
+                        data-direct-delivery=${method.methodName == '직배송'}
+                    " th:text="${method.methodName}">
+								배송수단
+							</button>
+						</div>
 					</div>
+
+					<div id="dispatch-list-direct-handler-area" class="dispatch-list-direct-handler-area d-none">
+						<label class="dispatch-list-label" for="dispatch-list-delivery-handler-id">
+							직배송 담당자
+						</label>
+
+						<select id="dispatch-list-delivery-handler-id" class="form-select dispatch-list-form-select">
+							<option value="">배송 담당자를 선택하세요</option>
+							<option th:each="handler : ${deliveryHandlers}" th:value="${handler.id}"
+								th:text="${handler.name + ' (' + handler.username + ')'}">
+								배송 담당자
+							</option>
+						</select>
+
+						<div class="text-muted small mt-2">
+							직배송으로 변경하면 선택한 담당자의 오늘 날짜 배송순번 마지막 번호 다음으로 등록됩니다.
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+						취소
+					</button>
+
+					<button type="button" id="dispatch-list-delivery-method-save-btn" class="btn btn-primary" disabled>
+						변경
+					</button>
 				</div>
 			</div>
 		</div>

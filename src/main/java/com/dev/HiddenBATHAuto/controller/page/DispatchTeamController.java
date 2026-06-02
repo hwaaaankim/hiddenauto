@@ -1,11 +1,15 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,6 +41,7 @@ import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
+import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
@@ -56,6 +61,7 @@ public class DispatchTeamController {
     private final ProvinceRepository provinceRepository;
     private final CityRepository cityRepository;
     private final DistrictRepository districtRepository;
+    private final MemberRepository memberRepository;
 
     @GetMapping("/dispatchList")
     public String dispatchList(
@@ -68,9 +74,12 @@ public class DispatchTeamController {
         List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
         List<DeliveryMethod> deliveryMethods = deliveryMethodRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
         List<Province> provinces = provinceRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
+        List<Member> deliveryHandlers =
+                memberRepository.findByTeam_NameAndEnabledTrueOrderByNameAscUsernameAsc("배송팀");
 
         model.addAttribute("productCategories", productCategories);
         model.addAttribute("deliveryMethods", deliveryMethods);
+        model.addAttribute("deliveryHandlers", deliveryHandlers);
         model.addAttribute("provinces", provinces);
         model.addAttribute("today", LocalDate.now());
 
@@ -87,6 +96,28 @@ public class DispatchTeamController {
                 dispatchTeamService.searchDispatchOrders(request, principal.getMember());
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dispatchList/api/orders/excel")
+    @ResponseBody
+    public ResponseEntity<byte[]> downloadExcel(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DispatchOrderSearchRequest request
+    ) {
+        byte[] excelBytes = dispatchTeamService.createDispatchOrdersExcel(request, principal.getMember());
+
+        String filename = "출고팀_업무현황_" + LocalDate.now() + ".xlsx";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8)
+                .build());
+        headers.setContentLength(excelBytes.length);
+
+        return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
     }
 
     @PostMapping("/dispatchList/api/orders/complete")
@@ -115,6 +146,7 @@ public class DispatchTeamController {
                 dispatchTeamService.updateDeliveryMethod(
                         orderId,
                         request != null ? request.getDeliveryMethodId() : null,
+                        request != null ? request.getDeliveryHandlerId() : null,
                         principal.getMember()
                 );
 

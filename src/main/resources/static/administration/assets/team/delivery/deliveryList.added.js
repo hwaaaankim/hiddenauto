@@ -1,3 +1,4 @@
+/* deliveryList.added.js */
 (function() {
 	'use strict';
 
@@ -18,9 +19,9 @@
 	const companyNameEl = document.getElementById("delivery-list-added-companyName");
 	const requesterNameEl = document.getElementById("delivery-list-added-requesterName");
 	const companyContactEl = document.getElementById("delivery-list-added-companyContact");
-	const companyAddressEl = document.getElementById("delivery-list-added-companyAddress");
 	const orderAddressEl = document.getElementById("delivery-list-added-orderAddress");
 	const productTextEl = document.getElementById("delivery-list-added-productText");
+	const ordererPhoneEl = document.getElementById("delivery-list-added-ordererPhone");
 
 	// existing images
 	const existingWrapEl = document.getElementById("delivery-list-added-existing-wrap");
@@ -28,7 +29,14 @@
 
 	// upload
 	const uploadWrapEl = document.getElementById("delivery-list-added-upload-wrap");
-	const btnSubmitEl = document.getElementById("delivery-list-added-btn-submit");
+
+	const targetInfoEl = document.getElementById("delivery-list-added-target-info");
+	const targetCountEl = document.getElementById("delivery-list-added-target-count");
+	const requiredImageCountEl = document.getElementById("delivery-list-added-required-image-count");
+	const targetHelpEl = document.getElementById("delivery-list-added-target-help");
+
+	const btnSubmitSingleEl = document.getElementById("delivery-list-added-btn-submit-single");
+	const btnSubmitBulkEl = document.getElementById("delivery-list-added-btn-submit-bulk");
 
 	const btnCamera = document.getElementById("delivery-list-added-btn-camera");
 	const btnGallery = document.getElementById("delivery-list-added-btn-gallery");
@@ -36,13 +44,28 @@
 	const inputGallery = document.getElementById("delivery-list-added-file-gallery");
 	const thumbListEl = document.getElementById("delivery-list-added-thumb-list");
 
+	// handler change modal
+	const handlerModalEl = document.getElementById("delivery-list-added-handler-modal");
+	const handlerOrderIdEl = document.getElementById("delivery-list-added-handler-order-id");
+	const handlerSelectEl = document.getElementById("delivery-list-added-handler-select");
+	const handlerSubmitBtn = document.getElementById("delivery-list-added-handler-submit");
+
 	// CSRF
 	const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
 	const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
 
-	function isMobileCoarsePointer() {
-		return window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-	}
+	let modalInstance = null;
+	let currentOrderId = null;
+	let currentMode = "detail"; // "complete" | "detail"
+
+	let selectedFiles = [];
+	let selectedObjectUrls = [];
+
+	let requiredImageCount = 0;
+	let targetCount = 0;
+	let targetOrderIds = [];
+	let targetPreviewLoaded = false;
+	let targetPreviewError = "";
 
 	function getDeliveryHandlerId() {
 		return document.getElementById("deliveryHandlerId")?.value || "";
@@ -70,6 +93,24 @@
 			.filter(n => Number.isFinite(n) && n > 0);
 	}
 
+	function setElementText(el, text) {
+		if (el) {
+			el.textContent = text;
+		}
+	}
+
+	function setElementDisplay(el, displayValue) {
+		if (el) {
+			el.style.display = displayValue;
+		}
+	}
+
+	function getErrorMessageFromResponse(res) {
+		return res.clone().json()
+			.then(data => data?.message || "")
+			.catch(() => res.text().catch(() => ""));
+	}
+
 	/* =========================
 	   기존 그룹 스타일 로직(유지)
 	   ========================= */
@@ -84,20 +125,20 @@
 			el.classList.remove("delivery-list-added-task-group-break");
 
 			const taskId = el.getAttribute("data-task-id") || "0";
-			if (lastTaskId === null) {
-				// first
-			} else if (taskId !== lastTaskId) {
+
+			if (lastTaskId !== null && taskId !== lastTaskId) {
 				alt = (alt === 0 ? 1 : 0);
 				el.classList.add("delivery-list-added-task-group-break");
 			}
+
 			el.classList.add(alt === 0 ? "delivery-list-added-task-group-alt-0" : "delivery-list-added-task-group-alt-1");
 			lastTaskId = taskId;
 		}
 	}
 
 	function applyAllTaskGroupStyles() {
-		applyTaskGroupStyles(pendingListEl);
-		applyTaskGroupStyles(doneListEl);
+		if (pendingListEl) applyTaskGroupStyles(pendingListEl);
+		if (doneListEl) applyTaskGroupStyles(doneListEl);
 	}
 
 	document.addEventListener("DOMContentLoaded", function() {
@@ -105,249 +146,325 @@
 	});
 
 	/* =========================
-	   ✅ Sortable (pending only)
-	   - 요청사항: 모바일에서는 핸들버튼으로만 순서변경
-	   - 충돌 방지 위해 PC도 동일하게 handle만 드래그 시작
+	   Sortable
 	   ========================= */
-	const sortable = new Sortable(pendingListEl, {
-		group: "pending",
-		animation: 150,
-		fallbackOnBody: true,
-		swapThreshold: 0.65,
-		handle: ".delivery-list-added-drag-handle",
-		filter: ".action-btn, .delivery-list-added-open-complete-modal, .delivery-list-added-open-detail-modal",
-		preventOnFilter: false,
-		onEnd: () => {
-			saveButton.disabled = false;
-			applyAllTaskGroupStyles();
-		}
-	});
+	if (pendingListEl && typeof Sortable !== "undefined") {
+		new Sortable(pendingListEl, {
+			group: "pending",
+			animation: 150,
+			fallbackOnBody: true,
+			swapThreshold: 0.65,
+			handle: ".delivery-list-added-drag-handle",
+			filter: ".action-btn, .delivery-list-added-open-complete-modal, .delivery-list-added-open-detail-modal",
+			preventOnFilter: false,
+			onEnd: () => {
+				if (saveButton) saveButton.disabled = false;
+				applyAllTaskGroupStyles();
+			}
+		});
+	}
 
 	/* =========================
-	   업체별정렬 버튼 (기존 로직 유지)
+	   업체별정렬
 	   ========================= */
-	reorderByTaskBtn.addEventListener("click", async () => {
-		const deliveryHandlerId = getDeliveryHandlerId();
-		const deliveryDate = getDeliveryDate();
+	if (reorderByTaskBtn) {
+		reorderByTaskBtn.addEventListener("click", async () => {
+			const deliveryHandlerId = getDeliveryHandlerId();
+			const deliveryDate = getDeliveryDate();
 
-		if (!deliveryHandlerId) return alert("담당자 정보가 없습니다.");
-		if (!deliveryDate) return alert("날짜를 선택해주세요.");
+			if (!deliveryHandlerId) return alert("담당자 정보가 없습니다.");
+			if (!deliveryDate) return alert("날짜를 선택해주세요.");
 
-		const pendingOrderIds = getPendingOrderIdsInDomOrder();
-		if (pendingOrderIds.length <= 1) return alert("정렬할 항목이 없습니다.");
+			const pendingOrderIds = getPendingOrderIdsInDomOrder();
+			if (pendingOrderIds.length <= 1) return alert("정렬할 항목이 없습니다.");
 
-		const headers = { "Content-Type": "application/json" };
-		if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
-
-		try {
-			const res = await fetch("/team/reorderByTask", {
-				method: "POST",
-				headers,
-				body: JSON.stringify({
-					deliveryHandlerId: Number(deliveryHandlerId),
-					deliveryDate: deliveryDate,
-					pendingOrderIds: pendingOrderIds
-				})
-			});
-
-			if (!res.ok) {
-				const text = await res.text().catch(() => "");
-				return alert("업체별정렬 실패\n" + (text || ("HTTP " + res.status)));
-			}
-
-			const data = await res.json();
-			const reordered = Array.isArray(data?.pendingOrderIds) ? data.pendingOrderIds : [];
-
-			if (reordered.length !== pendingOrderIds.length) {
-				return alert("업체별정렬 결과가 올바르지 않습니다.(개수 불일치)");
-			}
-
-			// DOM 재배치
-			const elById = new Map();
-			Array.from(pendingListEl.querySelectorAll(".draggable-item")).forEach(el => {
-				const id = Number(el.getAttribute("data-order-id"));
-				if (Number.isFinite(id)) elById.set(id, el);
-			});
-
-			for (const id of reordered) {
-				const el = elById.get(Number(id));
-				if (el) pendingListEl.appendChild(el);
-			}
-
-			saveButton.disabled = false;
-			applyAllTaskGroupStyles();
-		} catch (err) {
-			console.error(err);
-			alert("업체별정렬 중 오류가 발생했습니다.");
-		}
-	});
-
-	/* =========================
-	   순서 저장 (기존 로직 유지)
-	   ========================= */
-	saveButton.addEventListener("click", async () => {
-		const ok = confirm("업체별(동일배송지별)로 재배치 됩니다. 진행하시겠습니까? 진행하시려면 '순서저장' 버튼을 클릭 해 주세요.");
-		if (!ok) return;
-
-		const deliveryHandlerId = getDeliveryHandlerId();
-		const deliveryDate = getDeliveryDate();
-		if (!deliveryHandlerId) return alert("담당자 정보가 없습니다.");
-		if (!deliveryDate) return alert("날짜를 선택해주세요.");
-
-		const pendingItems = Array.from(pendingListEl.querySelectorAll(".draggable-item"));
-		const doneItems = Array.from(doneListEl.querySelectorAll(".draggable-item"));
-		const allItems = pendingItems.concat(doneItems);
-
-		const orderedIds = allItems.map((el, idx) => ({
-			orderId: Number(el.getAttribute("data-order-id")),
-			orderIndex: idx + 1
-		}));
-
-		try {
 			const headers = { "Content-Type": "application/json" };
 			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
 
-			const res = await fetch("/team/updateOrderIndex", {
-				method: "POST",
-				headers,
-				body: JSON.stringify({
-					deliveryHandlerId: Number(deliveryHandlerId),
-					deliveryDate: deliveryDate,
-					orderList: orderedIds
-				})
-			});
+			try {
+				const res = await fetch("/team/reorderByTask", {
+					method: "POST",
+					headers,
+					body: JSON.stringify({
+						deliveryHandlerId: Number(deliveryHandlerId),
+						deliveryDate: deliveryDate,
+						pendingOrderIds: pendingOrderIds
+					})
+				});
 
-			if (res.ok) {
+				if (!res.ok) {
+					const message = await getErrorMessageFromResponse(res);
+					return alert("업체별정렬 실패\n" + (message || ("HTTP " + res.status)));
+				}
+
+				const data = await res.json();
+				const reordered = Array.isArray(data?.pendingOrderIds) ? data.pendingOrderIds : [];
+
+				if (reordered.length !== pendingOrderIds.length) {
+					return alert("업체별정렬 결과가 올바르지 않습니다.(개수 불일치)");
+				}
+
+				const elById = new Map();
+				Array.from(pendingListEl.querySelectorAll(".draggable-item")).forEach(el => {
+					const id = Number(el.getAttribute("data-order-id"));
+					if (Number.isFinite(id)) elById.set(id, el);
+				});
+
+				for (const id of reordered) {
+					const el = elById.get(Number(id));
+					if (el) pendingListEl.appendChild(el);
+				}
+
+				if (saveButton) saveButton.disabled = false;
+				applyAllTaskGroupStyles();
+
+			} catch (err) {
+				console.error(err);
+				alert("업체별정렬 중 오류가 발생했습니다.");
+			}
+		});
+	}
+
+	/* =========================
+	   순서 저장
+	   ========================= */
+	if (saveButton) {
+		saveButton.addEventListener("click", async () => {
+			const ok = confirm("업체별(동일배송지별)로 재배치 됩니다. 진행하시겠습니까? 진행하시려면 '순서저장' 버튼을 클릭 해 주세요.");
+			if (!ok) return;
+
+			const deliveryHandlerId = getDeliveryHandlerId();
+			const deliveryDate = getDeliveryDate();
+
+			if (!deliveryHandlerId) return alert("담당자 정보가 없습니다.");
+			if (!deliveryDate) return alert("날짜를 선택해주세요.");
+
+			const pendingItems = Array.from(pendingListEl.querySelectorAll(".draggable-item"));
+			const doneItems = Array.from(doneListEl.querySelectorAll(".draggable-item"));
+			const allItems = pendingItems.concat(doneItems);
+
+			const orderedIds = allItems.map((el, idx) => ({
+				orderId: Number(el.getAttribute("data-order-id")),
+				orderIndex: idx + 1
+			}));
+
+			const headers = { "Content-Type": "application/json" };
+			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
+
+			try {
+				const res = await fetch("/team/updateOrderIndex", {
+					method: "POST",
+					headers,
+					body: JSON.stringify({
+						deliveryHandlerId: Number(deliveryHandlerId),
+						deliveryDate: deliveryDate,
+						orderList: orderedIds
+					})
+				});
+
+				if (!res.ok) {
+					const message = await getErrorMessageFromResponse(res);
+					return alert("순서 저장 실패\n" + (message || ("HTTP " + res.status)));
+				}
+
 				alert("순서가 저장되었습니다.");
 				saveButton.disabled = true;
-			} else {
-				const text = await res.text().catch(() => "");
-				alert("순서 저장 실패\n" + (text || ("HTTP " + res.status)));
+
+			} catch (err) {
+				console.error(err);
+				alert("순서 저장 중 오류가 발생했습니다.");
 			}
-		} catch (err) {
-			console.error(err);
-			alert("순서 저장 중 오류가 발생했습니다.");
-		}
-	});
+		});
+	}
 
 	/* =========================
-	   엑셀출력: 현재 DOM 순서 그대로 서버에 보내서 다운로드
+	   엑셀출력
 	   ========================= */
-	excelBtn.addEventListener("click", async () => {
-		const deliveryHandlerId = getDeliveryHandlerId();
-		const deliveryDate = getDeliveryDate();
+	if (excelBtn) {
+		excelBtn.addEventListener("click", async () => {
+			const deliveryHandlerId = getDeliveryHandlerId();
+			const deliveryDate = getDeliveryDate();
 
-		if (!deliveryHandlerId) return alert("담당자 정보가 없습니다.");
-		if (!deliveryDate) return alert("날짜를 선택해주세요.");
+			if (!deliveryHandlerId) return alert("담당자 정보가 없습니다.");
+			if (!deliveryDate) return alert("날짜를 선택해주세요.");
 
-		const orderedOrderIds = getAllOrderIdsInDomOrder();
-		if (orderedOrderIds.length === 0) return alert("출력할 데이터가 없습니다.");
+			const orderedOrderIds = getAllOrderIdsInDomOrder();
+			if (orderedOrderIds.length === 0) return alert("출력할 데이터가 없습니다.");
 
-		const headers = { "Content-Type": "application/json" };
-		if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
+			const headers = { "Content-Type": "application/json" };
+			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
 
-		try {
-			const res = await fetch("/team/deliveryExcel", {
-				method: "POST",
-				headers,
-				body: JSON.stringify({
-					deliveryHandlerId: Number(deliveryHandlerId),
-					deliveryDate: deliveryDate,
-					orderedOrderIds: orderedOrderIds
-				})
-			});
+			try {
+				const res = await fetch("/team/deliveryExcel", {
+					method: "POST",
+					headers,
+					body: JSON.stringify({
+						deliveryHandlerId: Number(deliveryHandlerId),
+						deliveryDate: deliveryDate,
+						orderedOrderIds: orderedOrderIds
+					})
+				});
 
-			if (!res.ok) {
-				const text = await res.text().catch(() => "");
-				return alert("엑셀 출력 실패\n" + (text || ("HTTP " + res.status)));
+				if (!res.ok) {
+					const message = await getErrorMessageFromResponse(res);
+					return alert("엑셀 출력 실패\n" + (message || ("HTTP " + res.status)));
+				}
+
+				const blob = await res.blob();
+				const url = window.URL.createObjectURL(blob);
+
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = `배송리스트_${deliveryDate}.xlsx`;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+
+				window.URL.revokeObjectURL(url);
+
+			} catch (err) {
+				console.error(err);
+				alert("엑셀 출력 중 오류가 발생했습니다.");
 			}
-
-			const blob = await res.blob();
-			const url = window.URL.createObjectURL(blob);
-
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `배송리스트_${deliveryDate}.xlsx`;
-			document.body.appendChild(a);
-			a.click();
-			a.remove();
-
-			window.URL.revokeObjectURL(url);
-		} catch (err) {
-			console.error(err);
-			alert("엑셀 출력 중 오류가 발생했습니다.");
-		}
-	});
+		});
+	}
 
 	/* =========================
-	   ✅ 모달: 배송완료 / 배송상세
-	   - 배송완료(complete): 업로드 활성
-	   - 배송상세(detail): 업로드 비활성
-	   - 공통: 기존 배송 증빙 이미지 표시
+	   모달 상태 초기화
 	   ========================= */
-
-	let modalInstance = null;
-	let currentOrderId = null;
-	let currentMode = "detail"; // "complete" | "detail"
-
-	// 첨부 파일 상태
-	let selectedFiles = []; // File[]
-	let selectedObjectUrls = []; // for revoke
-
 	function resetModalUi() {
 		currentOrderId = null;
 		currentMode = "detail";
 
-		companyNameEl.textContent = "-";
-		requesterNameEl.textContent = "-";
-		companyContactEl.textContent = "-";
-		orderAddressEl.textContent = "-";
-		productTextEl.textContent = "-";
+		setElementText(companyNameEl, "-");
+		setElementText(requesterNameEl, "-");
+		setElementText(companyContactEl, "-");
+		setElementText(orderAddressEl, "-");
+		setElementText(productTextEl, "-");
+		setElementText(ordererPhoneEl, "-");
 
-		// existing images reset
-		existingWrapEl.style.display = "none";
-		existingListEl.innerHTML = "";
+		setElementDisplay(existingWrapEl, "none");
+		if (existingListEl) existingListEl.innerHTML = "";
 
-		// skeleton on
-		skeletonEl.style.display = "";
-		bodyEl.style.display = "none";
+		setElementDisplay(skeletonEl, "");
+		setElementDisplay(bodyEl, "none");
 
-		// upload area off
-		uploadWrapEl.style.display = "none";
-		btnSubmitEl.style.display = "none";
-		btnSubmitEl.disabled = true;
+		setElementDisplay(uploadWrapEl, "none");
 
-		// file reset
+		setElementDisplay(btnSubmitSingleEl, "none");
+		setElementDisplay(btnSubmitBulkEl, "none");
+
+		if (btnSubmitSingleEl) btnSubmitSingleEl.disabled = true;
+		if (btnSubmitBulkEl) btnSubmitBulkEl.disabled = true;
+
 		cleanupThumbs();
 		selectedFiles = [];
+
+		requiredImageCount = 0;
+		targetCount = 0;
+		targetOrderIds = [];
+		targetPreviewLoaded = false;
+		targetPreviewError = "";
+
+		setElementDisplay(targetInfoEl, "none");
+		setElementText(targetCountEl, "0");
+		setElementText(requiredImageCountEl, "0");
+		setElementText(targetHelpEl, "동일 업체 + 동일 주소 + 선택 주문과 같은 배송일 기준으로 계산됩니다.");
 	}
 
 	function cleanupThumbs() {
 		for (const u of selectedObjectUrls) {
-			try { URL.revokeObjectURL(u); } catch (e) { }
+			try {
+				URL.revokeObjectURL(u);
+			} catch (e) { }
 		}
+
 		selectedObjectUrls = [];
-		thumbListEl.innerHTML = "";
-		inputCamera.value = "";
-		inputGallery.value = "";
+
+		if (thumbListEl) thumbListEl.innerHTML = "";
+		if (inputCamera) inputCamera.value = "";
+		if (inputGallery) inputGallery.value = "";
+	}
+
+	function updateSubmitState() {
+		if (currentMode !== "complete") {
+			if (btnSubmitSingleEl) btnSubmitSingleEl.disabled = true;
+			if (btnSubmitBulkEl) btnSubmitBulkEl.disabled = true;
+			return;
+		}
+
+		const fileCount = selectedFiles.length;
+
+		// 단건 완료: 이미지 1장일 때만 가능
+		if (btnSubmitSingleEl) {
+			btnSubmitSingleEl.disabled = (fileCount !== 1);
+		}
+
+		// 일괄 완료: 대상 2건 이상 + 대상 건수와 이미지 수 일치 시 가능
+		if (btnSubmitBulkEl) {
+			btnSubmitBulkEl.disabled = !(
+				targetPreviewLoaded &&
+				targetCount > 1 &&
+				requiredImageCount > 1 &&
+				fileCount === requiredImageCount
+			);
+		}
+
+		if (!targetHelpEl) return;
+
+		if (targetPreviewError) {
+			targetHelpEl.textContent =
+				`동일주소 일괄완료 대상 조회 실패: ${targetPreviewError} / 단건 완료는 이미지 1장으로 가능합니다.`;
+			return;
+		}
+
+		if (!targetPreviewLoaded) {
+			targetHelpEl.textContent =
+				`동일주소 일괄완료 대상을 확인하는 중입니다. 현재 이미지 ${fileCount}장 첨부됨.`;
+			return;
+		}
+
+		if (targetCount <= 1) {
+			targetHelpEl.textContent =
+				`동일주소 일괄완료 대상은 ${targetCount}건입니다. 이미지 1장으로 이 주문만 완료할 수 있습니다.`;
+			return;
+		}
+
+		targetHelpEl.textContent =
+			`현재 이미지 ${fileCount}장 첨부됨 / 이 주문만 완료는 1장, 동일주소 일괄완료는 ${requiredImageCount}장 필요`;
 	}
 
 	function setMode(mode) {
 		currentMode = mode;
 
 		if (mode === "complete") {
-			modalTitleEl.textContent = "배송완료 처리";
-			uploadWrapEl.style.display = "";
-			btnSubmitEl.style.display = "";
-			btnSubmitEl.disabled = (selectedFiles.length === 0);
+			setElementText(modalTitleEl, "배송완료 처리");
+			setElementDisplay(uploadWrapEl, "");
+
+			setElementDisplay(btnSubmitSingleEl, "");
+			setElementDisplay(btnSubmitBulkEl, "");
+
+			if (btnSubmitSingleEl) btnSubmitSingleEl.disabled = true;
+			if (btnSubmitBulkEl) btnSubmitBulkEl.disabled = true;
+
+			setElementDisplay(targetInfoEl, "");
+			updateSubmitState();
+
 		} else {
-			modalTitleEl.textContent = "배송상세";
-			uploadWrapEl.style.display = "none";
-			btnSubmitEl.style.display = "none";
-			btnSubmitEl.disabled = true;
+			setElementText(modalTitleEl, "배송상세");
+			setElementDisplay(uploadWrapEl, "none");
+
+			setElementDisplay(btnSubmitSingleEl, "none");
+			setElementDisplay(btnSubmitBulkEl, "none");
+
+			if (btnSubmitSingleEl) btnSubmitSingleEl.disabled = true;
+			if (btnSubmitBulkEl) btnSubmitBulkEl.disabled = true;
 		}
 	}
 
+	/* =========================
+	   상세/preview 조회
+	   ========================= */
 	async function loadSummary(orderId) {
 		const headers = {};
 		if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
@@ -358,23 +475,45 @@
 		});
 
 		if (!res.ok) {
-			const text = await res.text().catch(() => "");
-			throw new Error(text || ("HTTP " + res.status));
+			const message = await getErrorMessageFromResponse(res);
+			throw new Error(message || ("HTTP " + res.status));
+		}
+
+		return await res.json();
+	}
+
+	async function loadSameAddressPreview(orderId) {
+		const headers = {};
+		if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
+
+		const res = await fetch(`/team/deliveryStatus/${orderId}/same-address/preview`, {
+			method: "GET",
+			headers
+		});
+
+		if (!res.ok) {
+			const message = await getErrorMessageFromResponse(res);
+			throw new Error(message || ("HTTP " + res.status));
 		}
 
 		return await res.json();
 	}
 
 	function renderExistingImages(imageUrls) {
-		const urls = Array.isArray(imageUrls) ? imageUrls.filter(u => typeof u === "string" && u.length > 0) : [];
+		const urls = Array.isArray(imageUrls)
+			? imageUrls.filter(u => typeof u === "string" && u.length > 0)
+			: [];
 
 		if (urls.length === 0) {
-			existingWrapEl.style.display = "none";
-			existingListEl.innerHTML = "";
+			setElementDisplay(existingWrapEl, "none");
+			if (existingListEl) existingListEl.innerHTML = "";
 			return;
 		}
 
+		if (!existingListEl) return;
+
 		existingListEl.innerHTML = "";
+
 		for (const url of urls) {
 			const item = document.createElement("div");
 			item.className = "delivery-list-added-existing-item";
@@ -393,31 +532,71 @@
 			existingListEl.appendChild(item);
 		}
 
-		existingWrapEl.style.display = "";
+		setElementDisplay(existingWrapEl, "");
 	}
 
 	function renderSummary(data) {
-		companyNameEl.textContent = data.companyName || "-";
-		requesterNameEl.textContent = data.requesterName || "-";
-		companyContactEl.textContent = data.companyContact || "-";
-		orderAddressEl.textContent = data.orderAddress || "-";
-		productTextEl.textContent = data.productText || "-";
+		setElementText(companyNameEl, data?.companyName || "-");
+		setElementText(requesterNameEl, data?.requesterName || "-");
+		setElementText(companyContactEl, data?.companyContact || "-");
+		setElementText(orderAddressEl, data?.orderAddress || "-");
+		setElementText(productTextEl, data?.productText || "-");
+		setElementText(ordererPhoneEl, data?.ordererPhone || "-");
 
-		// ✅ 완료처리에 사용된 이미지(배송 증빙 이미지) 표시
-		renderExistingImages(data.deliveryImageUrls);
+		renderExistingImages(data?.deliveryImageUrls);
 
-		skeletonEl.style.display = "none";
-		bodyEl.style.display = "";
+		setElementDisplay(skeletonEl, "none");
+		setElementDisplay(bodyEl, "");
+	}
+
+	function renderSameAddressPreview(data) {
+		targetPreviewLoaded = true;
+		targetPreviewError = "";
+
+		targetCount = Number(data?.targetCount || 0);
+		requiredImageCount = Number(data?.requiredImageCount || targetCount || 0);
+		targetOrderIds = Array.isArray(data?.targetOrderIds) ? data.targetOrderIds : [];
+
+		setElementDisplay(targetInfoEl, "");
+		setElementText(targetCountEl, String(targetCount));
+		setElementText(requiredImageCountEl, String(requiredImageCount));
+
+		const deliveryDateText = data?.deliveryDate ? ` / 기준 배송일: ${data.deliveryDate}` : "";
+
+		if (targetHelpEl) {
+			targetHelpEl.textContent =
+				`동일 업체 + 동일 주소 + 동일 배송일 기준입니다${deliveryDateText}. ` +
+				`현재 이미지 ${selectedFiles.length}장 첨부됨 / 일괄완료는 ${requiredImageCount}장 필요`;
+		}
+
+		updateSubmitState();
+	}
+
+	function markPreviewFailed(error) {
+		targetPreviewLoaded = false;
+		targetPreviewError = error?.message || "대상 조회 실패";
+
+		targetCount = 0;
+		requiredImageCount = 0;
+		targetOrderIds = [];
+
+		setElementDisplay(targetInfoEl, "");
+		setElementText(targetCountEl, "0");
+		setElementText(requiredImageCountEl, "0");
+
+		updateSubmitState();
 	}
 
 	function openModal(orderId, mode) {
 		resetModalUi();
+
 		currentOrderId = orderId;
 		setMode(mode);
 
 		if (!modalInstance) {
 			modalInstance = new bootstrap.Modal(modalEl, { backdrop: "static" });
 		}
+
 		modalInstance.show();
 
 		(async () => {
@@ -428,22 +607,33 @@
 				console.error(e);
 				alert("상세 정보를 불러오지 못했습니다.\n" + (e?.message || ""));
 				modalInstance.hide();
+				return;
+			}
+
+			if (mode === "complete") {
+				try {
+					const preview = await loadSameAddressPreview(orderId);
+					renderSameAddressPreview(preview);
+				} catch (e) {
+					console.error(e);
+					markPreviewFailed(e);
+				}
 			}
 		})();
 	}
 
 	/* =========================
-	   ✅ 카드 전체 클릭 -> 모달 오픈
-	   - 드래그 핸들/버튼 클릭은 제외
-	   - 상태가 PRODUCTION_DONE면 complete 모드, 그 외 detail 모드
+	   카드/버튼 클릭
 	   ========================= */
 	function shouldIgnoreCardClick(target) {
 		if (!target) return false;
+
 		return !!target.closest(
 			".delivery-list-added-drag-handle," +
 			".action-btn," +
 			".delivery-list-added-open-complete-modal," +
-			".delivery-list-added-open-detail-modal"
+			".delivery-list-added-open-detail-modal," +
+			".delivery-list-added-open-handler-modal"
 		);
 	}
 
@@ -453,79 +643,99 @@
 
 		if (!orderId) return;
 
-		if (status === "PRODUCTION_DONE") {
+		if (status === "PRODUCTION_DONE" || status === "DISPATCH_DONE") {
 			openModal(orderId, "complete");
 		} else {
 			openModal(orderId, "detail");
 		}
 	}
 
-	// pending/done 공통: 카드 클릭
 	[pendingListEl, doneListEl].forEach(listEl => {
+		if (!listEl) return;
+
 		listEl.addEventListener("click", (e) => {
 			if (shouldIgnoreCardClick(e.target)) return;
+
 			const card = e.target.closest(".delivery-list-added-card-clickable");
 			if (!card) return;
+
 			openByCard(card);
 		});
 	});
 
-	// 버튼 클릭(기존 로직 유지하되 상세보기는 없음)
 	document.addEventListener("click", (e) => {
 		const btn = e.target.closest(".delivery-list-added-open-complete-modal");
 		if (!btn) return;
+
 		const orderId = btn.getAttribute("data-order-id");
 		if (!orderId) return;
+
 		openModal(orderId, "complete");
 	});
 
 	document.addEventListener("click", (e) => {
 		const btn = e.target.closest(".delivery-list-added-open-detail-modal");
 		if (!btn) return;
+
 		const orderId = btn.getAttribute("data-order-id");
 		if (!orderId) return;
+
 		openModal(orderId, "detail");
 	});
 
-	// modal close cleanup
-	modalEl.addEventListener("hidden.bs.modal", () => {
-		resetModalUi();
-	});
+	if (modalEl) {
+		modalEl.addEventListener("hidden.bs.modal", () => {
+			resetModalUi();
+		});
+	}
 
 	/* =========================
-	   이미지 첨부: 카메라/갤러리
+	   이미지 첨부
 	   ========================= */
-	btnCamera.addEventListener("click", () => {
-		inputCamera.click();
-	});
+	if (btnCamera && inputCamera) {
+		btnCamera.addEventListener("click", () => {
+			inputCamera.click();
+		});
+	}
 
-	btnGallery.addEventListener("click", () => {
-		inputGallery.click();
-	});
+	if (btnGallery && inputGallery) {
+		btnGallery.addEventListener("click", () => {
+			inputGallery.click();
+		});
+	}
 
 	function addFiles(fileList) {
-		const files = Array.from(fileList || []).filter(f => f && f.type && f.type.startsWith("image/"));
+		const files = Array.from(fileList || [])
+			.filter(f => f && f.type && f.type.startsWith("image/"));
+
 		if (files.length === 0) return;
 
 		for (const f of files) {
 			selectedFiles.push(f);
 		}
+
 		renderThumbs();
-		btnSubmitEl.disabled = (selectedFiles.length === 0);
+		updateSubmitState();
 	}
 
-	inputCamera.addEventListener("change", (e) => {
-		addFiles(e.target.files);
-		inputCamera.value = "";
-	});
+	if (inputCamera) {
+		inputCamera.addEventListener("change", (e) => {
+			addFiles(e.target.files);
+			inputCamera.value = "";
+		});
+	}
 
-	inputGallery.addEventListener("change", (e) => {
-		addFiles(e.target.files);
-		inputGallery.value = "";
-	});
+	if (inputGallery) {
+		inputGallery.addEventListener("change", (e) => {
+			addFiles(e.target.files);
+			inputGallery.value = "";
+		});
+	}
 
 	function renderThumbs() {
 		cleanupThumbs();
+
+		if (!thumbListEl) return;
 
 		selectedFiles.forEach((file, idx) => {
 			const url = URL.createObjectURL(file);
@@ -545,7 +755,7 @@
 			rm.addEventListener("click", () => {
 				selectedFiles.splice(idx, 1);
 				renderThumbs();
-				btnSubmitEl.disabled = (selectedFiles.length === 0);
+				updateSubmitState();
 			});
 
 			item.appendChild(img);
@@ -555,52 +765,194 @@
 	}
 
 	/* =========================
-	   배송완료 제출: 기존 컨트롤러(/team/deliveryStatus/{orderId}) 사용
+	   배송완료 - 단건
 	   ========================= */
-	btnSubmitEl.addEventListener("click", async () => {
-		if (currentMode !== "complete") return;
-		if (!currentOrderId) return;
+	if (btnSubmitSingleEl) {
+		btnSubmitSingleEl.addEventListener("click", async () => {
+			if (currentMode !== "complete") return;
+			if (!currentOrderId) return;
 
-		if (selectedFiles.length === 0) {
-			alert("이미지를 1장 이상 첨부해주세요.");
+			if (selectedFiles.length !== 1) {
+				alert("이 주문만 완료하려면 이미지 1장이 필요합니다.");
+				return;
+			}
+
+			const ok = confirm("이 주문만 배송완료 처리하시겠습니까?");
+			if (!ok) return;
+
+			const headers = {};
+			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
+			headers["X-Requested-With"] = "fetch";
+
+			try {
+				const form = new FormData();
+				form.append("files", selectedFiles[0]);
+
+				const res = await fetch(`/team/deliveryStatus/${currentOrderId}?status=DELIVERY_DONE`, {
+					method: "POST",
+					headers,
+					body: form
+				});
+
+				if (!res.ok) {
+					const message = await getErrorMessageFromResponse(res);
+					return alert("배송완료 실패\n" + (message || ("HTTP " + res.status)));
+				}
+
+				alert("1건 배송완료 처리되었습니다.");
+				modalInstance.hide();
+				location.reload();
+
+			} catch (err) {
+				console.error(err);
+				alert("배송완료 처리 중 오류가 발생했습니다.");
+			}
+		});
+	}
+
+	/* =========================
+	   배송완료 - 동일주소 일괄
+	   ========================= */
+	if (btnSubmitBulkEl) {
+		btnSubmitBulkEl.addEventListener("click", async () => {
+			if (currentMode !== "complete") return;
+			if (!currentOrderId) return;
+
+			if (!targetPreviewLoaded) {
+				alert("동일주소 일괄완료 대상을 아직 확인하지 못했습니다.");
+				return;
+			}
+
+			if (targetCount <= 1) {
+				alert("일괄완료 대상이 없습니다. 이 주문만 배송완료를 사용해주세요.");
+				return;
+			}
+
+			if (selectedFiles.length !== requiredImageCount) {
+				alert(
+					`이미지 수가 맞지 않습니다.\n` +
+					`완료 대상 ${targetCount}건 / 이미지 ${requiredImageCount}장 필요\n` +
+					`현재 첨부 ${selectedFiles.length}장`
+				);
+				return;
+			}
+
+			const ok = confirm(
+				`동일 업체 + 동일 주소 + 동일 배송일 기준 ${targetCount}건을 일괄 배송완료 처리하시겠습니까?\n\n` +
+				`업로드 이미지 ${selectedFiles.length}장이 각 주문에 1장씩 순서대로 저장됩니다.`
+			);
+
+			if (!ok) return;
+
+			const headers = {};
+			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
+			headers["X-Requested-With"] = "fetch";
+
+			try {
+				const form = new FormData();
+
+				for (const f of selectedFiles) {
+					form.append("files", f);
+				}
+
+				const res = await fetch(`/team/deliveryStatus/${currentOrderId}/same-address?status=DELIVERY_DONE`, {
+					method: "POST",
+					headers,
+					body: form
+				});
+
+				if (!res.ok) {
+					const message = await getErrorMessageFromResponse(res);
+					return alert("일괄 배송완료 실패\n" + (message || ("HTTP " + res.status)));
+				}
+
+				let data = null;
+				try {
+					data = await res.json();
+				} catch (e) {
+					data = null;
+				}
+
+				if (data && typeof data.completedCount !== "undefined") {
+					alert(`${data.completedCount}건 배송완료 처리되었습니다.`);
+				} else {
+					alert("일괄 배송완료 처리되었습니다.");
+				}
+
+				modalInstance.hide();
+				location.reload();
+
+			} catch (err) {
+				console.error(err);
+				alert("일괄 배송완료 처리 중 오류가 발생했습니다.");
+			}
+		});
+	}
+
+	/* =========================
+	   담당자 변경
+	   ========================= */
+	let handlerModalInstance = null;
+
+	document.addEventListener("click", (e) => {
+		const btn = e.target.closest(".delivery-list-added-open-handler-modal");
+		if (!btn) return;
+
+		const orderId = btn.getAttribute("data-order-id");
+		if (!orderId) return;
+
+		if (!handlerModalEl || !handlerOrderIdEl || !handlerSelectEl) {
+			alert("담당자 변경 모달이 준비되지 않았습니다.");
 			return;
 		}
 
-		const ok = confirm("배송완료 처리 하시겠습니까? (이미지가 함께 업로드 됩니다)");
-		if (!ok) return;
+		handlerOrderIdEl.value = orderId;
+		handlerSelectEl.value = "";
 
-		const headers = {};
-		if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
-		headers["X-Requested-With"] = "fetch";
-
-		try {
-			const form = new FormData();
-			for (const f of selectedFiles) {
-				form.append("files", f);
-			}
-
-			const url = `/team/deliveryStatus/${currentOrderId}?status=DELIVERY_DONE`;
-
-			const res = await fetch(url, {
-				method: "POST",
-				headers,
-				body: form
-			});
-
-			if (!res.ok) {
-				const text = await res.text().catch(() => "");
-				return alert("배송완료 실패\n" + (text || ("HTTP " + res.status)));
-			}
-
-			try { await res.text().catch(() => ""); } catch (e) { }
-
-			alert("배송완료 처리되었습니다.");
-			modalInstance.hide();
-			location.reload();
-		} catch (err) {
-			console.error(err);
-			alert("배송완료 처리 중 오류가 발생했습니다.");
+		if (!handlerModalInstance) {
+			handlerModalInstance = new bootstrap.Modal(handlerModalEl, { backdrop: "static" });
 		}
+
+		handlerModalInstance.show();
 	});
+
+	if (handlerSubmitBtn) {
+		handlerSubmitBtn.addEventListener("click", async () => {
+			const orderId = handlerOrderIdEl?.value || "";
+			const newHandlerId = handlerSelectEl?.value || "";
+
+			if (!orderId) return alert("주문 정보가 없습니다.");
+			if (!newHandlerId) return alert("변경할 담당자를 선택해주세요.");
+
+			const ok = confirm("선택한 담당자로 변경하시겠습니까? 변경 후 현재 목록에서 사라질 수 있습니다.");
+			if (!ok) return;
+
+			const headers = { "Content-Type": "application/json" };
+			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
+
+			try {
+				const res = await fetch(`/team/deliveryHandler/${orderId}`, {
+					method: "POST",
+					headers,
+					body: JSON.stringify({
+						newHandlerId: Number(newHandlerId)
+					})
+				});
+
+				if (!res.ok) {
+					const message = await getErrorMessageFromResponse(res);
+					return alert("담당자 변경 실패\n" + (message || ("HTTP " + res.status)));
+				}
+
+				alert("담당자가 변경되었습니다.");
+				handlerModalInstance.hide();
+				location.reload();
+
+			} catch (err) {
+				console.error(err);
+				alert("담당자 변경 중 오류가 발생했습니다.");
+			}
+		});
+	}
 
 })();
