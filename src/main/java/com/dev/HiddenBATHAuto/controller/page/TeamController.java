@@ -709,10 +709,12 @@ public class TeamController {
 
 	    /*
 	     * 배송팀 리스트 허용 상태
-	     * - CONFIRMED: 상세확인만 가능
-	     * - PRODUCTION_DONE: 배송완료 가능
-	     * - DISPATCH_DONE: 배송완료 가능
-	     * - DELIVERY_DONE: 상세확인만 가능
+	     * - PRODUCTION_DONE / DISPATCH_DONE:
+	     *   직배송/현장배송이면 상단 "직배송 및 현장배송" 영역에서 순서변경/업체별정렬/배송완료/담당자변경 가능
+	     * - DELIVERY_DONE:
+	     *   직배송/현장배송이면 중간 "배송완료" 영역에서 상세확인만 가능
+	     * - CONFIRMED 또는 직배송/현장배송이 아닌 배송수단:
+	     *   하단 "기타" 영역에서 상세확인만 가능
 	     */
 	    List<OrderStatus> availableDeliveryStatuses = List.of(
 	            OrderStatus.CONFIRMED,
@@ -730,7 +732,12 @@ public class TeamController {
 	            ? List.of(selectedStatus)
 	            : availableDeliveryStatuses;
 
-	    // 핵심: deliveryOrderIndex에 남아있더라도 직배송이 아닌 건은 화면에서 한 번 더 제외합니다.
+	    /*
+	     * 과거 row나 관리자가 "동일 담당자 + 배송수단만 변경"한 row가 기존 index range에 남아 있을 수 있으므로
+	     * 조회 전에 한 번 정규화합니다.
+	     */
+	    deliveryOrderIndexService.normalizeIndexesForHandlerDate(member.getId(), preferredDate);
+
 	    List<DeliveryOrderIndex> all = deliveryOrderIndexService.getDirectDeliveryIndexes(
 	            member.getId(),
 	            preferredDate,
@@ -738,26 +745,34 @@ public class TeamController {
 	    );
 
 	    List<DeliveryOrderIndex> pendingOrders = all.stream()
-	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() != OrderStatus.DELIVERY_DONE)
+	            .filter(x -> x.getOrder() != null)
+	            .filter(x -> deliveryOrderIndexService.isActionablePendingDeliveryOrder(x.getOrder()))
 	            .collect(Collectors.toList());
 
 	    List<DeliveryOrderIndex> doneOrders = all.stream()
-	            .filter(x -> x.getOrder() != null && x.getOrder().getStatus() == OrderStatus.DELIVERY_DONE)
+	            .filter(x -> x.getOrder() != null)
+	            .filter(x -> deliveryOrderIndexService.isActionableDoneDeliveryOrder(x.getOrder()))
+	            .collect(Collectors.toList());
+
+	    List<DeliveryOrderIndex> otherOrders = all.stream()
+	            .filter(x -> x.getOrder() != null)
+	            .filter(x -> deliveryOrderIndexService.isOtherDeliveryListOrder(x.getOrder()))
 	            .collect(Collectors.toList());
 
 	    enrichOrderItems(pendingOrders);
 	    enrichOrderItems(doneOrders);
+	    enrichOrderItems(otherOrders);
 
 	    model.addAttribute("deliveryHandlerId", member.getId());
 	    model.addAttribute("preferredDate", preferredDate);
 
 	    model.addAttribute("pendingOrders", pendingOrders);
 	    model.addAttribute("doneOrders", doneOrders);
+	    model.addAttribute("otherOrders", otherOrders);
 
 	    model.addAttribute("status", selectedStatus);
 	    model.addAttribute("availableStatuses", availableDeliveryStatuses);
 
-	    // 담당자변경 모달 select용
 	    model.addAttribute("deliveryTeamMembers", deliveryOrderIndexService.getActiveDeliveryTeamMembers());
 
 	    return "administration/team/delivery/deliveryList";
@@ -879,20 +894,22 @@ public class TeamController {
 	            throw new IllegalStateException("배송팀은 배송완료 처리만 할 수 있습니다.");
 	        }
 
-	        // 핵심: 생산완료/출고완료 + 직배송 + 현재 로그인 배송담당자 건만 허용
+	        // 직배송/현장배송 + 생산완료/출고완료 + 현재 로그인 배송담당자 건만 허용
 	        Order order = deliveryOrderIndexService.getSingleCompletableOrder(member, orderId);
 
 	        List<MultipartFile> validFiles = filterValidImageFiles(files);
 
-	        if (validFiles.size() != 1) {
-	            throw new IllegalStateException("배송완료 이미지가 1장 필요합니다. 현재 업로드 이미지 수: " + validFiles.size());
+	        if (validFiles.isEmpty()) {
+	            throw new IllegalStateException("배송완료 이미지는 1장 이상 필요합니다.");
 	        }
 
 	        orderService.updateDeliveryStatusAndImages(
 	                order.getId(),
 	                OrderStatus.DELIVERY_DONE.name(),
-	                List.of(validFiles.get(0))
+	                validFiles
 	        );
+
+	        deliveryOrderIndexService.reclassifyIndex(order.getId());
 
 	        if (fetchRequest) {
 	            Map<String, Object> body = new HashMap<>();
@@ -959,25 +976,20 @@ public class TeamController {
 
 	        List<MultipartFile> validFiles = filterValidImageFiles(files);
 
-	        if (validFiles.size() != targetOrders.size()) {
-	            throw new IllegalStateException(
-	                    "배송완료 대상 건수와 이미지 수가 일치해야 합니다. "
-	                            + "대상 건수: " + targetOrders.size()
-	                            + "건, 업로드 이미지 수: " + validFiles.size() + "장"
-	            );
+	        if (validFiles.isEmpty()) {
+	            throw new IllegalStateException("동일주소 배송완료 이미지는 1장 이상 필요합니다.");
 	        }
 
 	        List<Long> completedOrderIds = new ArrayList<>();
 
-	        for (int i = 0; i < targetOrders.size(); i++) {
-	            Order targetOrder = targetOrders.get(i);
-	            MultipartFile imageFile = validFiles.get(i);
-
+	        for (Order targetOrder : targetOrders) {
 	            orderService.updateDeliveryStatusAndImages(
 	                    targetOrder.getId(),
 	                    OrderStatus.DELIVERY_DONE.name(),
-	                    List.of(imageFile)
+	                    validFiles
 	            );
+
+	            deliveryOrderIndexService.reclassifyIndex(targetOrder.getId());
 
 	            completedOrderIds.add(targetOrder.getId());
 	        }
@@ -1050,9 +1062,9 @@ public class TeamController {
 	        body.put("success", true);
 	        body.put("targetOrderIds", targetOrderIds);
 	        body.put("targetCount", targetOrderIds.size());
-	        body.put("requiredImageCount", targetOrderIds.size());
+	        body.put("requiredImageCount", targetOrderIds.isEmpty() ? 0 : 1);
 	        body.put("deliveryDate", sourceDeliveryDateText);
-	        body.put("message", "완료 대상 " + targetOrderIds.size() + "건 / 이미지 " + targetOrderIds.size() + "장 필요");
+	        body.put("message", "완료 대상 " + targetOrderIds.size() + "건 / 이미지 1장 이상 필요");
 
 	        return ResponseEntity.ok(body);
 
@@ -1227,11 +1239,10 @@ public class TeamController {
 	    }
 
 	    boolean canCompleteDelivery =
-	            order.getStatus() == OrderStatus.PRODUCTION_DONE
-	                    || order.getStatus() == OrderStatus.DISPATCH_DONE;
+	            deliveryOrderIndexService.isCompletableByDeliveryTeam(order);
 
 	    boolean canChangeDeliveryHandler =
-	            order.getStatus() != OrderStatus.DELIVERY_DONE;
+	            deliveryOrderIndexService.isActionablePendingDeliveryOrder(order);
 
 	    model.addAttribute("order", order);
 	    model.addAttribute("orderItem", orderItem);

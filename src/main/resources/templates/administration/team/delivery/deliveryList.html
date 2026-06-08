@@ -66,6 +66,16 @@
 
 					<div class="row">
 						<div class="col-lg-12">
+							<div class="delivery-list-added-section-nav position-fixed start-0 top-50 translate-middle-y d-flex flex-column gap-2"
+								style="z-index:1040; margin-left:8px;">
+								<button type="button" class="btn btn-sm btn-warning delivery-list-added-scroll-btn"
+									data-scroll-target="#delivery-section-actionable" title="직배송 및 현장배송">직/현</button>
+								<button type="button" class="btn btn-sm btn-success delivery-list-added-scroll-btn"
+									data-scroll-target="#delivery-section-done" title="배송완료">완료</button>
+								<button type="button" class="btn btn-sm btn-secondary delivery-list-added-scroll-btn"
+									data-scroll-target="#delivery-section-other" title="기타">기타</button>
+							</div>
+
 							<div class="card">
 								<div class="card-header d-flex align-items-center justify-content-between">
 									<div class="d-flex align-items-center gap-2 flex-wrap">
@@ -83,34 +93,39 @@
 										</button>
 
 										<small class="text-muted">
-											※ 미완료(승인/생산완료/출고완료)만 순서 변경 가능하며, 배송완료는 하단 고정입니다.
+											※ 순서 변경, 업체별정렬, 배송완료, 담당자변경은 <b>직배송/현장배송 + 생산완료/출고완료</b> 건만 가능합니다.
 											<br>
-											※ 배송완료 처리는 <b>생산완료/출고완료</b> 상태에서 가능합니다.
+											※ 배송완료 건과 기타 배송수단(택배/화물/방문 등)은 상세확인만 가능하며 실제 처리는 출고팀 기준으로 진행됩니다.
 											<br>
 											※ 모바일은 <b>핸들(≡)</b>로만 순서 변경됩니다.
 										</small>
 									</div>
 
 									<div class="m-d-n">
-										<span class="badge bg-warning-subtle text-warning me-1">미완료</span>
-										<span class="badge bg-success-subtle text-success">배송완료</span>
+										<span class="badge bg-warning-subtle text-warning me-1">직배송 및 현장배송</span>
+										<span class="badge bg-success-subtle text-success me-1">배송완료</span>
+										<span class="badge bg-secondary-subtle text-secondary">기타</span>
 									</div>
 								</div>
 
 								<div class="card-body">
 
-									<!-- 미완료 섹션 -->
-									<div class="mb-3">
-										<h5 class="mb-2">미완료</h5>
+									<!-- 직배송 및 현장배송 섹션: 조작 가능 -->
+									<div class="mb-3" id="delivery-section-actionable">
+										<h5 class="mb-2">직배송 및 현장배송</h5>
 
 										<div id="pendingList" class="list-group col nested-list nested-sortable">
-											<div class="list-group-item nested-1 draggable-item delivery-card delivery-list-added-card delivery-list-added-card-clickable"
-												th:each="wrap : ${pendingOrders}" th:with="o=${wrap.order}" th:attr="
+											<div class="list-group-item nested-1 draggable-item delivery-card delivery-list-added-card delivery-list-added-card-clickable border border-warning"
+												th:each="wrap : ${pendingOrders}"
+												th:with="o=${wrap.order},
+												         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
+												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
+												th:attr="
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
-                                                    data-order-status=${o.status != null ? o.status.name() : ''}
-                                                "
-												th:classappend="${o.status != null and (o.status.name() == 'PRODUCTION_DONE' or o.status.name() == 'DISPATCH_DONE')} ? ' border border-warning' : ' border border-secondary'">
+                                                    data-order-status=${o.status != null ? o.status.name() : ''},
+                                                    data-delivery-section='actionable'
+                                                ">
 
 												<div class="item-content delivery-list-added-item-content">
 
@@ -126,32 +141,26 @@
 																th:text="${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null ? o.task.requestedBy.company.companyName : '-'}"></span>
 
 															<span class="badge"
-																th:classappend="${o.status != null and o.status.name() == 'CONFIRMED'} ? ' bg-secondary' :
-                                                                               (${o.status != null and o.status.name() == 'PRODUCTION_DONE'} ? ' bg-info' :
-                                                                               (${o.status != null and o.status.name() == 'DISPATCH_DONE'} ? ' bg-warning' : ' bg-light text-dark'))"
+																th:classappend="${o.status != null and o.status.name() == 'PRODUCTION_DONE'} ? ' bg-info' :
+                                                                               (${o.status != null and o.status.name() == 'DISPATCH_DONE'} ? ' bg-warning' : ' bg-light text-dark')"
 																th:text="${o.status != null ? o.status.label : '-'}">
 															</span>
 
-															<small class="text-muted"
-																th:if="${o.status != null and o.status.name() == 'CONFIRMED'}">
-																(승인완료: 상세확인만 가능 / 배송완료 처리 불가)
-															</small>
+															<span class="badge bg-primary-subtle text-primary"
+																th:text="${!#strings.isEmpty(methodName) ? methodName : '배송수단 미지정'}"></span>
 
-															<small class="text-muted"
-																th:if="${o.status != null and o.status.name() == 'PRODUCTION_DONE'}">
-																(생산완료: 배송완료 처리 가능)
-															</small>
-
-															<small class="text-muted"
-																th:if="${o.status != null and o.status.name() == 'DISPATCH_DONE'}">
-																(출고완료: 배송완료 처리 가능)
+															<small class="text-warning">
+																(순서변경 / 업체별정렬 / 배송완료 / 담당자변경 가능)
 															</small>
 														</div>
 
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
 															<span
-																th:text="${(o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : '')}"></span>
+																th:text="${useSiteAddress
+																	? ((o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+																	: ((o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+															</span>
 														</div>
 
 														<div class="delivery-list-added-line">
@@ -173,20 +182,10 @@
 													<div class="action-btn-group delivery-list-added-action">
 														<button type="button"
 															class="action-btn btn-complete delivery-list-added-open-complete-modal"
-															th:if="${o.status != null and (o.status.name() == 'PRODUCTION_DONE' or o.status.name() == 'DISPATCH_DONE')}"
 															th:attr="data-order-id=${o.id}">
 															<span class="delivery-list-added-btn-text">배송완료</span>
 															<span class="delivery-list-added-btn-icon"
 																aria-hidden="true">✓</span>
-														</button>
-
-														<button type="button"
-															class="action-btn delivery-list-added-open-detail-modal"
-															th:if="${o.status == null or (o.status.name() != 'PRODUCTION_DONE' and o.status.name() != 'DISPATCH_DONE')}"
-															th:attr="data-order-id=${o.id}">
-															<span class="delivery-list-added-btn-text">배송상세</span>
-															<span class="delivery-list-added-btn-icon"
-																aria-hidden="true">상세</span>
 														</button>
 
 														<button type="button"
@@ -203,16 +202,21 @@
 										</div>
 									</div>
 
-									<!-- 배송완료 섹션 -->
-									<div class="mt-4">
+									<!-- 배송완료 섹션: 상세만 가능 -->
+									<div class="mt-4" id="delivery-section-done">
 										<h5 class="mb-2">배송완료</h5>
 
 										<div id="doneList" class="list-group col nested-list">
 											<div class="list-group-item nested-1 draggable-item delivery-card is-done border border-success delivery-list-added-card delivery-list-added-card-clickable"
-												th:each="wrap : ${doneOrders}" th:with="o=${wrap.order}" th:attr="
+												th:each="wrap : ${doneOrders}"
+												th:with="o=${wrap.order},
+												         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
+												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
+												th:attr="
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
-                                                    data-order-status=${o.status != null ? o.status.name() : ''}
+                                                    data-order-status=${o.status != null ? o.status.name() : ''},
+                                                    data-delivery-section='done'
                                                 ">
 
 												<div class="item-content delivery-list-added-item-content">
@@ -232,6 +236,9 @@
 															<span class="badge bg-success"
 																th:text="${o.status != null ? o.status.label : '-'}"></span>
 
+															<span class="badge bg-primary-subtle text-primary"
+																th:text="${!#strings.isEmpty(methodName) ? methodName : '배송수단 미지정'}"></span>
+
 															<small class="text-success">
 																(배송완료: 상세확인만 가능 / 순서변경 불가 / 상태변경 불가)
 															</small>
@@ -240,7 +247,92 @@
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
 															<span
-																th:text="${(o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : '')}"></span>
+																th:text="${useSiteAddress
+																	? ((o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+																	: ((o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+															</span>
+														</div>
+
+														<div class="delivery-list-added-line">
+															<strong>주문자 연락처:</strong>
+															<span
+																th:text="${!#strings.isEmpty(o.ordererPhone) ? o.ordererPhone : '-'}"></span>
+														</div>
+
+														<div class="ellipsis delivery-list-added-line">
+															<strong>제품 상세:</strong>
+															<span
+																th:text="${o.orderItem != null and !#strings.isEmpty(o.orderItem.formattedOptionText)
+                                                                ? o.orderItem.formattedOptionText
+                                                                : (o.orderItem != null and !#strings.isEmpty(o.orderItem.productName) ? o.orderItem.productName : '-')}">
+															</span>
+														</div>
+													</div>
+
+													<div class="action-btn-group delivery-list-added-action">
+														<button type="button"
+															class="action-btn delivery-list-added-open-detail-modal"
+															th:attr="data-order-id=${o.id}">
+															<span class="delivery-list-added-btn-text">배송상세</span>
+															<span class="delivery-list-added-btn-icon"
+																aria-hidden="true">상세</span>
+														</button>
+													</div>
+
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- 기타 섹션: 상세만 가능 -->
+									<div class="mt-4" id="delivery-section-other">
+										<h5 class="mb-2">기타</h5>
+
+										<div id="otherList" class="list-group col nested-list">
+											<div class="list-group-item nested-1 draggable-item delivery-card is-other border border-secondary delivery-list-added-card delivery-list-added-card-clickable"
+												th:each="wrap : ${otherOrders}"
+												th:with="o=${wrap.order},
+												         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
+												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
+												th:attr="
+                                                    data-order-id=${o.id},
+                                                    data-task-id=${o.task != null ? o.task.id : 0},
+                                                    data-order-status=${o.status != null ? o.status.name() : ''},
+                                                    data-delivery-section='other'
+                                                ">
+
+												<div class="item-content delivery-list-added-item-content">
+
+													<button type="button"
+														class="delivery-list-added-drag-handle delivery-list-added-drag-handle-disabled"
+														aria-label="순서 변경 불가" tabindex="-1">
+														≡
+													</button>
+
+													<div class="text-section">
+														<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+															<strong>업체명:</strong>
+															<span
+																th:text="${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null ? o.task.requestedBy.company.companyName : '-'}"></span>
+
+															<span class="badge bg-secondary"
+																th:text="${o.status != null ? o.status.label : '-'}"></span>
+
+															<span class="badge bg-dark-subtle text-dark"
+																th:text="${!#strings.isEmpty(methodName) ? methodName : '배송수단 미지정'}"></span>
+
+															<small class="text-muted">
+																(기타: 상세확인만 가능 / 순서변경·상태변경·담당자변경 불가)
+															</small>
+														</div>
+
+														<div class="delivery-list-added-line">
+															<strong>주소:</strong>
+															<span
+																th:text="${useSiteAddress
+																	? ((o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+																	: ((o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+															</span>
 														</div>
 
 														<div class="delivery-list-added-line">
@@ -358,12 +450,12 @@
 							<div class="alert alert-info py-2 mb-3" id="delivery-list-added-target-info"
 								style="display:none;">
 								<div>
-									이 주문만 완료: 이미지 <b>1</b>장 필요
+									이 주문만 완료: 이미지 <b>1</b>장 이상 필요
 								</div>
 								<div>
 									동일주소 일괄완료:
 									완료 대상 <b id="delivery-list-added-target-count">0</b>건 /
-									이미지 <b id="delivery-list-added-required-image-count">0</b>장 필요
+									이미지 <b id="delivery-list-added-required-image-count">0</b>장 이상 필요
 								</div>
 								<div class="small mt-1" id="delivery-list-added-target-help">
 									동일 업체 + 동일 주소 + 선택 주문과 같은 배송일 기준으로 계산됩니다.
@@ -390,7 +482,7 @@
 
 							<div class="delivery-list-added-thumb-list" id="delivery-list-added-thumb-list"></div>
 							<div class="text-muted small mt-2">
-								※ 생산완료 또는 출고완료 상태의 주문만 배송완료 처리할 수 있습니다.
+								※ 직배송/현장배송의 생산완료 또는 출고완료 상태만 배송완료 처리할 수 있습니다.
 							</div>
 						</div>
 
