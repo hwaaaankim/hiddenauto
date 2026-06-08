@@ -1,7 +1,6 @@
 package com.dev.HiddenBATHAuto.dto.task;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,9 +15,9 @@ import lombok.Setter;
 
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class NonStandardTaskListOrderRowDto {
 
     private Long orderId;
@@ -36,8 +35,6 @@ public class NonStandardTaskListOrderRowDto {
 
     private Long productCategoryId;
     private String productCategoryName;
-    
-    private String dispatchCompleteMessage;
 
     private String productName;
     private int quantity;
@@ -48,9 +45,7 @@ public class NonStandardTaskListOrderRowDto {
     private int packingCost;
     private int deliveryCost;
     private String productSummary;
-
-    @Builder.Default
-    private Map<String, String> optionMap = new LinkedHashMap<>();
+    private Map<String, String> optionMap;
 
     private String zipCode;
     private String doName;
@@ -60,12 +55,22 @@ public class NonStandardTaskListOrderRowDto {
     private String detailAddress;
     private String fullAddress;
 
+    private String siteZipCode;
+    private String siteDoName;
+    private String siteSiName;
+    private String siteGuName;
+    private String siteRoadAddress;
+    private String siteDetailAddress;
+    private String siteFullAddress;
+    private boolean siteDelivery;
+
     private String ordererName;
     private String ordererPhone;
     private String ordererSummary;
 
     private String orderComment;
     private String adminMemo;
+    private String dispatchCompleteMessage;
     private String noteSummary;
 
     private LocalDateTime createdAt;
@@ -81,31 +86,11 @@ public class NonStandardTaskListOrderRowDto {
     private String statusName;
     private String statusLabel;
 
-    /*
-     * 생산팀 확인 상태 관련
-     *
-     * checked:
-     * - 기존 호환용 필드입니다.
-     * - true이면 현재 최신 상태가 CHECKED, 즉 생산팀이 확인완료한 상태입니다.
-     * - 재수정 표시용으로 사용하면 안 됩니다.
-     *
-     * revisedAfterCheck:
-     * - 생산팀이 한번 CHECKED 처리한 뒤,
-     *   관리자가 생산팀이 봐야 하는 항목을 다시 수정한 상태입니다.
-     * - 목록에서 강조 표시해야 하는 기준은 이 필드입니다.
-     *
-     * needProductionCheck:
-     * - 생산팀이 확인해야 하는 상태입니다.
-     * - UNCHECKED 또는 REVISED_AFTER_CHECK이면 true입니다.
-     */
     private boolean checked;
-    private boolean revisedAfterCheck;
     private boolean latestChecked;
+    private boolean revisedAfterCheck;
     private boolean needProductionCheck;
-
-    @Builder.Default
-    private OrderCheckState checkState = OrderCheckState.UNCHECKED;
-
+    private OrderCheckState checkState;
     private String checkStateName;
     private String checkStateLabel;
 
@@ -117,6 +102,5 @@ public class NonStandardTaskListOrderRowDto {
     private String revisionReason;
     private int revisionCount;
 
-    @Builder.Default
-    private List<NonStandardTaskListOrderImageDto> adminImages = List.of();
+    private List<NonStandardTaskListOrderImageDto> adminImages;
 }

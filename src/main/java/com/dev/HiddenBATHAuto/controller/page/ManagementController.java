@@ -142,7 +142,7 @@ public class ManagementController {
 	private final MemberRepository memberRepository;
 	private final DeliveryMethodRepository deliveryMethodRepository;
 	private final TeamCategoryRepository teamCategoryRepository;
-	
+
 	private final TeamRepository teamRepository;
 	private final CompanyRepository companyRepository;
 	private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
@@ -160,385 +160,362 @@ public class ManagementController {
 	// ✅ 추가 서비스
 	private final MemberAdminService memberAdminService;
 	private final AdminClientDetailService adminClientDetailService;
-	
+
 	private final NonStandardTaskListViewService nonStandardTaskListViewService;
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
 	/*
 	 * ManagementController 안에서 기존 nonStandardTaskList 메서드를 아래 메서드로 교체하고,
-	 * nonStandardTaskListOrderDetailFragment, buildOrderListCompanyOptions 메서드를 같은 클래스 안에 추가해 주세요.
-	 * 기존 nonStandardTaskListBulkFragment 메서드는 그대로 사용해도 됩니다.
+	 * nonStandardTaskListOrderDetailFragment, buildOrderListCompanyOptions 메서드를 같은
+	 * 클래스 안에 추가해 주세요. 기존 nonStandardTaskListBulkFragment 메서드는 그대로 사용해도 됩니다.
 	 */
 
+	/*
+	 * ========================================================= nonStandardTaskList
+	 * - 목록은 가볍게 조회 - 넓게보기는 오더 1건 기준 AJAX fragment 로딩 - 대리점 변경 시 company-options
+	 * AJAX로 새 회사의 신청자/배송지/주문자 정보 로딩
+	 * =========================================================
+	 */
+
+	public record NonStandardTaskListCompanyOptionsResponse(boolean success,
+			NonStandardTaskListCompanyOptionDto company, List<NonStandardTaskListCompanyMemberOptionDto> members,
+			List<NonStandardTaskListCompanyDeliveryAddressOptionDto> deliveryAddresses,
+			List<NonStandardTaskListCompanyOrdererInfoOptionDto> orderers) {
+	}
+
 	@GetMapping("/nonStandardTaskList")
-	public String nonStandardTaskList(
-	        @RequestParam(required = false, defaultValue = "") String keyword,
-	        @RequestParam(required = false, defaultValue = "all") String dateCriteria,
-	        @RequestParam(required = false) String startDate,
-	        @RequestParam(required = false) String endDate,
-	        @RequestParam(required = false, defaultValue = "all") String productCategoryId,
-	        @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
-	        @RequestParam(required = false, defaultValue = "all") String standard,
-	        @RequestParam(required = false, defaultValue = "orderDate") String sortField,
-	        @RequestParam(required = false, defaultValue = "desc") String sortDir,
-	        @PageableDefault(size = 10) Pageable pageable,
-	        HttpServletRequest request,
-	        Model model
-	) {
-	    String finalDateCriteria = normalizeDateCriteria(dateCriteria);
+	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
+			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
+			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
+			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+			@RequestParam(required = false, defaultValue = "all") String standard,
+			@RequestParam(required = false, defaultValue = "orderDate") String sortField,
+			@RequestParam(required = false, defaultValue = "desc") String sortDir,
+			@PageableDefault(size = 10) Pageable pageable, HttpServletRequest request, Model model) {
+		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
-	    DateRange range = buildDateRangeForCriteria(
-	            finalDateCriteria,
-	            startDate,
-	            endDate
-	    );
+		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
-	    Boolean standardBool = parseStandardOrNull(standard);
-	    Long categoryId = parseLongOrNullAllowAll(productCategoryId);
-	    OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
-	    String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+		Boolean standardBool = parseStandardOrNull(standard);
+		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-	    String sortProperty = mapSortFieldToProperty(sortField);
+		String sortProperty = mapSortFieldToProperty(sortField);
 
-	    String safeSortDir = (sortDir == null) ? "desc" : sortDir.trim();
-	    Sort.Direction direction = "asc".equalsIgnoreCase(safeSortDir)
-	            ? Sort.Direction.ASC
-	            : Sort.Direction.DESC;
+		String safeSortDir = (sortDir == null) ? "desc" : sortDir.trim();
+		Sort.Direction direction = "asc".equalsIgnoreCase(safeSortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
-	    if (sortProperty == null || sortProperty.isBlank()) {
-	        sortProperty = "createdAt";
-	        direction = Sort.Direction.DESC;
-	        safeSortDir = "desc";
-	        sortField = "orderDate";
-	    }
+		if (sortProperty == null || sortProperty.isBlank()) {
+			sortProperty = "createdAt";
+			direction = Sort.Direction.DESC;
+			safeSortDir = "desc";
+			sortField = "orderDate";
+		}
 
-	    Pageable sortedPageable = PageRequest.of(
-	            pageable.getPageNumber(),
-	            pageable.getPageSize(),
-	            Sort.by(direction, sortProperty)
-	    );
+		Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+				Sort.by(direction, sortProperty));
 
-	    Page<Order> orders = orderRepository.findFilteredOrders(
-	            finalKeyword,
-	            finalDateCriteria,
-	            range.getStart(),
-	            range.getEnd(),
-	            categoryId,
-	            statusEnum,
-	            standardBool,
-	            sortedPageable
-	    );
+		Page<Order> orders = orderRepository.findFilteredOrders(finalKeyword, finalDateCriteria, range.getStart(),
+				range.getEnd(), categoryId, statusEnum, standardBool, sortedPageable);
 
-	    /*
-	     * 속도 개선 핵심:
-	     * 목록에서는 화면에 즉시 보이는 행 정보만 DTO로 변환합니다.
-	     * 관리자 이미지, 회사 전체목록, 회원 전체목록, 주소록, 주문자 정보는 넓게보기 AJAX에서 개별 오더 단위로 가져옵니다.
-	     */
-	    Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(nonStandardTaskListViewService::toRow);
+		/*
+		 * 속도 개선: 목록에서는 화면에 바로 보이는 데이터만 DTO로 변환합니다. 상세 수정용 회사/회원/주소/주문자 데이터는 넓게보기 AJAX에서
+		 * 오더 단위로 가져옵니다.
+		 */
+		Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(nonStandardTaskListViewService::toRow);
 
-	    int currentPage1 = orders.getPageable().getPageNumber() + 1;
-	    int startPageNum = Math.max(1, currentPage1 - 4);
-	    int endPageNum = Math.min(orders.getTotalPages(), currentPage1 + 4);
+		int currentPage1 = orders.getPageable().getPageNumber() + 1;
+		int startPageNum = Math.max(1, currentPage1 - 4);
+		int endPageNum = Math.min(orders.getTotalPages(), currentPage1 + 4);
 
-	    model.addAttribute("orders", orders);
-	    model.addAttribute("orderRows", orderRows);
+		model.addAttribute("orders", orders);
+		model.addAttribute("orderRows", orderRows);
 
-	    model.addAttribute("bulkOrderRows", List.of());
-	    model.addAttribute("bulkOrderCount", orders.getTotalElements());
+		/*
+		 * 일괄보기는 최초 페이지 로딩 때 전체 카드를 만들지 않습니다. 버튼 클릭 시 /nonStandardTaskList/bulk-fragment
+		 * 에서 별도 로딩합니다.
+		 */
+		model.addAttribute("bulkOrderRows", List.of());
+		model.addAttribute("bulkOrderCount", orders.getTotalElements());
 
-	    model.addAttribute("startPage", startPageNum);
-	    model.addAttribute("endPage", endPageNum);
+		model.addAttribute("startPage", startPageNum);
+		model.addAttribute("endPage", endPageNum);
 
-	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
-	    model.addAttribute("orderStatuses", OrderStatus.values());
+		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		model.addAttribute("orderStatuses", OrderStatus.values());
 
-	    /*
-	     * 기존 템플릿/스크립트와의 안전 호환용입니다.
-	     * 실제 상세 수정용 데이터는 /nonStandardTaskList/order-detail-fragment/{orderId} 에서 내려줍니다.
-	     */
-	    model.addAttribute("deliveryMethods", List.of());
-	    model.addAttribute("deliveryTeamMembers", List.of());
-	    model.addAttribute("companyOptions", List.of());
-	    model.addAttribute("companyMemberOptions", List.of());
-	    model.addAttribute("companyDeliveryAddressOptions", List.of());
-	    model.addAttribute("companyOrdererInfoOptions", List.of());
+		/*
+		 * 기존 템플릿 안전 호환용 빈 값입니다. 실제 상세 수정 데이터는 order-detail-fragment에서 내려갑니다.
+		 */
+		model.addAttribute("deliveryMethods", List.of());
+		model.addAttribute("deliveryTeamMembers", List.of());
+		model.addAttribute("companyOptions", List.of());
+		model.addAttribute("companyMemberOptions", List.of());
+		model.addAttribute("companyDeliveryAddressOptions", List.of());
+		model.addAttribute("companyOrdererInfoOptions", List.of());
 
-	    model.addAttribute("keyword", (keyword == null) ? "" : keyword);
-	    model.addAttribute("dateCriteria", finalDateCriteria);
+		model.addAttribute("keyword", (keyword == null) ? "" : keyword);
+		model.addAttribute("dateCriteria", finalDateCriteria);
 
-	    model.addAttribute("startDate", range.getStartDateStr());
-	    model.addAttribute("endDate", range.getEndDateStr());
-	    model.addAttribute("startDateStr", range.getStartDateStr());
-	    model.addAttribute("endDateStr", range.getEndDateStr());
+		model.addAttribute("startDate", range.getStartDateStr());
+		model.addAttribute("endDate", range.getEndDateStr());
+		model.addAttribute("startDateStr", range.getStartDateStr());
+		model.addAttribute("endDateStr", range.getEndDateStr());
 
-	    model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
-	    model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
-	    model.addAttribute("standard", (standard == null) ? "all" : standard);
+		model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
+		model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
+		model.addAttribute("standard", (standard == null) ? "all" : standard);
 
-	    model.addAttribute("sortField", sortField);
-	    model.addAttribute("sortDir", "asc".equalsIgnoreCase(safeSortDir) ? "asc" : "desc");
-	    model.addAttribute("currentListUrl", buildCurrentRequestUrl(request));
-	    model.addAttribute("pageSize", orders.getSize());
+		model.addAttribute("sortField", sortField);
+		model.addAttribute("sortDir", "asc".equalsIgnoreCase(safeSortDir) ? "asc" : "desc");
+		model.addAttribute("currentListUrl", buildCurrentRequestUrl(request));
+		model.addAttribute("pageSize", orders.getSize());
 
-	    return "administration/management/order/nonStandard/taskList";
+		return "administration/management/order/nonStandard/taskList";
 	}
 
 	@GetMapping("/nonStandardTaskList/order-detail-fragment/{orderId}")
-	public String nonStandardTaskListOrderDetailFragment(
-	        @PathVariable Long orderId,
-	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
-	        Model model
-	) {
-	    Order order = orderRepository.findById(orderId)
-	            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 오더입니다. orderId=" + orderId));
+	public String nonStandardTaskListOrderDetailFragment(@PathVariable Long orderId,
+			@RequestParam(value = "returnUrl", required = false) String returnUrl, Model model) {
+		Order order = orderRepository.findById(orderId)
+				.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 오더입니다. orderId=" + orderId));
 
-	    Map<Long, List<NonStandardTaskListOrderImageDto>> adminImageMap = orderImageRepository
-	            .findByOrder_IdInAndTypeIgnoreCase(List.of(orderId), "MANAGEMENT")
-	            .stream()
-	            .collect(Collectors.groupingBy(
-	                    image -> image.getOrder().getId(),
-	                    Collectors.mapping(
-	                            image -> NonStandardTaskListOrderImageDto.builder()
-	                                    .id(image.getId())
-	                                    .type(image.getType())
-	                                    .filename(image.getFilename())
-	                                    .url(image.getUrl())
-	                                    .build(),
-	                            Collectors.toList()
-	                    )
-	            ));
+		Map<Long, List<NonStandardTaskListOrderImageDto>> adminImageMap = orderImageRepository
+				.findByOrder_IdInAndTypeIgnoreCase(List.of(orderId), "MANAGEMENT").stream()
+				.collect(Collectors.groupingBy(image -> image.getOrder().getId(),
+						Collectors.mapping(image -> NonStandardTaskListOrderImageDto.builder().id(image.getId())
+								.type(image.getType()).filename(image.getFilename()).url(image.getUrl()).build(),
+								Collectors.toList())));
 
-	    NonStandardTaskListOrderRowDto row = nonStandardTaskListViewService.toRow(
-	            order,
-	            adminImageMap.getOrDefault(orderId, List.of())
-	    );
+		NonStandardTaskListOrderRowDto row = nonStandardTaskListViewService.toRow(order,
+				adminImageMap.getOrDefault(orderId, List.of()));
 
-	    List<Company> companies = companyRepository.findAll();
+		Long selectedCompanyId = resolveOrderCompanyId(order);
 
-	    model.addAttribute("row", row);
-	    model.addAttribute("orderStatuses", OrderStatus.values());
-	    model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
-	    model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
-	    model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		/*
+		 * 회사 select는 대리점 변경 가능성이 있으므로 전체 목록을 내려줍니다. 단, 여기서는 대표회원/멤버/배송지/주문자 전체 조회를 하지
+		 * 않습니다.
+		 */
+		List<Company> companies = companyRepository.findAll();
 
-	    model.addAttribute("companyOptions", buildOrderListCompanyOptions(companies));
-	    model.addAttribute("companyMemberOptions", companies.stream()
-	            .flatMap(company -> memberRepository.findByCompany_Id(company.getId()).stream()
-	                    .map(member -> new NonStandardTaskListCompanyMemberOptionDto(
-	                            company.getId(),
-	                            member.getId(),
-	                            member.getName()
-	                    )))
-	            .toList());
-	    model.addAttribute("companyDeliveryAddressOptions", buildOrderListCompanyDeliveryAddressOptions(companies));
-	    model.addAttribute("companyOrdererInfoOptions", buildOrderListCompanyOrdererInfoOptions(companies));
+		model.addAttribute("row", row);
+		model.addAttribute("orderStatuses", OrderStatus.values());
+		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+		model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
+		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
 
-	    model.addAttribute("currentListUrl", isSafeNonStandardTaskListReturnUrl(returnUrl)
-	            ? returnUrl.trim()
-	            : "/management/nonStandardTaskList");
+		/*
+		 * 속도 개선 핵심: - 회사 select용 전체 회사 목록만 가볍게 제공 - 현재 오더의 회사에 해당하는 멤버/배송지/주문자만 초기 제공 -
+		 * 다른 대리점 선택 시 company-options AJAX로 새로 가져옴
+		 */
+		model.addAttribute("companyOptions", buildOrderListCompanyOptionsFast(companies));
+		model.addAttribute("companyMemberOptions", buildOrderListCompanyMemberOptionsByCompanyId(selectedCompanyId));
+		model.addAttribute("companyDeliveryAddressOptions",
+				buildOrderListCompanyDeliveryAddressOptionsByCompanyId(selectedCompanyId));
+		model.addAttribute("companyOrdererInfoOptions",
+				buildOrderListCompanyOrdererInfoOptionsByCompanyId(selectedCompanyId));
 
-	    return "administration/management/order/nonStandard/taskListOrderDetailFragment :: orderDetailRow";
+		model.addAttribute("currentListUrl",
+				isSafeNonStandardTaskListReturnUrl(returnUrl) ? returnUrl.trim() : "/management/nonStandardTaskList");
+
+		return "administration/management/order/nonStandard/taskListOrderDetailFragment :: orderDetailRow";
 	}
 
-	private List<NonStandardTaskListCompanyOptionDto> buildOrderListCompanyOptions(List<Company> companies) {
-	    if (companies == null || companies.isEmpty()) {
-	        return List.of();
-	    }
+	/*
+	 * 대리점 변경 AJAX 넓게보기 안에서 대리점을 바꿨을 때, 새 대리점의 신청자/등록 배송지/주문자/기본주소를 다시 내려줍니다.
+	 */
+	@GetMapping("/nonStandardTaskList/company-options/{companyId}")
+	@ResponseBody
+	public ResponseEntity<NonStandardTaskListCompanyOptionsResponse> nonStandardTaskListCompanyOptions(
+			@PathVariable Long companyId) {
+		Company company = companyRepository.findById(companyId)
+				.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 대리점입니다. companyId=" + companyId));
 
-	    return companies.stream()
-	            .map(company -> {
-	                String representativeName = memberRepository
-	                        .findCompanyMembersByRole(
-	                                company.getId(),
-	                                MemberRole.CUSTOMER_REPRESENTATIVE,
-	                                PageRequest.of(0, 1)
-	                        )
-	                        .stream()
-	                        .findFirst()
-	                        .map(Member::getName)
-	                        .orElse("");
+		NonStandardTaskListCompanyOptionsResponse response = new NonStandardTaskListCompanyOptionsResponse(true,
+				buildOrderListCompanyOption(company), buildOrderListCompanyMemberOptionsByCompanyId(companyId),
+				buildOrderListCompanyDeliveryAddressOptionsByCompanyId(companyId),
+				buildOrderListCompanyOrdererInfoOptionsByCompanyId(companyId));
 
-	                return new NonStandardTaskListCompanyOptionDto(
-	                        company.getId(),
-	                        company.getCompanyName(),
-	                        representativeName
-	                );
-	            })
-	            .toList();
+		return ResponseEntity.ok(response);
 	}
 
+	@GetMapping("/nonStandardTaskList/bulk-fragment")
+	public String nonStandardTaskListBulkFragment(@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
+			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
+			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
+			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+			@RequestParam(required = false, defaultValue = "all") String standard, Model model) {
+		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
-	private List<NonStandardTaskListCompanyDeliveryAddressOptionDto> buildOrderListCompanyDeliveryAddressOptions(
-	        List<Company> companies
-	) {
-	    if (companies == null || companies.isEmpty()) {
-	        return List.of();
-	    }
+		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
-	    return companies.stream()
-	            .flatMap(company -> companyDeliveryAddressRepository
-	                    .findByCompany_IdOrderByIdAsc(company.getId())
-	                    .stream()
-	                    .map(address -> new NonStandardTaskListCompanyDeliveryAddressOptionDto(
-	                            company.getId(),
-	                            address.getId(),
-	                            orderListText(address.getZipCode()),
-	                            orderListText(address.getDoName()),
-	                            orderListText(address.getSiName()),
-	                            orderListText(address.getGuName()),
-	                            orderListText(address.getRoadAddress()),
-	                            orderListText(address.getDetailAddress()),
-	                            buildOrderListFullAddress(address)
-	                    )))
-	            .toList();
+		Boolean standardBool = parseStandardOrNull(standard);
+		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+
+		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkView(finalKeyword, finalDateCriteria,
+				range.getStart(), range.getEnd(), categoryId, statusEnum, standardBool);
+
+		List<NonStandardTaskListOrderRowDto> bulkOrderRows = nonStandardTaskListViewService.toBulkRows(bulkOrders);
+
+		model.addAttribute("bulkOrderRows", bulkOrderRows);
+
+		return "administration/management/order/nonStandard/taskList :: bulkOrderCards";
 	}
 
-	private List<NonStandardTaskListCompanyOrdererInfoOptionDto> buildOrderListCompanyOrdererInfoOptions(
-	        List<Company> companies
-	) {
-	    if (companies == null || companies.isEmpty()) {
-	        return List.of();
-	    }
+	private Long resolveOrderCompanyId(Order order) {
+		if (order == null || order.getTask() == null || order.getTask().getRequestedBy() == null) {
+			return null;
+		}
 
-	    return companies.stream()
-	            .flatMap(company -> companyOrdererInfoRepository
-	                    .findByCompany_IdOrderByIdAsc(company.getId())
-	                    .stream()
-	                    .map(ordererInfo -> new NonStandardTaskListCompanyOrdererInfoOptionDto(
-	                            company.getId(),
-	                            ordererInfo.getId(),
-	                            orderListText(ordererInfo.getOrdererName()),
-	                            orderListText(ordererInfo.getPhone())
-	                    )))
-	            .toList();
+		Company company = order.getTask().getRequestedBy().getCompany();
+		return company != null ? company.getId() : null;
+	}
+
+	private NonStandardTaskListCompanyOptionDto buildOrderListCompanyOption(Company company) {
+		if (company == null) {
+			return null;
+		}
+
+		String representativeName = memberRepository
+				.findCompanyMembersByRole(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
+				.stream().findFirst().map(Member::getName).orElse("");
+
+		return NonStandardTaskListCompanyOptionDto.builder().companyId(company.getId())
+				.companyName(orderListText(company.getCompanyName()))
+				.representativeName(orderListText(representativeName)).zipCode(orderListText(company.getZipCode()))
+				.doName(orderListText(company.getDoName())).siName(orderListText(company.getSiName()))
+				.guName(orderListText(company.getGuName())).roadAddress(orderListText(company.getRoadAddress()))
+				.detailAddress(orderListText(company.getDetailAddress()))
+				.fullAddress(buildOrderListFullAddress(company.getZipCode(), company.getDoName(), company.getSiName(),
+						company.getGuName(), company.getRoadAddress(), company.getDetailAddress()))
+				.build();
+	}
+
+	private List<NonStandardTaskListCompanyOptionDto> buildOrderListCompanyOptionsFast(List<Company> companies) {
+		if (companies == null || companies.isEmpty()) {
+			return List.of();
+		}
+
+		return companies.stream()
+				.map(company -> NonStandardTaskListCompanyOptionDto.builder().companyId(company.getId())
+						.companyName(orderListText(company.getCompanyName())).representativeName("")
+						.zipCode(orderListText(company.getZipCode())).doName(orderListText(company.getDoName()))
+						.siName(orderListText(company.getSiName())).guName(orderListText(company.getGuName()))
+						.roadAddress(orderListText(company.getRoadAddress()))
+						.detailAddress(orderListText(company.getDetailAddress()))
+						.fullAddress(buildOrderListFullAddress(company.getZipCode(), company.getDoName(),
+								company.getSiName(), company.getGuName(), company.getRoadAddress(),
+								company.getDetailAddress()))
+						.build())
+				.toList();
+	}
+
+	private List<NonStandardTaskListCompanyMemberOptionDto> buildOrderListCompanyMemberOptionsByCompanyId(
+			Long companyId) {
+		if (companyId == null) {
+			return List.of();
+		}
+
+		return memberRepository.findByCompany_Id(companyId).stream()
+				.map(member -> new NonStandardTaskListCompanyMemberOptionDto(companyId, member.getId(),
+						orderListText(member.getName())))
+				.toList();
+	}
+
+	private List<NonStandardTaskListCompanyDeliveryAddressOptionDto> buildOrderListCompanyDeliveryAddressOptionsByCompanyId(
+			Long companyId) {
+		if (companyId == null) {
+			return List.of();
+		}
+
+		return companyDeliveryAddressRepository.findByCompany_IdOrderByIdAsc(companyId).stream()
+				.map(address -> new NonStandardTaskListCompanyDeliveryAddressOptionDto(companyId, address.getId(),
+						orderListText(address.getZipCode()), orderListText(address.getDoName()),
+						orderListText(address.getSiName()), orderListText(address.getGuName()),
+						orderListText(address.getRoadAddress()), orderListText(address.getDetailAddress()),
+						buildOrderListFullAddress(address)))
+				.toList();
+	}
+
+	private List<NonStandardTaskListCompanyOrdererInfoOptionDto> buildOrderListCompanyOrdererInfoOptionsByCompanyId(
+			Long companyId) {
+		if (companyId == null) {
+			return List.of();
+		}
+
+		return companyOrdererInfoRepository.findByCompany_IdOrderByIdAsc(companyId).stream()
+				.map(ordererInfo -> new NonStandardTaskListCompanyOrdererInfoOptionDto(companyId, ordererInfo.getId(),
+						orderListText(ordererInfo.getOrdererName()), orderListText(ordererInfo.getPhone())))
+				.toList();
+	}
+
+	private String buildOrderListFullAddress(String zipCode, String doName, String siName, String guName,
+			String roadAddress, String detailAddress) {
+		String fullAddress = orderListJoinNonBlank(" ", orderListWrapIfNotBlank(zipCode, "(", ")"), doName, siName,
+				guName, roadAddress, detailAddress);
+
+		return fullAddress.isBlank() ? "-" : fullAddress;
 	}
 
 	private String buildOrderListFullAddress(CompanyDeliveryAddress address) {
-	    if (address == null) {
-	        return "";
-	    }
+		if (address == null) {
+			return "";
+		}
 
-	    String fullAddress = orderListJoinNonBlank(" ",
-	            orderListWrapIfNotBlank(address.getZipCode(), "(", ")"),
-	            address.getDoName(),
-	            address.getSiName(),
-	            address.getGuName(),
-	            address.getRoadAddress(),
-	            address.getDetailAddress()
-	    );
-
-	    return fullAddress.isBlank() ? "-" : fullAddress;
+		return buildOrderListFullAddress(address.getZipCode(), address.getDoName(), address.getSiName(),
+				address.getGuName(), address.getRoadAddress(), address.getDetailAddress());
 	}
 
 	private String orderListText(String value) {
-	    return value == null ? "" : value;
+		return value == null ? "" : value;
 	}
 
 	private String orderListWrapIfNotBlank(String value, String prefix, String suffix) {
-	    if (value == null || value.isBlank()) {
-	        return null;
-	    }
+		if (value == null || value.isBlank()) {
+			return null;
+		}
 
-	    return prefix + value + suffix;
+		return prefix + value + suffix;
 	}
 
 	private String orderListJoinNonBlank(String delimiter, String... values) {
-	    if (values == null) {
-	        return "";
-	    }
+		if (values == null) {
+			return "";
+		}
 
-	    return java.util.Arrays.stream(values)
-	            .filter(value -> value != null && !value.isBlank())
-	            .collect(Collectors.joining(delimiter));
+		return java.util.Arrays.stream(values).filter(value -> value != null && !value.isBlank())
+				.collect(Collectors.joining(delimiter));
 	}
-	
-	@GetMapping("/nonStandardTaskList/bulk-fragment")
-	public String nonStandardTaskListBulkFragment(
-	        @RequestParam(required = false, defaultValue = "") String keyword,
-	        @RequestParam(required = false, defaultValue = "all") String dateCriteria,
-	        @RequestParam(required = false) String startDate,
-	        @RequestParam(required = false) String endDate,
-	        @RequestParam(required = false, defaultValue = "all") String productCategoryId,
-	        @RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
-	        @RequestParam(required = false, defaultValue = "all") String standard,
-	        Model model
-	) {
-	    String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
-	    DateRange range = buildDateRangeForCriteria(
-	            finalDateCriteria,
-	            startDate,
-	            endDate
-	    );
-
-	    Boolean standardBool = parseStandardOrNull(standard);
-	    Long categoryId = parseLongOrNullAllowAll(productCategoryId);
-	    OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
-	    String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
-
-	    List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkView(
-	            finalKeyword,
-	            finalDateCriteria,
-	            range.getStart(),
-	            range.getEnd(),
-	            categoryId,
-	            statusEnum,
-	            standardBool
-	    );
-
-	    List<NonStandardTaskListOrderRowDto> bulkOrderRows =
-	            nonStandardTaskListViewService.toBulkRows(bulkOrders);
-
-	    model.addAttribute("bulkOrderRows", bulkOrderRows);
-
-	    return "administration/management/order/nonStandard/taskList :: bulkOrderCards";
-	}
-	
 	private String buildCurrentRequestUrl(HttpServletRequest request) {
-	    String queryString = request.getQueryString();
+		String queryString = request.getQueryString();
 
-	    if (queryString == null || queryString.isBlank()) {
-	        return request.getRequestURI();
-	    }
+		if (queryString == null || queryString.isBlank()) {
+			return request.getRequestURI();
+		}
 
-	    return request.getRequestURI() + "?" + queryString;
+		return request.getRequestURI() + "?" + queryString;
 	}
-	
-	/**
-	 * ✅ UI에서 선택한 필드명을 실제 JPA 정렬 property로 변환 - 중요: HTML에서 보내는 sortField 값과 반드시 일치해야
-	 * 합니다. - 현재 HTML에선 agencyName, requesterName, standard, orderDate,
-	 * preferredDeliveryDate, status 를 쓰고 있습니다.
-	 */
+
 	private String mapSortFieldToProperty(String sortField) {
-		if (sortField == null || sortField.isBlank())
+		if (sortField == null || sortField.isBlank()) {
 			return null;
+		}
 
 		return switch (sortField) {
-		// ✅ HTML: sortField='agencyName'
-		// tbody: order.task.requestedBy.company.companyName 을 사용 중이므로 정렬도 그 경로로 맞춤
 		case "agencyName" -> "task.requestedBy.company.companyName";
-
-		// ✅ HTML: sortField='requesterName'
 		case "requesterName" -> "task.requestedBy.name";
-
-		// ✅ HTML: sortField='standard'
 		case "standard" -> "standard";
-
-		// ✅ HTML: sortField='orderDate' (출력은 order.createdAt)
 		case "orderDate" -> "createdAt";
-
-		// ✅ HTML: sortField='preferredDeliveryDate'
-		// ※ 엔티티 필드명이 정말 preferredDeliveryDate인지 확인 필요
-		// 만약 preferredDelivery 라면 여기/HTML 모두 변경해야 합니다.
 		case "preferredDeliveryDate" -> "preferredDeliveryDate";
-
-		// ✅ HTML: sortField='status'
 		case "status" -> "status";
-
-		// 혹시 예전 값이 들어오면(안전)
 		case "companyName" -> "task.requestedBy.company.companyName";
-
 		default -> null;
 		};
 	}
@@ -865,31 +842,17 @@ public class ManagementController {
 		List<Company> companies = companyRepository.findAll();
 
 		// 화면 자동완성용 DTO
-		List<NonStandardOrderCompanyOptionDto> companyOptions = companies.stream()
-		        .map(company -> {
-		            String representativeName = memberRepository
-		                    .findCompanyMembersByRole(
-		                            company.getId(),
-		                            MemberRole.CUSTOMER_REPRESENTATIVE,
-		                            PageRequest.of(0, 1)
-		                    )
-		                    .stream()
-		                    .findFirst()
-		                    .map(Member::getName)
-		                    .orElse("");
+		List<NonStandardOrderCompanyOptionDto> companyOptions = companies.stream().map(company -> {
+			String representativeName = memberRepository
+					.findCompanyMembersByRole(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
+					.stream().findFirst().map(Member::getName).orElse("");
 
-		            return new NonStandardOrderCompanyOptionDto(
-		                    company.getId(),
-		                    company.getCompanyName(),
-		                    representativeName
-		            );
-		        })
-		        .toList();
+			return new NonStandardOrderCompanyOptionDto(company.getId(), company.getCompanyName(), representativeName);
+		}).toList();
 
 		// 현재 선택된 회사의 멤버 목록(기존 hidden requesterMemberId 보정용)
-		List<Member> companyMembers = (selectedCompanyId != null)
-		        ? memberRepository.findByCompany_Id(selectedCompanyId)
-		        : List.of();
+		List<Member> companyMembers = (selectedCompanyId != null) ? memberRepository.findByCompany_Id(selectedCompanyId)
+				: List.of();
 
 		model.addAttribute("companyOptions", companyOptions);
 		model.addAttribute("companyMembers", companyMembers);
@@ -900,108 +863,82 @@ public class ManagementController {
 	}
 
 	@PostMapping("/nonStandardOrderItemUpdate/{orderId}")
-	public String updateNonStandardOrderItem(
-	        @PathVariable Long orderId,
-	        @RequestParam(value = "productCost", defaultValue = "0") int productCost,
-	        @RequestParam(value = "quantity", defaultValue = "0") int quantity,
-	        @RequestParam(value = "supplyPrice", defaultValue = "0") int supplyPrice,
-	        @RequestParam(value = "totalAmount", defaultValue = "0") int totalAmount,
-	        @RequestParam(value = "packingCost", defaultValue = "0") int packingCost,
-	        @RequestParam(value = "deliveryCost", defaultValue = "0") int deliveryCost,
-	        @RequestParam(value = "preferredDeliveryDate", required = false)
-	        @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
-	        @RequestParam("status") String statusStr,
-	        @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
-	        @RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
-	        @RequestParam("productCategoryId") Optional<Long> productCategoryId,
-	        @RequestParam("companyId") Optional<Long> companyId,
-	        @RequestParam("requesterMemberId") Optional<Long> requesterMemberId,
-	        @RequestParam(value = "zipCode", required = false) String zipCode,
-	        @RequestParam(value = "doName", required = false) String doName,
-	        @RequestParam(value = "siName", required = false) String siName,
-	        @RequestParam(value = "guName", required = false) String guName,
-	        @RequestParam(value = "roadAddress", required = false) String roadAddress,
-	        @RequestParam(value = "detailAddress", required = false) String detailAddress,
-	        @RequestParam(value = "ordererName", required = false) String ordererName,
-	        @RequestParam(value = "ordererPhone", required = false) String ordererPhone,
-	        @RequestParam(value = "optionJson", required = false) String optionJson,
-	        @RequestParam(value = "adminMemo", required = false) String adminMemo,
-	        @RequestParam(value = "dispatchCompleteMessage", required = false) String dispatchCompleteMessage,
-	        @RequestParam(value = "dispatchCompleteMessageSubmitted", defaultValue = "false") boolean dispatchCompleteMessageSubmitted,
-	        @RequestParam(value = "deleteAdminImageIds", required = false) List<Long> deleteAdminImageIds,
-	        @RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
-	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
-	        Authentication authentication,
-	        RedirectAttributes redirectAttributes
-	) {
-	    String redirectUrl = isSafeNonStandardTaskListReturnUrl(returnUrl)
-	            ? "redirect:" + returnUrl.trim()
-	            : "redirect:/management/nonStandardTaskList";
+	public String updateNonStandardOrderItem(@PathVariable Long orderId,
+			@RequestParam(value = "productCost", defaultValue = "0") int productCost,
+			@RequestParam(value = "quantity", defaultValue = "0") int quantity,
+			@RequestParam(value = "supplyPrice", defaultValue = "0") int supplyPrice,
+			@RequestParam(value = "totalAmount", defaultValue = "0") int totalAmount,
+			@RequestParam(value = "packingCost", defaultValue = "0") int packingCost,
+			@RequestParam(value = "deliveryCost", defaultValue = "0") int deliveryCost,
+			@RequestParam(value = "preferredDeliveryDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
+			@RequestParam("status") String statusStr, @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
+			@RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
+			@RequestParam("productCategoryId") Optional<Long> productCategoryId,
+			@RequestParam("companyId") Optional<Long> companyId,
+			@RequestParam("requesterMemberId") Optional<Long> requesterMemberId,
+			@RequestParam(value = "zipCode", required = false) String zipCode,
+			@RequestParam(value = "doName", required = false) String doName,
+			@RequestParam(value = "siName", required = false) String siName,
+			@RequestParam(value = "guName", required = false) String guName,
+			@RequestParam(value = "roadAddress", required = false) String roadAddress,
+			@RequestParam(value = "detailAddress", required = false) String detailAddress,
+			@RequestParam(value = "siteZipCode", required = false) String siteZipCode,
+			@RequestParam(value = "siteDoName", required = false) String siteDoName,
+			@RequestParam(value = "siteSiName", required = false) String siteSiName,
+			@RequestParam(value = "siteGuName", required = false) String siteGuName,
+			@RequestParam(value = "siteRoadAddress", required = false) String siteRoadAddress,
+			@RequestParam(value = "siteDetailAddress", required = false) String siteDetailAddress,
+			@RequestParam(value = "ordererName", required = false) String ordererName,
+			@RequestParam(value = "ordererPhone", required = false) String ordererPhone,
+			@RequestParam(value = "optionJson", required = false) String optionJson,
+			@RequestParam(value = "adminMemo", required = false) String adminMemo,
+			@RequestParam(value = "dispatchCompleteMessage", required = false) String dispatchCompleteMessage,
+			@RequestParam(value = "dispatchCompleteMessageSubmitted", defaultValue = "false") boolean dispatchCompleteMessageSubmitted,
+			@RequestParam(value = "deleteAdminImageIds", required = false) List<Long> deleteAdminImageIds,
+			@RequestParam(value = "adminImages", required = false) List<MultipartFile> adminImages,
+			@RequestParam(value = "returnUrl", required = false) String returnUrl, Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+		String redirectUrl = isSafeNonStandardTaskListReturnUrl(returnUrl) ? "redirect:" + returnUrl.trim()
+				: "redirect:/management/nonStandardTaskList";
 
-	    try {
-	        String updatedByUsername = resolveAuthenticatedUsername(authentication);
+		try {
+			String updatedByUsername = resolveAuthenticatedUsername(authentication);
 
-	        nonStandardOrderItemService.updateNonStandardOrderItem(
-	                orderId,
-	                productCost,
-	                quantity,
-	                supplyPrice,
-	                totalAmount,
-	                packingCost,
-	                deliveryCost,
-	                preferredDeliveryDate,
-	                statusStr,
-	                deliveryMethodId,
-	                deliveryHandlerId,
-	                productCategoryId,
-	                companyId,
-	                requesterMemberId,
-	                zipCode,
-	                doName,
-	                siName,
-	                guName,
-	                roadAddress,
-	                detailAddress,
-	                ordererName,
-	                ordererPhone,
-	                optionJson,
-	                adminMemo,
-	                dispatchCompleteMessage,
-	                dispatchCompleteMessageSubmitted,
-	                deleteAdminImageIds,
-	                adminImages,
-	                updatedByUsername
-	        );
+			nonStandardOrderItemService.updateNonStandardOrderItemWithSiteAddress(orderId, productCost, quantity,
+					supplyPrice, totalAmount, packingCost, deliveryCost, preferredDeliveryDate, statusStr,
+					deliveryMethodId, deliveryHandlerId, productCategoryId, companyId, requesterMemberId, zipCode,
+					doName, siName, guName, roadAddress, detailAddress, siteZipCode, siteDoName, siteSiName, siteGuName,
+					siteRoadAddress, siteDetailAddress, ordererName, ordererPhone, optionJson, adminMemo,
+					dispatchCompleteMessage, dispatchCompleteMessageSubmitted, deleteAdminImageIds, adminImages,
+					updatedByUsername);
 
-	        redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
-	        return redirectUrl;
+			redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
+			return redirectUrl;
 
-	    } catch (IllegalArgumentException | IllegalStateException e) {
-	        redirectAttributes.addFlashAttribute("message", e.getMessage());
-	        return redirectUrl;
-	    }
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			redirectAttributes.addFlashAttribute("message", e.getMessage());
+			return redirectUrl;
+		}
 	}
 
 	private String resolveAuthenticatedUsername(Authentication authentication) {
-	    if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
-	        return "UNKNOWN";
-	    }
+		if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+			return "UNKNOWN";
+		}
 
-	    return authentication.getName().trim();
+		return authentication.getName().trim();
 	}
 
 	private boolean isSafeNonStandardTaskListReturnUrl(String returnUrl) {
-	    if (returnUrl == null || returnUrl.isBlank()) {
-	        return false;
-	    }
+		if (returnUrl == null || returnUrl.isBlank()) {
+			return false;
+		}
 
-	    String trimmedReturnUrl = returnUrl.trim();
+		String trimmedReturnUrl = returnUrl.trim();
 
-	    return trimmedReturnUrl.startsWith("/management/nonStandardTaskList")
-	            && !trimmedReturnUrl.startsWith("//")
-	            && !trimmedReturnUrl.contains("://")
-	            && !trimmedReturnUrl.contains("\r")
-	            && !trimmedReturnUrl.contains("\n");
+		return trimmedReturnUrl.startsWith("/management/nonStandardTaskList") && !trimmedReturnUrl.startsWith("//")
+				&& !trimmedReturnUrl.contains("://") && !trimmedReturnUrl.contains("\r")
+				&& !trimmedReturnUrl.contains("\n");
 	}
 
 	@DeleteMapping("/order-image/delete/{id}")
@@ -2582,22 +2519,23 @@ public class ManagementController {
 
 	@GetMapping("/employeeInsertForm")
 	public String employeeInsertForm(Model model) {
-	    // 팀 목록
-	    List<Team> teams = teamRepository.findAll();
+		// 팀 목록
+		List<Team> teams = teamRepository.findAll();
 
-	    // 전체 팀 카테고리 목록
-	    // HTML option에 data-team-id를 심어두고 JS에서 선택한 팀 기준으로 필터링
-	    List<TeamCategory> teamCategories = teamCategoryRepository.findAll();
+		// 전체 팀 카테고리 목록
+		// HTML option에 data-team-id를 심어두고 JS에서 선택한 팀 기준으로 필터링
+		List<TeamCategory> teamCategories = teamCategoryRepository.findAll();
 
-	    // 시도 정보
-	    List<Province> provinces = provinceRepository.findAll();
+		// 시도 정보
+		List<Province> provinces = provinceRepository.findAll();
 
-	    model.addAttribute("teams", teams);
-	    model.addAttribute("teamCategories", teamCategories);
-	    model.addAttribute("provinces", provinces);
+		model.addAttribute("teams", teams);
+		model.addAttribute("teamCategories", teamCategories);
+		model.addAttribute("provinces", provinces);
 
-	    return "administration/member/employee/employeeInsertForm";
+		return "administration/member/employee/employeeInsertForm";
 	}
+
 	@PostMapping("/employeeInsert")
 	public String employeeInsert(@ModelAttribute MemberSaveDTO request) {
 		System.out.println("📥 regionJson 수신: " + request.getRegionJson());

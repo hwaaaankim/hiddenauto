@@ -106,7 +106,6 @@ public class OrderProcessingService {
 			Order order = new Order();
 			order.setTask(task);
 
-			// ✅ standard 여부를 여기서 확정
 			boolean isStandard = cart.isStandard();
 			order.setStandard(isStandard);
 
@@ -118,6 +117,10 @@ public class OrderProcessingService {
 
 			System.out.printf("  - 수량: %d, 제품단가: %d, 배송비: %d, 합계: %d\n", quantity, productCost, deliveryPrice,
 					singleOrderTotal);
+
+			if (dto.getDeliveryMethodId() == null) {
+				throw new IllegalArgumentException("배송수단을 선택해주세요.");
+			}
 
 			DeliveryMethod method = deliveryMethodRepository.findById(dto.getDeliveryMethodId()).orElseThrow(() -> {
 				System.out.println("❌ 존재하지 않는 배송수단 ID: " + dto.getDeliveryMethodId());
@@ -142,12 +145,20 @@ public class OrderProcessingService {
 
 			refineAddressFromFullRoad(order);
 
-			if (isDirectDelivery(method)) {
-				assignDeliveryHandlerIfPossible(order);
+			if (isSiteDelivery(method)) {
+				applySiteAddressFromDto(order, dto);
+				refineSiteAddressFromFullRoad(order);
+
+				assignDeliveryHandlerIfPossible(order, order.getSiteDoName(), order.getSiteSiName(),
+						order.getSiteGuName(), "현장주소");
+
+			} else if (isDirectDelivery(method) || isFreightDelivery(method)) {
+				assignDeliveryHandlerIfPossible(order, order.getDoName(), order.getSiName(), order.getGuName(), "배송주소");
+
 			} else {
 				order.setAssignedDeliveryHandler(null);
 				order.setAssignedDeliveryTeam(null);
-				System.out.println("🚚 직배송이 아닌 배송수단이므로 배송 담당자를 배정하지 않습니다. 배송수단=" + method.getMethodName());
+				System.out.println("🚚 담당자 자동배정 대상이 아닌 배송수단입니다. 배송수단=" + method.getMethodName());
 			}
 
 			Map<String, Object> localizedOptionMap = objectMapper.readValue(cart.getLocalizedOptionJson(),
@@ -171,26 +182,20 @@ public class OrderProcessingService {
 				productCategory = teamCategoryRepository.findByName("배정없음")
 						.orElseThrow(() -> new IllegalStateException("기본 TeamCategory '배정없음'이 DB에 없습니다."));
 			}
+
 			order.setProductCategory(productCategory);
 			order.setStatus(OrderStatus.REQUESTED);
 
-			// ===== OrderItem 생성 =====
 			OrderItem orderItem = new OrderItem();
 			orderItem.setOrder(order);
 			orderItem.setQuantity(quantity);
-
-			// 기본값 (둘 다 없을 때)
 			orderItem.setProductName("제품명없음");
 
-			// ===== 옵션 변환 + 제품명 세팅 =====
 			try {
 				Map<String, String> localizedMap = OptionTranslator.getLocalizedOptionMap(cart.getLocalizedOptionJson(),
 						productSeriesRepository, productRepository, productColorRepository,
 						productOptionPositionRepository);
 
-				// ✅ standard=true => "제품명"
-				// ✅ standard=false => "제품"
-				// ✅ 둘 다 없으면 "제품명없음"
 				String productName = extractProductNameByStandard(isStandard, localizedMap);
 				orderItem.setProductName(productName);
 
@@ -204,14 +209,14 @@ public class OrderProcessingService {
 
 			order.setOrderItem(orderItem);
 
-			// ===== 이미지 복사 =====
 			List<OrderImage> orderImages = new ArrayList<>();
 			String today = LocalDate.now().toString();
 			Long memberId = member.getId();
 			String destDir = String.format("order/order/%d/%s/request", memberId, today);
 			File destFolder = Paths.get(uploadRootPath, destDir).toFile();
-			if (!destFolder.exists())
+			if (!destFolder.exists()) {
 				destFolder.mkdirs();
+			}
 
 			for (CartImage cartImg : cart.getImages()) {
 				try {
@@ -238,6 +243,7 @@ public class OrderProcessingService {
 					newImg.setPath(destDir);
 					newImg.setUrl("/upload/" + destDir.replace("\\", "/") + "/" + newFilename);
 					newImg.setUploadedAt(cartImg.getUploadedAt());
+
 					orderImages.add(newImg);
 					System.out.println("🖼 이미지 복사 완료: " + newFilename);
 
@@ -250,6 +256,7 @@ public class OrderProcessingService {
 			order.setOrderImages(orderImages);
 			orderList.add(order);
 			cartRepository.delete(cart);
+
 			System.out.println("✅ 주문 항목 저장 완료");
 		}
 
@@ -258,6 +265,7 @@ public class OrderProcessingService {
 
 		int currentPoint = company.getPoint();
 		int remainingPoint = currentPoint - pointUsed;
+
 		if (remainingPoint < 0) {
 			System.out.println("❌ 포인트 부족: 보유=" + currentPoint + ", 사용=" + pointUsed);
 			throw new IllegalStateException("사용 가능한 포인트가 부족합니다. 현재 보유: " + currentPoint + "P");
@@ -265,6 +273,7 @@ public class OrderProcessingService {
 
 		int rewardPoint = (int) (totalPrice * 0.01);
 		company.setPoint(remainingPoint + rewardPoint);
+
 		System.out.printf("💰 총금액: %d원, 보유포인트: %d → 잔여포인트: %d, 적립예정: %dP\n", totalPrice, currentPoint, remainingPoint,
 				rewardPoint);
 
@@ -277,18 +286,48 @@ public class OrderProcessingService {
 	}
 
 	private String normalizeRequiredText(String value, String label) {
-	    if (value == null || value.trim().isBlank()) {
-	        throw new IllegalArgumentException(label + "을 입력해주세요.");
-	    }
-	    return value.trim();
+		if (value == null || value.trim().isBlank()) {
+			throw new IllegalArgumentException(label + "을 입력해주세요.");
+		}
+		return value.trim();
 	}
 
 	private boolean isDirectDelivery(DeliveryMethod method) {
+		if (method == null || method.getMethodName() == null) {
+			return false;
+		}
+
+		return "직배송".equals(method.getMethodName().trim());
+	}
+
+	private boolean isSiteDelivery(DeliveryMethod method) {
 	    if (method == null || method.getMethodName() == null) {
 	        return false;
 	    }
 
-	    return "직배송".equals(method.getMethodName().trim());
+	    return "현장배송".equals(method.getMethodName().trim());
+	}
+	
+	private boolean isFreightDelivery(DeliveryMethod method) {
+	    if (method == null || method.getMethodName() == null) {
+	        return false;
+	    }
+
+	    return method.getMethodName().replace(" ", "").contains("화물");
+	}
+	
+	private void applySiteAddressFromDto(Order order, OrderRequestItemDTO dto) {
+	    order.setSiteZipCode(normalizeRequiredText(dto.getSiteZipCode(), "현장주소 우편번호"));
+	    order.setSiteRoadAddress(normalizeRequiredText(dto.getSiteAddress(), "현장주소"));
+	    order.setSiteDetailAddress(normalizeRequiredText(dto.getSiteDetailAddress(), "현장 상세주소"));
+
+	    order.setSiteDoName(trimToEmpty(dto.getSiteDoName()));
+	    order.setSiteSiName(trimToEmpty(dto.getSiteSiName()));
+	    order.setSiteGuName(trimToEmpty(dto.getSiteGuName()));
+	}
+
+	private String trimToEmpty(String value) {
+	    return value == null ? "" : value.trim();
 	}
 	
 	/**
@@ -309,44 +348,78 @@ public class OrderProcessingService {
 	}
 
 	private void refineAddressFromFullRoad(Order order) {
-		String full = order.getRoadAddress();
-		if (full == null || full.isBlank())
-			return;
+	    AddressParts parts = parseAddressParts(order.getRoadAddress());
 
-		String[] tokens = full.trim().split("\\s+");
-
-		String doName = "";
-		String siName = "";
-		String guName = "";
-
-		if (tokens.length >= 1) {
-			doName = tokens[0]; // 무조건 첫 단어는 도 (서울, 경기, 광주 등)
-		}
-
-		// 이후 토큰에서 '시'와 '구'를 확인
-		for (int i = 1; i < tokens.length; i++) {
-			String word = tokens[i];
-
-			if (word.endsWith("시") && siName.isBlank()) {
-				siName = word;
-			} else if (word.endsWith("구") && guName.isBlank()) {
-				guName = word;
-			}
-
-			if (!siName.isBlank() && !guName.isBlank())
-				break;
-		}
-
-		// 특수 케이스: 서울/광주/부산 등은 시 자체가 없고 구만 있는 경우
-		if (siName.isBlank() && guName.isBlank() && tokens.length >= 2) {
-			guName = tokens[1]; // 서울 관악구 → 관악구
-		}
-
-		order.setDoName(doName);
-		order.setSiName(siName);
-		order.setGuName(guName);
+	    if (parts.doName() != null && !parts.doName().isBlank()) {
+	        order.setDoName(parts.doName());
+	    }
+	    if (parts.siName() != null) {
+	        order.setSiName(parts.siName());
+	    }
+	    if (parts.guName() != null) {
+	        order.setGuName(parts.guName());
+	    }
 	}
 
+	private void refineSiteAddressFromFullRoad(Order order) {
+	    AddressParts parts = parseAddressParts(order.getSiteRoadAddress());
+
+	    if (parts.doName() != null && !parts.doName().isBlank()) {
+	        order.setSiteDoName(parts.doName());
+	    }
+	    if (parts.siName() != null) {
+	        order.setSiteSiName(parts.siName());
+	    }
+	    if (parts.guName() != null) {
+	        order.setSiteGuName(parts.guName());
+	    }
+	}
+
+	private AddressParts parseAddressParts(String fullAddress) {
+	    if (fullAddress == null || fullAddress.isBlank()) {
+	        return new AddressParts("", "", "");
+	    }
+
+	    String[] tokens = fullAddress.trim().split("\\s+");
+
+	    String doName = "";
+	    String siName = "";
+	    String guName = "";
+
+	    if (tokens.length >= 1) {
+	        doName = tokens[0];
+	    }
+
+	    for (int i = 1; i < tokens.length; i++) {
+	        String word = tokens[i];
+
+	        if (word.endsWith("시") && siName.isBlank()) {
+	            siName = word;
+	            continue;
+	        }
+
+	        if ((word.endsWith("구") || word.endsWith("군")) && guName.isBlank()) {
+	            guName = word;
+	        }
+
+	        if (!siName.isBlank() && !guName.isBlank()) {
+	            break;
+	        }
+	    }
+
+	    // 서울 관악구 / 부산 해운대구 / 대구 수성구처럼 city 없이 district가 바로 오는 케이스
+	    if (siName.isBlank() && guName.isBlank() && tokens.length >= 2) {
+	        String second = tokens[1];
+	        if (second.endsWith("구") || second.endsWith("군")) {
+	            guName = second;
+	        }
+	    }
+
+	    return new AddressParts(doName, siName, guName);
+	}
+
+	private record AddressParts(String doName, String siName, String guName) {
+	}
 	/**
 	 * 주소 문자열을 토대로 provinceId/cityId/districtId 를 유연하게 해석하고, 포함 매칭(구→시→도) 우선순위로 배송
 	 * 담당자를 배정합니다.
@@ -354,71 +427,90 @@ public class OrderProcessingService {
 	 * - 구(guName)가 없어도 배정 진행 (도/시만으로도 가능) - "강원도" vs "강원특별자치도" 등 명칭 차이를 정규화하여 동일 도로
 	 * 인식
 	 */
-	private void assignDeliveryHandlerIfPossible(Order order) {
-		final String doName = order.getDoName();
-		final String siName = order.getSiName();
-		final String guName = order.getGuName();
+	private void assignDeliveryHandlerIfPossible(
+	        Order order,
+	        String doName,
+	        String siName,
+	        String guName,
+	        String addressLabel
+	) {
+	    System.out.println("📦 [" + addressLabel + " 주소 파싱 결과]");
+	    System.out.println("- 도 : " + doName);
+	    System.out.println("- 시 : " + siName);
+	    System.out.println("- 구 : " + guName);
 
-		System.out.println("📦 [주소 파싱 결과]");
-		System.out.println("- 도 : " + doName);
-		System.out.println("- 시 : " + siName);
-		System.out.println("- 구 : " + guName);
+	    if (doName == null || doName.isBlank()) {
+	        System.out.println("❌ 도 정보 부족. 배정 중단");
+	        return;
+	    }
 
-		if (doName == null || doName.isBlank()) {
-			System.out.println("❌ 도 정보 부족. 배정 중단");
-			return;
-		}
+	    try {
+	        RegionKey key = resolveRegionKey(doName, siName, guName);
 
-		try {
-			// 1) 도/시/구를 각각 해석하여 키(id) 도출 (구가 없어도 계속 진행)
-			RegionKey key = resolveRegionKey(doName, siName, guName);
-			if (key.provinceId == null) {
-				System.out.println("❌ Province 매칭 실패. 배정 중단");
-				return;
-			}
+	        if (key.provinceId == null) {
+	            System.out.println("❌ Province 매칭 실패. 배정 중단");
+	            return;
+	        }
 
-			System.out.println("✅ 해석된 RegionKey: provinceId=" + key.provinceId + ", cityId=" + key.cityId
-					+ ", districtId=" + key.districtId);
+	        System.out.println("✅ 해석된 RegionKey: provinceId=" + key.provinceId
+	                + ", cityId=" + key.cityId
+	                + ", districtId=" + key.districtId);
 
-			// 2) 후보 MemberRegion 조회 (배송팀 한정 + 포함 매칭)
-			List<MemberRegion> matches = memberRegionRepository.findDeliveryRegionMatches(DELIVERY_TEAM_NAME,
-					key.provinceId, key.cityId, key.districtId);
-			System.out.println("🔎 포함 매칭 후보(MemberRegion) 수: " + matches.size());
+	        List<MemberRegion> matches = memberRegionRepository.findDeliveryRegionMatches(
+	                DELIVERY_TEAM_NAME,
+	                key.provinceId,
+	                key.cityId,
+	                key.districtId
+	        );
 
-			if (matches.isEmpty()) {
-				System.out.println("❌ 배송 담당자 후보 없음");
-				return;
-			}
+	        System.out.println("🔎 포함 매칭 후보(MemberRegion) 수: " + matches.size());
 
-			// 3) 후보를 우선순위(구=3, 시=2, 도=1)로 스코어링하여 최상위만 선별
-			Map<Member, Integer> bestScopePerMember = new HashMap<>();
-			for (MemberRegion mr : matches) {
-				Member m = mr.getMember();
-				int scope = scopeScore(mr); // district=3, city=2, province=1
-				bestScopePerMember.merge(m, scope, Math::max);
-			}
+	        if (matches.isEmpty()) {
+	            System.out.println("❌ 배송 담당자 후보 없음");
+	            return;
+	        }
 
-			int topScope = bestScopePerMember.values().stream().mapToInt(i -> i).max().orElse(1);
-			List<Member> topCandidates = bestScopePerMember.entrySet().stream().filter(e -> e.getValue() == topScope)
-					.map(Map.Entry::getKey).collect(Collectors.toList());
+	        Map<Member, Integer> bestScopePerMember = new HashMap<>();
 
-			System.out.println("🏅 최고 우선순위: " + topScope + " → 후보 수: " + topCandidates.size());
-			if (topCandidates.isEmpty()) {
-				System.out.println("❌ 최고 우선순위 후보 없음");
-				return;
-			}
+	        for (MemberRegion mr : matches) {
+	            Member m = mr.getMember();
+	            int scope = scopeScore(mr);
+	            bestScopePerMember.merge(m, scope, Math::max);
+	        }
 
-			// 4) 동순위 다수면 랜덤(원하시면 라운드로빈/최소작업 우선 등으로 교체 가능)
-			Member selected = topCandidates.get((int) (Math.random() * topCandidates.size()));
-			order.setAssignedDeliveryHandler(selected);
-			order.setAssignedDeliveryTeam(selected.getTeamCategory());
+	        int topScope = bestScopePerMember.values()
+	                .stream()
+	                .mapToInt(i -> i)
+	                .max()
+	                .orElse(1);
 
-			System.out.println("✅ 배송 담당자 배정 완료 → " + selected.getUsername() + " (scope=" + topScope + ")");
+	        List<Member> topCandidates = bestScopePerMember.entrySet()
+	                .stream()
+	                .filter(e -> e.getValue() == topScope)
+	                .map(Map.Entry::getKey)
+	                .collect(Collectors.toList());
 
-		} catch (Exception e) {
-			System.out.println("❌ 예외 발생: " + e.getMessage());
-			e.printStackTrace();
-		}
+	        System.out.println("🏅 최고 우선순위: " + topScope + " → 후보 수: " + topCandidates.size());
+
+	        if (topCandidates.isEmpty()) {
+	            System.out.println("❌ 최고 우선순위 후보 없음");
+	            return;
+	        }
+
+	        Member selected = topCandidates.get((int) (Math.random() * topCandidates.size()));
+
+	        order.setAssignedDeliveryHandler(selected);
+	        order.setAssignedDeliveryTeam(selected.getTeamCategory());
+
+	        System.out.println("✅ 배송 담당자 배정 완료 → "
+	                + selected.getUsername()
+	                + " / 기준주소=" + addressLabel
+	                + " / scope=" + topScope);
+
+	    } catch (Exception e) {
+	        System.out.println("❌ 예외 발생: " + e.getMessage());
+	        e.printStackTrace();
+	    }
 	}
 
 	/** 구(3) > 시(2) > 도(1) 점수 */

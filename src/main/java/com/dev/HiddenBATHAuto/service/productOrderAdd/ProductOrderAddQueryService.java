@@ -208,8 +208,10 @@ public class ProductOrderAddQueryService {
     }
 
     private boolean isDirectDeliveryMethod(DeliveryMethod method) {
+        // ProductOrderDeliveryMethodResponse의 directDelivery 필드는 기존 이름을 유지하되,
+        // 관리자 발주 화면에서는 '배송 담당자 지정 가능 여부'로 사용합니다.
         String name = trimToEmpty(method == null ? null : method.getMethodName()).replace(" ", "");
-        return name.contains("직배송");
+        return name.contains("직배송") || name.contains("현장배송") || name.contains("화물");
     }
 
     /**

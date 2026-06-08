@@ -19,5 +19,12 @@ public class OrderRequestItemDTO {
     private LocalDate preferredDeliveryDate;
     private String ordererName;
     private String ordererPhone;
+    
+    private String siteAddress;
+    private String siteDetailAddress;
+    private String siteZipCode;
+    private String siteDoName;
+    private String siteSiName;
+    private String siteGuName;
 
 }

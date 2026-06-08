@@ -19,21 +19,23 @@ public class ProductOrderAddRequest {
     @NotNull(message = "대리점을 선택해 주세요.")
     private Long companyId;
 
-    @NotNull(message = "배송수단을 선택해 주세요.")
-    private Long deliveryMethodId;
-
     @NotNull(message = "배송 희망일을 선택해 주세요.")
     private LocalDate preferredDeliveryDate;
 
-    /**
-     * 배송수단이 직배송인 경우에만 필수입니다.
-     * 직배송이 아닌 경우에는 null이어야 하며, 서버에서 저장하지 않습니다.
-     */
+    @NotNull(message = "배송수단을 선택해 주세요.")
+    private Long deliveryMethodId;
+
+    // 직배송/현장배송/화물에서 관리자가 직접 지정한 경우 우선 적용됩니다.
+    // null이면 주소 기준 자동 배정을 시도하고, 매칭 담당자가 없으면 미지정으로 저장합니다.
     private Long deliveryHandlerId;
+
+    private int packingCost = 0;
+    private int deliveryCost = 0;
 
     private String ordererName;
     private String ordererPhone;
 
+    // 공통 배송지: 직배송/화물 자동배정 기준 주소
     private String zipCode;
     private String doName;
     private String siName;
@@ -41,8 +43,13 @@ public class ProductOrderAddRequest {
     private String roadAddress;
     private String detailAddress;
 
-    private int packingCost = 0;
-    private int deliveryCost = 0;
+    // 현장 배송지: 현장배송 자동배정 기준 주소
+    private String siteZipCode;
+    private String siteDoName;
+    private String siteSiName;
+    private String siteGuName;
+    private String siteRoadAddress;
+    private String siteDetailAddress;
 
     @Valid
     @NotEmpty(message = "최소 1개의 주문이 필요합니다.")

@@ -48,22 +48,14 @@ import lombok.RequiredArgsConstructor;
 public class OrderUpdateService {
 
 	private static final String ADMIN_IMAGE_TYPE = "MANAGEMENT";
-	private static final String DIRECT_DELIVERY_METHOD_NAME = "직배송";
+	private static final String SITE_DELIVERY_METHOD_NAME = "현장배송";
 
-	private static final Set<String> OPTION_VALUE_FIXED_KEYS = Set.of(
-			"카테고리",
-			"제품시리즈",
-			"제품시리즈ID"
-	);
+	private static final Set<String> REQUIRED_DELIVERY_HANDLER_METHOD_NAMES = Set.of("직배송", "화물", "현장배송");
 
-	private static final Set<String> OPTION_DELETE_BLOCKED_KEYS = Set.of(
-			"카테고리",
-			"제품시리즈",
-			"제품시리즈ID",
-			"제품명",
-			"사이즈",
-			"색상"
-	);
+	private static final Set<String> OPTION_VALUE_FIXED_KEYS = Set.of("카테고리", "제품시리즈", "제품시리즈ID");
+
+	private static final Set<String> OPTION_DELETE_BLOCKED_KEYS = Set.of("카테고리", "제품시리즈", "제품시리즈ID", "제품명", "사이즈",
+			"색상");
 
 	private final OrderRepository orderRepository;
 	private final DeliveryMethodRepository deliveryMethodRepository;
@@ -80,231 +72,97 @@ public class OrderUpdateService {
 	private String uploadRootPath;
 
 	/**
-	 * 기존 호출부 보호용 오버로드입니다.
-	 * 새 화면에서 추가된 필드는 현재 DB 값을 유지한 채 기존 수정 항목만 반영합니다.
+	 * 기존 호출부 보호용 오버로드입니다. 기존 화면에서는 현장주소 input이 없으므로 DB에 저장된 현장주소를 그대로 유지합니다.
 	 */
 	@Transactional
-	public void updateOrder(
-			Long orderId,
-			int productCost,
-			LocalDate preferredDeliveryDate,
-			String statusStr,
-			Optional<Long> deliveryMethodId,
-			Optional<Long> deliveryHandlerId,
-			Optional<Long> productCategoryId,
-			Optional<Long> companyId,
-			Optional<Long> requesterMemberId,
-			List<Long> deleteAdminImageIds,
-			List<MultipartFile> adminImages,
-			String adminMemo
-	) {
-		Order order = orderRepository.findById(orderId)
-				.orElseThrow(() -> new IllegalArgumentException("Order not found. orderId=" + orderId));
+	public void updateOrder(Long orderId, int productCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, List<Long> deleteAdminImageIds,
+			List<MultipartFile> adminImages, String adminMemo) {
+		Order order = getOrderOrThrow(orderId);
 
-		updateOrder(
-				orderId,
-				productCost,
-				order.getQuantity(),
-				order.getSupplyPrice(),
-				order.getTotalAmount(),
-				order.getPackingCost(),
-				order.getDeliveryCost(),
-				preferredDeliveryDate,
-				statusStr,
-				deliveryMethodId,
-				deliveryHandlerId,
-				productCategoryId,
-				companyId,
-				requesterMemberId,
-				order.getZipCode(),
-				order.getDoName(),
-				order.getSiName(),
-				order.getGuName(),
-				order.getRoadAddress(),
-				order.getDetailAddress(),
-				order.getOrdererName(),
-				order.getOrdererPhone(),
-				order.getOrderItem() != null ? order.getOrderItem().getOptionJson() : null,
-				deleteAdminImageIds,
-				adminImages,
-				adminMemo,
-				null,
-				false,
-				null
-		);
+		updateOrder(orderId, productCost, order.getQuantity(), order.getSupplyPrice(), order.getTotalAmount(),
+				order.getPackingCost(), order.getDeliveryCost(), preferredDeliveryDate, statusStr, deliveryMethodId,
+				deliveryHandlerId, productCategoryId, companyId, requesterMemberId, order.getZipCode(),
+				order.getDoName(), order.getSiName(), order.getGuName(), order.getRoadAddress(),
+				order.getDetailAddress(), order.getSiteZipCode(), order.getSiteDoName(), order.getSiteSiName(),
+				order.getSiteGuName(), order.getSiteRoadAddress(), order.getSiteDetailAddress(), order.getOrdererName(),
+				order.getOrdererPhone(), order.getOrderItem() != null ? order.getOrderItem().getOptionJson() : null,
+				deleteAdminImageIds, adminImages, adminMemo, null, false, null);
 	}
 
 	@Transactional
-	public void updateOrder(
-			Long orderId,
-			int productCost,
-			int quantity,
-			int supplyPrice,
-			int totalAmount,
-			int packingCost,
-			int deliveryCost,
-			LocalDate preferredDeliveryDate,
-			String statusStr,
-			Optional<Long> deliveryMethodId,
-			Optional<Long> deliveryHandlerId,
-			Optional<Long> productCategoryId,
-			Optional<Long> companyId,
-			Optional<Long> requesterMemberId,
-			String zipCode,
-			String doName,
-			String siName,
-			String guName,
-			String roadAddress,
-			String detailAddress,
-			String ordererName,
-			String ordererPhone,
-			String optionJson,
-			List<Long> deleteAdminImageIds,
-			List<MultipartFile> adminImages,
-			String adminMemo
-	) {
-		updateOrder(
-				orderId,
-				productCost,
-				quantity,
-				supplyPrice,
-				totalAmount,
-				packingCost,
-				deliveryCost,
-				preferredDeliveryDate,
-				statusStr,
-				deliveryMethodId,
-				deliveryHandlerId,
-				productCategoryId,
-				companyId,
-				requesterMemberId,
-				zipCode,
-				doName,
-				siName,
-				guName,
-				roadAddress,
-				detailAddress,
-				ordererName,
-				ordererPhone,
-				optionJson,
-				deleteAdminImageIds,
-				adminImages,
-				adminMemo,
-				null,
-				false,
-				null
-		);
+	public void updateOrder(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
+			int packingCost, int deliveryCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String ordererName, String ordererPhone,
+			String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages, String adminMemo) {
+		Order order = getOrderOrThrow(orderId);
+		updateOrder(orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
+				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
+				requesterMemberId, zipCode, doName, siName, guName, roadAddress, detailAddress, order.getSiteZipCode(),
+				order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(), order.getSiteRoadAddress(),
+				order.getSiteDetailAddress(), ordererName, ordererPhone, optionJson, deleteAdminImageIds, adminImages,
+				adminMemo, null, false, null);
 	}
 
 	@Transactional
-	public void updateOrder(
-			Long orderId,
-			int productCost,
-			int quantity,
-			int supplyPrice,
-			int totalAmount,
-			int packingCost,
-			int deliveryCost,
-			LocalDate preferredDeliveryDate,
-			String statusStr,
-			Optional<Long> deliveryMethodId,
-			Optional<Long> deliveryHandlerId,
-			Optional<Long> productCategoryId,
-			Optional<Long> companyId,
-			Optional<Long> requesterMemberId,
-			String zipCode,
-			String doName,
-			String siName,
-			String guName,
-			String roadAddress,
-			String detailAddress,
-			String ordererName,
-			String ordererPhone,
-			String optionJson,
-			List<Long> deleteAdminImageIds,
-			List<MultipartFile> adminImages,
-			String adminMemo,
-			String updatedByUsername
-	) {
-		updateOrder(
-				orderId,
-				productCost,
-				quantity,
-				supplyPrice,
-				totalAmount,
-				packingCost,
-				deliveryCost,
-				preferredDeliveryDate,
-				statusStr,
-				deliveryMethodId,
-				deliveryHandlerId,
-				productCategoryId,
-				companyId,
-				requesterMemberId,
-				zipCode,
-				doName,
-				siName,
-				guName,
-				roadAddress,
-				detailAddress,
-				ordererName,
-				ordererPhone,
-				optionJson,
-				deleteAdminImageIds,
-				adminImages,
-				adminMemo,
-				null,
-				false,
-				updatedByUsername
-		);
+	public void updateOrder(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
+			int packingCost, int deliveryCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String ordererName, String ordererPhone,
+			String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages, String adminMemo,
+			String updatedByUsername) {
+		Order order = getOrderOrThrow(orderId);
+		updateOrder(orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
+				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
+				requesterMemberId, zipCode, doName, siName, guName, roadAddress, detailAddress, order.getSiteZipCode(),
+				order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(), order.getSiteRoadAddress(),
+				order.getSiteDetailAddress(), ordererName, ordererPhone, optionJson, deleteAdminImageIds, adminImages,
+				adminMemo, null, false, updatedByUsername);
 	}
 
 	/**
-	 * 출고완료 메시지까지 수정하는 신규 오버로드입니다.
-	 *
-	 * dispatchCompleteMessageSubmitted 값이 true일 때만 dispatchCompleteMessage를 DB에 반영합니다.
-	 * 이 처리가 없으면 기존 상세 화면처럼 해당 input이 없는 폼에서 저장할 때 기존 메시지가 null로 지워질 수 있습니다.
+	 * 기존 상세 화면 호환용입니다. dispatchCompleteMessageSubmitted가 true일 때만 출고완료 메시지를 수정합니다.
 	 */
 	@Transactional
-	public void updateOrder(
-			Long orderId,
-			int productCost,
-			int quantity,
-			int supplyPrice,
-			int totalAmount,
-			int packingCost,
-			int deliveryCost,
-			LocalDate preferredDeliveryDate,
-			String statusStr,
-			Optional<Long> deliveryMethodId,
-			Optional<Long> deliveryHandlerId,
-			Optional<Long> productCategoryId,
-			Optional<Long> companyId,
-			Optional<Long> requesterMemberId,
-			String zipCode,
-			String doName,
-			String siName,
-			String guName,
-			String roadAddress,
-			String detailAddress,
-			String ordererName,
-			String ordererPhone,
-			String optionJson,
-			List<Long> deleteAdminImageIds,
-			List<MultipartFile> adminImages,
-			String adminMemo,
-			String dispatchCompleteMessage,
-			boolean dispatchCompleteMessageSubmitted,
-			String updatedByUsername
-	) {
-		Order order = orderRepository.findById(orderId)
-				.orElseThrow(() -> new IllegalArgumentException("Order not found. orderId=" + orderId));
+	public void updateOrder(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
+			int packingCost, int deliveryCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String ordererName, String ordererPhone,
+			String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages, String adminMemo,
+			String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted, String updatedByUsername) {
+		Order order = getOrderOrThrow(orderId);
+		updateOrder(orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
+				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
+				requesterMemberId, zipCode, doName, siName, guName, roadAddress, detailAddress, order.getSiteZipCode(),
+				order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(), order.getSiteRoadAddress(),
+				order.getSiteDetailAddress(), ordererName, ordererPhone, optionJson, deleteAdminImageIds, adminImages,
+				adminMemo, dispatchCompleteMessage, dispatchCompleteMessageSubmitted, updatedByUsername);
+	}
+
+	/**
+	 * 현장주소까지 함께 수정하는 실제 처리 메서드입니다.
+	 */
+	@Transactional
+	public void updateOrder(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
+			int packingCost, int deliveryCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String siteZipCode, String siteDoName,
+			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress, String ordererName,
+			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
+			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
+			String updatedByUsername) {
+		Order order = getOrderOrThrow(orderId);
 
 		ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
 		boolean adminImageChanged = hasDeleteIds(deleteAdminImageIds) || hasUploadFiles(adminImages);
 
 		OrderStatus status = parseOrderStatus(statusStr);
-
 		MoneySnapshot moneySnapshot = normalizeMoney(productCost, quantity, supplyPrice, totalAmount);
 
 		order.setProductCost(moneySnapshot.productCost());
@@ -321,23 +179,6 @@ public class OrderUpdateService {
 		order.setPreferredDeliveryDate(preferredDeliveryDate != null ? preferredDeliveryDate.atStartOfDay() : null);
 		order.setStatus(status);
 
-		order.setZipCode(normalizeNullableText(zipCode));
-		order.setDoName(normalizeNullableText(doName));
-		order.setSiName(normalizeNullableText(siName));
-		order.setGuName(normalizeNullableText(guName));
-		order.setRoadAddress(normalizeNullableText(roadAddress));
-		order.setDetailAddress(normalizeNullableText(detailAddress));
-
-		order.setOrdererName(normalizeNullableText(ordererName));
-		order.setOrdererPhone(normalizeNullableText(ordererPhone));
-
-		String normalizedAdminMemo = normalizeNullableText(adminMemo);
-		order.setAdminMemo(normalizedAdminMemo);
-
-		if (dispatchCompleteMessageSubmitted) {
-			order.setDispatchCompleteMessage(normalizeNullableText(dispatchCompleteMessage));
-		}
-
 		normalizeId(deliveryMethodId).ifPresentOrElse(id -> {
 			var method = deliveryMethodRepository.findById(id)
 					.orElseThrow(() -> new IllegalArgumentException("Invalid deliveryMethodId. id=" + id));
@@ -345,23 +186,13 @@ public class OrderUpdateService {
 		}, () -> order.setDeliveryMethod(null));
 
 		boolean canceled = status == OrderStatus.CANCELED;
-		boolean directDelivery = isDirectDeliveryMethod(order);
+		boolean siteDelivery = isSiteDeliveryMethod(order);
+		boolean handlerRequired = isDeliveryHandlerRequired(order);
 
-		if (canceled || !directDelivery) {
-			order.setAssignedDeliveryHandler(null);
-		} else {
-			if (preferredDeliveryDate == null) {
-				throw new IllegalArgumentException("직배송 선택 시 배송희망일은 필수입니다.");
-			}
+		applyDeliveryAddress(order, siteDelivery, zipCode, doName, siName, guName, roadAddress, detailAddress,
+				siteZipCode, siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress);
 
-			Long handlerId = normalizeId(deliveryHandlerId)
-					.orElseThrow(() -> new IllegalArgumentException("직배송 선택 시 배송팀 담당자는 필수입니다."));
-
-			Member member = memberRepository.findById(handlerId)
-					.orElseThrow(() -> new IllegalArgumentException("Invalid deliveryHandlerId. id=" + handlerId));
-
-			order.setAssignedDeliveryHandler(member);
-		}
+		applyDeliveryHandler(order, preferredDeliveryDate, deliveryHandlerId, canceled, handlerRequired);
 
 		normalizeId(productCategoryId).ifPresentOrElse(id -> {
 			var category = teamCategoryRepository.findById(id)
@@ -369,20 +200,23 @@ public class OrderUpdateService {
 			order.setProductCategory(category);
 		}, () -> order.setProductCategory(null));
 
-		updateRequesterIfNeeded(
-				order,
-				normalizeId(companyId),
-				normalizeId(requesterMemberId)
-		);
-
+		updateRequesterIfNeeded(order, normalizeId(companyId), normalizeId(requesterMemberId));
 		updateOrderItemOptionJson(order, optionJson);
+
+		order.setOrdererName(normalizeNullableText(ordererName));
+		order.setOrdererPhone(normalizeNullableText(ordererPhone));
+		order.setAdminMemo(normalizeNullableText(adminMemo));
+
+		if (dispatchCompleteMessageSubmitted) {
+			order.setDispatchCompleteMessage(normalizeNullableText(dispatchCompleteMessage));
+		}
 
 		order.setUpdatedAt(LocalDateTime.now());
 
 		deleteAdminImages(order, deleteAdminImageIds);
 		saveAdminImages(order, adminImages);
 
-		if (canceled || !directDelivery) {
+		if (canceled || order.getAssignedDeliveryHandler() == null) {
 			deliveryOrderIndexService.removeIndex(order);
 		} else {
 			deliveryOrderIndexService.ensureIndex(order);
@@ -391,19 +225,112 @@ public class OrderUpdateService {
 		ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
 		boolean productionVisibleChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
 
-		orderCheckStatusService.markRevisedAfterProductionCheckIfNeeded(
-				order,
-				updatedByUsername,
+		orderCheckStatusService.markRevisedAfterProductionCheckIfNeeded(order, updatedByUsername,
 				productionVisibleChanged,
-				buildProductionRevisionReason(beforeSnapshot, afterSnapshot, adminImageChanged)
-		);
+				buildProductionRevisionReason(beforeSnapshot, afterSnapshot, adminImageChanged));
+	}
+
+	private Order getOrderOrThrow(Long orderId) {
+		return orderRepository.findById(orderId)
+				.orElseThrow(() -> new IllegalArgumentException("Order not found. orderId=" + orderId));
+	}
+
+	private void applyDeliveryAddress(Order order, boolean siteDelivery, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String siteZipCode, String siteDoName,
+			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress) {
+		String resolvedZipCode = firstNotBlank(zipCode, order.getZipCode());
+		String resolvedDoName = firstNotBlank(doName, order.getDoName());
+		String resolvedSiName = firstNotBlank(siName, order.getSiName());
+		String resolvedGuName = firstNotBlank(guName, order.getGuName());
+		String resolvedRoadAddress = firstNotBlank(roadAddress, order.getRoadAddress());
+		String resolvedDetailAddress = firstNotBlank(detailAddress, order.getDetailAddress());
+
+		order.setZipCode(resolvedZipCode);
+		order.setDoName(resolvedDoName);
+		order.setSiName(resolvedSiName);
+		order.setGuName(resolvedGuName);
+		order.setRoadAddress(resolvedRoadAddress);
+		order.setDetailAddress(resolvedDetailAddress);
+
+		if (siteDelivery) {
+			String resolvedSiteZipCode = firstNotBlank(siteZipCode, order.getSiteZipCode());
+			String resolvedSiteDoName = firstNotBlank(siteDoName, order.getSiteDoName());
+			String resolvedSiteSiName = firstNotBlank(siteSiName, order.getSiteSiName());
+			String resolvedSiteGuName = firstNotBlank(siteGuName, order.getSiteGuName());
+			String resolvedSiteRoadAddress = firstNotBlank(siteRoadAddress, order.getSiteRoadAddress());
+			String resolvedSiteDetailAddress = firstNotBlank(siteDetailAddress, order.getSiteDetailAddress());
+
+			if (resolvedSiteRoadAddress == null) {
+				throw new IllegalArgumentException("현장배송 선택 시 현장주소는 필수입니다.");
+			}
+
+			order.setSiteZipCode(resolvedSiteZipCode);
+			order.setSiteDoName(resolvedSiteDoName);
+			order.setSiteSiName(resolvedSiteSiName);
+			order.setSiteGuName(resolvedSiteGuName);
+			order.setSiteRoadAddress(resolvedSiteRoadAddress);
+			order.setSiteDetailAddress(resolvedSiteDetailAddress);
+			return;
+		}
+
+		if (resolvedRoadAddress == null) {
+			throw new IllegalArgumentException("현장배송이 아닌 경우 배송주소는 필수입니다.");
+		}
+
+		clearSiteAddress(order);
+	}
+
+	private String normalizeNullableText(String value) {
+		if (value == null) {
+			return null;
+		}
+		String trimmed = value.trim();
+		return trimmed.isEmpty() ? null : trimmed;
+	}
+
+	private void clearSiteAddress(Order order) {
+		order.setSiteZipCode(null);
+		order.setSiteDoName(null);
+		order.setSiteSiName(null);
+		order.setSiteGuName(null);
+		order.setSiteRoadAddress(null);
+		order.setSiteDetailAddress(null);
+	}
+
+	private void applyDeliveryHandler(Order order, LocalDate preferredDeliveryDate, Optional<Long> deliveryHandlerId,
+			boolean canceled, boolean handlerRequired) {
+		if (canceled) {
+			order.setAssignedDeliveryHandler(null);
+			return;
+		}
+
+		Optional<Long> normalizedHandlerId = normalizeId(deliveryHandlerId);
+		String methodName = getDeliveryMethodName(order).orElse("배송수단");
+
+		if (handlerRequired && normalizedHandlerId.isEmpty()) {
+			throw new IllegalArgumentException(methodName + " 선택 시 배송팀 담당자는 필수입니다.");
+		}
+
+		if (normalizedHandlerId.isEmpty()) {
+			order.setAssignedDeliveryHandler(null);
+			return;
+		}
+
+		if (preferredDeliveryDate == null) {
+			throw new IllegalArgumentException("배송팀 담당자를 지정하는 경우 배송희망일은 필수입니다.");
+		}
+
+		Long handlerId = normalizedHandlerId.get();
+		Member member = memberRepository.findById(handlerId)
+				.orElseThrow(() -> new IllegalArgumentException("Invalid deliveryHandlerId. id=" + handlerId));
+
+		order.setAssignedDeliveryHandler(member);
 	}
 
 	private boolean hasDeleteIds(List<Long> ids) {
 		if (ids == null || ids.isEmpty()) {
 			return false;
 		}
-
 		return ids.stream().anyMatch(id -> id != null && id > 0);
 	}
 
@@ -411,48 +338,37 @@ public class OrderUpdateService {
 		if (files == null || files.isEmpty()) {
 			return false;
 		}
-
 		return files.stream().anyMatch(file -> file != null && !file.isEmpty());
 	}
 
-	private String buildProductionRevisionReason(
-			ProductionVisibleOrderSnapshot before,
-			ProductionVisibleOrderSnapshot after,
-			boolean adminImageChanged
-	) {
+	private String buildProductionRevisionReason(ProductionVisibleOrderSnapshot before,
+			ProductionVisibleOrderSnapshot after, boolean adminImageChanged) {
 		List<String> reasons = new ArrayList<>();
 
-		if (!Objects.equals(before.statusName(), after.statusName())) {
+		if (!Objects.equals(before.statusName(), after.statusName()))
 			reasons.add("발주상태");
-		}
-
-		if (!Objects.equals(before.productCategoryId(), after.productCategoryId())) {
+		if (!Objects.equals(before.productCategoryId(), after.productCategoryId()))
 			reasons.add("생산팀 카테고리");
-		}
-
-		if (!Objects.equals(before.preferredDeliveryDate(), after.preferredDeliveryDate())) {
+		if (!Objects.equals(before.preferredDeliveryDate(), after.preferredDeliveryDate()))
 			reasons.add("배송희망일");
-		}
-
-		if (before.quantity() != after.quantity()) {
+		if (!Objects.equals(before.deliveryMethodId(), after.deliveryMethodId()))
+			reasons.add("배송수단");
+		if (!Objects.equals(before.assignedDeliveryHandlerId(), after.assignedDeliveryHandlerId()))
+			reasons.add("배송담당자");
+		if (!Objects.equals(before.deliveryAddress(), after.deliveryAddress()))
+			reasons.add("배송주소");
+		if (!Objects.equals(before.siteAddress(), after.siteAddress()))
+			reasons.add("현장주소");
+		if (before.quantity() != after.quantity())
 			reasons.add("수량");
-		}
-
-		if (!Objects.equals(before.adminMemo(), after.adminMemo())) {
+		if (!Objects.equals(before.adminMemo(), after.adminMemo()))
 			reasons.add("관리자 남김말");
-		}
-
-		if (!Objects.equals(before.optionJson(), after.optionJson())) {
+		if (!Objects.equals(before.optionJson(), after.optionJson()))
 			reasons.add("제품 옵션");
-		}
-
-		if (!Objects.equals(before.orderItemProductName(), after.orderItemProductName())) {
+		if (!Objects.equals(before.orderItemProductName(), after.orderItemProductName()))
 			reasons.add("제품명");
-		}
-
-		if (adminImageChanged) {
+		if (adminImageChanged)
 			reasons.add("관리자 첨부파일");
-		}
 
 		if (reasons.isEmpty()) {
 			return "관리자 수정";
@@ -461,38 +377,44 @@ public class OrderUpdateService {
 		return String.join(", ", reasons) + " 수정";
 	}
 
-	private record ProductionVisibleOrderSnapshot(
-			String statusName,
-			Long productCategoryId,
-			String preferredDeliveryDate,
-			int quantity,
-			String adminMemo,
-			String optionJson,
-			String orderItemProductName
-	) {
+	private record ProductionVisibleOrderSnapshot(String statusName, Long productCategoryId,
+			String preferredDeliveryDate, Long deliveryMethodId, Long assignedDeliveryHandlerId, String deliveryAddress,
+			String siteAddress, int quantity, String adminMemo, String optionJson, String orderItemProductName) {
 		static ProductionVisibleOrderSnapshot from(Order order) {
 			if (order == null) {
-				return new ProductionVisibleOrderSnapshot(null, null, null, 0, null, null, null);
+				return new ProductionVisibleOrderSnapshot(null, null, null, null, null, null, null, 0, null, null,
+						null);
 			}
 
 			OrderItem orderItem = order.getOrderItem();
 
-			return new ProductionVisibleOrderSnapshot(
-					order.getStatus() != null ? order.getStatus().name() : null,
+			return new ProductionVisibleOrderSnapshot(order.getStatus() != null ? order.getStatus().name() : null,
 					order.getProductCategory() != null ? order.getProductCategory().getId() : null,
 					order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : null,
-					order.getQuantity(),
-					normalize(order.getAdminMemo()),
+					order.getDeliveryMethod() != null ? order.getDeliveryMethod().getId() : null,
+					order.getAssignedDeliveryHandler() != null ? order.getAssignedDeliveryHandler().getId() : null,
+					join(order.getZipCode(), order.getDoName(), order.getSiName(), order.getGuName(),
+							order.getRoadAddress(), order.getDetailAddress()),
+					join(order.getSiteZipCode(), order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(),
+							order.getSiteRoadAddress(), order.getSiteDetailAddress()),
+					order.getQuantity(), normalize(order.getAdminMemo()),
 					orderItem != null ? normalize(orderItem.getOptionJson()) : null,
-					orderItem != null ? normalize(orderItem.getProductName()) : null
-			);
+					orderItem != null ? normalize(orderItem.getProductName()) : null);
+		}
+
+		private static String join(String... values) {
+			if (values == null) {
+				return null;
+			}
+			String joined = java.util.Arrays.stream(values).map(ProductionVisibleOrderSnapshot::normalize)
+					.filter(Objects::nonNull).collect(java.util.stream.Collectors.joining(" "));
+			return joined.isBlank() ? null : joined;
 		}
 
 		private static String normalize(String value) {
 			if (value == null) {
 				return null;
 			}
-
 			String trimmed = value.trim();
 			return trimmed.isEmpty() ? null : trimmed;
 		}
@@ -504,7 +426,6 @@ public class OrderUpdateService {
 		}
 
 		Long value = id.get();
-
 		if (value == null || value <= 0) {
 			return Optional.empty();
 		}
@@ -512,14 +433,19 @@ public class OrderUpdateService {
 		return Optional.of(value);
 	}
 
-	private boolean isDirectDeliveryMethod(Order order) {
+	private boolean isSiteDeliveryMethod(Order order) {
+		return getDeliveryMethodName(order).map(SITE_DELIVERY_METHOD_NAME::equals).orElse(false);
+	}
+
+	private boolean isDeliveryHandlerRequired(Order order) {
+		return getDeliveryMethodName(order).map(REQUIRED_DELIVERY_HANDLER_METHOD_NAMES::contains).orElse(false);
+	}
+
+	private Optional<String> getDeliveryMethodName(Order order) {
 		if (order == null || order.getDeliveryMethod() == null) {
-			return false;
+			return Optional.empty();
 		}
-
-		String methodName = normalizeNullableText(order.getDeliveryMethod().getMethodName());
-
-		return DIRECT_DELIVERY_METHOD_NAME.equals(methodName);
+		return Optional.ofNullable(normalizeNullableText(order.getDeliveryMethod().getMethodName()));
 	}
 
 	private MoneySnapshot normalizeMoney(int productCost, int quantity, int supplyPrice, int totalAmount) {
@@ -531,34 +457,25 @@ public class OrderUpdateService {
 		if (normalizedSupplyPrice == 0 && normalizedProductCost > 0 && normalizedQuantity > 0) {
 			normalizedSupplyPrice = normalizedProductCost * normalizedQuantity;
 		}
-
 		if (normalizedSupplyPrice == 0 && normalizedTotalAmount > 0) {
 			normalizedSupplyPrice = Math.round(normalizedTotalAmount / 1.1f);
 		}
-
 		if (normalizedProductCost == 0 && normalizedSupplyPrice > 0 && normalizedQuantity > 0) {
 			normalizedProductCost = Math.round((float) normalizedSupplyPrice / normalizedQuantity);
 		}
-
 		if (normalizedQuantity == 0 && normalizedProductCost > 0 && normalizedSupplyPrice > 0) {
 			normalizedQuantity = Math.max(1, Math.round((float) normalizedSupplyPrice / normalizedProductCost));
 		}
-
 		if (normalizedTotalAmount == 0 && normalizedSupplyPrice > 0) {
 			normalizedTotalAmount = Math.round(normalizedSupplyPrice * 1.1f);
 		}
-
 		if (normalizedSupplyPrice == 0 && normalizedProductCost > 0 && normalizedQuantity > 0) {
 			normalizedSupplyPrice = normalizedProductCost * normalizedQuantity;
 			normalizedTotalAmount = Math.round(normalizedSupplyPrice * 1.1f);
 		}
 
-		return new MoneySnapshot(
-				nonNegative(normalizedProductCost, "단가"),
-				nonNegative(normalizedQuantity, "수량"),
-				nonNegative(normalizedSupplyPrice, "공급가"),
-				nonNegative(normalizedTotalAmount, "총비용")
-		);
+		return new MoneySnapshot(nonNegative(normalizedProductCost, "단가"), nonNegative(normalizedQuantity, "수량"),
+				nonNegative(normalizedSupplyPrice, "공급가"), nonNegative(normalizedTotalAmount, "총비용"));
 	}
 
 	private int nonNegative(int value, String label) {
@@ -580,30 +497,18 @@ public class OrderUpdateService {
 		}
 	}
 
-	private String normalizeNullableText(String value) {
-		if (value == null) {
-			return null;
+	private String firstNotBlank(String submittedValue, String currentValue) {
+		String normalizedSubmittedValue = normalizeNullableText(submittedValue);
+		if (normalizedSubmittedValue != null) {
+			return normalizedSubmittedValue;
 		}
 
-		String trimmed = value.trim();
-		return trimmed.isEmpty() ? null : trimmed;
+		return normalizeNullableText(currentValue);
 	}
 
 	private void updateRequesterIfNeeded(Order order, Optional<Long> companyId, Optional<Long> requesterMemberId) {
 		Optional<Long> normalizedCompanyId = normalizeId(companyId);
 		Optional<Long> normalizedRequesterMemberId = normalizeId(requesterMemberId);
-
-		/*
-		 * 1. 신청자를 직접 선택한 경우:
-		 *    - 해당 멤버로 requestedBy 변경
-		 *    - companyId가 같이 넘어왔으면 선택한 회사 소속인지 검증
-		 *
-		 * 2. 대리점은 선택했지만 신청자를 선택하지 않은 경우:
-		 *    - 해당 대리점의 CUSTOMER_REPRESENTATIVE 대표회원으로 자동 지정
-		 *
-		 * 3. 대리점도 신청자도 비어 있는 경우:
-		 *    - 기존 신청자 유지
-		 */
 
 		Member newRequester = null;
 
@@ -631,10 +536,8 @@ public class OrderUpdateService {
 			Company selectedCompany = companyRepository.findById(selectedCompanyId)
 					.orElseThrow(() -> new IllegalArgumentException("Invalid companyId. id=" + selectedCompanyId));
 
-			newRequester = findRepresentativeMember(selectedCompany)
-					.orElseThrow(() -> new IllegalStateException(
-							"선택한 대리점에 대표회원이 없어 신청자를 자동 지정할 수 없습니다. 대리점 상세에서 대표회원(CUSTOMER_REPRESENTATIVE)을 먼저 등록해 주세요."
-					));
+			newRequester = findRepresentativeMember(selectedCompany).orElseThrow(() -> new IllegalStateException(
+					"선택한 대리점에 대표회원이 없어 신청자를 자동 지정할 수 없습니다. 대리점 상세에서 대표회원(CUSTOMER_REPRESENTATIVE)을 먼저 등록해 주세요."));
 		}
 
 		if (newRequester == null) {
@@ -642,7 +545,6 @@ public class OrderUpdateService {
 		}
 
 		Task task = order.getTask();
-
 		if (task == null) {
 			throw new IllegalStateException("Order에 Task가 존재하지 않습니다. orderId=" + order.getId());
 		}
@@ -657,13 +559,10 @@ public class OrderUpdateService {
 			return Optional.empty();
 		}
 
-		return memberRepository.findByCompany_Id(company.getId())
-				.stream()
+		return memberRepository.findByCompany_Id(company.getId()).stream()
 				.filter(member -> member != null && member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
-				.min((left, right) -> Long.compare(
-						left.getId() == null ? Long.MAX_VALUE : left.getId(),
-						right.getId() == null ? Long.MAX_VALUE : right.getId()
-				));
+				.min((left, right) -> Long.compare(left.getId() == null ? Long.MAX_VALUE : left.getId(),
+						right.getId() == null ? Long.MAX_VALUE : right.getId()));
 	}
 
 	private void updateOrderItemOptionJson(Order order, String submittedOptionJson) {
@@ -690,8 +589,7 @@ public class OrderUpdateService {
 			String originalValue = originalEntry.getValue();
 
 			if (OPTION_DELETE_BLOCKED_KEYS.contains(key)) {
-				String value = OPTION_VALUE_FIXED_KEYS.contains(key)
-						? originalValue
+				String value = OPTION_VALUE_FIXED_KEYS.contains(key) ? originalValue
 						: submittedMap.getOrDefault(key, originalValue);
 
 				if (value == null || value.isBlank()) {
@@ -718,11 +616,9 @@ public class OrderUpdateService {
 			if (key == null || key.isBlank() || mergedMap.containsKey(key)) {
 				continue;
 			}
-
 			if (value == null || value.isBlank()) {
 				throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
 			}
-
 			mergedMap.put(key.trim(), value.trim());
 		}
 
@@ -752,11 +648,9 @@ public class OrderUpdateService {
 		}
 
 		try {
-			LinkedHashMap<String, String> parsed = objectMapper.readValue(
-					optionJson,
-					new TypeReference<LinkedHashMap<String, String>>() {}
-			);
-
+			LinkedHashMap<String, String> parsed = objectMapper.readValue(optionJson,
+					new TypeReference<LinkedHashMap<String, String>>() {
+					});
 			return parsed != null ? parsed : new LinkedHashMap<>();
 		} catch (Exception e) {
 			throw new IllegalArgumentException("옵션 JSON을 파싱할 수 없습니다.", e);
@@ -780,12 +674,7 @@ public class OrderUpdateService {
 		}
 
 		for (int i = 0; i < optionValues.size(); i++) {
-			String key;
-			if (hasBaseOptionKey) {
-				key = (i == 0) ? "옵션" : "옵션" + (i + 1);
-			} else {
-				key = "옵션" + (i + 1);
-			}
+			String key = hasBaseOptionKey ? (i == 0 ? "옵션" : "옵션" + (i + 1)) : "옵션" + (i + 1);
 			normalized.put(key, optionValues.get(i));
 		}
 
@@ -812,8 +701,7 @@ public class OrderUpdateService {
 			}
 
 			OrderImage image = orderImageRepository
-					.findByIdAndOrder_IdAndTypeIgnoreCase(imageId, orderId, ADMIN_IMAGE_TYPE)
-					.orElse(null);
+					.findByIdAndOrder_IdAndTypeIgnoreCase(imageId, orderId, ADMIN_IMAGE_TYPE).orElse(null);
 
 			if (image == null) {
 				continue;
@@ -821,13 +709,9 @@ public class OrderUpdateService {
 
 			deletePhysicalFile(image);
 
-			/*
-			 * 같은 트랜잭션 안에서 order.getOrderImages()가 이미 초기화된 상태일 수 있으므로 컬렉션에서도 제거해 줍니다.
-			 */
 			if (order.getOrderImages() != null) {
 				order.getOrderImages().removeIf(
-						orderImage -> orderImage != null && Objects.equals(orderImage.getId(), image.getId())
-				);
+						orderImage -> orderImage != null && Objects.equals(orderImage.getId(), image.getId()));
 			}
 
 			orderImageRepository.delete(image);
@@ -836,18 +720,12 @@ public class OrderUpdateService {
 
 	private void deletePhysicalFile(OrderImage image) {
 		Path filePath = resolveImageFilePath(image);
-
 		if (filePath == null) {
 			return;
 		}
-
 		try {
 			Files.deleteIfExists(filePath);
 		} catch (IOException e) {
-			/*
-			 * 여기서 RuntimeException을 던지면 DB 수정까지 롤백됩니다.
-			 * 이미지 파일 삭제 실패 때문에 주문 수정 전체를 실패시키고 싶으면 RuntimeException으로 유지하시면 됩니다.
-			 */
 			throw new RuntimeException("관리자 이미지 파일 삭제 중 오류가 발생했습니다. path=" + filePath, e);
 		}
 	}
@@ -861,30 +739,17 @@ public class OrderUpdateService {
 			return Paths.get(image.getPath()).normalize();
 		}
 
-		/*
-		 * 예외 대비:
-		 * 과거 데이터 중 path가 없고 url만 있는 경우 /upload/ 뒤 경로를 uploadRootPath와 합칩니다.
-		 *
-		 * url 예시:
-		 * /upload/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename}
-		 *
-		 * 실제 경로:
-		 * {spring.upload.path}/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename}
-		 */
 		String url = image.getUrl();
-
 		if (url == null || url.isBlank()) {
 			return null;
 		}
 
 		String prefix = "/upload/";
-
 		if (!url.startsWith(prefix)) {
 			return null;
 		}
 
 		String relativePath = url.substring(prefix.length());
-
 		if (relativePath.isBlank()) {
 			return null;
 		}
@@ -897,50 +762,30 @@ public class OrderUpdateService {
 			return;
 		}
 
-		List<MultipartFile> validFiles = files.stream()
-				.filter(file -> file != null && !file.isEmpty())
-				.toList();
+		List<MultipartFile> validFiles = files.stream().filter(file -> file != null && !file.isEmpty()).toList();
 
 		if (validFiles.isEmpty()) {
 			return;
 		}
 
 		Long memberId = resolveRequesterMemberId(order);
-
 		LocalDate today = LocalDate.now();
 		String dateFolder = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
-		/*
-		 * 저장 경로:
-		 * {spring.upload.path}/order/order/{memberId}/{yyyy-MM-dd}/admin/
-		 */
-		Path saveDir = Paths.get(
-				uploadRootPath,
-				"order",
-				"order",
-				String.valueOf(memberId),
-				dateFolder,
-				"admin"
-		);
+		Path saveDir = Paths.get(uploadRootPath, "order", "order", String.valueOf(memberId), dateFolder, "admin");
 
 		try {
 			Files.createDirectories(saveDir);
-
 			List<OrderImage> imageEntities = new ArrayList<>();
 
 			for (MultipartFile file : validFiles) {
 				String originalFilename = file.getOriginalFilename();
 				String ext = getFileExtension(originalFilename);
 				String uuidFileName = UUID.randomUUID() + (ext != null ? "." + ext : "");
-
 				Path savedPath = saveDir.resolve(uuidFileName).normalize();
 
 				Files.copy(file.getInputStream(), savedPath, StandardCopyOption.REPLACE_EXISTING);
 
-				/*
-				 * 웹 접근 경로:
-				 * /upload/order/order/{memberId}/{yyyy-MM-dd}/admin/{filename}
-				 */
 				String urlPath = "/upload/order/order/" + memberId + "/" + dateFolder + "/admin/" + uuidFileName;
 
 				OrderImage image = new OrderImage();
@@ -971,11 +816,9 @@ public class OrderUpdateService {
 		if (order.getTask() == null) {
 			throw new IllegalStateException("Order에 Task가 존재하지 않아 이미지 저장 경로를 만들 수 없습니다.");
 		}
-
 		if (order.getTask().getRequestedBy() == null) {
 			throw new IllegalStateException("Task에 requestedBy가 없어 이미지 저장 경로를 만들 수 없습니다.");
 		}
-
 		return order.getTask().getRequestedBy().getId();
 	}
 
@@ -983,21 +826,13 @@ public class OrderUpdateService {
 		if (filename == null || filename.isBlank() || !filename.contains(".")) {
 			return null;
 		}
-
 		String ext = filename.substring(filename.lastIndexOf('.') + 1).trim();
-
 		if (ext.isBlank()) {
 			return null;
 		}
-
 		return ext.toLowerCase();
 	}
 
-	private record MoneySnapshot(
-			int productCost,
-			int quantity,
-			int supplyPrice,
-			int totalAmount
-	) {
+	private record MoneySnapshot(int productCost, int quantity, int supplyPrice, int totalAmount) {
 	}
 }

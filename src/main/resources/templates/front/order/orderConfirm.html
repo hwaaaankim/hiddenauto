@@ -111,6 +111,46 @@
 									<input type="date" id="delivery-date" />
 								</div>
 							</div>
+							<!-- 현장배송 선택 시에만 노출 -->
+							<div id="site-address-section" class="order-confirm-site-address-section"
+								style="display:none;">
+								<div class="divider mt-3 mb-3"></div>
+
+								<div class="payment-title">
+									<div>
+										<h2 class="mb-0">현장주소</h2>
+										<p>배송수단이 현장배송인 경우 실제 현장주소를 입력해 주세요.</p>
+									</div>
+
+									<div class="order-confirm-added-address-select-wrap">
+										<button type="button" id="site-address-open-modal"
+											class="btn btn-s rounded-s shadow-l bg-highlight text-uppercase font-800">
+											등록 배송지 선택
+										</button>
+									</div>
+								</div>
+
+								<div class="payment-inputs">
+									<div class="input-group order-confirm-orderer-same-row">
+										<input type="checkbox" id="site-same-as-member" />
+										<label for="site-same-as-member">회원주소와 동일</label>
+									</div>
+
+									<div class="input-group">
+										<input type="text" id="site-address" placeholder="현장주소를 검색해 주세요." readonly />
+										<button type="button" id="site-addr-search">주소검색</button>
+									</div>
+
+									<div class="input-group">
+										<input type="text" id="site-detail" placeholder="현장 상세주소를 입력해 주세요." />
+									</div>
+
+									<input type="hidden" id="site-do" />
+									<input type="hidden" id="site-si" />
+									<input type="hidden" id="site-gu" />
+									<input type="hidden" id="site-zipcode" />
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

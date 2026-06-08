@@ -28,6 +28,19 @@
 		addressSource: 'COMPANY',
 		useCompanyAddress: true,
 
+		companyAddressSelectMode: 'COMMON',
+		siteAddressSource: 'COMMON',
+		useCommonSiteAddress: true,
+
+		siteAddress: {
+			zipCode: '',
+			doName: '',
+			siName: '',
+			guName: '',
+			roadAddress: '',
+			detailAddress: ''
+		},
+
 		ordererSource: 'COMPANY',
 		useCompanyOrderer: true,
 
@@ -67,7 +80,9 @@
 		refreshBottomSummary();
 		refreshActionButtons();
 		renderAddressSummary();
+		renderSiteAddressSummary();
 		renderOrdererSummary();
+		syncSiteAddressSection();
 		syncDeliveryHandlerAvailability();
 	}
 
@@ -119,6 +134,19 @@
 		els.guName = document.getElementById('product-admin-add-gu-name');
 		els.addressFeedback = document.getElementById('product-admin-add-address-feedback');
 		els.addressSummary = document.getElementById('product-admin-add-address-summary');
+
+		els.siteAddressSection = document.getElementById('product-admin-add-site-address-section');
+		els.useCommonSiteAddress = document.getElementById('product-admin-add-use-common-site-address');
+		els.siteCompanyAddressSearchBtn = document.getElementById('product-admin-add-site-company-address-search-btn');
+		els.siteSearchAddressBtn = document.getElementById('product-admin-add-site-search-address-btn');
+		els.siteZipCode = document.getElementById('product-admin-add-site-zip-code');
+		els.siteRoadAddress = document.getElementById('product-admin-add-site-road-address');
+		els.siteDetailAddress = document.getElementById('product-admin-add-site-detail-address');
+		els.siteDoName = document.getElementById('product-admin-add-site-do-name');
+		els.siteSiName = document.getElementById('product-admin-add-site-si-name');
+		els.siteGuName = document.getElementById('product-admin-add-site-gu-name');
+		els.siteAddressFeedback = document.getElementById('product-admin-add-site-address-feedback');
+		els.siteAddressSummary = document.getElementById('product-admin-add-site-address-summary');
 
 		els.orderAddTopSlot = document.getElementById('product-admin-add-order-add-top-slot');
 		els.orderAddBottomSlot = document.getElementById('product-admin-add-order-add-bottom-slot');
@@ -182,12 +210,12 @@
 		}
 
 		els.deliveryInput.addEventListener('focus', () => {
-			if (isDirectDeliverySelected()) {
+			if (isDeliveryHandlerAssignableSelected()) {
 				loadDeliveryHandlers(els.deliveryInput.value.trim());
 			}
 		});
 		els.deliveryInput.addEventListener('input', () => {
-			if (!isDirectDeliverySelected()) {
+			if (!isDeliveryHandlerAssignableSelected()) {
 				clearSelectedDeliveryHandler(false);
 				refreshActionButtons();
 				return;
@@ -210,11 +238,38 @@
 		}
 
 		if (els.companyAddressSearchBtn) {
-			els.companyAddressSearchBtn.addEventListener('click', openCompanyAddressModal);
+			els.companyAddressSearchBtn.addEventListener('click', () => openCompanyAddressModal('COMMON'));
 		}
 
 		if (els.companyAddressList) {
 			els.companyAddressList.addEventListener('click', handleCompanyAddressModalClick);
+		}
+
+		if (els.useCommonSiteAddress) {
+			els.useCommonSiteAddress.addEventListener('change', handleUseCommonSiteAddressChange);
+		}
+
+		if (els.siteCompanyAddressSearchBtn) {
+			els.siteCompanyAddressSearchBtn.addEventListener('click', () => openCompanyAddressModal('SITE'));
+		}
+
+		if (els.siteSearchAddressBtn) {
+			els.siteSearchAddressBtn.addEventListener('click', () => openAddressSearch('SITE'));
+		}
+
+		if (els.siteDetailAddress) {
+			els.siteDetailAddress.addEventListener('input', () => {
+				if (state.useCommonSiteAddress && els.useCommonSiteAddress) {
+					els.useCommonSiteAddress.checked = false;
+					state.useCommonSiteAddress = false;
+					state.siteAddressSource = 'MANUAL';
+				}
+
+				state.siteAddress.detailAddress = (els.siteDetailAddress.value || '').trim();
+				clearSiteAddressFeedback();
+				renderSiteAddressSummary();
+				refreshActionButtons();
+			});
 		}
 
 		if (els.useCompanyOrderer) {
@@ -255,7 +310,7 @@
 			});
 		}
 
-		els.searchAddressBtn.addEventListener('click', openAddressSearch);
+		els.searchAddressBtn.addEventListener('click', () => openAddressSearch('COMMON'));
 
 		els.detailAddress.addEventListener('input', () => {
 			if (state.useCompanyAddress && els.useCompanyAddress) {
@@ -265,8 +320,12 @@
 			}
 
 			state.address.detailAddress = (els.detailAddress.value || '').trim();
+			if (state.useCommonSiteAddress) {
+				applyCommonAddressToSite();
+			}
 			clearAddressFeedback();
 			renderAddressSummary();
+			renderSiteAddressSummary();
 			refreshActionButtons();
 		});
 
@@ -539,9 +598,18 @@
 			els.useCompanyOrderer.checked = true;
 		}
 
+		if (els.useCommonSiteAddress) {
+			els.useCommonSiteAddress.checked = true;
+		}
+
 		state.useCompanyAddress = true;
+		state.useCommonSiteAddress = true;
 		state.useCompanyOrderer = true;
+		if (els.useCommonSiteAddress) {
+			els.useCommonSiteAddress.checked = true;
+		}
 		applyCompanyDefaultAddress();
+		applyCommonAddressToSite();
 		applyCompanyDefaultOrderer();
 
 		closeCompanyDropdown();
@@ -574,9 +642,12 @@
 
 		state.useCompanyAddress = true;
 		state.addressSource = 'COMPANY';
+		state.useCommonSiteAddress = true;
+		state.siteAddressSource = 'COMMON';
 		state.useCompanyOrderer = true;
 		state.ordererSource = 'COMPANY';
 		clearAddressFields();
+		clearSiteAddressFields();
 		clearOrdererFields();
 		refreshActionButtons();
 	}
@@ -636,7 +707,7 @@
 		els.deliverySummary.innerHTML = '';
 	}
 	function validateExactDeliverySelection(showMessage = false) {
-		if (!isDirectDeliverySelected()) {
+		if (!isDeliveryHandlerAssignableSelected()) {
 			clearSelectedDeliveryHandler(false);
 			els.deliveryInput.classList.remove('product-admin-add-invalid');
 			els.deliveryFeedback.textContent = '';
@@ -645,14 +716,13 @@
 
 		const value = (els.deliveryInput.value || '').trim();
 
+		// 직배송/현장배송/화물이어도 담당자 선택은 선택사항입니다.
+		// 값을 입력한 경우에만 반드시 자동완성 목록에서 정확히 선택되어야 합니다.
 		if (!value) {
 			clearSelectedDeliveryHandler(false);
 			els.deliveryInput.classList.remove('product-admin-add-invalid');
-			els.deliveryFeedback.textContent = showMessage ? '직배송은 배송 담당자를 선택해야 합니다.' : '';
-			if (showMessage) {
-				els.deliveryInput.classList.add('product-admin-add-invalid');
-			}
-			return false;
+			els.deliveryFeedback.textContent = '';
+			return true;
 		}
 
 		if (state.deliveryHandler && String(state.deliveryHandler.memberId) === String(els.deliveryId.value)) {
@@ -711,41 +781,65 @@
 			els.deliveryMethodFeedback.textContent = '';
 		}
 
-		if (!isDirectDeliverySelected()) {
+		if (!isDeliveryHandlerAssignableSelected()) {
 			clearSelectedDeliveryHandler(true);
 		}
 
+		if (isSiteDeliverySelected() && state.useCommonSiteAddress) {
+			applyCommonAddressToSite();
+		}
+
+		syncSiteAddressSection();
 		syncDeliveryHandlerAvailability();
 		refreshActionButtons();
 	}
 
+	function getSelectedDeliveryMethodName() {
+		return normalizeText(state.deliveryMethod ? state.deliveryMethod.methodName : '').replaceAll(' ', '');
+	}
+
 	function isDirectDeliverySelected() {
+		return getSelectedDeliveryMethodName().includes('직배송');
+	}
+
+	function isSiteDeliverySelected() {
+		return getSelectedDeliveryMethodName().includes('현장배송');
+	}
+
+	function isFreightDeliverySelected() {
+		return getSelectedDeliveryMethodName().includes('화물');
+	}
+
+	function isDeliveryHandlerAssignableSelected() {
 		if (!state.deliveryMethod) {
 			return false;
 		}
 
 		return Boolean(state.deliveryMethod.directDelivery) ||
-			normalizeText(state.deliveryMethod.methodName).replaceAll(' ', '').includes('직배송');
+			isDirectDeliverySelected() ||
+			isSiteDeliverySelected() ||
+			isFreightDeliverySelected();
 	}
 
 	function syncDeliveryHandlerAvailability() {
-		const direct = isDirectDeliverySelected();
+		const assignable = isDeliveryHandlerAssignableSelected();
 
 		if (!els.deliveryInput || !els.deliveryId) {
 			return;
 		}
 
-		els.deliveryInput.disabled = !direct;
-		els.deliveryInput.placeholder = direct
-			? '배송 담당자를 입력 후 리스트에서 선택해 주세요.'
-			: '직배송 선택 시에만 담당자를 지정합니다.';
+		els.deliveryInput.disabled = !assignable;
+		els.deliveryInput.placeholder = assignable
+			? '선택사항입니다. 미선택 시 주소 기준으로 자동 배정됩니다.'
+			: '직배송/현장배송/화물 선택 시 지정할 수 있습니다.';
 
-		if (!direct) {
+		if (!assignable) {
 			els.deliveryInput.classList.remove('product-admin-add-invalid');
 			els.deliveryFeedback.textContent = '';
 			closeDeliveryDropdown();
 		}
 	}
+
 
 	function validateDeliveryMethod(showMessage = false) {
 		const valid = Boolean(state.deliveryMethod && state.deliveryMethod.id);
@@ -825,20 +919,15 @@
 		state.addressSource = source || 'MANUAL';
 
 		syncAddressInputs();
-		clearAddressFeedback();
-		renderAddressSummary();
-		refreshActionButtons();
-	}
-	function normalizeZipCode(value) {
-		const raw = String(value || '').trim();
 
-		const matched = raw.match(/\b\d{5}\b/);
-
-		if (matched) {
-			return matched[0];
+		if (state.useCommonSiteAddress) {
+			applyCommonAddressToSite();
 		}
 
-		return raw.length <= 20 ? raw : '';
+		clearAddressFeedback();
+		renderAddressSummary();
+		renderSiteAddressSummary();
+		refreshActionButtons();
 	}
 	function normalizeZipCode(value) {
 		const raw = String(value || '').trim();
@@ -861,23 +950,25 @@
 		els.detailAddress.value = state.address.detailAddress || '';
 	}
 
-	async function openCompanyAddressModal() {
+	async function openCompanyAddressModal(mode = 'COMMON') {
 		if (!state.company) {
 			alert('먼저 대리점을 선택해 주세요.');
 			return;
 		}
 
 		if (!els.companyAddressModal || !els.companyAddressList || !els.companyAddressEmpty) {
-			alert('회원주소검색 모달 HTML이 없습니다.');
+			alert('등록주소지검색 모달 HTML이 없습니다.');
 			return;
 		}
+
+		state.companyAddressSelectMode = mode === 'SITE' ? 'SITE' : 'COMMON';
 
 		try {
 			await loadCompanyDeliveryAddressesIfNeeded();
 			renderCompanyAddressModal();
 			els.companyAddressModal.show();
 		} catch (error) {
-			alert(error.message || '회원주소 목록을 불러오지 못했습니다.');
+			alert(error.message || '등록주소지 목록을 불러오지 못했습니다.');
 		}
 	}
 
@@ -895,8 +986,46 @@
 		state.companyDeliveryAddressLoadedForCompanyId = state.company.companyId;
 	}
 
+	function getCompanyAddressModalItems() {
+		const items = [];
+
+		if (state.company) {
+			items.push({
+				key: `COMPANY-${state.company.companyId}`,
+				label: '회원주소',
+				zipCode: state.company.zipCode || '',
+				doName: state.company.doName || '',
+				siName: state.company.siName || '',
+				guName: state.company.guName || '',
+				roadAddress: state.company.roadAddress || '',
+				detailAddress: state.company.detailAddress || '',
+				address: [state.company.roadAddress, state.company.detailAddress]
+					.filter(Boolean)
+					.join(' ')
+			});
+		}
+
+		(state.companyDeliveryAddresses || []).forEach(item => {
+			items.push({
+				key: `DELIVERY-${item.id}`,
+				label: '등록주소지',
+				zipCode: item.zipCode || '',
+				doName: item.doName || '',
+				siName: item.siName || '',
+				guName: item.guName || '',
+				roadAddress: item.roadAddress || '',
+				detailAddress: item.detailAddress || '',
+				address: item.address || [item.roadAddress, item.detailAddress].filter(Boolean).join(' ')
+			});
+		});
+
+		return items;
+	}
+
 	function renderCompanyAddressModal() {
-		if (!state.companyDeliveryAddresses.length) {
+		const items = getCompanyAddressModalItems();
+
+		if (!items.length) {
 			els.companyAddressEmpty.classList.remove('d-none');
 			els.companyAddressList.innerHTML = '';
 			return;
@@ -904,7 +1033,7 @@
 
 		els.companyAddressEmpty.classList.add('d-none');
 
-		els.companyAddressList.innerHTML = state.companyDeliveryAddresses.map(item => {
+		els.companyAddressList.innerHTML = items.map(item => {
 			const region = [item.doName, item.siName, item.guName]
 				.filter(Boolean)
 				.join(' / ');
@@ -913,7 +1042,8 @@
                 <button type="button"
                     class="product-admin-add-company-address-item"
                     data-action="select-company-address"
-                    data-address-id="${item.id}">
+                    data-address-key="${escapeHtml(item.key)}">
+                    <span class="badge bg-primary-subtle text-primary me-2">${escapeHtml(item.label)}</span>
                     <span class="product-admin-add-company-address-main">
                         ${escapeHtml(item.address || '-')}
                     </span>
@@ -926,24 +1056,53 @@
 	}
 
 	function handleCompanyAddressModalClick(event) {
-		const button = event.target.closest('[data-action="select-company-address"][data-address-id]');
+		const button = event.target.closest('[data-action="select-company-address"][data-address-key]');
 		if (!button) {
 			return;
 		}
 
-		const item = state.companyDeliveryAddresses.find(address =>
-			String(address.id) === String(button.dataset.addressId)
+		const item = getCompanyAddressModalItems().find(address =>
+			String(address.key) === String(button.dataset.addressKey)
 		);
 
 		if (!item) {
 			return;
 		}
 
-		if (els.useCompanyAddress) {
-			els.useCompanyAddress.checked = false;
+		if (state.companyAddressSelectMode === 'SITE') {
+			if (els.useCommonSiteAddress) {
+				els.useCommonSiteAddress.checked = false;
+			}
+
+			state.useCommonSiteAddress = false;
+
+			setSiteAddressState({
+				zipCode: item.zipCode,
+				doName: item.doName,
+				siName: item.siName,
+				guName: item.guName,
+				roadAddress: item.roadAddress,
+				detailAddress: item.detailAddress
+			}, item.label === '회원주소' ? 'COMPANY' : 'COMPANY_DELIVERY_ADDRESS');
+
+			if (els.companyAddressModal) {
+				els.companyAddressModal.hide();
+			}
+
+			setTimeout(() => {
+				if (els.siteDetailAddress) {
+					els.siteDetailAddress.focus();
+				}
+			}, 120);
+
+			return;
 		}
 
-		state.useCompanyAddress = false;
+		if (els.useCompanyAddress) {
+			els.useCompanyAddress.checked = item.label === '회원주소';
+		}
+
+		state.useCompanyAddress = item.label === '회원주소';
 
 		setAddressState({
 			zipCode: item.zipCode,
@@ -952,7 +1111,7 @@
 			guName: item.guName,
 			roadAddress: item.roadAddress,
 			detailAddress: item.detailAddress
-		}, 'COMPANY_DELIVERY_ADDRESS');
+		}, item.label === '회원주소' ? 'COMPANY' : 'COMPANY_DELIVERY_ADDRESS');
 
 		if (els.companyAddressModal) {
 			els.companyAddressModal.hide();
@@ -962,6 +1121,181 @@
 			els.detailAddress.focus();
 		}, 120);
 	}
+
+
+	function handleUseCommonSiteAddressChange() {
+		state.useCommonSiteAddress = Boolean(els.useCommonSiteAddress.checked);
+
+		if (state.useCommonSiteAddress) {
+			applyCommonAddressToSite();
+			return;
+		}
+
+		state.siteAddressSource = 'MANUAL';
+		clearSiteAddressFields();
+	}
+
+	function applyCommonAddressToSite() {
+		setSiteAddressState({
+			zipCode: state.address.zipCode || '',
+			doName: state.address.doName || '',
+			siName: state.address.siName || '',
+			guName: state.address.guName || '',
+			roadAddress: state.address.roadAddress || '',
+			detailAddress: state.address.detailAddress || ''
+		}, 'COMMON', true);
+	}
+
+	function clearSiteAddressFields() {
+		setSiteAddressState({
+			zipCode: '',
+			doName: '',
+			siName: '',
+			guName: '',
+			roadAddress: '',
+			detailAddress: ''
+		}, state.siteAddressSource || 'MANUAL');
+	}
+
+	function setSiteAddressState(address, source, skipRefresh = false) {
+		state.siteAddress = {
+			zipCode: normalizeZipCode(address.zipCode || ''),
+			doName: (address.doName || '').trim(),
+			siName: (address.siName || '').trim(),
+			guName: (address.guName || '').trim(),
+			roadAddress: (address.roadAddress || '').trim(),
+			detailAddress: (address.detailAddress || '').trim()
+		};
+
+		state.siteAddressSource = source || 'MANUAL';
+
+		syncSiteAddressInputs();
+		clearSiteAddressFeedback();
+		renderSiteAddressSummary();
+
+		if (!skipRefresh) {
+			refreshActionButtons();
+		}
+	}
+
+	function syncSiteAddressInputs() {
+		if (!els.siteZipCode) {
+			return;
+		}
+
+		els.siteZipCode.value = state.siteAddress.zipCode || '';
+		els.siteDoName.value = state.siteAddress.doName || '';
+		els.siteSiName.value = state.siteAddress.siName || '';
+		els.siteGuName.value = state.siteAddress.guName || '';
+		els.siteRoadAddress.value = state.siteAddress.roadAddress || '';
+		els.siteDetailAddress.value = state.siteAddress.detailAddress || '';
+	}
+
+	function clearSiteAddressFeedback() {
+		if (!els.siteZipCode) {
+			return;
+		}
+
+		els.siteZipCode.classList.remove('product-admin-add-invalid');
+		els.siteRoadAddress.classList.remove('product-admin-add-invalid');
+		els.siteDetailAddress.classList.remove('product-admin-add-invalid');
+
+		if (els.siteAddressFeedback) {
+			els.siteAddressFeedback.textContent = '';
+		}
+	}
+
+	function hasSiteAddressCoreFields() {
+		if (!isSiteDeliverySelected()) {
+			return true;
+		}
+
+		return Boolean(
+			(state.siteAddress.zipCode || '').trim() &&
+			(state.siteAddress.doName || '').trim() &&
+			(state.siteAddress.roadAddress || '').trim()
+		);
+	}
+
+	function validateSiteAddressFields(showMessage = false) {
+		if (!isSiteDeliverySelected()) {
+			clearSiteAddressFeedback();
+			return true;
+		}
+
+		const valid = hasSiteAddressCoreFields();
+
+		if (valid) {
+			clearSiteAddressFeedback();
+			return true;
+		}
+
+		if (showMessage && els.siteZipCode) {
+			els.siteZipCode.classList.add('product-admin-add-invalid');
+			els.siteRoadAddress.classList.add('product-admin-add-invalid');
+			els.siteAddressFeedback.textContent = '현장 배송지를 선택해 주세요.';
+		}
+
+		return false;
+	}
+
+	function renderSiteAddressSummary() {
+		if (!els.siteAddressSummary) {
+			return;
+		}
+
+		if (!isSiteDeliverySelected()) {
+			els.siteAddressSummary.classList.add('d-none');
+			els.siteAddressSummary.innerHTML = '';
+			return;
+		}
+
+		const hasAddress = Boolean(
+			(state.siteAddress.zipCode || '').trim() ||
+			(state.siteAddress.roadAddress || '').trim() ||
+			(state.siteAddress.detailAddress || '').trim()
+		);
+
+		if (!hasAddress) {
+			els.siteAddressSummary.classList.add('d-none');
+			els.siteAddressSummary.innerHTML = '';
+			return;
+		}
+
+		const region = [
+			state.siteAddress.doName,
+			state.siteAddress.siName,
+			state.siteAddress.guName
+		].filter(item => item && item.trim()).join(' / ');
+
+		const fullAddress = [
+			state.siteAddress.roadAddress,
+			state.siteAddress.detailAddress
+		].filter(item => item && item.trim()).join(' ');
+
+		els.siteAddressSummary.innerHTML = `
+            <div><strong>우편번호</strong> ${escapeHtml(state.siteAddress.zipCode || '-')}</div>
+            <div><strong>현장 배송지</strong> ${escapeHtml(fullAddress || '-')}</div>
+            <div><strong>행정구역</strong> ${escapeHtml(region || '-')}</div>
+        `;
+		els.siteAddressSummary.classList.remove('d-none');
+	}
+
+	function syncSiteAddressSection() {
+		const visible = isSiteDeliverySelected();
+
+		if (els.siteAddressSection) {
+			els.siteAddressSection.classList.toggle('d-none', !visible);
+		}
+
+		if (visible && state.useCommonSiteAddress) {
+			applyCommonAddressToSite();
+		}
+
+		renderSiteAddressSummary();
+	}
+
+
 	function handleUseCompanyOrdererChange() {
 		state.useCompanyOrderer = Boolean(els.useCompanyOrderer.checked);
 
@@ -1133,15 +1467,42 @@
 	}
 
 
-	function openAddressSearch() {
+	function openAddressSearch(mode = 'COMMON') {
 		if (!window.daum || !window.daum.Postcode) {
 			alert('주소검색 스크립트를 불러오지 못했습니다.');
 			return;
 		}
 
+		const targetMode = mode === 'SITE' ? 'SITE' : 'COMMON';
+
 		new daum.Postcode({
 			oncomplete: function(data) {
 				const parsed = parsePostcodeData(data);
+
+				if (targetMode === 'SITE') {
+					if (els.useCommonSiteAddress) {
+						els.useCommonSiteAddress.checked = false;
+					}
+
+					state.useCommonSiteAddress = false;
+
+					setSiteAddressState({
+						zipCode: parsed.zipCode,
+						doName: parsed.doName,
+						siName: parsed.siName,
+						guName: parsed.guName,
+						roadAddress: parsed.roadAddress,
+						detailAddress: state.siteAddress.detailAddress || ''
+					}, 'MANUAL');
+
+					setTimeout(() => {
+						if (els.siteDetailAddress) {
+							els.siteDetailAddress.focus();
+						}
+					}, 0);
+
+					return;
+				}
 
 				if (els.useCompanyAddress) {
 					els.useCompanyAddress.checked = false;
@@ -1274,9 +1635,9 @@
 		const commonReady = Boolean(
 			state.company &&
 			state.deliveryMethod &&
-			(!isDirectDeliverySelected() || state.deliveryHandler) &&
 			els.preferredDate.value &&
-			hasAddressCoreFields()
+			hasAddressCoreFields() &&
+			hasSiteAddressCoreFields()
 		);
 
 		els.orderAddBtn.disabled = !commonReady;
@@ -1286,10 +1647,15 @@
 			els.companyAddressSearchBtn.disabled = !state.company;
 		}
 
+		if (els.siteCompanyAddressSearchBtn) {
+			els.siteCompanyAddressSearchBtn.disabled = !state.company;
+		}
+
 		if (els.companyOrdererSearchBtn) {
 			els.companyOrdererSearchBtn.disabled = !state.company;
 		}
 
+		syncSiteAddressSection();
 		syncDeliveryHandlerAvailability();
 		syncOrderAddButtonPosition();
 	}
@@ -2893,6 +3259,7 @@
 		const deliveryMethodValid = validateDeliveryMethod(showMessage);
 		const deliveryValid = validateExactDeliverySelection(showMessage);
 		const addressValid = validateAddressFields(showMessage);
+		const siteAddressValid = validateSiteAddressFields(showMessage);
 
 		let dateValid = true;
 
@@ -2909,11 +3276,11 @@
 
 		refreshActionButtons();
 
-		if (showMessage && !(companyValid && deliveryMethodValid && deliveryValid && addressValid && dateValid)) {
+		if (showMessage && !(companyValid && deliveryMethodValid && addressValid && siteAddressValid && dateValid)) {
 			scrollToFirstCommonError();
 		}
 
-		return companyValid && deliveryMethodValid && deliveryValid && addressValid && dateValid;
+		return companyValid && deliveryMethodValid && deliveryValid && addressValid && siteAddressValid && dateValid;
 	}
 	function validateOrders(showMessage = false) {
 		state.orders.forEach(order => {
@@ -3109,14 +3476,21 @@
                     <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">배송 담당자</span>
                         <span class="product-admin-add-summary-item-value">
-                            ${isDirectDeliverySelected() && state.deliveryHandler ? `${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})` : '지정 없음'}
+                            ${isDeliveryHandlerAssignableSelected() && state.deliveryHandler ? `${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})` : '자동배정 또는 미지정'}
                         </span>
                     </div>
 
                     <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">공통 배송지</span>
-                        <span class="product-admin-add-summary-item-value">${escapeHtml(getDeliveryAddressSummaryText())}</span>
+                        <span class="product-admin-add-summary-item-value">${escapeHtml(getDeliveryAddressSummaryText(state.address))}</span>
                     </div>
+
+                    ${isSiteDeliverySelected() ? `
+                    <div class="product-admin-add-summary-item">
+                        <span class="product-admin-add-summary-item-label">현장 배송지</span>
+                        <span class="product-admin-add-summary-item-value">${escapeHtml(getDeliveryAddressSummaryText(state.siteAddress))}</span>
+                    </div>
+                    ` : ''}
 
                     <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">포장비</span>
@@ -3329,9 +3703,11 @@
 			els.companyInput,
 			els.deliveryMethod,
 			els.preferredDate,
-			isDirectDeliverySelected() ? els.deliveryInput : null,
+			isDeliveryHandlerAssignableSelected() ? els.deliveryInput : null,
 			els.zipCode,
-			els.roadAddress
+			els.roadAddress,
+			isSiteDeliverySelected() ? els.siteZipCode : null,
+			isSiteDeliverySelected() ? els.siteRoadAddress : null
 		].filter(Boolean);
 
 		const target = candidates.find(el => el.classList && el.classList.contains('product-admin-add-invalid'));
@@ -3353,24 +3729,25 @@
 	}
 
 
-	function getDeliveryAddressSummaryText() {
+	function getDeliveryAddressSummaryText(targetAddress = state.address) {
 		const address = [
-			state.address.roadAddress,
-			state.address.detailAddress
+			targetAddress.roadAddress,
+			targetAddress.detailAddress
 		].filter(item => item && item.trim()).join(' ');
 
 		const region = [
-			state.address.doName,
-			state.address.siName,
-			state.address.guName
+			targetAddress.doName,
+			targetAddress.siName,
+			targetAddress.guName
 		].filter(item => item && item.trim()).join(' / ');
 
 		return [
-			state.address.zipCode ? `(${state.address.zipCode})` : '',
+			targetAddress.zipCode ? `(${targetAddress.zipCode})` : '',
 			address,
 			region ? `[${region}]` : ''
 		].filter(Boolean).join(' ');
 	}
+
 	async function submitForm() {
 		if (state.saving) {
 			return;
@@ -3391,7 +3768,7 @@
 				companyId: state.company.companyId,
 				preferredDeliveryDate: els.preferredDate.value,
 				deliveryMethodId: state.deliveryMethod ? Number(state.deliveryMethod.id) : null,
-				deliveryHandlerId: isDirectDeliverySelected() && state.deliveryHandler
+				deliveryHandlerId: isDeliveryHandlerAssignableSelected() && state.deliveryHandler
 					? Number(state.deliveryHandler.memberId)
 					: null,
 
@@ -3407,6 +3784,13 @@
 				guName: (state.address.guName || '').trim(),
 				roadAddress: (state.address.roadAddress || '').trim(),
 				detailAddress: (state.address.detailAddress || '').trim(),
+
+				siteZipCode: isSiteDeliverySelected() ? (state.siteAddress.zipCode || '').trim() : null,
+				siteDoName: isSiteDeliverySelected() ? (state.siteAddress.doName || '').trim() : null,
+				siteSiName: isSiteDeliverySelected() ? (state.siteAddress.siName || '').trim() : null,
+				siteGuName: isSiteDeliverySelected() ? (state.siteAddress.guName || '').trim() : null,
+				siteRoadAddress: isSiteDeliverySelected() ? (state.siteAddress.roadAddress || '').trim() : null,
+				siteDetailAddress: isSiteDeliverySelected() ? (state.siteAddress.detailAddress || '').trim() : null,
 
 				orders: state.orders.map(order => ({
 					standard: order.standard,

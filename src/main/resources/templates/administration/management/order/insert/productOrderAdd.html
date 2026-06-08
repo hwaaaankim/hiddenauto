@@ -208,7 +208,7 @@
 														id="product-admin-add-company-address-search-btn"
 														class="btn btn-outline-secondary product-admin-add-main-btn"
 														disabled>
-														회원주소검색
+														등록주소지검색
 													</button>
 												</div>
 
@@ -256,6 +256,78 @@
 													class="product-admin-add-selected-summary d-none mt-2"></div>
 											</div>
 										</div>
+
+										<div class="col-12 d-none" id="product-admin-add-site-address-section">
+											<div class="product-admin-add-section-box">
+												<div class="product-admin-add-section-title">
+													<h6>현장 배송지</h6>
+													<span class="badge bg-soft-primary text-primary">현장배송 선택 시 사용</span>
+												</div>
+
+												<div class="product-admin-add-address-tools mb-3">
+													<div class="form-check product-admin-add-company-address-check">
+														<input type="checkbox"
+															id="product-admin-add-use-common-site-address"
+															class="form-check-input" checked>
+														<label for="product-admin-add-use-common-site-address"
+															class="form-check-label">
+															공통 배송지와 동일
+														</label>
+													</div>
+
+													<button type="button"
+														id="product-admin-add-site-company-address-search-btn"
+														class="btn btn-outline-secondary product-admin-add-main-btn"
+														disabled>
+														등록주소지검색
+													</button>
+												</div>
+
+												<div class="row g-3">
+													<div class="col-12 col-lg-2">
+														<label for="product-admin-add-site-zip-code"
+															class="form-label product-admin-add-label">우편번호</label>
+														<input type="text" id="product-admin-add-site-zip-code"
+															class="form-control product-admin-add-control"
+															placeholder="주소검색" readonly>
+													</div>
+
+													<div class="col-12 col-lg-2 d-flex align-items-end">
+														<button type="button" id="product-admin-add-site-search-address-btn"
+															class="btn btn-outline-primary w-100 product-admin-add-main-btn">
+															주소검색
+														</button>
+													</div>
+
+													<div class="col-12 col-lg-8">
+														<label for="product-admin-add-site-road-address"
+															class="form-label product-admin-add-label">도로명 주소</label>
+														<input type="text" id="product-admin-add-site-road-address"
+															class="form-control product-admin-add-control"
+															placeholder="주소검색 버튼으로 선택해 주세요." readonly>
+													</div>
+
+													<div class="col-12">
+														<label for="product-admin-add-site-detail-address"
+															class="form-label product-admin-add-label">상세주소</label>
+														<input type="text" id="product-admin-add-site-detail-address"
+															class="form-control product-admin-add-control"
+															placeholder="현장 상세주소를 입력해 주세요.">
+													</div>
+												</div>
+
+												<input type="hidden" id="product-admin-add-site-do-name">
+												<input type="hidden" id="product-admin-add-site-si-name">
+												<input type="hidden" id="product-admin-add-site-gu-name">
+
+												<div id="product-admin-add-site-address-feedback"
+													class="invalid-feedback d-block product-admin-add-feedback"></div>
+
+												<div id="product-admin-add-site-address-summary"
+													class="product-admin-add-selected-summary d-none mt-2"></div>
+											</div>
+										</div>
+
 									</div>
 								</div>
 							</div>
@@ -377,12 +449,12 @@
 		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
 			<div class="modal-content product-admin-add-summary-modal-content">
 				<div class="modal-header">
-					<h5 class="modal-title">회원주소검색</h5>
+					<h5 class="modal-title">등록주소지검색</h5>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
 				</div>
 				<div class="modal-body">
 					<div id="product-admin-add-company-address-empty" class="alert alert-light border d-none mb-0">
-						등록된 추가 배송지가 없습니다.
+						등록된 주소지가 없습니다.
 					</div>
 
 					<div id="product-admin-add-company-address-list" class="product-admin-add-company-address-list">

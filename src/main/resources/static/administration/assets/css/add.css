@@ -2238,3 +2238,242 @@ body.team-production-image-modal-open {
 .admin-task-list-second-detail-error-box {
 	border-color: rgba(220, 53, 69, 0.4);
 }
+
+.admin-task-list-second-detail-panel {
+	padding: 18px;
+	background: #f8fafc;
+	border-top: 1px solid #e5e7eb;
+}
+
+.admin-task-list-second-edit-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 14px;
+}
+
+.admin-task-list-second-edit-title {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	font-weight: 700;
+	font-size: 15px;
+	color: #111827;
+}
+
+.admin-task-list-second-edit-desc {
+	margin-top: 6px;
+	color: #64748b;
+	font-size: 12px;
+	line-height: 1.55;
+}
+
+.admin-task-list-second-form-grid {
+	display: grid;
+	grid-template-columns: repeat(12, minmax(0, 1fr));
+	gap: 14px;
+}
+
+.admin-task-list-second-span-12 {
+	grid-column: span 12;
+}
+
+.admin-task-list-second-span-6 {
+	grid-column: span 6;
+}
+
+.admin-task-list-second-card {
+	background: #fff;
+	border: 1px solid #e5e7eb;
+	border-radius: 10px;
+	padding: 14px;
+	min-width: 0;
+}
+
+.admin-task-list-second-card-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.admin-task-list-second-card-head h6 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 700;
+	color: #111827;
+}
+
+.admin-task-list-second-card-head span {
+	color: #64748b;
+	font-size: 12px;
+	text-align: right;
+	line-height: 1.45;
+}
+
+.admin-task-list-second-alert {
+	font-size: 12px;
+}
+
+.admin-task-list-second-address-toolbar,
+.admin-task-list-second-inline-head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+.admin-task-list-second-address-preview {
+	margin-top: 10px;
+	padding: 10px;
+	border-radius: 8px;
+	background: #f1f5f9;
+	color: #334155;
+	font-size: 12px;
+	line-height: 1.5;
+	min-height: 38px;
+}
+
+.admin-task-list-second-option-box {
+	display: grid;
+	gap: 8px;
+}
+
+.admin-task-list-second-option-edit-item {
+	display: grid;
+	grid-template-columns: 120px minmax(0, 1fr) auto;
+	gap: 8px;
+	align-items: center;
+}
+
+.admin-task-list-second-option-key {
+	font-size: 12px;
+	font-weight: 700;
+	color: #334155;
+}
+
+.admin-task-list-second-option-actions {
+	display: flex;
+	gap: 4px;
+}
+
+.admin-task-list-second-image-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.admin-task-list-second-image-item {
+	display: grid;
+	gap: 6px;
+	align-items: start;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	padding: 8px;
+	font-size: 11px;
+	color: #475569;
+	cursor: pointer;
+}
+
+.admin-task-list-second-image-item img {
+	width: 100%;
+	height: 74px;
+	object-fit: cover;
+	border-radius: 6px;
+	background: #f1f5f9;
+}
+
+@media (max-width: 1199.98px) {
+	.admin-task-list-second-span-6 {
+		grid-column: span 12;
+	}
+}
+
+@media (max-width: 767.98px) {
+	.admin-task-list-second-edit-head {
+		display: block;
+	}
+
+	.admin-task-list-second-edit-actions {
+		margin-top: 12px;
+	}
+
+	.admin-task-list-second-option-edit-item {
+		grid-template-columns: 1fr;
+	}
+
+	.admin-task-list-second-card-head {
+		display: block;
+	}
+
+	.admin-task-list-second-card-head span {
+		display: block;
+		margin-top: 4px;
+		text-align: left;
+	}
+}
+
+.admin-task-list-second-loading-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 99999;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	background: rgba(15, 23, 42, 0.68);
+}
+
+.admin-task-list-second-loading-overlay.is-active {
+	display: flex;
+}
+
+.admin-task-list-second-loading-box {
+	width: min(420px, calc(100vw - 40px));
+	padding: 28px 30px;
+	border-radius: 18px;
+	background: #ffffff;
+	box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+	text-align: center;
+}
+
+.admin-task-list-second-loading-title {
+	font-size: 18px;
+	font-weight: 700;
+	color: #111827;
+}
+
+.admin-task-list-second-loading-desc {
+	margin-top: 8px;
+	font-size: 14px;
+	color: #6b7280;
+}
+
+.admin-task-list-second-progress {
+	overflow: hidden;
+	height: 8px;
+	margin-top: 18px;
+	border-radius: 999px;
+	background: #e5e7eb;
+}
+
+.admin-task-list-second-progress-bar {
+	width: 42%;
+	height: 100%;
+	border-radius: 999px;
+	background: linear-gradient(90deg, #2563eb, #60a5fa);
+	animation: adminTaskListSecondProgressMove 1.05s infinite ease-in-out;
+}
+
+@keyframes adminTaskListSecondProgressMove {
+	0% {
+		transform: translateX(-120%);
+	}
+
+	100% {
+		transform: translateX(260%);
+	}
+}

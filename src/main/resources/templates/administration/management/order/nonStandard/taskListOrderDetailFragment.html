@@ -8,31 +8,53 @@
 				<div class="admin-task-list-second-detail-panel">
 
 					<div class="admin-task-list-second-detail-sources d-none">
+
+						<div class="admin-task-list-second-company-source">
+							<button type="button"
+								th:each="company : ${companyOptions}"
+								th:attr="data-company-id=${company.companyId},
+								         data-company-name=${company.companyName},
+								         data-representative-name=${company.representativeName},
+								         data-zip-code=${company.zipCode},
+								         data-do-name=${company.doName},
+								         data-si-name=${company.siName},
+								         data-gu-name=${company.guName},
+								         data-road-address=${company.roadAddress},
+								         data-detail-address=${company.detailAddress}">
+							</button>
+						</div>
+
 						<div class="admin-task-list-second-member-source">
-							<button type="button" th:each="member : ${companyMemberOptions}" th:attr="data-company-id=${member.companyId},
-							         data-member-id=${member.memberId},
-							         data-member-name=${member.memberName}">
+							<button type="button"
+								th:each="member : ${companyMemberOptions}"
+								th:attr="data-company-id=${member.companyId},
+								         data-member-id=${member.memberId},
+								         data-member-name=${member.memberName}">
 							</button>
 						</div>
 
 						<div class="admin-task-list-second-delivery-address-source">
-							<button type="button" th:each="address : ${companyDeliveryAddressOptions}" th:attr="data-company-id=${address.companyId},
-							         data-address-id=${address.addressId},
-							         data-zip-code=${address.zipCode},
-							         data-do-name=${address.doName},
-							         data-si-name=${address.siName},
-							         data-gu-name=${address.guName},
-							         data-road-address=${address.roadAddress},
-							         data-detail-address=${address.detailAddress},
-							         data-full-address=${address.fullAddress}">
+							<button type="button"
+								th:each="address : ${companyDeliveryAddressOptions}"
+								th:attr="data-company-id=${address.companyId},
+								         data-address-id=${address.addressId},
+								         data-zip-code=${address.zipCode},
+								         data-do-name=${address.doName},
+								         data-si-name=${address.siName},
+								         data-gu-name=${address.guName},
+								         data-road-address=${address.roadAddress},
+								         data-detail-address=${address.detailAddress},
+								         data-full-address=${address.fullAddress}">
 							</button>
 						</div>
 
 						<div class="admin-task-list-second-orderer-source">
-							<button type="button" th:each="orderer : ${companyOrdererInfoOptions}" th:attr="data-company-id=${orderer.companyId},
-							         data-orderer-info-id=${orderer.ordererInfoId},
-							         data-orderer-name=${orderer.ordererName},
-							         data-orderer-phone=${orderer.ordererPhone}">
+							<button type="button"
+								th:each="orderer : ${companyOrdererInfoOptions}"
+								th:attr="data-company-id=${orderer.companyId},
+								         data-orderer-info-id=${orderer.ordererInfoId},
+								         data-orderer-name=${orderer.ordererName},
+								         data-orderer-phone=${orderer.ordererPhone}">
 							</button>
 						</div>
 					</div>
@@ -44,7 +66,7 @@
 								<span th:text="|ORDER ${row.orderId}|">ORDER</span>
 							</h5>
 							<p class="admin-task-list-second-detail-desc">
-								상세 화면에서 수정 가능했던 항목을 현재 목록에서도 바로 수정합니다.
+								목록 화면에서 오더의 금액, 배송정보, 현장주소, 담당자, 옵션, 첨부파일을 바로 수정합니다.
 							</p>
 						</div>
 
@@ -60,70 +82,90 @@
 						</div>
 					</div>
 
-					<form th:action="@{'/management/nonStandardOrderItemUpdate/' + ${row.orderId}}" method="POST"
-						enctype="multipart/form-data" class="admin-task-list-second-update-form">
+					<form th:action="@{'/management/nonStandardOrderItemUpdate/' + ${row.orderId}}"
+						method="POST"
+						enctype="multipart/form-data"
+						class="admin-task-list-second-update-form">
 
 						<input type="hidden" name="returnUrl" th:value="${currentListUrl}">
+
+						<div class="alert alert-info admin-task-list-second-edit-notice" role="alert">
+							<strong>수정 안내</strong>
+							<div>
+								현장배송 선택 시 현장주소가 표시되며 필수로 입력해야 합니다.
+								직배송, 화물, 현장배송은 배송팀 담당자 지정이 필수입니다.
+								그 외 배송수단은 담당자 지정이 선택사항이며, 담당자가 없으면 배송순서에서 제외됩니다.
+							</div>
+						</div>
+
 						<div class="row g-3 align-items-stretch">
 
-							<div class="col-lg-4 col-md-6">
+							<div class="col-xl-3 col-lg-4 col-md-6">
 								<div class="admin-task-list-second-field">
 									<label class="admin-task-list-second-label">대리점명</label>
-									<select class="form-select admin-task-list-second-company-select" name="companyId"
+									<select class="form-select admin-task-list-second-company-select"
+										name="companyId"
 										th:attr="data-selected-company-id=${row.companyId},
-																							 data-order-id=${row.orderId}">
+										         data-order-id=${row.orderId}">
 										<option value="">대리점 선택</option>
-										<option th:each="company : ${companyOptions}" th:value="${company.id}"
+										<option th:each="company : ${companyOptions}"
+											th:value="${company.companyId}"
 											th:text="${company.companyName}"
-											th:selected="${row.companyId != null and row.companyId == company.id}">
+											th:selected="${row.companyId != null and row.companyId == company.companyId}">
 										</option>
 									</select>
+									<div class="form-text">
+										대리점을 변경하면 신청자, 주문자, 등록 배송지 선택 기준도 함께 변경됩니다.
+									</div>
 								</div>
 							</div>
 
-							<div class="col-lg-4 col-md-6">
+							<div class="col-xl-3 col-lg-4 col-md-6">
 								<div class="admin-task-list-second-field">
 									<label class="admin-task-list-second-label">신청자</label>
 									<select class="form-select admin-task-list-second-requester-select"
-										name="requesterMemberId" th:attr="data-selected-member-id=${row.requesterMemberId},
-																							 data-order-id=${row.orderId}">
+										name="requesterMemberId"
+										th:attr="data-selected-member-id=${row.requesterMemberId},
+										         data-order-id=${row.orderId}">
 										<option value="">신청자 선택</option>
 									</select>
+									<div class="form-text">
+										신청자를 비워두고 대리점만 선택하면 대표회원 기준으로 저장됩니다.
+									</div>
 								</div>
 							</div>
 
-							<div class="col-lg-4 col-md-12">
+							<div class="col-xl-3 col-lg-4 col-md-6">
 								<div class="admin-task-list-second-field">
-									<div class="d-flex align-items-center justify-content-between gap-2 mb-1">
-										<label class="admin-task-list-second-label mb-0">배송주소</label>
-										<div class="d-flex gap-1">
-											<button type="button"
-												class="btn btn-sm btn-outline-primary admin-task-list-second-address-search-btn">
-												주소검색
-											</button>
-											<button type="button"
-												class="btn btn-sm btn-outline-secondary admin-task-list-second-address-book-btn">
-												등록 주소지 검색
-											</button>
-										</div>
+									<label class="admin-task-list-second-label">발주상태</label>
+									<select class="form-select" name="status">
+										<option th:each="status : ${orderStatuses}"
+											th:value="${status.name()}"
+											th:text="${status.label}"
+											th:selected="${row.statusName == status.name()}">
+										</option>
+									</select>
+									<div class="form-text">
+										취소 상태로 저장하면 배송순서 정보는 자동 삭제됩니다.
 									</div>
+								</div>
+							</div>
 
-									<input type="hidden" name="zipCode" class="admin-task-list-second-zip-code"
-										th:value="${row.zipCode}">
-									<input type="hidden" name="doName" class="admin-task-list-second-do-name"
-										th:value="${row.doName}">
-									<input type="hidden" name="siName" class="admin-task-list-second-si-name"
-										th:value="${row.siName}">
-									<input type="hidden" name="guName" class="admin-task-list-second-gu-name"
-										th:value="${row.guName}">
-
-									<input type="text" class="form-control admin-task-list-second-road-address"
-										name="roadAddress" placeholder="도로명주소" readonly th:value="${row.roadAddress}">
-									<input type="text" class="form-control admin-task-list-second-detail-address mt-2"
-										name="detailAddress" placeholder="상세주소" th:value="${row.detailAddress}">
-									<div class="admin-task-list-second-address-preview mt-2"
-										th:text="${row.fullAddress}">
-										주소
+							<div class="col-xl-3 col-lg-4 col-md-6">
+								<div class="admin-task-list-second-field">
+									<label class="admin-task-list-second-label">생산팀 카테고리</label>
+									<select class="form-select" name="productCategoryId">
+										<option value="" th:selected="${row.productCategoryId == null}">
+											배정 필요함
+										</option>
+										<option th:each="category : ${productionTeamCategories}"
+											th:value="${category.id}"
+											th:text="${category.name}"
+											th:selected="${row.productCategoryId != null and row.productCategoryId == category.id}">
+										</option>
+									</select>
+									<div class="form-text">
+										생산팀이 확인해야 하는 분류입니다.
 									</div>
 								</div>
 							</div>
@@ -133,152 +175,308 @@
 									<div class="admin-task-list-second-money-head">
 										<div>
 											<strong>금액 계산</strong>
-											<p>총비용과 부가세는 공급가 기준으로 계산됩니다.
-												공급가가 0이면 부가세와 총비용도 0입니다.</p>
+											<p>
+												총비용과 부가세는 공급가 기준으로 계산됩니다.
+												공급가가 0이면 부가세와 총비용도 0입니다.
+											</p>
 										</div>
 										<span>자동계산</span>
 									</div>
 
 									<div class="row g-2">
-										<div class="col-xl-2 col-md-4 col-sm-6">
+										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">단가</label>
-											<input type="number" min="0" step="1"
+											<input type="number"
+												min="0"
+												step="1"
 												class="form-control admin-task-list-second-money-input"
-												name="productCost" data-money-role="unit" th:value="${row.productCost}">
+												name="productCost"
+												data-money-role="unit"
+												th:value="${row.productCost}">
 										</div>
 
-										<div class="col-xl-2 col-md-4 col-sm-6">
+										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">수량</label>
-											<input type="number" min="0" step="1"
-												class="form-control admin-task-list-second-money-input" name="quantity"
-												data-money-role="quantity" th:value="${row.quantity}">
+											<input type="number"
+												min="0"
+												step="1"
+												class="form-control admin-task-list-second-money-input"
+												name="quantity"
+												data-money-role="quantity"
+												th:value="${row.quantity}">
 										</div>
 
-										<div class="col-xl-2 col-md-4 col-sm-6">
+										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">공급가</label>
-											<input type="number" min="0" step="1"
+											<input type="number"
+												min="0"
+												step="1"
 												class="form-control admin-task-list-second-money-input"
-												name="supplyPrice" data-money-role="supply"
+												name="supplyPrice"
+												data-money-role="supply"
 												th:value="${row.supplyPrice}">
 										</div>
 
-										<div class="col-xl-2 col-md-4 col-sm-6">
+										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">부가세</label>
-											<input type="number" class="form-control admin-task-list-second-money-input"
-												data-money-role="vat" th:value="${row.vatPrice}" readonly>
+											<input type="number"
+												class="form-control admin-task-list-second-money-input"
+												data-money-role="vat"
+												th:value="${row.vatPrice}"
+												readonly>
 										</div>
 
-										<div class="col-xl-2 col-md-4 col-sm-6">
+										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">총비용</label>
-											<input type="number" min="0" step="1"
+											<input type="number"
+												min="0"
+												step="1"
 												class="form-control admin-task-list-second-money-input"
-												name="totalAmount" data-money-role="total" th:value="${row.totalAmount}"
+												name="totalAmount"
+												data-money-role="total"
+												th:value="${row.totalAmount}"
 												readonly>
+										</div>
+
+										<div class="col-xl-1 col-lg-3 col-md-4 col-sm-6">
+											<label class="admin-task-list-second-label">배송비</label>
+											<input type="number"
+												min="0"
+												step="1"
+												class="form-control"
+												name="deliveryCost"
+												th:value="${row.deliveryCost}">
+										</div>
+
+										<div class="col-xl-1 col-lg-3 col-md-4 col-sm-6">
+											<label class="admin-task-list-second-label">포장비</label>
+											<input type="number"
+												min="0"
+												step="1"
+												class="form-control"
+												name="packingCost"
+												th:value="${row.packingCost}">
 										</div>
 									</div>
 								</div>
 							</div>
 
-							<div class="col-lg-3 col-md-6">
+							<div class="col-xl-3 col-lg-4 col-md-6">
 								<div class="admin-task-list-second-field">
 									<label class="admin-task-list-second-label">배송희망일</label>
-									<input type="date" class="form-control" name="preferredDeliveryDate"
+									<input type="date"
+										class="form-control"
+										name="preferredDeliveryDate"
 										th:value="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : ''}">
+									<div class="form-text">
+										담당자가 지정된 경우 이 날짜 기준으로 배송순서가 관리됩니다.
+									</div>
 								</div>
 							</div>
 
-							<div class="col-lg-3 col-md-6">
-								<div class="admin-task-list-second-field">
-									<label class="admin-task-list-second-label">발주상태</label>
-									<select class="form-select" name="status">
-										<option th:each="status : ${orderStatuses}" th:value="${status.name()}"
-											th:text="${status.label}" th:selected="${row.statusName == status.name()}">
-										</option>
-									</select>
-								</div>
-							</div>
-
-							<div class="col-lg-4 col-md-6">
+							<div class="col-xl-5 col-lg-4 col-md-6">
 								<div class="admin-task-list-second-field">
 									<label class="admin-task-list-second-label">배송수단</label>
 									<select class="form-select admin-task-list-second-delivery-method-select"
 										name="deliveryMethodId">
-										<option value="" data-delivery-method-name=""
+										<option value=""
+											data-delivery-method-name=""
 											th:selected="${row.deliveryMethodId == null}">
 											미지정
 										</option>
-										<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
+										<option th:each="method : ${deliveryMethods}"
+											th:value="${method.id}"
 											th:text="${method.methodName + ' (금액: ' + method.methodPrice + ')'}"
 											th:attr="data-delivery-method-name=${method.methodName}"
 											th:selected="${row.deliveryMethodId != null and row.deliveryMethodId == method.id}">
 										</option>
 									</select>
-									<div class="form-text">
-										직배송 선택 시에만 배송팀 담당자를 지정할 수 있습니다.
+									<div class="form-text admin-task-list-second-delivery-method-help">
+										현장배송 선택 시 현장주소가 표시됩니다. 직배송, 화물, 현장배송은 담당자 지정이 필수입니다.
 									</div>
 								</div>
 							</div>
 
-							<div class="col-lg-2 col-md-3 col-sm-6">
+							<div class="col-xl-4 col-lg-4 col-md-12">
 								<div class="admin-task-list-second-field">
-									<label class="admin-task-list-second-label">배송비</label>
-									<input type="number" min="0" step="1" class="form-control" name="deliveryCost"
-										th:value="${row.deliveryCost}">
-								</div>
-							</div>
-
-							<div class="col-lg-2 col-md-3 col-sm-6">
-								<div class="admin-task-list-second-field">
-									<label class="admin-task-list-second-label">포장비</label>
-									<input type="number" min="0" step="1" class="form-control" name="packingCost"
-										th:value="${row.packingCost}">
-								</div>
-							</div>
-
-							<div class="col-lg-4 col-md-6">
-								<div class="admin-task-list-second-field">
-									<label class="admin-task-list-second-label">배송팀
-										담당자</label>
+									<label class="admin-task-list-second-label">배송팀 담당자</label>
 									<select class="form-select admin-task-list-second-delivery-handler-select"
 										name="assignedDeliveryHandlerId">
 										<option value="" th:selected="${row.assignedDeliveryHandlerId == null}">
 											배정 필요함
 										</option>
-										<option th:each="member : ${deliveryTeamMembers}" th:value="${member.id}"
+										<option th:each="member : ${deliveryTeamMembers}"
+											th:value="${member.id}"
 											th:text="${member.name != null and member.name != '' and member.username != null and member.username != ''
-        ? member.name + '(' + member.username + ')'
-        : (member.name != null and member.name != '' ? member.name : (member.username != null and member.username != '' ? member.username : '이름없음'))}"
+												? member.name + '(' + member.username + ')'
+												: (member.name != null and member.name != '' ? member.name : (member.username != null and member.username != '' ? member.username : '이름없음'))}"
 											th:selected="${row.assignedDeliveryHandlerId != null and row.assignedDeliveryHandlerId == member.id}">
 										</option>
 									</select>
 									<div class="form-text admin-task-list-second-delivery-handler-help">
-										직배송 선택 시 필수입니다. 직배송이 아니면 저장 시 자동으로
-										제거됩니다.
+										직배송, 화물, 현장배송은 필수입니다. 그 외 배송수단은 선택사항입니다.
 									</div>
 								</div>
 							</div>
 
-							<div class="col-lg-4 col-md-12">
-								<div class="admin-task-list-second-field">
-									<label class="admin-task-list-second-label">생산팀
-										카테고리</label>
-									<select class="form-select" name="productCategoryId">
-										<option value="" th:selected="${row.productCategoryId == null}">
-											배정 필요함
-										</option>
-										<option th:each="category : ${productionTeamCategories}"
-											th:value="${category.id}" th:text="${category.name}"
-											th:selected="${row.productCategoryId != null and row.productCategoryId == category.id}">
-										</option>
-									</select>
+							<div class="col-lg-12">
+								<div class="admin-task-list-second-field admin-task-list-second-address-section admin-task-list-second-normal-address-section"
+									data-address-target="normal">
+
+									<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+										<div>
+											<label class="admin-task-list-second-label mb-0">배송주소</label>
+											<div class="form-text mt-1">
+												현장배송이 아닌 경우 필수 주소입니다. 대리점 기본주소, 등록 배송지, Daum 주소검색으로 입력할 수 있습니다.
+											</div>
+										</div>
+
+										<div class="d-flex flex-wrap gap-1">
+											<button type="button"
+												class="btn btn-sm btn-outline-info admin-task-list-second-company-address-same-btn"
+												data-address-target="normal">
+												회원주소 동일
+											</button>
+											<button type="button"
+												class="btn btn-sm btn-outline-primary admin-task-list-second-address-search-btn"
+												data-address-target="normal">
+												주소검색
+											</button>
+											<button type="button"
+												class="btn btn-sm btn-outline-secondary admin-task-list-second-address-book-btn"
+												data-address-target="normal">
+												등록 주소지 검색
+											</button>
+										</div>
+									</div>
+
+									<input type="hidden"
+										name="zipCode"
+										class="admin-task-list-second-zip-code"
+										th:value="${row.zipCode}">
+									<input type="hidden"
+										name="doName"
+										class="admin-task-list-second-do-name"
+										th:value="${row.doName}">
+									<input type="hidden"
+										name="siName"
+										class="admin-task-list-second-si-name"
+										th:value="${row.siName}">
+									<input type="hidden"
+										name="guName"
+										class="admin-task-list-second-gu-name"
+										th:value="${row.guName}">
+
+									<div class="row g-2">
+										<div class="col-lg-8 col-md-12">
+											<input type="text"
+												class="form-control admin-task-list-second-road-address"
+												name="roadAddress"
+												placeholder="도로명주소"
+												readonly
+												th:value="${row.roadAddress}">
+										</div>
+										<div class="col-lg-4 col-md-12">
+											<input type="text"
+												class="form-control admin-task-list-second-detail-address"
+												name="detailAddress"
+												placeholder="상세주소"
+												th:value="${row.detailAddress}">
+										</div>
+									</div>
+
+									<div class="admin-task-list-second-address-preview mt-2"
+										th:text="${row.fullAddress}">
+										주소
+									</div>
+								</div>
+							</div>
+
+							<div class="col-lg-12 admin-task-list-second-site-address-section"
+								data-address-target="site"
+								th:attr="data-initial-site-visible=${row.deliveryMethodName == '현장배송'}">
+
+								<div class="admin-task-list-second-field admin-task-list-second-address-section">
+									<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+										<div>
+											<label class="admin-task-list-second-label mb-0">
+												현장주소
+												<span class="badge bg-danger-subtle text-danger ms-1">현장배송 필수</span>
+											</label>
+											<div class="form-text mt-1">
+												배송수단이 현장배송인 경우에만 사용됩니다. 현장배송에서 다른 배송수단으로 변경하면 저장 시 현장주소는 삭제됩니다.
+											</div>
+										</div>
+
+										<div class="d-flex flex-wrap gap-1">
+											<button type="button"
+												class="btn btn-sm btn-outline-info admin-task-list-second-company-address-same-btn"
+												data-address-target="site">
+												회원주소 동일
+											</button>
+											<button type="button"
+												class="btn btn-sm btn-outline-primary admin-task-list-second-address-search-btn"
+												data-address-target="site">
+												주소검색
+											</button>
+											<button type="button"
+												class="btn btn-sm btn-outline-secondary admin-task-list-second-address-book-btn"
+												data-address-target="site">
+												등록 주소지 검색
+											</button>
+										</div>
+									</div>
+
+									<input type="hidden"
+										name="siteZipCode"
+										class="admin-task-list-second-site-zip-code"
+										th:value="${row.siteZipCode}">
+									<input type="hidden"
+										name="siteDoName"
+										class="admin-task-list-second-site-do-name"
+										th:value="${row.siteDoName}">
+									<input type="hidden"
+										name="siteSiName"
+										class="admin-task-list-second-site-si-name"
+										th:value="${row.siteSiName}">
+									<input type="hidden"
+										name="siteGuName"
+										class="admin-task-list-second-site-gu-name"
+										th:value="${row.siteGuName}">
+
+									<div class="row g-2">
+										<div class="col-lg-8 col-md-12">
+											<input type="text"
+												class="form-control admin-task-list-second-site-road-address"
+												name="siteRoadAddress"
+												placeholder="현장 도로명주소"
+												readonly
+												th:value="${row.siteRoadAddress}">
+										</div>
+										<div class="col-lg-4 col-md-12">
+											<input type="text"
+												class="form-control admin-task-list-second-site-detail-address"
+												name="siteDetailAddress"
+												placeholder="현장 상세주소"
+												th:value="${row.siteDetailAddress}">
+										</div>
+									</div>
+
+									<div class="admin-task-list-second-site-address-preview mt-2">
+										-
+									</div>
 								</div>
 							</div>
 
 							<div class="col-lg-6">
 								<div class="admin-task-list-second-field">
 									<div class="d-flex align-items-center justify-content-between gap-2 mb-1">
-										<label class="admin-task-list-second-label mb-0">주문자
-											정보</label>
+										<div>
+											<label class="admin-task-list-second-label mb-0">주문자 정보</label>
+											<div class="form-text mt-1">
+												선택한 대리점에 등록된 주문자 정보를 불러올 수 있습니다.
+											</div>
+										</div>
 										<button type="button"
 											class="btn btn-sm btn-outline-secondary admin-task-list-second-orderer-search-btn">
 											주문자검색
@@ -287,12 +485,17 @@
 
 									<div class="row g-2">
 										<div class="col-md-6">
-											<input type="text" class="form-control admin-task-list-second-orderer-name"
-												name="ordererName" placeholder="주문자 이름" th:value="${row.ordererName}">
+											<input type="text"
+												class="form-control admin-task-list-second-orderer-name"
+												name="ordererName"
+												placeholder="주문자 이름"
+												th:value="${row.ordererName}">
 										</div>
 										<div class="col-md-6">
-											<input type="text" class="form-control admin-task-list-second-orderer-phone"
-												name="ordererPhone" placeholder="주문자 연락처"
+											<input type="text"
+												class="form-control admin-task-list-second-orderer-phone"
+												name="ordererPhone"
+												placeholder="주문자 연락처"
 												th:value="${row.ordererPhone}">
 										</div>
 									</div>
@@ -301,21 +504,28 @@
 
 							<div class="col-lg-6">
 								<div class="admin-task-list-second-field admin-task-list-second-readonly-field">
-									<label class="admin-task-list-second-label">요청
-										메모</label>
-									<textarea class="form-control admin-task-list-second-textarea" readonly
+									<label class="admin-task-list-second-label">요청 메모</label>
+									<textarea class="form-control admin-task-list-second-textarea"
+										readonly
 										th:text="${row.orderComment}"></textarea>
+									<div class="form-text">
+										고객 또는 발주자가 입력한 요청 메모입니다. 관리자 화면에서는 수정하지 않습니다.
+									</div>
 								</div>
 							</div>
 
 							<div class="col-lg-6">
 								<div class="admin-task-list-second-field">
-									<label class="admin-task-list-second-label">관리자
-										남김말</label>
-									<textarea class="form-control admin-task-list-second-textarea" name="adminMemo"
+									<label class="admin-task-list-second-label">관리자 남김말</label>
+									<textarea class="form-control admin-task-list-second-textarea"
+										name="adminMemo"
 										th:text="${row.adminMemo}"></textarea>
+									<div class="form-text">
+										생산팀/출고팀/배송팀 확인에 필요한 내부 메모입니다.
+									</div>
 								</div>
 							</div>
+
 							<div class="col-lg-6">
 								<div class="admin-task-list-second-field">
 									<label class="admin-task-list-second-label">출고완료 메시지</label>
@@ -323,23 +533,30 @@
 									<input type="hidden" name="dispatchCompleteMessageSubmitted" value="true">
 
 									<textarea class="form-control admin-task-list-second-textarea"
-										name="dispatchCompleteMessage" placeholder="출고완료 시 전달할 메시지를 입력해 주세요."
+										name="dispatchCompleteMessage"
+										placeholder="출고완료 시 전달할 메시지를 입력해 주세요."
 										th:text="${row.dispatchCompleteMessage}"></textarea>
+									<div class="form-text">
+										출고완료 처리 시 함께 전달할 안내 메시지입니다.
+									</div>
 								</div>
 							</div>
+
 							<div class="col-lg-12">
 								<div class="admin-task-list-second-option-box">
 									<div class="admin-task-list-second-option-head">
 										<div>
 											<strong>제품 옵션</strong>
-											<p>카테고리/제품시리즈/제품시리즈ID는 DB 연동값이라
-												수정할 수 없습니다. 그 외 값은 수정 후 저장
-												가능합니다.</p>
+											<p>
+												카테고리/제품시리즈/제품시리즈ID는 DB 연동값이라 수정할 수 없습니다.
+												제품명, 사이즈, 색상은 삭제할 수 없으며 값 수정만 가능합니다.
+											</p>
 										</div>
 										<span>EDITABLE</span>
 									</div>
 
-									<input type="hidden" name="optionJson"
+									<input type="hidden"
+										name="optionJson"
 										class="admin-task-list-second-option-json-input">
 
 									<div class="admin-task-list-second-option-edit-list">
@@ -347,15 +564,17 @@
 											th:each="entry : ${row.optionMap}"
 											th:classappend="${entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID'} ? ' admin-task-list-second-option-edit-item-locked' : ''"
 											th:attr="data-option-key=${entry.key},
-																								 data-option-editable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID')},
-																								 data-option-deletable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID' or entry.key == '제품명' or entry.key == '사이즈' or entry.key == '색상')}">
-											<div class="admin-task-list-second-option-key" th:text="${entry.key}">옵션명
+											         data-option-editable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID')},
+											         data-option-deletable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID' or entry.key == '제품명' or entry.key == '사이즈' or entry.key == '색상')}">
+											<div class="admin-task-list-second-option-key" th:text="${entry.key}">
+												옵션명
 											</div>
 
 											<div class="admin-task-list-second-option-value-wrap">
 												<input type="text"
 													class="form-control form-control-sm admin-task-list-second-option-value-input"
-													th:value="${entry.value}" disabled>
+													th:value="${entry.value}"
+													disabled>
 											</div>
 
 											<div class="admin-task-list-second-option-actions">
@@ -391,15 +610,17 @@
 									<div class="admin-task-list-second-image-head">
 										<div>
 											<strong>관리자 첨부파일</strong>
-											<p>기존 이미지는 X 처리 후 저장하면 삭제됩니다. 새
-												이미지는 선택 즉시 아래에 미리보기로 표시됩니다.
+											<p>
+												기존 이미지는 X 처리 후 저장하면 삭제됩니다.
+												새 이미지는 선택 즉시 아래에 미리보기로 표시됩니다.
 											</p>
 										</div>
 									</div>
 
 									<div class="admin-task-list-second-existing-image-wrap">
 										<div class="admin-task-list-second-image-subtitle">
-											현재 등록된 이미지</div>
+											현재 등록된 이미지
+										</div>
 
 										<div class="admin-task-list-second-image-grid"
 											th:if="${row.adminImages != null and !#lists.isEmpty(row.adminImages)}">
@@ -429,21 +650,24 @@
 									</div>
 
 									<div class="admin-task-list-second-new-image-wrap">
-										<label class="admin-task-list-second-label">새
-											첨부파일 추가</label>
+										<label class="admin-task-list-second-label">
+											새 첨부파일 추가
+										</label>
 
-										<input type="file" class="form-control admin-task-list-second-admin-image-input"
-											name="adminImages" accept="image/*" multiple>
+										<input type="file"
+											class="form-control admin-task-list-second-admin-image-input"
+											name="adminImages"
+											accept="image/*"
+											multiple>
 
 										<div class="admin-task-list-second-image-subtitle mt-3">
-											새로 추가할 이미지</div>
-
-										<div
-											class="admin-task-list-second-image-grid admin-task-list-second-new-image-preview">
+											새로 추가할 이미지
 										</div>
 
-										<div
-											class="admin-task-list-second-image-empty admin-task-list-second-new-image-empty">
+										<div class="admin-task-list-second-image-grid admin-task-list-second-new-image-preview">
+										</div>
+
+										<div class="admin-task-list-second-image-empty admin-task-list-second-new-image-empty">
 											새로 추가할 이미지가 없습니다.
 										</div>
 									</div>

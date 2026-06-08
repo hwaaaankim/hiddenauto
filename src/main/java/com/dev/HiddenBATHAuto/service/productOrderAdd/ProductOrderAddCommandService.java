@@ -62,11 +62,13 @@ public class ProductOrderAddCommandService {
     private static final Long PRODUCTION_TEAM_ID = 2L;
     private static final Long DELIVERY_TEAM_ID = 3L;
     private static final Long DEFAULT_PRODUCTION_TEAM_CATEGORY_ID = 1L;
-    private static final String MANAGEMENT_UPLOAD_TYPE = "MANAGEMENT";
     private static final Long DEFAULT_FALLBACK_TEAM_ID = 1L;
+
+    private static final String MANAGEMENT_UPLOAD_TYPE = "MANAGEMENT";
+    private static final String NO_STANDARD_SERIES_NAME = "중분류 없음";
+
     private static final int ZIP_CODE_MAX_LENGTH = 20;
     private static final Pattern KOREA_ZONE_CODE_PATTERN = Pattern.compile("\\b\\d{5}\\b");
-    private static final String NO_STANDARD_SERIES_NAME = "중분류 없음";
 
     private final CompanyRepository companyRepository;
     private final MemberRepository memberRepository;
@@ -77,35 +79,61 @@ public class ProductOrderAddCommandService {
     private final OrderRepository orderRepository;
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final DeliveryMethodRepository deliveryMethodRepository;
+    private final DeliveryHandlerAutoAssignService deliveryHandlerAutoAssignService;
     private final ObjectMapper objectMapper;
 
     @Value("${spring.upload.path}")
     private String uploadPath;
 
-    public ProductOrderAddSaveResponse create(ProductOrderAddRequest request,
-            MultiValueMap<String, MultipartFile> fileMap) {
-
-        Company company = companyRepository.findById(request.getCompanyId())
-                .orElseThrow(() -> new IllegalArgumentException("선택한 업체를 찾을 수 없습니다."));
-
-        Member requestedBy = memberRepository
-                .findCompanyMembersByRole(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
-                .stream().findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("해당 업체에 CUSTOMER_REPRESENTATIVE 멤버가 없습니다."));
-
-        DeliveryMethod deliveryMethod = deliveryMethodRepository.findById(request.getDeliveryMethodId())
-                .orElseThrow(() -> new IllegalArgumentException("선택한 배송수단을 찾을 수 없습니다."));
-
-        boolean directDelivery = isDirectDeliveryMethod(deliveryMethod);
-        Member deliveryHandler = resolveDeliveryHandler(request, directDelivery);
+    public ProductOrderAddSaveResponse create(
+            ProductOrderAddRequest request,
+            MultiValueMap<String, MultipartFile> fileMap
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("발주 요청 정보가 없습니다.");
+        }
 
         if (request.getOrders() == null || request.getOrders().isEmpty()) {
             throw new IllegalArgumentException("최소 1개의 주문이 필요합니다.");
         }
 
+        if (request.getPreferredDeliveryDate() == null) {
+            throw new IllegalArgumentException("배송 희망일을 선택해 주세요.");
+        }
+
+        Company company = companyRepository.findById(request.getCompanyId())
+                .orElseThrow(() -> new IllegalArgumentException("선택한 업체를 찾을 수 없습니다."));
+
+        Member requestedBy = memberRepository
+                .findCompanyMembersByRole(
+                        company.getId(),
+                        MemberRole.CUSTOMER_REPRESENTATIVE,
+                        PageRequest.of(0, 1)
+                )
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("해당 업체에 CUSTOMER_REPRESENTATIVE 멤버가 없습니다."));
+
+        DeliveryMethod deliveryMethod = deliveryMethodRepository.findById(request.getDeliveryMethodId())
+                .orElseThrow(() -> new IllegalArgumentException("선택한 배송수단을 찾을 수 없습니다."));
+
+        boolean siteDelivery = isSiteDeliveryMethod(deliveryMethod);
+        boolean autoAssignTargetMethod = isDeliveryAutoAssignTargetMethod(deliveryMethod);
+
         validateCommonDeliveryAddress(request);
+
+        if (siteDelivery) {
+            validateSiteDeliveryAddress(request);
+        }
+
         validateMoney(request.getPackingCost(), "포장비");
         validateMoney(request.getDeliveryCost(), "운임비");
+
+        Member deliveryHandler = resolveDeliveryHandler(
+                request,
+                autoAssignTargetMethod,
+                siteDelivery
+        );
 
         LocalDateTime now = LocalDateTime.now();
         LocalDate deliveryDate = request.getPreferredDeliveryDate();
@@ -119,16 +147,22 @@ public class ProductOrderAddCommandService {
         task = taskRepository.save(task);
 
         int ordersTotalAmount = 0;
+
+        boolean hasDeliveryHandler = deliveryHandler != null;
         int nextDeliveryOrderIndex = 0;
 
-        if (directDelivery) {
+        if (hasDeliveryHandler) {
             nextDeliveryOrderIndex = deliveryOrderIndexRepository
-                    .findMaxOrderIndexByDeliveryHandlerAndDeliveryDate(deliveryHandler.getId(), deliveryDate)
+                    .findMaxOrderIndexByDeliveryHandlerAndDeliveryDate(
+                            deliveryHandler.getId(),
+                            deliveryDate
+                    )
                     .orElse(0) + 1;
         }
 
         for (int i = 0; i < request.getOrders().size(); i++) {
             ProductOrderCreateRequest orderRequest = request.getOrders().get(i);
+
             validateOrderMoney(orderRequest, i + 1);
 
             ResolvedOrderMeta resolved = resolveOrderMeta(orderRequest);
@@ -144,15 +178,22 @@ public class ProductOrderAddCommandService {
             order.setPackingCost(request.getPackingCost());
             order.setDeliveryCost(request.getDeliveryCost());
 
-            if (directDelivery) {
-                order.setAssignedDeliveryTeam(deliveryHandler.getTeamCategory());
+            if (hasDeliveryHandler) {
                 order.setAssignedDeliveryHandler(deliveryHandler);
+                order.setAssignedDeliveryTeam(deliveryHandler.getTeamCategory());
             } else {
-                order.setAssignedDeliveryTeam(null);
                 order.setAssignedDeliveryHandler(null);
+                order.setAssignedDeliveryTeam(null);
             }
 
             applyCommonDeliveryAddress(order, request);
+
+            if (siteDelivery) {
+                applySiteDeliveryAddress(order, request);
+            } else {
+                clearSiteDeliveryAddress(order);
+            }
+
             applyCommonOrdererInfo(order, request);
 
             order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
@@ -175,46 +216,109 @@ public class ProductOrderAddCommandService {
 
             order = orderRepository.save(order);
 
-            if (directDelivery) {
-                registerDeliveryOrderIndex(order, deliveryHandler, deliveryDate, nextDeliveryOrderIndex);
+            if (hasDeliveryHandler) {
+                registerDeliveryOrderIndex(
+                        order,
+                        deliveryHandler,
+                        deliveryDate,
+                        nextDeliveryOrderIndex
+                );
                 nextDeliveryOrderIndex++;
             }
 
-            saveOrderFiles(fileMap == null ? null : fileMap.get("orderFiles_" + i), task.getId(), order);
+            List<MultipartFile> files = fileMap == null
+                    ? null
+                    : fileMap.get("orderFiles_" + i);
+
+            saveOrderFiles(files, task.getId(), order);
 
             ordersTotalAmount += order.getTotalAmount();
         }
 
-        // 포장비/운임비는 화면상 공통 금액이므로 Task 총액에는 1회만 더합니다.
-        task.setTotalPrice(ordersTotalAmount + request.getPackingCost() + request.getDeliveryCost());
+        task.setTotalPrice(
+                ordersTotalAmount
+                        + request.getPackingCost()
+                        + request.getDeliveryCost()
+        );
         task.setUpdatedAt(LocalDateTime.now());
         taskRepository.save(task);
 
-        return new ProductOrderAddSaveResponse(true, "발주가 등록되었습니다.", task.getId());
+        return new ProductOrderAddSaveResponse(
+                true,
+                "발주가 등록되었습니다.",
+                task.getId()
+        );
     }
 
-    private Member resolveDeliveryHandler(ProductOrderAddRequest request, boolean directDelivery) {
-        if (!directDelivery) {
+    private Member resolveDeliveryHandler(
+            ProductOrderAddRequest request,
+            boolean autoAssignTargetMethod,
+            boolean siteDelivery
+    ) {
+        Long requestedDeliveryHandlerId = normalizePositiveId(request.getDeliveryHandlerId());
+
+        if (requestedDeliveryHandlerId != null) {
+            return memberRepository.findByIdAndTeam_Id(requestedDeliveryHandlerId, DELIVERY_TEAM_ID)
+                    .orElseThrow(() -> new IllegalArgumentException("배송 담당자는 팀 ID 3 소속 멤버만 선택할 수 있습니다."));
+        }
+
+        if (!autoAssignTargetMethod) {
             return null;
         }
 
-        if (request.getDeliveryHandlerId() == null || request.getDeliveryHandlerId() <= 0) {
-            throw new IllegalArgumentException("직배송은 배송 담당자를 선택해야 합니다.");
-        }
+        DeliveryAddressForAssignment assignmentAddress = siteDelivery
+                ? new DeliveryAddressForAssignment(
+                        request.getSiteDoName(),
+                        request.getSiteSiName(),
+                        request.getSiteGuName()
+                )
+                : new DeliveryAddressForAssignment(
+                        request.getDoName(),
+                        request.getSiName(),
+                        request.getGuName()
+                );
 
-        return memberRepository.findByIdAndTeam_Id(request.getDeliveryHandlerId(), DELIVERY_TEAM_ID)
-                .orElseThrow(() -> new IllegalArgumentException("배송 담당자는 팀 ID 3 소속 멤버만 선택할 수 있습니다."));
+        return deliveryHandlerAutoAssignService
+                .findRandomDeliveryHandler(
+                        assignmentAddress.doName(),
+                        assignmentAddress.siName(),
+                        assignmentAddress.guName()
+                )
+                .orElse(null);
     }
 
-    private boolean isDirectDeliveryMethod(DeliveryMethod deliveryMethod) {
+    private boolean isDeliveryAutoAssignTargetMethod(DeliveryMethod deliveryMethod) {
+        String methodName = normalizeDeliveryMethodName(deliveryMethod);
+
+        return methodName.contains("직배송")
+                || methodName.contains("현장배송")
+                || methodName.contains("화물");
+    }
+
+    private boolean isSiteDeliveryMethod(DeliveryMethod deliveryMethod) {
+        return normalizeDeliveryMethodName(deliveryMethod).contains("현장배송");
+    }
+
+    private String normalizeDeliveryMethodName(DeliveryMethod deliveryMethod) {
         String methodName = trimToNull(deliveryMethod == null ? null : deliveryMethod.getMethodName());
+
         if (methodName == null) {
-            return false;
+            return "";
         }
-        return methodName.replace(" ", "").contains("직배송");
+
+        return methodName.replace(" ", "");
     }
 
-    private void registerDeliveryOrderIndex(Order order, Member deliveryHandler, LocalDate deliveryDate, int orderIndex) {
+    private void registerDeliveryOrderIndex(
+            Order order,
+            Member deliveryHandler,
+            LocalDate deliveryDate,
+            int orderIndex
+    ) {
+        if (order == null || deliveryHandler == null || deliveryDate == null) {
+            return;
+        }
+
         DeliveryOrderIndex deliveryOrderIndex = new DeliveryOrderIndex();
         deliveryOrderIndex.setDeliveryHandler(deliveryHandler);
         deliveryOrderIndex.setOrder(order);
@@ -225,18 +329,42 @@ public class ProductOrderAddCommandService {
     }
 
     private void validateCommonDeliveryAddress(ProductOrderAddRequest request) {
-        normalizeZipCodeRequired(request.getZipCode());
+        normalizeZipCodeRequired(request.getZipCode(), "우편번호");
         normalizeRequired(request.getDoName(), "도/시");
         normalizeRequired(request.getRoadAddress(), "도로명 주소");
     }
 
+    private void validateSiteDeliveryAddress(ProductOrderAddRequest request) {
+        normalizeZipCodeRequired(request.getSiteZipCode(), "현장주소 우편번호");
+        normalizeRequired(request.getSiteDoName(), "현장주소 도/시");
+        normalizeRequired(request.getSiteRoadAddress(), "현장 도로명 주소");
+    }
+
     private void applyCommonDeliveryAddress(Order order, ProductOrderAddRequest request) {
-        order.setZipCode(normalizeZipCodeRequired(request.getZipCode()));
+        order.setZipCode(normalizeZipCodeRequired(request.getZipCode(), "우편번호"));
         order.setDoName(normalizeRequired(request.getDoName(), "도/시"));
         order.setSiName(trimToNull(request.getSiName()));
         order.setGuName(trimToNull(request.getGuName()));
         order.setRoadAddress(normalizeRequired(request.getRoadAddress(), "도로명 주소"));
         order.setDetailAddress(trimToNull(request.getDetailAddress()));
+    }
+
+    private void applySiteDeliveryAddress(Order order, ProductOrderAddRequest request) {
+        order.setSiteZipCode(normalizeZipCodeRequired(request.getSiteZipCode(), "현장주소 우편번호"));
+        order.setSiteDoName(normalizeRequired(request.getSiteDoName(), "현장주소 도/시"));
+        order.setSiteSiName(trimToNull(request.getSiteSiName()));
+        order.setSiteGuName(trimToNull(request.getSiteGuName()));
+        order.setSiteRoadAddress(normalizeRequired(request.getSiteRoadAddress(), "현장 도로명 주소"));
+        order.setSiteDetailAddress(trimToNull(request.getSiteDetailAddress()));
+    }
+
+    private void clearSiteDeliveryAddress(Order order) {
+        order.setSiteZipCode(null);
+        order.setSiteDoName(null);
+        order.setSiteSiName(null);
+        order.setSiteGuName(null);
+        order.setSiteRoadAddress(null);
+        order.setSiteDetailAddress(null);
     }
 
     private void applyCommonOrdererInfo(Order order, ProductOrderAddRequest request) {
@@ -252,7 +380,8 @@ public class ProductOrderAddCommandService {
                 throw new IllegalArgumentException("규격 주문은 대분류를 선택해야 합니다.");
             }
 
-            StandardCategory category = standardCategoryRepository.findById(request.getStandardCategoryId())
+            StandardCategory category = standardCategoryRepository
+                    .findById(request.getStandardCategoryId())
                     .orElseThrow(() -> new IllegalArgumentException("선택한 규격 대분류를 찾을 수 없습니다."));
 
             Long standardProductSeriesId = normalizePositiveId(request.getStandardProductSeriesId());
@@ -261,7 +390,10 @@ public class ProductOrderAddCommandService {
 
             if (standardProductSeriesId != null) {
                 series = standardProductSeriesRepository
-                        .findByIdAndCategory_Id(standardProductSeriesId, request.getStandardCategoryId())
+                        .findByIdAndCategory_Id(
+                                standardProductSeriesId,
+                                request.getStandardCategoryId()
+                        )
                         .orElseThrow(() -> new IllegalArgumentException("선택한 규격 중분류를 찾을 수 없습니다."));
             }
 
@@ -283,7 +415,12 @@ public class ProductOrderAddCommandService {
                 .findByIdAndTeam_Id(request.getProductionCategoryId(), PRODUCTION_TEAM_ID)
                 .orElseThrow(() -> new IllegalArgumentException("선택한 생산팀 분류를 찾을 수 없습니다."));
 
-        return new ResolvedOrderMeta(productCategory, productCategory.getName(), null, null);
+        return new ResolvedOrderMeta(
+                productCategory,
+                productCategory.getName(),
+                null,
+                null
+        );
     }
 
     private TeamCategory resolveProductionCategoryForStandardCategory(String standardCategoryName) {
@@ -297,14 +434,18 @@ public class ProductOrderAddCommandService {
                 .findFirstByTeam_IdAndNameIgnoreCase(PRODUCTION_TEAM_ID, normalizedName)
                 .or(() -> teamCategoryRepository.findByIdAndTeam_Id(
                         DEFAULT_PRODUCTION_TEAM_CATEGORY_ID,
-                        DEFAULT_FALLBACK_TEAM_ID))
+                        DEFAULT_FALLBACK_TEAM_ID
+                ))
                 .orElseThrow(() -> new IllegalArgumentException(
                         "규격 대분류명 '" + normalizedName
-                                + "' 와 일치하는 생산팀 카테고리가 없고, 기본 TeamCategory(id=1, team.id=1)도 찾을 수 없습니다."));
+                                + "' 와 일치하는 생산팀 카테고리가 없고, 기본 TeamCategory(id=1, team.id=1)도 찾을 수 없습니다."
+                ));
     }
 
-    private LinkedHashMap<String, String> buildOptionMap(ProductOrderCreateRequest request,
-            ResolvedOrderMeta resolved) {
+    private LinkedHashMap<String, String> buildOptionMap(
+            ProductOrderCreateRequest request,
+            ResolvedOrderMeta resolved
+    ) {
         LinkedHashMap<String, String> optionMap = new LinkedHashMap<>();
 
         optionMap.put("카테고리", resolved.categoryName());
@@ -319,7 +460,9 @@ public class ProductOrderAddCommandService {
 
             optionMap.put(
                     "제품시리즈ID",
-                    resolved.seriesId() == null ? "" : String.valueOf(resolved.seriesId())
+                    resolved.seriesId() == null
+                            ? ""
+                            : String.valueOf(resolved.seriesId())
             );
         }
 
@@ -341,11 +484,15 @@ public class ProductOrderAddCommandService {
                     continue;
                 }
 
-                String key = optionNo == 1 ? "옵션" : "옵션" + optionNo;
+                String key = optionNo == 1
+                        ? "옵션"
+                        : "옵션" + optionNo;
 
                 while (optionMap.containsKey(key)) {
                     optionNo++;
-                    key = optionNo == 1 ? "옵션" : "옵션" + optionNo;
+                    key = optionNo == 1
+                            ? "옵션"
+                            : "옵션" + optionNo;
                 }
 
                 optionMap.put(key, answer);
@@ -357,15 +504,22 @@ public class ProductOrderAddCommandService {
     }
 
     private void validateOrderMoney(ProductOrderCreateRequest request, int orderNo) {
+        if (request == null) {
+            throw new IllegalArgumentException("주문 " + orderNo + ": 주문 정보가 없습니다.");
+        }
+
         if (request.getProductCost() < 0) {
             throw new IllegalArgumentException("주문 " + orderNo + ": 제품단가는 0 이상이어야 합니다.");
         }
+
         if (request.getQuantity() <= 0) {
             throw new IllegalArgumentException("주문 " + orderNo + ": 수량은 1 이상이어야 합니다.");
         }
+
         if (request.getSupplyPrice() < 0) {
             throw new IllegalArgumentException("주문 " + orderNo + ": 공급가는 0 이상이어야 합니다.");
         }
+
         if (request.getTotalAmount() < 0) {
             throw new IllegalArgumentException("주문 " + orderNo + ": 총액은 0 이상이어야 합니다.");
         }
@@ -385,8 +539,8 @@ public class ProductOrderAddCommandService {
         return id;
     }
 
-    private String normalizeZipCodeRequired(String value) {
-        String trimmed = normalizeRequired(value, "우편번호");
+    private String normalizeZipCodeRequired(String value, String fieldName) {
+        String trimmed = normalizeRequired(value, fieldName);
 
         Matcher matcher = KOREA_ZONE_CODE_PATTERN.matcher(trimmed);
 
@@ -399,11 +553,14 @@ public class ProductOrderAddCommandService {
         }
 
         throw new IllegalArgumentException(
-                "우편번호가 너무 깁니다. 주소검색으로 우편번호를 다시 선택해 주세요. 입력값: " + trimmed
+                fieldName + "가 너무 깁니다. 주소검색으로 우편번호를 다시 선택해 주세요. 입력값: " + trimmed
         );
     }
 
-    private String resolveProductName(LinkedHashMap<String, String> optionMap, ResolvedOrderMeta resolved) {
+    private String resolveProductName(
+            LinkedHashMap<String, String> optionMap,
+            ResolvedOrderMeta resolved
+    ) {
         String productName = optionMap.get("제품명");
 
         if (productName != null && !productName.isBlank()) {
@@ -417,14 +574,25 @@ public class ProductOrderAddCommandService {
         return resolved.categoryName();
     }
 
-    private void saveOrderFiles(List<MultipartFile> files, Long taskId, Order order) {
+    private void saveOrderFiles(
+            List<MultipartFile> files,
+            Long taskId,
+            Order order
+    ) {
         if (files == null || files.isEmpty()) {
             return;
         }
 
         String dateFolder = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
-        Path uploadDir = Paths.get(normalizeDir(uploadPath), "order", "management", String.valueOf(taskId),
-                String.valueOf(order.getId()), dateFolder);
+
+        Path uploadDir = Paths.get(
+                normalizeDir(uploadPath),
+                "order",
+                "management",
+                String.valueOf(taskId),
+                String.valueOf(order.getId()),
+                dateFolder
+        );
 
         try {
             Files.createDirectories(uploadDir);
@@ -434,11 +602,13 @@ public class ProductOrderAddCommandService {
                     continue;
                 }
 
-                String originalFilename = StringUtils
-                        .cleanPath(Objects.requireNonNullElse(file.getOriginalFilename(), "file"));
+                String originalFilename = StringUtils.cleanPath(
+                        Objects.requireNonNullElse(file.getOriginalFilename(), "file")
+                );
 
                 String extension = getExtension(originalFilename);
-                String savedFilename = UUID.randomUUID() + (extension.isBlank() ? "" : "." + extension);
+                String savedFilename = UUID.randomUUID()
+                        + (extension.isBlank() ? "" : "." + extension);
 
                 Path targetPath = uploadDir.resolve(savedFilename);
                 file.transferTo(targetPath);
@@ -447,8 +617,16 @@ public class ProductOrderAddCommandService {
                 orderImage.setType(MANAGEMENT_UPLOAD_TYPE);
                 orderImage.setFilename(originalFilename);
                 orderImage.setPath(targetPath.toString().replace("\\", "/"));
-                orderImage.setUrl("/upload/order/management/" + taskId + "/" + order.getId() + "/" + dateFolder + "/"
-                        + savedFilename);
+                orderImage.setUrl(
+                        "/upload/order/management/"
+                                + taskId
+                                + "/"
+                                + order.getId()
+                                + "/"
+                                + dateFolder
+                                + "/"
+                                + savedFilename
+                );
                 orderImage.setUploadedAt(LocalDateTime.now());
 
                 order.addOrderImage(orderImage);
@@ -474,6 +652,7 @@ public class ProductOrderAddCommandService {
         if (value == null || value.trim().isBlank()) {
             throw new IllegalArgumentException(fieldName + "은(는) 비어 있을 수 없습니다.");
         }
+
         return value.trim();
     }
 
@@ -481,7 +660,9 @@ public class ProductOrderAddCommandService {
         if (value == null) {
             return null;
         }
+
         String trimmed = value.trim();
+
         return trimmed.isBlank() ? null : trimmed;
     }
 
@@ -490,31 +671,43 @@ public class ProductOrderAddCommandService {
             return dir;
         }
 
-        String d = dir.replace("\\", "/").trim();
+        String normalized = dir.replace("\\", "/").trim();
+
         String userHome = System.getProperty("user.home");
+
         if (StringUtils.hasText(userHome)) {
             userHome = userHome.replace("\\", "/");
-            d = d.replace("${user.home}", userHome);
+            normalized = normalized.replace("${user.home}", userHome);
 
-            if (d.equals("~")) {
-                d = userHome;
-            } else if (d.startsWith("~/")) {
-                d = userHome + d.substring(1);
+            if (normalized.equals("~")) {
+                normalized = userHome;
+            } else if (normalized.startsWith("~/")) {
+                normalized = userHome + normalized.substring(1);
             }
         }
 
-        if (!d.endsWith("/")) {
-            d = d + "/";
+        if (!normalized.endsWith("/")) {
+            normalized = normalized + "/";
         }
-        return d;
+
+        return normalized;
     }
 
     private String getExtension(String filename) {
-        int idx = filename.lastIndexOf('.');
-        if (idx < 0 || idx == filename.length() - 1) {
+        int index = filename.lastIndexOf('.');
+
+        if (index < 0 || index == filename.length() - 1) {
             return "";
         }
-        return filename.substring(idx + 1);
+
+        return filename.substring(index + 1);
+    }
+
+    private record DeliveryAddressForAssignment(
+            String doName,
+            String siName,
+            String guName
+    ) {
     }
 
     private record ResolvedOrderMeta(

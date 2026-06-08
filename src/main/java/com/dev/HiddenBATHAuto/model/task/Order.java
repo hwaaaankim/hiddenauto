@@ -56,6 +56,24 @@ public class Order {
 	private String roadAddress;
 	private String detailAddress;
 
+	@Column(name = "site_zip_code", length = 20)
+	private String siteZipCode;
+
+	@Column(name = "site_do_name", length = 50)
+	private String siteDoName;
+
+	@Column(name = "site_si_name", length = 50)
+	private String siteSiName;
+
+	@Column(name = "site_gu_name", length = 50)
+	private String siteGuName;
+
+	@Column(name = "site_road_address", length = 255)
+	private String siteRoadAddress;
+
+	@Column(name = "site_detail_address", length = 255)
+	private String siteDetailAddress;
+	
 	@Column(nullable = false)
 	private int quantity = 0;
 

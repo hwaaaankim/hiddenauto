@@ -29,6 +29,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class NonStandardTaskListViewService {
 
+    private static final String SITE_DELIVERY_METHOD_NAME = "현장배송";
+
     private final ObjectMapper objectMapper;
 
     public NonStandardTaskListOrderRowDto toRow(Order order) {
@@ -52,30 +54,10 @@ public class NonStandardTaskListViewService {
         OrderItem orderItem = order.getOrderItem();
         OrderCheckStatus checkStatus = order.getCheckStatus();
 
-        /*
-         * checked 하나로만 판단하면 의미가 섞입니다.
-         *
-         * checked/latestChecked:
-         * - 생산팀이 현재 최신 상태를 확인 완료한 상태입니다.
-         *
-         * revisedAfterCheck:
-         * - 생산팀이 한번 확인한 뒤 관리자가 생산팀이 봐야 할 항목을 다시 수정한 상태입니다.
-         * - 관리자 목록에서 강조 표시해야 하는 기준입니다.
-         *
-         * needProductionCheck:
-         * - 생산팀 확인이 필요한 상태입니다.
-         * - UNCHECKED 또는 REVISED_AFTER_CHECK이면 true입니다.
-         */
         OrderCheckState checkState = resolveCheckState(checkStatus);
-
         boolean latestChecked = checkState.isLatestChecked();
         boolean revisedAfterCheck = checkState == OrderCheckState.REVISED_AFTER_CHECK;
         boolean needProductionCheck = checkState.isNeedProductionCheck();
-
-        /*
-         * 기존 화면/코드 호환을 위해 checked 필드는 유지합니다.
-         * 단, 이 값은 "재수정 여부"가 아니라 "현재 체크완료 여부"입니다.
-         */
         boolean checked = latestChecked;
 
         Map<String, String> optionMap = parseOptionMap(orderItem != null ? orderItem.getOptionJson() : null);
@@ -88,8 +70,8 @@ public class NonStandardTaskListViewService {
                 "-"
         );
 
-        String fullAddress = joinNonBlank(" ",
-                wrapIfNotBlank(order.getZipCode(), "(", ")"),
+        String fullAddress = buildFullAddress(
+                order.getZipCode(),
                 order.getDoName(),
                 order.getSiName(),
                 order.getGuName(),
@@ -97,13 +79,23 @@ public class NonStandardTaskListViewService {
                 order.getDetailAddress()
         );
 
+        String siteFullAddress = buildFullAddress(
+                order.getSiteZipCode(),
+                order.getSiteDoName(),
+                order.getSiteSiName(),
+                order.getSiteGuName(),
+                order.getSiteRoadAddress(),
+                order.getSiteDetailAddress()
+        );
+
         int supplyPrice = order.getSupplyPrice();
         int totalAmount = order.getTotalAmount();
         int vatPrice = Math.max(0, totalAmount - supplyPrice);
 
         String ordererSummary = joinNonBlank(" / ", order.getOrdererName(), order.getOrdererPhone());
-
         String dispatchCompleteMessage = normalizeNullableText(order.getDispatchCompleteMessage());
+        String deliveryMethodName = deliveryMethod != null ? safe(deliveryMethod.getMethodName()) : "미지정";
+        boolean siteDelivery = SITE_DELIVERY_METHOD_NAME.equals(normalizeNullableText(deliveryMethodName));
 
         return NonStandardTaskListOrderRowDto.builder()
                 .orderId(order.getId())
@@ -141,6 +133,15 @@ public class NonStandardTaskListViewService {
                 .detailAddress(order.getDetailAddress())
                 .fullAddress(fullAddress.isBlank() ? "-" : fullAddress)
 
+                .siteZipCode(order.getSiteZipCode())
+                .siteDoName(order.getSiteDoName())
+                .siteSiName(order.getSiteSiName())
+                .siteGuName(order.getSiteGuName())
+                .siteRoadAddress(order.getSiteRoadAddress())
+                .siteDetailAddress(order.getSiteDetailAddress())
+                .siteFullAddress(siteFullAddress.isBlank() ? "-" : siteFullAddress)
+                .siteDelivery(siteDelivery)
+
                 .ordererName(order.getOrdererName())
                 .ordererPhone(order.getOrdererPhone())
                 .ordererSummary(ordererSummary.isBlank() ? "-" : ordererSummary)
@@ -148,22 +149,16 @@ public class NonStandardTaskListViewService {
                 .orderComment(order.getOrderComment())
                 .adminMemo(order.getAdminMemo())
                 .dispatchCompleteMessage(dispatchCompleteMessage)
-                .noteSummary(buildNoteSummary(
-                        order.getOrderComment(),
-                        order.getAdminMemo(),
-                        dispatchCompleteMessage
-                ))
+                .noteSummary(buildNoteSummary(order.getOrderComment(), order.getAdminMemo(), dispatchCompleteMessage))
 
                 .createdAt(order.getCreatedAt())
                 .preferredDeliveryDate(order.getPreferredDeliveryDate())
 
                 .deliveryMethodId(deliveryMethod != null ? deliveryMethod.getId() : null)
-                .deliveryMethodName(deliveryMethod != null ? safe(deliveryMethod.getMethodName()) : "미지정")
+                .deliveryMethodName(deliveryMethodName)
 
                 .assignedDeliveryHandlerId(deliveryHandler != null ? deliveryHandler.getId() : null)
-                .assignedDeliveryHandlerName(deliveryHandler != null
-                        ? formatMemberNameWithUsername(deliveryHandler)
-                        : "배정 필요함")
+                .assignedDeliveryHandlerName(deliveryHandler != null ? formatMemberNameWithUsername(deliveryHandler) : "배정 필요함")
 
                 .status(orderStatus)
                 .statusName(orderStatus != null ? orderStatus.name() : "")
@@ -186,7 +181,6 @@ public class NonStandardTaskListViewService {
                 .revisionCount(checkStatus != null ? checkStatus.getRevisionCount() : 0)
 
                 .adminImages(adminImages != null ? adminImages : List.of())
-
                 .build();
     }
 
@@ -200,24 +194,8 @@ public class NonStandardTaskListViewService {
                 .map(this::toRow)
                 .filter(Objects::nonNull)
                 .sorted(Comparator
-                        /*
-                         * 일괄보기에서는 생산팀 확인이 필요한 항목을 먼저 보여줍니다.
-                         * needProductionCheck=true:
-                         * - UNCHECKED
-                         * - REVISED_AFTER_CHECK
-                         */
-                        .comparingInt((NonStandardTaskListOrderRowDto row) ->
-                                row.isNeedProductionCheck() ? 0 : 1
-                        )
-                        /*
-                         * 그중에서도 재수정 건을 일반 미확인 건보다 위에 배치합니다.
-                         */
-                        .thenComparingInt(row ->
-                                row.isRevisedAfterCheck() ? 0 : 1
-                        )
-                        /*
-                         * 같은 상태 안에서는 최신 발주가 위로 오도록 정렬합니다.
-                         */
+                        .comparingInt((NonStandardTaskListOrderRowDto row) -> row.isNeedProductionCheck() ? 0 : 1)
+                        .thenComparingInt(row -> row.isRevisedAfterCheck() ? 0 : 1)
                         .thenComparing(
                                 NonStandardTaskListOrderRowDto::getCreatedAt,
                                 Comparator.nullsLast(Comparator.reverseOrder())
@@ -230,7 +208,6 @@ public class NonStandardTaskListViewService {
         if (checkStatus == null) {
             return OrderCheckState.UNCHECKED;
         }
-
         OrderCheckState resolved = checkStatus.getResolvedCheckState();
         return resolved != null ? resolved : OrderCheckState.UNCHECKED;
     }
@@ -239,13 +216,11 @@ public class NonStandardTaskListViewService {
         if (optionJson == null || optionJson.isBlank()) {
             return new LinkedHashMap<>();
         }
-
         try {
             Map<String, String> parsed = objectMapper.readValue(
                     optionJson,
                     new TypeReference<LinkedHashMap<String, String>>() {}
             );
-
             return parsed != null ? parsed : new LinkedHashMap<>();
         } catch (Exception e) {
             return new LinkedHashMap<>();
@@ -258,52 +233,38 @@ public class NonStandardTaskListViewService {
         String color = firstNotBlank(optionMap.get("색상"), null);
         String series = firstNotBlank(optionMap.get("제품시리즈"), optionMap.get("시리즈"), null);
 
-        String summary = joinNonBlank(" / ",
-                productName,
-                productCode,
-                series,
-                size,
-                color,
-                quantity > 0 ? "수량 " + quantity : null
-        );
-
+        String summary = joinNonBlank(" / ", productName, productCode, series, size, color, quantity > 0 ? "수량 " + quantity : null);
         return summary.isBlank() ? "-" : summary;
     }
 
-    private String buildNoteSummary(
-            String orderComment,
-            String adminMemo,
-            String dispatchCompleteMessage
-    ) {
+    private String buildNoteSummary(String orderComment, String adminMemo, String dispatchCompleteMessage) {
         String summary = joinNonBlank(" / ",
                 isBlank(orderComment) ? null : "요청: " + orderComment,
                 isBlank(adminMemo) ? null : "관리자: " + adminMemo,
                 isBlank(dispatchCompleteMessage) ? null : "출고완료: " + dispatchCompleteMessage
         );
-
         return summary.isBlank() ? "-" : summary;
+    }
+
+    private String buildFullAddress(String zipCode, String doName, String siName, String guName, String roadAddress, String detailAddress) {
+        return joinNonBlank(" ", wrapIfNotBlank(zipCode, "(", ")"), doName, siName, guName, roadAddress, detailAddress);
     }
 
     private String formatMemberNameWithUsername(Member member) {
         if (member == null) {
             return "-";
         }
-
         String name = normalizeNullableText(member.getName());
         String username = normalizeNullableText(member.getUsername());
-
         if (name != null && username != null) {
             return name + "(" + username + ")";
         }
-
         if (name != null) {
             return name;
         }
-
         if (username != null) {
             return username;
         }
-
         return "-";
     }
 
@@ -315,7 +276,6 @@ public class NonStandardTaskListViewService {
         if (value == null) {
             return null;
         }
-
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
@@ -328,13 +288,11 @@ public class NonStandardTaskListViewService {
         if (values == null) {
             return null;
         }
-
         for (String value : values) {
             if (value != null && !value.isBlank()) {
                 return value;
             }
         }
-
         return null;
     }
 
@@ -342,7 +300,6 @@ public class NonStandardTaskListViewService {
         if (value == null || value.isBlank()) {
             return null;
         }
-
         return prefix + value + suffix;
     }
 
@@ -350,7 +307,6 @@ public class NonStandardTaskListViewService {
         if (values == null) {
             return "";
         }
-
         return java.util.Arrays.stream(values)
                 .filter(value -> value != null && !value.isBlank())
                 .collect(Collectors.joining(delimiter));
