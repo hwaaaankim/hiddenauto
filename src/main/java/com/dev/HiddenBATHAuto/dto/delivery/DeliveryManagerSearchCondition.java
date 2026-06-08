@@ -2,10 +2,16 @@ package com.dev.HiddenBATHAuto.dto.delivery;
 
 import java.time.LocalDate;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class DeliveryManagerSearchCondition {
 
@@ -14,6 +20,8 @@ public class DeliveryManagerSearchCondition {
 
     private String searchType;
     private String keyword;
+
+    private Long deliveryMethodId;
 
     private LocalDate fromDate;
     private LocalDate toDate;

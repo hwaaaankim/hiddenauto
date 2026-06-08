@@ -11,6 +11,11 @@
 
 	const excelBtn = document.getElementById("delivery-list-added-excelBtn");
 
+	const bulkHandlerOpenBtn = document.getElementById("delivery-list-added-open-bulk-handler-modal");
+	const floatingHandlerBtn = document.getElementById("delivery-list-added-floating-handler-btn");
+	const selectedCountBadgeEl = document.getElementById("delivery-list-added-selected-count-badge");
+	const floatingSelectedCountBadgeEl = document.getElementById("delivery-list-added-floating-selected-count-badge");
+
 	// Modal elements
 	const modalEl = document.getElementById("delivery-list-added-modal");
 	const modalTitleEl = document.getElementById("delivery-list-added-modal-title");
@@ -47,9 +52,9 @@
 
 	// handler change modal
 	const handlerModalEl = document.getElementById("delivery-list-added-handler-modal");
-	const handlerOrderIdEl = document.getElementById("delivery-list-added-handler-order-id");
 	const handlerSelectEl = document.getElementById("delivery-list-added-handler-select");
 	const handlerSubmitBtn = document.getElementById("delivery-list-added-handler-submit");
+	const handlerSelectedCountEl = document.getElementById("delivery-list-added-handler-selected-count");
 
 	// CSRF
 	const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
@@ -114,6 +119,51 @@
 			.catch(() => res.text().catch(() => ""));
 	}
 
+	function getHandlerCheckboxes() {
+		return Array.from(document.querySelectorAll(".delivery-list-added-handler-check"));
+	}
+
+	function getSelectedHandlerOrderIds() {
+		return getHandlerCheckboxes()
+			.filter(chk => chk.checked && !chk.disabled)
+			.map(chk => Number(chk.getAttribute("data-order-id")))
+			.filter(id => Number.isFinite(id) && id > 0)
+			.filter((id, idx, arr) => arr.indexOf(id) === idx);
+	}
+
+	function setBulkHandlerButtonCount(count) {
+		if (selectedCountBadgeEl) selectedCountBadgeEl.textContent = String(count);
+		if (floatingSelectedCountBadgeEl) floatingSelectedCountBadgeEl.textContent = String(count);
+		if (handlerSelectedCountEl) handlerSelectedCountEl.textContent = String(count);
+
+		if (bulkHandlerOpenBtn) bulkHandlerOpenBtn.disabled = count < 1;
+	}
+
+	function isElementFullyHiddenFromViewport(el) {
+		if (!el) return true;
+
+		const rect = el.getBoundingClientRect();
+		const viewHeight = window.innerHeight || document.documentElement.clientHeight;
+		const viewWidth = window.innerWidth || document.documentElement.clientWidth;
+
+		return rect.bottom < 0 || rect.top > viewHeight || rect.right < 0 || rect.left > viewWidth;
+	}
+
+	function updateFloatingHandlerButtonVisibility() {
+		if (!floatingHandlerBtn) return;
+
+		const selectedCount = getSelectedHandlerOrderIds().length;
+		const shouldShow = selectedCount > 0 && isElementFullyHiddenFromViewport(bulkHandlerOpenBtn);
+
+		floatingHandlerBtn.classList.toggle("is-visible", shouldShow);
+	}
+
+	function updateHandlerSelectionUi() {
+		const selectedCount = getSelectedHandlerOrderIds().length;
+		setBulkHandlerButtonCount(selectedCount);
+		updateFloatingHandlerButtonVisibility();
+	}
+
 	/* =========================
 	   기존 그룹 스타일 로직(유지)
 	   ========================= */
@@ -147,7 +197,16 @@
 
 	document.addEventListener("DOMContentLoaded", function() {
 		applyAllTaskGroupStyles();
+		updateHandlerSelectionUi();
 	});
+
+	document.addEventListener("change", (e) => {
+		if (!e.target || !e.target.matches(".delivery-list-added-handler-check")) return;
+		updateHandlerSelectionUi();
+	});
+
+	window.addEventListener("scroll", updateFloatingHandlerButtonVisibility, { passive: true });
+	window.addEventListener("resize", updateFloatingHandlerButtonVisibility);
 
 	/* =========================
 	   Sortable
@@ -159,7 +218,7 @@
 			fallbackOnBody: true,
 			swapThreshold: 0.65,
 			handle: ".delivery-list-added-drag-handle",
-			filter: ".action-btn, .delivery-list-added-open-complete-modal, .delivery-list-added-open-detail-modal",
+			filter: ".action-btn, .delivery-list-added-open-complete-modal, .delivery-list-added-open-detail-modal, .delivery-list-added-handler-check, .delivery-list-added-check-wrap",
 			preventOnFilter: false,
 			onEnd: () => {
 				if (saveButton) saveButton.disabled = false;
@@ -635,10 +694,11 @@
 
 		return !!target.closest(
 			".delivery-list-added-drag-handle," +
+			".delivery-list-added-check-wrap," +
+			".delivery-list-added-handler-check," +
 			".action-btn," +
 			".delivery-list-added-open-complete-modal," +
-			".delivery-list-added-open-detail-modal," +
-			".delivery-list-added-open-handler-modal"
+			".delivery-list-added-open-detail-modal"
 		);
 	}
 
@@ -894,23 +954,27 @@
 	}
 
 	/* =========================
-	   담당자 변경
+	   담당자 일괄 변경
 	   ========================= */
 	let handlerModalInstance = null;
 
-	document.addEventListener("click", (e) => {
-		const btn = e.target.closest(".delivery-list-added-open-handler-modal");
-		if (!btn) return;
+	function openBulkHandlerModal() {
+		const selectedOrderIds = getSelectedHandlerOrderIds();
 
-		const orderId = btn.getAttribute("data-order-id");
-		if (!orderId) return;
+		if (selectedOrderIds.length < 1) {
+			alert("담당자를 변경할 주문을 1개 이상 선택해주세요.");
+			return;
+		}
 
-		if (!handlerModalEl || !handlerOrderIdEl || !handlerSelectEl) {
+		if (!handlerModalEl || !handlerSelectEl) {
 			alert("담당자 변경 모달이 준비되지 않았습니다.");
 			return;
 		}
 
-		handlerOrderIdEl.value = orderId;
+		if (handlerSelectedCountEl) {
+			handlerSelectedCountEl.textContent = String(selectedOrderIds.length);
+		}
+
 		handlerSelectEl.value = "";
 
 		if (!handlerModalInstance) {
@@ -918,27 +982,49 @@
 		}
 
 		handlerModalInstance.show();
-	});
+	}
+
+	if (bulkHandlerOpenBtn) {
+		bulkHandlerOpenBtn.addEventListener("click", openBulkHandlerModal);
+	}
+
+	if (floatingHandlerBtn) {
+		floatingHandlerBtn.addEventListener("click", openBulkHandlerModal);
+	}
 
 	if (handlerSubmitBtn) {
 		handlerSubmitBtn.addEventListener("click", async () => {
-			const orderId = handlerOrderIdEl?.value || "";
+			const selectedOrderIds = getSelectedHandlerOrderIds();
 			const newHandlerId = handlerSelectEl?.value || "";
 
-			if (!orderId) return alert("주문 정보가 없습니다.");
-			if (!newHandlerId) return alert("변경할 담당자를 선택해주세요.");
+			if (selectedOrderIds.length < 1) {
+				alert("담당자를 변경할 주문을 1개 이상 선택해주세요.");
+				return;
+			}
 
-			const ok = confirm("선택한 담당자로 변경하시겠습니까? 변경 후 현재 목록에서 사라질 수 있습니다.");
+			if (!newHandlerId) {
+				alert("변경할 담당자를 선택해주세요.");
+				return;
+			}
+
+			const ok = confirm(
+				`선택한 ${selectedOrderIds.length}건의 담당자를 변경하시겠습니까?\n\n` +
+				`변경 후 현재 목록에서 사라지고, 선택한 담당자의 같은 배송일 목록 마지막 순서로 이동합니다.`
+			);
+
 			if (!ok) return;
 
 			const headers = { "Content-Type": "application/json" };
 			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
 
 			try {
-				const res = await fetch(`/team/deliveryHandler/${orderId}`, {
+				handlerSubmitBtn.disabled = true;
+
+				const res = await fetch("/team/deliveryHandler/bulk", {
 					method: "POST",
 					headers,
 					body: JSON.stringify({
+						orderIds: selectedOrderIds,
 						newHandlerId: Number(newHandlerId)
 					})
 				});
@@ -948,13 +1034,31 @@
 					return alert("담당자 변경 실패\n" + (message || ("HTTP " + res.status)));
 				}
 
-				alert("담당자가 변경되었습니다.");
+				let data = null;
+				try {
+					data = await res.json();
+				} catch (e) {
+					data = null;
+				}
+
+				const changedCount = data && typeof data.changedCount !== "undefined"
+					? Number(data.changedCount)
+					: selectedOrderIds.length;
+
+				if (changedCount > 0) {
+					alert(`${changedCount}건의 담당자가 변경되었습니다.`);
+				} else {
+					alert("변경된 주문이 없습니다. 현재 담당자와 동일한 담당자를 선택했는지 확인해주세요.");
+				}
+
 				handlerModalInstance.hide();
 				location.reload();
 
 			} catch (err) {
 				console.error(err);
 				alert("담당자 변경 중 오류가 발생했습니다.");
+			} finally {
+				handlerSubmitBtn.disabled = false;
 			}
 		});
 	}

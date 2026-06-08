@@ -26,6 +26,46 @@ import jakarta.persistence.LockModeType;
 @Repository
 public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrderIndex, Long> {
 
+	@Query("""
+			    select distinct d
+			    from DeliveryOrderIndex d
+			    join fetch d.order o
+			    left join fetch o.task t
+			    left join fetch t.requestedBy requester
+			    left join fetch requester.company company
+			    left join fetch o.orderItem item
+			    left join fetch o.productCategory category
+			    left join fetch o.deliveryMethod deliveryMethod
+			    left join fetch o.assignedDeliveryHandler assignedDeliveryHandler
+			    where d.deliveryHandler.id = :deliveryHandlerId
+			      and o.status in :statuses
+			      and (:fromDateTime is null or o.preferredDeliveryDate >= :fromDateTime)
+			      and (:toDateTime is null or o.preferredDeliveryDate < :toDateTime)
+			    order by
+			      o.preferredDeliveryDate asc,
+			      d.orderIndex asc,
+			      o.id desc
+			""")
+	List<DeliveryOrderIndex> findDeliveryManagerBaseRows(@Param("deliveryHandlerId") Long deliveryHandlerId,
+			@Param("statuses") List<OrderStatus> statuses, @Param("fromDateTime") LocalDateTime fromDateTime,
+			@Param("toDateTime") LocalDateTime toDateTime);
+
+	@Query("""
+			    select distinct d
+			    from DeliveryOrderIndex d
+			    join fetch d.order o
+			    left join fetch o.task t
+			    left join fetch t.requestedBy requester
+			    left join fetch requester.company company
+			    left join fetch o.orderItem item
+			    left join fetch o.productCategory category
+			    left join fetch o.deliveryMethod deliveryMethod
+			    where d.deliveryHandler.id = :handlerId
+			      and o.id in :orderIds
+			""")
+	List<DeliveryOrderIndex> findAllByHandlerAndOrderIdsForDeliveryExcel(@Param("handlerId") Long handlerId,
+			@Param("orderIds") List<Long> orderIds);
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("""
 			    select d
@@ -171,35 +211,4 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 	int findMaxOrderIndexByHandlerIdAndDeliveryDate(@Param("deliveryHandlerId") Long deliveryHandlerId,
 			@Param("deliveryDate") LocalDate deliveryDate);
 
-	/*
-	 * ============================================================ 신규 배송관리 페이지
-	 * /team/deliveryManager 전용
-	 * ============================================================
-	 *
-	 * 기준: - 현재 로그인한 배송 담당자 기준 - Order.preferredDeliveryDate 범위 검색 - 상태는 서비스에서
-	 * CONFIRMED / PRODUCTION_DONE / DISPATCH_DONE / DELIVERY_DONE 전달 - 직배송 여부는
-	 * DeliveryManagerService에서 한 번 더 필터링
-	 */
-	@Query("""
-			    select distinct doi
-			    from DeliveryOrderIndex doi
-			    join fetch doi.order o
-			    left join fetch o.orderItem oi
-			    left join fetch o.productCategory pc
-			    left join fetch o.task t
-			    left join fetch t.requestedBy rb
-			    left join fetch rb.company c
-			    left join fetch o.assignedDeliveryHandler adh
-			    where doi.deliveryHandler.id = :handlerId
-			      and o.status in :statuses
-			      and (:fromDateTime is null or o.preferredDeliveryDate >= :fromDateTime)
-			      and (:toDateTime is null or o.preferredDeliveryDate < :toDateTime)
-			    order by
-			      o.preferredDeliveryDate asc,
-			      doi.orderIndex asc,
-			      o.id desc
-			""")
-	List<DeliveryOrderIndex> findDeliveryManagerBaseRows(@Param("handlerId") Long handlerId,
-			@Param("statuses") List<OrderStatus> statuses, @Param("fromDateTime") LocalDateTime fromDateTime,
-			@Param("toDateTime") LocalDateTime toDateTime);
 }

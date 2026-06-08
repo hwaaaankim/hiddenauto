@@ -76,6 +76,12 @@
 									data-scroll-target="#delivery-section-other" title="기타">기타</button>
 							</div>
 
+							<button type="button" class="btn btn-primary delivery-list-added-floating-handler-btn"
+								id="delivery-list-added-floating-handler-btn" aria-label="선택 주문 담당자 변경">
+								담당자변경
+								<span class="badge bg-light text-primary ms-1" id="delivery-list-added-floating-selected-count-badge">0</span>
+							</button>
+
 							<div class="card">
 								<div class="card-header d-flex align-items-center justify-content-between">
 									<div class="d-flex align-items-center gap-2 flex-wrap">
@@ -85,6 +91,11 @@
 
 										<button type="button" class="btn btn-outline-primary" id="reorderByTaskBtn">
 											업체별정렬
+										</button>
+
+										<button type="button" class="btn btn-primary" id="delivery-list-added-open-bulk-handler-modal" disabled>
+											담당자변경
+											<span class="badge bg-light text-primary ms-1" id="delivery-list-added-selected-count-badge">0</span>
 										</button>
 
 										<button type="button" class="btn btn-outline-dark"
@@ -133,6 +144,11 @@
 														aria-label="순서 변경(드래그)">
 														≡
 													</button>
+
+													<div class="delivery-list-added-check-wrap" title="담당자 변경 선택">
+														<input type="checkbox" class="form-check-input delivery-list-added-handler-check"
+															th:attr="data-order-id=${o.id}" aria-label="담당자 변경 선택">
+													</div>
 
 													<div class="text-section">
 														<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
@@ -188,13 +204,6 @@
 																aria-hidden="true">✓</span>
 														</button>
 
-														<button type="button"
-															class="action-btn btn-change-handler delivery-list-added-open-handler-modal"
-															th:attr="data-order-id=${o.id}">
-															<span class="delivery-list-added-btn-text">담당자변경</span>
-															<span class="delivery-list-added-btn-icon"
-																aria-hidden="true">↔</span>
-														</button>
 													</div>
 
 												</div>
@@ -226,6 +235,11 @@
 														aria-label="순서 변경 불가" tabindex="-1">
 														≡
 													</button>
+
+													<div class="delivery-list-added-check-wrap" title="담당자 변경 불가">
+														<input type="checkbox" class="form-check-input delivery-list-added-handler-check"
+															th:attr="data-order-id=${o.id}" aria-label="담당자 변경 불가" disabled>
+													</div>
 
 													<div class="text-section">
 														<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
@@ -308,6 +322,11 @@
 														aria-label="순서 변경 불가" tabindex="-1">
 														≡
 													</button>
+
+													<div class="delivery-list-added-check-wrap" title="담당자 변경 불가">
+														<input type="checkbox" class="form-check-input delivery-list-added-handler-check"
+															th:attr="data-order-id=${o.id}" aria-label="담당자 변경 불가" disabled>
+													</div>
 
 													<div class="text-section">
 														<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
@@ -515,7 +534,9 @@
 				</div>
 
 				<div class="modal-body">
-					<input type="hidden" id="delivery-list-added-handler-order-id" value="">
+					<div class="alert alert-primary py-2 mb-3">
+						선택된 주문 <b id="delivery-list-added-handler-selected-count">0</b>건의 담당자를 일괄 변경합니다.
+					</div>
 
 					<label for="delivery-list-added-handler-select" class="form-label">변경할 배송 담당자</label>
 					<select id="delivery-list-added-handler-select" class="form-select">
@@ -526,13 +547,13 @@
 					</select>
 
 					<div class="text-muted small mt-2">
-						※ 변경 후 해당 주문은 선택한 담당자의 같은 배송일 목록 마지막 순서로 이동합니다.
+						※ 변경 후 선택한 주문들은 현재 담당자의 DeliveryOrderIndex에서 제거되고, 선택한 담당자의 같은 배송일 목록 마지막 순서로 순차 추가됩니다.
 					</div>
 				</div>
 
 				<div class="modal-footer">
 					<button type="button" class="btn btn-light" data-bs-dismiss="modal">취소</button>
-					<button type="button" class="btn btn-primary" id="delivery-list-added-handler-submit">변경하기</button>
+					<button type="button" class="btn btn-primary" id="delivery-list-added-handler-submit">선택 주문 담당자 변경</button>
 				</div>
 			</div>
 		</div>

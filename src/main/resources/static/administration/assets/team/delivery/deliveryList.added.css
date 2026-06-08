@@ -1,5 +1,6 @@
 /* =========================================================
    delivery-list-added- 접두사 전용 스타일 (충돌 방지)
+   deliveryList.added.css
    ========================================================= */
 
 /* 카드 기본 */
@@ -29,17 +30,15 @@
 
 /* =========================================================
    ✅ 리스트 아이템 레이아웃
-   - 핸들(≡) + 텍스트 + 버튼 영역 균형
-   - 핸들과 액션 영역만 수직 중앙정렬(요청사항)
+   - 핸들(≡) + 체크박스 + 텍스트 + 버튼 영역 균형
+   - 핸들/체크박스/액션 영역만 수직 중앙정렬
    ========================================================= */
 
 .delivery-list-added-item-content {
 	display: flex;
 	justify-content: flex-start !important;
-	/* 기존 space-between 무력화 */
 	gap: 12px;
 	align-items: flex-start;
-	/* 텍스트는 자연스럽게 위에서부터 */
 }
 
 /* 텍스트 영역: 남는 공간 차지 + ellipsis 안정 */
@@ -57,7 +56,81 @@
 	justify-content: flex-end;
 	min-width: 120px;
 	align-self: center;
-	/* ✅ list-group-item 기준 수직 중앙정렬 */
+}
+
+/* =========================================================
+   ✅ 체크박스
+   - 기존 hover CSS가 체크박스를 숨겨도 이 규칙이 우선합니다.
+   - 담당자 변경 가능: 활성화
+   - 담당자 변경 불가: disabled
+   ========================================================= */
+
+.delivery-list-added-check-wrap {
+	flex: 0 0 auto;
+	display: flex !important;
+	align-items: center;
+	justify-content: center;
+	align-self: center;
+	width: 28px;
+	min-width: 28px;
+	min-height: 28px;
+	margin-right: 2px;
+	opacity: 1 !important;
+	visibility: visible !important;
+	transform: none !important;
+	pointer-events: auto !important;
+}
+
+.delivery-list-added-handler-check,
+.delivery-card .delivery-list-added-handler-check,
+.delivery-card:hover .delivery-list-added-handler-check,
+.list-group-item:hover .delivery-list-added-handler-check {
+	display: inline-block !important;
+	position: static !important;
+	left: auto !important;
+	top: auto !important;
+	width: 18px !important;
+	height: 18px !important;
+	margin: 0 !important;
+	opacity: 1 !important;
+	visibility: visible !important;
+	transform: none !important;
+	pointer-events: auto !important;
+	z-index: 2 !important;
+	cursor: pointer;
+}
+
+.delivery-list-added-handler-check:disabled,
+.delivery-card:hover .delivery-list-added-handler-check:disabled,
+.list-group-item:hover .delivery-list-added-handler-check:disabled {
+	display: inline-block !important;
+	opacity: 0.35 !important;
+	visibility: visible !important;
+	pointer-events: none !important;
+	cursor: not-allowed !important;
+}
+
+/* =========================================================
+   ✅ 스크롤 상태에서 사용하는 우측 담당자 변경 플로팅 버튼
+   ========================================================= */
+
+.delivery-list-added-floating-handler-btn {
+	position: fixed;
+	right: 18px;
+	top: 50%;
+	transform: translateY(-50%);
+	z-index: 1060;
+	display: none !important;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+	border-radius: 999px;
+	min-width: 118px;
+	min-height: 42px;
+}
+
+.delivery-list-added-floating-handler-btn.is-visible {
+	display: inline-flex !important;
 }
 
 /* =========================================================
@@ -77,10 +150,8 @@
 	user-select: none;
 	-webkit-user-select: none;
 	touch-action: none;
-	/* 모바일 드래그 안정성 */
 	margin-right: 10px;
 	align-self: center;
-	/* ✅ list-group-item 기준 수직 중앙정렬 */
 }
 
 .delivery-list-added-drag-handle:active {
@@ -246,6 +317,13 @@
 		transform: none !important;
 		pointer-events: auto !important;
 	}
+
+	.delivery-list-added-check-wrap,
+	.delivery-list-added-handler-check {
+		opacity: 1 !important;
+		visibility: visible !important;
+		display: inline-flex !important;
+	}
 }
 
 /* =========================================================
@@ -272,30 +350,37 @@
 
 /* =========================================================
    ✅ 모바일(작은 화면)
-   - 1) 배송완료 버튼 숨김(요청사항)
-   - 2) 햄버거(≡) 버튼 더 작게 + 좌우 여백 축소(요청사항)
+   - 1) 배송완료 버튼 아이콘화
+   - 2) 햄버거(≡) 버튼 더 작게 + 좌우 여백 축소
    - 3) 기존증빙 이미지 그리드 조정
    ========================================================= */
 
 @media (max-width: 576px) {
 
-	/* ✅ (1) 모바일에서 '배송완료' 버튼 아예 안 보이게 */
-	.delivery-list-added-open-complete-modal,
-	.action-btn.btn-complete {
-		display: none !important;
-	}
-
-	/* ✅ (2) 햄버거 버튼 크기/여백 축소 */
 	.delivery-list-added-drag-handle {
 		padding: 4px 7px;
 		font-size: 16px;
 		border-radius: 9px;
-		margin-right: 6px;
+		margin-right: 4px;
+	}
+
+	.delivery-list-added-check-wrap {
+		width: 24px;
+		min-width: 24px;
+		margin-right: 0;
+	}
+
+	.delivery-list-added-handler-check,
+	.delivery-card:hover .delivery-list-added-handler-check,
+	.list-group-item:hover .delivery-list-added-handler-check {
+		width: 17px !important;
+		height: 17px !important;
 	}
 
 	/* 액션 영역 최소폭 줄여서 공간 확보 */
 	.delivery-list-added-item-content .delivery-list-added-action {
-		min-width: 92px;
+		min-width: 80px;
+		gap: 5px;
 	}
 
 	/* 기존 증빙 이미지: 3열 */
@@ -307,10 +392,20 @@
 		height: 84px;
 	}
 
-	/* ✅ 모바일에서 '배송완료(done) 리스트'의 '배송상세' 버튼도 숨김 */
+	/* 배송완료(done) 리스트의 상세 버튼 숨김 */
 	#doneList .delivery-list-added-action,
 	#doneList .delivery-list-added-open-detail-modal {
 		display: none !important;
+	}
+
+	.delivery-list-added-floating-handler-btn {
+		top: auto;
+		bottom: 88px;
+		right: 14px;
+		transform: none;
+		min-width: 106px;
+		min-height: 38px;
+		font-size: 13px;
 	}
 }
 
@@ -321,8 +416,7 @@
 }
 
 /* =========================================================
-   배송완료/담당자변경 버튼 반응형 보완
-   - 기존 CSS의 모바일 배송완료 숨김 규칙을 아래 규칙이 덮어씁니다.
+   배송완료 버튼 반응형 보완
    ========================================================= */
 
 .delivery-list-added-btn-icon {
@@ -331,12 +425,6 @@
 
 .delivery-list-added-action {
 	flex-wrap: wrap;
-}
-
-.delivery-list-added-action .btn-change-handler {
-	background: #fff;
-	border: 1px solid rgba(13, 110, 253, 0.35);
-	color: #0d6efd;
 }
 
 .delivery-list-added-handler-modal-dialog {
@@ -368,10 +456,5 @@
 		justify-content: center;
 		padding: 6px 8px;
 		white-space: nowrap;
-	}
-
-	.delivery-list-added-item-content .delivery-list-added-action {
-		min-width: 80px;
-		gap: 5px;
 	}
 }

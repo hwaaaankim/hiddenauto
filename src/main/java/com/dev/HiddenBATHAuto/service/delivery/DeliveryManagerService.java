@@ -24,11 +24,13 @@ import com.dev.HiddenBATHAuto.dto.delivery.DeliveryManagerSearchCondition;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
+import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +45,7 @@ public class DeliveryManagerService {
     private static final String DELIVERY_TEAM_NAME = "배송팀";
 
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private final DeliveryMethodRepository deliveryMethodRepository;
     private final MemberRepository memberRepository;
     private final ObjectMapper objectMapper;
 
@@ -80,8 +83,8 @@ public class DeliveryManagerService {
 
         List<DeliveryManagerRowDto> rows = indexes.stream()
                 .filter(index -> index != null && index.getOrder() != null)
-                .filter(index -> isDirectDeliveryOrder(index.getOrder()))
                 .map(index -> toRowDto(index, representativeLookup))
+                .filter(row -> matchesDeliveryMethod(row, safeCondition.getDeliveryMethodId()))
                 .filter(row -> matchesSearch(row, safeCondition.getSearchType(), safeCondition.getKeyword()))
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -101,6 +104,10 @@ public class DeliveryManagerService {
                 PageRequest.of(page, size),
                 total
         );
+    }
+
+    public List<DeliveryMethod> getDeliveryMethodsForFilter() {
+        return deliveryMethodRepository.findAllByOrderByMethodNameAsc();
     }
 
     private DeliveryManagerSearchCondition normalizeCondition(DeliveryManagerSearchCondition condition) {
@@ -134,6 +141,7 @@ public class DeliveryManagerService {
                 .size(size)
                 .searchType(searchType)
                 .keyword(keyword)
+                .deliveryMethodId(condition != null ? condition.getDeliveryMethodId() : null)
                 .fromDate(condition != null ? condition.getFromDate() : null)
                 .toDate(condition != null ? condition.getToDate() : null)
                 .sortKey(sortKey)
@@ -229,7 +237,7 @@ public class DeliveryManagerService {
         );
 
         String size = firstNonBlank(
-                pickFirstValue(optionMap, List.of("사이즈", "size", "Size", "제품사이즈")),
+                pickFirstValue(optionMap, List.of("사이즈", "규격", "size", "Size", "제품사이즈", "productSize", "ProductSize")),
                 "-"
         );
 
@@ -251,6 +259,11 @@ public class DeliveryManagerService {
                 ? representativeLookup.phoneMap().getOrDefault(companyId, "")
                 : "";
 
+        DeliveryMethod deliveryMethod = order.getDeliveryMethod();
+
+        Long deliveryMethodId = deliveryMethod != null ? deliveryMethod.getId() : null;
+        String deliveryMethodName = deliveryMethod != null ? deliveryMethod.getMethodName() : "-";
+
         OrderStatus status = order.getStatus();
 
         return DeliveryManagerRowDto.builder()
@@ -264,13 +277,25 @@ public class DeliveryManagerService {
                 .productName(valueOrDash(productName))
                 .productSize(valueOrDash(size))
                 .quantity(order.getQuantity())
-                .deliveryAddress(valueOrDash(buildAddress(order)))
+                .deliveryMethodId(deliveryMethodId)
+                .deliveryMethodName(valueOrDash(deliveryMethodName))
+                .deliveryAddress(valueOrDash(buildDisplayAddress(order)))
                 .preferredDeliveryDate(order.getPreferredDeliveryDate())
                 .categoryName(valueOrDash(category))
                 .statusName(status != null ? status.name() : "")
                 .statusLabel(status != null ? status.getLabel() : "-")
                 .orderIndex(index.getOrderIndex())
                 .build();
+    }
+
+    private boolean matchesDeliveryMethod(DeliveryManagerRowDto row, Long deliveryMethodId) {
+        if (deliveryMethodId == null) {
+            return true;
+        }
+
+        return row != null
+                && row.getDeliveryMethodId() != null
+                && deliveryMethodId.equals(row.getDeliveryMethodId());
     }
 
     private boolean matchesSearch(DeliveryManagerRowDto row, String searchType, String keyword) {
@@ -314,6 +339,7 @@ public class DeliveryManagerService {
                 || contains(row.getProductName(), kw)
                 || contains(row.getProductSize(), kw)
                 || contains(row.getCategoryName(), kw)
+                || contains(row.getDeliveryMethodName(), kw)
                 || contains(row.getDeliveryAddress(), kw)
                 || (row.getOrderId() != null && String.valueOf(row.getOrderId()).contains(kw));
     }
@@ -341,6 +367,11 @@ public class DeliveryManagerService {
 
             case "productName" -> comparator = Comparator.comparing(
                     row -> safeText(row.getProductName()),
+                    Comparator.nullsLast(String::compareTo)
+            );
+
+            case "deliveryMethodName" -> comparator = Comparator.comparing(
+                    row -> safeText(row.getDeliveryMethodName()),
                     Comparator.nullsLast(String::compareTo)
             );
 
@@ -457,7 +488,23 @@ public class DeliveryManagerService {
         return order.getTask().getRequestedBy().getCompany();
     }
 
-    private String buildAddress(Order order) {
+    private String buildDisplayAddress(Order order) {
+        if (order == null) {
+            return "";
+        }
+
+        if (isSiteDelivery(order)) {
+            String siteAddress = buildSiteAddress(order);
+
+            if (!siteAddress.isBlank()) {
+                return siteAddress;
+            }
+        }
+
+        return buildBasicAddress(order);
+    }
+
+    private String buildBasicAddress(Order order) {
         if (order == null) {
             return "";
         }
@@ -472,6 +519,33 @@ public class DeliveryManagerService {
         addIfNotBlank(parts, order.getDetailAddress());
 
         return String.join(" ", parts);
+    }
+
+    private String buildSiteAddress(Order order) {
+        if (order == null) {
+            return "";
+        }
+
+        List<String> parts = new ArrayList<>();
+
+        addIfNotBlank(parts, order.getSiteZipCode() != null ? "(" + order.getSiteZipCode() + ")" : "");
+        addIfNotBlank(parts, order.getSiteDoName());
+        addIfNotBlank(parts, order.getSiteSiName());
+        addIfNotBlank(parts, order.getSiteGuName());
+        addIfNotBlank(parts, order.getSiteRoadAddress());
+        addIfNotBlank(parts, order.getSiteDetailAddress());
+
+        return String.join(" ", parts);
+    }
+
+    private boolean isSiteDelivery(Order order) {
+        if (order == null || order.getDeliveryMethod() == null) {
+            return false;
+        }
+
+        String methodName = safeText(order.getDeliveryMethod().getMethodName()).replaceAll("\\s+", "");
+
+        return "현장배송".equals(methodName);
     }
 
     private void addIfNotBlank(List<String> list, String value) {
@@ -524,24 +598,6 @@ public class DeliveryManagerService {
         if (member == null || member.getTeam() == null || !DELIVERY_TEAM_NAME.equals(member.getTeam().getName())) {
             throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
         }
-    }
-
-    private boolean isDirectDeliveryOrder(Order order) {
-        if (order == null) {
-            return false;
-        }
-
-        if (order.getDeliveryMethod() == null) {
-            return true;
-        }
-
-        String methodName = safeText(order.getDeliveryMethod().getMethodName());
-
-        if (methodName.isBlank()) {
-            return true;
-        }
-
-        return methodName.replaceAll("\\s+", "").contains("직배송");
     }
 
     private record RepresentativeLookup(

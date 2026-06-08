@@ -47,6 +47,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.as.TeamAsDetailModalResponse;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryExcelRequest;
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryHandlerBulkChangeRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryHandlerChangeRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
@@ -1129,12 +1130,12 @@ public class TeamController {
 	        throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
 	    }
 
-	    if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
-	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
+	    if (request == null) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(요청 데이터 누락)");
 	    }
 
-	    if (request.getDeliveryDate() == null) {
-	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(날짜 누락)");
+	    if (request.getDeliveryHandlerId() == null || !request.getDeliveryHandlerId().equals(member.getId())) {
+	        return ResponseEntity.badRequest().body("잘못된 요청입니다.(담당자 불일치)");
 	    }
 
 	    if (request.getOrderedOrderIds() == null || request.getOrderedOrderIds().isEmpty()) {
@@ -1144,11 +1145,13 @@ public class TeamController {
 	    byte[] bytes = deliveryExcelService.buildExcel(
 	            member.getId(),
 	            member.getName(),
-	            request.getDeliveryDate(),
+	            request.getFromDate(),
+	            request.getToDate(),
 	            request.getOrderedOrderIds()
 	    );
 
-	    String filename = "delivery_" + request.getDeliveryDate() + ".xlsx";
+	    String dateLabel = resolveDeliveryExcelDateLabel(request.getFromDate(), request.getToDate());
+	    String filename = "delivery_" + dateLabel + ".xlsx";
 
 	    return ResponseEntity.ok()
 	            .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -1156,6 +1159,68 @@ public class TeamController {
 	            .body(bytes);
 	}
 
+	private String resolveDeliveryExcelDateLabel(LocalDate fromDate, LocalDate toDate) {
+	    if (fromDate != null && toDate != null) {
+	        if (fromDate.equals(toDate)) {
+	            return String.valueOf(fromDate);
+	        }
+
+	        return fromDate + "_" + toDate;
+	    }
+
+	    if (fromDate != null) {
+	        return String.valueOf(fromDate);
+	    }
+
+	    if (toDate != null) {
+	        return String.valueOf(toDate);
+	    }
+
+	    return "current";
+	}
+
+	@PostMapping("/deliveryHandler/bulk")
+	@ResponseBody
+	public ResponseEntity<?> changeDeliveryHandlers(
+	        @AuthenticationPrincipal PrincipalDetails principal,
+	        @RequestBody DeliveryHandlerBulkChangeRequest request
+	) {
+	    try {
+	        if (principal == null || principal.getMember() == null) {
+	            throw new AccessDeniedException("로그인이 필요합니다.");
+	        }
+
+	        Member member = principal.getMember();
+
+	        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+	            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+	        }
+
+	        List<Long> changedOrderIds = deliveryOrderIndexService.changeDeliveryHandlers(
+	                member,
+	                request != null ? request.getOrderIds() : null,
+	                request != null ? request.getNewHandlerId() : null
+	        );
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", true);
+	        body.put("changedOrderIds", changedOrderIds);
+	        body.put("changedCount", changedOrderIds.size());
+	        body.put("message", changedOrderIds.size() + "건의 담당자가 변경되었습니다.");
+
+	        return ResponseEntity.ok(body);
+
+	    } catch (Exception e) {
+	        e.printStackTrace();
+
+	        Map<String, Object> body = new HashMap<>();
+	        body.put("success", false);
+	        body.put("message", e.getMessage() != null ? e.getMessage() : "담당자 일괄 변경 실패");
+
+	        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+	    }
+	}
+	
 	@PostMapping("/deliveryHandler/{orderId}")
 	@ResponseBody
 	public ResponseEntity<?> changeDeliveryHandler(

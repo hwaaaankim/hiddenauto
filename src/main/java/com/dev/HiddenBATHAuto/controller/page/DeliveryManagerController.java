@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +19,7 @@ import com.dev.HiddenBATHAuto.dto.delivery.DeliveryManagerRowDto;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryManagerSearchCondition;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
+import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.service.delivery.DeliveryManagerService;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,8 @@ public class DeliveryManagerController {
 
             @RequestParam(required = false) String searchType,
             @RequestParam(required = false) String keyword,
+
+            @RequestParam(required = false) Long deliveryMethodId,
 
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -97,6 +101,7 @@ public class DeliveryManagerController {
                 .size(size)
                 .searchType(searchType)
                 .keyword(keyword)
+                .deliveryMethodId(deliveryMethodId)
                 .fromDate(fromDate)
                 .toDate(toDate)
                 .sortKey(normalizedSortKey)
@@ -106,18 +111,22 @@ public class DeliveryManagerController {
         Page<DeliveryManagerRowDto> deliveryPage =
                 deliveryManagerService.getMyDeliveryManagerPage(loginMember, condition);
 
+        List<DeliveryMethod> deliveryMethods = deliveryManagerService.getDeliveryMethodsForFilter();
+
         int totalPages = deliveryPage.getTotalPages();
 
         int startPage = totalPages == 0 ? 0 : Math.max(0, page - 2);
         int endPage = totalPages == 0 ? 0 : Math.min(totalPages - 1, page + 2);
 
         model.addAttribute("deliveryPage", deliveryPage);
+        model.addAttribute("deliveryMethods", deliveryMethods);
 
         model.addAttribute("size", size);
         model.addAttribute("page", page);
 
         model.addAttribute("searchType", searchType);
         model.addAttribute("keyword", keyword);
+        model.addAttribute("deliveryMethodId", deliveryMethodId);
 
         model.addAttribute("fromDate", fromDate);
         model.addAttribute("toDate", toDate);
@@ -127,6 +136,8 @@ public class DeliveryManagerController {
 
         model.addAttribute("startPage", startPage);
         model.addAttribute("endPage", endPage);
+
+        model.addAttribute("deliveryHandlerId", loginMember.getId());
 
         return "administration/team/delivery/deliveryManager";
     }

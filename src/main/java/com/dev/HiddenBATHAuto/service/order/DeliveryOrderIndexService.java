@@ -453,26 +453,43 @@ public class DeliveryOrderIndexService {
     /**
      * 배송팀 담당자 변경은 직배송/현장배송 + 생산완료/출고완료 건만 가능합니다.
      * 택배/화물/방문/배송완료/승인완료 등은 상세 확인만 가능합니다.
+     *
+     * 단건 호출부 보호용입니다. 실제 처리는 일괄 메서드와 동일한 로직을 사용합니다.
      */
     @Transactional
     public void changeDeliveryHandler(Member loginMember, Long orderId, Long newHandlerId) {
+        changeDeliveryHandlers(loginMember, List.of(orderId), newHandlerId);
+    }
+
+    /**
+     * 체크박스로 선택된 여러 주문의 배송 담당자를 일괄 변경합니다.
+     *
+     * 처리 방식:
+     * 1. 현재 로그인 배송 담당자의 DeliveryOrderIndex row인지 검증합니다.
+     * 2. 직배송/현장배송 + 생산완료/출고완료 상태인지 검증합니다.
+     * 3. 기존 DeliveryOrderIndex row를 삭제합니다.
+     * 4. 선택한 새 담당자의 같은 배송일 queue 끝에 order_index 최대값 + 1로 순차 추가합니다.
+     * 5. source/target 담당자의 해당 날짜 index를 정규화합니다.
+     */
+    @Transactional
+    public List<Long> changeDeliveryHandlers(Member loginMember, List<Long> orderIds, Long newHandlerId) {
         validateDeliveryTeamMember(loginMember);
 
         if (newHandlerId == null) {
             throw new IllegalArgumentException("변경할 담당자를 선택해주세요.");
         }
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+        if (orderIds == null || orderIds.isEmpty()) {
+            throw new IllegalArgumentException("담당자를 변경할 주문을 1개 이상 선택해주세요.");
+        }
 
-        DeliveryOrderIndex existingIndex = deliveryOrderIndexRepository.findByOrder(order)
-                .orElseThrow(() -> new IllegalStateException("배송순서 정보가 없습니다."));
+        List<Long> distinctOrderIds = orderIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
 
-        validateCurrentHandler(loginMember, existingIndex);
-        validateDeliveryIndexManagedOrder(order);
-
-        if (!isActionablePendingDeliveryOrder(order)) {
-            throw new IllegalStateException("담당자 변경은 직배송/현장배송의 생산완료 또는 출고완료 건만 가능합니다.");
+        if (distinctOrderIds.isEmpty()) {
+            throw new IllegalArgumentException("담당자를 변경할 주문을 1개 이상 선택해주세요.");
         }
 
         Member newHandler = memberRepository.findById(newHandlerId)
@@ -480,25 +497,62 @@ public class DeliveryOrderIndexService {
 
         validateDeliveryTeamHandler(newHandler);
 
-        if (newHandler.getId() != null && newHandler.getId().equals(loginMember.getId())) {
-            return;
+        List<Long> changedOrderIds = new ArrayList<>();
+        Set<LocalDate> affectedDates = new HashSet<>();
+
+        for (Long orderId : distinctOrderIds) {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다. orderId=" + orderId));
+
+            DeliveryOrderIndex existingIndex = deliveryOrderIndexRepository.findByOrder(order)
+                    .orElseThrow(() -> new IllegalStateException("배송순서 정보가 없습니다. orderId=" + orderId));
+
+            validateCurrentHandler(loginMember, existingIndex);
+            validateDeliveryIndexManagedOrder(order);
+
+            if (!isActionablePendingDeliveryOrder(order)) {
+                throw new IllegalStateException("담당자 변경은 직배송/현장배송의 생산완료 또는 출고완료 건만 가능합니다. orderId=" + orderId);
+            }
+
+            if (existingIndex.getDeliveryHandler() != null
+                    && existingIndex.getDeliveryHandler().getId() != null
+                    && existingIndex.getDeliveryHandler().getId().equals(newHandler.getId())) {
+                continue;
+            }
+
+            LocalDate deliveryDate = existingIndex.getDeliveryDate();
+
+            if (deliveryDate == null) {
+                throw new IllegalStateException("배송일 정보가 없습니다. orderId=" + orderId);
+            }
+
+            affectedDates.add(deliveryDate);
+
+            order.setAssignedDeliveryHandler(newHandler);
+
+            if (order.getPreferredDeliveryDate() == null) {
+                order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
+            }
+
+            order.setUpdatedAt(java.time.LocalDateTime.now());
+
+            replaceIndexAtQueueEnd(
+                    order,
+                    existingIndex,
+                    newHandler,
+                    deliveryDate,
+                    resolveDeliveryListSection(order)
+            );
+
+            changedOrderIds.add(order.getId());
         }
 
-        LocalDate deliveryDate = existingIndex.getDeliveryDate();
-
-        if (deliveryDate == null) {
-            throw new IllegalStateException("배송일 정보가 없습니다.");
+        for (LocalDate affectedDate : affectedDates) {
+            normalizeIndexesForHandlerDate(loginMember.getId(), affectedDate);
+            normalizeIndexesForHandlerDate(newHandler.getId(), affectedDate);
         }
 
-        order.setAssignedDeliveryHandler(newHandler);
-
-        if (order.getPreferredDeliveryDate() == null) {
-            order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
-        }
-
-        order.setUpdatedAt(java.time.LocalDateTime.now());
-
-        replaceIndexAtQueueEnd(order, existingIndex, newHandler, deliveryDate, resolveDeliveryListSection(order));
+        return changedOrderIds;
     }
 
     /**

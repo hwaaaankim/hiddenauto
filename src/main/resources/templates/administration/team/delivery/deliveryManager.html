@@ -69,7 +69,20 @@
 												</select>
 											</div>
 
-											<div class="col-lg-3 col-md-4">
+											<div class="col-lg-2 col-md-4">
+												<label class="form-label delivery-manager-added-label">배송수단</label>
+												<select name="deliveryMethodId" class="form-select delivery-manager-added-control">
+													<option value="" th:selected="${deliveryMethodId == null}">전체</option>
+													<option th:each="method : ${deliveryMethods}"
+														th:value="${method.id}"
+														th:text="${method.methodName}"
+														th:selected="${deliveryMethodId != null and deliveryMethodId == method.id}">
+														배송수단
+													</option>
+												</select>
+											</div>
+
+											<div class="col-lg-2 col-md-4">
 												<label class="form-label delivery-manager-added-label">검색어</label>
 												<input type="text"
 													name="keyword"
@@ -78,23 +91,23 @@
 													th:value="${keyword}">
 											</div>
 
-											<div class="col-lg-2 col-md-4">
-												<label class="form-label delivery-manager-added-label">배송희망일 From</label>
+											<div class="col-lg-1 col-md-4">
+												<label class="form-label delivery-manager-added-label">From</label>
 												<input type="date"
 													name="fromDate"
 													class="form-control delivery-manager-added-control"
 													th:value="${fromDate}">
 											</div>
 
-											<div class="col-lg-2 col-md-4">
-												<label class="form-label delivery-manager-added-label">배송희망일 To</label>
+											<div class="col-lg-1 col-md-4">
+												<label class="form-label delivery-manager-added-label">To</label>
 												<input type="date"
 													name="toDate"
 													class="form-control delivery-manager-added-control"
 													th:value="${toDate}">
 											</div>
 
-											<div class="col-lg-1 col-md-4">
+											<div class="col-lg-2 col-md-4">
 												<button type="submit"
 													class="btn btn-primary w-100 delivery-manager-added-search-btn">
 													검색
@@ -117,8 +130,17 @@
 										<div>
 											총 <strong th:text="${deliveryPage.totalElements}">0</strong>건
 										</div>
-										<div class="text-muted">
-											행을 클릭하면 상세화면으로 이동합니다.
+
+										<div class="delivery-manager-added-summary-actions">
+											<span class="text-muted">행을 클릭하면 상세화면으로 이동합니다.</span>
+
+											<button type="button"
+												id="delivery-manager-added-excel-btn"
+												class="btn btn-success btn-sm delivery-manager-added-excel-btn"
+												th:data-delivery-handler-id="${deliveryHandlerId}">
+												<i class="ri-file-excel-2-line align-bottom me-1"></i>
+												엑셀출력
+											</button>
 										</div>
 									</div>
 
@@ -128,7 +150,7 @@
 												<tr>
 													<th>
 														<a class="delivery-manager-added-sort-link"
-															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey='orderId', sortDir=${sortKey == 'orderId' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
+															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='orderId', sortDir=${sortKey == 'orderId' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
 															오더 ID
 															<i th:class="${sortKey == 'orderId' ? (sortDir == 'ASC' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-arrow-up-down-line'}"></i>
 														</a>
@@ -136,7 +158,7 @@
 
 													<th>
 														<a class="delivery-manager-added-sort-link"
-															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey='companyName', sortDir=${sortKey == 'companyName' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
+															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='companyName', sortDir=${sortKey == 'companyName' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
 															업체명
 															<i th:class="${sortKey == 'companyName' ? (sortDir == 'ASC' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-arrow-up-down-line'}"></i>
 														</a>
@@ -144,7 +166,7 @@
 
 													<th>
 														<a class="delivery-manager-added-sort-link"
-															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey='productName', sortDir=${sortKey == 'productName' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
+															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='productName', sortDir=${sortKey == 'productName' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
 															품목
 															<i th:class="${sortKey == 'productName' ? (sortDir == 'ASC' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-arrow-up-down-line'}"></i>
 														</a>
@@ -155,7 +177,15 @@
 
 													<th>
 														<a class="delivery-manager-added-sort-link"
-															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey='address', sortDir=${sortKey == 'address' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
+															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='deliveryMethodName', sortDir=${sortKey == 'deliveryMethodName' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
+															배송수단
+															<i th:class="${sortKey == 'deliveryMethodName' ? (sortDir == 'ASC' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-arrow-up-down-line'}"></i>
+														</a>
+													</th>
+
+													<th>
+														<a class="delivery-manager-added-sort-link"
+															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='address', sortDir=${sortKey == 'address' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
 															배송지 주소
 															<i th:class="${sortKey == 'address' ? (sortDir == 'ASC' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-arrow-up-down-line'}"></i>
 														</a>
@@ -163,7 +193,7 @@
 
 													<th>
 														<a class="delivery-manager-added-sort-link"
-															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey='preferredDeliveryDate', sortDir=${sortKey == 'preferredDeliveryDate' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
+															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='preferredDeliveryDate', sortDir=${sortKey == 'preferredDeliveryDate' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
 															배송희망일
 															<i th:class="${sortKey == 'preferredDeliveryDate' ? (sortDir == 'ASC' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-arrow-up-down-line'}"></i>
 														</a>
@@ -171,7 +201,7 @@
 
 													<th>
 														<a class="delivery-manager-added-sort-link"
-															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey='categoryName', sortDir=${sortKey == 'categoryName' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
+															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='categoryName', sortDir=${sortKey == 'categoryName' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
 															단위
 															<i th:class="${sortKey == 'categoryName' ? (sortDir == 'ASC' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-arrow-up-down-line'}"></i>
 														</a>
@@ -183,14 +213,14 @@
 
 											<tbody>
 												<tr th:if="${deliveryPage.content == null or #lists.isEmpty(deliveryPage.content)}">
-													<td colspan="9" class="text-center text-muted py-5">
+													<td colspan="10" class="text-center text-muted py-5">
 														조회된 배송건이 없습니다.
 													</td>
 												</tr>
 
 												<tr th:each="row : ${deliveryPage.content}"
 													class="delivery-manager-added-row"
-													th:attr="data-href=@{/team/deliveryDetail/{id}(id=${row.orderId})}">
+													th:attr="data-href=@{/team/deliveryDetail/{id}(id=${row.orderId})}, data-order-id=${row.orderId}">
 													<td class="delivery-manager-added-order-id" th:text="${row.orderId}">1</td>
 													<td>
 														<div class="delivery-manager-added-company" th:text="${row.companyName}">업체명</div>
@@ -202,6 +232,12 @@
 														<div class="delivery-manager-added-size" th:text="${row.productSize}">규격</div>
 													</td>
 													<td class="text-center" th:text="${row.quantity}">1</td>
+													<td>
+														<span class="badge bg-light text-dark delivery-manager-added-method"
+															th:text="${row.deliveryMethodName}">
+															배송수단
+														</span>
+													</td>
 													<td>
 														<div class="delivery-manager-added-address" th:text="${row.deliveryAddress}">주소</div>
 													</td>
@@ -234,7 +270,7 @@
 
 												<li class="page-item" th:classappend="${deliveryPage.first} ? ' disabled'">
 													<a class="page-link"
-														th:href="@{/team/deliveryManager(page=${deliveryPage.number - 1}, size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey=${sortKey}, sortDir=${sortDir})}">
+														th:href="@{/team/deliveryManager(page=${deliveryPage.number - 1}, size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey=${sortKey}, sortDir=${sortDir})}">
 														이전
 													</a>
 												</li>
@@ -243,7 +279,7 @@
 													th:each="p : ${#numbers.sequence(startPage, endPage)}"
 													th:classappend="${p == deliveryPage.number} ? ' active'">
 													<a class="page-link"
-														th:href="@{/team/deliveryManager(page=${p}, size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey=${sortKey}, sortDir=${sortDir})}"
+														th:href="@{/team/deliveryManager(page=${p}, size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey=${sortKey}, sortDir=${sortDir})}"
 														th:text="${p + 1}">
 														1
 													</a>
@@ -251,7 +287,7 @@
 
 												<li class="page-item" th:classappend="${deliveryPage.last} ? ' disabled'">
 													<a class="page-link"
-														th:href="@{/team/deliveryManager(page=${deliveryPage.number + 1}, size=${size}, searchType=${searchType}, keyword=${keyword}, fromDate=${fromDate}, toDate=${toDate}, sortKey=${sortKey}, sortDir=${sortDir})}">
+														th:href="@{/team/deliveryManager(page=${deliveryPage.number + 1}, size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey=${sortKey}, sortDir=${sortDir})}">
 														다음
 													</a>
 												</li>
@@ -263,21 +299,20 @@
 								</div>
 							</div>
 						</div>
+
 					</div>
-
 				</div>
+
+				<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 			</div>
-
-			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
-	</div>
 
-	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
-	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+		<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+		<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryManager.css">
-	<script src="/administration/assets/team/delivery/deliveryManager.js"></script>
+		<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryManager.css">
+		<script src="/administration/assets/team/delivery/deliveryManager.js"></script>
 
-</body>
+	</body>
 
 </html>
