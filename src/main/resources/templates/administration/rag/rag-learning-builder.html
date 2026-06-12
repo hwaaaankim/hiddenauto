@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RAG 대화형 학습</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/administration/rag/css/rag.css?v=20260612-learning-screen-perf-v1">
+</head>
+<body class="bg-light">
+<div class="container-fluid py-4 rag-page">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">AI 대화형 지식 학습</h1>
+            <p class="text-muted mb-0">채팅 입력과 업로드 파일을 모두 AI가 해석하여 기존 지식과 비교하고, 저장·보류·생략을 판단합니다.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="/admin/rag/learning">학습 홈</a>
+            <a class="btn btn-outline-secondary" href="/admin/rag/chat">챗봇 테스트</a>
+            <a class="btn btn-outline-secondary" href="/common/main">메인</a>
+        </div>
+    </div>
+
+    <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <div class="fw-bold">현재 학습 대상</div>
+            <div class="small">Project: <span th:text="${projectId}">projectId</span> / Version: <span th:text="${versionId}">versionId</span></div>
+        </div>
+        <span id="learningSaveStatusBadge" class="badge text-bg-secondary fs-6">지식 저장: 대기</span>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="card shadow-sm mb-3" id="learningConversationCard">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2">
+                    <div class="fw-bold">AI 학습 대화</div>
+                    <div class="small text-muted">세션: <span id="learningConversationSessionBadge">-</span> / JS: <span id="learningJsVersionBadge">로드 대기</span></div>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" id="learningProjectId" th:value="${projectId}">
+                    <input type="hidden" id="learningVersionId" th:value="${versionId}">
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">학습 타이틀</label>
+                            <input id="learningTitleInput" class="form-control" value="대화형 제품 발주/가격 학습">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">학습 주제</label>
+                            <input id="learningTopicInput" class="form-control" value="제품 발주 프로세스 및 가격계산">
+                        </div>
+                    </div>
+
+                    <div id="learningConversationLog" class="learning-conversation-log mb-3"></div>
+
+                    <div class="rag-job-progress-card mb-3">
+                        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                            <div class="fw-bold">비동기 학습 진행 상태</div>
+                            <div class="small text-muted">Job: <span id="learningActiveJobId">-</span></div>
+                        </div>
+                        <div id="learningJobStatusText" class="small text-muted mb-2">대기</div>
+                        <div class="progress mb-2" role="progressbar" aria-label="학습 진행률">
+                            <div id="learningJobProgressBar" class="progress-bar" style="width: 0%">0%</div>
+                        </div>
+                        <div id="learningJobLogList" class="rag-job-log-list"><div class="text-muted small">아직 진행 로그가 없습니다.</div></div>
+                    </div>
+
+                    <form id="learningConversationForm" class="vstack gap-2">
+                        <div id="learningDropZone" class="rag-drop-zone">
+                            <div class="fw-bold">파일을 이 영역에 드래그앤드랍</div>
+                            <div class="small text-muted">엑셀(.xlsx), CSV, TXT, JSON, MD 파일을 메시지와 함께 또는 파일만 업로드할 수 있습니다.</div>
+                        </div>
+                        <div id="learningSelectedFileList" class="rag-selected-files"><span class="text-muted small">선택된 파일 없음</span></div>
+                        <input id="learningConversationFile" class="d-none" type="file" multiple accept=".xlsx,.csv,.txt,.json,.html,.md">
+
+                        <textarea id="learningConversationMessage" class="form-control learning-conversation-input" rows="4" placeholder="학습할 내용을 문장으로 입력하세요. 예: 엑셀을 보고 품목/사이즈/색상/가격 규칙을 분석해줘. Enter 전송 / Shift+Enter 줄바꿈"></textarea>
+
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <button id="learningConversationStartBtn" type="button" class="btn btn-outline-primary">대화형 학습 시작</button>
+                            <button type="submit" class="btn btn-primary">분석/저장</button>
+                            <button id="clearLearningFilesBtn" type="button" class="btn btn-outline-secondary">파일 선택 해제</button>
+                            <label class="form-check ms-md-auto mb-0">
+                                <input id="learningForceSave" class="form-check-input" type="checkbox">
+                                <span class="form-check-label">검토 후 강제 저장</span>
+                            </label>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">재해석 대기 노드 처리</div>
+                <div class="card-body vstack gap-2">
+                    <div class="alert alert-info small mb-0">GPT timeout 등으로 RAW/서버추출 상태로 남은 노드를 다시 더 작게 쪼개 AI_PARSED 노드로 승격합니다. 기존 노드는 이력으로 비활성화되고 새 노드가 같은 트리에 연결됩니다.</div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">1회 처리 개수</span>
+                        <input id="retryRawNodeLimit" type="number" min="1" max="100" class="form-control" value="20">
+                        <button id="retryRawKnowledgeNodesBtn" type="button" class="btn btn-outline-primary">재해석 대기 노드 처리</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">초기화</div>
+                <div class="card-body vstack gap-2">
+                    <div class="alert alert-warning small mb-0">현재 학습 주제의 rag_document/rag_chunk/학습대화/업로드 자산을 삭제합니다. 전체 버전 초기화를 선택하면 해당 버전의 모든 학습 지식이 비워집니다.</div>
+                    <input id="resetKnowledgeReason" class="form-control" placeholder="초기화 사유" value="잘못 학습된 내용 정리">
+                    <label class="form-check">
+                        <input id="resetWholeVersion" class="form-check-input" type="checkbox">
+                        <span class="form-check-label">현재 버전 전체 초기화</span>
+                    </label>
+                    <button id="resetKnowledgeBtn" type="button" class="btn btn-danger">현재 학습 주제 초기화</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">저장/보류 판정</div>
+                <div class="card-body"><pre id="learningConversationAnalysisBox" class="rag-json-box"></pre></div>
+            </div>
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">병합된 버전</div>
+                <div class="card-body"><pre id="learningConversationVersionBox" class="rag-json-box"></pre></div>
+            </div>
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">구조화 엑셀 저장 결과</div>
+                <div class="card-body"><pre id="learningConversationStructuredBox" class="rag-json-box"></pre></div>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold">검색 근거</div>
+                <div class="card-body"><pre id="learningConversationRetrievedBox" class="rag-json-box"></pre></div>
+            </div>
+        </div>
+    </div>
+    <div id="toastArea" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/administration/rag/js/rag-common.js?v=20260612-learning-screen-perf-v1"></script>
+<script src="/administration/rag/js/rag-learning-conversation.js?v=20260612-learning-screen-perf-v1"></script>
+</body>
+</html>

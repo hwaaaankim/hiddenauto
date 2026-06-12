@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RAG 챗봇 테스트</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/administration/rag/css/rag.css?v=20260611-final">
+</head>
+<body class="bg-light">
+<div class="container-fluid py-4 rag-page">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">챗봇 테스트</h1>
+            <p class="text-muted mb-0">ACTIVE 버전의 누적 지식과 벡터 검색 근거를 사용합니다. 채팅 입력도 AI 분석 후 저장/보류/생략 상태로 처리됩니다.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="/admin/rag/learning">학습 관리</a>
+            <a class="btn btn-outline-secondary" href="/common/main">메인</a>
+        </div>
+    </div>
+
+    <div class="alert alert-primary d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <div class="fw-bold">자동 학습 상태</div>
+            <div class="small">사용자 채팅은 매번 AI가 기존 지식과 비교합니다. 모순/부족/이상점이 없으면 저장되고, 확인이 필요하면 저장하지 않고 질문합니다.</div>
+        </div>
+        <span id="saveStatusBadge" class="badge text-bg-secondary fs-6">대기</span>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">시작</div>
+                <div class="card-body vstack gap-2">
+                    <label class="form-label fw-bold">프로젝트</label>
+                    <select id="chatProjectSelect" class="form-select"></select>
+                    <input id="chatUserLabel" class="form-control" placeholder="고객 구분값(테스트용)">
+                    <button id="startChatBtn" class="btn btn-primary" type="button">채팅 시작</button>
+                    <div class="small text-muted">세션: <span id="sessionBadge">-</span></div>
+                    <div class="small text-muted">JS: <span id="chatJsVersionBadge">로드 대기</span></div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">스텝/답변 초기화</div>
+                <div class="card-body vstack gap-2">
+                    <select id="resetStepKey" class="form-select"></select>
+                    <input id="resetReason" class="form-control" placeholder="초기화 사유">
+                    <button id="resetStepBtn" class="btn btn-outline-danger" type="button">선택 스텝부터 다시 시작</button>
+                    <div class="small text-muted">초기화 전 답변은 audit에 보존됩니다.</div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold">도움 이미지</div>
+                <div class="card-body">
+                    <div id="helpAssetList" class="row g-2"></div>
+                    <div class="small text-muted">등록된 이미지가 있으면 이 영역에 표시할 수 있습니다.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow-sm rag-chat-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">상담 대화</span>
+                    <span class="small text-muted">Enter 전송 / Shift+Enter 줄바꿈</span>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <div id="chatLog" class="rag-chat-log flex-grow-1 mb-3"></div>
+                    <div id="chatDropZone" class="rag-drop-zone compact mb-2">
+                        <div class="fw-bold">파일 드래그앤드랍</div>
+                        <div class="small text-muted">고객 상담 중 받은 엑셀/CSV/TXT/이미지를 메시지와 함께 분석합니다.</div>
+                    </div>
+                    <div id="chatSelectedFileList" class="rag-selected-files mb-2"><span class="text-muted small">선택된 파일 없음</span></div>
+                    <input id="chatFileInput" class="d-none" type="file" multiple accept=".xlsx,.csv,.txt,.json,.html,.md,.png,.jpg,.jpeg,.webp">
+                    <form id="chatForm" class="chat-input-wrap">
+                        <textarea id="chatMessage" class="form-control form-control-lg rag-chat-textarea" placeholder="답변 입력 또는 파일만 업로드 가능" autocomplete="off" rows="2"></textarea>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-dark btn-lg" type="submit">전송</button>
+                            <button id="clearChatFilesBtn" class="btn btn-outline-secondary btn-sm" type="button">파일해제</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">문의 저장</div>
+                <div class="card-body vstack gap-2">
+                    <input id="inqCompany" class="form-control" placeholder="회사명">
+                    <input id="inqName" class="form-control" placeholder="성함">
+                    <input id="inqPhone" class="form-control" placeholder="연락처">
+                    <input id="inqEmail" class="form-control" placeholder="이메일">
+                    <textarea id="inqMemo" class="form-control" rows="3" placeholder="메모"></textarea>
+                    <button id="inquiryBtn" class="btn btn-success" type="button">문의 저장</button>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">최근 저장 판정</div>
+                <div class="card-body"><pre id="memoryBox" class="rag-json-box"></pre></div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">현재 답변 상태</div>
+                <div class="card-body"><pre id="stateBox" class="rag-json-box"></pre></div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold">검색된 근거</div>
+                <div class="card-body"><pre id="retrievedBox" class="rag-json-box"></pre></div>
+            </div>
+        </div>
+    </div>
+    <div id="toastArea" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/administration/rag/js/rag-common.js?v=20260611-final"></script>
+<script src="/administration/rag/js/rag-chat.js?v=20260611-final"></script>
+</body>
+</html>

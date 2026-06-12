@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ax-rag-postgres
+    environment:
+      POSTGRES_DB: ax_rag
+      POSTGRES_USER: ax_user
+      POSTGRES_PASSWORD: ax_pass_1234
+    ports:
+      - "5433:5432"
+    volumes:
+      - D:/DockerData/postgres/ax_rag_pgdata:/var/lib/postgresql/data
+
+      # 신규 DB 생성 시 최초 1회 자동 실행됩니다.
+      - ./db/schema-rag-builder.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./db/schema_patch_20260610_conversation_learning.sql:/docker-entrypoint-initdb.d/002_conversation_learning_patch.sql:ro
+      - ./db/schema_patch_20260611_excel_dnd_reset.sql:/docker-entrypoint-initdb.d/003_excel_dnd_reset_patch.sql:ro
+      - ./db/schema_patch_20260612_structured_order_learning.sql:/docker-entrypoint-initdb.d/004_structured_order_learning_patch.sql:ro
+      - ./db/schema_patch_20260612_adaptive_knowledge_tree.sql:/docker-entrypoint-initdb.d/006_adaptive_knowledge_tree_patch.sql:ro
+      - ./db/schema_patch_20260612_eventual_ai_reparse.sql:/docker-entrypoint-initdb.d/007_eventual_ai_reparse_patch.sql:ro
+    restart: unless-stopped
