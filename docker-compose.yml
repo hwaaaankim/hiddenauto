@@ -1,21 +1,45 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: ax-rag-postgres
-    environment:
-      POSTGRES_DB: ax_rag
-      POSTGRES_USER: ax_user
-      POSTGRES_PASSWORD: ax_pass_1234
-    ports:
-      - "5433:5432"
-    volumes:
-      - D:/DockerData/postgres/ax_rag_pgdata:/var/lib/postgresql/data
-
-      # 신규 DB 생성 시 최초 1회 자동 실행됩니다.
-      - ./db/schema-rag-builder.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
-      - ./db/schema_patch_20260610_conversation_learning.sql:/docker-entrypoint-initdb.d/002_conversation_learning_patch.sql:ro
-      - ./db/schema_patch_20260611_excel_dnd_reset.sql:/docker-entrypoint-initdb.d/003_excel_dnd_reset_patch.sql:ro
-      - ./db/schema_patch_20260612_structured_order_learning.sql:/docker-entrypoint-initdb.d/004_structured_order_learning_patch.sql:ro
-      - ./db/schema_patch_20260612_adaptive_knowledge_tree.sql:/docker-entrypoint-initdb.d/006_adaptive_knowledge_tree_patch.sql:ro
-      - ./db/schema_patch_20260612_eventual_ai_reparse.sql:/docker-entrypoint-initdb.d/007_eventual_ai_reparse_patch.sql:ro
+    container_name: hiddenauto-rag-postgres
     restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ax_admin
+      POSTGRES_PASSWORD: ${RAG_POSTGRES_ADMIN_PASSWORD}
+
+      RAG_DEV_DB: ax_rag_dev
+      RAG_DEV_USER: ax_rag_dev_user
+      RAG_DEV_PASSWORD: ${RAG_DEV_PASSWORD}
+
+      RAG_PROD_DB: ax_rag_prod
+      RAG_PROD_USER: ax_rag_prod_user
+      RAG_PROD_PASSWORD: ${RAG_PROD_PASSWORD}
+
+    ports:
+      # 서버에서는 외부 직접 노출 방지를 위해 127.0.0.1로 바인딩합니다.
+      # 로컬에서 서버 DB를 사용할 때는 SSH 터널을 사용합니다.
+      - "${RAG_POSTGRES_BIND_HOST:-127.0.0.1}:5433:5432"
+
+    volumes:
+      # 로컬 Windows에서는 .env에 D:/DockerData/postgres/hiddenauto_rag_pgdata 지정
+      # 서버 Ubuntu에서는 .env에 /home/ubuntu/hiddenauto/rag-postgres/data 지정
+      - ${RAG_PGDATA_DIR}:/var/lib/postgresql/data
+
+      # 최초 DB 생성 시 dev/prod DB를 만들고 모든 SQL을 양쪽 DB에 적용합니다.
+      - ./db/init-rag-databases.sh:/docker-entrypoint-initdb.d/001_init_rag_databases.sh:ro
+
+      - ./db/schema-rag-builder.sql:/schema/001_schema-rag-builder.sql:ro
+      - ./db/schema_patch_20260610_conversation_learning.sql:/schema/002_conversation_learning_patch.sql:ro
+      - ./db/schema_patch_20260611_excel_dnd_reset.sql:/schema/003_excel_dnd_reset_patch.sql:ro
+      - ./db/schema_patch_20260612_structured_order_learning.sql:/schema/004_structured_order_learning_patch.sql:ro
+      - ./db/schema_patch_20260612_async_learning_job.sql:/schema/005_async_learning_job_patch.sql:ro
+      - ./db/schema_patch_20260612_adaptive_knowledge_tree.sql:/schema/006_adaptive_knowledge_tree_patch.sql:ro
+      - ./db/schema_patch_20260612_eventual_ai_reparse.sql:/schema/007_eventual_ai_reparse_patch.sql:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ax_admin -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

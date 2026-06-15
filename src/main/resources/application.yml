@@ -4,11 +4,13 @@ spring:
 
   application:
     name: HiddenBATHAuto
+
   jpa:
     hibernate:
       naming:
         physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
         implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+
 as:
   sms:
     reminder:
@@ -63,4 +65,3 @@ logging:
   config: classpath:logback-spring.xml
   level:
     com.dev.HiddenBATHAuto.notification: DEBUG
-   

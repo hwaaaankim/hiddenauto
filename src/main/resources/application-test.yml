@@ -58,19 +58,22 @@ app:
 logging:
   level:
     com.dev.HiddenBATHAuto.notification: DEBUG
-    
-    
+
 hiddenbath:
   rag:
     datasource:
       driver-class-name: org.postgresql.Driver
-      url: jdbc:postgresql://localhost:5433/ax_rag
-      username: ax_user
+
+      # 로컬 Windows는 서버 RAG dev DB를 SSH 터널로 봅니다.
+      # 실행 명령:
+      # ssh -N -L 15433:127.0.0.1:5433 ubuntu@1.234.53.160
+      url: jdbc:postgresql://127.0.0.1:15433/ax_rag_dev
+      username: ax_rag_dev_user
       password: ax_pass_1234
       hikari:
         maximum-pool-size: 5
         minimum-idle: 1
-        pool-name: rag-postgres-pool
+        pool-name: rag-postgres-pool-local-dev
 
     openai:
       api-key: ${OPENAI_API_KEY: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}
@@ -84,5 +87,4 @@ hiddenbath:
       base-dir: ${user.home}/hiddenbath-rag-upload
       asset-sub-dir: rag-assets
       public-url-prefix: /administration/upload/rag-assets
-      max-file-size-bytes: 52428800   
-         
+      max-file-size-bytes: 52428800
