@@ -1,0 +1,163 @@
+.amount-excel-master-page .amount-excel-master-card {
+	min-height: 720px;
+}
+
+.amount-excel-master-status {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 10px;
+	color: #64748b;
+}
+
+.amount-excel-master-table-wrap {
+	position: relative;
+	overflow: auto;
+	max-height: 68vh;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	background: #fff;
+}
+
+/*
+ * 거래처_얼마에요는 컬럼이 77개입니다.
+ * table-layout: fixed + 작은 min-width를 쓰면 컬럼이 강제로 압축되어 한 글자씩 보입니다.
+ * 가로 스크롤 전제 화면이므로 테이블은 내용 폭만큼 넓어지게 두고, 각 컬럼 최소폭을 보장합니다.
+ */
+.amount-excel-master-table {
+	width: max-content;
+	min-width: 100%;
+	table-layout: auto;
+	margin-bottom: 0;
+}
+
+.amount-excel-master-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 4;
+	background: #f8fafc;
+	min-width: 180px;
+	width: 180px;
+	max-width: 360px;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.amount-excel-master-table thead tr:nth-child(2) th {
+	top: 42px;
+	z-index: 3;
+	background: #ffffff;
+}
+
+.amount-excel-master-id-col {
+	position: sticky !important;
+	left: 0;
+	z-index: 6 !important;
+	width: 78px !important;
+	min-width: 78px !important;
+	max-width: 78px !important;
+	background: #f8fafc !important;
+	text-align: center;
+	font-weight: 700;
+}
+
+.amount-excel-master-table tbody .amount-excel-master-id-col {
+	background: #ffffff !important;
+	font-weight: 600;
+}
+
+.amount-excel-master-head-cell {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.amount-excel-master-head-cell>span:first-child {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.amount-excel-master-sort-box {
+	display: inline-flex;
+	flex-direction: column;
+	line-height: 1;
+	flex: 0 0 auto;
+}
+
+.amount-excel-master-sort-btn {
+	border: 0;
+	background: transparent;
+	color: #94a3b8;
+	font-size: 10px;
+	padding: 0;
+	cursor: pointer;
+}
+
+.amount-excel-master-sort-btn.is-active,
+.amount-excel-master-sort-btn:hover {
+	color: #0d6efd;
+}
+
+.amount-excel-master-cell {
+	cursor: pointer;
+	min-width: 180px;
+	width: 180px;
+	max-width: 360px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* 자주 길어지는 거래처/주소/비고 성격 컬럼은 더 넓게 보여줍니다. */
+.amount-excel-master-cell[data-field="customerName"],
+.amount-excel-master-cell[data-field="businessName"],
+.amount-excel-master-cell[data-field="workplaceAddress1"],
+.amount-excel-master-cell[data-field="workplaceAddress2"],
+.amount-excel-master-cell[data-field="headOfficeAddress1"],
+.amount-excel-master-cell[data-field="headOfficeAddress2"],
+.amount-excel-master-cell[data-field="actualAddress1"],
+.amount-excel-master-cell[data-field="actualAddress2"],
+.amount-excel-master-cell[data-field="note"],
+.amount-excel-master-cell[data-field="homepage"] {
+	min-width: 300px;
+	width: 300px;
+	max-width: 520px;
+}
+
+.amount-excel-master-cell.is-editing {
+	padding: 2px !important;
+	background: #fff7ed;
+}
+
+.amount-excel-master-cell.is-saving {
+	opacity: .55;
+}
+
+.amount-excel-master-cell.is-saved {
+	background: #dcfce7 !important;
+}
+
+.amount-excel-master-editor {
+	min-width: 170px;
+}
+
+.amount-excel-master-cell[data-field="customerName"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="businessName"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="workplaceAddress1"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="workplaceAddress2"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="headOfficeAddress1"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="headOfficeAddress2"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="actualAddress1"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="actualAddress2"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="note"] .amount-excel-master-editor,
+.amount-excel-master-cell[data-field="homepage"] .amount-excel-master-editor {
+	min-width: 290px;
+}
+
+.amount-excel-master-empty {
+	padding: 40px;
+	text-align: center;
+	color: #94a3b8;
+}

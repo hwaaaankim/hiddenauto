@@ -1,0 +1,96 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+      data-sidebar-image="none" data-preloader="disable">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid amount-excel-master-page">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                            <h4 class="mb-sm-0" th:text="${pageTitle}">품목_얼마에요 관리</h4>
+                            <div class="page-title-right">
+                                <ol class="breadcrumb m-0">
+                                    <li class="breadcrumb-item"><a href="javascript:void(0);">ADMIN</a></li>
+                                    <li class="breadcrumb-item active" th:text="${pageTitle}">품목_얼마에요 관리</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-lg-12">
+                        <div class="card amount-excel-master-card">
+                            <div class="card-header border-0">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        <h5 class="card-title mb-1">얼마에요 품목 마스터</h5>
+                                        <p class="text-muted mb-0">새 엑셀 업로드 시 기존 품목 데이터는 전체 교체됩니다.</p>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <a class="btn btn-outline-primary" th:href="@{/admin/amount-excel/customers}">거래처 관리</a>
+                                        <a class="btn btn-primary" th:href="@{/admin/amount-excel/items}">품목 관리</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body border border-dashed border-end-0 border-start-0">
+                                <form method="post" enctype="multipart/form-data" th:action="${uploadUrl}">
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-lg-8 col-md-7 col-sm-12">
+                                            <label class="form-label">품목_얼마에요 엑셀 업로드</label>
+                                            <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+                                        </div>
+                                        <div class="col-lg-2 col-md-3 col-sm-6">
+                                            <button type="submit" class="btn btn-success w-100">
+                                                <i class="fa-solid fa-upload"></i> 전체 교체 업로드
+                                            </button>
+                                        </div>
+                                        <div class="col-lg-2 col-md-2 col-sm-6">
+                                            <button type="button" class="btn btn-outline-secondary w-100 amount-excel-master-reload-btn">
+                                                새로고침
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="card-body">
+                                <div class="amount-excel-master-status">
+                                    <span>총 <strong id="amount-excel-master-total">0</strong>건</span>
+                                    <span id="amount-excel-master-loading" class="d-none">불러오는 중...</span>
+                                </div>
+                                <div class="amount-excel-master-table-wrap" th:attr="data-api-url=${apiUrl},data-master-type=${masterType}">
+                                    <table class="table table-bordered table-hover align-middle amount-excel-master-table">
+                                        <thead id="amount-excel-master-thead"></thead>
+                                        <tbody id="amount-excel-master-tbody"></tbody>
+                                    </table>
+                                    <div id="amount-excel-master-empty" class="amount-excel-master-empty d-none">조회된 데이터가 없습니다.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+<link rel="stylesheet" href="/administration/assets/css/page/amountExcelMaster.css">
+<script th:if="${message != null}" th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        alert(/*[[${message}]]*/ '');
+    });
+</script>
+<script src="/administration/assets/js/page/amountExcelMasterGrid.js"></script>
+</body>
+</html>

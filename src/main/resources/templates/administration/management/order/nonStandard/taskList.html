@@ -79,7 +79,19 @@
                                                 )}" class="btn btn-success">
 													<i class="fa-solid fa-download"></i> 엑셀 다운로드
 												</a>
-
+												<a sec:authorize="hasAuthority('ROLE_ADMIN')" th:href="@{/admin/amount-excel/sales-voucher-download(
+											        keyword=${keyword},
+											        dateCriteria=${dateCriteria},
+											        startDate=${startDateStr},
+											        endDate=${endDateStr},
+											        productCategoryId=${productCategoryId},
+											        orderStatus=${orderStatus},
+											        standard=${standard},
+											        sortField=${sortField},
+											        sortDir=${sortDir}
+											   )}" class="btn btn-dark">
+													<i class="fa-solid fa-file-invoice-dollar"></i> 매출전표다운로드
+												</a>
 												<button type="button" class="btn btn-danger"
 													id="task-list-delete-tasks-btn" disabled>
 													<i class="fa-solid fa-trash-can"></i> 태스크 삭제
