@@ -241,17 +241,24 @@ public class RagLearningJobService {
         );
 
         List<Map<String, Object>> structuredResults = List.of();
+        boolean hasStructuredPreview = fileContexts.stream()
+                .map(ctx -> castMap(ctx.get("structuredPreview")))
+                .anyMatch(preview -> Boolean.TRUE.equals(preview.get("structured")));
         boolean canSaveStructured = Boolean.TRUE.equals(result.get("shouldPersist"))
                 && !Boolean.TRUE.equals(result.get("requiresClarification"));
-        if (canSaveStructured) {
-            updateInNewTx(jobId, "MERGING", 78, "GPT 판단 결과에 따라 구조화 엑셀 자료를 저장하고 있습니다.");
+        boolean explicitStructuredLearning = forceSave || looksLikeStructuredLearningRequest(message);
+        if (hasStructuredPreview && (canSaveStructured || explicitStructuredLearning)) {
+            updateInNewTx(jobId, "MERGING", 78, "엑셀 표/매트릭스 구조를 DB 구조화 테이블로 저장하고 있습니다.");
             Map<String, Object> structuredPlan = new LinkedHashMap<>(preprocess);
             Map<String, Object> analysis = castMap(result.get("analysis"));
             Object materials = analysis.get("materials");
             if (materials instanceof List<?>) structuredPlan.put("materials", materials);
             String normalized = RagJsonUtils.stringValue(RagJsonUtils.childMap(analysis, "inputInterpretation"), "normalizedUserInput");
             if (StringUtils.hasText(normalized)) structuredPlan.put("normalizedPrompt", normalized);
-            structuredResults = saveStructuredFiles(projectId, versionId, topic, forceSave, structuredPlan, files, fileContexts);
+            if (!StringUtils.hasText(RagJsonUtils.stringValue(structuredPlan, "normalizedPrompt"))) {
+                structuredPlan.put("normalizedPrompt", firstText(message, "엑셀 업로드 자료를 구조화해서 학습"));
+            }
+            structuredResults = saveStructuredFiles(projectId, versionId, topic, forceSave || explicitStructuredLearning, structuredPlan, files, fileContexts);
         }
 
         result.put("uploadedFileCount", files.size());
@@ -309,7 +316,9 @@ public class RagLearningJobService {
             if (!Boolean.TRUE.equals(preview.get("structured"))) continue;
             String filename = firstText(file.getOriginalFilename(), "upload");
             Map<String, Object> material = findMaterial(materials, filename);
-            if (material.isEmpty()) continue;
+            if (material.isEmpty()) {
+                material = fallbackStructuredMaterial(filename, preview, normalizedPrompt, forceSave);
+            }
             Map<String, Object> saved = structuredLearningService.ingestPreparedKnowledge(
                     projectId,
                     versionId,
@@ -470,6 +479,64 @@ public class RagLearningJobService {
             for (MultipartFile f : files) if (f != null && !f.isEmpty()) safe.add(f);
         }
         return safe;
+    }
+
+
+    private boolean looksLikeStructuredLearningRequest(String message) {
+        String compact = str(message).replaceAll("\s+", "");
+        if (!StringUtils.hasText(compact)) return false;
+        return compact.contains("학습")
+                || compact.contains("저장")
+                || compact.contains("반영")
+                || compact.contains("구조화")
+                || compact.contains("엑셀")
+                || compact.contains("가격표")
+                || compact.contains("제품금액")
+                || compact.contains("사이즈")
+                || compact.contains("규격");
+    }
+
+    private Map<String, Object> fallbackStructuredMaterial(String filename,
+                                                           Map<String, Object> preview,
+                                                           String normalizedPrompt,
+                                                           boolean forceSave) {
+        Map<String, Object> material = new LinkedHashMap<>();
+        String semanticRole = firstText(
+                RagJsonUtils.stringValue(preview, "semanticRole"),
+                inferSemanticRoleFromText(filename + " " + normalizedPrompt),
+                "BASE_PRICE_TABLE"
+        );
+        material.put("filename", filename);
+        material.put("semanticRole", semanticRole);
+        material.put("operation", forceSave || looksLikeReplacement(normalizedPrompt) ? "REPLACE" : "ADD");
+        material.put("scopeLevel", "TOPIC");
+        material.put("series", "");
+        material.put("item", "");
+        material.put("artifactKey", safeArtifactKey("AUTO_" + semanticRole + "_" + filename));
+        material.put("missingFields", List.of());
+        material.put("canStoreStructured", true);
+        material.put("fallback", true);
+        material.put("reason", "GPT materials 결과가 없어서 서버 엑셀 파서 결과를 기준으로 구조화 저장");
+        return material;
+    }
+
+    private String inferSemanticRoleFromText(String text) {
+        String compact = str(text).toLowerCase();
+        if (compact.contains("가격") || compact.contains("금액") || compact.contains("단가") || compact.contains("price")) return "BASE_PRICE_TABLE";
+        if (compact.contains("색상") || compact.contains("컬러") || compact.contains("color")) return "COLOR_RULE_TABLE";
+        if (compact.contains("사이즈") || compact.contains("규격") || compact.contains("size") || compact.contains("w") || compact.contains("h") || compact.contains("d")) return "SIZE_CONSTRAINT_TABLE";
+        if (compact.contains("옵션") || compact.contains("손잡이") || compact.contains("led")) return "OPTION_PRICE_TABLE";
+        return "BASE_PRICE_TABLE";
+    }
+
+    private boolean looksLikeReplacement(String text) {
+        String compact = str(text).replaceAll("\s+", "");
+        return compact.contains("교체") || compact.contains("대체") || compact.contains("전체교체") || compact.toUpperCase().contains("REPLACE");
+    }
+
+    private String safeArtifactKey(String value) {
+        String raw = firstText(value, "AUTO_STRUCTURED_FILE");
+        return raw.replaceAll("[^가-힣A-Za-z0-9_.-]", "_");
     }
 
     private Map<String, Object> findMaterial(List<Map<String, Object>> materials, String filename) {

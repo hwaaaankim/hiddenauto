@@ -8,7 +8,7 @@ let currentMemory = null;
 let chatSelectedFiles = [];
 
 const AI_CHAT_API = '/admin/rag/api/ai-chat';
-const RAG_CHAT_JS_VERSION = '20260611-final';
+const RAG_CHAT_JS_VERSION = '20260619-dialog-core-v3';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.info('[RAG_CHAT_JS] loaded', RAG_CHAT_JS_VERSION);
@@ -133,6 +133,7 @@ async function startChat() {
         renderRetrieved();
         renderMemory();
         renderResetStepOptions();
+        renderChatAssets([]);
     } catch (e) {
         Rag.toast(e.message, 'danger');
     }
@@ -171,15 +172,20 @@ async function sendChatMessage(e) {
                 body: JSON.stringify({ sessionId: chatSessionId, message })
             });
         }
-        currentState = data.state || {};
-        currentRetrieved = data.retrieved || [];
-        currentMemory = data.memory || null;
-        Rag.appendMessage('#chatLog', 'assistant', data.answer || '응답을 생성하지 못했습니다.');
-        renderSaveStatus(data);
-        renderState();
-        renderRetrieved();
-        renderMemory();
-        renderResetStepOptions();
+        if (data.handled) {
+            renderChatRoutedResult(data);
+        } else {
+            currentState = data.state || {};
+            currentRetrieved = data.retrieved || [];
+            currentMemory = data.memory || null;
+            Rag.appendMessage('#chatLog', 'assistant', data.answer || '응답을 생성하지 못했습니다.');
+            renderSaveStatus(data);
+            renderChatIntent(data);
+            renderState();
+            renderRetrieved();
+            renderMemory();
+            renderResetStepOptions();
+        }
     } catch (e2) {
         Rag.toast(e2.message, 'danger');
         Rag.appendMessage('#chatLog', 'system', e2.message);
@@ -187,6 +193,62 @@ async function sendChatMessage(e) {
         setChatBusy(false);
         input.focus();
     }
+}
+
+function renderChatRoutedResult(data) {
+    Rag.appendMessage('#chatLog', data.requiresClarification ? 'system' : 'assistant', data.answer || '처리했습니다.');
+    currentState = data.state || currentState || {};
+    currentRetrieved = data.retrieved || data.summary?.retrieved || [];
+    currentMemory = data.memory || {
+        status: data.actionStatus || 'HANDLED',
+        saveLabel: data.saveStatus || '지식 저장: 조회/연결 처리',
+        message: data.saveMessage || ''
+    };
+    renderSaveStatus(data);
+    renderChatIntent(data);
+    renderState();
+    renderRetrieved();
+    renderMemory();
+    renderResetStepOptions();
+    renderChatAssets(data.assets || data.summary?.assets || []);
+}
+
+function renderChatIntent(data) {
+    const box = document.getElementById('chatIntentBox');
+    if (!box) return;
+    box.textContent = Rag.pretty({
+        intentType: data.intentType || data.intent || null,
+        actionStatus: data.actionStatus || null,
+        confidence: data.confidence || null,
+        entityKey: data.entityKey || data.summary?.entityKey || null,
+        counts: data.summary?.counts || null,
+        saveStatus: data.saveStatus || null,
+        saveMessage: data.saveMessage || null
+    });
+}
+
+function renderChatAssets(assets) {
+    const list = document.getElementById('helpAssetList');
+    if (!list) return;
+    const safeAssets = Array.isArray(assets) ? assets : [];
+    if (safeAssets.length === 0) {
+        list.innerHTML = '<div class="small text-muted">연결된 이미지/파일이 없습니다.</div>';
+        return;
+    }
+    list.innerHTML = safeAssets.slice(0, 12).map(asset => {
+        const url = asset.file_url || asset.fileUrl || '';
+        const name = asset.original_filename || asset.originalFilename || asset.display_name || '업로드 파일';
+        const isImg = /\.(png|jpg|jpeg|webp|gif)$/i.test(url) || String(asset.content_type || '').startsWith('image/');
+        return `
+            <div class="col-6">
+                <div class="rag-asset-card">
+                    ${isImg && url ? `<img src="${Rag.escapeHtml(url)}" alt="${Rag.escapeHtml(name)}">` : '<div class="rag-asset-placeholder">FILE</div>'}
+                    <div class="small fw-bold text-truncate" title="${Rag.escapeHtml(name)}">${Rag.escapeHtml(name)}</div>
+                    ${url ? `<a class="small" href="${Rag.escapeHtml(url)}" target="_blank" rel="noopener">열기</a>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 async function resetStep() {

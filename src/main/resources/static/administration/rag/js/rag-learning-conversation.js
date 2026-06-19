@@ -4,7 +4,7 @@ let learningActiveJobTimer = null;
 let learningActiveJobId = null;
 
 const LEARNING_CONVERSATION_API = '/admin/rag/api/learning-conversation';
-const RAG_LEARNING_JS_VERSION = '20260612-learning-screen-perf-v1';
+const RAG_LEARNING_JS_VERSION = '20260619-dialog-core-v3';
 
 const LEARNING_JOB_DONE = new Set(['COMPLETED', 'FAILED', 'CANCELED']);
 const LEARNING_JOB_POLL_INTERVAL_MS = 2500;
@@ -116,6 +116,8 @@ async function startLearningConversation() {
         if (log) log.innerHTML = '';
         Rag.appendMessage('#learningConversationLog', 'assistant', data.answer || '대화형 학습을 시작했습니다.');
         updateLearningSaveBadge('지식 저장: 대기', 'NONE');
+        const intentBox = document.getElementById('learningIntentBox');
+        if (intentBox) intentBox.textContent = '';
         resetLearningJobProgress();
     } catch (e) {
         Rag.toast(e.message, 'danger');
@@ -138,9 +140,10 @@ async function sendLearningConversationMessage(e) {
     for (const f of files) Rag.appendMessage('#learningConversationLog', 'user', `[파일 업로드] ${f.name}`);
 
     resetLearningJobProgress();
-    updateLearningSaveBadge('학습 작업: 접수 준비', 'RUNNING');
+    updateLearningSaveBadge('입력 해석 중', 'RUNNING');
     setLearningConversationBusy(true);
     try {
+        updateLearningSaveBadge('입력 의미 해석 중', 'RUNNING');
         let data;
         if (files.length > 0) {
             const fd = new FormData();
@@ -159,7 +162,11 @@ async function sendLearningConversationMessage(e) {
             });
         }
         if (textarea) textarea.value = '';
-        if (data.accepted && data.jobId) {
+        if (data.handled) {
+            renderLearningRoutedResult(data);
+            setLearningConversationBusy(false);
+            textarea?.focus();
+        } else if (data.accepted && data.jobId) {
             Rag.appendMessage('#learningConversationLog', 'system', data.answer || '학습 작업을 접수했습니다.');
             renderLearningJobProgress(data);
             startLearningJobPolling(data.jobId);
@@ -176,6 +183,27 @@ async function sendLearningConversationMessage(e) {
         setLearningConversationBusy(false);
         textarea?.focus();
     }
+}
+
+function renderLearningRoutedResult(data) {
+    Rag.appendMessage('#learningConversationLog', data.requiresClarification ? 'system' : 'assistant', learningPreviewText(data.answer || '처리했습니다.', 12000));
+    renderLearningSaveStatus(data);
+    renderLearningConversationResult(data);
+    renderLearningIntentResult(data);
+    resetLearningJobProgress();
+}
+
+function renderLearningIntentResult(data) {
+    const box = document.getElementById('learningIntentBox');
+    if (!box) return;
+    box.textContent = learningPrettyForScreen({
+        intentType: data.intentType || data.intent,
+        actionStatus: data.actionStatus,
+        confidence: data.confidence,
+        entityKey: data.entityKey || data.summary?.entityKey,
+        counts: data.summary?.counts || null,
+        assets: data.assets || data.summary?.assets || []
+    });
 }
 
 function startLearningJobPolling(jobId) {
@@ -324,13 +352,10 @@ async function resetLearningKnowledge() {
         Rag.toast('먼저 학습 세션을 시작해 주세요.', 'warning');
         return;
     }
-    const topic = document.getElementById('learningTopicInput')?.value?.trim() || '';
-    const reason = document.getElementById('resetKnowledgeReason')?.value?.trim() || '학습 주제 초기화';
-    const resetWholeVersion = !!document.getElementById('resetWholeVersion')?.checked;
-    const message = resetWholeVersion
-        ? '현재 버전 전체 학습 지식을 초기화합니다. 계속 진행하시겠습니까?'
-        : `현재 주제${topic ? `(${topic})` : ''}의 학습 지식을 초기화합니다. 계속 진행하시겠습니까?`;
-    if (!confirm(message)) return;
+    const topic = '';
+    const reason = document.getElementById('resetKnowledgeReason')?.value?.trim() || '현재 버전 전체 학습 지식 초기화';
+    const resetWholeVersion = true;
+    if (!confirm('현재 버전의 전체 학습 지식을 초기화합니다. 이 작업은 되돌리기 어렵습니다. 계속 진행하시겠습니까?')) return;
 
     try {
         stopLearningJobPolling();
@@ -368,6 +393,7 @@ function renderLearningConversationResult(data) {
         structuredReset: data.structuredReset || null,
         structuredSaveStatus: data.structuredSaveStatus || null
     });
+    renderLearningIntentResult(data);
 }
 
 function learningPreviewText(value, maxLength) {
@@ -427,7 +453,7 @@ function setLearningConversationBusy(busy) {
     const startBtn = document.getElementById('learningConversationStartBtn');
     if (btn) {
         btn.disabled = busy;
-        btn.textContent = busy ? '진행 중...' : '분석/저장';
+        btn.textContent = busy ? '진행 중...' : '전송';
     }
     if (textarea) textarea.disabled = busy;
     if (startBtn) startBtn.disabled = busy;

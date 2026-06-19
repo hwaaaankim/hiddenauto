@@ -73,6 +73,29 @@ public class OpenAiRagClient {
         return extractOutputText(root);
     }
 
+    public String responseJsonSchema(String systemPrompt,
+                                     String userPrompt,
+                                     String schemaName,
+                                     Map<String, Object> jsonSchema,
+                                     boolean strict) {
+        requireApiKey();
+        if (!StringUtils.hasText(schemaName)) {
+            throw new IllegalArgumentException("Structured Outputs schemaName이 비어 있습니다.");
+        }
+        if (jsonSchema == null || jsonSchema.isEmpty()) {
+            throw new IllegalArgumentException("Structured Outputs jsonSchema가 비어 있습니다.");
+        }
+        Map<String, Object> body = baseResponseBody(systemPrompt, userPrompt);
+        Map<String, Object> format = new LinkedHashMap<>();
+        format.put("type", "json_schema");
+        format.put("name", schemaName);
+        format.put("schema", jsonSchema);
+        format.put("strict", strict);
+        body.put("text", Map.of("format", format));
+        JsonNode root = postJson("/v1/responses", body);
+        return extractOutputText(root);
+    }
+
     private Map<String, Object> baseResponseBody(String systemPrompt, String userPrompt) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", properties.getChatModel());

@@ -14,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.rag.repository.RagRepository;
 import com.dev.HiddenBATHAuto.rag.util.RagJsonUtils;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
@@ -24,17 +23,20 @@ public class RagDynamicChatService {
     private final OpenAiRagClient ai;
     private final RagKnowledgeIngestionService ingestionService;
     private final RagKnowledgeMemoryService memoryService;
+    private final RagDialogRuleService dialogRuleService;
     private final ObjectMapper objectMapper;
 
     public RagDynamicChatService(RagRepository repository,
                                  OpenAiRagClient ai,
                                  RagKnowledgeIngestionService ingestionService,
                                  RagKnowledgeMemoryService memoryService,
+                                 RagDialogRuleService dialogRuleService,
                                  ObjectMapper objectMapper) {
         this.repository = repository;
         this.ai = ai;
         this.ingestionService = ingestionService;
         this.memoryService = memoryService;
+        this.dialogRuleService = dialogRuleService;
         this.objectMapper = objectMapper;
     }
 
@@ -97,6 +99,15 @@ public class RagDynamicChatService {
         Map<String, Object> audit = RagJsonUtils.toMap(objectMapper, session.get("audit_json"));
         List<Map<String, Object>> recentMessages = repository.findRecentChatMessages(sessionId, 12);
         List<Map<String, Object>> retrieved = retrieve(projectId, versionId, cleanMessage, 10);
+        List<Map<String, Object>> dialogRules = dialogRuleService.findActiveRules(projectId, versionId, null);
+        if (!dialogRules.isEmpty()) {
+            Map<String, Object> ruleContext = new LinkedHashMap<>();
+            ruleContext.put("source_type", "DIALOG_RULES");
+            ruleContext.put("description", "학습 화면에서 대화로 저장된 주문 질문흐름/조건/검증/가격식 규칙입니다. 상담 답변과 다음 질문 결정에 우선 사용해야 합니다.");
+            ruleContext.put("rules", dialogRules);
+            retrieved = new ArrayList<>(retrieved);
+            retrieved.add(0, ruleContext);
+        }
 
         Map<String, Object> fileAnalysis = new LinkedHashMap<>();
         if (!safeFiles.isEmpty()) {
@@ -189,6 +200,9 @@ public class RagDynamicChatService {
         String systemPrompt = """
                 당신은 HiddenBATH 제품 발주 및 가격계산 상담 챗봇입니다.
                 반드시 학습된 제품명/코드/사이즈/색상/가격 조합과 검색 근거를 우선 사용하세요.
+                검색 근거 안에 DIALOG_RULES가 있으면 그것은 대화 학습으로 저장된 주문 질문흐름/조건부 질문/입력 검증/가격식 규칙입니다.
+                주문 상담 중에는 DIALOG_RULES를 최우선으로 사용해서 현재까지 받은 답변에 따라 다음에 물어볼 질문을 결정하세요.
+                가격은 학습된 규칙과 근거가 있을 때만 계산하고, 누락된 치수/옵션/조건이 있으면 추정하지 말고 확인 질문을 하세요.
                 모르는 제품, 가격 누락, 메시지와 파일 관계가 불명확한 경우 추정하지 말고 확인 질문을 하세요.
                 고객 상담 첨부 파일도 사용자의 메시지와 함께 해석하되, 전역 지식으로 저장할지는 별도 학습 분석 결과에 따릅니다.
                 답변은 한국어 존댓말로 간결하지만 계산 근거가 보이게 작성하세요.

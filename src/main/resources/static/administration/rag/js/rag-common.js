@@ -15,6 +15,18 @@ const Rag = (() => {
         return data;
     }
 
+    async function optionalJsonFetch(url, options = {}) {
+        try {
+            return await jsonFetch(url, options);
+        } catch (e) {
+            const msg = String(e && e.message ? e.message : e);
+            if (msg.includes('404') || msg.includes('Not Found') || msg.includes('요청 실패: 404')) {
+                return { __notAvailable: true, message: msg };
+            }
+            throw e;
+        }
+    }
+
     function pretty(value) {
         try { return JSON.stringify(value || {}, null, 2); }
         catch (e) { return String(value); }
@@ -96,5 +108,5 @@ const Rag = (() => {
         }, true);
     }
 
-    return { jsonFetch, pretty, toast, appendMessage, escapeHtml, formToObject, selectedOption, bindEnterSubmit };
+    return { jsonFetch, optionalJsonFetch, pretty, toast, appendMessage, escapeHtml, formToObject, selectedOption, bindEnterSubmit };
 })();

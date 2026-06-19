@@ -43,7 +43,12 @@ apply_schema() {
     /schema/004_structured_order_learning_patch.sql \
     /schema/005_async_learning_job_patch.sql \
     /schema/006_adaptive_knowledge_tree_patch.sql \
-    /schema/007_eventual_ai_reparse_patch.sql
+    /schema/007_eventual_ai_reparse_patch.sql \
+    /schema/008_ai_interaction_asset_link_patch.sql \
+    /schema/009_semantic_planner_override_patch.sql \
+    /schema/010_pricing_rule_patch.sql \
+    /schema/011_semantic_orchestrator_patch.sql \
+    /schema/012_dialog_core_patch.sql
   do
     echo "----- ${db_name}: ${sql_file} -----"
     psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${db_name}" -f "${sql_file}"

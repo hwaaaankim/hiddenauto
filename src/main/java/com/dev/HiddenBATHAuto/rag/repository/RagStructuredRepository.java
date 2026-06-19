@@ -94,6 +94,41 @@ public class RagStructuredRepository {
             params.addValue("topic", topic.trim());
         }
         jdbc.update(sql.toString(), params);
+
+        String topicPredicate = (!resetWholeVersion && StringUtils.hasText(topic)) ? " AND topic = :topic" : "";
+        jdbc.update("""
+                UPDATE rag_structured_table
+                SET active = false
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """ + topicPredicate, params);
+        jdbc.update("""
+                UPDATE rag_price_matrix
+                SET active = false
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """ + topicPredicate, params);
+        jdbc.update("""
+                UPDATE rag_structured_override_rule
+                SET active = false,
+                    updated_at = now()
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """, params);
+        jdbc.update("""
+                UPDATE rag_structured_pricing_rule
+                SET active = false,
+                    updated_at = now()
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """, params);
+        jdbc.update("""
+                UPDATE rag_dialog_rule
+                SET active = false,
+                    updated_at = now()
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """, params);
     }
 
     public Map<String, Object> insertArtifact(UUID id,

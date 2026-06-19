@@ -218,3 +218,39 @@
 @media (max-width: 575.98px) {
     .rag-job-log-row { grid-template-columns: 1fr; }
 }
+
+/* 20260619 AI intent router / asset linking */
+.rag-asset-card {
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    background: #fff;
+    padding: 8px;
+    min-height: 112px;
+}
+.rag-asset-card img {
+    width: 100%;
+    height: 86px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 6px;
+}
+.rag-asset-placeholder {
+    height: 86px;
+    border-radius: 8px;
+    border: 1px dashed #adb5bd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 6px;
+}
+.rag-json-box.small {
+    min-height: 80px;
+    max-height: 220px;
+}
+.rag-intent-hint {
+    border-left: 4px solid #0d6efd;
+    padding-left: 10px;
+}

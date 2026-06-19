@@ -22,9 +22,9 @@ import com.dev.HiddenBATHAuto.rag.dto.RagConversationLearningStartRequest;
 import com.dev.HiddenBATHAuto.rag.dto.RagLearningResetKnowledgeRequest;
 import com.dev.HiddenBATHAuto.rag.repository.RagRepository;
 import com.dev.HiddenBATHAuto.rag.service.RagConversationalLearningService;
+import com.dev.HiddenBATHAuto.rag.service.RagKnowledgeInteractionService;
 import com.dev.HiddenBATHAuto.rag.service.RagLearningJobService;
 import com.dev.HiddenBATHAuto.rag.service.RagStructuredLearningService;
-import com.dev.HiddenBATHAuto.rag.util.RagJsonUtils;
 
 @RestController
 @RequestMapping("/admin/rag/api/learning-conversation")
@@ -34,13 +34,16 @@ public class RagConversationLearningApiController {
     private final RagConversationalLearningService learningService;
     private final RagStructuredLearningService structuredLearningService;
     private final RagLearningJobService jobService;
+    private final RagKnowledgeInteractionService interactionService;
 
     public RagConversationLearningApiController(RagConversationalLearningService learningService,
                                                 RagStructuredLearningService structuredLearningService,
-                                                RagLearningJobService jobService) {
+                                                RagLearningJobService jobService,
+                                                RagKnowledgeInteractionService interactionService) {
         this.learningService = learningService;
         this.structuredLearningService = structuredLearningService;
         this.jobService = jobService;
+        this.interactionService = interactionService;
     }
 
     @PostMapping("/start")
@@ -49,12 +52,16 @@ public class RagConversationLearningApiController {
     }
 
     /**
-     * 메시지 학습 요청은 즉시 GPT를 호출하지 않고 작업만 생성합니다.
-     * 실제 GPT 해석/검증/병합/벡터화는 백그라운드 스레드에서 진행되며 화면은 jobs/{jobId}를 폴링합니다.
+     * 모든 학습 입력은 먼저 의미해석 라우터를 통과합니다.
+     * 라우터가 즉시 구조화 저장/조회/보류할 수 없다고 판단한 경우에만 비동기 학습 작업으로 넘깁니다.
      */
     @PostMapping("/{sessionId}/message")
     public Map<String, Object> message(@PathVariable UUID sessionId,
                                        @RequestBody RagConversationLearningMessageRequest request) {
+        Map<String, Object> routed = interactionService.routeLearningInput(sessionId, request.message(), Boolean.TRUE.equals(request.forceSave()), List.of());
+        if (Boolean.TRUE.equals(routed.get("handled"))) {
+            return routed;
+        }
         return jobService.submitMessage(
                 sessionId,
                 request.message(),
@@ -70,7 +77,12 @@ public class RagConversationLearningApiController {
                                     @RequestParam(value = "message", required = false) String message,
                                     @RequestParam(value = "forceSave", required = false, defaultValue = "false") boolean forceSave,
                                     @RequestParam("file") MultipartFile file) {
-        return jobService.submitMessageWithFiles(sessionId, message, forceSave, collectFiles(null, file));
+        List<MultipartFile> safeFiles = collectFiles(null, file);
+        Map<String, Object> routed = interactionService.routeLearningInput(sessionId, message, forceSave, safeFiles);
+        if (Boolean.TRUE.equals(routed.get("handled"))) {
+            return routed;
+        }
+        return jobService.submitMessageWithFiles(sessionId, message, forceSave, safeFiles);
     }
 
     /**
@@ -84,6 +96,10 @@ public class RagConversationLearningApiController {
                                                 @RequestPart(value = "files", required = false) List<MultipartFile> files,
                                                 @RequestPart(value = "file", required = false) MultipartFile singleFile) {
         List<MultipartFile> safeFiles = collectFiles(files, singleFile);
+        Map<String, Object> routed = interactionService.routeLearningInput(sessionId, message, forceSave, safeFiles);
+        if (Boolean.TRUE.equals(routed.get("handled"))) {
+            return routed;
+        }
         if (safeFiles.isEmpty()) {
             return jobService.submitMessage(sessionId, message, null, null, forceSave);
         }
@@ -128,21 +144,22 @@ public class RagConversationLearningApiController {
         Map<String, Object> session = learningService.session(sessionId);
         UUID projectId = (UUID) session.get("project_id");
         UUID versionId = (UUID) session.get("version_id");
-        String sessionTopic = RagJsonUtils.stringValue(session, "topic");
-        String topic = request.topic() == null || request.topic().isBlank() ? sessionTopic : request.topic();
+        String reason = request.reason() == null || request.reason().isBlank()
+                ? "현재 버전 전체 학습 지식 초기화"
+                : request.reason();
 
         Map<String, Object> result = learningService.resetKnowledge(
                 sessionId,
-                topic,
-                request.reason(),
-                Boolean.TRUE.equals(request.resetWholeVersion())
+                null,
+                reason,
+                true
         );
         structuredLearningService.resetStructuredKnowledge(
                 projectId,
                 versionId,
-                topic,
-                Boolean.TRUE.equals(request.resetWholeVersion()),
-                request.reason()
+                null,
+                true,
+                reason
         );
         result.put("structuredReset", true);
         return result;

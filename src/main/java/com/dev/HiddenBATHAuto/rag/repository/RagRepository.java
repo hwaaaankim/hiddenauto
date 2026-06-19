@@ -643,7 +643,6 @@ public class RagRepository {
                     DELETE FROM rag_asset
                     WHERE project_id = :projectId
                       AND version_id = :versionId
-                      AND owner_type IN ('LEARNING_FILE', 'LEARNING_CONVERSATION')
                     """, params);
         }
 
@@ -687,6 +686,22 @@ public class RagRepository {
 
         int deletedLearningSessionCount = jdbc.update("DELETE FROM rag_learning_session WHERE " + sessionWhere, params);
 
+        int deletedInteractionEventCount = jdbc.update("""
+                DELETE FROM rag_interaction_event
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """, params);
+        int deletedSemanticResolutionEventCount = jdbc.update("""
+                DELETE FROM rag_semantic_resolution_event
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """, params);
+        int deletedDialogRuleCount = jdbc.update("""
+                DELETE FROM rag_dialog_rule
+                WHERE project_id = :projectId
+                  AND version_id = :versionId
+                """, params);
+
         Map<String, Object> validation = new LinkedHashMap<>();
         validation.put("reset", true);
         validation.put("topic", scopedTopic ? topic : "ALL_VERSION_TOPICS");
@@ -697,6 +712,9 @@ public class RagRepository {
         validation.put("deletedLearningMessages", deletedLearningMessageCount);
         validation.put("deletedLearningSessions", deletedLearningSessionCount);
         validation.put("deletedAssets", deletedAssetCount);
+        validation.put("deletedInteractionEvents", deletedInteractionEventCount);
+        validation.put("deletedSemanticResolutionEvents", deletedSemanticResolutionEventCount);
+        validation.put("deletedDialogRules", deletedDialogRuleCount);
 
         if (!scopedTopic) {
             updateVersionSynthesis(versionId, "초기화됨: 선택한 버전의 학습 지식이 비워졌습니다.", Map.of(), Map.of(), Map.of(), validation);

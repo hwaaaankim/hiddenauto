@@ -20,15 +20,19 @@ import com.dev.HiddenBATHAuto.rag.dto.RagAiChatStartRequest;
 import com.dev.HiddenBATHAuto.rag.dto.RagInquiryRequest;
 import com.dev.HiddenBATHAuto.rag.dto.RagResetStepRequest;
 import com.dev.HiddenBATHAuto.rag.service.RagDynamicChatService;
+import com.dev.HiddenBATHAuto.rag.service.RagKnowledgeInteractionService;
 
 @RestController
 @RequestMapping("/admin/rag/api/ai-chat")
 public class RagAiChatApiController {
 
     private final RagDynamicChatService chatService;
+    private final RagKnowledgeInteractionService interactionService;
 
-    public RagAiChatApiController(RagDynamicChatService chatService) {
+    public RagAiChatApiController(RagDynamicChatService chatService,
+                                  RagKnowledgeInteractionService interactionService) {
         this.chatService = chatService;
+        this.interactionService = interactionService;
     }
 
     @PostMapping("/start")
@@ -38,12 +42,20 @@ public class RagAiChatApiController {
 
     @PostMapping("/message")
     public Map<String, Object> message(@RequestBody RagAiChatMessageRequest request) {
+        Map<String, Object> routed = interactionService.routeChatInput(request.sessionId(), request.message(), List.of());
+        if (Boolean.TRUE.equals(routed.get("handled"))) {
+            return routed;
+        }
         return chatService.message(request.sessionId(), request.message());
     }
 
     @PostMapping("/{sessionId}/message")
     public Map<String, Object> messageByPath(@PathVariable UUID sessionId,
                                              @RequestBody RagAiChatMessageRequest request) {
+        Map<String, Object> routed = interactionService.routeChatInput(sessionId, request.message(), List.of());
+        if (Boolean.TRUE.equals(routed.get("handled"))) {
+            return routed;
+        }
         return chatService.message(sessionId, request.message());
     }
 
@@ -55,6 +67,10 @@ public class RagAiChatApiController {
         List<MultipartFile> merged = new ArrayList<>();
         if (files != null) merged.addAll(files);
         if (singleFile != null && !singleFile.isEmpty()) merged.add(singleFile);
+        Map<String, Object> routed = interactionService.routeChatInput(sessionId, message, merged);
+        if (Boolean.TRUE.equals(routed.get("handled"))) {
+            return routed;
+        }
         return chatService.messageWithFiles(sessionId, message, merged);
     }
 
