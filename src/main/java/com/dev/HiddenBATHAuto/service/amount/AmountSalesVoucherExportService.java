@@ -31,6 +31,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.amount.AmountCustomerMasterRepository;
 import com.dev.HiddenBATHAuto.repository.amount.AmountItemMasterRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletResponse;
@@ -68,6 +70,8 @@ public class AmountSalesVoucherExportService {
     private final AmountItemMasterRepository itemRepository;
     private final AmountOrderOptionParser optionParser;
     private final OpenAiAmountProductMatchClient aiProductMatchClient;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
     public void downloadSalesVoucher(String keyword,
@@ -193,6 +197,7 @@ public class AmountSalesVoucherExportService {
                 ? matchedItem.getUnit()
                 : safe(() -> order.getProductCategory().getName());
         String memo = buildOrderMemo(order, itemMatch, customerMatch);
+        String optionText = buildOrderOptionText(order);
 
         return new VoucherLine(
                 taskId,
@@ -212,7 +217,8 @@ public class AmountSalesVoucherExportService {
                 money.supply(),
                 money.vat(),
                 money.total(),
-                memo
+                memo,
+                optionText
         );
     }
 
@@ -268,7 +274,8 @@ public class AmountSalesVoucherExportService {
                 supply,
                 vat,
                 total,
-                memo
+                memo,
+                ""
         );
     }
 
@@ -303,7 +310,8 @@ public class AmountSalesVoucherExportService {
                 zero,
                 zero,
                 zero,
-                phoneMemo
+                phoneMemo,
+                ""
         );
     }
 
@@ -557,6 +565,7 @@ public class AmountSalesVoucherExportService {
 
             writeReferenceSheets(customerSheet, itemSheet, infoSheet, customers, items, styles);
             writeMainSheet(sheet, blocks, styles);
+            workbook.setForceFormulaRecalculation(true);
 
             String filename = "전산입력용_매출전표_" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + ".xlsx";
             String encoded = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
@@ -581,15 +590,17 @@ public class AmountSalesVoucherExportService {
         BigDecimal total = blocks.stream().map(TaskVoucherBlock::taskTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
         cell(note, 8, "합계금액\n" + total.setScale(0, RoundingMode.HALF_UP).toPlainString(), styles.get("note"));
 
-        String[] headers = {"거래일\n(예:2014-10-23)", "구분", "코드", "거래처명", "유형", "적요", "결제\n장부", "은행/카드\n코드", "거래금액", "품목코드", "품목명", "규격", "단위", "수량", "단가", "공급가", "부가세", "합계금액", "창고번호", "창고명", "원산지코드", "조달청식별코드", "매칭상태", "비고", "매칭점수"};
+        String[] headers = {"거래일\n(예:2014-10-23)", "구분", "코드", "거래처명", "유형", "적요", "결제\n장부", "은행/카드\n코드", "거래금액", "품목코드", "품목명", "규격", "단위", "수량", "단가", "공급가", "부가세", "합계금액", "창고번호", "창고명", "원산지코드", "조달청식별코드", "매칭상태", "비고", "매칭점수", "옵션", "바이트"};
         Row header = sheet.createRow(18);
         header.setHeightInPoints(24);
         for (int i = 0; i < headers.length; i++) {
             cell(header, i, headers[i], styles.get("header"));
             sheet.setColumnWidth(i, switch (i) {
                 case 3, 10, 23 -> 9000;
+                case 25 -> 14000;
                 case 11 -> 6500;
                 case 0 -> 4800;
+                case 26 -> 3200;
                 default -> 4200;
             });
         }
@@ -661,6 +672,10 @@ public class AmountSalesVoucherExportService {
         } else {
             numeric(row, 24, BigDecimal.valueOf(Math.min(line.itemMatch().score(), line.customerMatch().score())), base);
         }
+
+        String optionText = line.addressLine() || line.freightLine() ? "" : safe(line.optionText());
+        cell(row, 25, optionText, styles.get("option"));
+        formula(row, 26, "LENB(" + excelCellRef(row, 25) + ")", base);
     }
 
     private void writeReferenceSheets(Sheet customerSheet, Sheet itemSheet, Sheet infoSheet,
@@ -746,6 +761,12 @@ public class AmountSalesVoucherExportService {
         note.setVerticalAlignment(VerticalAlignment.TOP);
         styles.put("note", note);
 
+        CellStyle option = workbook.createCellStyle();
+        option.cloneStyleFrom(body);
+        option.setWrapText(true);
+        option.setVerticalAlignment(VerticalAlignment.TOP);
+        styles.put("option", option);
+
         CellStyle exact = workbook.createCellStyle();
         exact.cloneStyleFrom(body);
         styles.put("itemExact", exact);
@@ -777,6 +798,18 @@ public class AmountSalesVoucherExportService {
         if (style != null) {
             cell.setCellStyle(style);
         }
+    }
+
+    private void formula(Row row, int col, String formula, CellStyle style) {
+        Cell cell = row.createCell(col);
+        cell.setCellFormula(formula);
+        if (style != null) {
+            cell.setCellStyle(style);
+        }
+    }
+
+    private String excelCellRef(Row row, int col) {
+        return CellReference.convertNumToColString(col) + (row.getRowNum() + 1);
     }
 
     private void numeric(Row row, int col, BigDecimal value, CellStyle style) {
@@ -859,6 +892,134 @@ public class AmountSalesVoucherExportService {
             return parsed.productName();
         }
         return safe(() -> order.getOrderItem().getProductName());
+    }
+
+    private String buildOrderOptionText(Order order) {
+        String optionJson = safe(() -> order.getOrderItem().getOptionJson());
+        if (!StringUtils.hasText(optionJson)) {
+            return "";
+        }
+
+        try {
+            Object parsed = objectMapper.readValue(optionJson, Object.class);
+            String optionText = formatOnlyOptionLines(flattenOptionValue(parsed, ""));
+            return StringUtils.hasText(optionText) ? optionText : "";
+        } catch (Exception e) {
+            String optionText = formatOnlyOptionLines(splitFormattedOptionText(optionJson));
+            return StringUtils.hasText(optionText) ? optionText : "";
+        }
+    }
+
+    private String formatOnlyOptionLines(List<String> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+
+        return lines.stream()
+                .map(this::safe)
+                .filter(StringUtils::hasText)
+                .filter(this::isOptionKeyLine)
+                .collect(Collectors.joining(" / "));
+    }
+
+    private List<String> splitFormattedOptionText(String text) {
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
+
+        return java.util.Arrays.stream(text.split("\\s*/\\s*"))
+                .map(this::safe)
+                .filter(StringUtils::hasText)
+                .toList();
+    }
+
+    private boolean isOptionKeyLine(String line) {
+        if (!StringUtils.hasText(line)) {
+            return false;
+        }
+
+        int colonIndex = line.indexOf(":");
+        if (colonIndex < 0) {
+            colonIndex = line.indexOf("：");
+        }
+        if (colonIndex < 0) {
+            return false;
+        }
+
+        String key = line.substring(0, colonIndex).trim();
+
+        // 중첩 JSON일 경우 예: product.옵션2
+        if (key.contains(".")) {
+            key = key.substring(key.lastIndexOf(".") + 1).trim();
+        }
+
+        // 배열 JSON일 경우 예: 옵션[1]
+        int bracketIndex = key.indexOf("[");
+        if (bracketIndex >= 0) {
+            key = key.substring(0, bracketIndex).trim();
+        }
+
+        return "옵션".equals(key) || key.matches("옵션\\d+");
+    }
+
+    private List<String> flattenOptionValue(Object value, String prefix) {
+        List<String> lines = new ArrayList<>();
+        if (value == null) {
+            return lines;
+        }
+
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                String key = entry.getKey() == null ? "" : String.valueOf(entry.getKey()).trim();
+                if (!StringUtils.hasText(key)) {
+                    continue;
+                }
+                String nextPrefix = StringUtils.hasText(prefix) ? prefix + "." + key : key;
+                Object child = entry.getValue();
+                if (isSimpleOptionValue(child)) {
+                    String childValue = simpleOptionValue(child);
+                    if (StringUtils.hasText(childValue)) {
+                        lines.add(nextPrefix + ": " + childValue);
+                    }
+                } else {
+                    lines.addAll(flattenOptionValue(child, nextPrefix));
+                }
+            }
+            return lines;
+        }
+
+        if (value instanceof List<?> list) {
+            for (int i = 0; i < list.size(); i++) {
+                String nextPrefix = StringUtils.hasText(prefix) ? prefix + "[" + (i + 1) + "]" : "[" + (i + 1) + "]";
+                Object child = list.get(i);
+                if (isSimpleOptionValue(child)) {
+                    String childValue = simpleOptionValue(child);
+                    if (StringUtils.hasText(childValue)) {
+                        lines.add(nextPrefix + ": " + childValue);
+                    }
+                } else {
+                    lines.addAll(flattenOptionValue(child, nextPrefix));
+                }
+            }
+            return lines;
+        }
+
+        String simpleValue = simpleOptionValue(value);
+        if (StringUtils.hasText(simpleValue)) {
+            lines.add(StringUtils.hasText(prefix) ? prefix + ": " + simpleValue : simpleValue);
+        }
+        return lines;
+    }
+
+    private boolean isSimpleOptionValue(Object value) {
+        return value == null
+                || value instanceof String
+                || value instanceof Number
+                || value instanceof Boolean;
+    }
+
+    private String simpleOptionValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     private String buildOrderMemo(Order order, AmountItemMatchResult itemMatch, AmountCustomerMatchResult customerMatch) {
@@ -1038,7 +1199,8 @@ public class AmountSalesVoucherExportService {
                                BigDecimal supply,
                                BigDecimal vat,
                                BigDecimal total,
-                               String memo) {
+                               String memo,
+                               String optionText) {
     }
 
     private record Money(BigDecimal unitPrice, BigDecimal supply, BigDecimal vat, BigDecimal total) {
