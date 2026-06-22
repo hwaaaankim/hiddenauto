@@ -44,10 +44,12 @@
 									<label class="form-label">제품분류</label>
 									<select name="productCategoryId" class="form-control w-100"
 										id="team-production-productCategoryId">
-										<option value="">전체(기본: 내 분류)</option>
+										<option value="" th:selected="${productCategoryId == null}">
+											전체(기본: 내 분류)
+										</option>
 										<option th:each="category : ${productCategories}" th:value="${category.id}"
 											th:text="${category.name}"
-											th:selected="${productCategoryId == category.id}">
+											th:selected="${productCategoryId != null and productCategoryId == category.id}">
 										</option>
 									</select>
 								</div>
@@ -83,9 +85,6 @@
 										<option value="CONFIRMED"
 											th:selected="${statusFilter == null or statusFilter == '' or statusFilter == 'CONFIRMED'}">
 											승인 완료
-										</option>
-										<option value="REQUESTED" th:selected="${statusFilter == 'REQUESTED'}">
-											고객 발주
 										</option>
 										<option value="PRODUCTION_DONE"
 											th:selected="${statusFilter == 'PRODUCTION_DONE'}">
@@ -171,7 +170,7 @@
 					<!-- 권한/제어 플래그 -->
 					<input type="hidden" id="team-production-can-bulk-complete" th:value="${canBulkComplete}">
 
-					<input type="hidden" id="team-production-selected-category-id" th:value="${productCategoryId}">
+					<input type="hidden" id="team-production-selected-category-id" th:value="${targetProductCategoryId}">
 
 					<!-- ===== 테이블 ===== -->
 					<div class="card">
@@ -252,6 +251,7 @@
 												th:attr="
                     data-overview-order-id=${order.id},
                     data-overview-status=${order.status != null ? order.status.name() : ''},
+                    data-cutting-available=${cuttingEligibilityMap != null and cuttingEligibilityMap[order.id] == true},
                     data-checked=${isLatestChecked},
                     data-check-state=${checkState},
                     data-check-state-label=${checkStateLabel},
@@ -268,12 +268,20 @@
 														1
 													</span>
 												</td>
-
 												<td class="team-production-td team-production-product-name-td">
-													<div class="team-production-product-name"
-														th:text="${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'}"
-														th:title="${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'}">
-														제품명
+													<div class="team-production-product-name">
+														<span class="team-production-cutting-availability-icon"
+															th:if="${canMaterialCutting}"
+															th:classappend="${cuttingEligibilityMap != null and cuttingEligibilityMap[order.id] == true} ? ' is-available' : ' is-unavailable'"
+															th:title="${cuttingEligibilityMap != null and cuttingEligibilityMap[order.id] == true} ? '재단 가능' : '재단 불가'">
+															<i class="fa-solid fa-ruler-combined"></i>
+														</span>
+
+														<span class="team-production-product-name-text"
+															th:text="${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'}"
+															th:title="${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'}">
+															제품명
+														</span>
 													</div>
 												</td>
 
@@ -791,6 +799,45 @@
 			font-size: 10px;
 			font-weight: 700;
 			color: #b58100;
+		}
+
+
+		.team-production-product-name {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			min-width: 0;
+		}
+
+		.team-production-product-name-text {
+			display: block;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.team-production-cutting-availability-icon {
+			flex: 0 0 auto;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 18px;
+			height: 18px;
+			border-radius: 999px;
+			font-size: 10px;
+		}
+
+		.team-production-cutting-availability-icon.is-available {
+			color: #198754;
+			background: #e8f7ef;
+			border: 1px solid #a7dfbd;
+		}
+
+		.team-production-cutting-availability-icon.is-unavailable {
+			color: #9ca3af;
+			background: #f3f4f6;
+			border: 1px solid #d1d5db;
 		}
 	</style>
 

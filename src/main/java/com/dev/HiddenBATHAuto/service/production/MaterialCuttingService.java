@@ -36,6 +36,29 @@ public class MaterialCuttingService {
     private final MaterialCuttingOptionParser optionParser;
     private final MaterialCuttingRuleRegistry ruleRegistry;
 
+    /**
+     * 생산 리스트에서 재단 가능 아이콘 표시용.
+     * 현재 등록된 대상은 클린/심플/소프트/코지/라운드 + 6xx + 여닫이 + 인도어 + 다리/벽걸이 + 도기/대리석입니다.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, Boolean> buildCuttingEligibilityMap(List<Order> orders) {
+        Map<Long, Boolean> result = new LinkedHashMap<>();
+
+        if (orders == null || orders.isEmpty()) {
+            return result;
+        }
+
+        for (Order order : orders) {
+            if (order == null || order.getId() == null) {
+                continue;
+            }
+
+            result.put(order.getId(), isCuttingAvailable(order));
+        }
+
+        return result;
+    }
+
     @Transactional(readOnly = true)
     public MaterialCuttingPageResponse buildCuttingPage(List<Long> orderIds, Member loginMember) {
         validateCuttingMember(loginMember);
@@ -44,7 +67,7 @@ public class MaterialCuttingService {
 
         if (distinctOrderIds.isEmpty()) {
             return new MaterialCuttingPageResponse(
-                    "LOWER_CABINET_V1",
+                    "HINGED_600_CLEAN_SIMPLE_SOFT_COZY_ROUND_V1",
                     nowText(),
                     List.of()
             );
@@ -59,32 +82,34 @@ public class MaterialCuttingService {
         }
 
         List<MaterialCuttingOrderDto> result = new ArrayList<>();
-        String pageRuleVersion = "LOWER_CABINET_V1";
+        String pageRuleVersion = "HINGED_600_CLEAN_SIMPLE_SOFT_COZY_ROUND_V1";
 
         for (Long orderId : distinctOrderIds) {
             Order order = orderMap.get(orderId);
 
             if (order == null) {
-                throw new IllegalArgumentException("주문 없음: " + orderId);
+                continue;
             }
 
-            validateCuttingOrder(order);
-
             MaterialCuttingParsedOptionsDto parsedOptions = optionParser.parse(order);
-            List<String> warnings = new ArrayList<>();
 
-            if (parsedOptions.widthMm() == null
-                    || parsedOptions.depthMm() == null
-                    || parsedOptions.heightMm() == null) {
-                warnings.add("사이즈(W/D/H)를 찾지 못했습니다. optionJson 또는 비고에 '1200(W) * 500(D) * 800(H)' 형식으로 입력해 주세요.");
+            if (!ruleRegistry.canResolve(order, parsedOptions)) {
+                // 버튼/JS에서도 걸러지지만, URL 직접 호출 시에도 재단 불가 건은 제외합니다.
+                continue;
+            }
+
+            List<String> warnings = buildWarnings(parsedOptions);
+
+            if (!warnings.isEmpty()) {
+                result.add(toOrderDto(order, parsedOptions, List.of(), warnings));
+                continue;
             }
 
             MaterialCuttingRule rule = ruleRegistry.resolve(order, parsedOptions);
             pageRuleVersion = rule.getRuleKey();
 
-            List<MaterialCuttingPanelDto> panels = warnings.isEmpty()
-                    ? rule.calculate(parsedOptions)
-                    : List.of();
+            int orderQuantity = resolveOrderQuantity(order);
+            List<MaterialCuttingPanelDto> panels = rule.calculate(parsedOptions, orderQuantity);
 
             result.add(toOrderDto(order, parsedOptions, panels, warnings));
         }
@@ -94,6 +119,58 @@ public class MaterialCuttingService {
                 nowText(),
                 result
         );
+    }
+
+    public boolean isCuttingAvailable(Order order) {
+        if (order == null) {
+            return false;
+        }
+
+        MaterialCuttingParsedOptionsDto parsedOptions = optionParser.parse(order);
+        return ruleRegistry.canResolve(order, parsedOptions) && buildWarnings(parsedOptions).isEmpty();
+    }
+
+    private List<String> buildWarnings(MaterialCuttingParsedOptionsDto options) {
+        List<String> warnings = new ArrayList<>();
+
+        if (options == null) {
+            warnings.add("옵션 정보를 해석하지 못했습니다.");
+            return warnings;
+        }
+
+        if (options.widthMm() == null || options.depthMm() == null || options.heightMm() == null) {
+            warnings.add("사이즈(W/D/H)를 찾지 못했습니다. '630(W) * 460(D) * 800(H)' 또는 '넓이: 630, 높이: 800, 깊이: 460' 형식으로 입력해 주세요.");
+        }
+
+        if (!options.sixHundredWidthTarget()) {
+            warnings.add("현재 등록된 재단 공식은 W 6xx 장만 지원합니다. 제품명에 600장/630장 등이 있거나 W가 600~699mm여야 합니다.");
+        }
+
+        if ("UNKNOWN".equals(options.cuttingSeries())) {
+            warnings.add("지원 시리즈가 아닙니다. 클린/심플/소프트/코지/라운드 시리즈만 현재 등록되어 있습니다.");
+        }
+
+        if (!"HINGED".equals(options.doorMode())) {
+            warnings.add("현재는 문 형태가 여닫이인 건만 재단 가능합니다.");
+        }
+
+        if (!options.indoorDoor()) {
+            warnings.add("현재 문의 제작 방식은 인도어 기준만 지원합니다.");
+        }
+
+        if ("UNKNOWN".equals(options.installType())) {
+            warnings.add("다리형/벽걸이형 구분을 찾지 못했습니다. optionJson에 '다리형' 또는 '벽걸이형'을 입력해 주세요.");
+        }
+
+        if ("UNKNOWN".equals(options.topType())) {
+            warnings.add("도기타입/대리석타입 구분을 찾지 못했습니다. optionJson에 '도기' 또는 '대리석'을 입력해 주세요.");
+        }
+
+        if ("MARBLE".equals(options.topType()) && "UNKNOWN".equals(options.marbleEdgeType())) {
+            warnings.add("대리석타입은 마구리 면수/방향이 필요합니다. 예: '마구리: 3면(좌/우/전)' 또는 '마구리: 2면(좌/우)'.");
+        }
+
+        return warnings;
     }
 
     private MaterialCuttingOrderDto toOrderDto(
@@ -117,6 +194,10 @@ public class MaterialCuttingService {
                 "ProductSeries"
         ));
 
+        if (productSeries.isBlank()) {
+            productSeries = parsedOptions.cuttingSeriesLabel();
+        }
+
         String productName = pickFirstValue(options, List.of(
                 "제품",
                 "제품명",
@@ -130,7 +211,7 @@ public class MaterialCuttingService {
             productName = safeText(item.getProductName());
         }
 
-        int quantity = item != null ? item.getQuantity() : order.getQuantity();
+        int quantity = resolveOrderQuantity(order);
 
         return new MaterialCuttingOrderDto(
                 order.getId(),
@@ -148,6 +229,16 @@ public class MaterialCuttingService {
         );
     }
 
+    private int resolveOrderQuantity(Order order) {
+        if (order == null) {
+            return 1;
+        }
+
+        OrderItem item = order.getOrderItem();
+        int quantity = item != null ? item.getQuantity() : order.getQuantity();
+        return Math.max(quantity, 1);
+    }
+
     private void validateCuttingMember(Member member) {
         if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
             throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
@@ -161,16 +252,6 @@ public class MaterialCuttingService {
 
         if (!isLowerCabinetCategory(teamCategory)) {
             throw new AccessDeniedException("자재재단은 하부장 생산 직원만 접근 가능합니다.");
-        }
-    }
-
-    private void validateCuttingOrder(Order order) {
-        if (order == null) {
-            throw new IllegalArgumentException("주문 정보가 없습니다.");
-        }
-
-        if (!isLowerCabinetCategory(order.getProductCategory())) {
-            throw new AccessDeniedException("하부장 발주만 자재재단을 출력할 수 있습니다.");
         }
     }
 

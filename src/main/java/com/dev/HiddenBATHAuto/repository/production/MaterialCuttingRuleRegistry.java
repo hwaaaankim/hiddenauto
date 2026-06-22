@@ -1,6 +1,5 @@
 package com.dev.HiddenBATHAuto.repository.production;
 
-import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
@@ -17,15 +16,14 @@ public class MaterialCuttingRuleRegistry {
 
     private final List<MaterialCuttingRule> rules;
 
-    public MaterialCuttingRule resolve(Order order, MaterialCuttingParsedOptionsDto parsedOptions) {
-        if (rules == null || rules.isEmpty()) {
-            throw new IllegalStateException("등록된 재단 규칙이 없습니다.");
-        }
-
+    public MaterialCuttingRule resolve(Order order, MaterialCuttingParsedOptionsDto options) {
         return rules.stream()
-                .filter(rule -> rule.supports(order, parsedOptions))
-                .sorted(Comparator.comparingInt(MaterialCuttingRule::getPriority).reversed())
+                .filter(rule -> rule.supports(order, options))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("적용 가능한 재단 규칙이 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("적용 가능한 자재재단 공식이 없습니다."));
+    }
+
+    public boolean canResolve(Order order, MaterialCuttingParsedOptionsDto options) {
+        return rules.stream().anyMatch(rule -> rule.supports(order, options));
     }
 }

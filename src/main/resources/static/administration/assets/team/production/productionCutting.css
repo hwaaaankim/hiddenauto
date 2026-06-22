@@ -40,7 +40,7 @@
 }
 
 .production-cutting-empty {
-    max-width: 720px;
+    max-width: 760px;
     margin: 80px auto;
     padding: 40px;
     text-align: center;
@@ -48,6 +48,7 @@
     border: 1px solid #d8dee8;
     border-radius: 8px;
     color: #64748b;
+    line-height: 1.6;
 }
 
 .cutting-sheet {
@@ -62,23 +63,23 @@
 }
 
 .cutting-sheet-header {
-    height: 18mm;
+    height: 16mm;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4mm 6mm;
+    padding: 3mm 5mm;
     border-bottom: 1px solid #111827;
 }
 
 .cutting-sheet-title {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 900;
     line-height: 1.1;
 }
 
 .cutting-sheet-subtitle {
     margin-top: 3px;
-    font-size: 11px;
+    font-size: 10.5px;
     color: #374151;
 }
 
@@ -86,8 +87,8 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 3px;
-    min-width: 52mm;
-    font-size: 11px;
+    min-width: 70mm;
+    font-size: 10px;
 }
 
 .cutting-sheet-meta > div {
@@ -102,32 +103,34 @@
 }
 
 .cutting-sheet-body {
-    height: calc(210mm - 18mm);
+    height: calc(210mm - 16mm);
     display: grid;
-    grid-template-columns: 88mm 1fr;
-    gap: 4mm;
-    padding: 4mm 5mm;
+    grid-template-columns: 82mm 1fr;
+    gap: 3mm;
+    padding: 3mm 4mm;
 }
 
 .cutting-sheet-info-column {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 3mm;
+    gap: 2.3mm;
     overflow: hidden;
 }
 
-.cutting-info-card {
+.cutting-info-card,
+.cutting-formula-box {
     border: 1px solid #cbd5e1;
     border-radius: 5px;
-    padding: 3mm;
+    padding: 2.5mm;
     background: #f8fafc;
     overflow: hidden;
 }
 
-.cutting-info-title {
-    margin-bottom: 2mm;
-    font-size: 12px;
+.cutting-info-title,
+.cutting-formula-title {
+    margin-bottom: 1.8mm;
+    font-size: 11px;
     font-weight: 900;
     color: #111827;
 }
@@ -135,7 +138,7 @@
 .cutting-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.7mm 3mm;
+    gap: 1.3mm 2.2mm;
 }
 
 .cutting-info-grid > div,
@@ -150,105 +153,62 @@
 .cutting-info-grid span,
 .cutting-option-line span {
     display: block;
-    font-size: 8.5px;
+    font-size: 7.8px;
     color: #64748b;
-    line-height: 1.15;
+    line-height: 1.1;
 }
 
 .cutting-info-grid strong,
 .cutting-option-line strong {
     display: block;
     margin-top: 1px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
     color: #111827;
-    line-height: 1.2;
+    line-height: 1.18;
     word-break: keep-all;
     overflow-wrap: anywhere;
 }
 
 .cutting-option-line {
-    margin-top: 2mm;
-    padding-top: 1.5mm;
+    margin-top: 1.6mm;
+    padding-top: 1.3mm;
     border-top: 1px dotted #cbd5e1;
+}
+
+.cutting-option-line-compact strong {
+    font-size: 8.5px;
+    line-height: 1.25;
 }
 
 .cutting-warning-box {
     border: 1px solid #f59e0b;
     border-radius: 5px;
     background: #fffbeb;
-    padding: 3mm;
-    font-size: 10px;
+    padding: 2.5mm;
+    font-size: 9px;
     color: #92400e;
 }
 
 .cutting-warning-title {
-    margin-bottom: 1.5mm;
+    margin-bottom: 1.2mm;
     font-weight: 900;
 }
 
-.cutting-warning-box ul {
-    margin: 0;
-    padding-left: 16px;
-}
-
-.cutting-formula-box {
-    border: 1px solid #cbd5e1;
-    border-radius: 5px;
-    background: #f8fafc;
-    padding: 3mm;
-    font-size: 9.5px;
-    line-height: 1.35;
-    color: #374151;
-    overflow: hidden;
-}
-
-.cutting-formula-title {
-    margin-bottom: 1.8mm;
-    font-size: 11px;
-    font-weight: 900;
-    color: #111827;
-}
-
-.cutting-formula-summary {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5mm 2mm;
-    margin-bottom: 2mm;
-    padding-bottom: 2mm;
-    border-bottom: 1px dotted #cbd5e1;
-}
-
-.cutting-formula-summary span {
-    display: block;
-    font-size: 8.5px;
-    color: #64748b;
-}
-
-.cutting-formula-summary strong {
-    display: block;
-    margin-top: 1px;
-    font-size: 9.5px;
-    font-weight: 900;
-    color: #111827;
-}
-
+.cutting-warning-box ul,
 .cutting-formula-list {
     margin: 0;
     padding-left: 14px;
 }
 
-.cutting-formula-list li {
-    margin-bottom: 1mm;
-    word-break: keep-all;
+.cutting-formula-box {
+    font-size: 8.5px;
+    line-height: 1.35;
+    color: #374151;
 }
 
-.cutting-formula-help {
-    margin-top: 2mm;
-    padding-top: 1.5mm;
-    border-top: 1px dotted #cbd5e1;
-    font-size: 8.5px;
-    color: #64748b;
+.cutting-formula-list li {
+    margin-bottom: 0.7mm;
     word-break: keep-all;
 }
 
@@ -261,14 +221,19 @@
 
 .cutting-panel-column-title {
     flex: 0 0 auto;
-    height: 7mm;
+    height: 6mm;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 1mm;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 900;
     color: #111827;
+}
+
+.cutting-panel-column-title span {
+    font-size: 9px;
+    color: #64748b;
 }
 
 .cutting-panel-grid {
@@ -276,9 +241,13 @@
     min-height: 0;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: 3mm;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 2mm;
     align-items: stretch;
+}
+
+.cutting-panel-grid-dynamic {
+    grid-template-rows: repeat(3, minmax(0, 1fr));
 }
 
 .cutting-panel-card {
@@ -298,29 +267,29 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 1.6mm 2.4mm;
+    padding: 1.1mm 1.8mm;
     border-bottom: 1px solid #111827;
     background: #f3f4f6;
 }
 
 .cutting-panel-head strong {
-    font-size: 11.5px;
+    font-size: 10px;
     font-weight: 900;
 }
 
 .cutting-panel-head span {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
     color: #374151;
 }
 
 .cutting-panel-stage {
     flex: 1 1 auto;
-    min-height: 38mm;
+    min-height: 22mm;
     display: flex;
     align-items: stretch;
     justify-content: stretch;
-    padding: 1.2mm;
+    padding: 0.8mm;
     overflow: visible;
 }
 
@@ -328,11 +297,11 @@
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: 38mm;
+    min-height: 22mm;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 5mm 7mm;
+    padding: 4mm 6mm;
     overflow: visible;
     box-sizing: border-box;
 
@@ -347,8 +316,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 30mm;
-    min-height: 16mm;
+    min-width: 20mm;
+    min-height: 10mm;
     border: 2px solid #111827;
     box-sizing: border-box;
     background:
@@ -361,21 +330,38 @@
 }
 
 .cutting-panel-face-tag {
-    padding: 1mm 1.5mm;
-    background: rgba(255, 255, 255, 0.9);
+    padding: 0.7mm 1mm;
+    background: rgba(255, 255, 255, 0.92);
     border: 1px solid #111827;
     border-radius: 3px;
-    font-size: 9px;
+    font-size: 7.8px;
     font-weight: 900;
     line-height: 1.1;
     white-space: nowrap;
+}
+
+.cutting-panel-no-drawing {
+    flex: 1 1 auto;
+    min-height: 22mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1mm;
+    color: #64748b;
+    font-size: 9px;
+}
+
+.cutting-panel-no-drawing strong {
+    font-size: 11px;
+    color: #111827;
 }
 
 .cutting-dimension {
     position: absolute;
     z-index: 5;
     color: #111827;
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 900;
     line-height: 1;
     pointer-events: none;
@@ -391,15 +377,9 @@
     overflow: visible;
 }
 
-/*
- * 윗변 치수
- *
- *   W 1870 mm
- * ------------
- */
 .cutting-dimension-top {
     left: var(--drawing-left);
-    top: calc(var(--drawing-top) - 8px);
+    top: calc(var(--drawing-top) - 7px);
     width: var(--drawing-width);
     height: 1px;
     border-top: 1px dashed #475569;
@@ -411,15 +391,9 @@
     transform: translateX(-50%);
 }
 
-/*
- * 밑변 치수
- *
- * ------------
- *   W 1870 mm
- */
 .cutting-dimension-bottom {
     left: var(--drawing-left);
-    top: calc(var(--drawing-top) + var(--drawing-height) + 8px);
+    top: calc(var(--drawing-top) + var(--drawing-height) + 7px);
     width: var(--drawing-width);
     height: 1px;
     border-top: 1px dashed #475569;
@@ -431,14 +405,8 @@
     transform: translateX(-50%);
 }
 
-/*
- * 좌측 세로 치수
- *
- * 세로 도면이 짧은 위판/아래판/전면판에서도
- * D/H 수치가 사라지지 않도록 writing-mode로 처리합니다.
- */
 .cutting-dimension-left {
-    left: calc(var(--drawing-left) - 9px);
+    left: calc(var(--drawing-left) - 8px);
     top: var(--drawing-top);
     width: 1px;
     height: var(--drawing-height);
@@ -454,14 +422,8 @@
     transform-origin: center;
 }
 
-/*
- * 우측 세로 치수
- *
- * 선은 도면 높이와 정확히 맞추고,
- * 수치는 선 오른쪽에 표시합니다.
- */
 .cutting-dimension-right {
-    left: calc(var(--drawing-left) + var(--drawing-width) + 9px);
+    left: calc(var(--drawing-left) + var(--drawing-width) + 8px);
     top: var(--drawing-top);
     width: 1px;
     height: var(--drawing-height);
@@ -477,9 +439,6 @@
     transform-origin: center;
 }
 
-/*
- * 꼭지점 장식 제거
- */
 .cutting-dimension-top::before,
 .cutting-dimension-top::after,
 .cutting-dimension-bottom::before,
@@ -496,7 +455,7 @@
     flex: 0 0 auto;
     border-top: 1px solid #111827;
     background: #f8fafc;
-    padding: 1.5mm 2mm 1.8mm;
+    padding: 1mm 1.5mm 1.2mm;
 }
 
 .cutting-panel-calc-row {
@@ -504,20 +463,20 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 2mm;
-    margin-bottom: 0.8mm;
+    margin-bottom: 0.5mm;
 }
 
 .cutting-panel-calc-row span,
 .cutting-panel-calc-note span {
     flex: 0 0 auto;
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 800;
     color: #64748b;
 }
 
 .cutting-panel-calc-row strong {
     min-width: 0;
-    font-size: 8.5px;
+    font-size: 7.5px;
     font-weight: 900;
     color: #111827;
     text-align: right;
@@ -525,20 +484,44 @@
 }
 
 .cutting-panel-calc-note {
-    margin-top: 1mm;
-    padding-top: 1mm;
+    margin-top: 0.7mm;
+    padding-top: 0.7mm;
     border-top: 1px dotted #cbd5e1;
 }
 
 .cutting-panel-calc-note strong {
     display: block;
-    margin-top: 0.8mm;
-    font-size: 8.2px;
+    margin-top: 0.5mm;
+    font-size: 7.2px;
     font-weight: 700;
-    line-height: 1.25;
+    line-height: 1.18;
     color: #374151;
     word-break: keep-all;
     overflow-wrap: anywhere;
+}
+
+.team-production-cutting-availability-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+    border-radius: 999px;
+    font-size: 10px;
+    vertical-align: middle;
+}
+
+.team-production-cutting-availability-icon.is-available {
+    color: #198754;
+    background: #e8f7ef;
+    border: 1px solid #a7dfbd;
+}
+
+.team-production-cutting-availability-icon.is-unavailable {
+    color: #9ca3af;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
 }
 
 @page {
