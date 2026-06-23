@@ -325,13 +325,13 @@
 													</td>
 
 													<td class="project_name">
-														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
+														<a th:href="@{'/management/clientDetail/' + ${order.task.requestedBy.company.id}}"
 															class="fw-medium link-primary"
 															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
 													</td>
 
 													<td class="client_name">
-														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
+														<a th:href="@{'/management/clientDetail/' + ${order.task.requestedBy.company.id}}"
 															th:text="${order.task.requestedBy.name}">신청자명</a>
 													</td>
 
