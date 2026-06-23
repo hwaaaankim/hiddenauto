@@ -48,7 +48,10 @@ apply_schema() {
     /schema/009_semantic_planner_override_patch.sql \
     /schema/010_pricing_rule_patch.sql \
     /schema/011_semantic_orchestrator_patch.sql \
-    /schema/012_dialog_core_patch.sql
+    /schema/012_dialog_core_patch.sql \
+    /schema/016_dynamic_nl_pricing_patch.sql \
+    /schema/017_gpt_final_answer_patch.sql \
+    /schema/018_working_memory_patch.sql
   do
     echo "----- ${db_name}: ${sql_file} -----"
     psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${db_name}" -f "${sql_file}"

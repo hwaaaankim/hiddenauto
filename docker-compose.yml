@@ -42,6 +42,9 @@ services:
       - ./db/schema_patch_20260619_pricing_rule.sql:/schema/010_pricing_rule_patch.sql:ro
       - ./db/schema_patch_20260619_semantic_orchestrator.sql:/schema/011_semantic_orchestrator_patch.sql:ro
       - ./db/schema_patch_20260619_dialog_core.sql:/schema/012_dialog_core_patch.sql:ro
+      - ./db/schema_patch_20260623_dynamic_nl_pricing.sql:/schema/016_dynamic_nl_pricing_patch.sql:ro
+      - ./db/schema_patch_20260623_gpt_final_answer.sql:/schema/017_gpt_final_answer_patch.sql:ro
+      - ./db/schema_patch_20260623_working_memory.sql:/schema/018_working_memory_patch.sql:ro
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ax_admin -d postgres"]

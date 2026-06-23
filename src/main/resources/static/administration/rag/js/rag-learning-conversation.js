@@ -4,7 +4,7 @@ let learningActiveJobTimer = null;
 let learningActiveJobId = null;
 
 const LEARNING_CONVERSATION_API = '/admin/rag/api/learning-conversation';
-const RAG_LEARNING_JS_VERSION = '20260619-dialog-core-v3';
+const RAG_LEARNING_JS_VERSION = '20260623-gpt-sql-agent-v1';
 
 const LEARNING_JOB_DONE = new Set(['COMPLETED', 'FAILED', 'CANCELED']);
 const LEARNING_JOB_POLL_INTERVAL_MS = 2500;
@@ -200,8 +200,12 @@ function renderLearningIntentResult(data) {
         intentType: data.intentType || data.intent,
         actionStatus: data.actionStatus,
         confidence: data.confidence,
+        agentRunId: data.agentRunId || null,
+        changeSetId: data.changeResult?.changeSetId || data.memory?.changeSetId || null,
+        sqlReadCount: Array.isArray(data.agentSqlResults) ? data.agentSqlResults.length : null,
         entityKey: data.entityKey || data.summary?.entityKey,
         counts: data.summary?.counts || null,
+        saveStatus: data.saveStatus || null,
         assets: data.assets || data.summary?.assets || []
     });
 }

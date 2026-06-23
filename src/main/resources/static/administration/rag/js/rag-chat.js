@@ -8,7 +8,7 @@ let currentMemory = null;
 let chatSelectedFiles = [];
 
 const AI_CHAT_API = '/admin/rag/api/ai-chat';
-const RAG_CHAT_JS_VERSION = '20260619-dialog-core-v3';
+const RAG_CHAT_JS_VERSION = '20260623-gpt-sql-agent-v1';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.info('[RAG_CHAT_JS] loaded', RAG_CHAT_JS_VERSION);
@@ -220,6 +220,9 @@ function renderChatIntent(data) {
         intentType: data.intentType || data.intent || null,
         actionStatus: data.actionStatus || null,
         confidence: data.confidence || null,
+        agentRunId: data.agentRunId || null,
+        changeSetId: data.changeResult?.changeSetId || data.memory?.changeSetId || null,
+        sqlReadCount: Array.isArray(data.agentSqlResults) ? data.agentSqlResults.length : null,
         entityKey: data.entityKey || data.summary?.entityKey || null,
         counts: data.summary?.counts || null,
         saveStatus: data.saveStatus || null,
