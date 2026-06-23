@@ -54,6 +54,12 @@ public class TeamTaskService {
 	private final AsTaskRepository asTaskRepository;
 	private final ObjectMapper objectMapper;
 	private final OrderCheckStatusRepository orderCheckStatusRepository;
+	private static final List<OrderStatus> PRODUCTION_LIST_VISIBLE_STATUSES = List.of(
+			OrderStatus.CONFIRMED,
+			OrderStatus.PRODUCTION_DONE,
+			OrderStatus.DISPATCH_DONE,
+			OrderStatus.DELIVERY_DONE
+	);
 
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
 	        Long categoryId,
@@ -66,7 +72,10 @@ public class TeamTaskService {
 	        Pageable pageable
 	) {
 	    boolean useCreated = "created".equalsIgnoreCase(dateType);
-	    boolean allStatus = (statusFilter == null);
+
+	    OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
+	    boolean allStatus = (effectiveStatusFilter == null);
+
 	    String normalizedSortDir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
 
 	    Page<Order> page;
@@ -76,7 +85,8 @@ public class TeamTaskService {
 	                categoryId,
 	                orderId,
 	                allStatus,
-	                statusFilter,
+	                effectiveStatusFilter,
+	                PRODUCTION_LIST_VISIBLE_STATUSES,
 	                start,
 	                end,
 	                normalizedSortDir,
@@ -87,7 +97,8 @@ public class TeamTaskService {
 	                categoryId,
 	                orderId,
 	                allStatus,
-	                statusFilter,
+	                effectiveStatusFilter,
+	                PRODUCTION_LIST_VISIBLE_STATUSES,
 	                start,
 	                end,
 	                normalizedSortDir,
@@ -212,19 +223,20 @@ public class TeamTaskService {
 	        LocalDateTime end,
 	        Pageable pageable
 	) {
-
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
-		boolean allStatus = (statusFilter == null);
 
-		// 정렬 유무와 상관없이 "Sort가 Pageable에 들어오면 자동 반영"되는 쿼리만 쓰도록 구성
-		// (Query 내부에 ORDER BY를 넣지 않는 방식)
+		OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
+		boolean allStatus = (effectiveStatusFilter == null);
+
 		Page<Order> page;
+
 		if (useCreated) {
 		    page = orderRepository.findProductionListByCreatedRangeStatusSortable(
 		            categoryId,
 		            orderId,
 		            allStatus,
-		            statusFilter,
+		            effectiveStatusFilter,
+		            PRODUCTION_LIST_VISIBLE_STATUSES,
 		            start,
 		            end,
 		            pageable
@@ -234,7 +246,8 @@ public class TeamTaskService {
 		            categoryId,
 		            orderId,
 		            allStatus,
-		            statusFilter,
+		            effectiveStatusFilter,
+		            PRODUCTION_LIST_VISIBLE_STATUSES,
 		            start,
 		            end,
 		            pageable
@@ -246,6 +259,20 @@ public class TeamTaskService {
 		return page;
 	}
 
+	private OrderStatus normalizeProductionListStatusFilter(OrderStatus statusFilter) {
+	    if (statusFilter == null) {
+	        return null;
+	    }
+
+	    if (PRODUCTION_LIST_VISIBLE_STATUSES.contains(statusFilter)) {
+	        return statusFilter;
+	    }
+
+	    // REQUESTED, CANCELED 등 생산목록에서 보여주면 안 되는 상태는 전체 조회로 돌리되,
+	    // Repository에서 visibleStatuses 4개로 한 번 더 제한합니다.
+	    return null;
+	}
+		
 	// ✅ 옵션 한줄 요약 세팅(공통화)
 	private void applySingleLineOptionSummary(Page<Order> page) {
 	    if (page == null || page.getContent() == null) {
@@ -1234,6 +1261,10 @@ public class TeamTaskService {
 
 	private boolean canAccessProductionOrder(Member member, Order order) {
 	    if (member == null || order == null) {
+	        return false;
+	    }
+
+	    if (order.getStatus() == null || !PRODUCTION_LIST_VISIBLE_STATUSES.contains(order.getStatus())) {
 	        return false;
 	    }
 

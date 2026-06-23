@@ -82,20 +82,25 @@
 									<label class="form-label">상태</label>
 									<select name="statusFilter" class="form-control w-100"
 										id="team-production-statusFilter">
+
 										<option value="CONFIRMED"
 											th:selected="${statusFilter == null or statusFilter == '' or statusFilter == 'CONFIRMED'}">
 											승인 완료
 										</option>
+
 										<option value="PRODUCTION_DONE"
 											th:selected="${statusFilter == 'PRODUCTION_DONE'}">
 											생산 완료
 										</option>
+
+										<option value="DISPATCH_DONE" th:selected="${statusFilter == 'DISPATCH_DONE'}">
+											출고 완료
+										</option>
+
 										<option value="DELIVERY_DONE" th:selected="${statusFilter == 'DELIVERY_DONE'}">
 											배송 완료
 										</option>
-										<option value="CANCELED" th:selected="${statusFilter == 'CANCELED'}">
-											취소
-										</option>
+
 										<option value="ALL" th:selected="${statusFilter == 'ALL'}">
 											전체
 										</option>
@@ -170,7 +175,8 @@
 					<!-- 권한/제어 플래그 -->
 					<input type="hidden" id="team-production-can-bulk-complete" th:value="${canBulkComplete}">
 
-					<input type="hidden" id="team-production-selected-category-id" th:value="${targetProductCategoryId}">
+					<input type="hidden" id="team-production-selected-category-id"
+						th:value="${targetProductCategoryId}">
 
 					<!-- ===== 테이블 ===== -->
 					<div class="card">

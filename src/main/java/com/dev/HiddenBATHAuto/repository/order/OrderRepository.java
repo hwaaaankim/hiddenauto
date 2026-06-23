@@ -590,15 +590,21 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:orderId IS NULL OR o.id = :orderId)
-			      AND o.status <> 'REQUESTED'
+			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
 			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
 			""")
-	Page<Order> findProductionListByPreferredRangeStatusSortable(@Param("categoryId") Long categoryId,
-			@Param("orderId") Long orderId, @Param("allStatus") boolean allStatus,
-			@Param("statusFilter") OrderStatus statusFilter, @Param("start") LocalDateTime start,
-			@Param("end") LocalDateTime end, Pageable pageable);
+	Page<Order> findProductionListByPreferredRangeStatusSortable(
+			@Param("categoryId") Long categoryId,
+			@Param("orderId") Long orderId,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
 
 	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
 			"task.requestedBy.company", "checkStatus" })
@@ -606,15 +612,21 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:orderId IS NULL OR o.id = :orderId)
-			      AND o.status <> 'REQUESTED'
+			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.createdAt >= :start)
 			      AND (:end IS NULL OR o.createdAt < :end)
 			""")
-	Page<Order> findProductionListByCreatedRangeStatusSortable(@Param("categoryId") Long categoryId,
-			@Param("orderId") Long orderId, @Param("allStatus") boolean allStatus,
-			@Param("statusFilter") OrderStatus statusFilter, @Param("start") LocalDateTime start,
-			@Param("end") LocalDateTime end, Pageable pageable);
+	Page<Order> findProductionListByCreatedRangeStatusSortable(
+			@Param("categoryId") Long categoryId,
+			@Param("orderId") Long orderId,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
 
 	// =========================
 	// 생산팀 목록 - 체크 상태 정렬
@@ -633,7 +645,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    LEFT JOIN o.checkStatus cs
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:orderId IS NULL OR o.id = :orderId)
-			      AND o.status <> 'REQUESTED'
+			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
 			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
@@ -656,15 +668,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    LEFT JOIN o.checkStatus cs
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:orderId IS NULL OR o.id = :orderId)
-			      AND o.status <> 'REQUESTED'
+			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
 			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
 			""")
-	Page<Order> findProductionListByPreferredRangeStatusCheckSorted(@Param("categoryId") Long categoryId,
-			@Param("orderId") Long orderId, @Param("allStatus") boolean allStatus,
-			@Param("statusFilter") OrderStatus statusFilter, @Param("start") LocalDateTime start,
-			@Param("end") LocalDateTime end, @Param("sortDir") String sortDir, Pageable pageable);
+	Page<Order> findProductionListByPreferredRangeStatusCheckSorted(
+			@Param("categoryId") Long categoryId,
+			@Param("orderId") Long orderId,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			@Param("sortDir") String sortDir,
+			Pageable pageable
+	);
 
 	@EntityGraph(attributePaths = {
 	        "orderItem",
@@ -680,7 +699,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	            LEFT JOIN o.checkStatus cs
 	            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 	              AND (:orderId IS NULL OR o.id = :orderId)
-	              AND o.status <> 'REQUESTED'
+	              AND o.status IN :visibleStatuses
 	              AND (:allStatus = true OR o.status = :statusFilter)
 	              AND (:start IS NULL OR o.createdAt >= :start)
 	              AND (:end IS NULL OR o.createdAt < :end)
@@ -703,7 +722,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	            LEFT JOIN o.checkStatus cs
 	            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 	              AND (:orderId IS NULL OR o.id = :orderId)
-	              AND o.status <> 'REQUESTED'
+	              AND o.status IN :visibleStatuses
 	              AND (:allStatus = true OR o.status = :statusFilter)
 	              AND (:start IS NULL OR o.createdAt >= :start)
 	              AND (:end IS NULL OR o.createdAt < :end)
@@ -713,6 +732,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	        @Param("orderId") Long orderId,
 	        @Param("allStatus") boolean allStatus,
 	        @Param("statusFilter") OrderStatus statusFilter,
+	        @Param("visibleStatuses") List<OrderStatus> visibleStatuses,
 	        @Param("start") LocalDateTime start,
 	        @Param("end") LocalDateTime end,
 	        @Param("sortDir") String sortDir,

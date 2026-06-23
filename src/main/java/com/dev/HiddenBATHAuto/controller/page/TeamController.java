@@ -113,6 +113,21 @@ public class TeamController {
 
 	private static final Long AS_TEAM_ID = 4L;
 
+	private static final List<OrderStatus> PRODUCTION_LIST_VISIBLE_STATUSES = List.of(
+			OrderStatus.CONFIRMED,
+			OrderStatus.PRODUCTION_DONE,
+			OrderStatus.DISPATCH_DONE,
+			OrderStatus.DELIVERY_DONE
+	);
+
+	private static final List<String> PRODUCTION_LIST_ALLOWED_STATUS_FILTERS = List.of(
+			"ALL",
+			"CONFIRMED",
+			"PRODUCTION_DONE",
+			"DISPATCH_DONE",
+			"DELIVERY_DONE"
+	);
+
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false) Long productCategoryId, @RequestParam(required = false) String orderId,
@@ -167,29 +182,8 @@ public class TeamController {
 			page = 0;
 		}
 
-		String sf = (statusFilter == null || statusFilter.isBlank())
-		        ? "CONFIRMED"
-		        : statusFilter.trim().toUpperCase();
-
-		OrderStatus statusEnum = null;
-
-		if (!"ALL".equals(sf)) {
-		    try {
-		        OrderStatus parsedStatus = OrderStatus.valueOf(sf);
-
-		        // 생산팀 리스트에서는 컨펌 전 고객 발주 상태를 조회할 수 없게 막습니다.
-		        if (parsedStatus == OrderStatus.REQUESTED) {
-		            parsedStatus = OrderStatus.CONFIRMED;
-		            sf = "CONFIRMED";
-		        }
-
-		        statusEnum = parsedStatus;
-
-		    } catch (Exception e) {
-		        statusEnum = OrderStatus.CONFIRMED;
-		        sf = "CONFIRMED";
-		    }
-		}
+		String sf = normalizeProductionListStatusFilter(statusFilter);
+		OrderStatus statusEnum = parseProductionListStatusFilter(sf);
 
 		String normalizedSortKey = (sortKey == null || sortKey.isBlank()) ? "checked" : sortKey.trim();
 
@@ -304,6 +298,43 @@ public class TeamController {
 		return "administration/team/production/productionList";
 	}
 
+	private String normalizeProductionListStatusFilter(String rawStatusFilter) {
+		if (!StringUtils.hasText(rawStatusFilter)) {
+			return "CONFIRMED";
+		}
+
+		String normalized = rawStatusFilter.trim().toUpperCase(Locale.ROOT);
+
+		if (!PRODUCTION_LIST_ALLOWED_STATUS_FILTERS.contains(normalized)) {
+			return "CONFIRMED";
+		}
+
+		return normalized;
+	}
+
+	private OrderStatus parseProductionListStatusFilter(String normalizedStatusFilter) {
+		if (!StringUtils.hasText(normalizedStatusFilter) || "ALL".equals(normalizedStatusFilter)) {
+			return null;
+		}
+
+		try {
+			OrderStatus parsed = OrderStatus.valueOf(normalizedStatusFilter);
+
+			if (!isProductionListVisibleStatus(parsed)) {
+				return OrderStatus.CONFIRMED;
+			}
+
+			return parsed;
+
+		} catch (IllegalArgumentException e) {
+			return OrderStatus.CONFIRMED;
+		}
+	}
+
+	private boolean isProductionListVisibleStatus(OrderStatus status) {
+		return status != null && PRODUCTION_LIST_VISIBLE_STATUSES.contains(status);
+	}
+	
 	private Long parsePositiveLongOrNull(String value) {
 		if (!StringUtils.hasText(value)) {
 			return null;
@@ -517,7 +548,11 @@ public class TeamController {
 
 		// 3. 주문 조회
 		Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
-
+		
+		if (!isProductionListVisibleStatus(order.getStatus())) {
+			throw new AccessDeniedException("생산팀에서 조회할 수 없는 주문 상태입니다.");
+		}
+		
 		// 4. 상세 진입 시 확인 처리
 		teamTaskService.markProductionOrderChecked(orderId, loginMember);
 
