@@ -65,6 +65,11 @@
 														th:text="${bulkOrderCount}">0</span>
 												</button>
 
+												<button type="button" class="btn btn-warning"
+													id="task-list-bulk-confirm-btn" disabled>
+													<i class="fa-solid fa-circle-check"></i> 일괄 컨펌
+												</button>
+
 												<a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
                                                     dateCriteria=${dateCriteria},
@@ -480,12 +485,16 @@
 													<tr class="admin-task-list-second-main-row"
 														th:classappend="${row.revisedAfterCheck} ? ' admin-task-list-second-row-revised' : ''"
 														th:attr="data-order-id=${row.orderId},
-														         data-check-state=${row.checkStateName}">
+														         data-check-state=${row.checkStateName},
+														         data-order-status=${row.statusName},
+														         data-order-status-label=${row.statusLabel}">
 														<td class="text-center">
 															<div class="form-check d-flex justify-content-center m-0">
 																<input class="form-check-input task-list-order-checkbox"
 																	type="checkbox" th:value="${row.orderId}"
-																	th:attr="data-task-id=${row.taskId}">
+																	th:attr="data-task-id=${row.taskId},
+																		         data-order-status=${row.statusName},
+																		         data-order-status-label=${row.statusLabel}">
 															</div>
 														</td>
 

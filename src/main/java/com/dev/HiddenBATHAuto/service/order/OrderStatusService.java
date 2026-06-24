@@ -3,12 +3,19 @@ package com.dev.HiddenBATHAuto.service.order;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
@@ -24,7 +31,58 @@ public class OrderStatusService {
 
 	private final OrderRepository orderRepository;
 
-	
+	@Transactional
+	public int bulkConfirmRequestedOrders(List<Long> orderIds) {
+		if (orderIds == null || orderIds.isEmpty()) {
+			throw new IllegalArgumentException("컨펌 처리할 오더를 하나 이상 선택해 주세요.");
+		}
+
+		List<Long> normalizedOrderIds = orderIds.stream()
+				.filter(Objects::nonNull)
+				.map(Long::valueOf)
+				.collect(Collectors.collectingAndThen(
+						Collectors.toCollection(LinkedHashSet::new),
+						List::copyOf
+				));
+
+		if (normalizedOrderIds.isEmpty()) {
+			throw new IllegalArgumentException("컨펌 처리할 오더를 하나 이상 선택해 주세요.");
+		}
+
+		List<Order> orders = orderRepository.findAllByIdInForBulkConfirm(normalizedOrderIds);
+		Map<Long, Order> orderMap = orders.stream()
+				.collect(Collectors.toMap(Order::getId, Function.identity()));
+
+		Set<Long> foundOrderIds = orderMap.keySet();
+		Long missingOrderId = normalizedOrderIds.stream()
+				.filter(id -> !foundOrderIds.contains(id))
+				.findFirst()
+				.orElse(null);
+
+		if (missingOrderId != null) {
+			throw new IllegalArgumentException(missingOrderId + "번 오더를 찾을 수 없습니다. 목록을 새로고침 후 다시 시도해 주세요.");
+		}
+
+		for (Long orderId : normalizedOrderIds) {
+			Order order = orderMap.get(orderId);
+			OrderStatus currentStatus = order.getStatus();
+
+			if (currentStatus != OrderStatus.REQUESTED) {
+				String statusLabel = currentStatus != null ? currentStatus.getLabel() : "상태없음";
+				throw new IllegalStateException(orderId + "번 오더는 현재 '" + statusLabel
+						+ "' 상태입니다. 고객 발주 상태만 일괄 컨펌할 수 있으니 해당 오더 체크를 해제 후 다시 시도해 주세요.");
+			}
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		orders.forEach(order -> {
+			order.setStatus(OrderStatus.CONFIRMED);
+			order.setUpdatedAt(now);
+		});
+
+		return orders.size();
+	}
+
 	public Page<Order> getOrders(
             LocalDateTime start,
             LocalDateTime end,

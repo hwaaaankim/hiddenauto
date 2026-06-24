@@ -1,3 +1,4 @@
+/* taskList.js */
 document.addEventListener("DOMContentLoaded", function() {
 	"use strict";
 
@@ -9,9 +10,12 @@ document.addEventListener("DOMContentLoaded", function() {
 	const checkAllBox = document.getElementById("task-list-check-all");
 	const deleteTasksBtn = document.getElementById("task-list-delete-tasks-btn");
 	const deleteOrdersBtn = document.getElementById("task-list-delete-orders-btn");
+	const bulkConfirmBtn = document.getElementById("task-list-bulk-confirm-btn");
 
-	const csrfToken = document.getElementById("admin-task-list-second-csrf-token")?.value;
-	const csrfHeader = document.getElementById("admin-task-list-second-csrf-header")?.value;
+	const csrfToken = document.getElementById("admin-task-list-second-csrf-token")?.value
+		|| document.querySelector('meta[name="_csrf"]')?.getAttribute("content");
+	const csrfHeader = document.getElementById("admin-task-list-second-csrf-header")?.value
+		|| document.querySelector('meta[name="_csrf_header"]')?.getAttribute("content");
 
 	const bulkOpenBtn = document.getElementById("admin-task-list-second-bulk-open-btn");
 	const bulkModal = document.getElementById("admin-task-list-second-bulk-modal");
@@ -66,11 +70,24 @@ document.addEventListener("DOMContentLoaded", function() {
 		return Array.from(document.querySelectorAll(".task-list-order-checkbox"));
 	}
 
-	function getSelectedOrderIds() {
+	function getSelectedOrderItems() {
 		return getOrderCheckboxes()
 			.filter(checkbox => checkbox.checked)
-			.map(checkbox => Number(checkbox.value))
-			.filter(id => !Number.isNaN(id));
+			.map(checkbox => {
+				const row = checkbox.closest(".admin-task-list-second-main-row");
+				const orderId = Number(checkbox.value);
+
+				return {
+					orderId,
+					statusName: checkbox.dataset.orderStatus || row?.dataset.orderStatus || "",
+					statusLabel: checkbox.dataset.orderStatusLabel || row?.dataset.orderStatusLabel || ""
+				};
+			})
+			.filter(item => !Number.isNaN(item.orderId));
+	}
+
+	function getSelectedOrderIds() {
+		return getSelectedOrderItems().map(item => item.orderId);
 	}
 
 	function updateDateInputs() {
@@ -96,6 +113,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		if (deleteOrdersBtn) {
 			deleteOrdersBtn.disabled = checkedCount === 0;
+		}
+
+		if (bulkConfirmBtn) {
+			bulkConfirmBtn.disabled = checkedCount === 0;
 		}
 
 		if (checkAllBox) {
@@ -168,6 +189,89 @@ document.addEventListener("DOMContentLoaded", function() {
 			alert(error.message || "삭제 처리 중 오류가 발생했습니다.");
 		} finally {
 			setDeleteButtonsBusy(false);
+			updateBulkButtons();
+		}
+	}
+
+	function findFirstNotRequestedSelectedOrder() {
+		return getSelectedOrderItems().find(item => {
+			if (!item.statusName) {
+				return false;
+			}
+
+			return item.statusName !== "REQUESTED";
+		});
+	}
+
+	function setBulkConfirmBusy(isBusy) {
+		if (!bulkConfirmBtn) {
+			return;
+		}
+
+		const selectedCount = getSelectedOrderIds().length;
+
+		bulkConfirmBtn.disabled = isBusy || selectedCount === 0;
+
+		if (isBusy) {
+			if (!bulkConfirmBtn.dataset.originalText) {
+				bulkConfirmBtn.dataset.originalText = bulkConfirmBtn.innerHTML;
+			}
+			bulkConfirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 컨펌중';
+			return;
+		}
+
+		if (bulkConfirmBtn.dataset.originalText) {
+			bulkConfirmBtn.innerHTML = bulkConfirmBtn.dataset.originalText;
+			bulkConfirmBtn.dataset.originalText = "";
+		}
+	}
+
+	async function bulkConfirmSelectedOrders() {
+		const selectedOrderIds = getSelectedOrderIds();
+
+		if (selectedOrderIds.length === 0) {
+			alert("컨펌 처리할 주문을 하나 이상 선택해 주세요.");
+			return;
+		}
+
+		const blockedOrder = findFirstNotRequestedSelectedOrder();
+		if (blockedOrder) {
+			const label = blockedOrder.statusLabel || blockedOrder.statusName || "고객 발주가 아닌 상태";
+			alert(blockedOrder.orderId + "번 오더는 현재 '" + label + "' 상태입니다.\n고객 발주 상태만 일괄 컨펌할 수 있으니 해당 오더 체크를 해제 후 다시 시도해 주세요.");
+			return;
+		}
+
+		if (!confirm(selectedOrderIds.length + "건을 승인완료로 변경하시겠습니까?")) {
+			return;
+		}
+
+		try {
+			setBulkConfirmBusy(true);
+
+			const response = await fetch("/management/api/non-standard-task-list-second/bulk-confirm", {
+				method: "POST",
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({ orderIds: selectedOrderIds })
+			});
+
+			let data = null;
+			try {
+				data = await response.json();
+			} catch (e) {
+				data = null;
+			}
+
+			if (!response.ok || !data || data.success !== true) {
+				throw new Error(data?.message || "일괄 컨펌 처리 중 오류가 발생했습니다.");
+			}
+
+			alert(data.message || "일괄 컨펌이 완료되었습니다.");
+			showPageLoading("목록을 다시 불러오는 중입니다.");
+			window.location.reload();
+		} catch (error) {
+			alert(error.message || "일괄 컨펌 처리 중 오류가 발생했습니다.");
+		} finally {
+			setBulkConfirmBusy(false);
 			updateBulkButtons();
 		}
 	}
@@ -680,6 +784,10 @@ document.addEventListener("DOMContentLoaded", function() {
 					"선택한 주문만 삭제됩니다.\n\n삭제 후 태스크에 남은 주문이 하나도 없으면 태스크도 자동 삭제됩니다.\n\n계속 진행하시겠습니까?"
 				);
 			});
+		}
+
+		if (bulkConfirmBtn) {
+			bulkConfirmBtn.addEventListener("click", bulkConfirmSelectedOrders);
 		}
 
 		document.addEventListener("click", function(event) {

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,9 +22,20 @@ import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 
+import jakarta.persistence.LockModeType;
+
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+	// OrderRepository 인터페이스 내부에 추가
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+	            SELECT o
+	            FROM Order o
+	            WHERE o.id IN :orderIds
+	        """)
+	List<Order> findAllByIdInForBulkConfirm(@Param("orderIds") Collection<Long> orderIds);
+	
 	@Query("""
 			    select distinct o
 			    from Order o
