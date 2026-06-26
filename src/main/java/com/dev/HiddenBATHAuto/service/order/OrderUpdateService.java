@@ -145,7 +145,8 @@ public class OrderUpdateService {
 	}
 
 	/**
-	 * 현장주소까지 함께 수정하는 실제 처리 메서드입니다.
+	 * 현장주소까지 함께 수정하는 기존 호출부 보호용 메서드입니다.
+	 * 거울 재단 상품 여부는 기존 DB 값을 유지합니다.
 	 */
 	@Transactional
 	public void updateOrder(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
@@ -157,6 +158,29 @@ public class OrderUpdateService {
 			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
 			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
 			String updatedByUsername) {
+		Order order = getOrderOrThrow(orderId);
+
+		updateOrder(orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
+				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
+				requesterMemberId, zipCode, doName, siName, guName, roadAddress, detailAddress, siteZipCode,
+				siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress, ordererName, ordererPhone,
+				optionJson, deleteAdminImageIds, adminImages, adminMemo, dispatchCompleteMessage,
+				dispatchCompleteMessageSubmitted, updatedByUsername, order.isMirrorCuttingProduct());
+	}
+
+	/**
+	 * 현장주소와 거울 재단 상품 여부까지 함께 수정하는 실제 처리 메서드입니다.
+	 */
+	@Transactional
+	public void updateOrder(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
+			int packingCost, int deliveryCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String siteZipCode, String siteDoName,
+			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress, String ordererName,
+			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
+			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
+			String updatedByUsername, boolean mirrorCuttingProduct) {
 		Order order = getOrderOrThrow(orderId);
 
 		ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
@@ -171,6 +195,7 @@ public class OrderUpdateService {
 		order.setTotalAmount(moneySnapshot.totalAmount());
 		order.setPackingCost(nonNegative(packingCost, "포장비"));
 		order.setDeliveryCost(nonNegative(deliveryCost, "배송비"));
+		order.setMirrorCuttingProduct(mirrorCuttingProduct);
 
 		if (order.getOrderItem() != null) {
 			order.getOrderItem().setQuantity(moneySnapshot.quantity());
@@ -349,6 +374,8 @@ public class OrderUpdateService {
 			reasons.add("발주상태");
 		if (!Objects.equals(before.productCategoryId(), after.productCategoryId()))
 			reasons.add("생산팀 카테고리");
+		if (before.mirrorCuttingProduct() != after.mirrorCuttingProduct())
+			reasons.add("거울 재단 상품 여부");
 		if (!Objects.equals(before.preferredDeliveryDate(), after.preferredDeliveryDate()))
 			reasons.add("배송희망일");
 		if (!Objects.equals(before.deliveryMethodId(), after.deliveryMethodId()))
@@ -378,11 +405,12 @@ public class OrderUpdateService {
 	}
 
 	private record ProductionVisibleOrderSnapshot(String statusName, Long productCategoryId,
-			String preferredDeliveryDate, Long deliveryMethodId, Long assignedDeliveryHandlerId, String deliveryAddress,
-			String siteAddress, int quantity, String adminMemo, String optionJson, String orderItemProductName) {
+			boolean mirrorCuttingProduct, String preferredDeliveryDate, Long deliveryMethodId,
+			Long assignedDeliveryHandlerId, String deliveryAddress, String siteAddress, int quantity, String adminMemo,
+			String optionJson, String orderItemProductName) {
 		static ProductionVisibleOrderSnapshot from(Order order) {
 			if (order == null) {
-				return new ProductionVisibleOrderSnapshot(null, null, null, null, null, null, null, 0, null, null,
+				return new ProductionVisibleOrderSnapshot(null, null, false, null, null, null, null, null, 0, null, null,
 						null);
 			}
 
@@ -390,6 +418,7 @@ public class OrderUpdateService {
 
 			return new ProductionVisibleOrderSnapshot(order.getStatus() != null ? order.getStatus().name() : null,
 					order.getProductCategory() != null ? order.getProductCategory().getId() : null,
+					order.isMirrorCuttingProduct(),
 					order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : null,
 					order.getDeliveryMethod() != null ? order.getDeliveryMethod().getId() : null,
 					order.getAssignedDeliveryHandler() != null ? order.getAssignedDeliveryHandler().getId() : null,

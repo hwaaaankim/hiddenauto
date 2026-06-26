@@ -1,3 +1,4 @@
+/* productOrderAdd.js */
 (function() {
 	'use strict';
 
@@ -1706,6 +1707,7 @@
 			productName: '',
 			productSize: '',
 			productColor: '',
+			mirrorCuttingProduct: false,
 			optionDraft: '',
 			optionPairs: [],
 
@@ -2036,7 +2038,34 @@
             <div class="col-12">
                 <div class="product-admin-add-section-box">
                     <div class="product-admin-add-section-title">
+
                         <h6>제품 정보 / 옵션 입력</h6>
+
+
+                        <div class="form-check form-switch mb-0">
+
+                            <input type="checkbox"
+
+                                class="form-check-input"
+
+                                id="product-admin-add-mirror-cutting-${order.id}"
+
+                                data-field="mirrorCuttingProduct"
+
+                                data-order-id="${order.id}"
+
+                                ${order.mirrorCuttingProduct ? 'checked' : ''}>
+
+                            <label class="form-check-label product-admin-add-label mb-0"
+
+                                for="product-admin-add-mirror-cutting-${order.id}">
+
+                                거울재단용
+
+                            </label>
+
+                        </div>
+
                     </div>
 
                     <div class="product-admin-add-option-help">
@@ -2393,6 +2422,12 @@
 		const order = findOrder(orderId);
 
 		if (!order) {
+			return;
+		}
+
+		if (target.matches('[data-field="mirrorCuttingProduct"]')) {
+			order.mirrorCuttingProduct = Boolean(target.checked);
+			hideTopMessage();
 			return;
 		}
 
@@ -3422,6 +3457,10 @@
 				? `${seriesLabel} / 생산팀: ${order.assignedProductionCategoryName || '-'}`
 				: `생산팀 분류: ${order.customProductionCategoryName || '-'}`;
 
+			const mirrorCuttingLabel = order.mirrorCuttingProduct
+				? '거울재단용 직접 지정'
+				: '자동판정 대상';
+
 			return `
                 <tr>
                     <td>${index + 1}</td>
@@ -3810,6 +3849,7 @@
 					productName: (order.productName || '').trim(),
 					productSize: (order.productSize || '').trim(),
 					productColor: (order.productColor || '').trim(),
+					mirrorCuttingProduct: Boolean(order.mirrorCuttingProduct),
 
 					productCost: toNumber(order.productCost),
 					quantity: toNumber(order.quantity),

@@ -601,6 +601,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	@Query("""
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -609,6 +610,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			""")
 	Page<Order> findProductionListByPreferredRangeStatusSortable(
 			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
@@ -623,6 +625,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	@Query("""
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -631,6 +634,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			""")
 	Page<Order> findProductionListByCreatedRangeStatusSortable(
 			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
@@ -656,6 +660,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    FROM Order o
 			    LEFT JOIN o.checkStatus cs
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -679,6 +684,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    FROM Order o
 			    LEFT JOIN o.checkStatus cs
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -687,6 +693,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			""")
 	Page<Order> findProductionListByPreferredRangeStatusCheckSorted(
 			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
@@ -710,6 +717,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	            FROM Order o
 	            LEFT JOIN o.checkStatus cs
 	            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+	              AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 	              AND (:orderId IS NULL OR o.id = :orderId)
 	              AND o.status IN :visibleStatuses
 	              AND (:allStatus = true OR o.status = :statusFilter)
@@ -733,6 +741,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	            FROM Order o
 	            LEFT JOIN o.checkStatus cs
 	            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+	              AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 	              AND (:orderId IS NULL OR o.id = :orderId)
 	              AND o.status IN :visibleStatuses
 	              AND (:allStatus = true OR o.status = :statusFilter)
@@ -741,6 +750,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	        """)
 	Page<Order> findProductionListByCreatedRangeStatusCheckSorted(
 	        @Param("categoryId") Long categoryId,
+	        @Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 	        @Param("orderId") Long orderId,
 	        @Param("allStatus") boolean allStatus,
 	        @Param("statusFilter") OrderStatus statusFilter,

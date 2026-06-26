@@ -110,10 +110,11 @@
 								<div class="col-lg-1 col-xl-1">
 									<label class="form-label">표시</label>
 									<select name="size" class="form-control w-100" id="team-production-size">
-										<option value="10" th:selected="${size == 10}">10</option>
-										<option value="30" th:selected="${size == 30}">30</option>
-										<option value="50" th:selected="${size == 50}">50</option>
 										<option value="100" th:selected="${size == 100}">100</option>
+										<option value="200" th:selected="${size == 200}">200</option>
+										<option value="300" th:selected="${size == 300}">300</option>
+										<option value="400" th:selected="${size == 400}">400</option>
+										<option value="500" th:selected="${size == 500}">500</option>
 									</select>
 								</div>
 
@@ -181,6 +182,16 @@
 					<!-- ===== 테이블 ===== -->
 					<div class="card">
 						<div class="card-body">
+							<div class="team-production-date-summary d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+								<div class="team-production-date-summary-title">
+									현재 조회 날짜
+								</div>
+								<div class="team-production-date-summary-value"
+									th:text="${productionDateRangeLabel != null ? productionDateRangeLabel : '-'}">
+									-
+								</div>
+							</div>
+
 							<div class="table-responsive">
 								<table class="table table-hover align-middle mb-0 team-production-table"
 									id="team-production-table">
@@ -191,10 +202,11 @@
 										<col style="width:8%;">
 										<col style="width:12%;">
 										<col style="width:4%;">
-										<col style="width:39%;">
+										<col style="width:30%;">
 										<col style="width:7%;">
+										<col style="width:8%;">
 										<col style="width:5%;">
-										<col style="width:5%;">
+										<col style="width:6%;">
 										<col style="width:2%;">
 									</colgroup>
 
@@ -216,7 +228,19 @@
 											<th class="team-production-th">제품색상</th>
 											<th class="team-production-th">제품사이즈</th>
 											<th class="team-production-th text-center">수량</th>
-											<th class="team-production-th">남김말</th>
+											<th class="team-production-th">비고</th>
+
+											<th class="team-production-th text-center">
+												<div class="d-inline-flex align-items-center justify-content-center gap-1">
+													<span>배송일</span>
+													<button type="button"
+														class="btn btn-sm btn-link p-0 team-production-sort-btn"
+														data-sort-key="deliveryDate" aria-label="배송일 정렬">
+														<span class="team-production-sort-icon">▲▼</span>
+													</button>
+												</div>
+											</th>
+
 											<th class="team-production-th">카테고리</th>
 
 											<th class="team-production-th text-center">
@@ -231,7 +255,7 @@
 												</div>
 											</th>
 
-											<th class="team-production-th text-center">비고</th>
+											<th class="team-production-th text-center">관리</th>
 
 											<th class="team-production-th text-center">
 												<input type="checkbox" id="team-production-check-all">
@@ -241,7 +265,7 @@
 
 									<tbody id="team-production-tbody">
 										<tr th:if="${orders == null or orders.size() == 0}">
-											<td colspan="10" class="text-center text-muted py-5">
+											<td colspan="11" class="text-center text-muted py-5">
 												조회된 생산 주문이 없습니다.
 											</td>
 										</tr>
@@ -322,6 +346,14 @@
 													</div>
 												</td>
 
+												<td class="team-production-td text-center team-production-delivery-date-td">
+													<span class="team-production-delivery-date"
+														th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yy/MM/dd') : '-'}"
+														th:title="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+														-
+													</span>
+												</td>
+
 												<td class="team-production-td">
 													<div class="team-production-compact-text"
 														th:text="${order.orderItem != null and order.orderItem.productionCategory != null and order.orderItem.productionCategory != '' ? order.orderItem.productionCategory : '-'}"
@@ -373,7 +405,7 @@
 
 											<tr class="team-production-detail-row"
 												th:attr="data-detail-order-id=${order.id}" style="display:none;">
-												<td colspan="10" class="team-production-detail-td">
+												<td colspan="11" class="team-production-detail-td">
 													<div class="team-production-inline-detail-shell">
 														<div class="team-production-inline-detail-content">
 															상세 정보를 불러오지 않았습니다.
@@ -845,6 +877,33 @@
 			background: #f3f4f6;
 			border: 1px solid #d1d5db;
 		}
+
+		.team-production-date-summary {
+			padding: 10px 14px;
+			border: 1px solid #e5e7eb;
+			border-radius: 8px;
+			background: #f8fafc;
+		}
+
+		.team-production-date-summary-title {
+			font-size: 13px;
+			font-weight: 700;
+			color: #374151;
+		}
+
+		.team-production-date-summary-value {
+			font-size: 14px;
+			font-weight: 800;
+			color: #111827;
+		}
+
+		.team-production-delivery-date {
+			display: inline-block;
+			min-width: 62px;
+			font-weight: 700;
+			white-space: nowrap;
+		}
+
 	</style>
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>

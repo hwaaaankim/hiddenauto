@@ -61,6 +61,9 @@ public class TeamTaskService {
 			OrderStatus.DELIVERY_DONE
 	);
 
+	private static final Long MIRROR_CUTTING_TEAM_CATEGORY_ID = 14L;
+	private static final String MIRROR_CUTTING_TEAM_CATEGORY_NAME = "재단(거울)";
+
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
 	        Long categoryId,
 	        Long orderId,
@@ -69,6 +72,7 @@ public class TeamTaskService {
 	        LocalDateTime start,
 	        LocalDateTime end,
 	        String sortDir,
+	        boolean mirrorCuttingOnly,
 	        Pageable pageable
 	) {
 	    boolean useCreated = "created".equalsIgnoreCase(dateType);
@@ -83,6 +87,7 @@ public class TeamTaskService {
 	    if (useCreated) {
 	        page = orderRepository.findProductionListByCreatedRangeStatusCheckSorted(
 	                categoryId,
+	                mirrorCuttingOnly,
 	                orderId,
 	                allStatus,
 	                effectiveStatusFilter,
@@ -95,6 +100,7 @@ public class TeamTaskService {
 	    } else {
 	        page = orderRepository.findProductionListByPreferredRangeStatusCheckSorted(
 	                categoryId,
+	                mirrorCuttingOnly,
 	                orderId,
 	                allStatus,
 	                effectiveStatusFilter,
@@ -221,6 +227,7 @@ public class TeamTaskService {
 	        OrderStatus statusFilter,
 	        LocalDateTime start,
 	        LocalDateTime end,
+	        boolean mirrorCuttingOnly,
 	        Pageable pageable
 	) {
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
@@ -233,6 +240,7 @@ public class TeamTaskService {
 		if (useCreated) {
 		    page = orderRepository.findProductionListByCreatedRangeStatusSortable(
 		            categoryId,
+		            mirrorCuttingOnly,
 		            orderId,
 		            allStatus,
 		            effectiveStatusFilter,
@@ -244,6 +252,7 @@ public class TeamTaskService {
 		} else {
 		    page = orderRepository.findProductionListByPreferredRangeStatusSortable(
 		            categoryId,
+		            mirrorCuttingOnly,
 		            orderId,
 		            allStatus,
 		            effectiveStatusFilter,
@@ -419,6 +428,12 @@ public class TeamTaskService {
 	    return text.isBlank() ? "-" : text;
 	}
 	
+	@Transactional(readOnly = true)
+	public boolean canAccessProductionOrderForProductionMember(Member loginMember, Order order) {
+		validateProductionTeamMember(loginMember);
+		return canAccessProductionOrder(loginMember, order);
+	}
+
 	@Transactional(readOnly = true)
 	public List<ProductionOverviewImageDto> getProductionManagementImages(Long orderId, Member loginMember) {
 	    validateProductionTeamMember(loginMember);
@@ -1016,6 +1031,10 @@ public class TeamTaskService {
 	        throw new IllegalArgumentException("주문 ID가 없습니다.");
 	    }
 
+	    if (isCuttingProductionMember(loginMember)) {
+	        throw new AccessDeniedException("재단 직원은 생산완료 처리를 할 수 없습니다.");
+	    }
+
 	    Order order = orderRepository.findByIdForProductionStatusUpdate(orderId)
 	            .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
 
@@ -1268,6 +1287,10 @@ public class TeamTaskService {
 	        return false;
 	    }
 
+	    if (isMirrorCuttingProductionMember(member)) {
+	        return order.isMirrorCuttingProduct();
+	    }
+
 	    if (member.getTeamCategory() != null && "하부장".equals(member.getTeamCategory().getName())) {
 	        return order.getProductCategory() != null
 	                && order.getProductCategory().getId() != null
@@ -1275,5 +1298,35 @@ public class TeamTaskService {
 	    }
 
 	    return true;
+	}
+
+	private boolean isCuttingProductionMember(Member member) {
+	    if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+	        return false;
+	    }
+
+	    if (member.getTeamCategory() == null) {
+	        return false;
+	    }
+
+	    String categoryName = member.getTeamCategory().getName();
+
+	    return "재단".equals(categoryName) || isMirrorCuttingProductionMember(member);
+	}
+
+	private boolean isMirrorCuttingProductionMember(Member member) {
+	    if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+	        return false;
+	    }
+
+	    if (member.getTeamCategory() == null) {
+	        return false;
+	    }
+
+	    Long categoryId = member.getTeamCategory().getId();
+	    String categoryName = member.getTeamCategory().getName();
+
+	    return Objects.equals(MIRROR_CUTTING_TEAM_CATEGORY_ID, categoryId)
+	            && MIRROR_CUTTING_TEAM_CATEGORY_NAME.equals(categoryName);
 	}
 }

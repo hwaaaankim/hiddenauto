@@ -110,6 +110,7 @@ public class NonStandardTaskListViewService {
 
                 .standard(order.isStandard())
                 .standardLabel(order.isStandard() ? "규격" : "비규격")
+                .mirrorCuttingProduct(order.isMirrorCuttingProduct())
 
                 .productCategoryId(productCategory != null ? productCategory.getId() : null)
                 .productCategoryName(productCategory != null ? safe(productCategory.getName()) : "미지정")

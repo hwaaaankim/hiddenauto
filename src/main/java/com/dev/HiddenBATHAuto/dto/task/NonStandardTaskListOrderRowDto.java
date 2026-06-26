@@ -33,6 +33,12 @@ public class NonStandardTaskListOrderRowDto {
     private boolean standard;
     private String standardLabel;
 
+    /**
+     * 거울 재단 상품 여부
+     * Order.mirrorCuttingProduct 값을 관리자 오더 리스트 넓게보기 수정폼에서 표시/수정하기 위한 필드입니다.
+     */
+    private boolean mirrorCuttingProduct;
+
     private Long productCategoryId;
     private String productCategoryName;
 

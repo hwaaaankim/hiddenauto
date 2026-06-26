@@ -870,6 +870,7 @@ public class ManagementController {
 			@RequestParam(value = "totalAmount", defaultValue = "0") int totalAmount,
 			@RequestParam(value = "packingCost", defaultValue = "0") int packingCost,
 			@RequestParam(value = "deliveryCost", defaultValue = "0") int deliveryCost,
+			@RequestParam(value = "mirrorCuttingProduct", defaultValue = "false") boolean mirrorCuttingProduct,
 			@RequestParam(value = "preferredDeliveryDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDeliveryDate,
 			@RequestParam("status") String statusStr, @RequestParam("deliveryMethodId") Optional<Long> deliveryMethodId,
 			@RequestParam("assignedDeliveryHandlerId") Optional<Long> deliveryHandlerId,
@@ -905,8 +906,8 @@ public class ManagementController {
 			String updatedByUsername = resolveAuthenticatedUsername(authentication);
 
 			nonStandardOrderItemService.updateNonStandardOrderItemWithSiteAddress(orderId, productCost, quantity,
-					supplyPrice, totalAmount, packingCost, deliveryCost, preferredDeliveryDate, statusStr,
-					deliveryMethodId, deliveryHandlerId, productCategoryId, companyId, requesterMemberId, zipCode,
+					supplyPrice, totalAmount, packingCost, deliveryCost, mirrorCuttingProduct, preferredDeliveryDate,
+					statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId, requesterMemberId, zipCode,
 					doName, siName, guName, roadAddress, detailAddress, siteZipCode, siteDoName, siteSiName, siteGuName,
 					siteRoadAddress, siteDetailAddress, ordererName, ordererPhone, optionJson, adminMemo,
 					dispatchCompleteMessage, dispatchCompleteMessageSubmitted, deleteAdminImageIds, adminImages,

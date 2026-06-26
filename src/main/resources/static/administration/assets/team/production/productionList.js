@@ -37,9 +37,7 @@
 		return getCheckedItems().map(x => x.id);
 	}
 
-	// ✅ (5) CONFIRMED만 생산완료 가능 검증
 	function getInvalidForComplete(items) {
-		// 하나라도 CONFIRMED가 아니면 invalid
 		return items.filter(x => x.status !== 'CONFIRMED');
 	}
 
@@ -76,6 +74,24 @@
 
 		$checkAll.indeterminate = (!allChecked && !noneChecked);
 		$checkAll.checked = allChecked;
+	}
+
+	function syncSortIcons() {
+		const cur = getCurrentSort();
+
+		$sortBtns.forEach(btn => {
+			const key = btn.getAttribute('data-sort-key');
+			const icon = btn.querySelector('.team-production-sort-icon');
+			if (!icon) return;
+
+			btn.classList.toggle('is-active', !!cur.key && cur.key === key);
+
+			if (cur.key === key) {
+				icon.textContent = cur.dir === 'DESC' ? '▼' : '▲';
+			} else {
+				icon.textContent = '▲▼';
+			}
+		});
 	}
 
 	// ===== 정렬 기능 (항상 동작) =====
@@ -152,11 +168,8 @@
 				const checkedItems = getCheckedItems();
 				if (checkedItems.length === 0) return;
 
-				// ✅ (5) 검증: CONFIRMED가 아닌 오더가 하나라도 있으면 메시지만 출력하고 종료
 				const invalid = getInvalidForComplete(checkedItems);
 				if (invalid.length > 0) {
-					// 요구사항: "__번 오더는 완료처리할 수 없다"
-					// 여러 개일 수 있으니 첫 번째를 대표로 알림 + 필요 시 개수도 함께
 					const first = invalid[0];
 					const extra = (invalid.length > 1) ? ` (총 ${invalid.length}건)` : '';
 					alert(`${first.id}번 오더는 완료처리할 수 없습니다.${extra}\nCONFIRMED(승인 완료) 상태만 생산완료 처리 가능합니다.\n체크 해제 후 다시 시도해주세요.`);
@@ -196,5 +209,6 @@
 	// 초기 상태
 	syncButtonState();
 	syncCheckAllState();
+	syncSortIcons();
 
 })();

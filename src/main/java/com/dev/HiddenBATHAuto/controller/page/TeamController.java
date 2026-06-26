@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -113,6 +114,9 @@ public class TeamController {
 
 	private static final Long AS_TEAM_ID = 4L;
 
+	private static final Long MIRROR_CUTTING_TEAM_CATEGORY_ID = 14L;
+	private static final String MIRROR_CUTTING_TEAM_CATEGORY_NAME = "재단(거울)";
+
 	private static final List<OrderStatus> PRODUCTION_LIST_VISIBLE_STATUSES = List.of(
 			OrderStatus.CONFIRMED,
 			OrderStatus.PRODUCTION_DONE,
@@ -134,7 +138,7 @@ public class TeamController {
 			@RequestParam(required = false, defaultValue = "preferred") String dateType,
 			@RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
 
-			@RequestParam(required = false, defaultValue = "50") int size,
+			@RequestParam(required = false, defaultValue = "100") int size,
 			@RequestParam(required = false, defaultValue = "0") int page,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -149,6 +153,7 @@ public class TeamController {
 		}
 
 		boolean isCuttingProductionMember = isCuttingProductionMember(member);
+		boolean isMirrorCuttingProductionMember = isMirrorCuttingProductionMember(member);
 		boolean isLowerCabinetProductionMember = isLowerCabinetProductionMember(member);
 
 		/*
@@ -159,11 +164,13 @@ public class TeamController {
 
 		if (productCategoryId != null) {
 			targetCategoryId = productCategoryId;
-		} else if (isCuttingProductionMember) {
+		} else if (isCuttingProductionMember || isMirrorCuttingProductionMember) {
 			targetCategoryId = null;
 		} else {
 			targetCategoryId = member.getTeamCategory() != null ? member.getTeamCategory().getId() : null;
 		}
+
+		boolean mirrorCuttingOnly = isMirrorCuttingProductionMember;
 
 		String normalizedDateType = (dateType == null || dateType.isBlank()) ? "preferred" : dateType.trim();
 
@@ -171,11 +178,27 @@ public class TeamController {
 			normalizedDateType = "preferred";
 		}
 
+		/*
+		 * 날짜 조회 규칙
+		 * - startDate = endDate: 해당일 1일 조회
+		 * - startDate만 있음: startDate부터 미래 전체 조회
+		 * - endDate만 있음: endDate까지 과거 전체 조회
+		 * - 둘 다 없음: 전체 기간 조회
+		 *
+		 * 중요: 사용자가 날짜 input을 비워서 빈 값으로 검색한 경우에도 Spring에서는 null로 바인딩됩니다.
+		 * 따라서 여기서 null을 내일 날짜로 다시 채우면 전체 기간 조회가 불가능해지므로 강제 기본 날짜를 넣지 않습니다.
+		 */
+		if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+			LocalDate temp = startDate;
+			startDate = endDate;
+			endDate = temp;
+		}
+
 		LocalDateTime start = startDate != null ? startDate.atStartOfDay() : null;
 		LocalDateTime end = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
-		if (size != 10 && size != 30 && size != 50 && size != 100) {
-			size = 50;
+		if (size != 100 && size != 200 && size != 300 && size != 400 && size != 500) {
+			size = 100;
 		}
 
 		if (page < 0) {
@@ -210,10 +233,11 @@ public class TeamController {
 
 		if (checkedSort) {
 			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(targetCategoryId,
-					orderIdFilter, normalizedDateType, statusEnum, start, end, normalizedSortDir, pageable);
+					orderIdFilter, normalizedDateType, statusEnum, start, end, normalizedSortDir, mirrorCuttingOnly,
+					pageable);
 		} else {
 			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(targetCategoryId, orderIdFilter,
-					normalizedDateType, statusEnum, start, end, pageable);
+					normalizedDateType, statusEnum, start, end, mirrorCuttingOnly, pageable);
 		}
 
 		/*
@@ -279,11 +303,13 @@ public class TeamController {
 		model.addAttribute("size", size);
 		model.addAttribute("startDate", startDate);
 		model.addAttribute("endDate", endDate);
+		model.addAttribute("productionDateRangeLabel", buildProductionDateRangeLabel(startDate, endDate));
 		model.addAttribute("productCategories", productCategories);
 
 		model.addAttribute("canBulkComplete", canBulkComplete);
 		model.addAttribute("canChangeProductionStatus", canBulkComplete);
 		model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
+		model.addAttribute("isMirrorCuttingProductionMember", isMirrorCuttingProductionMember);
 
 		model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
 
@@ -296,6 +322,28 @@ public class TeamController {
 		model.addAttribute("sortDir", normalizedSortDir);
 
 		return "administration/team/production/productionList";
+	}
+
+	private String buildProductionDateRangeLabel(LocalDate startDate, LocalDate endDate) {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+		if (startDate == null && endDate == null) {
+			return "전체 기간";
+		}
+
+		if (startDate != null && endDate != null) {
+			if (startDate.equals(endDate)) {
+				return startDate.format(formatter);
+			}
+
+			return startDate.format(formatter) + " ~ " + endDate.format(formatter);
+		}
+
+		if (startDate != null) {
+			return startDate.format(formatter) + " ~";
+		}
+
+		return "~ " + endDate.format(formatter);
 	}
 
 	private String normalizeProductionListStatusFilter(String rawStatusFilter) {
@@ -359,7 +407,23 @@ public class TeamController {
 
 		String categoryName = member.getTeamCategory().getName();
 
-		return "재단".equals(categoryName);
+		return "재단".equals(categoryName) || isMirrorCuttingProductionMember(member);
+	}
+
+	private boolean isMirrorCuttingProductionMember(Member member) {
+		if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+			return false;
+		}
+
+		if (member.getTeamCategory() == null) {
+			return false;
+		}
+
+		Long categoryId = member.getTeamCategory().getId();
+		String categoryName = member.getTeamCategory().getName();
+
+		return Objects.equals(MIRROR_CUTTING_TEAM_CATEGORY_ID, categoryId)
+				&& MIRROR_CUTTING_TEAM_CATEGORY_NAME.equals(categoryName);
 	}
 
 	@GetMapping("/productionList/cutting")
@@ -410,6 +474,10 @@ public class TeamController {
 
 		if ("productName".equalsIgnoreCase(key)) {
 			return Sort.by(direction, "orderItem.productName").and(Sort.by(Sort.Direction.DESC, "id"));
+		}
+
+		if ("deliveryDate".equalsIgnoreCase(key) || "preferredDeliveryDate".equalsIgnoreCase(key)) {
+			return Sort.by(direction, "preferredDeliveryDate").and(Sort.by(Sort.Direction.DESC, "id"));
 		}
 
 		if ("date".equalsIgnoreCase(key)) {
@@ -552,6 +620,10 @@ public class TeamController {
 		if (!isProductionListVisibleStatus(order.getStatus())) {
 			throw new AccessDeniedException("생산팀에서 조회할 수 없는 주문 상태입니다.");
 		}
+
+		if (!teamTaskService.canAccessProductionOrderForProductionMember(loginMember, order)) {
+			throw new AccessDeniedException("해당 생산 발주를 조회할 권한이 없습니다.");
+		}
 		
 		// 4. 상세 진입 시 확인 처리
 		teamTaskService.markProductionOrderChecked(orderId, loginMember);
@@ -576,6 +648,7 @@ public class TeamController {
 
 		// 6. 재단 직원 여부
 		boolean isCuttingProductionMember = isCuttingProductionMember(loginMember);
+		boolean isMirrorCuttingProductionMember = isMirrorCuttingProductionMember(loginMember);
 
 		// 7. 생산완료 가능 여부
 		boolean canChangeStatus = false;
@@ -595,6 +668,7 @@ public class TeamController {
 		model.addAttribute("orderItem", orderItem);
 		model.addAttribute("canChangeStatus", canChangeStatus);
 		model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
+		model.addAttribute("isMirrorCuttingProductionMember", isMirrorCuttingProductionMember);
 
 		return "administration/team/production/productionDetail";
 	}
@@ -1431,11 +1505,9 @@ public class TeamController {
 			return "administration/team/production/productionStickerPrint";
 		}
 
-		boolean isSubLeaderTeam = (member.getTeamCategory() != null
-				&& "하부장".equals(member.getTeamCategory().getName()));
-		Long allowedCategoryId = isSubLeaderTeam ? member.getTeamCategory().getId() : null;
+		List<Long> accessibleOrderIds = resolveAccessibleProductionOrderIdsForStickerPrint(orderIds, member);
 
-		List<StickerPrintDto> items = teamTaskService.getStickerPrintItems(orderIds, allowedCategoryId);
+		List<StickerPrintDto> items = teamTaskService.getStickerPrintItems(accessibleOrderIds, null);
 
 		List<List<StickerPrintDto>> pages = new ArrayList<>();
 		for (int i = 0; i < items.size(); i += 4) {
@@ -1447,5 +1519,34 @@ public class TeamController {
 		model.addAttribute("today", LocalDate.now()); // ✅ 추가
 
 		return "administration/team/production/productionStickerPrint";
+	}
+
+	private List<Long> resolveAccessibleProductionOrderIdsForStickerPrint(List<Long> orderIds, Member member) {
+		if (orderIds == null || orderIds.isEmpty()) {
+			return List.of();
+		}
+
+		List<Long> distinctOrderIds = orderIds.stream()
+				.filter(Objects::nonNull)
+				.distinct()
+				.collect(Collectors.toList());
+
+		if (distinctOrderIds.isEmpty()) {
+			return List.of();
+		}
+
+		List<Order> orders = orderRepository.findAllForStickerPrint(distinctOrderIds);
+		Map<Long, Order> orderMap = orders.stream()
+				.filter(Objects::nonNull)
+				.collect(Collectors.toMap(Order::getId, o -> o, (a, b) -> a));
+
+		return orderIds.stream()
+				.filter(Objects::nonNull)
+				.filter(orderId -> {
+					Order order = orderMap.get(orderId);
+					return order != null && teamTaskService.canAccessProductionOrderForProductionMember(member, order);
+				})
+				.distinct()
+				.collect(Collectors.toList());
 	}
 }

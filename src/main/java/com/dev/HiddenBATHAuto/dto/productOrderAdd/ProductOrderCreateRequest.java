@@ -1,41 +1,43 @@
 package com.dev.HiddenBATHAuto.dto.productOrderAdd;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
-@NoArgsConstructor
+@Data
 public class ProductOrderCreateRequest {
 
     private Boolean standard;
 
     private Long standardCategoryId;
+
     private Long standardProductSeriesId;
+
     private Long productionCategoryId;
 
+    /**
+     * 관리자 등록 화면에서 주문별로 직접 ON/OFF 하는 거울재단용 수동 지정값입니다.
+     * null 또는 false여도 저장 서비스에서 제품명/시리즈/옵션 키워드 자동 판정을 한 번 더 수행합니다.
+     */
+    private Boolean mirrorCuttingProduct;
+
     private String productName;
+
     private String productSize;
+
     private String productColor;
 
-    private int productCost = 0;
-    private int quantity = 1;
+    private int productCost;
 
-    /** 실제 공급가입니다. 할인/DP/무상 제공 대응을 위해 단가*수량과 다를 수 있습니다. */
-    private int supplyPrice = 0;
+    private int quantity;
 
-    /** 부가세 포함 총액입니다. */
-    private int totalAmount = 0;
+    private int supplyPrice;
 
-    /** 고객 남김말로 저장됩니다. */
+    private int totalAmount;
+
     private String orderComment;
 
-    /** 관리자 남김말로 저장됩니다. */
     private String adminMemo;
 
-    private List<ProductOrderOptionEntryRequest> optionEntries = new ArrayList<>();
+    private List<ProductOrderOptionEntryRequest> optionEntries;
 }

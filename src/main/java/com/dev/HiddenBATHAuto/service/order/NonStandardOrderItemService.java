@@ -18,7 +18,7 @@ public class NonStandardOrderItemService {
 
     /**
      * 기존 호출부 보호용 메서드입니다.
-     * 현장주소와 출고완료 메시지는 기존 DB 값을 유지합니다.
+     * 현장주소, 출고완료 메시지, 거울 재단 상품 여부는 기존 DB 값을 유지합니다.
      */
     @Transactional
     public void updateNonStandardOrderItem(
@@ -84,7 +84,7 @@ public class NonStandardOrderItemService {
 
     /**
      * 기존 관리자 수정 호출부 보호용 메서드입니다.
-     * updatedByUsername은 반영하되, 현장주소와 출고완료 메시지는 기존 DB 값을 유지합니다.
+     * updatedByUsername은 반영하되, 현장주소, 출고완료 메시지, 거울 재단 상품 여부는 기존 DB 값을 유지합니다.
      */
     @Transactional
     public void updateNonStandardOrderItem(
@@ -151,7 +151,7 @@ public class NonStandardOrderItemService {
 
     /**
      * 기존 출고완료 메시지 처리용 메서드입니다.
-     * 현장주소는 기존 DB 값을 유지합니다.
+     * 현장주소와 거울 재단 상품 여부는 기존 DB 값을 유지합니다.
      */
     @Transactional
     public void updateNonStandardOrderItem(
@@ -221,6 +221,7 @@ public class NonStandardOrderItemService {
     /**
      * /management/nonStandardTaskList 넓게보기 수정폼 전용 메서드입니다.
      * 일반 배송주소와 현장주소를 모두 수신하고, 배송수단에 따라 OrderUpdateService에서 검증/저장/삭제합니다.
+     * 거울 재단 상품 여부도 이 수정폼에서만 직접 수신해 저장합니다.
      */
     @Transactional
     public void updateNonStandardOrderItemWithSiteAddress(
@@ -231,6 +232,7 @@ public class NonStandardOrderItemService {
             int totalAmount,
             int packingCost,
             int deliveryCost,
+            boolean mirrorCuttingProduct,
             LocalDate preferredDeliveryDate,
             String statusStr,
             Optional<Long> deliveryMethodId,
@@ -295,7 +297,8 @@ public class NonStandardOrderItemService {
                 adminMemo,
                 dispatchCompleteMessage,
                 dispatchCompleteMessageSubmitted,
-                updatedByUsername
+                updatedByUsername,
+                mirrorCuttingProduct
         );
     }
 }

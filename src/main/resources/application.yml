@@ -65,3 +65,57 @@ logging:
   config: classpath:logback-spring.xml
   level:
     com.dev.HiddenBATHAuto.notification: DEBUG
+
+hiddenbath:
+  order:
+    mirror-cutting:
+      enabled: true
+
+      # 제품명/시리즈/카테고리/옵션 전체에서 찾을 키워드입니다.
+      # 처음에는 과탐지를 막기 위해 아주 명확한 키워드만 넣는 것을 권장합니다.
+      any-text-keywords:
+        - 거울재단
+        - 거울 재단
+        - 미러재단
+        - 미러 재단
+
+      # 제품명만 검사할 키워드입니다. 넓게 잡으면 과탐지될 수 있어 기본은 비워둡니다.
+      product-name-keywords: []
+
+      # 규격 카테고리, 제품시리즈, 생산팀 분류명에서 검사할 키워드입니다.
+      series-keywords:
+        - 거울
+        - 미러
+
+      # 옵션명/옵션값에서 검사할 키워드입니다.
+      option-keywords:
+        - 거울재단
+        - 거울 재단
+        - 미러재단
+        - 미러 재단
+
+      # 실제 제품 대표명 목록입니다.
+      # 여기에 실제 제품명만 계속 추가하면 됩니다.
+      canonical-product-names:
+        - 거울장
+        - 미러장
+
+      # 같은 제품 판정 시 제거할 변형 토큰입니다.
+      ignore-tokens:
+        - 1도어
+        - 2도어
+        - 3도어
+        - 4도어
+        - 일도어
+        - 이도어
+        - 삼도어
+        - 사도어
+        - HG
+        - HB
+        - HW
+        - HC
+        - 히든그레이
+        - 히든블랙
+        - 히든화이트
+        - 히든크림
+    

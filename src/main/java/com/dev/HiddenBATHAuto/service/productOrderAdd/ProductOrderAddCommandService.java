@@ -80,6 +80,7 @@ public class ProductOrderAddCommandService {
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final DeliveryMethodRepository deliveryMethodRepository;
     private final DeliveryHandlerAutoAssignService deliveryHandlerAutoAssignService;
+    private final MirrorCuttingProductMatcher mirrorCuttingProductMatcher;
     private final ObjectMapper objectMapper;
 
     @Value("${spring.upload.path}")
@@ -168,9 +169,18 @@ public class ProductOrderAddCommandService {
             ResolvedOrderMeta resolved = resolveOrderMeta(orderRequest);
             LinkedHashMap<String, String> optionMap = buildOptionMap(orderRequest, resolved);
 
+            boolean mirrorCuttingProduct = mirrorCuttingProductMatcher.isMirrorCuttingProduct(
+                    orderRequest.getMirrorCuttingProduct(),
+                    orderRequest.getProductName(),
+                    resolved.categoryName(),
+                    resolved.seriesName(),
+                    optionMap
+            );
+
             Order order = new Order();
             order.setTask(task);
             order.setStandard(Boolean.TRUE.equals(orderRequest.getStandard()));
+            order.setMirrorCuttingProduct(mirrorCuttingProduct);
             order.setProductCategory(resolved.productCategory());
             order.setAssignedProductionTeam(null);
 
