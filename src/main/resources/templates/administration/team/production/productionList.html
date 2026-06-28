@@ -47,6 +47,18 @@
 										<option value="" th:selected="${productCategoryId == null}">
 											전체(기본: 내 분류)
 										</option>
+
+										<!--
+											거울(재단)은 실제 TeamCategory ID가 아닙니다.
+											Order.mirrorCuttingProduct = true 조건을 조회하기 위한 가상 필터입니다.
+										-->
+										<option th:if="${canUseMirrorCuttingFilter}"
+											th:value="${mirrorCuttingFilterValue}"
+											th:text="${mirrorCuttingFilterLabel}"
+											th:selected="${productCategoryId != null and productCategoryId == mirrorCuttingFilterValue}">
+											거울(재단)
+										</option>
+
 										<option th:each="category : ${productCategories}" th:value="${category.id}"
 											th:text="${category.name}"
 											th:selected="${productCategoryId != null and productCategoryId == category.id}">

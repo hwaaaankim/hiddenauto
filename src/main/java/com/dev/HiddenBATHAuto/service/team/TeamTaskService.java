@@ -63,6 +63,11 @@ public class TeamTaskService {
 
 	private static final Long MIRROR_CUTTING_TEAM_CATEGORY_ID = 14L;
 	private static final String MIRROR_CUTTING_TEAM_CATEGORY_NAME = "재단(거울)";
+	private static final List<String> MIRROR_CUTTING_ACCESS_TEAM_CATEGORY_NAMES = List.of(
+			"거울",
+			"LED거울",
+			MIRROR_CUTTING_TEAM_CATEGORY_NAME
+	);
 
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
 	        Long categoryId,
@@ -1291,6 +1296,10 @@ public class TeamTaskService {
 	        return order.isMirrorCuttingProduct();
 	    }
 
+	    if (canAccessMirrorCuttingOrders(member) && order.isMirrorCuttingProduct()) {
+	        return true;
+	    }
+
 	    if (member.getTeamCategory() != null && "하부장".equals(member.getTeamCategory().getName())) {
 	        return order.getProductCategory() != null
 	                && order.getProductCategory().getId() != null
@@ -1328,5 +1337,17 @@ public class TeamTaskService {
 
 	    return Objects.equals(MIRROR_CUTTING_TEAM_CATEGORY_ID, categoryId)
 	            && MIRROR_CUTTING_TEAM_CATEGORY_NAME.equals(categoryName);
+	}
+
+	private boolean canAccessMirrorCuttingOrders(Member member) {
+	    if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+	        return false;
+	    }
+
+	    if (member.getTeamCategory() == null || member.getTeamCategory().getName() == null) {
+	        return false;
+	    }
+
+	    return MIRROR_CUTTING_ACCESS_TEAM_CATEGORY_NAMES.contains(member.getTeamCategory().getName().trim());
 	}
 }
