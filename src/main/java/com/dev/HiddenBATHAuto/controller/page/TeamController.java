@@ -600,6 +600,11 @@ public class TeamController {
 			return Sort.by(direction, "orderItem.productName").and(Sort.by(Sort.Direction.DESC, "id"));
 		}
 
+		if ("productSeries".equalsIgnoreCase(key) || "middleCategory".equalsIgnoreCase(key)) {
+			return Sort.by(direction, "orderItem.productionProductSeriesSortValue")
+					.and(Sort.by(Sort.Direction.DESC, "id"));
+		}
+
 		if ("deliveryDate".equalsIgnoreCase(key) || "preferredDeliveryDate".equalsIgnoreCase(key)) {
 			return Sort.by(direction, "preferredDeliveryDate").and(Sort.by(Sort.Direction.DESC, "id"));
 		}

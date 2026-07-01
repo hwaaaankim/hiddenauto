@@ -210,13 +210,14 @@
 
 									<colgroup>
 										<col style="width:4%;">
-										<col style="width:14%;">
+										<col style="width:13%;">
+										<col style="width:9%;">
 										<col style="width:8%;">
-										<col style="width:12%;">
+										<col style="width:11%;">
 										<col style="width:4%;">
-										<col style="width:30%;">
+										<col style="width:24%;">
 										<col style="width:7%;">
-										<col style="width:8%;">
+										<col style="width:7%;">
 										<col style="width:5%;">
 										<col style="width:6%;">
 										<col style="width:2%;">
@@ -232,6 +233,17 @@
 													<button type="button"
 														class="btn btn-sm btn-link p-0 team-production-sort-btn"
 														data-sort-key="productName" aria-label="제품명 정렬">
+														<span class="team-production-sort-icon">▲▼</span>
+													</button>
+												</div>
+											</th>
+
+											<th class="team-production-th">
+												<div class="d-inline-flex align-items-center gap-1">
+													<span>중분류</span>
+													<button type="button"
+														class="btn btn-sm btn-link p-0 team-production-sort-btn"
+														data-sort-key="productSeries" aria-label="중분류 정렬">
 														<span class="team-production-sort-icon">▲▼</span>
 													</button>
 												</div>
@@ -277,7 +289,7 @@
 
 									<tbody id="team-production-tbody">
 										<tr th:if="${orders == null or orders.size() == 0}">
-											<td colspan="11" class="text-center text-muted py-5">
+											<td colspan="12" class="text-center text-muted py-5">
 												조회된 생산 주문이 없습니다.
 											</td>
 										</tr>
@@ -324,6 +336,14 @@
 															th:title="${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'}">
 															제품명
 														</span>
+													</div>
+												</td>
+
+												<td class="team-production-td">
+													<div class="team-production-compact-text team-production-product-series-text"
+														th:text="${order.orderItem != null and order.orderItem.productionProductSeries != null and order.orderItem.productionProductSeries != '' ? order.orderItem.productionProductSeries : '중분류없음'}"
+														th:title="${order.orderItem != null and order.orderItem.productionProductSeries != null and order.orderItem.productionProductSeries != '' ? order.orderItem.productionProductSeries : '중분류없음'}">
+														중분류없음
 													</div>
 												</td>
 
@@ -417,7 +437,7 @@
 
 											<tr class="team-production-detail-row"
 												th:attr="data-detail-order-id=${order.id}" style="display:none;">
-												<td colspan="11" class="team-production-detail-td">
+												<td colspan="12" class="team-production-detail-td">
 													<div class="team-production-inline-detail-shell">
 														<div class="team-production-inline-detail-content">
 															상세 정보를 불러오지 않았습니다.
@@ -865,6 +885,11 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
+		}
+
+		.team-production-product-series-text {
+			font-weight: 700;
+			color: #374151;
 		}
 
 		.team-production-cutting-availability-icon {

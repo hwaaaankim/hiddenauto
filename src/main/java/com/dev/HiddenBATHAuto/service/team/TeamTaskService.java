@@ -304,6 +304,7 @@ public class TeamTaskService {
 
 	        ProductionListDisplayParts displayParts = buildProductionListDisplayParts(order, item);
 	        item.setProductionProductName(displayParts.productName());
+	        item.setProductionProductSeries(displayParts.productSeries());
 	        item.setProductionColor(displayParts.color());
 	        item.setProductionSize(displayParts.size());
 	        item.setProductionCategory(displayParts.category());
@@ -318,38 +319,26 @@ public class TeamTaskService {
 	            order != null && order.getProductCategory() != null ? order.getProductCategory().getName() : null
 	    );
 
-	    String productName;
+	    String productSeries = firstNonBlank(
+	            pickFirstValue(optionMap, List.of(
+	                    "제품시리즈",
+	                    "시리즈",
+	                    "중분류",
+	                    "series",
+	                    "Series",
+	                    "productSeries",
+	                    "ProductSeries"
+	            ))
+	    );
 
-	    if (order != null && !order.isStandard()) {
-	        String productSeries = pickFirstValue(optionMap, List.of(
-	                "제품시리즈",
-	                "시리즈",
-	                "series",
-	                "Series",
-	                "productSeries",
-	                "ProductSeries"
-	        ));
-
-	        String product = pickFirstValue(optionMap, List.of(
-	                "제품",
-	                "제품명",
-	                "product",
-	                "Product",
-	                "productName",
-	                "ProductName"
-	        ));
-
-	        productName = joinNonBlank(" / ", productSeries, product);
-	    } else {
-	        productName = pickFirstValue(optionMap, List.of(
-	                "제품명",
-	                "제품",
-	                "productName",
-	                "ProductName",
-	                "product",
-	                "Product"
-	        ));
-	    }
+	    String productName = pickFirstValue(optionMap, List.of(
+	            "제품명",
+	            "제품",
+	            "productName",
+	            "ProductName",
+	            "product",
+	            "Product"
+	    ));
 
 	    productName = firstNonBlank(
 	            productName,
@@ -380,6 +369,7 @@ public class TeamTaskService {
 
 	    return new ProductionListDisplayParts(
 	            valueOrDash(productName),
+	            firstNonBlank(productSeries, "중분류없음"),
 	            valueOrDash(color),
 	            valueOrDash(size),
 	            valueOrDash(category)
@@ -388,6 +378,7 @@ public class TeamTaskService {
 
 	private record ProductionListDisplayParts(
 	        String productName,
+	        String productSeries,
 	        String color,
 	        String size,
 	        String category
