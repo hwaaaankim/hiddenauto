@@ -511,6 +511,7 @@ public class ManagementController {
 		return switch (sortField) {
 		case "agencyName" -> "task.requestedBy.company.companyName";
 		case "requesterName" -> "task.requestedBy.name";
+		case "productCategoryName" -> "productCategory.name";
 		case "standard" -> "standard";
 		case "orderDate" -> "createdAt";
 		case "preferredDeliveryDate" -> "preferredDeliveryDate";

@@ -1,3 +1,4 @@
+<!-- taskList.html -->
 <!doctype html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
@@ -240,9 +241,7 @@
 																id="task-list-check-all">
 														</div>
 													</th>
-
-													<th style="width:76px;">업무ID</th>
-													<th style="width:76px;">오더ID</th>
+													<th style="width:70px;">오더ID</th>
 
 													<th style="min-width:150px;">
 														<div class="task-list-added-sort-header">
@@ -281,13 +280,12 @@
 															</span>
 														</div>
 													</th>
-
-													<th style="min-width:110px;">
+													<th style="width:106px;">
 														<div class="task-list-added-sort-header">
-															<span>신청자</span>
+															<span>제품분류</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='requesterName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
+																	th:classappend="${sortField=='productCategoryName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
                                                                         page=0,
                                                                         size=${pageSize},
@@ -298,11 +296,11 @@
                                                                         productCategoryId=${productCategoryId},
                                                                         orderStatus=${orderStatus},
                                                                         standard=${standard},
-                                                                        sortField='requesterName',
+                                                                        sortField='productCategoryName',
                                                                         sortDir='asc'
                                                                    )}">▲</a>
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='requesterName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
+																	th:classappend="${sortField=='productCategoryName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
 																	th:href="@{/management/nonStandardTaskList(
                                                                         page=0,
                                                                         size=${pageSize},
@@ -313,16 +311,16 @@
                                                                         productCategoryId=${productCategoryId},
                                                                         orderStatus=${orderStatus},
                                                                         standard=${standard},
-                                                                        sortField='requesterName',
+                                                                        sortField='productCategoryName',
                                                                         sortDir='desc'
                                                                    )}">▼</a>
 															</span>
 														</div>
 													</th>
 
-													<th style="min-width:280px;">제품정보</th>
+													<th style="min-width:260px;">제품정보</th>
 
-													<th style="width:96px;">
+													<th style="width:76px;">
 														<div class="task-list-added-sort-header">
 															<span>규격</span>
 															<span class="task-list-added-sort-icons">
@@ -360,9 +358,9 @@
 														</div>
 													</th>
 
-													<th style="min-width:180px;">비고</th>
+													<th style="min-width:360px;">비고</th>
 
-													<th style="width:142px;">
+													<th style="width:84px;">
 														<div class="task-list-added-sort-header">
 															<span>발주일</span>
 															<span class="task-list-added-sort-icons">
@@ -400,7 +398,7 @@
 														</div>
 													</th>
 
-													<th style="width:132px;">
+													<th style="width:96px;">
 														<div class="task-list-added-sort-header">
 															<span>배송희망일</span>
 															<span class="task-list-added-sort-icons">
@@ -438,7 +436,7 @@
 														</div>
 													</th>
 
-													<th style="width:118px;">
+													<th style="width:108px;">
 														<div class="task-list-added-sort-header">
 															<span>상태</span>
 															<span class="task-list-added-sort-icons">
@@ -476,7 +474,7 @@
 														</div>
 													</th>
 
-													<th style="width:116px;" class="text-center">상세</th>
+													<th style="width:48px;" class="text-center">상세</th>
 												</tr>
 											</thead>
 
@@ -497,15 +495,6 @@
 																		         data-order-status-label=${row.statusLabel}">
 															</div>
 														</td>
-
-														<td>
-															<a class="fw-medium link-secondary"
-																th:text="${row.taskId}">1</a>
-															<!--<a th:href="@{/management/nonStandardTaskDetail/{taskId}(taskId=${row.taskId})}"
-																class="fw-medium link-secondary"
-																th:text="${row.taskId}">1</a>-->
-														</td>
-
 														<td>
 															<a class="fw-medium link-primary"
 																th:text="${row.orderId}">1</a>
@@ -523,15 +512,10 @@
 																class="admin-task-list-second-ellipsis"
 																th:text="${row.companyName}">-</span>
 														</td>
-
 														<td>
-															<a th:if="${row.requesterMemberId != null}"
-																th:href="@{'/management/customer/' + ${row.requesterMemberId}}"
-																class="admin-task-list-second-ellipsis"
-																th:text="${row.requesterName}">신청자명</a>
-															<span th:if="${row.requesterMemberId == null}"
-																class="admin-task-list-second-ellipsis"
-																th:text="${row.requesterName}">-</span>
+															<span class="admin-task-list-second-ellipsis admin-task-list-second-product-category-cell"
+																th:title="${row.productCategoryName != null and row.productCategoryName != '' ? row.productCategoryName : '미지정'}"
+																th:text="${row.productCategoryName != null and row.productCategoryName != '' ? row.productCategoryName : '미지정'}">제품분류</span>
 														</td>
 
 														<td>
@@ -559,13 +543,13 @@
 															</div>
 														</td>
 
-														<td
-															th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
+														<td class="admin-task-list-second-date-cell"
+															th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yy/MM/dd') : '-'}">
 															-
 														</td>
 
-														<td
-															th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+														<td class="admin-task-list-second-date-cell"
+															th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yy/MM/dd') : '-'}">
 															-
 														</td>
 
@@ -586,10 +570,13 @@
 
 														<td class="text-center">
 															<button type="button"
-																class="btn btn-sm btn-outline-primary admin-task-list-second-wide-toggle-btn"
-																th:attr="data-order-id=${row.orderId}">
-																넓게보기
-															</button>
+																		class="btn btn-sm btn-outline-primary admin-task-list-second-wide-toggle-btn"
+																		title="넓게보기"
+																		aria-label="넓게보기"
+																		th:attr="data-order-id=${row.orderId}">
+																		<i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+																		<span class="visually-hidden">넓게보기</span>
+																	</button>
 														</td>
 													</tr>
 
@@ -901,7 +888,7 @@
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
 												<label>발주일</label>
 												<div
-													th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
+													th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yy/MM/dd') : '-'}">
 													-
 												</div>
 											</div>
@@ -910,7 +897,7 @@
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
 												<label>배송희망일</label>
 												<div
-													th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
+													th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yy/MM/dd') : '-'}">
 													-
 												</div>
 											</div>

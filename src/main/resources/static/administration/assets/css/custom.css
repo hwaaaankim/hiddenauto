@@ -5144,7 +5144,7 @@ body.admin-task-detail-modal-open {
 }
 
 .admin-task-list-second-table {
-	min-width: 1500px;
+	min-width: 1420px;
 }
 
 .admin-task-list-second-table th,
@@ -5195,9 +5195,21 @@ body.admin-task-detail-modal-open {
 }
 
 .admin-task-list-second-note-cell {
-	max-width: 180px;
+	max-width: 360px;
 	font-size: 12px;
 	color: var(--admin-task-list-second-muted);
+}
+
+.admin-task-list-second-product-category-cell {
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--admin-task-list-second-text);
+}
+
+.admin-task-list-second-date-cell {
+	width: 84px;
+	white-space: nowrap;
+	font-size: 12px;
 }
 
 .admin-task-list-second-bulk-count {
@@ -5216,7 +5228,20 @@ body.admin-task-detail-modal-open {
 
 .admin-task-list-second-wide-toggle-btn,
 .admin-task-list-second-wide-close-btn {
+	width: 34px;
+	height: 34px;
+	min-width: 34px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	white-space: nowrap;
+}
+
+.admin-task-list-second-wide-toggle-btn i,
+.admin-task-list-second-wide-close-btn i {
+	font-size: 13px;
+	line-height: 1;
 }
 
 .admin-task-list-second-detail-row>td {

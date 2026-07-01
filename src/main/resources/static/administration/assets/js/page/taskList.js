@@ -282,16 +282,20 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 
 		if (isBusy) {
-			if (!button.dataset.originalText) {
-				button.dataset.originalText = button.textContent;
-			}
 			button.disabled = true;
-			button.textContent = "로딩중";
+			button.title = "로딩중";
+			button.setAttribute("aria-label", "로딩중");
+			button.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><span class="visually-hidden">로딩중</span>';
 			return;
 		}
 
+		const label = isOpen ? "닫기" : "넓게보기";
+		const iconClass = isOpen ? "fa-solid fa-compress" : "fa-solid fa-up-right-and-down-left-from-center";
+
 		button.disabled = false;
-		button.textContent = isOpen ? "닫기" : "넓게보기";
+		button.title = label;
+		button.setAttribute("aria-label", label);
+		button.innerHTML = '<i class="' + iconClass + '" aria-hidden="true"></i><span class="visually-hidden">' + label + '</span>';
 		button.classList.toggle("btn-primary", isOpen);
 		button.classList.toggle("btn-outline-primary", !isOpen);
 	}
