@@ -137,7 +137,7 @@
 											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
 											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
 											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
-											         optionText=${item != null and !#strings.isEmpty(item.deliveryOptionText) ? item.deliveryOptionText : '-'},
+											         adminMemoText=${o != null and o.adminMemo != null and !#strings.isEmpty(#strings.trim(o.adminMemo)) ? #strings.trim(o.adminMemo) : '-'},
 											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
 												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
 												th:attr="
@@ -196,7 +196,6 @@
 
 														<div class="delivery-list-added-product-box">
 																	<div class="delivery-list-added-product-head">
-																		<span class="delivery-list-added-product-badge">제품정보</span>
 																		<span class="delivery-list-added-product-quantity"
 																			th:text="${itemQuantityText}">수량 1개</span>
 																	</div>
@@ -224,10 +223,10 @@
 																		</div>
 																	</div>
 
-																	<div class="delivery-list-added-product-option">
-																		<span class="delivery-list-added-product-label">옵션</span>
-																		<span class="delivery-list-added-product-option-text"
-																			th:text="${!#strings.isEmpty(optionText) ? optionText : '-'}">원도어 좌경첩 / 하단 오픈 / 미니HW / **샘플**</span>
+																	<div class="delivery-list-added-product-memo">
+																		<span class="delivery-list-added-product-label">관리자메모</span>
+																		<span class="delivery-list-added-product-memo-text"
+																			th:text="${adminMemoText}">관리자 메모</span>
 																	</div>
 																</div>
 															</div>
@@ -262,7 +261,7 @@
 											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
 											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
 											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
-											         optionText=${item != null and !#strings.isEmpty(item.deliveryOptionText) ? item.deliveryOptionText : '-'},
+											         adminMemoText=${o != null and o.adminMemo != null and !#strings.isEmpty(#strings.trim(o.adminMemo)) ? #strings.trim(o.adminMemo) : '-'},
 											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
 												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
 												th:attr="
@@ -319,7 +318,6 @@
 
 														<div class="delivery-list-added-product-box">
 																	<div class="delivery-list-added-product-head">
-																		<span class="delivery-list-added-product-badge">제품정보</span>
 																		<span class="delivery-list-added-product-quantity"
 																			th:text="${itemQuantityText}">수량 1개</span>
 																	</div>
@@ -347,10 +345,10 @@
 																		</div>
 																	</div>
 
-																	<div class="delivery-list-added-product-option">
-																		<span class="delivery-list-added-product-label">옵션</span>
-																		<span class="delivery-list-added-product-option-text"
-																			th:text="${!#strings.isEmpty(optionText) ? optionText : '-'}">원도어 좌경첩 / 하단 오픈 / 미니HW / **샘플**</span>
+																	<div class="delivery-list-added-product-memo">
+																		<span class="delivery-list-added-product-label">관리자메모</span>
+																		<span class="delivery-list-added-product-memo-text"
+																			th:text="${adminMemoText}">관리자 메모</span>
 																	</div>
 																</div>
 															</div>
@@ -385,7 +383,7 @@
 											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
 											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
 											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
-											         optionText=${item != null and !#strings.isEmpty(item.deliveryOptionText) ? item.deliveryOptionText : '-'},
+											         adminMemoText=${o != null and o.adminMemo != null and !#strings.isEmpty(#strings.trim(o.adminMemo)) ? #strings.trim(o.adminMemo) : '-'},
 											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
 												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
 												th:attr="
@@ -442,7 +440,6 @@
 
 														<div class="delivery-list-added-product-box">
 																	<div class="delivery-list-added-product-head">
-																		<span class="delivery-list-added-product-badge">제품정보</span>
 																		<span class="delivery-list-added-product-quantity"
 																			th:text="${itemQuantityText}">수량 1개</span>
 																	</div>
@@ -470,10 +467,10 @@
 																		</div>
 																	</div>
 
-																	<div class="delivery-list-added-product-option">
-																		<span class="delivery-list-added-product-label">옵션</span>
-																		<span class="delivery-list-added-product-option-text"
-																			th:text="${!#strings.isEmpty(optionText) ? optionText : '-'}">원도어 좌경첩 / 하단 오픈 / 미니HW / **샘플**</span>
+																	<div class="delivery-list-added-product-memo">
+																		<span class="delivery-list-added-product-label">관리자메모</span>
+																		<span class="delivery-list-added-product-memo-text"
+																			th:text="${adminMemoText}">관리자 메모</span>
 																	</div>
 																</div>
 															</div>
@@ -554,7 +551,7 @@
 								</div>
 							</div>
 							<div class="delivery-list-added-info-item delivery-list-added-info-item-wide">
-								<div class="delivery-list-added-info-label">제품 상세 정보</div>
+								<div class="delivery-list-added-info-label">제품 상세 정보 / 관리자 메모</div>
 								<div class="delivery-list-added-info-value delivery-list-added-prewrap"
 									id="delivery-list-added-productText">-</div>
 							</div>

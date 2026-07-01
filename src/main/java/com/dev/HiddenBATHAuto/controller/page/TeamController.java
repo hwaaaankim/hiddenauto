@@ -1234,51 +1234,48 @@ public class TeamController {
 		Order order = orderRepository.findById(orderId)
 				.orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
 
-		String originalProductText = body.get("productText") != null
-				? String.valueOf(body.get("productText"))
-				: "";
-
-		body.put("productText", DeliveryProductDisplayUtil.buildModalProductText(order));
+		body.put("productText", buildDeliveryModalProductText(order));
 		body.put("ordererPhone", order != null && StringUtils.hasText(order.getOrdererPhone()) ? order.getOrdererPhone().trim() : "-");
 
 		return ResponseEntity.ok(body);
 	}
 
-	private String buildDeliveryModalProductTextKeepingOriginal(Order order, String originalProductText) {
+	private String buildDeliveryModalProductText(Order order) {
 		List<String> lines = new ArrayList<>();
-
-		if (StringUtils.hasText(originalProductText)) {
-			lines.add(originalProductText.trim());
-		}
-
 		OrderItem item = order != null ? order.getOrderItem() : null;
 
 		if (item != null) {
 			OrderItemOptionJsonUtil.enrich(item);
+			DeliveryProductDisplayUtil.enrich(order);
 		}
 
-		if (!StringUtils.hasText(originalProductText)) {
-			String productName = item != null && StringUtils.hasText(item.getProductName())
-					? item.getProductName().trim()
-					: "-";
+		String categoryText = item != null && StringUtils.hasText(item.getDeliveryCategoryText())
+				? item.getDeliveryCategoryText().trim()
+				: (order != null && order.getProductCategory() != null && StringUtils.hasText(order.getProductCategory().getName())
+						? order.getProductCategory().getName().trim()
+						: "-");
 
-			lines.add(productName);
-		}
+		String productNameText = item != null && StringUtils.hasText(item.getDeliveryProductName())
+				? item.getDeliveryProductName().trim()
+				: (item != null && StringUtils.hasText(item.getProductName()) ? item.getProductName().trim() : "-");
+
+		String sizeText = item != null && StringUtils.hasText(item.getDeliverySizeText())
+				? item.getDeliverySizeText().trim()
+				: "-";
+
+		String colorText = item != null && StringUtils.hasText(item.getDeliveryColorText())
+				? item.getDeliveryColorText().trim()
+				: "-";
 
 		int quantity = resolveDeliveryModalQuantity(order, item);
-		String optionText = resolveDeliveryModalOptionText(item);
+		String adminMemoText = resolveDeliveryAdminMemoText(order);
 
-		if (quantity > 0) {
-			lines.add("수량: " + quantity + "개");
-		} else {
-			lines.add("수량: -");
-		}
-
-		if (StringUtils.hasText(optionText)) {
-			lines.add("옵션: " + optionText);
-		} else {
-			lines.add("옵션: -");
-		}
+		lines.add("카테고리: " + categoryText);
+		lines.add("제품명: " + productNameText);
+		lines.add("사이즈: " + sizeText);
+		lines.add("색상: " + colorText);
+		lines.add(quantity > 0 ? "수량: " + quantity + "개" : "수량: -");
+		lines.add("관리자메모: " + adminMemoText);
 
 		return String.join("\n", lines);
 	}
@@ -1295,24 +1292,17 @@ public class TeamController {
 		return 0;
 	}
 
-	private String resolveDeliveryModalOptionText(OrderItem item) {
-		if (item == null) {
-			return "";
+	private String resolveDeliveryAdminMemoText(Order order) {
+		if (order == null || !StringUtils.hasText(order.getAdminMemo())) {
+			return "-";
 		}
 
-		String optionText = item.getFormattedOptionText();
-
-		if (!StringUtils.hasText(optionText)) {
-			return "";
-		}
-
-		String productName = item.getProductName();
-
-		if (StringUtils.hasText(productName) && optionText.trim().equals(productName.trim())) {
-			return "";
-		}
-
-		return optionText.trim();
+		return order.getAdminMemo()
+				.replace("\r", " ")
+				.replace("\n", " ")
+				.replace("\t", " ")
+				.replaceAll("\\s{2,}", " ")
+				.trim();
 	}
 	/**
 	 * ✅ 엑셀 출력 (현재 DOM 순서 그대로 전송받아 A4 맞춤 XLSX 생성)

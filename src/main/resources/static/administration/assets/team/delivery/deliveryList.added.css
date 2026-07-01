@@ -9,6 +9,9 @@
 
 .delivery-list-added-card {
 	border-radius: 14px;
+	max-width: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
 }
 
 /* 완료/미완료 배경 구분 */
@@ -24,6 +27,9 @@
 .delivery-list-added-line {
 	display: block;
 	margin-top: 4px;
+	max-width: 100%;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
 }
 
 /* 액션 버튼 */
@@ -37,29 +43,36 @@
 
 /* =========================================================
    제품 상세 표시 영역
-   - 배송팀 기준: 카테고리 / 제품명 / 사이즈 / 색상 / 수량 / 옵션만 표시
-   - 제품시리즈 / 제품시리즈ID는 표시하지 않음
+   - 배송팀 기준: 카테고리 / 제품명 / 사이즈 / 색상 / 수량 / 관리자 메모 표시
+   - 제품시리즈 / 제품시리즈ID / 옵션 상세값은 표시하지 않음
    ========================================================= */
 
 .delivery-list-added-product-box {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+	overflow: hidden;
 	margin-top: 10px;
 	padding: 10px 12px;
 	border: 1px solid rgba(13, 110, 253, 0.12);
 	border-radius: 14px;
 	background: linear-gradient(180deg, rgba(13, 110, 253, 0.04), rgba(255, 255, 255, 0.9));
-	min-width: 0;
 }
 
 .delivery-list-added-product-head {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: flex-start;
 	gap: 8px;
 	flex-wrap: wrap;
+	width: 100%;
+	max-width: 100%;
 	min-width: 0;
+	box-sizing: border-box;
 }
 
 .delivery-list-added-product-badge {
@@ -80,18 +93,25 @@
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 7px;
+	width: 100%;
+	max-width: 100%;
 	min-width: 0;
+	box-sizing: border-box;
 }
 
 .delivery-list-added-product-detail-item {
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
+	width: 100%;
+	max-width: 100%;
 	min-width: 0;
+	box-sizing: border-box;
 	padding: 8px 9px;
 	border-radius: 11px;
 	background: rgba(255, 255, 255, 0.86);
 	border: 1px solid rgba(0, 0, 0, 0.045);
+	overflow: hidden;
 }
 
 .delivery-list-added-product-label {
@@ -99,6 +119,7 @@
 	display: inline-flex;
 	align-items: center;
 	width: fit-content;
+	max-width: 100%;
 	padding: 2px 7px;
 	border-radius: 999px;
 	background: rgba(0, 0, 0, 0.06);
@@ -107,9 +128,14 @@
 	font-weight: 800;
 	line-height: 1.35;
 	letter-spacing: -0.02em;
+	white-space: nowrap;
 }
 
 .delivery-list-added-product-value {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
 	color: rgba(0, 0, 0, 0.86);
 	font-size: 13px;
 	font-weight: 700;
@@ -127,6 +153,7 @@
 	align-items: center;
 	justify-content: center;
 	width: fit-content;
+	max-width: 100%;
 	padding: 4px 9px;
 	border-radius: 999px;
 	background: rgba(25, 135, 84, 0.1);
@@ -137,36 +164,43 @@
 	white-space: nowrap;
 }
 
-.delivery-list-added-product-option {
+.delivery-list-added-product-memo {
 	display: flex;
 	align-items: flex-start;
 	gap: 8px;
+	width: 100%;
+	max-width: 100%;
 	min-width: 0;
+	box-sizing: border-box;
 	padding: 8px 9px;
 	border-radius: 11px;
-	background: rgba(255, 255, 255, 0.88);
-	border: 1px dashed rgba(0, 0, 0, 0.09);
+	background: rgba(255, 255, 255, 0.9);
+	border: 1px dashed rgba(0, 0, 0, 0.08);
 	font-size: 12.5px;
 	line-height: 1.45;
 	color: rgba(0, 0, 0, 0.72);
 	word-break: keep-all;
 	overflow-wrap: anywhere;
+	overflow: hidden;
 }
 
-.delivery-list-added-product-option-text {
+.delivery-list-added-product-memo-text {
+	display: block;
 	flex: 1 1 auto;
-	min-width: 120px;
-	color: rgba(0, 0, 0, 0.8);
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	color: rgba(0, 0, 0, 0.82);
 	font-weight: 700;
-	white-space: normal;
+	white-space: pre-line;
 	word-break: keep-all;
 	overflow-wrap: anywhere;
 }
 
 /* =========================================================
    리스트 아이템 레이아웃
-   - 핸들(≡) + 체크박스 + 텍스트 + 버튼 영역 균형
-   - 핸들/체크박스/액션 영역만 수직 중앙정렬
+   - PC/태블릿: 핸들(≡) + 체크박스 + 텍스트 + 버튼 영역
+   - 모바일: 핸들/체크박스 + 텍스트 2칸 구조
    ========================================================= */
 
 .delivery-list-added-item-content {
@@ -174,15 +208,24 @@
 	justify-content: flex-start !important;
 	gap: 12px;
 	align-items: flex-start;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+	overflow: hidden;
 }
 
 /* 텍스트 영역: 남는 공간 차지 + ellipsis 안정 */
 .delivery-list-added-item-content .text-section {
 	flex: 1 1 auto;
+	width: 0;
+	max-width: 100%;
 	min-width: 0;
+	overflow: hidden;
+	box-sizing: border-box;
 }
 
-/* 액션 영역: 필요한 만큼만 + 수직 중앙 */
+/* 액션 영역: PC/태블릿에서만 사용 */
 .delivery-list-added-item-content .delivery-list-added-action {
 	flex: 0 0 auto;
 	display: flex;
@@ -393,7 +436,6 @@
 	overflow-wrap: anywhere;
 }
 
-
 /* =========================================================
    업로드(썸네일) 영역
    ========================================================= */
@@ -546,31 +588,64 @@
 
 /* =========================================================
    모바일(작은 화면)
-   - 1) 배송완료 버튼 아이콘화
-   - 2) 햄버거(≡) 버튼 더 작게 + 좌우 여백 축소
-   - 3) 기존증빙 이미지 그리드 조정
-   - 4) 제품/옵션 영역 줄바꿈 안정화
+   - 1) 버튼 영역 제거
+   - 2) 그리드 2칸 구성: 핸들/체크박스 + 본문
+   - 3) 제품/관리자 메모 영역 카드 밖 넘침 방지
+   - 4) 관리자메모 라벨/내용 세로 표시
    ========================================================= */
 
 @media (max-width: 576px) {
 
-	.delivery-list-added-card {
-		padding: 12px 5px;
+	.delivery-list-added-card,
+	.delivery-card.delivery-list-added-card,
+	.list-group-item.delivery-list-added-card {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		padding: 10px 6px;
+		overflow: hidden;
+	}
+
+	.delivery-list-added-item-content {
+		display: grid;
+		grid-template-columns: 30px minmax(0, 1fr);
+		column-gap: 6px;
+		row-gap: 0;
+		align-items: start;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		overflow: hidden;
 	}
 
 	.delivery-list-added-drag-handle {
-		padding: 4px 7px;
+		grid-column: 1;
+		grid-row: 1;
+		align-self: start;
+		justify-self: start;
+		width: 30px;
+		min-width: 30px;
+		max-width: 30px;
+		box-sizing: border-box;
+		padding: 4px 6px;
 		font-size: 16px;
 		border-radius: 9px;
-		margin-right: 4px;
+		margin: 0;
+		text-align: center;
 	}
 
 	.delivery-list-added-check-wrap {
+		grid-column: 1;
+		grid-row: 1;
+		align-self: start;
+		justify-self: start;
 		width: 24px;
 		min-width: 24px;
-		margin-right: 0;
-		position: absolute;
-		top: 10px;
+		min-height: 24px;
+		margin: 36px 0 0 3px;
+		position: static !important;
 	}
 
 	.delivery-list-added-handler-check,
@@ -580,12 +655,153 @@
 		height: 17px !important;
 	}
 
-	/* 액션 영역 최소폭 줄여서 공간 확보 */
-	.delivery-list-added-item-content .delivery-list-added-action {
-		min-width: 80px;
+	.delivery-list-added-item-content .text-section {
+		grid-column: 2;
+		grid-row: 1;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		overflow: hidden;
+	}
+
+	.delivery-list-added-item-content .delivery-list-added-action,
+	.action-btn-group.delivery-list-added-action,
+	.delivery-list-added-action,
+	#pendingList .delivery-list-added-action,
+	#doneList .delivery-list-added-action,
+	#otherList .delivery-list-added-action {
+		display: none !important;
+		width: 0 !important;
+		min-width: 0 !important;
+		max-width: 0 !important;
+		height: 0 !important;
+		min-height: 0 !important;
+		max-height: 0 !important;
+		padding: 0 !important;
+		margin: 0 !important;
+		gap: 0 !important;
+		overflow: hidden !important;
+		pointer-events: none !important;
+	}
+
+	.delivery-list-added-action .action-btn,
+	.delivery-list-added-open-complete-modal,
+	.delivery-list-added-open-detail-modal,
+	.action-btn.btn-complete {
+		display: none !important;
+		width: 0 !important;
+		min-width: 0 !important;
+		max-width: 0 !important;
+		height: 0 !important;
+		min-height: 0 !important;
+		max-height: 0 !important;
+		padding: 0 !important;
+		margin: 0 !important;
+		overflow: hidden !important;
+		pointer-events: none !important;
+	}
+
+	.delivery-list-added-product-box {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		overflow: hidden;
+		margin-top: 7px;
+		padding: 8px;
+		border-radius: 10px;
+	}
+
+	.delivery-list-added-product-head {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+	}
+
+	.delivery-list-added-product-detail-grid,
+	.delivery-list-added-modal-product-rows {
+		grid-template-columns: 1fr;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+	}
+
+	.delivery-list-added-product-detail-item {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		padding: 7px 8px;
+		overflow: hidden;
+	}
+
+	.delivery-list-added-product-label {
+		min-width: 0;
+		max-width: 100%;
+		padding: 2px 6px;
+		font-size: 10.5px;
+	}
+
+	.delivery-list-added-product-value,
+	.delivery-list-added-product-name {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		white-space: normal;
+		word-break: keep-all;
+		overflow-wrap: anywhere;
+	}
+
+	.delivery-list-added-product-quantity {
+		max-width: 100%;
+		font-size: 11.5px;
+		padding: 2px 7px;
+	}
+
+	.delivery-list-added-product-memo {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
 		gap: 5px;
-		position: absolute;
-		top: 90%;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		padding: 7px 8px;
+		font-size: 12px;
+		overflow: hidden;
+	}
+
+	.delivery-list-added-product-memo .delivery-list-added-product-label {
+		display: inline-flex;
+		width: fit-content;
+		max-width: 100%;
+		margin: 0;
+	}
+
+	.delivery-list-added-product-memo-text {
+		display: block;
+		flex: none;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		padding-left: 1px;
+		font-size: 12px;
+		white-space: pre-line;
+		word-break: keep-all;
+		overflow-wrap: anywhere;
+	}
+
+	.delivery-list-added-line,
+	.delivery-list-added-line span {
+		max-width: 100%;
+		word-break: keep-all;
+		overflow-wrap: anywhere;
 	}
 
 	/* 기존 증빙 이미지: 3열 */
@@ -595,12 +811,6 @@
 
 	.delivery-list-added-existing-item img {
 		height: 84px;
-	}
-
-	/* 배송완료(done) 리스트의 상세 버튼 숨김 */
-	#doneList .delivery-list-added-action,
-	#doneList .delivery-list-added-open-detail-modal {
-		display: none !important;
 	}
 
 	.delivery-list-added-floating-handler-btn {
@@ -613,70 +823,17 @@
 		font-size: 13px;
 	}
 
-	.delivery-list-added-open-complete-modal,
-	.action-btn.btn-complete {
-		display: inline-flex !important;
-	}
-
 	.delivery-list-added-btn-text {
 		display: none !important;
 	}
 
 	.delivery-list-added-btn-icon {
-		display: inline !important;
-		font-size: 13px;
-		line-height: 1;
+		display: none !important;
 	}
 
-	.delivery-list-added-action .action-btn {
-		min-width: 34px;
-		height: 32px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		vertical-align: middle;
-		position: absolute;
-		top: 50%;
-		transform: translateY(-50%);
-		padding: 6px 8px;
-		white-space: nowrap;
-	}
-
-	.delivery-list-added-product-box {
-		margin-top: 7px;
-		border-radius: 0px;
-	}
-
-	.delivery-list-added-product-detail-grid,
-	.delivery-list-added-modal-product-rows {
-		grid-template-columns: 1fr;
-	}
-
-	.delivery-list-added-product-option {
+	.delivery-list-added-modal-product-row {
+		flex-direction: column;
 		gap: 5px;
-		font-size: 12px;
-	}
-
-	.delivery-list-added-product-label {
-		min-width: 34px;
-		padding: 2px 6px;
-		font-size: 10.5px;
-	}
-
-	.delivery-list-added-product-name {
-		max-width: 100%;
-	}
-
-	.delivery-list-added-product-quantity {
-		font-size: 11.5px;
-		padding: 2px 7px;
-	}
-
-	.delivery-list-added-product-option-text {
-		flex-basis: 100%;
-		min-width: 100%;
-		padding-left: 1px;
-		font-size: 12px;
 	}
 }
 
