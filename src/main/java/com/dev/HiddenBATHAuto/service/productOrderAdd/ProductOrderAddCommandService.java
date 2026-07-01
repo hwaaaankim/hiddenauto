@@ -64,6 +64,9 @@ public class ProductOrderAddCommandService {
     private static final Long DEFAULT_PRODUCTION_TEAM_CATEGORY_ID = 1L;
     private static final Long DEFAULT_FALLBACK_TEAM_ID = 1L;
 
+    private static final String NON_STANDARD_EXCLUDED_CATEGORY_CUTTING = "재단";
+    private static final String NON_STANDARD_EXCLUDED_CATEGORY_MIRROR_CUTTING = "재단(거울)";
+
     private static final String MANAGEMENT_UPLOAD_TYPE = "MANAGEMENT";
     private static final String NO_STANDARD_SERIES_NAME = "중분류 없음";
 
@@ -425,6 +428,10 @@ public class ProductOrderAddCommandService {
                 .findByIdAndTeam_Id(request.getProductionCategoryId(), PRODUCTION_TEAM_ID)
                 .orElseThrow(() -> new IllegalArgumentException("선택한 생산팀 분류를 찾을 수 없습니다."));
 
+        if (isExcludedNonStandardProductionCategory(productCategory)) {
+            throw new IllegalArgumentException("비규격 주문에서는 재단 또는 재단(거울) 생산팀 분류를 선택할 수 없습니다.");
+        }
+
         return new ResolvedOrderMeta(
                 productCategory,
                 productCategory.getName(),
@@ -674,6 +681,25 @@ public class ProductOrderAddCommandService {
         String trimmed = value.trim();
 
         return trimmed.isBlank() ? null : trimmed;
+    }
+
+    private boolean isExcludedNonStandardProductionCategory(TeamCategory category) {
+        if (category == null) {
+            return true;
+        }
+
+        String normalizedName = normalizeProductionCategoryName(category.getName());
+
+        return NON_STANDARD_EXCLUDED_CATEGORY_CUTTING.equals(normalizedName)
+                || NON_STANDARD_EXCLUDED_CATEGORY_MIRROR_CUTTING.equals(normalizedName);
+    }
+
+    private String normalizeProductionCategoryName(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value.trim().replaceAll("\\s+", "");
     }
 
     private String normalizeDir(String dir) {

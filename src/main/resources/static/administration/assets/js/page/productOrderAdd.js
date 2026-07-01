@@ -6,6 +6,11 @@
 	const DEFAULT_PRODUCTION_CATEGORY_ID = 1;
 	const DEFAULT_PRODUCTION_CATEGORY_LABEL = '기본카테고리(ID 1)';
 
+	const NON_STANDARD_EXCLUDED_PRODUCTION_CATEGORY_NAMES = new Set([
+		'재단',
+		'재단(거울)'
+	]);
+
 	const state = {
 		company: null,
 		deliveryMethod: null,
@@ -2867,13 +2872,34 @@
 	function getFilteredProductionCategories(keyword) {
 		const normalized = normalizeText(keyword);
 
+		const selectableCategories = state.productionCategories.filter(item =>
+			!isExcludedNonStandardProductionCategory(item)
+		);
+
 		if (!normalized) {
-			return [...state.productionCategories];
+			return selectableCategories;
 		}
 
-		return state.productionCategories.filter(item =>
+		return selectableCategories.filter(item =>
 			normalizeText(item.name).includes(normalized)
 		);
+	}
+
+	function isExcludedNonStandardProductionCategory(item) {
+		if (!item) {
+			return true;
+		}
+
+		const normalizedName = normalizeProductionCategoryName(item.name);
+
+		return NON_STANDARD_EXCLUDED_PRODUCTION_CATEGORY_NAMES.has(normalizedName);
+	}
+
+	function normalizeProductionCategoryName(value) {
+		return String(value || '')
+			.trim()
+			.replace(/\s+/g, '')
+			.toLowerCase();
 	}
 
 	function addOptionFromTextarea(order, textarea) {
