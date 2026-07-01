@@ -1,9 +1,11 @@
+/* dispatchList.js */
 (function() {
 	'use strict';
 
 	const API = {
 		search: '/team/dispatchList/api/orders/search',
 		excel: '/team/dispatchList/api/orders/excel',
+		deliveryStatementExcel: '/api/internal/delivery-statement/excel',
 		complete: '/team/dispatchList/api/orders/complete',
 		updateDeliveryMethod: function(orderId) {
 			return '/team/dispatchList/api/orders/' + encodeURIComponent(orderId) + '/delivery-method';
@@ -96,6 +98,8 @@
 		els.alertModal = document.getElementById('dispatch-list-alert-modal');
 		els.alertMessage = document.getElementById('dispatch-list-alert-message');
 		els.excelBtn = document.getElementById('dispatch-list-excel-btn');
+		els.siteStatementBtn = document.getElementById('dispatch-list-site-statement-btn');
+		els.parcelStatementBtn = document.getElementById('dispatch-list-parcel-statement-btn');
 
 		els.deliveryModalSelectedMethodId = document.getElementById('dispatch-list-delivery-modal-selected-method-id');
 		els.directHandlerArea = document.getElementById('dispatch-list-direct-handler-area');
@@ -180,6 +184,18 @@
 		}
 		if (els.excelBtn) {
 			els.excelBtn.addEventListener('click', downloadExcel);
+		}
+
+		if (els.siteStatementBtn) {
+			els.siteStatementBtn.addEventListener('click', function() {
+				downloadDeliveryStatement('SITE', els.siteStatementBtn);
+			});
+		}
+
+		if (els.parcelStatementBtn) {
+			els.parcelStatementBtn.addEventListener('click', function() {
+				downloadDeliveryStatement('PARCEL', els.parcelStatementBtn);
+			});
 		}
 		if (els.deliveryModal) {
 			els.deliveryModal.addEventListener('click', function(event) {
@@ -507,6 +523,8 @@
 
 		setDisabled(els.bulkCompleteBtn, selectedCount === 0);
 		setDisabled(els.modalBulkCompleteBtn, selectedCount === 0);
+		setDisabled(els.siteStatementBtn, selectedCount === 0);
+		setDisabled(els.parcelStatementBtn, selectedCount === 0);
 	}
 
 	function completeSelectedOrders() {
@@ -772,6 +790,106 @@
 		}
 	}
 
+
+	async function downloadDeliveryStatement(statementType, button) {
+		const orderIds = Array.from(state.selectedOrderIds)
+			.filter(function(orderId) {
+				return Number.isFinite(orderId) && orderId > 0;
+			});
+
+		if (orderIds.length === 0) {
+			alertMessage('명세서로 출력할 주문을 하나 이상 선택해 주세요.');
+			return;
+		}
+
+		const originalText = button ? button.innerHTML : '';
+
+		try {
+			setStatementButtonsBusy(true, button);
+
+			const response = await fetch(API.deliveryStatementExcel, {
+				method: 'POST',
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({
+					statementType: statementType,
+					orderIds: orderIds
+				})
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(errorText || '명세서 출력 중 오류가 발생했습니다.');
+			}
+
+			const blob = await response.blob();
+			const contentDisposition = response.headers.get('Content-Disposition');
+			const filename = resolveDownloadFilename(
+				contentDisposition,
+				(statementType === 'SITE' ? '현장명세서' : '택배명세서') + '_' + (valueOf(els.today) || new Date().toISOString().slice(0, 10)) + '.xlsx'
+			);
+
+			downloadBlob(blob, filename);
+		} catch (error) {
+			console.error(error);
+			alertMessage(error.message || '명세서 출력 중 오류가 발생했습니다.');
+		} finally {
+			setStatementButtonsBusy(false, button, originalText);
+		}
+	}
+
+	function setStatementButtonsBusy(isBusy, activeButton, originalText) {
+		[els.siteStatementBtn, els.parcelStatementBtn].forEach(function(btn) {
+			if (!btn) {
+				return;
+			}
+
+			if (isBusy) {
+				btn.disabled = true;
+				if (btn === activeButton) {
+					btn.innerHTML = '<i class="ri-loader-4-line me-1"></i>명세서 생성 중';
+				}
+				return;
+			}
+
+			if (btn === activeButton && originalText) {
+				btn.innerHTML = originalText;
+			}
+		});
+
+		if (!isBusy) {
+			updateCounts();
+		}
+	}
+
+	function downloadBlob(blob, filename) {
+		const url = window.URL.createObjectURL(blob);
+		const link = document.createElement('a');
+
+		link.href = url;
+		link.download = filename;
+
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+
+		window.URL.revokeObjectURL(url);
+	}
+
+	function resolveDownloadFilename(contentDisposition, fallbackFilename) {
+		if (contentDisposition) {
+			const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+			if (utf8Match && utf8Match[1]) {
+				return decodeURIComponent(utf8Match[1].replace(/"/g, ''));
+			}
+
+			const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+			if (asciiMatch && asciiMatch[1]) {
+				return asciiMatch[1];
+			}
+		}
+
+		return fallbackFilename;
+	}
 
 	async function downloadExcel() {
 		if (els.excelBtn) {

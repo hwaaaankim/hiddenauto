@@ -22,7 +22,6 @@ import com.dev.HiddenBATHAuto.service.auth.PrincipalDetailsService;
 
 import lombok.RequiredArgsConstructor;
 
-
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -66,6 +65,14 @@ public class WebSecurityConfig {
 
     private final String[] teamUrls = {
             "/team/**"
+    };
+
+    /**
+     * 관리자/관리팀/내부직원이 함께 사용하는 공통 내부 API입니다.
+     * /team/** 또는 /management/** 아래에 두면 반대 권한 화면에서 호출할 수 없으므로 별도 경로로 분리합니다.
+     */
+    private final String[] internalApiUrls = {
+            "/api/internal/**"
     };
 
     private final String[] customersUrls = {
@@ -145,6 +152,11 @@ public class WebSecurityConfig {
                             "ROLE_INTERNAL_EMPLOYEE",
                             "ROLE_CUSTOMER_REPRESENTATIVE",
                             "ROLE_CUSTOMER_EMPLOYEE"
+                    )
+                    .requestMatchers(internalApiUrls).hasAnyAuthority(
+                            "ROLE_ADMIN",
+                            "ROLE_MANAGEMENT",
+                            "ROLE_INTERNAL_EMPLOYEE"
                     )
                     .requestMatchers(adminsUrls).hasAuthority("ROLE_ADMIN")
                     .requestMatchers(managementUrls).hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGEMENT")

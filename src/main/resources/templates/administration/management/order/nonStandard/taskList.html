@@ -71,6 +71,16 @@
 													<i class="fa-solid fa-circle-check"></i> 일괄 컨펌
 												</button>
 
+												<button type="button" class="btn btn-outline-primary"
+													id="task-list-site-statement-btn" disabled>
+													<i class="fa-solid fa-file-lines"></i> 현장명세서출력
+												</button>
+
+												<button type="button" class="btn btn-outline-info"
+													id="task-list-parcel-statement-btn" disabled>
+													<i class="fa-solid fa-truck-fast"></i> 택배명세서출력
+												</button>
+
 												<a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
                                                     dateCriteria=${dateCriteria},

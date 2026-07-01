@@ -1,3 +1,4 @@
+<!-- deliveryManager.html -->
 <!doctype html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
@@ -135,6 +136,22 @@
 											<span class="text-muted">행을 클릭하면 상세화면으로 이동합니다.</span>
 
 											<button type="button"
+												id="delivery-manager-added-site-statement-btn"
+												class="btn btn-outline-primary btn-sm"
+												disabled>
+												<i class="ri-file-list-3-line align-bottom me-1"></i>
+												현장명세서출력
+											</button>
+
+											<button type="button"
+												id="delivery-manager-added-parcel-statement-btn"
+												class="btn btn-outline-info btn-sm"
+												disabled>
+												<i class="ri-file-paper-2-line align-bottom me-1"></i>
+												택배명세서출력
+											</button>
+
+											<button type="button"
 												id="delivery-manager-added-excel-btn"
 												class="btn btn-success btn-sm delivery-manager-added-excel-btn"
 												th:data-delivery-handler-id="${deliveryHandlerId}">
@@ -148,6 +165,10 @@
 										<table class="table table-hover align-middle mb-0 delivery-manager-added-table">
 											<thead>
 												<tr>
+													<th class="text-center" style="width:48px;">
+														<input type="checkbox" id="delivery-manager-added-check-all" class="form-check-input" aria-label="전체 선택">
+													</th>
+
 													<th>
 														<a class="delivery-manager-added-sort-link"
 															th:href="@{/team/deliveryManager(size=${size}, searchType=${searchType}, keyword=${keyword}, deliveryMethodId=${deliveryMethodId}, fromDate=${fromDate}, toDate=${toDate}, sortKey='orderId', sortDir=${sortKey == 'orderId' and sortDir == 'ASC' ? 'DESC' : 'ASC'})}">
@@ -213,7 +234,7 @@
 
 											<tbody>
 												<tr th:if="${deliveryPage.content == null or #lists.isEmpty(deliveryPage.content)}">
-													<td colspan="10" class="text-center text-muted py-5">
+													<td colspan="11" class="text-center text-muted py-5">
 														조회된 배송건이 없습니다.
 													</td>
 												</tr>
@@ -221,6 +242,13 @@
 												<tr th:each="row : ${deliveryPage.content}"
 													class="delivery-manager-added-row"
 													th:attr="data-href=@{/team/deliveryDetail/{id}(id=${row.orderId})}, data-order-id=${row.orderId}">
+													<td class="text-center">
+														<input type="checkbox"
+															class="form-check-input delivery-manager-added-row-check"
+															th:value="${row.orderId}"
+															th:attr="data-order-id=${row.orderId}"
+															aria-label="배송건 선택">
+													</td>
 													<td class="delivery-manager-added-order-id" th:text="${row.orderId}">1</td>
 													<td>
 														<div class="delivery-manager-added-company" th:text="${row.companyName}">업체명</div>

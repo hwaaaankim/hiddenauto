@@ -6,8 +6,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -21,11 +23,13 @@ public class DeliveryOrderSummaryRes {
     private String companyAddress;
 
     private String orderAddress;
+    private String ordererPhone;
+
     private String productText;
 
     private String status;
     private String statusLabel;
 
-    // ✅ 완료처리에 사용한 이미지(배송 증빙 이미지) URL 목록
-    private List<String> deliveryImageUrls;
+    @Builder.Default
+    private List<String> deliveryImageUrls = List.of();
 }

@@ -113,6 +113,74 @@
 		}
 	}
 
+	function renderProductText(text) {
+		if (!productTextEl) return;
+
+		const raw = (typeof text === "string" ? text : "").trim();
+
+		productTextEl.innerHTML = "";
+
+		if (!raw || raw === "-") {
+			productTextEl.textContent = "-";
+			return;
+		}
+
+		const lines = raw
+			.split(/\r?\n/)
+			.map(line => line.trim())
+			.filter(Boolean);
+
+		const parsedRows = lines
+			.map(line => {
+				const idx = line.indexOf(":");
+
+				if (idx < 0) {
+					return null;
+				}
+
+				const label = line.slice(0, idx).trim();
+				const value = line.slice(idx + 1).trim();
+
+				if (!label) {
+					return null;
+				}
+
+				return {
+					label,
+					value: value || "-"
+				};
+			})
+			.filter(Boolean);
+
+		if (parsedRows.length === 0) {
+			productTextEl.textContent = raw;
+			return;
+		}
+
+		const wrap = document.createElement("div");
+		wrap.className = "delivery-list-added-modal-product-rows";
+
+		for (const row of parsedRows) {
+			const item = document.createElement("div");
+			item.className = "delivery-list-added-modal-product-row";
+
+			const label = document.createElement("span");
+			label.className = "delivery-list-added-modal-product-label";
+			label.textContent = row.label;
+
+			const value = document.createElement("span");
+			value.className = "delivery-list-added-modal-product-value";
+			value.textContent = row.value;
+
+			item.appendChild(label);
+			item.appendChild(value);
+			wrap.appendChild(item);
+		}
+
+		productTextEl.appendChild(wrap);
+	}
+
+
 	function getErrorMessageFromResponse(res) {
 		return res.clone().json()
 			.then(data => data?.message || "")
@@ -405,7 +473,7 @@
 		setElementText(requesterNameEl, "-");
 		setElementText(companyContactEl, "-");
 		setElementText(orderAddressEl, "-");
-		setElementText(productTextEl, "-");
+		renderProductText("-");
 		setElementText(ordererPhoneEl, "-");
 
 		setElementDisplay(existingWrapEl, "none");
@@ -604,7 +672,7 @@
 		setElementText(requesterNameEl, data?.requesterName || "-");
 		setElementText(companyContactEl, data?.companyContact || "-");
 		setElementText(orderAddressEl, data?.orderAddress || "-");
-		setElementText(productTextEl, data?.productText || "-");
+		renderProductText(data?.productText || "-");
 		setElementText(ordererPhoneEl, data?.ordererPhone || "-");
 
 		renderExistingImages(data?.deliveryImageUrls);

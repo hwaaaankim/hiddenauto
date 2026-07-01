@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", function() {
 	const deleteTasksBtn = document.getElementById("task-list-delete-tasks-btn");
 	const deleteOrdersBtn = document.getElementById("task-list-delete-orders-btn");
 	const bulkConfirmBtn = document.getElementById("task-list-bulk-confirm-btn");
+	const siteStatementBtn = document.getElementById("task-list-site-statement-btn");
+	const parcelStatementBtn = document.getElementById("task-list-parcel-statement-btn");
 
 	const csrfToken = document.getElementById("admin-task-list-second-csrf-token")?.value
 		|| document.querySelector('meta[name="_csrf"]')?.getAttribute("content");
@@ -119,10 +121,114 @@ document.addEventListener("DOMContentLoaded", function() {
 			bulkConfirmBtn.disabled = checkedCount === 0;
 		}
 
+		if (siteStatementBtn) {
+			siteStatementBtn.disabled = checkedCount === 0;
+		}
+
+		if (parcelStatementBtn) {
+			parcelStatementBtn.disabled = checkedCount === 0;
+		}
+
 		if (checkAllBox) {
 			checkAllBox.checked = totalCount > 0 && checkedCount === totalCount;
 			checkAllBox.indeterminate = checkedCount > 0 && checkedCount < totalCount;
 		}
+	}
+
+
+	async function downloadDeliveryStatement(statementType, button) {
+		const selectedOrderIds = getSelectedOrderIds();
+
+		if (selectedOrderIds.length === 0) {
+			alert("명세서로 출력할 주문을 하나 이상 선택해 주세요.");
+			return;
+		}
+
+		const originalText = button ? button.innerHTML : "";
+
+		try {
+			setStatementButtonsBusy(true, button);
+
+			const response = await fetch("/api/internal/delivery-statement/excel", {
+				method: "POST",
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({
+					statementType: statementType,
+					orderIds: selectedOrderIds
+				})
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(errorText || "명세서 출력 중 오류가 발생했습니다.");
+			}
+
+			const blob = await response.blob();
+			const contentDisposition = response.headers.get("Content-Disposition");
+			const filename = resolveDeliveryStatementFilename(
+				contentDisposition,
+				(statementType === "SITE" ? "현장명세서" : "택배명세서") + "_" + new Date().toISOString().slice(0, 10) + ".xlsx"
+			);
+
+			downloadBlob(blob, filename);
+		} catch (error) {
+			alert(error.message || "명세서 출력 중 오류가 발생했습니다.");
+		} finally {
+			setStatementButtonsBusy(false, button, originalText);
+		}
+	}
+
+	function setStatementButtonsBusy(isBusy, activeButton, originalText) {
+		[siteStatementBtn, parcelStatementBtn].forEach(btn => {
+			if (!btn) {
+				return;
+			}
+
+			if (isBusy) {
+				btn.disabled = true;
+				if (btn === activeButton) {
+					btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 명세서 생성중';
+				}
+				return;
+			}
+
+			if (btn === activeButton && originalText) {
+				btn.innerHTML = originalText;
+			}
+		});
+
+		if (!isBusy) {
+			updateBulkButtons();
+		}
+	}
+
+	function downloadBlob(blob, filename) {
+		const url = window.URL.createObjectURL(blob);
+		const link = document.createElement("a");
+
+		link.href = url;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+
+		window.URL.revokeObjectURL(url);
+	}
+
+	function resolveDeliveryStatementFilename(contentDisposition, fallbackFilename) {
+		if (contentDisposition) {
+			const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+			if (utf8Match && utf8Match[1]) {
+				return decodeURIComponent(utf8Match[1].replace(/"/g, ""));
+			}
+
+			const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+			if (asciiMatch && asciiMatch[1]) {
+				return asciiMatch[1];
+			}
+		}
+
+		return fallbackFilename;
 	}
 
 	function setDeleteButtonsBusy(isBusy) {
@@ -792,6 +898,18 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		if (bulkConfirmBtn) {
 			bulkConfirmBtn.addEventListener("click", bulkConfirmSelectedOrders);
+		}
+
+		if (siteStatementBtn) {
+			siteStatementBtn.addEventListener("click", function() {
+				downloadDeliveryStatement("SITE", siteStatementBtn);
+			});
+		}
+
+		if (parcelStatementBtn) {
+			parcelStatementBtn.addEventListener("click", function() {
+				downloadDeliveryStatement("PARCEL", parcelStatementBtn);
+			});
 		}
 
 		document.addEventListener("click", function(event) {

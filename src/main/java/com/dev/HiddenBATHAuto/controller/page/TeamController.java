@@ -83,6 +83,7 @@ import com.dev.HiddenBATHAuto.service.production.ProductionListExcelService;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryExcelService;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryOrderSummaryService;
+import com.dev.HiddenBATHAuto.utils.DeliveryProductDisplayUtil;
 import com.dev.HiddenBATHAuto.utils.OrderItemOptionJsonUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -946,6 +947,7 @@ public class TeamController {
 			}
 
 			OrderItemOptionJsonUtil.enrich(item);
+			DeliveryProductDisplayUtil.enrich(doi.getOrder());
 		}
 	}
 
@@ -1226,9 +1228,92 @@ public class TeamController {
 
 		DeliveryOrderSummaryRes res = deliveryOrderSummaryService.getSummary(member.getId(), orderId);
 
-		return ResponseEntity.ok(res);
+		Map<String, Object> body = objectMapper.convertValue(res, new TypeReference<Map<String, Object>>() {
+		});
+
+		Order order = orderRepository.findById(orderId)
+				.orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
+
+		String originalProductText = body.get("productText") != null
+				? String.valueOf(body.get("productText"))
+				: "";
+
+		body.put("productText", DeliveryProductDisplayUtil.buildModalProductText(order));
+		body.put("ordererPhone", order != null && StringUtils.hasText(order.getOrdererPhone()) ? order.getOrdererPhone().trim() : "-");
+
+		return ResponseEntity.ok(body);
 	}
 
+	private String buildDeliveryModalProductTextKeepingOriginal(Order order, String originalProductText) {
+		List<String> lines = new ArrayList<>();
+
+		if (StringUtils.hasText(originalProductText)) {
+			lines.add(originalProductText.trim());
+		}
+
+		OrderItem item = order != null ? order.getOrderItem() : null;
+
+		if (item != null) {
+			OrderItemOptionJsonUtil.enrich(item);
+		}
+
+		if (!StringUtils.hasText(originalProductText)) {
+			String productName = item != null && StringUtils.hasText(item.getProductName())
+					? item.getProductName().trim()
+					: "-";
+
+			lines.add(productName);
+		}
+
+		int quantity = resolveDeliveryModalQuantity(order, item);
+		String optionText = resolveDeliveryModalOptionText(item);
+
+		if (quantity > 0) {
+			lines.add("수량: " + quantity + "개");
+		} else {
+			lines.add("수량: -");
+		}
+
+		if (StringUtils.hasText(optionText)) {
+			lines.add("옵션: " + optionText);
+		} else {
+			lines.add("옵션: -");
+		}
+
+		return String.join("\n", lines);
+	}
+
+	private int resolveDeliveryModalQuantity(Order order, OrderItem item) {
+		if (item != null && item.getQuantity() > 0) {
+			return item.getQuantity();
+		}
+
+		if (order != null && order.getQuantity() > 0) {
+			return order.getQuantity();
+		}
+
+		return 0;
+	}
+
+	private String resolveDeliveryModalOptionText(OrderItem item) {
+		if (item == null) {
+			return "";
+		}
+
+		String optionText = item.getFormattedOptionText();
+
+		if (!StringUtils.hasText(optionText)) {
+			return "";
+		}
+
+		String productName = item.getProductName();
+
+		if (StringUtils.hasText(productName) && optionText.trim().equals(productName.trim())) {
+			return "";
+		}
+
+		return optionText.trim();
+	}
 	/**
 	 * ✅ 엑셀 출력 (현재 DOM 순서 그대로 전송받아 A4 맞춤 XLSX 생성)
 	 */

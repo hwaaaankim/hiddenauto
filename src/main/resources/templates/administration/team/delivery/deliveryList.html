@@ -1,3 +1,4 @@
+<!-- deliveryList.html -->
 <!doctype html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
 	data-sidebar-image="none" data-preloader="disable">
@@ -129,7 +130,15 @@
 											<div class="list-group-item nested-1 draggable-item delivery-card delivery-list-added-card delivery-list-added-card-clickable border border-warning"
 												th:each="wrap : ${pendingOrders}"
 												th:with="o=${wrap.order},
-												         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
+												         item=${wrap.order != null ? wrap.order.orderItem : null},
+												         itemQuantity=${item != null and item.quantity > 0 ? item.quantity : (wrap.order != null and wrap.order.quantity > 0 ? wrap.order.quantity : 0)},
+											         itemQuantityText=${item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity > 0 ? '수량 ' + itemQuantity + '개' : '수량 -')},
+											         categoryText=${item != null and !#strings.isEmpty(item.deliveryCategoryText) ? item.deliveryCategoryText : '-'},
+											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
+											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
+											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
+											         optionText=${item != null and !#strings.isEmpty(item.deliveryOptionText) ? item.deliveryOptionText : '-'},
+											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
 												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
 												th:attr="
                                                     data-order-id=${o.id},
@@ -185,17 +194,45 @@
 																th:text="${!#strings.isEmpty(o.ordererPhone) ? o.ordererPhone : '-'}"></span>
 														</div>
 
-														<div class="ellipsis delivery-list-added-line">
-															<strong>제품 상세:</strong>
-															<span
-																th:text="${o.orderItem != null and !#strings.isEmpty(o.orderItem.formattedOptionText)
-                                                                ? o.orderItem.formattedOptionText
-                                                                : (o.orderItem != null and !#strings.isEmpty(o.orderItem.productName) ? o.orderItem.productName : '-')}">
-															</span>
-														</div>
-													</div>
+														<div class="delivery-list-added-product-box">
+																	<div class="delivery-list-added-product-head">
+																		<span class="delivery-list-added-product-badge">제품정보</span>
+																		<span class="delivery-list-added-product-quantity"
+																			th:text="${itemQuantityText}">수량 1개</span>
+																	</div>
 
-													<div class="action-btn-group delivery-list-added-action">
+																	<div class="delivery-list-added-product-detail-grid">
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">카테고리</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${categoryText}">상부장</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">제품명</span>
+																			<span class="delivery-list-added-product-value delivery-list-added-product-name"
+																				th:text="${productNameText}">모듈</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">사이즈</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${sizeText}">500*800</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">색상</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${colorText}">HC</span>
+																		</div>
+																	</div>
+
+																	<div class="delivery-list-added-product-option">
+																		<span class="delivery-list-added-product-label">옵션</span>
+																		<span class="delivery-list-added-product-option-text"
+																			th:text="${!#strings.isEmpty(optionText) ? optionText : '-'}">원도어 좌경첩 / 하단 오픈 / 미니HW / **샘플**</span>
+																	</div>
+																</div>
+															</div>
+
+															<div class="action-btn-group delivery-list-added-action">
 														<button type="button"
 															class="action-btn btn-complete delivery-list-added-open-complete-modal"
 															th:attr="data-order-id=${o.id}">
@@ -203,7 +240,6 @@
 															<span class="delivery-list-added-btn-icon"
 																aria-hidden="true">✓</span>
 														</button>
-
 													</div>
 
 												</div>
@@ -219,7 +255,15 @@
 											<div class="list-group-item nested-1 draggable-item delivery-card is-done border border-success delivery-list-added-card delivery-list-added-card-clickable"
 												th:each="wrap : ${doneOrders}"
 												th:with="o=${wrap.order},
-												         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
+												         item=${wrap.order != null ? wrap.order.orderItem : null},
+												         itemQuantity=${item != null and item.quantity > 0 ? item.quantity : (wrap.order != null and wrap.order.quantity > 0 ? wrap.order.quantity : 0)},
+											         itemQuantityText=${item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity > 0 ? '수량 ' + itemQuantity + '개' : '수량 -')},
+											         categoryText=${item != null and !#strings.isEmpty(item.deliveryCategoryText) ? item.deliveryCategoryText : '-'},
+											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
+											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
+											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
+											         optionText=${item != null and !#strings.isEmpty(item.deliveryOptionText) ? item.deliveryOptionText : '-'},
+											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
 												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
 												th:attr="
                                                     data-order-id=${o.id},
@@ -273,17 +317,45 @@
 																th:text="${!#strings.isEmpty(o.ordererPhone) ? o.ordererPhone : '-'}"></span>
 														</div>
 
-														<div class="ellipsis delivery-list-added-line">
-															<strong>제품 상세:</strong>
-															<span
-																th:text="${o.orderItem != null and !#strings.isEmpty(o.orderItem.formattedOptionText)
-                                                                ? o.orderItem.formattedOptionText
-                                                                : (o.orderItem != null and !#strings.isEmpty(o.orderItem.productName) ? o.orderItem.productName : '-')}">
-															</span>
-														</div>
-													</div>
+														<div class="delivery-list-added-product-box">
+																	<div class="delivery-list-added-product-head">
+																		<span class="delivery-list-added-product-badge">제품정보</span>
+																		<span class="delivery-list-added-product-quantity"
+																			th:text="${itemQuantityText}">수량 1개</span>
+																	</div>
 
-													<div class="action-btn-group delivery-list-added-action">
+																	<div class="delivery-list-added-product-detail-grid">
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">카테고리</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${categoryText}">상부장</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">제품명</span>
+																			<span class="delivery-list-added-product-value delivery-list-added-product-name"
+																				th:text="${productNameText}">모듈</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">사이즈</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${sizeText}">500*800</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">색상</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${colorText}">HC</span>
+																		</div>
+																	</div>
+
+																	<div class="delivery-list-added-product-option">
+																		<span class="delivery-list-added-product-label">옵션</span>
+																		<span class="delivery-list-added-product-option-text"
+																			th:text="${!#strings.isEmpty(optionText) ? optionText : '-'}">원도어 좌경첩 / 하단 오픈 / 미니HW / **샘플**</span>
+																	</div>
+																</div>
+															</div>
+
+															<div class="action-btn-group delivery-list-added-action">
 														<button type="button"
 															class="action-btn delivery-list-added-open-detail-modal"
 															th:attr="data-order-id=${o.id}">
@@ -306,7 +378,15 @@
 											<div class="list-group-item nested-1 draggable-item delivery-card is-other border border-secondary delivery-list-added-card delivery-list-added-card-clickable"
 												th:each="wrap : ${otherOrders}"
 												th:with="o=${wrap.order},
-												         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
+												         item=${wrap.order != null ? wrap.order.orderItem : null},
+												         itemQuantity=${item != null and item.quantity > 0 ? item.quantity : (wrap.order != null and wrap.order.quantity > 0 ? wrap.order.quantity : 0)},
+											         itemQuantityText=${item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity > 0 ? '수량 ' + itemQuantity + '개' : '수량 -')},
+											         categoryText=${item != null and !#strings.isEmpty(item.deliveryCategoryText) ? item.deliveryCategoryText : '-'},
+											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
+											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
+											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
+											         optionText=${item != null and !#strings.isEmpty(item.deliveryOptionText) ? item.deliveryOptionText : '-'},
+											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
 												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
 												th:attr="
                                                     data-order-id=${o.id},
@@ -360,17 +440,45 @@
 																th:text="${!#strings.isEmpty(o.ordererPhone) ? o.ordererPhone : '-'}"></span>
 														</div>
 
-														<div class="ellipsis delivery-list-added-line">
-															<strong>제품 상세:</strong>
-															<span
-																th:text="${o.orderItem != null and !#strings.isEmpty(o.orderItem.formattedOptionText)
-                                                                ? o.orderItem.formattedOptionText
-                                                                : (o.orderItem != null and !#strings.isEmpty(o.orderItem.productName) ? o.orderItem.productName : '-')}">
-															</span>
-														</div>
-													</div>
+														<div class="delivery-list-added-product-box">
+																	<div class="delivery-list-added-product-head">
+																		<span class="delivery-list-added-product-badge">제품정보</span>
+																		<span class="delivery-list-added-product-quantity"
+																			th:text="${itemQuantityText}">수량 1개</span>
+																	</div>
 
-													<div class="action-btn-group delivery-list-added-action">
+																	<div class="delivery-list-added-product-detail-grid">
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">카테고리</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${categoryText}">상부장</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">제품명</span>
+																			<span class="delivery-list-added-product-value delivery-list-added-product-name"
+																				th:text="${productNameText}">모듈</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">사이즈</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${sizeText}">500*800</span>
+																		</div>
+																		<div class="delivery-list-added-product-detail-item">
+																			<span class="delivery-list-added-product-label">색상</span>
+																			<span class="delivery-list-added-product-value"
+																				th:text="${colorText}">HC</span>
+																		</div>
+																	</div>
+
+																	<div class="delivery-list-added-product-option">
+																		<span class="delivery-list-added-product-label">옵션</span>
+																		<span class="delivery-list-added-product-option-text"
+																			th:text="${!#strings.isEmpty(optionText) ? optionText : '-'}">원도어 좌경첩 / 하단 오픈 / 미니HW / **샘플**</span>
+																	</div>
+																</div>
+															</div>
+
+															<div class="action-btn-group delivery-list-added-action">
 														<button type="button"
 															class="action-btn delivery-list-added-open-detail-modal"
 															th:attr="data-order-id=${o.id}">
@@ -446,7 +554,7 @@
 								</div>
 							</div>
 							<div class="delivery-list-added-info-item delivery-list-added-info-item-wide">
-								<div class="delivery-list-added-info-label">주문 제품 내용</div>
+								<div class="delivery-list-added-info-label">제품 상세 정보</div>
 								<div class="delivery-list-added-info-value delivery-list-added-prewrap"
 									id="delivery-list-added-productText">-</div>
 							</div>

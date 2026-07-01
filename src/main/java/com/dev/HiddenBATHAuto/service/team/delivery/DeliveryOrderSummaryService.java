@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.service.team.delivery;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,10 +13,9 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderImage;
-import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
-import com.dev.HiddenBATHAuto.utils.OrderItemOptionJsonUtil;
+import com.dev.HiddenBATHAuto.utils.DeliveryProductDisplayUtil;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,10 +33,11 @@ public class DeliveryOrderSummaryService {
 
         if (doi.getDeliveryHandler() == null || doi.getDeliveryHandler().getId() == null
                 || !doi.getDeliveryHandler().getId().equals(handlerId)) {
-            throw new org.springframework.security.access.AccessDeniedException("담당자 불일치");
+            throw new AccessDeniedException("담당자 불일치");
         }
 
         Order order = doi.getOrder();
+
         if (order == null) {
             throw new IllegalArgumentException("주문 정보가 없습니다.");
         }
@@ -50,6 +51,7 @@ public class DeliveryOrderSummaryService {
 
         // 업체 연락처
         String contact = "-";
+
         if (requester != null) {
             String p1 = safe(requester.getPhone());
             String p2 = safe(requester.getTelephone());
@@ -58,43 +60,50 @@ public class DeliveryOrderSummaryService {
 
         // 업체 주소
         String companyAddr = "-";
+
         if (company != null) {
             String zip = safe(company.getZipCode());
             String road = safe(company.getRoadAddress());
             String detail = safe(company.getDetailAddress());
 
             StringBuilder sb = new StringBuilder();
-            if (!isBlank(zip)) sb.append("(").append(zip).append(") ");
-            if (!isBlank(road)) sb.append(road);
-            if (!isBlank(detail)) sb.append(" ").append(detail);
+
+            if (!isBlank(zip)) {
+                sb.append("(").append(zip).append(") ");
+            }
+
+            if (!isBlank(road)) {
+                sb.append(road);
+            }
+
+            if (!isBlank(detail)) {
+                sb.append(" ").append(detail);
+            }
 
             companyAddr = sb.length() == 0 ? "-" : sb.toString().trim();
         }
 
-        // 배송지 주소
-        String orderAddr = (safe(order.getRoadAddress()) + " " + safe(order.getDetailAddress())).trim();
-        if (isBlank(orderAddr)) orderAddr = "-";
+        // 배송지 주소: 현장배송은 site 주소 우선, 그 외는 기본 배송주소
+        String orderAddr = resolveDeliveryAddress(order);
 
-        // 제품 내용
-        OrderItem item = order.getOrderItem();
-        String productText = "-";
-        if (item != null) {
-            OrderItemOptionJsonUtil.enrich(item);
-            String t = safe(item.getFormattedOptionText());
-            if (!isBlank(t)) productText = t;
-            else productText = safe(item.getProductName());
-        }
+        // 주문자 연락처
+        String ordererPhone = blankToDash(order.getOrdererPhone());
+
+        // 제품 내용: 리스트와 동일한 배송 전용 표시 기준 사용
+        DeliveryProductDisplayUtil.enrich(order);
+        String productText = DeliveryProductDisplayUtil.buildModalProductText(order);
 
         String status = (order.getStatus() != null ? order.getStatus().name() : "-");
         String statusLabel = (order.getStatus() != null ? safe(order.getStatus().getLabel()) : "-");
 
-        // ✅ 완료처리에 사용한 이미지(배송 증빙 이미지) URL 목록
+        // 완료처리에 사용한 이미지(배송 증빙 이미지) URL 목록
         List<String> deliveryImageUrls = List.of();
+
         if (order.getOrderImages() != null) {
             deliveryImageUrls = order.getDeliveryImages().stream()
-                .map(OrderImage::getUrl)
-                .filter(u -> u != null && !u.trim().isEmpty())
-                .collect(Collectors.toList());
+                    .map(OrderImage::getUrl)
+                    .filter(u -> u != null && !u.trim().isEmpty())
+                    .collect(Collectors.toList());
         }
 
         return DeliveryOrderSummaryRes.builder()
@@ -104,11 +113,42 @@ public class DeliveryOrderSummaryService {
                 .companyContact(blankToDash(contact))
                 .companyAddress(blankToDash(companyAddr))
                 .orderAddress(blankToDash(orderAddr))
+                .ordererPhone(ordererPhone)
                 .productText(blankToDash(productText))
                 .status(status)
                 .statusLabel(statusLabel)
                 .deliveryImageUrls(deliveryImageUrls)
                 .build();
+    }
+
+    private String resolveDeliveryAddress(Order order) {
+        if (order == null) {
+            return "-";
+        }
+
+        boolean useSiteAddress = order.getDeliveryMethod() != null
+                && "현장배송".equals(safe(order.getDeliveryMethod().getMethodName()))
+                && !isBlank(order.getSiteRoadAddress());
+
+        String zip = useSiteAddress ? safe(order.getSiteZipCode()) : safe(order.getZipCode());
+        String road = useSiteAddress ? safe(order.getSiteRoadAddress()) : safe(order.getRoadAddress());
+        String detail = useSiteAddress ? safe(order.getSiteDetailAddress()) : safe(order.getDetailAddress());
+
+        StringBuilder sb = new StringBuilder();
+
+        if (!isBlank(zip)) {
+            sb.append("(").append(zip).append(") ");
+        }
+
+        if (!isBlank(road)) {
+            sb.append(road);
+        }
+
+        if (!isBlank(detail)) {
+            sb.append(" ").append(detail);
+        }
+
+        return sb.length() == 0 ? "-" : sb.toString().trim();
     }
 
     private static String safe(String s) {

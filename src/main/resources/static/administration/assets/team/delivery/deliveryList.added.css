@@ -3,7 +3,10 @@
    deliveryList.added.css
    ========================================================= */
 
-/* 카드 기본 */
+/* =========================================================
+   카드 기본
+   ========================================================= */
+
 .delivery-list-added-card {
 	border-radius: 14px;
 }
@@ -24,12 +27,144 @@
 }
 
 /* 액션 버튼 */
+.delivery-list-added-action {
+	flex-wrap: wrap;
+}
+
 .delivery-list-added-action .action-btn {
 	border-radius: 10px;
 }
 
 /* =========================================================
-   ✅ 리스트 아이템 레이아웃
+   제품 상세 표시 영역
+   - 배송팀 기준: 카테고리 / 제품명 / 사이즈 / 색상 / 수량 / 옵션만 표시
+   - 제품시리즈 / 제품시리즈ID는 표시하지 않음
+   ========================================================= */
+
+.delivery-list-added-product-box {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 10px;
+	padding: 10px 12px;
+	border: 1px solid rgba(13, 110, 253, 0.12);
+	border-radius: 14px;
+	background: linear-gradient(180deg, rgba(13, 110, 253, 0.04), rgba(255, 255, 255, 0.9));
+	min-width: 0;
+}
+
+.delivery-list-added-product-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+.delivery-list-added-product-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 9px;
+	border-radius: 999px;
+	background: rgba(13, 110, 253, 0.12);
+	color: #0d6efd;
+	font-size: 12px;
+	font-weight: 800;
+	line-height: 1.35;
+	letter-spacing: -0.02em;
+}
+
+.delivery-list-added-product-detail-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 7px;
+	min-width: 0;
+}
+
+.delivery-list-added-product-detail-item {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	min-width: 0;
+	padding: 8px 9px;
+	border-radius: 11px;
+	background: rgba(255, 255, 255, 0.86);
+	border: 1px solid rgba(0, 0, 0, 0.045);
+}
+
+.delivery-list-added-product-label {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	width: fit-content;
+	padding: 2px 7px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.06);
+	color: rgba(0, 0, 0, 0.62);
+	font-size: 11px;
+	font-weight: 800;
+	line-height: 1.35;
+	letter-spacing: -0.02em;
+}
+
+.delivery-list-added-product-value {
+	color: rgba(0, 0, 0, 0.86);
+	font-size: 13px;
+	font-weight: 700;
+	line-height: 1.35;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+.delivery-list-added-product-name {
+	font-weight: 900;
+}
+
+.delivery-list-added-product-quantity {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: fit-content;
+	padding: 4px 9px;
+	border-radius: 999px;
+	background: rgba(25, 135, 84, 0.1);
+	color: #198754;
+	font-size: 12px;
+	font-weight: 900;
+	line-height: 1.35;
+	white-space: nowrap;
+}
+
+.delivery-list-added-product-option {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	min-width: 0;
+	padding: 8px 9px;
+	border-radius: 11px;
+	background: rgba(255, 255, 255, 0.88);
+	border: 1px dashed rgba(0, 0, 0, 0.09);
+	font-size: 12.5px;
+	line-height: 1.45;
+	color: rgba(0, 0, 0, 0.72);
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+.delivery-list-added-product-option-text {
+	flex: 1 1 auto;
+	min-width: 120px;
+	color: rgba(0, 0, 0, 0.8);
+	font-weight: 700;
+	white-space: normal;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   리스트 아이템 레이아웃
    - 핸들(≡) + 체크박스 + 텍스트 + 버튼 영역 균형
    - 핸들/체크박스/액션 영역만 수직 중앙정렬
    ========================================================= */
@@ -59,7 +194,7 @@
 }
 
 /* =========================================================
-   ✅ 체크박스
+   체크박스
    - 기존 hover CSS가 체크박스를 숨겨도 이 규칙이 우선합니다.
    - 담당자 변경 가능: 활성화
    - 담당자 변경 불가: disabled
@@ -111,7 +246,7 @@
 }
 
 /* =========================================================
-   ✅ 스크롤 상태에서 사용하는 우측 담당자 변경 플로팅 버튼
+   스크롤 상태에서 사용하는 우측 담당자 변경 플로팅 버튼
    ========================================================= */
 
 .delivery-list-added-floating-handler-btn {
@@ -134,7 +269,7 @@
 }
 
 /* =========================================================
-   ✅ 드래그 핸들(≡)
+   드래그 핸들(≡)
    - PC/모바일 모두 핸들로만 드래그
    - 핸들 자체도 수직 중앙정렬
    ========================================================= */
@@ -158,7 +293,7 @@
 	cursor: grabbing;
 }
 
-/* 배송완료 섹션(순서 변경 불가) 핸들 */
+/* 배송완료/기타 섹션 순서 변경 불가 핸들 */
 .delivery-list-added-drag-handle-disabled {
 	opacity: 0.35;
 	cursor: not-allowed;
@@ -166,11 +301,15 @@
 }
 
 /* =========================================================
-   ✅ 모달 스타일
+   모달 스타일
    ========================================================= */
 
 .delivery-list-added-modal-dialog {
 	max-width: 980px;
+}
+
+.delivery-list-added-handler-modal-dialog {
+	max-width: 520px;
 }
 
 .delivery-list-added-modal-content {
@@ -211,8 +350,52 @@
 	white-space: pre-wrap;
 }
 
+.delivery-list-added-modal-product-rows {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.delivery-list-added-modal-product-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	min-width: 0;
+	padding: 9px 10px;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.86);
+	border: 1px solid rgba(0, 0, 0, 0.055);
+}
+
+.delivery-list-added-modal-product-label {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 58px;
+	padding: 2px 7px;
+	border-radius: 999px;
+	background: rgba(13, 110, 253, 0.1);
+	color: #0d6efd;
+	font-size: 11px;
+	font-weight: 900;
+	line-height: 1.35;
+}
+
+.delivery-list-added-modal-product-value {
+	flex: 1 1 auto;
+	min-width: 0;
+	color: rgba(0, 0, 0, 0.86);
+	font-size: 13px;
+	font-weight: 700;
+	line-height: 1.45;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+
 /* =========================================================
-   ✅ 업로드(썸네일) 영역
+   업로드(썸네일) 영역
    ========================================================= */
 
 .delivery-list-added-upload-title {
@@ -272,7 +455,7 @@
 }
 
 /* =========================================================
-   ✅ 기존 배송 증빙 이미지 표시
+   기존 배송 증빙 이미지 표시
    ========================================================= */
 
 .delivery-list-added-existing-title {
@@ -306,7 +489,15 @@
 }
 
 /* =========================================================
-   ✅ 모바일(hover 의존 제거)
+   배송완료 버튼 반응형 보완
+   ========================================================= */
+
+.delivery-list-added-btn-icon {
+	display: none;
+}
+
+/* =========================================================
+   모바일(hover 의존 제거)
    ========================================================= */
 
 @media (hover: none) and (pointer: coarse) {
@@ -327,12 +518,17 @@
 }
 
 /* =========================================================
-   ✅ 반응형 (태블릿 이하)
+   반응형 (태블릿 이하)
    ========================================================= */
 
 @media (max-width: 768px) {
 	.delivery-list-added-info-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.delivery-list-added-product-detail-grid,
+	.delivery-list-added-modal-product-rows {
+		grid-template-columns: 1fr 1fr;
 	}
 
 	.delivery-list-added-modal-dialog {
@@ -349,13 +545,18 @@
 }
 
 /* =========================================================
-   ✅ 모바일(작은 화면)
+   모바일(작은 화면)
    - 1) 배송완료 버튼 아이콘화
    - 2) 햄버거(≡) 버튼 더 작게 + 좌우 여백 축소
    - 3) 기존증빙 이미지 그리드 조정
+   - 4) 제품/옵션 영역 줄바꿈 안정화
    ========================================================= */
 
 @media (max-width: 576px) {
+
+	.delivery-list-added-card {
+		padding: 12px 5px;
+	}
 
 	.delivery-list-added-drag-handle {
 		padding: 4px 7px;
@@ -368,6 +569,8 @@
 		width: 24px;
 		min-width: 24px;
 		margin-right: 0;
+		position: absolute;
+		top: 10px;
 	}
 
 	.delivery-list-added-handler-check,
@@ -381,6 +584,8 @@
 	.delivery-list-added-item-content .delivery-list-added-action {
 		min-width: 80px;
 		gap: 5px;
+		position: absolute;
+		top: 90%;
 	}
 
 	/* 기존 증빙 이미지: 3열 */
@@ -407,31 +612,6 @@
 		min-height: 38px;
 		font-size: 13px;
 	}
-}
-
-@media(max-width:760px) {
-	.m-d-n {
-		display: none !important;
-	}
-}
-
-/* =========================================================
-   배송완료 버튼 반응형 보완
-   ========================================================= */
-
-.delivery-list-added-btn-icon {
-	display: none;
-}
-
-.delivery-list-added-action {
-	flex-wrap: wrap;
-}
-
-.delivery-list-added-handler-modal-dialog {
-	max-width: 520px;
-}
-
-@media (max-width: 576px) {
 
 	.delivery-list-added-open-complete-modal,
 	.action-btn.btn-complete {
@@ -454,7 +634,54 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		vertical-align: middle;
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
 		padding: 6px 8px;
 		white-space: nowrap;
+	}
+
+	.delivery-list-added-product-box {
+		margin-top: 7px;
+		border-radius: 0px;
+	}
+
+	.delivery-list-added-product-detail-grid,
+	.delivery-list-added-modal-product-rows {
+		grid-template-columns: 1fr;
+	}
+
+	.delivery-list-added-product-option {
+		gap: 5px;
+		font-size: 12px;
+	}
+
+	.delivery-list-added-product-label {
+		min-width: 34px;
+		padding: 2px 6px;
+		font-size: 10.5px;
+	}
+
+	.delivery-list-added-product-name {
+		max-width: 100%;
+	}
+
+	.delivery-list-added-product-quantity {
+		font-size: 11.5px;
+		padding: 2px 7px;
+	}
+
+	.delivery-list-added-product-option-text {
+		flex-basis: 100%;
+		min-width: 100%;
+		padding-left: 1px;
+		font-size: 12px;
+	}
+}
+
+@media (max-width: 760px) {
+	.m-d-n {
+		display: none !important;
 	}
 }

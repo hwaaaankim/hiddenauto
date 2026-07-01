@@ -902,4 +902,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("fromStatus") OrderStatus fromStatus, @Param("toStatus") OrderStatus toStatus,
 			@Param("updatedAt") LocalDateTime updatedAt);
 
+	@EntityGraph(attributePaths = {
+	        "task",
+	        "task.requestedBy",
+	        "task.requestedBy.company",
+	        "orderItem",
+	        "deliveryMethod"
+	})
+	@Query("""
+	        select distinct o
+	        from Order o
+	        where o.id in :orderIds
+	        """)
+	List<Order> findAllForDeliveryStatementByIds(@Param("orderIds") Collection<Long> orderIds);
+
 }
