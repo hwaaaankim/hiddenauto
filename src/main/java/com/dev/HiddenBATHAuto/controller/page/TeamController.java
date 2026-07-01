@@ -114,8 +114,36 @@ public class TeamController {
 
 	private static final Long AS_TEAM_ID = 4L;
 
-	private static final Long MIRROR_CUTTING_TEAM_CATEGORY_ID = 14L;
-	private static final String MIRROR_CUTTING_TEAM_CATEGORY_NAME = "재단(거울)";
+	/*
+	 * 거울(재단)은 실제 생산 카테고리가 아니라
+	 * tb_order.mirror_cutting_product = true 를 조회하기 위한 가상 필터입니다.
+	 * 실제 TeamCategory ID와 충돌하지 않도록 음수 sentinel 값을 사용합니다.
+	 */
+	private static final Long MIRROR_CUTTING_FILTER_VALUE = -9000001L;
+	private static final String MIRROR_CUTTING_FILTER_LABEL = "거울(재단)";
+
+	/*
+	 * 기존 재단(거울) 계정/데이터가 남아 있을 수 있어 호환용으로 유지합니다.
+	 * 신규 요구사항의 필터 노출 대상은 생산팀 + 팀카테고리 거울 / LED거울 입니다.
+	 */
+	private static final Long LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_ID = 14L;
+	private static final String LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_NAME = "재단(거울)";
+
+	private static final List<String> MIRROR_CUTTING_FILTER_ALLOWED_TEAM_CATEGORY_NAMES = List.of(
+			"거울",
+			"LED거울",
+			LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_NAME
+	);
+
+	/*
+	 * 실제 TeamCategory 목록에 과거용 재단(거울) 카테고리가 남아 있더라도
+	 * 화면 select에는 실제 카테고리로 노출하지 않습니다.
+	 * 거울 재단 조회는 반드시 MIRROR_CUTTING_FILTER_VALUE 가상 옵션으로만 처리합니다.
+	 */
+	private static final List<String> MIRROR_CUTTING_REAL_CATEGORY_NAMES_TO_HIDE = List.of(
+			LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_NAME,
+			MIRROR_CUTTING_FILTER_LABEL
+	);
 
 	private static final List<OrderStatus> PRODUCTION_LIST_VISIBLE_STATUSES = List.of(
 			OrderStatus.CONFIRMED,
@@ -153,24 +181,45 @@ public class TeamController {
 		}
 
 		boolean isCuttingProductionMember = isCuttingProductionMember(member);
-		boolean isMirrorCuttingProductionMember = isMirrorCuttingProductionMember(member);
+		boolean isLegacyMirrorCuttingProductionMember = isLegacyMirrorCuttingProductionMember(member);
 		boolean isLowerCabinetProductionMember = isLowerCabinetProductionMember(member);
+		boolean canUseMirrorCuttingFilter = canUseMirrorCuttingFilter(member);
 
 		/*
-		 * 핵심 변경점 - 일반 생산팀 직원: productCategoryId 없으면 자기 팀 카테고리 기준 - 재단 직원:
-		 * productCategoryId 없으면 null 유지 => 전체 제품분류 조회
+		 * 제품분류 select의 일반 항목은 실제 TeamCategory ID입니다.
+		 * 단, 거울(재단)은 실제 카테고리가 아니라 Order.mirrorCuttingProduct = true 조회용 가상 필터입니다.
+		 */
+		boolean mirrorCuttingFilterValueSelected = isMirrorCuttingFilterValue(productCategoryId);
+		boolean hiddenRealMirrorCuttingCategorySelected = isHiddenRealMirrorCuttingCategoryId(productCategoryId);
+		boolean mirrorCuttingFilterSelected = mirrorCuttingFilterValueSelected || hiddenRealMirrorCuttingCategorySelected;
+
+		if (mirrorCuttingFilterSelected && !canUseMirrorCuttingFilter) {
+			throw new AccessDeniedException("거울(재단) 조회 권한이 없습니다.");
+		}
+
+		Long selectedProductCategoryId = mirrorCuttingFilterSelected
+				? MIRROR_CUTTING_FILTER_VALUE
+				: normalizeProductCategoryIdOrNull(productCategoryId);
+
+		/*
+		 * 핵심 조회 분기
+		 * - 거울(재단) 선택: productCategory 조건은 걸지 않고 mirrorCuttingProduct = true 만 추가
+		 * - 실제 카테고리 선택: 해당 productCategory.id 기준 조회
+		 * - 선택 없음: 일반 직원은 자기 팀 카테고리, 재단 계열은 기존 정책 유지
 		 */
 		Long targetCategoryId;
 
-		if (productCategoryId != null) {
-			targetCategoryId = productCategoryId;
-		} else if (isCuttingProductionMember || isMirrorCuttingProductionMember) {
+		if (mirrorCuttingFilterSelected) {
+			targetCategoryId = null;
+		} else if (selectedProductCategoryId != null) {
+			targetCategoryId = selectedProductCategoryId;
+		} else if (isCuttingProductionMember || isLegacyMirrorCuttingProductionMember) {
 			targetCategoryId = null;
 		} else {
 			targetCategoryId = member.getTeamCategory() != null ? member.getTeamCategory().getId() : null;
 		}
 
-		boolean mirrorCuttingOnly = isMirrorCuttingProductionMember;
+		boolean mirrorCuttingOnly = mirrorCuttingFilterSelected || isLegacyMirrorCuttingProductionMember;
 
 		String normalizedDateType = (dateType == null || dateType.isBlank()) ? "preferred" : dateType.trim();
 
@@ -285,7 +334,9 @@ public class TeamController {
 
 		List<Long> currentPageOrderIds = orderPage.getContent().stream().map(Order::getId).collect(Collectors.toList());
 
-		List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
+		List<TeamCategory> productCategories = buildProductionCategorySelectOptions(
+				teamCategoryRepository.findByTeamName("생산팀")
+		);
 
 		model.addAttribute("canMaterialCutting", canMaterialCutting);
 		model.addAttribute("orders", orderPage.getContent());
@@ -294,7 +345,7 @@ public class TeamController {
 		// 화면 select의 선택값은 사용자가 실제로 선택한 값만 유지합니다.
 		// productCategoryId가 null이면 "전체(기본: 내 분류)"가 선택되어 보이고,
 		// 실제 조회는 위에서 계산한 targetCategoryId로 계속 수행됩니다.
-		model.addAttribute("productCategoryId", productCategoryId);
+		model.addAttribute("productCategoryId", selectedProductCategoryId);
 		model.addAttribute("targetProductCategoryId", targetCategoryId);
 		model.addAttribute("orderId", orderIdFilter);
 		model.addAttribute("dateType", normalizedDateType);
@@ -309,7 +360,11 @@ public class TeamController {
 		model.addAttribute("canBulkComplete", canBulkComplete);
 		model.addAttribute("canChangeProductionStatus", canBulkComplete);
 		model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
-		model.addAttribute("isMirrorCuttingProductionMember", isMirrorCuttingProductionMember);
+		model.addAttribute("isMirrorCuttingProductionMember", isLegacyMirrorCuttingProductionMember);
+		model.addAttribute("canUseMirrorCuttingFilter", canUseMirrorCuttingFilter);
+		model.addAttribute("mirrorCuttingFilterValue", MIRROR_CUTTING_FILTER_VALUE);
+		model.addAttribute("mirrorCuttingFilterLabel", MIRROR_CUTTING_FILTER_LABEL);
+		model.addAttribute("isMirrorCuttingFilterSelected", mirrorCuttingFilterSelected);
 
 		model.addAttribute("orderCompanyNameMap", orderCompanyNameMap);
 
@@ -407,10 +462,10 @@ public class TeamController {
 
 		String categoryName = member.getTeamCategory().getName();
 
-		return "재단".equals(categoryName) || isMirrorCuttingProductionMember(member);
+		return "재단".equals(categoryName) || isLegacyMirrorCuttingProductionMember(member);
 	}
 
-	private boolean isMirrorCuttingProductionMember(Member member) {
+	private boolean isLegacyMirrorCuttingProductionMember(Member member) {
 		if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
 			return false;
 		}
@@ -422,8 +477,77 @@ public class TeamController {
 		Long categoryId = member.getTeamCategory().getId();
 		String categoryName = member.getTeamCategory().getName();
 
-		return Objects.equals(MIRROR_CUTTING_TEAM_CATEGORY_ID, categoryId)
-				&& MIRROR_CUTTING_TEAM_CATEGORY_NAME.equals(categoryName);
+		return Objects.equals(LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_ID, categoryId)
+				&& LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_NAME.equals(categoryName);
+	}
+
+	private List<TeamCategory> buildProductionCategorySelectOptions(List<TeamCategory> source) {
+		if (source == null || source.isEmpty()) {
+			return List.of();
+		}
+
+		return source.stream()
+				.filter(Objects::nonNull)
+				.filter(category -> !isHiddenRealMirrorCuttingCategory(category))
+				.collect(Collectors.toList());
+	}
+
+	private boolean isHiddenRealMirrorCuttingCategory(TeamCategory category) {
+		if (category == null) {
+			return false;
+		}
+
+		if (Objects.equals(LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_ID, category.getId())) {
+			return true;
+		}
+
+		String categoryName = category.getName();
+
+		if (categoryName == null) {
+			return false;
+		}
+
+		return MIRROR_CUTTING_REAL_CATEGORY_NAMES_TO_HIDE.contains(categoryName.trim());
+	}
+
+	private boolean isHiddenRealMirrorCuttingCategoryId(Long productCategoryId) {
+		if (productCategoryId == null) {
+			return false;
+		}
+
+		if (Objects.equals(LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_ID, productCategoryId)) {
+			return true;
+		}
+
+		return teamCategoryRepository.findById(productCategoryId)
+				.map(this::isHiddenRealMirrorCuttingCategory)
+				.orElse(false);
+	}
+
+	private boolean canUseMirrorCuttingFilter(Member member) {
+		if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
+			return false;
+		}
+
+		if (member.getTeamCategory() == null || member.getTeamCategory().getName() == null) {
+			return false;
+		}
+
+		String categoryName = member.getTeamCategory().getName().trim();
+
+		return MIRROR_CUTTING_FILTER_ALLOWED_TEAM_CATEGORY_NAMES.contains(categoryName);
+	}
+
+	private boolean isMirrorCuttingFilterValue(Long productCategoryId) {
+		return Objects.equals(MIRROR_CUTTING_FILTER_VALUE, productCategoryId);
+	}
+
+	private Long normalizeProductCategoryIdOrNull(Long productCategoryId) {
+		if (productCategoryId == null || productCategoryId <= 0) {
+			return null;
+		}
+
+		return productCategoryId;
 	}
 
 	@GetMapping("/productionList/cutting")
@@ -648,7 +772,7 @@ public class TeamController {
 
 		// 6. 재단 직원 여부
 		boolean isCuttingProductionMember = isCuttingProductionMember(loginMember);
-		boolean isMirrorCuttingProductionMember = isMirrorCuttingProductionMember(loginMember);
+		boolean isMirrorCuttingProductionMember = isLegacyMirrorCuttingProductionMember(loginMember);
 
 		// 7. 생산완료 가능 여부
 		boolean canChangeStatus = false;
