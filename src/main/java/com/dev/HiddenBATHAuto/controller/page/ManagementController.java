@@ -165,11 +165,6 @@ public class ManagementController {
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-	/*
-	 * ManagementController 안에서 기존 nonStandardTaskList 메서드를 아래 메서드로 교체하고,
-	 * nonStandardTaskListOrderDetailFragment, buildOrderListCompanyOptions 메서드를 같은
-	 * 클래스 안에 추가해 주세요. 기존 nonStandardTaskListBulkFragment 메서드는 그대로 사용해도 됩니다.
-	 */
 
 	/*
 	 * ========================================================= nonStandardTaskList

@@ -81,6 +81,10 @@ public class OpenAiAmountProductMatchClient {
             row.put("itemName", item.getItemName());
             row.put("unit", item.getUnit());
             row.put("specification", item.getSpecification());
+            row.put("categoryName", item.getCategoryName());
+            row.put("middleCategoryName", item.getMiddleCategoryName());
+            row.put("standard", item.isStandard() ? "규격" : "비규격");
+            row.put("mirrorCuttingProduct", item.isMirrorCuttingProduct());
             row.put("salesPrice", item.getSalesPrice());
             candidateRows.add(row);
         }
@@ -100,7 +104,7 @@ public class OpenAiAmountProductMatchClient {
 
         String system = "너는 욕실가구 ERP 주문 옵션을 얼마에요 품목 마스터와 매칭하는 검수자다. "
                 + "후보 목록 중 가장 정확한 품목 1개만 선택한다. "
-                + "색상, 시리즈, 제품명, 넓이(W), 규격, 단위, 도어 수를 우선순위로 비교한다. "
+                + "규격/비규격, 대분류, 중분류, 색상, 시리즈, 제품명, 넓이(W), 규격, 단위, 도어 수를 우선순위로 비교한다. "
                 + "반드시 JSON 객체만 출력한다.";
 
         String user = "주문 옵션과 후보 품목 목록을 비교해서 가장 적절한 품목을 선택해라.\n"

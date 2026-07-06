@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -92,12 +93,14 @@ public class ProductOrderAddApiController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProductOrderAddSaveResponse> createProductOrder(
             @Valid @RequestPart("request") ProductOrderAddRequest request,
-            MultipartHttpServletRequest multipartRequest
+            MultipartHttpServletRequest multipartRequest,
+            Authentication authentication
     ) {
         try {
             ProductOrderAddSaveResponse response = commandService.create(
                     request,
-                    multipartRequest.getMultiFileMap()
+                    multipartRequest.getMultiFileMap(),
+                    resolveAuthenticatedUsername(authentication)
             );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -107,5 +110,13 @@ public class ProductOrderAddApiController {
             return ResponseEntity.internalServerError()
                     .body(new ProductOrderAddSaveResponse(false, "발주 등록 중 오류가 발생했습니다.", null));
         }
+    }
+
+    private String resolveAuthenticatedUsername(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return null;
+        }
+
+        return authentication.getName().trim();
     }
 }

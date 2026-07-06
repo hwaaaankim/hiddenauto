@@ -1,3 +1,4 @@
+/* amountExcelMasterGrid.js */
 (function () {
     'use strict';
 
@@ -204,7 +205,7 @@
                 throw new Error(text || '수정 저장에 실패했습니다.');
             }
             const updated = await res.json();
-            restoreCell(td, updated[field] || '');
+            restoreCell(td, updated[field] == null ? '' : updated[field]);
             td.classList.add('is-saved');
             setTimeout(() => td.classList.remove('is-saved'), 700);
         } catch (e) {

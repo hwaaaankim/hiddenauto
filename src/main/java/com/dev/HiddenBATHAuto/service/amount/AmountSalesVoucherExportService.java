@@ -187,7 +187,7 @@ public class AmountSalesVoucherExportService {
             return null;
         }
         AmountParsedOrderProduct parsed = optionParser.parse(order);
-        AmountItemMatchResult itemMatch = matchItem(parsed, items);
+        AmountItemMatchResult itemMatch = matchItem(parsed, items, resolveOrderStandard(order));
         AmountItemMaster matchedItem = itemMatch.item();
 
         int qty = resolveQuantity(order);
@@ -425,11 +425,28 @@ public class AmountSalesVoucherExportService {
         return new AmountCustomerMatchResult(best, bestScore, level(bestScore), bestReason);
     }
 
-    private AmountItemMatchResult matchItem(AmountParsedOrderProduct parsed, List<AmountItemMaster> items) {
+    private AmountItemMatchResult matchItem(AmountParsedOrderProduct parsed, List<AmountItemMaster> items, Boolean orderStandard) {
         if (items == null || items.isEmpty()) {
             return AmountItemMatchResult.empty("품목 마스터가 비어 있습니다.");
         }
-        List<ScoredItem> scored = items.stream()
+
+        List<AmountItemMaster> candidates = items;
+        String standardReasonPrefix = "";
+        if (orderStandard != null) {
+            List<AmountItemMaster> filtered = items.stream()
+                    .filter(item -> item != null && item.isStandard() == orderStandard.booleanValue())
+                    .toList();
+            if (!filtered.isEmpty()) {
+                candidates = filtered;
+                standardReasonPrefix = "규격구분 선필터[주문=" + standardLabel(orderStandard) + "] 적용 / ";
+            } else {
+                // 동기화 데이터가 아직 부족한 경우 전표 생성 자체가 완전히 비지 않도록 전체 후보에서 대체 매칭하되,
+                // 비고에 반드시 남겨서 사용자가 보정할 수 있게 합니다.
+                standardReasonPrefix = "규격구분 선필터 후보 없음[주문=" + standardLabel(orderStandard) + "] → 전체 후보에서 대체 매칭 / ";
+            }
+        }
+
+        List<ScoredItem> scored = candidates.stream()
                 .map(item -> new ScoredItem(item, scoreItem(parsed, item)))
                 .sorted(Comparator.comparingInt(ScoredItem::score).reversed())
                 .limit(25)
@@ -440,7 +457,7 @@ public class AmountSalesVoucherExportService {
         }
 
         boolean aiUsed = false;
-        String reason = buildItemReason(parsed, best.item(), best.score());
+        String reason = standardReasonPrefix + buildItemReason(parsed, best.item(), best.score());
         int finalScore = best.score();
         AmountItemMaster finalItem = best.item();
 
@@ -457,10 +474,15 @@ public class AmountSalesVoucherExportService {
                 if (selected.isPresent()) {
                     finalItem = selected.get();
                     finalScore = Math.max(finalScore, choice.confidence());
-                    reason = "AI선택: " + choice.reason();
+                    reason = standardReasonPrefix + "AI선택: " + choice.reason();
                     aiUsed = true;
                 }
             }
+        }
+
+        if (orderStandard != null && finalItem != null && finalItem.isStandard() != orderStandard.booleanValue()) {
+            finalScore = Math.min(finalScore, 50);
+            reason = reason + " / 규격구분 불일치: 주문=" + standardLabel(orderStandard) + ", 품목=" + standardLabel(finalItem.isStandard());
         }
 
         return new AmountItemMatchResult(finalItem, Math.max(0, Math.min(100, finalScore)), level(finalScore), reason, aiUsed);
@@ -470,7 +492,9 @@ public class AmountSalesVoucherExportService {
         String itemName = AmountTextNormalizer.compact(item.getItemName());
         String itemSpec = AmountTextNormalizer.compact(item.getSpecification());
         String unit = AmountTextNormalizer.compact(item.getUnit());
-        String all = itemName + itemSpec + unit;
+        String categoryName = AmountTextNormalizer.compact(item.getCategoryName());
+        String middleCategoryName = AmountTextNormalizer.compact(item.getMiddleCategoryName());
+        String all = itemName + itemSpec + unit + categoryName + middleCategoryName;
 
         int score = 0;
         String product = AmountTextNormalizer.compact(parsed.productName());
@@ -479,28 +503,45 @@ public class AmountSalesVoucherExportService {
         String category = AmountTextNormalizer.compact(parsed.category());
 
         if (StringUtils.hasText(product)) {
-            score += Math.round(AmountTextNormalizer.similarity100(product, item.getItemName()) * 0.28f);
+            score += Math.round(AmountTextNormalizer.similarity100(product, item.getItemName()) * 0.30f);
             if (itemName.contains(product) || product.contains(itemName)) {
+                score += 10;
+            }
+        }
+        if (StringUtils.hasText(category)) {
+            int categoryScore = Math.max(
+                    AmountTextNormalizer.similarity100(category, item.getCategoryName()),
+                    AmountTextNormalizer.similarity100(category, item.getUnit())
+            );
+            score += Math.round(categoryScore * 0.12f);
+            if (categoryName.contains(category) || all.contains(category)) {
                 score += 8;
             }
         }
-        if (StringUtils.hasText(series) && all.contains(series)) {
-            score += 14;
+        if (StringUtils.hasText(series)) {
+            int seriesScore = Math.max(
+                    AmountTextNormalizer.similarity100(series, item.getMiddleCategoryName()),
+                    AmountTextNormalizer.similarity100(series, item.getItemName())
+            );
+            score += Math.round(seriesScore * 0.14f);
+            if (middleCategoryName.contains(series) || all.contains(series)) {
+                score += 12;
+            }
         }
         if (StringUtils.hasText(color) && all.contains(color)) {
-            score += 20;
+            score += 16;
         }
         if (parsed.width() != null) {
             String width = String.valueOf(parsed.width());
             if (all.contains(width)) {
-                score += 22;
+                score += 18;
             }
         }
         if (parsed.height() != null && itemSpec.contains(String.valueOf(parsed.height()))) {
             score += 8;
         }
-        if (StringUtils.hasText(category) && (unit.contains(category) || all.contains(category))) {
-            score += 10;
+        if (parsed.depth() != null && itemSpec.contains(String.valueOf(parsed.depth()))) {
+            score += 5;
         }
         if (parsed.doorCount() != null) {
             String door = parsed.doorCount() + "도어";
@@ -515,8 +556,13 @@ public class AmountSalesVoucherExportService {
     }
 
     private String buildItemReason(AmountParsedOrderProduct parsed, AmountItemMaster item, int score) {
-        return "주문[" + parsed.displayText() + "] ↔ 품목[" + value(item, AmountItemMaster::getItemName) + " / "
-                + value(item, AmountItemMaster::getSpecification) + " / " + value(item, AmountItemMaster::getUnit)
+        return "주문[" + parsed.displayText() + "] ↔ 품목["
+                + value(item, AmountItemMaster::getItemName)
+                + " / 대분류=" + value(item, AmountItemMaster::getCategoryName)
+                + " / 중분류=" + value(item, AmountItemMaster::getMiddleCategoryName)
+                + " / 규격구분=" + (item != null ? standardLabel(item.isStandard()) : "")
+                + " / 사이즈=" + value(item, AmountItemMaster::getSpecification)
+                + " / 단위=" + value(item, AmountItemMaster::getUnit)
                 + "], score=" + score;
     }
 
@@ -699,15 +745,30 @@ public class AmountSalesVoucherExportService {
         ih.setHeightInPoints(20);
         cell(ih, 0, "품목명", styles.get("header"));
         cell(ih, 1, "코드", styles.get("header"));
+        cell(ih, 2, "대분류", styles.get("header"));
+        cell(ih, 3, "중분류", styles.get("header"));
+        cell(ih, 4, "규격구분", styles.get("header"));
+        cell(ih, 5, "거울재단", styles.get("header"));
+        cell(ih, 6, "사이즈", styles.get("header"));
         rowIndex = 1;
         for (AmountItemMaster item : items) {
             Row row = itemSheet.createRow(rowIndex++);
             row.setHeightInPoints(18);
             cell(row, 0, item.getItemName(), styles.get("body"));
             cell(row, 1, item.getItemCode(), styles.get("body"));
+            cell(row, 2, item.getCategoryName(), styles.get("body"));
+            cell(row, 3, item.getMiddleCategoryName(), styles.get("body"));
+            cell(row, 4, standardLabel(item.isStandard()), styles.get("body"));
+            cell(row, 5, item.isMirrorCuttingProduct() ? "재단필요" : "", styles.get("body"));
+            cell(row, 6, item.getSpecification(), styles.get("body"));
         }
         itemSheet.setColumnWidth(0, 12000);
         itemSheet.setColumnWidth(1, 4000);
+        itemSheet.setColumnWidth(2, 6000);
+        itemSheet.setColumnWidth(3, 6000);
+        itemSheet.setColumnWidth(4, 4000);
+        itemSheet.setColumnWidth(5, 4000);
+        itemSheet.setColumnWidth(6, 6500);
 
         Row row = infoSheet.createRow(0);
         row.setHeightInPoints(18);
@@ -876,6 +937,21 @@ public class AmountSalesVoucherExportService {
         return null;
     }
 
+
+    private Boolean resolveOrderStandard(Order order) {
+        if (order == null) {
+            return null;
+        }
+        return order.isStandard();
+    }
+
+    private String standardLabel(Boolean standard) {
+        if (standard == null) {
+            return "";
+        }
+        return standard ? "규격" : "비규격";
+    }
+
     private int resolveQuantity(Order order) {
         if (order.getQuantity() > 0) {
             return order.getQuantity();
@@ -1035,6 +1111,10 @@ public class AmountSalesVoucherExportService {
         }
         if (!"EXACT".equals(customerMatch.level())) {
             parts.add("거래처확인:" + customerMatch.reason() + ", score=" + customerMatch.score());
+        }
+        Boolean orderStandard = resolveOrderStandard(order);
+        if (orderStandard != null && itemMatch.item() != null && itemMatch.item().isStandard() != orderStandard.booleanValue()) {
+            parts.add("규격구분확인: 주문=" + standardLabel(orderStandard) + ", 품목=" + standardLabel(itemMatch.item().isStandard()));
         }
         String memo = String.join(" / ", parts);
         return memo.length() > 500 ? memo.substring(0, 500) : memo;

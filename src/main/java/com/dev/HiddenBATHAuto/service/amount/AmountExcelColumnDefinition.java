@@ -12,7 +12,11 @@ public final class AmountExcelColumnDefinition {
     private AmountExcelColumnDefinition() {
     }
 
-    public static final List<AmountExcelColumnDto> ITEM_COLUMNS = List.of(
+    /**
+     * 기존 품목_얼마에요 원본 업로드 양식입니다.
+     * 화면 표시 컬럼과 분리해서, 기존 양식 엑셀이 새 동기화 컬럼 때문에 깨지지 않도록 유지합니다.
+     */
+    public static final List<AmountExcelColumnDto> ITEM_ORIGINAL_IMPORT_COLUMNS = List.of(
             new AmountExcelColumnDto("division", "구분"),
             new AmountExcelColumnDto("itemCode", "코드"),
             new AmountExcelColumnDto("itemName", "품목명"),
@@ -24,6 +28,56 @@ public final class AmountExcelColumnDefinition {
             new AmountExcelColumnDto("specification", "규격"),
             new AmountExcelColumnDto("barcode", "바코드"),
             new AmountExcelColumnDto("categoryName", "분류명"),
+            new AmountExcelColumnDto("brandName", "브랜드명"),
+            new AmountExcelColumnDto("modelName", "모델명"),
+            new AmountExcelColumnDto("taxType", "과세구분"),
+            new AmountExcelColumnDto("itemRegisteredDate", "품목등록일자"),
+            new AmountExcelColumnDto("liquorItemYn", "주류품목여부"),
+            new AmountExcelColumnDto("usageType", "용도구분"),
+            new AmountExcelColumnDto("liquorType", "주종구분"),
+            new AmountExcelColumnDto("dedicatedWarehouseNo", "전용창고번호"),
+            new AmountExcelColumnDto("purchaseBaseQty", "매입기준수량"),
+            new AmountExcelColumnDto("properStock", "적정재고"),
+            new AmountExcelColumnDto("outsourceProductionPrice", "외주생산단가"),
+            new AmountExcelColumnDto("grade1Price", "1등급가"),
+            new AmountExcelColumnDto("grade1Qty", "1등급수량"),
+            new AmountExcelColumnDto("grade2Price", "2등급가"),
+            new AmountExcelColumnDto("grade2Qty", "2등급수량"),
+            new AmountExcelColumnDto("grade3Price", "3등급가"),
+            new AmountExcelColumnDto("grade3Qty", "3등급수량"),
+            new AmountExcelColumnDto("grade4Price", "4등급가"),
+            new AmountExcelColumnDto("grade4Qty", "4등급수량"),
+            new AmountExcelColumnDto("grade5Price", "5등급가"),
+            new AmountExcelColumnDto("grade5Qty", "5등급수량"),
+            new AmountExcelColumnDto("useStatus", "사용상태"),
+            new AmountExcelColumnDto("stockCalculationYn", "재고계산여부"),
+            new AmountExcelColumnDto("originDisplayType", "원산지구분표시"),
+            new AmountExcelColumnDto("procurementIdentifierCode", "조달청식별코드"),
+            new AmountExcelColumnDto("note", "참고사항"),
+            new AmountExcelColumnDto("udiUseYn", "UDI사용여부")
+    );
+
+
+    /**
+     * 관리화면 표시/수정 컬럼입니다.
+     * 동기화 엑셀에서 보강되는 대분류/중분류/규격/거울재단/동기화메모를 앞쪽에 배치했습니다.
+     */
+    public static final List<AmountExcelColumnDto> ITEM_COLUMNS = List.of(
+            new AmountExcelColumnDto("itemCode", "제품코드"),
+            new AmountExcelColumnDto("itemName", "품목명"),
+            new AmountExcelColumnDto("categoryName", "대분류"),
+            new AmountExcelColumnDto("middleCategoryName", "중분류"),
+            new AmountExcelColumnDto("specification", "사이즈"),
+            new AmountExcelColumnDto("standard", "규격여부"),
+            new AmountExcelColumnDto("mirrorCuttingProduct", "거울재단여부"),
+            new AmountExcelColumnDto("salesPrice", "매출단가"),
+            new AmountExcelColumnDto("purchasePrice", "매입단가"),
+            new AmountExcelColumnDto("unit", "단위"),
+            new AmountExcelColumnDto("syncMemo", "동기화메모"),
+            new AmountExcelColumnDto("division", "구분"),
+            new AmountExcelColumnDto("openingStockQty", "기초재고량"),
+            new AmountExcelColumnDto("openingStockUnitPrice", "기초재고단가"),
+            new AmountExcelColumnDto("barcode", "바코드"),
             new AmountExcelColumnDto("brandName", "브랜드명"),
             new AmountExcelColumnDto("modelName", "모델명"),
             new AmountExcelColumnDto("taxType", "과세구분"),

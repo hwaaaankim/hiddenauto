@@ -41,6 +41,7 @@ public class AmountExcelAdminController {
         model.addAttribute("masterType", "items");
         model.addAttribute("pageTitle", "품목_얼마에요 관리");
         model.addAttribute("uploadUrl", "/admin/amount-excel/items/upload");
+        model.addAttribute("syncUploadUrl", "/admin/amount-excel/items/sync-upload");
         model.addAttribute("apiUrl", "/admin/amount-excel/api/items");
         model.addAttribute("columns", AmountExcelColumnDefinition.ITEM_COLUMNS);
         return "administration/admin/amount/amountItemMaster";
@@ -61,6 +62,17 @@ public class AmountExcelAdminController {
         try {
             var result = importService.replaceItems(file);
             redirectAttributes.addFlashAttribute("message", result.message() + " 저장 " + result.savedCount() + "건");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("message", e.getMessage());
+        }
+        return "redirect:/admin/amount-excel/items";
+    }
+
+    @PostMapping("/items/sync-upload")
+    public String syncItems(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
+        try {
+            var result = importService.syncItems(file);
+            redirectAttributes.addFlashAttribute("message", result.message());
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("message", e.getMessage());
         }

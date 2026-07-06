@@ -22,6 +22,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.persistence.EntityManager;
+
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddRequest;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddSaveResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCreateRequest;
@@ -85,6 +87,7 @@ public class ProductOrderAddCommandService {
     private final DeliveryHandlerAutoAssignService deliveryHandlerAutoAssignService;
     private final MirrorCuttingProductMatcher mirrorCuttingProductMatcher;
     private final ObjectMapper objectMapper;
+    private final EntityManager entityManager;
 
     @Value("${spring.upload.path}")
     private String uploadPath;
@@ -92,6 +95,14 @@ public class ProductOrderAddCommandService {
     public ProductOrderAddSaveResponse create(
             ProductOrderAddRequest request,
             MultiValueMap<String, MultipartFile> fileMap
+    ) {
+        return create(request, fileMap, null);
+    }
+
+    public ProductOrderAddSaveResponse create(
+            ProductOrderAddRequest request,
+            MultiValueMap<String, MultipartFile> fileMap,
+            String taskManagerUsername
     ) {
         if (request == null) {
             throw new IllegalArgumentException("발주 요청 정보가 없습니다.");
@@ -117,6 +128,8 @@ public class ProductOrderAddCommandService {
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("해당 업체에 CUSTOMER_REPRESENTATIVE 멤버가 없습니다."));
+
+        Member managedBy = resolveTaskManager(taskManagerUsername);
 
         DeliveryMethod deliveryMethod = deliveryMethodRepository.findById(request.getDeliveryMethodId())
                 .orElseThrow(() -> new IllegalArgumentException("선택한 배송수단을 찾을 수 없습니다."));
@@ -144,6 +157,7 @@ public class ProductOrderAddCommandService {
 
         Task task = new Task();
         task.setRequestedBy(requestedBy);
+        task.setManagedBy(managedBy);
         task.setStatus(TaskStatus.REQUESTED);
         task.setTotalPrice(0);
         task.setCreatedAt(now);
@@ -261,6 +275,22 @@ public class ProductOrderAddCommandService {
                 "발주가 등록되었습니다.",
                 task.getId()
         );
+    }
+
+    private Member resolveTaskManager(String username) {
+        String normalizedUsername = trimToNull(username);
+
+        if (normalizedUsername == null || "anonymousUser".equalsIgnoreCase(normalizedUsername)) {
+            return null;
+        }
+
+        return entityManager
+                .createQuery("select m from Member m where m.username = :username", Member.class)
+                .setParameter("username", normalizedUsername)
+                .setMaxResults(1)
+                .getResultStream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("현재 로그인한 담당자 정보를 찾을 수 없습니다."));
     }
 
     private Member resolveDeliveryHandler(

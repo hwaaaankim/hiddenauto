@@ -55,12 +55,27 @@ public class WebSecurityConfig {
             "/common/main"
     };
 
+    /**
+     * ADMIN과 MANAGEMENT가 함께 사용할 수 있는 /admin 하위 기능입니다.
+     * /admin/** 전체를 MANAGEMENT에 열면 위험하므로,
+     * 실제 메뉴에서 MANAGEMENT도 사용해야 하는 기능만 먼저 허용합니다.
+     */
+    private final String[] adminManagementUrls = {
+            "/admin/process/**",
+            "/admin/notification/**"
+    };
+
+    /**
+     * ADMIN 전용 기능입니다.
+     * 매출관리/매출분석(/analytics)은 MANAGEMENT에 열지 않습니다.
+     */
     private final String[] adminsUrls = {
-            "/admin/**"
+            "/admin/**",
+            "/analytics"
     };
 
     private final String[] managementUrls = {
-            "/management/**", "/analytics"
+            "/management/**"
     };
 
     private final String[] teamUrls = {
@@ -158,10 +173,26 @@ public class WebSecurityConfig {
                             "ROLE_MANAGEMENT",
                             "ROLE_INTERNAL_EMPLOYEE"
                     )
+
+                    // ✅ MANAGEMENT도 접근 가능한 /admin 하위 기능은 /admin/**보다 먼저 선언해야 합니다.
+                    .requestMatchers(adminManagementUrls).hasAnyAuthority(
+                            "ROLE_ADMIN",
+                            "ROLE_MANAGEMENT"
+                    )
+
+                    // ✅ /admin/** 나머지와 /analytics는 ADMIN 전용입니다.
                     .requestMatchers(adminsUrls).hasAuthority("ROLE_ADMIN")
-                    .requestMatchers(managementUrls).hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGEMENT")
+
+                    // ✅ 발주등록, 발주관리, AS관리, 배송관리, 생산관리 등 /management/**는 ADMIN/MANAGEMENT 공통입니다.
+                    .requestMatchers(managementUrls).hasAnyAuthority(
+                            "ROLE_ADMIN",
+                            "ROLE_MANAGEMENT"
+                    )
                     .requestMatchers(teamUrls).hasAuthority("ROLE_INTERNAL_EMPLOYEE")
-                    .requestMatchers(customersUrls).hasAnyAuthority("ROLE_CUSTOMER_REPRESENTATIVE", "ROLE_CUSTOMER_EMPLOYEE")
+                    .requestMatchers(customersUrls).hasAnyAuthority(
+                            "ROLE_CUSTOMER_REPRESENTATIVE",
+                            "ROLE_CUSTOMER_EMPLOYEE"
+                    )
                     .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex.accessDeniedHandler(customAccessDeniedHandler))

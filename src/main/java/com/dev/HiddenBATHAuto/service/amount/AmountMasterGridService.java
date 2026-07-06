@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.service.amount;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -103,9 +104,6 @@ public class AmountMasterGridService {
         int safeOffset = Math.max(offset, 0);
         int page = safeOffset / limit;
 
-        // 첫 화면 진입 시 sortField가 넘어오지 않으면 null입니다.
-        // Java 불변 Set(Set.of/List.of 기반)은 contains(null) 호출 시 NPE가 발생할 수 있으므로
-        // 반드시 null/blank 검사를 먼저 해야 합니다.
         String property = (StringUtils.hasText(sortField) && allowedFields.contains(sortField))
                 ? sortField
                 : "id";
@@ -120,9 +118,24 @@ public class AmountMasterGridService {
             if (params != null) {
                 for (String field : allowedFields) {
                     String value = params.get("f_" + field);
-                    if (StringUtils.hasText(value)) {
-                        predicates.add(cb.like(cb.lower(root.get(field).as(String.class)), "%" + value.trim().toLowerCase() + "%"));
+                    if (!StringUtils.hasText(value)) {
+                        continue;
                     }
+                    if ("standard".equals(field)) {
+                        Boolean parsed = parseStandardFilter(value);
+                        if (parsed != null) {
+                            predicates.add(cb.equal(root.get(field), parsed));
+                        }
+                        continue;
+                    }
+                    if ("mirrorCuttingProduct".equals(field)) {
+                        Boolean parsed = parseMirrorFilter(value);
+                        if (parsed != null) {
+                            predicates.add(cb.equal(root.get(field), parsed));
+                        }
+                        continue;
+                    }
+                    predicates.add(cb.like(cb.lower(root.get(field).as(String.class)), "%" + value.trim().toLowerCase(Locale.ROOT) + "%"));
                 }
             }
             return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(Predicate[]::new));
@@ -131,12 +144,35 @@ public class AmountMasterGridService {
 
     private void setFieldAndRefreshSearchText(Object entity, String field, String value, List<AmountExcelColumnDto> columns) {
         BeanWrapper wrapper = PropertyAccessorFactory.forBeanPropertyAccess(entity);
-        wrapper.setPropertyValue(field, value == null ? "" : value.trim());
+        Object normalizedValue = normalizeValueForField(wrapper, field, value);
+        wrapper.setPropertyValue(field, normalizedValue);
+        refreshSearchText(wrapper, columns);
+    }
+
+    private Object normalizeValueForField(BeanWrapper wrapper, String field, String value) {
+        String safeValue = value == null ? "" : value.trim();
+        Class<?> propertyType = wrapper.getPropertyType(field);
+        if (propertyType == Boolean.class || propertyType == boolean.class) {
+            if ("standard".equals(field)) {
+                Boolean parsed = parseStandardFilter(safeValue);
+                return parsed != null ? parsed : Boolean.TRUE;
+            }
+            if ("mirrorCuttingProduct".equals(field)) {
+                Boolean parsed = parseMirrorFilter(safeValue);
+                return parsed != null ? parsed : Boolean.FALSE;
+            }
+            return Boolean.parseBoolean(safeValue);
+        }
+        return safeValue;
+    }
+
+    private void refreshSearchText(BeanWrapper wrapper, List<AmountExcelColumnDto> columns) {
         List<String> parts = new ArrayList<>();
         for (AmountExcelColumnDto col : columns) {
             Object v = wrapper.getPropertyValue(col.field());
-            if (v != null && StringUtils.hasText(String.valueOf(v))) {
-                parts.add(String.valueOf(v));
+            String text = displayValue(col.field(), v);
+            if (StringUtils.hasText(text)) {
+                parts.add(text);
             }
         }
         wrapper.setPropertyValue("searchText", String.join(" ", parts));
@@ -147,8 +183,52 @@ public class AmountMasterGridService {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", wrapper.getPropertyValue("id"));
         for (AmountExcelColumnDto column : columns) {
-            map.put(column.field(), wrapper.getPropertyValue(column.field()));
+            Object value = wrapper.getPropertyValue(column.field());
+            map.put(column.field(), displayValue(column.field(), value));
         }
         return map;
+    }
+
+    private String displayValue(String field, Object value) {
+        if (value == null) {
+            return "";
+        }
+        if ("standard".equals(field)) {
+            return Boolean.TRUE.equals(value) ? "규격" : "비규격";
+        }
+        if ("mirrorCuttingProduct".equals(field)) {
+            return Boolean.TRUE.equals(value) ? "재단필요" : "";
+        }
+        return String.valueOf(value);
+    }
+
+    private Boolean parseStandardFilter(String value) {
+        String compact = AmountTextNormalizer.compact(value);
+        if (!StringUtils.hasText(compact)) {
+            return null;
+        }
+        if (compact.contains("비규격") || compact.equals("false") || compact.equals("n") || compact.equals("no") || compact.equals("0")) {
+            return Boolean.FALSE;
+        }
+        if (compact.contains("규격") || compact.equals("true") || compact.equals("y") || compact.equals("yes") || compact.equals("1") || compact.equals("o") || compact.equals("ㅇ")) {
+            return Boolean.TRUE;
+        }
+        return null;
+    }
+
+    private Boolean parseMirrorFilter(String value) {
+        String compact = AmountTextNormalizer.compact(value);
+        if (!StringUtils.hasText(compact)) {
+            return null;
+        }
+        if (compact.equals("x") || compact.equals("false") || compact.equals("n") || compact.equals("no") || compact.equals("0")
+                || compact.contains("불필요") || compact.contains("필요없") || compact.contains("없음")) {
+            return Boolean.FALSE;
+        }
+        if (compact.equals("ㅇ") || compact.equals("o") || compact.equals("y") || compact.equals("yes") || compact.equals("true")
+                || compact.equals("1") || compact.contains("재단") || compact.contains("필요")) {
+            return Boolean.TRUE;
+        }
+        return null;
     }
 }

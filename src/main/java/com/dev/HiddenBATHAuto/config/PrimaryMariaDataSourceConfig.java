@@ -24,7 +24,10 @@ import jakarta.persistence.EntityManagerFactory;
 
 @Configuration
 @EnableJpaRepositories(
-        basePackages = "com.dev.HiddenBATHAuto.repository",
+        basePackages = {
+                "com.dev.HiddenBATHAuto.repository",
+                "com.dev.HiddenBATHAuto.orderExcelUpload.repository"
+        },
         entityManagerFactoryRef = "entityManagerFactory",
         transactionManagerRef = "transactionManager"
 )

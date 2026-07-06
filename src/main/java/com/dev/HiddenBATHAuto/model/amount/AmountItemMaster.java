@@ -21,6 +21,8 @@ import lombok.Setter;
 @Table(name = "tb_amount_item_master", indexes = {
         @Index(name = "idx_tb_amount_item_master_code", columnList = "item_code"),
         @Index(name = "idx_tb_amount_item_master_name", columnList = "item_name"),
+        @Index(name = "idx_tb_amount_item_master_category", columnList = "category_name,middle_category_name"),
+        @Index(name = "idx_tb_amount_item_master_standard", columnList = "standard_yn"),
         @Index(name = "idx_tb_amount_item_master_updated", columnList = "updated_at")
 })
 public class AmountItemMaster {
@@ -51,6 +53,27 @@ public class AmountItemMaster {
     private String barcode;
     @Column(name = "category_name", length = 255)
     private String categoryName;
+
+    /**
+     * 동기화 엑셀 4열 값입니다.
+     * 빈칸, X, x 등 분류가 없는 값은 업로드 시 "분류없음"으로 정규화합니다.
+     */
+    @Column(name = "middle_category_name", length = 255)
+    private String middleCategoryName;
+
+    /**
+     * 동기화 엑셀 6열 값입니다. true=규격, false=비규격.
+     * 매출전표 품목 매칭 시 Order.standard 값과 먼저 일치시키는 필터로 사용합니다.
+     */
+    @Column(name = "standard_yn", nullable = false)
+    private boolean standard = true;
+
+    /**
+     * 동기화 엑셀 7열 값입니다. ㅇ/O/Y/true/1/재단/필요 계열은 true, 빈칸/X/false/0 계열은 false입니다.
+     */
+    @Column(name = "mirror_cutting_product_yn", nullable = false)
+    private boolean mirrorCuttingProduct = false;
+
     @Column(name = "brand_name", length = 255)
     private String brandName;
     @Column(name = "model_name", length = 255)
@@ -104,6 +127,14 @@ public class AmountItemMaster {
     @Lob
     @Column(name = "note")
     private String note;
+
+    /**
+     * 동기화 업로드 중 대분류/중분류/규격구분 값이 비어 있거나 대체된 경우 화면에서 확인할 수 있는 메모입니다.
+     */
+    @Lob
+    @Column(name = "sync_memo")
+    private String syncMemo;
+
     @Column(name = "udi_use_yn", length = 255)
     private String udiUseYn;
     @Lob

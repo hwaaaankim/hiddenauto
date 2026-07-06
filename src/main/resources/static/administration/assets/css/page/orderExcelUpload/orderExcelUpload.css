@@ -1,0 +1,380 @@
+/* /administration/assets/css/page/orderExcelUpload/orderExcelUpload.css */
+
+.order-excel-upload-page {
+    padding-bottom: 96px;
+}
+
+.order-excel-upload-card {
+    border: 1px solid #e9ebec;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.order-excel-upload-help {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 13px;
+}
+
+.order-excel-empty {
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 48px 16px;
+}
+
+.order-excel-empty-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ecfdf5;
+    color: #16a34a;
+    font-size: 32px;
+    margin-bottom: 16px;
+}
+
+.order-excel-summary {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.order-excel-preview-wrap {
+    padding: 16px;
+    background: #f8fafc;
+}
+
+.order-excel-group {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.order-excel-group.has-error {
+    border-color: #fecaca;
+}
+
+.order-excel-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.order-excel-group-toggle {
+    border: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: #0f172a;
+    font-size: 14px;
+    text-align: left;
+}
+
+.order-excel-group-toggle span:not(.badge) {
+    max-width: 360px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.order-excel-group-stats {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.order-excel-group-body {
+    padding: 16px;
+}
+
+.order-excel-issues {
+    margin-bottom: 12px;
+}
+
+.order-excel-group-meta {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.order-excel-group-meta label,
+.order-excel-address-title {
+    display: block;
+    margin-bottom: 4px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.order-excel-address-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.order-excel-address-box {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px;
+    background: #ffffff;
+}
+
+.order-excel-address-box.is-disabled {
+    opacity: 0.65;
+}
+
+.order-excel-address-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.order-excel-address-inputs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(80px, 1fr));
+    gap: 8px;
+}
+
+.order-excel-address-inputs input {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.order-excel-address-inputs input:nth-child(5),
+.order-excel-address-inputs input:nth-child(6),
+.order-excel-address-inputs input:nth-child(7),
+.order-excel-address-inputs input:nth-child(8) {
+    grid-column: span 2;
+}
+
+.order-excel-table-wrap {
+    width: 100%;
+    overflow: auto;
+    max-height: 680px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.order-excel-table {
+    min-width: 2100px;
+    margin-bottom: 0;
+    font-size: 12px;
+}
+
+.order-excel-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 12px;
+    white-space: nowrap;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.order-excel-table td {
+    vertical-align: middle;
+    background: #ffffff;
+}
+
+.order-excel-table tr.table-danger td {
+    background: #fff1f2;
+}
+
+.order-excel-table input,
+.order-excel-table select,
+.order-excel-table textarea {
+    min-width: 92px;
+    font-size: 12px;
+}
+
+.order-excel-table textarea {
+    resize: vertical;
+}
+
+.order-excel-admin-memo-cell {
+    min-width: 520px;
+}
+
+.order-excel-admin-memo {
+    min-width: 520px !important;
+    width: 520px;
+    min-height: 64px;
+    height: 64px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+}
+
+.order-excel-col-save {
+    width: 56px;
+}
+
+.order-excel-row-no {
+    min-width: 64px;
+    color: #64748b;
+    font-weight: 700;
+}
+
+.order-excel-product-name {
+    min-width: 220px !important;
+}
+
+.order-excel-category-select {
+    min-width: 140px !important;
+}
+
+.order-excel-money {
+    min-width: 88px !important;
+}
+
+.order-excel-issue-cell {
+    min-width: 240px;
+    max-width: 320px;
+}
+
+.order-excel-cell-issue {
+    padding: 4px 6px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.order-excel-cell-issue:last-child {
+    margin-bottom: 0;
+}
+
+.order-excel-cell-issue.is-error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.order-excel-cell-issue.is-warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.order-excel-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #ffffff;
+    box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
+}
+
+@media (max-width: 1199.98px) {
+    .order-excel-group-meta {
+        grid-template-columns: repeat(3, minmax(160px, 1fr));
+    }
+
+    .order-excel-address-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .order-excel-preview-wrap {
+        padding: 10px;
+    }
+
+    .order-excel-group-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .order-excel-group-stats {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .order-excel-group-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .order-excel-address-inputs {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .order-excel-address-inputs input:nth-child(5),
+    .order-excel-address-inputs input:nth-child(6),
+    .order-excel-address-inputs input:nth-child(7),
+    .order-excel-address-inputs input:nth-child(8) {
+        grid-column: span 2;
+    }
+
+    .order-excel-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .order-excel-footer .d-flex {
+        flex-wrap: wrap;
+    }
+
+    .order-excel-footer .btn {
+        flex: 1 1 auto;
+    }
+}
+
+/* 스위치형 체크 UI */
+.order-excel-switch-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.order-excel-switch-cell .form-check-input {
+    float: none;
+    margin-left: 0;
+    cursor: pointer;
+}
+
+.order-excel-delivery-handler-select {
+    min-width: 140px !important;
+}
+
+.order-excel-quantity {
+    min-width: 76px !important;
+}
