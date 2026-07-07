@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,6 +23,7 @@ import com.dev.HiddenBATHAuto.rag.service.RagKnowledgeInteractionService;
 @RestController
 @RequestMapping("/admin/rag/api/knowledge-interaction")
 @ConditionalOnBean(RagRepository.class)
+@PreAuthorize("hasRole('ADMIN')")
 public class RagKnowledgeInteractionApiController {
 
     private final RagKnowledgeInteractionService interactionService;

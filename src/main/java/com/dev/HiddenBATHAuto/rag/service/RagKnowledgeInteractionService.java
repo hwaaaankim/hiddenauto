@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.rag.config.RagOpenAiProperties;
 import com.dev.HiddenBATHAuto.rag.repository.RagRepository;
 import com.dev.HiddenBATHAuto.rag.util.RagJsonUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +38,7 @@ public class RagKnowledgeInteractionService {
     private final RagSemanticOrchestratorService semanticOrchestratorService;
     private final RagSqlAgentService sqlAgentService;
     private final RagCanonicalNaturalLanguageQuoteService canonicalNaturalLanguageQuoteService;
+    private final RagOpenAiProperties openAiProperties;
 
     public RagKnowledgeInteractionService(@Qualifier("ragJdbcTemplate") NamedParameterJdbcTemplate jdbc,
                                           ObjectMapper objectMapper,
@@ -50,7 +52,8 @@ public class RagKnowledgeInteractionService {
                                           RagDialogRuleService dialogRuleService,
                                           RagSemanticOrchestratorService semanticOrchestratorService,
                                           RagSqlAgentService sqlAgentService,
-                                          RagCanonicalNaturalLanguageQuoteService canonicalNaturalLanguageQuoteService) {
+                                          RagCanonicalNaturalLanguageQuoteService canonicalNaturalLanguageQuoteService,
+                                          RagOpenAiProperties openAiProperties) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.repository = repository;
@@ -64,6 +67,7 @@ public class RagKnowledgeInteractionService {
         this.semanticOrchestratorService = semanticOrchestratorService;
         this.sqlAgentService = sqlAgentService;
         this.canonicalNaturalLanguageQuoteService = canonicalNaturalLanguageQuoteService;
+        this.openAiProperties = openAiProperties;
     }
 
     public Map<String, Object> routeLearningInput(UUID sessionId, String message, boolean forceSave, List<MultipartFile> files) {
@@ -79,21 +83,25 @@ public class RagKnowledgeInteractionService {
     public Map<String, Object> summarizeKnowledge(UUID projectId, UUID versionId, String query, UUID sessionId, String sourceScope) {
         String clean = clean(query);
         try {
+            Map<String, Object> agent = sqlAgentService.handle(
+                    projectId, versionId, sessionId, nvl(sourceScope, "API"), clean, false, List.of());
+            if (Boolean.TRUE.equals(agent.get("handled")) || !openAiProperties.isAgentLegacyFallbackEnabled()) {
+                return agent;
+            }
+        } catch (Exception e) {
+            if (!openAiProperties.isAgentLegacyFallbackEnabled()) {
+                return agentFailureResponse(e);
+            }
+            // 설정에서 명시적으로 허용한 경우에만 기존 조회 흐름으로 폴백합니다.
+        }
+        try {
             Map<String, Object> canonicalQuote = canonicalNaturalLanguageQuoteService.tryHandle(
                     projectId, versionId, sessionId, nvl(sourceScope, "API"), clean);
             if (Boolean.TRUE.equals(canonicalQuote.get("handled"))) {
                 return canonicalQuote;
             }
         } catch (Exception ignored) {
-            // 정본 자연어 가격 계산이 실패해도 GPT SQL Agent / 기존 조회 흐름으로 폴백합니다.
-        }
-        try {
-            Map<String, Object> agent = sqlAgentService.handle(projectId, versionId, sessionId, nvl(sourceScope, "API"), clean, false, List.of());
-            if (Boolean.TRUE.equals(agent.get("handled"))) {
-                return agent;
-            }
-        } catch (Exception ignored) {
-            // GPT SQL Agent가 실패하면 기존 semantic/retrieval 흐름으로 폴백합니다.
+            // 정본 자연어 가격 계산이 실패해도 기존 semantic/retrieval 흐름으로 폴백합니다.
         }
 
         List<Map<String, Object>> candidates = retrievalService.findEntityCandidates(projectId, versionId, clean);
@@ -118,6 +126,20 @@ public class RagKnowledgeInteractionService {
         return response;
     }
 
+    private Map<String, Object> agentFailureResponse(Exception e) {
+        Map<String, Object> response = baseResponse(
+                "GPT_DATABASE_TOOL_AGENT_ERROR", true, "AGENT_FAILED", BigDecimal.ZERO);
+        response.put("requiresClarification", false);
+        response.put("answer", "GPT DB Tool Agent가 데이터베이스 확인을 완료하지 못했습니다. 기존 고정 매핑 흐름으로 우회하지 않았으며, 관리자 Agent 로그를 확인해 주세요.");
+        response.put("saveStatus", "지식 저장: 실행 실패");
+        response.put("saveMessage", "Agent가 실패하여 조회/저장/수정/삭제를 실행하지 않았습니다.");
+        response.put("memory", Map.of(
+                "status", "AGENT_FAILED",
+                "saveLabel", response.get("saveStatus"),
+                "message", response.get("saveMessage")));
+        return response;
+    }
+
     private Map<String, Object> route(RagScope scope,
                                       UUID sessionId,
                                       String sourceScope,
@@ -125,22 +147,26 @@ public class RagKnowledgeInteractionService {
                                       boolean forceSave,
                                       List<MultipartFile> files) {
         try {
+            Map<String, Object> agent = sqlAgentService.handle(
+                    scope.projectId(), scope.versionId(), sessionId, sourceScope, message, forceSave, files);
+            if (Boolean.TRUE.equals(agent.get("handled")) || !openAiProperties.isAgentLegacyFallbackEnabled()) {
+                return agent;
+            }
+        } catch (Exception e) {
+            if (!openAiProperties.isAgentLegacyFallbackEnabled()) {
+                return agentFailureResponse(e);
+            }
+            // 설정에서 명시적으로 허용한 경우에만 기존 semantic orchestrator 흐름으로 폴백합니다.
+        }
+
+        try {
             Map<String, Object> canonicalQuote = canonicalNaturalLanguageQuoteService.tryHandle(
                     scope.projectId(), scope.versionId(), sessionId, sourceScope, message);
             if (Boolean.TRUE.equals(canonicalQuote.get("handled"))) {
                 return canonicalQuote;
             }
         } catch (Exception ignored) {
-            // 정본 자연어 가격 계산이 실패해도 GPT SQL Agent / 기존 semantic orchestrator 흐름으로 폴백합니다.
-        }
-
-        try {
-            Map<String, Object> agent = sqlAgentService.handle(scope.projectId(), scope.versionId(), sessionId, sourceScope, message, forceSave, files);
-            if (Boolean.TRUE.equals(agent.get("handled"))) {
-                return agent;
-            }
-        } catch (Exception ignored) {
-            // GPT SQL Agent가 실패하면 기존 semantic orchestrator 흐름으로 폴백합니다.
+            // 정본 자연어 가격 계산이 실패해도 기존 semantic orchestrator 흐름으로 폴백합니다.
         }
 
         boolean hasFiles = files != null && !files.isEmpty();

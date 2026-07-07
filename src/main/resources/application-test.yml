@@ -76,12 +76,50 @@ hiddenbath:
         pool-name: rag-postgres-pool-local-dev
 
     openai:
-      api-key: ${OPENAI_API_KEY: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}
+      api-key: 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
       base-url: https://api.openai.com
       chat-model: gpt-5.5
       embedding-model: text-embedding-3-small
       reasoning-effort: medium
       read-timeout-seconds: 180
+      retry-count: 1
+
+      # 실제 Responses API function tool 반복 제한
+      agent-max-tool-turns: 20
+
+      # Agent 각 응답의 최대 출력 토큰 수
+      agent-max-output-tokens: 16000
+
+      # false인 경우 Agent 실패 시 기존 Java 고정 매핑 흐름으로 우회하지 않습니다.
+      agent-legacy-fallback-enabled: false
+
+      # query_database 도구의 기본 조회 행 수
+      agent-default-read-rows: 200
+
+      # query_database 도구가 한 번에 조회할 수 있는 절대 최대 행 수
+      agent-hard-max-read-rows: 1000
+
+      # 단일 Agent SELECT 쿼리의 제한 시간
+      agent-query-timeout-seconds: 60
+
+      # GPT에 반환할 단일 도구 실행 결과의 최대 문자 수
+      agent-max-tool-output-chars: 60000
+
+      # 업로드 파일 내용을 GPT에게 전달할 때 사용할 최대 미리보기 문자 수
+      agent-max-file-preview-chars: 40000
+
+      # GPT가 생성할 수 있는 단일 SQL의 최대 문자 수
+      agent-max-sql-chars: 50000
+
+      # SQL 파라미터 JSON의 최대 문자 수
+      agent-max-params-chars: 100000
+
+      # 하나의 ChangeSet에 포함할 수 있는 최대 변경 항목 수
+      agent-max-change-items: 100
+
+      # 단일 INSERT, UPDATE, DELETE 문이 변경할 수 있는 최대 행 수
+      # 초과하면 해당 ChangeSet 트랜잭션 전체를 롤백합니다.
+      agent-max-affected-rows-per-statement: 1
 
     upload:
       base-dir: ${user.home}/hiddenbath-rag-upload

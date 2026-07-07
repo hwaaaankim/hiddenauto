@@ -18,16 +18,10 @@ services:
       RAG_PROD_PASSWORD: ${RAG_PROD_PASSWORD}
 
     ports:
-      # 서버에서는 외부 직접 노출 방지를 위해 127.0.0.1로 바인딩합니다.
-      # 로컬에서 서버 DB를 사용할 때는 SSH 터널을 사용합니다.
       - "${RAG_POSTGRES_BIND_HOST:-127.0.0.1}:5433:5432"
 
     volumes:
-      # 로컬 Windows에서는 .env에 D:/DockerData/postgres/hiddenauto_rag_pgdata 지정
-      # 서버 Ubuntu에서는 .env에 /home/ubuntu/hiddenauto/rag-postgres/data 지정
       - ${RAG_PGDATA_DIR}:/var/lib/postgresql/data
-
-      # 최초 DB 생성 시 dev/prod DB를 만들고 모든 SQL을 양쪽 DB에 적용합니다.
       - ./db/init-rag-databases.sh:/docker-entrypoint-initdb.d/001_init_rag_databases.sh:ro
 
       - ./db/schema-rag-builder.sql:/schema/001_schema-rag-builder.sql:ro
@@ -42,9 +36,15 @@ services:
       - ./db/schema_patch_20260619_pricing_rule.sql:/schema/010_pricing_rule_patch.sql:ro
       - ./db/schema_patch_20260619_semantic_orchestrator.sql:/schema/011_semantic_orchestrator_patch.sql:ro
       - ./db/schema_patch_20260619_dialog_core.sql:/schema/012_dialog_core_patch.sql:ro
+      - ./db/schema_patch_20260623_canonical_engine.sql:/schema/013_canonical_engine_patch.sql:ro
+      - ./db/schema_patch_20260623_canonical_job_quote.sql:/schema/014_canonical_job_quote_patch.sql:ro
+      - ./db/schema_patch_20260623_sql_agent.sql:/schema/015_sql_agent_patch.sql:ro
       - ./db/schema_patch_20260623_dynamic_nl_pricing.sql:/schema/016_dynamic_nl_pricing_patch.sql:ro
       - ./db/schema_patch_20260623_gpt_final_answer.sql:/schema/017_gpt_final_answer_patch.sql:ro
       - ./db/schema_patch_20260623_working_memory.sql:/schema/018_working_memory_patch.sql:ro
+      - ./db/schema_patch_20260707_gpt_agent_schema_dictionary.sql:/schema/019_gpt_agent_schema_dictionary_patch.sql:ro
+      - ./db/schema_patch_20260707_db_tool_agent.sql:/schema/020_db_tool_agent_patch.sql:ro
+      - ./db/schema_patch_20260707_agent_scoped_views.sql:/schema/021_agent_scoped_views_patch.sql:ro
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ax_admin -d postgres"]
