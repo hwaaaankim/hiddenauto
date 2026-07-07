@@ -3,6 +3,8 @@
     'use strict';
 
     const API_BASE = '/management/api/order-excel-upload';
+    const BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = '12';
+    const BATHROOM_GOODS_CATEGORY_NAME = '욕실용품';
 
     const state = {
         options: {
@@ -52,6 +54,10 @@
         els.previewWrap.addEventListener('input', handlePreviewInput);
         els.previewWrap.addEventListener('change', handlePreviewChange);
         els.previewWrap.addEventListener('click', handlePreviewClick);
+        els.previewWrap.addEventListener('change', handleImageInputChange);
+        els.previewWrap.addEventListener('dragover', handleImageDragOver);
+        els.previewWrap.addEventListener('dragleave', handleImageDragLeave);
+        els.previewWrap.addEventListener('drop', handleImageDrop);
 
         els.collapseAll.addEventListener('click', () => toggleAllGroups(false));
         els.expandAll.addEventListener('click', () => toggleAllGroups(true));
@@ -128,6 +134,7 @@
             const data = await fetchMultipart(`${API_BASE}/preview`, formData);
             state.groups = data.groups || [];
             state.options = data.options || state.options;
+            initializeRowImages();
             state.previewLoaded = true;
 
             renderMethodSelectsKeepSelected();
@@ -179,7 +186,7 @@
                         <strong>Task ${group.groupNo}</strong>
                         <span>${escapeHtml(group.companyName || '-')}</span>
                         <span class="badge ${group.siteDelivery ? 'bg-primary-subtle text-primary' : 'bg-secondary-subtle text-secondary'}">
-                            ${group.siteDelivery ? '현장배송 묶음' : '직배송 묶음'}
+                            ${escapeHtml(group.deliveryRuleLabel || (group.siteDelivery ? '현장배송 묶음' : '직배송 묶음'))}
                         </span>
                         ${hasError ? '<span class="badge bg-danger-subtle text-danger">오류 있음</span>' : ''}
                     </button>
@@ -244,6 +251,13 @@
                     </select>
                 </div>
                 <div>
+                    <label>배송담당자</label>
+                    <select class="form-select form-select-sm order-excel-delivery-handler-select" data-group-field="deliveryHandlerMemberId" data-group-index="${groupIndex}">
+                        ${renderDeliveryHandlerOptions(group.deliveryHandlerMemberId)}
+                    </select>
+                    <input type="hidden" data-group-field="deliveryHandlerName" data-group-index="${groupIndex}" value="${escapeHtml(group.deliveryHandlerName || '')}">
+                </div>
+                <div>
                     <label>운임비</label>
                     <input type="text" class="form-control form-control-sm text-end" data-group-field="deliveryCost" data-group-index="${groupIndex}" value="${formatNumber(group.deliveryCost)}">
                 </div>
@@ -254,34 +268,50 @@
             </div>
 
             <div class="order-excel-address-grid">
-                <div class="order-excel-address-box">
-                    <div class="order-excel-address-title">기본 배송지</div>
-                    <div class="order-excel-address-inputs">
-                        <input type="text" placeholder="우편번호" data-group-field="zipCode" data-group-index="${groupIndex}" value="${escapeHtml(group.zipCode || '')}">
-                        <input type="text" placeholder="도/시" data-group-field="doName" data-group-index="${groupIndex}" value="${escapeHtml(group.doName || '')}">
-                        <input type="text" placeholder="시/군" data-group-field="siName" data-group-index="${groupIndex}" value="${escapeHtml(group.siName || '')}">
-                        <input type="text" placeholder="구" data-group-field="guName" data-group-index="${groupIndex}" value="${escapeHtml(group.guName || '')}">
-                        <input type="text" placeholder="도로명 주소" data-group-field="roadAddress" data-group-index="${groupIndex}" value="${escapeHtml(group.roadAddress || '')}">
-                        <input type="text" placeholder="상세주소" data-group-field="detailAddress" data-group-index="${groupIndex}" value="${escapeHtml(group.detailAddress || '')}">
+                ${renderAddressBox(group, groupIndex, 'basic')}
+                ${renderAddressBox(group, groupIndex, 'site')}
+            </div>
+        `;
+    }
+
+    function renderAddressBox(group, groupIndex, type) {
+        const isSite = type === 'site';
+        const prefix = isSite ? 'site' : '';
+        const boxTitle = isSite ? '현장 배송지' : '기본 배송지';
+        const disabledClass = isSite && !group.siteDelivery ? 'is-disabled' : '';
+        const zipField = isSite ? 'siteZipCode' : 'zipCode';
+        const doField = isSite ? 'siteDoName' : 'doName';
+        const siField = isSite ? 'siteSiName' : 'siName';
+        const guField = isSite ? 'siteGuName' : 'guName';
+        const roadField = isSite ? 'siteRoadAddress' : 'roadAddress';
+        const detailField = isSite ? 'siteDetailAddress' : 'detailAddress';
+        const searchLabel = isSite ? '현장 주소검색' : '기본 주소검색';
+
+        return `
+            <div class="order-excel-address-box ${disabledClass}" data-address-type="${type}" data-group-index="${groupIndex}">
+                <div class="order-excel-address-title">
+                    <span>${boxTitle}</span>
+                    <div class="order-excel-address-title-actions">
+                        ${isSite ? `
+                            <label class="form-check form-switch mb-0 order-excel-site-switch">
+                                <input type="checkbox" class="form-check-input" data-group-field="siteDelivery" data-group-index="${groupIndex}" ${group.siteDelivery ? 'checked' : ''} title="현장 배송지 사용">
+                            </label>
+                        ` : ''}
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-action="search-address" data-address-type="${type}" data-group-index="${groupIndex}">${searchLabel}</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="clear-address" data-address-type="${type}" data-group-index="${groupIndex}">초기화</button>
                     </div>
                 </div>
-                <div class="order-excel-address-box ${group.siteDelivery ? '' : 'is-disabled'}">
-                    <div class="order-excel-address-title">
-                        현장 배송지
-                        <label class="form-check form-switch mb-0">
-                            <input type="checkbox" class="form-check-input" data-group-field="siteDelivery" data-group-index="${groupIndex}" ${group.siteDelivery ? 'checked' : ''}>
-                        </label>
-                    </div>
-                    <div class="order-excel-address-inputs">
-                        <input type="text" placeholder="우편번호" data-group-field="siteZipCode" data-group-index="${groupIndex}" value="${escapeHtml(group.siteZipCode || '')}">
-                        <input type="text" placeholder="도/시" data-group-field="siteDoName" data-group-index="${groupIndex}" value="${escapeHtml(group.siteDoName || '')}">
-                        <input type="text" placeholder="시/군" data-group-field="siteSiName" data-group-index="${groupIndex}" value="${escapeHtml(group.siteSiName || '')}">
-                        <input type="text" placeholder="구" data-group-field="siteGuName" data-group-index="${groupIndex}" value="${escapeHtml(group.siteGuName || '')}">
-                        <input type="text" placeholder="현장 주소" data-group-field="siteRoadAddress" data-group-index="${groupIndex}" value="${escapeHtml(group.siteRoadAddress || '')}">
-                        <input type="text" placeholder="현장 상세주소" data-group-field="siteDetailAddress" data-group-index="${groupIndex}" value="${escapeHtml(group.siteDetailAddress || '')}">
+                <div class="order-excel-address-inputs">
+                    <input type="text" placeholder="우편번호" data-group-field="${zipField}" data-group-index="${groupIndex}" value="${escapeHtml(group[zipField] || '')}" readonly>
+                    <input type="text" placeholder="도/시" data-group-field="${doField}" data-group-index="${groupIndex}" value="${escapeHtml(group[doField] || '')}" readonly>
+                    <input type="text" placeholder="시/군" data-group-field="${siField}" data-group-index="${groupIndex}" value="${escapeHtml(group[siField] || '')}" readonly>
+                    <input type="text" placeholder="구" data-group-field="${guField}" data-group-index="${groupIndex}" value="${escapeHtml(group[guField] || '')}" readonly>
+                    <input type="text" placeholder="도로명 주소" data-group-field="${roadField}" data-group-index="${groupIndex}" value="${escapeHtml(group[roadField] || '')}" readonly>
+                    <input type="text" placeholder="상세주소" data-group-field="${detailField}" data-group-index="${groupIndex}" value="${escapeHtml(group[detailField] || '')}">
+                    ${isSite ? `
                         <input type="text" placeholder="수령자" data-group-field="siteRecipientName" data-group-index="${groupIndex}" value="${escapeHtml(group.siteRecipientName || '')}">
                         <input type="text" placeholder="수령자 연락처" data-group-field="siteRecipientPhone" data-group-index="${groupIndex}" value="${escapeHtml(group.siteRecipientPhone || '')}">
-                    </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -298,10 +328,12 @@
                 <table class="table table-sm table-bordered align-middle order-excel-table">
                     <thead>
                         <tr>
-                            <th class="order-excel-col-save">저장</th>
+                            <th class="order-excel-col-switch">저장</th>
+                            <th class="order-excel-col-switch">규격</th>
+                            <th class="order-excel-col-switch">거울</th>
                             <th>엑셀행</th>
                             <th>출고일</th>
-                            <th>대분류</th>
+                            <th>담당팀</th>
                             <th>중분류</th>
                             <th>원본 품목명</th>
                             <th>저장 제품명</th>
@@ -312,10 +344,8 @@
                             <th>공급가</th>
                             <th>부가세</th>
                             <th>합계</th>
-                            <th>규격</th>
-                            <th>거울재단</th>
-                            <th>배송 담당자</th>
                             <th>관리자 메모</th>
+                            <th>이미지</th>
                             <th>오류/확인</th>
                         </tr>
                     </thead>
@@ -331,9 +361,19 @@
         const rowError = rowHasError(row);
         return `
             <tr class="${rowError ? 'table-danger' : ''}" data-group-index="${groupIndex}" data-row-index="${rowIndex}">
-                <td class="text-center">
-                    <div class="form-check form-switch order-excel-switch-cell">
+                <td class="text-center order-excel-switch-td">
+                    <div class="form-check form-switch order-excel-switch-cell order-excel-switch-cell-mini">
                         <input type="checkbox" class="form-check-input" data-row-field="saveTarget" data-group-index="${groupIndex}" data-row-index="${rowIndex}" ${row.saveTarget !== false ? 'checked' : ''} title="저장 여부">
+                    </div>
+                </td>
+                <td class="text-center order-excel-switch-td">
+                    <div class="form-check form-switch order-excel-switch-cell order-excel-switch-cell-mini">
+                        <input type="checkbox" class="form-check-input" data-row-field="standard" data-group-index="${groupIndex}" data-row-index="${rowIndex}" ${row.standard ? 'checked' : ''} title="규격 여부">
+                    </div>
+                </td>
+                <td class="text-center order-excel-switch-td">
+                    <div class="form-check form-switch order-excel-switch-cell order-excel-switch-cell-mini">
+                        <input type="checkbox" class="form-check-input" data-row-field="mirrorCuttingProduct" data-group-index="${groupIndex}" data-row-index="${rowIndex}" ${row.mirrorCuttingProduct ? 'checked' : ''} title="거울재단 여부">
                     </div>
                 </td>
                 <td class="text-center order-excel-row-no">${row.excelRowNumber || ''}</td>
@@ -343,8 +383,9 @@
                         ${renderProductionCategoryOptions(row.productionCategoryId)}
                     </select>
                     <input type="hidden" data-row-field="categoryName" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.categoryName || '')}">
+                    <div class="order-excel-category-save-label">저장 카테고리: ${escapeHtml(row.categoryName || '-')}</div>
                 </td>
-                <td><input type="text" class="form-control form-control-sm" data-row-field="middleCategoryName" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.middleCategoryName || '')}"></td>
+                <td><select class="form-select form-select-sm order-excel-middle-category-select" data-row-field="middleCategoryName" data-group-index="${groupIndex}" data-row-index="${rowIndex}">${renderMiddleCategoryOptions(row.categoryName, row.middleCategoryName)}</select></td>
                 <td><input type="text" class="form-control form-control-sm" data-row-field="originalItemName" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.originalItemName || '')}"></td>
                 <td><input type="text" class="form-control form-control-sm order-excel-product-name" data-row-field="itemNameForSave" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.itemNameForSave || '')}"></td>
                 <td><input type="text" class="form-control form-control-sm" data-row-field="size" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.size || '')}"></td>
@@ -354,23 +395,8 @@
                 <td><input type="text" class="form-control form-control-sm text-end order-excel-money" data-row-field="supplyPrice" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.supplyPrice)}"></td>
                 <td><input type="text" class="form-control form-control-sm text-end order-excel-money" data-row-field="vatAmount" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.vatAmount)}"></td>
                 <td><input type="text" class="form-control form-control-sm text-end order-excel-money" data-row-field="totalAmount" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.totalAmount)}"></td>
-                <td class="text-center">
-                    <div class="form-check form-switch order-excel-switch-cell">
-                        <input type="checkbox" class="form-check-input" data-row-field="standard" data-group-index="${groupIndex}" data-row-index="${rowIndex}" ${row.standard ? 'checked' : ''} title="규격 여부">
-                    </div>
-                </td>
-                <td class="text-center">
-                    <div class="form-check form-switch order-excel-switch-cell">
-                        <input type="checkbox" class="form-check-input" data-row-field="mirrorCuttingProduct" data-group-index="${groupIndex}" data-row-index="${rowIndex}" ${row.mirrorCuttingProduct ? 'checked' : ''} title="거울재단 여부">
-                    </div>
-                </td>
-                <td>
-                    <select class="form-select form-select-sm order-excel-delivery-handler-select" data-row-field="deliveryHandlerMemberId" data-group-index="${groupIndex}" data-row-index="${rowIndex}">
-                        ${renderDeliveryHandlerOptions(row.deliveryHandlerMemberId)}
-                    </select>
-                    <input type="hidden" data-row-field="deliveryHandlerName" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.deliveryHandlerName || '')}">
-                </td>
                 <td class="order-excel-admin-memo-cell"><textarea class="form-control form-control-sm order-excel-admin-memo" rows="2" maxlength="200" data-row-field="adminMemo" data-group-index="${groupIndex}" data-row-index="${rowIndex}" placeholder="관리자 메모 입력">${escapeHtml(row.adminMemo || '')}</textarea></td>
+                <td class="order-excel-image-cell">${renderRowImages(groupIndex, rowIndex, row)}</td>
                 <td class="order-excel-issue-cell">${renderCellIssues(row.issues || [])}</td>
             </tr>
         `;
@@ -403,6 +429,47 @@
                 ${escapeHtml(category.name)}
             </option>
         `).join('');
+    }
+
+
+    function renderMiddleCategoryOptions(categoryName, selectedName) {
+        const categoryKey = String(categoryName || '').trim();
+        const byCategory = state.options.middleCategoriesByCategory || {};
+        let options = byCategory[categoryKey] || state.options.middleCategories || [];
+        const selected = String(selectedName || '').trim() || '분류없음';
+        const hasSelected = options.some(item => String(item.name || '').trim() === selected);
+        if (!hasSelected && selected) {
+            options = [{ id: null, name: selected }].concat(options);
+        }
+        return options.map(item => `
+            <option value="${escapeHtml(item.name || '')}" ${String(item.name || '') === selected ? 'selected' : ''}>
+                ${escapeHtml(item.name || '')}
+            </option>
+        `).join('') || `<option value="분류없음" selected>분류없음</option>`;
+    }
+
+    function renderRowImages(groupIndex, rowIndex, row) {
+        ensureRowImageState(row);
+        const images = row.images || [];
+        const imageList = images.length ? `
+            <div class="order-excel-image-preview-list">
+                ${images.map(image => `
+                    <div class="order-excel-image-thumb" title="${escapeHtml(image.name || '')}">
+                        <img src="${image.url}" alt="${escapeHtml(image.name || '업로드 이미지')}">
+                        <button type="button" class="order-excel-image-remove" data-action="remove-image" data-group-index="${groupIndex}" data-row-index="${rowIndex}" data-image-id="${image.id}" aria-label="이미지 삭제">×</button>
+                    </div>
+                `).join('')}
+            </div>
+        ` : '<div class="order-excel-image-empty-text">이미지 없음</div>';
+
+        return `
+            <div class="order-excel-image-drop" data-group-index="${groupIndex}" data-row-index="${rowIndex}">
+                <input type="file" class="order-excel-image-input" accept="image/*" multiple data-group-index="${groupIndex}" data-row-index="${rowIndex}">
+                <button type="button" class="btn btn-sm btn-outline-primary order-excel-image-add-btn" data-action="open-image-picker" data-group-index="${groupIndex}" data-row-index="${rowIndex}">이미지 추가</button>
+                <div class="order-excel-image-help">드래그 또는 파일선택</div>
+                ${imageList}
+            </div>
+        `;
     }
 
     function renderDeliveryHandlerOptions(selectedId) {
@@ -441,9 +508,13 @@
                 const rowIndex = Number(target.dataset.rowIndex);
                 const category = (state.options.productionCategories || []).find(item => String(item.id) === String(target.value));
                 if (category && state.groups[groupIndex] && state.groups[groupIndex].rows[rowIndex]) {
-                    state.groups[groupIndex].rows[rowIndex].categoryName = category.name;
+                    const categoryNameForSave = String(category.id) === BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID
+                        ? BATHROOM_GOODS_CATEGORY_NAME
+                        : category.name;
+                    state.groups[groupIndex].rows[rowIndex].categoryName = categoryNameForSave;
                     const hidden = target.closest('tr').querySelector('[data-row-field="categoryName"]');
-                    if (hidden) hidden.value = category.name;
+                    if (hidden) hidden.value = categoryNameForSave;
+                    renderPreview();
                 }
             }
         }
@@ -460,6 +531,30 @@
                 group.collapsed = !Boolean(group.collapsed);
                 renderPreview();
             }
+            return;
+        }
+
+        if (action === 'open-image-picker') {
+            const drop = button.closest('.order-excel-image-drop');
+            const input = drop ? drop.querySelector('.order-excel-image-input') : null;
+            if (input) input.click();
+            return;
+        }
+
+        if (action === 'remove-image') {
+            removeRowImage(Number(button.dataset.groupIndex), Number(button.dataset.rowIndex), button.dataset.imageId);
+            renderPreview();
+            return;
+        }
+
+        if (action === 'search-address') {
+            openDaumPostcode(Number(button.dataset.groupIndex), button.dataset.addressType || 'basic');
+            return;
+        }
+
+        if (action === 'clear-address') {
+            clearAddress(Number(button.dataset.groupIndex), button.dataset.addressType || 'basic');
+            renderPreview();
         }
     }
 
@@ -480,6 +575,16 @@
             group.managedByMemberId = match ? match.id : null;
             const hidden = target.parentElement.querySelector('[data-group-field="managedByMemberId"]');
             if (hidden) hidden.value = match ? match.id : '';
+        }
+
+        if (field === 'deliveryHandlerMemberId') {
+            const selected = findOptionById(state.options.deliveryHandlers || [], value);
+            value = selected ? selected.id : null;
+            group.deliveryHandlerMemberId = value;
+            group.deliveryHandlerName = selected ? selected.name : '';
+            const hiddenName = target.parentElement.querySelector('[data-group-field="deliveryHandlerName"]');
+            if (hiddenName) hiddenName.value = selected ? selected.name : '';
+            applyGroupDeliveryHandlerToRows(group);
         }
 
         group[field] = value;
@@ -518,6 +623,14 @@
         updateSummary();
     }
 
+    function applyGroupDeliveryHandlerToRows(group) {
+        if (!group || !Array.isArray(group.rows)) return;
+        group.rows.forEach(row => {
+            row.deliveryHandlerMemberId = group.deliveryHandlerMemberId || null;
+            row.deliveryHandlerName = group.deliveryHandlerName || '';
+        });
+    }
+
     async function handleSave() {
         hideMessage();
         if (!state.previewLoaded || !state.groups.length) {
@@ -541,11 +654,8 @@
 
         setSaving(true);
         try {
-            const response = await fetchJson(`${API_BASE}/save`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const formData = buildSaveFormData(payload);
+            const response = await fetchMultipart(`${API_BASE}/save`, formData);
 
             if (!response.success) {
                 renderSaveIssues(response.issues || []);
@@ -575,6 +685,9 @@
                 managedByName: group.managedByName,
                 managedByMemberId: normalizeId(group.managedByMemberId),
                 deliveryMethodId: normalizeId(group.deliveryMethodId),
+                deliveryHandlerName: group.deliveryHandlerName,
+                deliveryHandlerMemberId: normalizeId(group.deliveryHandlerMemberId),
+                deliveryRuleCode: group.deliveryRuleCode,
                 siteDelivery: Boolean(group.siteDelivery),
                 deliveryCost: Number(group.deliveryCost || 0),
                 packingCost: Number(group.packingCost || 0),
@@ -608,17 +721,222 @@
                     color: row.color,
                     quantity: Number(row.quantity || 0),
                     adminMemo: row.adminMemo,
-                    deliveryHandlerName: row.deliveryHandlerName,
-                    deliveryHandlerMemberId: normalizeId(row.deliveryHandlerMemberId),
+                    deliveryHandlerName: row.deliveryHandlerName || group.deliveryHandlerName || '',
+                    deliveryHandlerMemberId: normalizeId(row.deliveryHandlerMemberId || group.deliveryHandlerMemberId),
                     productCost: Number(row.productCost || 0),
                     supplyPrice: Number(row.supplyPrice || 0),
                     vatAmount: Number(row.vatAmount || 0),
                     totalAmount: Number(row.totalAmount || 0),
                     standard: Boolean(row.standard),
-                    mirrorCuttingProduct: Boolean(row.mirrorCuttingProduct)
+                    mirrorCuttingProduct: Boolean(row.mirrorCuttingProduct),
+                    imageKey: row.imageKey
                 }))
             }))
         };
+    }
+
+
+    function openDaumPostcode(groupIndex, type) {
+        const group = state.groups[groupIndex];
+        if (!group) return;
+
+        if (!window.daum || !window.daum.Postcode) {
+            showMessage('Daum 주소검색 스크립트를 불러오지 못했습니다. 네트워크 또는 스크립트 로딩을 확인해 주세요.', 'danger');
+            return;
+        }
+
+        new window.daum.Postcode({
+            oncomplete: function (data) {
+                applyDaumAddress(group, type, data || {});
+                renderPreview();
+            }
+        }).open();
+    }
+
+    function applyDaumAddress(group, type, data) {
+        const region = splitDaumRegion(data.sido || '', data.sigungu || '');
+        const roadAddress = data.roadAddress || data.autoRoadAddress || data.address || '';
+
+        if (type === 'site') {
+            group.siteDelivery = true;
+            group.siteZipCode = data.zonecode || '';
+            group.siteDoName = region.doName;
+            group.siteSiName = region.siName;
+            group.siteGuName = region.guName;
+            group.siteRoadAddress = roadAddress;
+            group.siteDetailAddress = group.siteDetailAddress || '';
+            return;
+        }
+
+        group.zipCode = data.zonecode || '';
+        group.doName = region.doName;
+        group.siName = region.siName;
+        group.guName = region.guName;
+        group.roadAddress = roadAddress;
+        group.detailAddress = group.detailAddress || '';
+    }
+
+    function clearAddress(groupIndex, type) {
+        const group = state.groups[groupIndex];
+        if (!group) return;
+
+        if (type === 'site') {
+            group.siteZipCode = '';
+            group.siteDoName = '';
+            group.siteSiName = '';
+            group.siteGuName = '';
+            group.siteRoadAddress = '';
+            group.siteDetailAddress = '';
+            group.siteRecipientName = '';
+            group.siteRecipientPhone = '';
+            return;
+        }
+
+        group.zipCode = '';
+        group.doName = '';
+        group.siName = '';
+        group.guName = '';
+        group.roadAddress = '';
+        group.detailAddress = '';
+    }
+
+    function splitDaumRegion(sido, sigungu) {
+        const doName = String(sido || '').trim();
+        const sigunguText = String(sigungu || '').trim();
+        const parts = sigunguText.split(/\s+/).filter(Boolean);
+        const metropolitan = isMetropolitanProvince(doName);
+
+        if (metropolitan) {
+            return {
+                doName,
+                siName: '',
+                guName: parts[0] || sigunguText
+            };
+        }
+
+        if (parts.length >= 2 && /[시군]$/.test(parts[0])) {
+            return {
+                doName,
+                siName: parts[0],
+                guName: parts[1]
+            };
+        }
+
+        if (parts.length >= 1) {
+            return {
+                doName,
+                siName: /[시군]$/.test(parts[0]) ? parts[0] : '',
+                guName: /[구군]$/.test(parts[0]) ? parts[0] : ''
+            };
+        }
+
+        return { doName, siName: '', guName: '' };
+    }
+
+    function isMetropolitanProvince(value) {
+        const text = String(value || '').trim();
+        return text.endsWith('특별시')
+            || text.endsWith('광역시')
+            || text.endsWith('특별자치시')
+            || text === '세종특별자치시';
+    }
+
+    function initializeRowImages() {
+        state.groups.forEach((group, groupIndex) => {
+            (group.rows || []).forEach((row, rowIndex) => {
+                ensureRowImageState(row, groupIndex, rowIndex);
+            });
+        });
+    }
+
+    function ensureRowImageState(row, groupIndex, rowIndex) {
+        if (!row) return;
+        if (!row.imageKey) {
+            row.imageKey = `g${groupIndex || 0}r${row.excelRowNumber || rowIndex || 0}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        }
+        if (!Array.isArray(row.images)) {
+            row.images = [];
+        }
+        row.imageCount = row.images.length;
+    }
+
+    function handleImageInputChange(event) {
+        const input = event.target.closest('.order-excel-image-input');
+        if (!input) return;
+        addFilesToRow(Number(input.dataset.groupIndex), Number(input.dataset.rowIndex), input.files);
+        input.value = '';
+        renderPreview();
+    }
+
+    function handleImageDragOver(event) {
+        const drop = event.target.closest('.order-excel-image-drop');
+        if (!drop) return;
+        event.preventDefault();
+        drop.classList.add('is-dragover');
+    }
+
+    function handleImageDragLeave(event) {
+        const drop = event.target.closest('.order-excel-image-drop');
+        if (!drop) return;
+        drop.classList.remove('is-dragover');
+    }
+
+    function handleImageDrop(event) {
+        const drop = event.target.closest('.order-excel-image-drop');
+        if (!drop) return;
+        event.preventDefault();
+        drop.classList.remove('is-dragover');
+        addFilesToRow(Number(drop.dataset.groupIndex), Number(drop.dataset.rowIndex), event.dataTransfer.files);
+        renderPreview();
+    }
+
+    function addFilesToRow(groupIndex, rowIndex, fileList) {
+        const row = getRow(groupIndex, rowIndex);
+        if (!row || !fileList || !fileList.length) return;
+        ensureRowImageState(row, groupIndex, rowIndex);
+        Array.from(fileList).forEach(file => {
+            if (!file || !file.type || !file.type.startsWith('image/')) return;
+            row.images.push({
+                id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                file,
+                name: file.name,
+                size: file.size,
+                url: URL.createObjectURL(file)
+            });
+        });
+        row.imageCount = row.images.length;
+    }
+
+    function removeRowImage(groupIndex, rowIndex, imageId) {
+        const row = getRow(groupIndex, rowIndex);
+        if (!row || !Array.isArray(row.images)) return;
+        const image = row.images.find(item => item.id === imageId);
+        if (image && image.url) {
+            URL.revokeObjectURL(image.url);
+        }
+        row.images = row.images.filter(item => item.id !== imageId);
+        row.imageCount = row.images.length;
+    }
+
+    function getRow(groupIndex, rowIndex) {
+        const group = state.groups[groupIndex];
+        return group && group.rows ? group.rows[rowIndex] : null;
+    }
+
+    function buildSaveFormData(payload) {
+        const formData = new FormData();
+        formData.append('payload', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+        state.groups.forEach(group => {
+            (group.rows || []).forEach(row => {
+                if (row.saveTarget === false || !row.imageKey || !Array.isArray(row.images)) return;
+                row.images.forEach(image => {
+                    if (image.file) {
+                        formData.append(`images_${row.imageKey}`, image.file, image.name || image.file.name || 'image');
+                    }
+                });
+            });
+        });
+        return formData;
     }
 
     function renderSaveIssues(issues) {

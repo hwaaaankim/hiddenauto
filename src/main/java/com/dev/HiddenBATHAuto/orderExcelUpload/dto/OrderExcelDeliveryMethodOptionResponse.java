@@ -15,4 +15,7 @@ public class OrderExcelDeliveryMethodOptionResponse {
     private int methodPrice;
     private boolean directCandidate;
     private boolean siteCandidate;
+    private boolean cargoCandidate;
+    private boolean visitCandidate;
+    private boolean parcelCandidate;
 }

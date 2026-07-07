@@ -40,5 +40,12 @@ public class OrderExcelPreviewRowDto {
     private boolean mirrorCuttingProduct;
     private boolean saveTarget = true;
 
+    /**
+     * 미리보기 화면에서 선택한 이미지 파일들을 저장 요청 multipart와 매칭하기 위한 클라이언트 키입니다.
+     * DB에는 저장하지 않습니다.
+     */
+    private String imageKey;
+    private int imageCount;
+
     private List<OrderExcelIssueDto> issues = new ArrayList<>();
 }

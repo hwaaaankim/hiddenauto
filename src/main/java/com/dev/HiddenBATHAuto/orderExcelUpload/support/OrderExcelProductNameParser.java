@@ -45,6 +45,7 @@ public class OrderExcelProductNameParser {
 
             if (isCabinet(category)) {
                 productName = productName.replaceAll("\\d+\\s*[가-힣A-Za-z]*장", " ");
+                productName = productName.replaceAll("(?i)(?<=\\D)\\d{2,5}(?=$|[-_\\s])", " ");
             } else if (isMirror(category)) {
                 productName = productName.replaceAll("(?<![A-Za-z가-힣])\\d{2,5}(?![A-Za-z가-힣])", " ");
                 productName = productName.replaceAll("\\d{2,5}$", " ");
@@ -140,6 +141,9 @@ public class OrderExcelProductNameParser {
 
     public String normalizeCategory(String value) {
         String normalized = safe(value).replaceAll("\\s+", "");
+        if ("기타".equals(normalized)) {
+            return "욕실용품";
+        }
         if ("슬라이드".equals(normalized)) {
             return "슬라이드장";
         }

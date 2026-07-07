@@ -23,6 +23,16 @@ public class OrderExcelPreviewGroupDto {
 
     private Long deliveryMethodId;
     private String deliveryMethodName;
+
+    /**
+     * 동일 배송지 Task 묶음 기준 배송 담당자입니다.
+     * 화면에서는 배송수단 옆에 표시하고, 저장 시 각 Order에 동일하게 반영합니다.
+     */
+    private String deliveryHandlerName;
+    private Long deliveryHandlerMemberId;
+
+    private String deliveryRuleCode;
+    private String deliveryRuleLabel;
     private boolean siteDelivery;
     private int deliveryCost;
     private int packingCost;

@@ -10,11 +10,18 @@ import org.springframework.data.repository.query.Param;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 
 public interface OrderExcelTeamCategoryRepository extends JpaRepository<TeamCategory, Long> {
-    List<TeamCategory> findByTeam_IdOrderByNameAsc(Long teamId);
-    List<TeamCategory> findByTeam_IdAndNameIgnoreCase(Long teamId, String name);
+    List<TeamCategory> findByTeam_NameOrderByNameAsc(String teamName);
+    List<TeamCategory> findByTeam_NameAndNameIgnoreCase(String teamName, String name);
 
-    @Query(value = "select * from tb_team_category tc where tc.team_id = :teamId and replace(coalesce(tc.name, ''), ' ', '') = :normalizedName", nativeQuery = true)
-    List<TeamCategory> findByTeamIdAndNameWithoutSpaces(@Param("teamId") Long teamId, @Param("normalizedName") String normalizedName);
+    @Query(value = """
+            select tc.*
+            from tb_team_category tc
+            join tb_team t on t.id = tc.team_id
+            where t.name = :teamName
+              and replace(coalesce(tc.name, ''), ' ', '') = :normalizedName
+            order by tc.id asc
+            """, nativeQuery = true)
+    List<TeamCategory> findByTeamNameAndNameWithoutSpaces(@Param("teamName") String teamName, @Param("normalizedName") String normalizedName);
 
-    Optional<TeamCategory> findByIdAndTeam_Id(Long id, Long teamId);
+    Optional<TeamCategory> findByIdAndTeam_Name(Long id, String teamName);
 }

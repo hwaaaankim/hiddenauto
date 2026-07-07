@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -1403,6 +1404,25 @@ public class ManagementController {
 		Page<Order> orders = orderStatusService.getOrders(start, end, category, parsedStatus, finalDateType,
 				finalPageable);
 
+		// 8) 페이지네이션 숫자 범위: 현재 페이지 기준 최대 5개만 노출
+		int totalPages = orders.getTotalPages();
+		int currentPage = orders.getNumber(); // 0-based
+		int pageWindowSize = 5;
+
+		int pageStart = 0;
+		int pageEnd = -1;
+		List<Integer> pageNumbers = List.of();
+
+		if (totalPages > 0) {
+			pageStart = Math.max(0, currentPage - (pageWindowSize / 2));
+			pageEnd = Math.min(totalPages - 1, pageStart + pageWindowSize - 1);
+			pageStart = Math.max(0, pageEnd - pageWindowSize + 1);
+
+			pageNumbers = IntStream.rangeClosed(pageStart, pageEnd)
+					.boxed()
+					.toList();
+		}
+		
 		// 8) View Model
 		model.addAttribute("orders", orders);
 		model.addAttribute("categoryId", categoryId);
@@ -1415,7 +1435,11 @@ public class ManagementController {
 		model.addAttribute("pageSize", pageSize);
 		model.addAttribute("sortField", finalSortField);
 		model.addAttribute("sortDir", finalSortDir);
-
+		
+		model.addAttribute("pageStart", pageStart);
+		model.addAttribute("pageEnd", pageEnd);
+		model.addAttribute("pageNumbers", pageNumbers);
+		
 		model.addAttribute("categories", teamCategoryRepository.findByTeamName("생산팀"));
 		model.addAttribute("orderStatusList", OrderStatus.values());
 

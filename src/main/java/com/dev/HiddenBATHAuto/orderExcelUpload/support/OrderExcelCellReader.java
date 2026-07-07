@@ -23,7 +23,9 @@ public class OrderExcelCellReader {
             DateTimeFormatter.ofPattern("yyyy/MM/dd"),
             DateTimeFormatter.ofPattern("yyyyMMdd"),
             DateTimeFormatter.ofPattern("M/d/yyyy", Locale.KOREA),
-            DateTimeFormatter.ofPattern("M.d.yyyy", Locale.KOREA)
+            DateTimeFormatter.ofPattern("M.d.yyyy", Locale.KOREA),
+            DateTimeFormatter.ofPattern("M. d", Locale.KOREA),
+            DateTimeFormatter.ofPattern("M.d", Locale.KOREA)
     );
 
     private final DataFormatter dataFormatter = new DataFormatter(Locale.KOREA);
@@ -64,7 +66,11 @@ public class OrderExcelCellReader {
 
         for (DateTimeFormatter formatter : DATE_FORMATTERS) {
             try {
-                return LocalDate.parse(raw, formatter);
+                LocalDate parsed = LocalDate.parse(raw, formatter);
+                if (parsed.getYear() < 100) {
+                    parsed = parsed.withYear(LocalDate.now().getYear());
+                }
+                return parsed;
             } catch (DateTimeParseException ignored) {
             }
         }
@@ -136,6 +142,10 @@ public class OrderExcelCellReader {
                 || "ㅇ".equals(normalized)
                 || "규격".equals(normalized)
                 || normalized.contains("거울재단");
+    }
+
+    public boolean hasText(Row row, int cellIndex) {
+        return !text(row, cellIndex).isBlank();
     }
 
     private Cell cell(Row row, int cellIndex) {

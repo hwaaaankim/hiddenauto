@@ -34,4 +34,6 @@ public class OrderExcelSaveRowRequest {
 
     private boolean standard;
     private boolean mirrorCuttingProduct;
+
+    private String imageKey;
 }

@@ -12,13 +12,17 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ParsedSiteAddress {
     private String raw;
+    private String addressPart;
+    private String contactPart;
     private String zipCode;
     private String doName;
     private String siName;
     private String guName;
     private String roadAddress;
     private String detailAddress;
+    private String jibunAddress;
     private String recipientName;
     private String recipientPhone;
+    private boolean externalResolved;
     private List<String> warnings = new ArrayList<>();
 }

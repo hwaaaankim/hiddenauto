@@ -21,6 +21,15 @@ public class OrderExcelSaveGroupRequest {
     private Long managedByMemberId;
 
     private Long deliveryMethodId;
+
+    /**
+     * 동일 배송지 Task 묶음 기준 배송 담당자입니다.
+     * 프론트에서는 배송수단 옆에서 한 번만 수정하고, 저장 시 각 Order에 동일하게 반영합니다.
+     */
+    private String deliveryHandlerName;
+    private Long deliveryHandlerMemberId;
+
+    private String deliveryRuleCode;
     private boolean siteDelivery;
     private int deliveryCost;
     private int packingCost;

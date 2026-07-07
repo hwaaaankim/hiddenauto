@@ -68,7 +68,7 @@
 
                                 <div class="order-excel-upload-help mt-3">
                                     <strong>배송수단 규칙</strong>
-                                    <span>주소 행이 별도로 있는 거래처 묶음은 현장배송, 그 외는 직배송으로 기본 선택됩니다. 저장 전 묶음별로 변경할 수 있습니다.</span>
+                                    <span>J열 규칙: 이름=직배송 담당자, ㅇ=현장배송, ㅎ=화물, ㅂ=방문, ㄷ=택배입니다. ㅇ/ㅎ/ㄷ 묶음은 품목명 주소 행을 주소 API로 보정하고, 각 주문 행의 이미지도 저장 전 추가/삭제할 수 있습니다.</span>
                                 </div>
                             </div>
                         </div>
@@ -126,6 +126,7 @@
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
 <link rel="stylesheet" href="/administration/assets/css/page/orderExcelUpload/orderExcelUpload.css">
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script src="/administration/assets/js/page/orderExcelUpload/orderExcelUpload.js"></script>
 </body>
 </html>

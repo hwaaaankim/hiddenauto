@@ -75,11 +75,10 @@
 										<div class="col-md-2">
 											<label class="form-label">오더 상태</label>
 											<select class="form-select" name="status">
-												<option value="" th:selected="${status == null or status == ''}">전체</option>
-												<option th:each="s : ${orderStatusList}"
-												        th:value="${s.name()}"
-												        th:text="${s.label}"
-												        th:selected="${s.name() == status}">
+												<option value="" th:selected="${status == null or status == ''}">전체
+												</option>
+												<option th:each="s : ${orderStatusList}" th:value="${s.name()}"
+													th:text="${s.label}" th:selected="${s.name() == status}">
 												</option>
 											</select>
 										</div>
@@ -87,8 +86,10 @@
 										<div class="col-md-2">
 											<label class="form-label">날짜 기준</label>
 											<select class="form-select" name="dateType">
-												<option value="created" th:selected="${dateType == 'created'}">신청일</option>
-												<option value="preferred" th:selected="${dateType == 'preferred'}">배송희망일</option>
+												<option value="created" th:selected="${dateType == 'created'}">신청일
+												</option>
+												<option value="preferred" th:selected="${dateType == 'preferred'}">배송희망일
+												</option>
 											</select>
 										</div>
 
@@ -116,7 +117,7 @@
 										</div>
 
 										<div class="col-md-1">
-											<button type="submit" class="btn btn-primary w-100"> 
+											<button type="submit" class="btn btn-primary w-100">
 												<i class="fa-solid fa-magnifying-glass me-1"></i>검색
 											</button>
 										</div>
@@ -134,8 +135,7 @@
 													<th>
 														대리점명
 														<span class="production-list-added-sort-box">
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -146,8 +146,7 @@
 															        sortField='companyName',
 															        sortDir='asc'
 															   )}">▲</a>
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -164,8 +163,7 @@
 													<th>
 														신청자
 														<span class="production-list-added-sort-box">
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -176,8 +174,7 @@
 															        sortField='requesterName',
 															        sortDir='asc'
 															   )}">▲</a>
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -195,8 +192,7 @@
 													<th>
 														규격/비규격
 														<span class="production-list-added-sort-box">
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -207,8 +203,7 @@
 															        sortField='standard',
 															        sortDir='desc'
 															   )}">▲</a>
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -225,8 +220,7 @@
 													<th>
 														신청일
 														<span class="production-list-added-sort-box">
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -237,8 +231,7 @@
 															        sortField='createdAt',
 															        sortDir='asc'
 															   )}">▲</a>
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -255,8 +248,7 @@
 													<th>
 														배송희망일
 														<span class="production-list-added-sort-box">
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -267,8 +259,7 @@
 															        sortField='preferredDeliveryDate',
 															        sortDir='asc'
 															   )}">▲</a>
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -287,8 +278,7 @@
 													<th>
 														상태
 														<span class="production-list-added-sort-box">
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -299,8 +289,7 @@
 															        sortField='status',
 															        sortDir='asc'
 															   )}">▲</a>
-															<a class="production-list-added-sort-btn"
-															   th:href="@{/management/productionList(
+															<a class="production-list-added-sort-btn" th:href="@{/management/productionList(
 															        page=0,
 															        size=${pageSize},
 															        categoryId=${categoryId},
@@ -338,8 +327,8 @@
 													<!-- ✅ 규격/비규격 표시 -->
 													<td class="production-list-added-standard">
 														<span class="badge"
-														      th:classappend="${order.standard} ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-warning'"
-														      th:text="${order.standard} ? '규격' : '비규격'">규격</span>
+															th:classappend="${order.standard} ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-warning'"
+															th:text="${order.standard} ? '규격' : '비규격'">규격</span>
 													</td>
 
 													<td class="due_date"
@@ -358,7 +347,8 @@
 													</td>
 
 													<td class="status">
-														<span class="badge bg-secondary-subtle text-secondary text-uppercase"
+														<span
+															class="badge bg-secondary-subtle text-secondary text-uppercase"
 															th:text="${order.status}">대기중</span>
 													</td>
 												</tr>
@@ -377,81 +367,85 @@
 
 									</div>
 
-									<div class="d-flex justify-content-end mt-2">
+									<div class="d-flex justify-content-end mt-2" th:if="${orders.totalPages > 0}">
 										<div class="pagination-wrap hstack gap-2">
 											<nav aria-label="Page navigation">
 												<ul class="pagination justify-content-center">
 
+													<!-- 처음 -->
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-															page=0,
-															size=${pageSize},
-															categoryId=${categoryId},
-															status=${status},
-															startDate=${startDateStr},
-															endDate=${endDateStr},
-															dateType=${dateType},
-															sortField=${sortField},
-															sortDir=${sortDir}
-														)}">처음</a>
+						page=0,
+						size=${pageSize},
+						categoryId=${categoryId},
+						status=${status},
+						startDate=${startDateStr},
+						endDate=${endDateStr},
+						dateType=${dateType},
+						sortField=${sortField},
+						sortDir=${sortDir}
+					)}">처음</a>
 													</li>
 
+													<!-- 이전 -->
 													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-															page=${orders.number - 1},
-															size=${pageSize},
-															categoryId=${categoryId},
-															status=${status},
-															startDate=${startDateStr},
-															endDate=${endDateStr},
-															dateType=${dateType},
-															sortField=${sortField},
-															sortDir=${sortDir}
-														)}">이전</a>
+						page=${orders.first ? 0 : orders.number - 1},
+						size=${pageSize},
+						categoryId=${categoryId},
+						status=${status},
+						startDate=${startDateStr},
+						endDate=${endDateStr},
+						dateType=${dateType},
+						sortField=${sortField},
+						sortDir=${sortDir}
+					)}">이전</a>
 													</li>
 
-													<li class="page-item"
-														th:each="i : ${#numbers.sequence(1, orders.totalPages)}"
-														th:classappend="${i == orders.number + 1} ? 'active'">
+													<!-- 페이지 번호: 컨트롤러에서 내려준 pageNumbers 기준으로 최대 5개만 출력 -->
+													<li class="page-item" th:each="i : ${pageNumbers}"
+														th:classappend="${i == orders.number} ? 'active'">
 														<a class="page-link" th:href="@{/management/productionList(
-															page=${i - 1},
-															size=${pageSize},
-															categoryId=${categoryId},
-															status=${status},
-															startDate=${startDateStr},
-															endDate=${endDateStr},
-															dateType=${dateType},
-															sortField=${sortField},
-															sortDir=${sortDir}
-														)}" th:text="${i}">1</a>
+						page=${i},
+						size=${pageSize},
+						categoryId=${categoryId},
+						status=${status},
+						startDate=${startDateStr},
+						endDate=${endDateStr},
+						dateType=${dateType},
+						sortField=${sortField},
+						sortDir=${sortDir}
+					)}" th:text="${i + 1}">1</a>
 													</li>
 
+													<!-- 다음 -->
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-															page=${orders.number + 1},
-															size=${pageSize},
-															categoryId=${categoryId},
-															status=${status},
-															startDate=${startDateStr},
-															endDate=${endDateStr},
-															dateType=${dateType},
-															sortField=${sortField},
-															sortDir=${sortDir}
-														)}">다음</a>
+						page=${orders.last ? orders.number : orders.number + 1},
+						size=${pageSize},
+						categoryId=${categoryId},
+						status=${status},
+						startDate=${startDateStr},
+						endDate=${endDateStr},
+						dateType=${dateType},
+						sortField=${sortField},
+						sortDir=${sortDir}
+					)}">다음</a>
 													</li>
 
+													<!-- 마지막 -->
 													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
 														<a class="page-link" th:href="@{/management/productionList(
-															page=${orders.totalPages - 1},
-															size=${pageSize},
-															categoryId=${categoryId},
-															status=${status},
-															startDate=${startDateStr},
-															endDate=${endDateStr},
-															dateType=${dateType},
-															sortField=${sortField},
-															sortDir=${sortDir}
-														)}">마지막</a>
+						page=${orders.totalPages > 0 ? orders.totalPages - 1 : 0},
+						size=${pageSize},
+						categoryId=${categoryId},
+						status=${status},
+						startDate=${startDateStr},
+						endDate=${endDateStr},
+						dateType=${dateType},
+						sortField=${sortField},
+						sortDir=${sortDir}
+					)}">마지막</a>
 													</li>
 
 												</ul>
