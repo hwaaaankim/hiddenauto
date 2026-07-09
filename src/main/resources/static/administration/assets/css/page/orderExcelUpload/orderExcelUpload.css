@@ -586,3 +586,69 @@
     margin: 0 !important;
     cursor: pointer;
 }
+
+/* 엑셀 미리보기/저장 작업 중 전체 화면 로딩 오버레이 */
+body.order-excel-busy {
+    overflow: hidden;
+}
+
+.order-excel-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(248, 250, 252, 0.72);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.order-excel-loading-overlay.d-none {
+    display: none !important;
+}
+
+.order-excel-loading-box {
+    width: min(420px, 100%);
+    padding: 28px 24px 24px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 18px 60px rgba(15, 23, 42, 0.18);
+    text-align: center;
+}
+
+.order-excel-loading-spinner {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 16px;
+}
+
+.order-excel-loading-title {
+    color: #0f172a;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.order-excel-loading-desc {
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.order-excel-loading-progress {
+    height: 8px;
+    margin-top: 18px;
+    overflow: hidden;
+    border-radius: 999px;
+}
+
+@media (max-width: 767.98px) {
+    .order-excel-loading-box {
+        padding: 24px 18px 20px;
+    }
+}
+

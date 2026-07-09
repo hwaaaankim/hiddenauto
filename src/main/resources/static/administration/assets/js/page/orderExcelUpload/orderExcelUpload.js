@@ -45,6 +45,9 @@
         els.expandAll = document.getElementById('order-excel-expand-all');
         els.managerList = document.getElementById('order-excel-manager-list');
         els.deliveryHandlerList = document.getElementById('order-excel-delivery-handler-list');
+        els.loadingOverlay = document.getElementById('order-excel-loading-overlay');
+        els.loadingTitle = document.getElementById('order-excel-loading-title');
+        els.loadingDesc = document.getElementById('order-excel-loading-desc');
     }
 
     function bindEvents() {
@@ -1235,12 +1238,31 @@
     function setLoading(loading, text) {
         els.previewBtn.disabled = loading;
         els.previewBtn.textContent = loading ? (text || '처리 중...') : '미리보기 생성';
+        setPageLoading(loading, text || '엑셀 미리보기 생성 중입니다.', '엑셀 파일을 분석하고 저장 전 미리보기 데이터를 준비하고 있습니다.');
     }
 
     function setSaving(saving) {
         state.saving = saving;
         els.saveBtn.disabled = saving;
         els.saveBtn.textContent = saving ? '저장 중...' : '수정 내용 저장';
+        setPageLoading(saving, '엑셀 발주 등록 중입니다.', 'Task, Order, 이미지, 배송담당자 인덱스를 저장하고 있습니다.');
+    }
+
+    function setPageLoading(loading, title, desc) {
+        if (!els.loadingOverlay) {
+            return;
+        }
+
+        if (els.loadingTitle) {
+            els.loadingTitle.textContent = title || '작업 처리 중입니다.';
+        }
+        if (els.loadingDesc) {
+            els.loadingDesc.textContent = desc || '작업이 완전히 끝날 때까지 화면을 닫지 말아 주세요.';
+        }
+
+        els.loadingOverlay.classList.toggle('d-none', !loading);
+        els.loadingOverlay.setAttribute('aria-hidden', loading ? 'false' : 'true');
+        document.body.classList.toggle('order-excel-busy', loading);
     }
 
     async function fetchMultipart(url, formData) {

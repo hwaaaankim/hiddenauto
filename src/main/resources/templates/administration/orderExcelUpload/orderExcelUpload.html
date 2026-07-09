@@ -122,6 +122,19 @@
     </div>
 </div>
 
+
+
+<div id="order-excel-loading-overlay" class="order-excel-loading-overlay d-none" aria-hidden="true" aria-live="polite" aria-busy="true">
+    <div class="order-excel-loading-box" role="status">
+        <div class="spinner-border text-primary order-excel-loading-spinner" aria-hidden="true"></div>
+        <div id="order-excel-loading-title" class="order-excel-loading-title">작업 처리 중입니다.</div>
+        <div id="order-excel-loading-desc" class="order-excel-loading-desc">작업이 완전히 끝날 때까지 화면을 닫지 말아 주세요.</div>
+        <div class="progress order-excel-loading-progress" aria-hidden="true">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+        </div>
+    </div>
+</div>
+
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
