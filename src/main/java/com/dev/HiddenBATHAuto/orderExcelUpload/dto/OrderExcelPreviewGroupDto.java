@@ -55,6 +55,7 @@ public class OrderExcelPreviewGroupDto {
     private String siteRecipientName;
     private String siteRecipientPhone;
     private String siteAddressRaw;
+    private String siteAddressDisplayText;
 
     private String ordererName;
     private String ordererPhone;

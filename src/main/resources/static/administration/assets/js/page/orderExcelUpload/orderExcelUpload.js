@@ -15,7 +15,9 @@
         },
         groups: [],
         saving: false,
-        previewLoaded: false
+        previewLoaded: false,
+        hoveredImagePasteTarget: null,
+        selectedImagePasteTarget: null
     };
 
     const els = {};
@@ -57,10 +59,15 @@
         els.previewWrap.addEventListener('input', handlePreviewInput);
         els.previewWrap.addEventListener('change', handlePreviewChange);
         els.previewWrap.addEventListener('click', handlePreviewClick);
+        els.previewWrap.addEventListener('mouseover', handleImageTargetMouseOver);
+        els.previewWrap.addEventListener('mouseout', handleImageTargetMouseOut);
+        els.previewWrap.addEventListener('focusin', handleImageTargetFocusIn);
+        els.previewWrap.addEventListener('click', handleImageTargetClick);
         els.previewWrap.addEventListener('change', handleImageInputChange);
         els.previewWrap.addEventListener('dragover', handleImageDragOver);
         els.previewWrap.addEventListener('dragleave', handleImageDragLeave);
         els.previewWrap.addEventListener('drop', handleImageDrop);
+        document.addEventListener('paste', handleImagePaste);
 
         els.collapseAll.addEventListener('click', () => toggleAllGroups(false));
         els.expandAll.addEventListener('click', () => toggleAllGroups(true));
@@ -174,6 +181,7 @@
         els.previewWrap.classList.remove('d-none');
         els.footer.classList.remove('d-none');
         els.previewWrap.innerHTML = state.groups.map(renderGroup).join('');
+        refreshImagePasteTargetUi();
         updateSummary();
     }
 
@@ -307,6 +315,7 @@
                         <button type="button" class="btn btn-sm btn-outline-secondary" data-action="clear-address" data-address-type="${type}" data-group-index="${groupIndex}">초기화</button>
                     </div>
                 </div>
+                ${renderAddressCorrectionInfo(group, type)}
                 <div class="order-excel-address-inputs">
                     <input type="text" placeholder="우편번호" data-group-field="${zipField}" data-group-index="${groupIndex}" value="${escapeHtml(group[zipField] || '')}" readonly>
                     <input type="text" placeholder="도/시" data-group-field="${doField}" data-group-index="${groupIndex}" value="${escapeHtml(group[doField] || '')}" readonly>
@@ -319,6 +328,18 @@
                         <input type="text" placeholder="수령자 연락처" data-group-field="siteRecipientPhone" data-group-index="${groupIndex}" value="${escapeHtml(group.siteRecipientPhone || '')}">
                     ` : ''}
                 </div>
+            </div>
+        `;
+    }
+
+    function renderAddressCorrectionInfo(group, type) {
+        if (type !== 'site' || !group || !group.siteAddressDisplayText) {
+            return '';
+        }
+
+        return `
+            <div class="order-excel-address-correction">
+                ${escapeHtml(group.siteAddressDisplayText)}
             </div>
         `;
     }
@@ -469,10 +490,11 @@
         ` : '<div class="order-excel-image-empty-text">이미지 없음</div>';
 
         return `
-            <div class="order-excel-image-drop" data-group-index="${groupIndex}" data-row-index="${rowIndex}">
+            <div class="order-excel-image-drop" tabindex="0" role="button" aria-label="이미지 업로드 영역. 파일 선택, 드래그 앤 드롭, 컨트롤 브이 붙여넣기로 이미지를 추가할 수 있습니다." data-group-index="${groupIndex}" data-row-index="${rowIndex}">
                 <input type="file" class="order-excel-image-input" accept="image/*" multiple data-group-index="${groupIndex}" data-row-index="${rowIndex}">
                 <button type="button" class="btn btn-sm btn-outline-primary order-excel-image-add-btn" data-action="open-image-picker" data-group-index="${groupIndex}" data-row-index="${rowIndex}">이미지 추가</button>
-                <div class="order-excel-image-help">드래그 또는 파일선택</div>
+                <div class="order-excel-image-help">드래그 · 파일선택 · Ctrl+V 붙여넣기</div>
+                <div class="order-excel-image-paste-hint">영역 위에 마우스를 올리거나 클릭한 뒤 이미지를 붙여넣을 수 있습니다.</div>
                 ${imageList}
             </div>
         `;
@@ -568,6 +590,9 @@
 
         if (action === 'open-image-picker') {
             const drop = button.closest('.order-excel-image-drop');
+            if (drop) {
+                setSelectedImagePasteTarget(getImagePasteTargetFromDrop(drop));
+            }
             const input = drop ? drop.querySelector('.order-excel-image-input') : null;
             if (input) input.click();
             return;
@@ -857,6 +882,7 @@
             group.siteGuName = region.guName;
             group.siteRoadAddress = roadAddress;
             group.siteDetailAddress = group.siteDetailAddress || '';
+            group.siteAddressDisplayText = '';
             return;
         }
 
@@ -881,6 +907,7 @@
             group.siteDetailAddress = '';
             group.siteRecipientName = '';
             group.siteRecipientPhone = '';
+            group.siteAddressDisplayText = '';
             return;
         }
 
@@ -952,9 +979,47 @@
         row.imageCount = row.images.length;
     }
 
+    function handleImageTargetMouseOver(event) {
+        const drop = event.target.closest('.order-excel-image-drop');
+        if (!drop) return;
+        setHoveredImagePasteTarget(getImagePasteTargetFromDrop(drop));
+    }
+
+    function handleImageTargetMouseOut(event) {
+        const drop = event.target.closest('.order-excel-image-drop');
+        if (!drop) return;
+
+        const nextTarget = event.relatedTarget;
+        if (nextTarget && drop.contains(nextTarget)) {
+            return;
+        }
+
+        const target = getImagePasteTargetFromDrop(drop);
+        if (isSameImagePasteTarget(state.hoveredImagePasteTarget, target)) {
+            state.hoveredImagePasteTarget = null;
+            refreshImagePasteTargetUi();
+        }
+    }
+
+    function handleImageTargetFocusIn(event) {
+        const drop = event.target.closest('.order-excel-image-drop');
+        if (!drop) return;
+        setSelectedImagePasteTarget(getImagePasteTargetFromDrop(drop));
+    }
+
+    function handleImageTargetClick(event) {
+        const drop = event.target.closest('.order-excel-image-drop');
+        if (!drop) return;
+        setSelectedImagePasteTarget(getImagePasteTargetFromDrop(drop));
+    }
+
     function handleImageInputChange(event) {
         const input = event.target.closest('.order-excel-image-input');
         if (!input) return;
+        const target = getImagePasteTargetFromElement(input);
+        if (target) {
+            setSelectedImagePasteTarget(target);
+        }
         addFilesToRow(Number(input.dataset.groupIndex), Number(input.dataset.rowIndex), input.files);
         input.value = '';
         renderPreview();
@@ -965,6 +1030,7 @@
         if (!drop) return;
         event.preventDefault();
         drop.classList.add('is-dragover');
+        setHoveredImagePasteTarget(getImagePasteTargetFromDrop(drop));
     }
 
     function handleImageDragLeave(event) {
@@ -978,8 +1044,163 @@
         if (!drop) return;
         event.preventDefault();
         drop.classList.remove('is-dragover');
-        addFilesToRow(Number(drop.dataset.groupIndex), Number(drop.dataset.rowIndex), event.dataTransfer.files);
+        const target = getImagePasteTargetFromDrop(drop);
+        setSelectedImagePasteTarget(target);
+        addFilesToRow(target.groupIndex, target.rowIndex, event.dataTransfer.files);
         renderPreview();
+    }
+
+    function handleImagePaste(event) {
+        if (state.saving) return;
+
+        const imageFiles = getImageFilesFromClipboard(event.clipboardData);
+        if (!imageFiles.length) {
+            return;
+        }
+
+        const target = resolveImagePasteTarget(event);
+        if (!target) {
+            return;
+        }
+
+        event.preventDefault();
+        setSelectedImagePasteTarget(target);
+        addFilesToRow(target.groupIndex, target.rowIndex, imageFiles);
+        renderPreview();
+    }
+
+    function resolveImagePasteTarget(event) {
+        const eventTarget = getImagePasteTargetFromElement(event.target);
+        if (eventTarget) {
+            return eventTarget;
+        }
+
+        if (state.hoveredImagePasteTarget
+                && getImageDropElement(state.hoveredImagePasteTarget)
+                && getRow(state.hoveredImagePasteTarget.groupIndex, state.hoveredImagePasteTarget.rowIndex)) {
+            return state.hoveredImagePasteTarget;
+        }
+
+        if (state.selectedImagePasteTarget
+                && getImageDropElement(state.selectedImagePasteTarget)
+                && getRow(state.selectedImagePasteTarget.groupIndex, state.selectedImagePasteTarget.rowIndex)) {
+            return state.selectedImagePasteTarget;
+        }
+
+        return null;
+    }
+
+    function getImageFilesFromClipboard(clipboardData) {
+        if (!clipboardData) return [];
+
+        const files = [];
+        const items = clipboardData.items ? Array.from(clipboardData.items) : [];
+        items.forEach(item => {
+            if (!item || item.kind !== 'file' || !String(item.type || '').startsWith('image/')) {
+                return;
+            }
+            const file = item.getAsFile();
+            if (file) {
+                files.push(normalizeClipboardImageFile(file, files.length));
+            }
+        });
+
+        if (!files.length && clipboardData.files && clipboardData.files.length) {
+            Array.from(clipboardData.files).forEach(file => {
+                if (file && String(file.type || '').startsWith('image/')) {
+                    files.push(normalizeClipboardImageFile(file, files.length));
+                }
+            });
+        }
+
+        return files;
+    }
+
+    function normalizeClipboardImageFile(file, index) {
+        const type = file.type || 'image/png';
+        const ext = imageExtensionFromMimeType(type);
+        const currentName = String(file.name || '').trim();
+        const generatedName = `clipboard-image-${formatClipboardTimestamp(new Date())}-${index + 1}.${ext}`;
+        const name = currentName && currentName !== 'image.png' ? currentName : generatedName;
+
+        try {
+            return new File([file], name, { type, lastModified: Date.now() });
+        } catch (e) {
+            return file;
+        }
+    }
+
+    function imageExtensionFromMimeType(type) {
+        const normalized = String(type || '').toLowerCase();
+        if (normalized.includes('jpeg') || normalized.includes('jpg')) return 'jpg';
+        if (normalized.includes('webp')) return 'webp';
+        if (normalized.includes('gif')) return 'gif';
+        if (normalized.includes('bmp')) return 'bmp';
+        return 'png';
+    }
+
+    function formatClipboardTimestamp(date) {
+        const pad = value => String(value).padStart(2, '0');
+        return [
+            date.getFullYear(),
+            pad(date.getMonth() + 1),
+            pad(date.getDate()),
+            pad(date.getHours()),
+            pad(date.getMinutes()),
+            pad(date.getSeconds())
+        ].join('');
+    }
+
+    function getImagePasteTargetFromElement(element) {
+        if (!element || !element.closest) return null;
+        const drop = element.closest('.order-excel-image-drop');
+        return drop ? getImagePasteTargetFromDrop(drop) : null;
+    }
+
+    function getImagePasteTargetFromDrop(drop) {
+        if (!drop) return null;
+        return {
+            groupIndex: Number(drop.dataset.groupIndex),
+            rowIndex: Number(drop.dataset.rowIndex)
+        };
+    }
+
+    function setHoveredImagePasteTarget(target) {
+        state.hoveredImagePasteTarget = target;
+        refreshImagePasteTargetUi();
+    }
+
+    function setSelectedImagePasteTarget(target) {
+        state.selectedImagePasteTarget = target;
+        refreshImagePasteTargetUi();
+    }
+
+    function refreshImagePasteTargetUi() {
+        if (!els.previewWrap) return;
+        els.previewWrap.querySelectorAll('.order-excel-image-drop.is-paste-hover, .order-excel-image-drop.is-paste-selected').forEach(drop => {
+            drop.classList.remove('is-paste-hover', 'is-paste-selected');
+        });
+
+        const hoveredDrop = getImageDropElement(state.hoveredImagePasteTarget);
+        if (hoveredDrop) {
+            hoveredDrop.classList.add('is-paste-hover');
+        }
+
+        const selectedDrop = getImageDropElement(state.selectedImagePasteTarget);
+        if (selectedDrop) {
+            selectedDrop.classList.add('is-paste-selected');
+        }
+    }
+
+    function getImageDropElement(target) {
+        if (!target || !Number.isFinite(target.groupIndex) || !Number.isFinite(target.rowIndex) || !els.previewWrap) {
+            return null;
+        }
+        return els.previewWrap.querySelector(`.order-excel-image-drop[data-group-index="${target.groupIndex}"][data-row-index="${target.rowIndex}"]`);
+    }
+
+    function isSameImagePasteTarget(a, b) {
+        return Boolean(a && b && Number(a.groupIndex) === Number(b.groupIndex) && Number(a.rowIndex) === Number(b.rowIndex));
     }
 
     function addFilesToRow(groupIndex, rowIndex, fileList) {
@@ -991,7 +1212,7 @@
             row.images.push({
                 id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
                 file,
-                name: file.name,
+                name: file.name || 'clipboard-image.png',
                 size: file.size,
                 url: URL.createObjectURL(file)
             });

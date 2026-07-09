@@ -839,6 +839,7 @@ public class OrderExcelUploadService {
     private void applyParsedSiteAddress(OrderExcelPreviewGroupDto group, ParsedSiteAddress parsed) {
         String rawAddress = firstNonBlank(parsed.getAddressPart(), parsed.getRaw());
         group.setSiteAddressRaw(safe(parsed.getRaw()));
+        group.setSiteAddressDisplayText(safe(parsed.getAddressCorrectionText()));
         group.setSiteZipCode(safe(parsed.getZipCode()));
         group.setSiteDoName(safe(parsed.getDoName()));
         group.setSiteSiName(safe(parsed.getSiName()));

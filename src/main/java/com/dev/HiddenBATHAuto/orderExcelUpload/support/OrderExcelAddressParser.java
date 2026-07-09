@@ -27,6 +27,7 @@ public class OrderExcelAddressParser {
     private static final Pattern ROAD_NUMBER_PATTERN = Pattern.compile(".*(?:대로|번길|로|길)\\s*\\d+(?:-\\d+)?.*");
     private static final Pattern REGION_PATTERN = Pattern.compile(".*(?:특별시|광역시|특별자치시|특별자치도|[가-힣]+도|[가-힣]+시|[가-힣]+군|[가-힣]+구)\\s+.*");
     private static final Pattern JIBUN_ADDRESS_PATTERN = Pattern.compile(".*[가-힣0-9]+(?:동|읍|면|리)\\s+산?\\d+(?:-\\d+)?.*");
+    private static final Pattern DETAIL_HINT_PATTERN = Pattern.compile(".*(?:\\d+\\s*동|\\d+\\s*호|호실|층|지하|상가|오피스텔|아파트|빌라|건물|타워).*");
 
 
     private static final Map<String, String> PROVINCE_ALIASES = Map.ofEntries(
@@ -114,9 +115,12 @@ public class OrderExcelAddressParser {
         }
 
         RoadAddressParts parts = splitRoadCoreAndDetail(addressPart);
+        String detailFromContactPart = extractDetailFromContactPart(contactPart);
+
         parseRegionByTokens(result, parts.core());
         result.setRoadAddress(parts.core());
-        result.setDetailAddress(parts.detail());
+        result.setOriginalRoadAddress(parts.core());
+        result.setDetailAddress(joinDetails(parts.detail(), detailFromContactPart));
         return result;
     }
 
@@ -133,21 +137,45 @@ public class OrderExcelAddressParser {
         }
 
         RoadAddressParts parts = splitRoadCoreAndDetail(addressPart);
+        String originalFullAddress = firstNonBlank(result.getAddressPart(), result.getRaw(), addressPart);
+        String originalRoadAddress = firstNonBlank(result.getOriginalRoadAddress(), result.getRoadAddress(), parts.core(), addressPart);
+        String existingDetailAddress = firstNonBlank(result.getDetailAddress(), parts.detail(), extractDetail(addressPart, originalRoadAddress));
         Optional<ResolvedExternalAddress> resolved = externalAddressSearchService.resolve(addressPart);
 
         if (resolved.isPresent()) {
             ResolvedExternalAddress external = resolved.get();
             String roadAddress = firstNonBlank(external.getRoadAddress(), parts.core(), addressPart);
+            String detailAddress = firstNonBlank(existingDetailAddress, extractDetail(addressPart, roadAddress), parts.detail());
+
+            // 지번/약식 주소를 외부 API로 도로명 주소로 보정하는 경우,
+            // API 결과는 도로명까지만 반환되고 동/호수·건물명 같은 상세주소가 사라질 수 있습니다.
+            // 상세주소를 정확히 분리하지 못했더라도 원문에 상세주소로 보이는 정보가 있으면
+            // 원문 주소 전체를 상세주소 fallback으로 보존합니다.
+            // 예) 성동구 하왕십리동 992, 무학현대 103동 803호
+            //     -> roadAddress=서울 성동구 무학봉길 49
+            //     -> detailAddress=성동구 하왕십리동 992, 무학현대 103동 803호
+            if (detailAddress.isBlank()
+                    && !sameAddressText(roadAddress, originalFullAddress)
+                    && shouldKeepOriginalAddressAsDetail(originalFullAddress)) {
+                detailAddress = originalFullAddress;
+            }
 
             result.setExternalResolved(true);
             result.setExternalSource(external.getSource());
-            result.setZipCode(firstNonBlank(result.getZipCode(), external.getZipCode()));
-            result.setDoName(external.getDoName());
-            result.setSiName(external.getSiName());
-            result.setGuName(external.getGuName());
+            result.setZipCode(firstNonBlank(external.getZipCode(), result.getZipCode()));
+            result.setDoName(firstNonBlank(external.getDoName(), result.getDoName()));
+            result.setSiName(firstNonBlank(external.getSiName(), result.getSiName()));
+            result.setGuName(firstNonBlank(external.getGuName(), result.getGuName()));
+            result.setOriginalRoadAddress(originalRoadAddress);
             result.setRoadAddress(roadAddress);
             result.setJibunAddress(external.getJibunAddress());
-            result.setDetailAddress(firstNonBlank(extractDetail(addressPart, roadAddress), parts.detail()));
+            result.setDetailAddress(detailAddress);
+
+            if (!sameAddressText(roadAddress, originalRoadAddress)) {
+                String correctionText = buildAddressCorrectionText(roadAddress, originalRoadAddress, detailAddress);
+                result.setAddressCorrectionText(correctionText);
+                result.getWarnings().add("주소 API로 도/시/구와 도로명 주소를 보정했습니다. " + correctionText);
+            }
             return result;
         }
 
@@ -311,6 +339,103 @@ public class OrderExcelAddressParser {
         }
 
         return "";
+    }
+
+    private String extractDetailFromContactPart(String contactPart) {
+        String source = normalize(contactPart).replace("/", " ");
+        if (source.isBlank()) {
+            return "";
+        }
+
+        Matcher phoneMatcher = PHONE_PATTERN.matcher(source);
+        if (phoneMatcher.find()) {
+            source = source.substring(0, phoneMatcher.start()).trim();
+        }
+
+        source = source.replaceAll("^[,\\s]+", "").replaceAll("[,\\s]+$", "").trim();
+        if (source.isBlank() || !looksLikeDetailText(source)) {
+            return "";
+        }
+
+        String[] tokens = source.split("\\s+");
+        if (tokens.length >= 2) {
+            String last = tokens[tokens.length - 1];
+            if (last.matches("[가-힣]{2,4}") && !looksLikeDetailText(last)) {
+                StringBuilder withoutName = new StringBuilder();
+                for (int i = 0; i < tokens.length - 1; i++) {
+                    if (withoutName.length() > 0) {
+                        withoutName.append(' ');
+                    }
+                    withoutName.append(tokens[i]);
+                }
+                String cleaned = normalize(withoutName.toString());
+                if (looksLikeDetailText(cleaned)) {
+                    return cleaned;
+                }
+            }
+        }
+
+        return source;
+    }
+
+    private boolean looksLikeDetailText(String value) {
+        String text = normalize(value);
+        return !text.isBlank() && DETAIL_HINT_PATTERN.matcher(text).matches();
+    }
+
+
+    private boolean shouldKeepOriginalAddressAsDetail(String value) {
+        String text = normalize(value);
+        if (text.isBlank()) {
+            return false;
+        }
+
+        if (looksLikeDetailText(text)) {
+            return true;
+        }
+
+        // 엑셀 원문에서 콤마, 세미콜론, 파이프, 괄호 등으로 주소와 상세정보를 구분한 경우도 보존합니다.
+        if (text.matches(".*[,;|｜、，].*")) {
+            return true;
+        }
+
+        // 건물명 + 숫자 조합처럼 명확한 동/호 표기가 없어도 상세주소일 가능성이 높은 표현을 보존합니다.
+        return text.matches(".*[가-힣]{2,}\\s*\\d{1,4}[-호]?\\d{0,4}.*");
+    }
+
+    private String joinDetails(String left, String right) {
+        String a = normalize(left);
+        String b = normalize(right);
+        if (a.isBlank()) {
+            return b;
+        }
+        if (b.isBlank() || compact(a).contains(compact(b))) {
+            return a;
+        }
+        if (compact(b).contains(compact(a))) {
+            return b;
+        }
+        return a + " " + b;
+    }
+
+    private String buildAddressCorrectionText(String changedRoadAddress, String originalRoadAddress, String detailAddress) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("변경된 주소: ").append(firstNonBlank(changedRoadAddress, "-"));
+        builder.append(" / 기존주소: ").append(firstNonBlank(originalRoadAddress, "-"));
+        if (!firstNonBlank(detailAddress).isBlank()) {
+            builder.append(" / 상세주소: ").append(detailAddress.trim());
+        }
+        return builder.toString();
+    }
+
+    private boolean sameAddressText(String left, String right) {
+        String a = compact(left);
+        String b = compact(right);
+        return !a.isBlank() && a.equals(b);
+    }
+
+    private String compact(String value) {
+        return normalize(value).replaceAll("\\s+", "");
     }
 
     private String canonicalProvince(String value) {

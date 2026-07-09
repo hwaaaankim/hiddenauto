@@ -20,6 +20,8 @@ public class ParsedSiteAddress {
     private String guName;
     private String roadAddress;
     private String detailAddress;
+    private String originalRoadAddress;
+    private String addressCorrectionText;
     private String jibunAddress;
     private String recipientName;
     private String recipientPhone;
