@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.orderExcelUpload.support;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,11 +23,67 @@ public class OrderExcelAddressParser {
      * 예: "인천광역시 연수구 계림로 95 (청학동, 현대아파트) 103동 1303호"
      *     -> core="인천광역시 연수구 계림로 95", detail="(청학동, 현대아파트) 103동 1303호"
      */
-    private static final Pattern ROAD_CORE_PATTERN = Pattern.compile("^(.+?(?:대로|로|길|번길)\\s*\\d+(?:-\\d+)?)(.*)$");
+    private static final Pattern ROAD_CORE_PATTERN = Pattern.compile("^(.+?(?:대로|번길|로|길)\\s*\\d+(?:-\\d+)?)(.*)$");
+    private static final Pattern ROAD_NUMBER_PATTERN = Pattern.compile(".*(?:대로|번길|로|길)\\s*\\d+(?:-\\d+)?.*");
+    private static final Pattern REGION_PATTERN = Pattern.compile(".*(?:특별시|광역시|특별자치시|특별자치도|[가-힣]+도|[가-힣]+시|[가-힣]+군|[가-힣]+구)\\s+.*");
+    private static final Pattern JIBUN_ADDRESS_PATTERN = Pattern.compile(".*[가-힣0-9]+(?:동|읍|면|리)\\s+산?\\d+(?:-\\d+)?.*");
+
+
+    private static final Map<String, String> PROVINCE_ALIASES = Map.ofEntries(
+            Map.entry("서울", "서울특별시"),
+            Map.entry("서울시", "서울특별시"),
+            Map.entry("서울특별시", "서울특별시"),
+            Map.entry("부산", "부산광역시"),
+            Map.entry("부산시", "부산광역시"),
+            Map.entry("부산광역시", "부산광역시"),
+            Map.entry("대구", "대구광역시"),
+            Map.entry("대구시", "대구광역시"),
+            Map.entry("대구광역시", "대구광역시"),
+            Map.entry("인천", "인천광역시"),
+            Map.entry("인천시", "인천광역시"),
+            Map.entry("인천광역시", "인천광역시"),
+            Map.entry("광주", "광주광역시"),
+            Map.entry("광주시", "광주광역시"),
+            Map.entry("광주광역시", "광주광역시"),
+            Map.entry("대전", "대전광역시"),
+            Map.entry("대전시", "대전광역시"),
+            Map.entry("대전광역시", "대전광역시"),
+            Map.entry("울산", "울산광역시"),
+            Map.entry("울산시", "울산광역시"),
+            Map.entry("울산광역시", "울산광역시"),
+            Map.entry("세종", "세종특별자치시"),
+            Map.entry("세종시", "세종특별자치시"),
+            Map.entry("세종특별자치시", "세종특별자치시"),
+            Map.entry("경기", "경기도"),
+            Map.entry("경기도", "경기도"),
+            Map.entry("강원", "강원특별자치도"),
+            Map.entry("강원도", "강원특별자치도"),
+            Map.entry("강원특별자치도", "강원특별자치도"),
+            Map.entry("충북", "충청북도"),
+            Map.entry("충청북도", "충청북도"),
+            Map.entry("충남", "충청남도"),
+            Map.entry("충청남도", "충청남도"),
+            Map.entry("전북", "전북특별자치도"),
+            Map.entry("전라북도", "전북특별자치도"),
+            Map.entry("전북특별자치도", "전북특별자치도"),
+            Map.entry("전남", "전라남도"),
+            Map.entry("전라남도", "전라남도"),
+            Map.entry("경북", "경상북도"),
+            Map.entry("경상북도", "경상북도"),
+            Map.entry("경남", "경상남도"),
+            Map.entry("경상남도", "경상남도"),
+            Map.entry("제주", "제주특별자치도"),
+            Map.entry("제주도", "제주특별자치도"),
+            Map.entry("제주특별자치도", "제주특별자치도")
+    );
 
     private final OrderExcelExternalAddressSearchService externalAddressSearchService;
 
-    public ParsedSiteAddress parse(String rawValue) {
+    /**
+     * 외부 API를 호출하지 않고 원문에 포함된 도/시/구를 우선 해석합니다.
+     * 담당자 자동 배정은 이 결과로 먼저 시도한 뒤 실패한 경우에만 외부 API를 사용합니다.
+     */
+    public ParsedSiteAddress parseLocal(String rawValue) {
         ParsedSiteAddress result = new ParsedSiteAddress();
         String raw = normalize(rawValue);
         result.setRaw(raw);
@@ -53,19 +110,37 @@ public class OrderExcelAddressParser {
         if (zipMatcher.find()) {
             result.setZipCode(zipMatcher.group());
             addressPart = addressPart.replace(zipMatcher.group(), "").trim();
+            result.setAddressPart(addressPart);
+        }
+
+        RoadAddressParts parts = splitRoadCoreAndDetail(addressPart);
+        parseRegionByTokens(result, parts.core());
+        result.setRoadAddress(parts.core());
+        result.setDetailAddress(parts.detail());
+        return result;
+    }
+
+    /**
+     * 직접 해석한 주소로 담당자를 찾지 못한 경우에만 한 번 호출합니다.
+     * 외부 주소 검색 결과가 있으면 도/시/구와 표준 도로명주소를 덮어씁니다.
+     */
+    public ParsedSiteAddress resolveWithExternal(ParsedSiteAddress local) {
+        ParsedSiteAddress result = local == null ? new ParsedSiteAddress() : local;
+        String addressPart = firstNonBlank(result.getAddressPart(), result.getRaw());
+
+        if (addressPart.isBlank()) {
+            return result;
         }
 
         RoadAddressParts parts = splitRoadCoreAndDetail(addressPart);
         Optional<ResolvedExternalAddress> resolved = externalAddressSearchService.resolve(addressPart);
-        if (resolved.isEmpty() && !parts.core().equals(addressPart)) {
-            resolved = externalAddressSearchService.resolve(parts.core());
-        }
 
         if (resolved.isPresent()) {
             ResolvedExternalAddress external = resolved.get();
             String roadAddress = firstNonBlank(external.getRoadAddress(), parts.core(), addressPart);
 
             result.setExternalResolved(true);
+            result.setExternalSource(external.getSource());
             result.setZipCode(firstNonBlank(result.getZipCode(), external.getZipCode()));
             result.setDoName(external.getDoName());
             result.setSiName(external.getSiName());
@@ -76,10 +151,6 @@ public class OrderExcelAddressParser {
             return result;
         }
 
-        parseRegionByTokens(result, parts.core());
-        result.setRoadAddress(parts.core());
-        result.setDetailAddress(parts.detail());
-
         if (!parts.core().equals(addressPart)) {
             result.getWarnings().add("주소 API 검색 결과가 없어서 도로명 핵심주소와 상세주소를 자동 분리했습니다. 우편번호는 Daum 주소검색으로 확인해 주세요.");
         } else {
@@ -89,8 +160,14 @@ public class OrderExcelAddressParser {
         if (result.getZipCode() == null || result.getZipCode().isBlank()) {
             result.getWarnings().add("현장 주소에 우편번호가 없어 우편번호는 비워둡니다.");
         }
-
         return result;
+    }
+
+    /**
+     * 기존 호출부 호환용입니다. 주소 정규화 자체가 필요한 경우에는 로컬 해석 후 외부 검색까지 수행합니다.
+     */
+    public ParsedSiteAddress parse(String rawValue) {
+        return resolveWithExternal(parseLocal(rawValue));
     }
 
     public boolean looksLikeAddress(String value) {
@@ -100,19 +177,37 @@ public class OrderExcelAddressParser {
 
         String text = normalize(value);
         boolean hasPhone = PHONE_PATTERN.matcher(text).find();
-        boolean hasAddressKeyword = text.contains(" 로 ")
-                || text.contains("로 ")
-                || text.contains("길 ")
+        boolean hasRoadNumber = ROAD_NUMBER_PATTERN.matcher(text).matches();
+        boolean hasRegion = REGION_PATTERN.matcher(text).matches();
+        boolean hasJibunAddress = JIBUN_ADDRESS_PATTERN.matcher(text).matches();
+        boolean hasAddressKeyword = text.contains("대로")
                 || text.contains("번길")
-                || text.contains("대로")
+                || ROAD_NUMBER_PATTERN.matcher(text).matches()
                 || text.contains("아파트")
                 || text.contains("타워")
                 || text.contains("빌딩")
                 || text.contains("동 ")
-                || text.contains("호")
-                || text.matches(".*[가-힣]+구\\s+[가-힣0-9]+.*");
+                || text.contains("호");
 
-        return hasPhone || (text.contains("/") && hasAddressKeyword);
+        // 일반적인 전체 도로명 주소: "인천광역시 연수구 계림로 95"
+        if (hasRoadNumber && hasRegion) {
+            return true;
+        }
+
+        // 지번 주소 또는 우편번호가 포함된 주소
+        if (hasJibunAddress && hasRegion) {
+            return true;
+        }
+        if (ZIP_PATTERN.matcher(text).find() && (hasRoadNumber || hasJibunAddress || hasRegion)) {
+            return true;
+        }
+
+        // 기존 엑셀 형식: "주소 / 수령자 전화번호"
+        if (text.contains("/") && hasAddressKeyword) {
+            return true;
+        }
+
+        return hasPhone && hasAddressKeyword;
     }
 
     private void parseContact(ParsedSiteAddress result, String raw, String contactPart) {
@@ -142,20 +237,36 @@ public class OrderExcelAddressParser {
         }
 
         int cursor = 0;
-        if (isProvinceLike(tokens[cursor])) {
+        String canonicalProvince = canonicalProvince(tokens[cursor]);
+        if (!canonicalProvince.isBlank()) {
+            result.setDoName(canonicalProvince);
+            cursor++;
+        } else if (isProvinceLike(tokens[cursor])) {
             result.setDoName(tokens[cursor]);
             cursor++;
-        } else if (isCityLike(tokens[cursor]) || isDistrictLike(tokens[cursor])) {
-            result.setDoName(tokens[cursor]);
+        } else if (isDistrictLike(tokens[cursor])) {
+            // "강남구 학동로 64"처럼 시·도가 생략된 주소에서 강남구를 도로 잘못 저장하지 않습니다.
+            // 외부 주소 API가 실패한 경우 province는 비워 두고 district만 보존합니다.
+            result.setGuName(tokens[cursor]);
+            return;
+        } else if (isCityLike(tokens[cursor])) {
+            // 시·도가 없는 "용인시 수지구 ..." 형식은 city부터 보존합니다.
+            result.setSiName(tokens[cursor]);
             cursor++;
         }
 
-        if (cursor < tokens.length && isCityLike(tokens[cursor])) {
+        if (cursor < tokens.length && isCityLike(tokens[cursor]) && result.getSiName() == null) {
             result.setSiName(tokens[cursor]);
             cursor++;
         }
 
         if (cursor < tokens.length && isDistrictLike(tokens[cursor])) {
+            result.setGuName(tokens[cursor]);
+            cursor++;
+        }
+
+        // 비광역도 주소에서 "경기도 용인시 수지구"처럼 시 다음 구가 붙는 경우를 보정합니다.
+        if (cursor < tokens.length && result.getGuName() == null && isDistrictLike(tokens[cursor])) {
             result.setGuName(tokens[cursor]);
         }
     }
@@ -200,6 +311,11 @@ public class OrderExcelAddressParser {
         }
 
         return "";
+    }
+
+    private String canonicalProvince(String value) {
+        String normalized = normalize(value).replaceAll("\\s+", "");
+        return PROVINCE_ALIASES.getOrDefault(normalized, "");
     }
 
     private boolean isProvinceLike(String token) {

@@ -134,6 +134,7 @@
             const data = await fetchMultipart(`${API_BASE}/preview`, formData);
             state.groups = data.groups || [];
             state.options = data.options || state.options;
+            normalizeDeliveryHandlerSelections();
             initializeRowImages();
             state.previewLoaded = true;
 
@@ -235,6 +236,10 @@
                     <input type="hidden" data-group-field="companyId" data-group-index="${groupIndex}" value="${group.companyId || ''}">
                 </div>
                 <div>
+                    <label>사업자등록번호</label>
+                    <input type="text" class="form-control form-control-sm" inputmode="numeric" maxlength="10" data-group-field="businessNumber" data-group-index="${groupIndex}" value="${escapeHtml(group.businessNumber || '')}" placeholder="숫자 10자리">
+                </div>
+                <div>
                     <label>요청자</label>
                     <input type="text" class="form-control form-control-sm" data-group-field="requestedByName" data-group-index="${groupIndex}" value="${escapeHtml(group.requestedByName || '')}" readonly>
                     <input type="hidden" data-group-field="requestedByMemberId" data-group-index="${groupIndex}" value="${group.requestedByMemberId || ''}">
@@ -252,9 +257,7 @@
                 </div>
                 <div>
                     <label>배송담당자</label>
-                    <select class="form-select form-select-sm order-excel-delivery-handler-select" data-group-field="deliveryHandlerMemberId" data-group-index="${groupIndex}">
-                        ${renderDeliveryHandlerOptions(group.deliveryHandlerMemberId)}
-                    </select>
+                    ${renderGroupDeliveryHandlerSelect(group, groupIndex)}
                     <input type="hidden" data-group-field="deliveryHandlerName" data-group-index="${groupIndex}" value="${escapeHtml(group.deliveryHandlerName || '')}">
                 </div>
                 <div>
@@ -472,9 +475,33 @@
         `;
     }
 
-    function renderDeliveryHandlerOptions(selectedId) {
+    function renderGroupDeliveryHandlerSelect(group, groupIndex) {
+        const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+        const ruleCode = deliveryRuleCodeFromMethod(method);
+        const required = isHandlerRequiredRuleCode(ruleCode);
+        const disabled = isNoHandlerRuleCode(ruleCode);
+        const selectedHandler = disabled ? null : resolveSelectedDeliveryHandler(group);
+        const selectedHandlerId = selectedHandler ? selectedHandler.id : null;
+        const missingRequiredHandler = required && !selectedHandlerId;
+        const requirementText = missingRequiredHandler
+            ? '<div class="form-text text-danger">필수 선택</div>'
+            : '';
+
+        return `
+            <select class="form-select form-select-sm order-excel-delivery-handler-select"
+                    data-group-field="deliveryHandlerMemberId"
+                    data-group-index="${groupIndex}"
+                    ${disabled ? 'disabled' : ''}>
+                ${renderDeliveryHandlerOptions(selectedHandlerId, required, disabled)}
+            </select>
+            ${requirementText}
+        `;
+    }
+
+    function renderDeliveryHandlerOptions(selectedId, required, disabled) {
         const handlers = state.options.deliveryHandlers || [];
-        return `<option value="">미지정</option>` + handlers.map(handler => `
+        const emptyLabel = disabled ? '담당자 지정 불필요' : (required ? '배송담당자 선택 필수' : '미지정');
+        return `<option value="">${emptyLabel}</option>` + handlers.map(handler => `
             <option value="${handler.id}" ${String(selectedId || '') === String(handler.id) ? 'selected' : ''}>
                 ${escapeHtml(handler.name)}
             </option>
@@ -496,7 +523,9 @@
         const target = event.target;
         if (target.dataset.groupField) {
             updateGroupField(target);
-            if (target.dataset.groupField === 'siteDelivery') {
+            if (target.dataset.groupField === 'siteDelivery'
+                    || target.dataset.groupField === 'deliveryMethodId'
+                    || target.dataset.groupField === 'deliveryHandlerMemberId') {
                 renderPreview();
             }
             return;
@@ -570,11 +599,39 @@
             target.value = formatNumber(value);
         }
 
+        if (field === 'businessNumber') {
+            value = String(value || '').replace(/\D/g, '').slice(0, 10);
+            target.value = value;
+            clearResolvedCompanySelection(group, target);
+        }
+
+        if (field === 'companyName') {
+            clearResolvedCompanySelection(group, target);
+        }
+
         if (field === 'managedByName') {
             const match = findOptionByName(state.options.managers || [], value);
             group.managedByMemberId = match ? match.id : null;
             const hidden = target.parentElement.querySelector('[data-group-field="managedByMemberId"]');
             if (hidden) hidden.value = match ? match.id : '';
+        }
+
+        if (field === 'deliveryMethodId') {
+            const selectedMethod = findOptionById(state.options.deliveryMethods || [], value);
+            value = selectedMethod ? selectedMethod.id : null;
+            const ruleCode = deliveryRuleCodeFromMethod(selectedMethod);
+            group.deliveryRuleCode = ruleCode;
+            group.deliveryRuleLabel = selectedMethod ? selectedMethod.methodName : '';
+
+            if (['SITE', 'CARGO'].includes(ruleCode)) {
+                group.siteDelivery = true;
+            }
+
+            if (isNoHandlerRuleCode(ruleCode)) {
+                group.deliveryHandlerMemberId = null;
+                group.deliveryHandlerName = '';
+                applyGroupDeliveryHandlerToRows(group);
+            }
         }
 
         if (field === 'deliveryHandlerMemberId') {
@@ -623,6 +680,22 @@
         updateSummary();
     }
 
+    function clearResolvedCompanySelection(group, target) {
+        group.companyId = null;
+        group.requestedByMemberId = null;
+        group.requestedByName = '';
+
+        const groupEl = target.closest('.order-excel-group');
+        if (!groupEl) return;
+
+        const companyIdEl = groupEl.querySelector('[data-group-field="companyId"]');
+        const requestedByIdEl = groupEl.querySelector('[data-group-field="requestedByMemberId"]');
+        const requestedByNameEl = groupEl.querySelector('[data-group-field="requestedByName"]');
+        if (companyIdEl) companyIdEl.value = '';
+        if (requestedByIdEl) requestedByIdEl.value = '';
+        if (requestedByNameEl) requestedByNameEl.value = '';
+    }
+
     function applyGroupDeliveryHandlerToRows(group) {
         if (!group || !Array.isArray(group.rows)) return;
         group.rows.forEach(row => {
@@ -645,6 +718,21 @@
 
         if (activeOrderCount <= 0) {
             showMessage('저장 대상으로 선택된 주문 행이 없습니다.', 'warning');
+            return;
+        }
+
+        const missingHandlerGroup = payload.groups.find(group => {
+            const hasActiveRow = (group.rows || []).some(row => row.saveTarget);
+            if (!hasActiveRow) return false;
+            const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+            return deliveryMethodRequiresHandler(method) && !group.deliveryHandlerMemberId;
+        });
+        if (missingHandlerGroup) {
+            const method = findOptionById(state.options.deliveryMethods || [], missingHandlerGroup.deliveryMethodId);
+            showMessage(`Task ${missingHandlerGroup.groupNo}의 ${method ? method.methodName : '선택한 배송수단'}은(는) 배송담당자를 반드시 선택해야 합니다.`, 'danger');
+            const stateGroup = state.groups.find(group => String(group.groupNo) === String(missingHandlerGroup.groupNo));
+            if (stateGroup) stateGroup.collapsed = false;
+            renderPreview();
             return;
         }
 
@@ -679,6 +767,7 @@
             groups: state.groups.map(group => ({
                 groupNo: group.groupNo,
                 companyName: group.companyName,
+                businessNumber: String(group.businessNumber || '').replace(/\D/g, ''),
                 companyId: normalizeId(group.companyId),
                 requestedByName: group.requestedByName,
                 requestedByMemberId: normalizeId(group.requestedByMemberId),
@@ -1022,6 +1111,77 @@
             }, 0);
             return count + groupErrors + rowErrors;
         }, 0);
+    }
+
+    function deliveryRuleCodeFromMethod(method) {
+        const normalized = normalizeText(method && method.methodName);
+        if (!normalized) return '';
+        if (normalized.includes('미배송')) return 'UNDELIVERED';
+        if (normalized.includes('직배송') || normalized.includes('매장출고')) return 'DIRECT';
+        if (normalized.includes('현장배송') || normalized === '현장') return 'SITE';
+        if (normalized.includes('화물')) return 'CARGO';
+        if (normalized.includes('방문')) return 'VISIT';
+        if (normalized.includes('택배')) return 'PARCEL';
+        return '';
+    }
+
+    function deliveryMethodRequiresHandler(method) {
+        return isHandlerRequiredRuleCode(deliveryRuleCodeFromMethod(method));
+    }
+
+    function isHandlerRequiredRuleCode(code) {
+        return ['DIRECT', 'SITE', 'CARGO'].includes(String(code || '').toUpperCase());
+    }
+
+    function isNoHandlerRuleCode(code) {
+        return ['VISIT', 'PARCEL', 'UNDELIVERED'].includes(String(code || '').toUpperCase());
+    }
+
+    function normalizeDeliveryHandlerSelections() {
+        (state.groups || []).forEach(group => {
+            resolveSelectedDeliveryHandler(group);
+        });
+    }
+
+    /**
+     * 담당자 ID가 있으면 ID를 우선 사용하고, ID가 비어 있더라도 서버가 반환한
+     * 담당자 이름이 옵션 목록에서 유일하게 일치하면 실제 선택 상태로 복구합니다.
+     * 그룹 값이 비어 있고 행에만 담당자가 들어온 경우도 그룹으로 승격합니다.
+     */
+    function resolveSelectedDeliveryHandler(group) {
+        if (!group) return null;
+
+        const handlers = state.options.deliveryHandlers || [];
+        let selected = findOptionById(handlers, group.deliveryHandlerMemberId);
+
+        if (!selected) {
+            selected = findUniqueOptionByName(handlers, group.deliveryHandlerName);
+        }
+
+        if (!selected && Array.isArray(group.rows)) {
+            for (const row of group.rows) {
+                selected = findOptionById(handlers, row.deliveryHandlerMemberId)
+                    || findUniqueOptionByName(handlers, row.deliveryHandlerName);
+                if (selected) break;
+            }
+        }
+
+        if (!selected) {
+            return null;
+        }
+
+        group.deliveryHandlerMemberId = selected.id;
+        group.deliveryHandlerName = selected.name || '';
+        applyGroupDeliveryHandlerToRows(group);
+        return selected;
+    }
+
+    function findUniqueOptionByName(list, name) {
+        const normalized = normalizeText(name);
+        if (!normalized) return null;
+
+        const matches = (list || []).filter(item => normalizeText(item.name) === normalized);
+        return matches.length === 1 ? matches[0] : null;
     }
 
     function findOptionByName(list, name) {

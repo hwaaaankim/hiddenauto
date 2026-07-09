@@ -5,7 +5,8 @@ public enum OrderExcelDeliveryRule {
     SITE("SITE", "현장배송", "현장배송", true),
     CARGO("CARGO", "화물", "화물", true),
     VISIT("VISIT", "방문", "방문", false),
-    PARCEL("PARCEL", "택배", "택배", false);
+    PARCEL("PARCEL", "택배", "택배", false),
+    UNDELIVERED("UNDELIVERED", "미배송", "미배송", false);
 
     private final String code;
     private final String label;
@@ -40,7 +41,7 @@ public enum OrderExcelDeliveryRule {
     }
 
     public boolean isNoHandlerRule() {
-        return this == VISIT || this == PARCEL;
+        return this == VISIT || this == PARCEL || this == UNDELIVERED;
     }
 
     public static OrderExcelDeliveryRule fromCode(String code) {

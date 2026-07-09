@@ -24,5 +24,6 @@ public class ParsedSiteAddress {
     private String recipientName;
     private String recipientPhone;
     private boolean externalResolved;
+    private String externalSource;
     private List<String> warnings = new ArrayList<>();
 }

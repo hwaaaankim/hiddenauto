@@ -79,7 +79,8 @@ public class OrderExcelUploadService {
      * 0=출고일, 1=요일, 2=거래처, 3=품목명, 4=사이즈, 5=수량, 6=관리자메모,
      * 7=대분류, 8=관리 담당자, 9=배송 담당자/배송수단 부호, 10=사진,
      * 11=단가, 12=공급가액, 13=부가세, 14=합계금액, 15~17=무시,
-     * 18=규격/비규격(1=규격, 0=비규격), 19=거울재단(1=거울재단용, 0=아님)
+     * 18(S열)=사업자등록번호입니다. 하이픈 등 숫자 외 문자는 제거합니다.
+     * 규격/비규격 및 거울재단 여부는 엑셀에서 읽지 않고 AmountItemMaster의 품목명 매칭 결과를 사용합니다.
      */
     private static final int COL_DATE = 0;
     private static final int COL_COMPANY = 2;
@@ -94,8 +95,7 @@ public class OrderExcelUploadService {
     private static final int COL_SUPPLY_PRICE = 12;
     private static final int COL_VAT_AMOUNT = 13;
     private static final int COL_TOTAL_AMOUNT = 14;
-    private static final int COL_STANDARD = 18;
-    private static final int COL_MIRROR_CUTTING = 19;
+    private static final int COL_BUSINESS_NUMBER = 18;
 
     private final OrderExcelAmountItemMasterRepository amountItemMasterRepository;
     private final OrderExcelCompanyRepository companyRepository;
@@ -168,8 +168,16 @@ public class OrderExcelUploadService {
             Company company = resolveCompanyForSave(groupRequest);
             Member requestedBy = resolveRequestedByForSave(groupRequest, company);
             Member managedBy = resolveManagerForSave(groupRequest);
-            DeliveryMethod deliveryMethod = resolveDeliveryMethodForSave(groupRequest.getDeliveryMethodId(), groupRequest.getGroupNo());
-            Member groupDeliveryHandler = resolveDeliveryHandlerForSave(groupRequest, groupRequest.getGroupNo());
+            DeliveryMethod deliveryMethod = resolveDeliveryMethodForSave(
+                    groupRequest.getDeliveryMethodId(),
+                    groupRequest.getGroupNo()
+            );
+            autoAssignDeliveryHandlerForSaveIfPossible(groupRequest, deliveryMethod);
+            Member groupDeliveryHandler = resolveDeliveryHandlerForSave(
+                    groupRequest,
+                    groupRequest.getGroupNo(),
+                    deliveryMethod
+            );
 
             LocalDateTime now = LocalDateTime.now();
 
@@ -214,7 +222,7 @@ public class OrderExcelUploadService {
                 }
 
                 applyCompanyAddress(order, groupRequest, company);
-                applySiteAddress(order, groupRequest);
+                applySiteAddress(order, groupRequest, deliveryMethod);
                 applyOrderer(order, groupRequest, company, requestedBy);
 
                 order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
@@ -302,10 +310,10 @@ public class OrderExcelUploadService {
             raw.supplyPrice = cellReader.money(row, COL_SUPPLY_PRICE);
             raw.vatAmount = cellReader.money(row, COL_VAT_AMOUNT);
             raw.totalAmount = cellReader.money(row, COL_TOTAL_AMOUNT);
-            raw.standardExplicit = cellReader.hasText(row, COL_STANDARD);
-            raw.mirrorCuttingExplicit = cellReader.hasText(row, COL_MIRROR_CUTTING);
-            raw.standard = raw.standardExplicit ? cellReader.bool01(cellReader.text(row, COL_STANDARD)) : inferStandardFromItemName(itemName);
-            raw.mirrorCuttingProduct = raw.mirrorCuttingExplicit && cellReader.bool01(cellReader.text(row, COL_MIRROR_CUTTING));
+            raw.businessNumber = normalizeBusinessNumber(cellReader.text(row, COL_BUSINESS_NUMBER));
+            // 엑셀의 규격/거울재단 열은 제거되었습니다. 미리보기 생성 시 AmountItemMaster 값으로 덮어씁니다.
+            raw.standard = inferStandardFromItemName(itemName);
+            raw.mirrorCuttingProduct = false;
             raw.kind = classify(raw);
 
             rows.add(raw);
@@ -314,78 +322,237 @@ public class OrderExcelUploadService {
         return rows;
     }
 
-    private List<OrderExcelPreviewGroupDto> buildPreviewGroups(List<ExcelRawRow> rawRows, Long directDeliveryMethodId, Long siteDeliveryMethodId) {
+    private List<OrderExcelPreviewGroupDto> buildPreviewGroups(
+            List<ExcelRawRow> rawRows,
+            Long directDeliveryMethodId,
+            Long siteDeliveryMethodId
+    ) {
         List<OrderExcelPreviewGroupDto> groups = new ArrayList<>();
-        List<ExcelRawRow> currentRows = new ArrayList<>();
-        String currentCompanyName = null;
-        String currentRawCompanyText = null;
-        OrderExcelDeliveryRule currentDeliveryRule = null;
+        List<ExcelRawGroup> rawGroups = splitPreviewRawGroups(rawRows);
+
         int groupNo = 1;
+        for (ExcelRawGroup rawGroup : rawGroups) {
+            groups.add(buildOneGroup(
+                    groupNo++,
+                    rawGroup.rawCompanyText,
+                    rawGroup.companyName,
+                    rawGroup.businessNumber,
+                    rawGroup.deliveryRule,
+                    rawGroup.rows,
+                    directDeliveryMethodId,
+                    siteDeliveryMethodId
+            ));
+        }
+
+        return groups;
+    }
+
+    /**
+     * Task 분리 기준은 거래처(사업자번호 우선) + 배송수단 + 배송지 블록입니다.
+     * 주소 행이 들어온 뒤 다음 제품 또는 다음 주소가 시작될 때 이전 블록을 확정하므로,
+     * [품목-운임비-포장비-주소]와 [품목-주소-운임비-포장비] 형식을 모두 지원합니다.
+     * 직배송은 같은 배송수단이라도 담당자가 달라지면 담당자/배송순번이 섞이지 않도록 별도 Task로 분리합니다.
+     */
+    private List<ExcelRawGroup> splitPreviewRawGroups(List<ExcelRawRow> rawRows) {
+        List<ExcelRawGroup> result = new ArrayList<>();
+        ExcelRawGroup current = null;
+
+        String contextCompanyName = "";
+        String contextRawCompanyText = "";
+        String contextBusinessNumber = "";
+        String contextDeliveryHandlerName = "";
+        OrderExcelDeliveryRule contextDeliveryRule = null;
 
         for (ExcelRawRow raw : rawRows) {
             if (raw.kind == OrderExcelRowKind.EMPTY) {
-                if (!currentRows.isEmpty()) {
-                    groups.add(buildOneGroup(groupNo++, currentRawCompanyText, currentCompanyName, currentDeliveryRule, currentRows, directDeliveryMethodId, siteDeliveryMethodId));
-                    currentRows.clear();
-                    currentCompanyName = null;
-                    currentRawCompanyText = null;
-                    currentDeliveryRule = null;
-                }
+                current = flushRawGroup(result, current);
+                contextCompanyName = "";
+                contextRawCompanyText = "";
+                contextBusinessNumber = "";
+                contextDeliveryHandlerName = "";
+                contextDeliveryRule = null;
                 continue;
             }
 
             String rowCompanyName = extractCompanyName(raw.companyRaw);
+            if (rowCompanyName.isBlank()) {
+                rowCompanyName = contextCompanyName;
+            }
             if (rowCompanyName.isBlank()) {
                 raw.kind = OrderExcelRowKind.SKIP;
                 continue;
             }
 
             if (isAsOnlyCompany(rowCompanyName) || isAsOnlyCompany(raw.companyRaw)) {
-                if (!currentRows.isEmpty()) {
-                    groups.add(buildOneGroup(groupNo++, currentRawCompanyText, currentCompanyName, currentDeliveryRule, currentRows, directDeliveryMethodId, siteDeliveryMethodId));
-                    currentRows.clear();
-                    currentCompanyName = null;
-                    currentRawCompanyText = null;
-                    currentDeliveryRule = null;
-                }
+                current = flushRawGroup(result, current);
+                contextCompanyName = "";
+                contextRawCompanyText = "";
+                contextBusinessNumber = "";
+                contextDeliveryHandlerName = "";
+                contextDeliveryRule = null;
                 raw.kind = OrderExcelRowKind.SKIP;
                 continue;
             }
 
-            OrderExcelDeliveryRule rowDeliveryRule = raw.deliveryRule == null ? OrderExcelDeliveryRule.DIRECT : raw.deliveryRule;
-
-            if (currentCompanyName == null) {
-                currentCompanyName = rowCompanyName;
-                currentRawCompanyText = raw.companyRaw;
-                currentDeliveryRule = rowDeliveryRule;
+            String rowRawCompanyText = safe(raw.companyRaw).isBlank() ? contextRawCompanyText : raw.companyRaw;
+            String rowBusinessNumber = normalizeBusinessNumber(raw.businessNumber);
+            if (rowBusinessNumber.isBlank() && rowCompanyName.equals(contextCompanyName)) {
+                rowBusinessNumber = contextBusinessNumber;
             }
 
-            boolean companyChanged = !Objects.equals(currentCompanyName, rowCompanyName);
-            boolean deliveryRuleChanged = currentDeliveryRule != rowDeliveryRule;
-            if (companyChanged || deliveryRuleChanged) {
-                if (!currentRows.isEmpty()) {
-                    groups.add(buildOneGroup(groupNo++, currentRawCompanyText, currentCompanyName, currentDeliveryRule, currentRows, directDeliveryMethodId, siteDeliveryMethodId));
+            boolean sameCompanyContext = rowCompanyName.equals(contextCompanyName)
+                    && sameBusinessIdentity(contextBusinessNumber, rowBusinessNumber);
+            boolean deliveryTokenBlank = safe(raw.deliveryTokenRaw).isBlank();
+
+            OrderExcelDeliveryRule rowDeliveryRule;
+            if (deliveryTokenBlank && contextDeliveryRule != null && sameCompanyContext) {
+                rowDeliveryRule = contextDeliveryRule;
+            } else {
+                rowDeliveryRule = raw.deliveryRule == null ? OrderExcelDeliveryRule.DIRECT : raw.deliveryRule;
+            }
+
+            String rowDeliveryHandlerName = safe(raw.deliveryHandlerName);
+            if (rowDeliveryRule == OrderExcelDeliveryRule.DIRECT
+                    && rowDeliveryHandlerName.isBlank()
+                    && isInheritableEmptyDeliveryToken(raw.deliveryTokenRaw)
+                    && sameCompanyContext
+                    && contextDeliveryRule == OrderExcelDeliveryRule.DIRECT) {
+                rowDeliveryHandlerName = contextDeliveryHandlerName;
+            }
+            if (rowDeliveryRule != OrderExcelDeliveryRule.DIRECT) {
+                rowDeliveryHandlerName = "";
+            }
+
+            boolean identityChanged = current != null
+                    && (!Objects.equals(current.companyName, rowCompanyName)
+                    || !sameBusinessIdentity(current.businessNumber, rowBusinessNumber)
+                    || current.deliveryRule != rowDeliveryRule
+                    || directHandlerChanged(current, rowDeliveryRule, rowDeliveryHandlerName));
+
+            if (identityChanged) {
+                current = flushRawGroup(result, current);
+            }
+
+            if (current == null) {
+                current = new ExcelRawGroup(
+                        rowRawCompanyText,
+                        rowCompanyName,
+                        rowBusinessNumber,
+                        rowDeliveryRule,
+                        rowDeliveryHandlerName
+                );
+            } else {
+                if (current.businessNumber.isBlank() && !rowBusinessNumber.isBlank()) {
+                    current.businessNumber = rowBusinessNumber;
                 }
-                currentRows = new ArrayList<>();
-                currentCompanyName = rowCompanyName;
-                currentRawCompanyText = raw.companyRaw;
-                currentDeliveryRule = rowDeliveryRule;
+                if (current.deliveryHandlerName.isBlank() && !rowDeliveryHandlerName.isBlank()) {
+                    current.deliveryHandlerName = rowDeliveryHandlerName;
+                }
             }
 
-            currentRows.add(raw);
+            raw.businessNumber = rowBusinessNumber;
+            raw.deliveryRule = rowDeliveryRule;
+            raw.deliveryHandlerName = rowDeliveryHandlerName;
+
+            /*
+             * 주소가 이미 들어간 블록에서 다음 제품이 시작되면 이전 Task가 완성된 것입니다.
+             * 주소 뒤에 운임비/포장비가 오는 엑셀도 지원해야 하므로 주소 행 자체에서는 즉시 닫지 않습니다.
+             */
+            if (raw.kind == OrderExcelRowKind.PRODUCT
+                    && current.hasProductRows()
+                    && current.hasSiteAddressRow()) {
+                current = flushRawGroup(result, current);
+                current = new ExcelRawGroup(
+                        rowRawCompanyText,
+                        rowCompanyName,
+                        rowBusinessNumber,
+                        rowDeliveryRule,
+                        rowDeliveryHandlerName
+                );
+            }
+
+            // 한 블록에는 배송지 주소가 하나만 존재합니다. 새 주소가 나오면 이전 블록을 먼저 확정합니다.
+            if (raw.kind == OrderExcelRowKind.SITE_ADDRESS && current.hasSiteAddressRow()) {
+                current = flushRawGroup(result, current);
+                current = new ExcelRawGroup(
+                        rowRawCompanyText,
+                        rowCompanyName,
+                        rowBusinessNumber,
+                        rowDeliveryRule,
+                        rowDeliveryHandlerName
+                );
+            }
+
+            if (raw.kind != OrderExcelRowKind.SKIP) {
+                current.rows.add(raw);
+            }
+
+            contextCompanyName = rowCompanyName;
+            contextRawCompanyText = rowRawCompanyText;
+            if (!rowBusinessNumber.isBlank()) {
+                contextBusinessNumber = rowBusinessNumber;
+            }
+            contextDeliveryRule = rowDeliveryRule;
+            contextDeliveryHandlerName = rowDeliveryRule == OrderExcelDeliveryRule.DIRECT
+                    ? rowDeliveryHandlerName
+                    : "";
         }
 
-        if (!currentRows.isEmpty()) {
-            groups.add(buildOneGroup(groupNo, currentRawCompanyText, currentCompanyName, currentDeliveryRule, currentRows, directDeliveryMethodId, siteDeliveryMethodId));
+        flushRawGroup(result, current);
+        return result;
+    }
+
+    private ExcelRawGroup flushRawGroup(List<ExcelRawGroup> result, ExcelRawGroup current) {
+        if (current != null && !current.rows.isEmpty()) {
+            result.add(current);
+        }
+        return null;
+    }
+
+    private boolean directHandlerChanged(
+            ExcelRawGroup current,
+            OrderExcelDeliveryRule rowDeliveryRule,
+            String rowDeliveryHandlerName
+    ) {
+        if (current == null
+                || current.deliveryRule != OrderExcelDeliveryRule.DIRECT
+                || rowDeliveryRule != OrderExcelDeliveryRule.DIRECT) {
+            return false;
         }
 
-        return groups;
+        String currentHandler = normalizeMemberIdentity(current.deliveryHandlerName);
+        String rowHandler = normalizeMemberIdentity(rowDeliveryHandlerName);
+        return !currentHandler.isBlank()
+                && !rowHandler.isBlank()
+                && !currentHandler.equals(rowHandler);
+    }
+
+    private String normalizeMemberIdentity(String value) {
+        return safe(value).replaceAll("\\s+", "").toLowerCase();
+    }
+
+    private boolean isInheritableEmptyDeliveryToken(String value) {
+        String compact = safe(value).replaceAll("\\s+", "");
+        return compact.isBlank()
+                || "-".equals(compact)
+                || "없음".equals(compact)
+                || "미정".equals(compact);
+    }
+
+    private boolean sameBusinessIdentity(String left, String right) {
+        String normalizedLeft = normalizeBusinessNumber(left);
+        String normalizedRight = normalizeBusinessNumber(right);
+        if (normalizedLeft.isBlank() || normalizedRight.isBlank()) {
+            return true;
+        }
+        return normalizedLeft.equals(normalizedRight);
     }
 
     private OrderExcelPreviewGroupDto buildOneGroup(
             int groupNo,
             String rawCompanyText,
             String companyName,
+            String businessNumber,
             OrderExcelDeliveryRule deliveryRule,
             List<ExcelRawRow> rawRows,
             Long directDeliveryMethodId,
@@ -396,10 +563,17 @@ public class OrderExcelUploadService {
         group.setGroupNo(groupNo);
         group.setRawCompanyText(safe(rawCompanyText));
         group.setCompanyName(safe(companyName));
+        group.setBusinessNumber(normalizeBusinessNumber(businessNumber));
         group.setDeliveryRuleCode(rule.getCode());
         group.setDeliveryRuleLabel(rule.getLabel());
 
-        Optional<Company> companyOpt = findUniqueCompany(companyName, group.getIssues(), groupNo, firstRowNo(rawRows));
+        Optional<Company> companyOpt = findUniqueCompany(
+                companyName,
+                group.getBusinessNumber(),
+                group.getIssues(),
+                groupNo,
+                firstRowNo(rawRows)
+        );
         companyOpt.ifPresent(company -> applyCompanyToPreviewGroup(group, company));
 
         ExcelRawRow siteAddressRow = rawRows.stream()
@@ -444,24 +618,52 @@ public class OrderExcelUploadService {
 
         Member groupDeliveryHandler = null;
         if (siteAddressRow != null) {
-            ParsedSiteAddress parsed = addressParser.parse(siteAddressRow.itemName);
-            applyParsedSiteAddress(group, parsed);
+            ParsedSiteAddress parsed;
+
+            if (rule.needsSiteAddressForAssignment()) {
+                // 1차: 주소 원문에 포함된 도/시/구만 해석하여 외부 API 호출 없이 바로 담당자를 찾습니다.
+                parsed = addressParser.parseLocal(siteAddressRow.itemName);
+                applyParsedSiteAddress(group, parsed);
+                groupDeliveryHandler = findDeliveryHandlerByRegion(
+                        group.getSiteDoName(),
+                        group.getSiteSiName(),
+                        group.getSiteGuName()
+                ).orElse(null);
+
+                if (groupDeliveryHandler == null) {
+                    // 2차: 직접 매칭에 실패한 경우에만 외부 주소 검색을 한 번 수행한 후 다시 매칭합니다.
+                    parsed = addressParser.resolveWithExternal(parsed);
+                    applyParsedSiteAddress(group, parsed);
+                    groupDeliveryHandler = findDeliveryHandlerByRegion(
+                            group.getSiteDoName(),
+                            group.getSiteSiName(),
+                            group.getSiteGuName()
+                    ).orElse(null);
+                }
+            } else {
+                // 담당자 자동 배정이 필요 없는 배송수단은 기존처럼 주소 자체를 정규화합니다.
+                parsed = addressParser.parse(siteAddressRow.itemName);
+                applyParsedSiteAddress(group, parsed);
+            }
+
             for (String warning : parsed.getWarnings()) {
                 group.getIssues().add(OrderExcelIssueDto.warn(siteAddressRow.excelRowNumber, groupNo, "siteAddress", warning));
             }
 
-            if (rule.needsSiteAddressForAssignment()) {
-                groupDeliveryHandler = deliveryHandlerAutoAssignService
-                        .findRandomDeliveryHandler(group.getSiteDoName(), group.getSiteSiName(), group.getSiteGuName())
-                        .orElse(null);
-                if (groupDeliveryHandler == null) {
-                    group.getIssues().add(OrderExcelIssueDto.warn(
-                            siteAddressRow.excelRowNumber,
-                            groupNo,
-                            "deliveryHandler",
-                            "현장/화물 주소의 도/시/구로 배송팀 담당자를 자동 매칭하지 못했습니다. 저장 전 배송 담당자를 선택해 주세요."
-                    ));
-                }
+            if (rule.needsSiteAddressForAssignment() && groupDeliveryHandler == null) {
+                String addressSource = parsed.isExternalResolved()
+                        ? firstNonBlank(parsed.getExternalSource(), "외부 주소 API")
+                        : "직접 해석 및 외부 주소 API 미해석";
+                String regionLabel = firstNonBlank(group.getSiteDoName(), "도 없음")
+                        + " / " + firstNonBlank(group.getSiteSiName(), "시 없음")
+                        + " / " + firstNonBlank(group.getSiteGuName(), "구 없음");
+                group.getIssues().add(OrderExcelIssueDto.warn(
+                        siteAddressRow.excelRowNumber,
+                        groupNo,
+                        "deliveryHandler",
+                        "현장/화물 주소 담당자를 자동 매칭하지 못했습니다. 주소 해석="
+                                + addressSource + " [" + regionLabel + "]. 저장 전 배송 담당자를 선택해 주세요."
+                ));
             }
         } else if (rule.needsSiteAddressForAssignment()) {
             group.getIssues().add(OrderExcelIssueDto.error(
@@ -511,6 +713,8 @@ public class OrderExcelUploadService {
 
     private void applyCompanyToPreviewGroup(OrderExcelPreviewGroupDto group, Company company) {
         group.setCompanyId(company.getId());
+        group.setCompanyName(safe(company.getCompanyName()));
+        group.setBusinessNumber(normalizeBusinessNumber(company.getBusinessNumber()));
 
         ResolvedCompanyAddress address = resolveCompanyDefaultAddress(company);
         group.setZipCode(address.zipCode());
@@ -539,6 +743,97 @@ public class OrderExcelUploadService {
             group.setOrdererName(rep.getName());
             group.setOrdererPhone(rep.getPhone());
         }
+    }
+
+    /**
+     * 담당자 행정구역 매칭 서비스에는 빈 문자열이 아니라 null을 전달합니다.
+     * 특히 "경기도 / 의정부시 / 구 없음"처럼 district가 없는 일반 시 주소가
+     * 빈 district 문자열 때문에 매칭에서 제외되지 않도록 합니다.
+     */
+    private Optional<Member> findDeliveryHandlerByRegion(String doName, String siName, String guName) {
+        return deliveryHandlerAutoAssignService.findRandomDeliveryHandler(
+                trimToNull(doName),
+                trimToNull(siName),
+                trimToNull(guName)
+        );
+    }
+
+
+    /**
+     * 저장 직전에도 한 번 더 자동 배정을 시도합니다.
+     * 미리보기 이후 사용자가 Daum 주소검색/수동수정으로 현장 주소를 바꾼 경우에도
+     * 도/시/구 값만 맞으면 저장 단계에서 배송담당자가 자동으로 채워집니다.
+     */
+    private void autoAssignDeliveryHandlerForSaveIfPossible(OrderExcelSaveGroupRequest group, DeliveryMethod selectedMethod) {
+        if (group == null || group.getDeliveryHandlerMemberId() != null) {
+            return;
+        }
+
+        OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
+        if (selectedRule == null || !selectedRule.isHandlerAssignable()) {
+            return;
+        }
+
+        Optional<Member> matched = findDeliveryHandlerByRegion(
+                group.getSiteDoName(),
+                group.getSiteSiName(),
+                group.getSiteGuName()
+        );
+
+        if (matched.isEmpty()) {
+            matched = findDeliveryHandlerByRegion(
+                    group.getDoName(),
+                    group.getSiName(),
+                    group.getGuName()
+            );
+        }
+
+        if (matched.isEmpty() && selectedRule.needsSiteAddressForAssignment()) {
+            String keyword = firstNonBlank(
+                    group.getSiteRoadAddress(),
+                    group.getRoadAddress(),
+                    group.getSiteDetailAddress(),
+                    group.getDetailAddress()
+            );
+
+            if (!keyword.isBlank()) {
+                ParsedSiteAddress parsed = addressParser.resolveWithExternal(addressParser.parseLocal(keyword));
+                applyParsedSiteAddress(group, parsed);
+                matched = findDeliveryHandlerByRegion(
+                        group.getSiteDoName(),
+                        group.getSiteSiName(),
+                        group.getSiteGuName()
+                );
+            }
+        }
+
+        matched.ifPresent(member -> {
+            group.setDeliveryHandlerMemberId(member.getId());
+            group.setDeliveryHandlerName(member.getName());
+        });
+    }
+
+    private void applyParsedSiteAddress(OrderExcelSaveGroupRequest group, ParsedSiteAddress parsed) {
+        if (group == null || parsed == null) {
+            return;
+        }
+
+        group.setSiteDelivery(true);
+        group.setSiteZipCode(firstNonBlank(group.getSiteZipCode(), parsed.getZipCode()));
+        group.setSiteDoName(firstNonBlank(parsed.getDoName(), group.getSiteDoName()));
+        group.setSiteSiName(firstNonBlank(parsed.getSiName(), group.getSiteSiName()));
+        group.setSiteGuName(firstNonBlank(parsed.getGuName(), group.getSiteGuName()));
+        group.setSiteRoadAddress(firstNonBlank(parsed.getRoadAddress(), group.getSiteRoadAddress()));
+        group.setSiteDetailAddress(firstNonBlank(group.getSiteDetailAddress(), parsed.getDetailAddress()));
+        group.setSiteRecipientName(firstNonBlank(group.getSiteRecipientName(), parsed.getRecipientName()));
+        group.setSiteRecipientPhone(firstNonBlank(group.getSiteRecipientPhone(), parsed.getRecipientPhone()));
+
+        group.setZipCode(firstNonBlank(group.getZipCode(), group.getSiteZipCode()));
+        group.setDoName(firstNonBlank(group.getDoName(), group.getSiteDoName()));
+        group.setSiName(firstNonBlank(group.getSiName(), group.getSiteSiName()));
+        group.setGuName(firstNonBlank(group.getGuName(), group.getSiteGuName()));
+        group.setRoadAddress(firstNonBlank(group.getRoadAddress(), group.getSiteRoadAddress()));
+        group.setDetailAddress(firstNonBlank(group.getDetailAddress(), group.getSiteDetailAddress()));
     }
 
     private void applyParsedSiteAddress(OrderExcelPreviewGroupDto group, ParsedSiteAddress parsed) {
@@ -591,12 +886,9 @@ public class OrderExcelUploadService {
         AmountItemMaster itemMaster = findAmountItemMaster(raw.itemName).orElse(null);
         if (itemMaster != null) {
             row.setAmountItemMasterId(itemMaster.getId());
-            if (!raw.standardExplicit) {
-                row.setStandard(itemMaster.isStandard());
-            }
-            if (!raw.mirrorCuttingExplicit) {
-                row.setMirrorCuttingProduct(itemMaster.isMirrorCuttingProduct());
-            }
+            // 엑셀에서 제거된 두 값은 AmountItemMaster를 유일한 기준으로 사용합니다.
+            row.setStandard(itemMaster.isStandard());
+            row.setMirrorCuttingProduct(itemMaster.isMirrorCuttingProduct());
             if (row.getCategoryName().isBlank()) {
                 row.setCategoryName(normalizeCategoryName(itemMaster.getCategoryName()));
             }
@@ -674,16 +966,32 @@ public class OrderExcelUploadService {
             validateCompanyForSave(group, issues);
             validateRequestedByForSave(group, issues);
             validateManagerForSave(group, issues);
-            validateGroupDeliveryHandlerForSave(group, issues);
+
+            DeliveryMethod selectedMethod = null;
             if (group.getDeliveryMethodId() == null) {
                 issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryMethodId", "배송수단을 선택해 주세요."));
-            } else if (deliveryMethodRepository.findById(group.getDeliveryMethodId()).isEmpty()) {
-                issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryMethodId", "선택한 배송수단을 찾을 수 없습니다."));
+            } else {
+                selectedMethod = deliveryMethodRepository.findById(group.getDeliveryMethodId()).orElse(null);
+                if (selectedMethod == null) {
+                    issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryMethodId", "선택한 배송수단을 찾을 수 없습니다."));
+                }
             }
 
-            OrderExcelDeliveryRule rule = OrderExcelDeliveryRule.fromCode(group.getDeliveryRuleCode());
-            if ((group.isSiteDelivery() || rule.needsSiteAddressForAssignment()) && safe(group.getSiteRoadAddress()).isBlank()) {
-                issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "siteRoadAddress", "현장/화물/택배 주소 묶음은 주소가 필요합니다."));
+            if (selectedMethod != null) {
+                autoAssignDeliveryHandlerForSaveIfPossible(group, selectedMethod);
+                validateGroupDeliveryHandlerForSave(group, selectedMethod, issues);
+
+                OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
+                if (selectedRule != null
+                        && selectedRule.needsSiteAddressForAssignment()
+                        && safe(group.getSiteRoadAddress()).isBlank()) {
+                    issues.add(OrderExcelIssueDto.error(
+                            null,
+                            group.getGroupNo(),
+                            "siteRoadAddress",
+                            selectedRule.getLabel() + "은(는) 현장 배송지 주소가 필요합니다."
+                    ));
+                }
             }
 
             for (OrderExcelSaveRowRequest row : activeRows(group)) {
@@ -695,15 +1003,49 @@ public class OrderExcelUploadService {
     }
 
     private void validateCompanyForSave(OrderExcelSaveGroupRequest group, List<OrderExcelIssueDto> issues) {
+        String businessNumber = normalizeBusinessNumber(group.getBusinessNumber());
+        if (!businessNumber.isBlank() && !isValidBusinessNumber(businessNumber)) {
+            issues.add(OrderExcelIssueDto.error(
+                    null,
+                    group.getGroupNo(),
+                    "businessNumber",
+                    "사업자등록번호는 숫자 10자리여야 합니다: " + businessNumber
+            ));
+            return;
+        }
+
         if (group.getCompanyId() != null) {
-            if (companyRepository.findById(group.getCompanyId()).isEmpty()) {
+            Optional<Company> company = companyRepository.findById(group.getCompanyId());
+            if (company.isEmpty()) {
                 issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyId", "선택한 업체를 찾을 수 없습니다."));
+                return;
+            }
+            if (!businessNumber.isBlank()
+                    && !businessNumber.equals(normalizeBusinessNumber(company.get().getBusinessNumber()))) {
+                issues.add(OrderExcelIssueDto.error(
+                        null,
+                        group.getGroupNo(),
+                        "businessNumber",
+                        "선택된 업체와 사업자등록번호가 일치하지 않습니다."
+                ));
+            }
+            return;
+        }
+
+        if (!businessNumber.isBlank()) {
+            if (companyRepository.findByBusinessNumber(businessNumber).isEmpty()) {
+                issues.add(OrderExcelIssueDto.error(
+                        null,
+                        group.getGroupNo(),
+                        "businessNumber",
+                        "사업자등록번호로 업체를 찾을 수 없습니다: " + businessNumber
+                ));
             }
             return;
         }
 
         if (safe(group.getCompanyName()).isBlank()) {
-            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명이 비어 있습니다."));
+            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명과 사업자등록번호가 모두 비어 있습니다."));
             return;
         }
 
@@ -711,19 +1053,27 @@ public class OrderExcelUploadService {
         if (companies.isEmpty()) {
             issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명으로 업체를 찾을 수 없습니다: " + group.getCompanyName()));
         } else if (companies.size() > 1) {
-            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명이 중복됩니다. 업체명을 더 정확히 수정해 주세요: " + group.getCompanyName()));
+            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명이 중복됩니다. S열 사업자등록번호를 확인해 주세요: " + group.getCompanyName()));
         }
     }
 
     private void validateRequestedByForSave(OrderExcelSaveGroupRequest group, List<OrderExcelIssueDto> issues) {
-        Company company = null;
+        Company company;
         try {
             company = resolveCompanyForSave(group);
         } catch (Exception ignored) {
             return;
         }
 
-        if (group.getRequestedByMemberId() != null && memberRepository.findById(group.getRequestedByMemberId()).isPresent()) {
+        if (group.getRequestedByMemberId() != null) {
+            Optional<Member> requestedBy = memberRepository.findById(group.getRequestedByMemberId());
+            if (requestedBy.isEmpty()) {
+                issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "requestedBy", "선택한 요청자 멤버를 찾을 수 없습니다."));
+                return;
+            }
+            if (!belongsToCompany(requestedBy.get(), company)) {
+                issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "requestedBy", "선택한 요청자가 사업자등록번호로 조회된 업체 소속이 아닙니다."));
+            }
             return;
         }
 
@@ -753,31 +1103,31 @@ public class OrderExcelUploadService {
         }
     }
 
-    private void validateGroupDeliveryHandlerForSave(OrderExcelSaveGroupRequest group, List<OrderExcelIssueDto> issues) {
-        OrderExcelDeliveryRule rule = OrderExcelDeliveryRule.fromCode(group.getDeliveryRuleCode());
-        if (rule.isNoHandlerRule()) {
+    private void validateGroupDeliveryHandlerForSave(
+            OrderExcelSaveGroupRequest group,
+            DeliveryMethod selectedMethod,
+            List<OrderExcelIssueDto> issues
+    ) {
+        OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
+        if (selectedRule == null || !selectedRule.isHandlerAssignable()) {
             return;
         }
 
-        if (group.getDeliveryHandlerMemberId() != null) {
-            Optional<Member> member = memberRepository.findById(group.getDeliveryHandlerMemberId());
-            if (member.isEmpty()) {
-                issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryHandler", "선택한 배송 담당자를 찾을 수 없습니다."));
-            } else if (!isDeliveryTeamMember(member.get())) {
-                issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryHandler", "배송 담당자는 배송팀 소속이어야 합니다."));
-            }
+        if (group.getDeliveryHandlerMemberId() == null) {
+            issues.add(OrderExcelIssueDto.error(
+                    null,
+                    group.getGroupNo(),
+                    "deliveryHandler",
+                    selectedRule.getLabel() + "은(는) 배송 담당자를 반드시 선택해야 합니다."
+            ));
             return;
         }
 
-        if (safe(group.getDeliveryHandlerName()).isBlank()) {
-            return;
-        }
-
-        List<Member> members = findDeliveryMembersByName(group.getDeliveryHandlerName());
-        if (members.isEmpty()) {
-            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryHandler", "배송팀에서 배송 담당자 이름을 찾을 수 없습니다: " + group.getDeliveryHandlerName()));
-        } else if (members.size() > 1) {
-            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryHandler", "배송팀 내 배송 담당자 이름이 중복됩니다. 저장 전 정확히 선택해 주세요: " + group.getDeliveryHandlerName()));
+        Optional<Member> member = memberRepository.findById(group.getDeliveryHandlerMemberId());
+        if (member.isEmpty()) {
+            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryHandler", "선택한 배송 담당자를 찾을 수 없습니다."));
+        } else if (!isDeliveryTeamMember(member.get())) {
+            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "deliveryHandler", "배송 담당자는 배송팀 소속이어야 합니다."));
         }
     }
 
@@ -809,28 +1159,56 @@ public class OrderExcelUploadService {
     }
 
     private Company resolveCompanyForSave(OrderExcelSaveGroupRequest group) {
+        String businessNumber = normalizeBusinessNumber(group.getBusinessNumber());
+
         if (group.getCompanyId() != null) {
-            return companyRepository.findById(group.getCompanyId())
+            Company company = companyRepository.findById(group.getCompanyId())
                     .orElseThrow(() -> new IllegalArgumentException("선택한 업체를 찾을 수 없습니다."));
+            if (!businessNumber.isBlank()
+                    && !businessNumber.equals(normalizeBusinessNumber(company.getBusinessNumber()))) {
+                throw new IllegalArgumentException("그룹 " + group.getGroupNo() + ": 선택된 업체와 사업자등록번호가 일치하지 않습니다.");
+            }
+            return company;
+        }
+
+        if (!businessNumber.isBlank()) {
+            if (!isValidBusinessNumber(businessNumber)) {
+                throw new IllegalArgumentException("그룹 " + group.getGroupNo() + ": 사업자등록번호는 숫자 10자리여야 합니다.");
+            }
+            return companyRepository.findByBusinessNumber(businessNumber)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "그룹 " + group.getGroupNo() + ": 사업자등록번호로 업체를 찾을 수 없습니다: " + businessNumber
+                    ));
         }
 
         List<Company> companies = findCompanies(group.getCompanyName());
         if (companies.size() != 1) {
-            throw new IllegalArgumentException("거래처를 정확히 찾을 수 없습니다: " + group.getCompanyName());
+            throw new IllegalArgumentException("거래처를 정확히 찾을 수 없습니다. S열 사업자등록번호를 확인해 주세요: " + group.getCompanyName());
         }
         return companies.get(0);
     }
 
     private Member resolveRequestedByForSave(OrderExcelSaveGroupRequest group, Company company) {
         if (group.getRequestedByMemberId() != null) {
-            return memberRepository.findById(group.getRequestedByMemberId())
+            Member requestedBy = memberRepository.findById(group.getRequestedByMemberId())
                     .orElseThrow(() -> new IllegalArgumentException("선택한 요청자 멤버를 찾을 수 없습니다."));
+            if (!belongsToCompany(requestedBy, company)) {
+                throw new IllegalArgumentException("그룹 " + group.getGroupNo() + ": 선택한 요청자가 조회된 업체 소속이 아닙니다.");
+            }
+            return requestedBy;
         }
 
         return memberRepository.findByCompany_IdAndRoleOrderByIdAsc(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE)
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("해당 업체의 CUSTOMER_REPRESENTATIVE 멤버가 없습니다."));
+    }
+
+    private boolean belongsToCompany(Member member, Company company) {
+        return member != null
+                && company != null
+                && member.getCompany() != null
+                && Objects.equals(member.getCompany().getId(), company.getId());
     }
 
     private Member resolveManagerForSave(OrderExcelSaveGroupRequest group) {
@@ -848,34 +1226,28 @@ public class OrderExcelUploadService {
         return members.get(0);
     }
 
-    private Member resolveDeliveryHandlerForSave(OrderExcelSaveGroupRequest group, int groupNo) {
-        OrderExcelDeliveryRule rule = OrderExcelDeliveryRule.fromCode(group.getDeliveryRuleCode());
-        if (rule.isNoHandlerRule()) {
+    private Member resolveDeliveryHandlerForSave(
+            OrderExcelSaveGroupRequest group,
+            int groupNo,
+            DeliveryMethod selectedMethod
+    ) {
+        OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
+        if (selectedRule == null || !selectedRule.isHandlerAssignable()) {
             return null;
         }
 
-        if (group.getDeliveryHandlerMemberId() != null) {
-            Member member = memberRepository.findById(group.getDeliveryHandlerMemberId())
-                    .orElseThrow(() -> new IllegalArgumentException("배송 담당자를 찾을 수 없습니다."));
-            if (!isDeliveryTeamMember(member)) {
-                throw new IllegalArgumentException("그룹 " + groupNo + ": 배송 담당자는 배송팀 소속이어야 합니다.");
-            }
-            return member;
+        if (group.getDeliveryHandlerMemberId() == null) {
+            throw new IllegalArgumentException(
+                    "그룹 " + groupNo + ": " + selectedRule.getLabel() + "은(는) 배송 담당자를 반드시 선택해야 합니다."
+            );
         }
 
-        if (safe(group.getDeliveryHandlerName()).isBlank()) {
-            return activeRows(group).stream()
-                    .filter(row -> row.getDeliveryHandlerMemberId() != null || !safe(row.getDeliveryHandlerName()).isBlank())
-                    .findFirst()
-                    .map(row -> resolveDeliveryHandlerForSave(row, groupNo))
-                    .orElse(null);
+        Member member = memberRepository.findById(group.getDeliveryHandlerMemberId())
+                .orElseThrow(() -> new IllegalArgumentException("그룹 " + groupNo + ": 선택한 배송 담당자를 찾을 수 없습니다."));
+        if (!isDeliveryTeamMember(member)) {
+            throw new IllegalArgumentException("그룹 " + groupNo + ": 배송 담당자는 배송팀 소속이어야 합니다.");
         }
-
-        List<Member> members = findDeliveryMembersByName(group.getDeliveryHandlerName());
-        if (members.size() != 1) {
-            throw new IllegalArgumentException("그룹 " + groupNo + ": 배송팀 내 배송 담당자 이름을 정확히 찾을 수 없습니다: " + group.getDeliveryHandlerName());
-        }
-        return members.get(0);
+        return member;
     }
 
     private Member resolveDeliveryHandlerForSave(OrderExcelSaveRowRequest row, int groupNo) {
@@ -898,8 +1270,28 @@ public class OrderExcelUploadService {
     }
 
     private DeliveryMethod resolveDeliveryMethodForSave(Long deliveryMethodId, int groupNo) {
+        if (deliveryMethodId == null) {
+            throw new IllegalArgumentException("그룹 " + groupNo + ": 배송수단을 선택해 주세요.");
+        }
         return deliveryMethodRepository.findById(deliveryMethodId)
                 .orElseThrow(() -> new IllegalArgumentException("그룹 " + groupNo + ": 배송수단을 찾을 수 없습니다."));
+    }
+
+    /**
+     * 사용자가 미리보기에서 최종 선택한 DeliveryMethod의 실제 DB 명칭을 기준으로
+     * 배송담당자 필수 여부와 현장주소 필수 여부를 결정합니다.
+     * 엑셀 J열은 초기 선택값만 만들며 저장 시 배송수단을 강제로 고정하지 않습니다.
+     */
+    private OrderExcelDeliveryRule resolveDeliveryRuleFromMethod(DeliveryMethod method) {
+        if (method == null) {
+            return null;
+        }
+        for (OrderExcelDeliveryRule rule : OrderExcelDeliveryRule.values()) {
+            if (deliveryMethodMatchesRule(method, rule)) {
+                return rule;
+            }
+        }
+        return null;
     }
 
     private TeamCategory resolveProductionCategoryForSave(OrderExcelSaveRowRequest row, int groupNo) {
@@ -948,8 +1340,17 @@ public class OrderExcelUploadService {
         order.setDetailAddress(companyAddress.detailAddress());
     }
 
-    private void applySiteAddress(Order order, OrderExcelSaveGroupRequest group) {
-        if (!group.isSiteDelivery()) {
+    private void applySiteAddress(
+            Order order,
+            OrderExcelSaveGroupRequest group,
+            DeliveryMethod selectedMethod
+    ) {
+        OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
+        boolean siteAddressRequiredByMethod = selectedRule == OrderExcelDeliveryRule.SITE
+                || selectedRule == OrderExcelDeliveryRule.CARGO;
+        boolean useSiteAddress = group.isSiteDelivery() || siteAddressRequiredByMethod;
+
+        if (!useSiteAddress) {
             order.setSiteZipCode(null);
             order.setSiteDoName(null);
             order.setSiteSiName(null);
@@ -1064,11 +1465,10 @@ public class OrderExcelUploadService {
 
     private boolean isFreight(String itemName) {
         String normalized = safe(itemName).replaceAll("\\s+", "");
-        return "운임비".equals(normalized)
-                || "배송비".equals(normalized)
-                || "화물비".equals(normalized)
-                || "택배비".equals(normalized)
-                || normalized.contains("운임비");
+        return normalized.contains("운임비")
+                || normalized.contains("배송비")
+                || normalized.contains("화물비")
+                || normalized.contains("택배비");
     }
 
     private int resolveFreightCost(ExcelRawRow row) {
@@ -1095,6 +1495,9 @@ public class OrderExcelUploadService {
         if ("ㄷ".equals(compact)) {
             return OrderExcelDeliveryRule.PARCEL;
         }
+        if ("ㅅ".equals(compact)) {
+            return OrderExcelDeliveryRule.UNDELIVERED;
+        }
         return OrderExcelDeliveryRule.DIRECT;
     }
 
@@ -1111,6 +1514,7 @@ public class OrderExcelUploadService {
                 || "ㅎ".equals(compact)
                 || "ㅂ".equals(compact)
                 || "ㄷ".equals(compact)
+                || "ㅅ".equals(compact)
                 || "-".equals(compact)
                 || "없음".equals(compact)
                 || "미정".equals(compact)) {
@@ -1137,11 +1541,60 @@ public class OrderExcelUploadService {
         return value.trim();
     }
 
-    private Optional<Company> findUniqueCompany(String companyName, List<OrderExcelIssueDto> issues, int groupNo, Integer rowNo) {
+    private Optional<Company> findUniqueCompany(
+            String companyName,
+            String businessNumber,
+            List<OrderExcelIssueDto> issues,
+            int groupNo,
+            Integer rowNo
+    ) {
+        String normalizedBusinessNumber = normalizeBusinessNumber(businessNumber);
+        if (!normalizedBusinessNumber.isBlank()) {
+            if (!isValidBusinessNumber(normalizedBusinessNumber)) {
+                issues.add(OrderExcelIssueDto.error(
+                        rowNo,
+                        groupNo,
+                        "businessNumber",
+                        "사업자등록번호는 숫자 10자리여야 합니다: " + normalizedBusinessNumber
+                ));
+                return Optional.empty();
+            }
+
+            Optional<Company> company = companyRepository.findByBusinessNumber(normalizedBusinessNumber);
+            if (company.isEmpty()) {
+                issues.add(OrderExcelIssueDto.error(
+                        rowNo,
+                        groupNo,
+                        "businessNumber",
+                        "사업자등록번호로 업체를 찾을 수 없습니다: " + normalizedBusinessNumber
+                ));
+                return Optional.empty();
+            }
+
+            if (!safe(companyName).isBlank()
+                    && !normalizeLookupText(company.get().getCompanyName()).equals(normalizeLookupText(companyName))) {
+                issues.add(OrderExcelIssueDto.warn(
+                        rowNo,
+                        groupNo,
+                        "companyName",
+                        "엑셀 거래처명과 사업자등록번호로 조회한 업체명이 다릅니다. 사업자등록번호 업체를 사용합니다: "
+                                + safe(company.get().getCompanyName())
+                ));
+            }
+            return company;
+        }
+
         if (safe(companyName).isBlank()) {
-            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "companyName", "거래처명이 비어 있습니다."));
+            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "companyName", "거래처명과 사업자등록번호가 모두 비어 있습니다."));
             return Optional.empty();
         }
+
+        issues.add(OrderExcelIssueDto.warn(
+                rowNo,
+                groupNo,
+                "businessNumber",
+                "S열 사업자등록번호가 비어 있어 거래처명으로 조회했습니다. 동일 거래처명이 있으면 사업자등록번호가 필요합니다."
+        ));
 
         List<Company> companies = findCompanies(companyName);
         if (companies.isEmpty()) {
@@ -1149,7 +1602,7 @@ public class OrderExcelUploadService {
             return Optional.empty();
         }
         if (companies.size() > 1) {
-            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "companyName", "거래처명이 중복됩니다. 업체명을 더 정확히 수정해 주세요: " + companyName));
+            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "companyName", "거래처명이 중복됩니다. S열 사업자등록번호를 확인해 주세요: " + companyName));
             return Optional.empty();
         }
         return Optional.of(companies.get(0));
@@ -1322,34 +1775,69 @@ public class OrderExcelUploadService {
         return groupNo == null ? "" : "그룹 " + groupNo + ": ";
     }
 
-    private DeliveryMethod resolvePreviewDeliveryMethod(Long requestedId, OrderExcelDeliveryRule deliveryRule, List<OrderExcelIssueDto> issues, int groupNo, Integer rowNo) {
+    private DeliveryMethod resolvePreviewDeliveryMethod(
+            Long requestedId,
+            OrderExcelDeliveryRule deliveryRule,
+            List<OrderExcelIssueDto> issues,
+            int groupNo,
+            Integer rowNo
+    ) {
         if (requestedId != null) {
             Optional<DeliveryMethod> requested = deliveryMethodRepository.findById(requestedId);
-            if (requested.isPresent()) {
-                return requested.get();
+            if (requested.isEmpty()) {
+                issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "deliveryMethod", "선택한 기본 배송수단을 찾을 수 없습니다."));
+                return null;
             }
-            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "deliveryMethod", "선택한 기본 배송수단을 찾을 수 없습니다."));
-            return null;
+            if (!deliveryMethodMatchesRule(requested.get(), deliveryRule)) {
+                issues.add(OrderExcelIssueDto.error(
+                        rowNo,
+                        groupNo,
+                        "deliveryMethod",
+                        "J열 배송담당자/부호로 결정된 배송수단은 '" + deliveryRule.getLabel() + "'입니다. 상단 기본 배송수단을 확인해 주세요."
+                ));
+                return null;
+            }
+            return requested.get();
         }
 
-        String methodName = deliveryRule.getDeliveryMethodName();
-        List<DeliveryMethod> methods = deliveryMethodRepository.findByMethodNameWithoutSpaces(methodName.replaceAll("\\s+", ""));
-
-        if (methods.isEmpty() && deliveryRule == OrderExcelDeliveryRule.DIRECT) {
-            methods = deliveryMethodRepository.findAllByOrderByMethodNameAsc()
-                    .stream()
-                    .filter(method -> safe(method.getMethodName()).replace(" ", "").contains("직배송"))
-                    .collect(Collectors.toList());
-        }
+        List<DeliveryMethod> methods = deliveryMethodRepository.findAllByOrderByMethodNameAsc()
+                .stream()
+                .filter(method -> deliveryMethodMatchesRule(method, deliveryRule))
+                .collect(Collectors.toList());
 
         if (methods.isEmpty()) {
-            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "deliveryMethod", methodName + " 배송수단을 DB에서 찾지 못했습니다. 상단 SELECT에서 직접 선택해 주세요."));
+            issues.add(OrderExcelIssueDto.error(
+                    rowNo,
+                    groupNo,
+                    "deliveryMethod",
+                    deliveryRule.getLabel() + " 배송수단을 DB에서 찾지 못했습니다. tb_delivery_method의 method_name을 확인해 주세요."
+            ));
             return null;
         }
         if (methods.size() > 1) {
-            issues.add(OrderExcelIssueDto.warn(rowNo, groupNo, "deliveryMethod", methodName + " 배송수단이 여러 개라 첫 번째 값을 미리 선택했습니다. 저장 전 확인해 주세요."));
+            issues.add(OrderExcelIssueDto.warn(
+                    rowNo,
+                    groupNo,
+                    "deliveryMethod",
+                    deliveryRule.getLabel() + " 배송수단이 여러 개라 첫 번째 값을 미리 선택했습니다. 저장 전 확인해 주세요."
+            ));
         }
         return methods.get(0);
+    }
+
+    private boolean deliveryMethodMatchesRule(DeliveryMethod method, OrderExcelDeliveryRule rule) {
+        if (method == null || rule == null) {
+            return false;
+        }
+        String normalized = safe(method.getMethodName()).replaceAll("\\s+", "");
+        return switch (rule) {
+            case DIRECT -> normalized.contains("직배송") || normalized.contains("매장출고");
+            case SITE -> normalized.contains("현장배송") || "현장".equals(normalized);
+            case CARGO -> normalized.contains("화물");
+            case VISIT -> normalized.contains("방문");
+            case PARCEL -> normalized.contains("택배");
+            case UNDELIVERED -> normalized.contains("미배송");
+        };
     }
 
     private LocalDate parseRequiredDate(String value, Integer rowNo, int groupNo) {
@@ -1395,6 +1883,18 @@ public class OrderExcelUploadService {
             return exact;
         }
         return amountItemMasterRepository.findFirstByItemNameWithoutSpaces(safeItemName.replaceAll("\\s+", ""));
+    }
+
+    private String normalizeBusinessNumber(String value) {
+        return safe(value).replaceAll("[^0-9]", "");
+    }
+
+    private boolean isValidBusinessNumber(String value) {
+        return normalizeBusinessNumber(value).matches("\\d{10}");
+    }
+
+    private String normalizeLookupText(String value) {
+        return safe(value).replaceAll("\\s+", "").toLowerCase();
     }
 
     private String normalizeCategoryName(String value) {
@@ -1521,6 +2021,7 @@ public class OrderExcelUploadService {
         Integer excelRowNumber;
         LocalDate preferredDeliveryDate;
         String companyRaw;
+        String businessNumber;
         String itemName;
         String size;
         int quantity;
@@ -1535,9 +2036,38 @@ public class OrderExcelUploadService {
         int vatAmount;
         int totalAmount;
         boolean standard;
-        boolean standardExplicit;
         boolean mirrorCuttingProduct;
-        boolean mirrorCuttingExplicit;
         OrderExcelRowKind kind;
+    }
+
+    private static class ExcelRawGroup {
+        final String rawCompanyText;
+        final String companyName;
+        String businessNumber;
+        final OrderExcelDeliveryRule deliveryRule;
+        String deliveryHandlerName;
+        final List<ExcelRawRow> rows = new ArrayList<>();
+
+        ExcelRawGroup(
+                String rawCompanyText,
+                String companyName,
+                String businessNumber,
+                OrderExcelDeliveryRule deliveryRule,
+                String deliveryHandlerName
+        ) {
+            this.rawCompanyText = rawCompanyText == null ? "" : rawCompanyText.trim();
+            this.companyName = companyName == null ? "" : companyName.trim();
+            this.businessNumber = businessNumber == null ? "" : businessNumber.trim();
+            this.deliveryRule = deliveryRule == null ? OrderExcelDeliveryRule.DIRECT : deliveryRule;
+            this.deliveryHandlerName = deliveryHandlerName == null ? "" : deliveryHandlerName.trim();
+        }
+
+        boolean hasProductRows() {
+            return rows.stream().anyMatch(row -> row.kind == OrderExcelRowKind.PRODUCT);
+        }
+
+        boolean hasSiteAddressRow() {
+            return rows.stream().anyMatch(row -> row.kind == OrderExcelRowKind.SITE_ADDRESS);
+        }
     }
 }

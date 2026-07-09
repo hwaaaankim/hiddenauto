@@ -13,6 +13,8 @@ import lombok.Setter;
 public class OrderExcelSaveGroupRequest {
     private int groupNo;
     private String companyName;
+    /** 엑셀 S열 사업자등록번호입니다. 숫자만 10자리로 전달합니다. */
+    private String businessNumber;
     private Long companyId;
     private String requestedByName;
     private Long requestedByMemberId;

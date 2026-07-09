@@ -14,6 +14,8 @@ public class OrderExcelPreviewGroupDto {
     private int groupNo;
     private String rawCompanyText;
     private String companyName;
+    /** 엑셀 S열 사업자등록번호입니다. 숫자만 10자리로 정규화합니다. */
+    private String businessNumber;
     private Long companyId;
     private String requestedByName;
     private Long requestedByMemberId;
