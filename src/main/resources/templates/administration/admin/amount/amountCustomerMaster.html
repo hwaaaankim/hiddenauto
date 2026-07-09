@@ -33,7 +33,7 @@
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                     <div>
                                         <h5 class="card-title mb-1">얼마에요 거래처 마스터</h5>
-                                        <p class="text-muted mb-0">새 엑셀 업로드 시 기존 거래처 데이터는 전체 교체됩니다.</p>
+                                        <p class="text-muted mb-0">일부 컬럼만 있는 엑셀도 기본값을 보정하며, 거래처코드 기준 동기화 업로드를 지원합니다.</p>
                                     </div>
                                     <div class="d-flex gap-2">
                                         <a class="btn btn-outline-primary" th:href="@{/admin/amount-excel/customers}">거래처 관리</a>
@@ -42,24 +42,56 @@
                                 </div>
                             </div>
                             <div class="card-body border border-dashed border-end-0 border-start-0">
-                                <form method="post" enctype="multipart/form-data" th:action="${uploadUrl}">
-                                    <div class="row g-3 align-items-end">
-                                        <div class="col-lg-8 col-md-7 col-sm-12">
-                                            <label class="form-label">거래처_얼마에요 엑셀 업로드</label>
-                                            <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
-                                        </div>
-                                        <div class="col-lg-2 col-md-3 col-sm-6">
-                                            <button type="submit" class="btn btn-success w-100">
-                                                <i class="fa-solid fa-upload"></i> 전체 교체 업로드
-                                            </button>
-                                        </div>
-                                        <div class="col-lg-2 col-md-2 col-sm-6">
-                                            <button type="button" class="btn btn-outline-secondary w-100 amount-excel-master-reload-btn">
-                                                새로고침
-                                            </button>
-                                        </div>
+                                <div class="row g-3">
+                                    <div class="col-lg-6 col-md-12">
+                                        <form method="post" enctype="multipart/form-data" th:action="${syncUploadUrl}">
+                                            <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                                                <div class="mb-2">
+                                                    <label class="form-label fw-semibold mb-1">동기화용 엑셀 업로드</label>
+                                                    <p class="text-muted small mb-2">거래처코드 기준입니다. 기존 DB에 같은 거래처코드가 있으면 변경하지 않고 유지, 엑셀에만 있으면 신규 추가, DB에만 있으면 삭제합니다.</p>
+                                                </div>
+                                                <div class="row g-2 align-items-end">
+                                                    <div class="col-lg-8 col-md-8 col-sm-12">
+                                                        <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+                                                    </div>
+                                                    <div class="col-lg-4 col-md-4 col-sm-12">
+                                                        <button type="submit" class="btn btn-primary w-100">
+                                                            <i class="fa-solid fa-rotate"></i> 거래처코드 동기화
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="form-text mt-2">
+                                                    필수: 거래처코드(또는 코드), 거래처명. 없는 컬럼은 기본값으로 저장됩니다.
+                                                </div>
+                                            </div>
+                                        </form>
                                     </div>
-                                </form>
+                                    <div class="col-lg-6 col-md-12">
+                                        <form method="post" enctype="multipart/form-data" th:action="${uploadUrl}">
+                                            <div class="border rounded-3 p-3 h-100">
+                                                <div class="mb-2">
+                                                    <label class="form-label fw-semibold mb-1">거래처_얼마에요 전체교체</label>
+                                                    <p class="text-muted small mb-2">업로드 엑셀의 모든 거래처로 DB를 다시 구성합니다. 일부 컬럼이 없어도 기본값으로 보정됩니다.</p>
+                                                </div>
+                                                <div class="row g-2 align-items-end">
+                                                    <div class="col-lg-8 col-md-8 col-sm-12">
+                                                        <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+                                                    </div>
+                                                    <div class="col-lg-4 col-md-4 col-sm-12">
+                                                        <button type="submit" class="btn btn-success w-100">
+                                                            <i class="fa-solid fa-upload"></i> 전체 교체
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex justify-content-end mt-2">
+                                                    <button type="button" class="btn btn-outline-secondary amount-excel-master-reload-btn">
+                                                        새로고침
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
                             <div class="card-body">
                                 <div class="amount-excel-master-status">

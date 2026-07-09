@@ -938,16 +938,6 @@ public class OrderExcelUploadService {
         if (row.getSize().isBlank()) {
             row.getIssues().add(OrderExcelIssueDto.warn(raw.excelRowNumber, groupNo, "size", "사이즈가 비어 있습니다."));
         }
-        if (row.getTotalAmount() == 0 && row.getSupplyPrice() > 0) {
-            row.setTotalAmount(row.getSupplyPrice() + Math.round(row.getSupplyPrice() * 0.1f));
-            row.setVatAmount(row.getTotalAmount() - row.getSupplyPrice());
-        }
-        if (row.getSupplyPrice() == 0 && row.getProductCost() != 0 && row.getQuantity() != 0) {
-            row.setSupplyPrice(row.getProductCost() * row.getQuantity());
-            row.setVatAmount(Math.round(row.getSupplyPrice() * 0.1f));
-            row.setTotalAmount(row.getSupplyPrice() + row.getVatAmount());
-        }
-
         return row;
     }
 
