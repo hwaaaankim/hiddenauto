@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.orderExcelUpload.support;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -85,6 +86,48 @@ public class OrderExcelCellReader {
         }
 
         return null;
+    }
+
+    /**
+     * 수량처럼 음수가 허용되는 정수 값을 읽습니다.
+     *
+     * - 일반 음수: -1, -2
+     * - 유니코드 마이너스: −1, –1, —1
+     * - 회계식 음수: (1)
+     *
+     * 단독 하이픈("-")은 수량을 특정할 수 없으므로 0으로 처리합니다.
+     */
+    public int signedInteger(Row row, int cellIndex) {
+        return signedInteger(text(row, cellIndex));
+    }
+
+    public int signedInteger(String raw) {
+        if (raw == null || raw.trim().isBlank()) {
+            return 0;
+        }
+
+        String trimmed = raw.trim();
+        boolean accountingNegative = trimmed.startsWith("(") && trimmed.endsWith(")");
+
+        String normalized = trimmed
+                .replace('−', '-')
+                .replace('–', '-')
+                .replace('—', '-')
+                .replace(",", "")
+                .replace("개", "")
+                .replaceAll("\\s+", "")
+                .replaceAll("[^0-9\\-.]", "");
+
+        if (normalized.isBlank() || "-".equals(normalized) || ".".equals(normalized)) {
+            return 0;
+        }
+
+        try {
+            int parsed = new BigDecimal(normalized).stripTrailingZeros().intValueExact();
+            return accountingNegative && parsed > 0 ? -parsed : parsed;
+        } catch (ArithmeticException | NumberFormatException e) {
+            return 0;
+        }
     }
 
     public int money(Row row, int cellIndex) {

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -72,6 +73,8 @@ public class OrderExcelUploadService {
     private static final String DISPATCH_TEAM_NAME = "출고팀";
     private static final Long BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = 12L;
     private static final String BATHROOM_GOODS_CATEGORY_NAME = "욕실용품";
+    private static final String MIRROR_CATEGORY_NAME = "거울";
+    private static final String LED_MIRROR_CATEGORY_NAME = "LED거울";
     private static final String DEFAULT_MIDDLE_CATEGORY_NAME = "분류없음";
 
     /**
@@ -299,7 +302,7 @@ public class OrderExcelUploadService {
             raw.companyRaw = companyText;
             raw.itemName = itemName;
             raw.size = cellReader.text(row, COL_SIZE);
-            raw.quantity = cellReader.money(row, COL_QUANTITY);
+            raw.quantity = cellReader.signedInteger(row, COL_QUANTITY);
             raw.adminMemo = cellReader.text(row, COL_ADMIN_MEMO);
             raw.categoryName = cellReader.text(row, COL_CATEGORY);
             raw.managerName = cellReader.text(row, COL_MANAGER);
@@ -895,13 +898,16 @@ public class OrderExcelUploadService {
             }
             row.setMiddleCategoryName(resolveMiddleCategoryName(itemMaster.getMiddleCategoryName()));
             if (!safe(itemMaster.getCategoryName()).isBlank() && !safe(raw.categoryName).isBlank()
-                    && !normalizeCategoryName(itemMaster.getCategoryName()).equals(normalizeCategoryName(raw.categoryName))) {
+                    && !normalizeCategoryName(itemMaster.getCategoryName()).equals(normalizeCategoryName(raw.categoryName))
+                    && !shouldUseLedMirrorCategory(raw.itemName, raw.categoryName, itemMaster.getCategoryName())) {
                 row.getIssues().add(OrderExcelIssueDto.warn(raw.excelRowNumber, groupNo, "categoryName", "엑셀 대분류와 AmountItemMaster 대분류가 다릅니다. 엑셀 값을 우선 표시했습니다."));
             }
         } else {
             row.setMiddleCategoryName(DEFAULT_MIDDLE_CATEGORY_NAME);
             row.getIssues().add(OrderExcelIssueDto.warn(raw.excelRowNumber, groupNo, "amountItemMaster", "AmountItemMaster에서 동일 품목명을 찾지 못했습니다. 제품명/색상/중분류를 확인해 주세요."));
         }
+
+        row.setCategoryName(resolveCategoryNameForItem(raw.itemName, row.getCategoryName(), itemMaster));
 
         ParsedProductName parsedProductName = productNameParser.parse(raw.itemName, row.getCategoryName());
         row.setCalculatedProductName(parsedProductName.getProductName());
@@ -1286,10 +1292,19 @@ public class OrderExcelUploadService {
     }
 
     private TeamCategory resolveProductionCategoryForSave(OrderExcelSaveRowRequest row, int groupNo) {
-        String normalizedCategoryName = normalizeCategoryName(row.getCategoryName());
+        String normalizedCategoryName = resolveCategoryNameForItem(
+                row.getOriginalItemName(),
+                row.getCategoryName(),
+                null
+        );
+        row.setCategoryName(normalizedCategoryName);
 
         if (isBathroomGoodsCategory(normalizedCategoryName)) {
             return resolveBathroomGoodsRoutingCategory(groupNo);
+        }
+
+        if (LED_MIRROR_CATEGORY_NAME.equals(normalizedCategoryName)) {
+            return resolveUniqueProductionCategory(normalizedCategoryName, groupNo);
         }
 
         if (row.getProductionCategoryId() != null) {
@@ -1303,11 +1318,7 @@ public class OrderExcelUploadService {
             return category;
         }
 
-        List<TeamCategory> categories = findProductionCategories(row.getCategoryName());
-        if (categories.size() != 1) {
-            throw new IllegalArgumentException("생산팀 분류명을 정확히 찾을 수 없습니다: " + row.getCategoryName());
-        }
-        return categories.get(0);
+        return resolveUniqueProductionCategory(normalizedCategoryName, groupNo);
     }
 
     private void applyCompanyAddress(Order order, OrderExcelSaveGroupRequest group, Company company) {
@@ -1677,6 +1688,57 @@ public class OrderExcelUploadService {
         return member != null
                 && member.getTeam() != null
                 && DELIVERY_TEAM_NAME.equals(member.getTeam().getName());
+    }
+
+    /**
+     * 거울 계열 품목 중 품목명에 LED가 포함되면 엑셀/마스터의 기존 "거울" 값을
+     * 최종 대분류 "LED거울"로 강제 보정합니다.
+     */
+    private String resolveCategoryNameForItem(
+            String itemName,
+            String categoryName,
+            AmountItemMaster itemMaster
+    ) {
+        String masterCategoryName = itemMaster == null ? "" : itemMaster.getCategoryName();
+        String normalizedCategoryName = normalizeCategoryName(firstNonBlank(categoryName, masterCategoryName));
+
+        if (shouldUseLedMirrorCategory(itemName, normalizedCategoryName, masterCategoryName)) {
+            return LED_MIRROR_CATEGORY_NAME;
+        }
+
+        return normalizedCategoryName;
+    }
+
+    private boolean shouldUseLedMirrorCategory(
+            String itemName,
+            String categoryName,
+            String masterCategoryName
+    ) {
+        String normalizedItemName = safe(itemName).replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+        if (!normalizedItemName.contains("LED")) {
+            return false;
+        }
+
+        String normalizedCategoryName = normalizeCategoryName(categoryName);
+        String normalizedMasterCategoryName = normalizeCategoryName(masterCategoryName);
+        boolean mirrorCategory = normalizedCategoryName.contains(MIRROR_CATEGORY_NAME)
+                || normalizedMasterCategoryName.contains(MIRROR_CATEGORY_NAME)
+                || normalizedItemName.contains(MIRROR_CATEGORY_NAME);
+
+        return mirrorCategory;
+    }
+
+    private TeamCategory resolveUniqueProductionCategory(String categoryName, Integer groupNo) {
+        List<TeamCategory> categories = findProductionCategories(categoryName);
+        if (categories.isEmpty()) {
+            throw new IllegalArgumentException(prefixGroup(groupNo)
+                    + "생산팀 분류를 찾을 수 없습니다: " + categoryName);
+        }
+        if (categories.size() > 1) {
+            throw new IllegalArgumentException(prefixGroup(groupNo)
+                    + "생산팀 분류명이 중복됩니다: " + categoryName);
+        }
+        return categories.get(0);
     }
 
     private Optional<TeamCategory> resolveProductionCategoryForPreview(String categoryName, List<OrderExcelIssueDto> issues, Integer rowNo, int groupNo) {

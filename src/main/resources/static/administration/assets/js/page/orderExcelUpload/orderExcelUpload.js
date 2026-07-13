@@ -540,6 +540,11 @@
             return;
         }
         if (target.dataset.rowField) {
+            // 음수 수량은 먼저 "-"를 입력해야 하므로 입력 중에는 값을 강제 포맷하지 않습니다.
+            // 포커스가 빠져 change 이벤트가 발생할 때 정수로 확정합니다.
+            if (target.dataset.rowField === 'quantity') {
+                return;
+            }
             updateRowField(target);
         }
     }
@@ -684,7 +689,10 @@
         const field = target.dataset.rowField;
         let value = target.type === 'checkbox' ? target.checked : target.value;
 
-        if (['quantity', 'productCost', 'supplyPrice', 'vatAmount', 'totalAmount'].includes(field)) {
+        if (field === 'quantity') {
+            value = parseSignedInteger(value);
+            target.value = formatNumber(value);
+        } else if (['productCost', 'supplyPrice', 'vatAmount', 'totalAmount'].includes(field)) {
             value = parseMoney(value);
             target.value = formatNumber(value);
         }
@@ -739,6 +747,7 @@
             return;
         }
 
+        commitPendingQuantityInputs();
         const payload = buildSavePayload();
         const activeOrderCount = payload.groups.reduce((sum, group) => {
             return sum + (group.rows || []).filter(row => row.saveTarget).length;
@@ -788,6 +797,13 @@
         } finally {
             setSaving(false);
         }
+    }
+
+    function commitPendingQuantityInputs() {
+        if (!els.previewWrap) return;
+        els.previewWrap.querySelectorAll('[data-row-field="quantity"]').forEach(input => {
+            updateRowField(input);
+        });
     }
 
     function buildSavePayload() {
@@ -1427,6 +1443,24 @@
         if (value == null || value === '') return null;
         const n = Number(value);
         return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
+    function parseSignedInteger(value) {
+        const original = String(value == null ? '' : value).trim();
+        if (!original) return 0;
+
+        const accountingNegative = original.startsWith('(') && original.endsWith(')');
+        const raw = original
+            .replace(/[−–—]/g, '-')
+            .replace(/,/g, '')
+            .replace(/개/g, '')
+            .replace(/[^0-9.-]/g, '');
+
+        if (!raw || raw === '-' || raw === '.') return 0;
+
+        const n = Number(raw);
+        if (!Number.isFinite(n) || !Number.isInteger(n)) return 0;
+        return accountingNegative && n > 0 ? -n : n;
     }
 
     function parseMoney(value) {
