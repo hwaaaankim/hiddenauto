@@ -40,6 +40,11 @@ spring:
     path: "${user.home}/Desktop/product/"
     env: mac
 
+security:
+  remember-me:
+    key: hiddenremember
+    secure-cookie: false
+
 app:
   notification:
     solapi:
