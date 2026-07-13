@@ -258,6 +258,16 @@ public class TeamController {
 		String sf = normalizeProductionListStatusFilter(statusFilter);
 		OrderStatus statusEnum = parseProductionListStatusFilter(sf);
 
+		/*
+		 * 오더 ID는 단건 식별값이므로 상태 필터보다 우선합니다.
+		 * 기본 상태가 CONFIRMED인 화면에서도 이미 생산완료(PRODUCTION_DONE)된 오더 ID를
+		 * 바로 검색할 수 있도록, ID 검색 시에는 생산팀 허용 상태 전체를 대상으로 조회합니다.
+		 */
+		if (orderIdFilter != null) {
+			sf = "ALL";
+			statusEnum = null;
+		}
+
 		String normalizedSortKey = (sortKey == null || sortKey.isBlank()) ? "checked" : sortKey.trim();
 
 		String normalizedSortDir = (sortDir == null || sortDir.isBlank()) ? "ASC" : sortDir.trim().toUpperCase();

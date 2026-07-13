@@ -87,6 +87,7 @@
 		}
 
 		document.addEventListener('keydown', handleKeydown);
+		document.addEventListener('team-production:order-completed', handleProductionCompleted);
 	}
 
 	function handleTableClick(event) {
@@ -278,8 +279,18 @@
 			return;
 		}
 
+		const label = opened ? '닫기' : '상세보기';
+		let icon = button.querySelector('i');
+
+		if (!icon) {
+			icon = document.createElement('i');
+			button.replaceChildren(icon);
+		}
+
+		icon.className = opened ? 'fa-solid fa-xmark' : 'fa-solid fa-circle-info';
 		button.setAttribute('aria-expanded', opened ? 'true' : 'false');
-		button.textContent = opened ? '닫기' : '상세보기';
+		button.setAttribute('aria-label', label);
+		button.title = label;
 		button.classList.toggle('btn-primary', opened);
 		button.classList.toggle('btn-outline-primary', !opened);
 	}
@@ -1456,6 +1467,29 @@
 
 		if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
 			window.TeamProductionOrderCheck.mark(orderId);
+		}
+	}
+
+	function handleProductionCompleted(event) {
+		const detail = event && event.detail ? event.detail : null;
+		const orderId = toText(detail && detail.orderId);
+
+		if (!orderId) {
+			return;
+		}
+
+		const order = state.orderCache.get(orderId);
+
+		if (!order) {
+			return;
+		}
+
+		order.status = toText(detail.status) || 'PRODUCTION_DONE';
+		order.statusLabel = toText(detail.statusLabel) || '생산 완료';
+		order.canComplete = false;
+
+		if (state.openedOrderId === orderId) {
+			renderDetail(orderId, order);
 		}
 	}
 

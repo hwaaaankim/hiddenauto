@@ -3,6 +3,8 @@
 (function () {
 	'use strict';
 
+	const config = window.teamProductionOverviewConfig || {};
+
 	// ===== DOM =====
 	const $form = document.getElementById('team-production-filter-form');
 
@@ -16,11 +18,26 @@
 	const $checkAll = document.getElementById('team-production-check-all');
 	const $items = Array.from(document.querySelectorAll('.team-production-check-item'));
 
+	const pendingSingleCompleteIds = new Set();
+
 	// ===== util =====
 	function getCsrf() {
 		const token = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
 		const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
 		return { token, header };
+	}
+
+	function buildJsonHeaders() {
+		const csrf = getCsrf();
+		const headers = {
+			'Accept': 'application/json'
+		};
+
+		if (csrf.token && csrf.header) {
+			headers[csrf.header] = csrf.token;
+		}
+
+		return headers;
 	}
 
 	function getCheckedItems() {
@@ -93,6 +110,152 @@
 			}
 		});
 	}
+
+	function normalizeOrderId(value) {
+		const id = Number(value);
+		return Number.isInteger(id) && id > 0 ? id : null;
+	}
+
+	function cssEscape(value) {
+		const text = String(value == null ? '' : value);
+
+		if (window.CSS && typeof window.CSS.escape === 'function') {
+			return window.CSS.escape(text);
+		}
+
+		return text.replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, '\\$1');
+	}
+
+	async function readResponsePayload(response) {
+		const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+
+		if (contentType.includes('application/json')) {
+			try {
+				return await response.json();
+			} catch (error) {
+				return null;
+			}
+		}
+
+		try {
+			const text = await response.text();
+			return text ? { message: text } : null;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	function resolveResponseMessage(payload, fallback) {
+		if (payload && typeof payload === 'object') {
+			const message = payload.message || payload.error || payload.detail;
+			if (message) return String(message);
+		}
+
+		return fallback;
+	}
+
+	function buildSingleCompleteUrl(orderId) {
+		const prefix = String(config.completeUrlPrefix || '/team/productionList/');
+		const normalizedPrefix = prefix.endsWith('/') ? prefix : prefix + '/';
+		return normalizedPrefix + encodeURIComponent(String(orderId)) + '/complete';
+	}
+
+	function normalizeCompleteResult(orderId, payload) {
+		const source = payload && typeof payload === 'object' ? payload : {};
+
+		return {
+			orderId: normalizeOrderId(source.orderId) || orderId,
+			status: String(source.status || 'PRODUCTION_DONE').trim().toUpperCase(),
+			statusLabel: String(source.statusLabel || '생산 완료').trim(),
+			message: String(source.message || '생산완료 처리되었습니다.').trim(),
+			raw: source
+		};
+	}
+
+	function applyCompletedStateToPage(result) {
+		if (!result) return;
+
+		const orderId = normalizeOrderId(result.orderId);
+		if (!orderId) return;
+
+		const idSelector = cssEscape(orderId);
+		const status = String(result.status || 'PRODUCTION_DONE').trim().toUpperCase();
+		const statusLabel = String(result.statusLabel || '생산 완료').trim();
+
+		document.querySelectorAll('[data-overview-order-id="' + idSelector + '"]').forEach(row => {
+			row.setAttribute('data-overview-status', status);
+			row.setAttribute('data-production-status-label', statusLabel);
+			row.classList.add('team-production-row-production-done');
+		});
+
+		document.querySelectorAll('.team-production-check-item[data-order-id="' + idSelector + '"]').forEach(checkbox => {
+			checkbox.setAttribute('data-status', status);
+			checkbox.checked = false;
+		});
+
+		document.querySelectorAll('[data-inline-complete-order-id="' + idSelector + '"]').forEach(button => {
+			button.disabled = true;
+			button.title = '이미 생산 완료 처리된 주문입니다.';
+		});
+
+		syncButtonState();
+		syncCheckAllState();
+	}
+
+	function dispatchCompletedEvent(result) {
+		document.dispatchEvent(new CustomEvent('team-production:order-completed', {
+			detail: result
+		}));
+	}
+
+	async function completeSingleOrder(orderId) {
+		const id = normalizeOrderId(orderId);
+
+		if (!id) {
+			throw new Error('올바른 주문 ID가 아닙니다.');
+		}
+
+		if (!canBulkComplete) {
+			throw new Error('생산완료 처리 권한이 없습니다.');
+		}
+
+		if (pendingSingleCompleteIds.has(id)) {
+			throw new Error('해당 주문을 이미 처리 중입니다.');
+		}
+
+		pendingSingleCompleteIds.add(id);
+
+		try {
+			const response = await fetch(buildSingleCompleteUrl(id), {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: buildJsonHeaders()
+			});
+
+			const payload = await readResponsePayload(response);
+
+			if (!response.ok) {
+				throw new Error(resolveResponseMessage(payload, '생산완료 처리에 실패했습니다.'));
+			}
+
+			const result = normalizeCompleteResult(id, payload);
+			applyCompletedStateToPage(result);
+			dispatchCompletedEvent(result);
+
+			return result;
+		} finally {
+			pendingSingleCompleteIds.delete(id);
+		}
+	}
+
+	window.TeamProductionCompletion = Object.assign(window.TeamProductionCompletion || {}, {
+		completeOrder: completeSingleOrder,
+		markCompleted: applyCompletedStateToPage,
+		isPending: function (orderId) {
+			const id = normalizeOrderId(orderId);
+			return id ? pendingSingleCompleteIds.has(id) : false;
+		}
+	});
 
 	// ===== 정렬 기능 (항상 동작) =====
 	function submitWithSort(nextKey, nextDir) {

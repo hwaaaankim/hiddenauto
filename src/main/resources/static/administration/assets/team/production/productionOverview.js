@@ -15,7 +15,8 @@
 		isLoading: false,
 		imageModalOpen: false,
 		imageIndex: 0,
-		zoom: 1
+		zoom: 1,
+		completeBusyOrderId: ''
 	};
 
 	document.addEventListener('DOMContentLoaded', init);
@@ -63,7 +64,7 @@
 		}
 
 		if (els.completeBtn) {
-			els.completeBtn.addEventListener('click', completeCurrentOrderByExistingBulkButton);
+			els.completeBtn.addEventListener('click', completeCurrentOrder);
 		}
 
 		if (els.host) {
@@ -116,6 +117,7 @@
 		}
 
 		document.addEventListener('keydown', handleKeydown);
+		document.addEventListener('team-production:order-completed', handleProductionCompleted);
 
 		if (els.modal) {
 			els.modal.addEventListener('hidden.bs.modal', function() {
@@ -471,6 +473,7 @@
 			REQUESTED: '고객 발주',
 			CONFIRMED: '승인 완료',
 			PRODUCTION_DONE: '생산 완료',
+			DISPATCH_DONE: '출고 완료',
 			DELIVERY_DONE: '배송 완료',
 			CANCELED: '취소'
 		};
@@ -1280,9 +1283,11 @@
 		if (els.completeBtn) {
 			const order = getCurrentOrder();
 			const completeState = getOrderCompleteState(order);
+			const isBusy = Boolean(order && state.completeBusyOrderId === toText(order.id));
 
-			els.completeBtn.disabled = !completeState.available;
-			els.completeBtn.title = completeState.message;
+			els.completeBtn.disabled = isBusy || !completeState.available;
+			els.completeBtn.textContent = isBusy ? '처리 중...' : '생산완료';
+			els.completeBtn.title = isBusy ? '생산완료 처리 중입니다.' : completeState.message;
 		}
 	}
 
@@ -1491,7 +1496,7 @@
 		return Boolean(els.modal && els.modal.classList.contains('show'));
 	}
 
-	function completeCurrentOrderByExistingBulkButton() {
+	async function completeCurrentOrder() {
 		const order = getCurrentOrder();
 
 		if (!order) {
@@ -1505,7 +1510,65 @@
 			return;
 		}
 
-		triggerProductionCompleteForOrder(order.id);
+		if (!window.confirm(order.id + '번 오더를 생산완료 처리하시겠습니까?')) {
+			return;
+		}
+
+		state.completeBusyOrderId = toText(order.id);
+		updateNavigationState();
+
+		try {
+			const result = await requestProductionComplete(order.id);
+			applyProductionCompleted(result);
+			alert(toText(result && result.message) || '생산완료 처리되었습니다.');
+		} catch (error) {
+			console.error(error);
+			alert(error && error.message ? error.message : '생산완료 처리 중 오류가 발생했습니다.');
+		} finally {
+			state.completeBusyOrderId = '';
+			updateNavigationState();
+		}
+	}
+
+	async function requestProductionComplete(orderId) {
+		const completion = window.TeamProductionCompletion;
+
+		if (!completion || typeof completion.completeOrder !== 'function') {
+			throw new Error('생산완료 공통 처리 스크립트를 찾을 수 없습니다.');
+		}
+
+		return completion.completeOrder(orderId);
+	}
+
+	function handleProductionCompleted(event) {
+		applyProductionCompleted(event && event.detail ? event.detail : null);
+	}
+
+	function applyProductionCompleted(detail) {
+		const orderId = toText(detail && detail.orderId);
+
+		if (!orderId) {
+			return;
+		}
+
+		const orderIndex = state.orders.findIndex(function(order) {
+			return toText(order && order.id) === orderId;
+		});
+
+		if (orderIndex < 0) {
+			return;
+		}
+
+		const order = state.orders[orderIndex];
+		order.status = toText(detail.status) || 'PRODUCTION_DONE';
+		order.statusLabel = toText(detail.statusLabel) || '생산 완료';
+		order.canComplete = false;
+
+		if (orderIndex === state.currentIndex && isOverviewModalVisible()) {
+			renderCurrentOrder();
+		} else {
+			updateNavigationState();
+		}
 	}
 
 	function getOrderCompleteState(order) {
@@ -1526,7 +1589,9 @@
 		if (!isCompletableOrderStatus(order)) {
 			return {
 				available: false,
-				message: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.'
+				message: normalizeOrderStatus(order.status) === 'PRODUCTION_DONE'
+					? '이미 생산 완료 처리된 주문입니다.'
+					: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.'
 			};
 		}
 
@@ -1543,31 +1608,6 @@
 			available: true,
 			message: '생산완료 처리'
 		};
-	}
-
-	function triggerProductionCompleteForOrder(orderId) {
-		const currentCheckbox = getOrderCheckbox(orderId);
-		const bulkButton = document.getElementById('team-production-bulk-done-btn');
-
-		if (!currentCheckbox || currentCheckbox.disabled || !bulkButton) {
-			alert('현재 주문은 이 화면에서 생산완료 처리할 수 없습니다.');
-			return;
-		}
-
-		document.querySelectorAll('.team-production-check-item').forEach(function(checkbox) {
-			checkbox.checked = false;
-			checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-		});
-
-		currentCheckbox.checked = true;
-		currentCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
-
-		if (bulkButton.disabled) {
-			alert('생산완료 처리 버튼이 활성화되지 않았습니다. 주문 상태 또는 권한을 확인해 주세요.');
-			return;
-		}
-
-		bulkButton.click();
 	}
 
 	function getOrderCheckbox(orderId) {

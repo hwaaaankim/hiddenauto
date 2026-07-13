@@ -16,7 +16,8 @@
 		imageOrderIndex: 0,
 		imageIndex: 0,
 		zoom: 1,
-		viewObserver: null
+		viewObserver: null,
+		completeBusyOrderIds: new Set()
 	};
 
 	document.addEventListener('DOMContentLoaded', init);
@@ -106,6 +107,7 @@
 		}
 
 		document.addEventListener('keydown', handleKeydown);
+		document.addEventListener('team-production:order-completed', handleProductionCompleted);
 
 		if (els.modal) {
 			els.modal.addEventListener('hidden.bs.modal', function() {
@@ -934,7 +936,7 @@
 		const image = order.images[imageIndex];
 
 		return [
-			'<article class="team-production-overview-list-card ' + getCheckStateClass(order) + '" data-list-order-index="' + orderIndex + '" data-order-id="' + escapeAttr(order.id) + '" data-checked="' + (isLatestCheckedOrder(order) ? 'true' : 'false') + '" data-check-state="' + escapeAttr(normalizeCheckState(order)) + '" data-check-state-label="' + escapeAttr(normalizeCheckStateLabel(order)) + '">',
+			'<article class="team-production-overview-list-card ' + getCheckStateClass(order) + '" data-list-order-index="' + orderIndex + '" data-order-id="' + escapeAttr(order.id) + '" data-checked="' + (isLatestCheckedOrder(order) ? 'true' : 'false') + '" data-check-state="' + escapeAttr(normalizeCheckState(order)) + '" data-check-state-label="' + escapeAttr(normalizeCheckStateLabel(order)) + '" data-status="' + escapeAttr(normalizeOrderStatus(order.status)) + '">',
 			buildListTopHtml(order),
 			'<div class="team-production-overview-list-main">',
 			buildListOptionPanelHtml(order),
@@ -951,7 +953,7 @@
 			'<div class="team-production-overview-list-company-name" title="' + escapeAttr(order.companyName || '-') + '">' + escapeHtml(order.companyName || '-') + '</div>',
 			'<div class="team-production-overview-list-address" title="' + escapeAttr(order.address || '-') + '">' + escapeHtml(order.address || '-') + '</div>',
 			'</div>',
-			buildListTopItemHtml('ID / 상태', '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-')),
+			buildListStatusItemHtml(order),
 			buildListTopCheckStateHtml(order),
 			buildListTopItemHtml('제품명', order.productName || '-'),
 			buildListTopItemHtml('분류', order.productCategoryName || '-'),
@@ -959,6 +961,17 @@
 			buildListTopItemHtml('일자', order.dateText || '-'),
 			buildListCompleteButtonHtml(order),
 			'</section>'
+		].join('');
+	}
+
+	function buildListStatusItemHtml(order) {
+		const value = '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-');
+
+		return [
+			'<div class="team-production-overview-list-top-item">',
+			'<div class="team-production-overview-list-top-label">ID / 상태</div>',
+			'<div class="team-production-overview-list-top-value" data-list-order-status-text="true" data-order-id="' + escapeAttr(order.id || '') + '" title="' + escapeAttr(value) + '">' + escapeHtml(value) + '</div>',
+			'</div>'
 		].join('');
 	}
 
@@ -980,6 +993,7 @@
 			'<button type="button"',
 			' class="btn btn-success btn-sm team-production-overview-list-complete-btn"',
 			' data-list-complete-order="true"',
+			' data-order-id="' + escapeAttr(order.id || '') + '"',
 			' title="' + escapeAttr(completeState.message) + '"',
 			disabledAttr,
 			'>생산완료</button>',
@@ -1155,7 +1169,7 @@
 
 		if (completeBtn) {
 			event.preventDefault();
-			completeListOrderByExistingBulkButton(orderIndex);
+			completeListOrder(orderIndex, completeBtn);
 			return;
 		}
 
@@ -1183,7 +1197,7 @@
 		}
 	}
 
-	function completeListOrderByExistingBulkButton(orderIndex) {
+	async function completeListOrder(orderIndex, button) {
 		const order = state.orders[orderIndex];
 
 		if (!order) {
@@ -1197,7 +1211,96 @@
 			return;
 		}
 
-		triggerProductionCompleteForOrder(order.id);
+		if (!window.confirm(order.id + '번 오더를 생산완료 처리하시겠습니까?')) {
+			return;
+		}
+
+		const orderId = toText(order.id);
+		state.completeBusyOrderIds.add(orderId);
+		updateListCardCompletionUi(orderIndex, button);
+
+		try {
+			const result = await requestProductionComplete(order.id);
+			applyProductionCompleted(result);
+			alert(toText(result && result.message) || '생산완료 처리되었습니다.');
+		} catch (error) {
+			console.error(error);
+			alert(error && error.message ? error.message : '생산완료 처리 중 오류가 발생했습니다.');
+		} finally {
+			state.completeBusyOrderIds.delete(orderId);
+			updateListCardCompletionUi(orderIndex, button);
+		}
+	}
+
+	async function requestProductionComplete(orderId) {
+		const completion = window.TeamProductionCompletion;
+
+		if (!completion || typeof completion.completeOrder !== 'function') {
+			throw new Error('생산완료 공통 처리 스크립트를 찾을 수 없습니다.');
+		}
+
+		return completion.completeOrder(orderId);
+	}
+
+	function handleProductionCompleted(event) {
+		applyProductionCompleted(event && event.detail ? event.detail : null);
+	}
+
+	function applyProductionCompleted(detail) {
+		const orderId = toText(detail && detail.orderId);
+
+		if (!orderId) {
+			return;
+		}
+
+		const orderIndex = state.orders.findIndex(function(order) {
+			return toText(order && order.id) === orderId;
+		});
+
+		if (orderIndex < 0) {
+			return;
+		}
+
+		const order = state.orders[orderIndex];
+		order.status = toText(detail.status) || 'PRODUCTION_DONE';
+		order.statusLabel = toText(detail.statusLabel) || '생산 완료';
+		order.canComplete = false;
+
+		updateListCardCompletionUi(orderIndex);
+	}
+
+	function updateListCardCompletionUi(orderIndex, preferredButton) {
+		const order = state.orders[orderIndex];
+
+		if (!order || !els.host) {
+			return;
+		}
+
+		const card = els.host.querySelector('.team-production-overview-list-card[data-list-order-index="' + orderIndex + '"]');
+
+		if (!card) {
+			return;
+		}
+
+		const orderId = toText(order.id);
+		const isBusy = state.completeBusyOrderIds.has(orderId);
+		const completeState = getOrderCompleteState(order);
+		const button = preferredButton || card.querySelector('[data-list-complete-order="true"]');
+		const statusText = card.querySelector('[data-list-order-status-text="true"]');
+		const statusValue = '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-');
+
+		card.setAttribute('data-status', normalizeOrderStatus(order.status));
+
+		if (statusText) {
+			statusText.textContent = statusValue;
+			statusText.title = statusValue;
+		}
+
+		if (button) {
+			button.disabled = isBusy || !completeState.available;
+			button.textContent = isBusy ? '처리 중...' : '생산완료';
+			button.title = isBusy ? '생산완료 처리 중입니다.' : completeState.message;
+		}
 	}
 
 	function getOrderCompleteState(order) {
@@ -1218,7 +1321,9 @@
 		if (!isCompletableOrderStatus(order)) {
 			return {
 				available: false,
-				message: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.'
+				message: normalizeOrderStatus(order.status) === 'PRODUCTION_DONE'
+					? '이미 생산 완료 처리된 주문입니다.'
+					: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.'
 			};
 		}
 
@@ -1235,31 +1340,6 @@
 			available: true,
 			message: '생산완료 처리'
 		};
-	}
-
-	function triggerProductionCompleteForOrder(orderId) {
-		const currentCheckbox = getOrderCheckbox(orderId);
-		const bulkButton = document.getElementById('team-production-bulk-done-btn');
-
-		if (!currentCheckbox || currentCheckbox.disabled || !bulkButton) {
-			alert('현재 주문은 이 화면에서 생산완료 처리할 수 없습니다.');
-			return;
-		}
-
-		document.querySelectorAll('.team-production-check-item').forEach(function(checkbox) {
-			checkbox.checked = false;
-			checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-		});
-
-		currentCheckbox.checked = true;
-		currentCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
-
-		if (bulkButton.disabled) {
-			alert('생산완료 처리 버튼이 활성화되지 않았습니다. 주문 상태 또는 권한을 확인해 주세요.');
-			return;
-		}
-
-		bulkButton.click();
 	}
 
 	function getOrderCheckbox(orderId) {
@@ -1531,6 +1611,7 @@
 			REQUESTED: '고객 발주',
 			CONFIRMED: '승인 완료',
 			PRODUCTION_DONE: '생산 완료',
+			DISPATCH_DONE: '출고 완료',
 			DELIVERY_DONE: '배송 완료',
 			CANCELED: '취소'
 		};
