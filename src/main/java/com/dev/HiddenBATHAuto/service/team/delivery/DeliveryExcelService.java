@@ -29,6 +29,8 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
+import com.dev.HiddenBATHAuto.utils.DeliveryProductDisplayUtil;
+import com.dev.HiddenBATHAuto.utils.OrderItemOptionJsonUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -95,13 +97,14 @@ public class DeliveryExcelService {
 
             sheet.setColumnWidth(0, 18 * 256); // 거래처명
             sheet.setColumnWidth(1, 22 * 256); // 품목
-            sheet.setColumnWidth(2, 20 * 256); // 규격
-            sheet.setColumnWidth(3, 7 * 256);  // 수량
-            sheet.setColumnWidth(4, 28 * 256); // 비고
-            sheet.setColumnWidth(5, 10 * 256); // 단위
-            sheet.setColumnWidth(6, 12 * 256); // 배송수단
-            sheet.setColumnWidth(7, 12 * 256); // 담당자
-            sheet.setColumnWidth(8, 36 * 256); // 주소
+            sheet.setColumnWidth(2, 19 * 256); // 규격
+            sheet.setColumnWidth(3, 15 * 256); // 색상
+            sheet.setColumnWidth(4, 7 * 256);  // 수량
+            sheet.setColumnWidth(5, 28 * 256); // 비고
+            sheet.setColumnWidth(6, 10 * 256); // 단위
+            sheet.setColumnWidth(7, 12 * 256); // 배송수단
+            sheet.setColumnWidth(8, 12 * 256); // 담당자
+            sheet.setColumnWidth(9, 36 * 256); // 주소
 
             Font titleFont = wb.createFont();
             titleFont.setBold(true);
@@ -150,7 +153,7 @@ public class DeliveryExcelService {
                     titleStyle
             );
 
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 8));
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 9));
 
             Row headerRow = sheet.createRow(r++);
             headerRow.setHeightInPoints(22);
@@ -158,12 +161,13 @@ public class DeliveryExcelService {
             createCell(headerRow, 0, "거래처명", headerStyle);
             createCell(headerRow, 1, "품목", headerStyle);
             createCell(headerRow, 2, "규격(사이즈)", headerStyle);
-            createCell(headerRow, 3, "수량", headerStyle);
-            createCell(headerRow, 4, "비고", headerStyle);
-            createCell(headerRow, 5, "단위", headerStyle);
-            createCell(headerRow, 6, "배송수단", headerStyle);
-            createCell(headerRow, 7, "담당자", headerStyle);
-            createCell(headerRow, 8, "주소", headerStyle);
+            createCell(headerRow, 3, "색상", headerStyle);
+            createCell(headerRow, 4, "수량", headerStyle);
+            createCell(headerRow, 5, "비고", headerStyle);
+            createCell(headerRow, 6, "단위", headerStyle);
+            createCell(headerRow, 7, "배송수단", headerStyle);
+            createCell(headerRow, 8, "담당자", headerStyle);
+            createCell(headerRow, 9, "주소", headerStyle);
 
             for (DeliveryOrderIndex doi : ordered) {
                 Order order = doi.getOrder();
@@ -173,6 +177,12 @@ public class DeliveryExcelService {
                 }
 
                 OrderItem item = order.getOrderItem();
+
+                if (item != null) {
+                    OrderItemOptionJsonUtil.enrich(item);
+                    DeliveryProductDisplayUtil.enrich(order);
+                }
+
                 Map<String, Object> optionMap = parseOptionJsonToMap(item != null ? item.getOptionJson() : null);
 
                 Task task = order.getTask();
@@ -182,12 +192,25 @@ public class DeliveryExcelService {
                 String companyName = company != null ? safe(company.getCompanyName()) : "";
 
                 String productName = firstNonBlank(
-                        pickFirstValue(optionMap, List.of("제품명", "제품", "productName", "ProductName", "product", "Product")),
+                        pickFirstValue(optionMap, List.of(
+                                "제품명", "제품", "productName", "ProductName", "product", "Product"
+                        )),
                         item != null ? item.getProductName() : null
                 );
 
                 String size = firstNonBlank(
-                        pickFirstValue(optionMap, List.of("사이즈", "규격", "size", "Size", "productSize", "ProductSize", "제품사이즈")),
+                        pickFirstValue(optionMap, List.of(
+                                "사이즈", "규격", "size", "Size", "productSize", "ProductSize", "제품사이즈"
+                        )),
+                        item != null ? item.getDeliverySizeText() : null,
+                        ""
+                );
+
+                String color = firstNonBlank(
+                        item != null ? item.getDeliveryColorText() : null,
+                        pickFirstValue(optionMap, List.of(
+                                "색상", "제품색상", "컬러", "color", "Color", "productColor", "ProductColor"
+                        )),
                         ""
                 );
 
@@ -201,6 +224,9 @@ public class DeliveryExcelService {
                         : "";
 
                 String address = buildExcelAddress(order);
+                int quantity = item != null && item.getQuantity() > 0
+                        ? item.getQuantity()
+                        : Math.max(0, order.getQuantity());
 
                 Row row = sheet.createRow(r++);
                 row.setHeightInPoints(46);
@@ -208,15 +234,16 @@ public class DeliveryExcelService {
                 createCell(row, 0, valueOrDash(companyName), bodyStyle);
                 createCell(row, 1, valueOrDash(productName), bodyStyle);
                 createCell(row, 2, valueOrDash(size), bodyStyle);
-                createCell(row, 3, String.valueOf(order.getQuantity()), centerBodyStyle);
-                createCell(row, 4, valueOrDash(order.getAdminMemo()), bodyStyle);
-                createCell(row, 5, valueOrDash(category), centerBodyStyle);
-                createCell(row, 6, valueOrDash(deliveryMethodName), centerBodyStyle);
-                createCell(row, 7, valueOrDash(handlerName), centerBodyStyle);
-                createCell(row, 8, valueOrDash(address), bodyStyle);
+                createCell(row, 3, valueOrDash(color), centerBodyStyle);
+                createCell(row, 4, String.valueOf(quantity), centerBodyStyle);
+                createCell(row, 5, valueOrDash(order.getAdminMemo()), bodyStyle);
+                createCell(row, 6, valueOrDash(category), centerBodyStyle);
+                createCell(row, 7, valueOrDash(deliveryMethodName), centerBodyStyle);
+                createCell(row, 8, valueOrDash(handlerName), centerBodyStyle);
+                createCell(row, 9, valueOrDash(address), bodyStyle);
             }
 
-            sheet.setRepeatingRows(new CellRangeAddress(1, 1, 0, 8));
+            sheet.setRepeatingRows(new CellRangeAddress(1, 1, 0, 9));
             applyPrintMargins(sheet);
 
             wb.write(bos);

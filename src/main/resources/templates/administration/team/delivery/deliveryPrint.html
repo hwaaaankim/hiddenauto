@@ -1,0 +1,122 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="|배송리스트 인쇄 - ${deliveryDate}|">배송리스트 인쇄</title>
+    <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryPrint.css">
+</head>
+<body>
+<div class="delivery-print-toolbar" aria-label="인쇄 도구">
+    <div>
+        <strong>A4 가로 배송리스트</strong>
+        <span>주문 행이 페이지 중간에서 잘리지 않도록 A4 용지별로 자동 분할됩니다.</span>
+    </div>
+    <div class="delivery-print-toolbar-status">
+        <span>총 <b id="delivery-print-page-count">0</b>페이지</span>
+    </div>
+    <div class="delivery-print-toolbar-actions">
+        <button type="button" id="delivery-print-close">닫기</button>
+        <button type="button" class="is-primary" id="delivery-print-button">인쇄</button>
+    </div>
+</div>
+
+<div class="delivery-print-pages" id="delivery-print-pages" aria-label="A4 배송리스트 미리보기"></div>
+
+<!--
+    실제 출력 페이지를 만드는 원본입니다.
+    JS가 행 높이를 실제로 측정해 A4 한 페이지에 들어가는 만큼씩 복제합니다.
+-->
+<article class="delivery-print-source" id="delivery-print-source" aria-hidden="true">
+    <header class="delivery-print-header">
+        <div class="delivery-print-title-block">
+            <h1>배송 리스트</h1>
+            <p>배송팀 현장 출력용</p>
+        </div>
+        <dl>
+            <div><dt>배송일</dt><dd th:text="${deliveryDate}">2026-07-13</dd></div>
+            <div><dt>담당자</dt><dd th:text="${handlerName}">담당자</dd></div>
+            <div><dt>총 주문</dt><dd><span th:text="${rowCount}">0</span>건</dd></div>
+            <div><dt>출력시각</dt><dd th:text="${generatedAt}">2026-07-13 09:00</dd></div>
+        </dl>
+    </header>
+
+    <div class="delivery-print-table-wrap">
+        <table class="delivery-print-table">
+            <colgroup>
+                <col class="col-no">
+                <col class="col-index">
+                <col class="col-company">
+                <col class="col-method">
+                <col class="col-address">
+                <col class="col-contact">
+                <col class="col-category">
+                <col class="col-product">
+                <col class="col-spec">
+                <col class="col-quantity">
+                <col class="col-memo">
+            </colgroup>
+            <thead>
+            <tr>
+                <th>순번</th>
+                <th>배송<br>순서</th>
+                <th>업체명</th>
+                <th>배송수단<br>/ 상태</th>
+                <th>배송지</th>
+                <th>주문자 / 연락처</th>
+                <th>카테고리</th>
+                <th>제품명</th>
+                <th>사이즈 / 색상</th>
+                <th>수량</th>
+                <th>관리자 메모</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row, stat : ${rows}" data-print-row>
+                <td class="is-center" th:text="${stat.count}">1</td>
+                <td class="is-center">
+                    <strong th:text="${row.orderIndex}">1</strong>
+                    <small th:text="|#${row.orderId}|">#1</small>
+                </td>
+                <td class="is-strong" th:text="${row.companyName}">업체명</td>
+                <td class="is-center">
+                    <strong th:text="${row.deliveryMethodName}">직배송</strong>
+                    <small th:text="${row.statusLabel}">생산완료</small>
+                </td>
+                <td th:text="${row.address}">주소</td>
+                <td>
+                    <strong th:text="${row.ordererName}">주문자</strong>
+                    <small th:text="${row.ordererPhone}">010-0000-0000</small>
+                </td>
+                <td th:text="${row.category}">카테고리</td>
+                <td class="is-strong" th:text="${row.productName}">제품명</td>
+                <td>
+                    <strong th:text="${row.size}">사이즈</strong>
+                    <small th:text="${row.color}">색상</small>
+                </td>
+                <td class="is-center is-strong" th:text="${row.quantityText}">1개</td>
+                <td th:text="${row.adminMemo}">메모</td>
+            </tr>
+            <tr th:if="${rows.isEmpty()}" data-print-empty-row>
+                <td colspan="11" class="delivery-print-empty">인쇄할 배송 데이터가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <footer class="delivery-print-footer">
+        <span>HiddenBath Auto · 배송팀</span>
+        <span>현장 확인 후 필요한 내용을 수기로 표시해 주세요.</span>
+        <span class="delivery-print-page-number">
+            <b data-page-number>1</b> / <b data-page-total>1</b>
+        </span>
+    </footer>
+</article>
+
+<noscript>
+    <div class="delivery-print-noscript">인쇄 페이지 분할을 위해 JavaScript를 활성화해주세요.</div>
+</noscript>
+
+<script src="/administration/assets/team/delivery/deliveryPrint.js"></script>
+</body>
+</html>

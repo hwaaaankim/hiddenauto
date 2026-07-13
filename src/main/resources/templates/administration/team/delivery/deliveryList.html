@@ -104,8 +104,15 @@
 											엑셀출력
 										</button>
 
+										<button type="button" class="btn btn-outline-secondary"
+											id="delivery-list-added-printBtn">
+											<i class="ri-printer-line me-1"></i>인쇄
+										</button>
+
 										<small class="text-muted">
-											※ 순서 변경, 업체별정렬, 배송완료, 담당자변경은 <b>직배송/현장배송 + 생산완료/출고완료</b> 건만 가능합니다.
+											※ 순서 변경, 업체별정렬, 담당자변경은 <b>직배송/현장배송 + 생산완료/출고완료</b> 건에서 가능합니다.
+											<br>
+											※ <b>배송완료 처리는 직배송/현장배송 + 생산완료 상태</b>에서만 가능합니다.
 											<br>
 											※ 배송완료 건과 기타 배송수단(택배/화물/방문 등)은 상세확인만 가능하며 실제 처리는 출고팀 기준으로 진행됩니다.
 											<br>
@@ -139,7 +146,8 @@
 											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
 											         adminMemoText=${o != null and o.adminMemo != null and !#strings.isEmpty(#strings.trim(o.adminMemo)) ? #strings.trim(o.adminMemo) : '-'},
 											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
-												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
+												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)},
+											         canCompleteDelivery=${o != null and o.status != null and o.status.name() == 'PRODUCTION_DONE'}"
 												th:attr="
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
@@ -174,9 +182,12 @@
 															<span class="badge bg-primary-subtle text-primary"
 																th:text="${!#strings.isEmpty(methodName) ? methodName : '배송수단 미지정'}"></span>
 
-															<small class="text-warning">
-																(순서변경 / 업체별정렬 / 배송완료 / 담당자변경 가능)
-															</small>
+															<small class="text-warning" th:if="${canCompleteDelivery}">
+                                                                    (순서변경 / 업체별정렬 / 배송완료 / 담당자변경 가능)
+                                                                </small>
+                                                                <small class="text-muted" th:unless="${canCompleteDelivery}">
+                                                                    (순서변경 / 업체별정렬 / 담당자변경 가능 · 배송완료는 생산완료 상태만 가능)
+                                                                </small>
 														</div>
 
 														<div class="delivery-list-added-line">
@@ -232,14 +243,21 @@
 															</div>
 
 															<div class="action-btn-group delivery-list-added-action">
-														<button type="button"
-															class="action-btn btn-complete delivery-list-added-open-complete-modal"
-															th:attr="data-order-id=${o.id}">
-															<span class="delivery-list-added-btn-text">배송완료</span>
-															<span class="delivery-list-added-btn-icon"
-																aria-hidden="true">✓</span>
-														</button>
-													</div>
+                                                            <button type="button"
+                                                                th:if="${canCompleteDelivery}"
+                                                                class="action-btn btn-complete delivery-list-added-open-complete-modal"
+                                                                th:attr="data-order-id=${o.id}">
+                                                                <span class="delivery-list-added-btn-text">배송완료</span>
+                                                                <span class="delivery-list-added-btn-icon" aria-hidden="true">✓</span>
+                                                            </button>
+                                                            <button type="button"
+                                                                th:unless="${canCompleteDelivery}"
+                                                                class="action-btn" disabled
+                                                                title="생산완료 상태의 주문만 배송완료 처리할 수 있습니다.">
+                                                                <span class="delivery-list-added-btn-text">완료 불가</span>
+                                                                <span class="delivery-list-added-btn-icon" aria-hidden="true">-</span>
+                                                            </button>
+                                                        </div>
 
 												</div>
 											</div>
@@ -502,6 +520,12 @@
 		</div>
 
 		<input type="hidden" id="deliveryHandlerId" th:value="${deliveryHandlerId}">
+
+		<form id="delivery-list-added-print-form" method="post"
+			th:action="@{/team/deliveryPrint}" target="_blank" class="d-none">
+			<input type="hidden" th:if="${_csrf != null}"
+				th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+		</form>
 	</div>
 
 	<!-- 배송완료/배송상세 모달 -->
@@ -606,7 +630,8 @@
 
 							<div class="delivery-list-added-thumb-list" id="delivery-list-added-thumb-list"></div>
 							<div class="text-muted small mt-2">
-								※ 직배송/현장배송의 생산완료 또는 출고완료 상태만 배송완료 처리할 수 있습니다.
+								※ 직배송/현장배송의 <b>생산완료 상태</b>만 배송완료 처리할 수 있습니다.<br>
+								※ 동일주소 일괄완료 시 선택한 모든 이미지가 완료 대상 주문 각각에 동일하게 저장됩니다.
 							</div>
 						</div>
 
@@ -674,6 +699,7 @@
 
 	<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryList.added.css">
 	<script src="/administration/assets/team/delivery/deliveryList.added.js"></script>
+	<script src="/administration/assets/team/delivery/deliveryList.print.js"></script>
 
 </body>
 

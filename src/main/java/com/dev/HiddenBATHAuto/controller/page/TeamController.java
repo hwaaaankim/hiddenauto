@@ -77,7 +77,7 @@ import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
-import com.dev.HiddenBATHAuto.service.order.OrderService;
+import com.dev.HiddenBATHAuto.service.order.DeliveryCompletionService;
 import com.dev.HiddenBATHAuto.service.production.MaterialCuttingService;
 import com.dev.HiddenBATHAuto.service.production.ProductionListExcelService;
 import com.dev.HiddenBATHAuto.service.team.TeamTaskService;
@@ -105,7 +105,7 @@ public class TeamController {
 	private final AsTaskService asTaskService;
 	private final AsImageRepository asImageRepository;
 	private final ProvinceRepository provinceRepository;
-	private final OrderService orderService;
+	private final DeliveryCompletionService deliveryCompletionService;
 	private final DeliveryOrderSummaryService deliveryOrderSummaryService;
 	private final DeliveryExcelService deliveryExcelService;
 	private final ProductionListExcelService productionListExcelService;
@@ -872,13 +872,16 @@ public class TeamController {
 		}
 
 		if (preferredDate == null) {
-			preferredDate = LocalDate.now().plusDays(1);
+			preferredDate = LocalDate.now();
 		}
 
 		/*
-		 * 배송팀 리스트 허용 상태 - PRODUCTION_DONE / DISPATCH_DONE: 직배송/현장배송이면 상단 "직배송 및 현장배송"
-		 * 영역에서 순서변경/업체별정렬/배송완료/담당자변경 가능 - DELIVERY_DONE: 직배송/현장배송이면 중간 "배송완료" 영역에서
-		 * 상세확인만 가능 - CONFIRMED 또는 직배송/현장배송이 아닌 배송수단: 하단 "기타" 영역에서 상세확인만 가능
+		 * 배송팀 리스트 허용 상태
+		 * - PRODUCTION_DONE / DISPATCH_DONE: 직배송/현장배송이면 상단 영역에 표시
+		 * - 순서변경/업체별정렬/담당자변경은 두 상태 모두 가능
+		 * - 배송완료 처리는 PRODUCTION_DONE 상태만 가능
+		 * - DELIVERY_DONE: 중간 배송완료 영역에서 상세확인만 가능
+		 * - CONFIRMED 또는 직배송/현장배송이 아닌 배송수단: 기타 영역에서 상세확인만 가능
 		 */
 		List<OrderStatus> availableDeliveryStatuses = List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE,
 				OrderStatus.DISPATCH_DONE, OrderStatus.DELIVERY_DONE);
@@ -1037,7 +1040,7 @@ public class TeamController {
 				throw new IllegalStateException("배송팀은 배송완료 처리만 할 수 있습니다.");
 			}
 
-			// 직배송/현장배송 + 생산완료/출고완료 + 현재 로그인 배송담당자 건만 허용
+			// 직배송/현장배송 + 생산완료(PRODUCTION_DONE) + 현재 로그인 배송담당자 건만 허용
 			Order order = deliveryOrderIndexService.getSingleCompletableOrder(member, orderId);
 
 			List<MultipartFile> validFiles = filterValidImageFiles(files);
@@ -1046,9 +1049,7 @@ public class TeamController {
 				throw new IllegalStateException("배송완료 이미지는 1장 이상 필요합니다.");
 			}
 
-			orderService.updateDeliveryStatusAndImages(order.getId(), OrderStatus.DELIVERY_DONE.name(), validFiles);
-
-			deliveryOrderIndexService.reclassifyIndex(order.getId());
+			deliveryCompletionService.completeSingle(order.getId(), validFiles);
 
 			if (fetchRequest) {
 				Map<String, Object> body = new HashMap<>();
@@ -1115,16 +1116,14 @@ public class TeamController {
 				throw new IllegalStateException("동일주소 배송완료 이미지는 1장 이상 필요합니다.");
 			}
 
-			List<Long> completedOrderIds = new ArrayList<>();
+			List<Long> targetOrderIds = targetOrders.stream()
+					.map(Order::getId)
+					.filter(Objects::nonNull)
+					.distinct()
+					.collect(Collectors.toList());
 
-			for (Order targetOrder : targetOrders) {
-				orderService.updateDeliveryStatusAndImages(targetOrder.getId(), OrderStatus.DELIVERY_DONE.name(),
-						validFiles);
-
-				deliveryOrderIndexService.reclassifyIndex(targetOrder.getId());
-
-				completedOrderIds.add(targetOrder.getId());
-			}
+			List<Long> completedOrderIds = deliveryCompletionService
+					.completeSameAddress(targetOrderIds, validFiles);
 
 			Map<String, Object> body = new HashMap<>();
 			body.put("success", true);

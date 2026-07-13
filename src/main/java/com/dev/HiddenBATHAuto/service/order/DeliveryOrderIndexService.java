@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -25,6 +24,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 
 import lombok.RequiredArgsConstructor;
 
@@ -52,7 +52,8 @@ public class DeliveryOrderIndexService {
 
     /*
      * order_index range 분리 기준입니다.
-     * - 1 ~ 99,999         : 직배송/현장배송 + 생산완료/출고완료. 순서변경/업체별정렬/배송완료/담당자변경 가능
+     * - 1 ~ 99,999         : 직배송/현장배송 + 생산완료/출고완료. 순서변경/업체별정렬/담당자변경 가능
+     *                         배송완료 처리는 이 중 PRODUCTION_DONE 상태만 가능
      * - 100,000 ~ 999,999  : 직배송/현장배송 + 배송완료. 상세만 가능
      * - 1,000,000 이상     : 그 외 배송수단 또는 배송팀 조작 불가 상태. 상세만 가능
      *
@@ -130,6 +131,20 @@ public class DeliveryOrderIndexService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다. orderId=" + orderId));
 
         ensureIndex(order);
+    }
+
+    /**
+     * 동일주소 일괄완료 후 여러 주문의 index section을 한 트랜잭션에서 재분류합니다.
+     */
+    public void reclassifyIndexes(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            return;
+        }
+
+        orderIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(this::reclassifyIndex);
     }
 
     /**
@@ -394,8 +409,8 @@ public class DeliveryOrderIndexService {
     }
 
     /**
-     * 동일 업체 + 동일 주소 + 동일 배송일 기준 배송완료 대상 조회.
-     * 배송완료 대상은 직배송/현장배송 + 생산완료/출고완료만 허용합니다.
+     * 동일 업체 + 동일 주소 + 동일 배송수단 + 동일 배송일 기준 배송완료 대상 조회.
+     * 배송완료 대상은 직배송/현장배송 + 생산완료(PRODUCTION_DONE)만 허용합니다.
      */
     @Transactional(readOnly = true)
     public List<Order> findSameCompanySameAddressSameDeliveryDateCompletableOrders(
@@ -436,6 +451,12 @@ public class DeliveryOrderIndexService {
             throw new IllegalStateException("선택 주문의 주소 정보를 확인할 수 없습니다.");
         }
 
+        String sourceDeliveryMethodKey = resolveDeliveryMethodKey(sourceOrder);
+
+        if (sourceDeliveryMethodKey.isBlank()) {
+            throw new IllegalStateException("선택 주문의 배송수단 정보를 확인할 수 없습니다.");
+        }
+
         return deliveryOrderIndexRepository.findAllByHandlerAndDateForTaskGrouping(
                         loginMember.getId(),
                         sourceDeliveryDate
@@ -445,6 +466,7 @@ public class DeliveryOrderIndexService {
                 .filter(x -> isCompletableByDeliveryTeam(x.getOrder()))
                 .filter(x -> sourceCompanyId.equals(resolveCompanyId(x.getOrder())))
                 .filter(x -> sourceAddressKey.equals(buildAddressKey(x.getOrder())))
+                .filter(x -> sourceDeliveryMethodKey.equals(resolveDeliveryMethodKey(x.getOrder())))
                 .sorted(Comparator.comparingInt(DeliveryOrderIndex::getOrderIndex))
                 .map(DeliveryOrderIndex::getOrder)
                 .collect(Collectors.toList());
@@ -643,10 +665,13 @@ public class DeliveryOrderIndexService {
     }
 
     /**
-     * 배송팀에서 실제 배송완료 처리 가능한 주문은 직배송/현장배송 + 생산완료/출고완료뿐입니다.
+     * 배송팀에서 실제 배송완료 처리 가능한 주문은 직배송/현장배송 + 생산완료(PRODUCTION_DONE)뿐입니다.
+     * DISPATCH_DONE을 포함한 다른 상태는 목록에 보이더라도 배송완료 처리할 수 없습니다.
      */
     public boolean isCompletableByDeliveryTeam(Order order) {
-        return isActionablePendingDeliveryOrder(order);
+        return order != null
+                && isActionableDeliveryMethod(order)
+                && order.getStatus() == OrderStatus.PRODUCTION_DONE;
     }
 
     private List<DeliveryOrderIndex> getVisibleIndexesForHandlerAndDate(Long handlerId, LocalDate date) {
@@ -871,7 +896,11 @@ public class DeliveryOrderIndexService {
 
     private void validateCompletableStatus(Order order) {
         if (!isCompletableByDeliveryTeam(order)) {
-            throw new IllegalStateException("직배송 또는 현장배송의 생산완료/출고완료 주문만 배송완료 처리할 수 있습니다.");
+            throw new IllegalStateException(
+                    "직배송 또는 현장배송의 생산완료 주문만 배송완료 처리할 수 있습니다. "
+                            + "현재 상태="
+                            + (order != null && order.getStatus() != null ? order.getStatus().getLabel() : "미확인")
+            );
         }
     }
 
@@ -880,29 +909,42 @@ public class DeliveryOrderIndexService {
             return "";
         }
 
-        /*
-         * 현장배송일 때는 실제 배송지가 site_* 주소입니다.
-         * 단, 과거 데이터나 미입력 데이터 보호를 위해 siteRoadAddress가 없으면 기존 배송주소로 fallback합니다.
-         */
-        if (isSiteDeliveryOrder(order) && !safeText(order.getSiteRoadAddress()).isBlank()) {
-            return String.join("|",
-                    normalizeKey(order.getSiteZipCode()),
-                    normalizeKey(order.getSiteDoName()),
-                    normalizeKey(order.getSiteSiName()),
-                    normalizeKey(order.getSiteGuName()),
-                    normalizeKey(order.getSiteRoadAddress()),
-                    normalizeKey(order.getSiteDetailAddress())
-            );
+        boolean useSiteAddress = isSiteDeliveryOrder(order)
+                && DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
+                        order.getSiteDoName(),
+                        order.getSiteSiName(),
+                        order.getSiteGuName(),
+                        order.getSiteRoadAddress(),
+                        order.getSiteDetailAddress()
+                );
+
+        if (useSiteAddress) {
+            return DeliveryAddressNormalizationUtil.build(
+                    order.getSiteZipCode(),
+                    order.getSiteDoName(),
+                    order.getSiteSiName(),
+                    order.getSiteGuName(),
+                    order.getSiteRoadAddress(),
+                    order.getSiteDetailAddress()
+            ).key();
         }
 
-        return String.join("|",
-                normalizeKey(order.getZipCode()),
-                normalizeKey(order.getDoName()),
-                normalizeKey(order.getSiName()),
-                normalizeKey(order.getGuName()),
-                normalizeKey(order.getRoadAddress()),
-                normalizeKey(order.getDetailAddress())
-        );
+        return DeliveryAddressNormalizationUtil.build(
+                order.getZipCode(),
+                order.getDoName(),
+                order.getSiName(),
+                order.getGuName(),
+                order.getRoadAddress(),
+                order.getDetailAddress()
+        ).key();
+    }
+
+    private String resolveDeliveryMethodKey(Order order) {
+        if (order == null || order.getDeliveryMethod() == null) {
+            return "";
+        }
+
+        return normalizeMethodName(order.getDeliveryMethod().getMethodName());
     }
 
     private boolean hasDeliveryMethodName(Order order, String expectedMethodName) {
@@ -923,11 +965,6 @@ public class DeliveryOrderIndexService {
                 .trim();
     }
 
-    private String normalizeKey(String value) {
-        return safeText(value)
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("\\s+", "");
-    }
 
     private String safeText(String value) {
         return value == null ? "" : value.trim();

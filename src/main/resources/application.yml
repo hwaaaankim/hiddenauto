@@ -60,6 +60,11 @@ app:
       strict: true
       allow-duplicates: false
       request-timeout-seconds: 10
+      
+security:
+  remember-me:
+    key: hiddenremember
+    secure-cookie: false
 
 logging:
   config: classpath:logback-spring.xml

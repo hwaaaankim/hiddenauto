@@ -1,0 +1,460 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content delivery-route-page"
+             id="delivery-route-page"
+             th:attr="data-handler-id=${routePage.handlerId},data-delivery-date=${selectedDate}">
+            <div class="container-fluid">
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-title-box d-sm-flex align-items-center justify-content-between gap-3">
+                            <div>
+                                <h4 class="mb-1">업체별 오늘 배송</h4>
+                                <p class="text-muted mb-0">
+                                    업체명·동일 배송지·동일 배송수단 기준으로 주문을 묶어 확인합니다.
+                                </p>
+                            </div>
+                            <div class="page-title-right">
+                                <ol class="breadcrumb m-0">
+                                    <li class="breadcrumb-item">팀별업무관리</li>
+                                    <li class="breadcrumb-item">배송팀</li>
+                                    <li class="breadcrumb-item active">업체별 배송</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card delivery-route-filter-card">
+                    <div class="card-body">
+                        <div class="delivery-route-date-nav">
+                            <a class="btn btn-outline-secondary delivery-route-date-step"
+                               th:href="@{/team/deliveryRoute(deliveryDate=${previousDate})}"
+                               aria-label="이전 날짜">
+                                <i class="ri-arrow-left-s-line"></i>
+                            </a>
+
+                            <form class="delivery-route-date-form" method="get" th:action="@{/team/deliveryRoute}">
+                                <div class="delivery-route-date-field">
+                                    <label for="delivery-route-date" class="form-label">배송일</label>
+                                    <input type="date" class="form-control" id="delivery-route-date"
+                                           name="deliveryDate" th:value="${selectedDate}" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="ri-search-line me-1"></i>조회
+                                </button>
+                            </form>
+
+                            <a class="btn btn-outline-primary delivery-route-today-btn"
+                               th:classappend="${isToday} ? ' active' : ''"
+                               th:href="@{/team/deliveryRoute(deliveryDate=${today})}">
+                                오늘
+                            </a>
+
+                            <a class="btn btn-outline-secondary delivery-route-date-step"
+                               th:href="@{/team/deliveryRoute(deliveryDate=${nextDate})}"
+                               aria-label="다음 날짜">
+                                <i class="ri-arrow-right-s-line"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="delivery-route-summary-grid">
+                    <div class="delivery-route-summary-card">
+                        <span class="delivery-route-summary-label">조회일</span>
+                        <strong th:text="${selectedDate}">2026-07-13</strong>
+                    </div>
+                    <div class="delivery-route-summary-card">
+                        <span class="delivery-route-summary-label">담당자</span>
+                        <strong th:text="${routePage.handlerName}">배송담당자</strong>
+                    </div>
+                    <div class="delivery-route-summary-card">
+                        <span class="delivery-route-summary-label">방문 묶음</span>
+                        <strong><span th:text="${routePage.totalGroupCount}">0</span>곳</strong>
+                    </div>
+                    <div class="delivery-route-summary-card">
+                        <span class="delivery-route-summary-label">주문</span>
+                        <strong><span th:text="${routePage.totalOrderCount}">0</span>건</strong>
+                    </div>
+                    <div class="delivery-route-summary-card">
+                        <span class="delivery-route-summary-label">배송완료</span>
+                        <strong><span th:text="${routePage.deliveryDoneCount}">0</span>건</strong>
+                    </div>
+                </div>
+
+                <div class="delivery-route-toolbar">
+                    <div class="delivery-route-toolbar-copy">
+                        <strong>업체명 - 동일배송지 - 동일배송수단</strong>
+                        <span>카드를 열어 생산완료 상태의 주문을 선택한 뒤 같은 묶음 단위로 배송완료 처리할 수 있습니다.</span>
+                    </div>
+                    <div class="delivery-route-toolbar-actions">
+                        <a class="btn btn-sm btn-outline-secondary"
+                           th:href="@{/team/deliveryList(preferredDate=${selectedDate})}">
+                            기존 배송리스트
+                        </a>
+                    </div>
+                </div>
+
+                <section class="delivery-route-section" id="delivery-route-direct-section">
+                    <div class="delivery-route-section-heading">
+                        <div>
+                            <span class="delivery-route-section-kicker">DIRECT / SITE</span>
+                            <h5>직배송 및 현장배송</h5>
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary">
+                            <span th:text="${routePage.directGroupCount}">0</span>곳 ·
+                            <span th:text="${routePage.directOrderCount}">0</span>건
+                        </span>
+                    </div>
+
+                    <div class="delivery-route-empty" th:if="${routePage.directGroups.isEmpty()}">
+                        <i class="ri-truck-line"></i>
+                        <strong>해당 날짜의 직배송/현장배송 일정이 없습니다.</strong>
+                    </div>
+
+                    <div class="delivery-route-group-list" th:unless="${routePage.directGroups.isEmpty()}">
+                        <article class="delivery-route-group"
+                                 th:each="group : ${routePage.directGroups}"
+                                 th:attr="data-group-id=${group.domId},data-order-count=${group.orderCount},data-completable-count=${group.completableOrderCount}">
+                            <button type="button" class="delivery-route-group-toggle"
+                                    data-delivery-route-toggle
+                                    aria-expanded="false"
+                                    th:attr="aria-controls=${group.domId}">
+                                <span class="delivery-route-sequence" th:text="${group.sequence}">1</span>
+                                <span class="delivery-route-group-main">
+                                    <span class="delivery-route-company" th:text="${group.companyName}">업체명</span>
+                                    <span class="delivery-route-address" th:text="${group.address}">동일배송지</span>
+                                    <span class="delivery-route-contact" th:if="${group.primaryContact != '-'}">
+                                        <i class="ri-phone-line"></i>
+                                        <span th:text="${group.primaryContact}">010-0000-0000</span>
+                                    </span>
+                                </span>
+                                <span class="delivery-route-group-meta">
+                                    <span class="badge bg-primary-subtle text-primary"
+                                          th:text="${group.deliveryMethodName}">직배송</span>
+                                    <span class="badge bg-light text-dark">
+                                        주문 <b th:text="${group.orderCount}">0</b>건
+                                    </span>
+                                    <span class="badge bg-light text-dark">
+                                        수량 <b th:text="${group.totalQuantity}">0</b>
+                                    </span>
+                                    <span class="delivery-route-selection-progress"
+                                          th:attr="data-progress-for=${group.domId}">선택 0/<span th:text="${group.completableOrderCount}">0</span></span>
+                                </span>
+                                <span class="delivery-route-plus" aria-hidden="true">
+                                    <i class="ri-add-line"></i>
+                                </span>
+                            </button>
+
+                            <div class="delivery-route-group-body" th:id="${group.domId}" hidden>
+                                <div class="delivery-route-bulk-bar">
+                                    <label class="delivery-route-select-all-label"
+                                           th:classappend="${group.completableOrderCount == 0} ? ' is-disabled' : ''">
+                                        <input type="checkbox"
+                                               class="form-check-input delivery-route-group-select-all"
+                                               th:disabled="${group.completableOrderCount == 0}"
+                                               th:attr="data-group-id=${group.domId}">
+                                        <span>
+                                            <strong>완료 대상 전체 선택</strong>
+                                            <small>생산완료 처리 가능 <b th:text="${group.completableOrderCount}">0</b>건</small>
+                                        </span>
+                                    </label>
+
+                                    <button type="button"
+                                            class="btn btn-success delivery-route-complete-button"
+                                            data-delivery-route-complete-button
+                                            disabled
+                                            th:attr="data-group-id=${group.domId}">
+                                        <i class="ri-camera-line me-1"></i>
+                                        배송완료처리
+                                        <span class="badge bg-white text-success ms-1"
+                                              data-delivery-route-selected-count>0</span>
+                                    </button>
+                                </div>
+
+                                <div class="delivery-route-group-body-head">
+                                    <span>최초 배송순서 <b th:text="${group.firstOrderIndex}">1</b></span>
+                                    <span>배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b></span>
+                                </div>
+
+                                <div class="delivery-route-order-list">
+                                    <article class="delivery-route-order-card"
+                                             th:each="order : ${group.orders}"
+                                             th:classappend="${order.deliveryDone} ? ' is-delivery-done' : (${!order.completable} ? ' is-not-completable' : '')"
+                                             th:attr="data-order-id=${order.orderId},data-completable=${order.completable}">
+                                        <div class="delivery-route-order-top">
+                                            <label class="delivery-route-check-label"
+                                                   th:classappend="${!order.completable} ? ' is-disabled' : ''">
+                                                <input type="checkbox"
+                                                       class="form-check-input delivery-route-complete-check"
+                                                       th:disabled="${!order.completable}"
+                                                       th:attr="data-order-id=${order.orderId},data-group-id=${group.domId}">
+                                                <span th:text="${order.deliveryDone} ? '배송완료' : (${order.completable} ? '완료 선택' : '처리 불가')">완료 선택</span>
+                                            </label>
+                                            <div class="delivery-route-order-badges">
+                                                <span class="badge bg-primary-subtle text-primary"
+                                                      th:text="${order.deliveryMethodName}">직배송</span>
+                                                <span class="badge"
+                                                      th:classappend="${order.deliveryDone} ? ' bg-success' : (${order.status == 'DISPATCH_DONE'} ? ' bg-warning text-dark' : (${order.completable} ? ' bg-info' : ' bg-secondary'))"
+                                                      th:text="${order.statusLabel}">생산완료</span>
+                                            </div>
+                                            <span class="delivery-route-order-number">
+                                                주문 #<b th:text="${order.orderId}">1</b>
+                                                <small>순서 <span th:text="${order.orderIndex}">1</span></small>
+                                            </span>
+                                        </div>
+
+                                        <div class="delivery-route-product-grid">
+                                            <div><span>카테고리</span><strong th:text="${order.category}">-</strong></div>
+                                            <div class="delivery-route-product-name"><span>제품명</span><strong th:text="${order.productName}">-</strong></div>
+                                            <div><span>사이즈</span><strong th:text="${order.size}">-</strong></div>
+                                            <div><span>색상</span><strong th:text="${order.color}">-</strong></div>
+                                            <div><span>수량</span><strong th:text="${order.quantityText}">-</strong></div>
+                                        </div>
+
+                                        <div class="delivery-route-order-info">
+                                            <div><span>주문자</span><strong th:text="${order.ordererName}">-</strong></div>
+                                            <div>
+                                                <span>연락처</span>
+                                                <a th:if="${order.ordererPhone != '-'}" th:href="|tel:${order.ordererPhone}|"
+                                                   th:text="${order.ordererPhone}">-</a>
+                                                <strong th:if="${order.ordererPhone == '-'}">-</strong>
+                                            </div>
+                                            <div class="delivery-route-order-info-wide"><span>배송지</span><strong th:text="${order.address}">-</strong></div>
+                                        </div>
+
+                                        <div class="delivery-route-memo-grid">
+                                            <div><span>관리자 메모</span><p th:text="${order.adminMemo}">-</p></div>
+                                            <div><span>발주 메모</span><p th:text="${order.orderComment}">-</p></div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="delivery-route-section delivery-route-section-freight" id="delivery-route-freight-section">
+                    <div class="delivery-route-section-heading">
+                        <div>
+                            <span class="delivery-route-section-kicker">FREIGHT</span>
+                            <h5>화물</h5>
+                        </div>
+                        <span class="badge bg-dark-subtle text-dark">
+                            <span th:text="${routePage.freightGroupCount}">0</span>곳 ·
+                            <span th:text="${routePage.freightOrderCount}">0</span>건
+                        </span>
+                    </div>
+
+                    <div class="delivery-route-empty" th:if="${routePage.freightGroups.isEmpty()}">
+                        <i class="ri-truck-fill"></i>
+                        <strong>해당 날짜의 화물 일정이 없습니다.</strong>
+                    </div>
+
+                    <div class="delivery-route-group-list" th:unless="${routePage.freightGroups.isEmpty()}">
+                        <article class="delivery-route-group is-freight"
+                                 th:each="group : ${routePage.freightGroups}"
+                                 th:attr="data-group-id=${group.domId},data-order-count=${group.orderCount},data-completable-count=${group.completableOrderCount}">
+                            <button type="button" class="delivery-route-group-toggle"
+                                    data-delivery-route-toggle
+                                    aria-expanded="false"
+                                    th:attr="aria-controls=${group.domId}">
+                                <span class="delivery-route-sequence" th:text="${group.sequence}">1</span>
+                                <span class="delivery-route-group-main">
+                                    <span class="delivery-route-company" th:text="${group.companyName}">업체명</span>
+                                    <span class="delivery-route-address" th:text="${group.address}">동일배송지</span>
+                                    <span class="delivery-route-contact" th:if="${group.primaryContact != '-'}">
+                                        <i class="ri-phone-line"></i>
+                                        <span th:text="${group.primaryContact}">010-0000-0000</span>
+                                    </span>
+                                </span>
+                                <span class="delivery-route-group-meta">
+                                    <span class="badge bg-dark-subtle text-dark"
+                                          th:text="${group.deliveryMethodName}">화물</span>
+                                    <span class="badge bg-light text-dark">
+                                        주문 <b th:text="${group.orderCount}">0</b>건
+                                    </span>
+                                    <span class="badge bg-light text-dark">
+                                        수량 <b th:text="${group.totalQuantity}">0</b>
+                                    </span>
+                                    <span class="delivery-route-selection-progress"
+                                          th:attr="data-progress-for=${group.domId}">조회 전용</span>
+                                </span>
+                                <span class="delivery-route-plus" aria-hidden="true">
+                                    <i class="ri-add-line"></i>
+                                </span>
+                            </button>
+
+                            <div class="delivery-route-group-body" th:id="${group.domId}" hidden>
+                                <div class="delivery-route-bulk-bar is-readonly">
+                                    <div class="delivery-route-readonly-message">
+                                        <i class="ri-information-line"></i>
+                                        화물 주문은 이 화면에서 조회만 가능하며 배송완료 처리는 할 수 없습니다.
+                                    </div>
+                                    <button type="button" class="btn btn-secondary" disabled>
+                                        배송완료처리
+                                    </button>
+                                </div>
+
+                                <div class="delivery-route-group-body-head">
+                                    <span>최초 배송순서 <b th:text="${group.firstOrderIndex}">999</b></span>
+                                    <span>배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b></span>
+                                </div>
+
+                                <div class="delivery-route-order-list">
+                                    <article class="delivery-route-order-card is-not-completable"
+                                             th:each="order : ${group.orders}"
+                                             th:classappend="${order.deliveryDone} ? ' is-delivery-done' : ''"
+                                             th:attr="data-order-id=${order.orderId}" data-completable="false">
+                                        <div class="delivery-route-order-top">
+                                            <label class="delivery-route-check-label is-disabled">
+                                                <input type="checkbox" class="form-check-input" disabled>
+                                                <span th:text="${order.deliveryDone} ? '배송완료' : '조회 전용'">조회 전용</span>
+                                            </label>
+                                            <div class="delivery-route-order-badges">
+                                                <span class="badge bg-dark-subtle text-dark"
+                                                      th:text="${order.deliveryMethodName}">화물</span>
+                                                <span class="badge"
+                                                      th:classappend="${order.deliveryDone} ? ' bg-success' : ' bg-secondary'"
+                                                      th:text="${order.statusLabel}">생산완료</span>
+                                            </div>
+                                            <span class="delivery-route-order-number">
+                                                주문 #<b th:text="${order.orderId}">1</b>
+                                                <small>순서 <span th:text="${order.orderIndex}">999</span></small>
+                                            </span>
+                                        </div>
+
+                                        <div class="delivery-route-product-grid">
+                                            <div><span>카테고리</span><strong th:text="${order.category}">-</strong></div>
+                                            <div class="delivery-route-product-name"><span>제품명</span><strong th:text="${order.productName}">-</strong></div>
+                                            <div><span>사이즈</span><strong th:text="${order.size}">-</strong></div>
+                                            <div><span>색상</span><strong th:text="${order.color}">-</strong></div>
+                                            <div><span>수량</span><strong th:text="${order.quantityText}">-</strong></div>
+                                        </div>
+
+                                        <div class="delivery-route-order-info">
+                                            <div><span>주문자</span><strong th:text="${order.ordererName}">-</strong></div>
+                                            <div>
+                                                <span>연락처</span>
+                                                <a th:if="${order.ordererPhone != '-'}" th:href="|tel:${order.ordererPhone}|"
+                                                   th:text="${order.ordererPhone}">-</a>
+                                                <strong th:if="${order.ordererPhone == '-'}">-</strong>
+                                            </div>
+                                            <div class="delivery-route-order-info-wide"><span>배송지</span><strong th:text="${order.address}">-</strong></div>
+                                        </div>
+
+                                        <div class="delivery-route-memo-grid">
+                                            <div><span>관리자 메모</span><p th:text="${order.adminMemo}">-</p></div>
+                                            <div><span>발주 메모</span><p th:text="${order.orderComment}">-</p></div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <div class="delivery-route-note">
+                    <i class="ri-information-line"></i>
+                    <span>배송완료 처리는 직배송·현장배송 중 <b>생산완료 상태의 주문만</b> 가능합니다. 생산완료가 아닌 주문은 체크할 수 없으며, 서버에서도 선택 전체를 거부합니다. 선택한 이미지는 체크된 모든 주문에 각각 등록됩니다.</span>
+                </div>
+            </div>
+        </div>
+
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+
+    <form id="delivery-route-complete-form" class="d-none" th:action="@{/team/deliveryRoute/complete}">
+        <input type="hidden" th:if="${_csrf != null}"
+               th:name="${_csrf.parameterName}"
+               th:value="${_csrf.token}"
+               th:attr="data-csrf-header=${_csrf.headerName}">
+    </form>
+</div>
+
+<div class="modal fade" id="delivery-route-complete-modal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg delivery-route-complete-modal-dialog">
+        <div class="modal-content delivery-route-complete-modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1">선택 주문 배송완료 처리</h5>
+                    <p class="text-muted mb-0 small">사진을 여러 장 추가할 수 있으며 같은 이미지가 모든 선택 주문에 등록됩니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="delivery-route-complete-summary">
+                    <div>
+                        <span>선택 주문</span>
+                        <strong><b id="delivery-route-modal-order-count">0</b>건</strong>
+                    </div>
+                    <div>
+                        <span>등록 이미지</span>
+                        <strong><b id="delivery-route-modal-image-count">0</b>장</strong>
+                    </div>
+                </div>
+
+                <div class="delivery-route-selected-order-ids" id="delivery-route-selected-order-ids">-</div>
+
+                <div class="delivery-route-upload-actions">
+                    <button type="button" class="btn btn-outline-primary" id="delivery-route-camera-button">
+                        <i class="ri-camera-line me-1"></i>사진촬영
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="delivery-route-gallery-button">
+                        <i class="ri-image-add-line me-1"></i>갤러리에서 가져오기
+                    </button>
+                </div>
+
+                <input type="file" class="d-none" id="delivery-route-camera-input"
+                       accept="image/*" capture="environment">
+                <input type="file" class="d-none" id="delivery-route-gallery-input"
+                       accept="image/*" multiple>
+
+                <div class="delivery-route-image-empty" id="delivery-route-image-empty">
+                    <i class="ri-image-line"></i>
+                    <strong>등록된 배송완료 이미지가 없습니다.</strong>
+                    <span>사진촬영 또는 갤러리 버튼으로 이미지를 1장 이상 추가해 주세요.</span>
+                </div>
+
+                <div class="delivery-route-image-preview-list" id="delivery-route-image-preview-list"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-success" id="delivery-route-submit-complete" disabled>
+                    <span class="delivery-route-submit-label">배송완료</span>
+                    <span class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button type="button" class="btn btn-primary delivery-route-floating-toggle"
+        id="delivery-route-toggle-all" aria-label="모든 업체 묶음 열기">
+    <i class="ri-expand-up-down-line" aria-hidden="true"></i>
+    <span>전체 열기</span>
+</button>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css">
+<script src="/administration/assets/team/delivery/deliveryRoute.js"></script>
+</body>
+</html>

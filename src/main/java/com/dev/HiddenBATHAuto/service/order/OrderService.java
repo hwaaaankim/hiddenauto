@@ -4,17 +4,24 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,20 +37,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderService {
 
+    private static final String DELIVERY_IMAGE_TYPE = "DELIVERY";
+
     private final OrderRepository orderRepository;
     private final OrderImageRepository orderImageRepository;
 
-    @Value("${spring.upload.path}") // e.g. /home/ec2-user/upload
+    @Value("${spring.upload.path}")
     private String baseUploadPath;
 
     /**
-     * 배송완료 처리 + 배송완료 증빙 이미지 저장
+     * 단건 배송완료 처리입니다.
      *
-     * 규칙:
-     * 1. DELIVERY_DONE 요청만 허용
-     * 2. 현재 주문 상태가 PRODUCTION_DONE 또는 DISPATCH_DONE일 때만 DELIVERY_DONE 가능
-     * 3. 주문 1건당 배송완료 이미지 정확히 1장 필요
-     * 4. 이미지 저장 후 상태 변경
+     * 기존 호출부 호환을 위해 시그니처는 유지합니다. 업로드된 MultipartFile은 즉시 byte[]로
+     * 복사한 뒤 저장하므로 Servlet 임시파일이 이동되거나 소진되는 구현에 의존하지 않습니다.
      */
     @Transactional(rollbackFor = Exception.class)
     public void updateDeliveryStatusAndImages(
@@ -51,69 +57,201 @@ public class OrderService {
             String status,
             List<MultipartFile> files
     ) throws IOException {
-
         if (orderId == null) {
             throw new IllegalArgumentException("주문 ID가 없습니다.");
         }
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
+        completeOrdersWithSharedImages(List.of(orderId), status, files);
+    }
 
+    /**
+     * 동일 배송지 일괄완료용 메서드입니다.
+     *
+     * 중요한 처리 규칙:
+     * 1. 사용자가 올린 MultipartFile은 각 파일당 한 번만 byte[]로 읽습니다.
+     * 2. 같은 이미지 내용은 완료 대상 모든 주문에 각각 독립된 물리 파일로 저장합니다.
+     * 3. 각 주문마다 독립된 OrderImage 행을 생성합니다.
+     * 4. 따라서 한 주문의 이미지를 나중에 삭제해도 다른 주문의 증빙 파일이 같이 사라지지 않습니다.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateDeliveryStatusesAndSharedImages(
+            List<Long> orderIds,
+            String status,
+            List<MultipartFile> files
+    ) throws IOException {
+        completeOrdersWithSharedImages(orderIds, status, files);
+    }
+
+    private void completeOrdersWithSharedImages(
+            List<Long> orderIds,
+            String status,
+            List<MultipartFile> files
+    ) throws IOException {
         OrderStatus requestedStatus = parseRequestedStatus(status);
 
         if (requestedStatus != OrderStatus.DELIVERY_DONE) {
             throw new IllegalStateException("배송팀은 배송완료 상태로만 변경할 수 있습니다.");
         }
 
-        validateCurrentStatusForDeliveryDone(order);
+        List<Long> distinctOrderIds = normalizeOrderIds(orderIds);
+        List<Order> orders = loadOrdersInRequestedOrder(distinctOrderIds);
 
-        List<MultipartFile> validFiles = filterValidImageFiles(files);
+        // 파일 시스템에 손대기 전에 모든 주문 상태를 먼저 검증합니다.
+        for (Order order : orders) {
+            validateCurrentStatusForDeliveryDone(order);
+            resolveRequesterMemberId(order);
+        }
 
-        if (validFiles.size() != 1) {
-            throw new IllegalStateException(
-                    "배송완료 이미지가 정확히 1장 필요합니다. 현재 업로드 이미지 수: " + validFiles.size()
-            );
+        List<DeliveryImagePayload> payloads = readImagePayloads(files);
+
+        if (payloads.isEmpty()) {
+            throw new IllegalStateException("배송완료 이미지가 1장 이상 필요합니다.");
         }
 
         List<Path> savedFilePaths = new ArrayList<>();
+        List<OrderImage> imagesToSave = new ArrayList<>();
+        LocalDateTime completedAt = LocalDateTime.now();
 
         try {
-            MultipartFile file = validFiles.get(0);
+            for (Order order : orders) {
+                for (DeliveryImagePayload payload : payloads) {
+                    SavedDeliveryImage saved = saveIndependentImageFile(order, payload);
+                    savedFilePaths.add(saved.path());
+                    imagesToSave.add(toOrderImage(order, payload, saved, completedAt));
+                }
 
-            Long requesterMemberId = resolveRequesterMemberId(order);
-            String datePath = LocalDate.now().toString(); // yyyy-MM-dd
-            String subPath = "order/order/" + requesterMemberId + "/" + datePath + "/delivery";
+                order.setStatus(OrderStatus.DELIVERY_DONE);
+                order.setUpdatedAt(completedAt);
+            }
 
-            Path saveDir = Paths.get(baseUploadPath, subPath);
-            Files.createDirectories(saveDir);
+            orderImageRepository.saveAll(imagesToSave);
+            orderRepository.saveAll(orders);
 
-            String originalFilename = resolveOriginalFilename(file);
-            String extension = getExtension(originalFilename);
-            String storedName = UUID.randomUUID() + (extension != null ? "." + extension : "");
-
-            Path fullPath = saveDir.resolve(storedName);
-            file.transferTo(fullPath.toFile());
-            savedFilePaths.add(fullPath);
-
-            OrderImage image = new OrderImage();
-            image.setType("DELIVERY");
-            image.setFilename(originalFilename);
-            image.setPath(fullPath.toString());
-            image.setUrl("/upload/" + subPath + "/" + storedName);
-            image.setOrder(order);
-            image.setUploadedAt(LocalDateTime.now());
-
-            orderImageRepository.save(image);
-
-            order.setStatus(OrderStatus.DELIVERY_DONE);
-            order.setUpdatedAt(LocalDateTime.now());
-
-            orderRepository.save(order);
+            /*
+             * 이 메서드가 더 큰 트랜잭션(예: 인덱스 재분류) 안에서 호출된 뒤 나중에 롤백되어도
+             * 이미 생성한 파일이 남지 않도록 트랜잭션 종료 시점 정리를 등록합니다.
+             */
+            registerRollbackFileCleanup(savedFilePaths);
 
         } catch (IOException | RuntimeException e) {
             deleteSavedFilesQuietly(savedFilePaths);
             throw e;
         }
+    }
+
+    private List<Long> normalizeOrderIds(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            throw new IllegalArgumentException("배송완료 처리할 주문이 없습니다.");
+        }
+
+        List<Long> distinct = orderIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
+
+        if (distinct.isEmpty()) {
+            throw new IllegalArgumentException("배송완료 처리할 주문이 없습니다.");
+        }
+
+        return distinct;
+    }
+
+    private List<Order> loadOrdersInRequestedOrder(List<Long> orderIds) {
+        Map<Long, Order> orderMap = new LinkedHashMap<>();
+
+        for (Order order : orderRepository.findAllById(orderIds)) {
+            if (order == null || order.getId() == null) {
+                continue;
+            }
+
+            orderMap.putIfAbsent(order.getId(), order);
+        }
+
+        List<Order> result = new ArrayList<>(orderIds.size());
+
+        for (Long orderId : orderIds) {
+            Order order = orderMap.get(orderId);
+
+            if (order == null) {
+                throw new IllegalArgumentException("해당 주문이 존재하지 않습니다. orderId=" + orderId);
+            }
+
+            result.add(order);
+        }
+
+        return result;
+    }
+
+    private List<DeliveryImagePayload> readImagePayloads(List<MultipartFile> files) throws IOException {
+        List<MultipartFile> validFiles = filterValidImageFiles(files);
+        List<DeliveryImagePayload> payloads = new ArrayList<>(validFiles.size());
+
+        for (MultipartFile file : validFiles) {
+            String originalFilename = resolveOriginalFilename(file);
+            String extension = getExtension(originalFilename);
+            byte[] content = file.getBytes();
+
+            if (content.length == 0) {
+                continue;
+            }
+
+            payloads.add(new DeliveryImagePayload(
+                    originalFilename,
+                    extension,
+                    file.getContentType(),
+                    content
+            ));
+        }
+
+        return payloads;
+    }
+
+    private SavedDeliveryImage saveIndependentImageFile(
+            Order order,
+            DeliveryImagePayload payload
+    ) throws IOException {
+        Long requesterMemberId = resolveRequesterMemberId(order);
+        String datePath = LocalDate.now().toString();
+        String subPath = "order/order/" + requesterMemberId + "/" + datePath + "/delivery";
+
+        Path saveDir = Paths.get(baseUploadPath, subPath).normalize();
+        Files.createDirectories(saveDir);
+
+        String storedName = UUID.randomUUID()
+                + (StringUtils.hasText(payload.extension()) ? "." + payload.extension() : "");
+
+        Path fullPath = saveDir.resolve(storedName).normalize();
+
+        if (!fullPath.startsWith(saveDir)) {
+            throw new IOException("배송완료 이미지 저장 경로가 올바르지 않습니다.");
+        }
+
+        Files.write(
+                fullPath,
+                payload.content(),
+                StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE
+        );
+
+        String url = "/upload/" + subPath.replace('\\', '/') + "/" + storedName;
+        return new SavedDeliveryImage(fullPath, url);
+    }
+
+    private OrderImage toOrderImage(
+            Order order,
+            DeliveryImagePayload payload,
+            SavedDeliveryImage saved,
+            LocalDateTime uploadedAt
+    ) {
+        OrderImage image = new OrderImage();
+        image.setType(DELIVERY_IMAGE_TYPE);
+        image.setFilename(payload.originalFilename());
+        image.setPath(saved.path().toString());
+        image.setUrl(saved.url());
+        image.setOrder(order);
+        image.setUploadedAt(uploadedAt);
+        return image;
     }
 
     private OrderStatus parseRequestedStatus(String status) {
@@ -155,9 +293,11 @@ public class OrderService {
             throw new IllegalStateException("이미 배송완료 처리된 주문입니다.");
         }
 
-        if (currentStatus != OrderStatus.PRODUCTION_DONE
-                && currentStatus != OrderStatus.DISPATCH_DONE) {
-            throw new IllegalStateException("생산완료 또는 출고완료 상태의 주문만 배송완료 처리할 수 있습니다.");
+        if (currentStatus != OrderStatus.PRODUCTION_DONE) {
+            throw new IllegalStateException(
+                    "생산완료 상태의 주문만 배송완료 처리할 수 있습니다. 현재 상태="
+                            + currentStatus.getLabel()
+            );
         }
     }
 
@@ -197,7 +337,27 @@ public class OrderService {
             return "delivery-image";
         }
 
-        return StringUtils.cleanPath(originalFilename);
+        String cleaned = StringUtils.cleanPath(originalFilename);
+        String basename = Paths.get(cleaned).getFileName().toString();
+        return basename.isBlank() ? "delivery-image" : basename;
+    }
+
+    private void registerRollbackFileCleanup(List<Path> paths) {
+        if (paths == null || paths.isEmpty()
+                || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+
+        List<Path> snapshot = List.copyOf(paths);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    deleteSavedFilesQuietly(snapshot);
+                }
+            }
+        });
     }
 
     private void deleteSavedFilesQuietly(List<Path> paths) {
@@ -213,7 +373,7 @@ public class OrderService {
             try {
                 Files.deleteIfExists(path);
             } catch (IOException ignored) {
-                // 파일 정리 실패는 원래 예외를 가리지 않도록 무시합니다.
+                // 파일 정리 실패가 원래 예외를 가리지 않도록 무시합니다.
             }
         }
     }
@@ -229,6 +389,21 @@ public class OrderService {
             return null;
         }
 
-        return filename.substring(idx + 1).toLowerCase(Locale.ROOT);
+        String extension = filename.substring(idx + 1)
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]", "");
+
+        return extension.isBlank() ? null : extension;
+    }
+
+    private record DeliveryImagePayload(
+            String originalFilename,
+            String extension,
+            String contentType,
+            byte[] content
+    ) {
+    }
+
+    private record SavedDeliveryImage(Path path, String url) {
     }
 }
