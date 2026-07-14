@@ -38,14 +38,12 @@ public class AmountOrderOptionParser {
         String series = first(optionMap, "제품시리즈", "시리즈", "제품 시리즈");
 
         /*
-         * 매출전표 품목 매칭의 최우선 원문은 OrderItem.itemName입니다.
-         * 신규 데이터는 AmountItemMaster.itemName과 직접 비교하며,
-         * 기존 데이터처럼 itemName이 비어 있는 경우에만 옵션 JSON 및 productName을 순서대로 사용합니다.
+         * 이 파서는 기존 옵션 기반 매칭 정보만 해석합니다.
+         * OrderItem.itemName은 여기에서 productName으로 섞지 않고,
+         * AmountSalesVoucherExportService가 별도로 읽어 원문 품목명 모드와
+         * 기존 옵션 매칭 모드를 명확하게 분리합니다.
          */
-        String productName = item == null ? "" : item.getItemName();
-        if (!StringUtils.hasText(productName)) {
-            productName = first(optionMap, "제품명", "제품", "품목명", "품목");
-        }
+        String productName = first(optionMap, "제품명", "제품", "품목명", "품목");
         if (!StringUtils.hasText(productName) && item != null) {
             productName = item.getProductName();
         }

@@ -189,8 +189,10 @@ public class AmountSalesVoucherExportService {
         if (order == null) {
             return null;
         }
+        String sourceItemName = resolveOrderItemName(order);
         AmountParsedOrderProduct parsed = optionParser.parse(order);
         AmountItemMatchResult itemMatch = matchItem(
+                sourceItemName,
                 parsed,
                 items,
                 resolveOrderStandard(order),
@@ -526,7 +528,15 @@ public class AmountSalesVoucherExportService {
         return new AmountCustomerMatchResult(best, bestScore, level(bestScore), bestReason);
     }
 
-    private AmountItemMatchResult matchItem(AmountParsedOrderProduct parsed,
+    /**
+     * 품목 매칭 진입점입니다.
+     *
+     * 1) OrderItem.itemName이 실제로 저장되어 있으면 원문 품목명 모드로 매칭합니다.
+     * 2) 값이 없으면 원문 품목명 관련 점수/완전일치 로직을 전혀 사용하지 않고
+     *    기존 옵션(제품명, 시리즈, 색상, 사이즈, 도어 수 등) 기반 매칭으로만 처리합니다.
+     */
+    private AmountItemMatchResult matchItem(String sourceItemName,
+                                            AmountParsedOrderProduct parsed,
                                             List<AmountItemMaster> items,
                                             Boolean orderStandard,
                                             boolean orderMirrorCuttingProduct) {
@@ -534,9 +544,32 @@ public class AmountSalesVoucherExportService {
             return AmountItemMatchResult.empty("품목 마스터가 비어 있습니다.");
         }
 
-        String sourceItemName = parsed == null ? "" : safe(parsed.productName());
+        ItemCandidateContext candidateContext = resolveItemCandidateContext(items, orderStandard);
+        String normalizedSourceItemName = safe(sourceItemName);
+
+        if (StringUtils.hasText(normalizedSourceItemName)) {
+            return matchItemByStoredItemName(
+                    normalizedSourceItemName,
+                    parsed,
+                    candidateContext,
+                    orderStandard,
+                    orderMirrorCuttingProduct
+            );
+        }
+
+        return matchItemByLegacyOptions(
+                parsed,
+                candidateContext,
+                orderStandard,
+                orderMirrorCuttingProduct
+        );
+    }
+
+    private ItemCandidateContext resolveItemCandidateContext(List<AmountItemMaster> items,
+                                                             Boolean orderStandard) {
         List<AmountItemMaster> candidates = items;
         String standardReasonPrefix = "";
+
         if (orderStandard != null) {
             List<AmountItemMaster> filtered = items.stream()
                     .filter(item -> item != null && item.isStandard() == orderStandard.booleanValue())
@@ -552,47 +585,62 @@ public class AmountSalesVoucherExportService {
             }
         }
 
-        if (StringUtils.hasText(sourceItemName)) {
-            List<AmountItemMaster> exactNameMatches = candidates.stream()
-                    .filter(item -> item != null && same(sourceItemName, item.getItemName()))
-                    .toList();
-            if (!exactNameMatches.isEmpty()) {
-                AmountItemMaster exactItem = chooseExactNameMatch(
-                        exactNameMatches, parsed, orderMirrorCuttingProduct);
-                int exactScore = 100;
-                String reason = standardReasonPrefix
-                        + "OrderItem.itemName ↔ AmountItemMaster.itemName 정규화 100% 일치"
-                        + " / 원문품목명=" + sourceItemName;
+        return new ItemCandidateContext(candidates, standardReasonPrefix);
+    }
 
-                if (exactNameMatches.size() > 1) {
-                    reason += " / 동일 품목명 후보 " + exactNameMatches.size()
-                            + "건 중 거울재단 여부·기존 옵션점수로 선택";
-                }
-                if (exactItem != null
-                        && exactItem.isMirrorCuttingProduct() != orderMirrorCuttingProduct) {
-                    reason += " / 거울재단구분 불일치: 주문="
-                            + mirrorCuttingLabel(orderMirrorCuttingProduct)
-                            + ", 품목=" + mirrorCuttingLabel(exactItem.isMirrorCuttingProduct());
-                }
-                if (orderStandard != null && exactItem != null
-                        && exactItem.isStandard() != orderStandard.booleanValue()) {
-                    exactScore = 50;
-                    reason += " / 규격구분 불일치: 주문=" + standardLabel(orderStandard)
-                            + ", 품목=" + standardLabel(exactItem.isStandard());
-                }
+    /**
+     * 신규/보정 데이터용 원문 품목명 매칭 모드입니다.
+     * OrderItem.itemName이 있을 때만 진입합니다.
+     */
+    private AmountItemMatchResult matchItemByStoredItemName(String sourceItemName,
+                                                            AmountParsedOrderProduct parsed,
+                                                            ItemCandidateContext candidateContext,
+                                                            Boolean orderStandard,
+                                                            boolean orderMirrorCuttingProduct) {
+        List<AmountItemMaster> candidates = candidateContext.candidates();
+        String standardReasonPrefix = candidateContext.standardReasonPrefix();
 
-                return new AmountItemMatchResult(
-                        exactItem,
-                        exactScore,
-                        level(exactScore),
-                        reason,
-                        false
-                );
+        List<AmountItemMaster> exactNameMatches = candidates.stream()
+                .filter(item -> item != null && same(sourceItemName, item.getItemName()))
+                .toList();
+        if (!exactNameMatches.isEmpty()) {
+            AmountItemMaster exactItem = chooseExactNameMatch(
+                    exactNameMatches, parsed, orderMirrorCuttingProduct);
+            int exactScore = 100;
+            String reason = standardReasonPrefix
+                    + "원문 품목명 매칭 모드 / "
+                    + "OrderItem.itemName ↔ AmountItemMaster.itemName 정규화 100% 일치"
+                    + " / 원문품목명=" + sourceItemName;
+
+            if (exactNameMatches.size() > 1) {
+                reason += " / 동일 품목명 후보 " + exactNameMatches.size()
+                        + "건 중 거울재단 여부·기존 옵션점수로 선택";
             }
+            if (exactItem != null
+                    && exactItem.isMirrorCuttingProduct() != orderMirrorCuttingProduct) {
+                reason += " / 거울재단구분 불일치: 주문="
+                        + mirrorCuttingLabel(orderMirrorCuttingProduct)
+                        + ", 품목=" + mirrorCuttingLabel(exactItem.isMirrorCuttingProduct());
+            }
+            if (orderStandard != null && exactItem != null
+                    && exactItem.isStandard() != orderStandard.booleanValue()) {
+                exactScore = 50;
+                reason += " / 규격구분 불일치: 주문=" + standardLabel(orderStandard)
+                        + ", 품목=" + standardLabel(exactItem.isStandard());
+            }
+
+            return new AmountItemMatchResult(
+                    exactItem,
+                    exactScore,
+                    level(exactScore),
+                    reason,
+                    false
+            );
         }
 
         List<ScoredItem> scored = candidates.stream()
-                .map(item -> scoreItemCandidate(sourceItemName, parsed, item))
+                .filter(item -> item != null)
+                .map(item -> scoreStoredItemNameCandidate(sourceItemName, parsed, item))
                 .sorted(Comparator.comparingInt(ScoredItem::score).reversed()
                         .thenComparing(Comparator.comparingInt(ScoredItem::nameScore).reversed())
                         .thenComparing(scoredItem -> safe(scoredItem.item().getItemCode())))
@@ -604,7 +652,7 @@ public class AmountSalesVoucherExportService {
         }
 
         boolean aiUsed = false;
-        String reason = standardReasonPrefix + buildItemReason(
+        String reason = standardReasonPrefix + buildStoredItemNameReason(
                 parsed,
                 sourceItemName,
                 best.item(),
@@ -618,6 +666,77 @@ public class AmountSalesVoucherExportService {
         boolean ambiguous = scored.size() > 1
                 && (Math.abs(scored.get(0).score() - scored.get(1).score()) <= 5
                 || Math.abs(scored.get(0).nameScore() - scored.get(1).nameScore()) <= 3);
+        if (finalScore < 97 || ambiguous) {
+            AmountParsedOrderProduct aiParsed = withProductName(parsed, sourceItemName);
+            Optional<OpenAiAmountProductMatchClient.AiProductChoice> aiChoice = aiProductMatchClient.chooseBest(
+                    aiParsed,
+                    scored.stream().map(ScoredItem::item).toList()
+            );
+            if (aiChoice.isPresent()) {
+                OpenAiAmountProductMatchClient.AiProductChoice choice = aiChoice.get();
+                Optional<ScoredItem> selected = scored.stream()
+                        .filter(scoredItem -> same(choice.itemCode(), scoredItem.item().getItemCode())
+                                || same(choice.itemName(), scoredItem.item().getItemName()))
+                        .findFirst();
+                if (selected.isPresent()) {
+                    ScoredItem selectedItem = selected.get();
+                    finalItem = selectedItem.item();
+                    finalScore = Math.max(selectedItem.score(), choice.confidence());
+                    reason = standardReasonPrefix
+                            + "원문 품목명 매칭 모드 / AI선택: " + choice.reason()
+                            + " / 원문품목명=" + sourceItemName
+                            + " / 선택품목명=" + safe(finalItem.getItemName())
+                            + " / 이름점수=" + selectedItem.nameScore()
+                            + " / 옵션점수=" + selectedItem.optionScore();
+                    aiUsed = true;
+                }
+            }
+        }
+
+        return finishItemMatch(
+                finalItem,
+                finalScore,
+                reason,
+                aiUsed,
+                orderStandard,
+                orderMirrorCuttingProduct
+        );
+    }
+
+    /**
+     * 기존 주문 데이터용 옵션 매칭 모드입니다.
+     *
+     * OrderItem.itemName이 없을 때만 진입하며, 원문 품목명 완전일치 및
+     * 품목명 90% 가중치를 사용하지 않습니다. 기존 scoreItem 계산과
+     * 기존 AI 호출 조건(97점 미만 또는 상위 후보 점수차 5점 이하)을 그대로 사용합니다.
+     */
+    private AmountItemMatchResult matchItemByLegacyOptions(AmountParsedOrderProduct parsed,
+                                                            ItemCandidateContext candidateContext,
+                                                            Boolean orderStandard,
+                                                            boolean orderMirrorCuttingProduct) {
+        List<ScoredItem> scored = candidateContext.candidates().stream()
+                .filter(item -> item != null)
+                .map(item -> {
+                    int optionScore = scoreItem(parsed, item);
+                    return new ScoredItem(item, optionScore, 0, optionScore);
+                })
+                .sorted(Comparator.comparingInt(ScoredItem::score).reversed()
+                        .thenComparing(scoredItem -> safe(scoredItem.item().getItemCode())))
+                .limit(25)
+                .toList();
+        ScoredItem best = scored.isEmpty() ? null : scored.get(0);
+        if (best == null) {
+            return AmountItemMatchResult.empty("품목 후보 없음");
+        }
+
+        String standardReasonPrefix = candidateContext.standardReasonPrefix();
+        boolean aiUsed = false;
+        String reason = standardReasonPrefix + buildLegacyItemReason(parsed, best.item(), best.score());
+        int finalScore = best.score();
+        AmountItemMaster finalItem = best.item();
+
+        boolean ambiguous = scored.size() > 1
+                && Math.abs(scored.get(0).score() - scored.get(1).score()) <= 5;
         if (finalScore < 97 || ambiguous) {
             Optional<OpenAiAmountProductMatchClient.AiProductChoice> aiChoice = aiProductMatchClient.chooseBest(
                     parsed,
@@ -634,35 +753,74 @@ public class AmountSalesVoucherExportService {
                     finalItem = selectedItem.item();
                     finalScore = Math.max(selectedItem.score(), choice.confidence());
                     reason = standardReasonPrefix
-                            + "AI선택: " + choice.reason()
-                            + " / 원문품목명=" + sourceItemName
+                            + "기존 옵션 매칭 모드[OrderItem.itemName 없음] / AI선택: " + choice.reason()
+                            + " / 주문옵션=" + (parsed == null ? "" : parsed.displayText())
                             + " / 선택품목명=" + safe(finalItem.getItemName())
-                            + " / 이름점수=" + selectedItem.nameScore()
                             + " / 옵션점수=" + selectedItem.optionScore();
                     aiUsed = true;
                 }
             }
         }
 
+        return finishItemMatch(
+                finalItem,
+                finalScore,
+                reason,
+                aiUsed,
+                orderStandard,
+                orderMirrorCuttingProduct
+        );
+    }
+
+    private AmountItemMatchResult finishItemMatch(AmountItemMaster finalItem,
+                                                  int finalScore,
+                                                  String reason,
+                                                  boolean aiUsed,
+                                                  Boolean orderStandard,
+                                                  boolean orderMirrorCuttingProduct) {
+        String finalReason = safe(reason);
+        int boundedScore = Math.max(0, Math.min(100, finalScore));
+
         if (orderStandard != null && finalItem != null
                 && finalItem.isStandard() != orderStandard.booleanValue()) {
-            finalScore = Math.min(finalScore, 50);
-            reason = reason + " / 규격구분 불일치: 주문=" + standardLabel(orderStandard)
+            boundedScore = Math.min(boundedScore, 50);
+            finalReason = finalReason + " / 규격구분 불일치: 주문=" + standardLabel(orderStandard)
                     + ", 품목=" + standardLabel(finalItem.isStandard());
         }
         if (finalItem != null
                 && finalItem.isMirrorCuttingProduct() != orderMirrorCuttingProduct) {
-            reason = reason + " / 거울재단구분 불일치: 주문="
+            finalReason = finalReason + " / 거울재단구분 불일치: 주문="
                     + mirrorCuttingLabel(orderMirrorCuttingProduct)
                     + ", 품목=" + mirrorCuttingLabel(finalItem.isMirrorCuttingProduct());
         }
 
         return new AmountItemMatchResult(
                 finalItem,
-                Math.max(0, Math.min(100, finalScore)),
-                level(finalScore),
-                reason,
+                boundedScore,
+                level(boundedScore),
+                finalReason,
                 aiUsed
+        );
+    }
+
+    private AmountParsedOrderProduct withProductName(AmountParsedOrderProduct parsed,
+                                                      String productName) {
+        if (parsed == null) {
+            return null;
+        }
+        return new AmountParsedOrderProduct(
+                parsed.orderId(),
+                parsed.category(),
+                parsed.series(),
+                safe(productName),
+                parsed.color(),
+                parsed.sizeText(),
+                parsed.width(),
+                parsed.height(),
+                parsed.depth(),
+                parsed.doorCount(),
+                parsed.unitHint(),
+                parsed.optionMap()
         );
     }
 
@@ -684,14 +842,10 @@ public class AmountSalesVoucherExportService {
                 .orElse(exactNameMatches.get(0));
     }
 
-    private ScoredItem scoreItemCandidate(String sourceItemName,
-                                          AmountParsedOrderProduct parsed,
-                                          AmountItemMaster item) {
+    private ScoredItem scoreStoredItemNameCandidate(String sourceItemName,
+                                                    AmountParsedOrderProduct parsed,
+                                                    AmountItemMaster item) {
         int optionScore = scoreItem(parsed, item);
-        if (!StringUtils.hasText(sourceItemName)) {
-            return new ScoredItem(item, optionScore, 0, optionScore);
-        }
-
         int nameScore = AmountTextNormalizer.similarity100(sourceItemName, item.getItemName());
         int combinedScore = Math.round(nameScore * 0.90f + optionScore * 0.10f);
         return new ScoredItem(
@@ -769,13 +923,13 @@ public class AmountSalesVoucherExportService {
         return Math.max(0, Math.min(100, score));
     }
 
-    private String buildItemReason(AmountParsedOrderProduct parsed,
-                                   String sourceItemName,
-                                   AmountItemMaster item,
-                                   int score,
-                                   int nameScore,
-                                   int optionScore) {
-        return "원문품목명[" + safe(sourceItemName) + "] ↔ 품목["
+    private String buildStoredItemNameReason(AmountParsedOrderProduct parsed,
+                                             String sourceItemName,
+                                             AmountItemMaster item,
+                                             int score,
+                                             int nameScore,
+                                             int optionScore) {
+        return "원문 품목명 매칭 모드 / 원문품목명[" + safe(sourceItemName) + "] ↔ 품목["
                 + value(item, AmountItemMaster::getItemName)
                 + " / 대분류=" + value(item, AmountItemMaster::getCategoryName)
                 + " / 중분류=" + value(item, AmountItemMaster::getMiddleCategoryName)
@@ -786,6 +940,21 @@ public class AmountSalesVoucherExportService {
                 + ", 이름점수=" + nameScore
                 + ", 옵션점수=" + optionScore
                 + ", 주문옵션=" + (parsed == null ? "" : parsed.displayText());
+    }
+
+    private String buildLegacyItemReason(AmountParsedOrderProduct parsed,
+                                         AmountItemMaster item,
+                                         int score) {
+        return "기존 옵션 매칭 모드[OrderItem.itemName 없음] / 주문["
+                + (parsed == null ? "" : parsed.displayText())
+                + "] ↔ 품목["
+                + value(item, AmountItemMaster::getItemName)
+                + " / 대분류=" + value(item, AmountItemMaster::getCategoryName)
+                + " / 중분류=" + value(item, AmountItemMaster::getMiddleCategoryName)
+                + " / 규격구분=" + (item != null ? standardLabel(item.isStandard()) : "")
+                + " / 사이즈=" + value(item, AmountItemMaster::getSpecification)
+                + " / 단위=" + value(item, AmountItemMaster::getUnit)
+                + "], 옵션점수=" + score;
     }
 
     private Money resolveProductMoney(Order order, AmountItemMaster matchedItem, int qty) {
@@ -1159,6 +1328,10 @@ public class AmountSalesVoucherExportService {
         return null;
     }
 
+
+    private String resolveOrderItemName(Order order) {
+        return safe(() -> order.getOrderItem().getItemName());
+    }
 
     private Boolean resolveOrderStandard(Order order) {
         if (order == null) {
@@ -1576,6 +1749,10 @@ public class AmountSalesVoucherExportService {
     }
 
     private record Money(BigDecimal unitPrice, BigDecimal supply, BigDecimal vat, BigDecimal total) {
+    }
+
+    private record ItemCandidateContext(List<AmountItemMaster> candidates,
+                                        String standardReasonPrefix) {
     }
 
     private record ScoredItem(AmountItemMaster item, int score, int nameScore, int optionScore) {

@@ -12,7 +12,7 @@ import lombok.Setter;
 @ConfigurationProperties(prefix = "hiddenbath.rag.openai")
 public class AmountOpenAiProperties {
 
-    private String apiKey;
+    private String apiKey = "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";
     private String baseUrl = "https://api.openai.com";
     private String chatModel = "gpt-5.5";
     private String reasoningEffort = "medium";
