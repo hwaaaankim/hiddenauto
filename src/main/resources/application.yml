@@ -1,3 +1,5 @@
+# application.yml - 프로젝트에 존재
+
 spring:
   profiles:
     active: test

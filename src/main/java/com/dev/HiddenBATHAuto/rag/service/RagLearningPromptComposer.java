@@ -21,7 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * 이 클래스는 최종 판단자가 아닙니다.
  * 파일명, 파서 결과, 엑셀 구조 미리보기, 사용자 설명을 GPT가 읽기 쉬운 감각 입력으로 정리합니다.
- * 최종 의도/저장/교체/질문 여부는 RagLearningCognitiveService가 다시 판단합니다.
+ * 최종 의도/저장/교체/질문 여부는 GPT DB Tool Agent가 다시 판단합니다.
  */
 @Component
 public class RagLearningPromptComposer {
@@ -55,8 +55,9 @@ public class RagLearningPromptComposer {
 
         Map<String, Object> normalized = normalizeResult(topic, userMessage, safeFiles, ai, forceSave);
         normalized.put("normalizedPrompt", buildNormalizedPrompt(topic, userMessage, normalized, safeFiles));
-        normalized.put("enrichedAttachmentText", buildEnrichedAttachmentText(normalized, safeFiles));
-        normalized.put("clarificationAnswer", buildClarificationAnswer(normalized));
+        // 원문 전체와 Java가 조립한 사용자용 질문 문장은 Agent 입력 메타에 포함하지 않습니다.
+        // 원문은 rag_document/rag_chunk staging 후 documentId 기반 도구로 필요한 구간만 GPT가 조회합니다.
+        normalized.put("inputContract", "METADATA_ONLY_DOCUMENT_CONTEXT_V4");
         return normalized;
     }
 
@@ -67,7 +68,7 @@ public class RagLearningPromptComposer {
         String system = """
                 당신은 HiddenBATHAuto RAG 학습 시스템의 감각기관 전처리 AI입니다.
                 사용자의 자연어 지시와 업로드 파일 분석 결과를 중심 판단 AI가 읽기 쉬운 표준 감각 입력으로 정규화합니다.
-                저장/교체/보류의 최종 결정자는 당신이 아니라 다음 단계의 RagLearningCognitiveService입니다.
+                저장/교체/보류의 최종 결정자는 당신이 아니라 다음 단계의 GPT DB Tool Agent입니다.
 
                 절대 규칙:
                 - 사용자가 말하지 않은 시리즈, 품목, 적용 범위, 교체 범위를 추측해서 확정하지 마세요.
@@ -348,40 +349,6 @@ public class RagLearningPromptComposer {
                 sb.append("원문 미리보기:\n").append(RagJsonUtils.truncate(str(f.get("rawTextPreview")), 5000)).append("\n");
             }
         }
-        return sb.toString().trim();
-    }
-
-    private String buildEnrichedAttachmentText(Map<String, Object> normalized, List<Map<String, Object>> fileContexts) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[GPT 감각 전처리 입력]\n");
-        sb.append(str(normalized.get("normalizedPrompt"))).append("\n\n");
-        sb.append("[전처리 JSON]\n");
-        sb.append(RagJsonUtils.pretty(objectMapper, normalized)).append("\n\n");
-        for (Map<String, Object> f : fileContexts) {
-            sb.append("[업로드 파일: ").append(firstText(str(f.get("filename")), str(f.get("originalFilename")), "upload")).append("]\n");
-            sb.append("sourceType: ").append(firstText(str(f.get("sourceType")), "UNKNOWN")).append("\n");
-            if (StringUtils.hasText(str(f.get("rawText")))) {
-                sb.append(RagJsonUtils.truncate(str(f.get("rawText")), 30_000)).append("\n");
-            }
-            if (StringUtils.hasText(str(f.get("summaryText")))) {
-                sb.append("구조화 분석 요약:\n").append(str(f.get("summaryText"))).append("\n");
-            }
-        }
-        return sb.toString().trim();
-    }
-
-    private String buildClarificationAnswer(Map<String, Object> normalized) {
-        if (!RagJsonUtils.boolValue(normalized, "requiresClarification", false)) {
-            return "";
-        }
-        List<Object> questions = RagJsonUtils.childList(normalized, "clarificationQuestions");
-        StringBuilder sb = new StringBuilder();
-        sb.append("업로드 파일을 바로 저장하기에는 부족한 정보가 있어 아직 학습 저장하지 않았습니다.\n");
-        sb.append("아래 항목을 알려주시면, 제가 학습용 표준 프롬프트로 다시 정리해서 저장하겠습니다.\n");
-        for (Object q : questions) {
-            sb.append("- ").append(q).append("\n");
-        }
-        sb.append("\n예시: 이 파일은 하부장 / C시리즈 / C-100 품목의 사이즈 제한표이고, 기존 자료 교체가 아니라 신규 추가야.");
         return sb.toString().trim();
     }
 

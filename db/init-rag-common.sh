@@ -59,9 +59,11 @@ EOSQL
     020_db_tool_agent_patch.sql
     021_agent_scoped_views_patch.sql
     022_agent_v2_semantic_memory_patch.sql
+    023_agent_v3_production_hardening_patch.sql
+    024_agent_v4_gpt_centric_mcp_tools_patch.sql
   )
 
-  echo "========== Apply RAG schema 001~022 to ${db_name} =========="
+  echo "========== Apply RAG schema 001~024 to ${db_name} =========="
   local sql_name sql_file
   for sql_name in "${sql_files[@]}"; do
     sql_file="${RAG_SCHEMA_DIR}/${sql_name}"

@@ -1,3 +1,4 @@
+# application-test.yml - 프로젝트에 존재
 spring:
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
@@ -81,51 +82,57 @@ hiddenbath:
         pool-name: rag-postgres-pool-local-dev
 
     openai:
-      api-key: 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
+      # API Key만 환경변수를 우선 사용합니다.
+      # 로컬에서 직접 입력할 때는 콜론 뒤 플레이스홀더만 실제 키로 교체하십시오.
+      api-key: ${OPENAI_API_KEY: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}
       base-url: https://api.openai.com
-      chat-model: gpt-5.5
-      embedding-model: text-embedding-3-small
+      chat-model: gpt-5.6
+      embedding-model: text-embedding-3-large
       reasoning-effort: medium
       read-timeout-seconds: 180
       retry-count: 1
 
-      # 실제 Responses API function tool 반복 제한
-      agent-max-tool-turns: 20
-
-      # Agent 각 응답의 최대 출력 토큰 수
+      # V4 GPT 중심 Agent
+      agent-capability-version: V4-20260714
+      agent-max-tool-turns: 30
+      agent-no-progress-limit: 3
+      agent-recovery-attempts: 2
+      agent-text-recovery-enabled: true
       agent-max-output-tokens: 16000
+      agent-max-context-chars: 220000
+      agent-recent-message-limit: 12
 
-      # false인 경우 Agent 실패 시 기존 Java 고정 매핑 흐름으로 우회하지 않습니다.
-      agent-legacy-fallback-enabled: false
-
-      # query_database 도구의 기본 조회 행 수
+      # DB Tool/ChangeSet 제한
       agent-default-read-rows: 200
-
-      # query_database 도구가 한 번에 조회할 수 있는 절대 최대 행 수
       agent-hard-max-read-rows: 1000
-
-      # 단일 Agent SELECT 쿼리의 제한 시간
       agent-query-timeout-seconds: 60
-
-      # GPT에 반환할 단일 도구 실행 결과의 최대 문자 수
       agent-max-tool-output-chars: 60000
-
-      # 업로드 파일 내용을 GPT에게 전달할 때 사용할 최대 미리보기 문자 수
       agent-max-file-preview-chars: 40000
-
-      # GPT가 생성할 수 있는 단일 SQL의 최대 문자 수
       agent-max-sql-chars: 50000
-
-      # SQL 파라미터 JSON의 최대 문자 수
       agent-max-params-chars: 100000
-
-      # 하나의 ChangeSet에 포함할 수 있는 최대 변경 항목 수
       agent-max-change-items: 100
-
-      # 단일 INSERT, UPDATE, DELETE 문이 변경할 수 있는 최대 행 수
-      # 초과하면 해당 ChangeSet 트랜잭션 전체를 롤백합니다.
       agent-max-affected-rows-per-statement: 1
 
+      # 8192 embedding context 오류 방지
+      semantic-embedding-input-chars: 4500
+      semantic-embedding-estimated-token-limit: 7000
+      semantic-embedding-dimensions: 1536
+      semantic-worker-enabled: true
+      semantic-worker-delay-ms: 5000
+      semantic-worker-batch-size: 10
+      semantic-worker-max-attempts: 6
+      semantic-worker-lock-timeout-seconds: 300
+      semantic-content-max-chars: 60000
+      semantic-query-embedding-enabled: true
+      semantic-default-search-limit: 15
+      semantic-hard-search-limit: 100
+
+      # 장문 학습 계층형 분할
+      adaptive-chunk-threshold-chars: 1200
+      adaptive-chunk-chars: 2800
+      adaptive-chunk-overlap-chars: 220
+      adaptive-group-size: 4
+      adaptive-max-leaf-chunks: 480
     upload:
       base-dir: ${user.home}/hiddenbath-rag-upload
       asset-sub-dir: rag-assets

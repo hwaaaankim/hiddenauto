@@ -41,9 +41,10 @@ public class OpenAiRagClient {
             throw new IllegalArgumentException("embedding input이 비어 있습니다.");
         }
 
+        String safeInput = prepareEmbeddingInput(input);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", properties.getEmbeddingModel());
-        body.put("input", input);
+        body.put("input", safeInput);
         body.put("encoding_format", "float");
         if (properties.getEmbeddingModel() != null
                 && properties.getEmbeddingModel().startsWith("text-embedding-3-")) {
@@ -61,6 +62,44 @@ public class OpenAiRagClient {
             vector.add(item.asDouble());
         }
         return vector;
+    }
+
+    /**
+     * 모든 임베딩 진입점을 중앙에서 제한합니다. 한국어/JSON/코드 혼합문은 문자당 토큰 수가 커질 수 있으므로
+     * 문자 상한과 보수적 예상 토큰 상한을 동시에 적용하고, 앞/뒤 문맥을 보존합니다.
+     */
+    private String prepareEmbeddingInput(String input) {
+        String normalized = input == null ? "" : input.strip();
+        int charLimit = Math.max(1000, properties.getSemanticEmbeddingInputChars());
+        int tokenLimit = Math.max(1000, properties.getSemanticEmbeddingEstimatedTokenLimit());
+        int estimatedTokens = estimateEmbeddingTokens(normalized);
+        if (normalized.length() <= charLimit && estimatedTokens <= tokenLimit) return normalized;
+
+        double tokenRatio = estimatedTokens <= 0 ? 1.0 : (double) tokenLimit / (double) estimatedTokens;
+        int tokenBasedChars = Math.max(800, (int) Math.floor(normalized.length() * Math.min(1.0, tokenRatio)));
+        int target = Math.max(800, Math.min(charLimit, tokenBasedChars));
+        if (normalized.length() <= target) return normalized;
+        int markerBudget = 80;
+        int contentBudget = Math.max(200, target - markerBudget);
+        int head = (int) Math.floor(contentBudget * 0.72);
+        int tail = contentBudget - head;
+        return normalized.substring(0, head)
+                + "\n...[EMBEDDING_INPUT_TRUNCATED originalChars=" + normalized.length()
+                + ", estimatedTokens=" + estimatedTokens + "]...\n"
+                + normalized.substring(normalized.length() - tail);
+    }
+
+    private int estimateEmbeddingTokens(String text) {
+        if (!StringUtils.hasText(text)) return 0;
+        long weighted = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (Character.isWhitespace(c)) weighted += 1;
+            else if (c <= 0x7F && Character.isLetterOrDigit(c)) weighted += 2;
+            else if (c <= 0x7F) weighted += 3;
+            else weighted += 5;
+        }
+        return (int) Math.ceil(weighted / 4.0);
     }
 
     public String responseText(String systemPrompt, String userPrompt) {
@@ -188,6 +227,7 @@ public class OpenAiRagClient {
                         "content", List.of(Map.of("type", "input_text", "text", userPrompt == null ? "" : userPrompt))
                 )
         ));
+        body.put("max_output_tokens", properties.getAgentMaxOutputTokens());
         if (StringUtils.hasText(properties.getReasoningEffort())) {
             body.put("reasoning", Map.of("effort", properties.getReasoningEffort()));
         }

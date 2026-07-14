@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.rag.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +27,11 @@ public class RagAgentToolExecutionService {
     private final RagAgentObservationService observationService;
     private final RagSemanticMemoryService semanticMemoryService;
     private final RagAgentPricingToolService pricingToolService;
+    private final RagAgentCapabilityToolService capabilityToolService;
+    private final RagAgentKnowledgeToolService knowledgeToolService;
+    private final RagAgentConversationToolService conversationToolService;
+    private final RagAgentImpactToolService impactToolService;
+    private final RagAgentRunAuditToolService runAuditToolService;
     private final RagOpenAiProperties properties;
 
     public RagAgentToolExecutionService(ObjectMapper objectMapper,
@@ -36,6 +42,11 @@ public class RagAgentToolExecutionService {
                                         RagAgentObservationService observationService,
                                         RagSemanticMemoryService semanticMemoryService,
                                         RagAgentPricingToolService pricingToolService,
+                                        RagAgentCapabilityToolService capabilityToolService,
+                                        RagAgentKnowledgeToolService knowledgeToolService,
+                                        RagAgentConversationToolService conversationToolService,
+                                        RagAgentImpactToolService impactToolService,
+                                        RagAgentRunAuditToolService runAuditToolService,
                                         RagOpenAiProperties properties) {
         this.objectMapper = objectMapper;
         this.databaseToolService = databaseToolService;
@@ -45,6 +56,11 @@ public class RagAgentToolExecutionService {
         this.observationService = observationService;
         this.semanticMemoryService = semanticMemoryService;
         this.pricingToolService = pricingToolService;
+        this.capabilityToolService = capabilityToolService;
+        this.knowledgeToolService = knowledgeToolService;
+        this.conversationToolService = conversationToolService;
+        this.impactToolService = impactToolService;
+        this.runAuditToolService = runAuditToolService;
         this.properties = properties;
     }
 
@@ -61,58 +77,84 @@ public class RagAgentToolExecutionService {
         try {
             args = parseArguments(toolCall.argumentsJson());
             String name = toolCall.name();
+            if (!RagAgentToolDefinitionFactory.isAllowedForScope(name, context.sourceScope())) {
+                throw new IllegalArgumentException("현재 " + context.sourceScope() + " 범위에서 허용되지 않은 Agent 도구입니다: " + name);
+            }
             enforcePlanOrder(context, name);
             result = switch (name) {
                 case "submit_request_plan" -> planService.submit(context, args);
+                case "get_agent_capabilities" -> capabilityToolService.capabilities(context, stringList(args.get("categories")));
                 case "get_database_overview" -> databaseToolService.overview(context);
                 case "get_knowledge_inventory" -> semanticMemoryService.inventory(
-                        context,
-                        stringList(args.get("domains")),
-                        bool(args.get("exactCounts"), true),
-                        bool(args.get("includeSamples"), true),
-                        integer(args.get("sampleLimit"), 3));
+                        context, stringList(args.get("domains")), bool(args.get("exactCounts"), true),
+                        bool(args.get("includeSamples"), true), integer(args.get("sampleLimit"), 3));
                 case "search_database_catalog" -> databaseToolService.searchCatalog(
-                        context,
-                        text(args.get("query"), ""),
-                        stringList(args.get("objectTypes")),
+                        context, requiredText(args.get("query"), "query"), stringList(args.get("objectTypes")),
                         integer(args.get("limit"), 50));
                 case "search_semantic_memory" -> semanticMemoryService.search(
-                        context,
-                        text(args.get("query"), ""),
-                        stringList(args.get("domains")),
-                        stringList(args.get("sourceKinds")),
-                        integer(args.get("limit"), properties.getSemanticDefaultSearchLimit()),
-                        decimal(args.get("minimumScore"), BigDecimal.ZERO),
+                        context, requiredText(args.get("query"), "query"), stringList(args.get("domains")),
+                        stringList(args.get("sourceKinds")), integer(args.get("limit"), properties.getSemanticDefaultSearchLimit()),
+                        decimal(args.get("minimumScore"), BigDecimal.ZERO), bool(args.get("includeInactive"), false));
+                case "search_knowledge_sources" -> knowledgeToolService.searchKnowledgeSources(
+                        context, requiredText(args.get("query"), "query"), stringList(args.get("domains")),
+                        stringList(args.get("sourceKinds")), integer(args.get("limit"), 20),
                         bool(args.get("includeInactive"), false));
+                case "get_document_context" -> knowledgeToolService.documentContext(
+                        context, parseUuid(requiredText(args.get("documentId"), "documentId")),
+                        nullableText(args.get("searchText")), integer(args.get("beforeChunks"), 2),
+                        integer(args.get("afterChunks"), 2), integer(args.get("maxCharacters"), 30000));
+                case "resolve_entity_reference" -> knowledgeToolService.resolveEntityReference(
+                        context, requiredText(args.get("expression"), "expression"), nullableText(args.get("entityType")),
+                        integer(args.get("limit"), 15), decimal(args.get("minimumConfidence"), BigDecimal.ZERO));
+                case "get_entity_context_bundle" -> knowledgeToolService.entityContextBundle(
+                        context, nullableText(args.get("entityType")), requiredText(args.get("entityKey"), "entityKey"),
+                        bool(args.get("includeInactive"), false), integer(args.get("limitPerSection"), 30));
+                case "get_effective_rules" -> knowledgeToolService.effectiveRules(
+                        context, nullableText(args.get("entityType")), nullableText(args.get("entityKey")),
+                        parseNullableDate(args.get("effectiveDate")), stringList(args.get("ruleTypes")),
+                        bool(args.get("includeInactive"), false));
+                case "get_order_flow" -> knowledgeToolService.orderFlow(
+                        context, nullableText(args.get("entityType")), nullableText(args.get("entityKey")),
+                        nullableText(args.get("purpose")), bool(args.get("includeInactive"), false));
+                case "validate_order_state" -> knowledgeToolService.validateOrderState(
+                        context, nullableText(args.get("entityType")), nullableText(args.get("entityKey")),
+                        parseJsonObject(requiredText(args.get("orderStateJson"), "orderStateJson"), "orderStateJson"),
+                        parseNullableDate(args.get("effectiveDate")));
+                case "compare_entity_candidates" -> knowledgeToolService.compareCandidates(
+                        context, parseJsonArrayOfObjects(requiredText(args.get("candidateRefsJson"), "candidateRefsJson"), "candidateRefsJson"),
+                        integer(args.get("limitPerSection"), 15));
                 case "describe_table" -> databaseToolService.describeTable(
-                        context,
-                        text(args.get("schemaName"), "public"),
-                        text(args.get("tableName"), ""),
+                        context, text(args.get("schemaName"), "public"), requiredText(args.get("tableName"), "tableName"),
                         integer(args.get("sampleLimit"), 3));
                 case "list_table_relationships" -> databaseToolService.relationships(
-                        context,
-                        text(args.get("schemaName"), "public"),
-                        nullableText(args.get("tableName")));
+                        context, text(args.get("schemaName"), "public"), nullableText(args.get("tableName")));
                 case "get_table_statistics" -> databaseToolService.statistics(
-                        context,
-                        text(args.get("schemaName"), "public"),
-                        text(args.get("tableName"), ""),
+                        context, text(args.get("schemaName"), "public"), requiredText(args.get("tableName"), "tableName"),
                         bool(args.get("exactCount"), false));
                 case "query_database" -> databaseToolService.query(
-                        context,
-                        text(args.get("purpose"), "GPT DB tool query"),
-                        text(args.get("sql"), ""),
-                        text(args.get("paramsJson"), "{}"),
-                        integer(args.get("maxRows"), properties.getAgentDefaultReadRows()),
+                        context, requiredText(args.get("purpose"), "purpose"), requiredText(args.get("sql"), "sql"),
+                        text(args.get("paramsJson"), "{}"), integer(args.get("maxRows"), properties.getAgentDefaultReadRows()),
                         toolCall.callId());
                 case "find_canonical_price_candidates" -> pricingToolService.findCandidates(
-                        context,
-                        text(args.get("query"), ""),
-                        nullableText(args.get("entityType")),
+                        context, requiredText(args.get("query"), "query"), nullableText(args.get("entityType")),
                         integer(args.get("limit"), 15));
                 case "calculate_order_price" -> pricingToolService.calculate(
-                        context,
-                        parseJsonObject(text(args.get("answersJson"), "{}"), "answersJson"));
+                        context, parseJsonObject(requiredText(args.get("answersJson"), "answersJson"), "answersJson"));
+                case "simulate_price_scenarios" -> pricingToolService.simulate(
+                        context, parseJsonArrayOfObjects(requiredText(args.get("scenariosJson"), "scenariosJson"), "scenariosJson"),
+                        bool(args.get("stopOnError"), false));
+                case "preview_change_impact" -> impactToolService.preview(
+                        context, requiredText(args.get("targetTable"), "targetTable"),
+                        parseUuid(requiredText(args.get("targetId"), "targetId")),
+                        requiredText(args.get("operation"), "operation"), integer(args.get("sampleLimit"), 5));
+                case "get_conversation_memory" -> conversationToolService.getMemory(context);
+                case "update_conversation_memory" -> conversationToolService.updateMemory(
+                        context, requiredText(args.get("mode"), "mode"),
+                        parseJsonObject(text(args.get("memoryJson"), "{}"), "memoryJson"),
+                        decimal(args.get("confidence"), new BigDecimal("0.8000")),
+                        requiredText(args.get("reason"), "reason"));
+                case "get_conversation_history" -> conversationToolService.history(
+                        context, integer(args.get("limit"), 20), bool(args.get("includeSystem"), true));
                 case "create_change_set" -> {
                     Map<String, Object> applied = changeSetService.persistAndMaybeApply(
                             context.runId(), context.projectId(), context.versionId(), context.sessionId(),
@@ -120,30 +162,35 @@ public class RagAgentToolExecutionService {
                     changeResult = applied;
                     yield applied;
                 }
-                case "get_change_set" -> changeSetService.detail(parseUuid(text(args.get("changeSetId"), "")));
+                case "get_change_set" -> changeSetService.detailScoped(
+                        parseUuid(requiredText(args.get("changeSetId"), "changeSetId")),
+                        context.projectId(), context.versionId(), context.sessionId());
+                case "get_agent_run_audit" -> runAuditToolService.inspect(
+                        context, parseNullableUuid(args.get("runId")),
+                        bool(args.get("includeToolArguments"), false),
+                        bool(args.get("includeToolResults"), false),
+                        integer(args.get("limit"), 30));
                 case "submit_final_answer" -> {
                     Map<String, Object> normalized = normalizeFinalPayload(args);
                     List<String> missingRequirements = context.runState().validateFinalPayload(normalized);
                     if (missingRequirements.isEmpty()) {
                         terminal = true;
                         finalPayload = normalized;
-                        yield Map.of("accepted", true, "terminal", true);
+                        yield Map.of("accepted", true, "terminal", true, "answerOwner", "GPT");
                     }
                     status = "REJECTED";
                     context.runState().recordFinalRejection(missingRequirements);
-                    Map<String, Object> rejected = new LinkedHashMap<>();
-                    rejected.put("accepted", false);
-                    rejected.put("terminal", false);
-                    rejected.put("missingRequirements", missingRequirements);
-                    rejected.put("nextInstruction", "누락된 근거 도구를 실행하거나, 필요한 정보가 없으면 requiresClarification=true인 확인 질문으로 다시 submit_final_answer를 호출하십시오.");
-                    yield rejected;
+                    yield Map.of(
+                            "accepted", false,
+                            "terminal", false,
+                            "missingRequirements", missingRequirements,
+                            "nextInstruction", "누락된 근거 도구를 실행하거나, 근거가 부족하면 requiresClarification=true인 구체적 확인 질문으로 submit_final_answer를 다시 호출하십시오."
+                    );
                 }
                 default -> throw new IllegalArgumentException("등록되지 않은 Agent 도구입니다: " + name);
             };
 
-            if ("SUCCESS".equals(status)) {
-                context.runState().recordSuccess(toolCall.name(), result);
-            }
+            if ("SUCCESS".equals(status)) context.runState().recordSuccess(toolCall.name(), result);
         } catch (Exception e) {
             status = "FAILED";
             errorMessage = safeError(e);
@@ -152,33 +199,33 @@ public class RagAgentToolExecutionService {
             result.put("success", false);
             result.put("tool", toolCall.name());
             result.put("error", errorMessage);
-            result.put("retryGuidance", "오류 내용을 확인하고 catalog/describe/semantic 도구로 구조와 후보를 다시 확인한 뒤 수정된 인자로 재호출하십시오.");
+            result.put("retryGuidance", "오류에 맞게 인자 또는 조사 순서를 수정해 재호출하십시오. 테이블을 모르면 catalog/describe, 엔티티가 모호하면 resolve_entity_reference를 먼저 사용하십시오.");
         }
 
         long durationMs = (System.nanoTime() - started) / 1_000_000L;
         Map<String, Object> modelOutput = limitForModel(result);
         auditService.log(context, toolCall.callId(), toolCall.name(), args, modelOutput, status, durationMs, errorMessage);
         observationService.record(context, toolCall.callId(), toolCall.name(), status, modelOutput);
-
-        String outputJson = RagJsonUtils.toJson(objectMapper, modelOutput);
-        return new ToolExecutionResult(toolCall.name(), outputJson, modelOutput, terminal, finalPayload, changeResult, status, errorMessage);
+        return new ToolExecutionResult(
+                toolCall.name(), RagJsonUtils.toJson(objectMapper, modelOutput), modelOutput,
+                terminal, finalPayload, changeResult, status, errorMessage);
     }
 
     private void enforcePlanOrder(RagAgentToolContext context, String toolName) {
         if ("submit_request_plan".equals(toolName)) return;
-        if (!context.runState().hasPlan()) {
-            throw new IllegalStateException("첫 도구는 submit_request_plan이어야 합니다.");
-        }
+        if (!context.runState().hasPlan()) throw new IllegalStateException("첫 도구는 submit_request_plan이어야 합니다.");
     }
 
     private Map<String, Object> normalizeFinalPayload(Map<String, Object> args) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        String status = text(args.get("status"), "ERROR");
-        if (!List.of("READY_TO_ANSWER", "NEED_CLARIFICATION", "BLOCKED", "ERROR").contains(status)) {
-            status = "ERROR";
+        String status = requiredText(args.get("status"), "status");
+        if (!List.of("READY_TO_ANSWER", "NEED_CLARIFICATION", "BLOCKED").contains(status)) {
+            throw new IllegalArgumentException("허용되지 않는 최종 status입니다: " + status);
         }
+        String answer = requiredText(args.get("answer"), "answer");
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", status);
-        result.put("answer", text(args.get("answer"), "요청 처리 결과를 생성하지 못했습니다."));
+        result.put("responseClass", requiredText(args.get("responseClass"), "responseClass"));
+        result.put("answer", answer);
         result.put("confidence", decimal(args.get("confidence"), BigDecimal.ZERO));
         result.put("requiresClarification", bool(args.get("requiresClarification"), "NEED_CLARIFICATION".equals(status)));
         result.put("changeSetId", nullableText(args.get("changeSetId")));
@@ -196,52 +243,61 @@ public class RagAgentToolExecutionService {
         limited.put("truncated", true);
         limited.put("originalCharacters", json.length());
         limited.put("outputPreview", json.substring(0, max));
-        limited.put("guidance", "결과가 커서 잘렸습니다. 더 구체적인 WHERE/LIMIT, domain 필터 또는 집계 조회로 다시 호출하십시오.");
+        limited.put("guidance", "결과가 커서 잘렸습니다. 더 구체적인 필터, document context, entity bundle 또는 LIMIT으로 다시 호출하십시오.");
         return limited;
     }
 
-    private Map<String, Object> parseArguments(String json) {
-        if (!StringUtils.hasText(json)) return new LinkedHashMap<>();
-        return parseJsonObject(json, "function arguments");
-    }
+    private Map<String, Object> parseArguments(String json) { return parseJsonObject(text(json, "{}"), "function arguments"); }
 
     private Map<String, Object> parseJsonObject(String json, String label) {
-        if (!StringUtils.hasText(json)) return new LinkedHashMap<>();
-        try {
-            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
-        } catch (Exception e) {
-            throw new IllegalArgumentException(label + " JSON 파싱 실패: " + e.getMessage(), e);
-        }
+        try { return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {}); }
+        catch (Exception e) { throw new IllegalArgumentException(label + " JSON object 파싱 실패: " + e.getMessage(), e); }
+    }
+
+    private List<Map<String, Object>> parseJsonArrayOfObjects(String json, String label) {
+        try { return objectMapper.readValue(json, new TypeReference<List<Map<String, Object>>>() {}); }
+        catch (Exception e) { throw new IllegalArgumentException(label + " JSON array 파싱 실패: " + e.getMessage(), e); }
     }
 
     private List<String> stringList(Object value) {
         if (!(value instanceof List<?> list)) return List.of();
         List<String> result = new ArrayList<>();
-        for (Object item : list) if (item != null) result.add(String.valueOf(item));
+        for (Object item : list) if (item != null && StringUtils.hasText(String.valueOf(item))) result.add(String.valueOf(item).trim());
         return List.copyOf(result);
     }
 
     private List<Map<String, Object>> mapList(Object value) {
         if (!(value instanceof List<?> list)) return List.of();
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Object item : list) {
-            if (item instanceof Map<?, ?> map) {
-                Map<String, Object> copy = new LinkedHashMap<>();
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
-                    if (entry.getKey() != null) copy.put(String.valueOf(entry.getKey()), entry.getValue());
-                }
-                result.add(copy);
-            }
+        for (Object item : list) if (item instanceof Map<?, ?> map) {
+            Map<String, Object> copy = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) if (entry.getKey() != null) copy.put(String.valueOf(entry.getKey()), entry.getValue());
+            result.add(copy);
         }
         return List.copyOf(result);
     }
 
     private UUID parseUuid(String value) {
-        try {
-            return UUID.fromString(value);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("유효한 UUID가 아닙니다: " + value, e);
-        }
+        try { return UUID.fromString(value); }
+        catch (Exception e) { throw new IllegalArgumentException("유효한 UUID가 아닙니다: " + value, e); }
+    }
+
+    private UUID parseNullableUuid(Object value) {
+        String text = nullableText(value);
+        return StringUtils.hasText(text) ? parseUuid(text) : null;
+    }
+
+    private LocalDate parseNullableDate(Object value) {
+        String text = nullableText(value);
+        if (!StringUtils.hasText(text)) return null;
+        try { return LocalDate.parse(text); }
+        catch (Exception e) { throw new IllegalArgumentException("날짜는 YYYY-MM-DD 형식이어야 합니다: " + text, e); }
+    }
+
+    private String requiredText(Object value, String field) {
+        String text = nullableText(value);
+        if (!StringUtils.hasText(text)) throw new IllegalArgumentException(field + " 값이 비어 있습니다.");
+        return text;
     }
 
     private String text(Object value, String fallback) {
@@ -281,14 +337,7 @@ public class RagAgentToolExecutionService {
     }
 
     public record ToolExecutionResult(
-            String toolName,
-            String outputJson,
-            Map<String, Object> modelOutput,
-            boolean terminal,
-            Map<String, Object> finalPayload,
-            Map<String, Object> changeResult,
-            String status,
-            String errorMessage
-    ) {
-    }
+            String toolName, String outputJson, Map<String, Object> modelOutput,
+            boolean terminal, Map<String, Object> finalPayload, Map<String, Object> changeResult,
+            String status, String errorMessage) {}
 }

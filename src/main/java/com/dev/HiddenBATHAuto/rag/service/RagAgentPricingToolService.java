@@ -77,6 +77,47 @@ public class RagAgentPricingToolService {
         return result;
     }
 
+    public Map<String, Object> simulate(RagAgentToolContext context,
+                                        List<Map<String, Object>> scenarios,
+                                        boolean stopOnError) {
+        if (scenarios == null || scenarios.isEmpty()) {
+            throw new IllegalArgumentException("가격 비교 시나리오가 비어 있습니다.");
+        }
+        List<Map<String, Object>> results = new java.util.ArrayList<>();
+        int index = 0;
+        for (Map<String, Object> scenario : scenarios.stream().limit(50).toList()) {
+            index++;
+            String label = scenario.get("label") == null ? "scenario-" + index : String.valueOf(scenario.get("label"));
+            Object answersValue = scenario.get("answers");
+            Map<String, Object> answers = new LinkedHashMap<>();
+            if (answersValue instanceof Map<?, ?> raw) {
+                for (Map.Entry<?, ?> entry : raw.entrySet()) {
+                    if (entry.getKey() != null) answers.put(String.valueOf(entry.getKey()), entry.getValue());
+                }
+            }
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("label", label);
+            try {
+                Map<String, Object> calculated = calculate(context, answers);
+                one.put("success", true);
+                one.put("result", calculated);
+                results.add(one);
+                if (stopOnError && !Boolean.TRUE.equals(calculated.get("calculated"))) break;
+            } catch (Exception e) {
+                one.put("success", false);
+                one.put("error", e.getMessage());
+                results.add(one);
+                if (stopOnError) break;
+            }
+        }
+        return Map.of(
+                "scenarioCount", results.size(),
+                "results", results,
+                "allCalculated", results.stream().allMatch(r -> Boolean.TRUE.equals(r.get("success"))
+                        && r.get("result") instanceof Map<?, ?> m && Boolean.TRUE.equals(m.get("calculated")))
+        );
+    }
+
     private void copyIfPresent(Map<String, Object> source, Map<String, Object> target, String... keys) {
         for (String key : keys) {
             if (source.containsKey(key)) target.put(key, source.get(key));

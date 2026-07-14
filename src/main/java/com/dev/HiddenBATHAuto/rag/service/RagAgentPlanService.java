@@ -22,7 +22,7 @@ public class RagAgentPlanService {
     private static final List<String> INTENT_TYPES = List.of(
             "GENERAL_CONVERSATION", "KNOWLEDGE_QUERY", "KNOWLEDGE_INVENTORY",
             "ORDER_CONSULTATION", "PRICE_CALCULATION", "CREATE", "UPDATE", "DELETE",
-            "FILE_LEARNING", "MIXED");
+            "FILE_LEARNING", "SYSTEM_EVENT", "MIXED");
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -42,13 +42,17 @@ public class RagAgentPlanService {
                 INSERT INTO rag_agent_request_plan(
                     id, run_id, project_id, version_id, session_id, source_scope,
                     intent_type, user_goal, requires_database, requires_semantic_search,
-                    requires_mutation, requires_deterministic_pricing, ambiguity_detected,
+                    requires_entity_resolution, requires_order_validation,
+                    requires_mutation, requires_impact_preview, requires_deterministic_pricing,
+                    requires_conversation_memory, ambiguity_detected,
                     clarification_question, target_domains, entity_hints_json,
                     planned_steps_json, risk_level, plan_json, created_at, updated_at
                 ) VALUES (
                     :id, :runId, :projectId, :versionId, :sessionId, :sourceScope,
                     :intentType, :userGoal, :requiresDatabase, :requiresSemanticSearch,
-                    :requiresMutation, :requiresDeterministicPricing, :ambiguityDetected,
+                    :requiresEntityResolution, :requiresOrderValidation,
+                    :requiresMutation, :requiresImpactPreview, :requiresDeterministicPricing,
+                    :requiresConversationMemory, :ambiguityDetected,
                     :clarificationQuestion, CAST(:targetDomains AS jsonb), CAST(:entityHints AS jsonb),
                     CAST(:plannedSteps AS jsonb), :riskLevel, CAST(:planJson AS jsonb), now(), now()
                 )
@@ -58,8 +62,12 @@ public class RagAgentPlanService {
                     user_goal = EXCLUDED.user_goal,
                     requires_database = EXCLUDED.requires_database,
                     requires_semantic_search = EXCLUDED.requires_semantic_search,
+                    requires_entity_resolution = EXCLUDED.requires_entity_resolution,
+                    requires_order_validation = EXCLUDED.requires_order_validation,
                     requires_mutation = EXCLUDED.requires_mutation,
+                    requires_impact_preview = EXCLUDED.requires_impact_preview,
                     requires_deterministic_pricing = EXCLUDED.requires_deterministic_pricing,
+                    requires_conversation_memory = EXCLUDED.requires_conversation_memory,
                     ambiguity_detected = EXCLUDED.ambiguity_detected,
                     clarification_question = EXCLUDED.clarification_question,
                     target_domains = EXCLUDED.target_domains,
@@ -79,8 +87,12 @@ public class RagAgentPlanService {
                 .addValue("userGoal", plan.get("userGoal"))
                 .addValue("requiresDatabase", plan.get("requiresDatabase"))
                 .addValue("requiresSemanticSearch", plan.get("requiresSemanticSearch"))
+                .addValue("requiresEntityResolution", plan.get("requiresEntityResolution"))
+                .addValue("requiresOrderValidation", plan.get("requiresOrderValidation"))
                 .addValue("requiresMutation", plan.get("requiresMutation"))
+                .addValue("requiresImpactPreview", plan.get("requiresImpactPreview"))
                 .addValue("requiresDeterministicPricing", plan.get("requiresDeterministicPricing"))
+                .addValue("requiresConversationMemory", plan.get("requiresConversationMemory"))
                 .addValue("ambiguityDetected", plan.get("ambiguityDetected"))
                 .addValue("clarificationQuestion", plan.get("clarificationQuestion"))
                 .addValue("targetDomains", RagJsonUtils.toJson(objectMapper, plan.get("targetDomains")))
@@ -120,29 +132,41 @@ public class RagAgentPlanService {
         plan.put("userGoal", requiredText(raw.get("userGoal"), "userGoal"));
         plan.put("requiresDatabase", bool(raw.get("requiresDatabase"), !"GENERAL_CONVERSATION".equals(intent)));
         plan.put("requiresSemanticSearch", bool(raw.get("requiresSemanticSearch"), false));
+        plan.put("requiresEntityResolution", bool(raw.get("requiresEntityResolution"), false));
+        plan.put("requiresOrderValidation", bool(raw.get("requiresOrderValidation"), "ORDER_CONSULTATION".equals(intent)));
         plan.put("requiresMutation", bool(raw.get("requiresMutation"), List.of("CREATE", "UPDATE", "DELETE", "FILE_LEARNING").contains(intent)));
+        plan.put("requiresImpactPreview", bool(raw.get("requiresImpactPreview"), List.of("UPDATE", "DELETE").contains(intent)));
         plan.put("requiresDeterministicPricing", bool(raw.get("requiresDeterministicPricing"), "PRICE_CALCULATION".equals(intent)));
+        plan.put("requiresConversationMemory", bool(raw.get("requiresConversationMemory"), List.of("ORDER_CONSULTATION", "PRICE_CALCULATION").contains(intent)));
         plan.put("ambiguityDetected", bool(raw.get("ambiguityDetected"), false));
         String clarification = text(raw.get("clarificationQuestion"));
         plan.put("clarificationQuestion", StringUtils.hasText(clarification) ? clarification : null);
         plan.put("targetDomains", stringList(raw.get("targetDomains"), 20));
         plan.put("entityHints", mapList(raw.get("entityHints"), 30));
-        plan.put("plannedSteps", stringList(raw.get("plannedSteps"), 30));
+        plan.put("plannedSteps", stringList(raw.get("plannedSteps"), 40));
         String risk = text(raw.get("riskLevel")).toUpperCase(Locale.ROOT);
-        plan.put("riskLevel", List.of("LOW", "MEDIUM", "HIGH").contains(risk) ? risk : "LOW");
+        plan.put("riskLevel", List.of("LOW", "MEDIUM", "HIGH", "CRITICAL").contains(risk) ? risk : "LOW");
         return plan;
     }
 
     private void validateConsistency(Map<String, Object> plan) {
         String intent = text(plan.get("intentType"));
         boolean requiresDatabase = bool(plan.get("requiresDatabase"), false);
+        boolean requiresEntityResolution = bool(plan.get("requiresEntityResolution"), false);
+        boolean requiresOrderValidation = bool(plan.get("requiresOrderValidation"), false);
         boolean requiresMutation = bool(plan.get("requiresMutation"), false);
+        boolean requiresImpactPreview = bool(plan.get("requiresImpactPreview"), false);
         boolean requiresPricing = bool(plan.get("requiresDeterministicPricing"), false);
+        boolean requiresConversationMemory = bool(plan.get("requiresConversationMemory"), false);
         if ("GENERAL_CONVERSATION".equals(intent) && (requiresMutation || requiresPricing)) {
             throw new IllegalArgumentException("GENERAL_CONVERSATION 계획에는 변경 또는 가격 계산을 선언할 수 없습니다.");
         }
-        if ((requiresMutation || requiresPricing) && !requiresDatabase) {
-            throw new IllegalArgumentException("변경 또는 가격 계산 계획은 requiresDatabase=true여야 합니다.");
+        if ((requiresEntityResolution || requiresOrderValidation || requiresMutation || requiresImpactPreview
+                || requiresPricing || requiresConversationMemory) && !requiresDatabase) {
+            throw new IllegalArgumentException("엔티티 해석·주문 검증·변경·영향분석·가격·메모리 계획은 requiresDatabase=true여야 합니다.");
+        }
+        if (requiresImpactPreview && !requiresMutation) {
+            throw new IllegalArgumentException("requiresImpactPreview=true이면 requiresMutation=true여야 합니다.");
         }
         if (bool(plan.get("ambiguityDetected"), false)
                 && !StringUtils.hasText(text(plan.get("clarificationQuestion")))) {

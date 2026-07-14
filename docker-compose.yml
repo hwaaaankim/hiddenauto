@@ -47,6 +47,8 @@ services:
       - "./db/schema_patch_20260707_db_tool_agent.sql:/schema/020_db_tool_agent_patch.sql:ro"
       - "./db/schema_patch_20260707_agent_scoped_views.sql:/schema/021_agent_scoped_views_patch.sql:ro"
       - "./db/schema_patch_20260714_agent_v2_semantic_memory.sql:/schema/022_agent_v2_semantic_memory_patch.sql:ro"
+      - "./db/schema_patch_20260714_agent_v3_production_hardening.sql:/schema/023_agent_v3_production_hardening_patch.sql:ro"
+      - "./db/schema_patch_20260714_agent_v4_gpt_centric_mcp_tools.sql:/schema/024_agent_v4_gpt_centric_mcp_tools_patch.sql:ro"
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${RAG_POSTGRES_ADMIN_USER:-ax_admin} -d postgres"]

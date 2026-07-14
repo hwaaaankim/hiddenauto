@@ -171,7 +171,13 @@ public class RagLearningJobService {
                 result = runFileLearning(jobId, sessionId, message, forceSave, jobFiles);
             }
             if (isTechnicalGptFailure(result)) {
-                failInNewTx(jobId, firstText(RagJsonUtils.stringValue(result, "answer"), "GPT 해석 작업이 기술적으로 실패했습니다."), result);
+                Map<String, Object> systemError = castMap(result.get("systemError"));
+                String errorMessage = firstText(
+                        RagJsonUtils.stringValue(systemError, "message"),
+                        RagJsonUtils.stringValue(result, "errorMessage"),
+                        "GPT DB Tool Agent 실행이 기술적으로 완료되지 않았습니다."
+                );
+                failInNewTx(jobId, errorMessage, result);
                 return;
             }
             completeInNewTx(jobId, result, RagJsonUtils.stringValue(result, "answer"));
@@ -229,14 +235,15 @@ public class RagLearningJobService {
 
         updateInNewTx(jobId, "PREPROCESSING", 18, "파일 역할과 적용 범위를 표준 학습 입력으로 정리하고 있습니다.");
         Map<String, Object> preprocess = promptComposer.compose(session, message, fileContexts, forceSave);
-        String enrichedAttachmentText = RagJsonUtils.stringValue(preprocess, "enrichedAttachmentText");
+        String agentMessage = firstText(message, "업로드 파일을 기존 지식과 비교하여 학습해 주세요.")
+                + "\n\n[[PREPROCESS_METADATA]]\n"
+                + RagJsonUtils.truncate(RagJsonUtils.toJson(objectMapper, preprocess), 30000);
 
-        Map<String, Object> result = learningService.talk(
+        Map<String, Object> result = learningService.talkWithFiles(
                 sessionId,
-                message,
-                enrichedAttachmentText,
-                String.join(", ", filenames),
+                agentMessage,
                 forceSave,
+                files,
                 listener(jobId)
         );
 
@@ -352,6 +359,7 @@ public class RagLearningJobService {
 
     private boolean isTechnicalGptFailure(Map<String, Object> result) {
         if (result == null || result.isEmpty()) return false;
+        if ("TECHNICAL_ERROR".equalsIgnoreCase(RagJsonUtils.stringValue(result, "responseType"))) return true;
         Map<String, Object> analysis = castMap(result.get("analysis"));
         Map<String, Object> report = RagJsonUtils.childMap(analysis, "validationReportJson");
         String status = RagJsonUtils.stringValue(report, "status");
@@ -366,7 +374,9 @@ public class RagLearningJobService {
         result.put("success", true);
         result.put("accepted", true);
         result.put("jobId", job.get("id"));
-        result.put("answer", "학습 작업을 접수했습니다. 화면에서 진행 상태를 확인합니다.");
+        result.put("responseType", "LEARNING_JOB_SUBMITTED");
+        result.put("answerSource", "NONE");
+        result.put("statusMessage", "학습 작업이 접수되었습니다.");
         return result;
     }
 
@@ -391,10 +401,31 @@ public class RagLearningJobService {
             if (!reparsed.isEmpty() && !reparsed.containsKey("parseError")) resultJson = reparsed;
         }
         String answer = firstText(RagJsonUtils.stringValue(resultJson, "answer"), str(job.get("answer")));
+        String answerSource = RagJsonUtils.stringValue(resultJson, "answerSource");
+        String responseType = RagJsonUtils.stringValue(resultJson, "responseType");
+        boolean verifiedGptAnswer = StringUtils.hasText(answer)
+                && StringUtils.hasText(answerSource)
+                && answerSource.startsWith("GPT_")
+                && "GPT_ANSWER".equals(responseType);
+
         Map<String, Object> viewResultJson = compactMapForScreen(resultJson);
-        if (StringUtils.hasText(answer)) {
+        if (verifiedGptAnswer) {
             viewResultJson.put("answer", answer);
+            viewResultJson.put("answerSource", answerSource);
+            viewResultJson.put("responseType", responseType);
             result.put("answer", answer);
+            result.put("answerSource", answerSource);
+            result.put("responseType", responseType);
+        } else if (StringUtils.hasText(answer)) {
+            viewResultJson.remove("answer");
+            result.put("answerSource", "NONE");
+            result.put("responseType", "TECHNICAL_ERROR");
+            result.put("systemError", Map.of(
+                    "code", "UNVERIFIED_ASYNC_GPT_ANSWER",
+                    "message", "출처가 검증되지 않은 비동기 답변을 차단했습니다."));
+        } else {
+            if (StringUtils.hasText(answerSource)) result.put("answerSource", answerSource);
+            if (StringUtils.hasText(responseType)) result.put("responseType", responseType);
         }
         result.put("result", viewResultJson);
         if (includeLogs) {

@@ -224,18 +224,54 @@ public class RagAgentChangeSetService {
     }
 
     public Map<String, Object> detail(UUID changeSetId) {
-        Map<String, Object> header = jdbc.queryForMap("""
+        return detailInternal(changeSetId, null, null, null);
+    }
+
+    /** GPT 도구에서 조회할 때는 현재 project/version/session 범위를 반드시 강제합니다. */
+    public Map<String, Object> detailScoped(UUID changeSetId,
+                                            UUID projectId,
+                                            UUID versionId,
+                                            UUID sessionId) {
+        if (projectId == null || versionId == null) {
+            throw new IllegalArgumentException("ChangeSet 범위 조회에는 projectId와 versionId가 필요합니다.");
+        }
+        return detailInternal(changeSetId, projectId, versionId, sessionId);
+    }
+
+    private Map<String, Object> detailInternal(UUID changeSetId,
+                                               UUID projectId,
+                                               UUID versionId,
+                                               UUID sessionId) {
+        if (changeSetId == null) throw new IllegalArgumentException("changeSetId가 필요합니다.");
+        StringBuilder headerSql = new StringBuilder("""
                 SELECT *
                 FROM rag_agent_change_set
                 WHERE id = :id
-                """, Map.of("id", changeSetId));
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource("id", changeSetId);
+        if (projectId != null) {
+            headerSql.append(" AND project_id = :projectId");
+            params.addValue("projectId", projectId);
+        }
+        if (versionId != null) {
+            headerSql.append(" AND version_id = :versionId");
+            params.addValue("versionId", versionId);
+        }
+        if (sessionId != null) {
+            headerSql.append(" AND session_id = :sessionId");
+            params.addValue("sessionId", sessionId);
+        }
+        List<Map<String, Object>> headers = jdbc.queryForList(headerSql.toString(), params);
+        if (headers.isEmpty()) {
+            throw new IllegalArgumentException("현재 프로젝트/버전/세션 범위에서 ChangeSet을 찾을 수 없습니다.");
+        }
         List<Map<String, Object>> items = jdbc.queryForList("""
                 SELECT *
                 FROM rag_agent_change_item
                 WHERE change_set_id = :changeSetId
                 ORDER BY ordinal_no ASC
                 """, Map.of("changeSetId", changeSetId));
-        Map<String, Object> result = new LinkedHashMap<>(header);
+        Map<String, Object> result = new LinkedHashMap<>(headers.get(0));
         result.put("items", items);
         return result;
     }

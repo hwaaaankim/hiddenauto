@@ -210,7 +210,9 @@ public class RagKnowledgeNodeReinterpretService {
         result.put("success", true);
         result.put("nodeId", nodeId);
         result.put("insertedNodeCount", inserted);
-        result.put("answer", firstText(RagJsonUtils.stringValue(analysis, "answer"), "재해석으로 AI_PARSED 대체 노드를 생성했습니다."));
+        result.put("responseType", "KNOWLEDGE_NODE_REINTERPRET_COMPLETED");
+        result.put("answerSource", "NONE");
+        result.put("statusMessage", "재해석으로 AI_PARSED 대체 노드를 생성했습니다.");
         return result;
     }
 

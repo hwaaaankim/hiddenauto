@@ -8,7 +8,7 @@ let currentMemory = null;
 let chatSelectedFiles = [];
 
 const AI_CHAT_API = '/admin/rag/api/ai-chat';
-const RAG_CHAT_JS_VERSION = '20260714-gpt-db-agent-v2';
+const RAG_CHAT_JS_VERSION = '20260714-gpt-centric-agent-v4';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.info('[RAG_CHAT_JS] loaded', RAG_CHAT_JS_VERSION);
@@ -127,8 +127,8 @@ async function startChat() {
         document.getElementById('sessionBadge').textContent = chatSessionId || '-';
         document.getElementById('chatLog').innerHTML = '';
         clearChatFiles();
-        Rag.appendMessage('#chatLog', 'assistant', data.answer || '채팅을 시작했습니다.');
-        Rag.appendMessage('#chatLog', 'system', '[자동학습 활성화] 이제부터 입력되는 채팅/파일은 대화 로그로 저장되고, 재사용 가능한 지식은 AI 분석 후 벡터DB에 저장됩니다.');
+        renderChatAgentResponse(data);
+        Rag.appendMessage('#chatLog', 'system', '[GPT 상담 활성화] 대화 로그와 세션 메모리는 저장되며, 영구 지식의 추가·수정·삭제는 학습 화면에서 검증된 ChangeSet으로 처리됩니다.');
         renderState();
         renderRetrieved();
         renderMemory();
@@ -172,20 +172,7 @@ async function sendChatMessage(e) {
                 body: JSON.stringify({ sessionId: chatSessionId, message })
             });
         }
-        if (data.handled) {
-            renderChatRoutedResult(data);
-        } else {
-            currentState = data.state || {};
-            currentRetrieved = data.retrieved || [];
-            currentMemory = data.memory || null;
-            Rag.appendMessage('#chatLog', 'assistant', data.answer || '응답을 생성하지 못했습니다.');
-            renderSaveStatus(data);
-            renderChatIntent(data);
-            renderState();
-            renderRetrieved();
-            renderMemory();
-            renderResetStepOptions();
-        }
+        renderChatRoutedResult(data);
     } catch (e2) {
         Rag.toast(e2.message, 'danger');
         Rag.appendMessage('#chatLog', 'system', e2.message);
@@ -195,8 +182,25 @@ async function sendChatMessage(e) {
     }
 }
 
+function renderChatAgentResponse(data) {
+    const source = String(data?.answerSource || 'NONE');
+    const answer = typeof data?.answer === 'string' ? data.answer.trim() : '';
+    if (answer && source.startsWith('GPT_')) {
+        Rag.appendMessage('#chatLog', 'assistant', answer);
+        return;
+    }
+    if (String(data?.responseType || '').toUpperCase() === 'TECHNICAL_ERROR') {
+        const runId = data?.agentRunId ? ` (실행 ID: ${data.agentRunId})` : '';
+        const message = data?.systemError?.message || 'GPT Agent 실행이 완료되지 않았습니다.';
+        Rag.appendMessage('#chatLog', 'system', `[시스템 오류] ${message}${runId}`);
+        return;
+    }
+    const eventType = data?.responseType || data?.actionStatus || 'SYSTEM_EVENT';
+    Rag.appendMessage('#chatLog', 'system', `[${eventType}]`);
+}
+
 function renderChatRoutedResult(data) {
-    Rag.appendMessage('#chatLog', data.requiresClarification ? 'system' : 'assistant', data.answer || '처리했습니다.');
+    renderChatAgentResponse(data);
     currentState = data.state || currentState || {};
     currentRetrieved = data.retrieved || data.summary?.retrieved || [];
     currentMemory = data.memory || {
@@ -275,7 +279,7 @@ async function resetStep() {
             body: JSON.stringify({ stepKey, reason })
         });
         currentState = data.state || currentState || {};
-        Rag.appendMessage('#chatLog', 'assistant', data.answer || '선택 항목을 초기화했습니다.');
+        renderChatAgentResponse(data);
         renderState();
         renderResetStepOptions();
     } catch (e) {

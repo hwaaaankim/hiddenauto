@@ -2,9 +2,11 @@ let learningConversationSessionId = null;
 let learningSelectedFiles = [];
 let learningActiveJobTimer = null;
 let learningActiveJobId = null;
+let learningJobPollInFlight = false;
+let learningJobPollGeneration = 0;
 
 const LEARNING_CONVERSATION_API = '/admin/rag/api/learning-conversation';
-const RAG_LEARNING_JS_VERSION = '20260714-gpt-db-agent-v2';
+const RAG_LEARNING_JS_VERSION = '20260714-gpt-centric-agent-v4-polling-fix-v2';
 
 const LEARNING_JOB_DONE = new Set(['COMPLETED', 'FAILED', 'CANCELED']);
 const LEARNING_JOB_POLL_INTERVAL_MS = 2500;
@@ -25,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const badge = document.getElementById('learningJsVersionBadge');
     if (badge) badge.textContent = RAG_LEARNING_JS_VERSION;
     bindLearningConversationEvents();
+});
+
+window.addEventListener('pagehide', () => {
+    stopLearningJobPolling();
 });
 
 function bindLearningConversationEvents() {
@@ -114,7 +120,7 @@ async function startLearningConversation() {
         if (badge) badge.textContent = learningConversationSessionId || '-';
         const log = document.getElementById('learningConversationLog');
         if (log) log.innerHTML = '';
-        Rag.appendMessage('#learningConversationLog', 'assistant', data.answer || '대화형 학습을 시작했습니다.');
+        renderLearningAgentResponse(data);
         updateLearningSaveBadge('지식 저장: 대기', 'NONE');
         const intentBox = document.getElementById('learningIntentBox');
         if (intentBox) intentBox.textContent = '';
@@ -162,21 +168,9 @@ async function sendLearningConversationMessage(e) {
             });
         }
         if (textarea) textarea.value = '';
-        if (data.handled) {
-            renderLearningRoutedResult(data);
-            setLearningConversationBusy(false);
-            textarea?.focus();
-        } else if (data.accepted && data.jobId) {
-            Rag.appendMessage('#learningConversationLog', 'system', data.answer || '학습 작업을 접수했습니다.');
-            renderLearningJobProgress(data);
-            startLearningJobPolling(data.jobId);
-        } else {
-            Rag.appendMessage('#learningConversationLog', data.requiresClarification ? 'system' : 'assistant', data.answer || '분석 결과를 생성하지 못했습니다.');
-            renderLearningSaveStatus(data);
-            renderLearningConversationResult(data);
-            setLearningConversationBusy(false);
-            textarea?.focus();
-        }
+        renderLearningRoutedResult(data);
+        setLearningConversationBusy(false);
+        textarea?.focus();
     } catch (err) {
         Rag.toast(err.message, 'danger');
         Rag.appendMessage('#learningConversationLog', 'system', err.message);
@@ -185,8 +179,25 @@ async function sendLearningConversationMessage(e) {
     }
 }
 
+function renderLearningAgentResponse(data) {
+    const source = String(data?.answerSource || 'NONE');
+    const answer = typeof data?.answer === 'string' ? data.answer.trim() : '';
+    if (answer && source.startsWith('GPT_')) {
+        Rag.appendMessage('#learningConversationLog', 'assistant', learningPreviewText(answer, 12000));
+        return;
+    }
+    if (String(data?.responseType || '').toUpperCase() === 'TECHNICAL_ERROR') {
+        const runId = data?.agentRunId ? ` (실행 ID: ${data.agentRunId})` : '';
+        const message = data?.systemError?.message || 'GPT Agent 실행이 완료되지 않았습니다.';
+        Rag.appendMessage('#learningConversationLog', 'system', `[시스템 오류] ${message}${runId}`);
+        return;
+    }
+    const eventType = data?.responseType || data?.actionStatus || 'SYSTEM_EVENT';
+    Rag.appendMessage('#learningConversationLog', 'system', `[${eventType}]`);
+}
+
 function renderLearningRoutedResult(data) {
-    Rag.appendMessage('#learningConversationLog', data.requiresClarification ? 'system' : 'assistant', learningPreviewText(data.answer || '처리했습니다.', 12000));
+    renderLearningAgentResponse(data);
     renderLearningSaveStatus(data);
     renderLearningConversationResult(data);
     renderLearningIntentResult(data);
@@ -220,51 +231,143 @@ function renderLearningIntentResult(data) {
 
 function startLearningJobPolling(jobId) {
     stopLearningJobPolling();
-    learningActiveJobId = jobId;
-    pollLearningJob(jobId);
-    learningActiveJobTimer = window.setInterval(() => pollLearningJob(jobId), LEARNING_JOB_POLL_INTERVAL_MS);
+
+    learningActiveJobId = String(jobId || '').trim();
+    if (!learningActiveJobId) return;
+
+    const generation = learningJobPollGeneration;
+    scheduleNextLearningJobPoll(0, generation);
+}
+
+function scheduleNextLearningJobPoll(delay = LEARNING_JOB_POLL_INTERVAL_MS,
+                                     generation = learningJobPollGeneration) {
+    if (!learningConversationSessionId
+            || !learningActiveJobId
+            || generation !== learningJobPollGeneration) {
+        return;
+    }
+
+    if (learningActiveJobTimer) {
+        window.clearTimeout(learningActiveJobTimer);
+    }
+
+    const scheduledJobId = learningActiveJobId;
+    learningActiveJobTimer = window.setTimeout(() => {
+        learningActiveJobTimer = null;
+        pollLearningJob(scheduledJobId, generation);
+    }, Math.max(0, Number(delay || 0)));
 }
 
 function stopLearningJobPolling() {
-    if (learningActiveJobTimer) window.clearInterval(learningActiveJobTimer);
+    if (learningActiveJobTimer) {
+        window.clearTimeout(learningActiveJobTimer);
+    }
+
     learningActiveJobTimer = null;
     learningActiveJobId = null;
+    learningJobPollInFlight = false;
+    learningJobPollGeneration += 1;
     learningLastJobRenderSignature = '';
     learningLastJobLogSignature = '';
 }
 
-async function pollLearningJob(jobId) {
-    if (!learningConversationSessionId || !jobId) return;
+async function pollLearningJob(jobId,
+                               generation = learningJobPollGeneration) {
+    if (!learningConversationSessionId
+            || !jobId
+            || jobId !== learningActiveJobId
+            || generation !== learningJobPollGeneration) {
+        return;
+    }
+
+    if (learningJobPollInFlight) {
+        scheduleNextLearningJobPoll(LEARNING_JOB_POLL_INTERVAL_MS, generation);
+        return;
+    }
+
+    learningJobPollInFlight = true;
+    let scheduleNext = false;
+
     try {
-        const job = await Rag.jsonFetch(`${learningJobApiBase()}/${jobId}`);
+        const job = await Rag.jsonFetch(`${learningJobApiBase()}/${encodeURIComponent(jobId)}`);
+
+        // 조회 중 다른 세션 또는 다른 작업으로 전환된 경우 이전 응답을 화면에 반영하지 않습니다.
+        if (generation !== learningJobPollGeneration || jobId !== learningActiveJobId) {
+            return;
+        }
+
         renderLearningJobProgress(job);
+
         const runStatus = String(job.runStatus || job.run_status || '').toUpperCase();
         const status = String(job.status || '').toUpperCase();
-        if (LEARNING_JOB_DONE.has(runStatus) || LEARNING_JOB_DONE.has(status)) {
-            stopLearningJobPolling();
-            setLearningConversationBusy(false);
-            const textarea = document.getElementById('learningConversationMessage');
-            textarea?.focus();
-            if (runStatus === 'FAILED' || status === 'FAILED') {
-                const msg = job.error_message || job.errorMessage || job.statusMessage || '학습 작업이 실패했습니다.';
-                Rag.appendMessage('#learningConversationLog', 'system', `[학습 실패] ${msg}`);
-                updateLearningSaveBadge('지식 저장: 실패', 'RESET');
-                renderLearningConversationResult(job.result && Object.keys(job.result).length ? job.result : job);
-                return;
-            }
-            const finalResult = job.result && Object.keys(job.result).length ? job.result : job;
-            if (!finalResult.answer && job.answer) finalResult.answer = job.answer;
-            if (!finalResult.answer && finalResult.saveMessage) finalResult.answer = finalResult.saveMessage;
-            if (!finalResult.answer && job.statusMessage) finalResult.answer = job.statusMessage;
-            Rag.appendMessage('#learningConversationLog', finalResult.requiresClarification ? 'system' : 'assistant', learningPreviewText(finalResult.answer || '작업은 완료됐지만 표시할 답변을 찾지 못했습니다. 진행 로그와 저장 상태를 확인해 주세요.', 12000));
-            renderLearningSaveStatus(finalResult);
-            renderLearningConversationResult(finalResult);
+        const completed = LEARNING_JOB_DONE.has(runStatus) || LEARNING_JOB_DONE.has(status);
+
+        if (!completed) {
+            scheduleNext = true;
+            return;
         }
+
+        stopLearningJobPolling();
+        setLearningConversationBusy(false);
+
+        const textarea = document.getElementById('learningConversationMessage');
+        textarea?.focus();
+
+        if (runStatus === 'FAILED' || status === 'FAILED') {
+            const msg = job.error_message
+                || job.errorMessage
+                || job.statusMessage
+                || '학습 작업이 실패했습니다.';
+
+            Rag.appendMessage('#learningConversationLog', 'system', `[학습 실패] ${msg}`);
+            updateLearningSaveBadge('지식 저장: 실패', 'RESET');
+            renderLearningConversationResult(
+                job.result && Object.keys(job.result).length ? job.result : job
+            );
+            return;
+        }
+
+        const finalResult = job.result && Object.keys(job.result).length
+            ? job.result
+            : job;
+
+        if (finalResult.answer
+                && String(finalResult.answerSource || '').startsWith('GPT_')) {
+            renderLearningAgentResponse(finalResult);
+        } else {
+            Rag.appendMessage(
+                '#learningConversationLog',
+                'system',
+                `[학습 작업 완료] ${
+                    job.statusMessage
+                    || job.runStatus
+                    || job.status
+                    || 'COMPLETED'
+                }`
+            );
+        }
+
+        renderLearningSaveStatus(finalResult);
+        renderLearningConversationResult(finalResult);
     } catch (e) {
+        // 페이지 이동이나 새 작업 시작 후 완료된 이전 요청의 오류는 표시하지 않습니다.
+        if (generation !== learningJobPollGeneration || jobId !== learningActiveJobId) {
+            return;
+        }
+
         stopLearningJobPolling();
         setLearningConversationBusy(false);
         Rag.toast(e.message, 'danger');
         Rag.appendMessage('#learningConversationLog', 'system', e.message);
+    } finally {
+        // stopLearningJobPolling()이 호출되지 않은 동일 세대 작업에 대해서만 상태를 해제합니다.
+        if (generation === learningJobPollGeneration) {
+            learningJobPollInFlight = false;
+
+            if (scheduleNext && jobId === learningActiveJobId) {
+                scheduleNextLearningJobPoll(LEARNING_JOB_POLL_INTERVAL_MS, generation);
+            }
+        }
     }
 }
 
@@ -344,11 +447,11 @@ async function retryRawKnowledgeNodes() {
             method: 'POST'
         });
         if (data.accepted && data.jobId) {
-            Rag.appendMessage('#learningConversationLog', 'system', data.answer || '재해석 작업을 접수했습니다.');
+            Rag.appendMessage('#learningConversationLog', 'system', '재해석 작업이 접수되었습니다.');
             renderLearningJobProgress(data);
             startLearningJobPolling(data.jobId);
         } else {
-            Rag.appendMessage('#learningConversationLog', 'system', data.message || data.answer || '재해석 작업 결과를 받았습니다.');
+            Rag.appendMessage('#learningConversationLog', 'system', data.message || '재해석 작업 결과를 받았습니다.');
             renderLearningConversationResult(data);
             setLearningConversationBusy(false);
         }
@@ -375,7 +478,7 @@ async function resetLearningKnowledge() {
             method: 'POST',
             body: JSON.stringify({ topic, reason, resetWholeVersion })
         });
-        Rag.appendMessage('#learningConversationLog', 'system', data.answer || '초기화되었습니다.');
+        Rag.appendMessage('#learningConversationLog', 'system', '현재 버전의 학습 지식 초기화가 완료되었습니다.');
         Rag.appendMessage('#learningConversationLog', 'system', '초기화 범위의 기존 학습 세션도 정리되었으므로, 계속 학습하려면 [대화형 학습 시작]을 다시 눌러 주세요.');
         learningConversationSessionId = null;
         const badge = document.getElementById('learningConversationSessionBadge');

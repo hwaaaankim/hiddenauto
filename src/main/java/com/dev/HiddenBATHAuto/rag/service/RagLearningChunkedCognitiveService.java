@@ -481,7 +481,7 @@ public class RagLearningChunkedCognitiveService {
         result.put("requiresUpload", false);
         result.put("requiresClarification", false);
         result.put("shouldPersist", true);
-        result.put("answer", answer);
+        result.put("analysisSummary", answer);
         result.put("clarificationQuestions", List.of());
         result.put("nonBlockingQuestions", openQuestions);
         result.put("conflicts", List.of());
@@ -772,7 +772,7 @@ public class RagLearningChunkedCognitiveService {
         result.put("requiresUpload", false);
         result.put("requiresClarification", true);
         result.put("shouldPersist", false);
-        result.put("answer", message);
+        result.put("analysisSummary", message);
         result.put("clarificationQuestions", List.of(message));
         result.put("summary", String.valueOf(currentVersion == null ? "" : currentVersion.getOrDefault("summary", "")));
         result.put("processJson", jsonOrEmpty(currentVersion, "process_json", "ORDER_PROCESS_BUILDER_V3"));

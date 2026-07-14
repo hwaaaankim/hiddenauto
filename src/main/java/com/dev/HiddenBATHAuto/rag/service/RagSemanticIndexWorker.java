@@ -190,7 +190,7 @@ public class RagSemanticIndexWorker {
 
     private boolean isCurrent(SemanticDocument document) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT content_hash, embedding_status, active
+                SELECT content_hash, embedding_status, embedding_model, active
                   FROM rag_semantic_memory
                  WHERE project_id = :projectId AND version_id = :versionId
                    AND source_table = :sourceTable AND source_id = :sourceId
@@ -203,6 +203,7 @@ public class RagSemanticIndexWorker {
         Map<String, Object> row = rows.get(0);
         return document.contentHash().equals(text(row.get("content_hash")))
                 && "READY".equals(text(row.get("embedding_status")))
+                && openAiClient.embeddingModel().equals(text(row.get("embedding_model")))
                 && document.active() == bool(row.get("active"));
     }
 

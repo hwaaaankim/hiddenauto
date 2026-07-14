@@ -7,20 +7,17 @@ public class RagOpenAiProperties {
 
     private String apiKey = "";
     private String baseUrl = "https://api.openai.com";
-    private String chatModel = "gpt-5.5";
-    private String embeddingModel = "text-embedding-3-small";
+    private String chatModel = "gpt-5.6";
+    private String embeddingModel = "text-embedding-3-large";
     private String reasoningEffort = "medium";
     private int readTimeoutSeconds = 300;
     private int retryCount = 1;
 
     /** 한 번의 사용자 요청에서 허용할 실제 OpenAI function tool 반복 횟수입니다. */
-    private int agentMaxToolTurns = 20;
+    private int agentMaxToolTurns = 30;
 
     /** Responses API 한 차수에서 허용할 최대 출력 토큰 수입니다. */
     private int agentMaxOutputTokens = 16000;
-
-    /** Agent 실패 시 기존 고정 의미분류/저장 흐름으로 내려갈지 여부입니다. 기본은 false입니다. */
-    private boolean agentLegacyFallbackEnabled = false;
 
     /** query_database 도구의 기본 최대 row 수입니다. */
     private int agentDefaultReadRows = 200;
@@ -47,7 +44,7 @@ public class RagOpenAiProperties {
     private int agentMaxChangeItems = 100;
 
     /** 한 SQL 문장이 변경할 수 있는 최대 row 수입니다. 초과 시 전체 트랜잭션을 롤백합니다. */
-    private int agentMaxAffectedRowsPerStatement = 10000;
+    private int agentMaxAffectedRowsPerStatement = 1;
 
     /** Agent가 도구 호출 없이 같은 상태를 반복할 때 복구로 전환하는 임계값입니다. */
     private int agentNoProgressLimit = 3;
@@ -71,7 +68,10 @@ public class RagOpenAiProperties {
     private int semanticWorkerLockTimeoutSeconds = 300;
 
     /** 임베딩에 전달할 semantic 본문 최대 글자 수입니다. */
-    private int semanticEmbeddingInputChars = 16000;
+    private int semanticEmbeddingInputChars = 4500;
+
+    /** 모든 임베딩 호출의 예상 토큰 상한입니다. 문자 제한과 함께 적용합니다. */
+    private int semanticEmbeddingEstimatedTokenLimit = 7000;
 
     /** semantic memory content에 저장할 최대 글자 수입니다. */
     private int semanticContentMaxChars = 60000;
@@ -85,8 +85,21 @@ public class RagOpenAiProperties {
     /** semantic 검색 절대 최대 결과 수입니다. */
     private int semanticHardSearchLimit = 100;
 
-    /** text-embedding-3-small 기본 차원과 DB vector 차원입니다. */
+    /** text-embedding-3-large를 dimensions=1536으로 축소하여 기존 DB vector(1536)와 호환합니다. */
     private int semanticEmbeddingDimensions = 1536;
+
+
+    /** Agent 요청 전체 입력의 안전 문자 예산입니다. 토큰 초과 방지를 위해 초과 항목은 압축합니다. */
+    private int agentMaxContextChars = 220000;
+
+    /** 배포된 도구 계약 버전입니다. */
+    private String agentCapabilityVersion = "V4-20260714";
+
+    /** 최근 대화 중 원문으로 유지할 최대 건수입니다. */
+    private int agentRecentMessageLimit = 12;
+
+    /** tool loop 실패 시 GPT 무도구 최종답변 복구를 허용합니다. */
+    private boolean agentTextRecoveryEnabled = true;
 
     private int adaptiveChunkThresholdChars = 1200;
     private int adaptiveChunkChars = 2800;
@@ -112,8 +125,6 @@ public class RagOpenAiProperties {
     public void setAgentMaxToolTurns(int agentMaxToolTurns) { this.agentMaxToolTurns = Math.max(4, Math.min(agentMaxToolTurns, 50)); }
     public int getAgentMaxOutputTokens() { return agentMaxOutputTokens; }
     public void setAgentMaxOutputTokens(int agentMaxOutputTokens) { this.agentMaxOutputTokens = Math.max(1000, Math.min(agentMaxOutputTokens, 128000)); }
-    public boolean isAgentLegacyFallbackEnabled() { return agentLegacyFallbackEnabled; }
-    public void setAgentLegacyFallbackEnabled(boolean agentLegacyFallbackEnabled) { this.agentLegacyFallbackEnabled = agentLegacyFallbackEnabled; }
     public int getAgentDefaultReadRows() { return agentDefaultReadRows; }
     public void setAgentDefaultReadRows(int agentDefaultReadRows) { this.agentDefaultReadRows = Math.max(1, Math.min(agentDefaultReadRows, 1000)); }
     public int getAgentHardMaxReadRows() { return agentHardMaxReadRows; }
@@ -148,6 +159,8 @@ public class RagOpenAiProperties {
     public void setSemanticWorkerLockTimeoutSeconds(int semanticWorkerLockTimeoutSeconds) { this.semanticWorkerLockTimeoutSeconds = Math.max(30, Math.min(semanticWorkerLockTimeoutSeconds, 3600)); }
     public int getSemanticEmbeddingInputChars() { return semanticEmbeddingInputChars; }
     public void setSemanticEmbeddingInputChars(int semanticEmbeddingInputChars) { this.semanticEmbeddingInputChars = Math.max(1000, Math.min(semanticEmbeddingInputChars, 100000)); }
+    public int getSemanticEmbeddingEstimatedTokenLimit() { return semanticEmbeddingEstimatedTokenLimit; }
+    public void setSemanticEmbeddingEstimatedTokenLimit(int value) { this.semanticEmbeddingEstimatedTokenLimit = Math.max(1000, Math.min(value, 8000)); }
     public int getSemanticContentMaxChars() { return semanticContentMaxChars; }
     public void setSemanticContentMaxChars(int semanticContentMaxChars) { this.semanticContentMaxChars = Math.max(5000, Math.min(semanticContentMaxChars, 500000)); }
     public boolean isSemanticQueryEmbeddingEnabled() { return semanticQueryEmbeddingEnabled; }
@@ -158,6 +171,14 @@ public class RagOpenAiProperties {
     public void setSemanticHardSearchLimit(int semanticHardSearchLimit) { this.semanticHardSearchLimit = Math.max(10, Math.min(semanticHardSearchLimit, 500)); }
     public int getSemanticEmbeddingDimensions() { return semanticEmbeddingDimensions; }
     public void setSemanticEmbeddingDimensions(int semanticEmbeddingDimensions) { this.semanticEmbeddingDimensions = Math.max(1, semanticEmbeddingDimensions); }
+    public int getAgentMaxContextChars() { return agentMaxContextChars; }
+    public void setAgentMaxContextChars(int value) { this.agentMaxContextChars = Math.max(40000, Math.min(value, 800000)); }
+    public String getAgentCapabilityVersion() { return agentCapabilityVersion; }
+    public void setAgentCapabilityVersion(String value) { this.agentCapabilityVersion = value == null ? "V4-20260714" : value; }
+    public int getAgentRecentMessageLimit() { return agentRecentMessageLimit; }
+    public void setAgentRecentMessageLimit(int value) { this.agentRecentMessageLimit = Math.max(2, Math.min(value, 50)); }
+    public boolean isAgentTextRecoveryEnabled() { return agentTextRecoveryEnabled; }
+    public void setAgentTextRecoveryEnabled(boolean value) { this.agentTextRecoveryEnabled = value; }
     public int getAdaptiveChunkThresholdChars() { return adaptiveChunkThresholdChars; }
     public void setAdaptiveChunkThresholdChars(int adaptiveChunkThresholdChars) { this.adaptiveChunkThresholdChars = adaptiveChunkThresholdChars; }
     public int getAdaptiveChunkChars() { return adaptiveChunkChars; }

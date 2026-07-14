@@ -43,7 +43,9 @@ public class RagCanonicalJobService {
         result.put("jobId", jobId);
         result.put("runStatus", "RUNNING");
         result.put("status", "SUBMITTED");
-        result.put("answer", "정본화 작업을 백그라운드로 접수했습니다. 진행 상태를 조회해 주세요.");
+        result.put("responseType", "CANONICAL_JOB_SUBMITTED");
+        result.put("answerSource", "NONE");
+        result.put("statusMessage", "정본화 작업이 접수되었습니다.");
         return result;
     }
 

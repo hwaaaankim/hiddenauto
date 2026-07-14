@@ -18,6 +18,7 @@ public final class RagAgentDataAccessPolicy {
 
     private static final Map<String, IndirectScopeRule> INDIRECT_SCOPE_RULES = Map.ofEntries(
             Map.entry("rag_agent_change_item", new IndirectScopeRule("rag_agent_change_set", "change_set_id", "id")),
+            Map.entry("rag_agent_answer_provenance", new IndirectScopeRule("rag_agent_run", "run_id", "id")),
             Map.entry("rag_canonical_job_log", new IndirectScopeRule("rag_canonical_job", "job_id", "id")),
             Map.entry("rag_chat_message", new IndirectScopeRule("rag_chat_session", "session_id", "id")),
             Map.entry("rag_learning_job_file", new IndirectScopeRule("rag_learning_job", "job_id", "id")),
@@ -35,6 +36,9 @@ public final class RagAgentDataAccessPolicy {
             "rag_agent_run", "rag_agent_sql_query", "rag_agent_change_set", "rag_agent_change_item",
             "rag_agent_file_stage", "rag_agent_tool_call", "rag_agent_schema_note",
             "rag_agent_request_plan", "rag_agent_observation",
+            "rag_agent_tool_capability", "rag_agent_entity_resolution",
+            "rag_agent_order_state_snapshot", "rag_agent_answer_provenance",
+            "rag_agent_context_snapshot", "rag_agent_unresolved_reference", "rag_agent_entity_alias",
             "rag_semantic_memory", "rag_semantic_index_queue",
             "rag_canonical_job", "rag_canonical_job_log"
     );
