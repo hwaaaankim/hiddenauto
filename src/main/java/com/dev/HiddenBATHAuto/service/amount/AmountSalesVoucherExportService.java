@@ -110,10 +110,11 @@ public class AmountSalesVoucherExportService {
 
     /**
      * 전산입력용 출력 구조:
-     * 거래처 A - Task 1 오더들 - Task 1 운임비 1회 - Task 2 오더들 - Task 2 운임비 1회 ...
+     * 거래처 A - Task 1 오더들 - Task 1 운임비/포장비 각 1회 - Task 2 오더들 - 비용 각 1회 ...
      *
      * deliveryCost/packingCost는 현재 Order에 있지만 실제 업무 의미는 Task 단위 비용이므로,
-     * Task 안의 여러 Order에 중복 저장되어 있어도 중복 합산하지 않고 각각 최대값 1회만 사용합니다.
+     * Task 안의 여러 Order에 중복 저장되어 있어도 중복 합산하지 않고 비용별 양수 최대값 1회만 사용합니다.
+     * 비용이 0원 이하이면 해당 비용 품목행과 주소 보조행을 출력하지 않습니다.
      */
     private List<TaskVoucherBlock> buildTaskBlocks(List<Order> orders,
                                                    List<AmountCustomerMaster> customers,
@@ -158,11 +159,13 @@ public class AmountSalesVoucherExportService {
                 }
             }
 
-            VoucherLine freightLine = buildTaskFreightLine(entry.getKey(), transactionDate, companyName, customerMatch, taskOrders, items);
-            if (freightLine != null) {
-                lines.add(freightLine);
+            List<VoucherLine> chargeLines = buildTaskChargeLines(
+                    entry.getKey(), transactionDate, companyName, customerMatch, taskOrders, items);
+            if (!chargeLines.isEmpty()) {
+                lines.addAll(chargeLines);
 
-                VoucherLine addressLine = buildTaskAddressLine(entry.getKey(), transactionDate, companyName, customerMatch, taskOrders);
+                VoucherLine addressLine = buildTaskAddressLine(
+                        entry.getKey(), transactionDate, companyName, customerMatch, taskOrders);
                 if (addressLine != null) {
                     lines.add(addressLine);
                 }
@@ -187,7 +190,12 @@ public class AmountSalesVoucherExportService {
             return null;
         }
         AmountParsedOrderProduct parsed = optionParser.parse(order);
-        AmountItemMatchResult itemMatch = matchItem(parsed, items, resolveOrderStandard(order));
+        AmountItemMatchResult itemMatch = matchItem(
+                parsed,
+                items,
+                resolveOrderStandard(order),
+                order.isMirrorCuttingProduct()
+        );
         AmountItemMaster matchedItem = itemMatch.item();
 
         int qty = resolveQuantity(order);
@@ -222,53 +230,84 @@ public class AmountSalesVoucherExportService {
         );
     }
 
-    private VoucherLine buildTaskFreightLine(Long taskId,
-                                             LocalDate transactionDate,
-                                             String companyName,
-                                             AmountCustomerMatchResult customerMatch,
-                                             List<Order> taskOrders,
-                                             List<AmountItemMaster> items) {
-        int taskDeliveryCost = taskOrders.stream()
-                .mapToInt(Order::getDeliveryCost)
-                .filter(value -> value > 0)
-                .max()
-                .orElse(0);
-        int taskPackingCost = taskOrders.stream()
-                .mapToInt(Order::getPackingCost)
-                .filter(value -> value > 0)
-                .max()
-                .orElse(0);
+    /**
+     * 운임비와 포장비는 품목 마스터의 서로 다른 품목으로 각각 출력합니다.
+     *
+     * 기존 업무 규칙대로 같은 Task 안에 동일 비용이 여러 Order에 중복 저장될 수 있으므로
+     * 각 비용별 양수 최대값을 실제 Order 값으로 1회만 사용합니다.
+     * 0원 이하인 비용은 품목행 자체를 만들지 않습니다.
+     */
+    private List<VoucherLine> buildTaskChargeLines(Long taskId,
+                                                   LocalDate transactionDate,
+                                                   String companyName,
+                                                   AmountCustomerMatchResult customerMatch,
+                                                   List<Order> taskOrders,
+                                                   List<AmountItemMaster> items) {
+        List<VoucherLine> result = new ArrayList<>();
 
-        int taskFreightSupply = taskDeliveryCost + taskPackingCost;
+        for (ChargeType chargeType : ChargeType.values()) {
+            TaskChargeAmount chargeAmount = resolveTaskChargeAmount(taskOrders, chargeType);
+            if (chargeAmount.amount() <= 0) {
+                continue;
+            }
 
-        // 샘플 전산입력용 엑셀처럼 운임비는 Task 마지막에 항상 1행 출력합니다.
-        // 금액이 0이어도 운임비 품목코드와 바로 다음 주소 행 구조를 유지합니다.
-        AmountItemMaster freightItem = findFreightItem(items).orElse(null);
-        AmountItemMatchResult freightMatch = freightItem == null
-                ? AmountItemMatchResult.empty("품목 마스터에서 운임비 항목을 찾지 못했습니다.")
-                : new AmountItemMatchResult(freightItem, 100, "EXACT", "Task 단위 운임비 고정 매칭", false);
+            VoucherLine chargeLine = buildTaskChargeLine(
+                    taskId,
+                    transactionDate,
+                    companyName,
+                    customerMatch,
+                    chargeType,
+                    chargeAmount,
+                    items
+            );
+            if (chargeLine != null) {
+                result.add(chargeLine);
+            }
+        }
+        return result;
+    }
 
-        BigDecimal supply = BigDecimal.valueOf(taskFreightSupply);
+    private VoucherLine buildTaskChargeLine(Long taskId,
+                                            LocalDate transactionDate,
+                                            String companyName,
+                                            AmountCustomerMatchResult customerMatch,
+                                            ChargeType chargeType,
+                                            TaskChargeAmount chargeAmount,
+                                            List<AmountItemMaster> items) {
+        if (chargeAmount == null || chargeAmount.amount() <= 0) {
+            return null;
+        }
+
+        AmountItemMatchResult chargeMatch = matchChargeItem(chargeType, items);
+        AmountItemMaster matchedItem = chargeMatch.item();
+
+        BigDecimal supply = BigDecimal.valueOf(chargeAmount.amount());
         BigDecimal vat = supply.multiply(BigDecimal.valueOf(0.1)).setScale(0, RoundingMode.HALF_UP);
         BigDecimal total = supply.add(vat);
-        String memo = "Task " + taskId + " 운임비 1회 처리"
-                + " / 배송비=" + taskDeliveryCost
-                + " / 포장비=" + taskPackingCost
-                + " / Order별 중복 금액은 합산하지 않음";
+
+        String sourceOrderText = chargeAmount.sourceOrderId() == null
+                ? ""
+                : " / 기준 Order=" + chargeAmount.sourceOrderId();
+        String memo = "Task " + taskId + " " + chargeType.itemName() + " 1회 처리"
+                + sourceOrderText
+                + " / 실제 Order 금액=" + chargeAmount.amount()
+                + " / Task 내 중복 저장값은 양수 최대값 1회만 반영";
 
         return new VoucherLine(
                 taskId,
-                null,
+                chargeAmount.sourceOrderId(),
                 true,
                 false,
                 transactionDate,
                 companyName,
                 customerMatch,
-                freightMatch,
-                freightItem != null ? safe(freightItem.getItemCode()) : "",
-                freightItem != null ? safe(freightItem.getItemName()) : "운임비",
-                freightItem != null ? safe(freightItem.getSpecification()) : "",
-                freightItem != null && StringUtils.hasText(freightItem.getUnit()) ? freightItem.getUnit() : "기타",
+                chargeMatch,
+                matchedItem != null ? safe(matchedItem.getItemCode()) : "",
+                matchedItem != null ? safe(matchedItem.getItemName()) : chargeType.itemName(),
+                matchedItem != null ? safe(matchedItem.getSpecification()) : "",
+                matchedItem != null && StringUtils.hasText(matchedItem.getUnit())
+                        ? matchedItem.getUnit()
+                        : "기타",
                 1,
                 supply,
                 supply,
@@ -276,6 +315,86 @@ public class AmountSalesVoucherExportService {
                 total,
                 memo,
                 ""
+        );
+    }
+
+    private TaskChargeAmount resolveTaskChargeAmount(List<Order> taskOrders, ChargeType chargeType) {
+        if (taskOrders == null || taskOrders.isEmpty() || chargeType == null) {
+            return new TaskChargeAmount(0, null);
+        }
+
+        int maxAmount = 0;
+        Long sourceOrderId = null;
+        for (Order order : taskOrders) {
+            if (order == null) {
+                continue;
+            }
+            int amount = Math.max(0, chargeType.amount(order));
+            if (amount > maxAmount) {
+                maxAmount = amount;
+                sourceOrderId = order.getId();
+            }
+        }
+        return new TaskChargeAmount(maxAmount, sourceOrderId);
+    }
+
+    private AmountItemMatchResult matchChargeItem(ChargeType chargeType, List<AmountItemMaster> items) {
+        if (chargeType == null) {
+            return AmountItemMatchResult.empty("비용 품목 유형이 없습니다.");
+        }
+        if (items == null || items.isEmpty()) {
+            return AmountItemMatchResult.empty(
+                    "품목 마스터가 비어 있어 " + chargeType.itemName() + " 코드를 찾지 못했습니다.");
+        }
+
+        Optional<AmountItemMaster> exact = items.stream()
+                .filter(item -> item != null && same(chargeType.itemName(), item.getItemName()))
+                .sorted(Comparator.comparing(item -> safe(item.getItemCode())))
+                .findFirst();
+        if (exact.isPresent()) {
+            return new AmountItemMatchResult(
+                    exact.get(),
+                    100,
+                    "EXACT",
+                    chargeType.itemName() + " 품목명 100% 일치",
+                    false
+            );
+        }
+
+        List<AmountItemMaster> relatedCandidates = items.stream()
+                .filter(item -> item != null && chargeType.isRelatedItemName(item.getItemName()))
+                .toList();
+        if (relatedCandidates.isEmpty()) {
+            return AmountItemMatchResult.empty(
+                    "품목 마스터에서 " + chargeType.itemName() + " 관련 항목을 찾지 못했습니다.");
+        }
+
+        AmountItemMaster bestItem = null;
+        int bestScore = -1;
+        for (AmountItemMaster item : relatedCandidates) {
+            int score = chargeType.matchScore(item.getItemName());
+            if (score > bestScore) {
+                bestScore = score;
+                bestItem = item;
+            } else if (score == bestScore && bestItem != null
+                    && safe(item.getItemCode()).compareTo(safe(bestItem.getItemCode())) < 0) {
+                bestItem = item;
+            }
+        }
+
+        if (bestItem == null) {
+            return AmountItemMatchResult.empty(
+                    "품목 마스터에서 " + chargeType.itemName() + " 관련 항목을 찾지 못했습니다.");
+        }
+
+        int finalScore = Math.max(0, Math.min(100, bestScore));
+        return new AmountItemMatchResult(
+                bestItem,
+                finalScore,
+                level(finalScore),
+                chargeType.itemName() + " 유사 품목명 매칭: " + safe(bestItem.getItemName())
+                        + ", score=" + finalScore,
+                false
         );
     }
 
@@ -289,7 +408,7 @@ public class AmountSalesVoucherExportService {
             return null;
         }
         String phoneMemo = buildTaskAddressMemo(taskOrders);
-        AmountItemMatchResult addressMatch = new AmountItemMatchResult(null, 100, "EXACT", "운임비 하단 주소 보조행", false);
+        AmountItemMatchResult addressMatch = new AmountItemMatchResult(null, 100, "EXACT", "비용 품목 하단 주소 보조행", false);
         BigDecimal zero = BigDecimal.ZERO;
 
         return new VoucherLine(
@@ -372,24 +491,6 @@ public class AmountSalesVoucherExportService {
                 .collect(Collectors.joining(delimiter));
     }
 
-    private Optional<AmountItemMaster> findFreightItem(List<AmountItemMaster> items) {
-        if (items == null || items.isEmpty()) {
-            return Optional.empty();
-        }
-        Optional<AmountItemMaster> exact = items.stream()
-                .filter(item -> "운임비".equals(AmountTextNormalizer.compact(item.getItemName())))
-                .findFirst();
-        if (exact.isPresent()) {
-            return exact;
-        }
-        return items.stream()
-                .filter(item -> {
-                    String name = AmountTextNormalizer.compact(item.getItemName());
-                    return name.contains("운임비") || name.contains("배송비") || name.contains("화물비");
-                })
-                .findFirst();
-    }
-
     private AmountCustomerMatchResult matchCustomer(String companyName, String businessNumber, List<AmountCustomerMaster> customers) {
         if (customers == null || customers.isEmpty()) {
             return AmountCustomerMatchResult.empty("거래처 마스터가 비어 있습니다.");
@@ -425,11 +526,15 @@ public class AmountSalesVoucherExportService {
         return new AmountCustomerMatchResult(best, bestScore, level(bestScore), bestReason);
     }
 
-    private AmountItemMatchResult matchItem(AmountParsedOrderProduct parsed, List<AmountItemMaster> items, Boolean orderStandard) {
+    private AmountItemMatchResult matchItem(AmountParsedOrderProduct parsed,
+                                            List<AmountItemMaster> items,
+                                            Boolean orderStandard,
+                                            boolean orderMirrorCuttingProduct) {
         if (items == null || items.isEmpty()) {
             return AmountItemMatchResult.empty("품목 마스터가 비어 있습니다.");
         }
 
+        String sourceItemName = parsed == null ? "" : safe(parsed.productName());
         List<AmountItemMaster> candidates = items;
         String standardReasonPrefix = "";
         if (orderStandard != null) {
@@ -442,13 +547,55 @@ public class AmountSalesVoucherExportService {
             } else {
                 // 동기화 데이터가 아직 부족한 경우 전표 생성 자체가 완전히 비지 않도록 전체 후보에서 대체 매칭하되,
                 // 비고에 반드시 남겨서 사용자가 보정할 수 있게 합니다.
-                standardReasonPrefix = "규격구분 선필터 후보 없음[주문=" + standardLabel(orderStandard) + "] → 전체 후보에서 대체 매칭 / ";
+                standardReasonPrefix = "규격구분 선필터 후보 없음[주문=" + standardLabel(orderStandard)
+                        + "] → 전체 후보에서 대체 매칭 / ";
+            }
+        }
+
+        if (StringUtils.hasText(sourceItemName)) {
+            List<AmountItemMaster> exactNameMatches = candidates.stream()
+                    .filter(item -> item != null && same(sourceItemName, item.getItemName()))
+                    .toList();
+            if (!exactNameMatches.isEmpty()) {
+                AmountItemMaster exactItem = chooseExactNameMatch(
+                        exactNameMatches, parsed, orderMirrorCuttingProduct);
+                int exactScore = 100;
+                String reason = standardReasonPrefix
+                        + "OrderItem.itemName ↔ AmountItemMaster.itemName 정규화 100% 일치"
+                        + " / 원문품목명=" + sourceItemName;
+
+                if (exactNameMatches.size() > 1) {
+                    reason += " / 동일 품목명 후보 " + exactNameMatches.size()
+                            + "건 중 거울재단 여부·기존 옵션점수로 선택";
+                }
+                if (exactItem != null
+                        && exactItem.isMirrorCuttingProduct() != orderMirrorCuttingProduct) {
+                    reason += " / 거울재단구분 불일치: 주문="
+                            + mirrorCuttingLabel(orderMirrorCuttingProduct)
+                            + ", 품목=" + mirrorCuttingLabel(exactItem.isMirrorCuttingProduct());
+                }
+                if (orderStandard != null && exactItem != null
+                        && exactItem.isStandard() != orderStandard.booleanValue()) {
+                    exactScore = 50;
+                    reason += " / 규격구분 불일치: 주문=" + standardLabel(orderStandard)
+                            + ", 품목=" + standardLabel(exactItem.isStandard());
+                }
+
+                return new AmountItemMatchResult(
+                        exactItem,
+                        exactScore,
+                        level(exactScore),
+                        reason,
+                        false
+                );
             }
         }
 
         List<ScoredItem> scored = candidates.stream()
-                .map(item -> new ScoredItem(item, scoreItem(parsed, item)))
-                .sorted(Comparator.comparingInt(ScoredItem::score).reversed())
+                .map(item -> scoreItemCandidate(sourceItemName, parsed, item))
+                .sorted(Comparator.comparingInt(ScoredItem::score).reversed()
+                        .thenComparing(Comparator.comparingInt(ScoredItem::nameScore).reversed())
+                        .thenComparing(scoredItem -> safe(scoredItem.item().getItemCode())))
                 .limit(25)
                 .toList();
         ScoredItem best = scored.isEmpty() ? null : scored.get(0);
@@ -457,35 +604,102 @@ public class AmountSalesVoucherExportService {
         }
 
         boolean aiUsed = false;
-        String reason = standardReasonPrefix + buildItemReason(parsed, best.item(), best.score());
+        String reason = standardReasonPrefix + buildItemReason(
+                parsed,
+                sourceItemName,
+                best.item(),
+                best.score(),
+                best.nameScore(),
+                best.optionScore()
+        );
         int finalScore = best.score();
         AmountItemMaster finalItem = best.item();
 
-        boolean ambiguous = scored.size() > 1 && Math.abs(scored.get(0).score() - scored.get(1).score()) <= 5;
+        boolean ambiguous = scored.size() > 1
+                && (Math.abs(scored.get(0).score() - scored.get(1).score()) <= 5
+                || Math.abs(scored.get(0).nameScore() - scored.get(1).nameScore()) <= 3);
         if (finalScore < 97 || ambiguous) {
-            Optional<OpenAiAmountProductMatchClient.AiProductChoice> aiChoice = aiProductMatchClient.chooseBest(parsed,
-                    scored.stream().map(ScoredItem::item).toList());
+            Optional<OpenAiAmountProductMatchClient.AiProductChoice> aiChoice = aiProductMatchClient.chooseBest(
+                    parsed,
+                    scored.stream().map(ScoredItem::item).toList()
+            );
             if (aiChoice.isPresent()) {
                 OpenAiAmountProductMatchClient.AiProductChoice choice = aiChoice.get();
-                Optional<AmountItemMaster> selected = scored.stream()
-                        .map(ScoredItem::item)
-                        .filter(item -> same(choice.itemCode(), item.getItemCode()) || same(choice.itemName(), item.getItemName()))
+                Optional<ScoredItem> selected = scored.stream()
+                        .filter(scoredItem -> same(choice.itemCode(), scoredItem.item().getItemCode())
+                                || same(choice.itemName(), scoredItem.item().getItemName()))
                         .findFirst();
                 if (selected.isPresent()) {
-                    finalItem = selected.get();
-                    finalScore = Math.max(finalScore, choice.confidence());
-                    reason = standardReasonPrefix + "AI선택: " + choice.reason();
+                    ScoredItem selectedItem = selected.get();
+                    finalItem = selectedItem.item();
+                    finalScore = Math.max(selectedItem.score(), choice.confidence());
+                    reason = standardReasonPrefix
+                            + "AI선택: " + choice.reason()
+                            + " / 원문품목명=" + sourceItemName
+                            + " / 선택품목명=" + safe(finalItem.getItemName())
+                            + " / 이름점수=" + selectedItem.nameScore()
+                            + " / 옵션점수=" + selectedItem.optionScore();
                     aiUsed = true;
                 }
             }
         }
 
-        if (orderStandard != null && finalItem != null && finalItem.isStandard() != orderStandard.booleanValue()) {
+        if (orderStandard != null && finalItem != null
+                && finalItem.isStandard() != orderStandard.booleanValue()) {
             finalScore = Math.min(finalScore, 50);
-            reason = reason + " / 규격구분 불일치: 주문=" + standardLabel(orderStandard) + ", 품목=" + standardLabel(finalItem.isStandard());
+            reason = reason + " / 규격구분 불일치: 주문=" + standardLabel(orderStandard)
+                    + ", 품목=" + standardLabel(finalItem.isStandard());
+        }
+        if (finalItem != null
+                && finalItem.isMirrorCuttingProduct() != orderMirrorCuttingProduct) {
+            reason = reason + " / 거울재단구분 불일치: 주문="
+                    + mirrorCuttingLabel(orderMirrorCuttingProduct)
+                    + ", 품목=" + mirrorCuttingLabel(finalItem.isMirrorCuttingProduct());
         }
 
-        return new AmountItemMatchResult(finalItem, Math.max(0, Math.min(100, finalScore)), level(finalScore), reason, aiUsed);
+        return new AmountItemMatchResult(
+                finalItem,
+                Math.max(0, Math.min(100, finalScore)),
+                level(finalScore),
+                reason,
+                aiUsed
+        );
+    }
+
+    private AmountItemMaster chooseExactNameMatch(List<AmountItemMaster> exactNameMatches,
+                                                   AmountParsedOrderProduct parsed,
+                                                   boolean orderMirrorCuttingProduct) {
+        if (exactNameMatches == null || exactNameMatches.isEmpty()) {
+            return null;
+        }
+
+        return exactNameMatches.stream()
+                .sorted(Comparator
+                        .comparingInt((AmountItemMaster item) ->
+                                item.isMirrorCuttingProduct() == orderMirrorCuttingProduct ? 0 : 1)
+                        .thenComparing(
+                                Comparator.comparingInt((AmountItemMaster item) -> scoreItem(parsed, item)).reversed())
+                        .thenComparing(item -> safe(item.getItemCode())))
+                .findFirst()
+                .orElse(exactNameMatches.get(0));
+    }
+
+    private ScoredItem scoreItemCandidate(String sourceItemName,
+                                          AmountParsedOrderProduct parsed,
+                                          AmountItemMaster item) {
+        int optionScore = scoreItem(parsed, item);
+        if (!StringUtils.hasText(sourceItemName)) {
+            return new ScoredItem(item, optionScore, 0, optionScore);
+        }
+
+        int nameScore = AmountTextNormalizer.similarity100(sourceItemName, item.getItemName());
+        int combinedScore = Math.round(nameScore * 0.90f + optionScore * 0.10f);
+        return new ScoredItem(
+                item,
+                Math.max(0, Math.min(100, combinedScore)),
+                Math.max(0, Math.min(100, nameScore)),
+                optionScore
+        );
     }
 
     private int scoreItem(AmountParsedOrderProduct parsed, AmountItemMaster item) {
@@ -555,15 +769,23 @@ public class AmountSalesVoucherExportService {
         return Math.max(0, Math.min(100, score));
     }
 
-    private String buildItemReason(AmountParsedOrderProduct parsed, AmountItemMaster item, int score) {
-        return "주문[" + parsed.displayText() + "] ↔ 품목["
+    private String buildItemReason(AmountParsedOrderProduct parsed,
+                                   String sourceItemName,
+                                   AmountItemMaster item,
+                                   int score,
+                                   int nameScore,
+                                   int optionScore) {
+        return "원문품목명[" + safe(sourceItemName) + "] ↔ 품목["
                 + value(item, AmountItemMaster::getItemName)
                 + " / 대분류=" + value(item, AmountItemMaster::getCategoryName)
                 + " / 중분류=" + value(item, AmountItemMaster::getMiddleCategoryName)
                 + " / 규격구분=" + (item != null ? standardLabel(item.isStandard()) : "")
                 + " / 사이즈=" + value(item, AmountItemMaster::getSpecification)
                 + " / 단위=" + value(item, AmountItemMaster::getUnit)
-                + "], score=" + score;
+                + "], 최종점수=" + score
+                + ", 이름점수=" + nameScore
+                + ", 옵션점수=" + optionScore
+                + ", 주문옵션=" + (parsed == null ? "" : parsed.displayText());
     }
 
     private Money resolveProductMoney(Order order, AmountItemMaster matchedItem, int qty) {
@@ -719,7 +941,7 @@ public class AmountSalesVoucherExportService {
             numeric(row, 24, BigDecimal.valueOf(Math.min(line.itemMatch().score(), line.customerMatch().score())), base);
         }
 
-        String optionText = line.addressLine() || line.freightLine() ? "" : safe(line.optionText());
+        String optionText = line.addressLine() || line.chargeLine() ? "" : safe(line.optionText());
         cell(row, 25, optionText, styles.get("option"));
         formula(row, 26, "LENB(" + excelCellRef(row, 25) + ")", base);
     }
@@ -775,7 +997,7 @@ public class AmountSalesVoucherExportService {
         cell(row, 0, "검정/무채색: 97점 이상 정확 매칭, 주황: 51~96점 부분 매칭, 빨강: 50점 이하 재검토 필요", styles.get("body"));
         Row row2 = infoSheet.createRow(1);
         row2.setHeightInPoints(18);
-        cell(row2, 0, "운임비: 품목 마스터에서 운임비 코드를 찾아 Task 마지막에 1회 출력하고, 바로 다음 행 품목명 칸에 배송/현장 주소를 출력합니다. deliveryCost/packingCost는 Task 단위 비용으로 보고 최대값 1회만 사용합니다.", styles.get("body"));
+        cell(row2, 0, "비용 품목: 운임비와 포장비를 품목 마스터에서 각각 매칭해 Task 마지막에 별도 행으로 출력합니다. 각 실제 Order 금액이 0원보다 클 때만 출력하며, 같은 Task에 중복 저장된 값은 비용별 양수 최대값 1회만 사용합니다. 비용행이 있을 때만 바로 다음 주소 보조행을 출력합니다.", styles.get("body"));
         infoSheet.setColumnWidth(0, 28000);
     }
 
@@ -952,6 +1174,10 @@ public class AmountSalesVoucherExportService {
         return standard ? "규격" : "비규격";
     }
 
+    private String mirrorCuttingLabel(boolean mirrorCuttingProduct) {
+        return mirrorCuttingProduct ? "재단필요" : "재단없음";
+    }
+
     private int resolveQuantity(Order order) {
         if (order.getQuantity() > 0) {
             return order.getQuantity();
@@ -964,7 +1190,11 @@ public class AmountSalesVoucherExportService {
     }
 
     private String fallbackProductName(AmountParsedOrderProduct parsed, Order order) {
-        if (StringUtils.hasText(parsed.productName())) {
+        String originalItemName = safe(() -> order.getOrderItem().getItemName());
+        if (StringUtils.hasText(originalItemName)) {
+            return originalItemName;
+        }
+        if (parsed != null && StringUtils.hasText(parsed.productName())) {
             return parsed.productName();
         }
         return safe(() -> order.getOrderItem().getProductName());
@@ -1264,7 +1494,7 @@ public class AmountSalesVoucherExportService {
 
     private record VoucherLine(Long taskId,
                                Long orderId,
-                               boolean freightLine,
+                               boolean chargeLine,
                                boolean addressLine,
                                LocalDate transactionDate,
                                String companyName,
@@ -1283,9 +1513,71 @@ public class AmountSalesVoucherExportService {
                                String optionText) {
     }
 
+    private enum ChargeType {
+        DELIVERY("운임비", List.of("운임비", "배송비", "화물비", "운송비")) {
+            @Override
+            int amount(Order order) {
+                return order == null ? 0 : order.getDeliveryCost();
+            }
+        },
+        PACKING("포장비", List.of("포장비", "포장료", "포장비용")) {
+            @Override
+            int amount(Order order) {
+                return order == null ? 0 : order.getPackingCost();
+            }
+        };
+
+        private final String itemName;
+        private final List<String> aliases;
+
+        ChargeType(String itemName, List<String> aliases) {
+            this.itemName = itemName;
+            this.aliases = aliases;
+        }
+
+        String itemName() {
+            return itemName;
+        }
+
+        abstract int amount(Order order);
+
+        boolean isRelatedItemName(String candidateName) {
+            String compactCandidate = AmountTextNormalizer.compact(candidateName);
+            if (!StringUtils.hasText(compactCandidate)) {
+                return false;
+            }
+            return aliases.stream()
+                    .map(AmountTextNormalizer::compact)
+                    .anyMatch(alias -> StringUtils.hasText(alias)
+                            && (compactCandidate.contains(alias) || alias.contains(compactCandidate)));
+        }
+
+        int matchScore(String candidateName) {
+            if (sameCompact(itemName, candidateName)) {
+                return 100;
+            }
+            boolean exactAlias = aliases.stream().anyMatch(alias -> sameCompact(alias, candidateName));
+            if (exactAlias) {
+                return 95;
+            }
+            int score = aliases.stream()
+                    .mapToInt(alias -> AmountTextNormalizer.similarity100(alias, candidateName))
+                    .max()
+                    .orElse(0);
+            return Math.min(score, 94);
+        }
+
+        private static boolean sameCompact(String left, String right) {
+            return AmountTextNormalizer.compact(left).equals(AmountTextNormalizer.compact(right));
+        }
+    }
+
+    private record TaskChargeAmount(int amount, Long sourceOrderId) {
+    }
+
     private record Money(BigDecimal unitPrice, BigDecimal supply, BigDecimal vat, BigDecimal total) {
     }
 
-    private record ScoredItem(AmountItemMaster item, int score) {
+    private record ScoredItem(AmountItemMaster item, int score, int nameScore, int optionScore) {
     }
 }

@@ -240,6 +240,8 @@ public class OrderExcelUploadService {
 
                 LinkedHashMap<String, String> optionMap = buildOptionMap(rowRequest, productionCategory);
                 OrderItem orderItem = new OrderItem();
+                // 엑셀 D열의 "품목명" 원문은 기존 제품명 가공 로직과 분리하여 그대로 보존합니다.
+                orderItem.setItemName(rowRequest.getOriginalItemName());
                 orderItem.setProductName(optionMap.getOrDefault("제품명", safe(rowRequest.getCalculatedProductName())));
                 orderItem.setQuantity(rowRequest.getQuantity());
                 orderItem.setOptionJson(toJson(optionMap));

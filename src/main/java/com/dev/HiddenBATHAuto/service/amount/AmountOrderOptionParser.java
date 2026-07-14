@@ -36,10 +36,20 @@ public class AmountOrderOptionParser {
         }
 
         String series = first(optionMap, "제품시리즈", "시리즈", "제품 시리즈");
-        String productName = first(optionMap, "제품명", "제품", "품목명", "품목");
+
+        /*
+         * 매출전표 품목 매칭의 최우선 원문은 OrderItem.itemName입니다.
+         * 신규 데이터는 AmountItemMaster.itemName과 직접 비교하며,
+         * 기존 데이터처럼 itemName이 비어 있는 경우에만 옵션 JSON 및 productName을 순서대로 사용합니다.
+         */
+        String productName = item == null ? "" : item.getItemName();
+        if (!StringUtils.hasText(productName)) {
+            productName = first(optionMap, "제품명", "제품", "품목명", "품목");
+        }
         if (!StringUtils.hasText(productName) && item != null) {
             productName = item.getProductName();
         }
+
         String color = first(optionMap, "색상", "제품색상", "바디색상", "컬러");
         String size = first(optionMap, "사이즈", "규격", "크기", "제품사이즈");
         Integer[] whd = parseWidthHeightDepth(size);

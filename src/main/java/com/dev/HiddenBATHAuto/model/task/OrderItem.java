@@ -29,6 +29,16 @@ public class OrderItem {
     private Order order;
 
     private String productName;
+
+    /**
+     * 엑셀 업로드 파일의 "품목명" 값을 가공하지 않고 그대로 저장합니다.
+     *
+     * 기존 productName은 현재 제품명 가공/표시 로직을 그대로 유지하고,
+     * itemName은 엑셀 원문 보존 용도로만 사용합니다.
+     */
+    @Column(name = "item_name", columnDefinition = "TEXT")
+    private String itemName;
+
     private int quantity;
 
     @Column(columnDefinition = "TEXT")
