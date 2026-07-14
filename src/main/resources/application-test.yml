@@ -81,7 +81,7 @@ hiddenbath:
         pool-name: rag-postgres-pool-local-dev
 
     openai:
-      api-key: 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
+      api-key: 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
       base-url: https://api.openai.com
       chat-model: gpt-5.5
       embedding-model: text-embedding-3-small
