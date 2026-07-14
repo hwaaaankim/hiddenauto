@@ -34,6 +34,8 @@ public final class RagAgentDataAccessPolicy {
             "rag_interaction_event", "rag_conversation_working_memory",
             "rag_agent_run", "rag_agent_sql_query", "rag_agent_change_set", "rag_agent_change_item",
             "rag_agent_file_stage", "rag_agent_tool_call", "rag_agent_schema_note",
+            "rag_agent_request_plan", "rag_agent_observation",
+            "rag_semantic_memory", "rag_semantic_index_queue",
             "rag_canonical_job", "rag_canonical_job_log"
     );
 

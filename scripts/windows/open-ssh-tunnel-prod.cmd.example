@@ -1,0 +1,10 @@
+@echo off
+rem Copy to open-ssh-tunnel-prod.cmd, replace values, and keep this window open.
+set "SSH_USER=CHANGE_ME_SSH_USER"
+set "SSH_HOST=CHANGE_ME_SERVER_HOST"
+set "SSH_PORT=22"
+set "LOCAL_PORT=15434"
+set "REMOTE_DB_HOST=127.0.0.1"
+rem Existing combined compose normally exposes PostgreSQL on server port 5433. Change this for your server.
+set "REMOTE_DB_PORT=5433"
+ssh -N -p "%SSH_PORT%" -L "%LOCAL_PORT%:%REMOTE_DB_HOST%:%REMOTE_DB_PORT%" "%SSH_USER%@%SSH_HOST%"

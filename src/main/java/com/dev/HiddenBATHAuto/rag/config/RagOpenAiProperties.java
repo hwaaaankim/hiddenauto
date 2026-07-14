@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "hiddenbath.rag.openai")
 public class RagOpenAiProperties {
 
-    private String apiKey = "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";
+    private String apiKey = "";
     private String baseUrl = "https://api.openai.com";
     private String chatModel = "gpt-5.5";
     private String embeddingModel = "text-embedding-3-small";
@@ -48,6 +48,45 @@ public class RagOpenAiProperties {
 
     /** 한 SQL 문장이 변경할 수 있는 최대 row 수입니다. 초과 시 전체 트랜잭션을 롤백합니다. */
     private int agentMaxAffectedRowsPerStatement = 10000;
+
+    /** Agent가 도구 호출 없이 같은 상태를 반복할 때 복구로 전환하는 임계값입니다. */
+    private int agentNoProgressLimit = 3;
+
+    /** Tool loop 종료 후 GPT 복구답변을 다시 시도할 횟수입니다. */
+    private int agentRecoveryAttempts = 2;
+
+    /** Semantic Memory worker 실행 여부입니다. */
+    private boolean semanticWorkerEnabled = true;
+
+    /** Semantic queue worker 주기(ms)입니다. */
+    private long semanticWorkerDelayMs = 5000L;
+
+    /** 한 worker 주기에서 가져올 queue 수입니다. */
+    private int semanticWorkerBatchSize = 10;
+
+    /** Semantic queue 항목의 최대 시도 횟수입니다. */
+    private int semanticWorkerMaxAttempts = 6;
+
+    /** PROCESSING 잠금 만료 시간(초)입니다. */
+    private int semanticWorkerLockTimeoutSeconds = 300;
+
+    /** 임베딩에 전달할 semantic 본문 최대 글자 수입니다. */
+    private int semanticEmbeddingInputChars = 16000;
+
+    /** semantic memory content에 저장할 최대 글자 수입니다. */
+    private int semanticContentMaxChars = 60000;
+
+    /** 질의 임베딩을 사용할지 여부입니다. 장애 시 FTS/pg_trgm으로 자동 폴백합니다. */
+    private boolean semanticQueryEmbeddingEnabled = true;
+
+    /** 기본 semantic 검색 결과 수입니다. */
+    private int semanticDefaultSearchLimit = 15;
+
+    /** semantic 검색 절대 최대 결과 수입니다. */
+    private int semanticHardSearchLimit = 100;
+
+    /** text-embedding-3-small 기본 차원과 DB vector 차원입니다. */
+    private int semanticEmbeddingDimensions = 1536;
 
     private int adaptiveChunkThresholdChars = 1200;
     private int adaptiveChunkChars = 2800;
@@ -93,6 +132,32 @@ public class RagOpenAiProperties {
     public void setAgentMaxChangeItems(int agentMaxChangeItems) { this.agentMaxChangeItems = Math.max(1, Math.min(agentMaxChangeItems, 1000)); }
     public int getAgentMaxAffectedRowsPerStatement() { return agentMaxAffectedRowsPerStatement; }
     public void setAgentMaxAffectedRowsPerStatement(int agentMaxAffectedRowsPerStatement) { this.agentMaxAffectedRowsPerStatement = Math.max(1, Math.min(agentMaxAffectedRowsPerStatement, 1000000)); }
+    public int getAgentNoProgressLimit() { return agentNoProgressLimit; }
+    public void setAgentNoProgressLimit(int agentNoProgressLimit) { this.agentNoProgressLimit = Math.max(1, Math.min(agentNoProgressLimit, 20)); }
+    public int getAgentRecoveryAttempts() { return agentRecoveryAttempts; }
+    public void setAgentRecoveryAttempts(int agentRecoveryAttempts) { this.agentRecoveryAttempts = Math.max(0, Math.min(agentRecoveryAttempts, 5)); }
+    public boolean isSemanticWorkerEnabled() { return semanticWorkerEnabled; }
+    public void setSemanticWorkerEnabled(boolean semanticWorkerEnabled) { this.semanticWorkerEnabled = semanticWorkerEnabled; }
+    public long getSemanticWorkerDelayMs() { return semanticWorkerDelayMs; }
+    public void setSemanticWorkerDelayMs(long semanticWorkerDelayMs) { this.semanticWorkerDelayMs = Math.max(1000L, semanticWorkerDelayMs); }
+    public int getSemanticWorkerBatchSize() { return semanticWorkerBatchSize; }
+    public void setSemanticWorkerBatchSize(int semanticWorkerBatchSize) { this.semanticWorkerBatchSize = Math.max(1, Math.min(semanticWorkerBatchSize, 200)); }
+    public int getSemanticWorkerMaxAttempts() { return semanticWorkerMaxAttempts; }
+    public void setSemanticWorkerMaxAttempts(int semanticWorkerMaxAttempts) { this.semanticWorkerMaxAttempts = Math.max(1, Math.min(semanticWorkerMaxAttempts, 50)); }
+    public int getSemanticWorkerLockTimeoutSeconds() { return semanticWorkerLockTimeoutSeconds; }
+    public void setSemanticWorkerLockTimeoutSeconds(int semanticWorkerLockTimeoutSeconds) { this.semanticWorkerLockTimeoutSeconds = Math.max(30, Math.min(semanticWorkerLockTimeoutSeconds, 3600)); }
+    public int getSemanticEmbeddingInputChars() { return semanticEmbeddingInputChars; }
+    public void setSemanticEmbeddingInputChars(int semanticEmbeddingInputChars) { this.semanticEmbeddingInputChars = Math.max(1000, Math.min(semanticEmbeddingInputChars, 100000)); }
+    public int getSemanticContentMaxChars() { return semanticContentMaxChars; }
+    public void setSemanticContentMaxChars(int semanticContentMaxChars) { this.semanticContentMaxChars = Math.max(5000, Math.min(semanticContentMaxChars, 500000)); }
+    public boolean isSemanticQueryEmbeddingEnabled() { return semanticQueryEmbeddingEnabled; }
+    public void setSemanticQueryEmbeddingEnabled(boolean semanticQueryEmbeddingEnabled) { this.semanticQueryEmbeddingEnabled = semanticQueryEmbeddingEnabled; }
+    public int getSemanticDefaultSearchLimit() { return semanticDefaultSearchLimit; }
+    public void setSemanticDefaultSearchLimit(int semanticDefaultSearchLimit) { this.semanticDefaultSearchLimit = Math.max(1, Math.min(semanticDefaultSearchLimit, 100)); }
+    public int getSemanticHardSearchLimit() { return semanticHardSearchLimit; }
+    public void setSemanticHardSearchLimit(int semanticHardSearchLimit) { this.semanticHardSearchLimit = Math.max(10, Math.min(semanticHardSearchLimit, 500)); }
+    public int getSemanticEmbeddingDimensions() { return semanticEmbeddingDimensions; }
+    public void setSemanticEmbeddingDimensions(int semanticEmbeddingDimensions) { this.semanticEmbeddingDimensions = Math.max(1, semanticEmbeddingDimensions); }
     public int getAdaptiveChunkThresholdChars() { return adaptiveChunkThresholdChars; }
     public void setAdaptiveChunkThresholdChars(int adaptiveChunkThresholdChars) { this.adaptiveChunkThresholdChars = adaptiveChunkThresholdChars; }
     public int getAdaptiveChunkChars() { return adaptiveChunkChars; }

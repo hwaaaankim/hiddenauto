@@ -8,7 +8,7 @@ let currentMemory = null;
 let chatSelectedFiles = [];
 
 const AI_CHAT_API = '/admin/rag/api/ai-chat';
-const RAG_CHAT_JS_VERSION = '20260623-gpt-sql-agent-v1';
+const RAG_CHAT_JS_VERSION = '20260714-gpt-db-agent-v2';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.info('[RAG_CHAT_JS] loaded', RAG_CHAT_JS_VERSION);
@@ -218,13 +218,21 @@ function renderChatIntent(data) {
     if (!box) return;
     box.textContent = Rag.pretty({
         intentType: data.intentType || data.intent || null,
+        agentIntentType: data.agentIntentType || data.requestPlan?.intentType || null,
         actionStatus: data.actionStatus || null,
         confidence: data.confidence || null,
+        agentMode: data.agentMode || null,
         agentRunId: data.agentRunId || null,
+        agentToolTurns: data.agentToolTurns ?? null,
+        agentToolCount: Array.isArray(data.agentToolTrace) ? data.agentToolTrace.length : null,
+        recovered: data.recovered ?? null,
+        semanticCandidateCount: data.semanticResult?.resultCount ?? data.semanticResult?.candidateCount ?? null,
+        priceCalculated: data.pricingResult?.calculated ?? null,
         changeSetId: data.changeResult?.changeSetId || data.memory?.changeSetId || null,
         sqlReadCount: Array.isArray(data.agentSqlResults) ? data.agentSqlResults.length : null,
         entityKey: data.entityKey || data.summary?.entityKey || null,
         counts: data.summary?.counts || null,
+        errorCode: data.errorCode || null,
         saveStatus: data.saveStatus || null,
         saveMessage: data.saveMessage || null
     });

@@ -123,6 +123,8 @@ public class RagAgentSqlSafetyService {
             "rag_interaction_event", "rag_conversation_working_memory",
             "rag_agent_run", "rag_agent_sql_query", "rag_agent_change_set",
             "rag_agent_change_item", "rag_agent_file_stage", "rag_agent_tool_call", "rag_agent_schema_note",
+            "rag_agent_request_plan", "rag_agent_observation",
+            "rag_semantic_memory", "rag_semantic_index_queue",
             "rag_canonical_job", "rag_canonical_job_log", "rag_canonical_nl_parse_log",
             "rag_canonical_quote_log", "rag_gpt_final_answer_log", "rag_semantic_resolution_event",
             "rag_canonical_change_event", "rag_canonical_quality_issue", "rag_knowledge_query_cache",
@@ -183,6 +185,9 @@ public class RagAgentSqlSafetyService {
         if (SCOPE_BYPASS_PATTERN.matcher(masked).find()) {
             throw new IllegalArgumentException("변경 SQL에서는 OR/NOT/UNION/INTERSECT/EXCEPT를 허용하지 않습니다.");
         }
+        if (Pattern.compile("(?i)\\breturning\\b").matcher(masked).find()) {
+            throw new IllegalArgumentException("Agent 변경 SQL에서는 RETURNING 절을 허용하지 않습니다.");
+        }
 
         String target = normalizedTableName(writeTarget(normalized));
         if (!StringUtils.hasText(target) || !target.startsWith("rag_") || !schemaService.tableExists(target)) {
@@ -193,9 +198,13 @@ public class RagAgentSqlSafetyService {
         }
 
         ensureNoWriteTargetAlias(normalized, target);
-        if ((lower.startsWith("update ") || lower.startsWith("delete from "))
-                && Pattern.compile("(?i)\b(?:from|join|using)\b").matcher(masked).find()) {
-            throw new IllegalArgumentException("Agent UPDATE/DELETE는 FROM/JOIN/USING 없이 단일 대상 테이블만 변경할 수 있습니다.");
+        if (lower.startsWith("update ")
+                && Pattern.compile("(?i)\\b(?:from|join|using)\\b").matcher(masked).find()) {
+            throw new IllegalArgumentException("Agent UPDATE는 FROM/JOIN/USING 없이 단일 대상 테이블만 변경할 수 있습니다.");
+        }
+        if (lower.startsWith("delete from ")
+                && Pattern.compile("(?i)\\b(?:join|using)\\b").matcher(masked).find()) {
+            throw new IllegalArgumentException("Agent DELETE는 JOIN/USING 없이 단일 대상 테이블만 변경할 수 있습니다.");
         }
         List<RagTableRef> sourceRefs = ensureOnlyRagTablesInWrite(normalized);
         ensureScopeForReferencedTables(normalized, sourceRefs);
@@ -211,6 +220,7 @@ public class RagAgentSqlSafetyService {
         }
         if (lower.startsWith("update ")) {
             ensureWhere(normalized, "UPDATE");
+            ensureSafeUpdateSetClause(target, extractUpdateSetClause(normalized));
         }
         if (lower.startsWith("delete from ")) {
             ensureWhere(normalized, "DELETE");
@@ -540,6 +550,17 @@ public class RagAgentSqlSafetyService {
                 throw new IllegalArgumentException("변경 WHERE 조건에 version_id = :versionId가 필요합니다.");
             }
         }
+    }
+
+    private String extractUpdateSetClause(String sql) {
+        Matcher matcher = Pattern.compile(
+                "(?is)^\\s*update\\s+" + QUALIFIED_SQL_IDENTIFIER
+                        + "\\s+set\\s+(.+?)\\s+where\\s+"
+        ).matcher(sql);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("UPDATE는 명시적인 SET 절과 WHERE 절이 필요합니다.");
+        }
+        return matcher.group(1).trim();
     }
 
     private void ensureSafeUpdateSetClause(String targetTable, String setClause) {

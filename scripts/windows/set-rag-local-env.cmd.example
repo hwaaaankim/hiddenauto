@@ -1,0 +1,14 @@
+@echo off
+rem Copy to set-rag-local-env.cmd, fill values, run it in the same CMD, and never commit it.
+set "PGHOST=127.0.0.1"
+set "PGPORT=5433"
+set "PGUSER=ax_admin"
+set "PGDATABASE=ax_rag_local"
+set "PGPASSWORD=CHANGE_ME_LOCAL_ADMIN_PASSWORD"
+set "HIDDENBATH_RAG_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5433/ax_rag_local"
+set "HIDDENBATH_RAG_DATASOURCE_USERNAME=ax_rag_local_user"
+set "HIDDENBATH_RAG_DATASOURCE_PASSWORD=CHANGE_ME_LOCAL_APP_PASSWORD"
+set "HIDDENBATH_RAG_OPENAI_API_KEY=CHANGE_ME_ROTATED_OPENAI_KEY"
+set "HIDDENBATH_RAG_OPENAI_CHAT_MODEL=gpt-5.5"
+set "HIDDENBATH_RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-small"
+set "HIDDENBATH_RAG_OPENAI_SEMANTIC_WORKER_ENABLED=true"

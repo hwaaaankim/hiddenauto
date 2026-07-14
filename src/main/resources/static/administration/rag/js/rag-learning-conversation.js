@@ -4,7 +4,7 @@ let learningActiveJobTimer = null;
 let learningActiveJobId = null;
 
 const LEARNING_CONVERSATION_API = '/admin/rag/api/learning-conversation';
-const RAG_LEARNING_JS_VERSION = '20260623-gpt-sql-agent-v1';
+const RAG_LEARNING_JS_VERSION = '20260714-gpt-db-agent-v2';
 
 const LEARNING_JOB_DONE = new Set(['COMPLETED', 'FAILED', 'CANCELED']);
 const LEARNING_JOB_POLL_INTERVAL_MS = 2500;
@@ -198,13 +198,21 @@ function renderLearningIntentResult(data) {
     if (!box) return;
     box.textContent = learningPrettyForScreen({
         intentType: data.intentType || data.intent,
+        agentIntentType: data.agentIntentType || data.requestPlan?.intentType || null,
         actionStatus: data.actionStatus,
         confidence: data.confidence,
+        agentMode: data.agentMode || null,
         agentRunId: data.agentRunId || null,
+        agentToolTurns: data.agentToolTurns ?? null,
+        agentToolCount: Array.isArray(data.agentToolTrace) ? data.agentToolTrace.length : null,
+        recovered: data.recovered ?? null,
+        semanticCandidateCount: data.semanticResult?.resultCount ?? data.semanticResult?.candidateCount ?? null,
+        priceCalculated: data.pricingResult?.calculated ?? null,
         changeSetId: data.changeResult?.changeSetId || data.memory?.changeSetId || null,
         sqlReadCount: Array.isArray(data.agentSqlResults) ? data.agentSqlResults.length : null,
         entityKey: data.entityKey || data.summary?.entityKey,
         counts: data.summary?.counts || null,
+        errorCode: data.errorCode || null,
         saveStatus: data.saveStatus || null,
         assets: data.assets || data.summary?.assets || []
     });

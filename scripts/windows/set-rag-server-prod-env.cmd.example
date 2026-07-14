@@ -1,0 +1,14 @@
+@echo off
+rem Copy to set-rag-server-prod-env.cmd, fill values, run it in the same CMD, and never commit it.
+set "PGHOST=127.0.0.1"
+set "PGPORT=15434"
+set "PGUSER=ax_admin"
+set "PGDATABASE=ax_rag_prod"
+set "PGPASSWORD=CHANGE_ME_PROD_ADMIN_PASSWORD"
+set "HIDDENBATH_RAG_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:15434/ax_rag_prod"
+set "HIDDENBATH_RAG_DATASOURCE_USERNAME=ax_rag_prod_user"
+set "HIDDENBATH_RAG_DATASOURCE_PASSWORD=CHANGE_ME_PROD_DB_PASSWORD"
+set "HIDDENBATH_RAG_OPENAI_API_KEY=CHANGE_ME_ROTATED_OPENAI_KEY"
+set "HIDDENBATH_RAG_OPENAI_CHAT_MODEL=gpt-5.5"
+set "HIDDENBATH_RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-small"
+set "HIDDENBATH_RAG_OPENAI_SEMANTIC_WORKER_ENABLED=true"

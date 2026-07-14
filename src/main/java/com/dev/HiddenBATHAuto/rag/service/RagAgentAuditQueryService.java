@@ -25,15 +25,35 @@ public class RagAgentAuditQueryService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("run", one("""
                 SELECT id, project_id, version_id, session_id, source_scope,
-                       user_message, force_save, status, agent_mode, model_name,
-                       last_response_id, tool_turn_count,
+                       user_message, force_save, status, phase, agent_mode, model_name,
+                       last_response_id, tool_turn_count, recovery_count, recovered,
+                       last_tool_name, no_progress_count, error_code,
                        usage_json::text AS usage_json,
+                       plan_json::text AS plan_json,
                        context_json::text AS context_json,
+                       evidence_json::text AS evidence_json,
                        final_response_json::text AS final_response_json,
-                       error_message,
+                       user_answer, error_detail_json::text AS error_detail_json, error_message,
                        created_at, updated_at, completed_at
                 FROM rag_agent_run
                 WHERE id = :runId
+                """, params));
+        result.put("requestPlan", list("""
+                SELECT id, intent_type, user_goal, requires_database, requires_semantic_search,
+                       requires_mutation, requires_deterministic_pricing, ambiguity_detected,
+                       clarification_question, target_domains::text AS target_domains,
+                       entity_hints_json::text AS entity_hints_json,
+                       planned_steps_json::text AS planned_steps_json, risk_level,
+                       plan_json::text AS plan_json, created_at, updated_at
+                FROM rag_agent_request_plan
+                WHERE run_id = :runId
+                """, params));
+        result.put("observations", list("""
+                SELECT id, turn_no, response_id, call_id, tool_name, status,
+                       observation_json::text AS observation_json, created_at
+                FROM rag_agent_observation
+                WHERE run_id = :runId
+                ORDER BY turn_no ASC, created_at ASC
                 """, params));
         result.put("toolCalls", list("""
                 SELECT id, response_id, call_id, turn_no, tool_name,
@@ -84,8 +104,9 @@ public class RagAgentAuditQueryService {
         int safeLimit = Math.max(1, Math.min(limit, 200));
         StringBuilder sql = new StringBuilder("""
                 SELECT id, session_id, source_scope, user_message, force_save,
-                       status, agent_mode, model_name, last_response_id,
-                       tool_turn_count, error_message, created_at, completed_at
+                       status, phase, agent_mode, model_name, last_response_id,
+                       tool_turn_count, recovered, recovery_count, last_tool_name,
+                       no_progress_count, error_code, error_message, created_at, completed_at
                 FROM rag_agent_run
                 WHERE project_id = :projectId
                   AND version_id = :versionId

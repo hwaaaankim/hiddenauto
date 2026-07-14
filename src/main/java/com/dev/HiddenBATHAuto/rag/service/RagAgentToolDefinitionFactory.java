@@ -14,9 +14,24 @@ public final class RagAgentToolDefinitionFactory {
     public static List<Map<String, Object>> tools() {
         List<Map<String, Object>> tools = new ArrayList<>();
         tools.add(function(
+                "submit_request_plan",
+                "반드시 첫 function call로 사용합니다. 사용자 목표, DB/RAG/변경/결정론적 가격 계산 필요 여부, 모호성, 조사 순서를 선언합니다.",
+                requestPlanSchema()
+        ));
+        tools.add(function(
                 "get_database_overview",
-                "현재 연결된 RAG PostgreSQL의 DB 종류, 버전, 스키마, 전체 rag_* 테이블 목록, 테이블 설명, 예상 row 수를 확인합니다. 사용자의 표현이 어느 테이블을 뜻하는지 모를 때 가장 먼저 사용합니다.",
+                "현재 연결된 RAG PostgreSQL의 DB 종류, 버전, 스키마, 전체 rag_* 테이블 목록, 테이블 설명, 예상 row 수를 확인합니다. 사용자의 표현이 어느 테이블을 뜻하는지 모를 때 사용합니다.",
                 object(Map.of(), List.of())
+        ));
+        tools.add(function(
+                "get_knowledge_inventory",
+                "현재 프로젝트/버전에 실제로 저장된 제품·가격·주문·대화규칙·원문·정본 데이터를 지원 테이블 전체에서 집계합니다. '무엇이 저장되어 있나' 질문의 우선 도구입니다.",
+                object(linkedMap(
+                        "domains", array(enumString("PRODUCT", "PRICE", "ORDER", "DIALOG", "FILE", "STRUCTURED", "KNOWLEDGE"), 0, 20),
+                        "exactCounts", bool("true이면 현재 프로젝트/버전의 정확한 count를 계산합니다."),
+                        "includeSamples", bool("semantic memory에 이미 색인된 대표 제목 샘플을 포함할지 여부입니다."),
+                        "sampleLimit", integer(0, 10, "테이블별 최대 샘플 수")
+                ), List.of("domains", "exactCounts", "includeSamples", "sampleLimit"))
         ));
         tools.add(function(
                 "search_database_catalog",
@@ -26,6 +41,18 @@ public final class RagAgentToolDefinitionFactory {
                         "objectTypes", array(enumString("TABLE", "COLUMN", "SCHEMA_NOTE"), 1, 3),
                         "limit", integer(1, 200, "최대 결과 수")
                 ), List.of("query", "objectTypes", "limit"))
+        ));
+        tools.add(function(
+                "search_semantic_memory",
+                "완전일치하지 않는 제품명·별칭·가격규칙·주문조건·기존 지식을 pgvector+FTS+문자열 유사도로 통합 검색합니다. 수정/삭제 대상 후보와 유사 지식 확인에 우선 사용합니다.",
+                object(linkedMap(
+                        "query", string("사용자 표현을 포함한 자연어 검색문", 4000),
+                        "domains", array(enumString("PRODUCT", "PRICE", "ORDER", "DIALOG", "FILE", "STRUCTURED", "KNOWLEDGE"), 0, 20),
+                        "sourceKinds", array(enumString("FILE", "PRICE", "DIALOG", "CANONICAL", "ALIAS", "STRUCTURED", "KNOWLEDGE"), 0, 20),
+                        "limit", integer(1, 100, "최대 후보 수"),
+                        "minimumScore", number(0, 1, "최소 하이브리드 점수"),
+                        "includeInactive", bool("삭제·비활성 후보까지 포함할지 여부")
+                ), List.of("query", "domains", "sourceKinds", "limit", "minimumScore", "includeInactive"))
         ));
         tools.add(function(
                 "describe_table",
@@ -55,13 +82,29 @@ public final class RagAgentToolDefinitionFactory {
         ));
         tools.add(function(
                 "query_database",
-                "GPT가 직접 작성한 PostgreSQL SELECT/WITH SQL을 실행합니다. 업무 row는 project/version 범위가 강제된 rag_agent_view.rag_* 보안 뷰만 읽을 수 있고, 허용된 메타데이터와 row 제한을 Java가 검증합니다.",
+                "GPT가 직접 작성한 PostgreSQL SELECT/WITH SQL을 실행합니다. 업무 row는 project/version 범위가 강제된 rag_agent_view.rag_* 보안 뷰만 읽을 수 있고, Java가 SQL과 row 제한을 검증합니다.",
                 object(linkedMap(
                         "purpose", string("이 SQL이 필요한 이유", 2000),
                         "sql", string("SELECT 또는 WITH 단일 SQL. 업무 row는 rag_agent_view.rag_* 사용", 50000),
                         "paramsJson", string("SQL named parameter 값 JSON object. 사용자 값은 p1~p50 사용", 100000),
                         "maxRows", integer(1, 1000, "반환할 최대 row 수")
                 ), List.of("purpose", "sql", "paramsJson", "maxRows"))
+        ));
+        tools.add(function(
+                "find_canonical_price_candidates",
+                "제품명·별칭·규격 표현과 관련된 정본 엔티티, 가격규칙, 구조화 가격표 후보를 semantic memory에서 찾습니다. 후보가 여러 개면 확정하지 말고 사용자에게 구분 질문을 합니다.",
+                object(linkedMap(
+                        "query", string("제품/옵션/규격을 포함한 후보 검색문", 4000),
+                        "entityType", nullableString("알고 있는 엔티티 종류. 모르면 null", 200),
+                        "limit", integer(1, 50, "최대 후보 수")
+                ), List.of("query", "entityType", "limit"))
+        ));
+        tools.add(function(
+                "calculate_order_price",
+                "사용자 주문 답변을 기존 결정론적 가격 계산기에 전달합니다. GPT가 가격 숫자를 직접 추측하지 말고 확정 가격에는 반드시 이 도구 결과를 사용합니다.",
+                object(linkedMap(
+                        "answersJson", string("제품, 수량, 규격, 옵션 등 현재까지 확정된 주문 답변 JSON object 문자열", 100000)
+                ), List.of("answersJson"))
         ));
         tools.add(function(
                 "create_change_set",
@@ -81,6 +124,35 @@ public final class RagAgentToolDefinitionFactory {
                 finalAnswerSchema()
         ));
         return List.copyOf(tools);
+    }
+
+    public static Map<String, Object> requestPlanSchema() {
+        Map<String, Object> entityHint = object(linkedMap(
+                "entityType", nullableString("제품/가격규칙/주문규칙 등 후보 종류", 200),
+                "entityKey", nullableString("확인된 키 또는 사용자 표현", 500),
+                "reason", string("이 후보를 조사하려는 이유", 2000)
+        ), List.of("entityType", "entityKey", "reason"));
+
+        return object(linkedMap(
+                "intentType", enumString(
+                        "GENERAL_CONVERSATION", "KNOWLEDGE_QUERY", "KNOWLEDGE_INVENTORY",
+                        "ORDER_CONSULTATION", "PRICE_CALCULATION", "CREATE", "UPDATE", "DELETE",
+                        "FILE_LEARNING", "MIXED"),
+                "userGoal", string("사용자가 실제로 원하는 결과", 5000),
+                "requiresDatabase", bool("실제 DB 근거가 필요한지 여부"),
+                "requiresSemanticSearch", bool("유사 표현·별칭·중복 후보 검색이 필요한지 여부"),
+                "requiresMutation", bool("저장·수정·삭제 ChangeSet이 필요한지 여부"),
+                "requiresDeterministicPricing", bool("기존 가격 계산기의 결정론적 계산이 필요한지 여부"),
+                "ambiguityDetected", bool("대상 또는 조건이 모호한지 여부"),
+                "clarificationQuestion", nullableString("사용자에게 필요한 최소 확인 질문. 없으면 null", 5000),
+                "targetDomains", array(enumString("PRODUCT", "PRICE", "ORDER", "DIALOG", "FILE", "STRUCTURED", "KNOWLEDGE"), 0, 20),
+                "entityHints", array(entityHint, 0, 30),
+                "plannedSteps", array(string("실행할 도구 조사 단계", 2000), 1, 30),
+                "riskLevel", enumString("LOW", "MEDIUM", "HIGH")
+        ), List.of(
+                "intentType", "userGoal", "requiresDatabase", "requiresSemanticSearch",
+                "requiresMutation", "requiresDeterministicPricing", "ambiguityDetected",
+                "clarificationQuestion", "targetDomains", "entityHints", "plannedSteps", "riskLevel"));
     }
 
     private static Map<String, Object> changeSetSchema() {
@@ -106,10 +178,10 @@ public final class RagAgentToolDefinitionFactory {
         ), List.of("title", "summary", "confidence", "requiresConfirmation", "conflictReportJson", "items"));
     }
 
-    private static Map<String, Object> finalAnswerSchema() {
+    public static Map<String, Object> finalAnswerSchema() {
         Map<String, Object> evidence = object(linkedMap(
-                "sourceType", enumString("DATABASE", "SCHEMA", "FILE", "CONVERSATION", "CHANGE_SET", "INFERENCE"),
-                "objectName", string("근거 테이블, 컬럼, 파일 또는 변경계획 이름", 500),
+                "sourceType", enumString("DATABASE", "SCHEMA", "SEMANTIC_MEMORY", "PRICE_CALCULATOR", "FILE", "CONVERSATION", "CHANGE_SET", "INFERENCE"),
+                "objectName", string("근거 테이블, sourceId, 파일, 계산 또는 변경계획 이름", 500),
                 "detail", string("사용자에게 공개 가능한 근거 요약", 5000)
         ), List.of("sourceType", "objectName", "detail"));
 
@@ -143,16 +215,8 @@ public final class RagAgentToolDefinitionFactory {
         return schema;
     }
 
-    private static Map<String, Object> string(String description) {
-        return linkedMap("type", "string", "description", description);
-    }
-
     private static Map<String, Object> string(String description, int maxLength) {
         return linkedMap("type", "string", "maxLength", maxLength, "description", description);
-    }
-
-    private static Map<String, Object> nullableString(String description) {
-        return linkedMap("type", List.of("string", "null"), "description", description);
     }
 
     private static Map<String, Object> nullableString(String description, int maxLength) {
@@ -175,17 +239,13 @@ public final class RagAgentToolDefinitionFactory {
         return linkedMap("type", "string", "enum", List.of(values));
     }
 
-    private static Map<String, Object> array(Map<String, Object> itemSchema) {
-        return linkedMap("type", "array", "items", itemSchema);
-    }
-
     private static Map<String, Object> array(Map<String, Object> itemSchema, int minItems, int maxItems) {
         return linkedMap("type", "array", "items", itemSchema, "minItems", minItems, "maxItems", maxItems);
     }
 
     private static Map<String, Object> linkedMap(Object... values) {
         Map<String, Object> map = new LinkedHashMap<>();
-        for (int i = 0; i + 1 < values.length; i += 2) {
+        for (int i = 0; i < values.length; i += 2) {
             map.put(String.valueOf(values[i]), values[i + 1]);
         }
         return map;

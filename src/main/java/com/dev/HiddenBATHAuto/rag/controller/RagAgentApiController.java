@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.rag.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,7 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.dev.HiddenBATHAuto.rag.repository.RagRepository;
 import com.dev.HiddenBATHAuto.rag.service.RagAgentAuditQueryService;
 import com.dev.HiddenBATHAuto.rag.service.RagAgentChangeSetService;
+import com.dev.HiddenBATHAuto.rag.service.RagAgentRunState;
 import com.dev.HiddenBATHAuto.rag.service.RagAgentSchemaService;
+import com.dev.HiddenBATHAuto.rag.service.RagAgentToolContext;
+import com.dev.HiddenBATHAuto.rag.service.RagSemanticIndexWorker;
+import com.dev.HiddenBATHAuto.rag.service.RagSemanticMemoryService;
 
 @RestController
 @PreAuthorize("hasRole('ADMIN')")
@@ -27,13 +32,19 @@ public class RagAgentApiController {
     private final RagAgentChangeSetService changeSetService;
     private final RagAgentSchemaService schemaService;
     private final RagAgentAuditQueryService auditQueryService;
+    private final RagSemanticMemoryService semanticMemoryService;
+    private final RagSemanticIndexWorker semanticIndexWorker;
 
     public RagAgentApiController(RagAgentChangeSetService changeSetService,
                                  RagAgentSchemaService schemaService,
-                                 RagAgentAuditQueryService auditQueryService) {
+                                 RagAgentAuditQueryService auditQueryService,
+                                 RagSemanticMemoryService semanticMemoryService,
+                                 RagSemanticIndexWorker semanticIndexWorker) {
         this.changeSetService = changeSetService;
         this.schemaService = schemaService;
         this.auditQueryService = auditQueryService;
+        this.semanticMemoryService = semanticMemoryService;
+        this.semanticIndexWorker = semanticIndexWorker;
     }
 
     @GetMapping("/database/overview")
@@ -99,4 +110,51 @@ public class RagAgentApiController {
                                               @RequestParam(value = "force", defaultValue = "false") boolean force) {
         return changeSetService.applyExisting(changeSetId, force);
     }
+    @GetMapping("/semantic/status")
+    public Map<String, Object> semanticStatus(@RequestParam UUID projectId,
+                                               @RequestParam UUID versionId) {
+        return semanticMemoryService.status(projectId, versionId);
+    }
+
+    @GetMapping("/semantic/inventory")
+    public Map<String, Object> semanticInventory(@RequestParam UUID projectId,
+                                                  @RequestParam UUID versionId,
+                                                  @RequestParam(required = false) List<String> domains,
+                                                  @RequestParam(defaultValue = "true") boolean exactCounts,
+                                                  @RequestParam(defaultValue = "true") boolean includeSamples,
+                                                  @RequestParam(defaultValue = "3") int sampleLimit) {
+        return semanticMemoryService.inventory(
+                adminContext(projectId, versionId), domains, exactCounts, includeSamples, sampleLimit);
+    }
+
+    @GetMapping("/semantic/search")
+    public Map<String, Object> semanticSearch(@RequestParam UUID projectId,
+                                               @RequestParam UUID versionId,
+                                               @RequestParam String query,
+                                               @RequestParam(required = false) List<String> domains,
+                                               @RequestParam(required = false) List<String> sourceKinds,
+                                               @RequestParam(defaultValue = "20") int limit,
+                                               @RequestParam(defaultValue = "0") BigDecimal minimumScore,
+                                               @RequestParam(defaultValue = "false") boolean includeInactive) {
+        return semanticMemoryService.search(
+                adminContext(projectId, versionId), query, domains, sourceKinds, limit, minimumScore, includeInactive);
+    }
+
+    @PostMapping("/semantic/rebuild")
+    public Map<String, Object> semanticRebuild(@RequestParam UUID projectId,
+                                                @RequestParam UUID versionId,
+                                                @RequestParam(required = false) List<String> sourceTables) {
+        return semanticMemoryService.enqueueScope(projectId, versionId, sourceTables);
+    }
+
+    @PostMapping("/semantic/process")
+    public Map<String, Object> semanticProcess(@RequestParam(defaultValue = "50") int limit) {
+        return semanticIndexWorker.processAvailable(limit);
+    }
+
+    private RagAgentToolContext adminContext(UUID projectId, UUID versionId) {
+        return new RagAgentToolContext(
+                UUID.randomUUID(), projectId, versionId, null, "LEARNING", false, 0, null, new RagAgentRunState());
+    }
+
 }

@@ -45,6 +45,10 @@ public class OpenAiRagClient {
         body.put("model", properties.getEmbeddingModel());
         body.put("input", input);
         body.put("encoding_format", "float");
+        if (properties.getEmbeddingModel() != null
+                && properties.getEmbeddingModel().startsWith("text-embedding-3-")) {
+            body.put("dimensions", properties.getSemanticEmbeddingDimensions());
+        }
 
         JsonNode root = postJson("/v1/embeddings", body);
         JsonNode embeddingNode = root.path("data").path(0).path("embedding");
@@ -104,6 +108,14 @@ public class OpenAiRagClient {
     public ToolResponse responseWithTools(String instructions,
                                           List<Map<String, Object>> input,
                                           List<Map<String, Object>> tools) {
+        return responseWithTools(instructions, input, tools, null);
+    }
+
+    /** 특정 function 이름을 지정하면 첫 계획 또는 복구 종료 도구를 강제할 수 있습니다. */
+    public ToolResponse responseWithTools(String instructions,
+                                          List<Map<String, Object>> input,
+                                          List<Map<String, Object>> tools,
+                                          String forcedFunctionName) {
         requireApiKey();
         if (input == null || input.isEmpty()) {
             throw new IllegalArgumentException("OpenAI tool input이 비어 있습니다.");
@@ -117,7 +129,11 @@ public class OpenAiRagClient {
         body.put("instructions", instructions == null ? "" : instructions);
         body.put("input", input);
         body.put("tools", tools);
-        body.put("tool_choice", "auto");
+        if (StringUtils.hasText(forcedFunctionName)) {
+            body.put("tool_choice", Map.of("type", "function", "name", forcedFunctionName.trim()));
+        } else {
+            body.put("tool_choice", "auto");
+        }
         body.put("parallel_tool_calls", false);
         body.put("max_output_tokens", properties.getAgentMaxOutputTokens());
         body.put("store", false);
@@ -279,6 +295,7 @@ public class OpenAiRagClient {
         }
     }
 
+    public boolean hasApiKey() { return StringUtils.hasText(properties.getApiKey()); }
     public String chatModel() { return properties.getChatModel(); }
     public String embeddingModel() { return properties.getEmbeddingModel(); }
     public ObjectMapper objectMapper() { return objectMapper; }

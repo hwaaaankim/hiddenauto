@@ -130,9 +130,9 @@ public class RagKnowledgeInteractionService {
         Map<String, Object> response = baseResponse(
                 "GPT_DATABASE_TOOL_AGENT_ERROR", true, "AGENT_FAILED", BigDecimal.ZERO);
         response.put("requiresClarification", false);
-        response.put("answer", "GPT DB Tool Agent가 데이터베이스 확인을 완료하지 못했습니다. 기존 고정 매핑 흐름으로 우회하지 않았으며, 관리자 Agent 로그를 확인해 주세요.");
+        response.put("answer", "현재 AI 또는 데이터베이스 도구 실행이 완료되지 않아 확인된 답변을 만들지 못했습니다. 추측으로 안내하지 않았으며 요청하신 내용은 저장·수정·삭제하지 않았습니다. 관리자에게 Agent 실행 로그 확인을 요청해 주세요.");
         response.put("saveStatus", "지식 저장: 실행 실패");
-        response.put("saveMessage", "Agent가 실패하여 조회/저장/수정/삭제를 실행하지 않았습니다.");
+        response.put("saveMessage", "검증 가능한 최종 결과가 없어 조회 결과 확정 및 DB 변경을 실행하지 않았습니다.");
         response.put("memory", Map.of(
                 "status", "AGENT_FAILED",
                 "saveLabel", response.get("saveStatus"),

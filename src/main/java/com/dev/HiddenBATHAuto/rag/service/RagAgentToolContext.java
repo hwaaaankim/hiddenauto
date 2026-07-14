@@ -10,6 +10,7 @@ public record RagAgentToolContext(
         String sourceScope,
         boolean forceSave,
         int turnNo,
-        String responseId
+        String responseId,
+        RagAgentRunState runState
 ) {
 }
