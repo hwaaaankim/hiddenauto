@@ -84,7 +84,7 @@ hiddenbath:
     openai:
       # API Key만 환경변수를 우선 사용합니다.
       # 로컬에서 직접 입력할 때는 콜론 뒤 플레이스홀더만 실제 키로 교체하십시오.
-      api-key: ${OPENAI_API_KEY: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}
+      api-key: ${OPENAI_API_KEY}
       base-url: https://api.openai.com
       chat-model: gpt-5.6
       embedding-model: text-embedding-3-large
