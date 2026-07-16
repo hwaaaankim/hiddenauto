@@ -24,6 +24,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodChangeRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodChangeResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodPreviewRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodPreviewResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangePreviewRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangePreviewResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangeRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangeResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchCompleteRequest;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DeliveryMethodDto;
@@ -129,6 +137,67 @@ public class DispatchTeamController {
         BulkDispatchCompleteResponse response =
                 dispatchTeamService.completeDispatchOrders(
                         request != null ? request.getOrderIds() : List.of(),
+                        principal.getMember()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dispatchList/api/orders/bulk-handler/preview")
+    @ResponseBody
+    public ResponseEntity<BulkHandlerChangePreviewResponse> previewBulkHandlerChange(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) BulkHandlerChangePreviewRequest request
+    ) {
+        BulkHandlerChangePreviewResponse response =
+                dispatchTeamService.previewBulkHandlerChange(
+                        request != null ? request.getOrderIds() : List.of(),
+                        principal.getMember()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dispatchList/api/orders/bulk-handler")
+    @ResponseBody
+    public ResponseEntity<BulkHandlerChangeResponse> bulkChangeDeliveryHandler(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody BulkHandlerChangeRequest request
+    ) {
+        BulkHandlerChangeResponse response =
+                dispatchTeamService.bulkChangeDeliveryHandler(
+                        request,
+                        principal.getMember()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dispatchList/api/orders/bulk-delivery-method/preview")
+    @ResponseBody
+    public ResponseEntity<BulkDeliveryMethodPreviewResponse> previewBulkDeliveryMethodChange(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) BulkDeliveryMethodPreviewRequest request
+    ) {
+        BulkDeliveryMethodPreviewResponse response =
+                dispatchTeamService.previewBulkDeliveryMethodChange(
+                        request != null ? request.getOrderIds() : List.of(),
+                        request != null ? request.getDeliveryMethodId() : null,
+                        principal.getMember()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dispatchList/api/orders/bulk-delivery-method")
+    @ResponseBody
+    public ResponseEntity<BulkDeliveryMethodChangeResponse> bulkChangeDeliveryMethod(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody BulkDeliveryMethodChangeRequest request
+    ) {
+        BulkDeliveryMethodChangeResponse response =
+                dispatchTeamService.bulkChangeDeliveryMethod(
+                        request,
                         principal.getMember()
                 );
 

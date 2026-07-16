@@ -7,6 +7,10 @@
 		excel: '/team/dispatchList/api/orders/excel',
 		deliveryStatementExcel: '/api/internal/delivery-statement/excel',
 		complete: '/team/dispatchList/api/orders/complete',
+		bulkHandlerPreview: '/team/dispatchList/api/orders/bulk-handler/preview',
+		bulkHandler: '/team/dispatchList/api/orders/bulk-handler',
+		bulkDeliveryMethodPreview: '/team/dispatchList/api/orders/bulk-delivery-method/preview',
+		bulkDeliveryMethod: '/team/dispatchList/api/orders/bulk-delivery-method',
 		updateDeliveryMethod: function(orderId) {
 			return '/team/dispatchList/api/orders/' + encodeURIComponent(orderId) + '/delivery-method';
 		},
@@ -26,6 +30,17 @@
 		loadedOrderIds: [],
 		selectedOrderIds: new Set(),
 		activeDeliveryOrderId: null,
+		activeDeliveryHandlerId: null,
+		bulkHandlerOrderIds: [],
+		bulkHandlerPreview: null,
+		bulkHandlerExclusionAcknowledged: false,
+		bulkHandlerBusy: false,
+		bulkHandlerPreviewSequence: 0,
+		bulkMethodOrderIds: [],
+		bulkMethodPreview: null,
+		bulkMethodRemovalAcknowledged: false,
+		bulkMethodBusy: false,
+		bulkMethodPreviewSequence: 0,
 	};
 	let pendingConfirmResolver = null;
 
@@ -59,6 +74,8 @@
 		els.searchBtn = document.getElementById('dispatch-list-search-btn');
 		els.resetBtn = document.getElementById('dispatch-list-reset-btn');
 		els.bulkCompleteBtn = document.getElementById('dispatch-list-bulk-complete-btn');
+		els.bulkHandlerBtn = document.getElementById('dispatch-list-bulk-handler-btn');
+		els.bulkDeliveryMethodBtn = document.getElementById('dispatch-list-bulk-delivery-method-btn');
 
 		els.tbody = document.getElementById('dispatch-list-tbody');
 		els.checkAll = document.getElementById('dispatch-list-check-all');
@@ -80,6 +97,8 @@
 		els.modalDeliveryMethodId = document.getElementById('dispatch-list-modal-delivery-method-id');
 		els.modalSearchBtn = document.getElementById('dispatch-list-modal-search-btn');
 		els.modalBulkCompleteBtn = document.getElementById('dispatch-list-modal-bulk-complete-btn');
+		els.modalBulkHandlerBtn = document.getElementById('dispatch-list-modal-bulk-handler-btn');
+		els.modalBulkDeliveryMethodBtn = document.getElementById('dispatch-list-modal-bulk-delivery-method-btn');
 		els.modalSelectedCount = document.getElementById('dispatch-list-modal-selected-count');
 
 		els.modalLoadedCount = document.getElementById('dispatch-list-modal-loaded-count');
@@ -105,6 +124,45 @@
 		els.directHandlerArea = document.getElementById('dispatch-list-direct-handler-area');
 		els.deliveryHandlerId = document.getElementById('dispatch-list-delivery-handler-id');
 		els.deliveryMethodSaveBtn = document.getElementById('dispatch-list-delivery-method-save-btn');
+
+		els.bulkHandlerModal = document.getElementById('dispatch-list-bulk-handler-modal');
+		els.bulkHandlerRequestedCount = document.getElementById('dispatch-list-bulk-handler-requested-count');
+		els.bulkHandlerChangeableCount = document.getElementById('dispatch-list-bulk-handler-changeable-count');
+		els.bulkHandlerExcludedCount = document.getElementById('dispatch-list-bulk-handler-excluded-count');
+		els.bulkHandlerLoading = document.getElementById('dispatch-list-bulk-handler-loading');
+		els.bulkHandlerBlockingArea = document.getElementById('dispatch-list-bulk-handler-blocking-area');
+		els.bulkHandlerBlockingList = document.getElementById('dispatch-list-bulk-handler-blocking-list');
+		els.bulkHandlerExcludedArea = document.getElementById('dispatch-list-bulk-handler-excluded-area');
+		els.bulkHandlerExcludedMessageCount = document.getElementById('dispatch-list-bulk-handler-excluded-message-count');
+		els.bulkHandlerExcludedList = document.getElementById('dispatch-list-bulk-handler-excluded-list');
+		els.bulkHandlerExcludeConfirmBtn = document.getElementById('dispatch-list-bulk-handler-exclude-confirm-btn');
+		els.bulkHandlerExcludeConfirmed = document.getElementById('dispatch-list-bulk-handler-exclude-confirmed');
+		els.bulkHandlerChangeableArea = document.getElementById('dispatch-list-bulk-handler-changeable-area');
+		els.bulkHandlerChangeableList = document.getElementById('dispatch-list-bulk-handler-changeable-list');
+		els.bulkHandlerId = document.getElementById('dispatch-list-bulk-handler-id');
+		els.bulkHandlerSaveBtn = document.getElementById('dispatch-list-bulk-handler-save-btn');
+
+		els.bulkMethodModal = document.getElementById('dispatch-list-bulk-delivery-method-modal');
+		els.bulkMethodId = document.getElementById('dispatch-list-bulk-delivery-method-id');
+		els.bulkMethodRequestedCount = document.getElementById('dispatch-list-bulk-method-requested-count');
+		els.bulkMethodRequiredCount = document.getElementById('dispatch-list-bulk-method-required-count');
+		els.bulkMethodRemovalCount = document.getElementById('dispatch-list-bulk-method-removal-count');
+		els.bulkMethodPlaceholder = document.getElementById('dispatch-list-bulk-method-placeholder');
+		els.bulkMethodLoading = document.getElementById('dispatch-list-bulk-method-loading');
+		els.bulkMethodBlockingArea = document.getElementById('dispatch-list-bulk-method-blocking-area');
+		els.bulkMethodBlockingList = document.getElementById('dispatch-list-bulk-method-blocking-list');
+		els.bulkMethodRemovalArea = document.getElementById('dispatch-list-bulk-method-removal-area');
+		els.bulkMethodRemovalMessageCount = document.getElementById('dispatch-list-bulk-method-removal-message-count');
+		els.bulkMethodRemovalList = document.getElementById('dispatch-list-bulk-method-removal-list');
+		els.bulkMethodRemovalConfirmBtn = document.getElementById('dispatch-list-bulk-method-removal-confirm-btn');
+		els.bulkMethodRemovalConfirmed = document.getElementById('dispatch-list-bulk-method-removal-confirmed');
+		els.bulkMethodAssignmentArea = document.getElementById('dispatch-list-bulk-method-assignment-area');
+		els.bulkMethodAssignmentMessageCount = document.getElementById('dispatch-list-bulk-method-assignment-message-count');
+		els.bulkMethodAssignmentList = document.getElementById('dispatch-list-bulk-method-assignment-list');
+		els.bulkMethodPreservedArea = document.getElementById('dispatch-list-bulk-method-preserved-area');
+		els.bulkMethodPreservedList = document.getElementById('dispatch-list-bulk-method-preserved-list');
+		els.bulkHandlerOptionTemplate = document.getElementById('dispatch-list-bulk-handler-option-template');
+		els.bulkMethodSaveBtn = document.getElementById('dispatch-list-bulk-method-save-btn');
 	}
 
 	function bindEvents() {
@@ -134,6 +192,14 @@
 		els.bulkCompleteBtn.addEventListener('click', function() {
 			completeSelectedOrders();
 		});
+
+		if (els.bulkHandlerBtn) {
+			els.bulkHandlerBtn.addEventListener('click', openBulkHandlerModal);
+		}
+
+		if (els.bulkDeliveryMethodBtn) {
+			els.bulkDeliveryMethodBtn.addEventListener('click', openBulkDeliveryMethodModal);
+		}
 
 		els.tbody.addEventListener('change', function(event) {
 			if (event.target.classList.contains('dispatch-list-row-check')) {
@@ -176,6 +242,21 @@
 				completeSelectedOrders();
 			}, 180);
 		});
+
+
+		if (els.modalBulkHandlerBtn) {
+			els.modalBulkHandlerBtn.addEventListener('click', function() {
+				hideModal(els.controlModal);
+				window.setTimeout(openBulkHandlerModal, 180);
+			});
+		}
+
+		if (els.modalBulkDeliveryMethodBtn) {
+			els.modalBulkDeliveryMethodBtn.addEventListener('click', function() {
+				hideModal(els.controlModal);
+				window.setTimeout(openBulkDeliveryMethodModal, 180);
+			});
+		}
 
 		if (els.controlModal) {
 			els.controlModal.addEventListener('show.bs.modal', function() {
@@ -221,6 +302,57 @@
 				updateDeliveryMethod(orderId, deliveryMethodId, deliveryHandlerId);
 			});
 		}
+
+		if (els.bulkHandlerId) {
+			els.bulkHandlerId.addEventListener('change', updateBulkHandlerSaveState);
+		}
+
+		if (els.bulkHandlerExcludeConfirmBtn) {
+			els.bulkHandlerExcludeConfirmBtn.addEventListener('click', function() {
+				state.bulkHandlerExclusionAcknowledged = true;
+				els.bulkHandlerExcludeConfirmBtn.disabled = true;
+				setVisible(els.bulkHandlerExcludeConfirmed, true);
+				updateBulkHandlerSaveState();
+			});
+		}
+
+		if (els.bulkHandlerSaveBtn) {
+			els.bulkHandlerSaveBtn.addEventListener('click', submitBulkHandlerChange);
+		}
+
+		if (els.bulkHandlerModal) {
+			els.bulkHandlerModal.addEventListener('hidden.bs.modal', resetBulkHandlerModal);
+		}
+
+		if (els.bulkMethodId) {
+			els.bulkMethodId.addEventListener('change', loadBulkDeliveryMethodPreview);
+		}
+
+		if (els.bulkMethodRemovalConfirmBtn) {
+			els.bulkMethodRemovalConfirmBtn.addEventListener('click', function() {
+				state.bulkMethodRemovalAcknowledged = true;
+				els.bulkMethodRemovalConfirmBtn.disabled = true;
+				setVisible(els.bulkMethodRemovalConfirmed, true);
+				updateBulkDeliveryMethodSaveState();
+			});
+		}
+
+		if (els.bulkMethodAssignmentList) {
+			els.bulkMethodAssignmentList.addEventListener('change', function(event) {
+				if (event.target.classList.contains('dispatch-list-bulk-method-handler-select')) {
+					updateBulkDeliveryMethodSaveState();
+				}
+			});
+		}
+
+		if (els.bulkMethodSaveBtn) {
+			els.bulkMethodSaveBtn.addEventListener('click', submitBulkDeliveryMethodChange);
+		}
+
+		if (els.bulkMethodModal) {
+			els.bulkMethodModal.addEventListener('hidden.bs.modal', resetBulkDeliveryMethodModal);
+		}
+
 		if (els.confirmOkBtn) {
 			els.confirmOkBtn.addEventListener('click', function() {
 				if (pendingConfirmResolver) {
@@ -378,8 +510,9 @@
 		tr.setAttribute('data-order-id', row.orderId);
 		tr.setAttribute('data-status', row.status || '');
 		tr.setAttribute('data-status-sort', row.statusSort || '');
+		tr.setAttribute('data-dispatch-completable', row.dispatchCompletable ? 'true' : 'false');
 
-		const checkboxDisabled = !row.dispatchCompletable ? 'disabled' : '';
+		const checkboxDisabled = '';
 		const completeDisabled = !row.dispatchCompletable ? 'disabled' : '';
 
 		tr.innerHTML = [
@@ -426,7 +559,11 @@
 			'  <button type="button" class="btn btn-outline-primary dispatch-list-delivery-method-btn"',
 			'    data-order-id="' + escapeAttr(row.orderId) + '"',
 			'    data-delivery-method-id="' + escapeAttr(row.deliveryMethodId || '') + '"',
-			'    title="' + escapeAttr(row.deliveryMethodName) + '">',
+			'    data-delivery-method-name="' + escapeAttr(row.deliveryMethodName || '') + '"',
+			'    data-delivery-handler-id="' + escapeAttr(row.deliveryHandlerId || '') + '"',
+			'    data-delivery-handler-name="' + escapeAttr(row.deliveryHandlerName || '') + '"',
+			'    data-delivery-order-index="' + escapeAttr(row.deliveryOrderIndex || '') + '"',
+			'    title="' + escapeAttr(buildDeliveryMethodTitleFromRow(row)) + '">',
 			'    ' + escapeHtml(row.deliveryMethodName),
 			'  </button>',
 			'</td>',
@@ -511,27 +648,32 @@
 	function updateCounts() {
 		const loadedCount = state.loadedOrderIds.length;
 		const selectedCount = state.selectedOrderIds.size;
+		const completableSelectedCount = selectedCompletableOrderIds().length;
 
 		setText(els.loadedCount, loadedCount);
 		setText(els.selectedCount, selectedCount);
 		setText(els.floatingSelectedCount, selectedCount);
-		setText(els.modalSelectedCount, selectedCount);
+		setText(els.modalSelectedCount, completableSelectedCount);
 
 		setText(els.modalLoadedCount, loadedCount);
 		setText(els.modalSelectedCountInfo, selectedCount);
-		setText(els.modalCompleteCount, selectedCount);
+		setText(els.modalCompleteCount, completableSelectedCount);
 
-		setDisabled(els.bulkCompleteBtn, selectedCount === 0);
-		setDisabled(els.modalBulkCompleteBtn, selectedCount === 0);
+		setDisabled(els.bulkCompleteBtn, completableSelectedCount === 0);
+		setDisabled(els.modalBulkCompleteBtn, completableSelectedCount === 0);
+		setDisabled(els.bulkHandlerBtn, selectedCount === 0);
+		setDisabled(els.bulkDeliveryMethodBtn, selectedCount === 0);
+		setDisabled(els.modalBulkHandlerBtn, selectedCount === 0);
+		setDisabled(els.modalBulkDeliveryMethodBtn, selectedCount === 0);
 		setDisabled(els.siteStatementBtn, selectedCount === 0);
 		setDisabled(els.parcelStatementBtn, selectedCount === 0);
 	}
 
 	function completeSelectedOrders() {
-		const orderIds = Array.from(state.selectedOrderIds);
+		const orderIds = selectedCompletableOrderIds();
 
 		if (orderIds.length === 0) {
-			alertMessage('출고완료 처리할 주문을 선택해 주세요.');
+			alertMessage('선택한 주문 중 출고완료 처리 가능한 주문이 없습니다.');
 			return;
 		}
 
@@ -605,13 +747,14 @@
 
 		tr.setAttribute('data-status', row.status || '');
 		tr.setAttribute('data-status-sort', row.statusSort || '');
+		tr.setAttribute('data-dispatch-completable', row.dispatchCompletable ? 'true' : 'false');
 		tr.classList.remove('dispatch-list-row-confirmed', 'dispatch-list-row-production-done', 'dispatch-list-row-dispatch-done');
 		tr.classList.add(rowClassByStatus(row.status));
 
 		const checkbox = tr.querySelector('.dispatch-list-row-check');
 		if (checkbox) {
 			checkbox.checked = false;
-			checkbox.disabled = true;
+			checkbox.disabled = false;
 		}
 
 		const completeBtn = tr.querySelector('.dispatch-list-complete-btn');
@@ -625,6 +768,7 @@
 		const orderId = button.getAttribute('data-order-id');
 
 		state.activeDeliveryOrderId = Number(orderId);
+		state.activeDeliveryHandlerId = numberOrNull(button.getAttribute('data-delivery-handler-id'));
 		els.deliveryModalOrderId.value = orderId;
 
 		if (els.deliveryModalSelectedMethodId) {
@@ -632,7 +776,7 @@
 		}
 
 		if (els.deliveryHandlerId) {
-			els.deliveryHandlerId.value = '';
+			els.deliveryHandlerId.value = state.activeDeliveryHandlerId || '';
 		}
 
 		if (els.directHandlerArea) {
@@ -649,20 +793,25 @@
 
 		showModal(els.deliveryModal);
 	}
+
 	function selectDeliveryMethodInModal(button) {
 		const deliveryMethodId = button.getAttribute('data-delivery-method-id');
-		const isDirectDelivery = button.getAttribute('data-direct-delivery') === 'true';
+		const handlerRequired = isHandlerRequiredMethodName(
+			button.getAttribute('data-delivery-method-name')
+		);
 
 		document.querySelectorAll('.dispatch-list-delivery-method-option').forEach(function(optionBtn) {
 			optionBtn.classList.remove('active');
 		});
 
 		button.classList.add('active');
-
 		els.deliveryModalSelectedMethodId.value = deliveryMethodId;
 
-		if (isDirectDelivery) {
+		if (handlerRequired) {
 			els.directHandlerArea.classList.remove('d-none');
+			if (!valueOf(els.deliveryHandlerId) && state.activeDeliveryHandlerId) {
+				els.deliveryHandlerId.value = state.activeDeliveryHandlerId;
+			}
 		} else {
 			els.directHandlerArea.classList.add('d-none');
 			els.deliveryHandlerId.value = '';
@@ -679,27 +828,29 @@
 			return;
 		}
 
-		const selectedButton = document.querySelector(
-			'.dispatch-list-delivery-method-option.active'
+		const selectedButton = document.querySelector('.dispatch-list-delivery-method-option.active');
+		const handlerRequired = selectedButton
+			&& isHandlerRequiredMethodName(selectedButton.getAttribute('data-delivery-method-name'));
+
+		els.deliveryMethodSaveBtn.disabled = !!(
+			handlerRequired && !numberOrNull(valueOf(els.deliveryHandlerId))
 		);
-
-		const isDirectDelivery = selectedButton
-			&& selectedButton.getAttribute('data-direct-delivery') === 'true';
-
-		if (isDirectDelivery && !numberOrNull(valueOf(els.deliveryHandlerId))) {
-			els.deliveryMethodSaveBtn.disabled = true;
-			return;
-		}
-
-		els.deliveryMethodSaveBtn.disabled = false;
 	}
+
 	async function updateDeliveryMethod(orderId, deliveryMethodId, deliveryHandlerId) {
 		if (!orderId || !deliveryMethodId) {
 			alertMessage('배송수단 변경 정보가 올바르지 않습니다.');
 			return;
 		}
 
+		const originalHtml = els.deliveryMethodSaveBtn ? els.deliveryMethodSaveBtn.innerHTML : '';
+
 		try {
+			if (els.deliveryMethodSaveBtn) {
+				els.deliveryMethodSaveBtn.disabled = true;
+				els.deliveryMethodSaveBtn.innerHTML = '<i class="ri-loader-4-line me-1"></i>변경 중';
+			}
+
 			const response = await fetch(API.updateDeliveryMethod(orderId), {
 				method: 'POST',
 				headers: buildJsonHeaders(),
@@ -710,29 +861,57 @@
 			});
 
 			const data = await parseJsonResponse(response);
-
-			document.querySelectorAll('.dispatch-list-delivery-method-btn[data-order-id="' + cssEscape(orderId) + '"]')
-				.forEach(function(button) {
-					button.setAttribute('data-delivery-method-id', data.id || '');
-					button.setAttribute('title', buildDeliveryMethodTitle(data));
-					button.textContent = data.methodName || '미지정';
-				});
-
+			applyDeliveryMethodDto(orderId, data);
 			hideModal(els.deliveryModal);
 
-			if (data.directDelivery) {
-				alertMessage(
-					'직배송으로 변경되었습니다.\n담당자: '
-					+ (data.deliveryHandlerName || '-')
-					+ '\n오늘 배송순번: '
-					+ (data.deliveryOrderIndex || '-')
-				);
+			let message = (data.methodName || '배송수단') + '으로 변경되었습니다.';
+			if (data.deliveryHandlerId || data.deliveryHandlerName) {
+				message += '\n담당자: ' + (data.deliveryHandlerName || '-');
+				message += '\n배송순번: ' + (data.deliveryOrderIndex || '-');
 			}
 
+			window.setTimeout(function() {
+				alertMessage(message);
+			}, 180);
 		} catch (error) {
 			console.error(error);
 			alertMessage(error.message || '배송수단 변경 중 오류가 발생했습니다.');
+		} finally {
+			if (els.deliveryMethodSaveBtn && originalHtml) {
+				els.deliveryMethodSaveBtn.innerHTML = originalHtml;
+				updateDeliveryMethodSaveButtonState();
+			}
 		}
+	}
+
+	function applyDeliveryMethodDto(orderId, data) {
+		document.querySelectorAll('.dispatch-list-delivery-method-btn[data-order-id="' + cssEscape(orderId) + '"]')
+			.forEach(function(button) {
+				button.setAttribute('data-delivery-method-id', data.id || '');
+				button.setAttribute('data-delivery-method-name', data.methodName || '');
+				button.setAttribute('data-delivery-handler-id', data.deliveryHandlerId || '');
+				button.setAttribute('data-delivery-handler-name', data.deliveryHandlerName || '');
+				button.setAttribute('data-delivery-order-index', data.deliveryOrderIndex || '');
+				button.setAttribute('title', buildDeliveryMethodTitle(data));
+				button.textContent = data.methodName || '미지정';
+			});
+	}
+
+	function applyDeliveryRowUpdate(row) {
+		if (!row || row.orderId === undefined || row.orderId === null) {
+			return;
+		}
+
+		document.querySelectorAll('.dispatch-list-delivery-method-btn[data-order-id="' + cssEscape(row.orderId) + '"]')
+			.forEach(function(button) {
+				button.setAttribute('data-delivery-method-id', row.deliveryMethodId || '');
+				button.setAttribute('data-delivery-method-name', row.deliveryMethodName || '');
+				button.setAttribute('data-delivery-handler-id', row.deliveryHandlerId || '');
+				button.setAttribute('data-delivery-handler-name', row.deliveryHandlerName || '');
+				button.setAttribute('data-delivery-order-index', row.deliveryOrderIndex || '');
+				button.setAttribute('title', buildDeliveryMethodTitleFromRow(row));
+				button.textContent = row.deliveryMethodName || '미지정';
+			});
 	}
 
 	function buildDeliveryMethodTitle(data) {
@@ -740,15 +919,591 @@
 			return '미지정';
 		}
 
-		if (!data.directDelivery) {
-			return data.methodName || '미지정';
+		const methodName = data.methodName || data.deliveryMethodName || '미지정';
+		const handlerName = data.deliveryHandlerName || '';
+		const orderIndex = data.deliveryOrderIndex;
+
+		if (!handlerName && !data.deliveryHandlerId) {
+			return methodName;
 		}
 
-		return (data.methodName || '직배송')
-			+ ' / 담당자: '
-			+ (data.deliveryHandlerName || '-')
-			+ ' / 순번: '
-			+ (data.deliveryOrderIndex || '-');
+		return methodName
+			+ ' / 담당자: ' + (handlerName || '-')
+			+ ' / 순번: ' + (orderIndex || '-');
+	}
+
+	function buildDeliveryMethodTitleFromRow(row) {
+		return buildDeliveryMethodTitle({
+			methodName: row ? row.deliveryMethodName : '',
+			deliveryHandlerId: row ? row.deliveryHandlerId : null,
+			deliveryHandlerName: row ? row.deliveryHandlerName : null,
+			deliveryOrderIndex: row ? row.deliveryOrderIndex : null
+		});
+	}
+
+	function openBulkHandlerModal() {
+		const orderIds = selectedOrderIdsSnapshot();
+
+		if (orderIds.length === 0) {
+			alertMessage('담당자를 변경할 주문을 1건 이상 선택해 주세요.');
+			return;
+		}
+
+		resetBulkHandlerModal();
+		state.bulkHandlerOrderIds = orderIds;
+		setText(els.bulkHandlerRequestedCount, orderIds.length);
+		showModal(els.bulkHandlerModal);
+		loadBulkHandlerPreview();
+	}
+
+	function resetBulkHandlerModal() {
+		state.bulkHandlerPreview = null;
+		state.bulkHandlerExclusionAcknowledged = false;
+		state.bulkHandlerBusy = false;
+		state.bulkHandlerPreviewSequence++;
+		state.bulkHandlerOrderIds = [];
+
+		setText(els.bulkHandlerRequestedCount, 0);
+		setText(els.bulkHandlerChangeableCount, 0);
+		setText(els.bulkHandlerExcludedCount, 0);
+		setText(els.bulkHandlerExcludedMessageCount, 0);
+		setVisible(els.bulkHandlerLoading, true);
+		setVisible(els.bulkHandlerBlockingArea, false);
+		setVisible(els.bulkHandlerExcludedArea, false);
+		setVisible(els.bulkHandlerChangeableArea, false);
+		setVisible(els.bulkHandlerExcludeConfirmed, false);
+		clearElement(els.bulkHandlerBlockingList);
+		clearElement(els.bulkHandlerExcludedList);
+		clearElement(els.bulkHandlerChangeableList);
+
+		if (els.bulkHandlerExcludeConfirmBtn) {
+			els.bulkHandlerExcludeConfirmBtn.disabled = false;
+		}
+		if (els.bulkHandlerId) {
+			els.bulkHandlerId.value = '';
+			els.bulkHandlerId.disabled = true;
+		}
+		if (els.bulkHandlerSaveBtn) {
+			els.bulkHandlerSaveBtn.disabled = true;
+			els.bulkHandlerSaveBtn.innerHTML = '<i class="ri-user-settings-line me-1"></i>변경';
+		}
+	}
+
+	async function loadBulkHandlerPreview() {
+		const requestSequence = ++state.bulkHandlerPreviewSequence;
+
+		try {
+			const response = await fetch(API.bulkHandlerPreview, {
+				method: 'POST',
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({
+					orderIds: state.bulkHandlerOrderIds
+				})
+			});
+
+			const data = await parseJsonResponse(response);
+
+			if (requestSequence !== state.bulkHandlerPreviewSequence) {
+				return;
+			}
+
+			state.bulkHandlerPreview = data;
+			renderBulkHandlerPreview(data);
+		} catch (error) {
+			if (requestSequence !== state.bulkHandlerPreviewSequence) {
+				return;
+			}
+
+			console.error(error);
+			setVisible(els.bulkHandlerLoading, false);
+			showBulkInlineError(
+				els.bulkHandlerBlockingArea,
+				els.bulkHandlerBlockingList,
+				error.message || '선택 주문을 확인하지 못했습니다.'
+			);
+			updateBulkHandlerSaveState();
+		}
+	}
+
+	function renderBulkHandlerPreview(data) {
+		const changeableOrders = data.changeableOrders || [];
+		const excludedOrders = data.excludedOrders || [];
+		const blockingOrders = data.blockingOrders || [];
+
+		setVisible(els.bulkHandlerLoading, false);
+		setText(els.bulkHandlerRequestedCount, data.requestedCount || state.bulkHandlerOrderIds.length);
+		setText(els.bulkHandlerChangeableCount, data.changeableCount || 0);
+		setText(els.bulkHandlerExcludedCount, data.excludedCount || 0);
+		setText(els.bulkHandlerExcludedMessageCount, data.excludedCount || 0);
+
+		renderBulkOrderInfoList(els.bulkHandlerBlockingList, blockingOrders);
+		renderBulkOrderInfoList(els.bulkHandlerExcludedList, excludedOrders);
+		renderBulkOrderInfoList(els.bulkHandlerChangeableList, changeableOrders);
+
+		setVisible(els.bulkHandlerBlockingArea, blockingOrders.length > 0);
+		setVisible(els.bulkHandlerExcludedArea, excludedOrders.length > 0);
+		setVisible(els.bulkHandlerChangeableArea, changeableOrders.length > 0);
+
+		state.bulkHandlerExclusionAcknowledged = excludedOrders.length === 0;
+		setVisible(els.bulkHandlerExcludeConfirmed, false);
+		if (els.bulkHandlerExcludeConfirmBtn) {
+			els.bulkHandlerExcludeConfirmBtn.disabled = false;
+		}
+
+		if (els.bulkHandlerId) {
+			els.bulkHandlerId.disabled = blockingOrders.length > 0 || changeableOrders.length === 0;
+		}
+
+		updateBulkHandlerSaveState();
+	}
+
+	function updateBulkHandlerSaveState() {
+		if (!els.bulkHandlerSaveBtn) {
+			return;
+		}
+
+		const preview = state.bulkHandlerPreview;
+		const hasHandler = !!numberOrNull(valueOf(els.bulkHandlerId));
+		const canProceed = !!preview
+			&& Number(preview.changeableCount || 0) > 0
+			&& Number(preview.blockingCount || 0) === 0
+			&& (Number(preview.excludedCount || 0) === 0 || state.bulkHandlerExclusionAcknowledged)
+			&& hasHandler
+			&& !state.bulkHandlerBusy;
+
+		els.bulkHandlerSaveBtn.disabled = !canProceed;
+	}
+
+	async function submitBulkHandlerChange() {
+		updateBulkHandlerSaveState();
+		if (!els.bulkHandlerSaveBtn || els.bulkHandlerSaveBtn.disabled) {
+			return;
+		}
+
+		state.bulkHandlerBusy = true;
+		els.bulkHandlerSaveBtn.disabled = true;
+		els.bulkHandlerSaveBtn.innerHTML = '<i class="ri-loader-4-line me-1"></i>변경 중';
+
+		try {
+			const response = await fetch(API.bulkHandler, {
+				method: 'POST',
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({
+					orderIds: state.bulkHandlerOrderIds,
+					deliveryHandlerId: numberOrNull(valueOf(els.bulkHandlerId)),
+					excludeUnavailable: state.bulkHandlerExclusionAcknowledged,
+					acknowledgedExcludedOrderIds: state.bulkHandlerExclusionAcknowledged
+						? orderIdsFromBulkItems(state.bulkHandlerPreview && state.bulkHandlerPreview.excludedOrders)
+						: []
+				})
+			});
+
+			const data = await parseJsonResponse(response);
+			(data.updatedRows || []).forEach(applyDeliveryRowUpdate);
+			clearSelectionForIds(data.updatedOrderIds || []);
+			hideModal(els.bulkHandlerModal);
+
+			let message = '담당자 ' + (data.updatedCount || 0) + '건이 변경되었습니다.';
+			if (data.excludedCount) {
+				message += '\n담당자 지정 불가 ' + data.excludedCount + '건은 제외되었습니다.';
+			}
+			window.setTimeout(function() {
+				alertMessage(message);
+			}, 180);
+		} catch (error) {
+			console.error(error);
+			state.bulkHandlerPreview = null;
+			showBulkInlineError(
+				els.bulkHandlerBlockingArea,
+				els.bulkHandlerBlockingList,
+				error.message || '일괄 담당자 변경 중 오류가 발생했습니다.'
+			);
+		} finally {
+			state.bulkHandlerBusy = false;
+			if (els.bulkHandlerSaveBtn) {
+				els.bulkHandlerSaveBtn.innerHTML = '<i class="ri-user-settings-line me-1"></i>변경';
+			}
+			updateBulkHandlerSaveState();
+		}
+	}
+
+	function openBulkDeliveryMethodModal() {
+		const orderIds = selectedOrderIdsSnapshot();
+
+		if (orderIds.length === 0) {
+			alertMessage('배송수단을 변경할 주문을 1건 이상 선택해 주세요.');
+			return;
+		}
+
+		resetBulkDeliveryMethodModal();
+		state.bulkMethodOrderIds = orderIds;
+		setText(els.bulkMethodRequestedCount, orderIds.length);
+		showModal(els.bulkMethodModal);
+	}
+
+	function resetBulkDeliveryMethodModal() {
+		state.bulkMethodPreview = null;
+		state.bulkMethodRemovalAcknowledged = false;
+		state.bulkMethodBusy = false;
+		state.bulkMethodPreviewSequence++;
+		state.bulkMethodOrderIds = [];
+
+		if (els.bulkMethodId) {
+			els.bulkMethodId.value = '';
+			els.bulkMethodId.disabled = false;
+		}
+
+		setText(els.bulkMethodRequestedCount, 0);
+		setText(els.bulkMethodRequiredCount, 0);
+		setText(els.bulkMethodRemovalCount, 0);
+		setText(els.bulkMethodRemovalMessageCount, 0);
+		setText(els.bulkMethodAssignmentMessageCount, 0);
+		setVisible(els.bulkMethodPlaceholder, true);
+		setVisible(els.bulkMethodLoading, false);
+		setVisible(els.bulkMethodBlockingArea, false);
+		setVisible(els.bulkMethodRemovalArea, false);
+		setVisible(els.bulkMethodAssignmentArea, false);
+		setVisible(els.bulkMethodPreservedArea, false);
+		setVisible(els.bulkMethodRemovalConfirmed, false);
+		clearElement(els.bulkMethodBlockingList);
+		clearElement(els.bulkMethodRemovalList);
+		clearElement(els.bulkMethodAssignmentList);
+		clearElement(els.bulkMethodPreservedList);
+
+		if (els.bulkMethodRemovalConfirmBtn) {
+			els.bulkMethodRemovalConfirmBtn.disabled = false;
+		}
+		if (els.bulkMethodSaveBtn) {
+			els.bulkMethodSaveBtn.disabled = true;
+			els.bulkMethodSaveBtn.innerHTML = '<i class="ri-truck-line me-1"></i>최종 변경';
+		}
+	}
+
+	function resetBulkDeliveryMethodPreviewUi() {
+		state.bulkMethodPreview = null;
+		state.bulkMethodRemovalAcknowledged = false;
+		setText(els.bulkMethodRequiredCount, 0);
+		setText(els.bulkMethodRemovalCount, 0);
+		setText(els.bulkMethodRemovalMessageCount, 0);
+		setText(els.bulkMethodAssignmentMessageCount, 0);
+		setVisible(els.bulkMethodBlockingArea, false);
+		setVisible(els.bulkMethodRemovalArea, false);
+		setVisible(els.bulkMethodAssignmentArea, false);
+		setVisible(els.bulkMethodPreservedArea, false);
+		setVisible(els.bulkMethodRemovalConfirmed, false);
+		clearElement(els.bulkMethodBlockingList);
+		clearElement(els.bulkMethodRemovalList);
+		clearElement(els.bulkMethodAssignmentList);
+		clearElement(els.bulkMethodPreservedList);
+		if (els.bulkMethodRemovalConfirmBtn) {
+			els.bulkMethodRemovalConfirmBtn.disabled = false;
+		}
+		updateBulkDeliveryMethodSaveState();
+	}
+
+	async function loadBulkDeliveryMethodPreview() {
+		const requestSequence = ++state.bulkMethodPreviewSequence;
+		const deliveryMethodId = numberOrNull(valueOf(els.bulkMethodId));
+		resetBulkDeliveryMethodPreviewUi();
+
+		if (!deliveryMethodId) {
+			setVisible(els.bulkMethodPlaceholder, true);
+			setVisible(els.bulkMethodLoading, false);
+			return;
+		}
+
+		setVisible(els.bulkMethodPlaceholder, false);
+		setVisible(els.bulkMethodLoading, true);
+
+		try {
+			const response = await fetch(API.bulkDeliveryMethodPreview, {
+				method: 'POST',
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({
+					orderIds: state.bulkMethodOrderIds,
+					deliveryMethodId: deliveryMethodId
+				})
+			});
+
+			const data = await parseJsonResponse(response);
+
+			if (requestSequence !== state.bulkMethodPreviewSequence) {
+				return;
+			}
+
+			state.bulkMethodPreview = data;
+			renderBulkDeliveryMethodPreview(data);
+		} catch (error) {
+			if (requestSequence !== state.bulkMethodPreviewSequence) {
+				return;
+			}
+
+			console.error(error);
+			setVisible(els.bulkMethodLoading, false);
+			showBulkInlineError(
+				els.bulkMethodBlockingArea,
+				els.bulkMethodBlockingList,
+				error.message || '배송수단 변경 내용을 확인하지 못했습니다.'
+			);
+			updateBulkDeliveryMethodSaveState();
+		}
+	}
+
+	function renderBulkDeliveryMethodPreview(data) {
+		const blockingOrders = data.blockingOrders || [];
+		const removalOrders = data.assignmentRemovalOrders || [];
+		const requiredOrders = data.assignmentRequiredOrders || [];
+		const preservedOrders = data.preservedAssignmentOrders || [];
+
+		setVisible(els.bulkMethodLoading, false);
+		setText(els.bulkMethodRequestedCount, data.requestedCount || state.bulkMethodOrderIds.length);
+		setText(els.bulkMethodRequiredCount, data.assignmentRequiredCount || 0);
+		setText(els.bulkMethodRemovalCount, data.assignmentRemovalCount || 0);
+		setText(els.bulkMethodRemovalMessageCount, data.assignmentRemovalCount || 0);
+		setText(els.bulkMethodAssignmentMessageCount, data.assignmentRequiredCount || 0);
+
+		renderBulkOrderInfoList(els.bulkMethodBlockingList, blockingOrders);
+		renderBulkOrderInfoList(els.bulkMethodRemovalList, removalOrders);
+		renderBulkMethodAssignmentList(requiredOrders);
+		renderBulkOrderInfoList(els.bulkMethodPreservedList, preservedOrders);
+
+		setVisible(els.bulkMethodBlockingArea, blockingOrders.length > 0);
+		setVisible(els.bulkMethodRemovalArea, removalOrders.length > 0);
+		setVisible(els.bulkMethodAssignmentArea, requiredOrders.length > 0);
+		setVisible(els.bulkMethodPreservedArea, preservedOrders.length > 0);
+
+		state.bulkMethodRemovalAcknowledged = removalOrders.length === 0;
+		setVisible(els.bulkMethodRemovalConfirmed, false);
+		if (els.bulkMethodRemovalConfirmBtn) {
+			els.bulkMethodRemovalConfirmBtn.disabled = false;
+		}
+
+		updateBulkDeliveryMethodSaveState();
+	}
+
+	function renderBulkMethodAssignmentList(items) {
+		if (!els.bulkMethodAssignmentList) {
+			return;
+		}
+
+		const optionsHtml = els.bulkHandlerOptionTemplate
+			? els.bulkHandlerOptionTemplate.innerHTML
+			: '<option value="">담당자를 선택하세요</option>';
+
+		els.bulkMethodAssignmentList.innerHTML = (items || []).map(function(item) {
+			return [
+				'<div class="dispatch-list-bulk-assignment-item">',
+				'  <div>' + buildBulkOrderInfoContent(item) + '</div>',
+				'  <select class="form-select dispatch-list-form-select dispatch-list-bulk-method-handler-select"',
+				'    data-order-id="' + escapeAttr(item.orderId) + '">',
+				optionsHtml,
+				'  </select>',
+				'</div>'
+			].join('');
+		}).join('');
+	}
+
+	function updateBulkDeliveryMethodSaveState() {
+		if (!els.bulkMethodSaveBtn) {
+			return;
+		}
+
+		const preview = state.bulkMethodPreview;
+		const handlerSelects = Array.from(document.querySelectorAll(
+			'#dispatch-list-bulk-method-assignment-list .dispatch-list-bulk-method-handler-select'
+		));
+		const allHandlersSelected = handlerSelects.every(function(select) {
+			return !!numberOrNull(valueOf(select));
+		});
+
+		const canProceed = !!preview
+			&& Number(preview.blockingCount || 0) === 0
+			&& (Number(preview.assignmentRemovalCount || 0) === 0 || state.bulkMethodRemovalAcknowledged)
+			&& allHandlersSelected
+			&& !!numberOrNull(valueOf(els.bulkMethodId))
+			&& !state.bulkMethodBusy;
+
+		els.bulkMethodSaveBtn.disabled = !canProceed;
+	}
+
+	async function submitBulkDeliveryMethodChange() {
+		updateBulkDeliveryMethodSaveState();
+		if (!els.bulkMethodSaveBtn || els.bulkMethodSaveBtn.disabled) {
+			return;
+		}
+
+		const assignments = Array.from(document.querySelectorAll(
+			'#dispatch-list-bulk-method-assignment-list .dispatch-list-bulk-method-handler-select'
+		)).map(function(select) {
+			return {
+				orderId: Number(select.getAttribute('data-order-id')),
+				deliveryHandlerId: numberOrNull(valueOf(select))
+			};
+		});
+
+		state.bulkMethodBusy = true;
+		els.bulkMethodSaveBtn.disabled = true;
+		els.bulkMethodSaveBtn.innerHTML = '<i class="ri-loader-4-line me-1"></i>변경 중';
+		if (els.bulkMethodId) {
+			els.bulkMethodId.disabled = true;
+		}
+
+		try {
+			const response = await fetch(API.bulkDeliveryMethod, {
+				method: 'POST',
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({
+					orderIds: state.bulkMethodOrderIds,
+					deliveryMethodId: numberOrNull(valueOf(els.bulkMethodId)),
+					assignments: assignments,
+					confirmAssignmentRemoval: state.bulkMethodRemovalAcknowledged,
+					acknowledgedAssignmentRemovalOrderIds: state.bulkMethodRemovalAcknowledged
+						? orderIdsFromBulkItems(state.bulkMethodPreview && state.bulkMethodPreview.assignmentRemovalOrders)
+						: []
+				})
+			});
+
+			const data = await parseJsonResponse(response);
+			(data.updatedRows || []).forEach(applyDeliveryRowUpdate);
+			clearSelectionForIds(data.updatedOrderIds || []);
+			hideModal(els.bulkMethodModal);
+
+			let message = '배송수단 ' + (data.updatedCount || 0) + '건이 변경되었습니다.';
+			if (data.assignmentCreatedCount) {
+				message += '\n담당자 신규 배정 ' + data.assignmentCreatedCount + '건';
+			}
+			if (data.assignmentRemovedCount) {
+				message += '\n기존 배정업무 삭제 ' + data.assignmentRemovedCount + '건';
+			}
+			window.setTimeout(function() {
+				alertMessage(message);
+			}, 180);
+		} catch (error) {
+			console.error(error);
+			state.bulkMethodPreview = null;
+			showBulkInlineError(
+				els.bulkMethodBlockingArea,
+				els.bulkMethodBlockingList,
+				error.message || '일괄 배송수단 변경 중 오류가 발생했습니다.'
+			);
+		} finally {
+			state.bulkMethodBusy = false;
+			if (els.bulkMethodId) {
+				els.bulkMethodId.disabled = false;
+			}
+			if (els.bulkMethodSaveBtn) {
+				els.bulkMethodSaveBtn.innerHTML = '<i class="ri-truck-line me-1"></i>최종 변경';
+			}
+			updateBulkDeliveryMethodSaveState();
+		}
+	}
+
+	function orderIdsFromBulkItems(items) {
+		return (items || []).map(function(item) {
+			return Number(item && item.orderId);
+		}).filter(function(orderId) {
+			return Number.isFinite(orderId) && orderId > 0;
+		});
+	}
+
+	function selectedCompletableOrderIds() {
+		return selectedOrderIdsSnapshot().filter(function(orderId) {
+			const row = document.querySelector(
+				'.dispatch-list-row[data-order-id="' + cssEscape(orderId) + '"]'
+			);
+
+			return row && row.getAttribute('data-dispatch-completable') === 'true';
+		});
+	}
+
+	function selectedOrderIdsSnapshot() {
+		return Array.from(state.selectedOrderIds)
+			.map(function(orderId) {
+				return Number(orderId);
+			})
+			.filter(function(orderId) {
+				return Number.isFinite(orderId) && orderId > 0;
+			});
+	}
+
+	function clearSelectionForIds(orderIds) {
+		(orderIds || []).forEach(function(orderId) {
+			const numericOrderId = Number(orderId);
+			state.selectedOrderIds.delete(numericOrderId);
+
+			const checkbox = document.querySelector(
+				'.dispatch-list-row-check[data-order-id="' + cssEscape(numericOrderId) + '"]'
+			);
+			if (checkbox) {
+				checkbox.checked = false;
+			}
+		});
+
+		updateCounts();
+		updateCheckAllState();
+	}
+
+	function renderBulkOrderInfoList(container, items) {
+		if (!container) {
+			return;
+		}
+
+		container.innerHTML = (items || []).map(function(item) {
+			return '<div class="dispatch-list-bulk-order-item">'
+				+ buildBulkOrderInfoContent(item)
+				+ '</div>';
+		}).join('');
+	}
+
+	function buildBulkOrderInfoContent(item) {
+		const orderId = item && item.orderId !== undefined && item.orderId !== null
+			? '#' + item.orderId
+			: '#-';
+		const companyName = item && item.companyName ? item.companyName : '-';
+		const productName = item && item.productName ? item.productName : '-';
+		const methodName = item && item.deliveryMethodName ? item.deliveryMethodName : '미확인';
+		const handlerName = item && item.deliveryHandlerName ? item.deliveryHandlerName : '미배정';
+		const deliveryDate = item && item.deliveryDate ? item.deliveryDate : '미지정';
+		const reason = item && item.reason ? item.reason : '';
+
+		return [
+			'<div class="dispatch-list-bulk-order-head">',
+			'  <span class="dispatch-list-bulk-order-id">' + escapeHtml(orderId) + '</span>',
+			'  <span>' + escapeHtml(companyName) + '</span>',
+			'  <span>' + escapeHtml(productName) + '</span>',
+			'</div>',
+			'<div class="dispatch-list-bulk-order-meta">',
+			'배송수단: ' + escapeHtml(methodName),
+			' · 담당자: ' + escapeHtml(handlerName),
+			' · 배송일: ' + escapeHtml(deliveryDate),
+			'</div>',
+			reason
+				? '<div class="dispatch-list-bulk-order-reason">' + escapeHtml(reason) + '</div>'
+				: ''
+		].join('');
+	}
+
+	function showBulkInlineError(area, list, message) {
+		setVisible(area, true);
+		if (list) {
+			list.innerHTML = '<div class="dispatch-list-bulk-order-item">'
+				+ '<div class="dispatch-list-bulk-order-reason">'
+				+ escapeHtml(message || '요청 처리 중 오류가 발생했습니다.')
+				+ '</div></div>';
+		}
+	}
+
+	function setVisible(element, visible) {
+		if (!element) {
+			return;
+		}
+		element.classList.toggle('d-none', !visible);
+	}
+
+	function clearElement(element) {
+		if (element) {
+			element.innerHTML = '';
+		}
 	}
 
 	async function handleProvinceChange(scope, provinceSelect, citySelect, districtSelect) {
@@ -1151,6 +1906,16 @@
 		}
 
 		return option.getAttribute('data-name') || option.textContent || '';
+	}
+
+	function isHandlerRequiredMethodName(methodName) {
+		const normalized = toText(methodName)
+			.replace(/\(금액:.*?\)/g, '')
+			.replace(/\s+/g, '');
+
+		return normalized.indexOf('직배송') >= 0
+			|| normalized.indexOf('현장배송') >= 0
+			|| normalized.indexOf('화물') >= 0;
 	}
 
 	function valueOf(element) {

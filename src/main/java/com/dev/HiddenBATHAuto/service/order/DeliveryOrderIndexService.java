@@ -26,6 +26,8 @@ import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -40,31 +42,26 @@ public class DeliveryOrderIndexService {
     private static final String SITE_DELIVERY_METHOD_NAME = "현장배송";
 
     /*
-     * 관리자 저장 시 담당자 필수 검증은 OrderUpdateService에서 처리합니다.
-     * 여기서는 배송 담당자가 지정된 주문을 DeliveryOrderIndex에 올리고,
-     * 배송팀 화면에서 조작 가능한 영역과 조작 불가 영역을 index range로 분리합니다.
-     */
-    private static final Set<String> REQUIRED_DELIVERY_HANDLER_METHOD_NAMES = Set.of(
-            DIRECT_DELIVERY_METHOD_NAME,
-            FREIGHT_DELIVERY_METHOD_NAME,
-            SITE_DELIVERY_METHOD_NAME
-    );
-
-    /*
      * order_index range 분리 기준입니다.
-     * - 1 ~ 99,999         : 직배송/현장배송 + 생산완료/출고완료. 순서변경/업체별정렬/담당자변경 가능
-     *                         배송완료 처리는 이 중 PRODUCTION_DONE 상태만 가능
-     * - 100,000 ~ 999,999  : 직배송/현장배송 + 배송완료. 상세만 가능
-     * - 1,000,000 이상     : 그 외 배송수단 또는 배송팀 조작 불가 상태. 상세만 가능
+     * - 1 ~ 99,998             : 직배송/현장배송 + 승인완료/생산완료/출고완료
+     * - 99,999 ~ 999,999       : 화물. 첫 건은 99,999이며 같은 담당자/날짜의 다음 화물은 +1
+     * - 1,000,000 ~ 1,999,999  : 직배송/현장배송 + 배송완료
+     * - 2,000,000 이상         : 과거 데이터 등 기타 표시 전용 영역
      *
-     * tb_delivery_order_index의 unique(handler, date, order_index) 충돌을 피하기 위해
-     * 저장/정규화 시 임시 음수 index로 한 번 밀어낸 뒤 range별로 재부여합니다.
+     * tb_delivery_order_index에는 (담당자, 날짜, 순번) 유니크 제약이 있으므로
+     * 여러 화물을 모두 99,999로 저장할 수 없습니다. 따라서 99,999를 화물 구간의
+     * 시작값으로 사용하고 같은 구간 안에서 순차 증가시킵니다.
+     *
+     * 저장/정규화 시에는 유니크 충돌을 피하기 위해 임시 음수 index로 한 번 밀어낸 뒤
+     * 구간별로 재부여합니다.
      */
     private static final int ACTIONABLE_PENDING_INDEX_START = 1;
-    private static final int ACTIONABLE_DONE_INDEX_START = 100_000;
-    private static final int OTHER_INDEX_START = 1_000_000;
+    private static final int FREIGHT_INDEX_START = 99_999;
+    private static final int ACTIONABLE_DONE_INDEX_START = 1_000_000;
+    private static final int OTHER_INDEX_START = 2_000_000;
     private static final int TEMP_REINDEX_START = -1_000_000_000;
 
+    private final EntityManager entityManager;
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final MemberRepository memberRepository;
     private final OrderRepository orderRepository;
@@ -74,7 +71,7 @@ public class DeliveryOrderIndexService {
      *
      * 처리 기준:
      * - 취소/담당자 없음/배송희망일 없음 => 기존 DeliveryOrderIndex 삭제
-     * - 담당자 있음 + 배송희망일 있음 => 배송수단과 관계없이 DeliveryOrderIndex 생성
+     * - 담당자 필수 배송수단 + 담당자 있음 + 배송희망일 있음 => DeliveryOrderIndex 생성
      * - 담당자/날짜 변경 => 기존 row 삭제 후 새 담당자/날짜의 적절한 section 끝에 추가
      * - 담당자/날짜 동일 + 배송수단/상태만 변경 => row는 유지하되 section range가 달라지면 index만 재배치
      */
@@ -89,6 +86,12 @@ public class DeliveryOrderIndexService {
         LocalDate deliveryDate = order.getPreferredDeliveryDate() == null
                 ? null
                 : order.getPreferredDeliveryDate().toLocalDate();
+
+        if (!isDeliveryHandlerRequiredMethod(order)) {
+            order.setAssignedDeliveryHandler(null);
+            deleteExistingIndex(existing);
+            return;
+        }
 
         if (order.getStatus() == OrderStatus.CANCELED || handler == null || deliveryDate == null) {
             deleteExistingIndex(existing);
@@ -112,7 +115,11 @@ public class DeliveryOrderIndexService {
                 return;
             }
 
-            existing.setOrderIndex(nextIndexForSection(handler.getId(), deliveryDate, targetSection, order.getId()));
+            /*
+             * 구간이 바뀌는 경우 현재 row를 먼저 제거한 뒤 대상 구간의 끝에 다시 넣어야
+             * 정규화 과정에서 자기 자신이 max 계산에 섞이거나 99,999 시작값에 빈틈이 생기지 않습니다.
+             */
+            replaceIndexAtQueueEnd(order, existing, handler, deliveryDate, targetSection);
             return;
         }
 
@@ -179,6 +186,7 @@ public class DeliveryOrderIndexService {
                 .orElseThrow(() -> new IllegalArgumentException("배송 담당자 없음"));
 
         validateDeliveryTeamHandler(handler);
+        lockDeliveryHandlerQueues(Set.of(handler.getId()));
 
         LocalDate date;
         try {
@@ -236,6 +244,21 @@ public class DeliveryOrderIndexService {
                 .sorted(indexComparator())
                 .forEach(activeRows::add);
 
+        /*
+         * 승인완료 직배송/현장배송은 배송 큐에는 포함하지만 배송팀 순서조작 대상은 아닙니다.
+         * 따라서 요청된 작업 가능 주문 뒤에 기존 순서를 유지하여 붙입니다.
+         */
+        current.stream()
+                .filter(x -> isQueuedDirectOrSiteOrder(x.getOrder()))
+                .filter(x -> !isActionablePendingDeliveryOrder(x.getOrder()))
+                .sorted(indexComparator())
+                .forEach(activeRows::add);
+
+        List<DeliveryOrderIndex> freightRows = current.stream()
+                .filter(x -> isFreightDeliveryListOrder(x.getOrder()))
+                .sorted(indexComparator())
+                .collect(Collectors.toList());
+
         List<DeliveryOrderIndex> doneRows = current.stream()
                 .filter(x -> isActionableDoneDeliveryOrder(x.getOrder()))
                 .sorted(indexComparator())
@@ -246,7 +269,7 @@ public class DeliveryOrderIndexService {
                 .sorted(indexComparator())
                 .collect(Collectors.toList());
 
-        rewriteIndexesBySection(current, activeRows, doneRows, otherRows);
+        rewriteIndexesBySection(current, activeRows, freightRows, doneRows, otherRows);
     }
 
     /**
@@ -317,7 +340,7 @@ public class DeliveryOrderIndexService {
     /**
      * 기존 호출부 호환을 위해 메서드명은 유지합니다.
      * 현재는 직배송만 반환하지 않고, 담당자가 지정되어 DeliveryOrderIndex에 올라간 row를
-     * 배송팀 화면 표시 순서(직/현 작업 가능 -> 배송완료 -> 기타)로 반환합니다.
+     * 배송팀 화면 표시 순서(직/현 작업 가능 -> 화물 -> 배송완료 -> 기타)로 반환합니다.
      */
     @Transactional(readOnly = true)
     public List<DeliveryOrderIndex> getDirectDeliveryIndexes(
@@ -354,6 +377,8 @@ public class DeliveryOrderIndexService {
             return;
         }
 
+        lockDeliveryHandlerQueues(Set.of(handlerId));
+
         List<DeliveryOrderIndex> current = getVisibleIndexesForHandlerAndDate(handlerId, deliveryDate);
 
         if (current.isEmpty()) {
@@ -361,7 +386,12 @@ public class DeliveryOrderIndexService {
         }
 
         List<DeliveryOrderIndex> activeRows = current.stream()
-                .filter(x -> isActionablePendingDeliveryOrder(x.getOrder()))
+                .filter(x -> isQueuedDirectOrSiteOrder(x.getOrder()))
+                .sorted(indexComparator())
+                .collect(Collectors.toList());
+
+        List<DeliveryOrderIndex> freightRows = current.stream()
+                .filter(x -> isFreightDeliveryListOrder(x.getOrder()))
                 .sorted(indexComparator())
                 .collect(Collectors.toList());
 
@@ -376,6 +406,7 @@ public class DeliveryOrderIndexService {
                 .collect(Collectors.toList());
 
         boolean alreadyNormalized = activeRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.ACTIONABLE_PENDING))
+                && freightRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.FREIGHT))
                 && doneRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.ACTIONABLE_DONE))
                 && otherRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.OTHER));
 
@@ -383,7 +414,7 @@ public class DeliveryOrderIndexService {
             return;
         }
 
-        rewriteIndexesBySection(current, activeRows, doneRows, otherRows);
+        rewriteIndexesBySection(current, activeRows, freightRows, doneRows, otherRows);
     }
 
     @Transactional(readOnly = true)
@@ -519,6 +550,11 @@ public class DeliveryOrderIndexService {
 
         validateDeliveryTeamHandler(newHandler);
 
+        Set<Long> handlerIdsToLock = new HashSet<>();
+        handlerIdsToLock.add(loginMember.getId());
+        handlerIdsToLock.add(newHandler.getId());
+        lockDeliveryHandlerQueues(handlerIdsToLock);
+
         List<Long> changedOrderIds = new ArrayList<>();
         Set<LocalDate> affectedDates = new HashSet<>();
 
@@ -603,6 +639,22 @@ public class DeliveryOrderIndexService {
         return isDirectDeliveryOrder(order) || isSiteDeliveryOrder(order);
     }
 
+    /**
+     * 직배송/현장배송 배송 큐에 배치할 상태입니다.
+     * 승인완료도 출고팀에서 담당자를 미리 배정할 수 있으므로 일반 배송순번 구간에 포함합니다.
+     * 단, 배송팀의 순서변경/담당자변경 가능 여부는 isActionablePendingDeliveryOrder로 별도 제한합니다.
+     */
+    public boolean isQueuedDirectOrSiteOrder(Order order) {
+        if (order == null || order.getStatus() == null) {
+            return false;
+        }
+
+        return isActionableDeliveryMethod(order)
+                && (order.getStatus() == OrderStatus.CONFIRMED
+                || order.getStatus() == OrderStatus.PRODUCTION_DONE
+                || order.getStatus() == OrderStatus.DISPATCH_DONE);
+    }
+
     public boolean isActionablePendingDeliveryOrder(Order order) {
         if (order == null || order.getStatus() == null) {
             return false;
@@ -622,34 +674,30 @@ public class DeliveryOrderIndexService {
                 && order.getStatus() == OrderStatus.DELIVERY_DONE;
     }
 
+    public boolean isFreightDeliveryListOrder(Order order) {
+        return order != null
+                && isDeliveryIndexManagedOrder(order)
+                && isFreightDeliveryOrder(order);
+    }
+
     public boolean isOtherDeliveryListOrder(Order order) {
         if (order == null) {
             return false;
         }
 
         return isDeliveryIndexManagedOrder(order)
-                && !isActionablePendingDeliveryOrder(order)
+                && !isQueuedDirectOrSiteOrder(order)
+                && !isFreightDeliveryListOrder(order)
                 && !isActionableDoneDeliveryOrder(order);
     }
 
     /**
      * 담당자 필수 배송수단 여부입니다.
-     * - 직배송
-     * - 화물
-     * - 현장배송
+     * 배송수단명에 직배송/현장배송/화물 단어가 포함되면 담당자 필수로 판정합니다.
      */
     public boolean isDeliveryHandlerRequiredMethod(Order order) {
-        if (order == null || order.getDeliveryMethod() == null) {
-            return false;
-        }
-
-        String methodName = normalizeMethodName(order.getDeliveryMethod().getMethodName());
-
-        if (methodName.isBlank()) {
-            return false;
-        }
-
-        return REQUIRED_DELIVERY_HANDLER_METHOD_NAMES.contains(methodName);
+        return order != null
+                && DeliveryMethodAssignmentPolicy.requiresHandler(order.getDeliveryMethod());
     }
 
     /**
@@ -708,6 +756,14 @@ public class DeliveryOrderIndexService {
     }
 
     private int nextIndexForSection(Long handlerId, LocalDate deliveryDate, DeliveryListSection section, Long excludeOrderId) {
+        lockDeliveryHandlerQueues(Set.of(handlerId));
+
+        /*
+         * 기존 배포 버전의 100,000/1,000,000 기준 데이터가 남아 있어도
+         * 새 화물 구간과 충돌하지 않도록 해당 담당자/날짜를 먼저 정규화합니다.
+         */
+        normalizeIndexesForHandlerDate(handlerId, deliveryDate);
+
         int base = sectionStartIndex(section);
 
         int max = getVisibleIndexesForHandlerAndDate(handlerId, deliveryDate)
@@ -722,12 +778,21 @@ public class DeliveryOrderIndexService {
                 .max()
                 .orElse(base - 1);
 
-        return Math.max(base, max + 1);
+        int next = Math.max(base, max + 1);
+        int endExclusive = sectionEndExclusive(section);
+
+        if (endExclusive != Integer.MAX_VALUE && next >= endExclusive) {
+            throw new IllegalStateException("배송순번 구간이 가득 찼습니다. 담당자=" + handlerId
+                    + ", 배송일=" + deliveryDate + ", 구간=" + section);
+        }
+
+        return next;
     }
 
     private void rewriteIndexesBySection(
             List<DeliveryOrderIndex> allRows,
             List<DeliveryOrderIndex> activeRows,
+            List<DeliveryOrderIndex> freightRows,
             List<DeliveryOrderIndex> doneRows,
             List<DeliveryOrderIndex> otherRows
     ) {
@@ -741,11 +806,25 @@ public class DeliveryOrderIndexService {
 
         int next = ACTIONABLE_PENDING_INDEX_START;
         for (DeliveryOrderIndex row : activeRows) {
+            if (next >= FREIGHT_INDEX_START) {
+                throw new IllegalStateException("직배송/현장배송 배송순번 구간이 가득 찼습니다.");
+            }
+            row.setOrderIndex(next++);
+        }
+
+        next = FREIGHT_INDEX_START;
+        for (DeliveryOrderIndex row : freightRows) {
+            if (next >= ACTIONABLE_DONE_INDEX_START) {
+                throw new IllegalStateException("화물 배송순번 구간이 가득 찼습니다.");
+            }
             row.setOrderIndex(next++);
         }
 
         next = ACTIONABLE_DONE_INDEX_START;
         for (DeliveryOrderIndex row : doneRows) {
+            if (next >= OTHER_INDEX_START) {
+                throw new IllegalStateException("배송완료 배송순번 구간이 가득 찼습니다.");
+            }
             row.setOrderIndex(next++);
         }
 
@@ -787,8 +866,12 @@ public class DeliveryOrderIndexService {
     }
 
     private DeliveryListSection resolveDeliveryListSection(Order order) {
-        if (isActionablePendingDeliveryOrder(order)) {
+        if (isQueuedDirectOrSiteOrder(order)) {
             return DeliveryListSection.ACTIONABLE_PENDING;
+        }
+
+        if (isFreightDeliveryListOrder(order)) {
+            return DeliveryListSection.FREIGHT;
         }
 
         if (isActionableDoneDeliveryOrder(order)) {
@@ -826,25 +909,60 @@ public class DeliveryOrderIndexService {
     private int sectionSortOrder(DeliveryListSection section) {
         return switch (section) {
             case ACTIONABLE_PENDING -> 0;
-            case ACTIONABLE_DONE -> 1;
-            case OTHER -> 2;
+            case FREIGHT -> 1;
+            case ACTIONABLE_DONE -> 2;
+            case OTHER -> 3;
         };
     }
 
     private int sectionStartIndex(DeliveryListSection section) {
         return switch (section) {
             case ACTIONABLE_PENDING -> ACTIONABLE_PENDING_INDEX_START;
+            case FREIGHT -> FREIGHT_INDEX_START;
             case ACTIONABLE_DONE -> ACTIONABLE_DONE_INDEX_START;
             case OTHER -> OTHER_INDEX_START;
         };
     }
 
-    private boolean isIndexInSectionRange(int index, DeliveryListSection section) {
+    private int sectionEndExclusive(DeliveryListSection section) {
         return switch (section) {
-            case ACTIONABLE_PENDING -> index >= ACTIONABLE_PENDING_INDEX_START && index < ACTIONABLE_DONE_INDEX_START;
-            case ACTIONABLE_DONE -> index >= ACTIONABLE_DONE_INDEX_START && index < OTHER_INDEX_START;
-            case OTHER -> index >= OTHER_INDEX_START;
+            case ACTIONABLE_PENDING -> FREIGHT_INDEX_START;
+            case FREIGHT -> ACTIONABLE_DONE_INDEX_START;
+            case ACTIONABLE_DONE -> OTHER_INDEX_START;
+            case OTHER -> Integer.MAX_VALUE;
         };
+    }
+
+    private boolean isIndexInSectionRange(int index, DeliveryListSection section) {
+        return index >= sectionStartIndex(section) && index < sectionEndExclusive(section);
+    }
+
+    private void lockDeliveryHandlerQueues(Set<Long> handlerIds) {
+        if (handlerIds == null || handlerIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> sortedIds = handlerIds.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .sorted()
+                .toList();
+
+        for (Long handlerId : sortedIds) {
+            Member lockedHandler = entityManager.find(
+                    Member.class,
+                    handlerId,
+                    LockModeType.PESSIMISTIC_WRITE
+            );
+
+            if (lockedHandler == null) {
+                throw new IllegalArgumentException(
+                        "배송 담당자가 존재하지 않습니다. handlerId=" + handlerId
+                );
+            }
+
+            validateDeliveryTeamHandler(lockedHandler);
+        }
     }
 
     private Long resolveCompanyId(Order order) {
@@ -955,14 +1073,11 @@ public class DeliveryOrderIndexService {
         String methodName = normalizeMethodName(order.getDeliveryMethod().getMethodName());
         String expected = normalizeMethodName(expectedMethodName);
 
-        return !methodName.isBlank() && methodName.equals(expected);
+        return !methodName.isBlank() && methodName.contains(expected);
     }
 
     private String normalizeMethodName(String value) {
-        return safeText(value)
-                .replaceAll("\\s+", "")
-                .replaceAll("\\(금액:.*?\\)", "")
-                .trim();
+        return DeliveryMethodAssignmentPolicy.normalize(value);
     }
 
 
@@ -972,6 +1087,7 @@ public class DeliveryOrderIndexService {
 
     private enum DeliveryListSection {
         ACTIONABLE_PENDING,
+        FREIGHT,
         ACTIONABLE_DONE,
         OTHER
     }

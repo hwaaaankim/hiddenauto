@@ -7,10 +7,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -31,6 +34,15 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodChangeRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodChangeResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodPreviewResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangeRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangeResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangePreviewResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkOrderInfoDto;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.DeliveryMethodOptionDto;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderHandlerAssignmentDto;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchFailDto;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DeliveryMethodDto;
@@ -50,10 +62,14 @@ import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
+import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy.MethodGroup;
+import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -73,7 +89,6 @@ public class DispatchTeamService {
 
     private static final String DISPATCH_TEAM_NAME = "출고팀";
     private static final String DELIVERY_TEAM_NAME = "배송팀";
-    private static final String DIRECT_DELIVERY_METHOD_NAME = "직배송";
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -85,6 +100,7 @@ public class DispatchTeamService {
     private final DeliveryMethodRepository deliveryMethodRepository;
     private final MemberRepository memberRepository;
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private final DeliveryOrderIndexService deliveryOrderIndexService;
 
     @Transactional(readOnly = true)
     public DispatchOrderSearchResponse searchDispatchOrders(
@@ -300,74 +316,511 @@ public class DispatchTeamService {
             throw new IllegalArgumentException("배송수단 ID가 없습니다.");
         }
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+        Order order = entityManager.find(
+                Order.class,
+                orderId,
+                LockModeType.PESSIMISTIC_WRITE
+        );
 
-        if (!isVisibleDispatchStatus(order.getStatus())) {
-            throw new IllegalStateException("출고관리 대상 상태가 아닙니다.");
+        if (order == null) {
+            throw new IllegalArgumentException("주문을 찾을 수 없습니다.");
         }
+
+        validateBulkTargetOrder(order);
 
         DeliveryMethod nextDeliveryMethod = deliveryMethodRepository.findById(deliveryMethodId)
                 .orElseThrow(() -> new IllegalArgumentException("배송수단을 찾을 수 없습니다."));
 
-        boolean nextIsDirectDelivery = isDirectDelivery(nextDeliveryMethod);
+        MethodGroup nextGroup = DeliveryMethodAssignmentPolicy.classify(nextDeliveryMethod);
+        DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
+        Member currentHandler = resolveAssignedDeliveryHandler(order, existingIndex);
+        Member nextHandler = null;
+        Set<Long> affectedHandlerIds = new HashSet<>();
 
-        /*
-         * 기존 직배송 순번은 배송수단 변경 시 항상 제거합니다.
-         *
-         * 1. 직배송 -> 타 배송수단
-         *    - 기존 DeliveryOrderIndex 삭제
-         *    - Order.deliveryMethod 변경
-         *
-         * 2. 타 배송수단 -> 타 배송수단
-         *    - 삭제 대상이 없으므로 영향 없음
-         *    - Order.deliveryMethod 변경
-         *
-         * 3. 타 배송수단 -> 직배송
-         *    - 배송 담당자 필수
-         *    - 오늘 날짜 기준 담당자별 max(orderIndex) + 1 등록
-         *
-         * 4. 직배송 -> 직배송
-         *    - 기존 순번 삭제 후 새 담당자 기준으로 재등록
-         */
-        deliveryOrderIndexRepository.deleteByOrder_Id(order.getId());
-        deliveryOrderIndexRepository.flush();
-
-        order.setDeliveryMethod(nextDeliveryMethod);
-        order.setUpdatedAt(LocalDateTime.now());
-
-        orderRepository.save(order);
-
-        DeliveryOrderIndex savedDeliveryOrderIndex = null;
-
-        if (nextIsDirectDelivery) {
-            if (deliveryHandlerId == null) {
-                throw new IllegalArgumentException("직배송으로 변경하려면 배송 담당자를 선택해야 합니다.");
-            }
-
-            Member deliveryHandler = memberRepository.findById(deliveryHandlerId)
-                    .orElseThrow(() -> new IllegalArgumentException("배송 담당자를 찾을 수 없습니다."));
-
-            validateDeliveryHandler(deliveryHandler);
-
-            LocalDate deliveryDate = LocalDate.now();
-
-            int nextOrderIndex =
-                    deliveryOrderIndexRepository.findMaxOrderIndexByHandlerIdAndDeliveryDate(
-                            deliveryHandler.getId(),
-                            deliveryDate
-                    ) + 1;
-
-            DeliveryOrderIndex deliveryOrderIndex = new DeliveryOrderIndex();
-            deliveryOrderIndex.setDeliveryHandler(deliveryHandler);
-            deliveryOrderIndex.setOrder(order);
-            deliveryOrderIndex.setDeliveryDate(deliveryDate);
-            deliveryOrderIndex.setOrderIndex(nextOrderIndex);
-
-            savedDeliveryOrderIndex = deliveryOrderIndexRepository.save(deliveryOrderIndex);
+        if (currentHandler != null && currentHandler.getId() != null) {
+            affectedHandlerIds.add(currentHandler.getId());
         }
 
+        if (nextGroup != MethodGroup.NO_HANDLER) {
+            Long resolvedHandlerId = deliveryHandlerId != null
+                    ? deliveryHandlerId
+                    : currentHandler != null ? currentHandler.getId() : null;
+
+            if (resolvedHandlerId == null) {
+                throw new IllegalArgumentException(
+                        safeTextOrDash(nextDeliveryMethod.getMethodName())
+                                + "으로 변경하려면 배송 담당자를 선택해야 합니다."
+                );
+            }
+
+            nextHandler = getValidatedDeliveryHandler(resolvedHandlerId, new HashMap<>());
+            requireDeliveryDate(order);
+            affectedHandlerIds.add(nextHandler.getId());
+        }
+
+        lockDeliveryHandlerIds(affectedHandlerIds);
+
+        order.setDeliveryMethod(nextDeliveryMethod);
+        order.setAssignedDeliveryHandler(nextHandler);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+        orderRepository.flush();
+
+        if (nextGroup == MethodGroup.NO_HANDLER) {
+            deliveryOrderIndexService.removeIndex(order);
+        } else {
+            deliveryOrderIndexService.ensureIndex(order);
+        }
+
+        deliveryOrderIndexRepository.flush();
+
+        DeliveryOrderIndex savedDeliveryOrderIndex = findDeliveryOrderIndex(order);
         return toDeliveryMethodDto(nextDeliveryMethod, savedDeliveryOrderIndex);
+    }
+
+    @Transactional(readOnly = true)
+    public BulkHandlerChangePreviewResponse previewBulkHandlerChange(
+            List<Long> orderIds,
+            Member loginMember
+    ) {
+        validateDispatchTeamMember(loginMember);
+
+        List<Long> normalizedIds = normalizeIds(orderIds);
+
+        if (normalizedIds.isEmpty()) {
+            throw new IllegalArgumentException("담당자를 변경할 주문을 1건 이상 선택해 주세요.");
+        }
+
+        Map<Long, Order> orderMap = findOrderMap(normalizedIds);
+
+        List<BulkOrderInfoDto> changeableOrders = new ArrayList<>();
+        List<BulkOrderInfoDto> excludedOrders = new ArrayList<>();
+        List<BulkOrderInfoDto> blockingOrders = new ArrayList<>();
+
+        for (Long orderId : normalizedIds) {
+            Order order = orderMap.get(orderId);
+
+            if (order == null) {
+                blockingOrders.add(missingBulkOrderInfo(orderId, "주문을 찾을 수 없습니다."));
+                continue;
+            }
+
+            if (!isVisibleDispatchStatus(order.getStatus())) {
+                blockingOrders.add(toBulkOrderInfo(order, "현재 상태에서는 출고팀 일괄 변경을 할 수 없습니다."));
+                continue;
+            }
+
+            if (!DeliveryMethodAssignmentPolicy.requiresHandler(order.getDeliveryMethod())) {
+                String methodName = deliveryMethodName(order);
+                excludedOrders.add(toBulkOrderInfo(
+                        order,
+                        methodName + " 건은 담당자 지정이 불가능합니다. "
+                                + "배송수단을 직배송/현장배송/화물로 변경한 후 담당자를 지정할 수 있습니다."
+                ));
+                continue;
+            }
+
+            if (order.getPreferredDeliveryDate() == null) {
+                blockingOrders.add(toBulkOrderInfo(order, "배송희망일이 없어 담당자 배정 순번을 생성할 수 없습니다."));
+                continue;
+            }
+
+            changeableOrders.add(toBulkOrderInfo(order, null));
+        }
+
+        return BulkHandlerChangePreviewResponse.builder()
+                .requestedCount(normalizedIds.size())
+                .changeableCount(changeableOrders.size())
+                .excludedCount(excludedOrders.size())
+                .blockingCount(blockingOrders.size())
+                .exclusionConfirmationRequired(!excludedOrders.isEmpty())
+                .changeableOrders(changeableOrders)
+                .excludedOrders(excludedOrders)
+                .blockingOrders(blockingOrders)
+                .build();
+    }
+
+    @Transactional
+    public BulkHandlerChangeResponse bulkChangeDeliveryHandler(
+            BulkHandlerChangeRequest request,
+            Member loginMember
+    ) {
+        validateDispatchTeamMember(loginMember);
+
+        if (request == null) {
+            throw new IllegalArgumentException("일괄 담당자 변경 요청이 없습니다.");
+        }
+
+        List<Long> normalizedIds = normalizeIds(request.getOrderIds());
+
+        if (normalizedIds.isEmpty()) {
+            throw new IllegalArgumentException("담당자를 변경할 주문을 1건 이상 선택해 주세요.");
+        }
+
+        Member targetHandler = getValidatedDeliveryHandler(
+                request.getDeliveryHandlerId(),
+                new HashMap<>()
+        );
+
+        Map<Long, Order> orderMap = findLockedOrderMap(normalizedIds);
+        List<Order> changeTargets = new ArrayList<>();
+        List<Long> excludedOrderIds = new ArrayList<>();
+        Set<Long> affectedHandlerIds = new HashSet<>();
+        affectedHandlerIds.add(targetHandler.getId());
+        Set<Long> acknowledgedExcludedIds = normalizeAcknowledgedOrderIdSet(
+                request.getAcknowledgedExcludedOrderIds(),
+                normalizedIds,
+                "담당자 지정 제외 확인 주문"
+        );
+
+        for (Long orderId : normalizedIds) {
+            Order order = orderMap.get(orderId);
+
+            if (order == null) {
+                throw new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId);
+            }
+
+            validateBulkTargetOrder(order);
+
+            if (!DeliveryMethodAssignmentPolicy.requiresHandler(order.getDeliveryMethod())) {
+                excludedOrderIds.add(orderId);
+                continue;
+            }
+
+            requireDeliveryDate(order);
+
+            Member currentHandler = resolveAssignedDeliveryHandler(
+                    order,
+                    findDeliveryOrderIndex(order)
+            );
+            if (currentHandler != null && currentHandler.getId() != null) {
+                affectedHandlerIds.add(currentHandler.getId());
+            }
+
+            changeTargets.add(order);
+        }
+
+        Set<Long> actualExcludedIds = new LinkedHashSet<>(excludedOrderIds);
+
+        if (!actualExcludedIds.isEmpty() && !request.isExcludeUnavailable()) {
+            throw new IllegalStateException(
+                    "담당자 지정이 불가능한 배송수단이 포함되어 있습니다. "
+                            + "제외 안내를 확인한 후 다시 진행해 주세요."
+            );
+        }
+
+        if (!actualExcludedIds.equals(acknowledgedExcludedIds)) {
+            throw new IllegalStateException(
+                    "미리보기 이후 담당자 지정 가능 여부가 변경되었습니다. "
+                            + "모달을 닫고 선택 주문을 다시 확인해 주세요."
+            );
+        }
+
+        if (changeTargets.isEmpty()) {
+            throw new IllegalStateException("담당자를 변경할 수 있는 주문이 없습니다.");
+        }
+
+        lockDeliveryHandlerIds(affectedHandlerIds);
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Order order : changeTargets) {
+            order.setAssignedDeliveryHandler(targetHandler);
+            order.setUpdatedAt(now);
+        }
+
+        orderRepository.saveAll(changeTargets);
+        orderRepository.flush();
+
+        for (Order order : changeTargets) {
+            deliveryOrderIndexService.ensureIndex(order);
+        }
+
+        deliveryOrderIndexRepository.flush();
+
+        List<DispatchOrderRowDto> updatedRows = changeTargets.stream()
+                .map(this::toDispatchOrderRowDto)
+                .toList();
+
+        return BulkHandlerChangeResponse.builder()
+                .requestedCount(normalizedIds.size())
+                .updatedCount(changeTargets.size())
+                .excludedCount(excludedOrderIds.size())
+                .updatedOrderIds(changeTargets.stream().map(Order::getId).toList())
+                .excludedOrderIds(excludedOrderIds)
+                .updatedRows(updatedRows)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public BulkDeliveryMethodPreviewResponse previewBulkDeliveryMethodChange(
+            List<Long> orderIds,
+            Long deliveryMethodId,
+            Member loginMember
+    ) {
+        validateDispatchTeamMember(loginMember);
+
+        List<Long> normalizedIds = normalizeIds(orderIds);
+
+        if (normalizedIds.isEmpty()) {
+            throw new IllegalArgumentException("배송수단을 변경할 주문을 1건 이상 선택해 주세요.");
+        }
+
+        if (deliveryMethodId == null) {
+            throw new IllegalArgumentException("변경할 배송수단을 선택해 주세요.");
+        }
+
+        DeliveryMethod targetMethod = deliveryMethodRepository.findById(deliveryMethodId)
+                .orElseThrow(() -> new IllegalArgumentException("변경할 배송수단을 찾을 수 없습니다."));
+
+        MethodGroup targetGroup = DeliveryMethodAssignmentPolicy.classify(targetMethod);
+        Map<Long, Order> orderMap = findOrderMap(normalizedIds);
+
+        List<BulkOrderInfoDto> assignmentRequiredOrders = new ArrayList<>();
+        List<BulkOrderInfoDto> assignmentRemovalOrders = new ArrayList<>();
+        List<BulkOrderInfoDto> preservedAssignmentOrders = new ArrayList<>();
+        List<BulkOrderInfoDto> blockingOrders = new ArrayList<>();
+
+        for (Long orderId : normalizedIds) {
+            Order order = orderMap.get(orderId);
+
+            if (order == null) {
+                blockingOrders.add(missingBulkOrderInfo(orderId, "주문을 찾을 수 없습니다."));
+                continue;
+            }
+
+            if (!isVisibleDispatchStatus(order.getStatus())) {
+                blockingOrders.add(toBulkOrderInfo(order, "현재 상태에서는 출고팀 일괄 변경을 할 수 없습니다."));
+                continue;
+            }
+
+            DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
+            Member currentHandler = resolveAssignedDeliveryHandler(order, existingIndex);
+            boolean hasCurrentAssignment = currentHandler != null || existingIndex != null;
+            MethodGroup currentGroup = DeliveryMethodAssignmentPolicy.classify(order.getDeliveryMethod());
+
+            if (targetGroup == MethodGroup.NO_HANDLER) {
+                boolean assignmentRemovalConfirmationRequired =
+                        currentGroup != MethodGroup.NO_HANDLER || hasCurrentAssignment;
+
+                if (assignmentRemovalConfirmationRequired) {
+                    assignmentRemovalOrders.add(toBulkOrderInfo(
+                            order,
+                            "변경 후 담당자 배정이 불필요하여 기존 담당자의 배정업무에서 삭제됩니다."
+                    ));
+                }
+                continue;
+            }
+
+            if (order.getPreferredDeliveryDate() == null) {
+                blockingOrders.add(toBulkOrderInfo(order, "배송희망일이 없어 담당자 배정 순번을 생성할 수 없습니다."));
+                continue;
+            }
+
+            boolean explicitAssignmentRequired = currentGroup == MethodGroup.NO_HANDLER
+                    || !isSelectableDeliveryHandler(currentHandler);
+
+            if (explicitAssignmentRequired) {
+                assignmentRequiredOrders.add(toBulkOrderInfo(
+                        order,
+                        safeTextOrDash(targetMethod.getMethodName())
+                                + "으로 변경하려면 이 주문의 배송 담당자를 선택해야 합니다."
+                ));
+            } else {
+                preservedAssignmentOrders.add(toBulkOrderInfo(
+                        order,
+                        "기존 담당자 배정을 유지합니다."
+                ));
+            }
+        }
+
+        return BulkDeliveryMethodPreviewResponse.builder()
+                .requestedCount(normalizedIds.size())
+                .assignmentRequiredCount(assignmentRequiredOrders.size())
+                .assignmentRemovalCount(assignmentRemovalOrders.size())
+                .preservedAssignmentCount(preservedAssignmentOrders.size())
+                .blockingCount(blockingOrders.size())
+                .assignmentRemovalConfirmationRequired(!assignmentRemovalOrders.isEmpty())
+                .targetMethod(toDeliveryMethodOptionDto(targetMethod))
+                .assignmentRequiredOrders(assignmentRequiredOrders)
+                .assignmentRemovalOrders(assignmentRemovalOrders)
+                .preservedAssignmentOrders(preservedAssignmentOrders)
+                .blockingOrders(blockingOrders)
+                .build();
+    }
+
+    @Transactional
+    public BulkDeliveryMethodChangeResponse bulkChangeDeliveryMethod(
+            BulkDeliveryMethodChangeRequest request,
+            Member loginMember
+    ) {
+        validateDispatchTeamMember(loginMember);
+
+        if (request == null) {
+            throw new IllegalArgumentException("일괄 배송수단 변경 요청이 없습니다.");
+        }
+
+        List<Long> normalizedIds = normalizeIds(request.getOrderIds());
+
+        if (normalizedIds.isEmpty()) {
+            throw new IllegalArgumentException("배송수단을 변경할 주문을 1건 이상 선택해 주세요.");
+        }
+
+        if (request.getDeliveryMethodId() == null) {
+            throw new IllegalArgumentException("변경할 배송수단을 선택해 주세요.");
+        }
+
+        DeliveryMethod targetMethod = deliveryMethodRepository.findById(request.getDeliveryMethodId())
+                .orElseThrow(() -> new IllegalArgumentException("변경할 배송수단을 찾을 수 없습니다."));
+
+        MethodGroup targetGroup = DeliveryMethodAssignmentPolicy.classify(targetMethod);
+        Map<Long, Long> assignmentMap = normalizeAssignmentMap(request.getAssignments(), normalizedIds);
+        Set<Long> acknowledgedRemovalIds = normalizeAcknowledgedOrderIdSet(
+                request.getAcknowledgedAssignmentRemovalOrderIds(),
+                normalizedIds,
+                "배정업무 삭제 확인 주문"
+        );
+        Map<Long, Member> handlerCache = new HashMap<>();
+        Map<Long, Order> orderMap = findLockedOrderMap(normalizedIds);
+        List<BulkDeliveryMethodPlan> plans = new ArrayList<>();
+        List<Long> actualAssignmentRequiredOrderIds = new ArrayList<>();
+        List<Long> actualRemovalOrderIds = new ArrayList<>();
+        Set<Long> handlerIdsToLock = new HashSet<>();
+
+        int assignmentCreatedCount = 0;
+        int assignmentRemovedCount = 0;
+        int assignmentPreservedCount = 0;
+
+        for (Long orderId : normalizedIds) {
+            Order order = orderMap.get(orderId);
+
+            if (order == null) {
+                throw new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId);
+            }
+
+            validateBulkTargetOrder(order);
+
+            DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
+            Member currentHandler = resolveAssignedDeliveryHandler(order, existingIndex);
+            boolean hasCurrentAssignment = currentHandler != null || existingIndex != null;
+            MethodGroup currentGroup = DeliveryMethodAssignmentPolicy.classify(order.getDeliveryMethod());
+
+            if (currentHandler != null && currentHandler.getId() != null) {
+                handlerIdsToLock.add(currentHandler.getId());
+            }
+
+            if (targetGroup == MethodGroup.NO_HANDLER) {
+                boolean assignmentRemovalConfirmationRequired =
+                        currentGroup != MethodGroup.NO_HANDLER || hasCurrentAssignment;
+
+                if (assignmentRemovalConfirmationRequired) {
+                    actualRemovalOrderIds.add(orderId);
+                    assignmentRemovedCount++;
+                }
+
+                plans.add(new BulkDeliveryMethodPlan(order, null, true));
+                continue;
+            }
+
+            requireDeliveryDate(order);
+
+            Long requestedHandlerId = assignmentMap.get(orderId);
+            boolean explicitAssignmentRequired = currentGroup == MethodGroup.NO_HANDLER
+                    || !isSelectableDeliveryHandler(currentHandler);
+
+            Member nextHandler;
+            if (explicitAssignmentRequired) {
+                actualAssignmentRequiredOrderIds.add(orderId);
+
+                if (requestedHandlerId == null) {
+                    throw new IllegalArgumentException(
+                            "담당자 선택이 필요한 주문이 있습니다. orderId=" + orderId
+                    );
+                }
+
+                nextHandler = getValidatedDeliveryHandler(requestedHandlerId, handlerCache);
+                assignmentCreatedCount++;
+            } else {
+                if (requestedHandlerId != null
+                        && !requestedHandlerId.equals(currentHandler.getId())) {
+                    throw new IllegalStateException(
+                            "기존 담당자를 유지하는 주문의 담당자 정보가 변경되었습니다. "
+                                    + "모달을 닫고 다시 확인해 주세요. orderId=" + orderId
+                    );
+                }
+
+                nextHandler = currentHandler;
+                assignmentPreservedCount++;
+            }
+
+            handlerIdsToLock.add(nextHandler.getId());
+            plans.add(new BulkDeliveryMethodPlan(order, nextHandler, false));
+        }
+
+        Set<Long> actualAssignmentRequiredIds =
+                new LinkedHashSet<>(actualAssignmentRequiredOrderIds);
+        Set<Long> submittedAssignmentIds = new LinkedHashSet<>(assignmentMap.keySet());
+
+        if (!actualAssignmentRequiredIds.equals(submittedAssignmentIds)) {
+            throw new IllegalStateException(
+                    "미리보기 이후 담당자 선택이 필요한 주문이 변경되었습니다. "
+                            + "배송수단 변경 내용을 다시 확인해 주세요."
+            );
+        }
+
+        Set<Long> actualRemovalIds = new LinkedHashSet<>(actualRemovalOrderIds);
+
+        if (!actualRemovalIds.isEmpty() && !request.isConfirmAssignmentRemoval()) {
+            throw new IllegalStateException(
+                    "담당자 배정업무 삭제 안내를 확인한 후 다시 진행해 주세요."
+            );
+        }
+
+        if (!actualRemovalIds.equals(acknowledgedRemovalIds)) {
+            throw new IllegalStateException(
+                    "미리보기 이후 배정업무 삭제 대상이 변경되었습니다. "
+                            + "배송수단 변경 내용을 다시 확인해 주세요."
+            );
+        }
+
+        lockDeliveryHandlerIds(handlerIdsToLock);
+
+        LocalDateTime now = LocalDateTime.now();
+        List<Order> saveTargets = new ArrayList<>();
+
+        for (BulkDeliveryMethodPlan plan : plans) {
+            Order order = plan.order();
+            order.setDeliveryMethod(targetMethod);
+            order.setAssignedDeliveryHandler(plan.removeAssignment() ? null : plan.handler());
+            order.setUpdatedAt(now);
+            saveTargets.add(order);
+        }
+
+        orderRepository.saveAll(saveTargets);
+        orderRepository.flush();
+
+        for (BulkDeliveryMethodPlan plan : plans) {
+            if (plan.removeAssignment()) {
+                deliveryOrderIndexService.removeIndex(plan.order());
+            } else {
+                deliveryOrderIndexService.ensureIndex(plan.order());
+            }
+        }
+
+        deliveryOrderIndexRepository.flush();
+
+        List<DispatchOrderRowDto> updatedRows = saveTargets.stream()
+                .map(this::toDispatchOrderRowDto)
+                .toList();
+
+        return BulkDeliveryMethodChangeResponse.builder()
+                .requestedCount(normalizedIds.size())
+                .updatedCount(saveTargets.size())
+                .assignmentCreatedCount(assignmentCreatedCount)
+                .assignmentRemovedCount(assignmentRemovedCount)
+                .assignmentPreservedCount(assignmentPreservedCount)
+                .updatedOrderIds(saveTargets.stream().map(Order::getId).toList())
+                .updatedRows(updatedRows)
+                .build();
     }
 
     public void validateDispatchTeamMember(Member loginMember) {
@@ -376,6 +829,283 @@ public class DispatchTeamService {
                 || !DISPATCH_TEAM_NAME.equals(loginMember.getTeam().getName())) {
             throw new AccessDeniedException("출고팀만 접근할 수 있습니다.");
         }
+    }
+
+    private Map<Long, Order> findOrderMap(List<Long> orderIds) {
+        Map<Long, Order> result = new LinkedHashMap<>();
+
+        if (orderIds == null || orderIds.isEmpty()) {
+            return result;
+        }
+
+        for (Order order : orderRepository.findAllById(orderIds)) {
+            if (order != null && order.getId() != null) {
+                result.put(order.getId(), order);
+            }
+        }
+
+        return result;
+    }
+
+    private Map<Long, Order> findLockedOrderMap(List<Long> orderIds) {
+        Map<Long, Order> result = new LinkedHashMap<>();
+
+        if (orderIds == null || orderIds.isEmpty()) {
+            return result;
+        }
+
+        List<Long> sortedIds = orderIds.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .sorted()
+                .toList();
+
+        for (Long orderId : sortedIds) {
+            Order order = entityManager.find(
+                    Order.class,
+                    orderId,
+                    LockModeType.PESSIMISTIC_WRITE
+            );
+
+            if (order != null) {
+                result.put(orderId, order);
+            }
+        }
+
+        return result;
+    }
+
+    private DeliveryOrderIndex findDeliveryOrderIndex(Order order) {
+        if (order == null || order.getId() == null) {
+            return null;
+        }
+
+        return deliveryOrderIndexRepository.findByOrder_Id(order.getId()).orElse(null);
+    }
+
+    private Member resolveAssignedDeliveryHandler(
+            Order order,
+            DeliveryOrderIndex deliveryOrderIndex
+    ) {
+        if (order != null && order.getAssignedDeliveryHandler() != null) {
+            return order.getAssignedDeliveryHandler();
+        }
+
+        return deliveryOrderIndex != null
+                ? deliveryOrderIndex.getDeliveryHandler()
+                : null;
+    }
+
+    private LocalDate requireDeliveryDate(Order order) {
+        if (order == null || order.getPreferredDeliveryDate() == null) {
+            Long orderId = order != null ? order.getId() : null;
+            throw new IllegalStateException("배송희망일이 없어 담당자를 배정할 수 없습니다. orderId=" + orderId);
+        }
+
+        return order.getPreferredDeliveryDate().toLocalDate();
+    }
+
+    private void validateBulkTargetOrder(Order order) {
+        if (order == null) {
+            throw new IllegalArgumentException("주문을 찾을 수 없습니다.");
+        }
+
+        if (!isVisibleDispatchStatus(order.getStatus())) {
+            throw new IllegalStateException(
+                    "출고관리 대상 상태가 아닙니다. orderId=" + order.getId()
+            );
+        }
+    }
+
+    private Member getValidatedDeliveryHandler(
+            Long handlerId,
+            Map<Long, Member> cache
+    ) {
+        if (handlerId == null) {
+            throw new IllegalArgumentException("배송 담당자를 선택해 주세요.");
+        }
+
+        Member cached = cache != null ? cache.get(handlerId) : null;
+        if (cached != null) {
+            return cached;
+        }
+
+        Member handler = memberRepository.findById(handlerId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "배송 담당자를 찾을 수 없습니다. handlerId=" + handlerId
+                ));
+
+        validateDeliveryHandler(handler);
+
+        if (cache != null) {
+            cache.put(handlerId, handler);
+        }
+
+        return handler;
+    }
+
+    private boolean isSelectableDeliveryHandler(Member member) {
+        return member != null
+                && member.isEnabled()
+                && member.getTeam() != null
+                && DELIVERY_TEAM_NAME.equals(member.getTeam().getName());
+    }
+
+    private void lockDeliveryHandlerIds(Set<Long> handlerIds) {
+        if (handlerIds == null || handlerIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> sortedIds = handlerIds.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .sorted()
+                .toList();
+
+        for (Long handlerId : sortedIds) {
+            Member locked = entityManager.find(
+                    Member.class,
+                    handlerId,
+                    LockModeType.PESSIMISTIC_WRITE
+            );
+
+            if (locked == null) {
+                throw new IllegalArgumentException(
+                        "배송 담당자를 찾을 수 없습니다. handlerId=" + handlerId
+                );
+            }
+
+            validateDeliveryHandler(locked);
+        }
+    }
+
+    private Set<Long> normalizeAcknowledgedOrderIdSet(
+            List<Long> acknowledgedOrderIds,
+            List<Long> selectedOrderIds,
+            String fieldLabel
+    ) {
+        Set<Long> selectedSet = new LinkedHashSet<>(selectedOrderIds);
+        Set<Long> result = new LinkedHashSet<>();
+
+        if (acknowledgedOrderIds == null) {
+            return result;
+        }
+
+        for (Long orderId : acknowledgedOrderIds) {
+            if (orderId == null || orderId <= 0) {
+                continue;
+            }
+
+            if (!selectedSet.contains(orderId)) {
+                throw new IllegalArgumentException(
+                        fieldLabel + "에 선택하지 않은 주문이 포함되어 있습니다. orderId=" + orderId
+                );
+            }
+
+            result.add(orderId);
+        }
+
+        return result;
+    }
+
+    private Map<Long, Long> normalizeAssignmentMap(
+            List<OrderHandlerAssignmentDto> assignments,
+            List<Long> selectedOrderIds
+    ) {
+        Map<Long, Long> result = new LinkedHashMap<>();
+        Set<Long> selectedSet = new HashSet<>(selectedOrderIds);
+
+        if (assignments == null) {
+            return result;
+        }
+
+        for (OrderHandlerAssignmentDto assignment : assignments) {
+            if (assignment == null
+                    || assignment.getOrderId() == null
+                    || assignment.getDeliveryHandlerId() == null) {
+                continue;
+            }
+
+            if (!selectedSet.contains(assignment.getOrderId())) {
+                throw new IllegalArgumentException(
+                        "선택하지 않은 주문의 담당자 정보가 포함되어 있습니다. orderId="
+                                + assignment.getOrderId()
+                );
+            }
+
+            Long previous = result.putIfAbsent(
+                    assignment.getOrderId(),
+                    assignment.getDeliveryHandlerId()
+            );
+
+            if (previous != null && !previous.equals(assignment.getDeliveryHandlerId())) {
+                throw new IllegalArgumentException(
+                        "한 주문에 서로 다른 담당자가 중복 지정되었습니다. orderId="
+                                + assignment.getOrderId()
+                );
+            }
+        }
+
+        return result;
+    }
+
+    private DeliveryMethodOptionDto toDeliveryMethodOptionDto(DeliveryMethod deliveryMethod) {
+        MethodGroup group = DeliveryMethodAssignmentPolicy.classify(deliveryMethod);
+
+        return DeliveryMethodOptionDto.builder()
+                .id(deliveryMethod != null ? deliveryMethod.getId() : null)
+                .methodName(deliveryMethod != null
+                        ? safeTextOrDash(deliveryMethod.getMethodName())
+                        : "미지정")
+                .methodGroup(group.name())
+                .handlerRequired(group != MethodGroup.NO_HANDLER)
+                .build();
+    }
+
+    private BulkOrderInfoDto toBulkOrderInfo(Order order, String reason) {
+        if (order == null) {
+            return missingBulkOrderInfo(null, reason);
+        }
+
+        DispatchOrderRowDto row = toDispatchOrderRowDto(order);
+        DeliveryOrderIndex deliveryOrderIndex = findDeliveryOrderIndex(order);
+        Member handler = resolveAssignedDeliveryHandler(order, deliveryOrderIndex);
+
+        return BulkOrderInfoDto.builder()
+                .orderId(order.getId())
+                .companyName(row.getCompanyName())
+                .productName(row.getProductName())
+                .deliveryMethodName(row.getDeliveryMethodName())
+                .deliveryHandlerId(handler != null ? handler.getId() : null)
+                .deliveryHandlerName(handler != null ? safeTextOrDash(handler.getName()) : null)
+                .deliveryDate(order.getPreferredDeliveryDate() != null
+                        ? order.getPreferredDeliveryDate().toLocalDate()
+                        : null)
+                .reason(reason)
+                .build();
+    }
+
+    private BulkOrderInfoDto missingBulkOrderInfo(Long orderId, String reason) {
+        return BulkOrderInfoDto.builder()
+                .orderId(orderId)
+                .companyName("-")
+                .productName("-")
+                .deliveryMethodName("미확인")
+                .reason(reason)
+                .build();
+    }
+
+    private String deliveryMethodName(Order order) {
+        return order != null && order.getDeliveryMethod() != null
+                ? safeTextOrDash(order.getDeliveryMethod().getMethodName())
+                : "미지정";
+    }
+
+    private record BulkDeliveryMethodPlan(
+            Order order,
+            Member handler,
+            boolean removeAssignment
+    ) {
     }
 
     private List<Order> findDispatchOrdersForExcel(DispatchOrderSearchRequest request) {
@@ -663,7 +1393,7 @@ public class DispatchTeamService {
 
         Member deliveryHandler = deliveryOrderIndex != null
                 ? deliveryOrderIndex.getDeliveryHandler()
-                : null;
+                : order.getAssignedDeliveryHandler();
 
         Member requestedBy = null;
         Company company = null;
@@ -788,13 +1518,16 @@ public class DispatchTeamService {
 
         if (deliveryHandler.getTeam() == null
                 || !DELIVERY_TEAM_NAME.equals(deliveryHandler.getTeam().getName())) {
-            throw new IllegalArgumentException("배송팀 소속 멤버만 직배송 담당자로 선택할 수 있습니다.");
+            throw new IllegalArgumentException("배송팀 소속 멤버만 배송 담당자로 선택할 수 있습니다.");
         }
     }
 
     private boolean isDirectDelivery(DeliveryMethod deliveryMethod) {
         return deliveryMethod != null
-                && DIRECT_DELIVERY_METHOD_NAME.equals(safeText(deliveryMethod.getMethodName()));
+                && DeliveryMethodAssignmentPolicy.containsKeyword(
+                        deliveryMethod.getMethodName(),
+                        "직배송"
+                );
     }
 
     private boolean isVisibleDispatchStatus(OrderStatus status) {
@@ -976,7 +1709,7 @@ public class DispatchTeamService {
                 "수량",
                 "관리자 메모",
                 "배송수단",
-                "직배송 담당자",
+                "배송 담당자",
                 "주소"
         };
 
