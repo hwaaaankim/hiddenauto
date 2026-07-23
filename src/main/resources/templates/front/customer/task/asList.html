@@ -311,6 +311,40 @@
 													</div>
 												</div>
 											</div>
+
+											<div class="col-lg-6 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">
+														<i class="fa fa-user me-1"></i>AS 담당자
+													</div>
+													<div class="index-third-aslist-value fw-bold text-end"
+														th:text="${asHandlerNameMap[asTask.id]}">
+														담당자 배정 전
+													</div>
+												</div>
+											</div>
+
+											<div class="col-lg-6 col-md-6">
+												<div
+													class="index-third-aslist-field d-flex justify-content-between align-items-center">
+													<div class="index-third-aslist-label">
+														<i class="fa fa-phone me-1"></i>담당자 연락처
+													</div>
+
+													<a th:if="${asHandlerContactMap[asTask.id] != null and asHandlerContactMap[asTask.id] != '-'}"
+														class="index-third-aslist-value fw-bold text-end color-highlight"
+														th:href="|tel:${asHandlerContactMap[asTask.id]}|"
+														th:text="${asHandlerContactMap[asTask.id]}">
+														010-0000-0000
+													</a>
+
+													<div th:unless="${asHandlerContactMap[asTask.id] != null and asHandlerContactMap[asTask.id] != '-'}"
+														class="index-third-aslist-value text-end opacity-50">
+														-
+													</div>
+												</div>
+											</div>
 										</div>
 									</div>
 

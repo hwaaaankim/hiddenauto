@@ -202,15 +202,21 @@ public class CustomerController {
 			});
 		}
 
+		Map<Long, String> asHandlerNameMap = new HashMap<>();
 		Map<Long, String> asHandlerContactMap = new HashMap<>();
-		for (AsTask t : asTaskPage.getContent()) {
-			asHandlerContactMap.put(t.getId(), resolveContact(t.getAssignedHandler()));
+
+		for (AsTask asTask : asTaskPage.getContent()) {
+			Member assignedHandler = asTask.getAssignedHandler();
+
+			asHandlerNameMap.put(asTask.getId(), resolveHandlerName(assignedHandler));
+			asHandlerContactMap.put(asTask.getId(), resolveContact(assignedHandler));
 		}
 
 		model.addAttribute("asTaskPage", asTaskPage);
 		model.addAttribute("startDate", startDate);
 		model.addAttribute("endDate", endDate);
 		model.addAttribute("asScheduleDateMap", asScheduleDateMap);
+		model.addAttribute("asHandlerNameMap", asHandlerNameMap);
 		model.addAttribute("asHandlerContactMap", asHandlerContactMap);
 
 		// ✅ 추가
@@ -244,16 +250,38 @@ public class CustomerController {
 		}
 	}
 
-	private String resolveContact(Member m) {
-		if (m == null)
-			return "-";
-		String phone = safeText(m.getPhone());
-		if (phone != null)
-			return phone;
+	private String resolveHandlerName(Member member) {
+		if (member == null) {
+			return "담당자 배정 전";
+		}
 
-		String tel = safeText(m.getTelephone());
-		if (tel != null)
-			return tel;
+		String name = safeText(member.getName());
+		if (name != null) {
+			return name;
+		}
+
+		String username = safeText(member.getUsername());
+		if (username != null) {
+			return username;
+		}
+
+		return "이름 미등록";
+	}
+
+	private String resolveContact(Member member) {
+		if (member == null) {
+			return "-";
+		}
+
+		String phone = safeText(member.getPhone());
+		if (phone != null) {
+			return phone;
+		}
+
+		String telephone = safeText(member.getTelephone());
+		if (telephone != null) {
+			return telephone;
+		}
 
 		return "-";
 	}
