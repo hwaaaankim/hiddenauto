@@ -388,17 +388,6 @@ public class OrderExcelUploadService {
                 continue;
             }
 
-            if (isAsOnlyCompany(rowCompanyName) || isAsOnlyCompany(raw.companyRaw)) {
-                current = flushRawGroup(result, current);
-                contextCompanyName = "";
-                contextRawCompanyText = "";
-                contextBusinessNumber = "";
-                contextDeliveryHandlerName = "";
-                contextDeliveryRule = null;
-                raw.kind = OrderExcelRowKind.SKIP;
-                continue;
-            }
-
             String rowRawCompanyText = safe(raw.companyRaw).isBlank() ? contextRawCompanyText : raw.companyRaw;
             String rowBusinessNumber = normalizeBusinessNumber(raw.businessNumber);
             if (rowBusinessNumber.isBlank() && rowCompanyName.equals(contextCompanyName)) {
@@ -1249,25 +1238,6 @@ public class OrderExcelUploadService {
         return member;
     }
 
-    private Member resolveDeliveryHandlerForSave(OrderExcelSaveRowRequest row, int groupNo) {
-        if (row.getDeliveryHandlerMemberId() != null) {
-            Member member = memberRepository.findById(row.getDeliveryHandlerMemberId())
-                    .orElseThrow(() -> new IllegalArgumentException("배송 담당자를 찾을 수 없습니다."));
-            if (!isDeliveryTeamMember(member)) {
-                throw new IllegalArgumentException("그룹 " + groupNo + ": 배송 담당자는 배송팀 소속이어야 합니다.");
-            }
-            return member;
-        }
-        if (safe(row.getDeliveryHandlerName()).isBlank()) {
-            return null;
-        }
-        List<Member> members = findDeliveryMembersByName(row.getDeliveryHandlerName());
-        if (members.size() != 1) {
-            throw new IllegalArgumentException("그룹 " + groupNo + ": 배송팀 내 배송 담당자 이름을 정확히 찾을 수 없습니다: " + row.getDeliveryHandlerName());
-        }
-        return members.get(0);
-    }
-
     private DeliveryMethod resolveDeliveryMethodForSave(Long deliveryMethodId, int groupNo) {
         if (deliveryMethodId == null) {
             throw new IllegalArgumentException("그룹 " + groupNo + ": 배송수단을 선택해 주세요.");
@@ -1528,18 +1498,19 @@ public class OrderExcelUploadService {
         return normalized;
     }
 
-    private boolean isAsOnlyCompany(String value) {
-        String normalized = safe(value).replace("*", "").replaceAll("\\s+", "").toUpperCase();
-        return normalized.contains("A/S용".toUpperCase())
-                || normalized.contains("AS용".toUpperCase())
-                || normalized.contains("A/S")
-                || normalized.contains("AS용".toUpperCase());
-    }
-
     private String extractCompanyName(String rawCompany) {
         String value = safe(rawCompany).replace("*", "").trim();
+        String normalized = value.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+
+        /*
+         * 기존 엑셀의 "구분/거래처명" 형식은 그대로 지원하되,
+         * 실제 거래처명이 "A/S용"처럼 슬래시를 포함해 시작하는 경우에는
+         * 슬래시를 구분자로 해석하지 않고 거래처명 전체를 유지합니다.
+         */
         int slashIndex = value.indexOf('/');
-        if (slashIndex >= 0 && slashIndex < value.length() - 1) {
+        if (!normalized.startsWith("A/S")
+                && slashIndex >= 0
+                && slashIndex < value.length() - 1) {
             value = value.substring(slashIndex + 1);
         }
         return value.trim();
