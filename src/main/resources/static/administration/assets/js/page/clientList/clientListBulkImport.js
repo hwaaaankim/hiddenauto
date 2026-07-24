@@ -513,7 +513,7 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ rows: state.rows })
+                body: JSON.stringify({ rows: buildSaveRequestRows(selectedRows) })
             });
             const payload = await parseResponse(response);
 
@@ -540,6 +540,37 @@
         } finally {
             setSaving(false);
         }
+    }
+
+    /**
+     * 화면 상태에는 중복검증 비교용 _previewBusinessNumber 같은
+     * 클라이언트 전용 필드가 포함됩니다. 이 객체를 그대로 JSON 직렬화하면
+     * 서버 DTO에 없는 속성으로 Jackson 역직렬화 오류가 발생할 수 있으므로,
+     * 저장 API에는 서버 계약에 정의된 필드만 명시적으로 전송합니다.
+     */
+    function buildSaveRequestRows(rows) {
+        return (rows || []).map(row => ({
+            excelRowNumber: Number(row.excelRowNumber || 0),
+            saveTarget: true,
+            companyName: String(row.companyName || ''),
+            businessNumber: normalizeBusinessNumber(row.businessNumber),
+            representativeName: String(row.representativeName || ''),
+            telephone: String(row.telephone || ''),
+            phone: String(row.phone || ''),
+            email: String(row.email || ''),
+            originAddress: String(row.originAddress || ''),
+            zipCode: String(row.zipCode || ''),
+            doName: String(row.doName || ''),
+            siName: String(row.siName || ''),
+            guName: String(row.guName || ''),
+            jibunAddress: String(row.jibunAddress || ''),
+            roadAddress: String(row.roadAddress || ''),
+            detailAddress: String(row.detailAddress || ''),
+            addressResolved: Boolean(row.addressResolved),
+            addressSource: String(row.addressSource || ''),
+            existingCompanyDuplicate: Boolean(row.existingCompanyDuplicate),
+            existingMemberDuplicate: Boolean(row.existingMemberDuplicate)
+        }));
     }
 
     function syncInputsToState() {
