@@ -70,10 +70,18 @@ public class DeliveryOrderIndexService {
      * 관리자 오더 수정 저장 시 배송순서 인덱스를 동기화합니다.
      *
      * 처리 기준:
-     * - 취소/담당자 없음/배송희망일 없음 => 기존 DeliveryOrderIndex 삭제
-     * - 담당자 필수 배송수단 + 담당자 있음 + 배송희망일 있음 => DeliveryOrderIndex 생성
-     * - 담당자/날짜 변경 => 기존 row 삭제 후 새 담당자/날짜의 적절한 section 끝에 추가
-     * - 담당자/날짜 동일 + 배송수단/상태만 변경 => row는 유지하되 section range가 달라지면 index만 재배치
+     * - 취소 또는 담당자 없음 => 기존 DeliveryOrderIndex 삭제
+     * - 담당자가 있는데 배송희망일이 없음 => 잘못된 상태이므로 저장 차단
+     * - 직배송/화물/현장배송 => 담당자 필수
+     * - 담당자/날짜 변경 => 기존 row 삭제 후 새 담당자/날짜의 배송수단별 section 끝에 추가
+     * - 담당자/날짜 동일 + 배송수단/상태만 변경 => section range가 달라지면 재배치
+     * - 담당자 선택이 가능한 기타 배송수단 => 담당자가 지정된 경우 OTHER section으로 유지
+     *
+     * section 규칙:
+     * - 직배송/현장배송 진행 건: 1부터 시작
+     * - 화물: 99,999부터 시작
+     * - 직배송/현장배송 배송완료: 1,000,000부터 시작
+     * - 기타: 2,000,000부터 시작
      */
     public void ensureIndex(Order order) {
         if (order == null || order.getId() == null) {
@@ -87,15 +95,25 @@ public class DeliveryOrderIndexService {
                 ? null
                 : order.getPreferredDeliveryDate().toLocalDate();
 
-        if (!isDeliveryHandlerRequiredMethod(order)) {
-            order.setAssignedDeliveryHandler(null);
+        if (order.getStatus() == OrderStatus.CANCELED) {
             deleteExistingIndex(existing);
             return;
         }
 
-        if (order.getStatus() == OrderStatus.CANCELED || handler == null || deliveryDate == null) {
+        if (isDeliveryHandlerRequiredMethod(order) && handler == null) {
+            String methodName = order.getDeliveryMethod() != null
+                    ? safeText(order.getDeliveryMethod().getMethodName())
+                    : "배송수단";
+            throw new IllegalArgumentException(methodName + " 선택 시 배송팀 담당자는 필수입니다.");
+        }
+
+        if (handler == null) {
             deleteExistingIndex(existing);
             return;
+        }
+
+        if (deliveryDate == null) {
+            throw new IllegalArgumentException("배송팀 담당자를 지정하는 경우 배송희망일은 필수입니다.");
         }
 
         validateDeliveryTeamHandler(handler);
@@ -116,13 +134,17 @@ public class DeliveryOrderIndexService {
             }
 
             /*
-             * 구간이 바뀌는 경우 현재 row를 먼저 제거한 뒤 대상 구간의 끝에 다시 넣어야
-             * 정규화 과정에서 자기 자신이 max 계산에 섞이거나 99,999 시작값에 빈틈이 생기지 않습니다.
+             * 같은 담당자/같은 날짜라도 배송수단 또는 상태 변경으로 section이 달라진 경우
+             * 현재 row를 삭제한 뒤 해당 section의 마지막 순번으로 다시 등록합니다.
              */
             replaceIndexAtQueueEnd(order, existing, handler, deliveryDate, targetSection);
             return;
         }
 
+        /*
+         * 담당자 또는 배송일이 달라진 경우 기존 row를 먼저 삭제한 뒤 새 큐에 등록합니다.
+         * replaceIndexAtQueueEnd 내부에서 기존 큐의 빈 순번도 정규화합니다.
+         */
         replaceIndexAtQueueEnd(order, existing, handler, deliveryDate, targetSection);
     }
 
@@ -334,7 +356,7 @@ public class DeliveryOrderIndexService {
         }
 
         deliveryOrderIndexRepository.findByOrder(order)
-                .ifPresent(deliveryOrderIndexRepository::delete);
+                .ifPresent(this::deleteExistingIndex);
     }
 
     /**
@@ -377,7 +399,11 @@ public class DeliveryOrderIndexService {
             return;
         }
 
-        lockDeliveryHandlerQueues(Set.of(handlerId));
+        /*
+         * 과거 데이터의 담당자가 비활성화되었더라도 인덱스 정리 자체는 가능해야 합니다.
+         * 따라서 큐 정규화에서는 담당자 활성 상태를 검증하지 않고 row lock만 획득합니다.
+         */
+        lockQueueOwners(Set.of(handlerId));
 
         List<DeliveryOrderIndex> current = getVisibleIndexesForHandlerAndDate(handlerId, deliveryDate);
 
@@ -405,10 +431,15 @@ public class DeliveryOrderIndexService {
                 .sorted(indexComparator())
                 .collect(Collectors.toList());
 
-        boolean alreadyNormalized = activeRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.ACTIONABLE_PENDING))
-                && freightRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.FREIGHT))
-                && doneRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.ACTIONABLE_DONE))
-                && otherRows.stream().allMatch(x -> isIndexInSectionRange(x.getOrderIndex(), DeliveryListSection.OTHER));
+        /*
+         * 단순히 각 row가 section 범위 안에 있는지만 확인하면, 삭제 후 1, 3처럼
+         * 중간 순번이 비어 있어도 정규화된 것으로 오판합니다.
+         * 각 section의 시작값부터 정확히 연속되는지까지 검사합니다.
+         */
+        boolean alreadyNormalized = hasSequentialIndexes(activeRows, ACTIONABLE_PENDING_INDEX_START)
+                && hasSequentialIndexes(freightRows, FREIGHT_INDEX_START)
+                && hasSequentialIndexes(doneRows, ACTIONABLE_DONE_INDEX_START)
+                && hasSequentialIndexes(otherRows, OTHER_INDEX_START);
 
         if (alreadyNormalized) {
             return;
@@ -736,6 +767,17 @@ public class DeliveryOrderIndexService {
             LocalDate deliveryDate,
             DeliveryListSection section
     ) {
+        DeliveryQueueLocation previousQueue = DeliveryQueueLocation.from(existing);
+
+        Set<Long> handlerIdsToLock = new HashSet<>();
+        if (previousQueue.handlerId() != null) {
+            handlerIdsToLock.add(previousQueue.handlerId());
+        }
+        if (handler != null && handler.getId() != null) {
+            handlerIdsToLock.add(handler.getId());
+        }
+        lockQueueOwners(handlerIdsToLock);
+
         if (existing != null) {
             deliveryOrderIndexRepository.delete(existing);
 
@@ -752,7 +794,13 @@ public class DeliveryOrderIndexService {
         created.setDeliveryDate(deliveryDate);
         created.setOrderIndex(nextIndexForSection(handler.getId(), deliveryDate, section, order.getId()));
 
-        deliveryOrderIndexRepository.save(created);
+        /*
+         * 저장 시점에 유니크 제약 위반을 바로 확인하고, Order 날짜 flush 이후에
+         * DeliveryOrderIndex 날짜가 확실히 반영되도록 saveAndFlush를 사용합니다.
+         */
+        deliveryOrderIndexRepository.saveAndFlush(created);
+
+        normalizePreviousQueueAfterMove(previousQueue, handler.getId(), deliveryDate);
     }
 
     private int nextIndexForSection(Long handlerId, LocalDate deliveryDate, DeliveryListSection section, Long excludeOrderId) {
@@ -832,6 +880,25 @@ public class DeliveryOrderIndexService {
         for (DeliveryOrderIndex row : otherRows) {
             row.setOrderIndex(next++);
         }
+
+        /*
+         * 임시 음수 순번에서 최종 순번으로 되돌린 결과를 즉시 반영합니다.
+         * 이후 같은 트랜잭션에서 최대 순번을 다시 조회해도 최종값만 사용됩니다.
+         */
+        deliveryOrderIndexRepository.flush();
+    }
+
+    private boolean hasSequentialIndexes(List<DeliveryOrderIndex> rows, int startIndex) {
+        int expectedIndex = startIndex;
+
+        for (DeliveryOrderIndex row : rows) {
+            if (row == null || row.getOrderIndex() != expectedIndex) {
+                return false;
+            }
+            expectedIndex++;
+        }
+
+        return true;
     }
 
     private void deleteExistingIndex(DeliveryOrderIndex existing) {
@@ -839,7 +906,41 @@ public class DeliveryOrderIndexService {
             return;
         }
 
+        DeliveryQueueLocation previousQueue = DeliveryQueueLocation.from(existing);
+
+        if (previousQueue.handlerId() != null) {
+            lockQueueOwners(Set.of(previousQueue.handlerId()));
+        }
+
         deliveryOrderIndexRepository.delete(existing);
+        deliveryOrderIndexRepository.flush();
+
+        normalizeQueue(previousQueue);
+    }
+
+    private void normalizePreviousQueueAfterMove(
+            DeliveryQueueLocation previousQueue,
+            Long currentHandlerId,
+            LocalDate currentDeliveryDate
+    ) {
+        if (!previousQueue.isComplete()) {
+            return;
+        }
+
+        if (Objects.equals(previousQueue.handlerId(), currentHandlerId)
+                && Objects.equals(previousQueue.deliveryDate(), currentDeliveryDate)) {
+            return;
+        }
+
+        normalizeQueue(previousQueue);
+    }
+
+    private void normalizeQueue(DeliveryQueueLocation queueLocation) {
+        if (queueLocation == null || !queueLocation.isComplete()) {
+            return;
+        }
+
+        normalizeIndexesForHandlerDate(queueLocation.handlerId(), queueLocation.deliveryDate());
     }
 
     private boolean isVisibleDeliveryIndex(DeliveryOrderIndex deliveryOrderIndex) {
@@ -935,6 +1036,32 @@ public class DeliveryOrderIndexService {
 
     private boolean isIndexInSectionRange(int index, DeliveryListSection section) {
         return index >= sectionStartIndex(section) && index < sectionEndExclusive(section);
+    }
+
+    private void lockQueueOwners(Set<Long> handlerIds) {
+        if (handlerIds == null || handlerIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> sortedIds = handlerIds.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .sorted()
+                .toList();
+
+        for (Long handlerId : sortedIds) {
+            Member lockedHandler = entityManager.find(
+                    Member.class,
+                    handlerId,
+                    LockModeType.PESSIMISTIC_WRITE
+            );
+
+            if (lockedHandler == null) {
+                throw new IllegalArgumentException(
+                        "배송 담당자가 존재하지 않습니다. handlerId=" + handlerId
+                );
+            }
+        }
     }
 
     private void lockDeliveryHandlerQueues(Set<Long> handlerIds) {
@@ -1083,6 +1210,25 @@ public class DeliveryOrderIndexService {
 
     private String safeText(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private record DeliveryQueueLocation(Long handlerId, LocalDate deliveryDate) {
+
+        private static DeliveryQueueLocation from(DeliveryOrderIndex index) {
+            if (index == null) {
+                return new DeliveryQueueLocation(null, null);
+            }
+
+            Long handlerId = index.getDeliveryHandler() != null
+                    ? index.getDeliveryHandler().getId()
+                    : null;
+
+            return new DeliveryQueueLocation(handlerId, index.getDeliveryDate());
+        }
+
+        private boolean isComplete() {
+            return handlerId != null && deliveryDate != null;
+        }
     }
 
     private enum DeliveryListSection {

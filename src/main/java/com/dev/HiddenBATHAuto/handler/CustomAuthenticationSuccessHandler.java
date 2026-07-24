@@ -70,7 +70,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
 
                 yield switch (teamName) {
                     case "생산팀" -> "/team/productionList";
-                    case "배송팀" -> "/team/deliveryList";
+                    case "배송팀" -> "/team/deliveryRoute";
                     case "AS팀" -> "/team/asList";
                     case "출고팀" -> "/team/dispatchList";
                     default -> "/common/main";

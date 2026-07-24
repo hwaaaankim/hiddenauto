@@ -1,0 +1,366 @@
+/*
+ * /administration/assets/css/page/clientList/clientListBulkImport.css
+ *
+ * 대리점 엑셀 일괄등록 모달 전용 스타일입니다.
+ * 모든 선택자를 모달 ID 아래로 한정하여 기존 대리점 목록 화면과 충돌하지 않도록 합니다.
+ */
+
+#clientList-bulk-import-modal .modal-dialog {
+    width: calc(100vw - 32px);
+    max-width: 1500px;
+    margin: 16px auto;
+}
+
+#clientList-bulk-import-modal .modal-content {
+    width: 100%;
+    min-height: calc(100vh - 32px);
+    max-height: calc(100vh - 32px);
+}
+
+#clientList-bulk-import-modal .modal-body {
+    position: relative;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#clientList-bulk-import-modal .client-bulk-drop-zone {
+    min-height: 150px;
+    border: 2px dashed #c9d2dc;
+    border-radius: 12px;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
+}
+
+#clientList-bulk-import-modal .client-bulk-drop-zone:hover,
+#clientList-bulk-import-modal .client-bulk-drop-zone:focus,
+#clientList-bulk-import-modal .client-bulk-drop-zone.is-dragover {
+    border-color: var(--vz-primary, #405189);
+    background: rgba(64, 81, 137, .06);
+    outline: none;
+}
+
+#clientList-bulk-import-modal .client-bulk-drop-zone.is-dragover {
+    transform: translateY(-1px);
+}
+
+#clientList-bulk-import-modal .client-bulk-drop-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 52px;
+    font-size: 25px;
+    line-height: 1;
+    color: var(--vz-primary, #405189);
+    background: rgba(64, 81, 137, .1);
+}
+
+/*
+ * 중요: 기존 관리자 테마의 전역 section/row 스타일이 미리보기 행 높이를 0으로
+ * 만들더라도 행과 내부 콘텐츠가 접히지 않도록 명시적으로 보호합니다.
+ */
+#clientList-bulk-import-modal .client-bulk-preview-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 58vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 2px 6px 2px 2px;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-preview-wrap.d-none {
+    display: none !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-row {
+    display: block !important;
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 1px !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #dfe3e8;
+    border-radius: 12px;
+    background: #fff;
+    overflow: visible !important;
+    line-height: normal !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-row.has-error {
+    border-color: rgba(240, 101, 72, .65);
+}
+
+#clientList-bulk-import-modal .client-bulk-row.has-warning {
+    border-color: rgba(247, 184, 75, .8);
+}
+
+#clientList-bulk-import-modal .client-bulk-row.is-valid {
+    border-color: rgba(10, 179, 156, .45);
+}
+
+#clientList-bulk-import-modal .client-bulk-row-header {
+    position: static !important;
+    display: flex !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 52px !important;
+    max-height: none !important;
+    padding: 12px 16px !important;
+    margin: 0 !important;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ebec;
+    border-radius: 11px 11px 0 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-row-header > div {
+    min-width: 0;
+}
+
+#clientList-bulk-import-modal .client-bulk-row-badges {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    width: auto !important;
+    height: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-issues {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 12px 16px 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    box-sizing: border-box !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-section-title {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 38px !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 14px 16px 8px !important;
+    font-size: 13px;
+    line-height: 1.35 !important;
+    font-weight: 700;
+    color: #495057;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    box-sizing: border-box !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-address-title {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+#clientList-bulk-import-modal .client-bulk-field-grid {
+    position: static !important;
+    display: grid !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 1px !important;
+    max-height: none !important;
+    gap: 12px !important;
+    margin: 0 !important;
+    padding: 0 16px 16px !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-field-grid-main {
+    grid-template-columns: repeat(3, minmax(190px, 1fr));
+}
+
+#clientList-bulk-import-modal .client-bulk-field-grid-address {
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+#clientList-bulk-import-modal .client-bulk-field {
+    position: static !important;
+    display: block !important;
+    min-width: 0;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-field label {
+    position: static !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 0 5px !important;
+    padding: 0 !important;
+    color: #6c757d;
+    font-size: 12px;
+    line-height: 1.35 !important;
+    font-weight: 600;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-field input.form-control,
+#clientList-bulk-import-modal .client-bulk-field textarea.form-control {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 31px !important;
+    max-height: none !important;
+    margin: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-field textarea.form-control {
+    min-height: 58px !important;
+    resize: vertical;
+}
+
+#clientList-bulk-import-modal .client-bulk-field-wide {
+    grid-column: span 2;
+}
+
+#clientList-bulk-import-modal .client-bulk-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: rgba(255, 255, 255, .86);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: inherit;
+}
+
+#clientList-bulk-import-modal .client-bulk-loading.d-none {
+    display: none !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-loading-box {
+    min-width: 260px;
+    padding: 24px 28px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .12);
+    text-align: center;
+}
+
+#clientList-bulk-import-modal .client-bulk-empty {
+    min-height: 210px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border: 1px dashed #dfe3e8;
+    border-radius: 12px;
+    background: #fbfcfd;
+}
+
+#clientList-bulk-import-modal .client-bulk-empty.d-none {
+    display: none !important;
+}
+
+#clientList-bulk-import-modal .client-bulk-summary {
+    font-size: 13px;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+@media (max-width: 1199.98px) {
+    #clientList-bulk-import-modal .client-bulk-field-grid-main,
+    #clientList-bulk-import-modal .client-bulk-field-grid-address {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    #clientList-bulk-import-modal .modal-dialog {
+        width: calc(100vw - 16px);
+        max-width: calc(100vw - 16px);
+        margin: 8px auto;
+    }
+
+    #clientList-bulk-import-modal .modal-content {
+        min-height: calc(100vh - 16px);
+        max-height: calc(100vh - 16px);
+    }
+
+    #clientList-bulk-import-modal .client-bulk-field-grid-main,
+    #clientList-bulk-import-modal .client-bulk-field-grid-address {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #clientList-bulk-import-modal .client-bulk-field-wide {
+        grid-column: span 1;
+    }
+
+    #clientList-bulk-import-modal .client-bulk-row-header,
+    #clientList-bulk-import-modal .client-bulk-address-title {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    #clientList-bulk-import-modal .client-bulk-preview-wrap {
+        max-height: 54vh !important;
+    }
+}

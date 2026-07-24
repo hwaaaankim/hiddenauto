@@ -241,11 +241,19 @@ public class OrderUpdateService {
 		deleteAdminImages(order, deleteAdminImageIds);
 		saveAdminImages(order, adminImages);
 
-		if (canceled || order.getAssignedDeliveryHandler() == null) {
-			deliveryOrderIndexService.removeIndex(order);
-		} else {
-			deliveryOrderIndexService.ensureIndex(order);
-		}
+		/*
+		 * 배송희망일은 DeliveryOrderIndex보다 먼저 DB에 반영합니다.
+		 * 영속성 컨텍스트의 종료 시점 dirty checking에만 의존하지 않고 명시적으로 flush하여,
+		 * 관리자 넓게보기에서 변경한 Order.preferredDeliveryDate와 배송순서 날짜가
+		 * 반드시 같은 트랜잭션 안에서 동일한 값으로 동기화되도록 합니다.
+		 */
+		orderRepository.saveAndFlush(order);
+
+		/*
+		 * 취소, 담당자 제거, 배송일 변경, 담당자 변경, 배송수단/상태에 따른 index 구간 변경을
+		 * 모두 DeliveryOrderIndexService 한 곳에서 처리합니다.
+		 */
+		deliveryOrderIndexService.ensureIndex(order);
 
 		ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
 		boolean productionVisibleChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);

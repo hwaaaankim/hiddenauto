@@ -48,6 +48,12 @@
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
 
+												<!-- ✅ 신규 대리점 엑셀 일괄등록 -->
+												<button type="button" class="btn btn-success add-btn"
+													id="clientList-bulk-import-btn">
+													<i class="fa-solid fa-file-circle-plus"></i> 엑셀일괄등록
+												</button>
+
 												<!-- ✅ 엑셀 다운로드 버튼: 체크 없으면 비활성 / 체크된 항목 기준 다운로드 -->
 												<button type="button" class="btn btn-warning add-btn"
 													id="clientList-added-excelBtn" disabled>
@@ -412,6 +418,78 @@
 		</div>
 	</div>
 
+
+
+	<!-- 신규 대리점 엑셀 일괄등록 모달 -->
+	<div class="modal fade" id="clientList-bulk-import-modal" tabindex="-1"
+		aria-labelledby="clientList-bulk-import-modal-label" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-scrollable">
+			<div class="modal-content position-relative">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title" id="clientList-bulk-import-modal-label">대리점 엑셀 일괄등록</h5>
+						<div class="text-muted small mt-1">
+							미리보기와 수정을 완료한 뒤 저장합니다. 기존 대리점 정보는 변경하지 않습니다.
+						</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<div id="clientList-bulk-import-message" class="alert d-none mb-3"></div>
+
+					<div class="row g-3 mb-4">
+						<div class="col-12 col-lg-8">
+							<div id="clientList-bulk-import-drop-zone" class="client-bulk-drop-zone" tabindex="0"
+								role="button" aria-label="엑셀 파일 선택 또는 드래그 앤 드롭">
+								<input type="file" id="clientList-bulk-import-file" class="d-none" accept=".xlsx,.xls">
+								<div class="client-bulk-drop-icon"><i class="fa-solid fa-file-excel"></i></div>
+								<strong>파일선택 또는 엑셀 파일 드래그 앤 드롭</strong>
+								<span id="clientList-bulk-import-file-name" class="text-muted">선택된 파일 없음</span>
+							</div>
+						</div>
+						<div class="col-12 col-lg-4">
+							<div class="border rounded p-3 h-100 bg-light">
+								<div class="fw-semibold mb-2">등록 규칙</div>
+								<div class="small text-muted mb-1">대표 아이디: 하이픈 제거 사업자등록번호</div>
+								<div class="small text-muted mb-1">초기 비밀번호: 12345(암호화 저장)</div>
+								<div class="small text-muted mb-1">담당 영업사원: 멤버 ID 1</div>
+								<div class="small text-muted">주소 검색 실패 시 구조화 주소 빈값 저장 가능</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+						<div id="clientList-bulk-import-summary" class="client-bulk-summary">미리보기 없음</div>
+						<div class="d-flex gap-2">
+							<button type="button" id="clientList-bulk-import-reset-btn" class="btn btn-outline-secondary">초기화</button>
+							<button type="button" id="clientList-bulk-import-preview-btn" class="btn btn-primary">미리보기</button>
+						</div>
+					</div>
+
+					<div id="clientList-bulk-import-empty" class="client-bulk-empty">
+						<div class="client-bulk-drop-icon mb-2"><i class="fa-solid fa-table-list"></i></div>
+						<h6 class="mb-1">미리보기 데이터가 없습니다.</h6>
+						<p class="text-muted mb-0">엑셀 파일을 선택한 뒤 미리보기를 눌러 주세요.</p>
+					</div>
+					<div id="clientList-bulk-import-preview-wrap" class="client-bulk-preview-wrap d-none"></div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
+					<button type="button" id="clientList-bulk-import-save-btn" class="btn btn-success" disabled>저장</button>
+				</div>
+
+				<div id="clientList-bulk-import-loading" class="client-bulk-loading d-none">
+					<div class="client-bulk-loading-box">
+						<div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
+						<div class="fw-semibold" data-loading-text>처리 중입니다.</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
@@ -524,6 +602,11 @@
 
 		})();
 	</script>
+
+
+	<link rel="stylesheet" href="/administration/assets/css/page/clientList/clientListBulkImport.css?v=20260724-2">
+	<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+	<script src="/administration/assets/js/page/clientList/clientListBulkImport.js?v=20260724-2"></script>
 
 </body>
 
