@@ -72,6 +72,33 @@
 		return `<option value="${val}" ${selected ? "selected" : ""}>${text}</option>`;
 	}
 
+	function escapeHtml(value) {
+		return String(value ?? "")
+			.replaceAll("&", "&amp;")
+			.replaceAll("<", "&lt;")
+			.replaceAll(">", "&gt;")
+			.replaceAll('"', "&quot;")
+			.replaceAll("'", "&#039;");
+	}
+
+	function buildRegionResultHtml(result, defaultMessage, className) {
+		const messages = Array.isArray(result?.messages) ? result.messages : [];
+		const conflicts = Array.isArray(result?.conflicts) ? result.conflicts : [];
+
+		const lines = [];
+		if (defaultMessage) lines.push(defaultMessage);
+		messages.forEach(message => lines.push(message));
+		conflicts.forEach(conflict => {
+			const memberText = conflict?.conflictMemberName
+				? `담당: ${conflict.conflictMemberName}${conflict.conflictMemberId ? ` (#${conflict.conflictMemberId})` : ""}`
+				: "담당자 확인 필요";
+			lines.push(`${conflict?.conflictPath || "지역 정보 없음"} / ${memberText}`);
+		});
+
+		const uniqueLines = [...new Set(lines.filter(Boolean))];
+		return `<div class="${className}">${uniqueLines.map(line => `• ${escapeHtml(line)}`).join("<br>")}</div>`;
+	}
+
 	function getSelectedTeamName() {
 		return selTeam.selectedOptions[0]?.text || "";
 	}
@@ -350,10 +377,8 @@
 	});
 
 	// ===== 담당구역 저장(버퍼 -> 서버) =====
-	async function saveRegionsInternal() {
-		if (pending.length === 0) return;
-
-		const payload = {
+	function buildRegionPayload() {
+		return {
 			memberId,
 			selections: pending.map(p => ({
 				provinceId: p.provinceId,
@@ -361,21 +386,83 @@
 				districtId: p.districtId
 			}))
 		};
+	}
 
-		const res = await api(`/management/member/regions/bulk`, {
+	async function requestRegionSave(confirmConsolidation) {
+		return api(`/management/member/regions/bulk?confirmConsolidation=${confirmConsolidation ? "true" : "false"}`, {
 			method: "POST",
-			body: JSON.stringify(payload)
+			body: JSON.stringify(buildRegionPayload())
 		});
+	}
 
-		if (res.success) {
-			msgEl.innerHTML = `<span class="text-success">담당구역이 저장되었습니다.</span>`;
-			pending.length = 0;
-			renderPending();
-			await loadAssignedRegions();
-		} else {
-			const lines = (res.data || []).map(c => `- ${c.conflictPath} (담당: ${c.conflictMemberName} #${c.conflictMemberId})`).join("<br>");
-			msgEl.innerHTML = `<div class="text-danger">중복된 담당 구역이 있어 저장되지 않았습니다.<br>${lines}</div>`;
-			throw new Error("REGION_CONFLICT");
+	async function applyRegionSaveSuccess(res) {
+		const result = res?.data || {};
+		msgEl.innerHTML = buildRegionResultHtml(
+			result,
+			"담당구역이 저장되었습니다.",
+			"text-success"
+		);
+
+		pending.length = 0;
+		renderPending();
+		await loadAssignedRegions();
+	}
+
+	function renderRegionSaveError(error, fallbackMessage) {
+		const payload = error?.payload || {};
+		const result = payload?.data || {};
+		msgEl.innerHTML = buildRegionResultHtml(
+			result,
+			payload?.message || error?.message || fallbackMessage,
+			"text-danger"
+		);
+	}
+
+	async function saveRegionsInternal() {
+		if (pending.length === 0) return true;
+
+		try {
+			const res = await requestRegionSave(false);
+			await applyRegionSaveSuccess(res);
+			return true;
+		} catch (firstError) {
+			const firstPayload = firstError?.payload || {};
+			const firstResult = firstPayload?.data || {};
+
+			if (firstResult?.requiresConfirmation === true) {
+				const detailLines = Array.isArray(firstResult.messages)
+					? firstResult.messages
+					: [];
+
+				const confirmationMessage = [
+					"상위 담당구역 등록을 위해 기존 하위 담당구역을 정리해야 합니다.",
+					"",
+					...detailLines.map(line => `- ${line}`),
+					"",
+					"기존 하위 담당구역을 삭제하고 상위 지역으로 통합하시겠습니까?"
+				].join("\n");
+
+				if (!confirm(confirmationMessage)) {
+					msgEl.innerHTML = buildRegionResultHtml(
+						firstResult,
+						"상위 지역 통합 저장이 취소되었습니다.",
+						"text-warning"
+					);
+					return false;
+				}
+
+				try {
+					const confirmedRes = await requestRegionSave(true);
+					await applyRegionSaveSuccess(confirmedRes);
+					return true;
+				} catch (confirmedError) {
+					renderRegionSaveError(confirmedError, "담당구역 통합 저장에 실패했습니다.");
+					throw confirmedError;
+				}
+			}
+
+			renderRegionSaveError(firstError, "담당구역 저장에 실패했습니다.");
+			throw firstError;
 		}
 	}
 
@@ -427,9 +514,10 @@
 				const ok = confirm("추가 예정 담당구역이 있습니다. 먼저 [담당구역 저장]을 진행하시겠습니까?");
 				if (ok) {
 					try {
-						await saveRegionsInternal();
+						const regionSaved = await saveRegionsInternal();
+						if (!regionSaved) return;
 					} catch (e) {
-						alert("담당구역 저장에 실패했습니다. 중복 여부를 확인해 주세요.");
+						alert("담당구역 저장에 실패했습니다. 우측 상세 메시지를 확인해 주세요.");
 						return;
 					}
 				} else {

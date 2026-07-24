@@ -77,7 +77,6 @@ import com.dev.HiddenBATHAuto.dto.client.AdminClientCompanyUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.client.AdminClientMemberUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.client.CompanyListRowDto;
 import com.dev.HiddenBATHAuto.dto.employee.EmployeeUpdateResult;
-import com.dev.HiddenBATHAuto.dto.employeeDetail.ConflictDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionBulkSaveRequest;
@@ -2620,14 +2619,23 @@ public class ManagementController {
 		return ResponseEntity.ok(ApiResponse.ok(null));
 	}
 
-	// ===== 멤버 담당구역 일괄 저장(충돌 검증) =====
+	// ===== 멤버 담당구역 일괄 저장(상하위 포함 충돌 검증 + 본인 하위구역 통합) =====
 	@PostMapping("/member/regions/bulk")
 	@ResponseBody
-	public ResponseEntity<ApiResponse<List<ConflictDTO>>> saveMemberRegions(@RequestBody RegionBulkSaveRequest req) {
-		List<ConflictDTO> conflicts = memberMgmtService.saveMemberRegions(req);
-		if (!conflicts.isEmpty()) {
-			return ResponseEntity.ok(ApiResponse.fail("중복된 담당 구역이 있어 저장되지 않았습니다.", conflicts));
+	public ResponseEntity<ApiResponse<MemberManagementService.RegionSaveResult>> saveMemberRegions(
+			@RequestBody RegionBulkSaveRequest req,
+			@RequestParam(value = "confirmConsolidation", defaultValue = "false") boolean confirmConsolidation) {
+
+		MemberManagementService.RegionSaveResult result = memberMgmtService
+				.saveMemberRegionsWithHierarchy(req, confirmConsolidation);
+
+		if (!result.success()) {
+			String message = result.requiresConfirmation()
+					? "상위 담당구역 등록을 위해 기존 하위 담당구역 통합 확인이 필요합니다."
+					: "다른 멤버의 담당 구역과 중복되어 저장되지 않았습니다.";
+			return ResponseEntity.ok(ApiResponse.fail(message, result));
 		}
-		return ResponseEntity.ok(ApiResponse.ok(null));
+
+		return ResponseEntity.ok(ApiResponse.ok(result));
 	}
 }
