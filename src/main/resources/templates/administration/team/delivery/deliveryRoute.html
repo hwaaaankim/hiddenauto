@@ -1,3 +1,4 @@
+<!-- deliveryRoute.html -->
 <!doctype html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
       data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
@@ -101,6 +102,18 @@
                         <span>카드를 열어 생산완료 상태의 주문을 선택한 뒤 같은 묶음 단위로 배송완료 처리할 수 있습니다.</span>
                     </div>
                     <div class="delivery-route-toolbar-actions">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-dark"
+                                id="delivery-route-excel-button"
+                                th:disabled="${routePage.totalOrderCount == 0}">
+                            <i class="ri-file-excel-2-line me-1"></i>엑셀출력
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                id="delivery-route-print-button"
+                                th:disabled="${routePage.totalOrderCount == 0}">
+                            <i class="ri-printer-line me-1"></i>인쇄
+                        </button>
                         <a class="btn btn-sm btn-outline-secondary"
                            th:href="@{/team/deliveryList(preferredDate=${selectedDate})}">
                             기존 배송리스트
@@ -128,7 +141,8 @@
                     <div class="delivery-route-group-list" th:unless="${routePage.directGroups.isEmpty()}">
                         <article class="delivery-route-group"
                                  th:each="group : ${routePage.directGroups}"
-                                 th:attr="data-group-id=${group.domId},data-order-count=${group.orderCount},data-completable-count=${group.completableOrderCount}">
+                                 th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' is-fully-completed' : ''"
+                                 th:attr="data-group-id=${group.domId},data-order-count=${group.orderCount},data-completable-count=${group.completableOrderCount},data-delivery-done-count=${group.deliveryDoneCount},data-all-completed=${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount}">
                             <button type="button" class="delivery-route-group-toggle"
                                     data-delivery-route-toggle
                                     aria-expanded="false"
@@ -151,8 +165,13 @@
                                     <span class="badge bg-light text-dark">
                                         수량 <b th:text="${group.totalQuantity}">0</b>
                                     </span>
+                                    <span class="badge delivery-route-completion-badge"
+                                          th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' bg-success text-white' : (${group.deliveryDoneCount > 0} ? ' bg-warning-subtle text-warning' : ' bg-light text-dark')">
+                                        배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b>
+                                    </span>
                                     <span class="delivery-route-selection-progress"
-                                          th:attr="data-progress-for=${group.domId}">선택 0/<span th:text="${group.completableOrderCount}">0</span></span>
+                                          th:attr="data-progress-for=${group.domId}"
+                                          th:text="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? '전체 완료' : '선택 0/' + group.completableOrderCount}">선택 0/0</span>
                                 </span>
                                 <span class="delivery-route-plus" aria-hidden="true">
                                     <i class="ri-add-line"></i>
@@ -160,7 +179,8 @@
                             </button>
 
                             <div class="delivery-route-group-body" th:id="${group.domId}" hidden>
-                                <div class="delivery-route-bulk-bar">
+                                <div class="delivery-route-bulk-bar"
+                                     th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' is-completed' : ''">
                                     <label class="delivery-route-select-all-label"
                                            th:classappend="${group.completableOrderCount == 0} ? ' is-disabled' : ''">
                                         <input type="checkbox"
@@ -168,8 +188,11 @@
                                                th:disabled="${group.completableOrderCount == 0}"
                                                th:attr="data-group-id=${group.domId}">
                                         <span>
-                                            <strong>완료 대상 전체 선택</strong>
-                                            <small>생산완료 처리 가능 <b th:text="${group.completableOrderCount}">0</b>건</small>
+                                            <strong th:text="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? '모든 주문 배송완료' : '완료 대상 전체 선택'}">완료 대상 전체 선택</strong>
+                                            <small th:if="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount}">추가 완료처리할 주문이 없습니다.</small>
+                                            <small th:unless="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount}">
+                                                생산완료 처리 가능 <b th:text="${group.completableOrderCount}">0</b>건
+                                            </small>
                                         </span>
                                     </label>
 
@@ -178,9 +201,10 @@
                                             data-delivery-route-complete-button
                                             disabled
                                             th:attr="data-group-id=${group.domId}">
-                                        <i class="ri-camera-line me-1"></i>
-                                        배송완료처리
+                                        <i th:class="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? 'ri-checkbox-circle-line me-1' : 'ri-camera-line me-1'}"></i>
+                                        <span th:text="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? '전체 배송완료' : '배송완료처리'}">배송완료처리</span>
                                         <span class="badge bg-white text-success ms-1"
+                                              th:unless="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount}"
                                               data-delivery-route-selected-count>0</span>
                                     </button>
                                 </div>
@@ -267,7 +291,8 @@
                     <div class="delivery-route-group-list" th:unless="${routePage.freightGroups.isEmpty()}">
                         <article class="delivery-route-group is-freight"
                                  th:each="group : ${routePage.freightGroups}"
-                                 th:attr="data-group-id=${group.domId},data-order-count=${group.orderCount},data-completable-count=${group.completableOrderCount}">
+                                 th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' is-fully-completed' : ''"
+                                 th:attr="data-group-id=${group.domId},data-order-count=${group.orderCount},data-completable-count=${group.completableOrderCount},data-delivery-done-count=${group.deliveryDoneCount},data-all-completed=${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount}">
                             <button type="button" class="delivery-route-group-toggle"
                                     data-delivery-route-toggle
                                     aria-expanded="false"
@@ -290,8 +315,13 @@
                                     <span class="badge bg-light text-dark">
                                         수량 <b th:text="${group.totalQuantity}">0</b>
                                     </span>
+                                    <span class="badge delivery-route-completion-badge"
+                                          th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' bg-success text-white' : (${group.deliveryDoneCount > 0} ? ' bg-warning-subtle text-warning' : ' bg-light text-dark')">
+                                        배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b>
+                                    </span>
                                     <span class="delivery-route-selection-progress"
-                                          th:attr="data-progress-for=${group.domId}">조회 전용</span>
+                                          th:attr="data-progress-for=${group.domId}"
+                                          th:text="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? '전체 완료' : '조회 전용'}">조회 전용</span>
                                 </span>
                                 <span class="delivery-route-plus" aria-hidden="true">
                                     <i class="ri-add-line"></i>
@@ -383,6 +413,21 @@
                th:value="${_csrf.token}"
                th:attr="data-csrf-header=${_csrf.headerName}">
     </form>
+
+    <form id="delivery-route-print-form" method="post"
+          th:action="@{/team/deliveryPrint}" target="_blank" class="d-none">
+        <input type="hidden" th:if="${_csrf != null}"
+               th:name="${_csrf.parameterName}"
+               th:value="${_csrf.token}">
+    </form>
+
+    <form id="delivery-route-export-form" class="d-none"
+          th:attr="data-excel-action=@{/team/deliveryExcel}">
+        <input type="hidden" th:if="${_csrf != null}"
+               th:name="${_csrf.parameterName}"
+               th:value="${_csrf.token}"
+               th:attr="data-csrf-header=${_csrf.headerName}">
+    </form>
 </div>
 
 <div class="modal fade" id="delivery-route-complete-modal" tabindex="-1"
@@ -455,6 +500,7 @@
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
 <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css">
+<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.export-completion.css">
 <script src="/administration/assets/team/delivery/deliveryRoute.js"></script>
 </body>
 </html>

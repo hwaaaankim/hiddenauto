@@ -70,6 +70,8 @@ public class DeliveryRouteService {
      * - 같은 업체/같은 주소/같은 배송수단 주문이 뒤쪽 인덱스에 다시 등장해도 최초 묶음으로 합칩니다.
      * - 같은 업체라도 주소 또는 배송수단이 다르면 별도 묶음입니다.
      * - 직배송/현장배송 묶음을 먼저, 화물 묶음을 그 다음에 표시합니다.
+     * - 각 섹션 안에서는 미완료 주문이 하나라도 남은 묶음을 먼저 표시하고, 전체 배송완료 묶음을 하단에 표시합니다.
+     * - 묶음 내부에서도 미완료 주문을 먼저, 배송완료 주문을 뒤에 표시합니다.
      * - 택배/방문/미배송/미지정은 이 화면에서 제외합니다.
      */
     @Transactional(readOnly = true)
@@ -334,7 +336,9 @@ public class DeliveryRouteService {
         }
 
         List<GroupAccumulator> accumulators = new ArrayList<>(grouped.values());
-        accumulators.sort(Comparator.comparingInt(accumulator -> accumulator.firstOrderIndex));
+        accumulators.sort(Comparator
+                .comparing((GroupAccumulator accumulator) -> isFullyCompleted(accumulator))
+                .thenComparingInt(accumulator -> accumulator.firstOrderIndex));
 
         List<Group> result = new ArrayList<>(accumulators.size());
         int sequence = sequenceStart;
@@ -342,7 +346,8 @@ public class DeliveryRouteService {
 
         for (GroupAccumulator accumulator : accumulators) {
             accumulator.orders.sort(Comparator
-                    .comparingInt(OrderRow::getOrderIndex)
+                    .comparing((OrderRow order) -> order.isDeliveryDone())
+                    .thenComparingInt(OrderRow::getOrderIndex)
                     .thenComparingLong(order -> safeLong(order.getOrderId())));
 
             String domId = "delivery-route-"
@@ -369,6 +374,12 @@ public class DeliveryRouteService {
         }
 
         return result;
+    }
+
+    private boolean isFullyCompleted(GroupAccumulator accumulator) {
+        return accumulator != null
+                && !accumulator.orders.isEmpty()
+                && accumulator.deliveryDoneCount == accumulator.orders.size();
     }
 
     private String buildRouteGroupKey(Order order) {

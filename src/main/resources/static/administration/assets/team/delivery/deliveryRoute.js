@@ -1,3 +1,4 @@
+/* deliveryRoute.js */
 /* 업체별 배송 묶음 화면 */
 (function () {
     'use strict';
@@ -12,6 +13,7 @@
         const toggleAllButton = document.getElementById('delivery-route-toggle-all');
 
         initGroupToggles(groups, toggleAllButton);
+        initExportControls(page);
         initCompletionControls(page, groups);
         refreshToggleAllButton(groups, toggleAllButton);
     }
@@ -34,6 +36,244 @@
                 refreshToggleAllButton(groups, toggleAllButton);
             });
         }
+    }
+
+    function initExportControls(page) {
+        const excelButton = document.getElementById('delivery-route-excel-button');
+        const printButton = document.getElementById('delivery-route-print-button');
+        const printForm = document.getElementById('delivery-route-print-form');
+        const exportForm = document.getElementById('delivery-route-export-form');
+
+        if (excelButton) {
+            excelButton.addEventListener('click', async function () {
+                const handlerId = Number(page.dataset.handlerId);
+                const deliveryDate = String(page.dataset.deliveryDate || '').trim();
+                const orderedOrderIds = getAllRouteOrderIdsInCurrentDomOrder();
+
+                if (!Number.isSafeInteger(handlerId) || handlerId <= 0) {
+                    await showMessage('담당자 정보가 없습니다.', '로그인한 배송 담당자 정보를 다시 확인해 주세요.', 'warning');
+                    return;
+                }
+
+                if (!deliveryDate) {
+                    await showMessage('배송일이 없습니다.', '엑셀로 출력할 배송 날짜를 선택해 주세요.', 'warning');
+                    return;
+                }
+
+                if (orderedOrderIds.length === 0) {
+                    await showMessage('출력할 데이터가 없습니다.', '현재 조회된 배송 주문이 없습니다.', 'warning');
+                    return;
+                }
+
+                try {
+                    setExportButtonBusy(excelButton, true);
+
+                    const headers = { 'Content-Type': 'application/json' };
+                    applyCsrfHeader(headers, exportForm);
+
+                    const action = exportForm && exportForm.dataset.excelAction
+                        ? exportForm.dataset.excelAction
+                        : '/team/deliveryExcel';
+
+                    const response = await fetch(action, {
+                        method: 'POST',
+                        headers: headers,
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            deliveryHandlerId: handlerId,
+                            fromDate: deliveryDate,
+                            toDate: deliveryDate,
+                            orderedOrderIds: orderedOrderIds
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await parseResponseBody(response);
+                        throw new Error(errorBody.message || `엑셀 출력에 실패했습니다. (${response.status})`);
+                    }
+
+                    const blob = await response.blob();
+                    const filename = resolveDownloadFilename(
+                        response.headers.get('content-disposition'),
+                        `배송리스트_${deliveryDate}.xlsx`
+                    );
+
+                    downloadBlob(blob, filename);
+
+                } catch (error) {
+                    await showMessage(
+                        '엑셀 출력 실패',
+                        error && error.message ? error.message : '엑셀 파일 생성 중 오류가 발생했습니다.',
+                        'error'
+                    );
+                } finally {
+                    setExportButtonBusy(excelButton, false);
+                }
+            });
+        }
+
+        if (printButton) {
+            printButton.addEventListener('click', async function () {
+                const deliveryDate = String(page.dataset.deliveryDate || '').trim();
+                const orderedOrderIds = getAllRouteOrderIdsInCurrentDomOrder();
+
+                if (!deliveryDate) {
+                    await showMessage('배송일이 없습니다.', '인쇄할 배송 날짜를 선택해 주세요.', 'warning');
+                    return;
+                }
+
+                if (orderedOrderIds.length === 0) {
+                    await showMessage('인쇄할 데이터가 없습니다.', '현재 조회된 배송 주문이 없습니다.', 'warning');
+                    return;
+                }
+
+                if (orderedOrderIds.length > 1000) {
+                    await showMessage('인쇄 대상이 너무 많습니다.', '한 번에 인쇄할 수 있는 주문은 최대 1,000건입니다.', 'warning');
+                    return;
+                }
+
+                if (printForm) {
+                    submitRoutePrintForm(printForm, deliveryDate, orderedOrderIds);
+                    return;
+                }
+
+                const query = new URLSearchParams();
+                query.set('deliveryDate', deliveryDate);
+                query.set('orderIds', orderedOrderIds.join(','));
+
+                const printWindow = window.open(`/team/deliveryPrint?${query.toString()}`, '_blank');
+
+                if (!printWindow) {
+                    await showMessage('인쇄 창이 차단되었습니다.', '브라우저의 팝업 허용 설정을 확인해 주세요.', 'warning');
+                    return;
+                }
+
+                try {
+                    printWindow.opener = null;
+                } catch (ignored) {
+                    // 브라우저 정책상 opener 변경이 불가능해도 인쇄 창 자체는 정상 동작합니다.
+                }
+            });
+        }
+    }
+
+    function getAllRouteOrderIdsInCurrentDomOrder() {
+        const result = [];
+        const seen = new Set();
+        const cards = document.querySelectorAll(
+            '#delivery-route-direct-section .delivery-route-order-card[data-order-id], ' +
+            '#delivery-route-freight-section .delivery-route-order-card[data-order-id]'
+        );
+
+        cards.forEach(card => {
+            const orderId = Number(card.getAttribute('data-order-id'));
+
+            if (!Number.isSafeInteger(orderId) || orderId <= 0 || seen.has(orderId)) {
+                return;
+            }
+
+            seen.add(orderId);
+            result.push(orderId);
+        });
+
+        return result;
+    }
+
+    function submitRoutePrintForm(form, deliveryDate, orderedOrderIds) {
+        const targetName = `hiddenbath_delivery_route_print_${Date.now()}`;
+        const printWindow = window.open('', targetName);
+
+        if (!printWindow) {
+            showMessage('인쇄 창이 차단되었습니다.', '브라우저의 팝업 허용 설정을 확인해 주세요.', 'warning');
+            return;
+        }
+
+        try {
+            printWindow.opener = null;
+        } catch (ignored) {
+            // 브라우저 정책상 opener 변경이 불가능해도 인쇄 창 자체는 정상 동작합니다.
+        }
+
+        form.querySelectorAll('.delivery-route-export-dynamic-field').forEach(field => field.remove());
+        form.target = targetName;
+        form.appendChild(createRouteHiddenField('deliveryDate', deliveryDate));
+
+        orderedOrderIds.forEach(orderId => {
+            form.appendChild(createRouteHiddenField('orderIds', String(orderId)));
+        });
+
+        form.submit();
+
+        window.setTimeout(function () {
+            form.querySelectorAll('.delivery-route-export-dynamic-field').forEach(field => field.remove());
+        }, 0);
+    }
+
+    function createRouteHiddenField(name, value) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        input.className = 'delivery-route-export-dynamic-field';
+        return input;
+    }
+
+    function applyCsrfHeader(headers, form) {
+        if (!headers || !form) return;
+
+        const csrfInput = form.querySelector('input[type="hidden"]');
+        if (!csrfInput || !csrfInput.value) return;
+
+        const headerName = csrfInput.dataset.csrfHeader;
+        if (headerName) {
+            headers[headerName] = csrfInput.value;
+        }
+    }
+
+    function setExportButtonBusy(button, busy) {
+        if (!button) return;
+
+        if (!button.dataset.originalHtml) {
+            button.dataset.originalHtml = button.innerHTML;
+        }
+
+        button.disabled = Boolean(busy);
+        button.innerHTML = busy
+            ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>생성 중'
+            : button.dataset.originalHtml;
+    }
+
+    function resolveDownloadFilename(contentDisposition, fallback) {
+        const value = String(contentDisposition || '');
+        const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
+
+        if (utf8Match && utf8Match[1]) {
+            try {
+                return decodeURIComponent(utf8Match[1].trim().replace(/^"|"$/g, ''));
+            } catch (ignored) {
+                return utf8Match[1].trim().replace(/^"|"$/g, '');
+            }
+        }
+
+        const filenameMatch = value.match(/filename="?([^";]+)"?/i);
+        return filenameMatch && filenameMatch[1]
+            ? filenameMatch[1].trim()
+            : fallback;
+    }
+
+    function downloadBlob(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+
+        link.href = url;
+        link.download = filename || '배송리스트.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.setTimeout(function () {
+            window.URL.revokeObjectURL(url);
+        }, 0);
     }
 
     function initCompletionControls(page, groups) {
@@ -347,6 +587,7 @@
         const selectedBoxes = boxes.filter(checkbox => checkbox.checked);
         const selectedCount = selectedBoxes.length;
         const totalCount = boxes.length;
+        const allCompleted = group.dataset.allCompleted === 'true';
         const selectAll = group.querySelector('.delivery-route-group-select-all');
         const completeButton = group.querySelector('[data-delivery-route-complete-button]');
         const countBadge = completeButton
@@ -356,12 +597,13 @@
         const progress = document.querySelector(`[data-progress-for="${cssEscape(groupId)}"]`);
 
         if (selectAll) {
-            selectAll.checked = totalCount > 0 && selectedCount === totalCount;
-            selectAll.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+            selectAll.checked = !allCompleted && totalCount > 0 && selectedCount === totalCount;
+            selectAll.indeterminate = !allCompleted && selectedCount > 0 && selectedCount < totalCount;
+            selectAll.disabled = allCompleted || totalCount === 0;
         }
 
         if (completeButton) {
-            completeButton.disabled = selectedCount === 0;
+            completeButton.disabled = allCompleted || selectedCount === 0;
         }
 
         if (countBadge) {
@@ -369,7 +611,9 @@
         }
 
         if (progress && !group.classList.contains('is-freight')) {
-            progress.textContent = `선택 ${selectedCount}/${totalCount}`;
+            progress.textContent = allCompleted
+                ? '전체 완료'
+                : `선택 ${selectedCount}/${totalCount}`;
         }
 
         group.classList.toggle('has-selection', selectedCount > 0);

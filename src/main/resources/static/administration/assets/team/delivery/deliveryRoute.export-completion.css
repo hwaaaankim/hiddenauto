@@ -1,0 +1,79 @@
+/* deliveryRoute.export-completion.css
+ * deliveryRoute 기존 스타일을 유지하면서 엑셀/인쇄 버튼과 전체 배송완료 묶음 표시만 보강합니다.
+ */
+
+.delivery-route-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.delivery-route-completion-badge {
+    white-space: nowrap;
+}
+
+.delivery-route-group.is-fully-completed {
+    border-color: #8fd3a9;
+    background: #f3faf6;
+    box-shadow: 0 4px 16px rgba(25, 135, 84, 0.08);
+}
+
+.delivery-route-group.is-fully-completed .delivery-route-group-toggle {
+    background: linear-gradient(135deg, #f4fbf7 0%, #edf8f1 100%);
+}
+
+.delivery-route-group.is-fully-completed .delivery-route-sequence {
+    background: #198754;
+    color: #ffffff;
+}
+
+.delivery-route-group.is-fully-completed .delivery-route-company,
+.delivery-route-group.is-fully-completed .delivery-route-selection-progress {
+    color: #146c43;
+}
+
+.delivery-route-group.is-fully-completed .delivery-route-address,
+.delivery-route-group.is-fully-completed .delivery-route-contact {
+    color: #5a7464;
+}
+
+.delivery-route-group.is-fully-completed .delivery-route-plus {
+    color: #198754;
+}
+
+.delivery-route-bulk-bar.is-completed {
+    background: #eef8f2;
+    border-color: #b7dfc6;
+}
+
+.delivery-route-bulk-bar.is-completed .delivery-route-select-all-label {
+    color: #146c43;
+}
+
+.delivery-route-bulk-bar.is-completed .delivery-route-complete-button:disabled {
+    background: #6c9f7f;
+    border-color: #6c9f7f;
+    color: #ffffff;
+    opacity: 0.82;
+}
+
+.delivery-route-group.is-fully-completed .delivery-route-order-card.is-delivery-done {
+    background: #f8fcf9;
+}
+
+@media (max-width: 767.98px) {
+    .delivery-route-toolbar-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .delivery-route-toolbar-actions .btn {
+        flex: 1 1 calc(50% - 4px);
+    }
+
+    .delivery-route-toolbar-actions a.btn {
+        flex-basis: 100%;
+    }
+}
