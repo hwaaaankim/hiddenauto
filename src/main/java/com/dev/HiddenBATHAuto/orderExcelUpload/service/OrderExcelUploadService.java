@@ -76,6 +76,10 @@ public class OrderExcelUploadService {
     private static final String MIRROR_CATEGORY_NAME = "거울";
     private static final String LED_MIRROR_CATEGORY_NAME = "LED거울";
     private static final String DEFAULT_MIDDLE_CATEGORY_NAME = "분류없음";
+    private static final String OTHER_CATEGORY_NAME = "기타";
+    private static final String SHEET_MATERIAL_KEYWORD = "판재";
+    private static final String UPPER_CABINET_CATEGORY_NAME = "상부장";
+    private static final String ALL_CATEGORY_MIDDLE_NAME = "분류전체";
 
     /**
      * 엑셀 컬럼은 0부터 시작합니다.
@@ -199,6 +203,7 @@ public class OrderExcelUploadService {
             for (OrderExcelSaveRowRequest rowRequest : rows) {
                 LocalDate deliveryDate = parseRequiredDate(rowRequest.getPreferredDeliveryDate(), rowRequest.getExcelRowNumber(), groupRequest.getGroupNo());
                 TeamCategory productionCategory = resolveProductionCategoryForSave(rowRequest, groupRequest.getGroupNo());
+                OrderStatus orderStatus = resolveOrderStatusForSave(rowRequest, productionCategory, groupRequest.getGroupNo());
                 Member deliveryHandler = groupDeliveryHandler;
 
                 Order order = new Order();
@@ -234,7 +239,7 @@ public class OrderExcelUploadService {
                 order.setSupplyPrice(rowRequest.getSupplyPrice());
                 order.setTotalAmount(rowRequest.getTotalAmount());
                 order.setAdminMemo(trimToNull(rowRequest.getAdminMemo()));
-                order.setStatus(OrderStatus.CONFIRMED);
+                order.setStatus(orderStatus);
                 order.setCreatedAt(now);
                 order.setUpdatedAt(now);
 
@@ -861,6 +866,8 @@ public class OrderExcelUploadService {
 
     private OrderExcelPreviewRowDto toPreviewRow(ExcelRawRow raw, int groupNo, OrderExcelDeliveryRule deliveryRule, Member groupDeliveryHandler) {
         OrderExcelPreviewRowDto row = new OrderExcelPreviewRowDto();
+        boolean otherSheetMaterialOverride = shouldUseUpperCabinetForOtherSheetMaterial(raw.categoryName, raw.itemName);
+
         row.setExcelRowNumber(raw.excelRowNumber);
         row.setImageKey("g" + groupNo + "r" + raw.excelRowNumber + "_" + UUID.randomUUID().toString().replace("-", ""));
         row.setOriginalCompanyText(raw.companyRaw);
@@ -869,7 +876,9 @@ public class OrderExcelUploadService {
         row.setSize(safe(raw.size));
         row.setQuantity(raw.quantity);
         row.setAdminMemo(safe(raw.adminMemo));
-        row.setCategoryName(normalizeCategoryName(firstNonBlank(raw.categoryName, "")));
+        row.setCategoryName(otherSheetMaterialOverride
+                ? UPPER_CABINET_CATEGORY_NAME
+                : normalizeCategoryName(firstNonBlank(raw.categoryName, "")));
         row.setProductCost(raw.productCost);
         row.setSupplyPrice(raw.supplyPrice);
         row.setVatAmount(raw.vatAmount);
@@ -888,7 +897,9 @@ public class OrderExcelUploadService {
                 row.setCategoryName(normalizeCategoryName(itemMaster.getCategoryName()));
             }
             row.setMiddleCategoryName(resolveMiddleCategoryName(itemMaster.getMiddleCategoryName()));
-            if (!safe(itemMaster.getCategoryName()).isBlank() && !safe(raw.categoryName).isBlank()
+            if (!otherSheetMaterialOverride
+                    && !safe(itemMaster.getCategoryName()).isBlank()
+                    && !safe(raw.categoryName).isBlank()
                     && !normalizeCategoryName(itemMaster.getCategoryName()).equals(normalizeCategoryName(raw.categoryName))
                     && !shouldUseLedMirrorCategory(raw.itemName, raw.categoryName, itemMaster.getCategoryName())) {
                 row.getIssues().add(OrderExcelIssueDto.warn(raw.excelRowNumber, groupNo, "categoryName", "엑셀 대분류와 AmountItemMaster 대분류가 다릅니다. 엑셀 값을 우선 표시했습니다."));
@@ -899,6 +910,13 @@ public class OrderExcelUploadService {
         }
 
         row.setCategoryName(resolveCategoryNameForItem(raw.itemName, row.getCategoryName(), itemMaster));
+
+        // 엑셀 대분류가 정확히 '기타'이면서 품목명에 '판재'가 포함된 경우만
+        // 욕실용품 자동 분류보다 우선하여 상부장 / 분류전체 / 승인 완료로 초기화합니다.
+        if (otherSheetMaterialOverride) {
+            row.setCategoryName(UPPER_CABINET_CATEGORY_NAME);
+            row.setMiddleCategoryName(ALL_CATEGORY_MIDDLE_NAME);
+        }
 
         ParsedProductName parsedProductName = productNameParser.parse(raw.itemName, row.getCategoryName());
         row.setCalculatedProductName(parsedProductName.getProductName());
@@ -914,6 +932,8 @@ public class OrderExcelUploadService {
                         row.setCategoryName(category.getName());
                     }
                 });
+
+        row.setOrderStatus(resolveDefaultOrderStatus(row.getCategoryName()).name());
 
         if (deliveryRule.isHandlerAssignable() && groupDeliveryHandler != null) {
             row.setDeliveryHandlerMemberId(groupDeliveryHandler.getId());
@@ -1127,13 +1147,22 @@ public class OrderExcelUploadService {
             issues.add(OrderExcelIssueDto.error(row.getExcelRowNumber(), group.getGroupNo(), "itemNameForSave", "저장 제품명이 비어 있습니다."));
         }
         if (row.getProductionCategoryId() == null && safe(row.getCategoryName()).isBlank()) {
-            issues.add(OrderExcelIssueDto.error(row.getExcelRowNumber(), group.getGroupNo(), "productionCategoryId", "생산팀 분류를 선택해 주세요."));
-        } else {
-            try {
-                resolveProductionCategoryForSave(row, group.getGroupNo());
-            } catch (Exception e) {
-                issues.add(OrderExcelIssueDto.error(row.getExcelRowNumber(), group.getGroupNo(), "productionCategoryId", e.getMessage()));
-            }
+            issues.add(OrderExcelIssueDto.error(row.getExcelRowNumber(), group.getGroupNo(), "productionCategoryId", "제품 분류를 선택해 주세요."));
+            return;
+        }
+
+        TeamCategory routingCategory;
+        try {
+            routingCategory = resolveProductionCategoryForSave(row, group.getGroupNo());
+        } catch (Exception e) {
+            issues.add(OrderExcelIssueDto.error(row.getExcelRowNumber(), group.getGroupNo(), "productionCategoryId", e.getMessage()));
+            return;
+        }
+
+        try {
+            resolveOrderStatusForSave(row, routingCategory, group.getGroupNo());
+        } catch (Exception e) {
+            issues.add(OrderExcelIssueDto.error(row.getExcelRowNumber(), group.getGroupNo(), "orderStatus", e.getMessage()));
         }
     }
 
@@ -1264,6 +1293,25 @@ public class OrderExcelUploadService {
     }
 
     private TeamCategory resolveProductionCategoryForSave(OrderExcelSaveRowRequest row, int groupNo) {
+        // 미리보기에서 사용자가 제품 분류를 다시 선택한 경우 선택한 ID를 최우선으로 사용합니다.
+        // 자동 분류는 productionCategoryId가 없을 때만 보조 기준으로 적용합니다.
+        if (row.getProductionCategoryId() != null) {
+            TeamCategory selectedCategory = teamCategoryRepository.findById(row.getProductionCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("담당팀 분류를 찾을 수 없습니다."));
+
+            if (isBathroomGoodsRoutingCategory(selectedCategory)) {
+                row.setCategoryName(BATHROOM_GOODS_CATEGORY_NAME);
+                return selectedCategory;
+            }
+
+            if (!isProductionTeamCategory(selectedCategory)) {
+                throw new IllegalArgumentException("욕실용품 외 품목은 생산팀 분류만 선택할 수 있습니다.");
+            }
+
+            row.setCategoryName(selectedCategory.getName());
+            return selectedCategory;
+        }
+
         String normalizedCategoryName = resolveCategoryNameForItem(
                 row.getOriginalItemName(),
                 row.getCategoryName(),
@@ -1275,22 +1323,34 @@ public class OrderExcelUploadService {
             return resolveBathroomGoodsRoutingCategory(groupNo);
         }
 
-        if (LED_MIRROR_CATEGORY_NAME.equals(normalizedCategoryName)) {
-            return resolveUniqueProductionCategory(normalizedCategoryName, groupNo);
-        }
-
-        if (row.getProductionCategoryId() != null) {
-            TeamCategory category = teamCategoryRepository.findById(row.getProductionCategoryId())
-                    .orElseThrow(() -> new IllegalArgumentException("담당팀 분류를 찾을 수 없습니다."));
-
-            if (!isProductionTeamCategory(category)) {
-                throw new IllegalArgumentException("욕실용품 외 품목은 생산팀 분류만 선택할 수 있습니다.");
-            }
-
-            return category;
-        }
-
         return resolveUniqueProductionCategory(normalizedCategoryName, groupNo);
+    }
+
+    private OrderStatus resolveOrderStatusForSave(
+            OrderExcelSaveRowRequest row,
+            TeamCategory routingCategory,
+            int groupNo
+    ) {
+        String statusValue = safe(row.getOrderStatus());
+        if (statusValue.isBlank()) {
+            return resolveDefaultOrderStatus(resolveOptionCategoryName(row, routingCategory));
+        }
+
+        for (OrderStatus status : OrderStatus.values()) {
+            if (status.name().equalsIgnoreCase(statusValue) || status.getLabel().equals(statusValue)) {
+                row.setOrderStatus(status.name());
+                return status;
+            }
+        }
+
+        throw new IllegalArgumentException("그룹 " + groupNo + " / 엑셀 " + row.getExcelRowNumber()
+                + "행: 올바르지 않은 오더 상태입니다: " + statusValue);
+    }
+
+    private OrderStatus resolveDefaultOrderStatus(String categoryName) {
+        return isBathroomGoodsCategory(categoryName)
+                ? OrderStatus.PRODUCTION_DONE
+                : OrderStatus.CONFIRMED;
     }
 
     private void applyCompanyAddress(Order order, OrderExcelSaveGroupRequest group, Company company) {
@@ -1352,8 +1412,9 @@ public class OrderExcelUploadService {
     private LinkedHashMap<String, String> buildOptionMap(OrderExcelSaveRowRequest row, TeamCategory productionCategory) {
         LinkedHashMap<String, String> optionMap = new LinkedHashMap<>();
         optionMap.put("카테고리", resolveOptionCategoryName(row, productionCategory));
-        if (row.isStandard()) {
-            optionMap.put("제품시리즈", resolveMiddleCategoryName(row.getMiddleCategoryName()));
+        String middleCategoryName = resolveMiddleCategoryName(row.getMiddleCategoryName());
+        if (row.isStandard() || ALL_CATEGORY_MIDDLE_NAME.equals(middleCategoryName)) {
+            optionMap.put("제품시리즈", middleCategoryName);
             optionMap.put("제품시리즈ID", "");
         }
         optionMap.put("제품명", safe(row.getItemNameForSave()));
@@ -1661,6 +1722,13 @@ public class OrderExcelUploadService {
         return member != null
                 && member.getTeam() != null
                 && DELIVERY_TEAM_NAME.equals(member.getTeam().getName());
+    }
+
+    private boolean shouldUseUpperCabinetForOtherSheetMaterial(String excelCategoryName, String itemName) {
+        String normalizedExcelCategory = safe(excelCategoryName).replaceAll("\\s+", "");
+        String normalizedItemName = safe(itemName).replaceAll("\\s+", "");
+        return OTHER_CATEGORY_NAME.equals(normalizedExcelCategory)
+                && normalizedItemName.contains(SHEET_MATERIAL_KEYWORD);
     }
 
     /**

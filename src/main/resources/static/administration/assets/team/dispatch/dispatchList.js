@@ -1950,7 +1950,7 @@
 	function buildParcelStatementCopyHtml(page, copyLabel, layoutType) {
 		const fixedRows = layoutType === 'VERTICAL' ? 5 : 8;
 		const items = page && Array.isArray(page.items) ? page.items : [];
-		const itemRows = buildFixedStatementItemRows(items, fixedRows, false);
+		const itemRows = buildFixedStatementItemRows(items, fixedRows, true);
 		const pageText = Number(page && page.pageCount || 0) > 1
 			? '품목 ' + escapeHtml(page.pageNumber || 1) + ' / ' + escapeHtml(page.pageCount || 1)
 			: '';
@@ -1989,9 +1989,10 @@
 			'    <col class="statement-col-size">',
 			'    <col class="statement-col-color">',
 			'    <col class="statement-col-quantity">',
+			'    <col class="statement-col-memo">',
 			'  </colgroup>',
 			'  <thead><tr>',
-			'    <th>NO</th><th>품명</th><th>규격</th><th>색상</th><th>수량</th>',
+			'    <th>NO</th><th>품명</th><th>규격</th><th>색상</th><th>수량</th><th>비고</th>',
 			'  </tr></thead>',
 			'  <tbody>' + itemRows + '</tbody>',
 			'</table>',
@@ -2096,11 +2097,12 @@
 			'.statement-site-item-table .statement-col-color{width:12%;}',
 			'.statement-site-item-table .statement-col-quantity{width:9%;}',
 			'.statement-site-item-table .statement-col-memo{width:23%;}',
-			'.statement-parcel-item-table .statement-col-no{width:8%;}',
-			'.statement-parcel-item-table .statement-col-product{width:42%;}',
-			'.statement-parcel-item-table .statement-col-size{width:20%;}',
-			'.statement-parcel-item-table .statement-col-color{width:16%;}',
-			'.statement-parcel-item-table .statement-col-quantity{width:14%;}',
+			'.statement-parcel-item-table .statement-col-no{width:7%;}',
+			'.statement-parcel-item-table .statement-col-product{width:31%;}',
+			'.statement-parcel-item-table .statement-col-size{width:18%;}',
+			'.statement-parcel-item-table .statement-col-color{width:12%;}',
+			'.statement-parcel-item-table .statement-col-quantity{width:9%;}',
+			'.statement-parcel-item-table .statement-col-memo{width:23%;}',
 			'.text-center{text-align:center;}',
 			'.statement-acceptance{display:flex;align-items:center;justify-content:center;min-height:8mm;border:.25mm solid #475569;border-bottom:0;font-size:7.8pt;font-weight:800;text-align:center;padding:1mm;}',
 			'.statement-signature{display:flex;align-items:center;justify-content:flex-end;min-height:9mm;border:.25mm solid #475569;padding:1mm 2mm;font-size:7.8pt;font-weight:900;}',

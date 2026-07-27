@@ -977,6 +977,29 @@ public class TeamTaskService {
 	    return result;
 	}
 
+	/**
+	 * 생산 상세 페이지에서 일괄보기와 동일한 기준의 전체 상세 필드를 사용합니다.
+	 * briefMode를 사용하지 않으므로 주소, 메모, 담당직원, 전체 옵션이 누락되지 않습니다.
+	 */
+	@Transactional(readOnly = true)
+	public List<ProductionOverviewFieldDto> buildProductionOverviewDetailFields(Order order) {
+	    return buildProductionOverviewFields(order, false);
+	}
+
+	/**
+	 * Task.managedBy 기준 발주 관리 담당직원명입니다.
+	 * 생산담당자(Order.assignedProductionHandler)와 혼동하지 않도록 이 메서드로 통일합니다.
+	 */
+	@Transactional(readOnly = true)
+	public String resolveProductionManagedByName(Order order) {
+	    if (order == null || order.getTask() == null || order.getTask().getManagedBy() == null) {
+	        return "미배정";
+	    }
+
+	    String name = safeText(order.getTask().getManagedBy().getName());
+	    return name.isBlank() ? "미배정" : name;
+	}
+
 	@Transactional(readOnly = true)
 	public List<ProductionOverviewOrderDto> getProductionOverviewOrders(List<Long> orderIds, Member loginMember) {
 	    validateProductionTeamMember(loginMember);
@@ -1158,6 +1181,11 @@ public class TeamTaskService {
 	    fields.add(ProductionOverviewFieldDto.of(
 	            "규격여부",
 	            order.isStandard() ? "규격" : "비규격"
+	    ));
+
+	    fields.add(ProductionOverviewFieldDto.important(
+	            "담당직원",
+	            resolveProductionManagedByName(order)
 	    ));
 
 	    String address = buildProductionAddress(order);

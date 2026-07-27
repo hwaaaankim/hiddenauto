@@ -83,12 +83,14 @@
 
 												<a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
+                                                    orderId=${orderId},
                                                     dateCriteria=${dateCriteria},
                                                     startDate=${startDateStr},
                                                     endDate=${endDateStr},
                                                     productCategoryId=${productCategoryId},
                                                     orderStatus=${orderStatus},
                                                     standard=${standard},
+                                                    sortState=${sortState},
                                                     sortField=${sortField},
                                                     sortDir=${sortDir},
                                                     size=${pageSize}
@@ -126,7 +128,15 @@
 									<form method="get" th:action="@{/management/nonStandardTaskList}">
 										<div class="row g-3">
 
-											<div class="col-xxl-3 col-sm-12">
+											<div class="col-xxl-2 col-sm-4">
+												<label class="form-label" for="task-list-order-id-search">오더 ID</label>
+												<input type="number" min="1" step="1" inputmode="numeric"
+													id="task-list-order-id-search" name="orderId"
+													class="form-control bg-light border-light"
+													placeholder="오더 ID" th:value="${orderId}">
+											</div>
+
+											<div class="col-xxl-2 col-sm-8">
 												<label class="form-label">키워드 검색</label>
 												<div class="search-box">
 													<input type="text" class="form-control search bg-light border-light"
@@ -136,7 +146,7 @@
 												</div>
 											</div>
 
-											<div class="col-md-3">
+											<div class="col-md-2">
 												<label class="form-label">기준일선택</label>
 												<select class="form-select" name="dateCriteria" id="dateCriteria">
 													<option value="all" th:selected="${dateCriteria == 'all'}">전체
@@ -148,7 +158,7 @@
 												</select>
 											</div>
 
-											<div class="col-xxl-3 col-sm-6">
+											<div class="col-xxl-2 col-sm-6">
 												<label class="form-label">시작일</label>
 												<input type="date" id="startDate" name="startDate"
 													class="form-control bg-light border-light"
@@ -156,7 +166,7 @@
 													th:value="${startDateStr}">
 											</div>
 
-											<div class="col-xxl-3 col-sm-6">
+											<div class="col-xxl-2 col-sm-6">
 												<label class="form-label">종료일</label>
 												<input type="date" id="endDate" name="endDate"
 													class="form-control bg-light border-light"
@@ -164,7 +174,7 @@
 													th:value="${endDateStr}">
 											</div>
 
-											<div class="col-xxl-3 col-sm-4">
+											<div class="col-xxl-2 col-sm-4">
 												<label class="form-label">제품</label>
 												<div class="input-light">
 													<select class="form-control" name="productCategoryId">
@@ -179,7 +189,7 @@
 												</div>
 											</div>
 
-											<div class="col-xxl-3 col-sm-3">
+											<div class="col-xxl-2 col-sm-3">
 												<label class="form-label">발주상태</label>
 												<div class="input-light">
 													<select class="form-control" name="orderStatus">
@@ -225,13 +235,30 @@
 												</div>
 											</div>
 
-											<input type="hidden" name="sortField" th:value="${sortField}">
-											<input type="hidden" name="sortDir" th:value="${sortDir}">
+											<input type="hidden" name="sortState" th:value="${sortState}">
 
-											<div class="col-xxl-2 col-sm-3">
+											<div class="col-xxl-2 col-sm-4">
 												<label class="form-label">조회</label>
 												<button type="submit" class="btn btn-primary w-100">
 													<i class="fa-solid fa-magnifying-glass"></i> 검색
+												</button>
+											</div>
+
+											<div class="col-xxl-2 col-sm-4">
+												<label class="form-label">정렬</label>
+												<button type="button" class="btn btn-outline-secondary w-100"
+													id="task-list-sort-reset-btn"
+													title="검색 조건은 유지하고 정렬만 초기화합니다.">
+													<i class="fa-solid fa-arrow-rotate-left"></i> 필터초기화
+												</button>
+											</div>
+
+											<div class="col-xxl-2 col-sm-4">
+												<label class="form-label">검색조건</label>
+												<button type="button" class="btn btn-outline-danger w-100"
+													id="task-list-search-reset-btn"
+													title="정렬은 유지하고 검색 조건만 초기화합니다.">
+													<i class="fa-solid fa-eraser"></i> 검색초기화
 												</button>
 											</div>
 
@@ -251,42 +278,42 @@
 																id="task-list-check-all">
 														</div>
 													</th>
-													<th style="width:70px;">오더ID</th>
+													<th style="width:88px;">
+														<div class="task-list-added-sort-header">
+															<span>오더ID</span>
+															<span class="task-list-added-sort-icons">
+																<a class="task-list-added-sort-link"
+																	th:classappend="${activeSortDirections['orderId'] == 'asc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="orderId"
+																	data-sort-dir="asc"
+																	title="오름차순 적용/해제">▲</a>
+																<a class="task-list-added-sort-link"
+																	th:classappend="${activeSortDirections['orderId'] == 'desc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="orderId"
+																	data-sort-dir="desc"
+																	title="내림차순 적용/해제">▼</a>
+															</span>
+														</div>
+													</th>
 
 													<th style="min-width:150px;">
 														<div class="task-list-added-sort-header">
 															<span>대리점명</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='agencyName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='agencyName',
-                                                                        sortDir='asc'
-                                                                   )}">▲</a>
+																	th:classappend="${activeSortDirections['agencyName'] == 'asc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="agencyName"
+																	data-sort-dir="asc"
+																	title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='agencyName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='agencyName',
-                                                                        sortDir='desc'
-                                                                   )}">▼</a>
+																	th:classappend="${activeSortDirections['agencyName'] == 'desc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="agencyName"
+																	data-sort-dir="desc"
+																	title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -295,35 +322,17 @@
 															<span>제품분류</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='productCategoryName' and sortDir=='asc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='productCategoryName',
-                                                                        sortDir='asc'
-                                                                   )}">▲</a>
+																	th:classappend="${activeSortDirections['productCategoryName'] == 'asc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="productCategoryName"
+																	data-sort-dir="asc"
+																	title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='productCategoryName' and sortDir=='desc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='productCategoryName',
-                                                                        sortDir='desc'
-                                                                   )}">▼</a>
+																	th:classappend="${activeSortDirections['productCategoryName'] == 'desc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="productCategoryName"
+																	data-sort-dir="desc"
+																	title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -335,35 +344,17 @@
 															<span>규격</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='standard' and sortDir=='desc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='standard',
-                                                                        sortDir='desc'
-                                                                   )}">▲</a>
+																	th:classappend="${activeSortDirections['standard'] == 'desc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="standard"
+																	data-sort-dir="desc"
+																	title="내림차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='standard' and sortDir=='asc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='standard',
-                                                                        sortDir='asc'
-                                                                   )}">▼</a>
+																	th:classappend="${activeSortDirections['standard'] == 'asc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="standard"
+																	data-sort-dir="asc"
+																	title="오름차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -375,35 +366,17 @@
 															<span>발주일</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='orderDate' and sortDir=='asc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='orderDate',
-                                                                        sortDir='asc'
-                                                                   )}">▲</a>
+																	th:classappend="${activeSortDirections['orderDate'] == 'asc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="orderDate"
+																	data-sort-dir="asc"
+																	title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='orderDate' and sortDir=='desc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='orderDate',
-                                                                        sortDir='desc'
-                                                                   )}">▼</a>
+																	th:classappend="${activeSortDirections['orderDate'] == 'desc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="orderDate"
+																	data-sort-dir="desc"
+																	title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -413,35 +386,17 @@
 															<span>배송희망일</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='preferredDeliveryDate' and sortDir=='asc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='preferredDeliveryDate',
-                                                                        sortDir='asc'
-                                                                   )}">▲</a>
+																	th:classappend="${activeSortDirections['preferredDeliveryDate'] == 'asc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="preferredDeliveryDate"
+																	data-sort-dir="asc"
+																	title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='preferredDeliveryDate' and sortDir=='desc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='preferredDeliveryDate',
-                                                                        sortDir='desc'
-                                                                   )}">▼</a>
+																	th:classappend="${activeSortDirections['preferredDeliveryDate'] == 'desc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="preferredDeliveryDate"
+																	data-sort-dir="desc"
+																	title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -451,35 +406,17 @@
 															<span>상태</span>
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='status' and sortDir=='asc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='status',
-                                                                        sortDir='asc'
-                                                                   )}">▲</a>
+																	th:classappend="${activeSortDirections['status'] == 'asc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="status"
+																	data-sort-dir="asc"
+																	title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
-																	th:classappend="${sortField=='status' and sortDir=='desc'} ? ' task-list-added-active' : ''"
-																	th:href="@{/management/nonStandardTaskList(
-                                                                        page=0,
-                                                                        size=${pageSize},
-                                                                        keyword=${keyword},
-                                                                        dateCriteria=${dateCriteria},
-                                                                        startDate=${startDateStr},
-                                                                        endDate=${endDateStr},
-                                                                        productCategoryId=${productCategoryId},
-                                                                        orderStatus=${orderStatus},
-                                                                        standard=${standard},
-                                                                        sortField='status',
-                                                                        sortDir='desc'
-                                                                   )}">▼</a>
+																	th:classappend="${activeSortDirections['status'] == 'desc'} ? ' task-list-added-active' : ''"
+																	href="#"
+																	data-sort-field="status"
+																	data-sort-dir="desc"
+																	title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -623,12 +560,14 @@
                                                                 page=0,
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
+                                                                orderId=${orderId},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
                                                                 productCategoryId=${productCategoryId},
                                                                 orderStatus=${orderStatus},
                                                                 standard=${standard},
+                                                                sortState=${sortState},
                                                                 sortField=${sortField},
                                                                 sortDir=${sortDir}
                                                             )}">
@@ -642,12 +581,14 @@
                                                                 page=${prevPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
+                                                                orderId=${orderId},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
                                                                 productCategoryId=${productCategoryId},
                                                                 orderStatus=${orderStatus},
                                                                 standard=${standard},
+                                                                sortState=${sortState},
                                                                 sortField=${sortField},
                                                                 sortDir=${sortDir}
                                                             )}">
@@ -662,12 +603,14 @@
                                                                 page=${i - 1},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
+                                                                orderId=${orderId},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
                                                                 productCategoryId=${productCategoryId},
                                                                 orderStatus=${orderStatus},
                                                                 standard=${standard},
+                                                                sortState=${sortState},
                                                                 sortField=${sortField},
                                                                 sortDir=${sortDir}
                                                             )}">
@@ -681,12 +624,14 @@
                                                                 page=${nextPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
+                                                                orderId=${orderId},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
                                                                 productCategoryId=${productCategoryId},
                                                                 orderStatus=${orderStatus},
                                                                 standard=${standard},
+                                                                sortState=${sortState},
                                                                 sortField=${sortField},
                                                                 sortDir=${sortDir}
                                                             )}">
@@ -700,12 +645,14 @@
                                                                 page=${lastPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
+                                                                orderId=${orderId},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
                                                                 productCategoryId=${productCategoryId},
                                                                 orderStatus=${orderStatus},
                                                                 standard=${standard},
+                                                                sortState=${sortState},
                                                                 sortField=${sortField},
                                                                 sortDir=${sortDir}
                                                             )}">

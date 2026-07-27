@@ -15,6 +15,7 @@ import lombok.Setter;
 public class OrderExcelLookupOptionsResponse {
     private List<OrderExcelDeliveryMethodOptionResponse> deliveryMethods = new ArrayList<>();
     private List<OrderExcelOptionDto> productionCategories = new ArrayList<>();
+    private List<OrderExcelOrderStatusOptionResponse> orderStatuses = new ArrayList<>();
     private List<OrderExcelOptionDto> middleCategories = new ArrayList<>();
     private Map<String, List<OrderExcelOptionDto>> middleCategoriesByCategory = new LinkedHashMap<>();
     private List<OrderExcelOptionDto> managers = new ArrayList<>();

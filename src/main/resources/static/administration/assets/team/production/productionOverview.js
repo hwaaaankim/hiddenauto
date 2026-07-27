@@ -280,6 +280,12 @@
 				raw.company && raw.company.companyName,
 				raw.requestedBy && raw.requestedBy.company && raw.requestedBy.company.companyName
 			)),
+			managedByName: toText(firstValue(
+				raw.managedByName,
+				raw.managerName,
+				raw.taskManagedByName,
+				findFieldValue(raw.fields, ['담당직원', '발주담당직원', 'managedBy'])
+			)) || '미배정',
 			address: normalizeAddress(raw) || findFieldValue(raw.fields, ['주소', 'address', '배송지']),
 			productName: toText(firstValue(raw.productName, orderItem && orderItem.productName)),
 			productCategoryName: toText(firstValue(
@@ -804,6 +810,9 @@
 			'배송지',
 			'발주메모',
 			'memo',
+			'담당직원',
+			'발주담당직원',
+			'managedby',
 			'제품분류',
 			'카테고리',
 			'category',
@@ -1013,18 +1022,20 @@
 	function buildOrdersFromCurrentTable() {
 		return Array.from(document.querySelectorAll('.team-production-overview-row')).map(function(row) {
 			const cells = row.querySelectorAll('td');
-			const optionText = getText(row.querySelector('.team-production-list-option-line')) || getText(cells[3]);
+			const optionText = getText(row.querySelector('.team-production-list-option-line'));
 			const optionFields = parseOptionTextBlock(optionText);
+			const status = toText(row.getAttribute('data-overview-status'));
 
 			return {
 				id: toText(row.getAttribute('data-overview-order-id')) || getText(cells[0]),
-				status: toText(row.getAttribute('data-overview-status')),
-				statusLabel: getText(cells[1]),
-				companyName: getText(cells[2]),
+				status: status,
+				statusLabel: normalizeStatusLabel(status),
+				companyName: toText(row.getAttribute('data-company-name')) || '-',
+				managedByName: toText(row.getAttribute('data-managed-by-name')) || '미배정',
 				address: '',
-				productName: getText(cells[4]),
-				productCategoryName: '',
-				productSeries: '',
+				productName: toText(row.getAttribute('data-product-name')) || '-',
+				productCategoryName: toText(row.getAttribute('data-product-category-name')) || '-',
+				productSeries: getText(row.querySelector('.team-production-product-series-text')),
 				checkState: normalizeCheckState({
 					checkState: row.getAttribute('data-check-state'),
 					checked: row.getAttribute('data-checked')
@@ -1038,15 +1049,11 @@
 				revisionMarkedByUsername: toText(row.getAttribute('data-revision-marked-by')),
 				revisionMarkedAtText: toText(row.getAttribute('data-revision-marked-at')),
 				revisionReason: toText(row.getAttribute('data-revision-reason')),
-				quantity: '',
-				standardLabel: getText(cells[5]),
-				dateText: getText(cells[6]),
-				options: optionFields.length > 0 ? optionFields : [
-					{
-						label: '제품옵션',
-						value: optionText || '-'
-					}
-				],
+				quantity: getText(cells[5]),
+				standardLabel: toText(row.getAttribute('data-standard-label')) || '-',
+				dateText: toText(row.getAttribute('data-date-text')) || '-',
+				adminMemo: toText(row.getAttribute('data-admin-memo')) || '-',
+				options: optionFields.length > 0 ? optionFields : [],
 				images: []
 			};
 		}).filter(function(order) {
@@ -1118,6 +1125,7 @@
 			'<div class="team-production-overview-top-value team-production-overview-top-value-main" title="' + escapeAttr(order.companyName || '-') + '">' + escapeHtml(order.companyName || '-') + '</div>',
 			'<div class="team-production-overview-address" title="' + escapeAttr(order.address || '-') + '">' + escapeHtml(order.address || '-') + '</div>',
 			'</div>',
+			buildTopItemHtml('담당직원', order.managedByName || '미배정'),
 			buildTopItemHtml('ID / 상태', '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-')),
 			buildTopItemHtml('확인상태', buildCheckStateText(order)),
 			buildTopItemHtml('제품명', order.productName || '-'),

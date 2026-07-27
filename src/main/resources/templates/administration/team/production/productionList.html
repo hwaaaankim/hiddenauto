@@ -211,12 +211,13 @@
 
 									<colgroup>
 										<col style="width:4%;">
-										<col style="width:13%;">
-										<col style="width:9%;">
+										<col style="width:12%;">
 										<col style="width:8%;">
-										<col style="width:11%;">
+										<col style="width:8%;">
+										<col style="width:10%;">
 										<col style="width:4%;">
-										<col style="width:24%;">
+										<col style="width:20%;">
+										<col style="width:7%;">
 										<col style="width:7%;">
 										<col style="width:7%;">
 										<col style="width:5%;">
@@ -268,6 +269,8 @@
 
 											<th class="team-production-th">카테고리</th>
 
+											<th class="team-production-th">담당직원</th>
+
 											<th class="team-production-th text-center">
 												<div
 													class="d-inline-flex align-items-center justify-content-center gap-1">
@@ -290,7 +293,7 @@
 
 									<tbody id="team-production-tbody">
 										<tr th:if="${orders == null or orders.size() == 0}">
-											<td colspan="12" class="text-center text-muted py-5">
+											<td colspan="13" class="text-center text-muted py-5">
 												조회된 생산 주문이 없습니다.
 											</td>
 										</tr>
@@ -315,6 +318,13 @@
                     data-revision-marked-by=${order.checkStatus != null ? order.checkStatus.revisionMarkedByUsername : ''},
                     data-revision-marked-at=${order.checkStatus != null and order.checkStatus.revisionMarkedAt != null ? #temporals.format(order.checkStatus.revisionMarkedAt, 'yyyy-MM-dd HH:mm') : ''},
                     data-revision-reason=${order.checkStatus != null ? order.checkStatus.revisionReason : ''},
+                    data-company-name=${orderCompanyNameMap != null and orderCompanyNameMap[order.id] != null ? orderCompanyNameMap[order.id] : '-'},
+                    data-managed-by-name=${order.task != null and order.task.managedBy != null and order.task.managedBy.name != null and order.task.managedBy.name != '' ? order.task.managedBy.name : '미배정'},
+                    data-product-name=${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'},
+                    data-product-category-name=${order.orderItem != null and order.orderItem.productionCategory != null and order.orderItem.productionCategory != '' ? order.orderItem.productionCategory : '-'},
+                    data-standard-label=${order.standard ? '규격' : '비규격'},
+                    data-date-text=${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd') : '-'},
+                    data-admin-memo=${order.adminMemo != null and order.adminMemo != '' ? order.adminMemo : '-'},
                     data-detail-url=@{|/team/productionDetail/${order.id}|}
                 ">
 
@@ -395,6 +405,14 @@
 													</div>
 												</td>
 
+												<td class="team-production-td team-production-managed-by-td">
+													<div class="team-production-managed-by"
+														th:text="${order.task != null and order.task.managedBy != null and order.task.managedBy.name != null and order.task.managedBy.name != '' ? order.task.managedBy.name : '미배정'}"
+														th:title="${order.task != null and order.task.managedBy != null and order.task.managedBy.name != null and order.task.managedBy.name != '' ? '담당직원: ' + order.task.managedBy.name : '담당직원 미배정'}">
+														미배정
+													</div>
+												</td>
+
 												<td
 													class="team-production-td text-center team-production-check-status-td">
 													<span class="badge team-production-check-badge"
@@ -438,7 +456,7 @@
 
 											<tr class="team-production-detail-row"
 												th:attr="data-detail-order-id=${order.id}" style="display:none;">
-												<td colspan="12" class="team-production-detail-td">
+												<td colspan="13" class="team-production-detail-td">
 													<div class="team-production-inline-detail-shell">
 														<div class="team-production-inline-detail-content">
 															상세 정보를 불러오지 않았습니다.
@@ -939,6 +957,24 @@
 			display: inline-block;
 			min-width: 62px;
 			font-weight: 700;
+			white-space: nowrap;
+		}
+
+		.team-production-managed-by {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 58px;
+			max-width: 100%;
+			padding: 4px 8px;
+			border: 1px solid #c7d2fe;
+			border-radius: 999px;
+			background: #eef2ff;
+			color: #3730a3;
+			font-size: 12px;
+			font-weight: 800;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
 

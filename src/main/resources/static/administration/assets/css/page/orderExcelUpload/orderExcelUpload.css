@@ -202,7 +202,7 @@
 }
 
 .order-excel-table {
-    min-width: 2100px;
+    min-width: 2240px;
     margin-bottom: 0;
     font-size: 12px;
 }
@@ -264,6 +264,10 @@
 
 .order-excel-product-name {
     min-width: 220px !important;
+}
+
+.order-excel-status-select {
+    min-width: 126px !important;
 }
 
 .order-excel-category-select {
@@ -507,7 +511,7 @@
 }
 
 .order-excel-table {
-    min-width: 1980px;
+    min-width: 2120px;
 }
 
 .order-excel-col-switch {

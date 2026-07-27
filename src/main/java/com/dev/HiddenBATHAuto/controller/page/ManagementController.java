@@ -13,7 +13,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -181,13 +183,15 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
 			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
 			@RequestParam(required = false, defaultValue = "all") String standard,
-			@RequestParam(required = false, defaultValue = "orderDate") String sortField,
-			@RequestParam(required = false, defaultValue = "desc") String sortDir,
+			@RequestParam(required = false) String sortState,
+			@RequestParam(required = false) String sortField,
+			@RequestParam(required = false) String sortDir,
 			@PageableDefault(size = 10) Pageable pageable, HttpServletRequest request, Model model) {
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
@@ -196,25 +200,22 @@ public class ManagementController {
 		Boolean standardBool = parseStandardOrNull(standard);
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+		Long finalOrderId = parsePositiveLongOrNull(orderId);
 		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-		String sortProperty = mapSortFieldToProperty(sortField);
+		List<NonStandardTaskListSortCriterion> activeSortCriteria =
+				resolveNonStandardTaskListSortCriteria(sortState, sortField, sortDir);
+		Sort resolvedSort = buildNonStandardTaskListSort(activeSortCriteria);
 
-		String safeSortDir = (sortDir == null) ? "desc" : sortDir.trim();
-		Sort.Direction direction = "asc".equalsIgnoreCase(safeSortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+		Pageable sortedPageable = PageRequest.of(
+				Math.max(pageable.getPageNumber(), 0),
+				pageable.getPageSize(),
+				resolvedSort
+		);
 
-		if (sortProperty == null || sortProperty.isBlank()) {
-			sortProperty = "createdAt";
-			direction = Sort.Direction.DESC;
-			safeSortDir = "desc";
-			sortField = "orderDate";
-		}
-
-		Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
-				Sort.by(direction, sortProperty));
-
-		Page<Order> orders = orderRepository.findFilteredOrders(finalKeyword, finalDateCriteria, range.getStart(),
-				range.getEnd(), categoryId, statusEnum, standardBool, sortedPageable);
+		Page<Order> orders = orderRepository.findFilteredOrdersWithOrderId(finalKeyword, finalOrderId,
+				finalDateCriteria, range.getStart(), range.getEnd(), categoryId, statusEnum, standardBool,
+				sortedPageable);
 
 		/*
 		 * 속도 개선: 목록에서는 화면에 바로 보이는 데이터만 DTO로 변환합니다. 상세 수정용 회사/회원/주소/주문자 데이터는 넓게보기 AJAX에서
@@ -253,6 +254,7 @@ public class ManagementController {
 		model.addAttribute("companyOrdererInfoOptions", List.of());
 
 		model.addAttribute("keyword", (keyword == null) ? "" : keyword);
+		model.addAttribute("orderId", finalOrderId != null ? String.valueOf(finalOrderId) : "");
 		model.addAttribute("dateCriteria", finalDateCriteria);
 
 		model.addAttribute("startDate", range.getStartDateStr());
@@ -264,8 +266,26 @@ public class ManagementController {
 		model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
 		model.addAttribute("standard", (standard == null) ? "all" : standard);
 
-		model.addAttribute("sortField", sortField);
-		model.addAttribute("sortDir", "asc".equalsIgnoreCase(safeSortDir) ? "asc" : "desc");
+		String normalizedSortState = serializeNonStandardTaskListSortState(activeSortCriteria);
+		Map<String, String> activeSortDirections = activeSortCriteria.stream()
+				.collect(Collectors.toMap(
+						NonStandardTaskListSortCriterion::field,
+						NonStandardTaskListSortCriterion::direction,
+						(left, right) -> right,
+						LinkedHashMap::new
+				));
+
+		/*
+		 * sortField/sortDir는 기존 엑셀 및 다른 링크 호환을 위해 첫 번째 정렬값만 유지합니다.
+		 * 실제 목록 정렬 상태는 sortState가 전체를 관리합니다.
+		 */
+		String firstSortField = activeSortCriteria.isEmpty() ? "" : activeSortCriteria.get(0).field();
+		String firstSortDir = activeSortCriteria.isEmpty() ? "" : activeSortCriteria.get(0).direction();
+
+		model.addAttribute("sortState", normalizedSortState);
+		model.addAttribute("activeSortDirections", activeSortDirections);
+		model.addAttribute("sortField", firstSortField);
+		model.addAttribute("sortDir", firstSortDir);
 		model.addAttribute("currentListUrl", buildCurrentRequestUrl(request));
 		model.addAttribute("pageSize", orders.getSize());
 
@@ -339,6 +359,7 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardTaskList/bulk-fragment")
 	public String nonStandardTaskListBulkFragment(@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
@@ -351,10 +372,12 @@ public class ManagementController {
 		Boolean standardBool = parseStandardOrNull(standard);
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+		Long finalOrderId = parsePositiveLongOrNull(orderId);
 		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkView(finalKeyword, finalDateCriteria,
-				range.getStart(), range.getEnd(), categoryId, statusEnum, standardBool);
+		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkViewWithOrderId(finalKeyword,
+				finalOrderId, finalDateCriteria, range.getStart(), range.getEnd(), categoryId, statusEnum,
+				standardBool);
 
 		List<NonStandardTaskListOrderRowDto> bulkOrderRows = nonStandardTaskListViewService.toBulkRows(bulkOrders);
 
@@ -498,12 +521,128 @@ public class ManagementController {
 		return request.getRequestURI() + "?" + queryString;
 	}
 
+
+	private record NonStandardTaskListSortCriterion(String field, String direction) {
+	}
+
+	private List<NonStandardTaskListSortCriterion> resolveNonStandardTaskListSortCriteria(
+			String sortState,
+			String legacySortField,
+			String legacySortDir
+	) {
+		LinkedHashMap<String, String> resolved = new LinkedHashMap<>();
+
+		if (sortState != null && !sortState.isBlank()) {
+			String[] tokens = sortState.split("\\|");
+
+			for (String token : tokens) {
+				if (token == null || token.isBlank()) {
+					continue;
+				}
+
+				String[] parts = token.trim().split(":", 2);
+				if (parts.length != 2) {
+					continue;
+				}
+
+				String field = parts[0].trim();
+				String direction = normalizeNonStandardTaskListSortDirection(parts[1]);
+
+				if (mapSortFieldToProperty(field) == null || direction == null) {
+					continue;
+				}
+
+				/*
+				 * 같은 필드가 중복 전달되면 최초 우선순위 위치는 유지하고 방향만 최신 값으로 갱신합니다.
+				 */
+				resolved.put(field, direction);
+
+				if (resolved.size() >= 7) {
+					break;
+				}
+			}
+		}
+
+		/*
+		 * 기존 sortField/sortDir URL도 깨지지 않도록 단일 정렬로 호환합니다.
+		 * sortState가 있으면 sortState가 우선입니다.
+		 */
+		if (resolved.isEmpty()) {
+			String legacyDirection = normalizeNonStandardTaskListSortDirection(legacySortDir);
+
+			if (mapSortFieldToProperty(legacySortField) != null && legacyDirection != null) {
+				resolved.put(legacySortField.trim(), legacyDirection);
+			}
+		}
+
+		List<NonStandardTaskListSortCriterion> criteria = new ArrayList<>();
+		resolved.forEach((field, direction) ->
+				criteria.add(new NonStandardTaskListSortCriterion(field, direction))
+		);
+		return criteria;
+	}
+
+	private String normalizeNonStandardTaskListSortDirection(String direction) {
+		if (direction == null || direction.isBlank()) {
+			return null;
+		}
+
+		String normalized = direction.trim().toLowerCase(Locale.ROOT);
+		return "asc".equals(normalized) || "desc".equals(normalized) ? normalized : null;
+	}
+
+	private Sort buildNonStandardTaskListSort(List<NonStandardTaskListSortCriterion> criteria) {
+		/*
+		 * 사용자 정렬이 없는 상태도 DB 반환 순서가 흔들리지 않도록 최근 발주순을 내부 기본 정렬로 사용합니다.
+		 * 이 기본 정렬은 화면의 활성 화살표로 표시하지 않습니다.
+		 */
+		if (criteria == null || criteria.isEmpty()) {
+			return Sort.by(Sort.Direction.DESC, "createdAt")
+					.and(Sort.by(Sort.Direction.DESC, "id"));
+		}
+
+		Sort result = Sort.unsorted();
+
+		for (NonStandardTaskListSortCriterion criterion : criteria) {
+			String property = mapSortFieldToProperty(criterion.field());
+			if (property == null) {
+				continue;
+			}
+
+			Sort.Direction direction = "asc".equals(criterion.direction())
+					? Sort.Direction.ASC
+					: Sort.Direction.DESC;
+
+			result = result.and(Sort.by(direction, property));
+		}
+
+		if (result.isUnsorted()) {
+			return Sort.by(Sort.Direction.DESC, "createdAt")
+					.and(Sort.by(Sort.Direction.DESC, "id"));
+		}
+
+		return result.and(Sort.by(Sort.Direction.DESC, "id"));
+	}
+
+	private String serializeNonStandardTaskListSortState(
+			List<NonStandardTaskListSortCriterion> criteria
+	) {
+		if (criteria == null || criteria.isEmpty()) {
+			return "";
+		}
+
+		return criteria.stream()
+				.map(criterion -> criterion.field() + ":" + criterion.direction())
+				.collect(Collectors.joining("|"));
+	}
+
 	private String mapSortFieldToProperty(String sortField) {
 		if (sortField == null || sortField.isBlank()) {
 			return null;
 		}
 
 		return switch (sortField) {
+		case "orderId" -> "id";
 		case "agencyName" -> "task.requestedBy.company.companyName";
 		case "requesterName" -> "task.requestedBy.name";
 		case "productCategoryName" -> "productCategory.name";
@@ -518,6 +657,7 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardOrder/excel")
 	public void downloadNonStandardOrderExcel(@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false) String dateCriteria, @RequestParam(required = false) String startDate, // ✅
 																													// String
 																													// (빈값
@@ -534,11 +674,12 @@ public class ManagementController {
 		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null); // excel은 기본 강제 안함(넘어온 값 기준)
 		// └ 기존 코드도 null/all이면 전체였으니 동작 유지
 		Boolean isStandard = parseStandardOrNull(standard);
+		Long finalOrderId = parsePositiveLongOrNull(orderId);
 
 		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-		List<Order> orderList = orderRepository.findFilteredOrdersForExcel(finalKeyword, finalDateCriteria,
-				range.getStart(), range.getEnd(), categoryId, status, isStandard);
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderId(finalKeyword, finalOrderId,
+				finalDateCriteria, range.getStart(), range.getEnd(), categoryId, status, isStandard);
 
 		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 		response.setHeader("Content-Disposition", "attachment; filename=non_standard_orders.xlsx");
@@ -669,6 +810,20 @@ public class ManagementController {
 		}
 		// 기존 buildDateRange 재사용 (yyyy-MM-dd)
 		return buildDateRange(startDateStr, endDateStr);
+	}
+
+	// 오더 ID 검색값: 빈값/숫자 형식 오류/0 이하 값은 검색 조건에서 제외합니다.
+	private Long parsePositiveLongOrNull(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+
+		try {
+			long parsed = Long.parseLong(value.trim());
+			return parsed > 0 ? parsed : null;
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	// 3) productCategoryId: all/빈값/오류 -> null

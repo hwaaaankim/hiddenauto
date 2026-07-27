@@ -1,3 +1,5 @@
+<!-- productionDetail.html -->
+
 <!doctype html>
 <html xmlns:th="http://www.thymeleaf.org"
       lang="ko"
@@ -63,6 +65,10 @@
                                                 </span>
                                                 <span class="product-detail-added-order-id"
                                                       th:text="|주문번호 #${order.id}|">주문번호 #1</span>
+                                                <span class="product-detail-added-managed-by-badge"
+                                                      th:text="|담당직원 ${managedByName != null ? managedByName : '미배정'}|">
+                                                    담당직원 미배정
+                                                </span>
                                             </div>
                                         </div>
 
@@ -81,6 +87,14 @@
                                     </div>
 
                                     <div class="product-detail-added-summary-grid">
+                                        <div class="product-detail-added-summary-item product-detail-added-summary-item-manager">
+                                            <span class="product-detail-added-summary-key">담당직원</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${managedByName != null and !#strings.isEmpty(managedByName) ? managedByName : '미배정'}">
+                                                미배정
+                                            </strong>
+                                        </div>
+
                                         <div class="product-detail-added-summary-item">
                                             <span class="product-detail-added-summary-key">대리점명</span>
                                             <strong class="product-detail-added-summary-value"
@@ -98,6 +112,38 @@
                                         </div>
 
                                         <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">제품분류</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.productCategory != null ? order.productCategory.name : '-'}">
+                                                제품분류
+                                            </strong>
+                                        </div>
+
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">규격여부</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.standard ? '규격' : '비규격'}">
+                                                규격
+                                            </strong>
+                                        </div>
+
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">주문수량</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="|${orderItem != null ? orderItem.quantity : order.quantity}개|">
+                                                1개
+                                            </strong>
+                                        </div>
+
+                                        <div class="product-detail-added-summary-item">
+                                            <span class="product-detail-added-summary-key">확인상태</span>
+                                            <strong class="product-detail-added-summary-value"
+                                                    th:text="${order.checkStatus != null ? order.checkStatus.checkStateLabel : '미확인'}">
+                                                미확인
+                                            </strong>
+                                        </div>
+
+                                        <div class="product-detail-added-summary-item">
                                             <span class="product-detail-added-summary-key">발주일</span>
                                             <strong class="product-detail-added-summary-value"
                                                     th:text="${order.createdAt != null ? #temporals.format(order.createdAt, 'yyyy-MM-dd') : '-'}">
@@ -106,7 +152,7 @@
                                         </div>
 
                                         <div class="product-detail-added-summary-item">
-                                            <span class="product-detail-added-summary-key">배정일</span>
+                                            <span class="product-detail-added-summary-key">최종수정일</span>
                                             <strong class="product-detail-added-summary-value"
                                                     th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy-MM-dd') : '-'}">
                                                 2025-12-19
@@ -114,7 +160,7 @@
                                         </div>
 
                                         <div class="product-detail-added-summary-item">
-                                            <span class="product-detail-added-summary-key">배송일</span>
+                                            <span class="product-detail-added-summary-key">배송희망일</span>
                                             <strong class="product-detail-added-summary-value"
                                                     th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">
                                                 2025-12-24
@@ -122,11 +168,21 @@
                                         </div>
                                     </div>
 
-                                    <div class="product-detail-added-note-box">
-                                        <div class="product-detail-added-note-label">고객 남김말</div>
-                                        <div class="product-detail-added-note-text"
-                                             th:text="${!#strings.isEmpty(order.orderComment) ? order.orderComment : '남김말이 없습니다.'}">
-                                            고객 남김말
+                                    <div class="product-detail-added-note-grid">
+                                        <div class="product-detail-added-note-box">
+                                            <div class="product-detail-added-note-label">발주 메모</div>
+                                            <div class="product-detail-added-note-text"
+                                                 th:text="${!#strings.isEmpty(order.orderComment) ? order.orderComment : '등록된 발주 메모가 없습니다.'}">
+                                                발주 메모
+                                            </div>
+                                        </div>
+
+                                        <div class="product-detail-added-note-box product-detail-added-note-box-admin">
+                                            <div class="product-detail-added-note-label">관리자 비고</div>
+                                            <div class="product-detail-added-note-text"
+                                                 th:text="${!#strings.isEmpty(order.adminMemo) ? order.adminMemo : '등록된 관리자 비고가 없습니다.'}">
+                                                관리자 비고
+                                            </div>
                                         </div>
                                     </div>
 
@@ -161,51 +217,30 @@
                                             <section class="product-detail-added-panel product-detail-added-info-panel">
                                                 <div class="product-detail-added-panel-head">
                                                     <div>
-                                                        <h6 class="product-detail-added-panel-title">제품 옵션정보</h6>
-                                                        <p class="product-detail-added-panel-subtitle">생산 시 우선 확인해야 하는 옵션입니다.</p>
+                                                        <h6 class="product-detail-added-panel-title">전체 발주 상세정보</h6>
+                                                        <p class="product-detail-added-panel-subtitle">일괄보기와 동일한 기준으로 주소, 메모, 담당직원 및 전체 옵션을 표시합니다.</p>
                                                     </div>
-                                                    <span class="product-detail-added-important-pill">중요 옵션</span>
+                                                    <span class="product-detail-added-important-pill"
+                                                          th:text="${productionDetailFields != null ? #lists.size(productionDetailFields) + '개 항목' : '0개 항목'}">
+                                                        상세 항목
+                                                    </span>
                                                 </div>
 
                                                 <div class="product-detail-added-option-grid">
-                                                    <div class="product-detail-added-option-item">
-                                                        <span class="product-detail-added-option-key">제품분류</span>
-                                                        <strong class="product-detail-added-option-value"
-                                                                th:text="${order.productCategory != null ? order.productCategory.name : '-'}">
-                                                            제품분류
-                                                        </strong>
-                                                    </div>
-
-                                                    <div class="product-detail-added-option-item">
-                                                        <span class="product-detail-added-option-key">주문수량</span>
-                                                        <strong class="product-detail-added-option-value"
-                                                                th:text="|${order.quantity}개|">
-                                                            1개
-                                                        </strong>
-                                                    </div>
-
-                                                    <div class="product-detail-added-option-item"
-                                                         th:if="${orderItem != null and !#strings.isEmpty(orderItem.productName)}">
-                                                        <span class="product-detail-added-option-key">제품명</span>
-                                                        <strong class="product-detail-added-option-value"
-                                                                th:text="${orderItem.productName}">
-                                                            제품명
-                                                        </strong>
-                                                    </div>
-
-                                                    <th:block th:if="${orderItem != null and orderItem.parsedOptionMap != null and !#maps.isEmpty(orderItem.parsedOptionMap)}">
+                                                    <th:block th:if="${productionDetailFields != null and !#lists.isEmpty(productionDetailFields)}">
                                                         <div class="product-detail-added-option-item"
-                                                             th:each="entry : ${orderItem.parsedOptionMap}">
+                                                             th:classappend="${field.important} ? ' product-detail-added-option-item-important' : ''"
+                                                             th:each="field : ${productionDetailFields}">
                                                             <span class="product-detail-added-option-key"
-                                                                  th:text="${entry.key}">옵션명</span>
+                                                                  th:text="${field.label}">상세항목</span>
                                                             <strong class="product-detail-added-option-value"
-                                                                    th:text="${entry.value}">옵션값</strong>
+                                                                    th:text="${field.value}">상세내용</strong>
                                                         </div>
                                                     </th:block>
 
                                                     <div class="product-detail-added-empty-options"
-                                                         th:if="${orderItem == null or orderItem.parsedOptionMap == null or #maps.isEmpty(orderItem.parsedOptionMap)}">
-                                                        등록된 옵션 정보가 없습니다.
+                                                         th:if="${productionDetailFields == null or #lists.isEmpty(productionDetailFields)}">
+                                                        등록된 상세 정보가 없습니다.
                                                     </div>
                                                 </div>
                                             </section>
@@ -364,6 +399,61 @@
         <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
     </div>
 </div>
+
+<style>
+    .product-detail-added-managed-by-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 4px 10px;
+        border: 1px solid #c7d2fe;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .product-detail-added-summary-item-manager {
+        border-color: #c7d2fe !important;
+        background: linear-gradient(135deg, #f5f7ff 0%, #eef2ff 100%) !important;
+    }
+
+    .product-detail-added-note-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .product-detail-added-note-grid .product-detail-added-note-box {
+        min-width: 0;
+        height: 100%;
+        margin: 0;
+    }
+
+    .product-detail-added-note-box-admin {
+        border-color: #f3d19e !important;
+        background: #fffbeb !important;
+    }
+
+    .product-detail-added-option-item-important {
+        border-color: #c7d2fe !important;
+        background: #f5f7ff !important;
+    }
+
+    .product-detail-added-option-value {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 991.98px) {
+        .product-detail-added-note-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>

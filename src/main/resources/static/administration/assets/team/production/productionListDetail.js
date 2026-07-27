@@ -413,6 +413,12 @@
 			status: toText(firstValue(raw.status, raw.orderStatus, raw.statusName)),
 			statusLabel: toText(firstValue(raw.statusLabel, raw.status_label)),
 			companyName: toText(firstValue(raw.companyName, raw.clientCompanyName, raw.customerCompanyName)),
+			managedByName: toText(firstValue(
+				raw.managedByName,
+				raw.managerName,
+				raw.taskManagedByName,
+				findFieldValue(fields, ['담당직원', '발주담당직원', 'managedBy'])
+			)) || '미배정',
 			productName: toText(firstValue(raw.productName, orderItem && orderItem.productName, findFieldValue(fields, ['제품명', 'productName']))),
 			categoryName: toText(firstValue(raw.categoryName, raw.productCategoryName, findFieldValue(fields, ['제품분류', '카테고리', 'category']))),
 			standardLabel: toText(firstValue(raw.standardLabel, findFieldValue(fields, ['규격여부', '규격', 'standard']))),
@@ -807,6 +813,7 @@
 		return [
 			'<section class="team-production-inline-summary">',
 			buildSummaryItemHtml('업체명', order.companyName || '-'),
+			buildSummaryItemHtml('담당직원', order.managedByName || '미배정'),
 			buildSummaryItemHtml('ID / 상태', '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-')),
 			buildSummaryItemHtml('제품명', order.productName || '-'),
 			buildSummaryItemHtml('분류', order.categoryName || '-'),
@@ -1300,6 +1307,9 @@
 			'관리자메모',
 			'adminmemo',
 			'memo',
+			'담당직원',
+			'발주담당직원',
+			'managedby',
 			'제품분류',
 			'카테고리',
 			'category',

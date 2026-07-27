@@ -6,6 +6,19 @@ document.addEventListener("DOMContentLoaded", function() {
 	const startDateInput = document.getElementById("startDate");
 	const endDateInput = document.getElementById("endDate");
 	const pageSizeSelect = document.getElementById("task-list-added-pageSize");
+	const sortStateInput = document.querySelector('input[name="sortState"]');
+	const sortResetBtn = document.getElementById("task-list-sort-reset-btn");
+	const searchResetBtn = document.getElementById("task-list-search-reset-btn");
+
+	const NON_STANDARD_TASK_LIST_SORT_FIELDS = new Set([
+		"orderId",
+		"agencyName",
+		"productCategoryName",
+		"standard",
+		"orderDate",
+		"preferredDeliveryDate",
+		"status"
+	]);
 
 	const checkAllBox = document.getElementById("task-list-check-all");
 	const deleteTasksBtn = document.getElementById("task-list-delete-tasks-btn");
@@ -55,6 +68,153 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	window.addEventListener("load", hidePageLoading);
+
+
+	function parseSortState(rawSortState) {
+		const criteria = [];
+		const seenFields = new Set();
+
+		String(rawSortState || "")
+			.split("|")
+			.forEach(token => {
+				const normalizedToken = token.trim();
+				if (!normalizedToken) {
+					return;
+				}
+
+				const separatorIndex = normalizedToken.indexOf(":");
+				if (separatorIndex <= 0) {
+					return;
+				}
+
+				const field = normalizedToken.substring(0, separatorIndex).trim();
+				const direction = normalizedToken.substring(separatorIndex + 1).trim().toLowerCase();
+
+				if (!NON_STANDARD_TASK_LIST_SORT_FIELDS.has(field)) {
+					return;
+				}
+
+				if (direction !== "asc" && direction !== "desc") {
+					return;
+				}
+
+				if (seenFields.has(field)) {
+					const existing = criteria.find(item => item.field === field);
+					if (existing) {
+						existing.direction = direction;
+					}
+					return;
+				}
+
+				seenFields.add(field);
+				criteria.push({ field, direction });
+			});
+
+		return criteria;
+	}
+
+	function serializeSortState(criteria) {
+		return (criteria || [])
+			.filter(item => NON_STANDARD_TASK_LIST_SORT_FIELDS.has(item.field))
+			.filter(item => item.direction === "asc" || item.direction === "desc")
+			.map(item => item.field + ":" + item.direction)
+			.join("|");
+	}
+
+	function getNormalizedSortState() {
+		const hiddenValue = sortStateInput?.value || "";
+		if (hiddenValue) {
+			return serializeSortState(parseSortState(hiddenValue));
+		}
+
+		const params = new URLSearchParams(window.location.search);
+		return serializeSortState(parseSortState(params.get("sortState") || ""));
+	}
+
+	function navigateTaskList(url, loadingMessage) {
+		showPageLoading(loadingMessage || "목록을 불러오는 중입니다.");
+		window.location.assign(url.pathname + url.search);
+	}
+
+	function applySortLink(link) {
+		if (!link) {
+			return;
+		}
+
+		const field = link.dataset.sortField || "";
+		const direction = (link.dataset.sortDir || "").toLowerCase();
+
+		if (!NON_STANDARD_TASK_LIST_SORT_FIELDS.has(field)) {
+			return;
+		}
+
+		if (direction !== "asc" && direction !== "desc") {
+			return;
+		}
+
+		const criteria = parseSortState(getNormalizedSortState());
+		const existingIndex = criteria.findIndex(item => item.field === field);
+
+		if (existingIndex >= 0 && criteria[existingIndex].direction === direction) {
+			criteria.splice(existingIndex, 1);
+		} else if (existingIndex >= 0) {
+			criteria[existingIndex].direction = direction;
+		} else {
+			criteria.push({ field, direction });
+		}
+
+		const url = new URL(window.location.href);
+		const nextSortState = serializeSortState(criteria);
+
+		url.searchParams.delete("page");
+		url.searchParams.delete("sortField");
+		url.searchParams.delete("sortDir");
+
+		if (nextSortState) {
+			url.searchParams.set("sortState", nextSortState);
+		} else {
+			url.searchParams.delete("sortState");
+		}
+
+		navigateTaskList(url, "정렬을 적용하는 중입니다.");
+	}
+
+	function resetSortOnly() {
+		const url = new URL(window.location.href);
+
+		url.searchParams.delete("page");
+		url.searchParams.delete("sortState");
+		url.searchParams.delete("sortField");
+		url.searchParams.delete("sortDir");
+
+		navigateTaskList(url, "정렬을 초기화하는 중입니다.");
+	}
+
+	function resetSearchOnly() {
+		const url = new URL(window.location.href);
+		const currentSortState = getNormalizedSortState();
+
+		[
+			"page",
+			"keyword",
+			"orderId",
+			"dateCriteria",
+			"startDate",
+			"endDate",
+			"productCategoryId",
+			"orderStatus",
+			"standard",
+			"sortState",
+			"sortField",
+			"sortDir"
+		].forEach(parameterName => url.searchParams.delete(parameterName));
+
+		if (currentSortState) {
+			url.searchParams.set("sortState", currentSortState);
+		}
+
+		navigateTaskList(url, "검색 조건을 초기화하는 중입니다.");
+	}
 
 	function buildJsonHeaders() {
 		const headers = {
@@ -872,11 +1032,26 @@ document.addEventListener("DOMContentLoaded", function() {
 			});
 		});
 
-		document.querySelectorAll(".pagination a, .task-list-added-sort-link").forEach(link => {
+		document.querySelectorAll(".pagination a").forEach(link => {
 			link.addEventListener("click", function() {
 				showPageLoading("목록을 불러오는 중입니다.");
 			});
 		});
+
+		document.querySelectorAll(".task-list-added-sort-link").forEach(link => {
+			link.addEventListener("click", function(event) {
+				event.preventDefault();
+				applySortLink(link);
+			});
+		});
+
+		if (sortResetBtn) {
+			sortResetBtn.addEventListener("click", resetSortOnly);
+		}
+
+		if (searchResetBtn) {
+			searchResetBtn.addEventListener("click", resetSearchOnly);
+		}
 
 		if (deleteTasksBtn) {
 			deleteTasksBtn.addEventListener("click", function() {

@@ -92,10 +92,11 @@ public class OrderExcelCellReader {
      * 수량처럼 음수가 허용되는 정수 값을 읽습니다.
      *
      * - 일반 음수: -1, -2
-     * - 유니코드 마이너스: −1, –1, —1
+     * - 유니코드/전각 마이너스: −1, –1, —1, －1
      * - 회계식 음수: (1)
+     * - 후행 마이너스: 1-
      *
-     * 단독 하이픈("-")은 수량을 특정할 수 없으므로 0으로 처리합니다.
+     * 단독 하이픈("-")은 반품/회수 1개 의미로 사용하므로 -1로 처리합니다.
      */
     public int signedInteger(Row row, int cellIndex) {
         return signedInteger(text(row, cellIndex));
@@ -113,13 +114,21 @@ public class OrderExcelCellReader {
                 .replace('−', '-')
                 .replace('–', '-')
                 .replace('—', '-')
+                .replace('－', '-')
                 .replace(",", "")
                 .replace("개", "")
                 .replaceAll("\\s+", "")
                 .replaceAll("[^0-9\\-.]", "");
 
-        if (normalized.isBlank() || "-".equals(normalized) || ".".equals(normalized)) {
+        if ("-".equals(normalized)) {
+            return -1;
+        }
+        if (normalized.isBlank() || ".".equals(normalized)) {
             return 0;
+        }
+
+        if (normalized.endsWith("-") && normalized.indexOf('-') == normalized.length() - 1) {
+            normalized = "-" + normalized.substring(0, normalized.length() - 1);
         }
 
         try {

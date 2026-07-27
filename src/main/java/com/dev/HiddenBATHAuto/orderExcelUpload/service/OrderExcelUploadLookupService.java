@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.orderExcelUpload.service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelDeliveryMethodOptionResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelLookupOptionsResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelOptionDto;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelOrderStatusOptionResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelAmountItemMasterRepository;
 import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelDeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelMemberRepository;
@@ -40,6 +43,7 @@ public class OrderExcelUploadLookupService {
         OrderExcelLookupOptionsResponse response = new OrderExcelLookupOptionsResponse();
         response.setDeliveryMethods(getDeliveryMethods());
         response.setProductionCategories(getProductionCategories());
+        response.setOrderStatuses(getOrderStatuses());
         response.setMiddleCategories(getMiddleCategories());
         response.setMiddleCategoriesByCategory(getMiddleCategoriesByCategory(response.getProductionCategories()));
         response.setManagers(getManagers());
@@ -51,6 +55,12 @@ public class OrderExcelUploadLookupService {
         return deliveryMethodRepository.findAllByOrderByMethodNameAsc()
                 .stream()
                 .map(this::toDeliveryMethodOption)
+                .collect(Collectors.toList());
+    }
+
+    private List<OrderExcelOrderStatusOptionResponse> getOrderStatuses() {
+        return Arrays.stream(OrderStatus.values())
+                .map(status -> new OrderExcelOrderStatusOptionResponse(status.name(), status.getLabel()))
                 .collect(Collectors.toList());
     }
 

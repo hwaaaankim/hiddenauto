@@ -742,70 +742,58 @@ public class TeamController {
 	public String getProductionDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,
 			Model model) {
 
-		// 1. 로그인 멤버 확인
 		if (principal == null || principal.getMember() == null) {
 			throw new AccessDeniedException("로그인이 필요합니다.");
 		}
 
 		Member loginMember = principal.getMember();
 
-		// 2. 생산팀 접근 여부 확인
 		if (loginMember.getTeam() == null || !"생산팀".equals(loginMember.getTeam().getName())) {
 			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
 		}
 
-		// 3. 주문 조회
-		Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
-		
-		if (!isProductionListVisibleStatus(order.getStatus())) {
+		/*
+		 * 상세 화면에서 사용하는 모든 연관관계를 한 번에 조회합니다.
+		 * Task.managedBy, 요청자/업체, 제품, 이미지, 확인상태가 지연 로딩으로 누락되지 않도록
+		 * 생산 상세 전용 fetch query를 사용합니다.
+		 */
+		Order accessOrder = orderRepository.findByIdForProductionDetail(orderId)
+				.orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
+
+		if (!isProductionListVisibleStatus(accessOrder.getStatus())) {
 			throw new AccessDeniedException("생산팀에서 조회할 수 없는 주문 상태입니다.");
 		}
 
-		if (!teamTaskService.canAccessProductionOrderForProductionMember(loginMember, order)) {
+		if (!teamTaskService.canAccessProductionOrderForProductionMember(loginMember, accessOrder)) {
 			throw new AccessDeniedException("해당 생산 발주를 조회할 권한이 없습니다.");
 		}
-		
-		// 4. 상세 진입 시 확인 처리
+
+		// 상세 진입 자체가 확인 처리이므로 먼저 반영합니다.
 		teamTaskService.markProductionOrderChecked(orderId, loginMember);
 
-		// 5. 주문 상품 옵션 JSON 파싱
+		/*
+		 * 확인 처리 직후 최신 checkStatus까지 화면에 표시하기 위해 다시 조회합니다.
+		 * 이 재조회가 없으면 최초 진입 시 화면에는 이전 확인상태가 남을 수 있습니다.
+		 */
+		Order order = orderRepository.findByIdForProductionDetail(orderId)
+				.orElseThrow(() -> new RuntimeException("해당 주문을 찾을 수 없습니다."));
+
 		OrderItem orderItem = order.getOrderItem();
 
-		if (orderItem != null && orderItem.getOptionJson() != null && !orderItem.getOptionJson().isBlank()) {
-			try {
-				ObjectMapper mapper = new ObjectMapper();
-
-				Map<String, String> parsedMap = mapper.readValue(orderItem.getOptionJson(),
-						new TypeReference<Map<String, String>>() {
-						});
-
-				orderItem.setParsedOptionMap(parsedMap);
-
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-
-		// 6. 재단 직원 여부
 		boolean isCuttingProductionMember = isCuttingProductionMember(loginMember);
 		boolean isMirrorCuttingProductionMember = isLegacyMirrorCuttingProductionMember(loginMember);
 
-		// 7. 생산완료 가능 여부
-		boolean canChangeStatus = false;
-
-		/*
-		 * 생산완료 가능 조건 1) 재단 직원이 아니어야 함 2) 로그인 직원의 팀 카테고리와 주문 제품 카테고리가 같아야 함 3) 주문 상태가
-		 * CONFIRMED 여야 함
-		 */
-		if (!isCuttingProductionMember && loginMember.getTeamCategory() != null && order.getProductCategory() != null
+		boolean canChangeStatus = !isCuttingProductionMember
+				&& loginMember.getTeamCategory() != null
+				&& order.getProductCategory() != null
 				&& loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())
-				&& order.getStatus() == OrderStatus.CONFIRMED) {
-			canChangeStatus = true;
-		}
+				&& order.getStatus() == OrderStatus.CONFIRMED;
 
-		// 8. 모델 세팅
 		model.addAttribute("order", order);
 		model.addAttribute("orderItem", orderItem);
+		model.addAttribute("productionDetailFields",
+				teamTaskService.buildProductionOverviewDetailFields(order));
+		model.addAttribute("managedByName", teamTaskService.resolveProductionManagedByName(order));
 		model.addAttribute("canChangeStatus", canChangeStatus);
 		model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
 		model.addAttribute("isMirrorCuttingProductionMember", isMirrorCuttingProductionMember);

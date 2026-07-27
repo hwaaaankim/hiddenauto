@@ -381,7 +381,11 @@ public class DeliveryRouteService {
 
             OrderRow orderRow = toOrderRow(indexRow, addressInfo.display());
             accumulator.orders.add(orderRow);
-            accumulator.totalQuantity += Math.max(0, orderRow.getQuantity());
+            /*
+             * 반품/회수 주문은 음수 수량을 사용하므로 0으로 보정하지 않습니다.
+             * 묶음 수량도 주문별 부호를 유지한 순수 합계로 표시합니다.
+             */
+            accumulator.totalQuantity += orderRow.getQuantity();
 
             if (orderRow.isDeliveryDone()) {
                 accumulator.deliveryDoneCount++;
@@ -492,10 +496,7 @@ public class DeliveryRouteService {
                 item != null ? item.getProductName() : null
         );
 
-        String quantityText = firstNonBlank(
-                item != null ? item.getDeliveryQuantityText() : null,
-                quantity > 0 ? "수량 " + quantity + "개" : null
-        );
+        String quantityText = resolveQuantityText(item, quantity, true);
 
         return OrderRow.builder()
                 .orderId(order.getId())
@@ -540,10 +541,7 @@ public class DeliveryRouteService {
                 item != null ? item.getProductName() : null
         );
 
-        String quantityText = firstNonBlank(
-                item != null ? item.getDeliveryQuantityText() : null,
-                quantity > 0 ? quantity + "개" : null
-        );
+        String quantityText = resolveQuantityText(item, quantity, false);
 
         return PrintRow.builder()
                 .orderId(order.getId())
@@ -672,12 +670,37 @@ public class DeliveryRouteService {
         );
     }
 
+    /**
+     * 수량은 반품/회수 처리를 위해 음수를 허용합니다.
+     *
+     * OrderItem 수량이 0이 아닌 경우 기존 우선순위를 유지하고,
+     * 과거 데이터처럼 OrderItem 수량이 0인 경우에는 Order 수량으로 보완합니다.
+     * 어느 경우에도 음수를 0으로 보정하지 않습니다.
+     */
     private int resolveQuantity(Order order, OrderItem item) {
-        if (item != null && item.getQuantity() > 0) {
+        if (item != null && item.getQuantity() != 0) {
             return item.getQuantity();
         }
 
-        return order != null ? Math.max(0, order.getQuantity()) : 0;
+        return order != null ? order.getQuantity() : 0;
+    }
+
+    /**
+     * DeliveryProductDisplayUtil이 만든 표시 문자열은 양수/0 수량에서 우선 사용하되,
+     * 음수 수량은 기존 표시 문자열이 누락되거나 0으로 만들어졌을 가능성이 있으므로
+     * 실제 수량값을 기준으로 직접 표시합니다.
+     */
+    private String resolveQuantityText(OrderItem item, int quantity, boolean includeLabel) {
+        String prefix = includeLabel ? "수량 " : "";
+
+        if (quantity < 0) {
+            return prefix + quantity + "개";
+        }
+
+        return firstNonBlank(
+                item != null ? item.getDeliveryQuantityText() : null,
+                prefix + quantity + "개"
+        );
     }
 
     private String resolveDeliveryMethodDisplayName(Order order) {

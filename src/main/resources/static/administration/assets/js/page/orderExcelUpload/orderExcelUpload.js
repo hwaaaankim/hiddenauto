@@ -5,11 +5,20 @@
     const API_BASE = '/management/api/order-excel-upload';
     const BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = '12';
     const BATHROOM_GOODS_CATEGORY_NAME = '욕실용품';
+    const DEFAULT_ORDER_STATUSES = [
+        { code: 'REQUESTED', label: '고객 발주' },
+        { code: 'CONFIRMED', label: '승인 완료' },
+        { code: 'PRODUCTION_DONE', label: '생산 완료' },
+        { code: 'DISPATCH_DONE', label: '출고 완료' },
+        { code: 'DELIVERY_DONE', label: '배송 완료' },
+        { code: 'CANCELED', label: '취소' }
+    ];
 
     const state = {
         options: {
             deliveryMethods: [],
             productionCategories: [],
+            orderStatuses: DEFAULT_ORDER_STATUSES,
             managers: [],
             deliveryHandlers: []
         },
@@ -360,8 +369,9 @@
                             <th class="order-excel-col-switch">거울</th>
                             <th>엑셀행</th>
                             <th>출고일</th>
-                            <th>담당팀</th>
-                            <th>중분류</th>
+                            <th>오더 상태</th>
+                            <th>제품 분류</th>
+                            <th>제품시리즈</th>
                             <th>원본 품목명</th>
                             <th>저장 제품명</th>
                             <th>사이즈</th>
@@ -406,6 +416,11 @@
                 <td class="text-center order-excel-row-no">${row.excelRowNumber || ''}</td>
                 <td><input type="date" class="form-control form-control-sm" data-row-field="preferredDeliveryDate" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.preferredDeliveryDate || '')}"></td>
                 <td>
+                    <select class="form-select form-select-sm order-excel-status-select" data-row-field="orderStatus" data-group-index="${groupIndex}" data-row-index="${rowIndex}">
+                        ${renderOrderStatusOptions(row.orderStatus)}
+                    </select>
+                </td>
+                <td>
                     <select class="form-select form-select-sm order-excel-category-select" data-row-field="productionCategoryId" data-group-index="${groupIndex}" data-row-index="${rowIndex}">
                         ${renderProductionCategoryOptions(row.productionCategoryId)}
                     </select>
@@ -417,7 +432,7 @@
                 <td><input type="text" class="form-control form-control-sm order-excel-product-name" data-row-field="itemNameForSave" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.itemNameForSave || '')}"></td>
                 <td><input type="text" class="form-control form-control-sm" data-row-field="size" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.size || '')}"></td>
                 <td><input type="text" class="form-control form-control-sm" data-row-field="color" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${escapeHtml(row.color || '')}"></td>
-                <td><input type="text" class="form-control form-control-sm text-end order-excel-money order-excel-quantity" data-row-field="quantity" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.quantity)}" title="0 또는 음수 입력 가능"></td>
+                <td><input type="text" class="form-control form-control-sm text-end order-excel-money order-excel-quantity" data-row-field="quantity" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.quantity)}" title="0, 음수 또는 단독 - 입력 가능 (단독 -는 -1로 저장)"></td>
                 <td><input type="text" class="form-control form-control-sm text-end order-excel-money" data-row-field="productCost" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.productCost)}"></td>
                 <td><input type="text" class="form-control form-control-sm text-end order-excel-money" data-row-field="supplyPrice" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.supplyPrice)}"></td>
                 <td><input type="text" class="form-control form-control-sm text-end order-excel-money" data-row-field="vatAmount" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.vatAmount)}"></td>
@@ -445,6 +460,19 @@
         return `<option value="">선택</option>` + methods.map(method => `
             <option value="${method.id}" ${String(selectedId || '') === String(method.id) ? 'selected' : ''}>
                 ${escapeHtml(method.methodName)}
+            </option>
+        `).join('');
+    }
+
+    function renderOrderStatusOptions(selectedCode) {
+        const statuses = (state.options.orderStatuses && state.options.orderStatuses.length)
+            ? state.options.orderStatuses
+            : DEFAULT_ORDER_STATUSES;
+        const selected = String(selectedCode || 'CONFIRMED').trim().toUpperCase();
+
+        return statuses.map(status => `
+            <option value="${escapeHtml(status.code || '')}" ${String(status.code || '').toUpperCase() === selected ? 'selected' : ''}>
+                ${escapeHtml(status.label || status.code || '')}
             </option>
         `).join('');
     }
@@ -570,7 +598,9 @@
                     const categoryNameForSave = String(category.id) === BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID
                         ? BATHROOM_GOODS_CATEGORY_NAME
                         : category.name;
-                    state.groups[groupIndex].rows[rowIndex].categoryName = categoryNameForSave;
+                    const row = state.groups[groupIndex].rows[rowIndex];
+                    row.categoryName = categoryNameForSave;
+                    row.orderStatus = defaultOrderStatusForCategory(categoryNameForSave);
                     const hidden = target.closest('tr').querySelector('[data-row-field="categoryName"]');
                     if (hidden) hidden.value = categoryNameForSave;
                     renderPreview();
@@ -844,6 +874,7 @@
                     excelRowNumber: row.excelRowNumber,
                     saveTarget: row.saveTarget !== false,
                     preferredDeliveryDate: row.preferredDeliveryDate,
+                    orderStatus: row.orderStatus,
                     originalItemName: row.originalItemName,
                     itemNameForSave: row.itemNameForSave,
                     calculatedProductName: row.calculatedProductName,
@@ -852,7 +883,7 @@
                     middleCategoryName: row.middleCategoryName,
                     size: row.size,
                     color: row.color,
-                    quantity: Number(row.quantity || 0),
+                    quantity: parseSignedInteger(row.quantity),
                     adminMemo: row.adminMemo,
                     deliveryHandlerName: row.deliveryHandlerName || group.deliveryHandlerName || '',
                     deliveryHandlerMemberId: normalizeId(row.deliveryHandlerMemberId || group.deliveryHandlerMemberId),
@@ -1353,6 +1384,12 @@
         }, 0);
     }
 
+    function defaultOrderStatusForCategory(categoryName) {
+        return normalizeText(categoryName) === normalizeText(BATHROOM_GOODS_CATEGORY_NAME)
+            ? 'PRODUCTION_DONE'
+            : 'CONFIRMED';
+    }
+
     function deliveryRuleCodeFromMethod(method) {
         const normalized = normalizeText(method && method.methodName);
         if (!normalized) return '';
@@ -1451,14 +1488,18 @@
 
         const accountingNegative = original.startsWith('(') && original.endsWith(')');
         const raw = original
-            .replace(/[−–—]/g, '-')
+            .replace(/[−–—－]/g, '-')
             .replace(/,/g, '')
             .replace(/개/g, '')
             .replace(/[^0-9.-]/g, '');
 
-        if (!raw || raw === '-' || raw === '.') return 0;
+        if (raw === '-') return -1;
+        if (!raw || raw === '.') return 0;
 
-        const n = Number(raw);
+        const normalized = raw.endsWith('-') && raw.indexOf('-') === raw.length - 1
+            ? `-${raw.slice(0, -1)}`
+            : raw;
+        const n = Number(normalized);
         if (!Number.isFinite(n) || !Number.isInteger(n)) return 0;
         return accountingNegative && n > 0 ? -n : n;
     }

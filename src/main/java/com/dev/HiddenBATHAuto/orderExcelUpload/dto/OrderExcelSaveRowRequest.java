@@ -12,6 +12,7 @@ public class OrderExcelSaveRowRequest {
     private boolean saveTarget = true;
 
     private String preferredDeliveryDate;
+    private String orderStatus;
     private String originalItemName;
     private String itemNameForSave;
     private String calculatedProductName;

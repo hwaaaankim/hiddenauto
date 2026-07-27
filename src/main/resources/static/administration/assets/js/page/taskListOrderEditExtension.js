@@ -390,6 +390,16 @@
 				if (changedRole === "supply") {
 					input.dataset.supplyManual = "true";
 				}
+
+				/*
+				 * type="number"에서 음수를 입력할 때 사용자는 먼저 "-"를 입력합니다.
+				 * 이 중간 상태를 즉시 숫자 0으로 치환하면 -1, -2 입력 자체가 불가능하므로
+				 * 수량 입력이 비어 있거나 음수 입력 중인 동안에는 계산을 잠시 보류합니다.
+				 */
+				if (changedRole === "quantity" && isQuantityInputInProgress(input)) {
+					return;
+				}
+
 				recalculateMoney(form, changedRole);
 			});
 		});
@@ -407,7 +417,12 @@
 			}
 
 			const value = parseInteger(input.value);
-			if (value < 0) {
+
+			/*
+			 * 수량은 반품·회수 처리를 위해 음수를 허용합니다.
+			 * 단가·공급가·총비용 등 기존 금액 필드의 음수 제한은 그대로 유지합니다.
+			 */
+			if (role !== "quantity" && value < 0) {
 				const label = input.closest(".admin-task-list-second-field")?.querySelector("label")?.textContent?.trim();
 				throw new Error((label || "금액") + " 값은 0보다 작을 수 없습니다.");
 			}
@@ -440,10 +455,29 @@
 		const vat = Math.max(0, total - supply);
 
 		unitInput.value = String(Math.max(0, unit));
-		quantityInput.value = String(Math.max(0, quantity));
+
+		/*
+		 * 수량은 반품·회수용 음수값을 그대로 유지합니다.
+		 * 기존 Math.max(0, quantity)는 넓게보기 로딩 직후 -1을 0으로 덮어쓰는 원인이었습니다.
+		 */
+		quantityInput.value = String(quantity);
 		supplyInput.value = String(supply);
 		vatInput.value = String(vat);
 		totalInput.value = String(total);
+	}
+
+	function isQuantityInputInProgress(input) {
+		if (!input) {
+			return false;
+		}
+
+		const raw = String(input.value == null ? "" : input.value).trim();
+
+		/*
+		 * 일부 브라우저는 type="number"에 "-"만 입력된 상태를 빈 문자열로 노출합니다.
+		 * badInput까지 함께 확인해 그 순간 값을 0으로 덮어쓰지 않습니다.
+		 */
+		return raw === "" || raw === "-" || input.validity?.badInput === true;
 	}
 
 	function getMoneyInput(form, role) {

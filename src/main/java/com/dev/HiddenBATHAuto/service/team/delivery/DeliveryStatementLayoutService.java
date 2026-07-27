@@ -937,7 +937,7 @@ public class DeliveryStatementLayoutService {
             String layoutType
     ) {
         Row titleRow = getOrCreateRow(sheet, startRow);
-        titleRow.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 28 : 22);
+        titleRow.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 30 : 24);
 
         String partText = page.getPageCount() > 1
                 ? page.getPageNumber() + "/" + page.getPageCount()
@@ -1006,7 +1006,7 @@ public class DeliveryStatementLayoutService {
             CellStyle rightValueStyle
     ) {
         Row row = getOrCreateRow(sheet, rowIndex);
-        row.setHeightInPoints(20);
+        row.setHeightInPoints(22);
 
         setMergedValue(sheet, rowIndex, startColumn, startColumn, leftLabel, styles.get("label"));
         setMergedValue(sheet, rowIndex, startColumn + 1, startColumn + 3, leftValue, styles.get("body"));
@@ -1026,7 +1026,7 @@ public class DeliveryStatementLayoutService {
             String layoutType
     ) {
         Row row = getOrCreateRow(sheet, rowIndex);
-        row.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 31 : 25);
+        row.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 34 : 27);
 
         setMergedValue(sheet, rowIndex, startColumn, startColumn, label, styles.get("label"));
         setMergedValue(sheet, rowIndex, startColumn + 1, startColumn + 7, value, styles.get("body"));
@@ -1044,7 +1044,7 @@ public class DeliveryStatementLayoutService {
             String layoutType
     ) {
         Row headerRow = getOrCreateRow(sheet, rowIndex++);
-        headerRow.setHeightInPoints(20);
+        headerRow.setHeightInPoints(22);
 
         setMergedValue(sheet, headerRow.getRowNum(), startColumn, startColumn, "NO", styles.get("tableHeader"));
         setMergedValue(sheet, headerRow.getRowNum(), startColumn + 1, startColumn + 2, "품명", styles.get("tableHeader"));
@@ -1057,7 +1057,7 @@ public class DeliveryStatementLayoutService {
 
         for (int i = 0; i < fixedItemRows; i++) {
             Row itemRow = getOrCreateRow(sheet, rowIndex++);
-            itemRow.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 34 : 20);
+            itemRow.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 36 : 22);
             StatementItemDto item = i < items.size() ? items.get(i) : null;
 
             setMergedValue(sheet, itemRow.getRowNum(), startColumn, startColumn,
@@ -1087,31 +1087,38 @@ public class DeliveryStatementLayoutService {
             String layoutType
     ) {
         Row headerRow = getOrCreateRow(sheet, rowIndex++);
-        headerRow.setHeightInPoints(20);
+        headerRow.setHeightInPoints(22);
 
+        /*
+         * 택배명세서도 현장명세서와 동일하게 주문별 adminMemo를 비고로 표시합니다.
+         * 한쪽 명세서가 8개 열로 고정되어 있으므로 품명은 2칸, 비고는 2칸을 사용합니다.
+         */
         setMergedValue(sheet, headerRow.getRowNum(), startColumn, startColumn, "NO", styles.get("tableHeader"));
-        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 1, startColumn + 3, "품명", styles.get("tableHeader"));
-        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 4, startColumn + 4, "규격", styles.get("tableHeader"));
-        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 5, startColumn + 5, "색상", styles.get("tableHeader"));
-        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 6, startColumn + 7, "수량", styles.get("tableHeader"));
+        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 1, startColumn + 2, "품명", styles.get("tableHeader"));
+        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 3, startColumn + 3, "규격", styles.get("tableHeader"));
+        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 4, startColumn + 4, "색상", styles.get("tableHeader"));
+        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 5, startColumn + 5, "수량", styles.get("tableHeader"));
+        setMergedValue(sheet, headerRow.getRowNum(), startColumn + 6, startColumn + 7, "비고", styles.get("tableHeader"));
 
         List<StatementItemDto> items = page.getItems() != null ? page.getItems() : List.of();
 
         for (int i = 0; i < fixedItemRows; i++) {
             Row itemRow = getOrCreateRow(sheet, rowIndex++);
-            itemRow.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 34 : 20);
+            itemRow.setHeightInPoints(LAYOUT_HORIZONTAL.equals(layoutType) ? 36 : 22);
             StatementItemDto item = i < items.size() ? items.get(i) : null;
 
             setMergedValue(sheet, itemRow.getRowNum(), startColumn, startColumn,
                     item != null ? String.valueOf(item.getNo()) : "", styles.get("bodyCenter"));
-            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 1, startColumn + 3,
+            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 1, startColumn + 2,
                     item != null ? safeText(item.getProductName()) : "", styles.get("body"));
-            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 4, startColumn + 4,
+            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 3, startColumn + 3,
                     item != null ? safeText(item.getSizeText()) : "", styles.get("body"));
-            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 5, startColumn + 5,
+            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 4, startColumn + 4,
                     item != null ? safeText(item.getColor()) : "", styles.get("body"));
-            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 6, startColumn + 7,
+            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 5, startColumn + 5,
                     item != null ? String.valueOf(item.getQuantity()) : "", styles.get("bodyCenter"));
+            setMergedValue(sheet, itemRow.getRowNum(), startColumn + 6, startColumn + 7,
+                    item != null ? safeText(item.getMemo()) : "", styles.get("body"));
         }
 
         return rowIndex;
@@ -1140,7 +1147,11 @@ public class DeliveryStatementLayoutService {
     }
 
     private void configureHorizontalColumnWidths(Sheet sheet) {
-        int[] widths = {15, 13, 13, 12, 10, 9, 10, 15};
+        /*
+         * A/J 라벨 열은 거래처명, 하차지 담당자, 하차지 주소 등이 한 줄로 보이도록 넓힙니다.
+         * 한쪽 명세서 전체 폭 합계는 기존 87을 유지하여 A4 한 페이지 맞춤 축소를 최소화합니다.
+         */
+        int[] widths = {12, 11, 11, 9, 10, 9, 10, 15};
 
         for (int i = 0; i < widths.length; i++) {
             sheet.setColumnWidth(i, widths[i] * 256);
@@ -1151,7 +1162,8 @@ public class DeliveryStatementLayoutService {
     }
 
     private void configureVerticalColumnWidths(Sheet sheet) {
-        int[] widths = {6, 16, 16, 15, 12, 11, 13, 19};
+        /* 세로형은 현재 버튼을 숨겨 두었지만 동일한 라벨 가독성을 유지합니다. */
+        int[] widths = {13, 14, 14, 12, 12, 11, 13, 19};
 
         for (int i = 0; i < widths.length; i++) {
             sheet.setColumnWidth(i, widths[i] * 256);
@@ -1191,11 +1203,14 @@ public class DeliveryStatementLayoutService {
     private Map<String, CellStyle> createExcelStyles(Workbook workbook) {
         Map<String, CellStyle> styles = new LinkedHashMap<>();
 
-        Font normalFont = createFont(workbook, (short) 9, false, IndexedColors.BLACK.getIndex());
-        Font boldFont = createFont(workbook, (short) 9, true, IndexedColors.BLACK.getIndex());
-        Font titleFont = createFont(workbook, (short) 15, true, IndexedColors.BLACK.getIndex());
-        Font whiteBoldFont = createFont(workbook, (short) 9, true, IndexedColors.WHITE.getIndex());
-        Font emphasisFont = createFont(workbook, (short) 10, true, IndexedColors.BLACK.getIndex());
+        /*
+         * A4 한 페이지 맞춤은 유지하면서 엑셀에서 읽기 쉽도록 전체 폰트를 한 단계 확대합니다.
+         */
+        Font normalFont = createFont(workbook, (short) 10, false, IndexedColors.BLACK.getIndex());
+        Font boldFont = createFont(workbook, (short) 10, true, IndexedColors.BLACK.getIndex());
+        Font titleFont = createFont(workbook, (short) 17, true, IndexedColors.BLACK.getIndex());
+        Font whiteBoldFont = createFont(workbook, (short) 10, true, IndexedColors.WHITE.getIndex());
+        Font emphasisFont = createFont(workbook, (short) 11, true, IndexedColors.BLACK.getIndex());
 
         CellStyle body = workbook.createCellStyle();
         body.setFont(normalFont);
@@ -1214,7 +1229,7 @@ public class DeliveryStatementLayoutService {
         label.setFont(boldFont);
         label.setAlignment(HorizontalAlignment.CENTER);
         label.setVerticalAlignment(VerticalAlignment.CENTER);
-        label.setWrapText(true);
+        label.setWrapText(false);
         label.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         label.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         applyThinBorder(label);

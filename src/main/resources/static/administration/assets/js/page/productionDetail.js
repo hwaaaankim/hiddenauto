@@ -1,3 +1,5 @@
+/* administration/assets/js/page/productionDetail.js */
+
 (function() {
 	"use strict";
 

@@ -16,6 +16,7 @@ public class OrderExcelPreviewRowDto {
     private String originalItemName;
 
     private String preferredDeliveryDate;
+    private String orderStatus;
     private String itemNameForSave;
     private String calculatedProductName;
     private String categoryName;
