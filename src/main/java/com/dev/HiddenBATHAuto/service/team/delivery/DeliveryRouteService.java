@@ -1,5 +1,7 @@
 package com.dev.HiddenBATHAuto.service.team.delivery;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -13,7 +15,26 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.PageMargin;
+import org.apache.poi.ss.usermodel.PrintSetup;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -53,6 +74,7 @@ public class DeliveryRouteService {
     private static final int MAX_BULK_COMPLETE_ORDER_COUNT = 200;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final Pattern SIGNED_INTEGER_PATTERN = Pattern.compile("[-+]?\\d+");
 
     private static final List<OrderStatus> VISIBLE_STATUSES = List.of(
             OrderStatus.CONFIRMED,
@@ -315,6 +337,265 @@ public class DeliveryRouteService {
         }
 
         return result;
+    }
+
+    /**
+     * 업체별 배송 화면의 일반 데이터 엑셀을 생성합니다.
+     *
+     * 명세서 다운로드와는 별개의 목록형 엑셀이며, 현재 화면 DOM 순서로 전달된 주문 ID를
+     * 그대로 유지합니다. 특히 수량은 문자열이 아니라 부호 있는 숫자 셀로 기록하므로
+     * -1, -2 같은 반품/회수 수량이 0으로 바뀌지 않습니다.
+     */
+    @Transactional(readOnly = true)
+    public byte[] createRouteExcel(
+            Member loginMember,
+            LocalDate deliveryDate,
+            List<Long> orderedOrderIds
+    ) {
+        LocalDate targetDate = deliveryDate == null ? LocalDate.now() : deliveryDate;
+        List<PrintRow> rows = getPrintRows(loginMember, targetDate, orderedOrderIds);
+
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+            Sheet sheet = workbook.createSheet("배송리스트");
+            configureRouteExcelPrint(sheet);
+            writeRouteExcelSheet(workbook, sheet, rows, loginMember, targetDate);
+
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+
+        } catch (IOException e) {
+            throw new IllegalStateException("배송리스트 엑셀 파일 생성 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private void configureRouteExcelPrint(Sheet sheet) {
+        sheet.setFitToPage(true);
+        sheet.setAutobreaks(true);
+        sheet.createFreezePane(0, 3);
+        sheet.setRepeatingRows(new CellRangeAddress(0, 2, -1, -1));
+
+        PrintSetup printSetup = sheet.getPrintSetup();
+        printSetup.setLandscape(true);
+        printSetup.setPaperSize(PrintSetup.A4_PAPERSIZE);
+        printSetup.setFitWidth((short) 1);
+        printSetup.setFitHeight((short) 0);
+
+        sheet.setMargin(PageMargin.LEFT, 0.25);
+        sheet.setMargin(PageMargin.RIGHT, 0.25);
+        sheet.setMargin(PageMargin.TOP, 0.45);
+        sheet.setMargin(PageMargin.BOTTOM, 0.45);
+    }
+
+    private void writeRouteExcelSheet(
+            Workbook workbook,
+            Sheet sheet,
+            List<PrintRow> rows,
+            Member loginMember,
+            LocalDate deliveryDate
+    ) {
+        CellStyle titleStyle = createRouteExcelTitleStyle(workbook);
+        CellStyle infoStyle = createRouteExcelInfoStyle(workbook);
+        CellStyle headerStyle = createRouteExcelHeaderStyle(workbook);
+        CellStyle bodyStyle = createRouteExcelBodyStyle(workbook);
+        CellStyle centerStyle = createRouteExcelCenterStyle(workbook);
+        CellStyle memoStyle = createRouteExcelMemoStyle(workbook);
+        CellStyle quantityStyle = createRouteExcelQuantityStyle(workbook);
+
+        int rowIndex = 0;
+
+        Row titleRow = sheet.createRow(rowIndex++);
+        titleRow.setHeightInPoints(25);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("업체별 배송리스트");
+        titleCell.setCellStyle(titleStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 13));
+
+        Row infoRow = sheet.createRow(rowIndex++);
+        infoRow.setHeightInPoints(19);
+        Cell infoCell = infoRow.createCell(0);
+        infoCell.setCellValue(
+                "배송일: " + deliveryDate
+                        + " | 담당자: " + resolveMemberName(loginMember)
+                        + " | 총 " + rows.size() + "건"
+        );
+        infoCell.setCellStyle(infoStyle);
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 13));
+
+        String[] headers = {
+                "순서",
+                "주문ID",
+                "거래처",
+                "배송수단",
+                "상태",
+                "배송지",
+                "주문자",
+                "연락처",
+                "카테고리",
+                "제품명",
+                "사이즈",
+                "색상",
+                "수량",
+                "관리자 메모"
+        };
+
+        Row headerRow = sheet.createRow(rowIndex++);
+        headerRow.setHeightInPoints(23);
+
+        for (int columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+            Cell cell = headerRow.createCell(columnIndex);
+            cell.setCellValue(headers[columnIndex]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        for (PrintRow dto : rows) {
+            Row row = sheet.createRow(rowIndex++);
+            row.setHeightInPoints(39);
+
+            createRouteExcelTextCell(row, 0, String.valueOf(dto.getOrderIndex()), centerStyle);
+            createRouteExcelTextCell(row, 1, "#" + safeLong(dto.getOrderId()), centerStyle);
+            createRouteExcelTextCell(row, 2, dto.getCompanyName(), bodyStyle);
+            createRouteExcelTextCell(row, 3, dto.getDeliveryMethodName(), centerStyle);
+            createRouteExcelTextCell(row, 4, dto.getStatusLabel(), centerStyle);
+            createRouteExcelTextCell(row, 5, dto.getAddress(), memoStyle);
+            createRouteExcelTextCell(row, 6, dto.getOrdererName(), bodyStyle);
+            createRouteExcelTextCell(row, 7, dto.getOrdererPhone(), centerStyle);
+            createRouteExcelTextCell(row, 8, dto.getCategory(), bodyStyle);
+            createRouteExcelTextCell(row, 9, dto.getProductName(), bodyStyle);
+            createRouteExcelTextCell(row, 10, dto.getSize(), bodyStyle);
+            createRouteExcelTextCell(row, 11, dto.getColor(), bodyStyle);
+            createRouteExcelIntegerCell(
+                    row,
+                    12,
+                    parseSignedQuantity(dto.getQuantityText()),
+                    quantityStyle
+            );
+            createRouteExcelTextCell(row, 13, dto.getAdminMemo(), memoStyle);
+        }
+
+        int[] widths = {
+                8, 11, 22, 15, 13, 42, 14, 16, 16, 28, 18, 13, 9, 36
+        };
+
+        for (int columnIndex = 0; columnIndex < widths.length; columnIndex++) {
+            sheet.setColumnWidth(columnIndex, widths[columnIndex] * 256);
+        }
+
+        sheet.setAutoFilter(new CellRangeAddress(2, Math.max(2, rowIndex - 1), 0, 13));
+    }
+
+    private int parseSignedQuantity(String quantityText) {
+        Matcher matcher = SIGNED_INTEGER_PATTERN.matcher(safeText(quantityText));
+
+        if (!matcher.find()) {
+            return 0;
+        }
+
+        try {
+            return Integer.parseInt(matcher.group());
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("엑셀 수량값을 숫자로 변환할 수 없습니다: " + quantityText, e);
+        }
+    }
+
+    private void createRouteExcelTextCell(
+            Row row,
+            int columnIndex,
+            String value,
+            CellStyle style
+    ) {
+        Cell cell = row.createCell(columnIndex);
+        cell.setCellValue(valueOrDash(value));
+        cell.setCellStyle(style);
+    }
+
+    private void createRouteExcelIntegerCell(
+            Row row,
+            int columnIndex,
+            int value,
+            CellStyle style
+    ) {
+        Cell cell = row.createCell(columnIndex);
+        cell.setCellValue(value);
+        cell.setCellStyle(style);
+    }
+
+    private CellStyle createRouteExcelTitleStyle(Workbook workbook) {
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 16);
+
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle createRouteExcelInfoStyle(Workbook workbook) {
+        Font font = workbook.createFont();
+        font.setFontHeightInPoints((short) 10);
+
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.LEFT);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle createRouteExcelHeaderStyle(Workbook workbook) {
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 10);
+        font.setColor(IndexedColors.WHITE.getIndex());
+
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.GREY_50_PERCENT.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        applyRouteExcelBorder(style);
+        return style;
+    }
+
+    private CellStyle createRouteExcelBodyStyle(Workbook workbook) {
+        Font font = workbook.createFont();
+        font.setFontHeightInPoints((short) 10);
+
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.LEFT);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setWrapText(true);
+        applyRouteExcelBorder(style);
+        return style;
+    }
+
+    private CellStyle createRouteExcelCenterStyle(Workbook workbook) {
+        CellStyle style = createRouteExcelBodyStyle(workbook);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle createRouteExcelMemoStyle(Workbook workbook) {
+        CellStyle style = createRouteExcelBodyStyle(workbook);
+        style.setVerticalAlignment(VerticalAlignment.TOP);
+        return style;
+    }
+
+    private CellStyle createRouteExcelQuantityStyle(Workbook workbook) {
+        CellStyle style = createRouteExcelCenterStyle(workbook);
+        style.setDataFormat(workbook.createDataFormat().getFormat("0;-0;0"));
+        return style;
+    }
+
+    private void applyRouteExcelBorder(CellStyle style) {
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
     }
 
     private List<Long> normalizeOrderIds(List<Long> orderIds) {

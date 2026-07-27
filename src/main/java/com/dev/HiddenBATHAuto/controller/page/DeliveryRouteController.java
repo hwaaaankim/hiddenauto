@@ -1,13 +1,18 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +21,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -59,6 +65,75 @@ public class DeliveryRouteController {
         model.addAttribute("isToday", selectedDate.equals(LocalDate.now()));
 
         return "administration/team/delivery/deliveryRoute";
+    }
+
+    /**
+     * 업체별 배송 화면에서 현재 조회된 주문을 화면 표시 순서대로 데이터 엑셀로 내려받습니다.
+     *
+     * 기존 명세서 엑셀과는 별개의 일반 데이터 엑셀입니다. 수량은 숫자 셀로 기록하며
+     * 반품/회수용 음수 수량도 0으로 보정하지 않고 그대로 보존합니다.
+     */
+    @PostMapping("/excel")
+    @ResponseBody
+    public ResponseEntity<?> downloadRouteExcel(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DeliveryRouteExcelRequest request
+    ) {
+        try {
+            Member loginMember = requireLoginMember(principal);
+
+            if (request == null) {
+                throw new IllegalArgumentException("엑셀 출력 요청이 없습니다.");
+            }
+
+            if (request.deliveryHandlerId() != null
+                    && !request.deliveryHandlerId().equals(loginMember.getId())) {
+                throw new AccessDeniedException("현재 로그인한 배송 담당자의 데이터만 출력할 수 있습니다.");
+            }
+
+            LocalDate fromDate = request.fromDate();
+            LocalDate toDate = request.toDate();
+
+            if (fromDate == null && toDate == null) {
+                throw new IllegalArgumentException("엑셀로 출력할 배송일이 없습니다.");
+            }
+
+            LocalDate deliveryDate = fromDate != null ? fromDate : toDate;
+
+            if (fromDate != null && toDate != null && !fromDate.equals(toDate)) {
+                throw new IllegalArgumentException("업체별 배송 화면 엑셀은 같은 날짜 범위만 출력할 수 있습니다.");
+            }
+
+            byte[] excelBytes = deliveryRouteService.createRouteExcel(
+                    loginMember,
+                    deliveryDate,
+                    request.orderedOrderIds()
+            );
+
+            String filename = "배송리스트_" + deliveryDate + ".xlsx";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ));
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename(filename, StandardCharsets.UTF_8)
+                    .build());
+            headers.setContentLength(excelBytes.length);
+
+            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+
+        } catch (AccessDeniedException e) {
+            return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("업체별 배송 엑셀 생성 중 오류가 발생했습니다.", e);
+            return errorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() != null ? e.getMessage() : "엑셀 생성 중 오류가 발생했습니다."
+            );
+        }
     }
 
     /**
@@ -161,5 +236,21 @@ public class DeliveryRouteController {
         }
 
         return member;
+    }
+
+    public record DeliveryRouteExcelRequest(
+            Long deliveryHandlerId,
+            LocalDate fromDate,
+            LocalDate toDate,
+            List<Long> orderedOrderIds
+    ) {
+        public DeliveryRouteExcelRequest {
+            orderedOrderIds = orderedOrderIds == null
+                    ? List.of()
+                    : orderedOrderIds.stream()
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .toList();
+        }
     }
 }

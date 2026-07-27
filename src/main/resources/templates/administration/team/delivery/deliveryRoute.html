@@ -102,6 +102,69 @@
                         <span>카드를 열어 생산완료 상태의 주문을 선택한 뒤 같은 묶음 단위로 배송완료 처리할 수 있습니다.</span>
                     </div>
                     <div class="delivery-route-toolbar-actions">
+                        <div class="delivery-route-statement-button-group" aria-label="명세서 출력 및 다운로드">
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    id="delivery-route-statement-site-horizontal-print-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-printer-line me-1"></i>현장명세서출력
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-info"
+                                    id="delivery-route-statement-parcel-horizontal-print-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-printer-line me-1"></i>택배명세서출력
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-success"
+                                    id="delivery-route-statement-site-horizontal-download-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-file-excel-2-line me-1"></i>현장명세서다운로드
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-success"
+                                    id="delivery-route-statement-parcel-horizontal-download-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-file-excel-2-line me-1"></i>택배명세서다운로드
+                            </button>
+
+                            <!--
+                            세로형 기능은 구현 상태로 유지하되 현재 화면에서는 숨깁니다.
+                            필요할 때 이 주석만 제거하면 deliveryRoute.js의 이벤트가 자동 연결됩니다.
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    id="delivery-route-statement-site-vertical-print-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-printer-line me-1"></i>세로형-현장출력
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-info"
+                                    id="delivery-route-statement-parcel-vertical-print-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-printer-line me-1"></i>세로형-택배출력
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-success"
+                                    id="delivery-route-statement-site-vertical-download-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-file-excel-2-line me-1"></i>세로형-현장다운로드
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-success"
+                                    id="delivery-route-statement-parcel-vertical-download-button"
+                                    th:disabled="${routePage.totalOrderCount == 0}">
+                                <i class="ri-file-excel-2-line me-1"></i>세로형-택배다운로드
+                            </button>
+                            -->
+                        </div>
+
                         <button type="button"
                                 class="btn btn-sm btn-outline-dark"
                                 id="delivery-route-excel-button"
@@ -427,7 +490,7 @@
     </form>
 
     <form id="delivery-route-export-form" class="d-none"
-          th:attr="data-excel-action=@{/team/deliveryExcel}">
+          th:attr="data-excel-action=@{/team/deliveryRoute/excel}">
         <input type="hidden" th:if="${_csrf != null}"
                th:name="${_csrf.parameterName}"
                th:value="${_csrf.token}"
@@ -522,6 +585,20 @@
     <i class="ri-expand-up-down-line" aria-hidden="true"></i>
     <span>전체 열기</span>
 </button>
+
+
+<style>
+    .delivery-route-statement-button-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .delivery-route-statement-button-group .btn {
+        white-space: nowrap;
+    }
+</style>
 
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
