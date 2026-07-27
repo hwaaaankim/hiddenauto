@@ -118,10 +118,19 @@
 		els.alertModal = document.getElementById('dispatch-list-alert-modal');
 		els.alertMessage = document.getElementById('dispatch-list-alert-message');
 		els.excelBtn = document.getElementById('dispatch-list-excel-btn');
-		els.statementHorizontalPrintBtn = document.getElementById('dispatch-list-statement-horizontal-print-btn');
-		els.statementVerticalPrintBtn = document.getElementById('dispatch-list-statement-vertical-print-btn');
-		els.statementHorizontalDownloadBtn = document.getElementById('dispatch-list-statement-horizontal-download-btn');
-		els.statementVerticalDownloadBtn = document.getElementById('dispatch-list-statement-vertical-download-btn');
+		els.statementSiteHorizontalPrintBtn = document.getElementById('dispatch-list-statement-site-horizontal-print-btn');
+		els.statementParcelHorizontalPrintBtn = document.getElementById('dispatch-list-statement-parcel-horizontal-print-btn');
+		els.statementSiteHorizontalDownloadBtn = document.getElementById('dispatch-list-statement-site-horizontal-download-btn');
+		els.statementParcelHorizontalDownloadBtn = document.getElementById('dispatch-list-statement-parcel-horizontal-download-btn');
+
+		/*
+		 * 세로형 버튼은 dispatchList.html에서 주석으로 숨겨져 있습니다.
+		 * HTML 주석을 제거하면 아래 바인딩과 이벤트가 그대로 활성화됩니다.
+		 */
+		els.statementSiteVerticalPrintBtn = document.getElementById('dispatch-list-statement-site-vertical-print-btn');
+		els.statementParcelVerticalPrintBtn = document.getElementById('dispatch-list-statement-parcel-vertical-print-btn');
+		els.statementSiteVerticalDownloadBtn = document.getElementById('dispatch-list-statement-site-vertical-download-btn');
+		els.statementParcelVerticalDownloadBtn = document.getElementById('dispatch-list-statement-parcel-vertical-download-btn');
 
 		els.deliveryModalSelectedMethodId = document.getElementById('dispatch-list-delivery-modal-selected-method-id');
 		els.directHandlerArea = document.getElementById('dispatch-list-direct-handler-area');
@@ -270,29 +279,56 @@
 			els.excelBtn.addEventListener('click', downloadExcel);
 		}
 
-		if (els.statementHorizontalPrintBtn) {
-			els.statementHorizontalPrintBtn.addEventListener('click', function() {
-				printDeliveryStatementLayout('HORIZONTAL', els.statementHorizontalPrintBtn);
-			});
-		}
+		bindStatementButton(
+			els.statementSiteHorizontalPrintBtn,
+			function() {
+				printDeliveryStatementLayout('HORIZONTAL', 'SITE', els.statementSiteHorizontalPrintBtn);
+			}
+		);
+		bindStatementButton(
+			els.statementParcelHorizontalPrintBtn,
+			function() {
+				printDeliveryStatementLayout('HORIZONTAL', 'PARCEL', els.statementParcelHorizontalPrintBtn);
+			}
+		);
+		bindStatementButton(
+			els.statementSiteHorizontalDownloadBtn,
+			function() {
+				downloadDeliveryStatementLayout('HORIZONTAL', 'SITE', els.statementSiteHorizontalDownloadBtn);
+			}
+		);
+		bindStatementButton(
+			els.statementParcelHorizontalDownloadBtn,
+			function() {
+				downloadDeliveryStatementLayout('HORIZONTAL', 'PARCEL', els.statementParcelHorizontalDownloadBtn);
+			}
+		);
 
-		if (els.statementVerticalPrintBtn) {
-			els.statementVerticalPrintBtn.addEventListener('click', function() {
-				printDeliveryStatementLayout('VERTICAL', els.statementVerticalPrintBtn);
-			});
-		}
-
-		if (els.statementHorizontalDownloadBtn) {
-			els.statementHorizontalDownloadBtn.addEventListener('click', function() {
-				downloadDeliveryStatementLayout('HORIZONTAL', els.statementHorizontalDownloadBtn);
-			});
-		}
-
-		if (els.statementVerticalDownloadBtn) {
-			els.statementVerticalDownloadBtn.addEventListener('click', function() {
-				downloadDeliveryStatementLayout('VERTICAL', els.statementVerticalDownloadBtn);
-			});
-		}
+		/* 세로형 버튼은 현재 HTML 주석 상태지만 기능은 완성되어 있습니다. */
+		bindStatementButton(
+			els.statementSiteVerticalPrintBtn,
+			function() {
+				printDeliveryStatementLayout('VERTICAL', 'SITE', els.statementSiteVerticalPrintBtn);
+			}
+		);
+		bindStatementButton(
+			els.statementParcelVerticalPrintBtn,
+			function() {
+				printDeliveryStatementLayout('VERTICAL', 'PARCEL', els.statementParcelVerticalPrintBtn);
+			}
+		);
+		bindStatementButton(
+			els.statementSiteVerticalDownloadBtn,
+			function() {
+				downloadDeliveryStatementLayout('VERTICAL', 'SITE', els.statementSiteVerticalDownloadBtn);
+			}
+		);
+		bindStatementButton(
+			els.statementParcelVerticalDownloadBtn,
+			function() {
+				downloadDeliveryStatementLayout('VERTICAL', 'PARCEL', els.statementParcelVerticalDownloadBtn);
+			}
+		);
 		if (els.deliveryModal) {
 			els.deliveryModal.addEventListener('click', function(event) {
 				const btn = event.target.closest('.dispatch-list-delivery-method-option');
@@ -1562,22 +1598,32 @@
 	}
 
 
+	function bindStatementButton(button, handler) {
+		if (button && typeof handler === 'function') {
+			button.addEventListener('click', handler);
+		}
+	}
+
 	function selectedStatementOrderIds() {
 		return selectedOrderIdsSnapshot();
 	}
 
 	function statementLayoutButtons() {
 		return [
-			els.statementHorizontalPrintBtn,
-			els.statementVerticalPrintBtn,
-			els.statementHorizontalDownloadBtn,
-			els.statementVerticalDownloadBtn
+			els.statementSiteHorizontalPrintBtn,
+			els.statementParcelHorizontalPrintBtn,
+			els.statementSiteHorizontalDownloadBtn,
+			els.statementParcelHorizontalDownloadBtn,
+			els.statementSiteVerticalPrintBtn,
+			els.statementParcelVerticalPrintBtn,
+			els.statementSiteVerticalDownloadBtn,
+			els.statementParcelVerticalDownloadBtn
 		].filter(function(button) {
 			return !!button;
 		});
 	}
 
-	async function printDeliveryStatementLayout(layoutType, button) {
+	async function printDeliveryStatementLayout(layoutType, statementType, button) {
 		const orderIds = selectedStatementOrderIds();
 
 		if (orderIds.length === 0) {
@@ -1585,10 +1631,8 @@
 			return;
 		}
 
-		/*
-		 * 팝업 차단을 피하기 위해 사용자 클릭 시점에 빈 창을 먼저 엽니다.
-		 * 데이터 조회가 끝난 뒤 이 창에 A4 인쇄 문서를 작성하고 바로 인쇄창을 엽니다.
-		 */
+		const normalizedStatementType = normalizeStatementType(statementType);
+		const statementLabel = statementTypeLabel(normalizedStatementType);
 		const printWindow = window.open('', '_blank');
 
 		if (!printWindow) {
@@ -1599,9 +1643,9 @@
 		printWindow.document.open();
 		printWindow.document.write(
 			'<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
-			'<title>명세서 출력 준비</title></head>' +
+			'<title>' + escapeHtml(statementLabel) + ' 출력 준비</title></head>' +
 			'<body style="font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;padding:32px;">' +
-			'명세서 출력 데이터를 준비하고 있습니다.</body></html>'
+			escapeHtml(statementLabel) + ' 출력 데이터를 준비하고 있습니다.</body></html>'
 		);
 		printWindow.document.close();
 
@@ -1614,15 +1658,16 @@
 				method: 'POST',
 				headers: buildJsonHeaders(),
 				body: JSON.stringify({
-					layoutType: layoutType,
+					layoutType: normalizeStatementLayoutType(layoutType),
+					statementType: normalizedStatementType,
 					orderIds: orderIds
 				})
 			});
 
-			const data = await parseJsonResponse(response);
+			const data = await parseStatementJsonResponse(response);
 
 			if (!data.pages || data.pages.length === 0) {
-				throw new Error('출력할 명세서 데이터가 없습니다.');
+				throw new Error('출력할 ' + statementLabel + ' 데이터가 없습니다.');
 			}
 
 			printWindow.document.open();
@@ -1637,13 +1682,13 @@
 				console.warn(closeError);
 			}
 
-			alertMessage(error.message || '명세서 출력 준비 중 오류가 발생했습니다.');
+			alertMessage(error.message || statementLabel + ' 출력 준비 중 오류가 발생했습니다.');
 		} finally {
 			setStatementLayoutButtonsBusy(false, button, originalText);
 		}
 	}
 
-	async function downloadDeliveryStatementLayout(layoutType, button) {
+	async function downloadDeliveryStatementLayout(layoutType, statementType, button) {
 		const orderIds = selectedStatementOrderIds();
 
 		if (orderIds.length === 0) {
@@ -1651,6 +1696,9 @@
 			return;
 		}
 
+		const normalizedLayoutType = normalizeStatementLayoutType(layoutType);
+		const normalizedStatementType = normalizeStatementType(statementType);
+		const statementLabel = statementTypeLabel(normalizedStatementType);
 		const originalText = button ? button.innerHTML : '';
 
 		try {
@@ -1660,31 +1708,56 @@
 				method: 'POST',
 				headers: buildJsonHeaders(),
 				body: JSON.stringify({
-					layoutType: layoutType,
+					layoutType: normalizedLayoutType,
+					statementType: normalizedStatementType,
 					orderIds: orderIds
 				})
 			});
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				throw new Error(errorText || '명세서 엑셀 생성 중 오류가 발생했습니다.');
+				throw new Error(errorText || statementLabel + ' 엑셀 생성 중 오류가 발생했습니다.');
 			}
 
 			const blob = await response.blob();
 			const contentDisposition = response.headers.get('Content-Disposition');
-			const layoutLabel = normalizeStatementLayoutType(layoutType) === 'HORIZONTAL' ? '가로형' : '세로형';
+			const layoutLabel = normalizedLayoutType === 'HORIZONTAL' ? '가로형' : '세로형';
 			const filename = resolveDownloadFilename(
 				contentDisposition,
-				layoutLabel + '명세서_' + (valueOf(els.today) || new Date().toISOString().slice(0, 10)) + '.xlsx'
+				statementLabel + '_' + layoutLabel + '_' +
+				(valueOf(els.today) || new Date().toISOString().slice(0, 10)) + '.xlsx'
 			);
 
 			downloadBlob(blob, filename);
 		} catch (error) {
 			console.error(error);
-			alertMessage(error.message || '명세서 엑셀 다운로드 중 오류가 발생했습니다.');
+			alertMessage(error.message || statementLabel + ' 엑셀 다운로드 중 오류가 발생했습니다.');
 		} finally {
 			setStatementLayoutButtonsBusy(false, button, originalText);
 		}
+	}
+
+	function parseStatementJsonResponse(response) {
+		return response.text().then(function(text) {
+			let data = null;
+
+			if (text) {
+				try {
+					data = JSON.parse(text);
+				} catch (ignore) {
+					data = null;
+				}
+			}
+
+			if (!response.ok) {
+				const message = data && data.message
+					? data.message
+					: (text || '명세서 요청 처리 중 오류가 발생했습니다.');
+				throw new Error(message);
+			}
+
+			return data || {};
+		});
 	}
 
 	function setStatementLayoutButtonsBusy(isBusy, activeButton, originalText, busyText) {
@@ -1693,7 +1766,8 @@
 				btn.disabled = true;
 
 				if (btn === activeButton) {
-					btn.innerHTML = '<i class="ri-loader-4-line me-1"></i>' + escapeHtml(busyText || '명세서 생성 중');
+					btn.innerHTML = '<i class="ri-loader-4-line me-1"></i>' +
+						escapeHtml(busyText || '명세서 생성 중');
 				}
 				return;
 			}
@@ -1709,15 +1783,29 @@
 	}
 
 	function normalizeStatementLayoutType(layoutType) {
-		return toText(layoutType).replace(/\s+/g, '').toUpperCase() === 'HORIZONTAL'
-			? 'HORIZONTAL'
-			: 'VERTICAL';
+		return toText(layoutType).replace(/\s+/g, '').toUpperCase() === 'VERTICAL'
+			? 'VERTICAL'
+			: 'HORIZONTAL';
+	}
+
+	function normalizeStatementType(statementType) {
+		return toText(statementType).replace(/\s+/g, '').toUpperCase() === 'PARCEL'
+			? 'PARCEL'
+			: 'SITE';
+	}
+
+	function statementTypeLabel(statementType) {
+		return normalizeStatementType(statementType) === 'PARCEL'
+			? '택배명세서'
+			: '현장명세서';
 	}
 
 	function buildStatementPrintDocument(data) {
 		const layoutType = normalizeStatementLayoutType(data && data.layoutType);
+		const statementType = normalizeStatementType(data && data.statementType);
 		const layoutClass = layoutType === 'HORIZONTAL' ? 'layout-horizontal' : 'layout-vertical';
-		const title = layoutType === 'HORIZONTAL' ? '가로형 명세서' : '세로형 명세서';
+		const statementClass = statementType === 'PARCEL' ? 'statement-parcel' : 'statement-site';
+		const title = statementTypeLabel(statementType);
 		const pages = data && Array.isArray(data.pages) ? data.pages : [];
 		const pageHtml = pages.map(function(page) {
 			return buildStatementPrintPage(page, layoutType);
@@ -1732,7 +1820,7 @@
 			'<title>' + escapeHtml(title) + '</title>',
 			'<style>' + buildStatementPrintStyles() + '</style>',
 			'</head>',
-			'<body class="statement-print-body ' + layoutClass + '">',
+			'<body class="statement-print-body ' + layoutClass + ' ' + statementClass + '">',
 			pageHtml,
 			'<script>',
 			'(function(){',
@@ -1751,13 +1839,17 @@
 	}
 
 	function buildStatementPrintPage(page, layoutType) {
-		const storageCopy = buildStatementCopyHtml(page, '보관용');
-		const customerCopy = buildStatementCopyHtml(page, '고객용');
+		const storageCopy = buildStatementCopyHtml(page, '보관용', layoutType);
+		const customerCopy = buildStatementCopyHtml(page, '고객용', layoutType);
 		const splitClass = layoutType === 'HORIZONTAL'
 			? 'statement-split statement-split-horizontal'
 			: 'statement-split statement-split-vertical';
 		const splitHtml = '<div class="' + splitClass + '">' + storageCopy + customerCopy + '</div>';
 
+		/*
+		 * 가로형은 프린터 설정을 건드리지 않고 A4 세로로 출력되도록
+		 * 297mm x 210mm 캔버스를 오른쪽으로 90도 회전해 210mm x 297mm 인쇄면에 넣습니다.
+		 */
 		if (layoutType === 'HORIZONTAL') {
 			return [
 				'<section class="statement-paper">',
@@ -1771,123 +1863,200 @@
 		return '<section class="statement-paper">' + splitHtml + '</section>';
 	}
 
-	function buildStatementCopyHtml(page, copyLabel) {
-		const items = page && Array.isArray(page.items) ? page.items : [];
-		const itemRows = items.length > 0
-			? items.map(buildStatementItemRowHtml).join('')
-			: '<tr><td colspan="6" class="statement-empty-row">출력할 품목이 없습니다.</td></tr>';
+	function buildStatementCopyHtml(page, copyLabel, layoutType) {
+		if (normalizeStatementType(page && page.documentType) === 'PARCEL') {
+			return buildParcelStatementCopyHtml(page, copyLabel, layoutType);
+		}
+
+		return buildSiteStatementCopyHtml(page, copyLabel, layoutType);
+	}
+
+	function buildStatementHeaderHtml(page, copyLabel) {
 		const partText = Number(page && page.pageCount || 0) > 1
 			? escapeHtml(page.pageNumber || 1) + ' / ' + escapeHtml(page.pageCount || 1)
 			: '';
-		const documentTypeLabel = toText(page && page.documentTypeLabel) || '출고명세서';
-		const recipientLabel = toText(page && page.recipientLabel) || '받는분';
-		const contactLabel = toText(page && page.contactLabel) || '연락처';
-		const addressLabel = toText(page && page.addressLabel) || '배송지';
-		const auxiliaryLabel = toText(page && page.auxiliaryLabel) || '배송순번';
-		const auxiliaryValue = toText(page && page.auxiliaryValue) || '-';
-		const summaryVisible = !page || page.summaryVisible !== false;
-		const summaryHtml = summaryVisible
-			? [
-				'<div class="statement-summary-grid">',
-				buildStatementSummaryHtml('총수량', formatStatementNumber(page && page.totalQuantity)),
-				buildStatementSummaryHtml('포장비', formatStatementMoney(page && page.packingCost)),
-				buildStatementSummaryHtml('운임비', formatStatementMoney(page && page.deliveryCost)),
-				buildStatementSummaryHtml('합계금액', formatStatementMoney(page && page.totalAmount), true),
-				'</div>'
-			].join('')
-			: '<div class="statement-summary-continuation">품목 계속 · 총수량/포장비/운임비/합계금액은 마지막 페이지에 1회 표시됩니다.</div>';
 
 		return [
-			'<article class="statement-copy">',
-			'  <div class="statement-copy-header">',
-			'    <div class="statement-document-kind">' + escapeHtml(documentTypeLabel) + '</div>',
-			'    <div class="statement-title-wrap">',
-			'      <div class="statement-title">출 고 명 세 서</div>',
-			'      <div class="statement-page-part">' + partText + '</div>',
-			'    </div>',
-			'    <div class="statement-copy-label">' + escapeHtml(copyLabel) + '</div>',
-			'  </div>',
-			'  <div class="statement-meta-grid">',
-			buildStatementMetaHtml('거래처', page && page.companyName),
-			buildStatementMetaHtml('주문번호', page && page.orderIdsText),
-			buildStatementMetaHtml(recipientLabel, page && page.recipientName),
-			buildStatementMetaHtml(contactLabel, page && page.recipientPhone),
-			buildStatementMetaHtml(addressLabel, page && page.addressText, true),
-			buildStatementMetaHtml('출고일', page && page.deliveryDateText),
-			buildStatementMetaHtml('배송수단', page && page.deliveryMethodName, false, 'statement-delivery-method-value'),
-			buildStatementMetaHtml('배송담당자', page && page.deliveryHandlerName),
-			buildStatementMetaHtml(auxiliaryLabel, auxiliaryValue),
-			'  </div>',
-			'  <table class="statement-item-table">',
-			'    <colgroup>',
-			'      <col class="statement-col-no">',
-			'      <col class="statement-col-product">',
-			'      <col class="statement-col-size">',
-			'      <col class="statement-col-color">',
-			'      <col class="statement-col-quantity">',
-			'      <col class="statement-col-memo">',
-			'    </colgroup>',
-			'    <thead><tr>',
-			'      <th>NO</th><th>품목명</th><th>규격</th><th>색상</th><th>수량</th><th>비고</th>',
-			'    </tr></thead>',
-			'    <tbody>' + itemRows + '</tbody>',
-			'  </table>',
-			summaryHtml,
-			'  <div class="statement-note-row"><span>전달사항</span><strong>' + statementMultilineHtml(page && page.noteText) + '</strong></div>',
-			'  <div class="statement-footer-row">',
-			'    <div>위 품목을 이상 없이 출고·인수하였습니다.</div>',
-			'    <div class="statement-signature">확인: <span></span></div>',
-			'  </div>',
+			'<div class="statement-copy-header">',
+			'  <div class="statement-page-part">' + partText + '</div>',
+			'  <div class="statement-title">' +
+				escapeHtml(toText(page && page.documentTypeLabel) || '명세서') +
+			'</div>',
+			'  <div class="statement-copy-label">' + escapeHtml(copyLabel) + '</div>',
+			'</div>'
+		].join('');
+	}
+
+	function buildSiteStatementCopyHtml(page, copyLabel, layoutType) {
+		const fixedRows = layoutType === 'VERTICAL' ? 5 : 8;
+		const items = page && Array.isArray(page.items) ? page.items : [];
+		const itemRows = buildFixedStatementItemRows(items, fixedRows, true);
+		const lastPage = !page || page.lastPage !== false;
+		const footerHtml = lastPage
+			? [
+				'<div class="statement-acceptance">',
+				statementMultilineHtml(page && page.acceptanceText),
+				'</div>',
+				'<div class="statement-signature">' +
+				statementMultilineHtml(page && page.signatureText) +
+				'</div>'
+			].join('')
+			: '<div class="statement-continuation">품목 계속 - 확인란은 마지막 페이지에 표시됩니다.</div>';
+
+		return [
+			'<article class="statement-copy statement-copy-site">',
+			buildStatementHeaderHtml(page, copyLabel),
+			'<table class="statement-meta-table">',
+			'  <colgroup><col class="statement-meta-label-col"><col><col class="statement-meta-label-col"><col></colgroup>',
+			'  <tbody>',
+			'    <tr>',
+			'      <th>거래처명</th><td>' + statementMetaValueHtml(page && page.companyName) + '</td>',
+			'      <th>주문번호</th><td>' + statementMetaValueHtml(page && page.orderIdsText) + '</td>',
+			'    </tr>',
+			'    <tr>',
+			'      <th>하차지 담당자</th><td>' + statementMetaValueHtml(page && page.recipientName) + '</td>',
+			'      <th>연락처</th><td>' + statementMetaValueHtml(page && page.recipientPhone) + '</td>',
+			'    </tr>',
+			'    <tr>',
+			'      <th>하차지 주소</th><td colspan="3">' + statementMetaValueHtml(buildStatementAddressText(page)) + '</td>',
+			'    </tr>',
+			'    <tr>',
+			'      <th>출고일</th><td>' + statementMetaValueHtml(page && page.dateText) + '</td>',
+			'      <th>배송수단</th><td class="statement-delivery-method-value">' +
+				statementMetaValueHtml(page && page.deliveryMethodName) +
+			'</td>',
+			'    </tr>',
+			'  </tbody>',
+			'</table>',
+			'<table class="statement-item-table statement-site-item-table">',
+			'  <colgroup>',
+			'    <col class="statement-col-no">',
+			'    <col class="statement-col-product">',
+			'    <col class="statement-col-size">',
+			'    <col class="statement-col-color">',
+			'    <col class="statement-col-quantity">',
+			'    <col class="statement-col-memo">',
+			'  </colgroup>',
+			'  <thead><tr>',
+			'    <th>NO</th><th>품명</th><th>규격</th><th>색상</th><th>수량</th><th>비고</th>',
+			'  </tr></thead>',
+			'  <tbody>' + itemRows + '</tbody>',
+			'</table>',
+			footerHtml,
 			'</article>'
 		].join('');
 	}
 
-	function buildStatementMetaHtml(label, value, fullWidth, valueClass) {
-		const className = fullWidth ? 'statement-meta-item statement-meta-item-wide' : 'statement-meta-item';
-		const safeValueClass = valueClass ? ' ' + escapeAttr(valueClass) : '';
+	function buildParcelStatementCopyHtml(page, copyLabel, layoutType) {
+		const fixedRows = layoutType === 'VERTICAL' ? 5 : 8;
+		const items = page && Array.isArray(page.items) ? page.items : [];
+		const itemRows = buildFixedStatementItemRows(items, fixedRows, false);
+		const pageText = Number(page && page.pageCount || 0) > 1
+			? '품목 ' + escapeHtml(page.pageNumber || 1) + ' / ' + escapeHtml(page.pageCount || 1)
+			: '';
 
 		return [
-			'<div class="' + className + '">',
-			'  <span>' + escapeHtml(label || '-') + '</span>',
-			'  <strong class="statement-meta-value' + safeValueClass + '">' + statementMultilineHtml(value) + '</strong>',
-			'</div>'
+			'<article class="statement-copy statement-copy-parcel">',
+			buildStatementHeaderHtml(page, copyLabel),
+			'<table class="statement-meta-table">',
+			'  <colgroup><col class="statement-meta-label-col"><col><col class="statement-meta-label-col"><col></colgroup>',
+			'  <tbody>',
+			'    <tr>',
+			'      <th>발송일</th><td>' + statementMetaValueHtml(page && page.dateText) + '</td>',
+			'      <th>운송장번호</th><td>' + statementMetaValueHtml(page && page.trackingNumber, true) + '</td>',
+			'    </tr>',
+			'    <tr>',
+			'      <th>운임 구분</th><td>' + statementMetaValueHtml(page && page.freightType, true) + '</td>',
+			'      <th>포장 수단</th><td>' + statementMetaValueHtml(page && page.packingMethod, true) + '</td>',
+			'    </tr>',
+			'    <tr>',
+			'      <th>받는분</th><td>' + statementMetaValueHtml(page && page.recipientName) + '</td>',
+			'      <th>연락처</th><td>' + statementMetaValueHtml(page && page.recipientPhone) + '</td>',
+			'    </tr>',
+			'    <tr>',
+			'      <th>주소</th><td colspan="3">' + statementMetaValueHtml(buildStatementAddressText(page)) + '</td>',
+			'    </tr>',
+			'    <tr>',
+			'      <th>거래처명</th><td>' + statementMetaValueHtml(page && page.companyName) + '</td>',
+			'      <th>담당자</th><td>' + statementMetaValueHtml(page && page.managerName) + '</td>',
+			'    </tr>',
+			'  </tbody>',
+			'</table>',
+			'<table class="statement-item-table statement-parcel-item-table">',
+			'  <colgroup>',
+			'    <col class="statement-col-no">',
+			'    <col class="statement-col-product">',
+			'    <col class="statement-col-size">',
+			'    <col class="statement-col-color">',
+			'    <col class="statement-col-quantity">',
+			'  </colgroup>',
+			'  <thead><tr>',
+			'    <th>NO</th><th>품명</th><th>규격</th><th>색상</th><th>수량</th>',
+			'  </tr></thead>',
+			'  <tbody>' + itemRows + '</tbody>',
+			'</table>',
+			'<div class="statement-parcel-footer">' + pageText + '</div>',
+			'</article>'
 		].join('');
 	}
 
-	function buildStatementItemRowHtml(item, index) {
-		return [
-			'<tr>',
-			'  <td class="text-center">' + escapeHtml(item && item.no ? item.no : index + 1) + '</td>',
-			'  <td>' + statementMultilineHtml(item && item.productName) + '</td>',
-			'  <td>' + statementMultilineHtml(item && item.sizeText) + '</td>',
-			'  <td>' + statementMultilineHtml(item && item.color) + '</td>',
-			'  <td class="text-center">' + escapeHtml(item && item.quantity !== undefined ? item.quantity : '-') + '</td>',
-			'  <td>' + statementMultilineHtml(item && item.memo) + '</td>',
-			'</tr>'
-		].join('');
+	function statementMetaValueHtml(value, allowBlank) {
+		const text = toText(value);
+
+		if (allowBlank && !text) {
+			return '&nbsp;';
+		}
+
+		return statementMultilineHtml(text);
 	}
 
-	function buildStatementSummaryHtml(label, value, emphasized) {
-		return [
-			'<div class="statement-summary-item' + (emphasized ? ' is-emphasized' : '') + '">',
-			'  <span>' + escapeHtml(label || '-') + '</span>',
-			'  <strong>' + escapeHtml(value || '-') + '</strong>',
-			'</div>'
-		].join('');
+
+	function buildFixedStatementItemRows(items, fixedRows, includeMemo) {
+		const normalizedItems = Array.isArray(items) ? items : [];
+		const rows = [];
+
+		for (let index = 0; index < fixedRows; index++) {
+			const item = index < normalizedItems.length ? normalizedItems[index] : null;
+			rows.push(buildStatementItemRowHtml(item, index, includeMemo));
+		}
+
+		return rows.join('');
+	}
+
+	function buildStatementItemRowHtml(item, index, includeMemo) {
+		const cells = [
+			'<td class="text-center">' +
+				(item ? escapeHtml(item.no || index + 1) : '&nbsp;') +
+			'</td>',
+			'<td>' + (item ? statementCellHtml(item.productName) : '&nbsp;') + '</td>',
+			'<td>' + (item ? statementCellHtml(item.sizeText) : '&nbsp;') + '</td>',
+			'<td>' + (item ? statementCellHtml(item.color) : '&nbsp;') + '</td>',
+			'<td class="text-center">' +
+				(item && item.quantity !== undefined ? escapeHtml(item.quantity) : '&nbsp;') +
+			'</td>'
+		];
+
+		if (includeMemo) {
+			cells.push('<td>' + (item ? statementCellHtml(item.memo) : '&nbsp;') + '</td>');
+		}
+
+		return '<tr>' + cells.join('') + '</tr>';
+	}
+
+	function buildStatementAddressText(page) {
+		const postalCode = toText(page && page.postalCode);
+		const addressText = toText(page && page.addressText) || '-';
+		return postalCode ? '[' + postalCode + '] ' + addressText : addressText;
+	}
+
+	function statementCellHtml(value) {
+		const text = toText(value);
+		return text ? escapeHtml(text).replace(/\r?\n/g, '<br>') : '&nbsp;';
 	}
 
 	function statementMultilineHtml(value) {
-		const text = toText(value) || '-';
-		return escapeHtml(text).replace(/\r?\n/g, '<br>');
-	}
-
-	function formatStatementNumber(value) {
-		const number = Number(value || 0);
-		return Number.isFinite(number) ? number.toLocaleString('ko-KR') : '0';
-	}
-
-	function formatStatementMoney(value) {
-		return formatStatementNumber(value) + '원';
+		const text = toText(value);
+		return escapeHtml(text || '-').replace(/\r?\n/g, '<br>');
 	}
 
 	function buildStatementPrintStyles() {
@@ -1902,57 +2071,53 @@
 			'.statement-split{width:100%;height:100%;}',
 			'.statement-split-horizontal{display:grid;grid-template-columns:1fr 1fr;}',
 			'.statement-split-vertical{display:grid;grid-template-rows:1fr 1fr;}',
-			'.statement-copy{position:relative;overflow:hidden;background:#fff;}',
+			'.statement-copy{position:relative;overflow:hidden;background:#fff;color:#111;}',
 			'.statement-split-horizontal>.statement-copy{width:148.5mm;height:210mm;padding:5mm 5.5mm;}',
-			'.statement-split-horizontal>.statement-copy:first-child{border-right:.35mm dashed #7c8796;}',
+			'.statement-split-horizontal>.statement-copy:first-child{border-right:.35mm dashed #6b7280;}',
 			'.statement-split-vertical>.statement-copy{width:210mm;height:148.5mm;padding:4.2mm 6mm;}',
-			'.statement-split-vertical>.statement-copy:first-child{border-bottom:.35mm dashed #7c8796;}',
+			'.statement-split-vertical>.statement-copy:first-child{border-bottom:.35mm dashed #6b7280;}',
 			'.statement-copy-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:2mm;margin-bottom:2mm;padding-bottom:1.5mm;border-bottom:.65mm solid #111827;}',
-			'.statement-document-kind{font-weight:700;font-size:8pt;color:#334155;}',
-			'.statement-title-wrap{text-align:center;white-space:nowrap;}',
-			'.statement-title{font-weight:900;letter-spacing:.22em;font-size:14pt;line-height:1.1;}',
-			'.statement-page-part{min-height:3mm;margin-top:.5mm;font-size:6.5pt;color:#64748b;}',
-			'.statement-copy-label{justify-self:end;display:inline-flex;align-items:center;justify-content:center;min-width:17mm;padding:1mm 2mm;border:.35mm solid #111827;border-radius:1.2mm;font-size:8pt;font-weight:800;}',
-			'.statement-meta-grid{display:grid;grid-template-columns:1fr 1fr;border-top:.25mm solid #475569;border-left:.25mm solid #475569;margin-bottom:2mm;}',
-			'.statement-meta-item{display:grid;grid-template-columns:22mm minmax(0,1fr);min-height:7mm;border-right:.25mm solid #475569;border-bottom:.25mm solid #475569;}',
-			'.statement-meta-item-wide{grid-column:1/-1;}',
-			'.statement-meta-item>span{display:flex;align-items:center;justify-content:center;padding:.8mm 1mm;background:#eef2f6;border-right:.25mm solid #475569;font-size:7pt;font-weight:800;text-align:center;}',
-			'.statement-meta-value{display:flex;align-items:center;min-width:0;padding:.8mm 1.3mm;font-size:7.2pt;line-height:1.2;overflow-wrap:anywhere;}',
-			'.statement-delivery-method-value{font-weight:900;color:#0f172a;}',
-			'.statement-item-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:2mm;font-size:7pt;}',
-			'.statement-item-table th,.statement-item-table td{border:.25mm solid #475569;padding:.8mm 1mm;vertical-align:middle;line-height:1.2;overflow-wrap:anywhere;}',
-			'.statement-item-table th{height:7mm;background:#dfe6ee;text-align:center;font-weight:900;}',
-			'.statement-item-table td{height:7mm;}',
-			'.statement-col-no{width:8%;}.statement-col-product{width:31%;}.statement-col-size{width:19%;}.statement-col-color{width:13%;}.statement-col-quantity{width:9%;}.statement-col-memo{width:20%;}',
-			'.statement-empty-row{text-align:center;color:#64748b;}',
+			'.statement-page-part{font-size:6.6pt;color:#64748b;}',
+			'.statement-title{text-align:center;font-weight:900;letter-spacing:.14em;font-size:15pt;line-height:1.1;white-space:nowrap;}',
+			'.statement-copy-label{justify-self:end;display:inline-flex;align-items:center;justify-content:center;min-width:18mm;padding:1mm 2mm;border:.35mm solid #111827;border-radius:1.2mm;font-size:8pt;font-weight:900;}',
+			'.statement-meta-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:2mm;font-size:7.8pt;}',
+			'.statement-meta-table .statement-meta-label-col{width:22mm;}',
+			'.statement-meta-table th,.statement-meta-table td{border:.25mm solid #475569;min-height:7.2mm;padding:.7mm 1.1mm;vertical-align:middle;line-height:1.2;overflow-wrap:anywhere;}',
+			'.statement-meta-table th{background:#eef2f6;font-size:7.5pt;font-weight:900;text-align:center;padding:.7mm .8mm;}',
+			'.statement-meta-table td{font-size:7.8pt;}',
+			'.statement-delivery-method-value{font-weight:900;}',
+			'.statement-item-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:1.8mm;font-size:8pt;}',
+			'.statement-item-table th,.statement-item-table td{border:.25mm solid #475569;padding:.75mm .9mm;vertical-align:middle;line-height:1.2;overflow-wrap:anywhere;}',
+			'.statement-item-table th{height:8mm;background:#dfe6ee;text-align:center;font-weight:900;}',
+			'.statement-item-table td{height:12mm;}',
+			'.statement-site-item-table .statement-col-no{width:7%;}',
+			'.statement-site-item-table .statement-col-product{width:31%;}',
+			'.statement-site-item-table .statement-col-size{width:18%;}',
+			'.statement-site-item-table .statement-col-color{width:12%;}',
+			'.statement-site-item-table .statement-col-quantity{width:9%;}',
+			'.statement-site-item-table .statement-col-memo{width:23%;}',
+			'.statement-parcel-item-table .statement-col-no{width:8%;}',
+			'.statement-parcel-item-table .statement-col-product{width:42%;}',
+			'.statement-parcel-item-table .statement-col-size{width:20%;}',
+			'.statement-parcel-item-table .statement-col-color{width:16%;}',
+			'.statement-parcel-item-table .statement-col-quantity{width:14%;}',
 			'.text-center{text-align:center;}',
-			'.statement-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);border-top:.25mm solid #475569;border-left:.25mm solid #475569;margin-bottom:1.5mm;}',
-			'.statement-summary-item{display:grid;grid-template-rows:auto auto;text-align:center;border-right:.25mm solid #475569;border-bottom:.25mm solid #475569;}',
-			'.statement-summary-item span{padding:.6mm .5mm;background:#eef2f6;font-size:6.5pt;font-weight:800;}',
-			'.statement-summary-item strong{padding:.8mm .5mm;font-size:7.4pt;}',
-			'.statement-summary-item.is-emphasized strong{font-size:8pt;}',
-			'.statement-summary-continuation{display:flex;align-items:center;justify-content:center;min-height:8mm;margin-bottom:1.5mm;border:.25mm solid #475569;background:#f8fafc;font-size:6.8pt;font-weight:800;text-align:center;padding:1mm;}',
-			'.statement-note-row{display:grid;grid-template-columns:22mm minmax(0,1fr);min-height:8mm;border:.25mm solid #475569;margin-bottom:1.5mm;}',
-			'.statement-note-row>span{display:flex;align-items:center;justify-content:center;background:#eef2f6;border-right:.25mm solid #475569;font-size:6.8pt;font-weight:800;}',
-			'.statement-note-row>strong{display:flex;align-items:center;padding:.8mm 1.2mm;font-size:6.8pt;line-height:1.2;overflow-wrap:anywhere;}',
-			'.statement-footer-row{display:flex;align-items:end;justify-content:space-between;gap:3mm;font-size:6.5pt;color:#334155;}',
-			'.statement-signature{display:flex;align-items:end;gap:1mm;white-space:nowrap;}',
-			'.statement-signature span{display:inline-block;width:22mm;height:6mm;border-bottom:.25mm solid #111827;}',
+			'.statement-acceptance{display:flex;align-items:center;justify-content:center;min-height:8mm;border:.25mm solid #475569;border-bottom:0;font-size:7.8pt;font-weight:800;text-align:center;padding:1mm;}',
+			'.statement-signature{display:flex;align-items:center;justify-content:flex-end;min-height:9mm;border:.25mm solid #475569;padding:1mm 2mm;font-size:7.8pt;font-weight:900;}',
+			'.statement-continuation{display:flex;align-items:center;justify-content:center;min-height:17mm;border:.25mm solid #475569;background:#f8fafc;font-size:7pt;font-weight:800;text-align:center;padding:1mm;}',
+			'.statement-parcel-footer{display:flex;align-items:center;justify-content:flex-end;min-height:6mm;border-top:.25mm solid #475569;font-size:6.5pt;color:#64748b;}',
 			'.layout-vertical .statement-title{font-size:13pt;}',
-			'.layout-vertical .statement-copy-header{margin-bottom:1.8mm;padding-bottom:1.2mm;}',
-			'.layout-vertical .statement-meta-grid{margin-bottom:1.6mm;}',
-			'.layout-vertical .statement-meta-item{grid-template-columns:21mm minmax(0,1fr);min-height:7mm;}',
-			'.layout-vertical .statement-meta-item>span{font-size:7pt;padding:.65mm .8mm;}',
-			'.layout-vertical .statement-meta-value{font-size:7.1pt;padding:.65mm 1mm;}',
-			'.layout-vertical .statement-item-table{font-size:7pt;margin-bottom:1.5mm;}',
-			'.layout-vertical .statement-item-table th{height:6.5mm;padding:.6mm .7mm;}',
-			'.layout-vertical .statement-item-table td{height:7mm;padding:.6mm .7mm;}',
-			'.layout-vertical .statement-summary-grid{margin-bottom:1.4mm;}',
-			'.layout-vertical .statement-summary-item span{font-size:6.5pt;padding:.55mm;}',
-			'.layout-vertical .statement-summary-item strong{font-size:7.2pt;padding:.65mm;}',
-			'.layout-vertical .statement-note-row{grid-template-columns:21mm minmax(0,1fr);min-height:8mm;margin-bottom:1.2mm;}',
-			'.layout-vertical .statement-note-row>span,.layout-vertical .statement-note-row>strong{font-size:6.5pt;padding:.6mm .8mm;}',
-			'.layout-vertical .statement-footer-row{font-size:6.5pt;}',
+			'.layout-vertical .statement-copy-header{margin-bottom:1.5mm;padding-bottom:1.1mm;}',
+			'.layout-vertical .statement-meta-table{margin-bottom:1.4mm;font-size:6.9pt;}',
+			'.layout-vertical .statement-meta-table .statement-meta-label-col{width:21mm;}',
+			'.layout-vertical .statement-meta-table th{font-size:6.7pt;padding:.55mm .7mm;}',
+			'.layout-vertical .statement-meta-table td{font-size:6.9pt;padding:.55mm .9mm;}',
+			'.layout-vertical .statement-item-table{font-size:6.8pt;margin-bottom:1.2mm;}',
+			'.layout-vertical .statement-item-table th{height:6mm;padding:.5mm .6mm;}',
+			'.layout-vertical .statement-item-table td{height:7mm;padding:.5mm .6mm;}',
+			'.layout-vertical .statement-acceptance{min-height:7mm;font-size:6.8pt;}',
+			'.layout-vertical .statement-signature{min-height:8mm;font-size:6.8pt;}',
+			'.layout-vertical .statement-continuation{min-height:15mm;font-size:6.7pt;}',
 			'@media print{',
 			'html,body{width:210mm;height:auto;background:#fff;}',
 			'.statement-paper{margin:0;box-shadow:none;}',

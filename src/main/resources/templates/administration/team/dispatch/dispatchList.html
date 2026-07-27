@@ -168,25 +168,50 @@
 
 						<div class="dispatch-list-toolbar-right">
 							<div class="dispatch-list-statement-button-group" aria-label="명세서 출력 및 다운로드">
-								<button type="button" id="dispatch-list-statement-horizontal-print-btn"
+								<button type="button" id="dispatch-list-statement-site-horizontal-print-btn"
 									class="btn btn-outline-primary" disabled>
-									<i class="ri-printer-line me-1"></i>가로형명세서출력
+									<i class="ri-printer-line me-1"></i>현장명세서출력
 								</button>
 
-								<button type="button" id="dispatch-list-statement-vertical-print-btn"
+								<button type="button" id="dispatch-list-statement-parcel-horizontal-print-btn"
+									class="btn btn-outline-info" disabled>
+									<i class="ri-printer-line me-1"></i>택배명세서출력
+								</button>
+
+								<button type="button" id="dispatch-list-statement-site-horizontal-download-btn"
+									class="btn btn-outline-success" disabled>
+									<i class="ri-file-excel-2-line me-1"></i>현장명세서다운로드
+								</button>
+
+								<button type="button" id="dispatch-list-statement-parcel-horizontal-download-btn"
+									class="btn btn-outline-success" disabled>
+									<i class="ri-file-excel-2-line me-1"></i>택배명세서다운로드
+								</button>
+
+								<!--
+								세로형 기능은 개발 완료 상태로 유지하되 현재 화면에서는 숨깁니다.
+								필요 시 이 주석만 제거하면 기존 JS 이벤트가 자동으로 연결됩니다.
+
+								<button type="button" id="dispatch-list-statement-site-vertical-print-btn"
 									class="btn btn-outline-primary" disabled>
-									<i class="ri-printer-line me-1"></i>세로형명세서출력
+									<i class="ri-printer-line me-1"></i>세로형-현장출력
 								</button>
 
-								<button type="button" id="dispatch-list-statement-horizontal-download-btn"
+								<button type="button" id="dispatch-list-statement-parcel-vertical-print-btn"
 									class="btn btn-outline-info" disabled>
-									<i class="ri-file-excel-2-line me-1"></i>가로형명세서다운로드
+									<i class="ri-printer-line me-1"></i>세로형-택배출력
 								</button>
 
-								<button type="button" id="dispatch-list-statement-vertical-download-btn"
-									class="btn btn-outline-info" disabled>
-									<i class="ri-file-excel-2-line me-1"></i>세로형명세서다운로드
+								<button type="button" id="dispatch-list-statement-site-vertical-download-btn"
+									class="btn btn-outline-success" disabled>
+									<i class="ri-file-excel-2-line me-1"></i>세로형-현장다운로드
 								</button>
+
+								<button type="button" id="dispatch-list-statement-parcel-vertical-download-btn"
+									class="btn btn-outline-success" disabled>
+									<i class="ri-file-excel-2-line me-1"></i>세로형-택배다운로드
+								</button>
+								-->
 							</div>
 
 							<button type="button" id="dispatch-list-excel-btn" class="btn btn-outline-success">

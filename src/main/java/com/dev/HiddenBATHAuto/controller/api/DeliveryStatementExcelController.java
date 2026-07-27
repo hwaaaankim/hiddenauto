@@ -2,6 +2,7 @@ package com.dev.HiddenBATHAuto.controller.api;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +32,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DeliveryStatementExcelController {
 
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+
     private static final MediaType XLSX_MEDIA_TYPE = MediaType.parseMediaType(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
@@ -39,8 +42,8 @@ public class DeliveryStatementExcelController {
     private final DeliveryStatementLayoutService deliveryStatementLayoutService;
 
     /**
-     * 기존 현장/택배 명세서 ZIP 다운로드 API입니다.
-     * 관리자 화면 등 기존 호출부 보호를 위해 경로와 동작을 그대로 유지합니다.
+     * 기존 현장/택배 템플릿 ZIP 다운로드 API입니다.
+     * 다른 관리자 화면의 기존 호출부 보호를 위해 경로와 기존 동작을 유지합니다.
      */
     @PostMapping("/excel")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_MANAGEMENT', 'ROLE_INTERNAL_EMPLOYEE')")
@@ -57,7 +60,7 @@ public class DeliveryStatementExcelController {
             );
 
             String prefix = "SITE".equals(normalizedType) ? "현장명세서" : "택배명세서";
-            String filename = prefix + "_" + LocalDate.now() + ".zip";
+            String filename = prefix + "_" + LocalDate.now(KOREA_ZONE) + ".zip";
 
             ContentDisposition disposition = ContentDisposition.attachment()
                     .filename(filename, StandardCharsets.UTF_8)
@@ -79,11 +82,10 @@ public class DeliveryStatementExcelController {
     }
 
     /**
-     * 출고팀의 가로형/세로형 바로 출력용 데이터 API입니다.
+     * 출고팀 바로 출력용 데이터 API입니다.
      *
-     * 배송수단 필터는 적용하지 않습니다.
-     * - 배송수단명에 '택배'가 포함된 주문: 기존 택배명세서 항목 체계
-     * - 그 외 모든 배송수단: 기존 현장명세서 항목 체계
+     * SITE   : 배송수단이 현장배송, 화물, 방문인 선택 주문만 Task 단위로 출력
+     * PARCEL : 배송수단이 택배인 선택 주문만 Task 단위로 출력
      */
     @PostMapping("/layout/data")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_MANAGEMENT', 'ROLE_INTERNAL_EMPLOYEE')")
@@ -111,8 +113,8 @@ public class DeliveryStatementExcelController {
     }
 
     /**
-     * 출고팀의 가로형/세로형 A4 2분할 엑셀 다운로드 API입니다.
-     * 한 개의 XLSX 안에 실제 출력 페이지별로 시트를 생성합니다.
+     * 출고팀 A4 2분할 명세서 XLSX 다운로드 API입니다.
+     * 가로형은 A4 가로 중앙 절취, 세로형은 A4 세로 중앙 절취로 생성합니다.
      */
     @PostMapping("/layout/excel")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_MANAGEMENT', 'ROLE_INTERNAL_EMPLOYEE')")
@@ -130,10 +132,14 @@ public class DeliveryStatementExcelController {
             String layoutType = deliveryStatementLayoutService.normalizeLayoutType(
                     request != null ? request.getLayoutType() : null
             );
+            String statementType = deliveryStatementLayoutService.normalizeStatementType(
+                    request != null ? request.getStatementType() : null
+            );
+            String statementLabel = deliveryStatementLayoutService.statementTypeLabel(statementType);
             String layoutLabel = DeliveryStatementLayoutService.LAYOUT_HORIZONTAL.equals(layoutType)
                     ? "가로형"
                     : "세로형";
-            String filename = layoutLabel + "명세서_" + LocalDate.now() + ".xlsx";
+            String filename = statementLabel + "_" + layoutLabel + "_" + LocalDate.now(KOREA_ZONE) + ".xlsx";
 
             ContentDisposition disposition = ContentDisposition.attachment()
                     .filename(filename, StandardCharsets.UTF_8)
