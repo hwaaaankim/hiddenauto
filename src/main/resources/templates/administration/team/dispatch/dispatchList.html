@@ -167,13 +167,27 @@
 						</div>
 
 						<div class="dispatch-list-toolbar-right">
-							<button type="button" id="dispatch-list-site-statement-btn" class="btn btn-outline-primary" disabled>
-								<i class="ri-file-list-3-line me-1"></i>현장명세서출력
-							</button>
+							<div class="dispatch-list-statement-button-group" aria-label="명세서 출력 및 다운로드">
+								<button type="button" id="dispatch-list-statement-horizontal-print-btn"
+									class="btn btn-outline-primary" disabled>
+									<i class="ri-printer-line me-1"></i>가로형명세서출력
+								</button>
 
-							<button type="button" id="dispatch-list-parcel-statement-btn" class="btn btn-outline-info" disabled>
-								<i class="ri-file-paper-2-line me-1"></i>택배명세서출력
-							</button>
+								<button type="button" id="dispatch-list-statement-vertical-print-btn"
+									class="btn btn-outline-primary" disabled>
+									<i class="ri-printer-line me-1"></i>세로형명세서출력
+								</button>
+
+								<button type="button" id="dispatch-list-statement-horizontal-download-btn"
+									class="btn btn-outline-info" disabled>
+									<i class="ri-file-excel-2-line me-1"></i>가로형명세서다운로드
+								</button>
+
+								<button type="button" id="dispatch-list-statement-vertical-download-btn"
+									class="btn btn-outline-info" disabled>
+									<i class="ri-file-excel-2-line me-1"></i>세로형명세서다운로드
+								</button>
+							</div>
 
 							<button type="button" id="dispatch-list-excel-btn" class="btn btn-outline-success">
 								<i class="ri-file-excel-2-line me-1"></i>엑셀출력
@@ -722,6 +736,17 @@
 	</div>
 
 	<style>
+		.dispatch-list-statement-button-group {
+			display: flex;
+			flex-wrap: wrap;
+			gap: .5rem;
+			align-items: center;
+		}
+
+		.dispatch-list-statement-button-group .btn {
+			white-space: nowrap;
+		}
+
 		.dispatch-list-bulk-summary {
 			display: grid;
 			grid-template-columns: repeat(3, minmax(0, 1fr));

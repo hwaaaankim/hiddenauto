@@ -5,7 +5,8 @@
 	const API = {
 		search: '/team/dispatchList/api/orders/search',
 		excel: '/team/dispatchList/api/orders/excel',
-		deliveryStatementExcel: '/api/internal/delivery-statement/excel',
+		deliveryStatementLayoutData: '/api/internal/delivery-statement/layout/data',
+		deliveryStatementLayoutExcel: '/api/internal/delivery-statement/layout/excel',
 		complete: '/team/dispatchList/api/orders/complete',
 		bulkHandlerPreview: '/team/dispatchList/api/orders/bulk-handler/preview',
 		bulkHandler: '/team/dispatchList/api/orders/bulk-handler',
@@ -117,8 +118,10 @@
 		els.alertModal = document.getElementById('dispatch-list-alert-modal');
 		els.alertMessage = document.getElementById('dispatch-list-alert-message');
 		els.excelBtn = document.getElementById('dispatch-list-excel-btn');
-		els.siteStatementBtn = document.getElementById('dispatch-list-site-statement-btn');
-		els.parcelStatementBtn = document.getElementById('dispatch-list-parcel-statement-btn');
+		els.statementHorizontalPrintBtn = document.getElementById('dispatch-list-statement-horizontal-print-btn');
+		els.statementVerticalPrintBtn = document.getElementById('dispatch-list-statement-vertical-print-btn');
+		els.statementHorizontalDownloadBtn = document.getElementById('dispatch-list-statement-horizontal-download-btn');
+		els.statementVerticalDownloadBtn = document.getElementById('dispatch-list-statement-vertical-download-btn');
 
 		els.deliveryModalSelectedMethodId = document.getElementById('dispatch-list-delivery-modal-selected-method-id');
 		els.directHandlerArea = document.getElementById('dispatch-list-direct-handler-area');
@@ -267,15 +270,27 @@
 			els.excelBtn.addEventListener('click', downloadExcel);
 		}
 
-		if (els.siteStatementBtn) {
-			els.siteStatementBtn.addEventListener('click', function() {
-				downloadDeliveryStatement('SITE', els.siteStatementBtn);
+		if (els.statementHorizontalPrintBtn) {
+			els.statementHorizontalPrintBtn.addEventListener('click', function() {
+				printDeliveryStatementLayout('HORIZONTAL', els.statementHorizontalPrintBtn);
 			});
 		}
 
-		if (els.parcelStatementBtn) {
-			els.parcelStatementBtn.addEventListener('click', function() {
-				downloadDeliveryStatement('PARCEL', els.parcelStatementBtn);
+		if (els.statementVerticalPrintBtn) {
+			els.statementVerticalPrintBtn.addEventListener('click', function() {
+				printDeliveryStatementLayout('VERTICAL', els.statementVerticalPrintBtn);
+			});
+		}
+
+		if (els.statementHorizontalDownloadBtn) {
+			els.statementHorizontalDownloadBtn.addEventListener('click', function() {
+				downloadDeliveryStatementLayout('HORIZONTAL', els.statementHorizontalDownloadBtn);
+			});
+		}
+
+		if (els.statementVerticalDownloadBtn) {
+			els.statementVerticalDownloadBtn.addEventListener('click', function() {
+				downloadDeliveryStatementLayout('VERTICAL', els.statementVerticalDownloadBtn);
 			});
 		}
 		if (els.deliveryModal) {
@@ -665,8 +680,9 @@
 		setDisabled(els.bulkDeliveryMethodBtn, selectedCount === 0);
 		setDisabled(els.modalBulkHandlerBtn, selectedCount === 0);
 		setDisabled(els.modalBulkDeliveryMethodBtn, selectedCount === 0);
-		setDisabled(els.siteStatementBtn, selectedCount === 0);
-		setDisabled(els.parcelStatementBtn, selectedCount === 0);
+		statementLayoutButtons().forEach(function(button) {
+			setDisabled(button, selectedCount === 0);
+		});
 	}
 
 	function completeSelectedOrders() {
@@ -1546,62 +1562,138 @@
 	}
 
 
-	async function downloadDeliveryStatement(statementType, button) {
-		const orderIds = Array.from(state.selectedOrderIds)
-			.filter(function(orderId) {
-				return Number.isFinite(orderId) && orderId > 0;
-			});
+	function selectedStatementOrderIds() {
+		return selectedOrderIdsSnapshot();
+	}
+
+	function statementLayoutButtons() {
+		return [
+			els.statementHorizontalPrintBtn,
+			els.statementVerticalPrintBtn,
+			els.statementHorizontalDownloadBtn,
+			els.statementVerticalDownloadBtn
+		].filter(function(button) {
+			return !!button;
+		});
+	}
+
+	async function printDeliveryStatementLayout(layoutType, button) {
+		const orderIds = selectedStatementOrderIds();
 
 		if (orderIds.length === 0) {
 			alertMessage('명세서로 출력할 주문을 하나 이상 선택해 주세요.');
 			return;
 		}
 
+		/*
+		 * 팝업 차단을 피하기 위해 사용자 클릭 시점에 빈 창을 먼저 엽니다.
+		 * 데이터 조회가 끝난 뒤 이 창에 A4 인쇄 문서를 작성하고 바로 인쇄창을 엽니다.
+		 */
+		const printWindow = window.open('', '_blank');
+
+		if (!printWindow) {
+			alertMessage('인쇄창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도해 주세요.');
+			return;
+		}
+
+		printWindow.document.open();
+		printWindow.document.write(
+			'<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
+			'<title>명세서 출력 준비</title></head>' +
+			'<body style="font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;padding:32px;">' +
+			'명세서 출력 데이터를 준비하고 있습니다.</body></html>'
+		);
+		printWindow.document.close();
+
 		const originalText = button ? button.innerHTML : '';
 
 		try {
-			setStatementButtonsBusy(true, button);
+			setStatementLayoutButtonsBusy(true, button, originalText, '출력 준비 중');
 
-			const response = await fetch(API.deliveryStatementExcel, {
+			const response = await fetch(API.deliveryStatementLayoutData, {
 				method: 'POST',
 				headers: buildJsonHeaders(),
 				body: JSON.stringify({
-					statementType: statementType,
+					layoutType: layoutType,
+					orderIds: orderIds
+				})
+			});
+
+			const data = await parseJsonResponse(response);
+
+			if (!data.pages || data.pages.length === 0) {
+				throw new Error('출력할 명세서 데이터가 없습니다.');
+			}
+
+			printWindow.document.open();
+			printWindow.document.write(buildStatementPrintDocument(data));
+			printWindow.document.close();
+		} catch (error) {
+			console.error(error);
+
+			try {
+				printWindow.close();
+			} catch (closeError) {
+				console.warn(closeError);
+			}
+
+			alertMessage(error.message || '명세서 출력 준비 중 오류가 발생했습니다.');
+		} finally {
+			setStatementLayoutButtonsBusy(false, button, originalText);
+		}
+	}
+
+	async function downloadDeliveryStatementLayout(layoutType, button) {
+		const orderIds = selectedStatementOrderIds();
+
+		if (orderIds.length === 0) {
+			alertMessage('명세서로 다운로드할 주문을 하나 이상 선택해 주세요.');
+			return;
+		}
+
+		const originalText = button ? button.innerHTML : '';
+
+		try {
+			setStatementLayoutButtonsBusy(true, button, originalText, '엑셀 생성 중');
+
+			const response = await fetch(API.deliveryStatementLayoutExcel, {
+				method: 'POST',
+				headers: buildJsonHeaders(),
+				body: JSON.stringify({
+					layoutType: layoutType,
 					orderIds: orderIds
 				})
 			});
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				throw new Error(errorText || '명세서 출력 중 오류가 발생했습니다.');
+				throw new Error(errorText || '명세서 엑셀 생성 중 오류가 발생했습니다.');
 			}
 
 			const blob = await response.blob();
 			const contentDisposition = response.headers.get('Content-Disposition');
+			const layoutLabel = normalizeStatementLayoutType(layoutType) === 'HORIZONTAL' ? '가로형' : '세로형';
 			const filename = resolveDownloadFilename(
 				contentDisposition,
-				(statementType === 'SITE' ? '현장명세서' : '택배명세서') + '_' + (valueOf(els.today) || new Date().toISOString().slice(0, 10)) + '.xlsx'
+				layoutLabel + '명세서_' + (valueOf(els.today) || new Date().toISOString().slice(0, 10)) + '.xlsx'
 			);
 
 			downloadBlob(blob, filename);
 		} catch (error) {
 			console.error(error);
-			alertMessage(error.message || '명세서 출력 중 오류가 발생했습니다.');
+			alertMessage(error.message || '명세서 엑셀 다운로드 중 오류가 발생했습니다.');
 		} finally {
-			setStatementButtonsBusy(false, button, originalText);
+			setStatementLayoutButtonsBusy(false, button, originalText);
 		}
 	}
 
-	function setStatementButtonsBusy(isBusy, activeButton, originalText) {
-		[els.siteStatementBtn, els.parcelStatementBtn].forEach(function(btn) {
-			if (!btn) {
-				return;
-			}
-
+	function setStatementLayoutButtonsBusy(isBusy, activeButton, originalText, busyText) {
+		statementLayoutButtons().forEach(function(btn) {
 			if (isBusy) {
 				btn.disabled = true;
+
 				if (btn === activeButton) {
-					btn.innerHTML = '<i class="ri-loader-4-line me-1"></i>명세서 생성 중';
+					btn.innerHTML = '<i class="ri-loader-4-line me-1"></i>' + escapeHtml(busyText || '명세서 생성 중');
 				}
 				return;
 			}
@@ -1615,6 +1707,252 @@
 			updateCounts();
 		}
 	}
+
+	function normalizeStatementLayoutType(layoutType) {
+		return toText(layoutType).replace(/\s+/g, '').toUpperCase() === 'HORIZONTAL'
+			? 'HORIZONTAL'
+			: 'VERTICAL';
+	}
+
+	function buildStatementPrintDocument(data) {
+		const layoutType = normalizeStatementLayoutType(data && data.layoutType);
+		const layoutClass = layoutType === 'HORIZONTAL' ? 'layout-horizontal' : 'layout-vertical';
+		const title = layoutType === 'HORIZONTAL' ? '가로형 명세서' : '세로형 명세서';
+		const pages = data && Array.isArray(data.pages) ? data.pages : [];
+		const pageHtml = pages.map(function(page) {
+			return buildStatementPrintPage(page, layoutType);
+		}).join('');
+
+		return [
+			'<!doctype html>',
+			'<html lang="ko">',
+			'<head>',
+			'<meta charset="utf-8">',
+			'<meta name="viewport" content="width=device-width, initial-scale=1">',
+			'<title>' + escapeHtml(title) + '</title>',
+			'<style>' + buildStatementPrintStyles() + '</style>',
+			'</head>',
+			'<body class="statement-print-body ' + layoutClass + '">',
+			pageHtml,
+			'<script>',
+			'(function(){',
+			'var printed=false;',
+			'function printNow(){',
+			'if(printed){return;} printed=true;',
+			'setTimeout(function(){window.focus();window.print();},250);',
+			'}',
+			'if(document.readyState==="complete"){printNow();}',
+			'else{window.addEventListener("load",printNow);}',
+			'})();',
+			'<\/script>',
+			'</body>',
+			'</html>'
+		].join('');
+	}
+
+	function buildStatementPrintPage(page, layoutType) {
+		const storageCopy = buildStatementCopyHtml(page, '보관용');
+		const customerCopy = buildStatementCopyHtml(page, '고객용');
+		const splitClass = layoutType === 'HORIZONTAL'
+			? 'statement-split statement-split-horizontal'
+			: 'statement-split statement-split-vertical';
+		const splitHtml = '<div class="' + splitClass + '">' + storageCopy + customerCopy + '</div>';
+
+		if (layoutType === 'HORIZONTAL') {
+			return [
+				'<section class="statement-paper">',
+				'  <div class="statement-landscape-canvas">',
+				splitHtml,
+				'  </div>',
+				'</section>'
+			].join('');
+		}
+
+		return '<section class="statement-paper">' + splitHtml + '</section>';
+	}
+
+	function buildStatementCopyHtml(page, copyLabel) {
+		const items = page && Array.isArray(page.items) ? page.items : [];
+		const itemRows = items.length > 0
+			? items.map(buildStatementItemRowHtml).join('')
+			: '<tr><td colspan="6" class="statement-empty-row">출력할 품목이 없습니다.</td></tr>';
+		const partText = Number(page && page.pageCount || 0) > 1
+			? escapeHtml(page.pageNumber || 1) + ' / ' + escapeHtml(page.pageCount || 1)
+			: '';
+		const documentTypeLabel = toText(page && page.documentTypeLabel) || '출고명세서';
+		const recipientLabel = toText(page && page.recipientLabel) || '받는분';
+		const contactLabel = toText(page && page.contactLabel) || '연락처';
+		const addressLabel = toText(page && page.addressLabel) || '배송지';
+		const auxiliaryLabel = toText(page && page.auxiliaryLabel) || '배송순번';
+		const auxiliaryValue = toText(page && page.auxiliaryValue) || '-';
+
+		return [
+			'<article class="statement-copy">',
+			'  <div class="statement-copy-header">',
+			'    <div class="statement-document-kind">' + escapeHtml(documentTypeLabel) + '</div>',
+			'    <div class="statement-title-wrap">',
+			'      <div class="statement-title">출 고 명 세 서</div>',
+			'      <div class="statement-page-part">' + partText + '</div>',
+			'    </div>',
+			'    <div class="statement-copy-label">' + escapeHtml(copyLabel) + '</div>',
+			'  </div>',
+			'  <div class="statement-meta-grid">',
+			buildStatementMetaHtml('거래처', page && page.companyName),
+			buildStatementMetaHtml('주문번호', page && page.orderIdsText),
+			buildStatementMetaHtml(recipientLabel, page && page.recipientName),
+			buildStatementMetaHtml(contactLabel, page && page.recipientPhone),
+			buildStatementMetaHtml(addressLabel, page && page.addressText, true),
+			buildStatementMetaHtml('출고일', page && page.deliveryDateText),
+			buildStatementMetaHtml('배송수단', page && page.deliveryMethodName, false, 'statement-delivery-method-value'),
+			buildStatementMetaHtml('배송담당자', page && page.deliveryHandlerName),
+			buildStatementMetaHtml(auxiliaryLabel, auxiliaryValue),
+			'  </div>',
+			'  <table class="statement-item-table">',
+			'    <colgroup>',
+			'      <col class="statement-col-no">',
+			'      <col class="statement-col-product">',
+			'      <col class="statement-col-size">',
+			'      <col class="statement-col-color">',
+			'      <col class="statement-col-quantity">',
+			'      <col class="statement-col-memo">',
+			'    </colgroup>',
+			'    <thead><tr>',
+			'      <th>NO</th><th>품목명</th><th>규격</th><th>색상</th><th>수량</th><th>비고</th>',
+			'    </tr></thead>',
+			'    <tbody>' + itemRows + '</tbody>',
+			'  </table>',
+			'  <div class="statement-summary-grid">',
+			buildStatementSummaryHtml('총수량', formatStatementNumber(page && page.totalQuantity)),
+			buildStatementSummaryHtml('포장비', formatStatementMoney(page && page.packingCost)),
+			buildStatementSummaryHtml('운임비', formatStatementMoney(page && page.deliveryCost)),
+			buildStatementSummaryHtml('합계금액', formatStatementMoney(page && page.totalAmount), true),
+			'  </div>',
+			'  <div class="statement-note-row"><span>전달사항</span><strong>' + statementMultilineHtml(page && page.noteText) + '</strong></div>',
+			'  <div class="statement-footer-row">',
+			'    <div>위 품목을 이상 없이 출고·인수하였습니다.</div>',
+			'    <div class="statement-signature">확인: <span></span></div>',
+			'  </div>',
+			'</article>'
+		].join('');
+	}
+
+	function buildStatementMetaHtml(label, value, fullWidth, valueClass) {
+		const className = fullWidth ? 'statement-meta-item statement-meta-item-wide' : 'statement-meta-item';
+		const safeValueClass = valueClass ? ' ' + escapeAttr(valueClass) : '';
+
+		return [
+			'<div class="' + className + '">',
+			'  <span>' + escapeHtml(label || '-') + '</span>',
+			'  <strong class="statement-meta-value' + safeValueClass + '">' + statementMultilineHtml(value) + '</strong>',
+			'</div>'
+		].join('');
+	}
+
+	function buildStatementItemRowHtml(item, index) {
+		return [
+			'<tr>',
+			'  <td class="text-center">' + escapeHtml(item && item.no ? item.no : index + 1) + '</td>',
+			'  <td>' + statementMultilineHtml(item && item.productName) + '</td>',
+			'  <td>' + statementMultilineHtml(item && item.sizeText) + '</td>',
+			'  <td>' + statementMultilineHtml(item && item.color) + '</td>',
+			'  <td class="text-center">' + escapeHtml(item && item.quantity !== undefined ? item.quantity : '-') + '</td>',
+			'  <td>' + statementMultilineHtml(item && item.memo) + '</td>',
+			'</tr>'
+		].join('');
+	}
+
+	function buildStatementSummaryHtml(label, value, emphasized) {
+		return [
+			'<div class="statement-summary-item' + (emphasized ? ' is-emphasized' : '') + '">',
+			'  <span>' + escapeHtml(label || '-') + '</span>',
+			'  <strong>' + escapeHtml(value || '-') + '</strong>',
+			'</div>'
+		].join('');
+	}
+
+	function statementMultilineHtml(value) {
+		const text = toText(value) || '-';
+		return escapeHtml(text).replace(/\r?\n/g, '<br>');
+	}
+
+	function formatStatementNumber(value) {
+		const number = Number(value || 0);
+		return Number.isFinite(number) ? number.toLocaleString('ko-KR') : '0';
+	}
+
+	function formatStatementMoney(value) {
+		return formatStatementNumber(value) + '원';
+	}
+
+	function buildStatementPrintStyles() {
+		return [
+			'@page{size:A4 portrait;margin:0;}',
+			'*{box-sizing:border-box;}',
+			'html,body{margin:0;padding:0;}',
+			'body{background:#e5e7eb;color:#111;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}',
+			'.statement-paper{position:relative;width:210mm;height:297mm;margin:8mm auto;background:#fff;overflow:hidden;box-shadow:0 2mm 8mm rgba(15,23,42,.18);page-break-after:always;break-after:page;}',
+			'.statement-paper:last-child{page-break-after:auto;break-after:auto;}',
+			'.statement-landscape-canvas{position:absolute;left:0;top:0;width:297mm;height:210mm;transform:translateX(210mm) rotate(90deg);transform-origin:0 0;}',
+			'.statement-split{width:100%;height:100%;}',
+			'.statement-split-horizontal{display:grid;grid-template-columns:1fr 1fr;}',
+			'.statement-split-vertical{display:grid;grid-template-rows:1fr 1fr;}',
+			'.statement-copy{position:relative;overflow:hidden;background:#fff;}',
+			'.statement-split-horizontal>.statement-copy{width:148.5mm;height:210mm;padding:5mm 5.5mm;}',
+			'.statement-split-horizontal>.statement-copy:first-child{border-right:.35mm dashed #7c8796;}',
+			'.statement-split-vertical>.statement-copy{width:210mm;height:148.5mm;padding:4.2mm 6mm;}',
+			'.statement-split-vertical>.statement-copy:first-child{border-bottom:.35mm dashed #7c8796;}',
+			'.statement-copy-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:2mm;margin-bottom:2mm;padding-bottom:1.5mm;border-bottom:.65mm solid #111827;}',
+			'.statement-document-kind{font-weight:700;font-size:8pt;color:#334155;}',
+			'.statement-title-wrap{text-align:center;white-space:nowrap;}',
+			'.statement-title{font-weight:900;letter-spacing:.22em;font-size:14pt;line-height:1.1;}',
+			'.statement-page-part{min-height:3mm;margin-top:.5mm;font-size:6.5pt;color:#64748b;}',
+			'.statement-copy-label{justify-self:end;display:inline-flex;align-items:center;justify-content:center;min-width:17mm;padding:1mm 2mm;border:.35mm solid #111827;border-radius:1.2mm;font-size:8pt;font-weight:800;}',
+			'.statement-meta-grid{display:grid;grid-template-columns:1fr 1fr;border-top:.25mm solid #475569;border-left:.25mm solid #475569;margin-bottom:2mm;}',
+			'.statement-meta-item{display:grid;grid-template-columns:22mm minmax(0,1fr);min-height:7mm;border-right:.25mm solid #475569;border-bottom:.25mm solid #475569;}',
+			'.statement-meta-item-wide{grid-column:1/-1;}',
+			'.statement-meta-item>span{display:flex;align-items:center;justify-content:center;padding:.8mm 1mm;background:#eef2f6;border-right:.25mm solid #475569;font-size:7pt;font-weight:800;text-align:center;}',
+			'.statement-meta-value{display:flex;align-items:center;min-width:0;padding:.8mm 1.3mm;font-size:7.2pt;line-height:1.2;overflow-wrap:anywhere;}',
+			'.statement-delivery-method-value{font-weight:900;color:#0f172a;}',
+			'.statement-item-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:2mm;font-size:7pt;}',
+			'.statement-item-table th,.statement-item-table td{border:.25mm solid #475569;padding:.8mm 1mm;vertical-align:middle;line-height:1.2;overflow-wrap:anywhere;}',
+			'.statement-item-table th{height:7mm;background:#dfe6ee;text-align:center;font-weight:900;}',
+			'.statement-item-table td{height:7mm;}',
+			'.statement-col-no{width:8%;}.statement-col-product{width:31%;}.statement-col-size{width:19%;}.statement-col-color{width:13%;}.statement-col-quantity{width:9%;}.statement-col-memo{width:20%;}',
+			'.statement-empty-row{text-align:center;color:#64748b;}',
+			'.text-center{text-align:center;}',
+			'.statement-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);border-top:.25mm solid #475569;border-left:.25mm solid #475569;margin-bottom:1.5mm;}',
+			'.statement-summary-item{display:grid;grid-template-rows:auto auto;text-align:center;border-right:.25mm solid #475569;border-bottom:.25mm solid #475569;}',
+			'.statement-summary-item span{padding:.6mm .5mm;background:#eef2f6;font-size:6.5pt;font-weight:800;}',
+			'.statement-summary-item strong{padding:.8mm .5mm;font-size:7.4pt;}',
+			'.statement-summary-item.is-emphasized strong{font-size:8pt;}',
+			'.statement-note-row{display:grid;grid-template-columns:22mm minmax(0,1fr);min-height:8mm;border:.25mm solid #475569;margin-bottom:1.5mm;}',
+			'.statement-note-row>span{display:flex;align-items:center;justify-content:center;background:#eef2f6;border-right:.25mm solid #475569;font-size:6.8pt;font-weight:800;}',
+			'.statement-note-row>strong{display:flex;align-items:center;padding:.8mm 1.2mm;font-size:6.8pt;line-height:1.2;overflow-wrap:anywhere;}',
+			'.statement-footer-row{display:flex;align-items:end;justify-content:space-between;gap:3mm;font-size:6.5pt;color:#334155;}',
+			'.statement-signature{display:flex;align-items:end;gap:1mm;white-space:nowrap;}',
+			'.statement-signature span{display:inline-block;width:22mm;height:6mm;border-bottom:.25mm solid #111827;}',
+			'.layout-vertical .statement-title{font-size:13pt;}',
+			'.layout-vertical .statement-copy-header{margin-bottom:1.8mm;padding-bottom:1.2mm;}',
+			'.layout-vertical .statement-meta-grid{margin-bottom:1.6mm;}',
+			'.layout-vertical .statement-meta-item{grid-template-columns:21mm minmax(0,1fr);min-height:7mm;}',
+			'.layout-vertical .statement-meta-item>span{font-size:7pt;padding:.65mm .8mm;}',
+			'.layout-vertical .statement-meta-value{font-size:7.1pt;padding:.65mm 1mm;}',
+			'.layout-vertical .statement-item-table{font-size:7pt;margin-bottom:1.5mm;}',
+			'.layout-vertical .statement-item-table th{height:6.5mm;padding:.6mm .7mm;}',
+			'.layout-vertical .statement-item-table td{height:7mm;padding:.6mm .7mm;}',
+			'.layout-vertical .statement-summary-grid{margin-bottom:1.4mm;}',
+			'.layout-vertical .statement-summary-item span{font-size:6.5pt;padding:.55mm;}',
+			'.layout-vertical .statement-summary-item strong{font-size:7.2pt;padding:.65mm;}',
+			'.layout-vertical .statement-note-row{grid-template-columns:21mm minmax(0,1fr);min-height:8mm;margin-bottom:1.2mm;}',
+			'.layout-vertical .statement-note-row>span,.layout-vertical .statement-note-row>strong{font-size:6.5pt;padding:.6mm .8mm;}',
+			'.layout-vertical .statement-footer-row{font-size:6.5pt;}',
+			'@media print{',
+			'html,body{width:210mm;height:auto;background:#fff;}',
+			'.statement-paper{margin:0;box-shadow:none;}',
+			'}'
+		].join('');
+	}
+
 
 	function downloadBlob(blob, filename) {
 		const url = window.URL.createObjectURL(blob);
