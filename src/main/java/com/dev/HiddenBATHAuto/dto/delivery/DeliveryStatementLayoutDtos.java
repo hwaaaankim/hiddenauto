@@ -38,6 +38,7 @@ public final class DeliveryStatementLayoutDtos {
         private int sequence;
         private int pageNumber;
         private int pageCount;
+        private boolean summaryVisible;
 
         private Long taskId;
         private String documentType;

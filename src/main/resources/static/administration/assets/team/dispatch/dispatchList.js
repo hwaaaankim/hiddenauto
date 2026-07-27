@@ -1785,6 +1785,17 @@
 		const addressLabel = toText(page && page.addressLabel) || '배송지';
 		const auxiliaryLabel = toText(page && page.auxiliaryLabel) || '배송순번';
 		const auxiliaryValue = toText(page && page.auxiliaryValue) || '-';
+		const summaryVisible = !page || page.summaryVisible !== false;
+		const summaryHtml = summaryVisible
+			? [
+				'<div class="statement-summary-grid">',
+				buildStatementSummaryHtml('총수량', formatStatementNumber(page && page.totalQuantity)),
+				buildStatementSummaryHtml('포장비', formatStatementMoney(page && page.packingCost)),
+				buildStatementSummaryHtml('운임비', formatStatementMoney(page && page.deliveryCost)),
+				buildStatementSummaryHtml('합계금액', formatStatementMoney(page && page.totalAmount), true),
+				'</div>'
+			].join('')
+			: '<div class="statement-summary-continuation">품목 계속 · 총수량/포장비/운임비/합계금액은 마지막 페이지에 1회 표시됩니다.</div>';
 
 		return [
 			'<article class="statement-copy">',
@@ -1821,12 +1832,7 @@
 			'    </tr></thead>',
 			'    <tbody>' + itemRows + '</tbody>',
 			'  </table>',
-			'  <div class="statement-summary-grid">',
-			buildStatementSummaryHtml('총수량', formatStatementNumber(page && page.totalQuantity)),
-			buildStatementSummaryHtml('포장비', formatStatementMoney(page && page.packingCost)),
-			buildStatementSummaryHtml('운임비', formatStatementMoney(page && page.deliveryCost)),
-			buildStatementSummaryHtml('합계금액', formatStatementMoney(page && page.totalAmount), true),
-			'  </div>',
+			summaryHtml,
 			'  <div class="statement-note-row"><span>전달사항</span><strong>' + statementMultilineHtml(page && page.noteText) + '</strong></div>',
 			'  <div class="statement-footer-row">',
 			'    <div>위 품목을 이상 없이 출고·인수하였습니다.</div>',
@@ -1925,6 +1931,7 @@
 			'.statement-summary-item span{padding:.6mm .5mm;background:#eef2f6;font-size:6.5pt;font-weight:800;}',
 			'.statement-summary-item strong{padding:.8mm .5mm;font-size:7.4pt;}',
 			'.statement-summary-item.is-emphasized strong{font-size:8pt;}',
+			'.statement-summary-continuation{display:flex;align-items:center;justify-content:center;min-height:8mm;margin-bottom:1.5mm;border:.25mm solid #475569;background:#f8fafc;font-size:6.8pt;font-weight:800;text-align:center;padding:1mm;}',
 			'.statement-note-row{display:grid;grid-template-columns:22mm minmax(0,1fr);min-height:8mm;border:.25mm solid #475569;margin-bottom:1.5mm;}',
 			'.statement-note-row>span{display:flex;align-items:center;justify-content:center;background:#eef2f6;border-right:.25mm solid #475569;font-size:6.8pt;font-weight:800;}',
 			'.statement-note-row>strong{display:flex;align-items:center;padding:.8mm 1.2mm;font-size:6.8pt;line-height:1.2;overflow-wrap:anywhere;}',

@@ -224,12 +224,14 @@ public class DeliveryStatementLayoutService {
             AddressData address = resolveStatementAddress(order, documentType);
             RecipientData recipient = resolveRecipient(order);
             Long taskId = order.getTask() != null ? order.getTask().getId() : null;
+            String deliveryDateText = resolveDeliveryDateText(order);
 
             String groupKey = buildGroupKey(
                     taskId,
                     order.getId(),
                     documentType,
                     deliveryMethodName,
+                    deliveryDateText,
                     recipient,
                     address
             );
@@ -257,6 +259,7 @@ public class DeliveryStatementLayoutService {
             Long orderId,
             String documentType,
             String deliveryMethodName,
+            String deliveryDateText,
             RecipientData recipient,
             AddressData address
     ) {
@@ -267,6 +270,7 @@ public class DeliveryStatementLayoutService {
                 parentKey,
                 safeText(documentType),
                 normalizeKeyText(deliveryMethodName),
+                normalizeKeyText(deliveryDateText),
                 normalizeKeyText(recipient.name()),
                 normalizeKeyText(recipient.phone()),
                 normalizeKeyText(address.postalCode()),
@@ -346,8 +350,20 @@ public class DeliveryStatementLayoutService {
 
         int quantity = order.getQuantity();
         group.totalQuantity += quantity;
-        group.packingCost += order.getPackingCost();
-        group.deliveryCost += order.getDeliveryCost();
+
+        /*
+         * 포장비/운임비는 발주 그룹 단위 금액이 각 Order에 반복 저장될 수 있습니다.
+         * 같은 명세서 그룹에서는 Order별 금액을 합산하지 않고 양수 최댓값을 한 번만 사용합니다.
+         * 이는 기존 매출전표의 Task 단위 운임비 중복 방지 기준과 동일합니다.
+         */
+        group.packingCost = Math.max(
+                group.packingCost,
+                Math.max(0, order.getPackingCost())
+        );
+        group.deliveryCost = Math.max(
+                group.deliveryCost,
+                Math.max(0, order.getDeliveryCost())
+        );
         group.totalAmount += order.getTotalAmount();
 
         String memo = safeText(order.getAdminMemo());
@@ -458,6 +474,7 @@ public class DeliveryStatementLayoutService {
                 .sequence(sequence)
                 .pageNumber(pageNumber)
                 .pageCount(pageCount)
+                .summaryVisible(pageNumber == pageCount)
                 .taskId(group.taskId)
                 .documentType(group.documentType)
                 .documentTypeLabel(group.documentTypeLabel)
@@ -938,6 +955,18 @@ public class DeliveryStatementLayoutService {
             StatementPageDto page,
             Map<String, CellStyle> styles
     ) {
+        if (!page.isSummaryVisible()) {
+            setMergedValue(
+                    sheet,
+                    rowIndex,
+                    startColumn,
+                    startColumn + 7,
+                    "품목 계속 · 총수량/포장비/운임비/합계금액은 마지막 페이지에 1회 표시됩니다.",
+                    styles.get("summaryValue")
+            );
+            return;
+        }
+
         writeSummaryPair(sheet, rowIndex, startColumn, "총수량", formatNumber(page.getTotalQuantity()), styles);
         writeSummaryPair(sheet, rowIndex, startColumn + 2, "포장비", formatMoney(page.getPackingCost()), styles);
         writeSummaryPair(sheet, rowIndex, startColumn + 4, "운임비", formatMoney(page.getDeliveryCost()), styles);
