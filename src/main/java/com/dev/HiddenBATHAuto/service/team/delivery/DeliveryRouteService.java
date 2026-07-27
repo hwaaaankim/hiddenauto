@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -193,6 +194,72 @@ public class DeliveryRouteService {
         }
 
         return requestedIds;
+    }
+
+    /**
+     * 배송완료 처리 직후 프론트 화면을 새로고침하지 않고도 정확히 갱신할 수 있도록
+     * 처리 대상이 속한 묶음의 최신 상태를 반환합니다.
+     *
+     * 완료 API 자체의 성공 여부와 화면 보조정보 조회가 강하게 결합되지 않도록
+     * 대상 묶음을 찾지 못하면 예외 대신 Optional.empty()를 반환합니다.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CompletionSnapshot> findCompletionSnapshot(
+            Member loginMember,
+            LocalDate deliveryDate,
+            List<Long> completedOrderIds
+    ) {
+        validateDeliveryTeamMember(loginMember);
+
+        LinkedHashSet<Long> targetOrderIds = completedOrderIds == null
+                ? new LinkedHashSet<>()
+                : completedOrderIds.stream()
+                        .filter(Objects::nonNull)
+                        .filter(orderId -> orderId > 0)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (targetOrderIds.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Page page = getRoutePage(loginMember, deliveryDate);
+
+        for (Group group : page.getDirectGroups()) {
+            boolean targetGroup = group.getOrders().stream()
+                    .map(OrderRow::getOrderId)
+                    .filter(Objects::nonNull)
+                    .anyMatch(targetOrderIds::contains);
+
+            if (!targetGroup) {
+                continue;
+            }
+
+            List<Long> groupOrderIds = group.getOrders().stream()
+                    .map(OrderRow::getOrderId)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            List<Long> deliveryDoneOrderIds = group.getOrders().stream()
+                    .filter(OrderRow::isDeliveryDone)
+                    .map(OrderRow::getOrderId)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            boolean fullyCompleted = group.getOrderCount() > 0
+                    && group.getDeliveryDoneCount() == group.getOrderCount();
+
+            return Optional.of(new CompletionSnapshot(
+                    groupOrderIds,
+                    deliveryDoneOrderIds,
+                    group.getOrderCount(),
+                    group.getCompletableOrderCount(),
+                    group.getDeliveryDoneCount(),
+                    fullyCompleted,
+                    page.getDeliveryDoneCount()
+            ));
+        }
+
+        return Optional.empty();
     }
 
     /**
@@ -702,6 +769,23 @@ public class DeliveryRouteService {
                 || member.getTeam() == null
                 || !DELIVERY_TEAM_NAME.equals(member.getTeam().getName())) {
             throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+        }
+    }
+
+    public record CompletionSnapshot(
+            List<Long> groupOrderIds,
+            List<Long> deliveryDoneOrderIds,
+            int groupOrderCount,
+            int groupCompletableOrderCount,
+            int groupDeliveryDoneCount,
+            boolean groupFullyCompleted,
+            int pageDeliveryDoneCount
+    ) {
+        public CompletionSnapshot {
+            groupOrderIds = groupOrderIds == null ? List.of() : List.copyOf(groupOrderIds);
+            deliveryDoneOrderIds = deliveryDoneOrderIds == null
+                    ? List.of()
+                    : List.copyOf(deliveryDoneOrderIds);
         }
     }
 

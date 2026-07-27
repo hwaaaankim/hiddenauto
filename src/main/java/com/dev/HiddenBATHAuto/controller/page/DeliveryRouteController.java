@@ -28,7 +28,9 @@ import com.dev.HiddenBATHAuto.service.order.DeliveryCompletionService;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryRouteService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Controller
 @RequestMapping("/team/deliveryRoute")
 @PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
@@ -62,6 +64,9 @@ public class DeliveryRouteController {
     /**
      * 업체별 오늘 배송 화면에서 같은 묶음의 선택 주문을 한 번에 배송완료 처리합니다.
      * 업로드한 모든 이미지는 선택된 모든 주문에 각각 독립 파일/OrderImage로 저장됩니다.
+     *
+     * 완료 직후 페이지 전체 새로고침 없이 화면을 정확히 재배치할 수 있도록
+     * 처리된 묶음의 최신 완료 상태도 함께 반환합니다.
      */
     @PostMapping("/complete")
     @ResponseBody
@@ -89,6 +94,27 @@ public class DeliveryRouteController {
             body.put("completedCount", completedOrderIds.size());
             body.put("uploadedImageCount", uploadedImageCount);
             body.put("message", completedOrderIds.size() + "건을 배송완료 처리했습니다.");
+
+            try {
+                deliveryRouteService.findCompletionSnapshot(
+                        loginMember,
+                        deliveryDate,
+                        completedOrderIds
+                ).ifPresent(snapshot -> body.put("completionSnapshot", snapshot));
+            } catch (RuntimeException snapshotException) {
+                /*
+                 * 배송완료 트랜잭션은 이미 정상 커밋되었습니다.
+                 * 화면 보조 스냅샷 조회 실패를 완료 API 실패로 응답하면 사용자가 재시도하여
+                 * "이미 배송완료" 오류를 보게 되므로 성공 응답은 유지하고 프론트 기본 갱신으로 대체합니다.
+                 */
+                log.warn(
+                        "배송완료 후 화면 갱신 스냅샷 조회에 실패했습니다. deliveryDate={}, orderIds={}",
+                        deliveryDate,
+                        completedOrderIds,
+                        snapshotException
+                );
+                body.put("requiresReload", true);
+            }
 
             return ResponseEntity.ok(body);
 

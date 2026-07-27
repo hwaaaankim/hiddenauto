@@ -1,5 +1,5 @@
 /* deliveryRoute.export-completion.css
- * deliveryRoute 기존 스타일을 유지하면서 엑셀/인쇄 버튼과 전체 배송완료 묶음 표시만 보강합니다.
+ * 업체별 오늘 배송의 출력 버튼, 완료상태 재배치, 완료 모달 및 알림 UI를 보강합니다.
  */
 
 .delivery-route-toolbar-actions {
@@ -12,6 +12,56 @@
 
 .delivery-route-completion-badge {
     white-space: nowrap;
+}
+
+/*
+ * 미완료 묶음이 항상 위쪽, 전체 배송완료 묶음이 항상 아래쪽에 위치합니다.
+ * JavaScript가 실제 DOM도 같은 순서로 재배치하므로 엑셀/인쇄 순서 역시 화면과 일치합니다.
+ */
+.delivery-route-group-list {
+    align-items: stretch;
+}
+
+.delivery-route-completed-divider {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 10px 0 0;
+    padding: 10px 13px;
+    border: 1px solid #b7dfc6;
+    border-radius: 10px;
+    background: #eef8f2;
+    color: #146c43;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.delivery-route-completed-divider > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.delivery-route-completed-divider i {
+    font-size: 16px;
+}
+
+.delivery-route-completed-divider b {
+    white-space: nowrap;
+}
+
+.delivery-route-order-completed-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-top: 1px dashed #b7dfc6;
+    border-bottom: 1px dashed #b7dfc6;
+    background: #f3faf6;
+    color: #397254;
+    font-size: 10px;
+    font-weight: 800;
 }
 
 .delivery-route-group.is-fully-completed {
@@ -43,6 +93,19 @@
     color: #198754;
 }
 
+.delivery-route-group.is-completion-updated {
+    animation: delivery-route-completed-pulse 700ms ease;
+}
+
+@keyframes delivery-route-completed-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.34);
+    }
+    100% {
+        box-shadow: 0 0 0 14px rgba(25, 135, 84, 0);
+    }
+}
+
 .delivery-route-bulk-bar.is-completed {
     background: #eef8f2;
     border-color: #b7dfc6;
@@ -63,6 +126,155 @@
     background: #f8fcf9;
 }
 
+.delivery-route-order-card.is-delivery-done .delivery-route-order-number small {
+    color: #198754;
+    font-weight: 800;
+}
+
+/* 완료 모달 내부 오류/안내 */
+.delivery-route-complete-feedback {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.delivery-route-complete-feedback.is-warning {
+    border-color: #f7d690;
+    background: #fff8e7;
+    color: #8a5a00;
+}
+
+.delivery-route-complete-feedback.is-error {
+    border-color: #f4b8be;
+    background: #fff1f2;
+    color: #b42332;
+}
+
+.delivery-route-complete-feedback.is-success {
+    border-color: #b7dfc6;
+    background: #eef8f2;
+    color: #146c43;
+}
+
+.delivery-route-complete-final-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin-top: 14px;
+    padding: 10px 11px;
+    border-radius: 9px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.delivery-route-complete-final-note i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 15px;
+}
+
+.delivery-route-complete-modal-content .modal-header,
+.delivery-route-complete-modal-content .modal-footer {
+    flex: 0 0 auto;
+}
+
+.delivery-route-complete-modal-content .modal-body {
+    min-height: 0;
+    overscroll-behavior: contain;
+}
+
+.delivery-route-complete-modal-content .modal-footer {
+    border-top: 1px solid #e7edf4;
+    background: #ffffff;
+}
+
+/* 모달이 떠 있는 동안 플로팅 버튼이 모달 위로 겹치지 않게 숨깁니다. */
+body.modal-open .delivery-route-floating-toggle,
+body.delivery-route-completion-modal-open .delivery-route-floating-toggle {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+}
+
+.delivery-route-floating-toggle {
+    z-index: 1035;
+    transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+/* SweetAlert 의존 없이 Bootstrap Toast로 알림을 표시합니다. */
+.delivery-route-toast-container {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top));
+    right: 16px;
+    z-index: 1095;
+    width: min(390px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+.delivery-route-toast {
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid #dbe4ee;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 18px 50px rgba(15, 23, 42, .18);
+    pointer-events: auto;
+}
+
+.delivery-route-toast .toast-header {
+    gap: 8px;
+    border-bottom-color: #e7edf4;
+}
+
+.delivery-route-toast-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #eef2ff;
+    color: #405189;
+    font-size: 16px;
+}
+
+.delivery-route-toast.is-success .delivery-route-toast-icon {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.delivery-route-toast.is-warning .delivery-route-toast-icon {
+    background: #fef3c7;
+    color: #a16207;
+}
+
+.delivery-route-toast.is-error .delivery-route-toast-icon {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.delivery-route-toast .toast-body {
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .delivery-route-group.is-completion-updated {
+        animation: none;
+    }
+
+    .delivery-route-floating-toggle {
+        transition: none;
+    }
+}
+
 @media (max-width: 767.98px) {
     .delivery-route-toolbar-actions {
         width: 100%;
@@ -75,5 +287,67 @@
 
     .delivery-route-toolbar-actions a.btn {
         flex-basis: 100%;
+    }
+
+    .delivery-route-complete-modal-dialog {
+        width: auto;
+        max-width: none;
+        min-height: calc(100dvh - 12px);
+        margin: 6px;
+    }
+
+    .delivery-route-complete-modal-content {
+        max-height: calc(100dvh - 12px);
+        border-radius: 16px 16px 10px 10px;
+    }
+
+    @supports not (height: 100dvh) {
+        .delivery-route-complete-modal-dialog {
+            min-height: calc(100vh - 12px);
+        }
+
+        .delivery-route-complete-modal-content {
+            max-height: calc(100vh - 12px);
+        }
+    }
+
+    .delivery-route-complete-modal-content .modal-header {
+        padding: 15px 15px 12px;
+    }
+
+    .delivery-route-complete-modal-content .modal-body {
+        padding: 13px 15px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .delivery-route-complete-modal-content .modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: minmax(0, .72fr) minmax(0, 1.28fr);
+        gap: 8px;
+        margin: 0;
+        padding: 11px 15px calc(11px + env(safe-area-inset-bottom));
+        box-shadow: 0 -8px 22px rgba(15, 23, 42, .07);
+    }
+
+    .delivery-route-complete-modal-content .modal-footer > .btn {
+        width: 100%;
+        min-height: 46px;
+        margin: 0;
+        font-weight: 800;
+    }
+
+    .delivery-route-toast-container {
+        top: max(10px, env(safe-area-inset-top));
+        right: 10px;
+        width: calc(100vw - 20px);
+    }
+
+    .delivery-route-completed-divider {
+        margin-top: 7px;
+        padding: 9px 11px;
     }
 }

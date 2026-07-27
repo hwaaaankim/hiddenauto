@@ -92,7 +92,7 @@
                     </div>
                     <div class="delivery-route-summary-card">
                         <span class="delivery-route-summary-label">배송완료</span>
-                        <strong><span th:text="${routePage.deliveryDoneCount}">0</span>건</strong>
+                        <strong><span id="delivery-route-summary-done-count" th:text="${routePage.deliveryDoneCount}">0</span>건</strong>
                     </div>
                 </div>
 
@@ -138,7 +138,8 @@
                         <strong>해당 날짜의 직배송/현장배송 일정이 없습니다.</strong>
                     </div>
 
-                    <div class="delivery-route-group-list" th:unless="${routePage.directGroups.isEmpty()}">
+                    <div class="delivery-route-group-list" data-delivery-route-group-list="direct"
+                         th:unless="${routePage.directGroups.isEmpty()}">
                         <article class="delivery-route-group"
                                  th:each="group : ${routePage.directGroups}"
                                  th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' is-fully-completed' : ''"
@@ -166,8 +167,9 @@
                                         수량 <b th:text="${group.totalQuantity}">0</b>
                                     </span>
                                     <span class="badge delivery-route-completion-badge"
+                                          data-delivery-route-group-completion
                                           th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' bg-success text-white' : (${group.deliveryDoneCount > 0} ? ' bg-warning-subtle text-warning' : ' bg-light text-dark')">
-                                        배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b>
+                                        배송완료 <b data-delivery-route-done-count th:text="${group.deliveryDoneCount}">0</b>/<b data-delivery-route-total-count th:text="${group.orderCount}">0</b>
                                     </span>
                                     <span class="delivery-route-selection-progress"
                                           th:attr="data-progress-for=${group.domId}"
@@ -202,7 +204,8 @@
                                             disabled
                                             th:attr="data-group-id=${group.domId}">
                                         <i th:class="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? 'ri-checkbox-circle-line me-1' : 'ri-camera-line me-1'}"></i>
-                                        <span th:text="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? '전체 배송완료' : '배송완료처리'}">배송완료처리</span>
+                                        <span data-delivery-route-complete-label
+                                              th:text="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount ? '전체 배송완료' : '배송완료처리'}">배송완료처리</span>
                                         <span class="badge bg-white text-success ms-1"
                                               th:unless="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount}"
                                               data-delivery-route-selected-count>0</span>
@@ -211,14 +214,14 @@
 
                                 <div class="delivery-route-group-body-head">
                                     <span>최초 배송순서 <b th:text="${group.firstOrderIndex}">1</b></span>
-                                    <span>배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b></span>
+                                    <span>배송완료 <b data-delivery-route-done-count th:text="${group.deliveryDoneCount}">0</b>/<b data-delivery-route-total-count th:text="${group.orderCount}">0</b></span>
                                 </div>
 
                                 <div class="delivery-route-order-list">
                                     <article class="delivery-route-order-card"
                                              th:each="order : ${group.orders}"
                                              th:classappend="${order.deliveryDone} ? ' is-delivery-done' : (${!order.completable} ? ' is-not-completable' : '')"
-                                             th:attr="data-order-id=${order.orderId},data-completable=${order.completable}">
+                                             th:attr="data-order-id=${order.orderId},data-completable=${order.completable},data-delivery-done=${order.deliveryDone}">
                                         <div class="delivery-route-order-top">
                                             <label class="delivery-route-check-label"
                                                    th:classappend="${!order.completable} ? ' is-disabled' : ''">
@@ -231,7 +234,7 @@
                                             <div class="delivery-route-order-badges">
                                                 <span class="badge bg-primary-subtle text-primary"
                                                       th:text="${order.deliveryMethodName}">직배송</span>
-                                                <span class="badge"
+                                                <span class="badge" data-delivery-route-status-badge
                                                       th:classappend="${order.deliveryDone} ? ' bg-success' : (${order.status == 'DISPATCH_DONE'} ? ' bg-warning text-dark' : (${order.completable} ? ' bg-info' : ' bg-secondary'))"
                                                       th:text="${order.statusLabel}">생산완료</span>
                                             </div>
@@ -288,7 +291,8 @@
                         <strong>해당 날짜의 화물 일정이 없습니다.</strong>
                     </div>
 
-                    <div class="delivery-route-group-list" th:unless="${routePage.freightGroups.isEmpty()}">
+                    <div class="delivery-route-group-list" data-delivery-route-group-list="freight"
+                         th:unless="${routePage.freightGroups.isEmpty()}">
                         <article class="delivery-route-group is-freight"
                                  th:each="group : ${routePage.freightGroups}"
                                  th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' is-fully-completed' : ''"
@@ -316,8 +320,9 @@
                                         수량 <b th:text="${group.totalQuantity}">0</b>
                                     </span>
                                     <span class="badge delivery-route-completion-badge"
+                                          data-delivery-route-group-completion
                                           th:classappend="${group.orderCount > 0 and group.deliveryDoneCount == group.orderCount} ? ' bg-success text-white' : (${group.deliveryDoneCount > 0} ? ' bg-warning-subtle text-warning' : ' bg-light text-dark')">
-                                        배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b>
+                                        배송완료 <b data-delivery-route-done-count th:text="${group.deliveryDoneCount}">0</b>/<b data-delivery-route-total-count th:text="${group.orderCount}">0</b>
                                     </span>
                                     <span class="delivery-route-selection-progress"
                                           th:attr="data-progress-for=${group.domId}"
@@ -341,14 +346,14 @@
 
                                 <div class="delivery-route-group-body-head">
                                     <span>최초 배송순서 <b th:text="${group.firstOrderIndex}">999</b></span>
-                                    <span>배송완료 <b th:text="${group.deliveryDoneCount}">0</b>/<b th:text="${group.orderCount}">0</b></span>
+                                    <span>배송완료 <b data-delivery-route-done-count th:text="${group.deliveryDoneCount}">0</b>/<b data-delivery-route-total-count th:text="${group.orderCount}">0</b></span>
                                 </div>
 
                                 <div class="delivery-route-order-list">
                                     <article class="delivery-route-order-card is-not-completable"
                                              th:each="order : ${group.orders}"
                                              th:classappend="${order.deliveryDone} ? ' is-delivery-done' : ''"
-                                             th:attr="data-order-id=${order.orderId}" data-completable="false">
+                                             th:attr="data-order-id=${order.orderId},data-delivery-done=${order.deliveryDone}" data-completable="false">
                                         <div class="delivery-route-order-top">
                                             <label class="delivery-route-check-label is-disabled">
                                                 <input type="checkbox" class="form-check-input" disabled>
@@ -357,7 +362,7 @@
                                             <div class="delivery-route-order-badges">
                                                 <span class="badge bg-dark-subtle text-dark"
                                                       th:text="${order.deliveryMethodName}">화물</span>
-                                                <span class="badge"
+                                                <span class="badge" data-delivery-route-status-badge
                                                       th:classappend="${order.deliveryDone} ? ' bg-success' : ' bg-secondary'"
                                                       th:text="${order.statusLabel}">생산완료</span>
                                             </div>
@@ -432,7 +437,7 @@
 
 <div class="modal fade" id="delivery-route-complete-modal" tabindex="-1"
      data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg delivery-route-complete-modal-dialog">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg delivery-route-complete-modal-dialog">
         <div class="modal-content delivery-route-complete-modal-content">
             <div class="modal-header">
                 <div>
@@ -456,6 +461,9 @@
 
                 <div class="delivery-route-selected-order-ids" id="delivery-route-selected-order-ids">-</div>
 
+                <div class="delivery-route-complete-feedback" id="delivery-route-complete-feedback"
+                     role="alert" aria-live="polite" hidden></div>
+
                 <div class="delivery-route-upload-actions">
                     <button type="button" class="btn btn-outline-primary" id="delivery-route-camera-button">
                         <i class="ri-camera-line me-1"></i>사진촬영
@@ -477,6 +485,11 @@
                 </div>
 
                 <div class="delivery-route-image-preview-list" id="delivery-route-image-preview-list"></div>
+
+                <div class="delivery-route-complete-final-note">
+                    <i class="ri-information-line" aria-hidden="true"></i>
+                    <span>선택 주문과 등록 이미지를 확인한 뒤 아래 배송완료 버튼을 누르면 즉시 처리됩니다.</span>
+                </div>
             </div>
 
             <div class="modal-footer">
@@ -487,6 +500,20 @@
                 </button>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="toast-container delivery-route-toast-container">
+    <div class="toast delivery-route-toast" id="delivery-route-toast" role="alert"
+         aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <span class="delivery-route-toast-icon" id="delivery-route-toast-icon" aria-hidden="true">
+                <i class="ri-information-line"></i>
+            </span>
+            <strong class="me-auto" id="delivery-route-toast-title">알림</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="닫기"></button>
+        </div>
+        <div class="toast-body" id="delivery-route-toast-body"></div>
     </div>
 </div>
 

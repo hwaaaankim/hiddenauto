@@ -1140,7 +1140,7 @@ public class DeliveryStatementLayoutService {
     }
 
     private void configureHorizontalColumnWidths(Sheet sheet) {
-        int[] widths = {5, 13, 13, 12, 10, 9, 10, 15};
+        int[] widths = {15, 13, 13, 12, 10, 9, 10, 15};
 
         for (int i = 0; i < widths.length; i++) {
             sheet.setColumnWidth(i, widths[i] * 256);

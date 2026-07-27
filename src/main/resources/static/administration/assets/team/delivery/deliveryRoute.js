@@ -12,9 +12,15 @@
         const groups = Array.from(document.querySelectorAll('.delivery-route-group'));
         const toggleAllButton = document.getElementById('delivery-route-toggle-all');
 
+        /*
+         * 서버도 미완료 묶음 -> 완료 묶음 순서로 내려주지만,
+         * 과거 캐시/부분 갱신 상태에서도 화면 순서를 확실하게 보정합니다.
+         */
+        normalizeRenderedRoute(groups);
+
         initGroupToggles(groups, toggleAllButton);
         initExportControls(page);
-        initCompletionControls(page, groups);
+        initCompletionControls(page, groups, toggleAllButton);
         refreshToggleAllButton(groups, toggleAllButton);
     }
 
@@ -276,15 +282,18 @@
         }, 0);
     }
 
-    function initCompletionControls(page, groups) {
+    function initCompletionControls(page, groups, toggleAllButton) {
         const modalElement = document.getElementById('delivery-route-complete-modal');
         const completeForm = document.getElementById('delivery-route-complete-form');
 
-        if (!modalElement || !completeForm || !window.bootstrap) {
+        if (!modalElement || !completeForm || !window.bootstrap || !window.bootstrap.Modal) {
             return;
         }
 
-        const modal = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+        const modal = window.bootstrap.Modal.getOrCreateInstance
+            ? window.bootstrap.Modal.getOrCreateInstance(modalElement)
+            : new window.bootstrap.Modal(modalElement);
+
         const cameraButton = document.getElementById('delivery-route-camera-button');
         const galleryButton = document.getElementById('delivery-route-gallery-button');
         const cameraInput = document.getElementById('delivery-route-camera-input');
@@ -294,6 +303,7 @@
         const orderCountElement = document.getElementById('delivery-route-modal-order-count');
         const imageCountElement = document.getElementById('delivery-route-modal-image-count');
         const selectedOrderIdsElement = document.getElementById('delivery-route-selected-order-ids');
+        const feedbackElement = document.getElementById('delivery-route-complete-feedback');
         const submitButton = document.getElementById('delivery-route-submit-complete');
 
         let activeGroup = null;
@@ -315,7 +325,7 @@
 
             if (selectAll) {
                 selectAll.addEventListener('change', function () {
-                    orderChecks.forEach(checkbox => {
+                    getCompletableOrderChecks(group).forEach(checkbox => {
                         checkbox.checked = selectAll.checked;
                     });
                     refreshGroupSelection(group);
@@ -333,6 +343,7 @@
                     activeGroup = group;
                     activeOrderIds = selectedOrderIds;
                     resetSelectedFiles();
+                    clearCompletionFeedback();
                     renderModalState();
                     modal.show();
                 });
@@ -345,6 +356,7 @@
             cameraButton.addEventListener('click', function () {
                 if (!submitting) cameraInput.click();
             });
+
             cameraInput.addEventListener('change', function () {
                 appendFiles(cameraInput.files);
                 cameraInput.value = '';
@@ -355,6 +367,7 @@
             galleryButton.addEventListener('click', function () {
                 if (!submitting) galleryInput.click();
             });
+
             galleryInput.addEventListener('change', function () {
                 appendFiles(galleryInput.files);
                 galleryInput.value = '';
@@ -376,52 +389,78 @@
                 if (submitting) return;
 
                 if (activeOrderIds.length === 0) {
-                    await showMessage('선택된 주문이 없습니다.', '배송완료 처리할 주문을 다시 선택해 주세요.', 'warning');
+                    showCompletionFeedback('배송완료 처리할 주문을 다시 선택해 주세요.', 'warning');
                     return;
                 }
 
                 if (selectedFiles.length === 0) {
-                    await showMessage('이미지가 필요합니다.', '배송완료 이미지를 1장 이상 등록해 주세요.', 'warning');
+                    showCompletionFeedback('배송완료 이미지를 1장 이상 등록해 주세요.', 'warning');
                     return;
                 }
 
-                const confirmed = await confirmCompletion(activeOrderIds.length, selectedFiles.length);
-                if (!confirmed) return;
+                const requestedOrderIds = activeOrderIds.slice();
+                const requestedImageCount = selectedFiles.length;
+                const targetGroup = activeGroup;
 
                 try {
+                    clearCompletionFeedback();
                     setSubmitting(true);
 
                     const responseBody = await submitCompletion(
                         completeForm,
                         page.dataset.deliveryDate,
-                        activeOrderIds,
+                        requestedOrderIds,
                         selectedFiles.map(item => item.file)
                     );
 
+                    const snapshot = normalizeCompletionSnapshot(responseBody.completionSnapshot);
+                    const deliveryDoneOrderIds = snapshot && snapshot.deliveryDoneOrderIds.length > 0
+                        ? snapshot.deliveryDoneOrderIds
+                        : normalizePositiveIds(responseBody.completedOrderIds || requestedOrderIds);
+
+                    applyCompletionState(
+                        targetGroup,
+                        deliveryDoneOrderIds,
+                        snapshot,
+                        groups,
+                        toggleAllButton
+                    );
+
                     modal.hide();
+
                     await showMessage(
                         '배송완료 처리되었습니다.',
-                        responseBody.message || `${activeOrderIds.length}건을 배송완료 처리했습니다.`,
+                        responseBody.message
+                            || `${requestedOrderIds.length}건을 ${requestedImageCount}장의 이미지로 배송완료 처리했습니다.`,
                         'success'
                     );
-                    window.location.reload();
+
                 } catch (error) {
-                    await showMessage(
-                        '배송완료 처리 실패',
-                        error && error.message ? error.message : '요청 처리 중 오류가 발생했습니다.',
-                        'error'
-                    );
+                    const message = error && error.message
+                        ? error.message
+                        : '요청 처리 중 오류가 발생했습니다.';
+
+                    showCompletionFeedback(message, 'error');
+                    await showMessage('배송완료 처리 실패', message, 'error');
                 } finally {
                     setSubmitting(false);
                 }
             });
         }
 
+        modalElement.addEventListener('show.bs.modal', function () {
+            document.body.classList.add('delivery-route-completion-modal-open');
+        });
+
         modalElement.addEventListener('hidden.bs.modal', function () {
+            document.body.classList.remove('delivery-route-completion-modal-open');
+
             if (submitting) return;
+
             activeGroup = null;
             activeOrderIds = [];
             resetSelectedFiles();
+            clearCompletionFeedback();
             renderModalState();
         });
 
@@ -441,12 +480,15 @@
                 });
             });
 
+            if (imageFiles.length > 0) {
+                clearCompletionFeedback();
+            }
+
             renderModalState();
 
             if (invalidFiles.length > 0) {
-                showMessage(
-                    '일부 파일을 제외했습니다.',
-                    `이미지 파일이 아닌 ${invalidFiles.length}개 파일은 등록하지 않았습니다.`,
+                showCompletionFeedback(
+                    `이미지 파일이 아닌 ${invalidFiles.length}개 파일은 제외했습니다.`,
                     'warning'
                 );
             }
@@ -480,6 +522,7 @@
         function renderModalState() {
             if (orderCountElement) orderCountElement.textContent = String(activeOrderIds.length);
             if (imageCountElement) imageCountElement.textContent = String(selectedFiles.length);
+
             if (selectedOrderIdsElement) {
                 selectedOrderIdsElement.textContent = activeOrderIds.length > 0
                     ? `선택 오더: ${activeOrderIds.map(orderId => `#${orderId}`).join(', ')}`
@@ -501,6 +544,13 @@
                 submitButton.disabled = submitting
                     || activeOrderIds.length === 0
                     || selectedFiles.length === 0;
+
+                const label = submitButton.querySelector('.delivery-route-submit-label');
+                if (label && !submitting) {
+                    label.textContent = activeOrderIds.length > 0
+                        ? `${activeOrderIds.length}건 배송완료`
+                        : '배송완료';
+                }
             }
         }
 
@@ -551,11 +601,379 @@
                 const label = submitButton.querySelector('.delivery-route-submit-label');
 
                 if (spinner) spinner.classList.toggle('d-none', !submitting);
-                if (label) label.textContent = submitting ? '처리 중' : '배송완료';
+                if (label) {
+                    label.textContent = submitting
+                        ? '처리 중'
+                        : (activeOrderIds.length > 0 ? `${activeOrderIds.length}건 배송완료` : '배송완료');
+                }
             }
 
             renderModalState();
         }
+
+        function clearCompletionFeedback() {
+            if (!feedbackElement) return;
+
+            feedbackElement.hidden = true;
+            feedbackElement.textContent = '';
+            feedbackElement.classList.remove('is-warning', 'is-error', 'is-success');
+        }
+
+        function showCompletionFeedback(message, type) {
+            if (!feedbackElement) {
+                showMessage('확인해 주세요.', message, type || 'warning');
+                return;
+            }
+
+            feedbackElement.hidden = false;
+            feedbackElement.textContent = String(message || '요청 내용을 확인해 주세요.');
+            feedbackElement.classList.remove('is-warning', 'is-error', 'is-success');
+            feedbackElement.classList.add(`is-${normalizeMessageType(type)}`);
+            feedbackElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    function normalizeCompletionSnapshot(value) {
+        if (!value || typeof value !== 'object') {
+            return null;
+        }
+
+        const groupOrderIds = normalizePositiveIds(value.groupOrderIds);
+        const deliveryDoneOrderIds = normalizePositiveIds(value.deliveryDoneOrderIds);
+        const groupOrderCount = toNonNegativeInteger(value.groupOrderCount, groupOrderIds.length);
+        const groupDeliveryDoneCount = toNonNegativeInteger(
+            value.groupDeliveryDoneCount,
+            deliveryDoneOrderIds.length
+        );
+        const groupCompletableOrderCount = toNonNegativeInteger(value.groupCompletableOrderCount, 0);
+        const pageDeliveryDoneCount = toNonNegativeInteger(value.pageDeliveryDoneCount, -1);
+        const groupFullyCompleted = Boolean(value.groupFullyCompleted)
+            || (groupOrderCount > 0 && groupDeliveryDoneCount >= groupOrderCount);
+
+        return {
+            groupOrderIds: groupOrderIds,
+            deliveryDoneOrderIds: deliveryDoneOrderIds,
+            groupOrderCount: groupOrderCount,
+            groupDeliveryDoneCount: Math.min(groupDeliveryDoneCount, groupOrderCount || groupDeliveryDoneCount),
+            groupCompletableOrderCount: groupCompletableOrderCount,
+            pageDeliveryDoneCount: pageDeliveryDoneCount,
+            groupFullyCompleted: groupFullyCompleted
+        };
+    }
+
+    function applyCompletionState(group, deliveryDoneOrderIds, snapshot, groups, toggleAllButton) {
+        if (!group) return;
+
+        const doneIds = new Set(normalizePositiveIds(deliveryDoneOrderIds));
+
+        doneIds.forEach(orderId => {
+            const card = findOrderCard(group, orderId);
+            if (card) markOrderCardAsDone(card);
+        });
+
+        const orderCards = getOrderCards(group);
+        const calculatedOrderCount = orderCards.length;
+        const calculatedDoneCount = orderCards.filter(isDeliveryDoneCard).length;
+        const calculatedCompletableCount = orderCards.filter(card => card.dataset.completable === 'true').length;
+
+        const orderCount = snapshot && snapshot.groupOrderCount > 0
+            ? snapshot.groupOrderCount
+            : calculatedOrderCount;
+        const doneCount = snapshot
+            ? Math.min(snapshot.groupDeliveryDoneCount, orderCount)
+            : calculatedDoneCount;
+        const completableCount = snapshot
+            ? snapshot.groupCompletableOrderCount
+            : calculatedCompletableCount;
+        const allCompleted = snapshot
+            ? snapshot.groupFullyCompleted
+            : orderCount > 0 && doneCount >= orderCount;
+
+        group.dataset.orderCount = String(orderCount);
+        group.dataset.deliveryDoneCount = String(doneCount);
+        group.dataset.completableCount = String(completableCount);
+        group.dataset.allCompleted = allCompleted ? 'true' : 'false';
+
+        updateGroupCompletionCounters(group, doneCount, orderCount);
+        updateGroupCompletionBadge(group, doneCount, orderCount, allCompleted);
+        updateGroupBulkState(group, completableCount, allCompleted);
+
+        group.classList.toggle('is-fully-completed', allCompleted);
+        group.classList.remove('has-selection');
+        group.classList.add('is-completion-updated');
+
+        window.setTimeout(function () {
+            group.classList.remove('is-completion-updated');
+        }, 760);
+
+        if (allCompleted) {
+            forceGroupCollapsed(group);
+        }
+
+        updatePageDeliveryDoneCount(snapshot);
+        normalizeRenderedRoute(groups);
+        refreshGroupSelection(group);
+        refreshToggleAllButton(groups, toggleAllButton);
+    }
+
+    function findOrderCard(group, orderId) {
+        const cards = getOrderCards(group);
+        return cards.find(card => Number(card.dataset.orderId) === Number(orderId)) || null;
+    }
+
+    function getOrderCards(group) {
+        return Array.from(group.querySelectorAll('.delivery-route-order-card[data-order-id]'));
+    }
+
+    function markOrderCardAsDone(card) {
+        if (!card) return;
+
+        card.dataset.completable = 'false';
+        card.dataset.deliveryDone = 'true';
+        card.classList.remove('is-selected-for-completion', 'is-not-completable');
+        card.classList.add('is-delivery-done');
+
+        const checkbox = card.querySelector('.delivery-route-complete-check');
+        if (checkbox) {
+            checkbox.checked = false;
+            checkbox.disabled = true;
+        }
+
+        const checkLabel = card.querySelector('.delivery-route-check-label');
+        if (checkLabel) {
+            checkLabel.classList.add('is-disabled');
+            const text = checkLabel.querySelector('span');
+            if (text) text.textContent = '배송완료';
+        }
+
+        const statusBadge = card.querySelector('[data-delivery-route-status-badge]');
+        if (statusBadge) {
+            statusBadge.classList.remove(
+                'bg-info',
+                'bg-secondary',
+                'bg-warning',
+                'bg-warning-subtle',
+                'text-dark',
+                'text-warning'
+            );
+            statusBadge.classList.add('bg-success');
+            statusBadge.textContent = '배송완료';
+        }
+
+        const orderNumberMeta = card.querySelector('.delivery-route-order-number small');
+        if (orderNumberMeta) {
+            orderNumberMeta.textContent = '배송완료';
+        }
+    }
+
+    function updateGroupCompletionCounters(group, doneCount, orderCount) {
+        group.querySelectorAll('[data-delivery-route-done-count]').forEach(element => {
+            element.textContent = String(doneCount);
+        });
+
+        group.querySelectorAll('[data-delivery-route-total-count]').forEach(element => {
+            element.textContent = String(orderCount);
+        });
+    }
+
+    function updateGroupCompletionBadge(group, doneCount, orderCount, allCompleted) {
+        const badge = group.querySelector('[data-delivery-route-group-completion]');
+        if (!badge) return;
+
+        badge.classList.remove(
+            'bg-success',
+            'text-white',
+            'bg-warning-subtle',
+            'text-warning',
+            'bg-light',
+            'text-dark'
+        );
+
+        if (allCompleted) {
+            badge.classList.add('bg-success', 'text-white');
+        } else if (doneCount > 0) {
+            badge.classList.add('bg-warning-subtle', 'text-warning');
+        } else {
+            badge.classList.add('bg-light', 'text-dark');
+        }
+
+        const doneElement = badge.querySelector('[data-delivery-route-done-count]');
+        const totalElement = badge.querySelector('[data-delivery-route-total-count]');
+        if (doneElement) doneElement.textContent = String(doneCount);
+        if (totalElement) totalElement.textContent = String(orderCount);
+    }
+
+    function updateGroupBulkState(group, completableCount, allCompleted) {
+        const bulkBar = group.querySelector('.delivery-route-bulk-bar');
+        const selectAllLabel = group.querySelector('.delivery-route-select-all-label');
+        const selectAll = group.querySelector('.delivery-route-group-select-all');
+        const completeButton = group.querySelector('[data-delivery-route-complete-button]');
+        const progress = getGroupProgressElement(group);
+
+        if (bulkBar) {
+            bulkBar.classList.toggle('is-completed', allCompleted);
+        }
+
+        if (selectAllLabel) {
+            selectAllLabel.classList.toggle('is-disabled', allCompleted || completableCount === 0);
+
+            const strong = selectAllLabel.querySelector('strong');
+            const small = selectAllLabel.querySelector('small');
+
+            if (strong) {
+                strong.textContent = allCompleted
+                    ? '모든 주문 배송완료'
+                    : '완료 대상 전체 선택';
+            }
+
+            if (small) {
+                small.textContent = allCompleted
+                    ? '추가 완료처리할 주문이 없습니다.'
+                    : `생산완료 처리 가능 ${completableCount}건`;
+            }
+        }
+
+        if (selectAll) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+            selectAll.disabled = allCompleted || completableCount === 0;
+        }
+
+        if (completeButton) {
+            completeButton.disabled = true;
+
+            const icon = completeButton.querySelector('i');
+            const label = completeButton.querySelector('[data-delivery-route-complete-label]');
+            const countBadge = completeButton.querySelector('[data-delivery-route-selected-count]');
+
+            if (icon) {
+                icon.className = allCompleted
+                    ? 'ri-checkbox-circle-line me-1'
+                    : 'ri-camera-line me-1';
+            }
+
+            if (label) {
+                label.textContent = allCompleted ? '전체 배송완료' : '배송완료처리';
+            }
+
+            if (countBadge) {
+                countBadge.textContent = '0';
+                countBadge.hidden = allCompleted;
+            }
+        }
+
+        if (progress && !group.classList.contains('is-freight')) {
+            progress.textContent = allCompleted
+                ? '전체 완료'
+                : (completableCount > 0 ? `선택 0/${completableCount}` : '완료 대기');
+        }
+    }
+
+    function updatePageDeliveryDoneCount(snapshot) {
+        const summary = document.getElementById('delivery-route-summary-done-count');
+        if (!summary) return;
+
+        if (snapshot && snapshot.pageDeliveryDoneCount >= 0) {
+            summary.textContent = String(snapshot.pageDeliveryDoneCount);
+            return;
+        }
+
+        const doneCount = document.querySelectorAll('.delivery-route-order-card.is-delivery-done').length;
+        summary.textContent = String(doneCount);
+    }
+
+    function normalizeRenderedRoute(groups) {
+        document.querySelectorAll('[data-delivery-route-group-list]').forEach(list => {
+            reorderGroupList(list);
+        });
+
+        groups.forEach(group => {
+            reorderOrderCards(group);
+        });
+
+        refreshRouteSequences();
+    }
+
+    function reorderGroupList(list) {
+        if (!list) return;
+
+        const groups = Array.from(list.children)
+            .filter(element => element.classList && element.classList.contains('delivery-route-group'));
+        const pendingGroups = groups.filter(group => group.dataset.allCompleted !== 'true'
+            && !group.classList.contains('is-fully-completed'));
+        const completedGroups = groups.filter(group => !pendingGroups.includes(group));
+
+        const oldDivider = Array.from(list.children).find(element =>
+            element.hasAttribute && element.hasAttribute('data-delivery-route-completed-divider'));
+        if (oldDivider) oldDivider.remove();
+
+        pendingGroups.forEach(group => list.appendChild(group));
+
+        if (completedGroups.length > 0) {
+            const divider = createCompletedGroupDivider(completedGroups.length);
+            list.appendChild(divider);
+            completedGroups.forEach(group => list.appendChild(group));
+        }
+    }
+
+    function createCompletedGroupDivider(count) {
+        const divider = document.createElement('div');
+        divider.className = 'delivery-route-completed-divider';
+        divider.setAttribute('data-delivery-route-completed-divider', 'true');
+        divider.innerHTML = '<span><i class="ri-checkbox-circle-line" aria-hidden="true"></i>배송완료 묶음</span>'
+            + `<b>${count}곳</b>`;
+        return divider;
+    }
+
+    function reorderOrderCards(group) {
+        if (!group) return;
+
+        const list = group.querySelector('.delivery-route-order-list');
+        if (!list) return;
+
+        const cards = Array.from(list.children)
+            .filter(element => element.classList && element.classList.contains('delivery-route-order-card'));
+        const pendingCards = cards.filter(card => !isDeliveryDoneCard(card));
+        const completedCards = cards.filter(isDeliveryDoneCard);
+
+        const oldDivider = Array.from(list.children).find(element =>
+            element.hasAttribute && element.hasAttribute('data-delivery-route-order-completed-divider'));
+        if (oldDivider) oldDivider.remove();
+
+        pendingCards.forEach(card => list.appendChild(card));
+
+        if (pendingCards.length > 0 && completedCards.length > 0) {
+            const divider = document.createElement('div');
+            divider.className = 'delivery-route-order-completed-divider';
+            divider.setAttribute('data-delivery-route-order-completed-divider', 'true');
+            divider.innerHTML = '<i class="ri-checkbox-circle-line" aria-hidden="true"></i>'
+                + `<span>이 묶음의 배송완료 주문 ${completedCards.length}건</span>`;
+            list.appendChild(divider);
+        }
+
+        completedCards.forEach(card => list.appendChild(card));
+    }
+
+    function isDeliveryDoneCard(card) {
+        return Boolean(card)
+            && (card.dataset.deliveryDone === 'true' || card.classList.contains('is-delivery-done'));
+    }
+
+    function refreshRouteSequences() {
+        let sequence = 1;
+
+        ['direct', 'freight'].forEach(section => {
+            const list = document.querySelector(`[data-delivery-route-group-list="${section}"]`);
+            if (!list) return;
+
+            Array.from(list.children)
+                .filter(element => element.classList && element.classList.contains('delivery-route-group'))
+                .forEach(group => {
+                    const sequenceElement = group.querySelector('.delivery-route-sequence');
+                    if (sequenceElement) sequenceElement.textContent = String(sequence);
+                    sequence += 1;
+                });
+        });
     }
 
     function getCompletableOrderChecks(group) {
@@ -593,8 +1011,7 @@
         const countBadge = completeButton
             ? completeButton.querySelector('[data-delivery-route-selected-count]')
             : null;
-        const groupId = group.dataset.groupId || '';
-        const progress = document.querySelector(`[data-progress-for="${cssEscape(groupId)}"]`);
+        const progress = getGroupProgressElement(group);
 
         if (selectAll) {
             selectAll.checked = !allCompleted && totalCount > 0 && selectedCount === totalCount;
@@ -608,12 +1025,13 @@
 
         if (countBadge) {
             countBadge.textContent = String(selectedCount);
+            countBadge.hidden = allCompleted;
         }
 
         if (progress && !group.classList.contains('is-freight')) {
             progress.textContent = allCompleted
                 ? '전체 완료'
-                : `선택 ${selectedCount}/${totalCount}`;
+                : (totalCount > 0 ? `선택 ${selectedCount}/${totalCount}` : '완료 대기');
         }
 
         group.classList.toggle('has-selection', selectedCount > 0);
@@ -624,6 +1042,16 @@
                 card.classList.toggle('is-selected-for-completion', checkbox.checked);
             }
         });
+    }
+
+    function getGroupProgressElement(group) {
+        if (!group) return null;
+
+        const groupId = group.dataset.groupId || '';
+        if (!groupId) return group.querySelector('.delivery-route-selection-progress');
+
+        return document.querySelector(`[data-progress-for="${cssEscape(groupId)}"]`)
+            || group.querySelector('.delivery-route-selection-progress');
     }
 
     async function submitCompletion(form, deliveryDate, orderIds, files) {
@@ -670,39 +1098,60 @@
         return { success: response.ok, message: text };
     }
 
-    async function confirmCompletion(orderCount, imageCount) {
-        const text = `${orderCount}개 오더에 대해 ${imageCount}장의 이미지로 완료처리 하시겠습니까? 해당 이미지는 체크된 모든 오더에 등록됩니다.`;
+    async function showMessage(title, text, icon) {
+        const toastElement = document.getElementById('delivery-route-toast');
+        const titleElement = document.getElementById('delivery-route-toast-title');
+        const bodyElement = document.getElementById('delivery-route-toast-body');
+        const iconElement = document.querySelector('#delivery-route-toast-icon i');
+        const type = normalizeMessageType(icon);
 
-        if (window.Swal && typeof window.Swal.fire === 'function') {
-            const result = await window.Swal.fire({
-                icon: 'question',
-                title: '배송완료 처리 확인',
-                text: text,
-                showCancelButton: true,
-                confirmButtonText: '배송완료',
-                cancelButtonText: '취소',
-                reverseButtons: true,
-                allowOutsideClick: false
-            });
+        if (toastElement && titleElement && bodyElement
+            && window.bootstrap && window.bootstrap.Toast) {
 
-            return Boolean(result.isConfirmed);
+            titleElement.textContent = String(title || '알림');
+            bodyElement.textContent = String(text || '');
+
+            toastElement.classList.remove('is-success', 'is-warning', 'is-error', 'is-info');
+            toastElement.classList.add(`is-${type}`);
+
+            if (iconElement) {
+                iconElement.className = resolveToastIconClass(type);
+            }
+
+            const options = {
+                autohide: true,
+                delay: type === 'error' ? 7000 : 4500
+            };
+
+            const toast = window.bootstrap.Toast.getOrCreateInstance
+                ? window.bootstrap.Toast.getOrCreateInstance(toastElement, options)
+                : new window.bootstrap.Toast(toastElement, options);
+
+            toast.show();
+            return null;
         }
 
-        return window.confirm(text);
+        window.alert(`${title || '알림'}\n${text || ''}`);
+        return null;
     }
 
-    async function showMessage(title, text, icon) {
-        if (window.Swal && typeof window.Swal.fire === 'function') {
-            return window.Swal.fire({
-                icon: icon || 'info',
-                title: title,
-                text: text,
-                confirmButtonText: '확인'
-            });
-        }
+    function normalizeMessageType(type) {
+        const value = String(type || 'info').toLowerCase();
+        if (value === 'success' || value === 'warning' || value === 'error') return value;
+        return 'info';
+    }
 
-        window.alert(`${title}\n${text}`);
-        return null;
+    function resolveToastIconClass(type) {
+        switch (type) {
+            case 'success':
+                return 'ri-checkbox-circle-line';
+            case 'warning':
+                return 'ri-alert-line';
+            case 'error':
+                return 'ri-error-warning-line';
+            default:
+                return 'ri-information-line';
+        }
     }
 
     function isImageFile(file) {
@@ -730,6 +1179,29 @@
 
         if (body) {
             animateGroupBody(body, expanded);
+        }
+    }
+
+    function forceGroupCollapsed(group) {
+        if (!group) return;
+
+        const toggle = group.querySelector('[data-delivery-route-toggle]');
+        const bodyId = toggle ? toggle.getAttribute('aria-controls') : null;
+        const body = bodyId ? document.getElementById(bodyId) : null;
+
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        group.classList.remove('is-open');
+
+        if (body) {
+            if (body._deliveryRouteTransitionHandler) {
+                body.removeEventListener('transitionend', body._deliveryRouteTransitionHandler);
+                body._deliveryRouteTransitionHandler = null;
+            }
+
+            body.hidden = true;
+            body.style.height = '';
+            body.style.overflow = '';
+            body.style.transition = '';
         }
     }
 
@@ -815,6 +1287,27 @@
 
         if (icon) icon.className = iconClass;
         if (text) text.textContent = label;
+    }
+
+    function normalizePositiveIds(values) {
+        const source = Array.isArray(values) ? values : [];
+        const result = [];
+        const seen = new Set();
+
+        source.forEach(value => {
+            const id = Number(value);
+            if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id)) return;
+            seen.add(id);
+            result.push(id);
+        });
+
+        return result;
+    }
+
+    function toNonNegativeInteger(value, fallback) {
+        const number = Number(value);
+        if (Number.isSafeInteger(number) && number >= 0) return number;
+        return fallback;
     }
 
     function cssEscape(value) {
