@@ -27,11 +27,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.LayoutResponse;
 import com.dev.HiddenBATHAuto.dto.delivery.route.DeliveryRouteDtos.Page;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.service.order.DeliveryCompletionService;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryRouteService;
+import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryTeamSiteStatementService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,7 @@ public class DeliveryRouteController {
 
     private final DeliveryRouteService deliveryRouteService;
     private final DeliveryCompletionService deliveryCompletionService;
+    private final DeliveryTeamSiteStatementService deliveryTeamSiteStatementService;
 
     @GetMapping
     public String getDeliveryRoutePage(
@@ -63,6 +66,10 @@ public class DeliveryRouteController {
         model.addAttribute("nextDate", selectedDate.plusDays(1));
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("isToday", selectedDate.equals(LocalDate.now()));
+        model.addAttribute(
+                "isDeliveryTeamStatementLeader",
+                deliveryTeamSiteStatementService.isTeamStatementLeader(loginMember)
+        );
 
         return "administration/team/delivery/deliveryRoute";
     }
@@ -140,6 +147,144 @@ public class DeliveryRouteController {
         }
     }
 
+
+    /**
+     * 배송팀 팀장 전용 현장명세서 프리뷰입니다.
+     * 활성 배송팀 멤버를 member.id 오름차순으로 반환하며,
+     * 각 멤버별 묶음 수와 주문 수를 실제 출력과 동일한 기준으로 계산합니다.
+     */
+    @PostMapping("/team-site-statement/preview")
+    @ResponseBody
+    public ResponseEntity<?> previewDeliveryTeamSiteStatement(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DeliveryTeamSiteStatementRequest request
+    ) {
+        try {
+            Member loginMember = requireLoginMember(principal);
+            validateTeamSiteStatementRequest(request);
+
+            return ResponseEntity.ok(
+                    deliveryTeamSiteStatementService.buildPreview(
+                            loginMember,
+                            request.deliveryDate()
+                    )
+            );
+        } catch (AccessDeniedException e) {
+            return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("배송팀 전체 현장명세서 프리뷰 생성 중 오류가 발생했습니다.", e);
+            return errorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() != null
+                            ? e.getMessage()
+                            : "배송팀 전체 현장명세서 프리뷰 생성 중 오류가 발생했습니다."
+            );
+        }
+    }
+
+    /**
+     * deli001 배송팀장 전용 배송팀 전체 현장명세서 출력 데이터입니다.
+     *
+     * 대상 멤버:
+     * - team.name = 배송팀
+     * - enabled = true
+     * - member.id 오름차순
+     *
+     * 대상 주문:
+     * - 선택 날짜의 DeliveryOrderIndex에 등록된 현장배송/화물 주문
+     * - 담당자별로 분리한 뒤 업체/실제 배송지/배송수단/배송일 기준으로 묶습니다.
+     */
+    @PostMapping("/team-site-statement/data")
+    @ResponseBody
+    public ResponseEntity<?> buildDeliveryTeamSiteStatementData(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DeliveryTeamSiteStatementRequest request
+    ) {
+        try {
+            Member loginMember = requireLoginMember(principal);
+            validateTeamSiteStatementRequest(request);
+
+            LayoutResponse response = deliveryTeamSiteStatementService.buildLayoutResponse(
+                    loginMember,
+                    request.deliveryDate(),
+                    request.layoutType()
+            );
+
+            return ResponseEntity.ok(response);
+        } catch (AccessDeniedException e) {
+            return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("배송팀 전체 현장명세서 출력 데이터 생성 중 오류가 발생했습니다.", e);
+            return errorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() != null
+                            ? e.getMessage()
+                            : "배송팀 전체 현장명세서 출력 데이터 생성 중 오류가 발생했습니다."
+            );
+        }
+    }
+
+    /**
+     * deli001 배송팀장 전용 배송팀 전체 현장명세서 엑셀 다운로드입니다.
+     */
+    @PostMapping("/team-site-statement/excel")
+    @ResponseBody
+    public ResponseEntity<?> downloadDeliveryTeamSiteStatementExcel(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DeliveryTeamSiteStatementRequest request
+    ) {
+        try {
+            Member loginMember = requireLoginMember(principal);
+            validateTeamSiteStatementRequest(request);
+
+            String normalizedLayoutType = deliveryTeamSiteStatementService.normalizeLayoutType(
+                    request.layoutType()
+            );
+
+            byte[] excelBytes = deliveryTeamSiteStatementService.buildLayoutExcel(
+                    loginMember,
+                    request.deliveryDate(),
+                    normalizedLayoutType
+            );
+
+            String layoutLabel = "HORIZONTAL".equals(normalizedLayoutType)
+                    ? "가로형"
+                    : "세로형";
+            String filename = "배송팀현장명세서_"
+                    + layoutLabel
+                    + "_"
+                    + request.deliveryDate()
+                    + ".xlsx";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ));
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename(filename, StandardCharsets.UTF_8)
+                    .build());
+            headers.setContentLength(excelBytes.length);
+
+            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+        } catch (AccessDeniedException e) {
+            return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("배송팀 전체 현장명세서 엑셀 생성 중 오류가 발생했습니다.", e);
+            return errorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() != null
+                            ? e.getMessage()
+                            : "배송팀 전체 현장명세서 엑셀 생성 중 오류가 발생했습니다."
+            );
+        }
+    }
+
     /**
      * 업체별 오늘 배송 화면에서 같은 묶음의 선택 주문을 한 번에 배송완료 처리합니다.
      * 업로드한 모든 이미지는 선택된 모든 주문에 각각 독립 파일/OrderImage로 저장됩니다.
@@ -209,6 +354,20 @@ public class DeliveryRouteController {
         }
     }
 
+    private void validateTeamSiteStatementRequest(DeliveryTeamSiteStatementRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("배송팀 현장명세서 요청이 없습니다.");
+        }
+
+        if (request.deliveryDate() == null) {
+            throw new IllegalArgumentException("배송팀 현장명세서로 출력할 배송일이 없습니다.");
+        }
+
+        if (request.layoutType() == null || request.layoutType().isBlank()) {
+            throw new IllegalArgumentException("배송팀 현장명세서 레이아웃 구분이 없습니다.");
+        }
+    }
+
     private int countValidImageFiles(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             return 0;
@@ -240,6 +399,12 @@ public class DeliveryRouteController {
         }
 
         return member;
+    }
+
+    public record DeliveryTeamSiteStatementRequest(
+            LocalDate deliveryDate,
+            String layoutType
+    ) {
     }
 
     public record DeliveryRouteExcelRequest(

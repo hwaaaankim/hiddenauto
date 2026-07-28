@@ -115,8 +115,8 @@ public class DeliveryStatementExcelController {
     /**
      * 배송팀 업체별 배송 화면 전용 바로 출력 데이터 API입니다.
      *
-     * 출고팀의 선택형 API와 분리하여 주문 ID가 아니라 조회 날짜를 받습니다.
-     * 해당 날짜의 전체 주문을 조회한 뒤 SITE/PARCEL 배송수단 기준으로 필터링합니다.
+     * 주문 ID를 신뢰하지 않고 로그인 멤버의 DeliveryOrderIndex에서 조회 날짜 주문을 다시 읽습니다.
+     * 배송팀은 현장배송/화물 현장명세서만 허용하며 택배명세서는 차단합니다.
      */
     @PostMapping("/layout/date/data")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_MANAGEMENT', 'ROLE_INTERNAL_EMPLOYEE')")
@@ -199,8 +199,8 @@ public class DeliveryStatementExcelController {
     }
 
     /**
-     * 배송팀 업체별 배송 화면 전용 날짜 전체 XLSX 다운로드 API입니다.
-     * 조회 날짜의 모든 업체를 명세서 종류에 맞춰 한 XLSX의 여러 시트로 생성합니다.
+     * 배송팀 업체별 배송 화면 전용 XLSX 다운로드 API입니다.
+     * 로그인 멤버의 조회 날짜 DeliveryOrderIndex 중 현장배송/화물만 여러 시트로 생성합니다.
      */
     @PostMapping("/layout/date/excel")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_MANAGEMENT', 'ROLE_INTERNAL_EMPLOYEE')")

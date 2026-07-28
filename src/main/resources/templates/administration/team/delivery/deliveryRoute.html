@@ -109,11 +109,16 @@
                                 <i class="ri-printer-line me-1"></i>현장명세서출력
                             </button>
 
+                            <!--
+                            배송팀에서는 택배명세서를 사용하지 않습니다.
+                            출고팀에서만 택배명세서를 출력/다운로드합니다.
+
                             <button type="button"
                                     class="btn btn-sm btn-outline-info"
                                     id="delivery-route-statement-parcel-horizontal-print-button">
                                 <i class="ri-printer-line me-1"></i>택배명세서출력
                             </button>
+                            -->
 
                             <button type="button"
                                     class="btn btn-sm btn-outline-success"
@@ -121,10 +126,46 @@
                                 <i class="ri-file-excel-2-line me-1"></i>현장명세서다운로드
                             </button>
 
+                            <!--
                             <button type="button"
                                     class="btn btn-sm btn-outline-success"
                                     id="delivery-route-statement-parcel-horizontal-download-button">
                                 <i class="ri-file-excel-2-line me-1"></i>택배명세서다운로드
+                            </button>
+                            -->
+
+                            <!--
+                            배송팀장 전용입니다.
+                            먼저 멤버별 묶음 수/주문 수 프리뷰를 확인한 뒤 출력 또는 다운로드합니다.
+                            실제 서버 권한은 기존과 동일하게 배송팀 deli001 계정을 다시 검증합니다.
+                            -->
+                            <button type="button"
+                                    class="btn btn-sm btn-primary"
+                                    id="delivery-route-team-statement-preview-button"
+                                    th:if="${isDeliveryTeamStatementLeader}">
+                                <i class="ri-team-line me-1"></i>배송팀 현장명세서 미리보기
+                            </button>
+
+                            <!--
+                            deliveryRoute.js의 기존 출력/다운로드 로직을 그대로 재사용하기 위한 숨김 트리거입니다.
+                            프리뷰 모달의 최종 버튼에서만 클릭됩니다.
+                            -->
+                            <button type="button"
+                                    class="btn btn-sm btn-primary d-none"
+                                    id="delivery-route-team-statement-site-horizontal-print-button"
+                                    th:if="${isDeliveryTeamStatementLeader}"
+                                    tabindex="-1"
+                                    aria-hidden="true">
+                                <i class="ri-team-line me-1"></i>배송팀현장명세서출력
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-success d-none"
+                                    id="delivery-route-team-statement-site-horizontal-download-button"
+                                    th:if="${isDeliveryTeamStatementLeader}"
+                                    tabindex="-1"
+                                    aria-hidden="true">
+                                <i class="ri-file-excel-2-line me-1"></i>배송팀현장명세서다운로드
                             </button>
 
                             <!--
@@ -153,6 +194,23 @@
                                     class="btn btn-sm btn-outline-success"
                                     id="delivery-route-statement-parcel-vertical-download-button">
                                 <i class="ri-file-excel-2-line me-1"></i>세로형-택배다운로드
+                            </button>
+
+                            deli001 전용 배송팀 전체 현장명세서 세로형입니다.
+                            기능은 deliveryRoute.js와 서버에 구현되어 있으며 현재는 함께 숨깁니다.
+
+                            <button type="button"
+                                    class="btn btn-sm btn-primary"
+                                    id="delivery-route-team-statement-site-vertical-print-button"
+                                    th:if="${isDeliveryTeamStatementLeader}">
+                                <i class="ri-team-line me-1"></i>세로형-배송팀현장출력
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-success"
+                                    id="delivery-route-team-statement-site-vertical-download-button"
+                                    th:if="${isDeliveryTeamStatementLeader}">
+                                <i class="ri-file-excel-2-line me-1"></i>세로형-배송팀현장다운로드
                             </button>
                             -->
                         </div>
@@ -558,6 +616,69 @@
     </div>
 </div>
 
+<div class="modal fade" id="delivery-route-team-statement-preview-modal" tabindex="-1"
+     data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1">배송팀 현장명세서 미리보기</h5>
+                    <p class="text-muted mb-0 small">
+                        멤버 ID가 작은 순서대로 현장배송·화물 명세서가 이어서 출력됩니다.
+                    </p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="delivery-route-team-preview-summary">
+                    <div><span>배송일</span><strong id="delivery-route-team-preview-date">-</strong></div>
+                    <div><span>대상 멤버</span><strong><b id="delivery-route-team-preview-member-count">0</b>명</strong></div>
+                    <div><span>총 묶음</span><strong><b id="delivery-route-team-preview-group-count">0</b>개</strong></div>
+                    <div><span>총 주문</span><strong><b id="delivery-route-team-preview-order-count">0</b>건</strong></div>
+                </div>
+
+                <div class="alert alert-danger mt-3 mb-0 d-none"
+                     id="delivery-route-team-preview-feedback" role="alert"></div>
+
+                <div class="delivery-route-team-preview-loading mt-3"
+                     id="delivery-route-team-preview-loading">
+                    <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                    멤버별 명세서 대상을 확인하고 있습니다.
+                </div>
+
+                <div class="table-responsive mt-3 d-none" id="delivery-route-team-preview-table-wrap">
+                    <table class="table table-sm align-middle mb-0 delivery-route-team-preview-table">
+                        <thead>
+                        <tr>
+                            <th>순서</th>
+                            <th>멤버 ID</th>
+                            <th>배송직원</th>
+                            <th>아이디</th>
+                            <th class="text-end">묶음</th>
+                            <th class="text-end">주문</th>
+                        </tr>
+                        </thead>
+                        <tbody id="delivery-route-team-preview-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
+                <button type="button" class="btn btn-outline-success"
+                        id="delivery-route-team-preview-download-button" disabled>
+                    <i class="ri-file-excel-2-line me-1"></i>다운로드
+                </button>
+                <button type="button" class="btn btn-primary"
+                        id="delivery-route-team-preview-print-button" disabled>
+                    <i class="ri-printer-line me-1"></i>출력
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="toast-container delivery-route-toast-container">
     <div class="toast delivery-route-toast" id="delivery-route-toast" role="alert"
          aria-live="assertive" aria-atomic="true">
@@ -590,6 +711,45 @@
     .delivery-route-statement-button-group .btn {
         white-space: nowrap;
     }
+
+    .delivery-route-team-preview-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .75rem;
+    }
+
+    .delivery-route-team-preview-summary > div {
+        display: flex;
+        flex-direction: column;
+        gap: .25rem;
+        padding: .8rem 1rem;
+        border: 1px solid var(--vz-border-color, #e9ebec);
+        border-radius: .65rem;
+        background: var(--vz-light, #f3f6f9);
+    }
+
+    .delivery-route-team-preview-summary span {
+        color: var(--vz-secondary-color, #878a99);
+        font-size: .78rem;
+    }
+
+    .delivery-route-team-preview-loading {
+        padding: 1rem;
+        border: 1px dashed var(--vz-border-color, #dfe2e5);
+        border-radius: .65rem;
+        text-align: center;
+        color: var(--vz-secondary-color, #878a99);
+    }
+
+    .delivery-route-team-preview-table tr.is-empty-member {
+        opacity: .55;
+    }
+
+    @media (max-width: 767.98px) {
+        .delivery-route-team-preview-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
 </style>
 
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
@@ -598,5 +758,6 @@
 <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css">
 <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.export-completion.css">
 <script src="/administration/assets/team/delivery/deliveryRoute.js"></script>
+<script src="/administration/assets/team/delivery/deliveryTeamStatementPreview.js"></script>
 </body>
 </html>

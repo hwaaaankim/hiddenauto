@@ -190,6 +190,18 @@
             }],
             ['delivery-route-statement-parcel-vertical-download-button', function (button) {
                 return downloadDeliveryStatementLayout('VERTICAL', 'PARCEL', button);
+            }],
+            ['delivery-route-team-statement-site-horizontal-print-button', function (button) {
+                return printDeliveryTeamSiteStatementLayout('HORIZONTAL', button);
+            }],
+            ['delivery-route-team-statement-site-horizontal-download-button', function (button) {
+                return downloadDeliveryTeamSiteStatementLayout('HORIZONTAL', button);
+            }],
+            ['delivery-route-team-statement-site-vertical-print-button', function (button) {
+                return printDeliveryTeamSiteStatementLayout('VERTICAL', button);
+            }],
+            ['delivery-route-team-statement-site-vertical-download-button', function (button) {
+                return downloadDeliveryTeamSiteStatementLayout('VERTICAL', button);
             }]
         ];
 
@@ -241,7 +253,11 @@
             document.getElementById('delivery-route-statement-site-vertical-print-button'),
             document.getElementById('delivery-route-statement-parcel-vertical-print-button'),
             document.getElementById('delivery-route-statement-site-vertical-download-button'),
-            document.getElementById('delivery-route-statement-parcel-vertical-download-button')
+            document.getElementById('delivery-route-statement-parcel-vertical-download-button'),
+            document.getElementById('delivery-route-team-statement-site-horizontal-print-button'),
+            document.getElementById('delivery-route-team-statement-site-horizontal-download-button'),
+            document.getElementById('delivery-route-team-statement-site-vertical-print-button'),
+            document.getElementById('delivery-route-team-statement-site-vertical-download-button')
         ].filter(function (button) {
             return Boolean(button);
         });
@@ -343,6 +359,132 @@
                     deliveryDate: deliveryDate,
                     layoutType: normalizedLayoutType,
                     statementType: normalizedStatementType
+                })
+            });
+
+            if (!response.ok) {
+                const errorBody = await parseResponseBody(response);
+                throw new Error(
+                    errorBody.message
+                    || statementLabel + ' 엑셀 생성 중 오류가 발생했습니다.'
+                );
+            }
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const layoutLabel = normalizedLayoutType === 'HORIZONTAL' ? '가로형' : '세로형';
+            const filename = resolveDownloadFilename(
+                contentDisposition,
+                statementLabel + '_' + layoutLabel + '_' + deliveryDate + '.xlsx'
+            );
+
+            downloadBlob(blob, filename);
+        } catch (error) {
+            console.error(error);
+            showMessage(
+                statementLabel + ' 다운로드 실패',
+                error && error.message
+                    ? error.message
+                    : statementLabel + ' 엑셀 다운로드 중 오류가 발생했습니다.',
+                'error'
+            );
+        } finally {
+            setStatementLayoutButtonsBusy(false, button, originalText);
+        }
+    }
+
+    async function printDeliveryTeamSiteStatementLayout(layoutType, button) {
+        const deliveryDate = getDeliveryRouteStatementDate();
+        const statementLabel = '배송팀현장명세서';
+
+        if (!deliveryDate) {
+            showMessage('배송일이 없습니다.', '배송팀 현장명세서로 출력할 배송 날짜를 선택해 주세요.', 'warning');
+            return;
+        }
+
+        const printWindow = window.open('', '_blank');
+
+        if (!printWindow) {
+            showMessage('인쇄 창이 차단되었습니다.', '브라우저의 팝업 허용 후 다시 시도해 주세요.', 'warning');
+            return;
+        }
+
+        printWindow.document.open();
+        printWindow.document.write(
+            '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
+            '<title>' + escapeHtml(statementLabel) + ' 출력 준비</title></head>' +
+            '<body style="font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;padding:32px;">' +
+            escapeHtml(statementLabel) + ' 출력 데이터를 준비하고 있습니다.</body></html>'
+        );
+        printWindow.document.close();
+
+        const originalText = button ? button.innerHTML : '';
+
+        try {
+            setStatementLayoutButtonsBusy(true, button, originalText, '팀 전체 출력 준비 중');
+
+            const response = await fetch('/team/deliveryRoute/team-site-statement/data', {
+                method: 'POST',
+                headers: buildDeliveryRouteStatementHeaders(),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    deliveryDate: deliveryDate,
+                    layoutType: normalizeStatementLayoutType(layoutType)
+                })
+            });
+
+            const data = await parseStatementJsonResponse(response);
+
+            if (!data.pages || data.pages.length === 0) {
+                throw new Error('출력할 배송팀 현장명세서 데이터가 없습니다.');
+            }
+
+            printWindow.document.open();
+            printWindow.document.write(buildStatementPrintDocument(data));
+            printWindow.document.close();
+        } catch (error) {
+            console.error(error);
+
+            try {
+                printWindow.close();
+            } catch (closeError) {
+                console.warn(closeError);
+            }
+
+            showMessage(
+                statementLabel + ' 출력 실패',
+                error && error.message
+                    ? error.message
+                    : statementLabel + ' 출력 준비 중 오류가 발생했습니다.',
+                'error'
+            );
+        } finally {
+            setStatementLayoutButtonsBusy(false, button, originalText);
+        }
+    }
+
+    async function downloadDeliveryTeamSiteStatementLayout(layoutType, button) {
+        const deliveryDate = getDeliveryRouteStatementDate();
+        const normalizedLayoutType = normalizeStatementLayoutType(layoutType);
+        const statementLabel = '배송팀현장명세서';
+
+        if (!deliveryDate) {
+            showMessage('배송일이 없습니다.', '배송팀 현장명세서로 다운로드할 배송 날짜를 선택해 주세요.', 'warning');
+            return;
+        }
+
+        const originalText = button ? button.innerHTML : '';
+
+        try {
+            setStatementLayoutButtonsBusy(true, button, originalText, '팀 전체 엑셀 생성 중');
+
+            const response = await fetch('/team/deliveryRoute/team-site-statement/excel', {
+                method: 'POST',
+                headers: buildDeliveryRouteStatementHeaders(),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    deliveryDate: deliveryDate,
+                    layoutType: normalizedLayoutType
                 })
             });
 

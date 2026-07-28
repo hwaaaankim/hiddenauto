@@ -2,18 +2,19 @@ package com.dev.HiddenBATHAuto.service.team.delivery;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,8 +36,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import jakarta.persistence.EntityManager;
+import org.springframework.util.StringUtils;
 
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.LayoutRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.LayoutResponse;
@@ -45,12 +45,16 @@ import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.Statement
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
+import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
+import com.dev.HiddenBATHAuto.repository.order.DeliveryRouteQueryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil.AddressValue;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -92,8 +96,8 @@ public class DeliveryStatementLayoutService {
             DateTimeFormatter.ofPattern("yyyy-MM-dd (E)", Locale.KOREAN);
 
     private final OrderRepository orderRepository;
+    private final DeliveryRouteQueryRepository deliveryRouteQueryRepository;
     private final ObjectMapper objectMapper;
-    private final EntityManager entityManager;
 
     public String normalizeLayoutType(String layoutType) {
         String normalized = normalizeCode(layoutType);
@@ -121,6 +125,17 @@ public class DeliveryStatementLayoutService {
                 : SITE_LABEL;
     }
 
+    /**
+     * 출고팀 선택형 명세서입니다.
+     *
+     * 묶음 기준:
+     * - 동일 업체
+     * - 동일 실제 배송지(site 주소 우선)
+     * - 동일 배송수단
+     * - 동일 배송일
+     *
+     * 현장명세서는 방문/현장배송/화물, 택배명세서는 택배만 포함합니다.
+     */
     @Transactional(readOnly = true)
     public LayoutResponse buildLayoutResponse(
             LayoutRequest request,
@@ -133,22 +148,26 @@ public class DeliveryStatementLayoutService {
         List<Long> requestedOrderIds = normalizeOrderIds(request.getOrderIds());
         List<Order> requestedOrders = loadOrdersInRequestedOrder(requestedOrderIds);
 
-        /*
-         * 출고팀을 포함한 기존 선택형 호출은 지금까지와 동일하게
-         * 전달받은 주문 ID만 기준으로 명세서를 생성합니다.
-         */
+        LocalDate statementDate = requestedOrders.stream()
+                .map(this::resolveDeliveryDate)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseGet(this::today);
+
         return buildLayoutResponseFromOrders(
                 layoutType,
                 statementType,
                 requestedOrders,
-                today()
+                statementDate,
+                StatementSource.DISPATCH_SELECTION,
+                Map.of()
         );
     }
 
     /**
-     * 배송팀 업체별 배송 화면 전용입니다.
-     * 체크박스 선택값이 아니라 조회 날짜의 전체 주문을 서버에서 조회한 뒤,
-     * 명세서 종류에 맞는 배송수단만 필터링하여 모든 업체 명세서를 생성합니다.
+     * 배송팀 개인 화면 전용 명세서입니다.
+     * 로그인한 멤버의 DeliveryOrderIndex에서 선택 날짜의 주문만 읽습니다.
+     * 배송팀 현장명세서는 현장배송/화물만 허용하며 택배명세서는 차단합니다.
      */
     @Transactional(readOnly = true)
     public LayoutResponse buildLayoutResponseForDeliveryDate(
@@ -165,11 +184,19 @@ public class DeliveryStatementLayoutService {
 
         String normalizedLayoutType = normalizeLayoutType(layoutType);
         String normalizedStatementType = normalizeStatementType(statementType);
-        List<Order> requestedOrders = loadOrdersForDeliveryDate(deliveryDate);
+
+        if (STATEMENT_PARCEL.equals(normalizedStatementType)) {
+            throw new IllegalArgumentException("배송팀 화면에서는 택배명세서를 출력하지 않습니다.");
+        }
+
+        List<Order> requestedOrders = loadOrdersForDeliveryMemberDate(
+                loginMember,
+                deliveryDate
+        );
 
         if (requestedOrders.isEmpty()) {
             throw new IllegalArgumentException(
-                    deliveryDate + "에 출력 가능한 배송 주문이 없습니다."
+                    deliveryDate + "에 현재 담당자의 배송순서 주문이 없습니다."
             );
         }
 
@@ -177,15 +204,107 @@ public class DeliveryStatementLayoutService {
                 normalizedLayoutType,
                 normalizedStatementType,
                 requestedOrders,
-                deliveryDate
+                deliveryDate,
+                StatementSource.DELIVERY_MEMBER,
+                Map.of()
         );
+    }
+
+    /**
+     * 배송팀 팀장 전용 전체 현장명세서입니다.
+     * TeamStatementOrderRef는 서버가 DeliveryOrderIndex를 조회해서 만든 값만 전달해야 합니다.
+     * 담당자 ID를 첫 번째 묶음 키로 사용하므로 서로 다른 배송직원의 주문은 절대 합쳐지지 않습니다.
+     */
+    @Transactional(readOnly = true)
+    public LayoutResponse buildLayoutResponseForTeamSite(
+            LocalDate deliveryDate,
+            String layoutType,
+            List<TeamStatementOrderRef> orderRefs
+    ) {
+        if (deliveryDate == null) {
+            throw new IllegalArgumentException("배송팀 현장명세서로 출력할 배송일이 없습니다.");
+        }
+
+        String normalizedLayoutType = normalizeLayoutType(layoutType);
+        List<TeamStatementOrderRef> normalizedRefs = normalizeTeamStatementOrderRefs(orderRefs);
+
+        if (normalizedRefs.isEmpty()) {
+            throw new IllegalArgumentException(
+                    deliveryDate + " 배송팀 전체 현장명세서 대상 주문이 없습니다."
+            );
+        }
+
+        List<Long> orderIds = normalizedRefs.stream()
+                .map(TeamStatementOrderRef::orderId)
+                .toList();
+        List<Order> requestedOrders = loadOrdersInRequestedOrder(orderIds);
+        Map<Long, TeamStatementOrderRef> refByOrderId = normalizedRefs.stream()
+                .collect(Collectors.toMap(
+                        TeamStatementOrderRef::orderId,
+                        ref -> ref,
+                        (a, b) -> a,
+                        LinkedHashMap::new
+                ));
+
+        return buildLayoutResponseFromOrders(
+                normalizedLayoutType,
+                STATEMENT_SITE,
+                requestedOrders,
+                deliveryDate,
+                StatementSource.DELIVERY_TEAM,
+                refByOrderId
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public int countTeamSiteGroups(
+            LocalDate deliveryDate,
+            List<TeamStatementOrderRef> orderRefs
+    ) {
+        if (deliveryDate == null) {
+            throw new IllegalArgumentException("배송일이 없습니다.");
+        }
+
+        List<TeamStatementOrderRef> normalizedRefs = normalizeTeamStatementOrderRefs(orderRefs);
+
+        if (normalizedRefs.isEmpty()) {
+            return 0;
+        }
+
+        List<Long> orderIds = normalizedRefs.stream()
+                .map(TeamStatementOrderRef::orderId)
+                .toList();
+        List<Order> orders = loadOrdersInRequestedOrder(orderIds);
+        Map<Long, TeamStatementOrderRef> refByOrderId = normalizedRefs.stream()
+                .collect(Collectors.toMap(
+                        TeamStatementOrderRef::orderId,
+                        ref -> ref,
+                        (a, b) -> a,
+                        LinkedHashMap::new
+                ));
+
+        List<Order> includedOrders = filterOrdersByStatementType(
+                orders,
+                STATEMENT_SITE,
+                StatementSource.DELIVERY_TEAM
+        );
+
+        return groupOrdersByStatementCriteria(
+                includedOrders,
+                STATEMENT_SITE,
+                deliveryDate,
+                StatementSource.DELIVERY_TEAM,
+                refByOrderId
+        ).size();
     }
 
     private LayoutResponse buildLayoutResponseFromOrders(
             String layoutType,
             String statementType,
             List<Order> requestedOrders,
-            LocalDate statementDate
+            LocalDate statementDate,
+            StatementSource source,
+            Map<Long, TeamStatementOrderRef> teamRefByOrderId
     ) {
         List<Order> safeRequestedOrders = requestedOrders == null
                 ? List.of()
@@ -199,16 +318,20 @@ public class DeliveryStatementLayoutService {
 
         List<Order> includedOrders = filterOrdersByStatementType(
                 safeRequestedOrders,
-                statementType
+                statementType,
+                source
         );
 
         if (includedOrders.isEmpty()) {
-            throw new IllegalArgumentException(buildNoMatchingOrderMessage(statementType));
+            throw new IllegalArgumentException(buildNoMatchingOrderMessage(statementType, source));
         }
 
-        List<StatementGroup> groups = groupSelectedOrdersByTask(
+        List<StatementGroup> groups = groupOrdersByStatementCriteria(
                 includedOrders,
-                statementType
+                statementType,
+                statementDate,
+                source,
+                teamRefByOrderId
         );
         List<StatementPageDto> pages = splitGroupsIntoPages(
                 groups,
@@ -240,10 +363,6 @@ public class DeliveryStatementLayoutService {
         return buildLayoutExcelFromResponse(response);
     }
 
-    /**
-     * 배송팀 업체별 배송 화면에서 조회 날짜 전체 업체의 명세서를
-     * 한 XLSX 파일의 여러 시트로 생성합니다.
-     */
     @Transactional(readOnly = true)
     public byte[] buildLayoutExcelForDeliveryDate(
             LocalDate deliveryDate,
@@ -258,6 +377,20 @@ public class DeliveryStatementLayoutService {
                 loginMember
         );
 
+        return buildLayoutExcelFromResponse(response);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] buildLayoutExcelForTeamSite(
+            LocalDate deliveryDate,
+            String layoutType,
+            List<TeamStatementOrderRef> orderRefs
+    ) {
+        LayoutResponse response = buildLayoutResponseForTeamSite(
+                deliveryDate,
+                layoutType,
+                orderRefs
+        );
         return buildLayoutExcelFromResponse(response);
     }
 
@@ -341,31 +474,61 @@ public class DeliveryStatementLayoutService {
         return new ArrayList<>(normalized);
     }
 
-    private List<Order> loadOrdersForDeliveryDate(LocalDate deliveryDate) {
-        LocalDateTime fromDateTime = deliveryDate.atStartOfDay();
-        LocalDateTime toDateTime = deliveryDate.plusDays(1).atStartOfDay();
-
-        List<Long> orderIds = entityManager.createQuery(
-                        """
-                        SELECT o.id
-                        FROM Order o
-                        WHERE o.preferredDeliveryDate >= :fromDateTime
-                          AND o.preferredDeliveryDate < :toDateTime
-                          AND o.status IN :statuses
-                        ORDER BY o.id ASC
-                        """,
-                        Long.class
-                )
-                .setParameter("fromDateTime", fromDateTime)
-                .setParameter("toDateTime", toDateTime)
-                .setParameter("statuses", DELIVERY_ROUTE_VISIBLE_STATUSES)
-                .getResultList();
-
-        if (orderIds.isEmpty()) {
+    private List<TeamStatementOrderRef> normalizeTeamStatementOrderRefs(
+            List<TeamStatementOrderRef> orderRefs
+    ) {
+        if (orderRefs == null || orderRefs.isEmpty()) {
             return List.of();
         }
 
-        return loadOrdersInRequestedOrder(orderIds);
+        LinkedHashMap<Long, TeamStatementOrderRef> uniqueByOrderId = new LinkedHashMap<>();
+
+        for (TeamStatementOrderRef ref : orderRefs) {
+            if (ref == null
+                    || ref.deliveryHandlerId() == null
+                    || ref.deliveryHandlerId() <= 0
+                    || ref.orderId() == null
+                    || ref.orderId() <= 0) {
+                continue;
+            }
+
+            uniqueByOrderId.putIfAbsent(ref.orderId(), ref);
+        }
+
+        return uniqueByOrderId.values().stream()
+                .sorted(Comparator
+                        .comparingLong((TeamStatementOrderRef ref) -> ref.deliveryHandlerId())
+                        .thenComparingInt(TeamStatementOrderRef::orderIndex)
+                        .thenComparingLong(TeamStatementOrderRef::orderId))
+                .toList();
+    }
+
+    private List<Order> loadOrdersForDeliveryMemberDate(
+            Member loginMember,
+            LocalDate deliveryDate
+    ) {
+        if (loginMember == null || loginMember.getId() == null) {
+            throw new AccessDeniedException("로그인 배송 담당자 정보를 확인할 수 없습니다.");
+        }
+
+        List<Long> orderIds = deliveryRouteQueryRepository.findRouteRows(
+                        loginMember.getId(),
+                        deliveryDate,
+                        DELIVERY_ROUTE_VISIBLE_STATUSES
+                )
+                .stream()
+                .filter(Objects::nonNull)
+                .filter(row -> row.getOrder() != null && row.getOrder().getId() != null)
+                .sorted(Comparator
+                        .comparingInt(DeliveryOrderIndex::getOrderIndex)
+                        .thenComparingLong(this::safeOrderId))
+                .map(row -> row.getOrder().getId())
+                .distinct()
+                .toList();
+
+        return orderIds.isEmpty()
+                ? List.of()
+                : loadOrdersInRequestedOrder(orderIds);
     }
 
     private void validateDeliveryRouteMember(Member member) {
@@ -406,90 +569,213 @@ public class DeliveryStatementLayoutService {
         return ordered;
     }
 
-    private List<Order> filterOrdersByStatementType(List<Order> orders, String statementType) {
+    private List<Order> filterOrdersByStatementType(
+            List<Order> orders,
+            String statementType,
+            StatementSource source
+    ) {
         return orders.stream()
-                .filter(order -> isAllowedDeliveryMethod(order, statementType))
+                .filter(order -> isAllowedDeliveryMethod(order, statementType, source))
                 .toList();
     }
 
-    private boolean isAllowedDeliveryMethod(Order order, String statementType) {
+    private boolean isAllowedDeliveryMethod(
+            Order order,
+            String statementType,
+            StatementSource source
+    ) {
         if (order == null || order.getDeliveryMethod() == null) {
             return false;
         }
 
         DeliveryMethod deliveryMethod = order.getDeliveryMethod();
+        String methodName = deliveryMethod.getMethodName();
 
         if (STATEMENT_PARCEL.equals(statementType)) {
-            return DeliveryMethodAssignmentPolicy.containsKeyword(
-                    deliveryMethod.getMethodName(),
-                    "택배"
+            return source == StatementSource.DISPATCH_SELECTION
+                    && DeliveryMethodAssignmentPolicy.containsKeyword(methodName, "택배");
+        }
+
+        boolean siteOrFreight = DeliveryMethodAssignmentPolicy.containsKeyword(
+                methodName,
+                "현장배송"
+        ) || DeliveryMethodAssignmentPolicy.containsKeyword(
+                methodName,
+                "화물"
+        );
+
+        if (source == StatementSource.DISPATCH_SELECTION) {
+            return siteOrFreight || DeliveryMethodAssignmentPolicy.containsKeyword(
+                    methodName,
+                    "방문"
             );
         }
 
-        return DeliveryMethodAssignmentPolicy.containsKeyword(
-                deliveryMethod.getMethodName(),
-                "현장배송"
-        ) || DeliveryMethodAssignmentPolicy.containsKeyword(
-                deliveryMethod.getMethodName(),
-                "화물"
-        ) || DeliveryMethodAssignmentPolicy.containsKeyword(
-                deliveryMethod.getMethodName(),
-                "방문"
-        );
+        return siteOrFreight;
     }
 
-    private String buildNoMatchingOrderMessage(String statementType) {
+    private String buildNoMatchingOrderMessage(
+            String statementType,
+            StatementSource source
+    ) {
         if (STATEMENT_PARCEL.equals(statementType)) {
-            return "선택한 주문 중 배송수단이 택배인 주문이 없습니다.";
+            return source == StatementSource.DISPATCH_SELECTION
+                    ? "선택한 주문 중 배송수단이 택배인 주문이 없습니다."
+                    : "배송팀 화면에서는 택배명세서를 출력하지 않습니다.";
         }
 
-        return "선택한 주문 중 배송수단이 현장배송, 화물 또는 방문인 주문이 없습니다.";
+        return source == StatementSource.DISPATCH_SELECTION
+                ? "선택한 주문 중 배송수단이 방문, 현장배송 또는 화물인 주문이 없습니다."
+                : "해당 날짜의 배송순서 중 배송수단이 현장배송 또는 화물인 주문이 없습니다.";
     }
 
     /**
-     * 기존 명세서 생성 기준을 유지합니다.
-     * 선택된 주문 중 버튼의 배송수단 조건에 맞는 주문만 남긴 뒤 Task 단위로 한 명세서를 만듭니다.
-     * Task가 없는 과거 데이터는 Order 단위로 분리합니다.
+     * 명세서 묶음 기준을 화면별로 통일합니다.
+     *
+     * 출고팀/배송팀 개인:
+     * - 동일 업체 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일
+     *
+     * 배송팀 팀장:
+     * - 동일 배송직원 + 동일 업체 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일
      */
-    private List<StatementGroup> groupSelectedOrdersByTask(
+    private List<StatementGroup> groupOrdersByStatementCriteria(
             List<Order> orders,
-            String statementType
+            String statementType,
+            LocalDate statementDate,
+            StatementSource source,
+            Map<Long, TeamStatementOrderRef> teamRefByOrderId
     ) {
-        LinkedHashMap<String, List<Order>> orderGroups = new LinkedHashMap<>();
+        LinkedHashMap<StatementGroupKey, List<Order>> grouped = new LinkedHashMap<>();
 
         for (Order order : orders) {
-            Task task = order.getTask();
-            String key = task != null && task.getId() != null
-                    ? "TASK:" + task.getId()
-                    : "ORDER:" + order.getId();
+            if (order == null || order.getId() == null) {
+                continue;
+            }
 
-            orderGroups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(order);
+            StatementGroupKey key = buildStatementGroupKey(
+                    order,
+                    statementDate,
+                    source,
+                    teamRefByOrderId
+            );
+            grouped.computeIfAbsent(key, ignored -> new ArrayList<>()).add(order);
         }
 
         List<StatementGroup> result = new ArrayList<>();
 
-        for (List<Order> groupedOrders : orderGroups.values()) {
-            if (!groupedOrders.isEmpty()) {
-                result.add(createStatementGroup(groupedOrders, statementType));
+        for (Map.Entry<StatementGroupKey, List<Order>> entry : grouped.entrySet()) {
+            if (!entry.getValue().isEmpty()) {
+                result.add(createStatementGroup(
+                        entry.getValue(),
+                        statementType,
+                        entry.getKey(),
+                        source,
+                        teamRefByOrderId
+                ));
             }
         }
 
         return result;
     }
 
+    private StatementGroupKey buildStatementGroupKey(
+            Order order,
+            LocalDate statementDate,
+            StatementSource source,
+            Map<Long, TeamStatementOrderRef> teamRefByOrderId
+    ) {
+        String handlerKey = "";
+
+        if (source == StatementSource.DELIVERY_TEAM) {
+            TeamStatementOrderRef ref = teamRefByOrderId.get(order.getId());
+
+            if (ref == null || ref.deliveryHandlerId() == null) {
+                throw new IllegalStateException(
+                        "배송팀 전체 명세서 담당자 정보가 없습니다. orderId=" + order.getId()
+                );
+            }
+
+            handlerKey = "HANDLER:" + ref.deliveryHandlerId();
+        }
+
+        String companyKey = resolveCompanyGroupingKey(order);
+        String addressKey = resolveAddressGroupingKey(order);
+        String methodKey = resolveMethodGroupingKey(order);
+        LocalDate deliveryDate = source == StatementSource.DISPATCH_SELECTION
+                ? resolveDeliveryDate(order)
+                : statementDate;
+        String dateKey = deliveryDate != null
+                ? deliveryDate.toString()
+                : "MISSING-DATE-ORDER:" + order.getId();
+
+        return new StatementGroupKey(
+                handlerKey,
+                companyKey,
+                addressKey,
+                methodKey,
+                dateKey
+        );
+    }
+
+    private String resolveCompanyGroupingKey(Order order) {
+        Company company = resolveCompany(order);
+
+        if (company != null && company.getId() != null) {
+            return "COMPANY:" + company.getId();
+        }
+
+        if (company != null && StringUtils.hasText(company.getCompanyName())) {
+            return "COMPANY-NAME:" + normalizeGroupingText(company.getCompanyName());
+        }
+
+        return "MISSING-COMPANY-ORDER:" + safeLong(order != null ? order.getId() : null);
+    }
+
+    private String resolveAddressGroupingKey(Order order) {
+        AddressValue address = resolveStatementAddressValue(order);
+
+        if (StringUtils.hasText(address.key())) {
+            return address.key();
+        }
+
+        return "MISSING-ADDRESS-ORDER:" + safeLong(order != null ? order.getId() : null);
+    }
+
+    private String resolveMethodGroupingKey(Order order) {
+        String methodName = order != null && order.getDeliveryMethod() != null
+                ? order.getDeliveryMethod().getMethodName()
+                : "";
+        String normalized = DeliveryMethodAssignmentPolicy.normalize(methodName);
+
+        return normalized.isBlank()
+                ? "MISSING-METHOD-ORDER:" + safeLong(order != null ? order.getId() : null)
+                : normalized;
+    }
+
+    private String normalizeGroupingText(String value) {
+        return Normalizer.normalize(
+                safeText(value),
+                Normalizer.Form.NFKC
+        )
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", "")
+                .trim();
+    }
+
     private StatementGroup createStatementGroup(
             List<Order> orders,
-            String statementType
+            String statementType,
+            StatementGroupKey groupKey,
+            StatementSource source,
+            Map<Long, TeamStatementOrderRef> teamRefByOrderId
     ) {
         Order representative = representativeForHeader(orders);
-        Task task = representative.getTask();
-        Member requestedBy = task != null ? task.getRequestedBy() : null;
-        Company company = requestedBy != null ? requestedBy.getCompany() : null;
+        Company company = resolveCompany(representative);
         RecipientData recipient = resolveRecipient(representative);
         AddressData address = resolveStatementAddress(representative);
 
         StatementGroup group = new StatementGroup();
-        group.taskId = task != null ? task.getId() : null;
+        group.taskId = resolveSingleTaskId(orders);
         group.documentType = statementType;
         group.documentTypeLabel = statementTypeLabel(statementType);
         group.companyName = company != null
@@ -499,12 +785,40 @@ public class DeliveryStatementLayoutService {
         group.recipientPhone = safeTextOrDash(recipient.phone());
         group.postalCode = safeText(address.postalCode());
         group.addressText = safeTextOrDash(address.addressText());
+        group.deliveryDateTexts.add(formatStatementGroupDate(groupKey.deliveryDateKey()));
+
+        if (source == StatementSource.DELIVERY_TEAM) {
+            TeamStatementOrderRef ref = teamRefByOrderId.get(representative.getId());
+            group.deliveryHandlerId = ref != null ? ref.deliveryHandlerId() : null;
+            group.deliveryHandlerName = ref != null ? safeText(ref.deliveryHandlerName()) : "";
+        }
 
         for (Order order : orders) {
             addOrderToStatementGroup(group, order, statementType);
         }
 
         return group;
+    }
+
+    private Long resolveSingleTaskId(List<Order> orders) {
+        LinkedHashSet<Long> taskIds = orders.stream()
+                .map(Order::getTask)
+                .filter(Objects::nonNull)
+                .map(Task::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        return taskIds.size() == 1 ? taskIds.iterator().next() : null;
+    }
+
+    private Company resolveCompany(Order order) {
+        if (order == null
+                || order.getTask() == null
+                || order.getTask().getRequestedBy() == null) {
+            return null;
+        }
+
+        return order.getTask().getRequestedBy().getCompany();
     }
 
     private Order representativeForHeader(List<Order> orders) {
@@ -521,11 +835,6 @@ public class DeliveryStatementLayoutService {
     ) {
         group.orderIds.add(order.getId());
         group.deliveryMethodNames.add(resolveDeliveryMethodName(order));
-
-        if (STATEMENT_SITE.equals(statementType)) {
-            group.deliveryDateTexts.add(resolveDeliveryDateText(order));
-        }
-
         group.items.add(toStatementItem(order, group.items.size() + 1));
     }
 
@@ -623,9 +932,11 @@ public class DeliveryStatementLayoutService {
         LocalDate effectiveStatementDate = statementDate != null
                 ? statementDate
                 : today();
-        String dateText = parcel
-                ? formatDateWithDay(effectiveStatementDate)
-                : joinOrDash(group.deliveryDateTexts, ", ");
+        String dateText = joinOrDash(group.deliveryDateTexts, ", ");
+
+        if ("-".equals(dateText)) {
+            dateText = formatDateWithDay(effectiveStatementDate);
+        }
 
         return StatementPageDto.builder()
                 .sequence(sequence)
@@ -676,12 +987,23 @@ public class DeliveryStatementLayoutService {
     }
 
     /**
-     * 현장/택배 모두 site_* 주소가 하나라도 있으면 현장 배송지로 보고 site_*를 우선합니다.
-     * site_*가 전부 비어 있으면 일반 주문 주소를 사용합니다.
+     * 화면 목록과 동일하게 site 주소의 의미 있는 본문 값이 하나라도 있으면 site 주소를 우선합니다.
+     * 우편번호만 존재하는 경우에는 일반 주소를 가리는 값으로 사용하지 않습니다.
      */
     private AddressData resolveStatementAddress(Order order) {
-        boolean useSiteAddress = hasAnyText(
-                order.getSiteZipCode(),
+        AddressValue value = resolveStatementAddressValue(order);
+        return new AddressData(
+                safeText(value.zipCode()),
+                safeTextOrDash(value.display())
+        );
+    }
+
+    private AddressValue resolveStatementAddressValue(Order order) {
+        if (order == null) {
+            return DeliveryAddressNormalizationUtil.build("", "", "", "", "", "");
+        }
+
+        boolean useSiteAddress = DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
                 order.getSiteDoName(),
                 order.getSiteSiName(),
                 order.getSiteGuName(),
@@ -690,27 +1012,23 @@ public class DeliveryStatementLayoutService {
         );
 
         if (useSiteAddress) {
-            return new AddressData(
-                    safeText(order.getSiteZipCode()),
-                    joinAddressParts(
-                            order.getSiteDoName(),
-                            order.getSiteSiName(),
-                            order.getSiteGuName(),
-                            order.getSiteRoadAddress(),
-                            order.getSiteDetailAddress()
-                    )
+            return DeliveryAddressNormalizationUtil.build(
+                    order.getSiteZipCode(),
+                    order.getSiteDoName(),
+                    order.getSiteSiName(),
+                    order.getSiteGuName(),
+                    order.getSiteRoadAddress(),
+                    order.getSiteDetailAddress()
             );
         }
 
-        return new AddressData(
-                safeText(order.getZipCode()),
-                joinAddressParts(
-                        order.getDoName(),
-                        order.getSiName(),
-                        order.getGuName(),
-                        order.getRoadAddress(),
-                        order.getDetailAddress()
-                )
+        return DeliveryAddressNormalizationUtil.build(
+                order.getZipCode(),
+                order.getDoName(),
+                order.getSiName(),
+                order.getGuName(),
+                order.getRoadAddress(),
+                order.getDetailAddress()
         );
     }
 
@@ -720,6 +1038,19 @@ public class DeliveryStatementLayoutService {
 
     private boolean hasExplicitRecipient(Order order) {
         return order != null && hasAnyText(order.getOrdererName(), order.getOrdererPhone());
+    }
+
+    private String formatStatementGroupDate(String deliveryDateKey) {
+        if (!StringUtils.hasText(deliveryDateKey)
+                || deliveryDateKey.startsWith("MISSING-DATE-ORDER:")) {
+            return "-";
+        }
+
+        try {
+            return formatDateWithDay(LocalDate.parse(deliveryDateKey));
+        } catch (Exception ignored) {
+            return "-";
+        }
     }
 
     private String resolveDeliveryDateText(Order order) {
@@ -734,6 +1065,25 @@ public class DeliveryStatementLayoutService {
         return order != null && order.getDeliveryMethod() != null
                 ? safeTextOrDash(order.getDeliveryMethod().getMethodName())
                 : "미지정";
+    }
+
+
+    private LocalDate resolveDeliveryDate(Order order) {
+        return order != null && order.getPreferredDeliveryDate() != null
+                ? order.getPreferredDeliveryDate().toLocalDate()
+                : null;
+    }
+
+    private long safeOrderId(DeliveryOrderIndex index) {
+        return index == null
+                || index.getOrder() == null
+                || index.getOrder().getId() == null
+                ? Long.MAX_VALUE
+                : index.getOrder().getId();
+    }
+
+    private long safeLong(Long value) {
+        return value == null ? Long.MAX_VALUE : value;
     }
 
     private LocalDate today() {
@@ -1629,6 +1979,29 @@ public class DeliveryStatementLayoutService {
                 .trim();
     }
 
+    public record TeamStatementOrderRef(
+            Long deliveryHandlerId,
+            String deliveryHandlerName,
+            Long orderId,
+            int orderIndex
+    ) {
+    }
+
+    private enum StatementSource {
+        DISPATCH_SELECTION,
+        DELIVERY_MEMBER,
+        DELIVERY_TEAM
+    }
+
+    private record StatementGroupKey(
+            String deliveryHandlerKey,
+            String companyKey,
+            String addressKey,
+            String deliveryMethodKey,
+            String deliveryDateKey
+    ) {
+    }
+
     private record RecipientData(String name, String phone) {
     }
 
@@ -1644,6 +2017,8 @@ public class DeliveryStatementLayoutService {
         private String recipientPhone;
         private String postalCode;
         private String addressText;
+        private Long deliveryHandlerId;
+        private String deliveryHandlerName;
 
         private final LinkedHashSet<Long> orderIds = new LinkedHashSet<>();
         private final LinkedHashSet<String> deliveryDateTexts = new LinkedHashSet<>();

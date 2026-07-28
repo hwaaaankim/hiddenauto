@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -45,6 +46,8 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -57,8 +60,9 @@ public class DeliveryStatementExcelService {
     private static final String TYPE_SITE = "SITE";
     private static final String TYPE_PARCEL = "PARCEL";
 
-    private static final String DELIVERY_METHOD_DIRECT = "직배송";
     private static final String DELIVERY_METHOD_SITE = "현장배송";
+    private static final String DELIVERY_METHOD_FREIGHT = "화물";
+    private static final String DELIVERY_METHOD_VISIT = "방문";
     private static final String DELIVERY_METHOD_PARCEL = "택배";
 
     private static final String SITE_TEMPLATE_PATH = "excel/delivery-statement/site_statement_template.xlsx";
@@ -73,12 +77,12 @@ public class DeliveryStatementExcelService {
     private final ObjectMapper objectMapper;
 
     /**
-     * 선택된 오더를 명세서 구분별 배송수단으로 필터링한 뒤 Task 단위로 묶어 ZIP으로 내려줍니다.
+     * 선택된 오더를 명세서 구분별 배송수단으로 필터링한 뒤 업체/실제 배송지/배송수단/배송일 기준으로 묶어 ZIP으로 내려줍니다.
      *
-     * - 현장명세서: deliveryMethod.methodName 이 직배송 또는 현장배송인 오더만 출력
+     * - 현장명세서: deliveryMethod.methodName 이 방문, 현장배송 또는 화물인 오더만 출력
      * - 택배명세서: deliveryMethod.methodName 이 택배인 오더만 출력
-     * - 같은 Task 안에서 선택된 오더들은 하나의 엑셀 파일에 품목 여러 줄로 출력
-     * - 선택하지 않은 같은 Task의 다른 오더는 출력하지 않음
+     * - 같은 묶음 안의 선택 주문들은 하나의 엑셀 파일에 품목 여러 줄로 출력
+     * - 선택하지 않은 주문은 출력하지 않음
      */
     @Transactional(readOnly = true)
     public byte[] buildZip(DeliveryStatementExcelRequest request, Member loginMember) throws IOException {
@@ -103,13 +107,13 @@ public class DeliveryStatementExcelService {
 
         if (filteredOrders.isEmpty()) {
             if (TYPE_SITE.equals(statementType)) {
-                throw new IllegalArgumentException("현장명세서는 배송수단이 직배송 또는 현장배송인 주문만 출력할 수 있습니다.");
+                throw new IllegalArgumentException("현장명세서는 배송수단이 방문, 현장배송 또는 화물인 주문만 출력할 수 있습니다.");
             }
 
             throw new IllegalArgumentException("택배명세서는 배송수단이 택배인 주문만 출력할 수 있습니다.");
         }
 
-        List<StatementTaskGroup> taskGroups = groupSelectedOrdersByTask(filteredOrders);
+        List<StatementTaskGroup> taskGroups = groupSelectedOrdersByStatementCriteria(filteredOrders);
 
         if (taskGroups.isEmpty()) {
             throw new IllegalArgumentException("출력 가능한 주문 묶음을 찾지 못했습니다.");
@@ -173,24 +177,22 @@ public class DeliveryStatementExcelService {
     }
 
     private boolean isAllowedDeliveryMethod(Order order, String statementType) {
-        String methodName = normalizeDeliveryMethodName(resolveDeliveryMethodName(order));
+        String methodName = resolveDeliveryMethodName(order);
 
         if (TYPE_SITE.equals(statementType)) {
-            return DELIVERY_METHOD_DIRECT.equals(methodName) || DELIVERY_METHOD_SITE.equals(methodName);
+            return DeliveryMethodAssignmentPolicy.containsKeyword(methodName, DELIVERY_METHOD_SITE)
+                    || DeliveryMethodAssignmentPolicy.containsKeyword(methodName, DELIVERY_METHOD_FREIGHT)
+                    || DeliveryMethodAssignmentPolicy.containsKeyword(methodName, DELIVERY_METHOD_VISIT);
         }
 
-        return DELIVERY_METHOD_PARCEL.equals(methodName);
-    }
-
-    private String normalizeDeliveryMethodName(String methodName) {
-        return text(methodName).replaceAll("\\s+", "");
+        return DeliveryMethodAssignmentPolicy.containsKeyword(methodName, DELIVERY_METHOD_PARCEL);
     }
 
     /**
-     * 선택된 오더만 기준으로 Task 단위 명세서를 만듭니다.
-     * 같은 Task에 속한 오더가 여러 개 선택되면 한 개의 엑셀 파일 품목란에 선택된 오더 품목만 줄 단위로 출력합니다.
+     * 출고팀 명세서 묶음 기준:
+     * 동일 업체 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일.
      */
-    private List<StatementTaskGroup> groupSelectedOrdersByTask(List<Order> orders) {
+    private List<StatementTaskGroup> groupSelectedOrdersByStatementCriteria(List<Order> orders) {
         LinkedHashMap<String, StatementTaskGroup> grouped = new LinkedHashMap<>();
 
         for (Order order : orders) {
@@ -198,18 +200,88 @@ public class DeliveryStatementExcelService {
                 continue;
             }
 
-            Task task = order.getTask();
-            String key = task != null && task.getId() != null
-                    ? "TASK:" + task.getId()
-                    : "ORDER:" + order.getId();
-
-            StatementTaskGroup group = grouped.computeIfAbsent(key, ignored -> new StatementTaskGroup(task));
+            String key = buildStatementGroupKey(order);
+            StatementTaskGroup group = grouped.computeIfAbsent(
+                    key,
+                    ignored -> new StatementTaskGroup(order.getTask())
+            );
             group.addOrder(order);
         }
 
         return grouped.values().stream()
                 .filter(group -> !group.orders().isEmpty())
                 .toList();
+    }
+
+    private String buildStatementGroupKey(Order order) {
+        Company company = safeCompany(order);
+        String companyKey;
+
+        if (company != null && company.getId() != null) {
+            companyKey = "COMPANY:" + company.getId();
+        } else if (company != null && StringUtils.hasText(company.getCompanyName())) {
+            companyKey = "COMPANY-NAME:" + normalizeGroupingText(company.getCompanyName());
+        } else {
+            companyKey = "MISSING-COMPANY-ORDER:" + order.getId();
+        }
+
+        String addressKey = buildStatementAddressKey(order);
+        if (!StringUtils.hasText(addressKey)) {
+            addressKey = "MISSING-ADDRESS-ORDER:" + order.getId();
+        }
+
+        String methodKey = DeliveryMethodAssignmentPolicy.normalize(resolveDeliveryMethodName(order));
+        if (!StringUtils.hasText(methodKey)) {
+            methodKey = "MISSING-METHOD-ORDER:" + order.getId();
+        }
+
+        LocalDate deliveryDate = resolveDeliveryDate(order);
+        String dateKey = deliveryDate != null
+                ? deliveryDate.toString()
+                : "MISSING-DATE-ORDER:" + order.getId();
+
+        return companyKey + "|" + addressKey + "|" + methodKey + "|" + dateKey;
+    }
+
+    private String buildStatementAddressKey(Order order) {
+        if (order == null) {
+            return "";
+        }
+
+        boolean useSiteAddress = DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
+                order.getSiteDoName(),
+                order.getSiteSiName(),
+                order.getSiteGuName(),
+                order.getSiteRoadAddress(),
+                order.getSiteDetailAddress()
+        );
+
+        if (useSiteAddress) {
+            return DeliveryAddressNormalizationUtil.build(
+                    order.getSiteZipCode(),
+                    order.getSiteDoName(),
+                    order.getSiteSiName(),
+                    order.getSiteGuName(),
+                    order.getSiteRoadAddress(),
+                    order.getSiteDetailAddress()
+            ).key();
+        }
+
+        return DeliveryAddressNormalizationUtil.build(
+                order.getZipCode(),
+                order.getDoName(),
+                order.getSiName(),
+                order.getGuName(),
+                order.getRoadAddress(),
+                order.getDetailAddress()
+        ).key();
+    }
+
+    private String normalizeGroupingText(String value) {
+        return Normalizer.normalize(text(value), Normalizer.Form.NFKC)
+                .toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("\\s+", "")
+                .trim();
     }
 
     private byte[] buildZipWorkbookFiles(String statementType, List<StatementTaskGroup> taskGroups, Member loginMember)
@@ -457,7 +529,7 @@ public class DeliveryStatementExcelService {
     private void fillSiteSheet(Sheet sheet, StatementTaskGroup group, Member loginMember) {
         Order representative = group.representativeForHeader();
 
-        String dateText = resolveStatementDate().format(YMD);
+        String dateText = resolveDeliveryDate(representative).format(YMD);
         String companyName = resolveCompanyName(representative);
         String deliveryMethodName = resolveDeliveryMethodName(representative);
         String address = resolveDeliveryAddress(representative);
@@ -501,7 +573,7 @@ public class DeliveryStatementExcelService {
     private void fillParcelSheet(Sheet sheet, StatementTaskGroup group, Member loginMember) {
         Order representative = group.representativeForHeader();
 
-        String dateText = resolveStatementDate().format(YMD);
+        String dateText = resolveDeliveryDate(representative).format(YMD);
         String deliveryMethodName = resolveDeliveryMethodName(representative);
         String packingText = resolvePackingText(group.orders());
         String receiverName = resolveReceiverName(representative);
@@ -748,8 +820,7 @@ public class DeliveryStatementExcelService {
             return "";
         }
 
-        String siteAddress = buildAddress(
-                order.getSiteZipCode(),
+        boolean useSiteAddress = DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
                 order.getSiteDoName(),
                 order.getSiteSiName(),
                 order.getSiteGuName(),
@@ -757,8 +828,15 @@ public class DeliveryStatementExcelService {
                 order.getSiteDetailAddress()
         );
 
-        if (StringUtils.hasText(siteAddress)) {
-            return siteAddress;
+        if (useSiteAddress) {
+            return buildAddress(
+                    order.getSiteZipCode(),
+                    order.getSiteDoName(),
+                    order.getSiteSiName(),
+                    order.getSiteGuName(),
+                    order.getSiteRoadAddress(),
+                    order.getSiteDetailAddress()
+            );
         }
 
         return buildAddress(
@@ -939,7 +1017,7 @@ public class DeliveryStatementExcelService {
 
         String size = pick(optionMap, "사이즈", "size", "Size", "제품사이즈");
         String color = pick(optionMap, "색상", "color", "Color", "컬러", "제품색상");
-        int quantity = Math.max(0, order.getQuantity());
+        int quantity = order.getQuantity();
 
         List<String> tokens = new ArrayList<>();
         addIfText(tokens, productName);
