@@ -933,7 +933,7 @@ public class OrderExcelUploadService {
                     }
                 });
 
-        row.setOrderStatus(resolveDefaultOrderStatus(row.getCategoryName()).name());
+        row.setOrderStatus(resolveDefaultOrderStatus(row.getCategoryName(), row.getQuantity()).name());
 
         if (deliveryRule.isHandlerAssignable() && groupDeliveryHandler != null) {
             row.setDeliveryHandlerMemberId(groupDeliveryHandler.getId());
@@ -1333,7 +1333,10 @@ public class OrderExcelUploadService {
     ) {
         String statusValue = safe(row.getOrderStatus());
         if (statusValue.isBlank()) {
-            return resolveDefaultOrderStatus(resolveOptionCategoryName(row, routingCategory));
+            return resolveDefaultOrderStatus(
+                    resolveOptionCategoryName(row, routingCategory),
+                    row.getQuantity()
+            );
         }
 
         for (OrderStatus status : OrderStatus.values()) {
@@ -1347,7 +1350,13 @@ public class OrderExcelUploadService {
                 + "행: 올바르지 않은 오더 상태입니다: " + statusValue);
     }
 
-    private OrderStatus resolveDefaultOrderStatus(String categoryName) {
+    private OrderStatus resolveDefaultOrderStatus(String categoryName, int quantity) {
+        // 음수 수량은 생산 대상이 아닌 반품/회수 제품이므로
+        // 제품 분류와 관계없이 최초 오더 상태를 생산 완료로 지정합니다.
+        if (quantity < 0) {
+            return OrderStatus.PRODUCTION_DONE;
+        }
+
         return isBathroomGoodsCategory(categoryName)
                 ? OrderStatus.PRODUCTION_DONE
                 : OrderStatus.CONFIRMED;

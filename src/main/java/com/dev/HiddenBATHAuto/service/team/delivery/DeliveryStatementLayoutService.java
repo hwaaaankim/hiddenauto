@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.service.team.delivery;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -34,6 +36,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.LayoutRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.LayoutResponse;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.StatementItemDto;
@@ -43,6 +47,7 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
@@ -72,6 +77,15 @@ public class DeliveryStatementLayoutService {
     private static final int HORIZONTAL_SECOND_COPY_START_COLUMN = 9;
     private static final int VERTICAL_SEPARATOR_ROW_HEIGHT = 8;
 
+    private static final String DELIVERY_TEAM_NAME = "배송팀";
+
+    private static final List<OrderStatus> DELIVERY_ROUTE_VISIBLE_STATUSES = List.of(
+            OrderStatus.CONFIRMED,
+            OrderStatus.PRODUCTION_DONE,
+            OrderStatus.DISPATCH_DONE,
+            OrderStatus.DELIVERY_DONE
+    );
+
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
     private static final DateTimeFormatter DATE_WITH_DAY_FORMATTER =
@@ -79,6 +93,7 @@ public class DeliveryStatementLayoutService {
 
     private final OrderRepository orderRepository;
     private final ObjectMapper objectMapper;
+    private final EntityManager entityManager;
 
     public String normalizeLayoutType(String layoutType) {
         String normalized = normalizeCode(layoutType);
@@ -117,23 +132,101 @@ public class DeliveryStatementLayoutService {
         String statementType = normalizeStatementType(request.getStatementType());
         List<Long> requestedOrderIds = normalizeOrderIds(request.getOrderIds());
         List<Order> requestedOrders = loadOrdersInRequestedOrder(requestedOrderIds);
-        List<Order> includedOrders = filterOrdersByStatementType(requestedOrders, statementType);
+
+        /*
+         * 출고팀을 포함한 기존 선택형 호출은 지금까지와 동일하게
+         * 전달받은 주문 ID만 기준으로 명세서를 생성합니다.
+         */
+        return buildLayoutResponseFromOrders(
+                layoutType,
+                statementType,
+                requestedOrders,
+                today()
+        );
+    }
+
+    /**
+     * 배송팀 업체별 배송 화면 전용입니다.
+     * 체크박스 선택값이 아니라 조회 날짜의 전체 주문을 서버에서 조회한 뒤,
+     * 명세서 종류에 맞는 배송수단만 필터링하여 모든 업체 명세서를 생성합니다.
+     */
+    @Transactional(readOnly = true)
+    public LayoutResponse buildLayoutResponseForDeliveryDate(
+            LocalDate deliveryDate,
+            String layoutType,
+            String statementType,
+            Member loginMember
+    ) {
+        validateDeliveryRouteMember(loginMember);
+
+        if (deliveryDate == null) {
+            throw new IllegalArgumentException("명세서를 출력할 배송일이 없습니다.");
+        }
+
+        String normalizedLayoutType = normalizeLayoutType(layoutType);
+        String normalizedStatementType = normalizeStatementType(statementType);
+        List<Order> requestedOrders = loadOrdersForDeliveryDate(deliveryDate);
+
+        if (requestedOrders.isEmpty()) {
+            throw new IllegalArgumentException(
+                    deliveryDate + "에 출력 가능한 배송 주문이 없습니다."
+            );
+        }
+
+        return buildLayoutResponseFromOrders(
+                normalizedLayoutType,
+                normalizedStatementType,
+                requestedOrders,
+                deliveryDate
+        );
+    }
+
+    private LayoutResponse buildLayoutResponseFromOrders(
+            String layoutType,
+            String statementType,
+            List<Order> requestedOrders,
+            LocalDate statementDate
+    ) {
+        List<Order> safeRequestedOrders = requestedOrders == null
+                ? List.of()
+                : requestedOrders.stream()
+                        .filter(Objects::nonNull)
+                        .toList();
+
+        if (safeRequestedOrders.isEmpty()) {
+            throw new IllegalArgumentException("명세서로 출력할 주문이 없습니다.");
+        }
+
+        List<Order> includedOrders = filterOrdersByStatementType(
+                safeRequestedOrders,
+                statementType
+        );
 
         if (includedOrders.isEmpty()) {
             throw new IllegalArgumentException(buildNoMatchingOrderMessage(statementType));
         }
 
-        List<StatementGroup> groups = groupSelectedOrdersByTask(includedOrders, statementType);
-        List<StatementPageDto> pages = splitGroupsIntoPages(groups, layoutType);
+        List<StatementGroup> groups = groupSelectedOrdersByTask(
+                includedOrders,
+                statementType
+        );
+        List<StatementPageDto> pages = splitGroupsIntoPages(
+                groups,
+                layoutType,
+                statementDate
+        );
 
         return LayoutResponse.builder()
                 .layoutType(layoutType)
                 .statementType(statementType)
                 .statementTypeLabel(statementTypeLabel(statementType))
-                .generatedDateText(formatDateWithDay(today()))
-                .requestedOrderCount(requestedOrders.size())
+                .generatedDateText(formatDateWithDay(statementDate))
+                .requestedOrderCount(safeRequestedOrders.size())
                 .includedOrderCount(includedOrders.size())
-                .excludedOrderCount(Math.max(0, requestedOrders.size() - includedOrders.size()))
+                .excludedOrderCount(Math.max(
+                        0,
+                        safeRequestedOrders.size() - includedOrders.size()
+                ))
                 .pages(pages)
                 .build();
     }
@@ -144,8 +237,34 @@ public class DeliveryStatementLayoutService {
             Member loginMember
     ) {
         LayoutResponse response = buildLayoutResponse(request, loginMember);
+        return buildLayoutExcelFromResponse(response);
+    }
 
-        if (response.getPages() == null || response.getPages().isEmpty()) {
+    /**
+     * 배송팀 업체별 배송 화면에서 조회 날짜 전체 업체의 명세서를
+     * 한 XLSX 파일의 여러 시트로 생성합니다.
+     */
+    @Transactional(readOnly = true)
+    public byte[] buildLayoutExcelForDeliveryDate(
+            LocalDate deliveryDate,
+            String layoutType,
+            String statementType,
+            Member loginMember
+    ) {
+        LayoutResponse response = buildLayoutResponseForDeliveryDate(
+                deliveryDate,
+                layoutType,
+                statementType,
+                loginMember
+        );
+
+        return buildLayoutExcelFromResponse(response);
+    }
+
+    private byte[] buildLayoutExcelFromResponse(LayoutResponse response) {
+        if (response == null
+                || response.getPages() == null
+                || response.getPages().isEmpty()) {
             throw new IllegalArgumentException("엑셀로 생성할 명세서 데이터가 없습니다.");
         }
 
@@ -220,6 +339,44 @@ public class DeliveryStatementLayoutService {
         }
 
         return new ArrayList<>(normalized);
+    }
+
+    private List<Order> loadOrdersForDeliveryDate(LocalDate deliveryDate) {
+        LocalDateTime fromDateTime = deliveryDate.atStartOfDay();
+        LocalDateTime toDateTime = deliveryDate.plusDays(1).atStartOfDay();
+
+        List<Long> orderIds = entityManager.createQuery(
+                        """
+                        SELECT o.id
+                        FROM Order o
+                        WHERE o.preferredDeliveryDate >= :fromDateTime
+                          AND o.preferredDeliveryDate < :toDateTime
+                          AND o.status IN :statuses
+                        ORDER BY o.id ASC
+                        """,
+                        Long.class
+                )
+                .setParameter("fromDateTime", fromDateTime)
+                .setParameter("toDateTime", toDateTime)
+                .setParameter("statuses", DELIVERY_ROUTE_VISIBLE_STATUSES)
+                .getResultList();
+
+        if (orderIds.isEmpty()) {
+            return List.of();
+        }
+
+        return loadOrdersInRequestedOrder(orderIds);
+    }
+
+    private void validateDeliveryRouteMember(Member member) {
+        if (member == null) {
+            throw new AccessDeniedException("로그인 사용자 정보를 확인할 수 없습니다.");
+        }
+
+        if (member.getTeam() == null
+                || !DELIVERY_TEAM_NAME.equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("배송팀만 날짜 전체 명세서를 출력할 수 있습니다.");
+        }
     }
 
     private List<Order> loadOrdersInRequestedOrder(List<Long> orderIds) {
@@ -418,7 +575,8 @@ public class DeliveryStatementLayoutService {
 
     private List<StatementPageDto> splitGroupsIntoPages(
             List<StatementGroup> groups,
-            String layoutType
+            String layoutType,
+            LocalDate statementDate
     ) {
         int itemsPerPage = LAYOUT_HORIZONTAL.equals(layoutType)
                 ? HORIZONTAL_ITEMS_PER_PAGE
@@ -444,7 +602,8 @@ public class DeliveryStatementLayoutService {
                         pageItems,
                         sequence++,
                         pageIndex + 1,
-                        pageCount
+                        pageCount,
+                        statementDate
                 ));
             }
         }
@@ -457,11 +616,15 @@ public class DeliveryStatementLayoutService {
             List<StatementItemDto> pageItems,
             int sequence,
             int pageNumber,
-            int pageCount
+            int pageCount,
+            LocalDate statementDate
     ) {
         boolean parcel = STATEMENT_PARCEL.equals(group.documentType);
+        LocalDate effectiveStatementDate = statementDate != null
+                ? statementDate
+                : today();
         String dateText = parcel
-                ? formatDateWithDay(today())
+                ? formatDateWithDay(effectiveStatementDate)
                 : joinOrDash(group.deliveryDateTexts, ", ");
 
         return StatementPageDto.builder()

@@ -200,9 +200,9 @@
             });
         });
 
-        const hasOrders = getAllRouteOrderIdsInCurrentDomOrder().length > 0;
+        const hasDeliveryDate = Boolean(getDeliveryRouteStatementDate());
         statementLayoutButtons().forEach(function (button) {
-            button.disabled = !hasOrders;
+            button.disabled = !hasDeliveryDate;
         });
 
         if (page) {
@@ -232,10 +232,6 @@
     	}
     }
 
-    function selectedStatementOrderIds() {
-        return getAllRouteOrderIdsInCurrentDomOrder();
-    }
-
     function statementLayoutButtons() {
         return [
             document.getElementById('delivery-route-statement-site-horizontal-print-button'),
@@ -252,117 +248,133 @@
     }
 
     async function printDeliveryStatementLayout(layoutType, statementType, button) {
-    	const orderIds = selectedStatementOrderIds();
+        const deliveryDate = getDeliveryRouteStatementDate();
 
-    	if (orderIds.length === 0) {
-    		showMessage('출력할 데이터가 없습니다.', '명세서로 출력할 현재 조회 주문이 없습니다.', 'warning');
-    		return;
-    	}
+        if (!deliveryDate) {
+            showMessage('배송일이 없습니다.', '명세서로 출력할 배송 날짜를 선택해 주세요.', 'warning');
+            return;
+        }
 
-    	const normalizedStatementType = normalizeStatementType(statementType);
-    	const statementLabel = statementTypeLabel(normalizedStatementType);
-    	const printWindow = window.open('', '_blank');
+        const normalizedStatementType = normalizeStatementType(statementType);
+        const statementLabel = statementTypeLabel(normalizedStatementType);
+        const printWindow = window.open('', '_blank');
 
-    	if (!printWindow) {
-    		showMessage('인쇄 창이 차단되었습니다.', '브라우저의 팝업 허용 후 다시 시도해 주세요.', 'warning');
-    		return;
-    	}
+        if (!printWindow) {
+            showMessage('인쇄 창이 차단되었습니다.', '브라우저의 팝업 허용 후 다시 시도해 주세요.', 'warning');
+            return;
+        }
 
-    	printWindow.document.open();
-    	printWindow.document.write(
-    		'<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
-    		'<title>' + escapeHtml(statementLabel) + ' 출력 준비</title></head>' +
-    		'<body style="font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;padding:32px;">' +
-    		escapeHtml(statementLabel) + ' 출력 데이터를 준비하고 있습니다.</body></html>'
-    	);
-    	printWindow.document.close();
+        printWindow.document.open();
+        printWindow.document.write(
+            '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
+            '<title>' + escapeHtml(statementLabel) + ' 출력 준비</title></head>' +
+            '<body style="font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;padding:32px;">' +
+            escapeHtml(statementLabel) + ' 출력 데이터를 준비하고 있습니다.</body></html>'
+        );
+        printWindow.document.close();
 
-    	const originalText = button ? button.innerHTML : '';
+        const originalText = button ? button.innerHTML : '';
 
-    	try {
-    		setStatementLayoutButtonsBusy(true, button, originalText, '출력 준비 중');
+        try {
+            setStatementLayoutButtonsBusy(true, button, originalText, '출력 준비 중');
 
-    		const response = await fetch('/api/internal/delivery-statement/layout/data', {
-    			method: 'POST',
-    			headers: buildDeliveryRouteStatementHeaders(),
-    			body: JSON.stringify({
-    				layoutType: normalizeStatementLayoutType(layoutType),
-    				statementType: normalizedStatementType,
-    				orderIds: orderIds
-    			})
-    		});
+            const response = await fetch('/api/internal/delivery-statement/layout/date/data', {
+                method: 'POST',
+                headers: buildDeliveryRouteStatementHeaders(),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    deliveryDate: deliveryDate,
+                    layoutType: normalizeStatementLayoutType(layoutType),
+                    statementType: normalizedStatementType
+                })
+            });
 
-    		const data = await parseStatementJsonResponse(response);
+            const data = await parseStatementJsonResponse(response);
 
-    		if (!data.pages || data.pages.length === 0) {
-    			throw new Error('출력할 ' + statementLabel + ' 데이터가 없습니다.');
-    		}
+            if (!data.pages || data.pages.length === 0) {
+                throw new Error('출력할 ' + statementLabel + ' 데이터가 없습니다.');
+            }
 
-    		printWindow.document.open();
-    		printWindow.document.write(buildStatementPrintDocument(data));
-    		printWindow.document.close();
-    	} catch (error) {
-    		console.error(error);
+            printWindow.document.open();
+            printWindow.document.write(buildStatementPrintDocument(data));
+            printWindow.document.close();
+        } catch (error) {
+            console.error(error);
 
-    		try {
-    			printWindow.close();
-    		} catch (closeError) {
-    			console.warn(closeError);
-    		}
+            try {
+                printWindow.close();
+            } catch (closeError) {
+                console.warn(closeError);
+            }
 
-    		showMessage(statementLabel + ' 출력 실패', error.message || statementLabel + ' 출력 준비 중 오류가 발생했습니다.', 'error');
-    	} finally {
-    		setStatementLayoutButtonsBusy(false, button, originalText);
-    	}
+            showMessage(
+                statementLabel + ' 출력 실패',
+                error && error.message
+                    ? error.message
+                    : statementLabel + ' 출력 준비 중 오류가 발생했습니다.',
+                'error'
+            );
+        } finally {
+            setStatementLayoutButtonsBusy(false, button, originalText);
+        }
     }
 
     async function downloadDeliveryStatementLayout(layoutType, statementType, button) {
-    	const orderIds = selectedStatementOrderIds();
+        const deliveryDate = getDeliveryRouteStatementDate();
 
-    	if (orderIds.length === 0) {
-    		showMessage('다운로드할 데이터가 없습니다.', '명세서로 다운로드할 현재 조회 주문이 없습니다.', 'warning');
-    		return;
-    	}
+        if (!deliveryDate) {
+            showMessage('배송일이 없습니다.', '명세서로 다운로드할 배송 날짜를 선택해 주세요.', 'warning');
+            return;
+        }
 
-    	const normalizedLayoutType = normalizeStatementLayoutType(layoutType);
-    	const normalizedStatementType = normalizeStatementType(statementType);
-    	const statementLabel = statementTypeLabel(normalizedStatementType);
-    	const originalText = button ? button.innerHTML : '';
+        const normalizedLayoutType = normalizeStatementLayoutType(layoutType);
+        const normalizedStatementType = normalizeStatementType(statementType);
+        const statementLabel = statementTypeLabel(normalizedStatementType);
+        const originalText = button ? button.innerHTML : '';
 
-    	try {
-    		setStatementLayoutButtonsBusy(true, button, originalText, '엑셀 생성 중');
+        try {
+            setStatementLayoutButtonsBusy(true, button, originalText, '엑셀 생성 중');
 
-    		const response = await fetch('/api/internal/delivery-statement/layout/excel', {
-    			method: 'POST',
-    			headers: buildDeliveryRouteStatementHeaders(),
-    			body: JSON.stringify({
-    				layoutType: normalizedLayoutType,
-    				statementType: normalizedStatementType,
-    				orderIds: orderIds
-    			})
-    		});
+            const response = await fetch('/api/internal/delivery-statement/layout/date/excel', {
+                method: 'POST',
+                headers: buildDeliveryRouteStatementHeaders(),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    deliveryDate: deliveryDate,
+                    layoutType: normalizedLayoutType,
+                    statementType: normalizedStatementType
+                })
+            });
 
-    		if (!response.ok) {
-    			const errorText = await response.text();
-    			throw new Error(errorText || statementLabel + ' 엑셀 생성 중 오류가 발생했습니다.');
-    		}
+            if (!response.ok) {
+                const errorBody = await parseResponseBody(response);
+                throw new Error(
+                    errorBody.message
+                    || statementLabel + ' 엑셀 생성 중 오류가 발생했습니다.'
+                );
+            }
 
-    		const blob = await response.blob();
-    		const contentDisposition = response.headers.get('Content-Disposition');
-    		const layoutLabel = normalizedLayoutType === 'HORIZONTAL' ? '가로형' : '세로형';
-    		const filename = resolveDownloadFilename(
-    			contentDisposition,
-    			statementLabel + '_' + layoutLabel + '_' +
-    			(getDeliveryRouteStatementDate() || new Date().toISOString().slice(0, 10)) + '.xlsx'
-    		);
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const layoutLabel = normalizedLayoutType === 'HORIZONTAL' ? '가로형' : '세로형';
+            const filename = resolveDownloadFilename(
+                contentDisposition,
+                statementLabel + '_' + layoutLabel + '_' + deliveryDate + '.xlsx'
+            );
 
-    		downloadBlob(blob, filename);
-    	} catch (error) {
-    		console.error(error);
-    		showMessage(statementLabel + ' 다운로드 실패', error.message || statementLabel + ' 엑셀 다운로드 중 오류가 발생했습니다.', 'error');
-    	} finally {
-    		setStatementLayoutButtonsBusy(false, button, originalText);
-    	}
+            downloadBlob(blob, filename);
+        } catch (error) {
+            console.error(error);
+            showMessage(
+                statementLabel + ' 다운로드 실패',
+                error && error.message
+                    ? error.message
+                    : statementLabel + ' 엑셀 다운로드 중 오류가 발생했습니다.',
+                'error'
+            );
+        } finally {
+            setStatementLayoutButtonsBusy(false, button, originalText);
+        }
     }
 
     function parseStatementJsonResponse(response) {
@@ -406,9 +418,9 @@
         });
 
         if (!isBusy) {
-            const hasOrders = selectedStatementOrderIds().length > 0;
+            const hasDeliveryDate = Boolean(getDeliveryRouteStatementDate());
             statementLayoutButtons().forEach(function (button) {
-                button.disabled = !hasOrders;
+                button.disabled = !hasDeliveryDate;
             });
         }
     }

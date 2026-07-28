@@ -589,18 +589,31 @@
             return;
         }
         if (target.dataset.rowField) {
+            const groupIndex = Number(target.dataset.groupIndex);
+            const rowIndex = Number(target.dataset.rowIndex);
+            const row = state.groups[groupIndex] && state.groups[groupIndex].rows
+                ? state.groups[groupIndex].rows[rowIndex]
+                : null;
+            const previousQuantity = target.dataset.rowField === 'quantity' && row
+                ? parseSignedInteger(row.quantity)
+                : null;
+
             updateRowField(target);
+
+            if (target.dataset.rowField === 'quantity' && row && previousQuantity !== row.quantity) {
+                row.orderStatus = defaultOrderStatusForCategory(row.categoryName, row.quantity);
+                renderPreview();
+                return;
+            }
+
             if (target.dataset.rowField === 'productionCategoryId') {
-                const groupIndex = Number(target.dataset.groupIndex);
-                const rowIndex = Number(target.dataset.rowIndex);
                 const category = (state.options.productionCategories || []).find(item => String(item.id) === String(target.value));
-                if (category && state.groups[groupIndex] && state.groups[groupIndex].rows[rowIndex]) {
+                if (category && row) {
                     const categoryNameForSave = String(category.id) === BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID
                         ? BATHROOM_GOODS_CATEGORY_NAME
                         : category.name;
-                    const row = state.groups[groupIndex].rows[rowIndex];
                     row.categoryName = categoryNameForSave;
-                    row.orderStatus = defaultOrderStatusForCategory(categoryNameForSave);
+                    row.orderStatus = defaultOrderStatusForCategory(categoryNameForSave, row.quantity);
                     const hidden = target.closest('tr').querySelector('[data-row-field="categoryName"]');
                     if (hidden) hidden.value = categoryNameForSave;
                     renderPreview();
@@ -1384,7 +1397,13 @@
         }, 0);
     }
 
-    function defaultOrderStatusForCategory(categoryName) {
+    function defaultOrderStatusForCategory(categoryName, quantity) {
+        // 음수 수량은 생산 대상이 아닌 반품/회수 제품이므로
+        // 제품 분류와 관계없이 생산 완료 상태를 기본값으로 사용합니다.
+        if (parseSignedInteger(quantity) < 0) {
+            return 'PRODUCTION_DONE';
+        }
+
         return normalizeText(categoryName) === normalizeText(BATHROOM_GOODS_CATEGORY_NAME)
             ? 'PRODUCTION_DONE'
             : 'CONFIRMED';
