@@ -28,11 +28,13 @@ import jakarta.persistence.LockModeType;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
 	// OrderRepository 인터페이스 내부에 추가
+	@EntityGraph(attributePaths = { "deliveryMethod", "assignedDeliveryHandler" })
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("""
 	            SELECT o
 	            FROM Order o
 	            WHERE o.id IN :orderIds
+	            ORDER BY o.id ASC
 	        """)
 	List<Order> findAllByIdInForBulkConfirm(@Param("orderIds") Collection<Long> orderIds);
 	

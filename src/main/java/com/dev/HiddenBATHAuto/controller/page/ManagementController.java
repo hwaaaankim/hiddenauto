@@ -181,6 +181,12 @@ public class ManagementController {
 			List<NonStandardTaskListCompanyOrdererInfoOptionDto> orderers) {
 	}
 
+	public record NonStandardTaskBulkConfirmOrderRequest(Long orderId, Long deliveryHandlerId) {
+	}
+
+	public record NonStandardTaskBulkConfirmRequest(List<NonStandardTaskBulkConfirmOrderRequest> orders) {
+	}
+
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
 			@RequestParam(required = false) String orderId,
@@ -244,10 +250,12 @@ public class ManagementController {
 		model.addAttribute("orderStatuses", OrderStatus.values());
 
 		/*
-		 * 기존 템플릿 안전 호환용 빈 값입니다. 실제 상세 수정 데이터는 order-detail-fragment에서 내려갑니다.
+		 * 상세 수정용 배송수단/회사/주소 데이터는 order-detail-fragment에서 내려갑니다.
+		 * 배송팀 멤버는 고객 발주 일괄 컨펌 모달의 담당자 선택지로 사용하므로 활성 멤버만 제공합니다.
 		 */
 		model.addAttribute("deliveryMethods", List.of());
-		model.addAttribute("deliveryTeamMembers", List.of());
+		model.addAttribute("deliveryTeamMembers",
+				memberRepository.findByTeam_NameAndEnabledTrueOrderByNameAsc("배송팀"));
 		model.addAttribute("companyOptions", List.of());
 		model.addAttribute("companyMemberOptions", List.of());
 		model.addAttribute("companyDeliveryAddressOptions", List.of());
@@ -319,7 +327,8 @@ public class ManagementController {
 		model.addAttribute("row", row);
 		model.addAttribute("orderStatuses", OrderStatus.values());
 		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
-		model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
+		model.addAttribute("deliveryTeamMembers",
+				memberRepository.findByTeam_NameAndEnabledTrueOrderByNameAsc("배송팀"));
 		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
 
 		/*
@@ -355,6 +364,56 @@ public class ManagementController {
 				buildOrderListCompanyOrdererInfoOptionsByCompanyId(companyId));
 
 		return ResponseEntity.ok(response);
+	}
+
+	@PostMapping("/nonStandardTaskList/bulk-confirm")
+	@ResponseBody
+	public ResponseEntity<Map<String, Object>> nonStandardTaskListBulkConfirm(
+			@RequestBody NonStandardTaskBulkConfirmRequest request) {
+		try {
+			if (request == null || request.orders() == null || request.orders().isEmpty()) {
+				throw new IllegalArgumentException("컨펌 처리할 오더를 하나 이상 선택해 주세요.");
+			}
+
+			List<Long> orderIds = new ArrayList<>();
+			LinkedHashMap<Long, Long> deliveryHandlerIdByOrderId = new LinkedHashMap<>();
+
+			for (NonStandardTaskBulkConfirmOrderRequest orderRequest : request.orders()) {
+				if (orderRequest == null || orderRequest.orderId() == null || orderRequest.orderId() <= 0) {
+					throw new IllegalArgumentException("올바르지 않은 오더 ID가 포함되어 있습니다.");
+				}
+
+				if (deliveryHandlerIdByOrderId.containsKey(orderRequest.orderId())) {
+					throw new IllegalArgumentException(
+							orderRequest.orderId() + "번 오더가 일괄 컨펌 요청에 중복 포함되어 있습니다.");
+				}
+
+				orderIds.add(orderRequest.orderId());
+				deliveryHandlerIdByOrderId.put(
+						orderRequest.orderId(),
+						orderRequest.deliveryHandlerId() != null && orderRequest.deliveryHandlerId() > 0
+								? orderRequest.deliveryHandlerId()
+								: null
+				);
+			}
+
+			int updatedCount = orderStatusService.bulkConfirmRequestedOrders(
+					orderIds,
+					deliveryHandlerIdByOrderId
+			);
+
+			Map<String, Object> response = new LinkedHashMap<>();
+			response.put("success", true);
+			response.put("updatedCount", updatedCount);
+			response.put("message", updatedCount + "건을 승인 완료로 변경했습니다.");
+			return ResponseEntity.ok(response);
+
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			Map<String, Object> response = new LinkedHashMap<>();
+			response.put("success", false);
+			response.put("message", e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
 	}
 
 	@GetMapping("/nonStandardTaskList/bulk-fragment")

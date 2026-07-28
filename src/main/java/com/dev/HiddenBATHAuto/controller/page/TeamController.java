@@ -875,11 +875,12 @@ public class TeamController {
 
 		/*
 		 * 배송팀 리스트 허용 상태
-		 * - PRODUCTION_DONE / DISPATCH_DONE: 직배송/현장배송이면 상단 영역에 표시
-		 * - 순서변경/업체별정렬/담당자변경은 두 상태 모두 가능
-		 * - 배송완료 처리는 PRODUCTION_DONE 상태만 가능
+		 * - CONFIRMED / PRODUCTION_DONE / DISPATCH_DONE:
+		 *   직배송/현장배송이면 상단 순서 관리 영역에 표시
+		 * - 순서변경/업체별정렬/담당자변경: 위 세 상태 모두 가능
+		 * - 배송완료 처리: PRODUCTION_DONE만 가능
 		 * - DELIVERY_DONE: 중간 배송완료 영역에서 상세확인만 가능
-		 * - CONFIRMED 또는 직배송/현장배송이 아닌 배송수단: 기타 영역에서 상세확인만 가능
+		 * - 화물/택배/방문 등 기타 배송수단: 기타 영역에서 상세확인만 가능
 		 */
 		List<OrderStatus> availableDeliveryStatuses = List.of(OrderStatus.CONFIRMED, OrderStatus.PRODUCTION_DONE,
 				OrderStatus.DISPATCH_DONE, OrderStatus.DELIVERY_DONE);
@@ -901,7 +902,7 @@ public class TeamController {
 				statuses);
 
 		List<DeliveryOrderIndex> pendingOrders = all.stream().filter(x -> x.getOrder() != null)
-				.filter(x -> deliveryOrderIndexService.isActionablePendingDeliveryOrder(x.getOrder()))
+				.filter(x -> deliveryOrderIndexService.isOrderIndexEditableDeliveryOrder(x.getOrder()))
 				.collect(Collectors.toList());
 
 		List<DeliveryOrderIndex> doneOrders = all.stream().filter(x -> x.getOrder() != null)
@@ -976,8 +977,10 @@ public class TeamController {
 	}
 
 	/**
-	 * ✅ 업체별정렬 API (pending DOM 순서 기반 stable grouping) - DB 저장은 '순서 저장'
-	 * 버튼(updateOrderIndex)에서 수행하는 구조
+	 * 업체별정렬 API입니다.
+	 * 현재 pending DOM 순서를 기준으로 같은 업체 + 같은 실제 배송지를 stable grouping합니다.
+	 * 같은 배송일은 request.deliveryDate로 이미 제한하며,
+	 * DB 저장은 '순서 저장' 버튼(updateOrderIndex)에서 수행합니다.
 	 */
 	@PostMapping("/reorderByTask")
 	@ResponseBody
@@ -1329,7 +1332,11 @@ public class TeamController {
 			return ResponseEntity.badRequest().body("잘못된 요청입니다.(출력 대상 없음)");
 		}
 
-		byte[] bytes = deliveryExcelService.buildExcel(member.getId(), member.getName(), request.getFromDate(),
+		String deliveryHandlerName = StringUtils.hasText(member.getName())
+				? member.getName().trim()
+				: member.getUsername();
+
+		byte[] bytes = deliveryExcelService.buildExcel(member.getId(), deliveryHandlerName, request.getFromDate(),
 				request.getToDate(), request.getOrderedOrderIds());
 
 		String dateLabel = resolveDeliveryExcelDateLabel(request.getFromDate(), request.getToDate());

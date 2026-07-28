@@ -195,7 +195,7 @@
     }
 
     function renderGroup(group, groupIndex) {
-        const groupIssues = group.issues || [];
+        const groupIssues = visibleGroupIssues(group);
         const hasError = groupHasError(group);
         const collapsed = Boolean(group.collapsed);
 
@@ -439,16 +439,17 @@
                 <td><input type="text" class="form-control form-control-sm text-end order-excel-money" data-row-field="totalAmount" data-group-index="${groupIndex}" data-row-index="${rowIndex}" value="${formatNumber(row.totalAmount)}"></td>
                 <td class="order-excel-admin-memo-cell"><textarea class="form-control form-control-sm order-excel-admin-memo" rows="2" maxlength="200" data-row-field="adminMemo" data-group-index="${groupIndex}" data-row-index="${rowIndex}" placeholder="관리자 메모 입력">${escapeHtml(row.adminMemo || '')}</textarea></td>
                 <td class="order-excel-image-cell">${renderRowImages(groupIndex, rowIndex, row)}</td>
-                <td class="order-excel-issue-cell">${renderCellIssues(row.issues || [])}</td>
+                <td class="order-excel-issue-cell">${renderCellIssues(row.issues || [], row)}</td>
             </tr>
         `;
     }
 
-    function renderCellIssues(issues) {
-        if (!issues.length) {
+    function renderCellIssues(issues, row) {
+        const visibleIssues = visibleRowIssues(row, issues);
+        if (!visibleIssues.length) {
             return '<span class="text-muted">-</span>';
         }
-        return issues.map(issue => `
+        return visibleIssues.map(issue => `
             <div class="order-excel-cell-issue ${issue.level === 'ERROR' ? 'is-error' : 'is-warn'}">
                 ${escapeHtml(issue.message || '')}
             </div>
@@ -531,30 +532,50 @@
     function renderGroupDeliveryHandlerSelect(group, groupIndex) {
         const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
         const ruleCode = deliveryRuleCodeFromMethod(method);
-        const required = isHandlerRequiredRuleCode(ruleCode);
-        const disabled = isNoHandlerRuleCode(ruleCode);
+        const activeRows = getActiveGroupRows(group);
+        const assignableRows = activeRows.filter(isDeliveryHandlerAssignableRow);
+        const excludedCount = activeRows.length - assignableRows.length;
+        const hasActiveRows = activeRows.length > 0;
+        const hasAssignableRows = assignableRows.length > 0;
+        const statusBlocked = hasActiveRows && !hasAssignableRows;
+        const noHandlerRule = isNoHandlerRuleCode(ruleCode);
+        const required = hasAssignableRows && isHandlerRequiredRuleCode(ruleCode);
+        const disabled = !hasActiveRows || statusBlocked || noHandlerRule;
         const selectedHandler = disabled ? null : resolveSelectedDeliveryHandler(group);
         const selectedHandlerId = selectedHandler ? selectedHandler.id : null;
         const missingRequiredHandler = required && !selectedHandlerId;
-        const requirementText = missingRequiredHandler
-            ? '<div class="form-text text-danger">필수 선택</div>'
-            : '';
+
+        let emptyLabel = '미지정';
+        let requirementText = '';
+        if (!hasActiveRows) {
+            emptyLabel = '저장 대상 없음';
+            requirementText = '<div class="form-text text-muted">저장 대상으로 선택된 Order가 없습니다.</div>';
+        } else if (statusBlocked) {
+            emptyLabel = '고객 발주/취소는 지정 불가';
+            requirementText = '<div class="form-text text-muted">고객 발주·취소 상태는 배송수단과 무관하게 배송담당자를 배정하지 않습니다.</div>';
+        } else if (noHandlerRule) {
+            emptyLabel = '담당자 지정 불필요';
+        } else if (missingRequiredHandler) {
+            emptyLabel = '배송담당자 선택 필수';
+            requirementText = '<div class="form-text text-danger">필수 선택</div>';
+        } else if (excludedCount > 0) {
+            requirementText = `<div class="form-text text-muted">고객 발주·취소 ${excludedCount}건은 담당자 배정에서 제외됩니다.</div>`;
+        }
 
         return `
             <select class="form-select form-select-sm order-excel-delivery-handler-select"
                     data-group-field="deliveryHandlerMemberId"
                     data-group-index="${groupIndex}"
                     ${disabled ? 'disabled' : ''}>
-                ${renderDeliveryHandlerOptions(selectedHandlerId, required, disabled)}
+                ${renderDeliveryHandlerOptions(selectedHandlerId, emptyLabel)}
             </select>
             ${requirementText}
         `;
     }
 
-    function renderDeliveryHandlerOptions(selectedId, required, disabled) {
+    function renderDeliveryHandlerOptions(selectedId, emptyLabel) {
         const handlers = state.options.deliveryHandlers || [];
-        const emptyLabel = disabled ? '담당자 지정 불필요' : (required ? '배송담당자 선택 필수' : '미지정');
-        return `<option value="">${emptyLabel}</option>` + handlers.map(handler => `
+        return `<option value="">${escapeHtml(emptyLabel || '미지정')}</option>` + handlers.map(handler => `
             <option value="${handler.id}" ${String(selectedId || '') === String(handler.id) ? 'selected' : ''}>
                 ${escapeHtml(handler.name)}
             </option>
@@ -591,17 +612,23 @@
         if (target.dataset.rowField) {
             const groupIndex = Number(target.dataset.groupIndex);
             const rowIndex = Number(target.dataset.rowIndex);
-            const row = state.groups[groupIndex] && state.groups[groupIndex].rows
-                ? state.groups[groupIndex].rows[rowIndex]
-                : null;
+            const group = state.groups[groupIndex];
+            const row = group && group.rows ? group.rows[rowIndex] : null;
             const previousQuantity = target.dataset.rowField === 'quantity' && row
                 ? parseSignedInteger(row.quantity)
                 : null;
 
             updateRowField(target);
 
+            if (target.dataset.rowField === 'orderStatus' || target.dataset.rowField === 'saveTarget') {
+                synchronizeDeliveryHandlerState(group);
+                renderPreview();
+                return;
+            }
+
             if (target.dataset.rowField === 'quantity' && row && previousQuantity !== row.quantity) {
                 row.orderStatus = defaultOrderStatusForCategory(row.categoryName, row.quantity);
+                synchronizeDeliveryHandlerState(group);
                 renderPreview();
                 return;
             }
@@ -616,6 +643,7 @@
                     row.orderStatus = defaultOrderStatusForCategory(categoryNameForSave, row.quantity);
                     const hidden = target.closest('tr').querySelector('[data-row-field="categoryName"]');
                     if (hidden) hidden.value = categoryNameForSave;
+                    synchronizeDeliveryHandlerState(group);
                     renderPreview();
                 }
             }
@@ -702,25 +730,27 @@
             if (['SITE', 'CARGO'].includes(ruleCode)) {
                 group.siteDelivery = true;
             }
-
-            if (isNoHandlerRuleCode(ruleCode)) {
-                group.deliveryHandlerMemberId = null;
-                group.deliveryHandlerName = '';
-                applyGroupDeliveryHandlerToRows(group);
-            }
         }
 
         if (field === 'deliveryHandlerMemberId') {
-            const selected = findOptionById(state.options.deliveryHandlers || [], value);
+            const selected = groupHasDeliveryHandlerAssignableRows(group)
+                ? findOptionById(state.options.deliveryHandlers || [], value)
+                : null;
             value = selected ? selected.id : null;
             group.deliveryHandlerMemberId = value;
             group.deliveryHandlerName = selected ? selected.name : '';
             const hiddenName = target.parentElement.querySelector('[data-group-field="deliveryHandlerName"]');
             if (hiddenName) hiddenName.value = selected ? selected.name : '';
-            applyGroupDeliveryHandlerToRows(group);
         }
 
         group[field] = value;
+
+        if (field === 'deliveryMethodId') {
+            synchronizeDeliveryHandlerState(group);
+        } else if (field === 'deliveryHandlerMemberId') {
+            applyGroupDeliveryHandlerToRows(group);
+        }
+
         updateSummary();
     }
 
@@ -775,12 +805,70 @@
         if (requestedByNameEl) requestedByNameEl.value = '';
     }
 
+    function getActiveGroupRows(group) {
+        return group && Array.isArray(group.rows)
+            ? group.rows.filter(row => row && row.saveTarget !== false)
+            : [];
+    }
+
+    function isDeliveryHandlerExcludedStatus(statusValue) {
+        const normalized = String(statusValue || '').trim().toUpperCase();
+        return normalized === 'REQUESTED'
+            || normalized === 'CANCELED'
+            || normalizeText(statusValue) === normalizeText('고객 발주')
+            || normalizeText(statusValue) === normalizeText('취소');
+    }
+
+    function isDeliveryHandlerAssignableRow(row) {
+        return Boolean(row) && !isDeliveryHandlerExcludedStatus(row.orderStatus);
+    }
+
+    function groupHasDeliveryHandlerAssignableRows(group) {
+        return getActiveGroupRows(group).some(isDeliveryHandlerAssignableRow);
+    }
+
+    function clearGroupDeliveryHandler(group) {
+        if (!group) return;
+        group.deliveryHandlerMemberId = null;
+        group.deliveryHandlerName = '';
+        applyGroupDeliveryHandlerToRows(group);
+    }
+
     function applyGroupDeliveryHandlerToRows(group) {
         if (!group || !Array.isArray(group.rows)) return;
+
+        const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+        const handlerAllowedByMethod = !isNoHandlerRuleCode(deliveryRuleCodeFromMethod(method));
+
         group.rows.forEach(row => {
+            if (!handlerAllowedByMethod || !isDeliveryHandlerAssignableRow(row)) {
+                row.deliveryHandlerMemberId = null;
+                row.deliveryHandlerName = '';
+                return;
+            }
+
             row.deliveryHandlerMemberId = group.deliveryHandlerMemberId || null;
             row.deliveryHandlerName = group.deliveryHandlerName || '';
         });
+    }
+
+    function synchronizeDeliveryHandlerState(group) {
+        if (!group) return null;
+
+        const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+        const ruleCode = deliveryRuleCodeFromMethod(method);
+        if (isNoHandlerRuleCode(ruleCode) || !groupHasDeliveryHandlerAssignableRows(group)) {
+            clearGroupDeliveryHandler(group);
+            return null;
+        }
+
+        const selected = resolveSelectedDeliveryHandler(group);
+        if (!selected) {
+            group.deliveryHandlerMemberId = null;
+            group.deliveryHandlerName = '';
+            applyGroupDeliveryHandlerToRows(group);
+        }
+        return selected;
     }
 
     async function handleSave() {
@@ -802,8 +890,10 @@
         }
 
         const missingHandlerGroup = payload.groups.find(group => {
-            const hasActiveRow = (group.rows || []).some(row => row.saveTarget);
-            if (!hasActiveRow) return false;
+            const hasAssignableActiveRow = (group.rows || []).some(row => {
+                return row.saveTarget && !isDeliveryHandlerExcludedStatus(row.orderStatus);
+            });
+            if (!hasAssignableActiveRow) return false;
             const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
             return deliveryMethodRequiresHandler(method) && !group.deliveryHandlerMemberId;
         });
@@ -850,65 +940,80 @@
     }
 
     function buildSavePayload() {
+        state.groups.forEach(synchronizeDeliveryHandlerState);
+
         return {
-            groups: state.groups.map(group => ({
-                groupNo: group.groupNo,
-                companyName: group.companyName,
-                businessNumber: String(group.businessNumber || '').replace(/\D/g, ''),
-                companyId: normalizeId(group.companyId),
-                requestedByName: group.requestedByName,
-                requestedByMemberId: normalizeId(group.requestedByMemberId),
-                managedByName: group.managedByName,
-                managedByMemberId: normalizeId(group.managedByMemberId),
-                deliveryMethodId: normalizeId(group.deliveryMethodId),
-                deliveryHandlerName: group.deliveryHandlerName,
-                deliveryHandlerMemberId: normalizeId(group.deliveryHandlerMemberId),
-                deliveryRuleCode: group.deliveryRuleCode,
-                siteDelivery: Boolean(group.siteDelivery),
-                deliveryCost: Number(group.deliveryCost || 0),
-                packingCost: Number(group.packingCost || 0),
-                zipCode: group.zipCode,
-                doName: group.doName,
-                siName: group.siName,
-                guName: group.guName,
-                roadAddress: group.roadAddress,
-                detailAddress: group.detailAddress,
-                siteZipCode: group.siteZipCode,
-                siteDoName: group.siteDoName,
-                siteSiName: group.siteSiName,
-                siteGuName: group.siteGuName,
-                siteRoadAddress: group.siteRoadAddress,
-                siteDetailAddress: group.siteDetailAddress,
-                siteRecipientName: group.siteRecipientName,
-                siteRecipientPhone: group.siteRecipientPhone,
-                ordererName: group.ordererName,
-                ordererPhone: group.ordererPhone,
-                rows: (group.rows || []).map(row => ({
-                    excelRowNumber: row.excelRowNumber,
-                    saveTarget: row.saveTarget !== false,
-                    preferredDeliveryDate: row.preferredDeliveryDate,
-                    orderStatus: row.orderStatus,
-                    originalItemName: row.originalItemName,
-                    itemNameForSave: row.itemNameForSave,
-                    calculatedProductName: row.calculatedProductName,
-                    categoryName: row.categoryName,
-                    productionCategoryId: normalizeId(row.productionCategoryId),
-                    middleCategoryName: row.middleCategoryName,
-                    size: row.size,
-                    color: row.color,
-                    quantity: parseSignedInteger(row.quantity),
-                    adminMemo: row.adminMemo,
-                    deliveryHandlerName: row.deliveryHandlerName || group.deliveryHandlerName || '',
-                    deliveryHandlerMemberId: normalizeId(row.deliveryHandlerMemberId || group.deliveryHandlerMemberId),
-                    productCost: Number(row.productCost || 0),
-                    supplyPrice: Number(row.supplyPrice || 0),
-                    vatAmount: Number(row.vatAmount || 0),
-                    totalAmount: Number(row.totalAmount || 0),
-                    standard: Boolean(row.standard),
-                    mirrorCuttingProduct: Boolean(row.mirrorCuttingProduct),
-                    imageKey: row.imageKey
-                }))
-            }))
+            groups: state.groups.map(group => {
+                const groupHasAssignableRows = groupHasDeliveryHandlerAssignableRows(group);
+                const groupHandlerName = groupHasAssignableRows ? (group.deliveryHandlerName || '') : '';
+                const groupHandlerId = groupHasAssignableRows ? normalizeId(group.deliveryHandlerMemberId) : null;
+
+                return {
+                    groupNo: group.groupNo,
+                    companyName: group.companyName,
+                    businessNumber: String(group.businessNumber || '').replace(/\D/g, ''),
+                    companyId: normalizeId(group.companyId),
+                    requestedByName: group.requestedByName,
+                    requestedByMemberId: normalizeId(group.requestedByMemberId),
+                    managedByName: group.managedByName,
+                    managedByMemberId: normalizeId(group.managedByMemberId),
+                    deliveryMethodId: normalizeId(group.deliveryMethodId),
+                    deliveryHandlerName: groupHandlerName,
+                    deliveryHandlerMemberId: groupHandlerId,
+                    deliveryRuleCode: group.deliveryRuleCode,
+                    siteDelivery: Boolean(group.siteDelivery),
+                    deliveryCost: Number(group.deliveryCost || 0),
+                    packingCost: Number(group.packingCost || 0),
+                    zipCode: group.zipCode,
+                    doName: group.doName,
+                    siName: group.siName,
+                    guName: group.guName,
+                    roadAddress: group.roadAddress,
+                    detailAddress: group.detailAddress,
+                    siteZipCode: group.siteZipCode,
+                    siteDoName: group.siteDoName,
+                    siteSiName: group.siteSiName,
+                    siteGuName: group.siteGuName,
+                    siteRoadAddress: group.siteRoadAddress,
+                    siteDetailAddress: group.siteDetailAddress,
+                    siteRecipientName: group.siteRecipientName,
+                    siteRecipientPhone: group.siteRecipientPhone,
+                    ordererName: group.ordererName,
+                    ordererPhone: group.ordererPhone,
+                    rows: (group.rows || []).map(row => {
+                        const handlerAssignable = isDeliveryHandlerAssignableRow(row);
+                        return {
+                            excelRowNumber: row.excelRowNumber,
+                            saveTarget: row.saveTarget !== false,
+                            preferredDeliveryDate: row.preferredDeliveryDate,
+                            orderStatus: row.orderStatus,
+                            originalItemName: row.originalItemName,
+                            itemNameForSave: row.itemNameForSave,
+                            calculatedProductName: row.calculatedProductName,
+                            categoryName: row.categoryName,
+                            productionCategoryId: normalizeId(row.productionCategoryId),
+                            middleCategoryName: row.middleCategoryName,
+                            size: row.size,
+                            color: row.color,
+                            quantity: parseSignedInteger(row.quantity),
+                            adminMemo: row.adminMemo,
+                            deliveryHandlerName: handlerAssignable
+                                ? (row.deliveryHandlerName || groupHandlerName || '')
+                                : '',
+                            deliveryHandlerMemberId: handlerAssignable
+                                ? normalizeId(row.deliveryHandlerMemberId || groupHandlerId)
+                                : null,
+                            productCost: Number(row.productCost || 0),
+                            supplyPrice: Number(row.supplyPrice || 0),
+                            vatAmount: Number(row.vatAmount || 0),
+                            totalAmount: Number(row.totalAmount || 0),
+                            standard: Boolean(row.standard),
+                            mirrorCuttingProduct: Boolean(row.mirrorCuttingProduct),
+                            imageKey: row.imageKey
+                        };
+                    })
+                };
+            })
         };
     }
 
@@ -1374,13 +1479,29 @@
         return rowsTotal + Number(group.deliveryCost || 0) + Number(group.packingCost || 0);
     }
 
+    function visibleGroupIssues(group) {
+        const issues = group && Array.isArray(group.issues) ? group.issues : [];
+        if (groupHasDeliveryHandlerAssignableRows(group)) {
+            return issues;
+        }
+        return issues.filter(issue => issue && issue.field !== 'deliveryHandler');
+    }
+
+    function visibleRowIssues(row, issues) {
+        const source = Array.isArray(issues) ? issues : (row && Array.isArray(row.issues) ? row.issues : []);
+        if (!row || !isDeliveryHandlerExcludedStatus(row.orderStatus)) {
+            return source;
+        }
+        return source.filter(issue => issue && issue.field !== 'deliveryHandler');
+    }
+
     function groupHasError(group) {
-        if ((group.issues || []).some(issue => issue.level === 'ERROR')) return true;
+        if (visibleGroupIssues(group).some(issue => issue.level === 'ERROR')) return true;
         return (group.rows || []).some(rowHasError);
     }
 
     function rowHasError(row) {
-        return (row.issues || []).some(issue => issue.level === 'ERROR');
+        return visibleRowIssues(row).some(issue => issue.level === 'ERROR');
     }
 
     function hasErrorIssues(issues) {
@@ -1389,9 +1510,9 @@
 
     function countErrors() {
         return state.groups.reduce((count, group) => {
-            const groupErrors = (group.issues || []).filter(issue => issue.level === 'ERROR').length;
+            const groupErrors = visibleGroupIssues(group).filter(issue => issue.level === 'ERROR').length;
             const rowErrors = (group.rows || []).reduce((rowCount, row) => {
-                return rowCount + (row.issues || []).filter(issue => issue.level === 'ERROR').length;
+                return rowCount + visibleRowIssues(row).filter(issue => issue.level === 'ERROR').length;
             }, 0);
             return count + groupErrors + rowErrors;
         }, 0);
@@ -1435,17 +1556,19 @@
 
     function normalizeDeliveryHandlerSelections() {
         (state.groups || []).forEach(group => {
-            resolveSelectedDeliveryHandler(group);
+            synchronizeDeliveryHandlerState(group);
         });
     }
 
     /**
      * 담당자 ID가 있으면 ID를 우선 사용하고, ID가 비어 있더라도 서버가 반환한
      * 담당자 이름이 옵션 목록에서 유일하게 일치하면 실제 선택 상태로 복구합니다.
-     * 그룹 값이 비어 있고 행에만 담당자가 들어온 경우도 그룹으로 승격합니다.
+     * 고객 발주/취소 행의 담당자 값은 복구 대상에서 제외합니다.
      */
     function resolveSelectedDeliveryHandler(group) {
-        if (!group) return null;
+        if (!group || !groupHasDeliveryHandlerAssignableRows(group)) {
+            return null;
+        }
 
         const handlers = state.options.deliveryHandlers || [];
         let selected = findOptionById(handlers, group.deliveryHandlerMemberId);
@@ -1456,6 +1579,7 @@
 
         if (!selected && Array.isArray(group.rows)) {
             for (const row of group.rows) {
+                if (!isDeliveryHandlerAssignableRow(row)) continue;
                 selected = findOptionById(handlers, row.deliveryHandlerMemberId)
                     || findUniqueOptionByName(handlers, row.deliveryHandlerName);
                 if (selected) break;

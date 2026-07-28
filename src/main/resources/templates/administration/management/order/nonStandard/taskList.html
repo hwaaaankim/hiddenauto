@@ -432,14 +432,22 @@
 														th:attr="data-order-id=${row.orderId},
 														         data-check-state=${row.checkStateName},
 														         data-order-status=${row.statusName},
-														         data-order-status-label=${row.statusLabel}">
+														         data-order-status-label=${row.statusLabel},
+														         data-delivery-method-name=${row.deliveryMethodName},
+														         data-assigned-delivery-handler-id=${row.assignedDeliveryHandlerId},
+														         data-assigned-delivery-handler-name=${row.assignedDeliveryHandlerName},
+														         data-preferred-delivery-date=${row.preferredDeliveryDate}">
 														<td class="text-center">
 															<div class="form-check d-flex justify-content-center m-0">
 																<input class="form-check-input task-list-order-checkbox"
 																	type="checkbox" th:value="${row.orderId}"
 																	th:attr="data-task-id=${row.taskId},
 																		         data-order-status=${row.statusName},
-																		         data-order-status-label=${row.statusLabel}">
+																		         data-order-status-label=${row.statusLabel},
+																		         data-delivery-method-name=${row.deliveryMethodName},
+																		         data-assigned-delivery-handler-id=${row.assignedDeliveryHandlerId},
+																		         data-assigned-delivery-handler-name=${row.assignedDeliveryHandlerName},
+																		         data-preferred-delivery-date=${row.preferredDeliveryDate}">
 															</div>
 														</td>
 														<td>
@@ -676,6 +684,61 @@
 
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
+	</div>
+
+	<!-- 고객 발주 일괄 컨펌 시 배송담당자 지정 모달 -->
+	<div id="task-list-bulk-confirm-modal"
+		class="position-fixed top-0 start-0 w-100 h-100 d-none"
+		style="z-index: 2060; background: rgba(15, 23, 42, 0.56);"
+		aria-hidden="true">
+		<div id="task-list-bulk-confirm-modal-overlay"
+			class="position-absolute top-0 start-0 w-100 h-100"></div>
+
+		<div class="position-relative d-flex align-items-center justify-content-center w-100 h-100 p-3"
+			style="pointer-events: none;">
+			<div class="card shadow-lg mb-0 w-100"
+				style="max-width: 760px; max-height: calc(100vh - 32px); pointer-events: auto;">
+				<div class="card-header d-flex align-items-start justify-content-between gap-3">
+					<div>
+						<h5 class="card-title mb-1">승인 완료 담당자 지정</h5>
+						<p class="text-muted mb-0">
+							직배송·화물·현장배송 오더는 승인 완료로 변경하기 전에 배송팀 담당자를 지정해야 합니다.
+						</p>
+					</div>
+					<button type="button"
+						id="task-list-bulk-confirm-modal-close-btn"
+						class="btn btn-sm btn-light"
+						aria-label="닫기">×</button>
+				</div>
+
+				<div class="card-body overflow-auto">
+					<div class="alert alert-info py-2">
+						고객 발주 상태에서는 담당자와 배송순서가 저장되지 않습니다.
+						아래 담당자를 선택하면 승인 완료 변경과 동시에 배송순서가 생성됩니다.
+					</div>
+					<div id="task-list-bulk-confirm-handler-list"></div>
+				</div>
+
+				<div class="card-footer d-flex justify-content-end gap-2">
+					<button type="button"
+						id="task-list-bulk-confirm-modal-cancel-btn"
+						class="btn btn-outline-secondary">취소</button>
+					<button type="button"
+						id="task-list-bulk-confirm-modal-submit-btn"
+						class="btn btn-warning">승인 완료 저장</button>
+				</div>
+			</div>
+		</div>
+
+		<select id="task-list-bulk-confirm-handler-option-source" class="d-none" aria-hidden="true" tabindex="-1">
+			<option value="">배송팀 담당자 선택</option>
+			<option th:each="member : ${deliveryTeamMembers}"
+				th:value="${member.id}"
+				th:text="${member.name != null and member.name != '' and member.username != null and member.username != ''
+					? member.name + '(' + member.username + ')'
+					: (member.name != null and member.name != '' ? member.name : (member.username != null and member.username != '' ? member.username : '이름없음'))}">
+			</option>
+		</select>
 	</div>
 
 	<!-- 일괄보기 모달 -->

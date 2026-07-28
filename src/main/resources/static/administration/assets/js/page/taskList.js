@@ -39,10 +39,22 @@ document.addEventListener("DOMContentLoaded", function() {
 	const bulkCheckAllBtn = document.getElementById("admin-task-list-second-bulk-check-all-btn");
 	const bulkCompleteBtn = document.getElementById("admin-task-list-second-bulk-complete-btn");
 
+	const bulkConfirmModal = document.getElementById("task-list-bulk-confirm-modal");
+	const bulkConfirmModalOverlay = document.getElementById("task-list-bulk-confirm-modal-overlay");
+	const bulkConfirmModalCloseBtn = document.getElementById("task-list-bulk-confirm-modal-close-btn");
+	const bulkConfirmModalCancelBtn = document.getElementById("task-list-bulk-confirm-modal-cancel-btn");
+	const bulkConfirmModalSubmitBtn = document.getElementById("task-list-bulk-confirm-modal-submit-btn");
+	const bulkConfirmHandlerList = document.getElementById("task-list-bulk-confirm-handler-list");
+	const bulkConfirmHandlerOptionSource = document.getElementById("task-list-bulk-confirm-handler-option-source");
+
+	const REQUIRED_BULK_CONFIRM_HANDLER_METHOD_KEYWORDS = ["직배송", "화물", "현장배송"];
+
 	const pageLoadingOverlay = document.getElementById("admin-task-list-second-loading-overlay");
 	const pageLoadingMessage = document.getElementById("admin-task-list-second-loading-message");
 
 	let bulkRowsLoaded = false;
+	let pendingBulkConfirmItems = [];
+	let bodyOverflowBeforeBulkConfirmModal = "";
 	const detailLoadingOrderIds = new Set();
 
 	function showPageLoading(message) {
@@ -239,10 +251,25 @@ document.addEventListener("DOMContentLoaded", function() {
 				const row = checkbox.closest(".admin-task-list-second-main-row");
 				const orderId = Number(checkbox.value);
 
+				const rawHandlerId = checkbox.dataset.assignedDeliveryHandlerId
+					|| row?.dataset.assignedDeliveryHandlerId
+					|| "";
+				const parsedHandlerId = Number(rawHandlerId);
+
 				return {
 					orderId,
 					statusName: checkbox.dataset.orderStatus || row?.dataset.orderStatus || "",
-					statusLabel: checkbox.dataset.orderStatusLabel || row?.dataset.orderStatusLabel || ""
+					statusLabel: checkbox.dataset.orderStatusLabel || row?.dataset.orderStatusLabel || "",
+					deliveryMethodName: checkbox.dataset.deliveryMethodName || row?.dataset.deliveryMethodName || "",
+					assignedDeliveryHandlerId: Number.isFinite(parsedHandlerId) && parsedHandlerId > 0
+						? parsedHandlerId
+						: null,
+					assignedDeliveryHandlerName: checkbox.dataset.assignedDeliveryHandlerName
+						|| row?.dataset.assignedDeliveryHandlerName
+						|| "",
+					preferredDeliveryDate: checkbox.dataset.preferredDeliveryDate
+						|| row?.dataset.preferredDeliveryDate
+						|| ""
 				};
 			})
 			.filter(item => !Number.isNaN(item.orderId));
@@ -469,55 +496,193 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 	}
 
+	function normalizeBulkConfirmMethodName(value) {
+		return String(value || "").trim().replace(/\s+/g, "");
+	}
+
+	function bulkConfirmMethodRequiresHandler(methodName) {
+		const normalized = normalizeBulkConfirmMethodName(methodName);
+		return REQUIRED_BULK_CONFIRM_HANDLER_METHOD_KEYWORDS.some(keyword => normalized.includes(keyword));
+	}
+
 	function setBulkConfirmBusy(isBusy) {
-		if (!bulkConfirmBtn) {
-			return;
-		}
+		if (bulkConfirmBtn) {
+			const selectedCount = getSelectedOrderIds().length;
+			bulkConfirmBtn.disabled = isBusy || selectedCount === 0;
 
-		const selectedCount = getSelectedOrderIds().length;
-
-		bulkConfirmBtn.disabled = isBusy || selectedCount === 0;
-
-		if (isBusy) {
-			if (!bulkConfirmBtn.dataset.originalText) {
-				bulkConfirmBtn.dataset.originalText = bulkConfirmBtn.innerHTML;
+			if (isBusy) {
+				if (!bulkConfirmBtn.dataset.originalText) {
+					bulkConfirmBtn.dataset.originalText = bulkConfirmBtn.innerHTML;
+				}
+				bulkConfirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 컨펌중';
+			} else if (bulkConfirmBtn.dataset.originalText) {
+				bulkConfirmBtn.innerHTML = bulkConfirmBtn.dataset.originalText;
+				bulkConfirmBtn.dataset.originalText = "";
 			}
-			bulkConfirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 컨펌중';
+		}
+
+		if (bulkConfirmModalSubmitBtn) {
+			bulkConfirmModalSubmitBtn.disabled = isBusy;
+			bulkConfirmModalSubmitBtn.textContent = isBusy ? "저장 중..." : "승인 완료 저장";
+		}
+
+		[
+			bulkConfirmModalCloseBtn,
+			bulkConfirmModalCancelBtn
+		].forEach(button => {
+			if (button) {
+				button.disabled = isBusy;
+			}
+		});
+	}
+
+	function buildBulkConfirmHandlerSelect(orderItem) {
+		const select = document.createElement("select");
+		select.className = "form-select task-list-bulk-confirm-handler-select";
+		select.dataset.orderId = String(orderItem.orderId);
+
+		if (bulkConfirmHandlerOptionSource) {
+			select.innerHTML = bulkConfirmHandlerOptionSource.innerHTML;
+		} else {
+			const emptyOption = document.createElement("option");
+			emptyOption.value = "";
+			emptyOption.textContent = "배송팀 담당자 선택";
+			select.appendChild(emptyOption);
+		}
+
+		if (orderItem.assignedDeliveryHandlerId) {
+			select.value = String(orderItem.assignedDeliveryHandlerId);
+		}
+
+		return select;
+	}
+
+	function renderBulkConfirmHandlerRows(items) {
+		if (!bulkConfirmHandlerList) {
 			return;
 		}
 
-		if (bulkConfirmBtn.dataset.originalText) {
-			bulkConfirmBtn.innerHTML = bulkConfirmBtn.dataset.originalText;
-			bulkConfirmBtn.dataset.originalText = "";
+		bulkConfirmHandlerList.innerHTML = "";
+
+		items
+			.filter(item => bulkConfirmMethodRequiresHandler(item.deliveryMethodName))
+			.forEach(item => {
+				const row = document.createElement("div");
+				row.className = "border rounded p-3 mb-2";
+
+				const header = document.createElement("div");
+				header.className = "d-flex align-items-center justify-content-between gap-2 mb-2";
+
+				const title = document.createElement("strong");
+				title.textContent = "ORDER " + item.orderId;
+
+				const badge = document.createElement("span");
+				badge.className = "badge bg-warning-subtle text-warning";
+				badge.textContent = item.deliveryMethodName || "담당자 필수 배송수단";
+
+				header.appendChild(title);
+				header.appendChild(badge);
+
+				const dateText = document.createElement("div");
+				dateText.className = item.preferredDeliveryDate
+					? "small text-muted mb-2"
+					: "small text-danger mb-2";
+				dateText.textContent = item.preferredDeliveryDate
+					? "배송희망일: " + item.preferredDeliveryDate
+					: "배송희망일이 없습니다. 넓게보기에서 배송희망일을 먼저 지정해야 합니다.";
+
+				const select = buildBulkConfirmHandlerSelect(item);
+
+				row.appendChild(header);
+				row.appendChild(dateText);
+				row.appendChild(select);
+				bulkConfirmHandlerList.appendChild(row);
+			});
+	}
+
+	function openBulkConfirmModal(items) {
+		if (!bulkConfirmModal) {
+			alert("배송담당자 선택 화면을 찾을 수 없습니다.");
+			return;
+		}
+
+		pendingBulkConfirmItems = Array.isArray(items) ? items.slice() : [];
+		renderBulkConfirmHandlerRows(pendingBulkConfirmItems);
+
+		bodyOverflowBeforeBulkConfirmModal = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		bulkConfirmModal.classList.remove("d-none");
+		bulkConfirmModal.setAttribute("aria-hidden", "false");
+
+		const firstSelect = bulkConfirmModal.querySelector(".task-list-bulk-confirm-handler-select");
+		if (firstSelect) {
+			setTimeout(() => firstSelect.focus(), 0);
 		}
 	}
 
-	async function bulkConfirmSelectedOrders() {
-		const selectedOrderIds = getSelectedOrderIds();
-
-		if (selectedOrderIds.length === 0) {
-			alert("컨펌 처리할 주문을 하나 이상 선택해 주세요.");
+	function closeBulkConfirmModal() {
+		if (!bulkConfirmModal || bulkConfirmModalSubmitBtn?.disabled) {
 			return;
 		}
 
-		const blockedOrder = findFirstNotRequestedSelectedOrder();
-		if (blockedOrder) {
-			const label = blockedOrder.statusLabel || blockedOrder.statusName || "고객 발주가 아닌 상태";
-			alert(blockedOrder.orderId + "번 오더는 현재 '" + label + "' 상태입니다.\n고객 발주 상태만 일괄 컨펌할 수 있으니 해당 오더 체크를 해제 후 다시 시도해 주세요.");
+		bulkConfirmModal.classList.add("d-none");
+		bulkConfirmModal.setAttribute("aria-hidden", "true");
+		document.body.style.overflow = bodyOverflowBeforeBulkConfirmModal;
+		pendingBulkConfirmItems = [];
+		if (bulkConfirmHandlerList) {
+			bulkConfirmHandlerList.innerHTML = "";
+		}
+	}
+
+	function collectBulkConfirmHandlerAssignments() {
+		const assignments = new Map();
+
+		for (const item of pendingBulkConfirmItems) {
+			if (!bulkConfirmMethodRequiresHandler(item.deliveryMethodName)) {
+				continue;
+			}
+
+			if (!item.preferredDeliveryDate) {
+				throw new Error(item.orderId + "번 오더는 배송희망일이 없습니다.\n넓게보기에서 배송희망일을 지정한 뒤 다시 시도해 주세요.");
+			}
+
+			const select = bulkConfirmHandlerList?.querySelector(
+				'.task-list-bulk-confirm-handler-select[data-order-id="' + item.orderId + '"]'
+			);
+			const handlerId = Number(select?.value || 0);
+
+			if (!Number.isFinite(handlerId) || handlerId <= 0) {
+				throw new Error(item.orderId + "번 오더의 배송팀 담당자를 선택해 주세요.");
+			}
+
+			assignments.set(item.orderId, handlerId);
+		}
+
+		return assignments;
+	}
+
+	async function executeBulkConfirm(items, handlerAssignments) {
+		if (!Array.isArray(items) || items.length === 0) {
+			alert("컨펌 처리할 주문이 없습니다.");
 			return;
 		}
 
-		if (!confirm(selectedOrderIds.length + "건을 승인완료로 변경하시겠습니까?")) {
-			return;
-		}
+		const assignments = handlerAssignments instanceof Map
+			? handlerAssignments
+			: new Map();
 
 		try {
 			setBulkConfirmBusy(true);
 
-			const response = await fetch("/management/api/non-standard-task-list-second/bulk-confirm", {
+			const response = await fetch("/management/nonStandardTaskList/bulk-confirm", {
 				method: "POST",
 				headers: buildJsonHeaders(),
-				body: JSON.stringify({ orderIds: selectedOrderIds })
+				body: JSON.stringify({
+					orders: items.map(item => ({
+						orderId: item.orderId,
+						deliveryHandlerId: assignments.get(item.orderId) || null
+					}))
+				})
 			});
 
 			let data = null;
@@ -531,6 +696,12 @@ document.addEventListener("DOMContentLoaded", function() {
 				throw new Error(data?.message || "일괄 컨펌 처리 중 오류가 발생했습니다.");
 			}
 
+			if (bulkConfirmModal && !bulkConfirmModal.classList.contains("d-none")) {
+				bulkConfirmModal.classList.add("d-none");
+				bulkConfirmModal.setAttribute("aria-hidden", "true");
+				document.body.style.overflow = bodyOverflowBeforeBulkConfirmModal;
+			}
+
 			alert(data.message || "일괄 컨펌이 완료되었습니다.");
 			showPageLoading("목록을 다시 불러오는 중입니다.");
 			window.location.reload();
@@ -540,6 +711,51 @@ document.addEventListener("DOMContentLoaded", function() {
 			setBulkConfirmBusy(false);
 			updateBulkButtons();
 		}
+	}
+
+	async function submitBulkConfirmModal() {
+		try {
+			const assignments = collectBulkConfirmHandlerAssignments();
+
+			if (!confirm(pendingBulkConfirmItems.length + "건을 승인완료로 변경하고 배송순서를 생성하시겠습니까?")) {
+				return;
+			}
+
+			await executeBulkConfirm(pendingBulkConfirmItems, assignments);
+		} catch (error) {
+			alert(error.message || "배송담당자 선택값을 확인해 주세요.");
+		}
+	}
+
+	async function bulkConfirmSelectedOrders() {
+		const selectedItems = getSelectedOrderItems();
+
+		if (selectedItems.length === 0) {
+			alert("컨펌 처리할 주문을 하나 이상 선택해 주세요.");
+			return;
+		}
+
+		const blockedOrder = selectedItems.find(item => item.statusName && item.statusName !== "REQUESTED");
+		if (blockedOrder) {
+			const label = blockedOrder.statusLabel || blockedOrder.statusName || "고객 발주가 아닌 상태";
+			alert(blockedOrder.orderId + "번 오더는 현재 '" + label + "' 상태입니다.\n고객 발주 상태만 일괄 컨펌할 수 있으니 해당 오더 체크를 해제 후 다시 시도해 주세요.");
+			return;
+		}
+
+		const requiredHandlerItems = selectedItems.filter(item => {
+			return bulkConfirmMethodRequiresHandler(item.deliveryMethodName);
+		});
+
+		if (requiredHandlerItems.length > 0) {
+			openBulkConfirmModal(selectedItems);
+			return;
+		}
+
+		if (!confirm(selectedItems.length + "건을 승인완료로 변경하시겠습니까?")) {
+			return;
+		}
+
+		await executeBulkConfirm(selectedItems, new Map());
 	}
 
 	function setWideButtonState(button, isOpen, isBusy) {
@@ -1074,6 +1290,30 @@ document.addEventListener("DOMContentLoaded", function() {
 		if (bulkConfirmBtn) {
 			bulkConfirmBtn.addEventListener("click", bulkConfirmSelectedOrders);
 		}
+
+		if (bulkConfirmModalOverlay) {
+			bulkConfirmModalOverlay.addEventListener("click", closeBulkConfirmModal);
+		}
+
+		if (bulkConfirmModalCloseBtn) {
+			bulkConfirmModalCloseBtn.addEventListener("click", closeBulkConfirmModal);
+		}
+
+		if (bulkConfirmModalCancelBtn) {
+			bulkConfirmModalCancelBtn.addEventListener("click", closeBulkConfirmModal);
+		}
+
+		if (bulkConfirmModalSubmitBtn) {
+			bulkConfirmModalSubmitBtn.addEventListener("click", submitBulkConfirmModal);
+		}
+
+		document.addEventListener("keydown", function(event) {
+			if (event.key === "Escape"
+					&& bulkConfirmModal
+					&& !bulkConfirmModal.classList.contains("d-none")) {
+				closeBulkConfirmModal();
+			}
+		});
 
 		if (siteStatementBtn) {
 			siteStatementBtn.addEventListener("click", function() {

@@ -233,11 +233,38 @@
 	}
 
 	/* =========================
-	   기존 그룹 스타일 로직(유지)
+	   같은 업체 + 같은 실제 배송지 그룹 스타일
 	   ========================= */
-	function applyTaskGroupStyles(listEl) {
+	function normalizeDeliveryGroupText(value) {
+		return String(value || "")
+			.normalize("NFKC")
+			.toLowerCase()
+			.replace(/\s+/g, "")
+			.trim();
+	}
+
+	function resolveDeliveryGroupKey(el) {
+		if (!el) return "";
+
+		const companyText = el.getAttribute("data-company-key")
+			|| el.querySelector(".delivery-list-added-company-value")?.textContent
+			|| "";
+		const addressText = el.getAttribute("data-delivery-address-key")
+			|| el.querySelector(".delivery-list-added-address-value")?.textContent
+			|| "";
+		const orderId = el.getAttribute("data-order-id") || "0";
+
+		const companyKey = normalizeDeliveryGroupText(companyText) || `missing-company-${orderId}`;
+		const addressKey = normalizeDeliveryGroupText(addressText) || `missing-address-${orderId}`;
+
+		return `${companyKey}|${addressKey}`;
+	}
+
+	function applyDeliveryGroupStyles(listEl) {
+		if (!listEl) return;
+
 		const items = Array.from(listEl.querySelectorAll(".draggable-item"));
-		let lastTaskId = null;
+		let lastGroupKey = null;
 		let alt = 0;
 
 		for (const el of items) {
@@ -245,25 +272,29 @@
 			el.classList.remove("delivery-list-added-task-group-alt-1");
 			el.classList.remove("delivery-list-added-task-group-break");
 
-			const taskId = el.getAttribute("data-task-id") || "0";
+			const groupKey = resolveDeliveryGroupKey(el);
 
-			if (lastTaskId !== null && taskId !== lastTaskId) {
+			if (lastGroupKey !== null && groupKey !== lastGroupKey) {
 				alt = (alt === 0 ? 1 : 0);
 				el.classList.add("delivery-list-added-task-group-break");
 			}
 
 			el.classList.add(alt === 0 ? "delivery-list-added-task-group-alt-0" : "delivery-list-added-task-group-alt-1");
-			lastTaskId = taskId;
+			lastGroupKey = groupKey;
 		}
 	}
 
 	function applyAllTaskGroupStyles() {
-		if (pendingListEl) applyTaskGroupStyles(pendingListEl);
-		if (doneListEl) applyTaskGroupStyles(doneListEl);
-		if (otherListEl) applyTaskGroupStyles(otherListEl);
+		if (pendingListEl) applyDeliveryGroupStyles(pendingListEl);
+		if (doneListEl) applyDeliveryGroupStyles(doneListEl);
+		if (otherListEl) applyDeliveryGroupStyles(otherListEl);
 	}
 
 	document.addEventListener("DOMContentLoaded", function() {
+		if (reorderByTaskBtn) {
+			reorderByTaskBtn.disabled = false;
+		}
+
 		applyAllTaskGroupStyles();
 		updateHandlerSelectionUi();
 	});
@@ -307,7 +338,7 @@
 			if (!deliveryDate) return alert("날짜를 선택해주세요.");
 
 			const pendingOrderIds = getPendingOrderIdsInDomOrder();
-			if (pendingOrderIds.length <= 1) return alert("업체별정렬할 직배송/현장배송 항목이 없습니다.");
+			if (pendingOrderIds.length <= 1) return alert("업체별정렬할 승인완료/생산완료/출고완료 직배송·현장배송 항목이 없습니다.");
 
 			const headers = { "Content-Type": "application/json" };
 			if (csrfToken && csrfHeader) headers[csrfHeader] = csrfToken;
@@ -361,7 +392,7 @@
 	   ========================= */
 	if (saveButton) {
 		saveButton.addEventListener("click", async () => {
-			const ok = confirm("업체별(동일배송지별)로 재배치 됩니다. 진행하시겠습니까? 진행하시려면 '순서저장' 버튼을 클릭 해 주세요.");
+			const ok = confirm("현재 화면 순서대로 승인완료/생산완료/출고완료 직배송·현장배송의 배송순번을 저장합니다. 진행하시겠습니까?");
 			if (!ok) return;
 
 			const deliveryHandlerId = getDeliveryHandlerId();
@@ -373,7 +404,7 @@
 			const pendingItems = Array.from(pendingListEl.querySelectorAll(".draggable-item"));
 
 			if (pendingItems.length === 0) {
-				return alert("순서 저장할 직배송/현장배송 항목이 없습니다.");
+				return alert("순서 저장할 승인완료/생산완료/출고완료 직배송·현장배송 항목이 없습니다.");
 			}
 
 			const orderedIds = pendingItems.map((el, idx) => ({
@@ -433,7 +464,8 @@
 					headers,
 					body: JSON.stringify({
 						deliveryHandlerId: Number(deliveryHandlerId),
-						deliveryDate: deliveryDate,
+						fromDate: deliveryDate,
+						toDate: deliveryDate,
 						orderedOrderIds: orderedOrderIds
 					})
 				});
@@ -777,7 +809,7 @@
 
 		if (!orderId) return;
 
-		if (section === "actionable" && (status === "PRODUCTION_DONE" || status === "DISPATCH_DONE")) {
+		if (section === "actionable" && status === "PRODUCTION_DONE") {
 			openModal(orderId, "complete");
 		} else {
 			openModal(orderId, "detail");

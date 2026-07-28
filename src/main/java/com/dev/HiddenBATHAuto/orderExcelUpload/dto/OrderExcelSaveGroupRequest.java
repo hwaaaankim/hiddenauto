@@ -26,7 +26,7 @@ public class OrderExcelSaveGroupRequest {
 
     /**
      * 동일 배송지 Task 묶음 기준 배송 담당자입니다.
-     * 프론트에서는 배송수단 옆에서 한 번만 수정하고, 저장 시 각 Order에 동일하게 반영합니다.
+     * 프론트에서는 배송수단 옆에서 한 번만 수정합니다. 저장 시 고객 발주/취소 Order는 제외하고 나머지 Order에 반영합니다.
      */
     private String deliveryHandlerName;
     private Long deliveryHandlerMemberId;

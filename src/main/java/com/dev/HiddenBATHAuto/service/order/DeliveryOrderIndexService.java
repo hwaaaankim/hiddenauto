@@ -70,7 +70,7 @@ public class DeliveryOrderIndexService {
      * 관리자 오더 수정 저장 시 배송순서 인덱스를 동기화합니다.
      *
      * 처리 기준:
-     * - 취소 또는 담당자 없음 => 기존 DeliveryOrderIndex 삭제
+     * - 고객 발주/취소 또는 담당자 없음 => 기존 DeliveryOrderIndex 삭제
      * - 담당자가 있는데 배송희망일이 없음 => 잘못된 상태이므로 저장 차단
      * - 직배송/화물/현장배송 => 담당자 필수
      * - 담당자/날짜 변경 => 기존 row 삭제 후 새 담당자/날짜의 배송수단별 section 끝에 추가
@@ -95,7 +95,9 @@ public class DeliveryOrderIndexService {
                 ? null
                 : order.getPreferredDeliveryDate().toLocalDate();
 
-        if (order.getStatus() == OrderStatus.CANCELED) {
+        if (!isDeliveryAssignmentAllowedStatus(order.getStatus())) {
+            order.setAssignedDeliveryHandler(null);
+            order.setAssignedDeliveryTeam(null);
             deleteExistingIndex(existing);
             return;
         }
@@ -108,6 +110,7 @@ public class DeliveryOrderIndexService {
         }
 
         if (handler == null) {
+            order.setAssignedDeliveryTeam(null);
             deleteExistingIndex(existing);
             return;
         }
@@ -117,6 +120,7 @@ public class DeliveryOrderIndexService {
         }
 
         validateDeliveryTeamHandler(handler);
+        order.setAssignedDeliveryTeam(handler.getTeamCategory());
 
         DeliveryListSection targetSection = resolveDeliveryListSection(order);
 
@@ -186,8 +190,9 @@ public class DeliveryOrderIndexService {
 
     /**
      * 배송팀 순서 저장.
-     * 프론트에서 보내는 orderList는 "직배송/현장배송 + 생산완료/출고완료" 영역만 허용합니다.
-     * 배송완료/기타 영역은 request에 섞여 들어오면 예외 처리합니다.
+     * 프론트에서 보내는 orderList는
+     * "직배송/현장배송 + 승인완료/생산완료/출고완료" 영역만 허용합니다.
+     * 배송완료/화물/기타 영역은 request에 섞여 들어오면 예외 처리합니다.
      */
     @Transactional
     public void updateIndexesWithDoneGuard(DeliveryOrderIndexUpdateRequest request) {
@@ -220,7 +225,7 @@ public class DeliveryOrderIndexService {
         List<DeliveryOrderIndex> current = getVisibleIndexesForHandlerAndDate(handler.getId(), date);
 
         Map<Long, DeliveryOrderIndex> activeIndexByOrderId = current.stream()
-                .filter(x -> isActionablePendingDeliveryOrder(x.getOrder()))
+                .filter(x -> isOrderIndexEditableDeliveryOrder(x.getOrder()))
                 .collect(Collectors.toMap(
                         x -> x.getOrder().getId(),
                         x -> x,
@@ -240,41 +245,51 @@ public class DeliveryOrderIndexService {
 
         for (Long orderId : requestedOrderIds) {
             if (!activeIndexByOrderId.containsKey(orderId)) {
-                throw new IllegalArgumentException("순서 변경은 직배송/현장배송의 생산완료 또는 출고완료 건만 가능합니다. orderId=" + orderId);
+                throw new IllegalArgumentException(
+                        "순서 변경은 직배송/현장배송의 승인완료, 생산완료 또는 출고완료 건만 가능합니다. orderId="
+                                + orderId
+                );
             }
         }
 
         Set<Long> requestedSet = new HashSet<>(requestedOrderIds);
 
-        List<DeliveryOrderIndex> activeRows = new ArrayList<>();
+        List<DeliveryOrderIndex> requestedRows = new ArrayList<>();
 
         for (Long orderId : requestedOrderIds) {
             DeliveryOrderIndex row = activeIndexByOrderId.get(orderId);
             if (row != null) {
-                activeRows.add(row);
+                requestedRows.add(row);
             }
         }
 
-        /*
-         * 상태 필터 등으로 화면에 보이지 않은 active row가 있을 수 있으므로
-         * 누락된 row는 기존 순서를 유지한 채 요청 row 뒤에 붙입니다.
-         */
-        current.stream()
-                .filter(x -> isActionablePendingDeliveryOrder(x.getOrder()))
+        List<DeliveryOrderIndex> currentEditableRows = current.stream()
+                .filter(x -> isOrderIndexEditableDeliveryOrder(x.getOrder()))
                 .filter(x -> x.getOrder() != null && x.getOrder().getId() != null)
-                .filter(x -> !requestedSet.contains(x.getOrder().getId()))
                 .sorted(indexComparator())
-                .forEach(activeRows::add);
+                .collect(Collectors.toList());
+
+        List<DeliveryOrderIndex> activeRows = new ArrayList<>(currentEditableRows.size());
+        int requestedRowIndex = 0;
 
         /*
-         * 승인완료 직배송/현장배송은 배송 큐에는 포함하지만 배송팀 순서조작 대상은 아닙니다.
-         * 따라서 요청된 작업 가능 주문 뒤에 기존 순서를 유지하여 붙입니다.
+         * 상태 필터로 일부 주문만 화면에 표시한 상태에서 순서를 저장해도
+         * 화면에 보이지 않은 주문이 큐 뒤로 밀리지 않도록 기존 위치를 보존합니다.
+         * 요청에 포함된 슬롯에만 사용자가 보낸 순서를 차례대로 끼워 넣습니다.
          */
-        current.stream()
-                .filter(x -> isQueuedDirectOrSiteOrder(x.getOrder()))
-                .filter(x -> !isActionablePendingDeliveryOrder(x.getOrder()))
-                .sorted(indexComparator())
-                .forEach(activeRows::add);
+        for (DeliveryOrderIndex currentRow : currentEditableRows) {
+            Long currentOrderId = currentRow.getOrder().getId();
+
+            if (requestedSet.contains(currentOrderId)) {
+                activeRows.add(requestedRows.get(requestedRowIndex++));
+            } else {
+                activeRows.add(currentRow);
+            }
+        }
+
+        if (requestedRowIndex != requestedRows.size()) {
+            throw new IllegalStateException("순서 저장 대상 병합에 실패했습니다. 새로고침 후 다시 시도해 주세요.");
+        }
 
         List<DeliveryOrderIndex> freightRows = current.stream()
                 .filter(x -> isFreightDeliveryListOrder(x.getOrder()))
@@ -295,56 +310,87 @@ public class DeliveryOrderIndexService {
     }
 
     /**
-     * 업체별정렬은 직배송/현장배송 + 생산완료/출고완료 영역만 가능합니다.
+     * 업체별정렬은 직배송/현장배송의 승인완료/생산완료/출고완료 영역을 대상으로 합니다.
+     *
+     * 정렬 기준은 Task ID가 아니라 다음의 실제 배송 묶음 기준입니다.
+     * - 같은 업체
+     * - 같은 실제 배송지(site 주소가 하나라도 있으면 site 주소, 없으면 일반 주소)
+     * - 같은 배송일(이 메서드의 deliveryDate 파라미터로 이미 제한됨)
+     *
+     * 각 묶음의 우선순위는 현재 화면에서 최초로 등장한 주문의 위치이며,
+     * 묶음 내부의 주문 순서는 기존 DOM 순서를 그대로 유지하는 stable grouping입니다.
      * DB 저장은 순서 저장 API에서 수행합니다.
      */
     @Transactional(readOnly = true)
-    public List<Long> reorderPendingOrderIdsByTask(Long handlerId, LocalDate deliveryDate, List<Long> pendingOrderIds) {
-        List<DeliveryOrderIndex> all = getDirectDeliveryIndexes(handlerId, deliveryDate, null).stream()
-                .filter(x -> isActionablePendingDeliveryOrder(x.getOrder()))
-                .collect(Collectors.toList());
-
-        Map<Long, Long> orderIdToTaskId = new HashMap<>();
-        Set<Long> validPendingOrderIds = new HashSet<>();
-
-        for (DeliveryOrderIndex deliveryOrderIndex : all) {
-            if (deliveryOrderIndex == null || deliveryOrderIndex.getOrder() == null) {
-                continue;
-            }
-
-            Long orderId = deliveryOrderIndex.getOrder().getId();
-
-            if (orderId == null) {
-                continue;
-            }
-
-            Long taskId = deliveryOrderIndex.getOrder().getTask() != null
-                    ? deliveryOrderIndex.getOrder().getTask().getId()
-                    : 0L;
-
-            orderIdToTaskId.put(orderId, taskId);
-            validPendingOrderIds.add(orderId);
+    public List<Long> reorderPendingOrderIdsByTask(
+            Long handlerId,
+            LocalDate deliveryDate,
+            List<Long> pendingOrderIds
+    ) {
+        if (handlerId == null) {
+            throw new IllegalArgumentException("배송 담당자 ID가 없습니다.");
         }
 
-        List<Long> invalid = pendingOrderIds.stream()
-                .filter(id -> id == null || !validPendingOrderIds.contains(id))
+        if (deliveryDate == null) {
+            throw new IllegalArgumentException("배송일이 없습니다.");
+        }
+
+        List<Long> normalizedOrderIds = pendingOrderIds == null
+                ? List.of()
+                : pendingOrderIds.stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+
+        if (normalizedOrderIds.isEmpty()) {
+            throw new IllegalArgumentException("업체별정렬 대상이 없습니다.");
+        }
+
+        if (normalizedOrderIds.stream().distinct().count() != normalizedOrderIds.size()) {
+            throw new IllegalArgumentException("업체별정렬 요청에 중복된 orderId가 존재합니다.");
+        }
+
+        List<DeliveryOrderIndex> all = getDirectDeliveryIndexes(handlerId, deliveryDate, null).stream()
+                .filter(x -> isOrderIndexEditableDeliveryOrder(x.getOrder()))
+                .collect(Collectors.toList());
+
+        Map<Long, Order> orderById = new HashMap<>();
+
+        for (DeliveryOrderIndex deliveryOrderIndex : all) {
+            if (deliveryOrderIndex == null
+                    || deliveryOrderIndex.getOrder() == null
+                    || deliveryOrderIndex.getOrder().getId() == null) {
+                continue;
+            }
+
+            orderById.putIfAbsent(
+                    deliveryOrderIndex.getOrder().getId(),
+                    deliveryOrderIndex.getOrder()
+            );
+        }
+
+        List<Long> invalid = normalizedOrderIds.stream()
+                .filter(orderId -> !orderById.containsKey(orderId))
                 .collect(Collectors.toList());
 
         if (!invalid.isEmpty()) {
-            throw new IllegalArgumentException("업체별정렬은 직배송/현장배송의 생산완료 또는 출고완료 건만 가능합니다. invalid=" + invalid);
+            throw new IllegalArgumentException(
+                    "업체별정렬은 직배송/현장배송의 승인완료, 생산완료 또는 출고완료 건만 가능합니다. invalid="
+                            + invalid
+            );
         }
 
-        Map<Long, List<Long>> groups = new LinkedHashMap<>();
+        Map<String, List<Long>> groups = new LinkedHashMap<>();
 
-        for (Long orderId : pendingOrderIds) {
-            Long taskId = orderIdToTaskId.getOrDefault(orderId, 0L);
-            groups.computeIfAbsent(taskId, k -> new ArrayList<>()).add(orderId);
+        for (Long orderId : normalizedOrderIds) {
+            Order order = orderById.get(orderId);
+            String groupKey = buildCompanyAddressGroupKey(order);
+            groups.computeIfAbsent(groupKey, ignored -> new ArrayList<>()).add(orderId);
         }
 
-        List<Long> reordered = new ArrayList<>(pendingOrderIds.size());
+        List<Long> reordered = new ArrayList<>(normalizedOrderIds.size());
 
-        for (List<Long> group : groups.values()) {
-            reordered.addAll(group);
+        for (List<Long> groupOrderIds : groups.values()) {
+            reordered.addAll(groupOrderIds);
         }
 
         return reordered;
@@ -471,7 +517,9 @@ public class DeliveryOrderIndexService {
     }
 
     /**
-     * 동일 업체 + 동일 주소 + 동일 배송수단 + 동일 배송일 기준 배송완료 대상 조회.
+     * 동일 업체 + 동일 실제 배송지 + 동일 배송일 기준 배송완료 대상 조회.
+     * site 주소가 하나라도 있으면 site 주소를 실제 배송지로 사용하고,
+     * site 주소가 없으면 일반 주소를 사용합니다.
      * 배송완료 대상은 직배송/현장배송 + 생산완료(PRODUCTION_DONE)만 허용합니다.
      */
     @Transactional(readOnly = true)
@@ -513,12 +561,6 @@ public class DeliveryOrderIndexService {
             throw new IllegalStateException("선택 주문의 주소 정보를 확인할 수 없습니다.");
         }
 
-        String sourceDeliveryMethodKey = resolveDeliveryMethodKey(sourceOrder);
-
-        if (sourceDeliveryMethodKey.isBlank()) {
-            throw new IllegalStateException("선택 주문의 배송수단 정보를 확인할 수 없습니다.");
-        }
-
         return deliveryOrderIndexRepository.findAllByHandlerAndDateForTaskGrouping(
                         loginMember.getId(),
                         sourceDeliveryDate
@@ -528,15 +570,14 @@ public class DeliveryOrderIndexService {
                 .filter(x -> isCompletableByDeliveryTeam(x.getOrder()))
                 .filter(x -> sourceCompanyId.equals(resolveCompanyId(x.getOrder())))
                 .filter(x -> sourceAddressKey.equals(buildAddressKey(x.getOrder())))
-                .filter(x -> sourceDeliveryMethodKey.equals(resolveDeliveryMethodKey(x.getOrder())))
                 .sorted(Comparator.comparingInt(DeliveryOrderIndex::getOrderIndex))
                 .map(DeliveryOrderIndex::getOrder)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 배송팀 담당자 변경은 직배송/현장배송 + 생산완료/출고완료 건만 가능합니다.
-     * 택배/화물/방문/배송완료/승인완료 등은 상세 확인만 가능합니다.
+     * 배송팀 담당자 변경은 직배송/현장배송 + 승인완료/생산완료/출고완료 건에서 가능합니다.
+     * 택배/화물/방문/배송완료 등은 상세 확인만 가능합니다.
      *
      * 단건 호출부 보호용입니다. 실제 처리는 일괄 메서드와 동일한 로직을 사용합니다.
      */
@@ -550,7 +591,7 @@ public class DeliveryOrderIndexService {
      *
      * 처리 방식:
      * 1. 현재 로그인 배송 담당자의 DeliveryOrderIndex row인지 검증합니다.
-     * 2. 직배송/현장배송 + 생산완료/출고완료 상태인지 검증합니다.
+     * 2. 직배송/현장배송 + 승인완료/생산완료/출고완료 상태인지 검증합니다.
      * 3. 기존 DeliveryOrderIndex row를 삭제합니다.
      * 4. 선택한 새 담당자의 같은 배송일 queue 끝에 order_index 최대값 + 1로 순차 추가합니다.
      * 5. source/target 담당자의 해당 날짜 index를 정규화합니다.
@@ -600,7 +641,10 @@ public class DeliveryOrderIndexService {
             validateDeliveryIndexManagedOrder(order);
 
             if (!isActionablePendingDeliveryOrder(order)) {
-                throw new IllegalStateException("담당자 변경은 직배송/현장배송의 생산완료 또는 출고완료 건만 가능합니다. orderId=" + orderId);
+                throw new IllegalStateException(
+                        "담당자 변경은 직배송/현장배송의 승인완료, 생산완료 또는 출고완료 건만 가능합니다. orderId="
+                                + orderId
+                );
             }
 
             if (existingIndex.getDeliveryHandler() != null
@@ -618,6 +662,7 @@ public class DeliveryOrderIndexService {
             affectedDates.add(deliveryDate);
 
             order.setAssignedDeliveryHandler(newHandler);
+            order.setAssignedDeliveryTeam(newHandler.getTeamCategory());
 
             if (order.getPreferredDeliveryDate() == null) {
                 order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
@@ -673,7 +718,6 @@ public class DeliveryOrderIndexService {
     /**
      * 직배송/현장배송 배송 큐에 배치할 상태입니다.
      * 승인완료도 출고팀에서 담당자를 미리 배정할 수 있으므로 일반 배송순번 구간에 포함합니다.
-     * 단, 배송팀의 순서변경/담당자변경 가능 여부는 isActionablePendingDeliveryOrder로 별도 제한합니다.
      */
     public boolean isQueuedDirectOrSiteOrder(Order order) {
         if (order == null || order.getStatus() == null) {
@@ -686,14 +730,21 @@ public class DeliveryOrderIndexService {
                 || order.getStatus() == OrderStatus.DISPATCH_DONE);
     }
 
-    public boolean isActionablePendingDeliveryOrder(Order order) {
-        if (order == null || order.getStatus() == null) {
-            return false;
-        }
+    /**
+     * 배송리스트에서 순서 변경 및 업체별정렬이 가능한 주문입니다.
+     * 승인완료를 포함하되 화물/택배/방문/배송완료는 제외합니다.
+     */
+    public boolean isOrderIndexEditableDeliveryOrder(Order order) {
+        return isQueuedDirectOrSiteOrder(order);
+    }
 
-        return isActionableDeliveryMethod(order)
-                && (order.getStatus() == OrderStatus.PRODUCTION_DONE
-                || order.getStatus() == OrderStatus.DISPATCH_DONE);
+    /**
+     * 배송리스트에서 담당자 변경이 가능한 주문입니다.
+     * 직배송/현장배송의 승인완료/생산완료/출고완료를 허용하고,
+     * 화물/택배/방문/배송완료/취소 주문은 제외합니다.
+     */
+    public boolean isActionablePendingDeliveryOrder(Order order) {
+        return isQueuedDirectOrSiteOrder(order);
     }
 
     public boolean isActionableDoneDeliveryOrder(Order order) {
@@ -732,15 +783,22 @@ public class DeliveryOrderIndexService {
     }
 
     /**
+     * 담당자와 DeliveryOrderIndex를 가질 수 있는 상태인지 확인합니다.
+     *
+     * 고객 발주와 취소는 배송수단과 관계없이 담당자 배정 및 배송순서 관리 대상이 아닙니다.
+     */
+    public boolean isDeliveryAssignmentAllowedStatus(OrderStatus status) {
+        return status == OrderStatus.CONFIRMED
+                || status == OrderStatus.PRODUCTION_DONE
+                || status == OrderStatus.DISPATCH_DONE
+                || status == OrderStatus.DELIVERY_DONE;
+    }
+
+    /**
      * DeliveryOrderIndex에 올라와 있는 주문이 배송팀 화면에서 표시 가능한 주문인지 확인합니다.
-     * 담당자가 지정되어 DeliveryOrderIndex가 생성된 주문은 배송수단과 관계없이 표시 대상입니다.
      */
     public boolean isDeliveryIndexManagedOrder(Order order) {
-        if (order == null) {
-            return false;
-        }
-
-        return order.getStatus() != OrderStatus.CANCELED;
+        return order != null && isDeliveryAssignmentAllowedStatus(order.getStatus());
     }
 
     /**
@@ -1149,13 +1207,52 @@ public class DeliveryOrderIndexService {
         }
     }
 
+    private String buildCompanyAddressGroupKey(Order order) {
+        Long orderId = order != null ? order.getId() : null;
+        Long companyId = resolveCompanyId(order);
+        String companyKey;
+
+        if (companyId != null) {
+            companyKey = "COMPANY:" + companyId;
+        } else {
+            String companyName = "";
+
+            if (order != null
+                    && order.getTask() != null
+                    && order.getTask().getRequestedBy() != null
+                    && order.getTask().getRequestedBy().getCompany() != null) {
+                companyName = safeText(
+                        order.getTask().getRequestedBy().getCompany().getCompanyName()
+                );
+            }
+
+            companyKey = companyName.isBlank()
+                    ? "MISSING-COMPANY-ORDER:" + orderId
+                    : "COMPANY-NAME:" + normalizeGroupingText(companyName);
+        }
+
+        String addressKey = buildAddressKey(order);
+
+        if (addressKey.isBlank()) {
+            addressKey = "MISSING-ADDRESS-ORDER:" + orderId;
+        }
+
+        return companyKey + "|" + addressKey;
+    }
+
+    private String normalizeGroupingText(String value) {
+        return safeText(value)
+                .toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("\\s+", "")
+                .trim();
+    }
+
     private String buildAddressKey(Order order) {
         if (order == null) {
             return "";
         }
 
-        boolean useSiteAddress = isSiteDeliveryOrder(order)
-                && DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
+        boolean useSiteAddress = DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
                         order.getSiteDoName(),
                         order.getSiteSiName(),
                         order.getSiteGuName(),
@@ -1182,14 +1279,6 @@ public class DeliveryOrderIndexService {
                 order.getRoadAddress(),
                 order.getDetailAddress()
         ).key();
-    }
-
-    private String resolveDeliveryMethodKey(Order order) {
-        if (order == null || order.getDeliveryMethod() == null) {
-            return "";
-        }
-
-        return normalizeMethodName(order.getDeliveryMethod().getMethodName());
     }
 
     private boolean hasDeliveryMethodName(Order order, String expectedMethodName) {

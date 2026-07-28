@@ -1,7 +1,5 @@
 package com.dev.HiddenBATHAuto.service.team.delivery;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -15,26 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-
-import org.apache.poi.ss.usermodel.BorderStyle;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.FillPatternType;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.HorizontalAlignment;
-import org.apache.poi.ss.usermodel.IndexedColors;
-import org.apache.poi.ss.usermodel.PageMargin;
-import org.apache.poi.ss.usermodel.PrintSetup;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.VerticalAlignment;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -74,7 +53,6 @@ public class DeliveryRouteService {
     private static final int MAX_BULK_COMPLETE_ORDER_COUNT = 200;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final Pattern SIGNED_INTEGER_PATTERN = Pattern.compile("[-+]?\\d+");
 
     private static final List<OrderStatus> VISIBLE_STATUSES = List.of(
             OrderStatus.CONFIRMED,
@@ -84,14 +62,19 @@ public class DeliveryRouteService {
     );
 
     private final DeliveryRouteQueryRepository deliveryRouteQueryRepository;
+    private final DeliveryExcelService deliveryExcelService;
 
     /**
-     * 당일 배송목록을 업체 + 실제 배송지 + 배송수단 기준으로 묶습니다.
+     * 당일 배송목록을 업체 + 실제 배송지 + 배송일 기준으로 묶습니다.
+     * 배송일은 이 메서드의 deliveryDate로 이미 한 날짜에 제한됩니다.
+     * site 주소가 하나라도 있으면 site 주소를 실제 배송지로 사용하고,
+     * site 주소가 없으면 일반 주소를 사용합니다.
      *
      * 정렬 규칙:
      * - DeliveryOrderIndex.orderIndex가 가장 빠른 주문의 위치가 묶음의 위치가 됩니다.
-     * - 같은 업체/같은 주소/같은 배송수단 주문이 뒤쪽 인덱스에 다시 등장해도 최초 묶음으로 합칩니다.
-     * - 같은 업체라도 주소 또는 배송수단이 다르면 별도 묶음입니다.
+     * - 같은 업체/같은 실제 배송지 주문이 뒤쪽 인덱스에 다시 등장해도 최초 묶음으로 합칩니다.
+     * - 같은 업체라도 실제 배송지가 다르면 별도 묶음입니다.
+     * - 직배송과 현장배송이 같은 실제 배송지라면 하나의 묶음으로 표시할 수 있습니다.
      * - 직배송/현장배송 묶음을 먼저, 화물 묶음을 그 다음에 표시합니다.
      * - 각 섹션 안에서는 미완료 주문이 하나라도 남은 묶음을 먼저 표시하고, 전체 배송완료 묶음을 하단에 표시합니다.
      * - 묶음 내부에서도 미완료 주문을 먼저, 배송완료 주문을 뒤에 표시합니다.
@@ -152,7 +135,7 @@ public class DeliveryRouteService {
      * 검증 항목:
      * - 현재 로그인 배송 담당자의 해당 날짜 DeliveryOrderIndex인지
      * - 직배송/현장배송 + 생산완료(PRODUCTION_DONE) 주문인지
-     * - 선택된 모든 주문이 같은 업체/같은 실제 주소/같은 배송수단 묶음인지
+     * - 선택된 모든 주문이 같은 업체/같은 실제 주소 묶음인지
      */
     @Transactional(readOnly = true)
     public List<Long> validateCompletionSelection(
@@ -211,7 +194,7 @@ public class DeliveryRouteService {
 
         if (groupKeys.size() != 1) {
             throw new IllegalStateException(
-                    "배송완료 일괄처리는 같은 업체, 같은 배송지, 같은 배송수단 주문끼리만 가능합니다."
+                    "배송완료 일괄처리는 같은 업체, 같은 실제 배송지 주문끼리만 가능합니다."
             );
         }
 
@@ -342,9 +325,9 @@ public class DeliveryRouteService {
     /**
      * 업체별 배송 화면의 일반 데이터 엑셀을 생성합니다.
      *
-     * 명세서 다운로드와는 별개의 목록형 엑셀이며, 현재 화면 DOM 순서로 전달된 주문 ID를
-     * 그대로 유지합니다. 특히 수량은 문자열이 아니라 부호 있는 숫자 셀로 기록하므로
-     * -1, -2 같은 반품/회수 수량이 0으로 바뀌지 않습니다.
+     * deliveryList.html과 완전히 동일한 DeliveryExcelService를 사용합니다.
+     * 따라서 열 구성, 폰트, 열 너비, A4 가로 인쇄 설정, 실제 배송지 선택 규칙과
+     * 반품/회수용 음수 수량 보존 방식이 두 화면에서 동일합니다.
      */
     @Transactional(readOnly = true)
     public byte[] createRouteExcel(
@@ -352,250 +335,24 @@ public class DeliveryRouteService {
             LocalDate deliveryDate,
             List<Long> orderedOrderIds
     ) {
+        validateDeliveryTeamMember(loginMember);
+
         LocalDate targetDate = deliveryDate == null ? LocalDate.now() : deliveryDate;
-        List<PrintRow> rows = getPrintRows(loginMember, targetDate, orderedOrderIds);
 
-        try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+        /*
+         * 기존 업체별 배송 화면의 보안 검증은 그대로 유지합니다.
+         * 현재 로그인 담당자의 해당 날짜 목록에 없는 orderId가 하나라도 섞이면
+         * 공유 엑셀 생성기를 호출하기 전에 전체 요청을 거절합니다.
+         */
+        getPrintRows(loginMember, targetDate, orderedOrderIds);
 
-            Sheet sheet = workbook.createSheet("배송리스트");
-            configureRouteExcelPrint(sheet);
-            writeRouteExcelSheet(workbook, sheet, rows, loginMember, targetDate);
-
-            workbook.write(outputStream);
-            return outputStream.toByteArray();
-
-        } catch (IOException e) {
-            throw new IllegalStateException("배송리스트 엑셀 파일 생성 중 오류가 발생했습니다.", e);
-        }
-    }
-
-    private void configureRouteExcelPrint(Sheet sheet) {
-        sheet.setFitToPage(true);
-        sheet.setAutobreaks(true);
-        sheet.createFreezePane(0, 3);
-        sheet.setRepeatingRows(new CellRangeAddress(0, 2, -1, -1));
-
-        PrintSetup printSetup = sheet.getPrintSetup();
-        printSetup.setLandscape(true);
-        printSetup.setPaperSize(PrintSetup.A4_PAPERSIZE);
-        printSetup.setFitWidth((short) 1);
-        printSetup.setFitHeight((short) 0);
-
-        sheet.setMargin(PageMargin.LEFT, 0.25);
-        sheet.setMargin(PageMargin.RIGHT, 0.25);
-        sheet.setMargin(PageMargin.TOP, 0.45);
-        sheet.setMargin(PageMargin.BOTTOM, 0.45);
-    }
-
-    private void writeRouteExcelSheet(
-            Workbook workbook,
-            Sheet sheet,
-            List<PrintRow> rows,
-            Member loginMember,
-            LocalDate deliveryDate
-    ) {
-        CellStyle titleStyle = createRouteExcelTitleStyle(workbook);
-        CellStyle infoStyle = createRouteExcelInfoStyle(workbook);
-        CellStyle headerStyle = createRouteExcelHeaderStyle(workbook);
-        CellStyle bodyStyle = createRouteExcelBodyStyle(workbook);
-        CellStyle centerStyle = createRouteExcelCenterStyle(workbook);
-        CellStyle memoStyle = createRouteExcelMemoStyle(workbook);
-        CellStyle quantityStyle = createRouteExcelQuantityStyle(workbook);
-
-        int rowIndex = 0;
-
-        Row titleRow = sheet.createRow(rowIndex++);
-        titleRow.setHeightInPoints(25);
-        Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("업체별 배송리스트");
-        titleCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 13));
-
-        Row infoRow = sheet.createRow(rowIndex++);
-        infoRow.setHeightInPoints(19);
-        Cell infoCell = infoRow.createCell(0);
-        infoCell.setCellValue(
-                "배송일: " + deliveryDate
-                        + " | 담당자: " + resolveMemberName(loginMember)
-                        + " | 총 " + rows.size() + "건"
+        return deliveryExcelService.buildExcel(
+                loginMember.getId(),
+                resolveMemberName(loginMember),
+                targetDate,
+                targetDate,
+                orderedOrderIds
         );
-        infoCell.setCellStyle(infoStyle);
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 13));
-
-        String[] headers = {
-                "순서",
-                "주문ID",
-                "거래처",
-                "배송수단",
-                "상태",
-                "배송지",
-                "주문자",
-                "연락처",
-                "카테고리",
-                "제품명",
-                "사이즈",
-                "색상",
-                "수량",
-                "관리자 메모"
-        };
-
-        Row headerRow = sheet.createRow(rowIndex++);
-        headerRow.setHeightInPoints(23);
-
-        for (int columnIndex = 0; columnIndex < headers.length; columnIndex++) {
-            Cell cell = headerRow.createCell(columnIndex);
-            cell.setCellValue(headers[columnIndex]);
-            cell.setCellStyle(headerStyle);
-        }
-
-        for (PrintRow dto : rows) {
-            Row row = sheet.createRow(rowIndex++);
-            row.setHeightInPoints(39);
-
-            createRouteExcelTextCell(row, 0, String.valueOf(dto.getOrderIndex()), centerStyle);
-            createRouteExcelTextCell(row, 1, "#" + safeLong(dto.getOrderId()), centerStyle);
-            createRouteExcelTextCell(row, 2, dto.getCompanyName(), bodyStyle);
-            createRouteExcelTextCell(row, 3, dto.getDeliveryMethodName(), centerStyle);
-            createRouteExcelTextCell(row, 4, dto.getStatusLabel(), centerStyle);
-            createRouteExcelTextCell(row, 5, dto.getAddress(), memoStyle);
-            createRouteExcelTextCell(row, 6, dto.getOrdererName(), bodyStyle);
-            createRouteExcelTextCell(row, 7, dto.getOrdererPhone(), centerStyle);
-            createRouteExcelTextCell(row, 8, dto.getCategory(), bodyStyle);
-            createRouteExcelTextCell(row, 9, dto.getProductName(), bodyStyle);
-            createRouteExcelTextCell(row, 10, dto.getSize(), bodyStyle);
-            createRouteExcelTextCell(row, 11, dto.getColor(), bodyStyle);
-            createRouteExcelIntegerCell(
-                    row,
-                    12,
-                    parseSignedQuantity(dto.getQuantityText()),
-                    quantityStyle
-            );
-            createRouteExcelTextCell(row, 13, dto.getAdminMemo(), memoStyle);
-        }
-
-        int[] widths = {
-                8, 11, 22, 15, 13, 42, 14, 16, 16, 28, 18, 13, 9, 36
-        };
-
-        for (int columnIndex = 0; columnIndex < widths.length; columnIndex++) {
-            sheet.setColumnWidth(columnIndex, widths[columnIndex] * 256);
-        }
-
-        sheet.setAutoFilter(new CellRangeAddress(2, Math.max(2, rowIndex - 1), 0, 13));
-    }
-
-    private int parseSignedQuantity(String quantityText) {
-        Matcher matcher = SIGNED_INTEGER_PATTERN.matcher(safeText(quantityText));
-
-        if (!matcher.find()) {
-            return 0;
-        }
-
-        try {
-            return Integer.parseInt(matcher.group());
-        } catch (NumberFormatException e) {
-            throw new IllegalStateException("엑셀 수량값을 숫자로 변환할 수 없습니다: " + quantityText, e);
-        }
-    }
-
-    private void createRouteExcelTextCell(
-            Row row,
-            int columnIndex,
-            String value,
-            CellStyle style
-    ) {
-        Cell cell = row.createCell(columnIndex);
-        cell.setCellValue(valueOrDash(value));
-        cell.setCellStyle(style);
-    }
-
-    private void createRouteExcelIntegerCell(
-            Row row,
-            int columnIndex,
-            int value,
-            CellStyle style
-    ) {
-        Cell cell = row.createCell(columnIndex);
-        cell.setCellValue(value);
-        cell.setCellStyle(style);
-    }
-
-    private CellStyle createRouteExcelTitleStyle(Workbook workbook) {
-        Font font = workbook.createFont();
-        font.setBold(true);
-        font.setFontHeightInPoints((short) 16);
-
-        CellStyle style = workbook.createCellStyle();
-        style.setFont(font);
-        style.setAlignment(HorizontalAlignment.CENTER);
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
-        return style;
-    }
-
-    private CellStyle createRouteExcelInfoStyle(Workbook workbook) {
-        Font font = workbook.createFont();
-        font.setFontHeightInPoints((short) 10);
-
-        CellStyle style = workbook.createCellStyle();
-        style.setFont(font);
-        style.setAlignment(HorizontalAlignment.LEFT);
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
-        return style;
-    }
-
-    private CellStyle createRouteExcelHeaderStyle(Workbook workbook) {
-        Font font = workbook.createFont();
-        font.setBold(true);
-        font.setFontHeightInPoints((short) 10);
-        font.setColor(IndexedColors.WHITE.getIndex());
-
-        CellStyle style = workbook.createCellStyle();
-        style.setFont(font);
-        style.setFillForegroundColor(IndexedColors.GREY_50_PERCENT.getIndex());
-        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        style.setAlignment(HorizontalAlignment.CENTER);
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
-        applyRouteExcelBorder(style);
-        return style;
-    }
-
-    private CellStyle createRouteExcelBodyStyle(Workbook workbook) {
-        Font font = workbook.createFont();
-        font.setFontHeightInPoints((short) 10);
-
-        CellStyle style = workbook.createCellStyle();
-        style.setFont(font);
-        style.setAlignment(HorizontalAlignment.LEFT);
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
-        style.setWrapText(true);
-        applyRouteExcelBorder(style);
-        return style;
-    }
-
-    private CellStyle createRouteExcelCenterStyle(Workbook workbook) {
-        CellStyle style = createRouteExcelBodyStyle(workbook);
-        style.setAlignment(HorizontalAlignment.CENTER);
-        return style;
-    }
-
-    private CellStyle createRouteExcelMemoStyle(Workbook workbook) {
-        CellStyle style = createRouteExcelBodyStyle(workbook);
-        style.setVerticalAlignment(VerticalAlignment.TOP);
-        return style;
-    }
-
-    private CellStyle createRouteExcelQuantityStyle(Workbook workbook) {
-        CellStyle style = createRouteExcelCenterStyle(workbook);
-        style.setDataFormat(workbook.createDataFormat().getFormat("0;-0;0"));
-        return style;
-    }
-
-    private void applyRouteExcelBorder(CellStyle style) {
-        style.setBorderTop(BorderStyle.THIN);
-        style.setBorderRight(BorderStyle.THIN);
-        style.setBorderBottom(BorderStyle.THIN);
-        style.setBorderLeft(BorderStyle.THIN);
     }
 
     private List<Long> normalizeOrderIds(List<Long> orderIds) {
@@ -642,7 +399,6 @@ public class DeliveryRouteService {
 
             AddressInfo addressInfo = resolveActualDeliveryAddress(order);
             Company company = resolveCompany(order);
-            String methodName = normalizedDeliveryMethodName(order);
             String groupKey = buildRouteGroupKey(order);
 
             GroupAccumulator accumulator = grouped.computeIfAbsent(
@@ -659,6 +415,7 @@ public class DeliveryRouteService {
             );
 
             accumulator.firstOrderIndex = Math.min(accumulator.firstOrderIndex, indexRow.getOrderIndex());
+            accumulator.addDeliveryMethod(resolveDeliveryMethodDisplayName(order));
 
             OrderRow orderRow = toOrderRow(indexRow, addressInfo.display());
             accumulator.orders.add(orderRow);
@@ -681,10 +438,6 @@ public class DeliveryRouteService {
                 accumulator.primaryContact = resolvePrimaryContact(order);
             }
 
-            if (!StringUtils.hasText(accumulator.deliveryMethodName)
-                    || "-".equals(accumulator.deliveryMethodName)) {
-                accumulator.deliveryMethodName = valueOrDash(methodName);
-            }
         }
 
         List<GroupAccumulator> accumulators = new ArrayList<>(grouped.values());
@@ -712,7 +465,7 @@ public class DeliveryRouteService {
                     .section(section)
                     .sequence(sequence++)
                     .firstOrderIndex(accumulator.firstOrderIndex)
-                    .deliveryMethodName(valueOrDash(accumulator.deliveryMethodName))
+                    .deliveryMethodName(resolveGroupDeliveryMethodName(accumulator))
                     .companyName(accumulator.companyName)
                     .address(accumulator.address)
                     .zipCode(accumulator.zipCode)
@@ -728,6 +481,14 @@ public class DeliveryRouteService {
         return result;
     }
 
+    private String resolveGroupDeliveryMethodName(GroupAccumulator accumulator) {
+        if (accumulator == null || accumulator.deliveryMethodNames.isEmpty()) {
+            return "-";
+        }
+
+        return String.join("/", accumulator.deliveryMethodNames);
+    }
+
     private boolean isFullyCompleted(GroupAccumulator accumulator) {
         return accumulator != null
                 && !accumulator.orders.isEmpty()
@@ -738,7 +499,6 @@ public class DeliveryRouteService {
         Long orderId = order != null ? order.getId() : null;
         Company company = resolveCompany(order);
         AddressInfo addressInfo = resolveActualDeliveryAddress(order);
-        String methodKey = normalizedDeliveryMethodName(order);
 
         String companyKey;
 
@@ -754,11 +514,7 @@ public class DeliveryRouteService {
                 ? addressInfo.key()
                 : "MISSING-ADDRESS-ORDER:" + safeLong(orderId);
 
-        String safeMethodKey = StringUtils.hasText(methodKey)
-                ? methodKey
-                : "MISSING-METHOD-ORDER:" + safeLong(orderId);
-
-        return safeMethodKey + "|" + companyKey + "|" + addressKey;
+        return companyKey + "|" + addressKey;
     }
 
     private OrderRow toOrderRow(DeliveryOrderIndex indexRow, String address) {
@@ -869,7 +625,6 @@ public class DeliveryRouteService {
             return new AddressInfo("", "-", "");
         }
 
-        boolean siteDelivery = SITE_METHOD_NAME.equals(normalizedDeliveryMethodName(order));
         boolean hasSiteAddress = DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
                 order.getSiteDoName(),
                 order.getSiteSiName(),
@@ -878,7 +633,7 @@ public class DeliveryRouteService {
                 order.getSiteDetailAddress()
         );
 
-        if (siteDelivery && hasSiteAddress) {
+        if (hasSiteAddress) {
             return buildAddressInfo(
                     order.getSiteZipCode(),
                     order.getSiteDoName(),
@@ -1099,7 +854,7 @@ public class DeliveryRouteService {
     private static class GroupAccumulator {
         private final String section;
         private int firstOrderIndex;
-        private String deliveryMethodName;
+        private final LinkedHashSet<String> deliveryMethodNames = new LinkedHashSet<>();
         private final String companyName;
         private final String address;
         private final String zipCode;
@@ -1120,11 +875,23 @@ public class DeliveryRouteService {
         ) {
             this.section = section;
             this.firstOrderIndex = firstOrderIndex;
-            this.deliveryMethodName = deliveryMethodName;
+            addDeliveryMethod(deliveryMethodName);
             this.companyName = companyName;
             this.address = address;
             this.zipCode = zipCode;
             this.primaryContact = primaryContact;
+        }
+
+        private void addDeliveryMethod(String deliveryMethodName) {
+            if (deliveryMethodName == null) {
+                return;
+            }
+
+            String normalized = deliveryMethodName.trim();
+
+            if (!normalized.isBlank() && !"-".equals(normalized)) {
+                deliveryMethodNames.add(normalized);
+            }
         }
     }
 }

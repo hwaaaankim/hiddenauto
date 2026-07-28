@@ -50,9 +50,13 @@ public class OrderUpdateService {
 	private static final String ADMIN_IMAGE_TYPE = "MANAGEMENT";
 	private static final String SITE_DELIVERY_METHOD_NAME = "현장배송";
 
-	private static final Set<String> REQUIRED_DELIVERY_HANDLER_METHOD_NAMES = Set.of("직배송", "화물", "현장배송");
-
 	private static final Set<String> OPTION_VALUE_FIXED_KEYS = Set.of("카테고리", "제품시리즈", "제품시리즈ID");
+
+	/*
+	 * 제품시리즈ID는 기존 DB 제품과 연결된 경우에만 존재하는 선택적 메타데이터입니다.
+	 * 신규 등록 방식으로 만들어진 규격제품은 이 키가 없거나 값이 비어 있어도 정상 데이터로 취급합니다.
+	 */
+	private static final Set<String> OPTION_OPTIONAL_FIXED_KEYS = Set.of("제품시리즈ID");
 
 	private static final Set<String> OPTION_DELETE_BLOCKED_KEYS = Set.of("카테고리", "제품시리즈", "제품시리즈ID", "제품명", "사이즈",
 			"색상");
@@ -210,14 +214,15 @@ public class OrderUpdateService {
 			order.setDeliveryMethod(method);
 		}, () -> order.setDeliveryMethod(null));
 
-		boolean canceled = status == OrderStatus.CANCELED;
+		boolean deliveryAssignmentAllowed = isDeliveryAssignmentAllowedStatus(status);
 		boolean siteDelivery = isSiteDeliveryMethod(order);
 		boolean handlerRequired = isDeliveryHandlerRequired(order);
 
 		applyDeliveryAddress(order, siteDelivery, zipCode, doName, siName, guName, roadAddress, detailAddress,
 				siteZipCode, siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress);
 
-		applyDeliveryHandler(order, preferredDeliveryDate, deliveryHandlerId, canceled, handlerRequired);
+		applyDeliveryHandler(order, preferredDeliveryDate, deliveryHandlerId, deliveryAssignmentAllowed,
+				handlerRequired);
 
 		normalizeId(productCategoryId).ifPresentOrElse(id -> {
 			var category = teamCategoryRepository.findById(id)
@@ -331,21 +336,38 @@ public class OrderUpdateService {
 	}
 
 	private void applyDeliveryHandler(Order order, LocalDate preferredDeliveryDate, Optional<Long> deliveryHandlerId,
-			boolean canceled, boolean handlerRequired) {
-		if (canceled) {
-			order.setAssignedDeliveryHandler(null);
+			boolean deliveryAssignmentAllowed, boolean handlerRequired) {
+		if (!deliveryAssignmentAllowed) {
+			clearDeliveryAssignment(order);
 			return;
 		}
 
 		Optional<Long> normalizedHandlerId = normalizeId(deliveryHandlerId);
 		String methodName = getDeliveryMethodName(order).orElse("배송수단");
 
+		/*
+		 * 직배송/화물/현장배송처럼 담당자 필수 배송수단은 기존 담당자가 이미 있으면
+		 * 호출부에서 담당자 파라미터가 누락되더라도 기존 배정을 유지합니다.
+		 * 고객 발주/취소에서 활성 상태로 변경하는 경우에는 기존 담당자가 없으므로
+		 * 아래 필수 검증에 따라 새 담당자를 반드시 선택해야 합니다.
+		 */
+		if (handlerRequired && normalizedHandlerId.isEmpty() && order.getAssignedDeliveryHandler() != null) {
+			if (preferredDeliveryDate == null) {
+				throw new IllegalArgumentException("배송팀 담당자를 지정하는 경우 배송희망일은 필수입니다.");
+			}
+
+			Member existingHandler = order.getAssignedDeliveryHandler();
+			validateDeliveryTeamHandler(existingHandler);
+			order.setAssignedDeliveryTeam(existingHandler.getTeamCategory());
+			return;
+		}
+
 		if (handlerRequired && normalizedHandlerId.isEmpty()) {
 			throw new IllegalArgumentException(methodName + " 선택 시 배송팀 담당자는 필수입니다.");
 		}
 
 		if (normalizedHandlerId.isEmpty()) {
-			order.setAssignedDeliveryHandler(null);
+			clearDeliveryAssignment(order);
 			return;
 		}
 
@@ -357,7 +379,32 @@ public class OrderUpdateService {
 		Member member = memberRepository.findById(handlerId)
 				.orElseThrow(() -> new IllegalArgumentException("Invalid deliveryHandlerId. id=" + handlerId));
 
+		validateDeliveryTeamHandler(member);
+
 		order.setAssignedDeliveryHandler(member);
+		order.setAssignedDeliveryTeam(member.getTeamCategory());
+	}
+
+	private boolean isDeliveryAssignmentAllowedStatus(OrderStatus status) {
+		return status == OrderStatus.CONFIRMED
+				|| status == OrderStatus.PRODUCTION_DONE
+				|| status == OrderStatus.DISPATCH_DONE
+				|| status == OrderStatus.DELIVERY_DONE;
+	}
+
+	private void clearDeliveryAssignment(Order order) {
+		order.setAssignedDeliveryHandler(null);
+		order.setAssignedDeliveryTeam(null);
+	}
+
+	private void validateDeliveryTeamHandler(Member member) {
+		if (member == null || member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+			throw new IllegalArgumentException("배송팀 직원만 담당자로 지정할 수 있습니다.");
+		}
+
+		if (!member.isEnabled()) {
+			throw new IllegalArgumentException("비활성화된 직원은 담당자로 지정할 수 없습니다.");
+		}
 	}
 
 	private boolean hasDeleteIds(List<Long> ids) {
@@ -471,11 +518,15 @@ public class OrderUpdateService {
 	}
 
 	private boolean isSiteDeliveryMethod(Order order) {
-		return getDeliveryMethodName(order).map(SITE_DELIVERY_METHOD_NAME::equals).orElse(false);
+		String methodName = getDeliveryMethodName(order)
+				.map(DeliveryMethodAssignmentPolicy::normalize)
+				.orElse("");
+		String siteMethodName = DeliveryMethodAssignmentPolicy.normalize(SITE_DELIVERY_METHOD_NAME);
+		return !methodName.isBlank() && methodName.contains(siteMethodName);
 	}
 
 	private boolean isDeliveryHandlerRequired(Order order) {
-		return getDeliveryMethodName(order).map(REQUIRED_DELIVERY_HANDLER_METHOD_NAMES::contains).orElse(false);
+		return order != null && DeliveryMethodAssignmentPolicy.requiresHandler(order.getDeliveryMethod());
 	}
 
 	private Optional<String> getDeliveryMethodName(Order order) {
@@ -487,7 +538,14 @@ public class OrderUpdateService {
 
 	private MoneySnapshot normalizeMoney(int productCost, int quantity, int supplyPrice, int totalAmount) {
 		int normalizedProductCost = Math.max(0, productCost);
-		int normalizedQuantity = Math.max(0, quantity);
+
+		/*
+		 * 수량은 반품·회수 오더를 위해 음수를 허용합니다.
+		 * 금액 자동 보정은 기존과 동일하게 양수 수량일 때만 수행하고,
+		 * 입력된 음수 수량 자체는 Order와 OrderItem에 그대로 저장합니다.
+		 */
+		int normalizedQuantity = quantity;
+
 		int normalizedSupplyPrice = Math.max(0, supplyPrice);
 		int normalizedTotalAmount = Math.max(0, totalAmount);
 
@@ -511,7 +569,7 @@ public class OrderUpdateService {
 			normalizedTotalAmount = Math.round(normalizedSupplyPrice * 1.1f);
 		}
 
-		return new MoneySnapshot(nonNegative(normalizedProductCost, "단가"), nonNegative(normalizedQuantity, "수량"),
+		return new MoneySnapshot(nonNegative(normalizedProductCost, "단가"), normalizedQuantity,
 				nonNegative(normalizedSupplyPrice, "공급가"), nonNegative(normalizedTotalAmount, "총비용"));
 	}
 
@@ -621,42 +679,82 @@ public class OrderUpdateService {
 
 		LinkedHashMap<String, String> mergedMap = new LinkedHashMap<>();
 
+		/*
+		 * 기존 optionJson의 키 순서를 기준으로 병합합니다.
+		 *
+		 * - 카테고리/제품시리즈/제품시리즈ID는 화면에서 수정할 수 없는 고정 연동값입니다.
+		 * - 제품시리즈ID는 선택값이므로 기존 값이 없거나 공백이면 저장을 막지 않고 키 자체를 생략합니다.
+		 * - 제품명/사이즈/색상은 삭제할 수 없지만 값은 수정할 수 있습니다.
+		 * - 그 외 옵션은 화면에서 삭제된 경우 실제 JSON에서도 제거합니다.
+		 */
 		for (Map.Entry<String, String> originalEntry : originalMap.entrySet()) {
-			String key = originalEntry.getKey();
-			String originalValue = originalEntry.getValue();
+			String key = normalizeNullableText(originalEntry.getKey());
+			if (key == null) {
+				continue;
+			}
 
-			if (OPTION_DELETE_BLOCKED_KEYS.contains(key)) {
-				String value = OPTION_VALUE_FIXED_KEYS.contains(key) ? originalValue
-						: submittedMap.getOrDefault(key, originalValue);
+			String originalValue = normalizeNullableText(originalEntry.getValue());
 
-				if (value == null || value.isBlank()) {
+			if (OPTION_VALUE_FIXED_KEYS.contains(key)) {
+				if (OPTION_OPTIONAL_FIXED_KEYS.contains(key)) {
+					if (originalValue != null) {
+						mergedMap.put(key, originalValue);
+					}
+					continue;
+				}
+
+				if (originalValue == null) {
 					throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
 				}
 
-				mergedMap.put(key, value.trim());
+				mergedMap.put(key, originalValue);
+				continue;
+			}
+
+			if (OPTION_DELETE_BLOCKED_KEYS.contains(key)) {
+				String value = submittedMap.containsKey(key)
+						? normalizeNullableText(submittedMap.get(key))
+						: originalValue;
+
+				if (value == null) {
+					throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
+				}
+
+				mergedMap.put(key, value);
 				continue;
 			}
 
 			if (submittedMap.containsKey(key)) {
-				String value = submittedMap.get(key);
-				if (value == null || value.isBlank()) {
+				String value = normalizeNullableText(submittedMap.get(key));
+				if (value == null) {
 					throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
 				}
-				mergedMap.put(key, value.trim());
+				mergedMap.put(key, value);
 			}
 		}
 
+		/*
+		 * 기존 JSON에 없던 일반 옵션이 제출된 경우에는 추가합니다.
+		 * 고정 연동키는 클라이언트 변조로 새로 만들거나 변경할 수 없도록 무시합니다.
+		 * 특히 제품시리즈ID가 없는 규격제품에 임의 ID가 주입되는 것도 차단합니다.
+		 */
 		for (Map.Entry<String, String> submittedEntry : submittedMap.entrySet()) {
-			String key = submittedEntry.getKey();
-			String value = submittedEntry.getValue();
+			String key = normalizeNullableText(submittedEntry.getKey());
 
-			if (key == null || key.isBlank() || mergedMap.containsKey(key)) {
+			if (key == null || mergedMap.containsKey(key)) {
 				continue;
 			}
-			if (value == null || value.isBlank()) {
+
+			if (OPTION_VALUE_FIXED_KEYS.contains(key)) {
+				continue;
+			}
+
+			String value = normalizeNullableText(submittedEntry.getValue());
+			if (value == null) {
 				throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
 			}
-			mergedMap.put(key.trim(), value.trim());
+
+			mergedMap.put(key, value);
 		}
 
 		LinkedHashMap<String, String> normalizedMap = normalizeOptionSequence(mergedMap);

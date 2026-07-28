@@ -110,11 +110,15 @@
 										</button>
 
 										<small class="text-muted">
-											※ 순서 변경, 업체별정렬, 담당자변경은 <b>직배송/현장배송 + 생산완료/출고완료</b> 건에서 가능합니다.
+											※ 순서 변경과 업체별정렬은 <b>직배송/현장배송 + 승인완료/생산완료/출고완료</b> 건에서 가능합니다.
 											<br>
-											※ <b>배송완료 처리는 직배송/현장배송 + 생산완료 상태</b>에서만 가능합니다.
+											※ 업체별정렬은 <b>같은 업체 + 같은 실제 배송지</b>를 현재 최초 등장 순서대로 즉시 묶습니다. site 주소가 있으면 site 주소를 우선합니다.
 											<br>
-											※ 배송완료 건과 기타 배송수단(택배/화물/방문 등)은 상세확인만 가능하며 실제 처리는 출고팀 기준으로 진행됩니다.
+											※ 업체별정렬 또는 드래그 후 <b>순서 저장</b>을 눌러야 최종 배송순번이 DB에 반영됩니다.
+											<br>
+											※ 담당자변경은 <b>직배송/현장배송 + 승인완료/생산완료/출고완료</b> 건에서 가능하고, 배송완료 처리는 <b>생산완료</b> 건에서만 가능합니다.
+											<br>
+											※ 배송완료 건과 기타 배송수단(택배/화물/방문 등)은 상세확인만 가능합니다.
 											<br>
 											※ 모바일은 <b>핸들(≡)</b>로만 순서 변경됩니다.
 										</small>
@@ -131,26 +135,31 @@
 
 									<!-- 직배송 및 현장배송 섹션: 조작 가능 -->
 									<div class="mb-3" id="delivery-section-actionable">
-										<h5 class="mb-2">직배송 및 현장배송</h5>
+										<h5 class="mb-2">직배송 및 현장배송 (승인완료/생산완료/출고완료)</h5>
 
 										<div id="pendingList" class="list-group col nested-list nested-sortable">
 											<div class="list-group-item nested-1 draggable-item delivery-card delivery-list-added-card delivery-list-added-card-clickable border border-warning"
 												th:each="wrap : ${pendingOrders}"
 												th:with="o=${wrap.order},
 												         item=${wrap.order != null ? wrap.order.orderItem : null},
-												         itemQuantity=${item != null and item.quantity > 0 ? item.quantity : (wrap.order != null and wrap.order.quantity > 0 ? wrap.order.quantity : 0)},
-											         itemQuantityText=${item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity > 0 ? '수량 ' + itemQuantity + '개' : '수량 -')},
+												         itemQuantity=${item != null and item.quantity != 0 ? item.quantity : (wrap.order != null ? wrap.order.quantity : 0)},
+											         itemQuantityText=${itemQuantity < 0 ? '수량 ' + itemQuantity + '개' : (item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity != 0 ? '수량 ' + itemQuantity + '개' : '수량 0개'))},
 											         categoryText=${item != null and !#strings.isEmpty(item.deliveryCategoryText) ? item.deliveryCategoryText : '-'},
 											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
 											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
 											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
 											         adminMemoText=${o != null and o.adminMemo != null and !#strings.isEmpty(#strings.trim(o.adminMemo)) ? #strings.trim(o.adminMemo) : '-'},
 											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
-												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)},
-											         canCompleteDelivery=${o != null and o.status != null and o.status.name() == 'PRODUCTION_DONE'}"
+												         useSiteAddress=${wrap.order != null and (!#strings.isEmpty(wrap.order.siteRoadAddress) or !#strings.isEmpty(wrap.order.siteDetailAddress) or !#strings.isEmpty(wrap.order.siteDoName) or !#strings.isEmpty(wrap.order.siteSiName) or !#strings.isEmpty(wrap.order.siteGuName))},
+											         canCompleteDelivery=${o != null and o.status != null and o.status.name() == 'PRODUCTION_DONE'},
+										         canChangeDeliveryHandler=${o != null and o.status != null and (o.status.name() == 'CONFIRMED' or o.status.name() == 'PRODUCTION_DONE' or o.status.name() == 'DISPATCH_DONE')}"
 												th:attr="
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
+                                                    data-company-key=${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null and o.task.requestedBy.company.id != null ? 'COMPANY-' + o.task.requestedBy.company.id : 'ORDER-' + o.id},
+                                                    data-delivery-address-key=${useSiteAddress
+                                                        ? ((o.siteZipCode != null ? o.siteZipCode : '') + '|' + (o.siteDoName != null ? o.siteDoName : '') + '|' + (o.siteSiName != null ? o.siteSiName : '') + '|' + (o.siteGuName != null ? o.siteGuName : '') + '|' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + '|' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+                                                        : ((o.zipCode != null ? o.zipCode : '') + '|' + (o.doName != null ? o.doName : '') + '|' + (o.siName != null ? o.siName : '') + '|' + (o.guName != null ? o.guName : '') + '|' + (o.roadAddress != null ? o.roadAddress : '') + '|' + (o.detailAddress != null ? o.detailAddress : ''))},
                                                     data-order-status=${o.status != null ? o.status.name() : ''},
                                                     data-delivery-section='actionable'
                                                 ">
@@ -162,15 +171,17 @@
 														≡
 													</button>
 
-													<div class="delivery-list-added-check-wrap" title="담당자 변경 선택">
-														<input type="checkbox" class="form-check-input delivery-list-added-handler-check"
-															th:attr="data-order-id=${o.id}" aria-label="담당자 변경 선택">
-													</div>
+													<div class="delivery-list-added-check-wrap"
+                                                        th:title="${canChangeDeliveryHandler ? '담당자 변경 선택' : '담당자 변경 불가'}">
+                                                        <input type="checkbox" class="form-check-input delivery-list-added-handler-check"
+                                                            th:attr="data-order-id=${o.id},aria-label=${canChangeDeliveryHandler ? '담당자 변경 선택' : '담당자 변경 불가'}"
+                                                            th:disabled="${!canChangeDeliveryHandler}">
+                                                    </div>
 
 													<div class="text-section">
 														<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
 															<strong>업체명:</strong>
-															<span
+															<span class="delivery-list-added-company-value"
 																th:text="${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null ? o.task.requestedBy.company.companyName : '-'}"></span>
 
 															<span class="badge"
@@ -185,17 +196,22 @@
 															<small class="text-warning" th:if="${canCompleteDelivery}">
                                                                     (순서변경 / 업체별정렬 / 배송완료 / 담당자변경 가능)
                                                                 </small>
-                                                                <small class="text-muted" th:unless="${canCompleteDelivery}">
-                                                                    (순서변경 / 업체별정렬 / 담당자변경 가능 · 배송완료는 생산완료 상태만 가능)
+                                                                <small class="text-muted"
+                                                                    th:if="${!canCompleteDelivery and canChangeDeliveryHandler}">
+                                                                    (순서변경 / 업체별정렬 / 담당자변경 가능 · 배송완료는 생산완료만 가능)
+                                                                </small>
+                                                                <small class="text-muted"
+                                                                    th:if="${!canCompleteDelivery and !canChangeDeliveryHandler}">
+                                                                    (상세확인만 가능)
                                                                 </small>
 														</div>
 
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
-															<span
+															<span class="delivery-list-added-address-value"
 																th:text="${useSiteAddress
-																	? ((o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-																	: ((o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+																	? ((o.siteDoName != null ? o.siteDoName : '') + ' ' + (o.siteSiName != null ? o.siteSiName : '') + ' ' + (o.siteGuName != null ? o.siteGuName : '') + ' ' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+																	: ((o.doName != null ? o.doName : '') + ' ' + (o.siName != null ? o.siName : '') + ' ' + (o.guName != null ? o.guName : '') + ' ' + (o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
 															</span>
 														</div>
 
@@ -273,18 +289,22 @@
 												th:each="wrap : ${doneOrders}"
 												th:with="o=${wrap.order},
 												         item=${wrap.order != null ? wrap.order.orderItem : null},
-												         itemQuantity=${item != null and item.quantity > 0 ? item.quantity : (wrap.order != null and wrap.order.quantity > 0 ? wrap.order.quantity : 0)},
-											         itemQuantityText=${item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity > 0 ? '수량 ' + itemQuantity + '개' : '수량 -')},
+												         itemQuantity=${item != null and item.quantity != 0 ? item.quantity : (wrap.order != null ? wrap.order.quantity : 0)},
+											         itemQuantityText=${itemQuantity < 0 ? '수량 ' + itemQuantity + '개' : (item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity != 0 ? '수량 ' + itemQuantity + '개' : '수량 0개'))},
 											         categoryText=${item != null and !#strings.isEmpty(item.deliveryCategoryText) ? item.deliveryCategoryText : '-'},
 											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
 											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
 											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
 											         adminMemoText=${o != null and o.adminMemo != null and !#strings.isEmpty(#strings.trim(o.adminMemo)) ? #strings.trim(o.adminMemo) : '-'},
 											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
-												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
+												         useSiteAddress=${wrap.order != null and (!#strings.isEmpty(wrap.order.siteRoadAddress) or !#strings.isEmpty(wrap.order.siteDetailAddress) or !#strings.isEmpty(wrap.order.siteDoName) or !#strings.isEmpty(wrap.order.siteSiName) or !#strings.isEmpty(wrap.order.siteGuName))}"
 												th:attr="
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
+                                                    data-company-key=${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null and o.task.requestedBy.company.id != null ? 'COMPANY-' + o.task.requestedBy.company.id : 'ORDER-' + o.id},
+                                                    data-delivery-address-key=${useSiteAddress
+                                                        ? ((o.siteZipCode != null ? o.siteZipCode : '') + '|' + (o.siteDoName != null ? o.siteDoName : '') + '|' + (o.siteSiName != null ? o.siteSiName : '') + '|' + (o.siteGuName != null ? o.siteGuName : '') + '|' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + '|' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+                                                        : ((o.zipCode != null ? o.zipCode : '') + '|' + (o.doName != null ? o.doName : '') + '|' + (o.siName != null ? o.siName : '') + '|' + (o.guName != null ? o.guName : '') + '|' + (o.roadAddress != null ? o.roadAddress : '') + '|' + (o.detailAddress != null ? o.detailAddress : ''))},
                                                     data-order-status=${o.status != null ? o.status.name() : ''},
                                                     data-delivery-section='done'
                                                 ">
@@ -305,7 +325,7 @@
 													<div class="text-section">
 														<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
 															<strong>업체명:</strong>
-															<span
+															<span class="delivery-list-added-company-value"
 																th:text="${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null ? o.task.requestedBy.company.companyName : '-'}"></span>
 
 															<span class="badge bg-success"
@@ -321,10 +341,10 @@
 
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
-															<span
+															<span class="delivery-list-added-address-value"
 																th:text="${useSiteAddress
-																	? ((o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-																	: ((o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+																	? ((o.siteDoName != null ? o.siteDoName : '') + ' ' + (o.siteSiName != null ? o.siteSiName : '') + ' ' + (o.siteGuName != null ? o.siteGuName : '') + ' ' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+																	: ((o.doName != null ? o.doName : '') + ' ' + (o.siName != null ? o.siName : '') + ' ' + (o.guName != null ? o.guName : '') + ' ' + (o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
 															</span>
 														</div>
 
@@ -395,18 +415,22 @@
 												th:each="wrap : ${otherOrders}"
 												th:with="o=${wrap.order},
 												         item=${wrap.order != null ? wrap.order.orderItem : null},
-												         itemQuantity=${item != null and item.quantity > 0 ? item.quantity : (wrap.order != null and wrap.order.quantity > 0 ? wrap.order.quantity : 0)},
-											         itemQuantityText=${item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity > 0 ? '수량 ' + itemQuantity + '개' : '수량 -')},
+												         itemQuantity=${item != null and item.quantity != 0 ? item.quantity : (wrap.order != null ? wrap.order.quantity : 0)},
+											         itemQuantityText=${itemQuantity < 0 ? '수량 ' + itemQuantity + '개' : (item != null and !#strings.isEmpty(item.deliveryQuantityText) ? item.deliveryQuantityText : (itemQuantity != 0 ? '수량 ' + itemQuantity + '개' : '수량 0개'))},
 											         categoryText=${item != null and !#strings.isEmpty(item.deliveryCategoryText) ? item.deliveryCategoryText : '-'},
 											         productNameText=${item != null and !#strings.isEmpty(item.deliveryProductName) ? item.deliveryProductName : (item != null and !#strings.isEmpty(item.productName) ? item.productName : '-')},
 											         sizeText=${item != null and !#strings.isEmpty(item.deliverySizeText) ? item.deliverySizeText : '-'},
 											         colorText=${item != null and !#strings.isEmpty(item.deliveryColorText) ? item.deliveryColorText : '-'},
 											         adminMemoText=${o != null and o.adminMemo != null and !#strings.isEmpty(#strings.trim(o.adminMemo)) ? #strings.trim(o.adminMemo) : '-'},
 											         methodName=${wrap.order != null and wrap.order.deliveryMethod != null ? wrap.order.deliveryMethod.methodName : ''},
-												         useSiteAddress=${wrap.order != null and wrap.order.deliveryMethod != null and wrap.order.deliveryMethod.methodName == '현장배송' and !#strings.isEmpty(wrap.order.siteRoadAddress)}"
+												         useSiteAddress=${wrap.order != null and (!#strings.isEmpty(wrap.order.siteRoadAddress) or !#strings.isEmpty(wrap.order.siteDetailAddress) or !#strings.isEmpty(wrap.order.siteDoName) or !#strings.isEmpty(wrap.order.siteSiName) or !#strings.isEmpty(wrap.order.siteGuName))}"
 												th:attr="
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
+                                                    data-company-key=${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null and o.task.requestedBy.company.id != null ? 'COMPANY-' + o.task.requestedBy.company.id : 'ORDER-' + o.id},
+                                                    data-delivery-address-key=${useSiteAddress
+                                                        ? ((o.siteZipCode != null ? o.siteZipCode : '') + '|' + (o.siteDoName != null ? o.siteDoName : '') + '|' + (o.siteSiName != null ? o.siteSiName : '') + '|' + (o.siteGuName != null ? o.siteGuName : '') + '|' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + '|' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+                                                        : ((o.zipCode != null ? o.zipCode : '') + '|' + (o.doName != null ? o.doName : '') + '|' + (o.siName != null ? o.siName : '') + '|' + (o.guName != null ? o.guName : '') + '|' + (o.roadAddress != null ? o.roadAddress : '') + '|' + (o.detailAddress != null ? o.detailAddress : ''))},
                                                     data-order-status=${o.status != null ? o.status.name() : ''},
                                                     data-delivery-section='other'
                                                 ">
@@ -427,7 +451,7 @@
 													<div class="text-section">
 														<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
 															<strong>업체명:</strong>
-															<span
+															<span class="delivery-list-added-company-value"
 																th:text="${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null ? o.task.requestedBy.company.companyName : '-'}"></span>
 
 															<span class="badge bg-secondary"
@@ -443,10 +467,10 @@
 
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
-															<span
+															<span class="delivery-list-added-address-value"
 																th:text="${useSiteAddress
-																	? ((o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-																	: ((o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+																	? ((o.siteDoName != null ? o.siteDoName : '') + ' ' + (o.siteSiName != null ? o.siteSiName : '') + ' ' + (o.siteGuName != null ? o.siteGuName : '') + ' ' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
+																	: ((o.doName != null ? o.doName : '') + ' ' + (o.siName != null ? o.siName : '') + ' ' + (o.guName != null ? o.guName : '') + ' ' + (o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
 															</span>
 														</div>
 

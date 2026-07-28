@@ -28,7 +28,7 @@ public class OrderExcelPreviewGroupDto {
 
     /**
      * 동일 배송지 Task 묶음 기준 배송 담당자입니다.
-     * 화면에서는 배송수단 옆에 표시하고, 저장 시 각 Order에 동일하게 반영합니다.
+     * 화면에서는 배송수단 옆에 표시합니다. 저장 시 고객 발주/취소 Order는 제외하고 나머지 Order에 반영합니다.
      */
     private String deliveryHandlerName;
     private Long deliveryHandlerMemberId;

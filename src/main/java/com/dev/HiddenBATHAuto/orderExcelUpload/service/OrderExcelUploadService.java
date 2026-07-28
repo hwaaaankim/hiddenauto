@@ -179,12 +179,21 @@ public class OrderExcelUploadService {
                     groupRequest.getDeliveryMethodId(),
                     groupRequest.getGroupNo()
             );
-            autoAssignDeliveryHandlerForSaveIfPossible(groupRequest, deliveryMethod);
-            Member groupDeliveryHandler = resolveDeliveryHandlerForSave(
-                    groupRequest,
-                    groupRequest.getGroupNo(),
-                    deliveryMethod
-            );
+
+            // 고객 발주/취소 상태만 저장되는 Task는 배송수단과 무관하게 배송담당자를 배정하지 않습니다.
+            // 혼합 상태 Task인 경우에는 배정 가능한 상태의 Order에만 기존 담당자를 적용합니다.
+            boolean hasHandlerAssignableRows = hasDeliveryHandlerAssignableRows(rows);
+            Member groupDeliveryHandler = null;
+            if (hasHandlerAssignableRows) {
+                autoAssignDeliveryHandlerForSaveIfPossible(groupRequest, deliveryMethod);
+                groupDeliveryHandler = resolveDeliveryHandlerForSave(
+                        groupRequest,
+                        groupRequest.getGroupNo(),
+                        deliveryMethod
+                );
+            } else {
+                clearDeliveryHandlerSelection(groupRequest);
+            }
 
             LocalDateTime now = LocalDateTime.now();
 
@@ -204,7 +213,14 @@ public class OrderExcelUploadService {
                 LocalDate deliveryDate = parseRequiredDate(rowRequest.getPreferredDeliveryDate(), rowRequest.getExcelRowNumber(), groupRequest.getGroupNo());
                 TeamCategory productionCategory = resolveProductionCategoryForSave(rowRequest, groupRequest.getGroupNo());
                 OrderStatus orderStatus = resolveOrderStatusForSave(rowRequest, productionCategory, groupRequest.getGroupNo());
-                Member deliveryHandler = groupDeliveryHandler;
+                Member deliveryHandler = isDeliveryHandlerAssignmentAllowed(orderStatus)
+                        ? groupDeliveryHandler
+                        : null;
+
+                if (deliveryHandler == null && isDeliveryHandlerAssignmentExcluded(orderStatus)) {
+                    rowRequest.setDeliveryHandlerMemberId(null);
+                    rowRequest.setDeliveryHandlerName("");
+                }
 
                 Order order = new Order();
                 order.setTask(task);
@@ -764,7 +780,16 @@ public class OrderExcelUploadService {
      * 도/시/구 값만 맞으면 저장 단계에서 배송담당자가 자동으로 채워집니다.
      */
     private void autoAssignDeliveryHandlerForSaveIfPossible(OrderExcelSaveGroupRequest group, DeliveryMethod selectedMethod) {
-        if (group == null || group.getDeliveryHandlerMemberId() != null) {
+        if (group == null) {
+            return;
+        }
+
+        if (!hasDeliveryHandlerAssignableRows(activeRows(group))) {
+            clearDeliveryHandlerSelection(group);
+            return;
+        }
+
+        if (group.getDeliveryHandlerMemberId() != null) {
             return;
         }
 
@@ -933,12 +958,15 @@ public class OrderExcelUploadService {
                     }
                 });
 
-        row.setOrderStatus(resolveDefaultOrderStatus(row.getCategoryName(), row.getQuantity()).name());
+        OrderStatus defaultOrderStatus = resolveDefaultOrderStatus(row.getCategoryName(), row.getQuantity());
+        row.setOrderStatus(defaultOrderStatus.name());
 
-        if (deliveryRule.isHandlerAssignable() && groupDeliveryHandler != null) {
+        if (isDeliveryHandlerAssignmentAllowed(defaultOrderStatus)
+                && deliveryRule.isHandlerAssignable()
+                && groupDeliveryHandler != null) {
             row.setDeliveryHandlerMemberId(groupDeliveryHandler.getId());
             row.setDeliveryHandlerName(groupDeliveryHandler.getName());
-        } else if (deliveryRule.isNoHandlerRule()) {
+        } else if (deliveryRule.isNoHandlerRule() || isDeliveryHandlerAssignmentExcluded(defaultOrderStatus)) {
             row.setDeliveryHandlerMemberId(null);
             row.setDeliveryHandlerName("");
         }
@@ -967,13 +995,19 @@ public class OrderExcelUploadService {
         }
 
         for (OrderExcelSaveGroupRequest group : request.getGroups()) {
-            if (activeRows(group).isEmpty()) {
+            List<OrderExcelSaveRowRequest> rows = activeRows(group);
+            if (rows.isEmpty()) {
                 continue;
             }
 
             validateCompanyForSave(group, issues);
             validateRequestedByForSave(group, issues);
             validateManagerForSave(group, issues);
+
+            // 상태를 먼저 검증·정규화해야 배송담당자 배정 대상 Order가 있는지 정확히 판단할 수 있습니다.
+            for (OrderExcelSaveRowRequest row : rows) {
+                validateRowForSave(row, group, issues);
+            }
 
             DeliveryMethod selectedMethod = null;
             if (group.getDeliveryMethodId() == null) {
@@ -986,8 +1020,13 @@ public class OrderExcelUploadService {
             }
 
             if (selectedMethod != null) {
-                autoAssignDeliveryHandlerForSaveIfPossible(group, selectedMethod);
-                validateGroupDeliveryHandlerForSave(group, selectedMethod, issues);
+                if (hasDeliveryHandlerAssignableRows(rows)) {
+                    autoAssignDeliveryHandlerForSaveIfPossible(group, selectedMethod);
+                    validateGroupDeliveryHandlerForSave(group, selectedMethod, issues);
+                } else {
+                    // 고객 발주/취소만 포함된 경우 전달된 담당자 값도 서버에서 제거합니다.
+                    clearDeliveryHandlerSelection(group);
+                }
 
                 OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
                 if (selectedRule != null
@@ -1000,10 +1039,6 @@ public class OrderExcelUploadService {
                             selectedRule.getLabel() + "은(는) 현장 배송지 주소가 필요합니다."
                     ));
                 }
-            }
-
-            for (OrderExcelSaveRowRequest row : activeRows(group)) {
-                validateRowForSave(row, group, issues);
             }
         }
 
@@ -1248,6 +1283,11 @@ public class OrderExcelUploadService {
             int groupNo,
             DeliveryMethod selectedMethod
     ) {
+        if (!hasDeliveryHandlerAssignableRows(activeRows(group))) {
+            clearDeliveryHandlerSelection(group);
+            return null;
+        }
+
         OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
         if (selectedRule == null || !selectedRule.isHandlerAssignable()) {
             return null;
@@ -1333,10 +1373,12 @@ public class OrderExcelUploadService {
     ) {
         String statusValue = safe(row.getOrderStatus());
         if (statusValue.isBlank()) {
-            return resolveDefaultOrderStatus(
+            OrderStatus defaultStatus = resolveDefaultOrderStatus(
                     resolveOptionCategoryName(row, routingCategory),
                     row.getQuantity()
             );
+            row.setOrderStatus(defaultStatus.name());
+            return defaultStatus;
         }
 
         for (OrderStatus status : OrderStatus.values()) {
@@ -1360,6 +1402,72 @@ public class OrderExcelUploadService {
         return isBathroomGoodsCategory(categoryName)
                 ? OrderStatus.PRODUCTION_DONE
                 : OrderStatus.CONFIRMED;
+    }
+
+
+    /**
+     * 고객 발주와 취소 상태는 배송 진행 대상이 아니므로 배송수단과 관계없이
+     * 배송담당자/배송팀/배송순번을 생성하지 않습니다.
+     */
+    private boolean isDeliveryHandlerAssignmentExcluded(OrderStatus status) {
+        return status == OrderStatus.REQUESTED || status == OrderStatus.CANCELED;
+    }
+
+    private boolean isDeliveryHandlerAssignmentAllowed(OrderStatus status) {
+        return status != null && !isDeliveryHandlerAssignmentExcluded(status);
+    }
+
+    /**
+     * 하나의 Task 안에 상태가 섞여 있을 수 있으므로 저장 대상 행 중 한 건이라도
+     * 배송담당자 배정 가능 상태이면 기존 그룹 담당자 선택 규칙을 유지합니다.
+     */
+    private boolean hasDeliveryHandlerAssignableRows(List<OrderExcelSaveRowRequest> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return false;
+        }
+
+        for (OrderExcelSaveRowRequest row : rows) {
+            OrderStatus status = parseOrderStatus(row == null ? null : row.getOrderStatus());
+            if (isDeliveryHandlerAssignmentAllowed(status)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private OrderStatus parseOrderStatus(String value) {
+        String normalized = safe(value);
+        if (normalized.isBlank()) {
+            return null;
+        }
+
+        for (OrderStatus status : OrderStatus.values()) {
+            if (status.name().equalsIgnoreCase(normalized) || status.getLabel().equals(normalized)) {
+                return status;
+            }
+        }
+        return null;
+    }
+
+    private void clearDeliveryHandlerSelection(OrderExcelSaveGroupRequest group) {
+        if (group == null) {
+            return;
+        }
+
+        group.setDeliveryHandlerMemberId(null);
+        group.setDeliveryHandlerName("");
+
+        if (group.getRows() == null) {
+            return;
+        }
+
+        for (OrderExcelSaveRowRequest row : group.getRows()) {
+            if (row == null) {
+                continue;
+            }
+            row.setDeliveryHandlerMemberId(null);
+            row.setDeliveryHandlerName("");
+        }
     }
 
     private void applyCompanyAddress(Order order, OrderExcelSaveGroupRequest group, Company company) {

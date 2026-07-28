@@ -28,6 +28,16 @@
 		"제품시리즈ID"
 	]);
 
+	/*
+	 * 신규 등록 방식에서는 규격제품이어도 DB 제품시리즈와 연결되지 않은 상태로
+	 * 제품시리즈ID가 없거나 빈 값일 수 있습니다.
+	 * 이 값은 수정 가능한 일반 옵션이 아니라 선택적 연동 메타데이터이므로,
+	 * 비어 있을 때 저장을 차단하지 않고 optionJson에서 제외합니다.
+	 */
+	const OPTION_OPTIONAL_FIXED_KEYS = new Set([
+		"제품시리즈ID"
+	]);
+
 	const OPTION_DELETE_BLOCKED_KEYS = new Set([
 		"카테고리",
 		"제품시리즈",
@@ -150,26 +160,26 @@
 			return;
 		}
 
-		syncDeliveryMethodDependentState(form, false);
+		syncDeliveryMethodDependentState(form, false, false);
 
 		methodSelect.addEventListener("change", function() {
-			syncDeliveryMethodDependentState(form, true);
+			syncDeliveryMethodDependentState(form, true, false);
 		});
 
 		const statusSelect = form.querySelector(SELECTORS.statusSelect);
 		if (statusSelect) {
 			statusSelect.addEventListener("change", function() {
-				syncDeliveryMethodDependentState(form, false);
+				syncDeliveryMethodDependentState(form, false, true);
 			});
 		}
 	}
 
-	function syncDeliveryMethodDependentState(form, changedByUser) {
-		syncDeliveryHandlerState(form);
+	function syncDeliveryMethodDependentState(form, changedByUser, statusChangedByUser) {
+		syncDeliveryHandlerState(form, statusChangedByUser);
 		syncAddressSections(form, changedByUser);
 	}
 
-	function syncDeliveryHandlerState(form) {
+	function syncDeliveryHandlerState(form, statusChangedByUser) {
 		const methodSelect = form.querySelector(SELECTORS.deliveryMethodSelect);
 		const handlerSelect = form.querySelector(SELECTORS.deliveryHandlerSelect);
 		const help = form.querySelector(".admin-task-list-second-delivery-handler-help");
@@ -179,16 +189,24 @@
 		}
 
 		const methodName = resolveSelectedDeliveryMethodName(methodSelect);
-		const required = REQUIRED_HANDLER_METHOD_NAMES.has(methodName);
-		const canceled = isCanceledStatus(form);
+		const required = isDeliveryHandlerRequiredMethodName(methodName);
+		const assignmentBlocked = isDeliveryAssignmentBlockedStatus(form);
 
-		if (canceled) {
+		if (assignmentBlocked) {
+			/*
+			 * 최초 로딩부터 고객 발주/취소인 과거 데이터에 잘못 남아 있는 담당자는
+			 * 복원 후보로 보관하지 않습니다. 사용자가 활성 상태에서 고객 발주/취소로
+			 * 직접 바꾼 경우에만 같은 수정 화면 안에서 원래 선택값을 복원합니다.
+			 */
+			if (statusChangedByUser && handlerSelect.value) {
+				handlerSelect.dataset.lastAllowedHandlerId = handlerSelect.value;
+			}
 			handlerSelect.value = "";
 			handlerSelect.disabled = true;
 			handlerSelect.required = false;
 			handlerSelect.classList.add("bg-light");
 			if (help) {
-				help.textContent = "취소 상태에서는 배송담당자와 배송순서가 저장되지 않습니다.";
+				help.textContent = "고객 발주 또는 취소 상태에서는 배송담당자와 배송순서가 저장되지 않습니다.";
 			}
 			return;
 		}
@@ -196,6 +214,15 @@
 		handlerSelect.disabled = false;
 		handlerSelect.required = required;
 		handlerSelect.classList.remove("bg-light");
+
+		if (!handlerSelect.value && handlerSelect.dataset.lastAllowedHandlerId) {
+			const restorableOption = Array.from(handlerSelect.options).some(function(option) {
+				return option.value === handlerSelect.dataset.lastAllowedHandlerId;
+			});
+			if (restorableOption) {
+				handlerSelect.value = handlerSelect.dataset.lastAllowedHandlerId;
+			}
+		}
 
 		if (help) {
 			help.textContent = required
@@ -279,12 +306,13 @@
 		}
 
 		const methodName = resolveSelectedDeliveryMethodName(methodSelect);
-		const required = REQUIRED_HANDLER_METHOD_NAMES.has(methodName);
-		const canceled = isCanceledStatus(form);
+		const required = isDeliveryHandlerRequiredMethodName(methodName);
+		const assignmentBlocked = isDeliveryAssignmentBlockedStatus(form);
 
-		if (canceled) {
+		if (assignmentBlocked) {
 			handlerSelect.value = "";
 			handlerSelect.disabled = true;
+			handlerSelect.required = false;
 			return;
 		}
 
@@ -348,13 +376,31 @@
 			.trim();
 	}
 
-	function isSiteDeliverySelected(methodSelect) {
-		return resolveSelectedDeliveryMethodName(methodSelect) === SITE_DELIVERY_METHOD_NAME;
+	function isDeliveryHandlerRequiredMethodName(methodName) {
+		const normalized = String(methodName || "").trim().replace(/\s+/g, "");
+		if (!normalized) {
+			return false;
+		}
+
+		return Array.from(REQUIRED_HANDLER_METHOD_NAMES).some(function(requiredName) {
+			return normalized.includes(String(requiredName || "").replace(/\s+/g, ""));
+		});
 	}
 
-	function isCanceledStatus(form) {
+	function isSiteDeliverySelected(methodSelect) {
+		const normalized = String(resolveSelectedDeliveryMethodName(methodSelect) || "")
+			.trim()
+			.replace(/\s+/g, "");
+		return normalized.includes(SITE_DELIVERY_METHOD_NAME.replace(/\s+/g, ""));
+	}
+
+	function isDeliveryAssignmentBlockedStatus(form) {
 		const statusSelect = form.querySelector(SELECTORS.statusSelect);
-		return statusSelect && statusSelect.value === "CANCELED";
+		if (!statusSelect) {
+			return false;
+		}
+
+		return statusSelect.value === "REQUESTED" || statusSelect.value === "CANCELED";
 	}
 
 	// =========================================================
@@ -904,16 +950,29 @@
 		const rows = Array.from(optionBox.querySelectorAll(".admin-task-list-second-option-edit-item"));
 
 		rows.forEach(function(row) {
-			const key = row.dataset.optionKey;
+			const key = String(row.dataset.optionKey || "").trim();
 			const input = row.querySelector(".admin-task-list-second-option-value-input");
 			if (!key || !input) {
 				return;
 			}
 
 			const value = input.value.trim();
+			const optionalFixed = row.dataset.optionOptional === "true"
+				|| OPTION_OPTIONAL_FIXED_KEYS.has(key);
+
+			/*
+			 * 제품시리즈ID는 기존 DB 제품과의 선택적 연결값입니다.
+			 * 값이 없거나 빈 문자열로 저장된 규격제품은 해당 키를 JSON에서 제외하고,
+			 * 나머지 옵션 수정 내용은 그대로 저장할 수 있도록 허용합니다.
+			 */
+			if (!value && optionalFixed) {
+				return;
+			}
+
 			if (!value) {
 				throw new Error(key + " 값은 비울 수 없습니다.");
 			}
+
 			if (OPTION_VALUE_FIXED_KEYS.has(key) && input.disabled === false) {
 				throw new Error(key + " 값은 수정할 수 없습니다.");
 			}

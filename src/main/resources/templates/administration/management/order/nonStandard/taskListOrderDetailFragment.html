@@ -93,10 +93,11 @@
 						<div class="alert alert-info admin-task-list-second-edit-notice" role="alert">
 							<strong>수정 안내</strong>
 							<div>
-								현장배송 선택 시 현장주소가 표시되며 필수로 입력해야 합니다.
-								직배송, 화물, 현장배송은 배송팀 담당자 지정이 필수입니다.
-								택배/방문 등 그 외 배송수단도 담당자를 지정하면 배송담당자 화면의 기타 영역에 표시됩니다.
-								단, 순서변경/업체별정렬/배송완료/담당자변경은 직배송 또는 현장배송 건만 가능합니다.
+								고객 발주 또는 취소 상태에서는 배송수단과 관계없이 배송담당자를 지정할 수 없으며,
+								기존 배송담당자와 배송순서 정보도 저장 시 자동 삭제됩니다.
+								승인 완료·생산 완료·출고 완료·배송 완료 상태에서는 직배송, 화물, 현장배송의 배송팀 담당자 지정이 필수입니다.
+								택배/방문 등 그 외 배송수단은 담당자 지정이 선택사항이며, 지정하면 배송담당자 화면의 기타 영역에 표시됩니다.
+								단, 순서변경/업체별정렬/배송완료/담당자변경은 기존 배송팀 정책에 따라 가능한 건만 처리됩니다.
 							</div>
 						</div>
 
@@ -148,7 +149,7 @@
 										</option>
 									</select>
 									<div class="form-text">
-										취소 상태로 저장하면 배송순서 정보는 자동 삭제됩니다.
+										고객 발주 또는 취소 상태로 저장하면 배송담당자와 배송순서 정보가 자동 삭제됩니다.
 									</div>
 								</div>
 							</div>
@@ -320,7 +321,7 @@
 										</option>
 									</select>
 									<div class="form-text admin-task-list-second-delivery-method-help">
-										현장배송 선택 시 현장주소가 표시됩니다. 직배송, 화물, 현장배송은 담당자 지정이 필수입니다.
+										승인 완료·생산 완료·출고 완료·배송 완료 상태에서 직배송, 화물, 현장배송은 담당자 지정이 필수입니다. 고객 발주·취소 상태에서는 지정할 수 없습니다.
 									</div>
 								</div>
 							</div>
@@ -342,7 +343,7 @@
 										</option>
 									</select>
 									<div class="form-text admin-task-list-second-delivery-handler-help">
-										직배송, 화물, 현장배송은 필수입니다. 그 외 배송수단은 선택사항이며 지정 시 배송담당자 화면의 기타 영역에 표시됩니다.
+										고객 발주·취소 상태에서는 지정할 수 없습니다. 그 외 상태에서는 직배송, 화물, 현장배송이 필수이며 다른 배송수단은 선택사항입니다.
 									</div>
 								</div>
 							</div>
@@ -577,6 +578,7 @@
 											<strong>제품 옵션</strong>
 											<p>
 												카테고리/제품시리즈/제품시리즈ID는 DB 연동값이라 수정할 수 없습니다.
+												단, 제품시리즈ID가 없는 규격제품도 기존 값 그대로 정상 저장할 수 있습니다.
 												제품명, 사이즈, 색상은 삭제할 수 없으며 값 수정만 가능합니다.
 											</p>
 										</div>
@@ -593,7 +595,8 @@
 											th:classappend="${entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID'} ? ' admin-task-list-second-option-edit-item-locked' : ''"
 											th:attr="data-option-key=${entry.key},
 											         data-option-editable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID')},
-											         data-option-deletable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID' or entry.key == '제품명' or entry.key == '사이즈' or entry.key == '색상')}">
+											         data-option-deletable=${!(entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID' or entry.key == '제품명' or entry.key == '사이즈' or entry.key == '색상')},
+											         data-option-optional=${entry.key == '제품시리즈ID'}">
 											<div class="admin-task-list-second-option-key" th:text="${entry.key}">
 												옵션명
 											</div>
@@ -602,6 +605,7 @@
 												<input type="text"
 													class="form-control form-control-sm admin-task-list-second-option-value-input"
 													th:value="${entry.value}"
+													th:placeholder="${entry.key == '제품시리즈ID'} ? '연결 ID 없음 (저장 가능)' : ''"
 													disabled>
 											</div>
 
@@ -617,8 +621,12 @@
 													삭제
 												</button>
 												<span class="admin-task-list-second-option-lock-text"
-													th:if="${entry.key == '카테고리' or entry.key == '제품시리즈' or entry.key == '제품시리즈ID'}">
+													th:if="${entry.key == '카테고리' or entry.key == '제품시리즈' or (entry.key == '제품시리즈ID' and entry.value != null and !#strings.isEmpty(#strings.trim(entry.value)))}">
 													고정
+												</span>
+												<span class="admin-task-list-second-option-lock-text"
+													th:if="${entry.key == '제품시리즈ID' and (entry.value == null or #strings.isEmpty(#strings.trim(entry.value)))}">
+													ID 없음·저장 가능
 												</span>
 											</div>
 										</div>

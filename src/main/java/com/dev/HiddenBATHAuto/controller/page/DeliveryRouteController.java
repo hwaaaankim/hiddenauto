@@ -68,10 +68,10 @@ public class DeliveryRouteController {
     }
 
     /**
-     * 업체별 배송 화면에서 현재 조회된 주문을 화면 표시 순서대로 데이터 엑셀로 내려받습니다.
-     *
-     * 기존 명세서 엑셀과는 별개의 일반 데이터 엑셀입니다. 수량은 숫자 셀로 기록하며
-     * 반품/회수용 음수 수량도 0으로 보정하지 않고 그대로 보존합니다.
+     * 업체별 배송 화면에서 현재 조회된 주문을 화면 표시 순서대로 엑셀로 내려받습니다.
+     * deliveryList.html의 일반 배송리스트 엑셀과 동일한 DeliveryExcelService를 사용하므로
+     * 디자인, 열 구성, A4 가로 레이아웃과 출력 항목이 동일합니다.
+     * 반품/회수용 음수 수량도 숫자 셀로 그대로 보존합니다.
      */
     @PostMapping("/excel")
     @ResponseBody
@@ -104,6 +104,10 @@ public class DeliveryRouteController {
                 throw new IllegalArgumentException("업체별 배송 화면 엑셀은 같은 날짜 범위만 출력할 수 있습니다.");
             }
 
+            /*
+             * DeliveryRouteService.createRouteExcel 내부에서 기존 deliveryList.html과
+             * 동일한 DeliveryExcelService를 사용합니다.
+             */
             byte[] excelBytes = deliveryRouteService.createRouteExcel(
                     loginMember,
                     deliveryDate,

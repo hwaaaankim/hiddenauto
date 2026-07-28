@@ -29,6 +29,7 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.dev.HiddenBATHAuto.utils.DeliveryProductDisplayUtil;
 import com.dev.HiddenBATHAuto.utils.OrderItemOptionJsonUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -40,8 +41,6 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class DeliveryExcelService {
-
-    private static final String SITE_DELIVERY_METHOD_NAME = "현장배송";
 
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final ObjectMapper objectMapper;
@@ -141,6 +140,10 @@ public class DeliveryExcelService {
             centerBodyStyle.cloneStyleFrom(bodyStyle);
             centerBodyStyle.setAlignment(HorizontalAlignment.CENTER);
 
+            CellStyle quantityBodyStyle = wb.createCellStyle();
+            quantityBodyStyle.cloneStyleFrom(centerBodyStyle);
+            quantityBodyStyle.setDataFormat(wb.createDataFormat().getFormat("0;-0;0"));
+
             int r = 0;
 
             Row titleRow = sheet.createRow(r++);
@@ -224,9 +227,7 @@ public class DeliveryExcelService {
                         : "";
 
                 String address = buildExcelAddress(order);
-                int quantity = item != null && item.getQuantity() > 0
-                        ? item.getQuantity()
-                        : Math.max(0, order.getQuantity());
+                int quantity = resolveSignedQuantity(order, item);
 
                 Row row = sheet.createRow(r++);
                 row.setHeightInPoints(46);
@@ -235,7 +236,7 @@ public class DeliveryExcelService {
                 createCell(row, 1, valueOrDash(productName), bodyStyle);
                 createCell(row, 2, valueOrDash(size), bodyStyle);
                 createCell(row, 3, valueOrDash(color), centerBodyStyle);
-                createCell(row, 4, String.valueOf(quantity), centerBodyStyle);
+                createNumericCell(row, 4, quantity, quantityBodyStyle);
                 createCell(row, 5, valueOrDash(order.getAdminMemo()), bodyStyle);
                 createCell(row, 6, valueOrDash(category), centerBodyStyle);
                 createCell(row, 7, valueOrDash(deliveryMethodName), centerBodyStyle);
@@ -347,7 +348,7 @@ public class DeliveryExcelService {
             return "";
         }
 
-        if (isSiteDelivery(order)) {
+        if (hasMeaningfulSiteAddress(order)) {
             String siteAddress = buildSiteAddress(order);
 
             if (!siteAddress.isBlank()) {
@@ -392,14 +393,30 @@ public class DeliveryExcelService {
         return String.join(" ", parts);
     }
 
-    private boolean isSiteDelivery(Order order) {
-        if (order == null || order.getDeliveryMethod() == null) {
+    private boolean hasMeaningfulSiteAddress(Order order) {
+        if (order == null) {
             return false;
         }
 
-        String methodName = safe(order.getDeliveryMethod().getMethodName()).replaceAll("\\s+", "");
+        return DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
+                order.getSiteDoName(),
+                order.getSiteSiName(),
+                order.getSiteGuName(),
+                order.getSiteRoadAddress(),
+                order.getSiteDetailAddress()
+        );
+    }
 
-        return SITE_DELIVERY_METHOD_NAME.equals(methodName);
+    /**
+     * 반품/회수 주문의 음수 수량을 그대로 보존합니다.
+     * OrderItem 수량이 0이면 과거 데이터 호환을 위해 Order 수량을 사용합니다.
+     */
+    private int resolveSignedQuantity(Order order, OrderItem item) {
+        if (item != null && item.getQuantity() != 0) {
+            return item.getQuantity();
+        }
+
+        return order != null ? order.getQuantity() : 0;
     }
 
     private void addIfNotBlank(List<String> list, String value) {
@@ -434,6 +451,12 @@ public class DeliveryExcelService {
         Cell cell = row.createCell(col);
         cell.setCellStyle(style);
         cell.setCellValue(val == null ? "" : val);
+    }
+
+    private static void createNumericCell(Row row, int col, int val, CellStyle style) {
+        Cell cell = row.createCell(col);
+        cell.setCellStyle(style);
+        cell.setCellValue(val);
     }
 
     private static void setAllBorders(CellStyle style) {
