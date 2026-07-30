@@ -1,0 +1,74 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<body>
+<th:block th:fragment="revisionNotice">
+    <div class="modal fade"
+         id="team-production-detail-revision-notice-modal"
+         tabindex="-1"
+         aria-hidden="true"
+         th:if="${productionRevisedBeforeCheck and productionRevisionNotices != null and !productionRevisionNotices.isEmpty()}">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning-subtle">
+                    <div>
+                        <h5 class="modal-title">확인 이후 변경된 내용</h5>
+                        <div class="small text-muted mt-1">이 화면을 연 시점으로 개인 확인상태가 갱신되었습니다.</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="border rounded p-3 mb-3"
+                         th:each="notice : ${productionRevisionNotices}">
+                        <div class="fw-bold" th:text="${notice.summary}">변경내용</div>
+                        <div class="small text-muted mt-1">
+                            <span th:text="${notice.sourceAreaLabel}">관리팀</span>
+                            ·
+                            <strong th:text="${notice.actorDisplayName != null and notice.actorDisplayName != '' ? notice.actorDisplayName : notice.actorUsername}">수정자</strong>
+                            ·
+                            <span th:text="${notice.changedAtText}">수정일</span>
+                            ·
+                            <span th:text="${notice.operationLabel}">수정</span>
+                        </div>
+                        <div class="small text-muted mt-1"
+                             th:if="${notice.requestPath != null and notice.requestPath != ''}"
+                             th:text="|처리 경로: ${notice.requestPath}|">처리 경로</div>
+
+                        <div class="table-responsive mt-2"
+                             th:if="${notice.fields != null and !notice.fields.isEmpty()}">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th style="width:22%;">항목</th>
+                                    <th>변경 전</th>
+                                    <th>변경 후</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="field : ${notice.fields}">
+                                    <th th:text="${field.fieldLabel}">항목</th>
+                                    <td th:text="${field.beforeValue}">변경 전</td>
+                                    <td th:text="${field.afterValue}">변경 후</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">내용 확인</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:if="${productionRevisedBeforeCheck and productionRevisionNotices != null and !productionRevisionNotices.isEmpty()}">
+        document.addEventListener('DOMContentLoaded', function () {
+            var modalElement = document.getElementById('team-production-detail-revision-notice-modal');
+            if (modalElement && window.bootstrap) {
+                window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+            }
+        });
+    </script>
+</th:block>
+</body>
+</html>

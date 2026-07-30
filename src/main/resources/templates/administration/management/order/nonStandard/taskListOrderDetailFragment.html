@@ -83,6 +83,113 @@
 						</div>
 					</div>
 
+                    <div class="row g-3 mb-3">
+                        <div class="col-xl-4">
+                            <div class="card h-100 border">
+                                <div class="card-header bg-light">
+                                    <strong>생산팀 개인 확인현황</strong>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="text-muted small p-3"
+                                        th:if="${productionMemberCheckStates == null or productionMemberCheckStates.isEmpty()}">
+                                        아직 개인 확인기록이 없습니다.
+                                    </div>
+                                    <div class="table-responsive"
+                                        th:if="${productionMemberCheckStates != null and !productionMemberCheckStates.isEmpty()}">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>직원</th>
+                                                    <th class="text-center">상태</th>
+                                                    <th>최종확인</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="checkState : ${productionMemberCheckStates}">
+                                                    <td>
+                                                        <div class="fw-semibold"
+                                                            th:text="${checkState.memberName != null and checkState.memberName != '' ? checkState.memberName : checkState.username}">
+                                                            직원
+                                                        </div>
+                                                        <div class="small text-muted"
+                                                            th:if="${checkState.username != null and checkState.username != ''}"
+                                                            th:text="${checkState.username}">username</div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span class="badge"
+                                                            th:classappend="${checkState.checkState == 'REVISED_AFTER_CHECK'}
+                                                                ? ' bg-danger-subtle text-danger'
+                                                                : ' bg-success-subtle text-success'"
+                                                            th:text="${checkState.checkStateLabel}">확인</span>
+                                                    </td>
+                                                    <td class="small" th:text="${checkState.checkedAtText != null and checkState.checkedAtText != '' ? checkState.checkedAtText : '-'}">-</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-8">
+                            <div class="card h-100 border">
+                                <div class="card-header bg-light d-flex align-items-center justify-content-between">
+                                    <strong>오더 변경이력</strong>
+                                    <span class="badge bg-secondary-subtle text-secondary"
+                                        th:text="${orderChangeHistory != null ? orderChangeHistory.size() : 0} + '건'">0건</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-muted small"
+                                        th:if="${orderChangeHistory == null or orderChangeHistory.isEmpty()}">
+                                        기록된 변경이력이 없습니다.
+                                    </div>
+
+                                    <div class="vstack gap-3"
+                                        th:if="${orderChangeHistory != null and !orderChangeHistory.isEmpty()}">
+                                        <div class="border rounded p-3" th:each="history : ${orderChangeHistory}">
+                                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                                <div>
+                                                    <strong th:text="${history.summary}">변경내용</strong>
+                                                    <span class="badge bg-info-subtle text-info ms-1"
+                                                        th:text="${history.sourceAreaLabel}">관리팀</span>
+                                                </div>
+                                                <span class="small text-muted" th:text="${history.changedAtText}">일시</span>
+                                            </div>
+                                            <div class="small mt-1">
+                                                수정자:
+                                                <strong th:text="${history.actorDisplayName != null and history.actorDisplayName != '' ? history.actorDisplayName : history.actorUsername}">관리자</strong>
+                                                <span class="text-muted ms-2" th:text="${history.operationLabel}">수정</span>
+                                            </div>
+                                            <div class="small text-muted mt-1"
+                                                th:if="${history.requestPath != null and history.requestPath != ''}"
+                                                th:text="|처리 경로: ${history.requestPath}|">처리 경로</div>
+
+                                            <div class="table-responsive mt-2"
+                                                th:if="${history.fields != null and !history.fields.isEmpty()}">
+                                                <table class="table table-sm table-bordered align-middle mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th style="width:22%;">항목</th>
+                                                            <th>변경 전</th>
+                                                            <th>변경 후</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr th:each="field : ${history.fields}">
+                                                            <th th:text="${field.fieldLabel}">항목</th>
+                                                            <td th:text="${field.beforeValue}">변경 전</td>
+                                                            <td th:text="${field.afterValue}">변경 후</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
 					<form th:action="@{'/management/nonStandardOrderItemUpdate/' + ${row.orderId}}"
 						method="POST"
 						enctype="multipart/form-data"

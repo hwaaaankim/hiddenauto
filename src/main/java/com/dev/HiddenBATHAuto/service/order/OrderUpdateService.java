@@ -22,6 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
@@ -71,6 +74,7 @@ public class OrderUpdateService {
 	private final OrderImageRepository orderImageRepository;
 	private final ObjectMapper objectMapper;
 	private final OrderCheckStatusService orderCheckStatusService;
+	private final OrderChangeAuditService orderChangeAuditService;
 
 	@Value("${spring.upload.path}")
 	private String uploadRootPath;
@@ -263,9 +267,19 @@ public class OrderUpdateService {
 		ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
 		boolean productionVisibleChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
 
-		orderCheckStatusService.markRevisedAfterProductionCheckIfNeeded(order, updatedByUsername,
-				productionVisibleChanged,
-				buildProductionRevisionReason(beforeSnapshot, afterSnapshot, adminImageChanged));
+        if (productionVisibleChanged) {
+            orderChangeAuditService.recordOrderChange(
+                    order,
+                    OrderChangeSourceArea.MANAGEMENT,
+                    null,
+                    updatedByUsername,
+                    updatedByUsername,
+                    "MANAGEMENT_ORDER_UPDATE",
+                    "관리자 주문 수정",
+                    "/management/nonStandardOrderItemUpdate/" + orderId,
+                    buildOrderChangeCommands(beforeSnapshot, afterSnapshot, adminImageChanged)
+            );
+        }
 	}
 
 	private Order getOrderOrThrow(Long orderId) {
@@ -421,6 +435,123 @@ public class OrderUpdateService {
 		return files.stream().anyMatch(file -> file != null && !file.isEmpty());
 	}
 
+	private List<OrderFieldChangeCommand> buildOrderChangeCommands(
+            ProductionVisibleOrderSnapshot before,
+            ProductionVisibleOrderSnapshot after,
+            boolean adminImageChanged
+    ) {
+        List<OrderFieldChangeCommand> changes = new ArrayList<>();
+
+        changes.add(OrderFieldChangeCommand.of(
+                "status",
+                "발주상태",
+                before.statusName(),
+                after.statusName(),
+                OrderWorkArea.PRODUCTION,
+                OrderWorkArea.DISPATCH,
+                OrderWorkArea.DELIVERY
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "productCategory",
+                "생산팀 카테고리",
+                before.productCategoryId(),
+                after.productCategoryId(),
+                OrderWorkArea.PRODUCTION
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "mirrorCuttingProduct",
+                "거울 재단 상품 여부",
+                before.mirrorCuttingProduct(),
+                after.mirrorCuttingProduct(),
+                OrderWorkArea.PRODUCTION
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "preferredDeliveryDate",
+                "배송희망일",
+                before.preferredDeliveryDate(),
+                after.preferredDeliveryDate(),
+                OrderWorkArea.PRODUCTION,
+                OrderWorkArea.DISPATCH,
+                OrderWorkArea.DELIVERY
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "deliveryMethod",
+                "배송수단",
+                before.deliveryMethodId(),
+                after.deliveryMethodId(),
+                OrderWorkArea.PRODUCTION,
+                OrderWorkArea.DISPATCH,
+                OrderWorkArea.DELIVERY
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "assignedDeliveryHandler",
+                "배송담당자",
+                before.assignedDeliveryHandlerId(),
+                after.assignedDeliveryHandlerId(),
+                OrderWorkArea.PRODUCTION,
+                OrderWorkArea.DISPATCH,
+                OrderWorkArea.DELIVERY
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "deliveryAddress",
+                "배송주소",
+                before.deliveryAddress(),
+                after.deliveryAddress(),
+                OrderWorkArea.PRODUCTION,
+                OrderWorkArea.DISPATCH,
+                OrderWorkArea.DELIVERY
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "siteAddress",
+                "현장주소",
+                before.siteAddress(),
+                after.siteAddress(),
+                OrderWorkArea.PRODUCTION,
+                OrderWorkArea.DISPATCH,
+                OrderWorkArea.DELIVERY
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "quantity",
+                "수량",
+                before.quantity(),
+                after.quantity(),
+                OrderWorkArea.PRODUCTION
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "adminMemo",
+                "관리자 남김말",
+                before.adminMemo(),
+                after.adminMemo(),
+                OrderWorkArea.PRODUCTION
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "optionJson",
+                "제품 옵션",
+                before.optionJson(),
+                after.optionJson(),
+                OrderWorkArea.PRODUCTION
+        ));
+        changes.add(OrderFieldChangeCommand.of(
+                "productName",
+                "제품명",
+                before.orderItemProductName(),
+                after.orderItemProductName(),
+                OrderWorkArea.PRODUCTION
+        ));
+
+        if (adminImageChanged) {
+            changes.add(OrderFieldChangeCommand.of(
+                    "managementImages",
+                    "관리자 첨부파일",
+                    "기존 파일",
+                    "추가 또는 삭제",
+                    OrderWorkArea.PRODUCTION
+            ));
+        }
+
+        return changes;
+    }
+
 	private String buildProductionRevisionReason(ProductionVisibleOrderSnapshot before,
 			ProductionVisibleOrderSnapshot after, boolean adminImageChanged) {
 		List<String> reasons = new ArrayList<>();
@@ -459,9 +590,9 @@ public class OrderUpdateService {
 		return String.join(", ", reasons) + " 수정";
 	}
 
-	private record ProductionVisibleOrderSnapshot(String statusName, Long productCategoryId,
-			boolean mirrorCuttingProduct, String preferredDeliveryDate, Long deliveryMethodId,
-			Long assignedDeliveryHandlerId, String deliveryAddress, String siteAddress, int quantity, String adminMemo,
+	private record ProductionVisibleOrderSnapshot(String statusName, String productCategoryId,
+			boolean mirrorCuttingProduct, String preferredDeliveryDate, String deliveryMethodId,
+			String assignedDeliveryHandlerId, String deliveryAddress, String siteAddress, int quantity, String adminMemo,
 			String optionJson, String orderItemProductName) {
 		static ProductionVisibleOrderSnapshot from(Order order) {
 			if (order == null) {
@@ -471,12 +602,25 @@ public class OrderUpdateService {
 
 			OrderItem orderItem = order.getOrderItem();
 
-			return new ProductionVisibleOrderSnapshot(order.getStatus() != null ? order.getStatus().name() : null,
-					order.getProductCategory() != null ? order.getProductCategory().getId() : null,
+			return new ProductionVisibleOrderSnapshot(
+                    order.getStatus() != null ? order.getStatus().getLabel() : null,
+                    order.getProductCategory() != null
+                            ? entityLabel(order.getProductCategory().getId(), order.getProductCategory().getName())
+                            : null,
 					order.isMirrorCuttingProduct(),
 					order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : null,
-					order.getDeliveryMethod() != null ? order.getDeliveryMethod().getId() : null,
-					order.getAssignedDeliveryHandler() != null ? order.getAssignedDeliveryHandler().getId() : null,
+                    order.getDeliveryMethod() != null
+                            ? entityLabel(order.getDeliveryMethod().getId(), order.getDeliveryMethod().getMethodName())
+                            : null,
+                    order.getAssignedDeliveryHandler() != null
+                            ? entityLabel(
+                                    order.getAssignedDeliveryHandler().getId(),
+                                    firstNonBlank(
+                                            order.getAssignedDeliveryHandler().getName(),
+                                            order.getAssignedDeliveryHandler().getUsername()
+                                    )
+                            )
+                            : null,
 					join(order.getZipCode(), order.getDoName(), order.getSiName(), order.getGuName(),
 							order.getRoadAddress(), order.getDetailAddress()),
 					join(order.getSiteZipCode(), order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(),
@@ -485,6 +629,23 @@ public class OrderUpdateService {
 					orderItem != null ? normalize(orderItem.getOptionJson()) : null,
 					orderItem != null ? normalize(orderItem.getProductName()) : null);
 		}
+
+        private static String firstNonBlank(String... values) {
+            if (values == null) return null;
+            for (String value : values) {
+                String normalized = normalize(value);
+                if (normalized != null) return normalized;
+            }
+            return null;
+        }
+
+        private static String entityLabel(Object id, String label) {
+            String normalizedLabel = normalize(label);
+            if (id == null) {
+                return normalizedLabel;
+            }
+            return normalizedLabel == null ? String.valueOf(id) : id + " / " + normalizedLabel;
+        }
 
 		private static String join(String... values) {
 			if (values == null) {

@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +34,7 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.service.order.DeliveryCompletionService;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryRouteService;
+import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryRouteListExcelService.DeliveryRouteListOutput;
 import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryTeamSiteStatementService;
 
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,8 @@ import lombok.extern.slf4j.Slf4j;
 @PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
 @RequiredArgsConstructor
 public class DeliveryRouteController {
+
+    private static final int MAX_ROUTE_PRINT_ORDER_COUNT = 1_000;
 
     private final DeliveryRouteService deliveryRouteService;
     private final DeliveryCompletionService deliveryCompletionService;
@@ -76,9 +80,9 @@ public class DeliveryRouteController {
 
     /**
      * 업체별 배송 화면에서 현재 조회된 주문을 화면 표시 순서대로 엑셀로 내려받습니다.
-     * deliveryList.html의 일반 배송리스트 엑셀과 동일한 DeliveryExcelService를 사용하므로
-     * 디자인, 열 구성, A4 가로 레이아웃과 출력 항목이 동일합니다.
-     * 반품/회수용 음수 수량도 숫자 셀로 그대로 보존합니다.
+     * 다른 화면의 공용 DeliveryExcelService는 수정하지 않고, 업체별 배송 전용 엑셀 서비스가
+     * 기존 공용 엑셀과 동일한 10개 열 구성과 순서로 생성합니다.
+     * 반품/회수용 음수 수량도 기존 엑셀처럼 숫자 셀로 그대로 보존합니다.
      */
     @PostMapping("/excel")
     @ResponseBody
@@ -112,8 +116,8 @@ public class DeliveryRouteController {
             }
 
             /*
-             * DeliveryRouteService.createRouteExcel 내부에서 기존 deliveryList.html과
-             * 동일한 DeliveryExcelService를 사용합니다.
+             * DeliveryRouteService.createRouteExcel 내부에서 화면 순서를 검증한 뒤
+             * 기존 공용 엑셀의 10개 열 기준으로 업체별 배송 전용 파일을 생성합니다.
              */
             byte[] excelBytes = deliveryRouteService.createRouteExcel(
                     loginMember,
@@ -147,6 +151,63 @@ public class DeliveryRouteController {
         }
     }
 
+
+    /**
+     * 업체별 배송 화면의 일반 목록 바로 인쇄입니다.
+     *
+     * 기존 /team/deliveryPrint 템플릿과 컨트롤러는 다른 화면에서 계속 사용할 수 있도록
+     * 변경하지 않고, 이 화면만 전용 템플릿으로 분리합니다.
+     */
+    @RequestMapping(value = "/print", method = {RequestMethod.GET, RequestMethod.POST})
+    public String printRouteList(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam("deliveryDate")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deliveryDate,
+            @RequestParam("orderIds") List<Long> orderIds,
+            Model model
+    ) {
+        Member loginMember = requireLoginMember(principal);
+
+        if (deliveryDate == null) {
+            throw new IllegalArgumentException("인쇄할 배송일이 없습니다.");
+        }
+
+        List<Long> normalizedOrderIds = orderIds == null
+                ? List.of()
+                : orderIds.stream()
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList();
+
+        if (normalizedOrderIds.isEmpty()) {
+            throw new IllegalArgumentException("인쇄할 배송 주문이 없습니다.");
+        }
+
+        if (normalizedOrderIds.size() > MAX_ROUTE_PRINT_ORDER_COUNT) {
+            throw new IllegalArgumentException(
+                    "한 번에 인쇄할 수 있는 주문은 최대 "
+                            + MAX_ROUTE_PRINT_ORDER_COUNT
+                            + "건입니다."
+            );
+        }
+
+        DeliveryRouteListOutput output = deliveryRouteService.buildRouteListOutput(
+                loginMember,
+                deliveryDate,
+                normalizedOrderIds
+        );
+
+        model.addAttribute("deliveryDate", output.deliveryDate());
+        model.addAttribute("handlerName", output.handlerName());
+        model.addAttribute("rowCount", output.totalOrderCount());
+        model.addAttribute("generatedAt", output.generatedAt());
+        model.addAttribute("deliveryMethodFilter", output.deliveryMethodFilter());
+        model.addAttribute("statusFilter", output.statusFilter());
+        model.addAttribute("displayOrderFilter", output.displayOrderFilter());
+        model.addAttribute("rows", output.rows());
+
+        return "administration/team/delivery/deliveryRoutePrint";
+    }
 
     /**
      * 배송팀 팀장 전용 현장명세서 프리뷰입니다.

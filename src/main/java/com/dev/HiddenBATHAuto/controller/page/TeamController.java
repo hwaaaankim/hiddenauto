@@ -54,7 +54,10 @@ import com.dev.HiddenBATHAuto.dto.delivery.DeliveryOrderSummaryRes;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskRequest;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryReorderByTaskResponse;
 import com.dev.HiddenBATHAuto.dto.production.MaterialCuttingDtos.MaterialCuttingPageResponse;
+import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
+import com.dev.HiddenBATHAuto.dto.production.ProductionCheckViewDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionListExcelRowDto;
+import com.dev.HiddenBATHAuto.dto.production.ProductionListOutputOptions;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
@@ -68,6 +71,8 @@ import com.dev.HiddenBATHAuto.model.task.AsImage;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
@@ -76,7 +81,9 @@ import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
+import com.dev.HiddenBATHAuto.service.order.DeliveryHandlerChangeAuditService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
+import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryCompletionService;
 import com.dev.HiddenBATHAuto.service.production.MaterialCuttingService;
 import com.dev.HiddenBATHAuto.service.production.ProductionListExcelService;
@@ -102,6 +109,7 @@ public class TeamController {
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final OrderRepository orderRepository;
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
+	private final DeliveryHandlerChangeAuditService deliveryHandlerChangeAuditService;
 	private final AsTaskService asTaskService;
 	private final AsImageRepository asImageRepository;
 	private final ProvinceRepository provinceRepository;
@@ -109,6 +117,7 @@ public class TeamController {
 	private final DeliveryOrderSummaryService deliveryOrderSummaryService;
 	private final DeliveryExcelService deliveryExcelService;
 	private final ProductionListExcelService productionListExcelService;
+	private final OrderChangeAuditService orderChangeAuditService;
 
 	private final MaterialCuttingService materialCuttingService;
 	private final ObjectMapper objectMapper;
@@ -164,6 +173,7 @@ public class TeamController {
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false) Long productCategoryId, @RequestParam(required = false) String orderId,
+            @RequestParam(required = false) String productName,
 			@RequestParam(required = false, defaultValue = "preferred") String dateType,
 			@RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
 
@@ -176,6 +186,7 @@ public class TeamController {
 
 		Member member = principal.getMember();
 		Long orderIdFilter = parsePositiveLongOrNull(orderId);
+        String productNameFilter = normalizeSearchText(productName);
 
 		if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
 			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
@@ -268,36 +279,59 @@ public class TeamController {
 			statusEnum = null;
 		}
 
-		String normalizedSortKey = (sortKey == null || sortKey.isBlank()) ? "checked" : sortKey.trim();
+		boolean defaultWorkSort = sortKey == null || sortKey.isBlank();
+		String normalizedSortKey = defaultWorkSort ? "" : sortKey.trim();
 
-		String normalizedSortDir = (sortDir == null || sortDir.isBlank()) ? "ASC" : sortDir.trim().toUpperCase();
+		String normalizedSortDir = (sortDir == null || sortDir.isBlank())
+				? (defaultWorkSort ? "DESC" : "ASC")
+				: sortDir.trim().toUpperCase();
 
 		if (!"ASC".equals(normalizedSortDir) && !"DESC".equals(normalizedSortDir)) {
-			normalizedSortDir = "ASC";
+			normalizedSortDir = defaultWorkSort ? "DESC" : "ASC";
 		}
 
 		boolean checkedSort = "checked".equalsIgnoreCase(normalizedSortKey);
+		boolean revisionAwareSort = defaultWorkSort || checkedSort;
 
 		/*
-		 * 확인상태 정렬은 업무 순서가 고정입니다. REVISED_AFTER_CHECK(재수정) -> UNCHECKED(미확인) ->
-		 * CHECKED(확인) 따라서 사용자가 체크 컬럼을 다시 클릭해 sortDir=DESC가 넘어와도 뒤집지 않습니다.
+		 * 기본 조회: 재수정만 최상단에 두고 나머지는 선택 날짜 기준 최신순입니다.
+		 * 체크 컬럼을 직접 선택한 경우: 재수정 -> 미확인 -> 확인 순서를 적용합니다.
 		 */
 		if (checkedSort) {
 			normalizedSortDir = "ASC";
 		}
 
-		Pageable pageable = PageRequest.of(page, size, checkedSort ? Sort.unsorted()
+		Pageable pageable = PageRequest.of(page, size, revisionAwareSort ? Sort.unsorted()
 				: buildProductionSort(normalizedSortKey, normalizedSortDir, normalizedDateType));
 
 		Page<Order> orderPage;
 
-		if (checkedSort) {
-			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(targetCategoryId,
-					orderIdFilter, normalizedDateType, statusEnum, start, end, normalizedSortDir, mirrorCuttingOnly,
-					pageable);
+		if (revisionAwareSort) {
+			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+                    targetCategoryId,
+                    orderIdFilter,
+                    productNameFilter,
+                    normalizedDateType,
+                    statusEnum,
+                    start,
+                    end,
+                    mirrorCuttingOnly,
+                    member.getId(),
+                    checkedSort,
+                    pageable
+            );
 		} else {
-			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(targetCategoryId, orderIdFilter,
-					normalizedDateType, statusEnum, start, end, mirrorCuttingOnly, pageable);
+			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
+                    targetCategoryId,
+                    orderIdFilter,
+                    productNameFilter,
+                    normalizedDateType,
+                    statusEnum,
+                    start,
+                    end,
+                    mirrorCuttingOnly,
+                    pageable
+            );
 		}
 
 		/*
@@ -345,6 +379,9 @@ public class TeamController {
 
 		List<Long> currentPageOrderIds = orderPage.getContent().stream().map(Order::getId).collect(Collectors.toList());
 
+        Map<Long, ProductionCheckViewDto> productionCheckViewMap = teamTaskService
+                .getProductionCheckViewMap(currentPageOrderIds, member);
+
 		List<TeamCategory> productCategories = buildProductionCategorySelectOptions(
 				teamCategoryRepository.findByTeamName("생산팀")
 		);
@@ -359,6 +396,7 @@ public class TeamController {
 		model.addAttribute("productCategoryId", selectedProductCategoryId);
 		model.addAttribute("targetProductCategoryId", targetCategoryId);
 		model.addAttribute("orderId", orderIdFilter);
+        model.addAttribute("productName", productNameFilter);
 		model.addAttribute("dateType", normalizedDateType);
 		model.addAttribute("statusFilter", sf);
 
@@ -381,6 +419,7 @@ public class TeamController {
 
 		model.addAttribute("orderBriefFieldMap", orderBriefFieldMap);
 		model.addAttribute("currentPageOrderIds", currentPageOrderIds);
+        model.addAttribute("productionCheckViewMap", productionCheckViewMap);
 		model.addAttribute("cuttingEligibilityMap",
 				materialCuttingService.buildCuttingEligibilityMap(orderPage.getContent()));
 
@@ -449,6 +488,14 @@ public class TeamController {
 		return status != null && PRODUCTION_LIST_VISIBLE_STATUSES.contains(status);
 	}
 	
+	private String normalizeSearchText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        return value.trim();
+    }
+
 	private Long parsePositiveLongOrNull(String value) {
 		if (!StringUtils.hasText(value)) {
 			return null;
@@ -639,24 +686,97 @@ public class TeamController {
 	}
 
 	@GetMapping("/productionList/excel")
-	public void downloadProductionListExcel(@RequestParam("orderIds") List<Long> orderIds,
-			@AuthenticationPrincipal(expression = "member") Member loginMember, HttpServletResponse response)
-			throws IOException {
+    public void downloadProductionListExcel(
+            @RequestParam("orderIds") List<Long> orderIds,
+            @AuthenticationPrincipal(expression = "member") Member loginMember,
+            HttpServletResponse response
+    ) throws IOException {
+        writeProductionListExcel(
+                orderIds,
+                ProductionListOutputOptions.defaults(),
+                loginMember,
+                response
+        );
+    }
 
-		List<ProductionListExcelRowDto> rows = teamTaskService.getProductionListExcelRowsByOrderIds(orderIds,
-				loginMember);
+    @PostMapping("/productionList/excel")
+    public void downloadProductionListExcelWithOptions(
+            @RequestParam("orderIds") List<Long> orderIds,
+            @RequestParam(value = "fontSize", defaultValue = "10") int fontSize,
+            @RequestParam(value = "includeCompanyName", defaultValue = "false") boolean includeCompanyName,
+            @RequestParam(value = "includeDeliveryDate", defaultValue = "false") boolean includeDeliveryDate,
+            @RequestParam(value = "filterSummary", required = false) String filterSummary,
+            @AuthenticationPrincipal(expression = "member") Member loginMember,
+            HttpServletResponse response
+    ) throws IOException {
+        writeProductionListExcel(
+                orderIds,
+                new ProductionListOutputOptions(
+                        fontSize,
+                        includeCompanyName,
+                        includeDeliveryDate,
+                        filterSummary
+                ),
+                loginMember,
+                response
+        );
+    }
 
-		String encodedFileName = URLEncoder.encode("생산팀_제작목록_" + LocalDate.now() + ".xlsx", StandardCharsets.UTF_8)
-				.replace("+", "%20");
+    @PostMapping("/productionList/print")
+    public String printProductionList(
+            @RequestParam("orderIds") List<Long> orderIds,
+            @RequestParam(value = "fontSize", defaultValue = "10") int fontSize,
+            @RequestParam(value = "includeCompanyName", defaultValue = "false") boolean includeCompanyName,
+            @RequestParam(value = "includeDeliveryDate", defaultValue = "false") boolean includeDeliveryDate,
+            @RequestParam(value = "filterSummary", required = false) String filterSummary,
+            @AuthenticationPrincipal(expression = "member") Member loginMember,
+            Model model
+    ) {
+        ProductionListOutputOptions options = new ProductionListOutputOptions(
+                fontSize,
+                includeCompanyName,
+                includeDeliveryDate,
+                filterSummary
+        );
 
-		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-		response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFileName);
+        List<ProductionListExcelRowDto> rows = teamTaskService
+                .getProductionListExcelRowsByOrderIds(orderIds, loginMember);
 
-		try (Workbook workbook = productionListExcelService.createProductionListWorkbook(rows)) {
-			workbook.write(response.getOutputStream());
-			response.flushBuffer();
-		}
-	}
+        model.addAttribute("rows", rows);
+        model.addAttribute("options", options);
+        model.addAttribute("filterTokens", options.filterTokens());
+        model.addAttribute("generatedAt", LocalDateTime.now());
+        model.addAttribute("rowCount", rows.size());
+
+        return "administration/team/production/productionListPrint";
+    }
+
+    private void writeProductionListExcel(
+            List<Long> orderIds,
+            ProductionListOutputOptions options,
+            Member loginMember,
+            HttpServletResponse response
+    ) throws IOException {
+        List<ProductionListExcelRowDto> rows = teamTaskService
+                .getProductionListExcelRowsByOrderIds(orderIds, loginMember);
+
+        String encodedFileName = URLEncoder.encode(
+                        "생산팀_제작목록_" + LocalDate.now() + ".xlsx",
+                        StandardCharsets.UTF_8
+                )
+                .replace("+", "%20");
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename*=UTF-8''" + encodedFileName
+        );
+
+        try (Workbook workbook = productionListExcelService.createProductionListWorkbook(rows, options)) {
+            workbook.write(response.getOutputStream());
+            response.flushBuffer();
+        }
+    }
 
 	@GetMapping("/productionList/overview-data")
 	@ResponseBody
@@ -768,8 +888,9 @@ public class TeamController {
 			throw new AccessDeniedException("해당 생산 발주를 조회할 권한이 없습니다.");
 		}
 
-		// 상세 진입 자체가 확인 처리이므로 먼저 반영합니다.
-		teamTaskService.markProductionOrderChecked(orderId, loginMember);
+		// 상세 진입 자체가 확인 처리이며, 재확인 대상이면 변경내역도 함께 모델에 전달합니다.
+        ProductionOrderCheckResponse productionCheckResponse =
+                teamTaskService.markProductionOrderChecked(orderId, loginMember);
 
 		/*
 		 * 확인 처리 직후 최신 checkStatus까지 화면에 표시하기 위해 다시 조회합니다.
@@ -797,6 +918,9 @@ public class TeamController {
 		model.addAttribute("canChangeStatus", canChangeStatus);
 		model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
 		model.addAttribute("isMirrorCuttingProductionMember", isMirrorCuttingProductionMember);
+        model.addAttribute("productionCheckResponse", productionCheckResponse);
+        model.addAttribute("productionRevisionNotices", productionCheckResponse.getChangeNotices());
+        model.addAttribute("productionRevisedBeforeCheck", productionCheckResponse.isRevisedBeforeCheck());
 
 		return "administration/team/production/productionDetail";
 	}
@@ -850,6 +974,25 @@ public class TeamController {
 		order.setStatus(OrderStatus.PRODUCTION_DONE);
 		order.setUpdatedAt(LocalDateTime.now());
 		orderRepository.save(order);
+
+        orderChangeAuditService.recordOrderChange(
+                order,
+                OrderChangeSourceArea.PRODUCTION,
+                loginMember.getId(),
+                loginMember.getUsername(),
+                loginMember.getName(),
+                "PRODUCTION_COMPLETE_DETAIL",
+                "생산 상세에서 생산완료 처리",
+                "/team/updateStatus/" + orderId,
+                List.of(OrderFieldChangeCommand.of(
+                        "status",
+                        "오더 상태",
+                        OrderStatus.CONFIRMED.getLabel(),
+                        OrderStatus.PRODUCTION_DONE.getLabel(),
+                        OrderWorkArea.DISPATCH,
+                        OrderWorkArea.DELIVERY
+                ))
+        );
 
 		redirectAttributes.addFlashAttribute("successMessage", "상태가 성공적으로 변경되었습니다.");
 		return "redirect:/team/productionDetail/" + orderId;
@@ -1382,7 +1525,7 @@ public class TeamController {
 				throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
 			}
 
-			List<Long> changedOrderIds = deliveryOrderIndexService.changeDeliveryHandlers(member,
+			List<Long> changedOrderIds = deliveryHandlerChangeAuditService.changeDeliveryHandlers(member,
 					request != null ? request.getOrderIds() : null, request != null ? request.getNewHandlerId() : null);
 
 			Map<String, Object> body = new HashMap<>();
@@ -1419,7 +1562,7 @@ public class TeamController {
 				throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
 			}
 
-			deliveryOrderIndexService.changeDeliveryHandler(member, orderId,
+			deliveryHandlerChangeAuditService.changeDeliveryHandler(member, orderId,
 					request != null ? request.getNewHandlerId() : null);
 
 			Map<String, Object> body = new HashMap<>();

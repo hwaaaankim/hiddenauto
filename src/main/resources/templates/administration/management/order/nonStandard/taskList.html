@@ -521,6 +521,23 @@
 
 															<span th:if="${!row.revisedAfterCheck and !row.checked}"
 																class="badge bg-warning-subtle text-warning ms-1">미확인</span>
+
+                                                            <th:block th:with="
+                                                                personalCheck=${productionCheckAggregateMap != null ? productionCheckAggregateMap[row.orderId] : null},
+                                                                latestChange=${latestOrderChangeMap != null ? latestOrderChangeMap[row.orderId] : null}
+                                                            ">
+                                                                <div class="small mt-1" th:if="${personalCheck != null}">
+                                                                    <span class="badge bg-info-subtle text-info"
+                                                                        th:text="${personalCheck.displayText}">개인 확인기록</span>
+                                                                </div>
+                                                                <div class="small text-muted mt-1"
+                                                                    th:if="${latestChange != null}"
+                                                                    th:title="|${latestChange.changedAtText} / ${latestChange.requestPath}|">
+                                                                    <i class="fa-solid fa-clock-rotate-left me-1"></i>
+                                                                    <strong th:text="${latestChange.actorDisplay}">수정자</strong>
+                                                                    <span th:text="| · ${latestChange.summary}|">변경내용</span>
+                                                                </div>
+                                                            </th:block>
 														</td>
 
 														<td class="text-center">
@@ -818,6 +835,10 @@
 												<span class="badge bg-secondary-subtle text-secondary"
 													th:text="${row.statusLabel}">상태</span>
 
+                                                <span class="badge bg-info-subtle text-info"
+                                                    th:if="${productionCheckAggregateMap != null and productionCheckAggregateMap[row.orderId] != null}"
+                                                    th:text="${productionCheckAggregateMap[row.orderId].displayText}">개인확인</span>
+
 												<span th:if="${row.standard}"
 													class="badge bg-success-subtle text-success">규격</span>
 												<span th:if="${!row.standard}"
@@ -825,7 +846,15 @@
 											</div>
 										</div>
 
-										<div class="admin-task-list-second-bulk-info-grid">
+										<div class="alert alert-light border py-2 px-3 mb-3 small"
+                                            th:if="${latestOrderChangeMap != null and latestOrderChangeMap[row.orderId] != null}"
+                                            th:with="latestChange=${latestOrderChangeMap[row.orderId]}">
+                                            <i class="fa-solid fa-clock-rotate-left me-1"></i>
+                                            <strong th:text="${latestChange.actorDisplay}">수정자</strong>
+                                            <span th:text="| · ${latestChange.summary} · ${latestChange.changedAtText}|">변경이력</span>
+                                        </div>
+
+                                        <div class="admin-task-list-second-bulk-info-grid">
 
 											<div
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">

@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.service.production;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -21,34 +22,113 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
 import com.dev.HiddenBATHAuto.dto.production.ProductionListExcelRowDto;
+import com.dev.HiddenBATHAuto.dto.production.ProductionListOutputOptions;
 
 @Service
 public class ProductionListExcelService {
 
+    private static final int DEFAULT_FONT_SIZE = 10;
+    private static final int MIN_FONT_SIZE = 8;
+    private static final int MAX_FONT_SIZE = 14;
+    private static final int MAX_EXCEL_COLUMN_WIDTH = 255;
+    private static final float MAX_BODY_ROW_HEIGHT = 320F;
+
     public Workbook createProductionListWorkbook(List<ProductionListExcelRowDto> rows) {
+        return createProductionListWorkbook(rows, ProductionListOutputOptions.defaults());
+    }
+
+    public Workbook createProductionListWorkbook(
+            List<ProductionListExcelRowDto> rows,
+            ProductionListOutputOptions options
+    ) {
+        ProductionListOutputOptions resolvedOptions = options == null
+                ? ProductionListOutputOptions.defaults()
+                : options;
+        int fontSize = normalizeFontSize(resolvedOptions.fontSize());
+
         XSSFWorkbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("생산 제작 목록");
+        List<ColumnDefinition> columns = buildColumns(resolvedOptions, fontSize);
 
-        applyPrintSetting(workbook, sheet, rows);
+        applyPrintSetting(workbook, sheet, rows, columns, fontSize);
 
-        CellStyle titleStyle = createTitleStyle(workbook);
-        CellStyle infoStyle = createInfoStyle(workbook);
-        CellStyle headerStyle = createHeaderStyle(workbook);
-        CellStyle bodyStyle = createBodyStyle(workbook);
-        CellStyle centerStyle = createCenterStyle(workbook);
+        CellStyle titleStyle = createTitleStyle(workbook, fontSize);
+        CellStyle infoStyle = createInfoStyle(workbook, fontSize);
+        CellStyle filterStyle = createFilterStyle(workbook, fontSize);
+        CellStyle headerStyle = createHeaderStyle(workbook, fontSize);
+        CellStyle bodyStyle = createBodyStyle(workbook, fontSize);
+        CellStyle centerStyle = createCenterStyle(workbook, fontSize);
 
-        createTitleRows(sheet, titleStyle, infoStyle, rows);
-        createHeaderRow(sheet, headerStyle);
-        createBodyRows(sheet, bodyStyle, centerStyle, rows);
+        int headerRowIndex = createTitleRows(
+                sheet,
+                titleStyle,
+                infoStyle,
+                filterStyle,
+                rows,
+                resolvedOptions,
+                columns.size(),
+                fontSize
+        );
+
+        createHeaderRow(sheet, headerStyle, columns, headerRowIndex, fontSize);
+        createBodyRows(
+                sheet,
+                bodyStyle,
+                centerStyle,
+                rows,
+                columns,
+                headerRowIndex + 1,
+                fontSize
+        );
+        sheet.createFreezePane(0, headerRowIndex + 1);
 
         return workbook;
     }
 
-    private void applyPrintSetting(Workbook workbook, Sheet sheet, List<ProductionListExcelRowDto> rows) {
-        sheet.setMargin(PageMargin.LEFT, 0.25D);
-        sheet.setMargin(PageMargin.RIGHT, 0.25D);
-        sheet.setMargin(PageMargin.TOP, 0.35D);
-        sheet.setMargin(PageMargin.BOTTOM, 0.35D);
+    private List<ColumnDefinition> buildColumns(
+            ProductionListOutputOptions options,
+            int fontSize
+    ) {
+        int growth = Math.max(0, fontSize - DEFAULT_FONT_SIZE);
+        List<ColumnDefinition> columns = new ArrayList<>();
+
+        columns.add(new ColumnDefinition("orderId", "오더ID", 10, true));
+
+        if (options.includeCompanyName()) {
+            columns.add(new ColumnDefinition("companyName", "거래처명", 22 + growth, false));
+        }
+
+        /*
+         * 제품명과 남김말은 긴 문장이 많이 들어오므로 폰트가 커질수록 열 너비를 함께 키웁니다.
+         * - 제품명: 10pt 25칸 → 14pt 37칸
+         * - 남김말: 10pt 55칸 → 14pt 75칸
+         */
+        columns.add(new ColumnDefinition("productName", "제품명", 25 + (growth * 3), false));
+        columns.add(new ColumnDefinition("productColor", "제품색상", 18, false));
+        columns.add(new ColumnDefinition("productSize", "제품사이즈", 30 + growth, false));
+        columns.add(new ColumnDefinition("quantity", "수량", 8, true));
+        columns.add(new ColumnDefinition("adminMemo", "남김말", 55 + (growth * 5), false));
+
+        if (options.includeDeliveryDate()) {
+            columns.add(new ColumnDefinition("preferredDeliveryDate", "출고일", 14, true));
+        }
+
+        columns.add(new ColumnDefinition("categoryName", "카테고리", 16, false));
+        columns.add(new ColumnDefinition("checkState", "체크상태", 12, true));
+        return columns;
+    }
+
+    private void applyPrintSetting(
+            Workbook workbook,
+            Sheet sheet,
+            List<ProductionListExcelRowDto> rows,
+            List<ColumnDefinition> columns,
+            int fontSize
+    ) {
+        sheet.setMargin(PageMargin.LEFT, 0.20D);
+        sheet.setMargin(PageMargin.RIGHT, 0.20D);
+        sheet.setMargin(PageMargin.TOP, 0.30D);
+        sheet.setMargin(PageMargin.BOTTOM, 0.30D);
 
         PrintSetup printSetup = sheet.getPrintSetup();
         printSetup.setLandscape(true);
@@ -59,70 +139,67 @@ public class ProductionListExcelService {
         sheet.setFitToPage(true);
         sheet.setAutobreaks(true);
         sheet.setHorizontallyCenter(true);
+        sheet.setDefaultRowHeightInPoints(Math.max(18F, fontSize * 1.5F));
 
-        sheet.setColumnWidth(0, 10 * 256); // 오더ID
-        sheet.setColumnWidth(1, 26 * 256); // 제품명
-        sheet.setColumnWidth(2, 18 * 256); // 제품색상
-        sheet.setColumnWidth(3, 30 * 256); // 제품사이즈
-        sheet.setColumnWidth(4, 8 * 256);  // 수량
-        sheet.setColumnWidth(5, 60 * 256); // 남김말
-        sheet.setColumnWidth(6, 16 * 256); // 카테고리
-        sheet.setColumnWidth(7, 12 * 256); // 체크상태
+        for (int i = 0; i < columns.size(); i++) {
+            int width = Math.min(MAX_EXCEL_COLUMN_WIDTH, Math.max(1, columns.get(i).width()));
+            sheet.setColumnWidth(i, width * 256);
+        }
 
-        sheet.createFreezePane(0, 3);
-
-        int lastRow = Math.max(3, (rows == null ? 0 : rows.size()) + 2);
-
-        /*
-         * 0열: 오더ID
-         * 7열: 체크상태
-         */
-        workbook.setPrintArea(0, 0, 7, 0, lastRow);
+        int lastRow = Math.max(4, safeSize(rows) + 4);
+        workbook.setPrintArea(0, 0, columns.size() - 1, 0, lastRow);
     }
 
-    private void createTitleRows(
+    private int createTitleRows(
             Sheet sheet,
             CellStyle titleStyle,
             CellStyle infoStyle,
-            List<ProductionListExcelRowDto> rows
+            CellStyle filterStyle,
+            List<ProductionListExcelRowDto> rows,
+            ProductionListOutputOptions options,
+            int columnCount,
+            int fontSize
     ) {
+        float growth = Math.max(0, fontSize - DEFAULT_FONT_SIZE);
+
         Row titleRow = sheet.createRow(0);
-        titleRow.setHeightInPoints(28F);
+        titleRow.setHeightInPoints(30F + (growth * 2.5F));
 
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("생산팀 제작 목록");
         titleCell.setCellStyle(titleStyle);
-
-        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, columnCount - 1));
 
         Row infoRow = sheet.createRow(1);
-        infoRow.setHeightInPoints(20F);
-
+        infoRow.setHeightInPoints(22F + (growth * 1.5F));
         Cell infoCell = infoRow.createCell(0);
         infoCell.setCellValue("출력일: " + LocalDate.now() + " / 현재 화면 기준 " + safeSize(rows) + "건");
         infoCell.setCellStyle(infoStyle);
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, columnCount - 1));
 
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 7));
+        Row filterRow = sheet.createRow(2);
+        filterRow.setHeightInPoints(30F + (growth * 2F));
+        Cell filterCell = filterRow.createCell(0);
+        filterCell.setCellValue("검색필터: " + (options.filterSummary().isBlank() ? "없음" : options.filterSummary()));
+        filterCell.setCellStyle(filterStyle);
+        sheet.addMergedRegion(new CellRangeAddress(2, 2, 0, columnCount - 1));
+
+        return 3;
     }
 
-    private void createHeaderRow(Sheet sheet, CellStyle headerStyle) {
-        Row headerRow = sheet.createRow(2);
-        headerRow.setHeightInPoints(24F);
+    private void createHeaderRow(
+            Sheet sheet,
+            CellStyle headerStyle,
+            List<ColumnDefinition> columns,
+            int rowIndex,
+            int fontSize
+    ) {
+        Row headerRow = sheet.createRow(rowIndex);
+        headerRow.setHeightInPoints(Math.max(25F, fontSize * 2.2F));
 
-        String[] headers = {
-                "오더ID",
-                "제품명",
-                "제품색상",
-                "제품사이즈",
-                "수량",
-                "남김말",
-                "카테고리",
-                "체크상태"
-        };
-
-        for (int i = 0; i < headers.length; i++) {
+        for (int i = 0; i < columns.size(); i++) {
             Cell cell = headerRow.createCell(i);
-            cell.setCellValue(headers[i]);
+            cell.setCellValue(columns.get(i).label());
             cell.setCellStyle(headerStyle);
         }
     }
@@ -131,62 +208,95 @@ public class ProductionListExcelService {
             Sheet sheet,
             CellStyle bodyStyle,
             CellStyle centerStyle,
-            List<ProductionListExcelRowDto> rows
+            List<ProductionListExcelRowDto> rows,
+            List<ColumnDefinition> columns,
+            int startRowIndex,
+            int fontSize
     ) {
         if (rows == null || rows.isEmpty()) {
-            Row row = sheet.createRow(3);
-            row.setHeightInPoints(28F);
-
+            Row row = sheet.createRow(startRowIndex);
+            row.setHeightInPoints(Math.max(28F, fontSize * 2.2F));
             Cell cell = row.createCell(0);
             cell.setCellValue("조회된 생산 주문이 없습니다.");
-            cell.setCellStyle(bodyStyle);
-
-            sheet.addMergedRegion(new CellRangeAddress(3, 3, 0, 7));
+            cell.setCellStyle(centerStyle);
+            sheet.addMergedRegion(new CellRangeAddress(startRowIndex, startRowIndex, 0, columns.size() - 1));
             return;
         }
 
-        int rowIndex = 3;
+        int productNameWidth = findColumnWidth(columns, "productName", 25);
+        int adminMemoWidth = findColumnWidth(columns, "adminMemo", 55);
+        int rowIndex = startRowIndex;
 
         for (ProductionListExcelRowDto dto : rows) {
             Row row = sheet.createRow(rowIndex++);
-            row.setHeightInPoints(estimateRowHeight(dto.getAdminMemo()));
+            row.setHeightInPoints(estimateRowHeight(
+                    dto != null ? dto.getProductName() : null,
+                    dto != null ? dto.getAdminMemo() : null,
+                    productNameWidth,
+                    adminMemoWidth,
+                    fontSize
+            ));
 
-            setCell(row, 0, dto.getOrderId() == null ? "-" : String.valueOf(dto.getOrderId()), centerStyle);
-            setCell(row, 1, text(dto.getProductName()), bodyStyle);
-            setCell(row, 2, text(dto.getProductColor()), bodyStyle);
-            setCell(row, 3, text(dto.getProductSize()), bodyStyle);
-            setCell(row, 4, dto.getQuantity() == null ? "-" : String.valueOf(dto.getQuantity()), centerStyle);
-            setCell(row, 5, text(dto.getAdminMemo()), bodyStyle);
-            setCell(row, 6, text(dto.getCategoryName()), bodyStyle);
-            setCell(row, 7, resolveCheckStateLabel(dto), centerStyle);
+            for (int colIndex = 0; colIndex < columns.size(); colIndex++) {
+                ColumnDefinition column = columns.get(colIndex);
+                String value = resolveValue(dto, column.key());
+                setCell(row, colIndex, value, column.centered() ? centerStyle : bodyStyle);
+            }
         }
     }
 
-    private String resolveCheckStateLabel(ProductionListExcelRowDto dto) {
+    private int findColumnWidth(
+            List<ColumnDefinition> columns,
+            String key,
+            int defaultWidth
+    ) {
+        if (columns == null) {
+            return defaultWidth;
+        }
+
+        return columns.stream()
+                .filter(column -> key.equals(column.key()))
+                .map(ColumnDefinition::width)
+                .findFirst()
+                .orElse(defaultWidth);
+    }
+
+    private String resolveValue(ProductionListExcelRowDto dto, String key) {
         if (dto == null) {
             return "-";
         }
 
-        String label = text(dto.getCheckStateLabel());
+        return switch (key) {
+            case "orderId" -> dto.getOrderId() == null ? "-" : String.valueOf(dto.getOrderId());
+            case "companyName" -> text(dto.getCompanyName());
+            case "productName" -> text(dto.getProductName());
+            case "productColor" -> text(dto.getProductColor());
+            case "productSize" -> text(dto.getProductSize());
+            case "quantity" -> dto.getQuantity() == null ? "-" : String.valueOf(dto.getQuantity());
+            case "adminMemo" -> text(dto.getAdminMemo());
+            case "preferredDeliveryDate" -> text(dto.getPreferredDeliveryDateText());
+            case "categoryName" -> text(dto.getCategoryName());
+            case "checkState" -> resolveCheckStateLabel(dto);
+            default -> "-";
+        };
+    }
 
+    private String resolveCheckStateLabel(ProductionListExcelRowDto dto) {
+        String label = text(dto.getCheckStateLabel());
         if (!"-".equals(label)) {
             return label;
         }
 
         String state = text(dto.getCheckState());
-
         if ("CHECKED".equalsIgnoreCase(state)) {
             return "확인";
         }
-
         if ("REVISED_AFTER_CHECK".equalsIgnoreCase(state)) {
             return "재수정";
         }
-
         if ("UNCHECKED".equalsIgnoreCase(state)) {
             return "미확인";
         }
-
         return "-";
     }
 
@@ -196,36 +306,48 @@ public class ProductionListExcelService {
         cell.setCellStyle(style);
     }
 
-    private CellStyle createTitleStyle(Workbook workbook) {
+    private CellStyle createTitleStyle(Workbook workbook, int fontSize) {
         Font font = workbook.createFont();
         font.setBold(true);
-        font.setFontHeightInPoints((short) 17);
+        font.setFontHeightInPoints((short) Math.max(16, fontSize + 7));
 
         CellStyle style = workbook.createCellStyle();
         style.setFont(font);
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
-
         return style;
     }
 
-    private CellStyle createInfoStyle(Workbook workbook) {
+    private CellStyle createInfoStyle(Workbook workbook, int fontSize) {
         Font font = workbook.createFont();
-        font.setFontHeightInPoints((short) 10);
+        font.setFontHeightInPoints((short) fontSize);
         font.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
 
         CellStyle style = workbook.createCellStyle();
         style.setFont(font);
         style.setAlignment(HorizontalAlignment.RIGHT);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
-
         return style;
     }
 
-    private CellStyle createHeaderStyle(Workbook workbook) {
+    private CellStyle createFilterStyle(Workbook workbook, int fontSize) {
+        Font font = workbook.createFont();
+        font.setFontHeightInPoints((short) fontSize);
+
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.LEFT);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setWrapText(true);
+        style.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+
+    private CellStyle createHeaderStyle(Workbook workbook, int fontSize) {
         Font font = workbook.createFont();
         font.setBold(true);
-        font.setFontHeightInPoints((short) 10);
+        font.setFontHeightInPoints((short) fontSize);
 
         CellStyle style = workbook.createCellStyle();
         style.setFont(font);
@@ -235,27 +357,25 @@ public class ProductionListExcelService {
         style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         applyBorder(style);
-
         return style;
     }
 
-    private CellStyle createBodyStyle(Workbook workbook) {
+    private CellStyle createBodyStyle(Workbook workbook, int fontSize) {
         Font font = workbook.createFont();
-        font.setFontHeightInPoints((short) 10);
+        font.setFontHeightInPoints((short) fontSize);
 
         CellStyle style = workbook.createCellStyle();
         style.setFont(font);
         style.setAlignment(HorizontalAlignment.LEFT);
-        style.setVerticalAlignment(VerticalAlignment.TOP);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
         style.setWrapText(true);
         applyBorder(style);
-
         return style;
     }
 
-    private CellStyle createCenterStyle(Workbook workbook) {
+    private CellStyle createCenterStyle(Workbook workbook, int fontSize) {
         Font font = workbook.createFont();
-        font.setFontHeightInPoints((short) 10);
+        font.setFontHeightInPoints((short) fontSize);
 
         CellStyle style = workbook.createCellStyle();
         style.setFont(font);
@@ -263,7 +383,6 @@ public class ProductionListExcelService {
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         style.setWrapText(true);
         applyBorder(style);
-
         return style;
     }
 
@@ -274,19 +393,60 @@ public class ProductionListExcelService {
         style.setBorderLeft(BorderStyle.THIN);
     }
 
-    private float estimateRowHeight(String memo) {
-        String text = text(memo);
+    private float estimateRowHeight(
+            String productName,
+            String adminMemo,
+            int productNameWidth,
+            int adminMemoWidth,
+            int fontSize
+    ) {
+        int productLines = estimateWrappedLineCount(productName, productNameWidth);
+        int memoLines = estimateWrappedLineCount(adminMemo, adminMemoWidth);
+        int maxLines = Math.max(1, Math.max(productLines, memoLines));
 
-        if ("-".equals(text)) {
-            return 24F;
+        float lineHeight = Math.max(15F, fontSize * 1.55F);
+        float minimumHeight = Math.max(28F, fontSize * 2.2F);
+        float estimatedHeight = (maxLines * lineHeight) + 8F;
+
+        return Math.min(MAX_BODY_ROW_HEIGHT, Math.max(minimumHeight, estimatedHeight));
+    }
+
+    private int estimateWrappedLineCount(String value, int columnWidth) {
+        String normalized = text(value);
+        if ("-".equals(normalized)) {
+            return 1;
         }
 
-        int lineCount = text.split("\\R", -1).length;
-        int lengthBasedLineCount = Math.max(1, text.length() / 34);
+        int usableWidth = Math.max(4, columnWidth - 2);
+        String[] explicitLines = normalized.split("\\R", -1);
+        int totalLines = 0;
 
-        int estimatedLines = Math.max(lineCount, lengthBasedLineCount);
+        for (String explicitLine : explicitLines) {
+            int displayLength = estimateDisplayLength(explicitLine);
+            totalLines += Math.max(1, (int) Math.ceil(displayLength / (double) usableWidth));
+        }
 
-        return Math.min(95F, Math.max(28F, estimatedLines * 16F));
+        return Math.max(1, totalLines);
+    }
+
+    private int estimateDisplayLength(String value) {
+        if (value == null || value.isEmpty()) {
+            return 0;
+        }
+
+        int length = 0;
+
+        for (int offset = 0; offset < value.length();) {
+            int codePoint = value.codePointAt(offset);
+            length += codePoint <= 0x7F ? 1 : 2;
+            offset += Character.charCount(codePoint);
+        }
+
+        return length;
+    }
+
+    private int normalizeFontSize(int fontSize) {
+        return Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, fontSize));
     }
 
     private int safeSize(List<?> rows) {
@@ -298,9 +458,9 @@ public class ProductionListExcelService {
             return "-";
         }
 
-        return value
-                .replace("\r\n", "\n")
-                .replace("\r", "\n")
-                .trim();
+        return value.replace("\r\n", "\n").replace("\r", "\n").trim();
+    }
+
+    private record ColumnDefinition(String key, String label, int width, boolean centered) {
     }
 }

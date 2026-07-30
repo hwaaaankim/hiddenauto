@@ -19,6 +19,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.Order;
@@ -37,6 +40,7 @@ public class OrderStatusService {
     private final OrderRepository orderRepository;
     private final MemberRepository memberRepository;
     private final DeliveryOrderIndexService deliveryOrderIndexService;
+    private final OrderChangeAuditService orderChangeAuditService;
 
     /**
      * 기존 API 호출부 보호용 메서드입니다.
@@ -47,7 +51,7 @@ public class OrderStatusService {
      */
     @Transactional
     public int bulkConfirmRequestedOrders(List<Long> orderIds) {
-        return bulkConfirmRequestedOrders(orderIds, Map.of());
+        return bulkConfirmRequestedOrders(orderIds, Map.of(), null, null, null);
     }
 
     /**
@@ -65,6 +69,17 @@ public class OrderStatusService {
     public int bulkConfirmRequestedOrders(
             List<Long> orderIds,
             Map<Long, Long> deliveryHandlerIdByOrderId
+    ) {
+        return bulkConfirmRequestedOrders(orderIds, deliveryHandlerIdByOrderId, null, null, null);
+    }
+
+    @Transactional
+    public int bulkConfirmRequestedOrders(
+            List<Long> orderIds,
+            Map<Long, Long> deliveryHandlerIdByOrderId,
+            String actorUsername,
+            String actorDisplayName,
+            Long actorMemberId
     ) {
         List<Long> normalizedOrderIds = normalizeOrderIds(orderIds);
         Map<Long, Long> normalizedHandlerIds = normalizeHandlerAssignments(
@@ -89,8 +104,16 @@ public class OrderStatusService {
         }
 
         Map<Long, Member> resolvedHandlerByOrderId = new LinkedHashMap<>();
+        Map<Long, Long> beforeHandlerIdByOrderId = new LinkedHashMap<>();
 
         for (Long orderId : normalizedOrderIds) {
+            Order beforeOrder = orderMap.get(orderId);
+            beforeHandlerIdByOrderId.put(
+                    orderId,
+                    beforeOrder != null && beforeOrder.getAssignedDeliveryHandler() != null
+                            ? beforeOrder.getAssignedDeliveryHandler().getId()
+                            : null
+            );
             Order order = orderMap.get(orderId);
             validateRequestedStatus(orderId, order);
 
@@ -145,6 +168,39 @@ public class OrderStatusService {
          */
         orderRepository.saveAll(orders);
         orderRepository.flush();
+
+        for (Order order : orders) {
+            List<OrderFieldChangeCommand> changes = new java.util.ArrayList<>();
+            changes.add(OrderFieldChangeCommand.of(
+                    "status",
+                    "오더 상태",
+                    OrderStatus.REQUESTED.getLabel(),
+                    OrderStatus.CONFIRMED.getLabel(),
+                    OrderWorkArea.PRODUCTION,
+                    OrderWorkArea.DISPATCH,
+                    OrderWorkArea.DELIVERY
+            ));
+            changes.add(OrderFieldChangeCommand.of(
+                    "assignedDeliveryHandler",
+                    "배송담당자",
+                    beforeHandlerIdByOrderId.get(order.getId()),
+                    order.getAssignedDeliveryHandler() != null ? order.getAssignedDeliveryHandler().getId() : null,
+                    OrderWorkArea.DISPATCH,
+                    OrderWorkArea.DELIVERY
+            ));
+
+            orderChangeAuditService.recordOrderChange(
+                    order,
+                    OrderChangeSourceArea.MANAGEMENT,
+                    actorMemberId,
+                    actorUsername,
+                    actorDisplayName,
+                    "MANAGEMENT_BULK_CONFIRM",
+                    "관리자 일괄 컨펌",
+                    "/management/nonStandardTaskList/bulk-confirm",
+                    changes
+            );
+        }
 
         /*
          * 여러 담당자 큐를 한 트랜잭션에서 갱신할 때 잠금 획득 순서가 요청 배열 순서에

@@ -6,22 +6,15 @@ import lombok.Getter;
 @Getter
 @Builder
 public class ProductionListExcelRowDto {
-
     private Long orderId;
-
+    private String companyName;
     private String productName;
-
     private String productColor;
-
     private String productSize;
-
     private Integer quantity;
-
     private String adminMemo;
-
+    private String preferredDeliveryDateText;
     private String categoryName;
-    
     private String checkState;
-    
     private String checkStateLabel;
 }

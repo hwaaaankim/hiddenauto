@@ -1,0 +1,161 @@
+/* deliveryRoutePrint.css */
+/* 업체별 배송 화면 전용: 기존 엑셀 10개 열 기준의 바로 인쇄 보완 스타일 */
+
+.delivery-route-list-print-header .delivery-print-title-block p {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 1mm;
+}
+
+.delivery-print-header dl .delivery-route-print-filter-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 19mm minmax(0, 1fr);
+    align-items: stretch;
+    margin-top: 1.4mm;
+    border: .25mm solid #cbd5e1;
+    border-radius: 1.4mm;
+    overflow: hidden;
+    background: #f8fafc;
+}
+
+.delivery-print-header dl .delivery-route-print-filter-row dt,
+.delivery-print-header dl .delivery-route-print-filter-row dd {
+    margin: 0;
+}
+
+.delivery-print-header dl .delivery-route-print-filter-row dt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.1mm 1.4mm;
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 7pt;
+    font-weight: 900;
+    letter-spacing: .04em;
+}
+
+.delivery-print-header dl .delivery-route-print-filter-row dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .9mm 2.8mm;
+    padding: 1mm 1.8mm;
+    color: #334155;
+    font-size: 6.8pt;
+    line-height: 1.25;
+}
+
+.delivery-route-print-filter-row dd span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .8mm;
+    white-space: nowrap;
+}
+
+.delivery-route-print-filter-row dd b {
+    color: #64748b;
+    font-weight: 800;
+}
+
+.delivery-route-print-filter-row dd em {
+    color: #0f172a;
+    font-style: normal;
+    font-weight: 800;
+}
+
+/* 기존 DeliveryExcelService 열 너비 비율(18/22/19/15/7/28/10/12/12/36)을 그대로 반영합니다. */
+.delivery-route-list-print-table .route-col-company {
+    width: 10.06%;
+}
+
+.delivery-route-list-print-table .route-col-product {
+    width: 12.29%;
+}
+
+.delivery-route-list-print-table .route-col-size {
+    width: 10.61%;
+}
+
+.delivery-route-list-print-table .route-col-color {
+    width: 8.38%;
+}
+
+.delivery-route-list-print-table .route-col-quantity {
+    width: 3.91%;
+}
+
+.delivery-route-list-print-table .route-col-memo {
+    width: 15.64%;
+}
+
+.delivery-route-list-print-table .route-col-unit {
+    width: 5.59%;
+}
+
+.delivery-route-list-print-table .route-col-method,
+.delivery-route-list-print-table .route-col-handler {
+    width: 6.70%;
+}
+
+.delivery-route-list-print-table .route-col-address {
+    width: 20.12%;
+}
+
+.delivery-route-list-print-table th,
+.delivery-route-list-print-table td {
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.delivery-route-list-print-table th {
+    padding-left: .7mm;
+    padding-right: .7mm;
+    font-size: 7.1pt;
+    line-height: 1.15;
+}
+
+.delivery-route-list-print-table td {
+    padding: 1mm .75mm;
+    font-size: 6.8pt;
+    line-height: 1.28;
+}
+
+.delivery-route-list-print-table td:nth-child(4),
+.delivery-route-list-print-table td:nth-child(5),
+.delivery-route-list-print-table td:nth-child(7),
+.delivery-route-list-print-table td:nth-child(8),
+.delivery-route-list-print-table td:nth-child(9) {
+    text-align: center;
+}
+
+.delivery-print-page.is-condensed .delivery-route-print-filter-row dd,
+.delivery-print-page.is-extra-condensed .delivery-route-print-filter-row dd {
+    gap: .6mm 1.8mm;
+    padding-top: .7mm;
+    padding-bottom: .7mm;
+    font-size: 6.2pt;
+}
+
+.delivery-print-page.is-condensed .delivery-route-list-print-table td {
+    padding-top: .7mm;
+    padding-bottom: .7mm;
+    font-size: 6.35pt;
+}
+
+.delivery-print-page.is-extra-condensed .delivery-route-list-print-table td {
+    padding-top: .45mm;
+    padding-bottom: .45mm;
+    font-size: 5.95pt;
+    line-height: 1.18;
+}
+
+@media print {
+    .delivery-print-header dl .delivery-route-print-filter-row {
+        border-color: #94a3b8;
+        background: #f8fafc;
+    }
+}

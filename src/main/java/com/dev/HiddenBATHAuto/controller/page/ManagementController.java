@@ -89,6 +89,7 @@ import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyOrdererInfoOpti
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderImageDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListOrderRowDto;
 import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
@@ -124,6 +125,7 @@ import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.client.AdminClientDetailService;
 import com.dev.HiddenBATHAuto.service.order.NonStandardOrderItemService;
+import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
 import com.dev.HiddenBATHAuto.service.order.NonStandardTaskListViewService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -164,6 +166,7 @@ public class ManagementController {
 	private final AdminClientDetailService adminClientDetailService;
 
 	private final NonStandardTaskListViewService nonStandardTaskListViewService;
+	private final OrderChangeAuditService orderChangeAuditService;
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -228,6 +231,16 @@ public class ManagementController {
 		 * 오더 단위로 가져옵니다.
 		 */
 		Page<NonStandardTaskListOrderRowDto> orderRows = orders.map(nonStandardTaskListViewService::toRow);
+
+        List<Long> currentOrderIds = orders.getContent().stream()
+                .map(Order::getId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        model.addAttribute("latestOrderChangeMap",
+                orderChangeAuditService.getLatestChangeMap(currentOrderIds));
+        model.addAttribute("productionCheckAggregateMap",
+                orderChangeAuditService.getCheckAggregateMap(currentOrderIds, OrderWorkArea.PRODUCTION));
 
 		int currentPage1 = orders.getPageable().getPageNumber() + 1;
 		int startPageNum = Math.max(1, currentPage1 - 4);
@@ -344,6 +357,9 @@ public class ManagementController {
 
 		model.addAttribute("currentListUrl",
 				isSafeNonStandardTaskListReturnUrl(returnUrl) ? returnUrl.trim() : "/management/nonStandardTaskList");
+        model.addAttribute("orderChangeHistory", orderChangeAuditService.getOrderHistory(orderId, 50));
+        model.addAttribute("productionMemberCheckStates",
+                orderChangeAuditService.getMemberCheckStates(orderId, OrderWorkArea.PRODUCTION));
 
 		return "administration/management/order/nonStandard/taskListOrderDetailFragment :: orderDetailRow";
 	}
@@ -369,7 +385,8 @@ public class ManagementController {
 	@PostMapping("/nonStandardTaskList/bulk-confirm")
 	@ResponseBody
 	public ResponseEntity<Map<String, Object>> nonStandardTaskListBulkConfirm(
-			@RequestBody NonStandardTaskBulkConfirmRequest request) {
+			@RequestBody NonStandardTaskBulkConfirmRequest request,
+            Authentication authentication) {
 		try {
 			if (request == null || request.orders() == null || request.orders().isEmpty()) {
 				throw new IllegalArgumentException("컨펌 처리할 오더를 하나 이상 선택해 주세요.");
@@ -397,9 +414,25 @@ public class ManagementController {
 				);
 			}
 
+            String actorUsername = resolveAuthenticatedUsername(authentication);
+            String actorDisplayName = actorUsername;
+            Long actorMemberId = null;
+
+            if (authentication != null && authentication.getPrincipal() instanceof PrincipalDetails principalDetails
+                    && principalDetails.getMember() != null) {
+                Member actor = principalDetails.getMember();
+                actorMemberId = actor.getId();
+                if (actor.getName() != null && !actor.getName().isBlank()) {
+                    actorDisplayName = actor.getName().trim();
+                }
+            }
+
 			int updatedCount = orderStatusService.bulkConfirmRequestedOrders(
 					orderIds,
-					deliveryHandlerIdByOrderId
+					deliveryHandlerIdByOrderId,
+                    actorUsername,
+                    actorDisplayName,
+                    actorMemberId
 			);
 
 			Map<String, Object> response = new LinkedHashMap<>();
@@ -441,6 +474,10 @@ public class ManagementController {
 		List<NonStandardTaskListOrderRowDto> bulkOrderRows = nonStandardTaskListViewService.toBulkRows(bulkOrders);
 
 		model.addAttribute("bulkOrderRows", bulkOrderRows);
+        List<Long> bulkOrderIds = bulkOrders.stream().map(Order::getId).filter(java.util.Objects::nonNull).toList();
+        model.addAttribute("latestOrderChangeMap", orderChangeAuditService.getLatestChangeMap(bulkOrderIds));
+        model.addAttribute("productionCheckAggregateMap",
+                orderChangeAuditService.getCheckAggregateMap(bulkOrderIds, OrderWorkArea.PRODUCTION));
 
 		return "administration/management/order/nonStandard/taskList :: bulkOrderCards";
 	}

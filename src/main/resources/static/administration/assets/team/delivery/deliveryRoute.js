@@ -148,7 +148,7 @@
                 query.set('deliveryDate', deliveryDate);
                 query.set('orderIds', orderedOrderIds.join(','));
 
-                const printWindow = window.open(`/team/deliveryPrint?${query.toString()}`, '_blank');
+                const printWindow = window.open(`/team/deliveryRoute/print?${query.toString()}`, '_blank');
 
                 if (!printWindow) {
                     await showMessage('인쇄 창이 차단되었습니다.', '브라우저의 팝업 허용 설정을 확인해 주세요.', 'warning');

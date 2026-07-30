@@ -24,6 +24,7 @@ import com.dev.HiddenBATHAuto.dto.delivery.route.DeliveryRouteDtos.Group;
 import com.dev.HiddenBATHAuto.dto.delivery.route.DeliveryRouteDtos.OrderRow;
 import com.dev.HiddenBATHAuto.dto.delivery.route.DeliveryRouteDtos.Page;
 import com.dev.HiddenBATHAuto.dto.delivery.route.DeliveryRouteDtos.PrintRow;
+import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryRouteListExcelService.DeliveryRouteListOutput;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
@@ -62,7 +63,7 @@ public class DeliveryRouteService {
     );
 
     private final DeliveryRouteQueryRepository deliveryRouteQueryRepository;
-    private final DeliveryExcelService deliveryExcelService;
+    private final DeliveryRouteListExcelService deliveryRouteListExcelService;
 
     /**
      * 당일 배송목록을 업체 + 실제 배송지 + 배송일 기준으로 묶습니다.
@@ -323,14 +324,13 @@ public class DeliveryRouteService {
     }
 
     /**
-     * 업체별 배송 화면의 일반 데이터 엑셀을 생성합니다.
+     * 업체별 배송 화면의 일반 엑셀과 바로 인쇄가 함께 사용하는 출력 데이터를 만듭니다.
      *
-     * deliveryList.html과 완전히 동일한 DeliveryExcelService를 사용합니다.
-     * 따라서 열 구성, 폰트, 열 너비, A4 가로 인쇄 설정, 실제 배송지 선택 규칙과
-     * 반품/회수용 음수 수량 보존 방식이 두 화면에서 동일합니다.
+     * 열 구성은 기존 DeliveryExcelService의 10개 열을 기준으로 합니다.
+     * 다른 화면에서 사용하는 공용 DeliveryExcelService는 수정하지 않습니다.
      */
     @Transactional(readOnly = true)
-    public byte[] createRouteExcel(
+    public DeliveryRouteListOutput buildRouteListOutput(
             Member loginMember,
             LocalDate deliveryDate,
             List<Long> orderedOrderIds
@@ -338,21 +338,37 @@ public class DeliveryRouteService {
         validateDeliveryTeamMember(loginMember);
 
         LocalDate targetDate = deliveryDate == null ? LocalDate.now() : deliveryDate;
-
-        /*
-         * 기존 업체별 배송 화면의 보안 검증은 그대로 유지합니다.
-         * 현재 로그인 담당자의 해당 날짜 목록에 없는 orderId가 하나라도 섞이면
-         * 공유 엑셀 생성기를 호출하기 전에 전체 요청을 거절합니다.
-         */
-        getPrintRows(loginMember, targetDate, orderedOrderIds);
-
-        return deliveryExcelService.buildExcel(
-                loginMember.getId(),
-                resolveMemberName(loginMember),
-                targetDate,
+        List<PrintRow> sourceRows = getPrintRows(
+                loginMember,
                 targetDate,
                 orderedOrderIds
         );
+
+        return deliveryRouteListExcelService.buildOutput(
+                targetDate,
+                resolveMemberName(loginMember),
+                sourceRows
+        );
+    }
+
+    /**
+     * 업체별 배송 화면 전용 엑셀을 생성합니다.
+     * 기존 공용 엑셀의 10개 열과 순서를 유지하고, 조회조건과 수직 중앙정렬만
+     * 업체별 배송 전용 서비스에 적용합니다.
+     */
+    @Transactional(readOnly = true)
+    public byte[] createRouteExcel(
+            Member loginMember,
+            LocalDate deliveryDate,
+            List<Long> orderedOrderIds
+    ) {
+        DeliveryRouteListOutput output = buildRouteListOutput(
+                loginMember,
+                deliveryDate,
+                orderedOrderIds
+        );
+
+        return deliveryRouteListExcelService.buildExcel(output);
     }
 
     private List<Long> normalizeOrderIds(List<Long> orderIds) {

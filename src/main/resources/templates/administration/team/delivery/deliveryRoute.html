@@ -533,7 +533,7 @@
     </form>
 
     <form id="delivery-route-print-form" method="post"
-          th:action="@{/team/deliveryPrint}" target="_blank" class="d-none">
+          th:action="@{/team/deliveryRoute/print}" target="_blank" class="d-none">
         <input type="hidden" th:if="${_csrf != null}"
                th:name="${_csrf.parameterName}"
                th:value="${_csrf.token}">

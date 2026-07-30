@@ -1,0 +1,259 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org"
+      lang="ko"
+      style="--production-print-font-size: 10pt; --production-print-title-size: 17pt;"
+      th:style="|--production-print-font-size: ${options.fontSize()}pt; --production-print-title-size: ${options.fontSize() + 7}pt;|">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>생산팀 제작 목록 바로출력</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 8mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            color: #111827;
+            background: #fff;
+            font-family: "Malgun Gothic", "맑은 고딕", Arial, sans-serif;
+            font-size: var(--production-print-font-size, 10pt);
+        }
+
+        body,
+        table,
+        thead,
+        tbody,
+        tr,
+        th,
+        td {
+            font-size: inherit;
+        }
+
+        .production-print-page {
+            width: 100%;
+            font-size: var(--production-print-font-size, 10pt);
+        }
+
+        .production-print-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .production-print-toolbar button {
+            padding: 7px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .production-print-toolbar .primary {
+            color: #fff;
+            border-color: #2563eb;
+            background: #2563eb;
+        }
+
+        .production-print-header {
+            margin-bottom: 8px;
+        }
+
+        .production-print-title {
+            margin: 0;
+            text-align: center;
+            font-size: var(--production-print-title-size, 17pt);
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .production-print-meta {
+            display: flex;
+            justify-content: flex-end;
+            gap: 14px;
+            margin-top: 5px;
+            color: #4b5563;
+            font-size: .92em;
+        }
+
+        .production-print-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 7px;
+            padding: 7px 8px;
+            border: 1px solid #dbeafe;
+            border-radius: 6px;
+            background: #eff6ff;
+        }
+
+        .production-print-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            min-height: 22px;
+            padding: 2px 7px;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            background: #fff;
+            line-height: 1.25;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        th,
+        td {
+            padding: 5px;
+            border: 1px solid #6b7280;
+            vertical-align: middle;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+            word-break: keep-all;
+        }
+
+        th {
+            text-align: center;
+            font-weight: 800;
+            background: #e5e7eb;
+        }
+
+        td.center {
+            text-align: center;
+        }
+
+        .col-order-id { width: 6%; }
+        .col-company { width: 12%; }
+        .col-product { width: 13%; }
+        .col-color { width: 10%; }
+        .col-size { width: 16%; }
+        .col-quantity { width: 5%; }
+        .col-memo { width: 28%; }
+        .col-date { width: 8%; }
+        .col-category { width: 9%; }
+        .col-check { width: 7%; }
+
+        .production-print-empty {
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        @media print {
+            html,
+            body,
+            .production-print-page,
+            table,
+            th,
+            td {
+                font-size: var(--production-print-font-size, 10pt) !important;
+            }
+
+            .production-print-title {
+                font-size: var(--production-print-title-size, 17pt) !important;
+            }
+
+            .production-print-toolbar {
+                display: none !important;
+            }
+
+            .production-print-page {
+                width: auto;
+            }
+
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body th:attr="data-production-print-font-size=${options.fontSize()}">
+<div class="production-print-page">
+    <div class="production-print-toolbar">
+        <button type="button" onclick="window.close()">닫기</button>
+        <button type="button" class="primary" onclick="window.print()">인쇄</button>
+    </div>
+
+    <header class="production-print-header">
+        <h1 class="production-print-title">생산팀 제작 목록</h1>
+        <div class="production-print-meta">
+            <span th:text="|출력시각: ${#temporals.format(generatedAt, 'yyyy-MM-dd HH:mm')}|">출력시각</span>
+            <span th:text="|현재 화면 기준 ${rowCount}건|">0건</span>
+        </div>
+        <div class="production-print-filters" th:if="${filterTokens != null and !filterTokens.isEmpty()}">
+            <span class="production-print-filter-chip"
+                  th:each="filter : ${filterTokens}"
+                  th:text="${filter}">검색필터</span>
+        </div>
+    </header>
+
+    <table>
+        <thead>
+        <tr>
+            <th class="col-order-id">오더ID</th>
+            <th class="col-company" th:if="${options.includeCompanyName()}">거래처명</th>
+            <th class="col-product">제품명</th>
+            <th class="col-color">제품색상</th>
+            <th class="col-size">제품사이즈</th>
+            <th class="col-quantity">수량</th>
+            <th class="col-memo">남김말</th>
+            <th class="col-date" th:if="${options.includeDeliveryDate()}">출고일</th>
+            <th class="col-category">카테고리</th>
+            <th class="col-check">체크상태</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:if="${rows == null or rows.isEmpty()}">
+            <td class="production-print-empty"
+                th:attr="colspan=${8 + (options.includeCompanyName() ? 1 : 0) + (options.includeDeliveryDate() ? 1 : 0)}">
+                조회된 생산 주문이 없습니다.
+            </td>
+        </tr>
+        <tr th:each="row : ${rows}">
+            <td class="center" th:text="${row.orderId != null ? row.orderId : '-'}">1</td>
+            <td th:if="${options.includeCompanyName()}" th:text="${row.companyName}">거래처명</td>
+            <td th:text="${row.productName}">제품명</td>
+            <td th:text="${row.productColor}">색상</td>
+            <td th:text="${row.productSize}">사이즈</td>
+            <td class="center" th:text="${row.quantity != null ? row.quantity : '-'}">1</td>
+            <td th:text="${row.adminMemo}">남김말</td>
+            <td class="center"
+                th:if="${options.includeDeliveryDate()}"
+                th:text="${row.preferredDeliveryDateText}">출고일</td>
+            <td th:text="${row.categoryName}">카테고리</td>
+            <td class="center" th:text="${row.checkStateLabel}">미확인</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    window.addEventListener('load', function () {
+        window.setTimeout(function () {
+            window.print();
+        }, 250);
+    });
+</script>
+</body>
+</html>

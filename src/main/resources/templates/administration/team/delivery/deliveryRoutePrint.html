@@ -1,0 +1,126 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="|업체별 배송리스트 인쇄 - ${deliveryDate}|">업체별 배송리스트 인쇄</title>
+    <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryPrint.css">
+    <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoutePrint.css">
+</head>
+<body>
+<div class="delivery-print-toolbar" aria-label="인쇄 도구">
+    <div>
+        <strong>A4 가로 업체별 배송리스트</strong>
+        <span>기존 엑셀출력과 동일한 열 구성 및 현재 화면 표시 순서로 출력됩니다.</span>
+    </div>
+    <div class="delivery-print-toolbar-status">
+        <span>총 <b id="delivery-print-page-count">0</b>페이지</span>
+    </div>
+    <div class="delivery-print-toolbar-actions">
+        <button type="button" id="delivery-print-close">닫기</button>
+        <button type="button" class="is-primary" id="delivery-print-button">인쇄</button>
+    </div>
+</div>
+
+<div class="delivery-print-pages" id="delivery-print-pages" aria-label="A4 업체별 배송리스트 미리보기"></div>
+
+<!--
+    업체별 배송 화면 전용 인쇄 원본입니다.
+    기존 deliveryPrint.html과 공용 DeliveryExcelService는 다른 화면에서 계속 사용하므로 변경하지 않습니다.
+    공용 deliveryPrint.js가 행 높이를 실제 측정하여 A4 페이지별로 자동 분할합니다.
+-->
+<article class="delivery-print-source delivery-route-list-print-source"
+         id="delivery-print-source" aria-hidden="true">
+    <header class="delivery-print-header delivery-route-list-print-header">
+        <div class="delivery-print-title-block">
+            <h1>배송리스트</h1>
+            <p>
+                <span th:text="${deliveryDate}">2026-07-30</span>
+                <span aria-hidden="true"> / </span>
+                담당자: <strong th:text="${handlerName}">담당자</strong>
+            </p>
+        </div>
+
+        <dl>
+            <div><dt>배송일</dt><dd th:text="${deliveryDate}">2026-07-30</dd></div>
+            <div><dt>담당자</dt><dd th:text="${handlerName}">담당자</dd></div>
+            <div><dt>총 주문</dt><dd><span th:text="${rowCount}">0</span>건</dd></div>
+            <div><dt>출력시각</dt><dd th:text="${generatedAt}">2026-07-30 09:00</dd></div>
+
+            <div class="delivery-route-print-filter-row">
+                <dt>조회조건</dt>
+                <dd>
+                    <span><b>배송일</b><em th:text="${deliveryDate}">2026-07-30</em></span>
+                    <span><b>담당자</b><em th:text="${handlerName}">담당자</em></span>
+                    <span><b>배송수단</b><em th:text="${deliveryMethodFilter}">직배송 · 현장배송 · 화물</em></span>
+                    <span><b>상태</b><em th:text="${statusFilter}">승인완료 · 생산완료 · 출고완료 · 배송완료</em></span>
+                    <span><b>표시순서</b><em th:text="${displayOrderFilter}">현재 화면 표시 순서</em></span>
+                </dd>
+            </div>
+        </dl>
+    </header>
+
+    <div class="delivery-print-table-wrap">
+        <table class="delivery-print-table delivery-route-list-print-table">
+            <colgroup>
+                <col class="route-col-company">
+                <col class="route-col-product">
+                <col class="route-col-size">
+                <col class="route-col-color">
+                <col class="route-col-quantity">
+                <col class="route-col-memo">
+                <col class="route-col-unit">
+                <col class="route-col-method">
+                <col class="route-col-handler">
+                <col class="route-col-address">
+            </colgroup>
+            <thead>
+            <tr>
+                <th>거래처명</th>
+                <th>품목</th>
+                <th>규격(사이즈)</th>
+                <th>색상</th>
+                <th>수량</th>
+                <th>비고</th>
+                <th>단위</th>
+                <th>배송수단</th>
+                <th>담당자</th>
+                <th>주소</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row : ${rows}" data-print-row>
+                <td th:text="${row.companyName}">거래처명</td>
+                <td th:text="${row.productName}">품목</td>
+                <td th:text="${row.size}">규격</td>
+                <td class="is-center" th:text="${row.color}">색상</td>
+                <td class="is-center is-strong" th:text="${row.quantity}">1</td>
+                <td th:text="${row.memo}">비고</td>
+                <td class="is-center" th:text="${row.unit}">단위</td>
+                <td class="is-center" th:text="${row.deliveryMethodName}">배송수단</td>
+                <td class="is-center" th:text="${row.handlerName}">담당자</td>
+                <td th:text="${row.address}">주소</td>
+            </tr>
+            <tr th:if="${rows.isEmpty()}" data-print-empty-row>
+                <td colspan="10" class="delivery-print-empty">인쇄할 배송 데이터가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <footer class="delivery-print-footer">
+        <span>HiddenBath Auto · 배송팀</span>
+        <span>기존 엑셀출력의 열 구성과 현재 화면 표시 순서를 기준으로 생성되었습니다.</span>
+        <span class="delivery-print-page-number">
+            <b data-page-number>1</b> / <b data-page-total>1</b>
+        </span>
+    </footer>
+</article>
+
+<noscript>
+    <div class="delivery-print-noscript">인쇄 페이지 분할을 위해 JavaScript를 활성화해주세요.</div>
+</noscript>
+
+<script src="/administration/assets/team/delivery/deliveryPrint.js"></script>
+</body>
+</html>

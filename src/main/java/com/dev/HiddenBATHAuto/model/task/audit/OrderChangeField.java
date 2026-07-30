@@ -1,0 +1,84 @@
+package com.dev.HiddenBATHAuto.model.task.audit;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+
+@Entity
+@Table(
+        name = "tb_order_change_field",
+        indexes = @Index(name = "idx_order_change_field_event", columnList = "event_id,sort_order")
+)
+@Getter
+@NoArgsConstructor
+public class OrderChangeField {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "event_id", nullable = false)
+    @ToString.Exclude
+    private OrderChangeEvent event;
+
+    @Column(name = "field_key", nullable = false, length = 100)
+    private String fieldKey;
+
+    @Column(name = "field_label", nullable = false, length = 150)
+    private String fieldLabel;
+
+    @Lob
+    @Column(name = "before_value")
+    private String beforeValue;
+
+    @Lob
+    @Column(name = "after_value")
+    private String afterValue;
+
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
+    public static OrderChangeField of(
+            String fieldKey,
+            String fieldLabel,
+            String beforeValue,
+            String afterValue,
+            int sortOrder
+    ) {
+        OrderChangeField field = new OrderChangeField();
+        field.fieldKey = normalizeRequired(fieldKey, "field", 100);
+        field.fieldLabel = normalizeRequired(fieldLabel, field.fieldKey, 150);
+        field.beforeValue = normalizeText(beforeValue);
+        field.afterValue = normalizeText(afterValue);
+        field.sortOrder = Math.max(0, sortOrder);
+        return field;
+    }
+
+    void attach(OrderChangeEvent event) {
+        this.event = event;
+    }
+
+    private static String normalizeRequired(String value, String fallback, int max) {
+        String normalized = normalizeText(value);
+        if (normalized == null) normalized = fallback;
+        return normalized.length() <= max ? normalized : normalized.substring(0, max);
+    }
+
+    private static String normalizeText(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}

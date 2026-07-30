@@ -17,6 +17,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.Order;
@@ -26,6 +27,18 @@ import jakarta.persistence.LockModeType;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+	/**
+	 * 배송담당자 변경이력 기록 전/후 스냅샷용 경량 조회입니다.
+	 * 엔티티 캐시 상태와 무관하게 DB의 현재 담당자 값을 스칼라로 조회합니다.
+	 */
+	@Query("""
+			select o.id, handler.id, handler.username, handler.name
+			from Order o
+			left join o.assignedDeliveryHandler handler
+			where o.id in :orderIds
+			""")
+	List<Object[]> findDeliveryHandlerAuditRows(@Param("orderIds") Collection<Long> orderIds);
 
 	// OrderRepository 인터페이스 내부에 추가
 	@EntityGraph(attributePaths = { "deliveryMethod", "assignedDeliveryHandler" })
@@ -662,6 +675,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
+              AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
@@ -671,6 +685,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("categoryId") Long categoryId,
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
+            @Param("productNameKeyword") String productNameKeyword,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
 			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
@@ -686,6 +701,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
+              AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.createdAt >= :start)
@@ -695,6 +711,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("categoryId") Long categoryId,
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
+            @Param("productNameKeyword") String productNameKeyword,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
 			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
@@ -713,111 +730,138 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	// sortDir는 기존 TeamTaskService 호출부 호환을 위해 유지합니다.
 	// =========================
 	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
-			"task.requestedBy.company", "task.managedBy", "checkStatus" })
+			"task.requestedBy.company", "task.managedBy" })
 	@Query(value = """
-			    SELECT o
-			    FROM Order o
-			    LEFT JOIN o.checkStatus cs
-			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
-			      AND (:orderId IS NULL OR o.id = :orderId)
-			      AND o.status IN :visibleStatuses
-			      AND (:allStatus = true OR o.status = :statusFilter)
-			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
-			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
-			    ORDER BY
-			      CASE
-			        WHEN cs.checkState = 'REVISED_AFTER_CHECK' THEN 0
-			        WHEN cs.id IS NULL THEN 1
-			        WHEN cs.checkState IS NULL AND cs.checked = false THEN 1
-			        WHEN cs.checkState = 'UNCHECKED' THEN 1
-			        WHEN cs.checkState = 'CHECKED' THEN 2
-			        WHEN cs.checkState IS NULL AND cs.checked = true THEN 2
-			        ELSE 1
-			      END ASC,
-			      CASE WHEN :sortDir = 'DESC' THEN 0 ELSE 0 END ASC,
-			      o.preferredDeliveryDate ASC,
-			      o.id DESC
-			""", countQuery = """
-			    SELECT COUNT(o)
-			    FROM Order o
-			    LEFT JOIN o.checkStatus cs
-			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
-			      AND (:orderId IS NULL OR o.id = :orderId)
-			      AND o.status IN :visibleStatuses
-			      AND (:allStatus = true OR o.status = :statusFilter)
-			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
-			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
-			""")
+                SELECT o
+                FROM Order o
+                LEFT JOIN OrderMemberCheckStatus mcs
+                  ON mcs.order = o
+                 AND mcs.member.id = :memberId
+                 AND mcs.workArea = :workArea
+                LEFT JOIN OrderWorkRevision wr
+                  ON wr.order = o
+                 AND wr.workArea = :workArea
+                WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+                  AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+                  AND (:orderId IS NULL OR o.id = :orderId)
+                  AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+                  AND o.status IN :visibleStatuses
+                  AND (:allStatus = true OR o.status = :statusFilter)
+                  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+                  AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+                ORDER BY
+                  CASE
+                    WHEN mcs.id IS NOT NULL AND mcs.lastCheckedVersion < COALESCE(wr.currentVersion, 0) THEN 0
+                    WHEN :prioritizeUnchecked = true AND mcs.id IS NULL THEN 1
+                    WHEN :prioritizeUnchecked = true THEN 2
+                    ELSE 1
+                  END ASC,
+                  o.preferredDeliveryDate DESC,
+                  o.id DESC
+            """, countQuery = """
+                SELECT COUNT(o)
+                FROM Order o
+                LEFT JOIN OrderMemberCheckStatus mcs
+                  ON mcs.order = o
+                 AND mcs.member.id = :memberId
+                 AND mcs.workArea = :workArea
+                LEFT JOIN OrderWorkRevision wr
+                  ON wr.order = o
+                 AND wr.workArea = :workArea
+                WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+                  AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+                  AND (:orderId IS NULL OR o.id = :orderId)
+                  AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+                  AND o.status IN :visibleStatuses
+                  AND (:allStatus = true OR o.status = :statusFilter)
+                  AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+                  AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+                  AND (:prioritizeUnchecked = true OR :prioritizeUnchecked = false)
+            """)
 	Page<Order> findProductionListByPreferredRangeStatusCheckSorted(
 			@Param("categoryId") Long categoryId,
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
+            @Param("productNameKeyword") String productNameKeyword,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
 			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
 			@Param("start") LocalDateTime start,
 			@Param("end") LocalDateTime end,
-			@Param("sortDir") String sortDir,
+            @Param("memberId") Long memberId,
+            @Param("workArea") OrderWorkArea workArea,
+            @Param("prioritizeUnchecked") boolean prioritizeUnchecked,
 			Pageable pageable
 	);
 
 	@EntityGraph(attributePaths = {
-	        "orderItem",
-	        "productCategory",
-	        "task",
-	        "task.requestedBy",
-	        "task.requestedBy.company",
-	        "task.managedBy",
-	        "checkStatus"
-	})
+            "orderItem",
+            "productCategory",
+            "task",
+            "task.requestedBy",
+            "task.requestedBy.company",
+            "task.managedBy"
+    })
 	@Query(value = """
-	            SELECT o
-	            FROM Order o
-	            LEFT JOIN o.checkStatus cs
-	            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-	              AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
-	              AND (:orderId IS NULL OR o.id = :orderId)
-	              AND o.status IN :visibleStatuses
-	              AND (:allStatus = true OR o.status = :statusFilter)
-	              AND (:start IS NULL OR o.createdAt >= :start)
-	              AND (:end IS NULL OR o.createdAt < :end)
-	            ORDER BY
-	              CASE
-	                WHEN cs.checkState = 'REVISED_AFTER_CHECK' THEN 0
-	                WHEN cs.id IS NULL THEN 1
-	                WHEN cs.checkState IS NULL AND cs.checked = false THEN 1
-	                WHEN cs.checkState = 'UNCHECKED' THEN 1
-	                WHEN cs.checkState = 'CHECKED' THEN 2
-	                WHEN cs.checkState IS NULL AND cs.checked = true THEN 2
-	                ELSE 1
-	              END ASC,
-	              CASE WHEN :sortDir = 'DESC' THEN 0 ELSE 0 END ASC,
-	              o.createdAt ASC,
-	              o.id DESC
-	        """, countQuery = """
-	            SELECT COUNT(o)
-	            FROM Order o
-	            LEFT JOIN o.checkStatus cs
-	            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
-	              AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
-	              AND (:orderId IS NULL OR o.id = :orderId)
-	              AND o.status IN :visibleStatuses
-	              AND (:allStatus = true OR o.status = :statusFilter)
-	              AND (:start IS NULL OR o.createdAt >= :start)
-	              AND (:end IS NULL OR o.createdAt < :end)
-	        """)
+            SELECT o
+            FROM Order o
+            LEFT JOIN OrderMemberCheckStatus mcs
+              ON mcs.order = o
+             AND mcs.member.id = :memberId
+             AND mcs.workArea = :workArea
+            LEFT JOIN OrderWorkRevision wr
+              ON wr.order = o
+             AND wr.workArea = :workArea
+            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+              AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+              AND (:orderId IS NULL OR o.id = :orderId)
+              AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+              AND o.status IN :visibleStatuses
+              AND (:allStatus = true OR o.status = :statusFilter)
+              AND (:start IS NULL OR o.createdAt >= :start)
+              AND (:end IS NULL OR o.createdAt < :end)
+            ORDER BY
+              CASE
+                WHEN mcs.id IS NOT NULL AND mcs.lastCheckedVersion < COALESCE(wr.currentVersion, 0) THEN 0
+                WHEN :prioritizeUnchecked = true AND mcs.id IS NULL THEN 1
+                WHEN :prioritizeUnchecked = true THEN 2
+                ELSE 1
+              END ASC,
+              o.createdAt DESC,
+              o.id DESC
+        """, countQuery = """
+            SELECT COUNT(o)
+            FROM Order o
+            LEFT JOIN OrderMemberCheckStatus mcs
+              ON mcs.order = o
+             AND mcs.member.id = :memberId
+             AND mcs.workArea = :workArea
+            LEFT JOIN OrderWorkRevision wr
+              ON wr.order = o
+             AND wr.workArea = :workArea
+            WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+              AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+              AND (:orderId IS NULL OR o.id = :orderId)
+              AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+              AND o.status IN :visibleStatuses
+              AND (:allStatus = true OR o.status = :statusFilter)
+              AND (:start IS NULL OR o.createdAt >= :start)
+              AND (:end IS NULL OR o.createdAt < :end)
+              AND (:prioritizeUnchecked = true OR :prioritizeUnchecked = false)
+        """)
 	Page<Order> findProductionListByCreatedRangeStatusCheckSorted(
 	        @Param("categoryId") Long categoryId,
 	        @Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 	        @Param("orderId") Long orderId,
+            @Param("productNameKeyword") String productNameKeyword,
 	        @Param("allStatus") boolean allStatus,
 	        @Param("statusFilter") OrderStatus statusFilter,
 	        @Param("visibleStatuses") List<OrderStatus> visibleStatuses,
 	        @Param("start") LocalDateTime start,
 	        @Param("end") LocalDateTime end,
-	        @Param("sortDir") String sortDir,
+            @Param("memberId") Long memberId,
+            @Param("workArea") OrderWorkArea workArea,
+            @Param("prioritizeUnchecked") boolean prioritizeUnchecked,
 	        Pageable pageable
 	);
 
@@ -996,6 +1040,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    where o.id = :orderId
 			""")
 	Optional<Order> findByIdForProductionCheck(@Param("orderId") Long orderId);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select o
+            from Order o
+            where o.id = :orderId
+            """)
+    Optional<Order> findByIdForChangeAuditLock(@Param("orderId") Long orderId);
 
 	@Query("""
 			    select o

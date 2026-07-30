@@ -35,11 +35,17 @@
 					<form method="get" th:action="@{/team/productionList}" class="row" id="team-production-filter-form">
 						<div class="col-lg-12">
 							<div class="row g-3 mb-3 align-items-end">
-								<div class="col-lg-2 col-xl-1">
+								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">오더ID</label>
 									<input type="number" name="orderId" class="form-control w-100"
 										id="team-production-orderId" min="1" step="1" placeholder="ID"
 										th:value="${orderId != null ? orderId : ''}">
+								</div>
+								<div class="col-lg-4 col-xl-2">
+									<label class="form-label">제품명</label>
+									<input type="text" name="productName" class="form-control w-100"
+										id="team-production-productName" maxlength="100" placeholder="제품명 포함검색"
+										th:value="${productName != null ? productName : ''}">
 								</div>
 								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">제품분류</label>
@@ -67,7 +73,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-2 col-xl-1">
+								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">날짜 기준</label>
 									<select name="dateType" class="form-control w-100" id="team-production-dateType">
 										<option value="preferred"
@@ -80,7 +86,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-4 col-xl-3">
+								<div class="col-lg-4 col-xl-4">
 									<label class="form-label">날짜조회</label>
 									<div class="d-flex gap-2">
 										<input type="date" name="startDate" class="form-control" placeholder="시작일"
@@ -120,7 +126,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-1 col-xl-1">
+								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">표시</label>
 									<select name="size" class="form-control w-100" id="team-production-size">
 										<option value="100" th:selected="${size == 100}">100</option>
@@ -131,14 +137,14 @@
 									</select>
 								</div>
 
-								<div class="col-lg-1 col-xl-1">
+								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">조회</label>
 									<button type="submit" class="btn btn-primary w-100" id="team-production-search-btn">
 										검색
 									</button>
 								</div>
 
-								<div class="col-lg-12 col-xl-8">
+								<div class="col-lg-12 col-xl-12">
 									<label class="form-label">&nbsp;</label>
 									<div class="team-production-overview-action-group">
 										<button type="button" class="btn btn-success" id="team-production-bulk-done-btn"
@@ -166,6 +172,11 @@
 											id="team-production-excel-download-btn">
 											<i class="fa-solid fa-file-excel me-1"></i>
 											엑셀 다운로드
+										</button>
+										<button type="button" class="btn btn-outline-primary"
+											id="team-production-direct-print-btn">
+											<i class="fa-solid fa-print me-1"></i>
+											바로출력
 										</button>
 										<button type="button" class="btn btn-outline-warning"
 											id="team-production-material-cutting-btn" th:if="${canMaterialCutting}">
@@ -299,10 +310,14 @@
 										</tr>
 
 										<th:block th:each="order : ${orders}" th:with="
-                                                      checkState=${order.checkStatus != null ? order.checkStatus.checkStateName : 'UNCHECKED'},
-                                                      checkStateLabel=${order.checkStatus != null ? order.checkStatus.checkStateLabel : '미확인'},
+                                                      checkView=${productionCheckViewMap != null ? productionCheckViewMap[order.id] : null},
+                                                      checkState=${checkView != null ? checkView.checkState : 'UNCHECKED'},
+                                                      checkStateLabel=${checkView != null ? checkView.checkStateLabel : '미확인'},
                                                       isLatestChecked=${checkState == 'CHECKED'},
-                                                      isRevisedAfterCheck=${checkState == 'REVISED_AFTER_CHECK'}
+                                                      isRevisedAfterCheck=${checkState == 'REVISED_AFTER_CHECK'},
+                                                      displayProductName=${productName != null and productName != '' and order.orderItem != null and order.orderItem.productName != null and order.orderItem.productName != ''
+                                                          ? order.orderItem.productName
+                                                          : (order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-')}
                                                   ">
 											<tr class="team-production-overview-row team-production-clickable-row"
 												th:classappend="${isRevisedAfterCheck} ? ' team-production-row-revised' : (${isLatestChecked} ? ' team-production-row-checked' : ' team-production-row-unchecked')"
@@ -313,14 +328,14 @@
                     data-checked=${isLatestChecked},
                     data-check-state=${checkState},
                     data-check-state-label=${checkStateLabel},
-                    data-checked-by=${order.checkStatus != null ? order.checkStatus.checkedByUsername : ''},
-                    data-checked-at=${order.checkStatus != null and order.checkStatus.checkedAt != null ? #temporals.format(order.checkStatus.checkedAt, 'yyyy-MM-dd HH:mm') : ''},
-                    data-revision-marked-by=${order.checkStatus != null ? order.checkStatus.revisionMarkedByUsername : ''},
-                    data-revision-marked-at=${order.checkStatus != null and order.checkStatus.revisionMarkedAt != null ? #temporals.format(order.checkStatus.revisionMarkedAt, 'yyyy-MM-dd HH:mm') : ''},
-                    data-revision-reason=${order.checkStatus != null ? order.checkStatus.revisionReason : ''},
+                    data-checked-by=${checkView != null ? checkView.checkedByUsername : ''},
+                    data-checked-at=${checkView != null ? checkView.checkedAtText : ''},
+                    data-revision-marked-by=${checkView != null ? checkView.revisionMarkedByUsername : ''},
+                    data-revision-marked-at=${checkView != null ? checkView.revisionMarkedAtText : ''},
+                    data-revision-reason=${checkView != null ? checkView.revisionReason : ''},
                     data-company-name=${orderCompanyNameMap != null and orderCompanyNameMap[order.id] != null ? orderCompanyNameMap[order.id] : '-'},
                     data-managed-by-name=${order.task != null and order.task.managedBy != null and order.task.managedBy.name != null and order.task.managedBy.name != '' ? order.task.managedBy.name : '미배정'},
-                    data-product-name=${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'},
+                    data-product-name=${displayProductName},
                     data-product-category-name=${order.orderItem != null and order.orderItem.productionCategory != null and order.orderItem.productionCategory != '' ? order.orderItem.productionCategory : '-'},
                     data-standard-label=${order.standard ? '규격' : '비규격'},
                     data-date-text=${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd') : '-'},
@@ -343,8 +358,8 @@
 														</span>
 
 														<span class="team-production-product-name-text"
-															th:text="${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'}"
-															th:title="${order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-'}">
+															th:text="${displayProductName}"
+															th:title="${displayProductName}">
 															제품명
 														</span>
 													</div>
@@ -422,7 +437,7 @@
 														th:title="${isRevisedAfterCheck
                             ? '관리자 수정 후 재확인이 필요한 발주입니다.'
                             : (isLatestChecked
-                                ? '확인자: ' + (order.checkStatus != null and order.checkStatus.checkedByUsername != null ? order.checkStatus.checkedByUsername : '-')
+                                ? '확인자: ' + (checkView != null and checkView.checkedByUsername != null and checkView.checkedByUsername != '' ? checkView.checkedByUsername : '-')
                                 : '아직 확인하지 않은 발주입니다.')}">
 														미확인
 													</span>
@@ -485,6 +500,7 @@
                         page=0,
                         size=${size},
                         orderId=${orderId},
+                        productName=${productName},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -502,6 +518,7 @@
                         page=${page.number - 1},
                         size=${size},
                         orderId=${orderId},
+                        productName=${productName},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -520,6 +537,7 @@
                         page=${i},
                         size=${size},
                         orderId=${orderId},
+                        productName=${productName},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -537,6 +555,7 @@
                         page=${page.number + 1},
                         size=${size},
                         orderId=${orderId},
+                        productName=${productName},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -554,6 +573,7 @@
                         page=${page.totalPages - 1},
                         size=${size},
                         orderId=${orderId},
+                        productName=${productName},
                         productCategoryId=${productCategoryId},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
@@ -867,6 +887,82 @@
 				</div>
 			</div>
 
+
+            <button type="button"
+                class="btn btn-success team-production-floating-complete-btn"
+                id="team-production-floating-bulk-done-btn"
+                th:disabled="${!canBulkComplete}"
+                aria-label="선택 주문 생산완료">
+                <i class="fa-solid fa-circle-check me-1"></i> 생산완료
+            </button>
+
+            <div class="modal fade" id="team-production-output-option-modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <div>
+                                <h5 class="modal-title">생산 제작목록 출력 설정</h5>
+                                <div class="small text-muted mt-1">현재 화면에 조회된 주문만 같은 형식으로 출력합니다.</div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="team-production-output-font-size" class="form-label fw-semibold">기준 폰트 크기</label>
+                                <select id="team-production-output-font-size" class="form-select">
+                                    <option value="8">8pt</option>
+                                    <option value="9">9pt</option>
+                                    <option value="10" selected>10pt (현재 기본)</option>
+                                    <option value="11">11pt</option>
+                                    <option value="12">12pt</option>
+                                    <option value="13">13pt</option>
+                                    <option value="14">14pt</option>
+                                </select>
+                            </div>
+                            <div class="team-production-output-option-list">
+                                <label class="team-production-output-option-item">
+                                    <input type="checkbox" class="form-check-input" id="team-production-output-company-name">
+                                    <span>
+                                        <strong>거래처명 출력</strong>
+                                        <small>기본값은 출력 안 함입니다.</small>
+                                    </span>
+                                </label>
+                                <label class="team-production-output-option-item">
+                                    <input type="checkbox" class="form-check-input" id="team-production-output-delivery-date">
+                                    <span>
+                                        <strong>출고일 출력</strong>
+                                        <small>배송희망일을 출고일 열로 표시합니다.</small>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="alert alert-light border mt-3 mb-0 small" id="team-production-output-filter-preview"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">취소</button>
+                            <button type="button" class="btn btn-primary" id="team-production-output-confirm-btn">진행</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="team-production-revision-notice-modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header bg-warning-subtle">
+                            <div>
+                                <h5 class="modal-title">확인 이후 변경된 내용</h5>
+                                <div class="small text-muted mt-1">아래 내용을 확인한 시점으로 개인 확인상태가 갱신되었습니다.</div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+                        </div>
+                        <div class="modal-body" id="team-production-revision-notice-body"></div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-warning" data-bs-dismiss="modal">내용 확인</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
 		</div>
 	</div>
@@ -978,6 +1074,83 @@
 			white-space: nowrap;
 		}
 
+
+        .team-production-product-name-highlight {
+            text-decoration: underline;
+            text-decoration-thickness: 2px;
+            text-underline-offset: 3px;
+            font-weight: 800;
+            background: transparent;
+            color: inherit;
+        }
+
+        .team-production-floating-complete-btn {
+            position: fixed;
+            right: 28px;
+            bottom: 50px;
+            z-index: 9999;
+            display: none;
+            min-width: 122px;
+            box-shadow: 0 10px 28px rgba(25, 135, 84, .28);
+        }
+
+        .team-production-floating-complete-btn.is-visible {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .team-production-output-option-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .team-production-output-option-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 13px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            background: #fff;
+        }
+
+        .team-production-output-option-item small {
+            display: block;
+            margin-top: 3px;
+            color: #6b7280;
+        }
+
+        .team-production-revision-event {
+            border: 1px solid #f0d98a;
+            border-radius: 10px;
+            padding: 14px;
+            background: #fffdf5;
+        }
+
+        .team-production-revision-event + .team-production-revision-event {
+            margin-top: 12px;
+        }
+
+        .team-production-revision-fields {
+            width: 100%;
+            margin-top: 10px;
+            border-collapse: collapse;
+        }
+
+        .team-production-revision-fields th,
+        .team-production-revision-fields td {
+            padding: 7px 8px;
+            border: 1px solid #eadfae;
+            vertical-align: middle;
+        }
+
+        .team-production-revision-fields th {
+            width: 19%;
+            background: #fff8d9;
+        }
+
 	</style>
 
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
@@ -990,6 +1163,8 @@
 			checkUrlPrefix: /*[[@{/team/productionList/}]]*/ "/team/productionList/",
 			managementImageUrlPrefix: /*[[@{/team/productionList/}]]*/ "/team/productionList/",
 			excelUrl: /*[[@{/team/productionList/excel}]]*/ "/team/productionList/excel",
+            printUrl: /*[[@{/team/productionList/print}]]*/ "/team/productionList/print",
+            productNameKeyword: /*[[${productName != null ? productName : ''}]]*/ "",
 			cuttingUrl: /*[[@{/team/productionList/cutting}]]*/ "/team/productionList/cutting",
 			canCompleteProduction: /*[[${canBulkComplete}]]*/ false,
 			isCuttingProductionMember: /*[[${isCuttingProductionMember}]]*/ false

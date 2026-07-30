@@ -22,6 +22,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
+import com.dev.HiddenBATHAuto.dto.production.ProductionCheckViewDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionListExcelRowDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
@@ -29,7 +31,9 @@ import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewImageDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewOrderDto;
 import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.enums.order.OrderCheckState;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
@@ -41,6 +45,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderCheckStatusRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -54,6 +59,7 @@ public class TeamTaskService {
 	private final AsTaskRepository asTaskRepository;
 	private final ObjectMapper objectMapper;
 	private final OrderCheckStatusRepository orderCheckStatusRepository;
+	private final OrderChangeAuditService orderChangeAuditService;
 	private static final List<OrderStatus> PRODUCTION_LIST_VISIBLE_STATUSES = List.of(
 			OrderStatus.CONFIRMED,
 			OrderStatus.PRODUCTION_DONE,
@@ -70,93 +76,99 @@ public class TeamTaskService {
 	);
 
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
-	        Long categoryId,
-	        Long orderId,
-	        String dateType,
-	        OrderStatus statusFilter,
-	        LocalDateTime start,
-	        LocalDateTime end,
-	        String sortDir,
-	        boolean mirrorCuttingOnly,
-	        Pageable pageable
-	) {
-	    boolean useCreated = "created".equalsIgnoreCase(dateType);
+            Long categoryId,
+            Long orderId,
+            String productNameKeyword,
+            String dateType,
+            OrderStatus statusFilter,
+            LocalDateTime start,
+            LocalDateTime end,
+            boolean mirrorCuttingOnly,
+            Long memberId,
+            boolean prioritizeUnchecked,
+            Pageable pageable
+    ) {
+        boolean useCreated = "created".equalsIgnoreCase(dateType);
 
-	    OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
-	    boolean allStatus = (effectiveStatusFilter == null);
+        OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
+        boolean allStatus = (effectiveStatusFilter == null);
+        String normalizedProductNameKeyword = normalizeKeyword(productNameKeyword);
 
-	    String normalizedSortDir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
+        Page<Order> page;
 
-	    Page<Order> page;
+        if (useCreated) {
+            page = orderRepository.findProductionListByCreatedRangeStatusCheckSorted(
+                    categoryId,
+                    mirrorCuttingOnly,
+                    orderId,
+                    normalizedProductNameKeyword,
+                    allStatus,
+                    effectiveStatusFilter,
+                    PRODUCTION_LIST_VISIBLE_STATUSES,
+                    start,
+                    end,
+                    memberId,
+                    OrderWorkArea.PRODUCTION,
+                    prioritizeUnchecked,
+                    pageable
+            );
+        } else {
+            page = orderRepository.findProductionListByPreferredRangeStatusCheckSorted(
+                    categoryId,
+                    mirrorCuttingOnly,
+                    orderId,
+                    normalizedProductNameKeyword,
+                    allStatus,
+                    effectiveStatusFilter,
+                    PRODUCTION_LIST_VISIBLE_STATUSES,
+                    start,
+                    end,
+                    memberId,
+                    OrderWorkArea.PRODUCTION,
+                    prioritizeUnchecked,
+                    pageable
+            );
+        }
 
-	    if (useCreated) {
-	        page = orderRepository.findProductionListByCreatedRangeStatusCheckSorted(
-	                categoryId,
-	                mirrorCuttingOnly,
-	                orderId,
-	                allStatus,
-	                effectiveStatusFilter,
-	                PRODUCTION_LIST_VISIBLE_STATUSES,
-	                start,
-	                end,
-	                normalizedSortDir,
-	                pageable
-	        );
-	    } else {
-	        page = orderRepository.findProductionListByPreferredRangeStatusCheckSorted(
-	                categoryId,
-	                mirrorCuttingOnly,
-	                orderId,
-	                allStatus,
-	                effectiveStatusFilter,
-	                PRODUCTION_LIST_VISIBLE_STATUSES,
-	                start,
-	                end,
-	                normalizedSortDir,
-	                pageable
-	        );
-	    }
+        applySingleLineOptionSummary(page);
+        return page;
+    }
 
-	    applySingleLineOptionSummary(page);
-
-	    return page;
-	}
-	
 	@Transactional
-	public ProductionOrderCheckResponse markProductionOrderChecked(Long orderId, Member loginMember) {
-	    validateProductionTeamMember(loginMember);
+    public ProductionOrderCheckResponse markProductionOrderChecked(Long orderId, Member loginMember) {
+        validateProductionTeamMember(loginMember);
 
-	    if (orderId == null) {
-	        throw new IllegalArgumentException("주문 ID가 없습니다.");
-	    }
+        if (orderId == null) {
+            throw new IllegalArgumentException("주문 ID가 없습니다.");
+        }
 
-	    Order order = orderRepository.findByIdForProductionCheck(orderId)
-	            .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
+        Order order = orderRepository.findByIdForProductionCheck(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
 
-	    if (!canAccessProductionOrder(loginMember, order)) {
-	        throw new AccessDeniedException("해당 발주를 확인 처리할 권한이 없습니다.");
-	    }
+        if (!canAccessProductionOrder(loginMember, order)) {
+            throw new AccessDeniedException("해당 발주를 확인 처리할 권한이 없습니다.");
+        }
 
-	    OrderCheckStatus checkStatus = orderCheckStatusRepository.findByOrderIdForUpdate(orderId)
-	            .orElseGet(() -> OrderCheckStatus.unchecked(order));
+        OrderChangeAuditService.OrderMemberCheckResult result = orderChangeAuditService.markChecked(
+                order,
+                loginMember,
+                OrderWorkArea.PRODUCTION
+        );
 
-	    if (!checkStatus.isLatestChecked()) {
-	        checkStatus.markChecked(resolveCheckedByUsername(loginMember));
-	        orderCheckStatusRepository.save(checkStatus);
-	    }
-
-	    OrderCheckState state = resolveCheckState(checkStatus);
-
-	    return ProductionOrderCheckResponse.builder()
-	            .orderId(orderId)
-	            .checked(state == OrderCheckState.CHECKED)
-	            .checkState(state.name())
-	            .checkStateLabel(state.getLabel())
-	            .checkedByUsername(checkStatus.getCheckedByUsername())
-	            .checkedAtText(formatDateTime(checkStatus.getCheckedAt()))
-	            .message("확인 처리되었습니다.")
-	            .build();
-	}
+        return ProductionOrderCheckResponse.builder()
+                .orderId(orderId)
+                .checked(true)
+                .checkState(OrderCheckState.CHECKED.name())
+                .checkStateLabel(OrderCheckState.CHECKED.getLabel())
+                .checkedByUsername(result.checkedByUsername())
+                .checkedAtText(formatDateTime(result.checkedAt()))
+                .revisedBeforeCheck(result.revisedBeforeCheck())
+                .changeNotices(result.changeNotices())
+                .message(result.revisedBeforeCheck()
+                        ? "관리자 또는 다른 업무팀의 변경 내용을 확인 처리했습니다."
+                        : "확인 처리되었습니다.")
+                .build();
+    }
 
 	private OrderCheckState resolveCheckState(OrderCheckStatus checkStatus) {
 	    if (checkStatus == null) {
@@ -228,6 +240,7 @@ public class TeamTaskService {
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
 	        Long categoryId,
 	        Long orderId,
+            String productNameKeyword,
 	        String dateType,
 	        OrderStatus statusFilter,
 	        LocalDateTime start,
@@ -236,6 +249,7 @@ public class TeamTaskService {
 	        Pageable pageable
 	) {
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
+        String normalizedProductNameKeyword = normalizeKeyword(productNameKeyword);
 
 		OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
 		boolean allStatus = (effectiveStatusFilter == null);
@@ -247,6 +261,7 @@ public class TeamTaskService {
 		            categoryId,
 		            mirrorCuttingOnly,
 		            orderId,
+                    normalizedProductNameKeyword,
 		            allStatus,
 		            effectiveStatusFilter,
 		            PRODUCTION_LIST_VISIBLE_STATUSES,
@@ -259,6 +274,7 @@ public class TeamTaskService {
 		            categoryId,
 		            mirrorCuttingOnly,
 		            orderId,
+                    normalizedProductNameKeyword,
 		            allStatus,
 		            effectiveStatusFilter,
 		            PRODUCTION_LIST_VISIBLE_STATUSES,
@@ -272,6 +288,15 @@ public class TeamTaskService {
 
 		return page;
 	}
+
+	private String normalizeKeyword(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
 
 	private OrderStatus normalizeProductionListStatusFilter(OrderStatus statusFilter) {
 	    if (statusFilter == null) {
@@ -431,6 +456,15 @@ public class TeamTaskService {
 	}
 
 	@Transactional(readOnly = true)
+    public Map<Long, ProductionCheckViewDto> getProductionCheckViewMap(
+            List<Long> orderIds,
+            Member loginMember
+    ) {
+        validateProductionTeamMember(loginMember);
+        return orderChangeAuditService.getProductionCheckViewMap(orderIds, loginMember);
+    }
+
+	@Transactional(readOnly = true)
 	public List<ProductionOverviewImageDto> getProductionManagementImages(Long orderId, Member loginMember) {
 	    validateProductionTeamMember(loginMember);
 
@@ -454,66 +488,79 @@ public class TeamTaskService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<ProductionListExcelRowDto> getProductionListExcelRowsByOrderIds(
-	        List<Long> orderIds,
-	        Member loginMember
-	) {
-	    validateProductionTeamMember(loginMember);
+    public List<ProductionListExcelRowDto> getProductionListExcelRowsByOrderIds(
+            List<Long> orderIds,
+            Member loginMember
+    ) {
+        validateProductionTeamMember(loginMember);
 
-	    if (orderIds == null || orderIds.isEmpty()) {
-	        return List.of();
-	    }
+        if (orderIds == null || orderIds.isEmpty()) {
+            return List.of();
+        }
 
-	    List<Long> distinctIds = orderIds.stream()
-	            .filter(Objects::nonNull)
-	            .collect(Collectors.toCollection(LinkedHashSet::new))
-	            .stream()
-	            .toList();
+        List<Long> distinctIds = orderIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
 
-	    if (distinctIds.isEmpty()) {
-	        return List.of();
-	    }
+        if (distinctIds.isEmpty()) {
+            return List.of();
+        }
 
-	    List<Order> orders = orderRepository.findAllForProductionOverviewByIds(distinctIds);
+        List<Order> orders = orderRepository.findAllForProductionOverviewByIds(distinctIds);
+        Map<Long, Order> orderMap = orders.stream()
+                .collect(Collectors.toMap(Order::getId, o -> o, (a, b) -> a, LinkedHashMap::new));
+        Map<Long, ProductionCheckViewDto> checkViewMap = orderChangeAuditService
+                .getProductionCheckViewMap(distinctIds, loginMember);
 
-	    Map<Long, Order> orderMap = orders.stream()
-	            .collect(Collectors.toMap(Order::getId, o -> o, (a, b) -> a, LinkedHashMap::new));
+        List<ProductionListExcelRowDto> result = new ArrayList<>();
 
-	    List<ProductionListExcelRowDto> result = new ArrayList<>();
+        for (Long orderId : distinctIds) {
+            Order order = orderMap.get(orderId);
+            if (order == null || !canAccessProductionOrder(loginMember, order)) {
+                continue;
+            }
 
-	    for (Long orderId : distinctIds) {
-	        Order order = orderMap.get(orderId);
+            OrderItem item = order.getOrderItem();
+            ProductionListDisplayParts displayParts = buildProductionListDisplayParts(order, item);
+            int quantity = item != null ? item.getQuantity() : order.getQuantity();
+            ProductionCheckViewDto checkView = checkViewMap.get(orderId);
 
-	        if (order == null) {
-	            continue;
-	        }
+            result.add(ProductionListExcelRowDto.builder()
+                    .orderId(order.getId())
+                    .companyName(resolveCompanyName(order))
+                    .productName(displayParts.productName())
+                    .productColor(displayParts.color())
+                    .productSize(displayParts.size())
+                    .quantity(quantity)
+                    .adminMemo(valueOrDash(order.getAdminMemo()))
+                    .preferredDeliveryDateText(order.getPreferredDeliveryDate() != null
+                            ? order.getPreferredDeliveryDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                            : "-")
+                    .categoryName(displayParts.category())
+                    .checkState(checkView != null ? checkView.getCheckState() : OrderCheckState.UNCHECKED.name())
+                    .checkStateLabel(checkView != null ? checkView.getCheckStateLabel() : OrderCheckState.UNCHECKED.getLabel())
+                    .build());
+        }
 
-	        if (!canAccessProductionOrder(loginMember, order)) {
-	            continue;
-	        }
+        return result;
+    }
 
-	        OrderItem item = order.getOrderItem();
-	        ProductionListDisplayParts displayParts = buildProductionListDisplayParts(order, item);
-
-	        int quantity = item != null ? item.getQuantity() : order.getQuantity();
-
-	        OrderCheckState checkState = resolveCheckState(order.getCheckStatus());
-
-	        result.add(ProductionListExcelRowDto.builder()
-	                .orderId(order.getId())
-	                .productName(displayParts.productName())
-	                .productColor(displayParts.color())
-	                .productSize(displayParts.size())
-	                .quantity(quantity)
-	                .adminMemo(valueOrDash(order.getAdminMemo()))
-	                .categoryName(displayParts.category())
-	                .checkState(checkState.name())
-	                .checkStateLabel(checkState.getLabel())
-	                .build());
-	    }
-
-	    return result;
-	}
+    private String resolveCompanyName(Order order) {
+        try {
+            if (order != null
+                    && order.getTask() != null
+                    && order.getTask().getRequestedBy() != null
+                    && order.getTask().getRequestedBy().getCompany() != null) {
+                String name = order.getTask().getRequestedBy().getCompany().getCompanyName();
+                return valueOrDash(name);
+            }
+        } catch (Exception ignore) {
+            // 지연 로딩 실패 시 대시 처리
+        }
+        return "-";
+    }
 
 	private List<ProductionOverviewImageDto> buildManagementImageDtos(Order order) {
 	    if (order == null) {
@@ -958,7 +1005,7 @@ public class TeamTaskService {
 	private String resolveAdminImageUrl(OrderImage img) {
 		if (img == null)
 			return "";
-		String url = img.getUrl(); // TODO: 실제 필드명 맞으면 그대로 사용
+		String url = img.getUrl();
 		return url == null ? "" : url.trim();
 	}
 	
@@ -1019,6 +1066,8 @@ public class TeamTaskService {
 	    }
 
 	    List<Order> orders = orderRepository.findAllForProductionOverviewByIds(distinctIds);
+        Map<Long, ProductionCheckViewDto> checkViewMap = orderChangeAuditService
+                .getProductionCheckViewMap(distinctIds, loginMember);
 
 	    Map<Long, Order> orderMap = orders.stream()
 	            .collect(Collectors.toMap(Order::getId, o -> o, (a, b) -> a, LinkedHashMap::new));
@@ -1036,7 +1085,7 @@ public class TeamTaskService {
 	            continue;
 	        }
 
-	        result.add(toProductionOverviewOrderDto(order, loginMember));
+	        result.add(toProductionOverviewOrderDto(order, loginMember, checkViewMap.get(orderId)));
 	    }
 
 	    return result;
@@ -1073,8 +1122,27 @@ public class TeamTaskService {
 	    );
 
 	    if (updated != 1) {
-	        throw new IllegalStateException("이미 상태가 변경되었습니다. 새로고침 후 다시 확인해 주세요.");
-	    }
+            throw new IllegalStateException("이미 상태가 변경되었습니다. 새로고침 후 다시 확인해 주세요.");
+        }
+
+        orderChangeAuditService.recordOrderChange(
+                order,
+                OrderChangeSourceArea.PRODUCTION,
+                loginMember.getId(),
+                loginMember.getUsername(),
+                resolveCheckedByUsername(loginMember),
+                "PRODUCTION_COMPLETE",
+                "생산완료 처리",
+                "/team/productionList/" + orderId + "/complete",
+                List.of(OrderFieldChangeCommand.of(
+                        "status",
+                        "오더 상태",
+                        OrderStatus.CONFIRMED.getLabel(),
+                        OrderStatus.PRODUCTION_DONE.getLabel(),
+                        OrderWorkArea.DISPATCH,
+                        OrderWorkArea.DELIVERY
+                ))
+        );
 
 	    return ProductionOverviewCompleteResponse.builder()
 	            .orderId(orderId)
@@ -1084,7 +1152,11 @@ public class TeamTaskService {
 	            .build();
 	}
 
-	private ProductionOverviewOrderDto toProductionOverviewOrderDto(Order order, Member loginMember) {
+	private ProductionOverviewOrderDto toProductionOverviewOrderDto(
+            Order order,
+            Member loginMember,
+            ProductionCheckViewDto checkView
+    ) {
 	    OrderItem item = order.getOrderItem();
 
 	    String companyName = "-";
@@ -1122,9 +1194,9 @@ public class TeamTaskService {
 	    }
 
 	    OrderStatus status = order.getStatus();
-	    OrderCheckStatus checkStatus = order.getCheckStatus();
-	    OrderCheckState checkState = resolveCheckState(checkStatus);
-	    boolean checked = checkState == OrderCheckState.CHECKED;
+        String checkStateName = checkView != null ? checkView.getCheckState() : OrderCheckState.UNCHECKED.name();
+        String checkStateLabel = checkView != null ? checkView.getCheckStateLabel() : OrderCheckState.UNCHECKED.getLabel();
+        boolean checked = OrderCheckState.CHECKED.name().equals(checkStateName);
 
 	    return ProductionOverviewOrderDto.builder()
 	            .orderId(order.getId())
@@ -1143,14 +1215,14 @@ public class TeamTaskService {
 	            .fields(buildProductionOverviewFields(order, false))
 	            .adminImages(adminImages)
 	            .checked(checked)
-	            .checkState(checkState.name())
-	            .checkStateLabel(checkState.getLabel())
-	            .checkedByUsername(checked && checkStatus != null ? safeText(checkStatus.getCheckedByUsername()) : "")
-	            .checkedAtText(checked && checkStatus != null ? formatDateTime(checkStatus.getCheckedAt()) : "")
-	            .revisionMarkedByUsername(checkStatus != null ? safeText(checkStatus.getRevisionMarkedByUsername()) : "")
-	            .revisionMarkedAtText(checkStatus != null ? formatDateTime(checkStatus.getRevisionMarkedAt()) : "")
-	            .revisionReason(checkStatus != null ? safeText(checkStatus.getRevisionReason()) : "")
-	            .revisionCount(checkStatus != null ? checkStatus.getRevisionCount() : 0)
+	            .checkState(checkStateName)
+                .checkStateLabel(checkStateLabel)
+                .checkedByUsername(checkView != null ? safeText(checkView.getCheckedByUsername()) : "")
+                .checkedAtText(checkView != null ? safeText(checkView.getCheckedAtText()) : "")
+                .revisionMarkedByUsername(checkView != null ? safeText(checkView.getRevisionMarkedByUsername()) : "")
+                .revisionMarkedAtText(checkView != null ? safeText(checkView.getRevisionMarkedAtText()) : "")
+                .revisionReason(checkView != null ? safeText(checkView.getRevisionReason()) : "")
+                .revisionCount(checkView != null ? checkView.getRevisionCount() : 0)
 	            .build();
 	}
 
