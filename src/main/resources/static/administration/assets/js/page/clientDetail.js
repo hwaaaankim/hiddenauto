@@ -42,6 +42,59 @@
 		return json || { message: text };
 	}
 
+	async function getJson(url) {
+		const res = await fetch(url, {
+			method: 'GET',
+			headers: { 'Accept': 'application/json' }
+		});
+
+		const text = await res.text();
+		let json = null;
+
+		try {
+			json = JSON.parse(text);
+		} catch (e) {
+			// ignore
+		}
+
+		if (!res.ok) {
+			const msg = (json && json.message) ? json.message : (text || ('HTTP ' + res.status));
+			throw new Error(msg);
+		}
+
+		return json || { message: text };
+	}
+
+	async function deleteJson(url) {
+		const csrf = getCsrf();
+		const headers = { 'Accept': 'application/json' };
+
+		if (csrf.token && csrf.header) {
+			headers[csrf.header] = csrf.token;
+		}
+
+		const res = await fetch(url, {
+			method: 'DELETE',
+			headers
+		});
+
+		const text = await res.text();
+		let json = null;
+
+		try {
+			json = JSON.parse(text);
+		} catch (e) {
+			// ignore
+		}
+
+		if (!res.ok) {
+			const msg = (json && json.message) ? json.message : (text || ('HTTP ' + res.status));
+			throw new Error(msg);
+		}
+
+		return json || { message: text };
+	}
+
 	async function postFormData(url, formData) {
 		const csrf = getCsrf();
 		const headers = {};
@@ -113,6 +166,18 @@
 			.map(function(part) { return trimValue(part); })
 			.filter(function(part) { return part.length > 0; })
 			.join(' ');
+	}
+
+	function getPostcodeConstructor() {
+		if (window.daum && window.daum.Postcode) {
+			return window.daum.Postcode;
+		}
+
+		if (window.kakao && window.kakao.Postcode) {
+			return window.kakao.Postcode;
+		}
+
+		return null;
 	}
 
 	function splitSigungu(sigungu) {
@@ -528,12 +593,14 @@
 	}
 
 	function openAddressSearch() {
-		if (!window.kakao || !window.kakao.Postcode) {
+		const Postcode = getPostcodeConstructor();
+
+		if (!Postcode) {
 			alert('주소 검색 스크립트가 아직 로드되지 않았습니다. 새로고침 후 다시 시도해주세요.');
 			return;
 		}
 
-		new window.kakao.Postcode({
+		new Postcode({
 			oncomplete: function(data) {
 				const region = splitSigungu(data.sigungu);
 				const selectedAddress =
@@ -670,7 +737,345 @@
 	toggleCompanySaveButton();
 
 	/* =========================
-	   4) 회원정보 수정 모달
+	   4) 자주 사용하는 배송지 관리
+	========================= */
+	const deliveryAddressOpenBtn = document.getElementById('admin-client-detail-fourth-delivery-address-open-btn');
+	const deliveryAddressModalEl = document.getElementById('admin-client-detail-fourth-deliveryAddressModal');
+	const deliveryAddressModal = deliveryAddressModalEl
+		? bootstrap.Modal.getOrCreateInstance(deliveryAddressModalEl)
+		: null;
+
+	const deliveryAddressSearchBtn = document.getElementById('admin-client-detail-fourth-delivery-address-search-btn');
+	const deliveryAddressSaveBtn = document.getElementById('admin-client-detail-fourth-delivery-address-save-btn');
+	const deliveryAddressZipCodeInput = document.getElementById('admin-client-detail-fourth-delivery-address-zipCode');
+	const deliveryAddressRoadAddressInput = document.getElementById('admin-client-detail-fourth-delivery-address-roadAddress');
+	const deliveryAddressDetailAddressInput = document.getElementById('admin-client-detail-fourth-delivery-address-detailAddress');
+	const deliveryAddressPreviewEl = document.getElementById('admin-client-detail-fourth-delivery-address-preview');
+	const deliveryAddressListEl = document.getElementById('admin-client-detail-fourth-delivery-address-list');
+	const deliveryAddressLoadingEl = document.getElementById('admin-client-detail-fourth-delivery-address-loading');
+	const deliveryAddressEmptyEl = document.getElementById('admin-client-detail-fourth-delivery-address-empty');
+	const deliveryAddressListCountEl = document.getElementById('admin-client-detail-fourth-delivery-address-list-count');
+	const deliveryAddressSummaryCountEl = document.getElementById('admin-client-detail-fourth-delivery-address-summary-count');
+
+	const deliveryAddressState = {
+		items: [],
+		candidate: null,
+		loading: false,
+		saving: false,
+		deletingIds: new Set()
+	};
+
+	function buildDeliveryAddressText(address) {
+		if (!address) {
+			return '';
+		}
+
+		return joinAddressText([
+			address.zipCode ? '(' + trimValue(address.zipCode) + ')' : '',
+			address.doName,
+			address.siName,
+			address.guName,
+			address.roadAddress,
+			address.detailAddress
+		]);
+	}
+
+	function updateDeliveryAddressCount() {
+		const count = deliveryAddressState.items.length;
+
+		if (deliveryAddressListCountEl) {
+			deliveryAddressListCountEl.textContent = count + '개';
+		}
+
+		if (deliveryAddressSummaryCountEl) {
+			deliveryAddressSummaryCountEl.textContent = count + '개 등록';
+		}
+	}
+
+	function toggleDeliveryAddressSaveButton() {
+		if (!deliveryAddressSaveBtn) {
+			return;
+		}
+
+		const candidate = deliveryAddressState.candidate;
+		const validCandidate = !!candidate &&
+			!!trimValue(candidate.zipCode) &&
+			!!trimValue(candidate.doName) &&
+			!!trimValue(candidate.roadAddress);
+
+		deliveryAddressSaveBtn.disabled = deliveryAddressState.saving || !validCandidate;
+		deliveryAddressSaveBtn.textContent = deliveryAddressState.saving ? '추가 중...' : '배송지 추가';
+	}
+
+	function renderDeliveryAddressCandidate() {
+		const candidate = deliveryAddressState.candidate;
+
+		if (deliveryAddressZipCodeInput) {
+			deliveryAddressZipCodeInput.value = candidate ? trimValue(candidate.zipCode) : '';
+		}
+
+		if (deliveryAddressRoadAddressInput) {
+			deliveryAddressRoadAddressInput.value = candidate ? trimValue(candidate.roadAddress) : '';
+		}
+
+		if (deliveryAddressPreviewEl) {
+			const previewAddress = candidate ? Object.assign({}, candidate, {
+				detailAddress: deliveryAddressDetailAddressInput
+					? trimValue(deliveryAddressDetailAddressInput.value)
+					: ''
+			}) : null;
+
+			const previewText = buildDeliveryAddressText(previewAddress);
+			deliveryAddressPreviewEl.textContent = previewText;
+			deliveryAddressPreviewEl.classList.toggle('d-none', !previewText);
+		}
+
+		toggleDeliveryAddressSaveButton();
+	}
+
+	function resetDeliveryAddressCandidate() {
+		deliveryAddressState.candidate = null;
+
+		if (deliveryAddressDetailAddressInput) {
+			deliveryAddressDetailAddressInput.value = '';
+		}
+
+		renderDeliveryAddressCandidate();
+	}
+
+	function createDeliveryAddressListItem(address) {
+		const wrapper = document.createElement('div');
+		wrapper.className = 'border rounded p-3 mb-2';
+
+		const row = document.createElement('div');
+		row.className = 'd-flex justify-content-between align-items-start gap-3';
+
+		const content = document.createElement('div');
+		content.className = 'flex-grow-1';
+
+		const addressText = document.createElement('div');
+		addressText.className = 'fw-medium text-break';
+		addressText.textContent = buildDeliveryAddressText(address) || '주소 정보 없음';
+
+		const regionText = document.createElement('div');
+		regionText.className = 'text-muted small mt-1';
+		regionText.textContent = joinAddressText([
+			address.doName,
+			address.siName,
+			address.guName
+		]) || '-';
+
+		const deleteBtn = document.createElement('button');
+		deleteBtn.type = 'button';
+		deleteBtn.className = 'btn btn-sm btn-outline-danger flex-shrink-0';
+		deleteBtn.setAttribute('data-delivery-address-id', nvl(address.id));
+		deleteBtn.setAttribute('aria-label', '배송지 삭제');
+		deleteBtn.title = '배송지 삭제';
+		deleteBtn.textContent = '×';
+		deleteBtn.disabled = deliveryAddressState.deletingIds.has(String(address.id));
+
+		content.appendChild(addressText);
+		content.appendChild(regionText);
+		row.appendChild(content);
+		row.appendChild(deleteBtn);
+		wrapper.appendChild(row);
+
+		return wrapper;
+	}
+
+	function renderDeliveryAddressList() {
+		if (deliveryAddressLoadingEl) {
+			deliveryAddressLoadingEl.classList.toggle('d-none', !deliveryAddressState.loading);
+		}
+
+		if (deliveryAddressListEl) {
+			deliveryAddressListEl.innerHTML = '';
+
+			if (!deliveryAddressState.loading) {
+				deliveryAddressState.items.forEach(function(address) {
+					deliveryAddressListEl.appendChild(createDeliveryAddressListItem(address));
+				});
+			}
+		}
+
+		if (deliveryAddressEmptyEl) {
+			const showEmpty = !deliveryAddressState.loading && deliveryAddressState.items.length === 0;
+			deliveryAddressEmptyEl.classList.toggle('d-none', !showEmpty);
+		}
+
+		updateDeliveryAddressCount();
+	}
+
+	function applyDeliveryAddressResponse(response) {
+		if (!response || response.success === false) {
+			throw new Error(response && response.message ? response.message : '배송지 처리 결과가 올바르지 않습니다.');
+		}
+
+		deliveryAddressState.items = Array.isArray(response.addresses) ? response.addresses : [];
+		renderDeliveryAddressList();
+	}
+
+	async function loadDeliveryAddresses() {
+		if (!companyId || deliveryAddressState.loading) {
+			return;
+		}
+
+		deliveryAddressState.loading = true;
+		renderDeliveryAddressList();
+
+		try {
+			const response = await getJson('/management/clientDetail/' + companyId + '/deliveryAddresses');
+			applyDeliveryAddressResponse(response);
+		} catch (e) {
+			alert('배송지 조회 실패: ' + (e && e.message ? e.message : e));
+		} finally {
+			deliveryAddressState.loading = false;
+			renderDeliveryAddressList();
+		}
+	}
+
+	function openDeliveryAddressSearch() {
+		const Postcode = getPostcodeConstructor();
+
+		if (!Postcode) {
+			alert('주소 검색 스크립트가 아직 로드되지 않았습니다. 새로고침 후 다시 시도해주세요.');
+			return;
+		}
+
+		new Postcode({
+			oncomplete: function(data) {
+				const region = splitSigungu(data.sigungu);
+				const selectedAddress =
+					trimValue(data.roadAddress) ||
+					trimValue(data.address) ||
+					trimValue(data.jibunAddress);
+
+				deliveryAddressState.candidate = {
+					zipCode: trimValue(data.zonecode),
+					doName: trimValue(data.sido),
+					siName: region.siName,
+					guName: region.guName,
+					roadAddress: selectedAddress
+				};
+
+				if (deliveryAddressDetailAddressInput) {
+					deliveryAddressDetailAddressInput.value = '';
+				}
+
+				renderDeliveryAddressCandidate();
+
+				if (deliveryAddressDetailAddressInput) {
+					deliveryAddressDetailAddressInput.focus();
+				}
+			}
+		}).open();
+	}
+
+	if (deliveryAddressOpenBtn) {
+		deliveryAddressOpenBtn.addEventListener('click', function() {
+			if (deliveryAddressModal) {
+				deliveryAddressModal.show();
+			}
+		});
+	}
+
+	if (deliveryAddressModalEl) {
+		deliveryAddressModalEl.addEventListener('shown.bs.modal', function() {
+			loadDeliveryAddresses();
+		});
+	}
+
+	if (deliveryAddressSearchBtn) {
+		deliveryAddressSearchBtn.addEventListener('click', openDeliveryAddressSearch);
+	}
+
+	if (deliveryAddressDetailAddressInput) {
+		deliveryAddressDetailAddressInput.addEventListener('input', renderDeliveryAddressCandidate);
+	}
+
+	if (deliveryAddressSaveBtn) {
+		deliveryAddressSaveBtn.addEventListener('click', async function() {
+			const candidate = deliveryAddressState.candidate;
+
+			if (!candidate || !trimValue(candidate.zipCode) || !trimValue(candidate.doName) || !trimValue(candidate.roadAddress)) {
+				alert('주소 검색을 통해 추가할 배송지를 선택해주세요.');
+				return;
+			}
+
+			deliveryAddressState.saving = true;
+			toggleDeliveryAddressSaveButton();
+
+			try {
+				const response = await postJson('/management/clientDetail/' + companyId + '/deliveryAddresses', {
+					zipCode: trimValue(candidate.zipCode),
+					doName: trimValue(candidate.doName),
+					siName: trimValue(candidate.siName),
+					guName: trimValue(candidate.guName),
+					roadAddress: trimValue(candidate.roadAddress),
+					detailAddress: deliveryAddressDetailAddressInput
+						? trimValue(deliveryAddressDetailAddressInput.value)
+						: ''
+				});
+
+				applyDeliveryAddressResponse(response);
+				resetDeliveryAddressCandidate();
+				alert('배송지가 추가되었습니다.');
+			} catch (e) {
+				alert('배송지 추가 실패: ' + (e && e.message ? e.message : e));
+			} finally {
+				deliveryAddressState.saving = false;
+				toggleDeliveryAddressSaveButton();
+			}
+		});
+	}
+
+	if (deliveryAddressListEl) {
+		deliveryAddressListEl.addEventListener('click', async function(e) {
+			const deleteBtn = e.target.closest('[data-delivery-address-id]');
+
+			if (!deleteBtn) {
+				return;
+			}
+
+			const addressId = trimValue(deleteBtn.getAttribute('data-delivery-address-id'));
+			if (!addressId || deliveryAddressState.deletingIds.has(addressId)) {
+				return;
+			}
+
+			const address = deliveryAddressState.items.find(function(item) {
+				return String(item.id) === addressId;
+			});
+
+			const message = address
+				? '다음 배송지를 삭제하시겠습니까?\n\n' + buildDeliveryAddressText(address)
+				: '선택한 배송지를 삭제하시겠습니까?';
+
+			if (!confirm(message)) {
+				return;
+			}
+
+			deliveryAddressState.deletingIds.add(addressId);
+			renderDeliveryAddressList();
+
+			try {
+				const response = await deleteJson(
+					'/management/clientDetail/' + companyId + '/deliveryAddresses/' + encodeURIComponent(addressId)
+				);
+				applyDeliveryAddressResponse(response);
+			} catch (e) {
+				alert('배송지 삭제 실패: ' + (e && e.message ? e.message : e));
+			} finally {
+				deliveryAddressState.deletingIds.delete(addressId);
+				renderDeliveryAddressList();
+			}
+		});
+	}
+
+	renderDeliveryAddressCandidate();
+	renderDeliveryAddressList();
+
+	/* =========================
+	   5) 회원정보 수정 모달
 	========================= */
 	const memberEditModalEl = document.getElementById('admin-client-detail-fourth-memberEditModal');
 	const memberEditModal = memberEditModalEl ? bootstrap.Modal.getOrCreateInstance(memberEditModalEl) : null;

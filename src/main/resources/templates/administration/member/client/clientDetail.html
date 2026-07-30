@@ -266,6 +266,28 @@
 							</div>
 
 							<div class="card mb-3">
+								<div class="card-header d-flex justify-content-between align-items-center gap-2">
+									<div>
+										<h5 class="card-title mb-1">자주 사용하는 배송지</h5>
+										<span id="admin-client-detail-fourth-delivery-address-summary-count"
+											class="text-muted small" th:text="|${deliveryAddressCount}개 등록|">0개 등록</span>
+									</div>
+
+									<button type="button" id="admin-client-detail-fourth-delivery-address-open-btn"
+										class="btn btn-outline-primary btn-sm">
+										<i class="ri-map-pin-add-line align-bottom me-1"></i>
+										배송지 관리
+									</button>
+								</div>
+
+								<div class="card-body">
+									<p class="text-muted mb-0">
+										이 대리점이 반복해서 사용하는 배송지를 관리합니다. 등록된 주소는 발주 상세의 배송지 선택 목록에도 동일하게 반영됩니다.
+									</p>
+								</div>
+							</div>
+
+							<div class="card mb-3">
 								<div class="card-header">
 									<h5 class="card-title mb-0">회사 멤버</h5>
 								</div>
@@ -373,6 +395,90 @@
 						style="width:100%; height:auto; display:none;" />
 					<iframe id="admin-client-detail-fourth-businessLicenseFrame"
 						style="width:100%;height:100%;border:0; display:none;" title="business-license"></iframe>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- 자주 사용하는 배송지 관리 모달 -->
+	<div class="modal fade" id="admin-client-detail-fourth-deliveryAddressModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-1">자주 사용하는 배송지 관리</h5>
+						<div class="text-muted small">주소 검색으로 새 배송지를 추가하거나 기존 배송지를 삭제할 수 있습니다.</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="border rounded p-3 mb-4 bg-light">
+						<div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+							<h6 class="mb-0">새 배송지 추가</h6>
+							<button type="button" id="admin-client-detail-fourth-delivery-address-search-btn"
+								class="btn btn-outline-primary btn-sm">
+								<i class="ri-search-line align-bottom me-1"></i>주소 검색
+							</button>
+						</div>
+
+						<div class="row g-3">
+							<div class="col-md-4">
+								<label class="admin-client-detail-fourth-modal-label"
+									for="admin-client-detail-fourth-delivery-address-zipCode">우편번호</label>
+								<input type="text" class="form-control"
+									id="admin-client-detail-fourth-delivery-address-zipCode" readonly>
+							</div>
+
+							<div class="col-md-8">
+								<label class="admin-client-detail-fourth-modal-label"
+									for="admin-client-detail-fourth-delivery-address-roadAddress">기본주소</label>
+								<input type="text" class="form-control"
+									id="admin-client-detail-fourth-delivery-address-roadAddress" readonly>
+							</div>
+
+							<div class="col-12">
+								<label class="admin-client-detail-fourth-modal-label"
+									for="admin-client-detail-fourth-delivery-address-detailAddress">상세주소</label>
+								<input type="text" class="form-control" maxlength="255"
+									id="admin-client-detail-fourth-delivery-address-detailAddress"
+									placeholder="동/호수, 층, 출입 방법 등 필요한 상세주소를 입력하세요.">
+							</div>
+						</div>
+
+						<div id="admin-client-detail-fourth-delivery-address-preview"
+							class="alert alert-primary mt-3 mb-0 d-none" role="status"></div>
+
+						<div class="d-flex justify-content-end mt-3">
+							<button type="button" class="btn btn-primary"
+								id="admin-client-detail-fourth-delivery-address-save-btn" disabled>
+								배송지 추가
+							</button>
+						</div>
+					</div>
+
+					<div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+						<h6 class="mb-0">등록된 배송지</h6>
+						<span id="admin-client-detail-fourth-delivery-address-list-count"
+							class="badge bg-primary-subtle text-primary">0개</span>
+					</div>
+
+					<div id="admin-client-detail-fourth-delivery-address-loading"
+						class="text-center text-muted py-4 d-none">
+						<div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+						배송지를 불러오는 중입니다.
+					</div>
+
+					<div id="admin-client-detail-fourth-delivery-address-empty"
+						class="text-center text-muted border rounded py-4 d-none">
+						등록된 배송지가 없습니다.
+					</div>
+
+					<div id="admin-client-detail-fourth-delivery-address-list" aria-live="polite"></div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
 				</div>
 			</div>
 		</div>

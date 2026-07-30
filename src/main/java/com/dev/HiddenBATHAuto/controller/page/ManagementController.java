@@ -141,6 +141,35 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ManagementController {
 
+	public record AdminClientDeliveryAddressSaveRequest(
+			String zipCode,
+			String doName,
+			String siName,
+			String guName,
+			String roadAddress,
+			String detailAddress
+	) {
+	}
+
+	public record AdminClientDeliveryAddressItem(
+			Long id,
+			String zipCode,
+			String doName,
+			String siName,
+			String guName,
+			String roadAddress,
+			String detailAddress,
+			String fullAddress
+	) {
+	}
+
+	public record AdminClientDeliveryAddressResponse(
+			boolean success,
+			String message,
+			List<AdminClientDeliveryAddressItem> addresses
+	) {
+	}
+
 	private final TaskRepository taskRepository;
 	private final OrderRepository orderRepository;
 	private final MemberRepository memberRepository;
@@ -2465,11 +2494,224 @@ public class ManagementController {
 				.filter(member -> member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
 				.min(Comparator.comparing(Member::getId)).orElse(null);
 
+		List<CompanyDeliveryAddress> deliveryAddresses =
+				companyDeliveryAddressRepository.findByCompany_IdOrderByIdAsc(id);
+
 		model.addAttribute("company", company);
 		model.addAttribute("members", memberList);
 		model.addAttribute("representative", representative);
+		model.addAttribute("deliveryAddressCount", deliveryAddresses.size());
 
 		return "administration/member/client/clientDetail";
+	}
+
+	@GetMapping("/clientDetail/{companyId}/deliveryAddresses")
+	@ResponseBody
+	public ResponseEntity<AdminClientDeliveryAddressResponse> getClientDeliveryAddresses(
+			@PathVariable Long companyId) {
+		try {
+			findAdminClientCompany(companyId);
+			return ResponseEntity.ok(buildAdminClientDeliveryAddressResponse(
+					companyId,
+					"배송지 목록을 조회했습니다."
+			));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(
+					new AdminClientDeliveryAddressResponse(false, e.getMessage(), List.of())
+			);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+					new AdminClientDeliveryAddressResponse(
+							false,
+							"배송지 목록 조회 중 오류가 발생했습니다.",
+							List.of()
+					)
+			);
+		}
+	}
+
+	@PostMapping("/clientDetail/{companyId}/deliveryAddresses")
+	@ResponseBody
+	public ResponseEntity<AdminClientDeliveryAddressResponse> addClientDeliveryAddress(
+			@PathVariable Long companyId,
+			@RequestBody AdminClientDeliveryAddressSaveRequest request) {
+		try {
+			Company company = findAdminClientCompany(companyId);
+
+			String zipCode = normalizeAdminClientDeliveryAddressValue(
+					request != null ? request.zipCode() : null, 20, true, "우편번호");
+			String doName = normalizeAdminClientDeliveryAddressValue(
+					request != null ? request.doName() : null, 50, true, "도/시");
+			String siName = normalizeAdminClientDeliveryAddressValue(
+					request != null ? request.siName() : null, 50, false, "시/군");
+			String guName = normalizeAdminClientDeliveryAddressValue(
+					request != null ? request.guName() : null, 50, false, "구");
+			String roadAddress = normalizeAdminClientDeliveryAddressValue(
+					request != null ? request.roadAddress() : null, 255, true, "기본주소");
+			String detailAddress = normalizeAdminClientDeliveryAddressValue(
+					request != null ? request.detailAddress() : null, 255, false, "상세주소");
+
+			boolean duplicate = companyDeliveryAddressRepository.findByCompany_IdOrderByIdAsc(companyId).stream()
+					.anyMatch(address -> isSameAdminClientDeliveryAddress(
+							address, zipCode, doName, siName, guName, roadAddress, detailAddress));
+
+			if (duplicate) {
+				throw new IllegalArgumentException("이미 동일한 배송지가 등록되어 있습니다.");
+			}
+
+			CompanyDeliveryAddress address = new CompanyDeliveryAddress();
+			address.setCompany(company);
+			address.setZipCode(zipCode);
+			address.setDoName(doName);
+			address.setSiName(siName);
+			address.setGuName(guName);
+			address.setRoadAddress(roadAddress);
+			address.setDetailAddress(detailAddress);
+			address.setCreatedAt(LocalDateTime.now());
+
+			companyDeliveryAddressRepository.save(address);
+
+			return ResponseEntity.ok(buildAdminClientDeliveryAddressResponse(
+					companyId,
+					"배송지가 추가되었습니다."
+			));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(
+					new AdminClientDeliveryAddressResponse(false, e.getMessage(), List.of())
+			);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+					new AdminClientDeliveryAddressResponse(
+							false,
+							"배송지 추가 중 오류가 발생했습니다.",
+							List.of()
+					)
+			);
+		}
+	}
+
+	@DeleteMapping("/clientDetail/{companyId}/deliveryAddresses/{addressId}")
+	@ResponseBody
+	public ResponseEntity<AdminClientDeliveryAddressResponse> deleteClientDeliveryAddress(
+			@PathVariable Long companyId,
+			@PathVariable Long addressId) {
+		try {
+			findAdminClientCompany(companyId);
+
+			CompanyDeliveryAddress address = companyDeliveryAddressRepository.findById(addressId)
+					.orElseThrow(() -> new IllegalArgumentException("삭제할 배송지가 존재하지 않습니다."));
+
+			Long ownerCompanyId = address.getCompany() != null ? address.getCompany().getId() : null;
+			if (!companyId.equals(ownerCompanyId)) {
+				throw new IllegalArgumentException("해당 대리점의 배송지가 아니므로 삭제할 수 없습니다.");
+			}
+
+			companyDeliveryAddressRepository.delete(address);
+
+			return ResponseEntity.ok(buildAdminClientDeliveryAddressResponse(
+					companyId,
+					"배송지가 삭제되었습니다."
+			));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(
+					new AdminClientDeliveryAddressResponse(false, e.getMessage(), List.of())
+			);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+					new AdminClientDeliveryAddressResponse(
+							false,
+							"배송지 삭제 중 오류가 발생했습니다.",
+							List.of()
+					)
+			);
+		}
+	}
+
+	private Company findAdminClientCompany(Long companyId) {
+		if (companyId == null || companyId <= 0) {
+			throw new IllegalArgumentException("올바르지 않은 대리점 ID입니다.");
+		}
+
+		return companyRepository.findById(companyId)
+				.orElseThrow(() -> new IllegalArgumentException(
+						"해당 대리점이 존재하지 않습니다. ID=" + companyId));
+	}
+
+	private AdminClientDeliveryAddressResponse buildAdminClientDeliveryAddressResponse(
+			Long companyId,
+			String message) {
+		List<AdminClientDeliveryAddressItem> addresses =
+				companyDeliveryAddressRepository.findByCompany_IdOrderByIdAsc(companyId).stream()
+						.map(this::toAdminClientDeliveryAddressItem)
+						.toList();
+
+		return new AdminClientDeliveryAddressResponse(true, message, addresses);
+	}
+
+	private AdminClientDeliveryAddressItem toAdminClientDeliveryAddressItem(CompanyDeliveryAddress address) {
+		return new AdminClientDeliveryAddressItem(
+				address.getId(),
+				adminClientDeliveryAddressText(address.getZipCode()),
+				adminClientDeliveryAddressText(address.getDoName()),
+				adminClientDeliveryAddressText(address.getSiName()),
+				adminClientDeliveryAddressText(address.getGuName()),
+				adminClientDeliveryAddressText(address.getRoadAddress()),
+				adminClientDeliveryAddressText(address.getDetailAddress()),
+				buildOrderListFullAddress(address)
+		);
+	}
+
+	private String normalizeAdminClientDeliveryAddressValue(
+			String value,
+			int maxLength,
+			boolean required,
+			String fieldName) {
+		String normalized = value == null ? "" : value.trim().replaceAll("\\s+", " ");
+
+		if (required && normalized.isBlank()) {
+			throw new IllegalArgumentException(fieldName + " 항목은 필수입니다.");
+		}
+
+		if (normalized.length() > maxLength) {
+			throw new IllegalArgumentException(fieldName + " 항목은 " + maxLength + "자 이하로 입력해주세요.");
+		}
+
+		return normalized;
+	}
+
+	private boolean isSameAdminClientDeliveryAddress(
+			CompanyDeliveryAddress address,
+			String zipCode,
+			String doName,
+			String siName,
+			String guName,
+			String roadAddress,
+			String detailAddress) {
+		return adminClientDeliveryAddressComparisonText(address.getZipCode()).equals(
+				adminClientDeliveryAddressComparisonText(zipCode))
+				&& adminClientDeliveryAddressComparisonText(address.getDoName()).equals(
+						adminClientDeliveryAddressComparisonText(doName))
+				&& adminClientDeliveryAddressComparisonText(address.getSiName()).equals(
+						adminClientDeliveryAddressComparisonText(siName))
+				&& adminClientDeliveryAddressComparisonText(address.getGuName()).equals(
+						adminClientDeliveryAddressComparisonText(guName))
+				&& adminClientDeliveryAddressComparisonText(address.getRoadAddress()).equals(
+						adminClientDeliveryAddressComparisonText(roadAddress))
+				&& adminClientDeliveryAddressComparisonText(address.getDetailAddress()).equals(
+						adminClientDeliveryAddressComparisonText(detailAddress));
+	}
+
+	private String adminClientDeliveryAddressComparisonText(String value) {
+		return value == null
+				? ""
+				: value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+	}
+
+	private String adminClientDeliveryAddressText(String value) {
+		return value == null ? "" : value;
 	}
 
 	@PostMapping(value = "/clientDetail/{id}/updateCompany", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
