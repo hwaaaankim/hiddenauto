@@ -59,8 +59,7 @@ public class AmountExcelAdminController {
     }
 
     @PostMapping("/items/upload")
-    public String uploadItems(@RequestParam("file") MultipartFile file,
-                              RedirectAttributes redirectAttributes) {
+    public String uploadItems(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
         try {
             var result = importService.replaceItems(file);
             redirectAttributes.addFlashAttribute("message", result.message() + " 저장 " + result.savedCount() + "건");
@@ -71,8 +70,7 @@ public class AmountExcelAdminController {
     }
 
     @PostMapping("/items/sync-upload")
-    public String syncItems(@RequestParam("file") MultipartFile file,
-                            RedirectAttributes redirectAttributes) {
+    public String syncItems(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
         try {
             var result = importService.syncItems(file);
             redirectAttributes.addFlashAttribute("message", result.message());
@@ -83,8 +81,7 @@ public class AmountExcelAdminController {
     }
 
     @PostMapping("/customers/upload")
-    public String uploadCustomers(@RequestParam("file") MultipartFile file,
-                                  RedirectAttributes redirectAttributes) {
+    public String uploadCustomers(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
         try {
             var result = importService.replaceCustomers(file);
             redirectAttributes.addFlashAttribute("message", result.message() + " 저장 " + result.savedCount() + "건");
@@ -95,8 +92,7 @@ public class AmountExcelAdminController {
     }
 
     @PostMapping("/customers/sync-upload")
-    public String syncCustomers(@RequestParam("file") MultipartFile file,
-                                RedirectAttributes redirectAttributes) {
+    public String syncCustomers(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
         try {
             var result = importService.syncCustomers(file);
             redirectAttributes.addFlashAttribute("message", result.message());
@@ -142,8 +138,6 @@ public class AmountExcelAdminController {
 
     @GetMapping("/sales-voucher-download")
     public void downloadSalesVoucher(@RequestParam(required = false) String keyword,
-                                     @RequestParam(required = false) String orderId,
-                                     @RequestParam(required = false) String productName,
                                      @RequestParam(required = false, defaultValue = "all") String dateCriteria,
                                      @RequestParam(required = false) String startDate,
                                      @RequestParam(required = false) String endDate,
@@ -153,19 +147,7 @@ public class AmountExcelAdminController {
                                      @RequestParam(required = false, defaultValue = "orderDate") String sortField,
                                      @RequestParam(required = false, defaultValue = "desc") String sortDir,
                                      HttpServletResponse response) throws IOException {
-        salesVoucherExportService.downloadSalesVoucher(
-                keyword,
-                orderId,
-                productName,
-                dateCriteria,
-                startDate,
-                endDate,
-                productCategoryId,
-                orderStatus,
-                standard,
-                sortField,
-                sortDir,
-                response
-        );
+        salesVoucherExportService.downloadSalesVoucher(keyword, dateCriteria, startDate, endDate,
+                productCategoryId, orderStatus, standard, sortField, sortDir, response);
     }
 }

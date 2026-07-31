@@ -6,28 +6,6 @@
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body class="twocolumn-panel">
-	<style>
-		.admin-task-list-second-page .admin-task-list-second-note-cell,
-		.admin-task-list-second-page .admin-task-list-second-product-cell,
-		.admin-task-list-second-page .admin-task-list-second-product-summary {
-			white-space: pre-wrap !important;
-			word-break: break-word !important;
-			overflow-wrap: anywhere !important;
-			overflow: visible !important;
-			text-overflow: clip !important;
-			max-height: none !important;
-			display: block !important;
-			-webkit-line-clamp: unset !important;
-			-webkit-box-orient: initial !important;
-		}
-
-		.admin-task-list-second-product-highlight {
-			font-weight: 700;
-			text-decoration: underline;
-			text-underline-offset: 2px;
-			text-decoration-thickness: 1.5px;
-		}
-	</style>
 	<div id="admin-task-list-second-loading-overlay" class="admin-task-list-second-loading-overlay is-active"
 		aria-hidden="false">
 		<div class="admin-task-list-second-loading-box">
@@ -48,8 +26,7 @@
 
 		<div class="main-content">
 			<div class="page-content">
-				<div class="container-fluid admin-task-list-second-page"
-					th:attr="data-product-name-keyword=${productName}">
+				<div class="container-fluid admin-task-list-second-page">
 
 					<!-- 상세 수정용 회사/회원/주소/주문자 데이터는 넓게보기 클릭 시 fragment에서만 로딩합니다. -->
 
@@ -104,26 +81,9 @@
 													<i class="fa-solid fa-truck-fast"></i> 택배명세서출력
 												</button>
 
-												<a th:href="@{/management/nonStandardOrder/print(
-                                                    keyword=${keyword},
-                                                    orderId=${orderId},
-                                                    productName=${productName},
-                                                    dateCriteria=${dateCriteria},
-                                                    startDate=${startDateStr},
-                                                    endDate=${endDateStr},
-                                                    productCategoryId=${productCategoryId},
-                                                    orderStatus=${orderStatus},
-                                                    standard=${standard},
-                                                    sortState=${sortState},
-                                                    sortField=${sortField},
-                                                    sortDir=${sortDir}
-                                                )}" class="btn btn-outline-dark" target="_blank" rel="noopener">
-													<i class="fa-solid fa-print"></i> 바로출력
-												</a>
 												<a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
                                                     orderId=${orderId},
-                                                    productName=${productName},
                                                     dateCriteria=${dateCriteria},
                                                     startDate=${startDateStr},
                                                     endDate=${endDateStr},
@@ -139,8 +99,6 @@
 												</a>
 												<a sec:authorize="hasAuthority('ROLE_ADMIN')" th:href="@{/admin/amount-excel/sales-voucher-download(
 											        keyword=${keyword},
-												        orderId=${orderId},
-												        productName=${productName},
 											        dateCriteria=${dateCriteria},
 											        startDate=${startDateStr},
 											        endDate=${endDateStr},
@@ -177,17 +135,8 @@
 													class="form-control bg-light border-light"
 													placeholder="오더 ID" th:value="${orderId}">
 											</div>
-											<div class="col-xxl-2 col-sm-4">
-												<label class="form-label" for="task-list-product-name-search">제품명</label>
-												<div class="search-box">
-													<input type="text" id="task-list-product-name-search" name="productName"
-														class="form-control search bg-light border-light"
-														placeholder="제품명 포함 검색" th:value="${productName}">
-													<i class="ri-search-line search-icon"></i>
-												</div>
-											</div>
 
-											<div class="col-xxl-2 col-sm-4">
+											<div class="col-xxl-2 col-sm-8">
 												<label class="form-label">키워드 검색</label>
 												<div class="search-box">
 													<input type="text" class="form-control search bg-light border-light"
@@ -527,7 +476,9 @@
 														<td>
 															<div class="admin-task-list-second-product-cell"
 																th:title="${row.productSummary}">
-																<span class="admin-task-list-second-product-summary admin-task-list-second-product-highlight-target"
+																<span class="admin-task-list-second-product-name"
+																	th:text="${row.productName}">제품명</span>
+																<span class="admin-task-list-second-product-summary"
 																	th:text="${row.productSummary}">제품정보</span>
 															</div>
 														</td>
@@ -635,7 +586,6 @@
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
                                                                 orderId=${orderId},
-                                                                productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
@@ -657,7 +607,6 @@
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
                                                                 orderId=${orderId},
-                                                                productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
@@ -680,7 +629,6 @@
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
                                                                 orderId=${orderId},
-                                                                productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
@@ -702,7 +650,6 @@
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
                                                                 orderId=${orderId},
-                                                                productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
@@ -724,7 +671,6 @@
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
                                                                 orderId=${orderId},
-                                                                productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
                                                                 endDate=${endDateStr},
@@ -978,7 +924,7 @@
 											<div
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
 												<label>제품정보</label>
-												<div class="admin-task-list-second-product-highlight-target" th:text="${row.productSummary}">제품정보</div>
+												<div th:text="${row.productSummary}">제품정보</div>
 											</div>
 
 											<div

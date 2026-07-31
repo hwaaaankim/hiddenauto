@@ -30,23 +30,8 @@ public class AmountOrderOptionParser {
         OrderItem item = order == null ? null : order.getOrderItem();
         Map<String, String> optionMap = parseOptionMap(item);
 
-        /*
-         * 분류 우선순위:
-         * 1. 실제 발주 옵션 JSON의 카테고리
-         * 2. Order.assignedProductionTeam.name
-         * 3. 기존 데이터 호환용 Order.productCategory.name
-         *
-         * optionJson과 생산팀 배정값이 서로 다르면 optionJson 값을 그대로 사용합니다.
-         */
         String category = first(optionMap, "카테고리", "제품분류", "분류");
-        if (!StringUtils.hasText(category)
-                && order != null
-                && order.getAssignedProductionTeam() != null) {
-            category = order.getAssignedProductionTeam().getName();
-        }
-        if (!StringUtils.hasText(category)
-                && order != null
-                && order.getProductCategory() != null) {
+        if (!StringUtils.hasText(category) && order != null && order.getProductCategory() != null) {
             category = order.getProductCategory().getName();
         }
 
@@ -71,17 +56,8 @@ public class AmountOrderOptionParser {
 
         return new AmountParsedOrderProduct(
                 order == null ? null : order.getId(),
-                safe(category),
-                safe(series),
-                safe(productName),
-                safe(color),
-                safe(size),
-                whd[0],
-                whd[1],
-                whd[2],
-                doorCount,
-                unitHint,
-                optionMap
+                safe(category), safe(series), safe(productName), safe(color), safe(size),
+                whd[0], whd[1], whd[2], doorCount, unitHint, optionMap
         );
     }
 
@@ -92,10 +68,7 @@ public class AmountOrderOptionParser {
         try {
             Map<String, Object> raw = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {});
             Map<String, String> result = new LinkedHashMap<>();
-            raw.forEach((k, v) -> result.put(
-                    k == null ? "" : k.trim(),
-                    v == null ? "" : String.valueOf(v).trim()
-            ));
+            raw.forEach((k, v) -> result.put(k == null ? "" : k.trim(), v == null ? "" : String.valueOf(v).trim()));
             return result;
         } catch (Exception e) {
             return Map.of();
@@ -116,8 +89,7 @@ public class AmountOrderOptionParser {
         }
         for (String key : keys) {
             Optional<Map.Entry<String, String>> contains = map.entrySet().stream()
-                    .filter(e -> e.getKey() != null
-                            && e.getKey().replace(" ", "").contains(key.replace(" ", "")))
+                    .filter(e -> e.getKey() != null && e.getKey().replace(" ", "").contains(key.replace(" ", "")))
                     .findFirst();
             if (contains.isPresent() && StringUtils.hasText(contains.get().getValue())) {
                 return contains.get().getValue();

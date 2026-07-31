@@ -376,48 +376,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("endDateTime") LocalDateTime endDateTime, @Param("productCategoryId") Long productCategoryId,
 			@Param("status") OrderStatus status, @Param("standard") Boolean standard, Pageable pageable);
 
-	/**
-	 * 관리자 발주 목록의 제품명 포함 검색까지 적용하는 조회입니다.
-	 * 기존 메서드 호출부 보호를 위해 별도 메서드로 유지합니다.
-	 */
-	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
-			"deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus" })
-	@Query("""
-			SELECT o FROM Order o
-			LEFT JOIN o.orderItem filterItem
-			WHERE
-			    (:orderId IS NULL OR o.id = :orderId)
-			    AND (:productName IS NULL OR
-			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
-			    AND (:keyword IS NULL OR
-			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
-			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
-			    AND (:status IS NULL OR o.status = :status)
-			    AND (:standard IS NULL OR o.standard = :standard)
-			    AND (
-			        (:dateCriteria = 'order' AND
-			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
-			        OR (:dateCriteria = 'delivery' AND
-			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
-			        OR :dateCriteria = 'all'
-			    )
-			""")
-	Page<Order> findFilteredOrdersWithOrderIdAndProductName(
-			@Param("keyword") String keyword,
-			@Param("orderId") Long orderId,
-			@Param("productName") String productName,
-			@Param("dateCriteria") String dateCriteria,
-			@Param("startDateTime") LocalDateTime startDateTime,
-			@Param("endDateTime") LocalDateTime endDateTime,
-			@Param("productCategoryId") Long productCategoryId,
-			@Param("status") OrderStatus status,
-			@Param("standard") Boolean standard,
-			Pageable pageable
-	);
-
 	@Query("""
 			    SELECT o FROM Order o
 			    WHERE
@@ -468,42 +426,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("productCategoryId") Long productCategoryId, @Param("status") OrderStatus status,
 			@Param("standard") Boolean standard);
 
-	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
-			"deliveryMethod", "productCategory", "assignedProductionTeam", "assignedDeliveryHandler" })
-	@Query("""
-			SELECT o FROM Order o
-			LEFT JOIN o.orderItem filterItem
-			WHERE
-			    (:productName IS NULL OR
-			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
-			    AND (:keyword IS NULL OR
-			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
-			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
-			    AND (:status IS NULL OR o.status = :status)
-			    AND (:standard IS NULL OR o.standard = :standard)
-			    AND (
-			        (:dateCriteria = 'order' AND
-			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
-			        OR (:dateCriteria = 'delivery' AND
-			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
-			        OR :dateCriteria = 'all'
-			    )
-			ORDER BY o.preferredDeliveryDate DESC, o.id DESC
-			""")
-	List<Order> findFilteredOrdersForExcelWithProductName(
-			@Param("keyword") String keyword,
-			@Param("productName") String productName,
-			@Param("dateCriteria") String dateCriteria,
-			@Param("startDateTime") LocalDateTime startDateTime,
-			@Param("endDateTime") LocalDateTime endDateTime,
-			@Param("productCategoryId") Long productCategoryId,
-			@Param("status") OrderStatus status,
-			@Param("standard") Boolean standard
-	);
-
 	@Query("""
 			    SELECT o FROM Order o
 			    WHERE (:orderId IS NULL OR o.id = :orderId)
@@ -529,43 +451,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime,
 			@Param("productCategoryId") Long productCategoryId, @Param("status") OrderStatus status,
 			@Param("standard") Boolean standard);
-
-	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
-			"deliveryMethod", "productCategory", "assignedProductionTeam", "assignedDeliveryHandler", "checkStatus" })
-	@Query("""
-			SELECT o FROM Order o
-			LEFT JOIN o.orderItem filterItem
-			WHERE (:orderId IS NULL OR o.id = :orderId)
-			    AND (:productName IS NULL OR
-			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
-			    AND (:keyword IS NULL OR
-			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
-			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
-			    AND (:status IS NULL OR o.status = :status)
-			    AND (:standard IS NULL OR o.standard = :standard)
-			    AND (
-			        (:dateCriteria = 'order' AND
-			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
-			        OR (:dateCriteria = 'delivery' AND
-			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
-			        OR :dateCriteria = 'all'
-			    )
-			ORDER BY o.preferredDeliveryDate DESC, o.id DESC
-			""")
-	List<Order> findFilteredOrdersForExcelWithOrderIdAndProductName(
-			@Param("keyword") String keyword,
-			@Param("orderId") Long orderId,
-			@Param("productName") String productName,
-			@Param("dateCriteria") String dateCriteria,
-			@Param("startDateTime") LocalDateTime startDateTime,
-			@Param("endDateTime") LocalDateTime endDateTime,
-			@Param("productCategoryId") Long productCategoryId,
-			@Param("status") OrderStatus status,
-			@Param("standard") Boolean standard
-	);
 
 	@Query("""
 			    SELECT o FROM Order o
@@ -1116,55 +1001,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime,
 			@Param("productCategoryId") Long productCategoryId, @Param("status") OrderStatus status,
 			@Param("standard") Boolean standard);
-
-	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
-			"deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus" })
-	@Query("""
-			SELECT o FROM Order o
-			LEFT JOIN o.checkStatus cs
-			LEFT JOIN o.orderItem filterItem
-			WHERE (:orderId IS NULL OR o.id = :orderId)
-			    AND (:productName IS NULL OR
-			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
-			    AND (:keyword IS NULL OR
-			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
-			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
-			    AND (:status IS NULL OR o.status = :status)
-			    AND (:standard IS NULL OR o.standard = :standard)
-			    AND (
-			        (:dateCriteria = 'order' AND
-			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
-			        OR (:dateCriteria = 'delivery' AND
-			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
-			        OR :dateCriteria = 'all'
-			    )
-			ORDER BY
-			    CASE
-			        WHEN cs.checkState = 'REVISED_AFTER_CHECK' THEN 0
-			        WHEN cs.id IS NULL THEN 1
-			        WHEN cs.checkState IS NULL AND cs.checked = false THEN 1
-			        WHEN cs.checkState = 'UNCHECKED' THEN 1
-			        WHEN cs.checkState = 'CHECKED' THEN 2
-			        WHEN cs.checkState IS NULL AND cs.checked = true THEN 2
-			        ELSE 1
-			    END ASC,
-			    o.createdAt DESC,
-			    o.id DESC
-			""")
-	List<Order> findFilteredOrdersForBulkViewWithOrderIdAndProductName(
-			@Param("keyword") String keyword,
-			@Param("orderId") Long orderId,
-			@Param("productName") String productName,
-			@Param("dateCriteria") String dateCriteria,
-			@Param("startDateTime") LocalDateTime startDateTime,
-			@Param("endDateTime") LocalDateTime endDateTime,
-			@Param("productCategoryId") Long productCategoryId,
-			@Param("status") OrderStatus status,
-			@Param("standard") Boolean standard
-	);
 
 	@Query("""
 			    select distinct o
