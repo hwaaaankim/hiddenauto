@@ -31,6 +31,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Sort;
@@ -50,6 +51,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.amount.AmountCustomerMasterRepository;
 import com.dev.HiddenBATHAuto.repository.amount.AmountItemMasterRepository;
+import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -68,13 +70,73 @@ public class AmountSalesVoucherExportService {
     private final OrderRepository orderRepository;
     private final AmountCustomerMasterRepository customerRepository;
     private final AmountItemMasterRepository itemRepository;
+    private final TeamCategoryRepository teamCategoryRepository;
     private final AmountOrderOptionParser optionParser;
     private final OpenAiAmountProductMatchClient aiProductMatchClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * 기존 호출부 보호용 오버로드입니다.
+     */
     @Transactional(readOnly = true)
     public void downloadSalesVoucher(String keyword,
+                                     String dateCriteria,
+                                     String startDate,
+                                     String endDate,
+                                     String productCategoryId,
+                                     String orderStatus,
+                                     String standard,
+                                     String sortField,
+                                     String sortDir,
+                                     HttpServletResponse response) throws IOException {
+        downloadSalesVoucher(
+                keyword,
+                null,
+                dateCriteria,
+                startDate,
+                endDate,
+                productCategoryId,
+                orderStatus,
+                standard,
+                sortField,
+                sortDir,
+                response
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public void downloadSalesVoucher(String keyword,
+                                     String productName,
+                                     String dateCriteria,
+                                     String startDate,
+                                     String endDate,
+                                     String productCategoryId,
+                                     String orderStatus,
+                                     String standard,
+                                     String sortField,
+                                     String sortDir,
+                                     HttpServletResponse response) throws IOException {
+        downloadSalesVoucher(
+                keyword,
+                null,
+                productName,
+                dateCriteria,
+                startDate,
+                endDate,
+                productCategoryId,
+                orderStatus,
+                standard,
+                sortField,
+                sortDir,
+                response
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public void downloadSalesVoucher(String keyword,
+                                     String orderId,
+                                     String productName,
                                      String dateCriteria,
                                      String startDate,
                                      String endDate,
@@ -87,12 +149,16 @@ public class AmountSalesVoucherExportService {
         String finalDateCriteria = normalizeDateCriteria(dateCriteria);
         DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
         Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+        Long finalOrderId = parsePositiveLongOrNull(orderId);
         OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
         Boolean standardBool = parseStandardOrNull(standard);
-        String finalKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        String finalKeyword = normalizeNullableText(keyword);
+        String finalProductName = normalizeNullableText(productName);
 
-        List<Order> orders = orderRepository.findFilteredOrdersForExcel(
+        List<Order> orders = orderRepository.findFilteredOrdersForExcelWithOrderIdAndProductName(
                 finalKeyword,
+                finalOrderId,
+                finalProductName,
                 finalDateCriteria,
                 range.start(),
                 range.end(),
@@ -105,7 +171,19 @@ public class AmountSalesVoucherExportService {
         List<AmountItemMaster> items = itemRepository.findAll(Sort.by(Sort.Direction.ASC, "itemName"));
 
         List<TaskVoucherBlock> blocks = buildTaskBlocks(orders, customers, items, sortField, sortDir);
-        writeWorkbook(blocks, customers, items, response);
+        VoucherFilterSummary filterSummary = buildVoucherFilterSummary(
+                finalKeyword,
+                finalOrderId,
+                finalProductName,
+                finalDateCriteria,
+                startDate,
+                endDate,
+                categoryId,
+                status,
+                standardBool,
+                orders.size()
+        );
+        writeWorkbook(blocks, customers, items, filterSummary, response);
     }
 
     /**
@@ -203,9 +281,10 @@ public class AmountSalesVoucherExportService {
         int qty = resolveQuantity(order);
         Money money = resolveProductMoney(order, matchedItem, qty);
         String spec = StringUtils.hasText(parsed.sizeText()) ? parsed.sizeText() : value(matchedItem, AmountItemMaster::getSpecification);
-        String unit = StringUtils.hasText(value(matchedItem, AmountItemMaster::getUnit))
-                ? matchedItem.getUnit()
-                : safe(() -> order.getProductCategory().getName());
+        String actualOrderCategory = parsed != null ? safe(parsed.category()) : "";
+        String unit = StringUtils.hasText(actualOrderCategory)
+                ? actualOrderCategory
+                : value(matchedItem, AmountItemMaster::getUnit);
         String memo = buildOrderMemo(order, itemMatch, customerMatch);
         String optionText = buildOrderOptionText(order);
 
@@ -559,7 +638,7 @@ public class AmountSalesVoucherExportService {
 
         return matchItemByLegacyOptions(
                 parsed,
-                candidateContext,
+                applyOrderCategoryFilter(candidateContext, parsed != null ? parsed.category() : ""),
                 orderStandard,
                 orderMirrorCuttingProduct
         );
@@ -568,24 +647,78 @@ public class AmountSalesVoucherExportService {
     private ItemCandidateContext resolveItemCandidateContext(List<AmountItemMaster> items,
                                                              Boolean orderStandard) {
         List<AmountItemMaster> candidates = items;
-        String standardReasonPrefix = "";
+        StringBuilder reasonPrefix = new StringBuilder();
 
         if (orderStandard != null) {
-            List<AmountItemMaster> filtered = items.stream()
+            List<AmountItemMaster> filtered = candidates.stream()
                     .filter(item -> item != null && item.isStandard() == orderStandard.booleanValue())
                     .toList();
             if (!filtered.isEmpty()) {
                 candidates = filtered;
-                standardReasonPrefix = "규격구분 선필터[주문=" + standardLabel(orderStandard) + "] 적용 / ";
+                reasonPrefix.append("규격구분 선필터[주문=")
+                        .append(standardLabel(orderStandard))
+                        .append("] 적용 / ");
             } else {
-                // 동기화 데이터가 아직 부족한 경우 전표 생성 자체가 완전히 비지 않도록 전체 후보에서 대체 매칭하되,
-                // 비고에 반드시 남겨서 사용자가 보정할 수 있게 합니다.
-                standardReasonPrefix = "규격구분 선필터 후보 없음[주문=" + standardLabel(orderStandard)
-                        + "] → 전체 후보에서 대체 매칭 / ";
+                reasonPrefix.append("규격구분 선필터 후보 없음[주문=")
+                        .append(standardLabel(orderStandard))
+                        .append("] → 전체 후보 유지 / ");
             }
         }
 
-        return new ItemCandidateContext(candidates, standardReasonPrefix);
+        return new ItemCandidateContext(candidates, reasonPrefix.toString());
+    }
+
+    private ItemCandidateContext applyOrderCategoryFilter(ItemCandidateContext context,
+                                                          String orderCategory) {
+        if (context == null) {
+            return new ItemCandidateContext(List.of(), "");
+        }
+
+        String normalizedOrderCategory = safe(orderCategory);
+        if (!StringUtils.hasText(normalizedOrderCategory)) {
+            return context;
+        }
+
+        List<AmountItemMaster> categoryFiltered = context.candidates().stream()
+                .filter(item -> item != null && matchesOrderCategory(normalizedOrderCategory, item))
+                .toList();
+
+        StringBuilder reasonPrefix = new StringBuilder(safe(context.standardReasonPrefix()));
+        if (!categoryFiltered.isEmpty()) {
+            reasonPrefix.append("발주분류 선필터[optionJson 우선=")
+                    .append(normalizedOrderCategory)
+                    .append("] 적용 / ");
+            return new ItemCandidateContext(categoryFiltered, reasonPrefix.toString());
+        }
+
+        reasonPrefix.append("발주분류 후보 없음[optionJson 우선=")
+                .append(normalizedOrderCategory)
+                .append("] → 기존 후보 유지 / ");
+        return new ItemCandidateContext(context.candidates(), reasonPrefix.toString());
+    }
+
+    private boolean matchesOrderCategory(String orderCategory, AmountItemMaster item) {
+        if (!StringUtils.hasText(orderCategory) || item == null) {
+            return false;
+        }
+
+        String expected = AmountTextNormalizer.compact(orderCategory);
+        if (!StringUtils.hasText(expected)) {
+            return false;
+        }
+
+        return categoryValueMatches(expected, item.getCategoryName())
+                || categoryValueMatches(expected, item.getUnit());
+    }
+
+    private boolean categoryValueMatches(String expectedCompact, String candidateValue) {
+        String candidateCompact = AmountTextNormalizer.compact(candidateValue);
+        if (!StringUtils.hasText(candidateCompact)) {
+            return false;
+        }
+        return candidateCompact.equals(expectedCompact)
+                || candidateCompact.contains(expectedCompact)
+                || expectedCompact.contains(candidateCompact);
     }
 
     /**
@@ -599,13 +732,18 @@ public class AmountSalesVoucherExportService {
                                                             boolean orderMirrorCuttingProduct) {
         List<AmountItemMaster> candidates = candidateContext.candidates();
         String standardReasonPrefix = candidateContext.standardReasonPrefix();
+        String orderCategory = parsed != null ? safe(parsed.category()) : "";
 
         List<AmountItemMaster> exactNameMatches = candidates.stream()
                 .filter(item -> item != null && same(sourceItemName, item.getItemName()))
                 .toList();
         if (!exactNameMatches.isEmpty()) {
             AmountItemMaster exactItem = chooseExactNameMatch(
-                    exactNameMatches, parsed, orderMirrorCuttingProduct);
+                    exactNameMatches,
+                    parsed,
+                    orderMirrorCuttingProduct,
+                    orderCategory
+            );
             int exactScore = 100;
             String reason = standardReasonPrefix
                     + "원문 품목명 매칭 모드 / "
@@ -614,7 +752,13 @@ public class AmountSalesVoucherExportService {
 
             if (exactNameMatches.size() > 1) {
                 reason += " / 동일 품목명 후보 " + exactNameMatches.size()
-                        + "건 중 거울재단 여부·기존 옵션점수로 선택";
+                        + "건 중 발주분류·거울재단 여부·기존 옵션점수로 선택";
+            }
+            if (StringUtils.hasText(orderCategory)) {
+                reason += " / 실제발주분류[optionJson 우선]=" + orderCategory;
+                if (exactItem != null && !matchesOrderCategory(orderCategory, exactItem)) {
+                    reason += " / 동일 품목명 후보 중 분류일치 없음 → 품목명 일치 우선";
+                }
             }
             if (exactItem != null
                     && exactItem.isMirrorCuttingProduct() != orderMirrorCuttingProduct) {
@@ -637,6 +781,10 @@ public class AmountSalesVoucherExportService {
                     false
             );
         }
+
+        ItemCandidateContext categoryAwareContext = applyOrderCategoryFilter(candidateContext, orderCategory);
+        candidates = categoryAwareContext.candidates();
+        standardReasonPrefix = categoryAwareContext.standardReasonPrefix();
 
         List<ScoredItem> scored = candidates.stream()
                 .filter(item -> item != null)
@@ -826,7 +974,8 @@ public class AmountSalesVoucherExportService {
 
     private AmountItemMaster chooseExactNameMatch(List<AmountItemMaster> exactNameMatches,
                                                    AmountParsedOrderProduct parsed,
-                                                   boolean orderMirrorCuttingProduct) {
+                                                   boolean orderMirrorCuttingProduct,
+                                                   String orderCategory) {
         if (exactNameMatches == null || exactNameMatches.isEmpty()) {
             return null;
         }
@@ -834,6 +983,8 @@ public class AmountSalesVoucherExportService {
         return exactNameMatches.stream()
                 .sorted(Comparator
                         .comparingInt((AmountItemMaster item) ->
+                                StringUtils.hasText(orderCategory) && matchesOrderCategory(orderCategory, item) ? 0 : 1)
+                        .thenComparingInt((AmountItemMaster item) ->
                                 item.isMirrorCuttingProduct() == orderMirrorCuttingProduct ? 0 : 1)
                         .thenComparing(
                                 Comparator.comparingInt((AmountItemMaster item) -> scoreItem(parsed, item)).reversed())
@@ -987,6 +1138,7 @@ public class AmountSalesVoucherExportService {
     private void writeWorkbook(List<TaskVoucherBlock> blocks,
                                List<AmountCustomerMaster> customers,
                                List<AmountItemMaster> items,
+                               VoucherFilterSummary filterSummary,
                                HttpServletResponse response) throws IOException {
         try (Workbook workbook = new XSSFWorkbook()) {
             Map<String, CellStyle> styles = createStyles(workbook);
@@ -1001,7 +1153,7 @@ public class AmountSalesVoucherExportService {
             infoSheet.setDefaultRowHeightInPoints(18);
 
             writeReferenceSheets(customerSheet, itemSheet, infoSheet, customers, items, styles);
-            writeMainSheet(sheet, blocks, styles);
+            writeMainSheet(sheet, blocks, filterSummary, styles);
             workbook.setForceFormulaRecalculation(true);
 
             String filename = "전산입력용_매출전표_" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + ".xlsx";
@@ -1015,10 +1167,28 @@ public class AmountSalesVoucherExportService {
         }
     }
 
-    private void writeMainSheet(Sheet sheet, List<TaskVoucherBlock> blocks, Map<String, CellStyle> styles) {
+    private void writeMainSheet(Sheet sheet,
+                                List<TaskVoucherBlock> blocks,
+                                VoucherFilterSummary filterSummary,
+                                Map<String, CellStyle> styles) {
         Row title = sheet.createRow(0);
         title.setHeightInPoints(18);
         cell(title, 2, "매입매출전표품목내역입력", styles.get("title"));
+
+        Row filterRow = sheet.createRow(1);
+        filterRow.setHeightInPoints(36);
+        cell(filterRow, 0,
+                filterSummary != null ? filterSummary.displayText() : "조회조건: 전체",
+                styles.get("filter"));
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 26));
+
+        Row resultCountRow = sheet.createRow(2);
+        resultCountRow.setHeightInPoints(20);
+        cell(resultCountRow, 0,
+                "검색 결과 주문 " + (filterSummary != null ? filterSummary.resultCount() : 0) + "건",
+                styles.get("filter"));
+        sheet.addMergedRegion(new CellRangeAddress(2, 2, 0, 26));
+
         Row note = sheet.createRow(17);
         note.setHeightInPoints(62);
         cell(note, 0, "구분코드참고:\n\n1.매출\n2.매입\n3.매출환입\n4.매입환출\n5.고정자산", styles.get("note"));
@@ -1195,6 +1365,12 @@ public class AmountSalesVoucherExportService {
         border(header);
         styles.put("header", header);
 
+        CellStyle filter = workbook.createCellStyle();
+        filter.setFont(normal);
+        filter.setWrapText(true);
+        filter.setVerticalAlignment(VerticalAlignment.CENTER);
+        styles.put("filter", filter);
+
         CellStyle body = workbook.createCellStyle();
         body.setFont(normal);
         body.setVerticalAlignment(VerticalAlignment.CENTER);
@@ -1210,13 +1386,13 @@ public class AmountSalesVoucherExportService {
         CellStyle note = workbook.createCellStyle();
         note.cloneStyleFrom(body);
         note.setWrapText(true);
-        note.setVerticalAlignment(VerticalAlignment.TOP);
+        note.setVerticalAlignment(VerticalAlignment.CENTER);
         styles.put("note", note);
 
         CellStyle option = workbook.createCellStyle();
         option.cloneStyleFrom(body);
         option.setWrapText(true);
-        option.setVerticalAlignment(VerticalAlignment.TOP);
+        option.setVerticalAlignment(VerticalAlignment.CENTER);
         styles.put("option", option);
 
         CellStyle exact = workbook.createCellStyle();
@@ -1533,6 +1709,62 @@ public class AmountSalesVoucherExportService {
         return "REVIEW";
     }
 
+    private VoucherFilterSummary buildVoucherFilterSummary(String keyword,
+                                                           Long orderId,
+                                                           String productName,
+                                                           String dateCriteria,
+                                                           String startDate,
+                                                           String endDate,
+                                                           Long categoryId,
+                                                           OrderStatus status,
+                                                           Boolean standard,
+                                                           int resultCount) {
+        String categoryLabel = categoryId == null
+                ? "전체"
+                : teamCategoryRepository.findById(categoryId)
+                        .map(category -> safe(category.getName()))
+                        .filter(StringUtils::hasText)
+                        .orElse("ID " + categoryId);
+
+        String period;
+        if ("order".equals(dateCriteria)) {
+            period = "발주일 " + buildVoucherDateRangeText(startDate, endDate);
+        } else if ("delivery".equals(dateCriteria)) {
+            period = "출고일 " + buildVoucherDateRangeText(startDate, endDate);
+        } else {
+            period = "전체기간";
+        }
+
+        String displayText = String.join(" | ",
+                "오더 ID: " + (orderId != null ? orderId : "전체"),
+                "제품명: " + (StringUtils.hasText(productName) ? productName : "전체"),
+                "키워드: " + (StringUtils.hasText(keyword) ? keyword : "전체"),
+                "기간: " + period,
+                "제품분류: " + categoryLabel,
+                "발주상태: " + (status != null ? status.getLabel() : "전체"),
+                "규격 여부: " + (standard == null ? "전체" : (standard ? "규격" : "비규격"))
+        );
+
+        return new VoucherFilterSummary(displayText, Math.max(0, resultCount));
+    }
+
+    private String buildVoucherDateRangeText(String startDate, String endDate) {
+        String start = normalizeNullableText(startDate);
+        String end = normalizeNullableText(endDate);
+        if (start == null && end == null) {
+            return "전체";
+        }
+        return (start != null ? start : "처음") + " ~ " + (end != null ? end : "현재");
+    }
+
+    private String normalizeNullableText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     private String normalizeDateCriteria(String dateCriteria) {
         if (!StringUtils.hasText(dateCriteria)) {
             return "all";
@@ -1559,6 +1791,19 @@ public class AmountSalesVoucherExportService {
         try {
             return LocalDate.parse(value.trim(), YMD);
         } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Long parsePositiveLongOrNull(String value) {
+        String normalized = normalizeNullableText(value);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            long parsed = Long.parseLong(normalized);
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException e) {
             return null;
         }
     }
@@ -1652,6 +1897,9 @@ public class AmountSalesVoucherExportService {
     @FunctionalInterface
     private interface SafeSupplier {
         String get();
+    }
+
+    private record VoucherFilterSummary(String displayText, int resultCount) {
     }
 
     private record DateRange(LocalDateTime start, LocalDateTime end) {
