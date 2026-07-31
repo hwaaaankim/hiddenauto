@@ -9,6 +9,9 @@ document.addEventListener("DOMContentLoaded", function() {
 	const sortStateInput = document.querySelector('input[name="sortState"]');
 	const sortResetBtn = document.getElementById("task-list-sort-reset-btn");
 	const searchResetBtn = document.getElementById("task-list-search-reset-btn");
+	const productNameHighlightKeyword = String(
+		document.querySelector(".admin-task-list-second-page")?.dataset.productNameKeyword || ""
+	).trim();
 
 	const NON_STANDARD_TASK_LIST_SORT_FIELDS = new Set([
 		"orderId",
@@ -210,6 +213,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			"page",
 			"keyword",
 			"orderId",
+			"productName",
 			"dateCriteria",
 			"startDate",
 			"endDate",
@@ -226,6 +230,55 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 
 		navigateTaskList(url, "검색 조건을 초기화하는 중입니다.");
+	}
+
+	function highlightProductNameMatches(root) {
+		const keyword = productNameHighlightKeyword;
+		if (!keyword) {
+			return;
+		}
+
+		const base = root || document;
+		const normalizedKeyword = keyword.toLocaleLowerCase();
+
+		base.querySelectorAll(".admin-task-list-second-product-highlight-target").forEach(target => {
+			if (!target || target.dataset.productHighlightApplied === "true") {
+				return;
+			}
+
+			const originalText = String(target.textContent || "");
+			const normalizedText = originalText.toLocaleLowerCase();
+			let searchIndex = 0;
+			let matchIndex = normalizedText.indexOf(normalizedKeyword, searchIndex);
+
+			if (matchIndex < 0) {
+				target.dataset.productHighlightApplied = "true";
+				return;
+			}
+
+			const fragment = document.createDocumentFragment();
+
+			while (matchIndex >= 0) {
+				if (matchIndex > searchIndex) {
+					fragment.appendChild(document.createTextNode(originalText.slice(searchIndex, matchIndex)));
+				}
+
+				const highlighted = document.createElement("span");
+				highlighted.className = "admin-task-list-second-product-highlight";
+				highlighted.textContent = originalText.slice(matchIndex, matchIndex + keyword.length);
+				fragment.appendChild(highlighted);
+
+				searchIndex = matchIndex + keyword.length;
+				matchIndex = normalizedText.indexOf(normalizedKeyword, searchIndex);
+			}
+
+			if (searchIndex < originalText.length) {
+				fragment.appendChild(document.createTextNode(originalText.slice(searchIndex)));
+			}
+
+			target.replaceChildren(fragment);
+			target.dataset.productHighlightApplied = "true";
+		});
 	}
 
 	function buildJsonHeaders() {
@@ -916,6 +969,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			}
 
 			bulkList.innerHTML = await response.text();
+			highlightProductNameMatches(bulkList);
 			bulkRowsLoaded = true;
 			updateBulkModalButtons();
 		} catch (error) {
@@ -1194,6 +1248,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	function initializeBaseEvents() {
 		updateDateInputs();
+		highlightProductNameMatches(document);
 
 		if (dateCriteriaSelect) {
 			dateCriteriaSelect.addEventListener("change", updateDateInputs);
