@@ -270,7 +270,9 @@
 									<div>
 										<h5 class="card-title mb-1">자주 사용하는 배송지</h5>
 										<span id="admin-client-detail-fourth-delivery-address-summary-count"
-											class="text-muted small" th:text="|${deliveryAddressCount}개 등록|">0개 등록</span>
+											class="text-muted small"
+											th:attr="data-initial-count=${deliveryAddressCount}"
+											th:text="|${deliveryAddressCount}개 등록|">0개 등록</span>
 									</div>
 
 									<button type="button" id="admin-client-detail-fourth-delivery-address-open-btn"
@@ -547,7 +549,9 @@
 		/*]]>*/
 	</script>
 
-	<script src="/administration/assets/js/page/clientDetail.js"></script>
+	<!-- 회원가입/회원정보/관리자 화면이 동일한 주소 정규화 규칙을 사용합니다. -->
+	<script src="/front/addressRegion.js"></script>
+	<script src="/administration/assets/js/page/clientDetail.js?v=20260731-2"></script>
 
 </body>
 

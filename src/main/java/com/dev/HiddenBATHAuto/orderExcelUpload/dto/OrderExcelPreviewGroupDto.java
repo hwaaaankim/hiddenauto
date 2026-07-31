@@ -44,6 +44,10 @@ public class OrderExcelPreviewGroupDto {
     private String siName;
     private String guName;
     private String roadAddress;
+    /** 업체 기본주소의 지번주소입니다. Order 저장 시 도로명 주소가 비어 있으면 fallback으로 사용합니다. */
+    private String jibunAddress;
+    /** 업체 기본주소의 원본주소입니다. Order 저장 시 도로명/지번 주소가 비어 있으면 fallback으로 사용합니다. */
+    private String originAddress;
     private String detailAddress;
 
     private String siteZipCode;
@@ -51,6 +55,10 @@ public class OrderExcelPreviewGroupDto {
     private String siteSiName;
     private String siteGuName;
     private String siteRoadAddress;
+    /** 현장 배송지의 지번주소입니다. 현재 Order 스키마에는 별도 지번 컬럼이 없어 도로명 주소 fallback으로 사용합니다. */
+    private String siteJibunAddress;
+    /** 주소검색 전 원본 또는 등록주소의 원본주소입니다. */
+    private String siteOriginAddress;
     private String siteDetailAddress;
     private String siteRecipientName;
     private String siteRecipientPhone;

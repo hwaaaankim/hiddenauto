@@ -47,8 +47,7 @@ public class OrderExcelProductNameParser {
                 productName = productName.replaceAll("\\d+\\s*[가-힣A-Za-z]*장", " ");
                 productName = productName.replaceAll("(?i)(?<=\\D)\\d{2,5}(?=$|[-_\\s])", " ");
             } else if (isMirror(category)) {
-                productName = productName.replaceAll("(?<![A-Za-z가-힣])\\d{2,5}(?![A-Za-z가-힣])", " ");
-                productName = productName.replaceAll("\\d{2,5}$", " ");
+                productName = removeMirrorSizeTokens(productName);
             }
 
             productName = cleanupProductName(productName);
@@ -137,6 +136,32 @@ public class OrderExcelProductNameParser {
 
     private boolean isMirror(String category) {
         return category.contains("거울");
+    }
+
+
+    /**
+     * 거울 품목의 사이즈 숫자만 제거합니다.
+     *
+     * 기존 정규식은 "누드-600거울"에서 600 전체가 아니라 60까지만 역추적 매칭하여
+     * "누드 0거울"을 만들 수 있었습니다. 숫자 양쪽 경계에 숫자까지 포함하고,
+     * "숫자+장", "숫자+거울", 독립 숫자 토큰을 순서대로 제거해 부분 매칭을 차단합니다.
+     */
+    private String removeMirrorSizeTokens(String value) {
+        String result = safe(value);
+
+        // 예: 심플LW-500장 -> 심플. 숫자 앞의 공백/하이픈도 함께 제거합니다.
+        result = result.replaceAll("(?<!\\d)[-_\\s]*\\d{2,5}\\s*장", " ");
+
+        // 예: 누드-600거울 -> 누드거울. 600 일부(60)만 지워 0이 남는 부분 매칭을 차단합니다.
+        result = result.replaceAll("(?<!\\d)[-_\\s]*\\d{2,5}\\s*(?=거울)", "");
+
+        // 예: 원형거울700 -> 원형거울
+        result = result.replaceAll("(?<=거울)[-_\\s]*\\d{2,5}(?!\\d)", "");
+
+        // 예: LED 원형거울 700, 사이클원형거울 600 -> 독립 숫자 토큰만 제거
+        result = result.replaceAll("(?<![A-Za-z가-힣0-9])\\d{2,5}(?![A-Za-z가-힣0-9])", " ");
+
+        return result;
     }
 
     public String normalizeCategory(String value) {

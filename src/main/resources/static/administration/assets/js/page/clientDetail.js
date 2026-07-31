@@ -180,20 +180,66 @@
 		return null;
 	}
 
-	function splitSigungu(sigungu) {
-		const tokens = trimValue(sigungu).split(/\s+/).filter(Boolean);
+	function endsWithAny(value, suffixes) {
+		const normalized = trimValue(value);
+		return suffixes.some(function(suffix) {
+			return normalized.endsWith(suffix);
+		});
+	}
 
-		if (tokens.length === 0) {
-			return { siName: '', guName: '' };
+	/**
+	 * 관리자 화면의 주소 API 결과를 회원가입/회원정보 화면과 같은 규칙으로 1차 정규화합니다.
+	 * 최종 저장값은 서버의 AddressRegionResolver가 행정구역 DB 기준으로 다시 확정합니다.
+	 */
+	function resolvePostcodeRegion(data) {
+		if (window.HiddenAutoAddressRegion &&
+			typeof window.HiddenAutoAddressRegion.fromDaum === 'function') {
+			return window.HiddenAutoAddressRegion.fromDaum(data || {});
 		}
 
-		if (tokens.length === 1) {
-			return { siName: tokens[0], guName: '' };
+		data = data || {};
+
+		const selectedAddress =
+			trimValue(data.roadAddress) ||
+			trimValue(data.address) ||
+			trimValue(data.jibunAddress);
+		const province = trimValue(data.sido);
+		const tokens = [];
+
+		trimValue(data.sigungu).split(/\s+/).filter(Boolean).forEach(function(token) {
+			if (!tokens.includes(token)) {
+				tokens.push(token);
+			}
+		});
+		selectedAddress.split(/\s+/).filter(Boolean).forEach(function(token) {
+			if (token !== province && !tokens.includes(token)) {
+				tokens.push(token);
+			}
+		});
+
+		const provinceIsDo = province.endsWith('도');
+		let siName = '';
+		let guName = '';
+
+		if (provinceIsDo) {
+			siName = tokens.find(function(token) {
+				return endsWithAny(token, ['시', '군']);
+			}) || '';
+			guName = tokens.find(function(token) {
+				return token.endsWith('구');
+			}) || '';
+		} else {
+			guName = tokens.find(function(token) {
+				return endsWithAny(token, ['구', '군']);
+			}) || '';
 		}
 
 		return {
-			siName: tokens.slice(0, tokens.length - 1).join(' '),
-			guName: tokens[tokens.length - 1]
+			zipCode: trimValue(data.zonecode),
+			doName: province,
+			siName: siName,
+			guName: guName,
+			roadAddress: selectedAddress
 		};
 	}
 
@@ -542,7 +588,6 @@
 		const businessNumber = normalizeBusinessNumber(companyFields.businessNumber.value);
 		const zipCode = trimValue(companyFields.zipCode.value);
 		const doName = trimValue(companyFields.doName.value);
-		const siName = trimValue(companyFields.siName.value);
 		const roadAddress = trimValue(companyFields.roadAddress.value);
 
 		if (!companyName) {
@@ -562,10 +607,6 @@
 		}
 
 		if (!doName) {
-			return false;
-		}
-
-		if (!siName) {
 			return false;
 		}
 
@@ -602,17 +643,13 @@
 
 		new Postcode({
 			oncomplete: function(data) {
-				const region = splitSigungu(data.sigungu);
-				const selectedAddress =
-					trimValue(data.roadAddress) ||
-					trimValue(data.address) ||
-					trimValue(data.jibunAddress);
+				const region = resolvePostcodeRegion(data);
 
-				companyFields.zipCode.value = trimValue(data.zonecode);
-				companyFields.doName.value = trimValue(data.sido);
-				companyFields.siName.value = region.siName;
-				companyFields.guName.value = region.guName;
-				companyFields.roadAddress.value = selectedAddress;
+				companyFields.zipCode.value = trimValue(region.zipCode);
+				companyFields.doName.value = trimValue(region.doName);
+				companyFields.siName.value = trimValue(region.siName);
+				companyFields.guName.value = trimValue(region.guName);
+				companyFields.roadAddress.value = trimValue(region.roadAddress);
 
 				updateAddressPreview();
 				toggleCompanySaveButton();
@@ -757,8 +794,20 @@
 	const deliveryAddressListCountEl = document.getElementById('admin-client-detail-fourth-delivery-address-list-count');
 	const deliveryAddressSummaryCountEl = document.getElementById('admin-client-detail-fourth-delivery-address-summary-count');
 
+	function parseDeliveryAddressInitialCount() {
+		if (!deliveryAddressSummaryCountEl) {
+			return 0;
+		}
+
+		const raw = trimValue(deliveryAddressSummaryCountEl.getAttribute('data-initial-count'));
+		const parsed = Number.parseInt(raw, 10);
+		return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+	}
+
 	const deliveryAddressState = {
 		items: [],
+		loaded: false,
+		totalCount: parseDeliveryAddressInitialCount(),
 		candidate: null,
 		loading: false,
 		saving: false,
@@ -781,7 +830,9 @@
 	}
 
 	function updateDeliveryAddressCount() {
-		const count = deliveryAddressState.items.length;
+		const count = deliveryAddressState.loaded
+			? deliveryAddressState.items.length
+			: deliveryAddressState.totalCount;
 
 		if (deliveryAddressListCountEl) {
 			deliveryAddressListCountEl.textContent = count + '개';
@@ -899,7 +950,9 @@
 		}
 
 		if (deliveryAddressEmptyEl) {
-			const showEmpty = !deliveryAddressState.loading && deliveryAddressState.items.length === 0;
+			const showEmpty = deliveryAddressState.loaded
+				&& !deliveryAddressState.loading
+				&& deliveryAddressState.items.length === 0;
 			deliveryAddressEmptyEl.classList.toggle('d-none', !showEmpty);
 		}
 
@@ -912,6 +965,8 @@
 		}
 
 		deliveryAddressState.items = Array.isArray(response.addresses) ? response.addresses : [];
+		deliveryAddressState.loaded = true;
+		deliveryAddressState.totalCount = deliveryAddressState.items.length;
 		renderDeliveryAddressList();
 	}
 
@@ -944,18 +999,14 @@
 
 		new Postcode({
 			oncomplete: function(data) {
-				const region = splitSigungu(data.sigungu);
-				const selectedAddress =
-					trimValue(data.roadAddress) ||
-					trimValue(data.address) ||
-					trimValue(data.jibunAddress);
+				const region = resolvePostcodeRegion(data);
 
 				deliveryAddressState.candidate = {
-					zipCode: trimValue(data.zonecode),
-					doName: trimValue(data.sido),
-					siName: region.siName,
-					guName: region.guName,
-					roadAddress: selectedAddress
+					zipCode: trimValue(region.zipCode),
+					doName: trimValue(region.doName),
+					siName: trimValue(region.siName),
+					guName: trimValue(region.guName),
+					roadAddress: trimValue(region.roadAddress)
 				};
 
 				if (deliveryAddressDetailAddressInput) {

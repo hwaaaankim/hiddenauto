@@ -2,6 +2,7 @@ package com.dev.HiddenBATHAuto.orderExcelUpload.api;
 
 import java.util.List;
 import java.util.Map;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelAddressValidationRequest;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelAddressValidationResponse;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelCompanyAddressLookupResponse;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelDeliveryHandlerAssignmentRequest;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelDeliveryHandlerAssignmentResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelErrorResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelLookupOptionsResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelPreviewResponse;
@@ -36,6 +42,58 @@ public class OrderExcelUploadApiController {
     @GetMapping("/options")
     public OrderExcelLookupOptionsResponse options() {
         return lookupService.getOptions();
+    }
+
+    @GetMapping("/company-addresses")
+    public ResponseEntity<?> companyAddresses(
+            @RequestParam(required = false) Long companyId,
+            @RequestParam(required = false) String businessNumber,
+            @RequestParam(required = false) String companyName
+    ) {
+        try {
+            OrderExcelCompanyAddressLookupResponse response = lookupService.getCompanyAddresses(
+                    companyId,
+                    businessNumber,
+                    companyName
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new OrderExcelErrorResponse(false, e.getMessage(), List.of()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(
+                    new OrderExcelErrorResponse(false, "등록주소지 조회 중 오류가 발생했습니다.", List.of())
+            );
+        }
+    }
+
+    @PostMapping(value = "/address/validate", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> validateAddress(@RequestBody OrderExcelAddressValidationRequest request) {
+        try {
+            OrderExcelAddressValidationResponse response = uploadService.validateAddress(request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new OrderExcelErrorResponse(false, e.getMessage(), List.of()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(
+                    new OrderExcelErrorResponse(false, "주소 검증 중 오류가 발생했습니다.", List.of())
+            );
+        }
+    }
+
+    @PostMapping(value = "/delivery-handler/auto-assign", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> autoAssignDeliveryHandler(
+            @RequestBody OrderExcelDeliveryHandlerAssignmentRequest request
+    ) {
+        try {
+            OrderExcelDeliveryHandlerAssignmentResponse response = uploadService.autoAssignDeliveryHandler(request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new OrderExcelErrorResponse(false, e.getMessage(), List.of()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(
+                    new OrderExcelErrorResponse(false, "배송 담당자 자동배정 중 오류가 발생했습니다.", List.of())
+            );
+        }
     }
 
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

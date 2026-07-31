@@ -6,7 +6,6 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +16,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -56,7 +54,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
-@Configuration
 @Service
 @RequiredArgsConstructor
 public class MemberService {
@@ -71,6 +68,7 @@ public class MemberService {
 	private final CityRepository cityRepository;
 	private final DistrictRepository districtRepository;
 	private final ObjectMapper objectMapper;
+	private final AddressRegionResolver addressRegionResolver;
 	private final MemberManagementService memberManagementService;
 	private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
 	
@@ -182,6 +180,7 @@ public class MemberService {
 
 	}
 
+	@Transactional(rollbackFor = Exception.class)
 	public void registerCustomerRepresentative(
             Company company,
             Member member,
@@ -189,17 +188,17 @@ public class MemberService {
             MultipartFile file,
             String deliveryAddressesJson
     ) {
-        // 1) Role
         MemberRole memberRole = MemberRole.valueOf(role);
         member.setRole(memberRole);
 
-        // 2) registrationKey 생성
         String registrationKey = UUID.randomUUID().toString().substring(0, 8);
         company.setRegistrationKey(registrationKey);
         company.setPoint(0);
 
-        // ✅ 2-1) 사업자등록번호 검증/중복
-        String bizNo = (company.getBusinessNumber() == null) ? "" : company.getBusinessNumber().replaceAll("\\D", "");
+        String bizNo = (company.getBusinessNumber() == null)
+                ? ""
+                : company.getBusinessNumber().replaceAll("\\D", "");
+
         if (bizNo.isBlank()) {
             throw new IllegalArgumentException("사업자등록번호를 입력해야 합니다.");
         }
@@ -211,21 +210,18 @@ public class MemberService {
         }
         company.setBusinessNumber(bizNo);
 
-        // 3) 주소 필드 가공
-        refineAddressFields(company);
-
-        // 4) 주소 유효성 검사
-        if (company.getDoName() == null || company.getDoName().isBlank()) {
-            throw new IllegalArgumentException("도 이름(doName)이 누락되었습니다.");
-        }
         if (company.getRoadAddress() == null || company.getRoadAddress().isBlank()) {
             throw new IllegalArgumentException("주소 정보가 누락되었습니다.");
         }
 
-        // 5) Company 저장
+        // JSON 오류 또는 행정구역 DB 불일치는 회사/회원 저장 전에 먼저 검증합니다.
+        List<NormalizedDeliveryAddress> normalizedDeliveryAddresses =
+                parseAndNormalizeDeliveryAddresses(deliveryAddressesJson);
+
+        normalizeCompanyAddress(company);
+
         Company savedCompany = companyRepository.save(company);
 
-        // 6) 사업자등록증 파일 저장
         if (file != null && !file.isEmpty()) {
             try {
                 String originalFilename = file.getOriginalFilename();
@@ -235,7 +231,9 @@ public class MemberService {
                 String saveDir = Paths.get(uploadPath, relativePath).toString();
 
                 File dir = new File(saveDir);
-                if (!dir.exists()) dir.mkdirs();
+                if (!dir.exists() && !dir.mkdirs()) {
+                    throw new IllegalStateException("사업자등록증 저장 폴더를 생성할 수 없습니다.");
+                }
 
                 Path filePath = Paths.get(saveDir, originalFilename);
                 file.transferTo(filePath.toFile());
@@ -251,18 +249,16 @@ public class MemberService {
             }
         }
 
-        // 7) Member 저장
         String encodedPassword = passwordEncoder.encode(member.getPassword());
         member.setPassword(encodedPassword);
         member.setCompany(savedCompany);
         member.setEnabled(true);
 
         memberRepository.save(member);
-
-        // ✅ 8) 추가 배송지 저장(0개여도 가능)
-        saveDeliveryAddressesIfAny(savedCompany, deliveryAddressesJson);
+        saveDeliveryAddresses(savedCompany, normalizedDeliveryAddresses);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void registerCustomerEmployee(Member member, String registrationKey, String deliveryAddressesJson) {
         if (registrationKey == null || registrationKey.isBlank()) {
             throw new IllegalArgumentException("업체코드를 입력해야 합니다.");
@@ -271,6 +267,10 @@ public class MemberService {
         Company company = companyRepository.findByRegistrationKey(registrationKey)
                 .orElseThrow(() -> new IllegalArgumentException("입력한 업체코드에 해당하는 회사가 존재하지 않습니다."));
 
+        // 회원 저장 전에 추가 배송지 JSON과 행정구역 매칭을 먼저 검증합니다.
+        List<NormalizedDeliveryAddress> normalizedDeliveryAddresses =
+                parseAndNormalizeDeliveryAddresses(deliveryAddressesJson);
+
         String encodedPassword = passwordEncoder.encode(member.getPassword());
         member.setPassword(encodedPassword);
         member.setCompany(company);
@@ -278,79 +278,133 @@ public class MemberService {
         member.setEnabled(true);
 
         memberRepository.save(member);
-
-        // ✅ 직원도 추가 배송지 저장 가능(0개 가능)
-        saveDeliveryAddressesIfAny(company, deliveryAddressesJson);
+        saveDeliveryAddresses(company, normalizedDeliveryAddresses);
     }
 
-    private void saveDeliveryAddressesIfAny(Company company, String deliveryAddressesJson) {
-        if (deliveryAddressesJson == null || deliveryAddressesJson.isBlank()) return;
+    private void normalizeCompanyAddress(Company company) {
+        AddressRegionResolver.ResolvedRegion region = addressRegionResolver.resolve(
+                company.getDoName(),
+                company.getSiName(),
+                company.getGuName(),
+                company.getRoadAddress()
+        );
 
+        company.setDoName(region.doName());
+        company.setSiName(region.siName());
+        company.setGuName(region.guName());
+    }
+
+    private List<NormalizedDeliveryAddress> parseAndNormalizeDeliveryAddresses(String deliveryAddressesJson) {
+        if (deliveryAddressesJson == null || deliveryAddressesJson.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        final List<CompanyDeliveryAddressRequest> requests;
         try {
-            List<CompanyDeliveryAddressRequest> list = objectMapper.readValue(
+            requests = objectMapper.readValue(
                     deliveryAddressesJson,
                     new TypeReference<List<CompanyDeliveryAddressRequest>>() {}
             );
+        } catch (Exception e) {
+            throw new IllegalArgumentException("추가 배송지 데이터 처리에 실패했습니다. (JSON 형식 오류)", e);
+        }
 
-            if (list == null || list.isEmpty()) return;
+        if (requests == null || requests.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-            // 간단 중복 제거(road+detail 기준)
-            Set<String> seen = new HashSet<>();
-            for (CompanyDeliveryAddressRequest req : list) {
-                if (req == null) continue;
+        Set<String> seen = new LinkedHashSet<>();
+        List<NormalizedDeliveryAddress> normalized = new ArrayList<>();
 
-                String road = (req.getRoadAddress() == null) ? "" : req.getRoadAddress().trim();
-                String detail = (req.getDetailAddress() == null) ? "" : req.getDetailAddress().trim();
-                if (road.isBlank()) continue;
-
-                String key = road + "||" + detail;
-                if (seen.contains(key)) continue;
-                seen.add(key);
-
-                CompanyDeliveryAddress addr = new CompanyDeliveryAddress();
-                addr.setCompany(company);
-                addr.setZipCode(safe(req.getZipCode()));
-                addr.setDoName(safe(req.getDoName()));
-                addr.setSiName(safe(req.getSiName()));
-                addr.setGuName(safe(req.getGuName()));
-                addr.setRoadAddress(road);
-                addr.setDetailAddress(detail);
-                addr.setCreatedAt(LocalDateTime.now());
-
-                companyDeliveryAddressRepository.save(addr);
+        for (CompanyDeliveryAddressRequest request : requests) {
+            if (request == null) {
+                continue;
             }
 
-        } catch (Exception e) {
-            throw new IllegalArgumentException("추가 배송지 데이터 처리에 실패했습니다. (형식 오류)");
+            String roadAddress = safe(request.getRoadAddress());
+            String detailAddress = safe(request.getDetailAddress());
+            if (roadAddress.isBlank()) {
+                continue;
+            }
+
+            String duplicateKey = deliveryAddressKey(roadAddress, detailAddress);
+            if (!seen.add(duplicateKey)) {
+                continue;
+            }
+
+            AddressRegionResolver.ResolvedRegion region = addressRegionResolver.resolve(
+                    request.getDoName(),
+                    request.getSiName(),
+                    request.getGuName(),
+                    roadAddress
+            );
+
+            normalized.add(new NormalizedDeliveryAddress(
+                    safe(request.getZipCode()),
+                    region.doName(),
+                    region.siName(),
+                    region.guName(),
+                    roadAddress,
+                    detailAddress
+            ));
+        }
+
+        return normalized;
+    }
+
+    private void saveDeliveryAddresses(Company company, List<NormalizedDeliveryAddress> addresses) {
+        if (addresses == null || addresses.isEmpty()) {
+            return;
+        }
+
+        Set<String> existingKeys = company.getDeliveryAddresses() == null
+                ? new LinkedHashSet<>()
+                : company.getDeliveryAddresses().stream()
+                        .map(item -> deliveryAddressKey(item.getRoadAddress(), item.getDetailAddress()))
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<CompanyDeliveryAddress> entities = new ArrayList<>();
+
+        for (NormalizedDeliveryAddress value : addresses) {
+            String key = deliveryAddressKey(value.roadAddress(), value.detailAddress());
+            if (!existingKeys.add(key)) {
+                continue;
+            }
+
+            CompanyDeliveryAddress address = new CompanyDeliveryAddress();
+            address.setCompany(company);
+            address.setZipCode(value.zipCode());
+            address.setDoName(value.doName());
+            address.setSiName(value.siName());
+            address.setGuName(value.guName());
+            address.setRoadAddress(value.roadAddress());
+            address.setDetailAddress(value.detailAddress());
+            address.setCreatedAt(LocalDateTime.now());
+            entities.add(address);
+        }
+
+        if (!entities.isEmpty()) {
+            companyDeliveryAddressRepository.saveAll(entities);
         }
     }
 
-    private String safe(String v) {
-        return (v == null) ? "" : v.trim();
+    private String deliveryAddressKey(String roadAddress, String detailAddress) {
+        return safe(roadAddress) + "||" + safe(detailAddress);
     }
 
-	/**
-	 * 주소에서 siName/guName을 분리하거나 보정함
-	 */
-	private void refineAddressFields(Company company) {
-		String si = company.getSiName();
-		if (si != null && !si.isBlank()) {
-			String[] parts = si.trim().split(" ");
-			if (parts.length == 2) {
-				// 예: "용인시 수지구"
-				company.setSiName(parts[0]);
-				company.setGuName(parts[1]);
-			} else if (parts.length == 1) {
-				// 예: "관악구"
-				company.setGuName(parts[0]);
-				company.setSiName(""); // 시 없음
-			} else if (parts.length > 2) {
-				// 예외 처리: 가장 앞은 시, 그다음은 구로
-				company.setSiName(parts[0]);
-				company.setGuName(parts[1]);
-			}
-		}
-	}
+    private String safe(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    }
+
+    private record NormalizedDeliveryAddress(
+            String zipCode,
+            String doName,
+            String siName,
+            String guName,
+            String roadAddress,
+            String detailAddress
+    ) {
+    }
 
 	@Transactional
 	public void saveMember(MemberSaveDTO dto) {

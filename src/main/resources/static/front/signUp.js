@@ -1,4 +1,4 @@
-/* global daum, bootstrap */
+/* signUp.js */
 
 (function() {
 	'use strict';
@@ -62,15 +62,22 @@
 	window.execDaumPostcode = function execDaumPostcode() {
 		new daum.Postcode({
 			oncomplete: function(data) {
-				var address = (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress;
+				var region = window.HiddenAutoAddressRegion
+					? window.HiddenAutoAddressRegion.fromDaum(data)
+					: {
+						doName: data.sido || '',
+						siName: data.sigungu || '',
+						guName: '',
+						roadAddress: (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress,
+						zipCode: data.zonecode || ''
+					};
 
-				qs('searchAddress').value = address;
+				qs('searchAddress').value = region.roadAddress || '';
+				qs('doName').value = region.doName || '';
+				qs('siName').value = region.siName || '';
+				qs('guName').value = region.guName || '';
+				qs('zipCode').value = region.zipCode || '';
 				qs('detailAddress').focus();
-
-				qs('doName').value = data.sido;
-				qs('siName').value = data.sigungu;
-				qs('guName').value = data.bname;
-				qs('zipCode').value = data.zonecode;
 			}
 		}).open();
 	};
@@ -408,14 +415,22 @@
 		function openDaumAndAdd() {
 			new daum.Postcode({
 				oncomplete: function(data) {
-					var road = (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress;
+					var region = window.HiddenAutoAddressRegion
+						? window.HiddenAutoAddressRegion.fromDaum(data)
+						: {
+							doName: data.sido || '',
+							siName: data.sigungu || '',
+							guName: '',
+							roadAddress: (data.userSelectedType === 'R') ? data.roadAddress : data.jibunAddress,
+							zipCode: data.zonecode || ''
+						};
 
 					var baseItem = {
-						zipCode: data.zonecode || '',
-						doName: data.sido || '',
-						siName: data.sigungu || '',
-						guName: data.bname || '',
-						roadAddress: road || ''
+						zipCode: region.zipCode || '',
+						doName: region.doName || '',
+						siName: region.siName || '',
+						guName: region.guName || '',
+						roadAddress: region.roadAddress || ''
 					};
 
 					if (!baseItem.roadAddress) return;

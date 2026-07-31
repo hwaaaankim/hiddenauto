@@ -63,6 +63,7 @@ import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.auth.CustomerOrdererInfoService;
+import com.dev.HiddenBATHAuto.service.auth.AddressRegionResolver;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.utils.FileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -88,6 +89,7 @@ public class CustomerController {
 	private final CompanyRepository companyRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final MemberService memberService;
+	private final AddressRegionResolver addressRegionResolver;
 	private final ProductMarkRepository productMarkRepository;
 	private final AsTaskScheduleRepository asTaskScheduleRepository;
 	private final CustomerOrdererInfoService customerOrdererInfoService;
@@ -578,7 +580,12 @@ public class CustomerController {
 		}
 
 		// ===== 2) 추가 배송지: 대표/직원 공통 회사 반영 =====
-		applyCompanyDeliveryAddresses(company, companyDeliveryAddressesJson);
+		try {
+			applyCompanyDeliveryAddresses(company, companyDeliveryAddressesJson);
+		} catch (IllegalArgumentException e) {
+			ra.addFlashAttribute("myInfoError", e.getMessage());
+			return "redirect:/customer/myInfo";
+		}
 
 		boolean isRepresentative = (member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE);
 
@@ -603,12 +610,25 @@ public class CustomerController {
 
 			company.setBusinessNumber(normalizedBizDigits);
 
-			company.setRoadAddress(roadAddress);
-			company.setDetailAddress(detailAddress);
-			company.setDoName(doName);
-			company.setSiName(siName);
-			company.setGuName(guName);
-			company.setZipCode(zipCode);
+			final AddressRegionResolver.ResolvedRegion normalizedRegion;
+			try {
+				normalizedRegion = addressRegionResolver.resolve(
+						doName,
+						siName,
+						guName,
+						roadAddress
+				);
+			} catch (IllegalArgumentException e) {
+				ra.addFlashAttribute("myInfoError", e.getMessage());
+				return "redirect:/customer/myInfo";
+			}
+
+			company.setRoadAddress(nvl(roadAddress));
+			company.setDetailAddress(nvl(detailAddress));
+			company.setDoName(normalizedRegion.doName());
+			company.setSiName(normalizedRegion.siName());
+			company.setGuName(normalizedRegion.guName());
+			company.setZipCode(nvl(zipCode));
 			company.setUpdatedAt(LocalDateTime.now());
 
 			// ===== 4) 사업자등록증 파일 =====
@@ -679,56 +699,106 @@ public class CustomerController {
 	 * 요청에 없는 기존 항목은 제거(orphanRemoval로 DB 삭제)
 	 */
 	private void applyCompanyDeliveryAddresses(Company company, String json) {
-		List<CompanyDeliveryAddressInput> incoming = parseDeliveryJson(json);
+		// 프런트 스크립트 오류 등으로 payload 자체가 비어 있으면 기존 주소를 보존합니다.
+		// 사용자가 전부 삭제한 정상 요청은 JSON 배열 "[]"로 전달됩니다.
+		if (json == null || json.isBlank()) {
+			return;
+		}
+
+		List<CompanyDeliveryAddressInput> incoming = normalizeDeliveryInputs(parseDeliveryJson(json));
 
 		if (company.getDeliveryAddresses() == null) {
 			company.setDeliveryAddresses(new ArrayList<>());
 		}
 
-		// 기존 주소들을 id 기준 맵으로
 		Map<Long, CompanyDeliveryAddress> existingById = company.getDeliveryAddresses().stream()
-				.filter(x -> x.getId() != null)
-				.collect(Collectors.toMap(CompanyDeliveryAddress::getId, Function.identity(), (a, b) -> a));
+				.filter(item -> item.getId() != null)
+				.collect(Collectors.toMap(
+						CompanyDeliveryAddress::getId,
+						Function.identity(),
+						(left, right) -> left
+				));
 
-		Set<Long> incomingIds = incoming.stream().map(CompanyDeliveryAddressInput::getId).filter(Objects::nonNull)
+		Set<Long> incomingIds = incoming.stream()
+				.map(CompanyDeliveryAddressInput::getId)
+				.filter(Objects::nonNull)
+				.filter(existingById::containsKey)
 				.collect(Collectors.toSet());
 
-		// 1) 제거: incoming에 없는 기존 id는 삭제
-		company.getDeliveryAddresses().removeIf(addr -> addr.getId() != null && !incomingIds.contains(addr.getId()));
+		// 요청에 없는 기존 주소는 orphanRemoval=true에 의해 삭제됩니다.
+		company.getDeliveryAddresses().removeIf(address ->
+				address.getId() != null && !incomingIds.contains(address.getId()));
 
-		// 2) 업데이트/추가
-		for (CompanyDeliveryAddressInput in : incoming) {
-			if (in.getRoadAddress() == null || in.getRoadAddress().trim().isEmpty()) {
+		for (CompanyDeliveryAddressInput input : incoming) {
+			CompanyDeliveryAddress target = input.getId() != null
+					? existingById.get(input.getId())
+					: null;
+
+			if (target == null) {
+				target = new CompanyDeliveryAddress();
+				target.setCompany(company);
+				target.setCreatedAt(LocalDateTime.now());
+				company.getDeliveryAddresses().add(target);
+			} else {
+				target.setUpdatedAt(LocalDateTime.now());
+			}
+
+			target.setZipCode(nvl(input.getZipCode()));
+			target.setDoName(nvl(input.getDoName()));
+			target.setSiName(nvl(input.getSiName()));
+			target.setGuName(nvl(input.getGuName()));
+			target.setRoadAddress(nvl(input.getRoadAddress()));
+			target.setDetailAddress(nvl(input.getDetailAddress()));
+		}
+
+		company.setUpdatedAt(LocalDateTime.now());
+	}
+
+	private List<CompanyDeliveryAddressInput> normalizeDeliveryInputs(
+			List<CompanyDeliveryAddressInput> incoming
+	) {
+		if (incoming == null || incoming.isEmpty()) {
+			return new ArrayList<>();
+		}
+
+		List<CompanyDeliveryAddressInput> normalized = new ArrayList<>();
+		Set<String> duplicateKeys = new java.util.LinkedHashSet<>();
+
+		for (CompanyDeliveryAddressInput input : incoming) {
+			if (input == null) {
 				continue;
 			}
 
-			if (in.getId() != null && existingById.containsKey(in.getId())) {
-				CompanyDeliveryAddress target = existingById.get(in.getId());
-				target.setZipCode(nvl(in.getZipCode()));
-				target.setDoName(nvl(in.getDoName()));
-				target.setSiName(nvl(in.getSiName()));
-				target.setGuName(nvl(in.getGuName()));
-				target.setRoadAddress(nvl(in.getRoadAddress()));
-				target.setDetailAddress(nvl(in.getDetailAddress()));
-				target.setUpdatedAt(LocalDateTime.now());
-			} else {
-				CompanyDeliveryAddress created = new CompanyDeliveryAddress();
-				created.setCompany(company);
-				created.setZipCode(nvl(in.getZipCode()));
-				created.setDoName(nvl(in.getDoName()));
-				created.setSiName(nvl(in.getSiName()));
-				created.setGuName(nvl(in.getGuName()));
-				created.setRoadAddress(nvl(in.getRoadAddress()));
-				created.setDetailAddress(nvl(in.getDetailAddress()));
-				created.setCreatedAt(LocalDateTime.now());
-				created.setUpdatedAt(null);
-
-				company.getDeliveryAddresses().add(created);
+			String roadAddress = nvl(input.getRoadAddress());
+			String detailAddress = nvl(input.getDetailAddress());
+			if (roadAddress.isBlank()) {
+				continue;
 			}
+
+			String duplicateKey = roadAddress + "||" + detailAddress;
+			if (!duplicateKeys.add(duplicateKey)) {
+				continue;
+			}
+
+			AddressRegionResolver.ResolvedRegion region = addressRegionResolver.resolve(
+					input.getDoName(),
+					input.getSiName(),
+					input.getGuName(),
+					roadAddress
+			);
+
+			CompanyDeliveryAddressInput value = new CompanyDeliveryAddressInput();
+			value.setId(input.getId());
+			value.setZipCode(nvl(input.getZipCode()));
+			value.setDoName(region.doName());
+			value.setSiName(region.siName());
+			value.setGuName(region.guName());
+			value.setRoadAddress(roadAddress);
+			value.setDetailAddress(detailAddress);
+			normalized.add(value);
 		}
 
-		// 회사 수정일
-		company.setUpdatedAt(LocalDateTime.now());
+		return normalized;
 	}
 
 	private List<CompanyDeliveryAddressInput> parseDeliveryJson(String json) {
@@ -744,7 +814,7 @@ public class CustomerController {
 	}
 
 	private String nvl(String v) {
-		return v == null ? "" : v.trim();
+		return v == null ? "" : v.trim().replaceAll("\\s+", " ");
 	}
 
 	// =========================

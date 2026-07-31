@@ -5,6 +5,14 @@
     const API_BASE = '/management/api/order-excel-upload';
     const BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = '12';
     const BATHROOM_GOODS_CATEGORY_NAME = '욕실용품';
+    const KNOWN_PROVINCES = new Set([
+        '서울', '서울시', '서울특별시', '부산', '부산시', '부산광역시', '대구', '대구시', '대구광역시',
+        '인천', '인천시', '인천광역시', '광주', '광주시', '광주광역시', '대전', '대전시', '대전광역시',
+        '울산', '울산시', '울산광역시', '세종', '세종시', '세종특별자치시', '경기', '경기도',
+        '강원', '강원도', '강원특별자치도', '충북', '충청북도', '충남', '충청남도',
+        '전북', '전라북도', '전북특별자치도', '전남', '전라남도', '경북', '경상북도',
+        '경남', '경상남도', '제주', '제주도', '제주특별자치도'
+    ]);
     const DEFAULT_ORDER_STATUSES = [
         { code: 'REQUESTED', label: '고객 발주' },
         { code: 'CONFIRMED', label: '승인 완료' },
@@ -26,7 +34,12 @@
         saving: false,
         previewLoaded: false,
         hoveredImagePasteTarget: null,
-        selectedImagePasteTarget: null
+        selectedImagePasteTarget: null,
+        companyAddressModal: {
+            groupIndex: null,
+            addressType: 'basic',
+            addresses: []
+        }
     };
 
     const els = {};
@@ -59,6 +72,11 @@
         els.loadingOverlay = document.getElementById('order-excel-loading-overlay');
         els.loadingTitle = document.getElementById('order-excel-loading-title');
         els.loadingDesc = document.getElementById('order-excel-loading-desc');
+        els.companyAddressModal = document.getElementById('order-excel-company-address-modal');
+        els.companyAddressModalTitle = document.getElementById('order-excel-company-address-modal-title');
+        els.companyAddressLoading = document.getElementById('order-excel-company-address-loading');
+        els.companyAddressEmpty = document.getElementById('order-excel-company-address-empty');
+        els.companyAddressList = document.getElementById('order-excel-company-address-list');
     }
 
     function bindEvents() {
@@ -80,6 +98,10 @@
 
         els.collapseAll.addEventListener('click', () => toggleAllGroups(false));
         els.expandAll.addEventListener('click', () => toggleAllGroups(true));
+
+        if (els.companyAddressList) {
+            els.companyAddressList.addEventListener('click', handleCompanyAddressListClick);
+        }
     }
 
     async function loadOptions() {
@@ -297,41 +319,79 @@
         `;
     }
 
+    function activeDeliveryAddressType(group) {
+        const method = findOptionById(state.options.deliveryMethods || [], group && group.deliveryMethodId);
+        const ruleCode = deliveryRuleCodeFromMethod(method) || String(group && group.deliveryRuleCode || '').toUpperCase();
+        return ['SITE', 'CARGO'].includes(ruleCode) ? 'site' : 'basic';
+    }
+
+    function canAutoAssignHandlerForGroup(group) {
+        if (!groupHasDeliveryHandlerAssignableRows(group)) {
+            return false;
+        }
+        const method = findOptionById(state.options.deliveryMethods || [], group && group.deliveryMethodId);
+        return isHandlerRequiredRuleCode(deliveryRuleCodeFromMethod(method));
+    }
+
     function renderAddressBox(group, groupIndex, type) {
         const isSite = type === 'site';
-        const prefix = isSite ? 'site' : '';
         const boxTitle = isSite ? '현장 배송지' : '기본 배송지';
+        const activeType = activeDeliveryAddressType(group);
+        const active = activeType === type;
         const disabledClass = isSite && !group.siteDelivery ? 'is-disabled' : '';
+        const activeClass = active ? 'is-active' : '';
         const zipField = isSite ? 'siteZipCode' : 'zipCode';
         const doField = isSite ? 'siteDoName' : 'doName';
         const siField = isSite ? 'siteSiName' : 'siName';
         const guField = isSite ? 'siteGuName' : 'guName';
         const roadField = isSite ? 'siteRoadAddress' : 'roadAddress';
+        const jibunField = isSite ? 'siteJibunAddress' : 'jibunAddress';
+        const originField = isSite ? 'siteOriginAddress' : 'originAddress';
         const detailField = isSite ? 'siteDetailAddress' : 'detailAddress';
         const searchLabel = isSite ? '현장 주소검색' : '기본 주소검색';
+        const canAssign = active && canAutoAssignHandlerForGroup(group);
+        const method = findOptionById(state.options.deliveryMethods || [], group && group.deliveryMethodId);
+        const ruleCode = deliveryRuleCodeFromMethod(method);
+        const assignTitle = active
+            ? (canAssign
+                ? '현재 주소의 도/시/구를 기준으로 배송 담당자를 자동 선택합니다.'
+                : (method && !isHandlerRequiredRuleCode(ruleCode)
+                    ? '이 배송수단은 배송 담당자 지정이 필요하지 않습니다.'
+                    : '현재 오더 상태에서는 담당자 자동배정을 사용할 수 없습니다.'))
+            : '현재 배송수단에서 사용하는 주소가 아닙니다.';
 
         return `
-            <div class="order-excel-address-box ${disabledClass}" data-address-type="${type}" data-group-index="${groupIndex}">
+            <div class="order-excel-address-box ${disabledClass} ${activeClass}" data-address-type="${type}" data-group-index="${groupIndex}">
                 <div class="order-excel-address-title">
-                    <span>${boxTitle}</span>
+                    <span class="d-inline-flex align-items-center gap-2">
+                        ${boxTitle}
+                        ${active ? '<span class="badge bg-success-subtle text-success">현재 사용 주소</span>' : ''}
+                    </span>
                     <div class="order-excel-address-title-actions">
                         ${isSite ? `
-                            <label class="form-check form-switch mb-0 order-excel-site-switch">
-                                <input type="checkbox" class="form-check-input" data-group-field="siteDelivery" data-group-index="${groupIndex}" ${group.siteDelivery ? 'checked' : ''} title="현장 배송지 사용">
+                            <label class="form-check form-switch mb-0 order-excel-site-switch" title="현장 배송지 사용 여부는 배송수단에 따라 자동 결정됩니다.">
+                                <input type="checkbox" class="form-check-input" ${active ? 'checked' : ''} disabled>
                             </label>
                         ` : ''}
+                        <button type="button" class="btn btn-sm btn-outline-success" data-action="registered-address-search" data-address-type="${type}" data-group-index="${groupIndex}">등록주소지검색</button>
                         <button type="button" class="btn btn-sm btn-outline-primary" data-action="search-address" data-address-type="${type}" data-group-index="${groupIndex}">${searchLabel}</button>
+                        <button type="button" class="btn btn-sm btn-outline-info" data-action="validate-address" data-address-type="${type}" data-group-index="${groupIndex}">주소검증</button>
+                        <button type="button" class="btn btn-sm btn-outline-dark" data-action="auto-assign-handler" data-address-type="${type}" data-group-index="${groupIndex}" ${canAssign ? '' : 'disabled'} title="${escapeHtml(assignTitle)}">담당자배정</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" data-action="clear-address" data-address-type="${type}" data-group-index="${groupIndex}">초기화</button>
                     </div>
                 </div>
                 ${renderAddressCorrectionInfo(group, type)}
+                ${renderAddressValidationInfo(group, type, active)}
+                ${renderHandlerAssignmentInfo(group, active)}
                 <div class="order-excel-address-inputs">
                     <input type="text" placeholder="우편번호" data-group-field="${zipField}" data-group-index="${groupIndex}" value="${escapeHtml(group[zipField] || '')}" readonly>
                     <input type="text" placeholder="도/시" data-group-field="${doField}" data-group-index="${groupIndex}" value="${escapeHtml(group[doField] || '')}" readonly>
                     <input type="text" placeholder="시/군" data-group-field="${siField}" data-group-index="${groupIndex}" value="${escapeHtml(group[siField] || '')}" readonly>
                     <input type="text" placeholder="구" data-group-field="${guField}" data-group-index="${groupIndex}" value="${escapeHtml(group[guField] || '')}" readonly>
-                    <input type="text" placeholder="도로명 주소" data-group-field="${roadField}" data-group-index="${groupIndex}" value="${escapeHtml(group[roadField] || '')}" readonly>
-                    <input type="text" placeholder="상세주소" data-group-field="${detailField}" data-group-index="${groupIndex}" value="${escapeHtml(group[detailField] || '')}">
+                    <input type="text" class="order-excel-address-field-wide" placeholder="도로명 주소" data-group-field="${roadField}" data-group-index="${groupIndex}" value="${escapeHtml(group[roadField] || '')}" readonly>
+                    <input type="text" class="order-excel-address-field-wide" placeholder="지번 주소" data-group-field="${jibunField}" data-group-index="${groupIndex}" value="${escapeHtml(group[jibunField] || '')}" readonly>
+                    <input type="text" class="order-excel-address-field-wide" placeholder="원본 주소" data-group-field="${originField}" data-group-index="${groupIndex}" value="${escapeHtml(group[originField] || '')}" readonly>
+                    <input type="text" class="order-excel-address-field-wide" placeholder="상세주소" data-group-field="${detailField}" data-group-index="${groupIndex}" value="${escapeHtml(group[detailField] || '')}">
                     ${isSite ? `
                         <input type="text" placeholder="수령자" data-group-field="siteRecipientName" data-group-index="${groupIndex}" value="${escapeHtml(group.siteRecipientName || '')}">
                         <input type="text" placeholder="수령자 연락처" data-group-field="siteRecipientPhone" data-group-index="${groupIndex}" value="${escapeHtml(group.siteRecipientPhone || '')}">
@@ -351,6 +411,128 @@
                 ${escapeHtml(group.siteAddressDisplayText)}
             </div>
         `;
+    }
+
+    function renderAddressValidationInfo(group, type, active) {
+        if (!active) {
+            return '';
+        }
+        const label = type === 'site' ? '현장 배송지' : '기본 배송지';
+        const validation = validateAddressValues(addressValuesFromGroup(group, type), label);
+        if (!validation.valid) {
+            return `
+                <div class="order-excel-address-validation is-invalid">
+                    <i class="ri-error-warning-line"></i> ${escapeHtml(validation.message)}
+                </div>
+            `;
+        }
+
+        const serverValidation = group._addressServerValidation && group._addressServerValidation[type];
+        if (serverValidation && serverValidation.checked) {
+            if (serverValidation.valid) {
+                return '<div class="order-excel-address-validation is-valid"><i class="ri-checkbox-circle-line"></i> 서버 주소 검증 완료</div>';
+            }
+            return `<div class="order-excel-address-validation is-invalid"><i class="ri-error-warning-line"></i> ${escapeHtml(serverValidation.message || '서버 주소 검증에 실패했습니다.')}</div>`;
+        }
+
+        return '<div class="order-excel-address-validation is-valid"><i class="ri-checkbox-circle-line"></i> 주소 필수값 입력 완료 · 저장 시 서버에서 다시 검증합니다.</div>';
+    }
+
+    function renderHandlerAssignmentInfo(group, active) {
+        if (!active || !group) {
+            return '';
+        }
+
+        const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+        if (!method) {
+            return '<div class="order-excel-handler-rule-info is-warning"><i class="ri-information-line"></i> 배송수단을 선택하면 담당자 지정 필요 여부를 안내합니다.</div>';
+        }
+
+        const ruleCode = deliveryRuleCodeFromMethod(method);
+        if (!isHandlerRequiredRuleCode(ruleCode)) {
+            return `<div class="order-excel-handler-rule-info"><i class="ri-information-line"></i> ${escapeHtml(method.methodName || '현재 배송수단')}은(는) 배송 담당자 지정이 필요하지 않습니다. 주소만 정확히 확인해 주세요.</div>`;
+        }
+
+        if (!groupHasDeliveryHandlerAssignableRows(group)) {
+            return '<div class="order-excel-handler-rule-info"><i class="ri-information-line"></i> 고객 발주·취소 상태만 있어 배송 담당자를 배정하지 않습니다.</div>';
+        }
+
+        return '<div class="order-excel-handler-rule-info is-required"><i class="ri-user-location-line"></i> 화물·직배송·현장배송은 주소 검증 후 배송 담당자 지정이 필요합니다.</div>';
+    }
+
+    function addressValuesFromGroup(group, type) {
+        const isSite = type === 'site';
+        return {
+            zipCode: isSite ? group.siteZipCode : group.zipCode,
+            doName: isSite ? group.siteDoName : group.doName,
+            siName: isSite ? group.siteSiName : group.siName,
+            guName: isSite ? group.siteGuName : group.guName,
+            roadAddress: isSite ? group.siteRoadAddress : group.roadAddress,
+            jibunAddress: isSite ? group.siteJibunAddress : group.jibunAddress,
+            originAddress: isSite ? group.siteOriginAddress : group.originAddress,
+            detailAddress: isSite ? group.siteDetailAddress : group.detailAddress
+        };
+    }
+
+    function validateAddressValues(values, label) {
+        const data = values || {};
+        const addressLabel = label || '배송지';
+        const zipCode = String(data.zipCode || '').replace(/\D/g, '');
+        const doName = String(data.doName || '').trim();
+        const siName = String(data.siName || '').trim();
+        const guName = String(data.guName || '').trim();
+        const addressLine = [data.roadAddress, data.jibunAddress, data.originAddress]
+            .map(value => String(value || '').trim())
+            .find(value => value && !['-', '–', '—'].includes(value)) || '';
+        const messages = [];
+
+        if (!zipCode) {
+            messages.push(`${addressLabel} 우편번호가 비어 있습니다.`);
+        } else if (!/^\d{5}$/.test(zipCode)) {
+            messages.push(`${addressLabel} 우편번호는 숫자 5자리여야 합니다.`);
+        }
+
+        if (!doName) {
+            messages.push(`${addressLabel} 도/시 값이 비어 있습니다.`);
+        } else if (!KNOWN_PROVINCES.has(doName)) {
+            messages.push(`${addressLabel} 도/시 값이 대한민국 행정구역 형식과 맞지 않습니다.`);
+        } else if (doName.includes('세종')) {
+            // 세종특별자치시는 city/district가 없는 현재 DB 구조를 허용합니다.
+        } else if (isMetropolitanProvince(doName)) {
+            if (!guName) {
+                messages.push(`${addressLabel} 구/군 값이 비어 있습니다.`);
+            }
+        } else if (!siName) {
+            messages.push(`${addressLabel} 시/군 값이 비어 있습니다.`);
+        }
+
+        if (!addressLine) {
+            messages.push(`${addressLabel} 도로명·지번·원본 주소가 모두 비어 있습니다.`);
+        }
+
+        return {
+            valid: messages.length === 0,
+            messages,
+            message: messages.join(' ')
+        };
+    }
+
+    function findFirstInvalidActiveAddress(groups) {
+        for (const group of groups || []) {
+            const hasActiveRows = (group.rows || []).some(row => row && row.saveTarget);
+            if (!hasActiveRows) continue;
+
+            const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+            if (!method) continue;
+
+            const type = activeDeliveryAddressType(group);
+            const label = type === 'site' ? '현장 배송지' : '기본 배송지';
+            const validation = validateAddressValues(addressValuesFromGroup(group, type), label);
+            if (!validation.valid) {
+                return { group, type, label, validation };
+            }
+        }
+        return null;
     }
 
     function renderRowsTable(group, groupIndex) {
@@ -538,9 +720,10 @@
         const hasActiveRows = activeRows.length > 0;
         const hasAssignableRows = assignableRows.length > 0;
         const statusBlocked = hasActiveRows && !hasAssignableRows;
-        const noHandlerRule = isNoHandlerRuleCode(ruleCode);
-        const required = hasAssignableRows && isHandlerRequiredRuleCode(ruleCode);
-        const disabled = !hasActiveRows || statusBlocked || noHandlerRule;
+        const handlerRequiredByMethod = isHandlerRequiredRuleCode(ruleCode);
+        const noHandlerRule = Boolean(method) && !handlerRequiredByMethod;
+        const required = hasAssignableRows && handlerRequiredByMethod;
+        const disabled = !hasActiveRows || statusBlocked || !handlerRequiredByMethod;
         const selectedHandler = disabled ? null : resolveSelectedDeliveryHandler(group);
         const selectedHandlerId = selectedHandler ? selectedHandler.id : null;
         const missingRequiredHandler = required && !selectedHandlerId;
@@ -553,8 +736,12 @@
         } else if (statusBlocked) {
             emptyLabel = '고객 발주/취소는 지정 불가';
             requirementText = '<div class="form-text text-muted">고객 발주·취소 상태는 배송수단과 무관하게 배송담당자를 배정하지 않습니다.</div>';
+        } else if (!method) {
+            emptyLabel = '배송수단 선택 필요';
+            requirementText = '<div class="form-text text-muted">배송수단을 먼저 선택해 주세요.</div>';
         } else if (noHandlerRule) {
             emptyLabel = '담당자 지정 불필요';
+            requirementText = `<div class="form-text text-muted">${escapeHtml(method.methodName || '현재 배송수단')}은(는) 배송담당자를 지정하지 않습니다.</div>`;
         } else if (missingRequiredHandler) {
             emptyLabel = '배송담당자 선택 필수';
             requirementText = '<div class="form-text text-danger">필수 선택</div>';
@@ -680,6 +867,21 @@
             return;
         }
 
+        if (action === 'registered-address-search') {
+            openCompanyAddressModal(Number(button.dataset.groupIndex), button.dataset.addressType || 'basic');
+            return;
+        }
+
+        if (action === 'validate-address') {
+            validateAddressOnServer(Number(button.dataset.groupIndex), button.dataset.addressType || 'basic', button, true);
+            return;
+        }
+
+        if (action === 'auto-assign-handler') {
+            autoAssignDeliveryHandler(Number(button.dataset.groupIndex), button.dataset.addressType || 'basic', button);
+            return;
+        }
+
         if (action === 'search-address') {
             openDaumPostcode(Number(button.dataset.groupIndex), button.dataset.addressType || 'basic');
             return;
@@ -696,6 +898,7 @@
         if (!group) return;
 
         const field = target.dataset.groupField;
+        const previousActiveAddressType = field === 'deliveryMethodId' ? activeDeliveryAddressType(group) : null;
         let value = target.type === 'checkbox' ? target.checked : target.value;
 
         if (['deliveryCost', 'packingCost'].includes(field)) {
@@ -727,9 +930,7 @@
             group.deliveryRuleCode = ruleCode;
             group.deliveryRuleLabel = selectedMethod ? selectedMethod.methodName : '';
 
-            if (['SITE', 'CARGO'].includes(ruleCode)) {
-                group.siteDelivery = true;
-            }
+            group.siteDelivery = ['SITE', 'CARGO'].includes(ruleCode);
         }
 
         if (field === 'deliveryHandlerMemberId') {
@@ -739,6 +940,9 @@
             value = selected ? selected.id : null;
             group.deliveryHandlerMemberId = value;
             group.deliveryHandlerName = selected ? selected.name : '';
+            if (selected) {
+                clearGroupIssuesByField(group, 'deliveryHandler');
+            }
             const hiddenName = target.parentElement.querySelector('[data-group-field="deliveryHandlerName"]');
             if (hiddenName) hiddenName.value = selected ? selected.name : '';
         }
@@ -746,6 +950,11 @@
         group[field] = value;
 
         if (field === 'deliveryMethodId') {
+            const nextActiveAddressType = activeDeliveryAddressType(group);
+            if (previousActiveAddressType && previousActiveAddressType !== nextActiveAddressType) {
+                // 배송수단 변경으로 실제 사용 주소가 바뀌면 기존 담당자가 새 주소와 맞지 않을 수 있으므로 재배정합니다.
+                clearGroupDeliveryHandler(group);
+            }
             synchronizeDeliveryHandlerState(group);
         } else if (field === 'deliveryHandlerMemberId') {
             applyGroupDeliveryHandlerToRows(group);
@@ -831,6 +1040,7 @@
         if (!group) return;
         group.deliveryHandlerMemberId = null;
         group.deliveryHandlerName = '';
+        clearGroupIssuesByField(group, 'deliveryHandler');
         applyGroupDeliveryHandlerToRows(group);
     }
 
@@ -838,7 +1048,7 @@
         if (!group || !Array.isArray(group.rows)) return;
 
         const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
-        const handlerAllowedByMethod = !isNoHandlerRuleCode(deliveryRuleCodeFromMethod(method));
+        const handlerAllowedByMethod = isHandlerRequiredRuleCode(deliveryRuleCodeFromMethod(method));
 
         group.rows.forEach(row => {
             if (!handlerAllowedByMethod || !isDeliveryHandlerAssignableRow(row)) {
@@ -857,7 +1067,7 @@
 
         const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
         const ruleCode = deliveryRuleCodeFromMethod(method);
-        if (isNoHandlerRuleCode(ruleCode) || !groupHasDeliveryHandlerAssignableRows(group)) {
+        if (!isHandlerRequiredRuleCode(ruleCode) || !groupHasDeliveryHandlerAssignableRows(group)) {
             clearGroupDeliveryHandler(group);
             return null;
         }
@@ -886,6 +1096,15 @@
 
         if (activeOrderCount <= 0) {
             showMessage('저장 대상으로 선택된 주문 행이 없습니다.', 'warning');
+            return;
+        }
+
+        const invalidAddress = findFirstInvalidActiveAddress(payload.groups);
+        if (invalidAddress) {
+            const stateGroup = state.groups.find(group => String(group.groupNo) === String(invalidAddress.group.groupNo));
+            if (stateGroup) stateGroup.collapsed = false;
+            renderPreview();
+            showMessage(`Task ${invalidAddress.group.groupNo}의 ${invalidAddress.label}를 확인해 주세요. ${invalidAddress.validation.message}`, 'danger');
             return;
         }
 
@@ -944,7 +1163,9 @@
 
         return {
             groups: state.groups.map(group => {
-                const groupHasAssignableRows = groupHasDeliveryHandlerAssignableRows(group);
+                const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+                const handlerAllowedByMethod = isHandlerRequiredRuleCode(deliveryRuleCodeFromMethod(method));
+                const groupHasAssignableRows = handlerAllowedByMethod && groupHasDeliveryHandlerAssignableRows(group);
                 const groupHandlerName = groupHasAssignableRows ? (group.deliveryHandlerName || '') : '';
                 const groupHandlerId = groupHasAssignableRows ? normalizeId(group.deliveryHandlerMemberId) : null;
 
@@ -969,19 +1190,23 @@
                     siName: group.siName,
                     guName: group.guName,
                     roadAddress: group.roadAddress,
+                    jibunAddress: group.jibunAddress,
+                    originAddress: group.originAddress,
                     detailAddress: group.detailAddress,
                     siteZipCode: group.siteZipCode,
                     siteDoName: group.siteDoName,
                     siteSiName: group.siteSiName,
                     siteGuName: group.siteGuName,
                     siteRoadAddress: group.siteRoadAddress,
+                    siteJibunAddress: group.siteJibunAddress,
+                    siteOriginAddress: group.siteOriginAddress,
                     siteDetailAddress: group.siteDetailAddress,
                     siteRecipientName: group.siteRecipientName,
                     siteRecipientPhone: group.siteRecipientPhone,
                     ordererName: group.ordererName,
                     ordererPhone: group.ordererPhone,
                     rows: (group.rows || []).map(row => {
-                        const handlerAssignable = isDeliveryHandlerAssignableRow(row);
+                        const handlerAssignable = handlerAllowedByMethod && isDeliveryHandlerAssignableRow(row);
                         return {
                             excelRowNumber: row.excelRowNumber,
                             saveTarget: row.saveTarget !== false,
@@ -1018,6 +1243,368 @@
     }
 
 
+    function clearGroupIssuesByField(group, field) {
+        if (!group || !field) return;
+        group.issues = (group.issues || []).filter(issue => issue && issue.field !== field);
+        (group.rows || []).forEach(row => {
+            row.issues = (row.issues || []).filter(issue => issue && issue.field !== field);
+        });
+    }
+
+    function clearAddressIssues(group, type) {
+        clearGroupIssuesByField(group, type === 'site' ? 'siteAddress' : 'address');
+    }
+
+    function invalidateAddressServerValidation(group, type) {
+        if (!group) return;
+        if (!group._addressServerValidation) {
+            group._addressServerValidation = {};
+        }
+        group._addressServerValidation[type === 'site' ? 'site' : 'basic'] = null;
+    }
+
+    function applyValidatedAddressResponse(group, type, data) {
+        if (!group || !data) return;
+        const isSite = type === 'site';
+        if (isSite) {
+            group.siteZipCode = data.zipCode || group.siteZipCode || '';
+            group.siteDoName = data.doName || group.siteDoName || '';
+            group.siteSiName = data.siName || group.siteSiName || '';
+            group.siteGuName = data.guName || group.siteGuName || '';
+            group.siteRoadAddress = data.roadAddress || group.siteRoadAddress || '';
+            group.siteJibunAddress = data.jibunAddress || group.siteJibunAddress || '';
+            group.siteOriginAddress = data.originAddress || group.siteOriginAddress || '';
+            group.siteDetailAddress = data.detailAddress || group.siteDetailAddress || '';
+        } else {
+            group.zipCode = data.zipCode || group.zipCode || '';
+            group.doName = data.doName || group.doName || '';
+            group.siName = data.siName || group.siName || '';
+            group.guName = data.guName || group.guName || '';
+            group.roadAddress = data.roadAddress || group.roadAddress || '';
+            group.jibunAddress = data.jibunAddress || group.jibunAddress || '';
+            group.originAddress = data.originAddress || group.originAddress || '';
+            group.detailAddress = data.detailAddress || group.detailAddress || '';
+        }
+    }
+
+    async function validateAddressOnServer(groupIndex, addressType, button, notify) {
+        const group = state.groups[groupIndex];
+        if (!group) return false;
+
+        const type = addressType === 'site' ? 'site' : 'basic';
+        const payload = Object.assign({ addressType: type }, addressValuesFromGroup(group, type));
+        const localValidation = validateAddressValues(payload, type === 'site' ? '현장 배송지' : '기본 배송지');
+        if (!localValidation.valid) {
+            if (!group._addressServerValidation) group._addressServerValidation = {};
+            group._addressServerValidation[type] = { checked: true, valid: false, message: localValidation.message };
+            renderPreview();
+            if (notify) showMessage(localValidation.message, 'danger');
+            return false;
+        }
+
+        if (button) {
+            button.disabled = true;
+            button.dataset.originalText = button.textContent;
+            button.textContent = '검증 중...';
+        }
+
+        try {
+            const data = await fetchJson(`${API_BASE}/address/validate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            applyValidatedAddressResponse(group, type, data);
+            if (data.valid) {
+                clearAddressIssues(group, type);
+            }
+            if (!group._addressServerValidation) group._addressServerValidation = {};
+            group._addressServerValidation[type] = {
+                checked: true,
+                valid: Boolean(data.valid),
+                message: data.message || ''
+            };
+            renderPreview();
+            if (notify) {
+                showMessage(data.message || (data.valid ? '주소 검증이 완료되었습니다.' : '주소를 확인해 주세요.'), data.valid ? 'success' : 'danger');
+            }
+            return Boolean(data.valid);
+        } catch (error) {
+            if (!group._addressServerValidation) group._addressServerValidation = {};
+            group._addressServerValidation[type] = { checked: true, valid: false, message: error.message || '서버 주소 검증에 실패했습니다.' };
+            renderPreview();
+            if (notify) showMessage(error.message || '서버 주소 검증에 실패했습니다.', 'danger');
+            return false;
+        } finally {
+            if (button && document.body.contains(button)) {
+                button.disabled = false;
+                button.textContent = button.dataset.originalText || '주소검증';
+            }
+        }
+    }
+
+    function getCompanyAddressModalInstance() {
+        if (!els.companyAddressModal || !window.bootstrap) {
+            return null;
+        }
+        return window.bootstrap.Modal.getOrCreateInstance(els.companyAddressModal);
+    }
+
+    async function openCompanyAddressModal(groupIndex, addressType) {
+        const group = state.groups[groupIndex];
+        if (!group) return;
+
+        const modal = getCompanyAddressModalInstance();
+        if (!modal) {
+            showMessage('등록주소지 모달을 초기화하지 못했습니다. Bootstrap 로딩을 확인해 주세요.', 'danger');
+            return;
+        }
+
+        state.companyAddressModal.groupIndex = groupIndex;
+        state.companyAddressModal.addressType = addressType === 'site' ? 'site' : 'basic';
+        state.companyAddressModal.addresses = [];
+        renderCompanyAddressModalLoading(true);
+
+        if (els.companyAddressModalTitle) {
+            els.companyAddressModalTitle.textContent = `${group.companyName || '업체'} · ${addressType === 'site' ? '현장 배송지' : '기본 배송지'} 등록주소지`;
+        }
+        modal.show();
+
+        const params = new URLSearchParams();
+        if (normalizeId(group.companyId)) params.set('companyId', String(group.companyId));
+        if (String(group.businessNumber || '').trim()) params.set('businessNumber', String(group.businessNumber || '').replace(/\D/g, ''));
+        if (String(group.companyName || '').trim()) params.set('companyName', String(group.companyName || '').trim());
+
+        try {
+            const data = await fetchJson(`${API_BASE}/company-addresses?${params.toString()}`);
+            group.companyId = data.companyId || group.companyId || null;
+            group.companyName = data.companyName || group.companyName || '';
+            group.businessNumber = data.businessNumber || group.businessNumber || '';
+            if (data.requestedByMemberId) {
+                group.requestedByMemberId = data.requestedByMemberId;
+                group.requestedByName = data.requestedByName || group.requestedByName || '';
+            }
+
+            state.companyAddressModal.addresses = Array.isArray(data.addresses) ? data.addresses : [];
+            renderCompanyAddressModalList();
+        } catch (error) {
+            state.companyAddressModal.addresses = [];
+            renderCompanyAddressModalList(error.message || '등록주소지를 불러오지 못했습니다.');
+        } finally {
+            renderCompanyAddressModalLoading(false);
+        }
+    }
+
+    function renderCompanyAddressModalLoading(loading) {
+        if (els.companyAddressLoading) {
+            els.companyAddressLoading.classList.toggle('d-none', !loading);
+        }
+        if (loading) {
+            if (els.companyAddressList) els.companyAddressList.innerHTML = '';
+            if (els.companyAddressEmpty) els.companyAddressEmpty.classList.add('d-none');
+        }
+    }
+
+    function renderCompanyAddressModalList(errorMessage) {
+        const addresses = state.companyAddressModal.addresses || [];
+        if (!els.companyAddressList || !els.companyAddressEmpty) return;
+
+        if (!addresses.length) {
+            els.companyAddressList.innerHTML = '';
+            els.companyAddressEmpty.textContent = errorMessage || '선택할 수 있는 등록주소지가 없습니다.';
+            els.companyAddressEmpty.classList.remove('d-none');
+            return;
+        }
+
+        els.companyAddressEmpty.classList.add('d-none');
+        els.companyAddressList.innerHTML = addresses.map((address, index) => {
+            const valid = address.valid !== false;
+            return `
+                <div class="order-excel-company-address-item ${valid ? '' : 'is-invalid'}">
+                    <div class="order-excel-company-address-item-head">
+                        <strong>${escapeHtml(address.label || `등록주소 ${index + 1}`)}</strong>
+                        <span class="badge ${address.sourceType === 'PRIMARY' ? 'bg-primary-subtle text-primary' : 'bg-success-subtle text-success'}">
+                            ${address.sourceType === 'PRIMARY' ? '업체 기본주소' : '추가 배송지'}
+                        </span>
+                        <span class="badge ${valid ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}">
+                            ${valid ? '주소 검증 완료' : '주소 보완 필요'}
+                        </span>
+                    </div>
+                    <div class="order-excel-company-address-full">${escapeHtml(address.fullAddress || address.roadAddress || address.jibunAddress || '-')}</div>
+                    <dl class="order-excel-company-address-details">
+                        <div><dt>행정구역</dt><dd>${escapeHtml([address.doName, address.siName, address.guName].filter(Boolean).join(' ') || '-')}</dd></div>
+                        <div><dt>우편번호</dt><dd>${escapeHtml(address.zipCode || '-')}</dd></div>
+                        <div><dt>도로명</dt><dd>${escapeHtml(address.roadAddress || '-')}</dd></div>
+                        <div><dt>지번</dt><dd>${escapeHtml(address.jibunAddress || '-')}</dd></div>
+                        <div><dt>원본주소</dt><dd>${escapeHtml(address.originAddress || '-')}</dd></div>
+                        <div><dt>상세주소</dt><dd>${escapeHtml(address.detailAddress || '-')}</dd></div>
+                    </dl>
+                    ${valid ? '' : `<div class="alert alert-danger py-2 mb-2">${escapeHtml(address.validationMessage || '주소 필수값을 확인해 주세요.')}</div>`}
+                    <div class="text-end">
+                        <button type="button" class="btn btn-primary btn-sm" data-action="select-company-address" data-address-index="${index}" ${valid ? '' : 'disabled'}>이 주소 선택</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function handleCompanyAddressListClick(event) {
+        const button = event.target.closest('[data-action="select-company-address"]');
+        if (!button) return;
+
+        const index = Number(button.dataset.addressIndex);
+        const address = state.companyAddressModal.addresses[index];
+        const group = state.groups[state.companyAddressModal.groupIndex];
+        if (!address || !group) return;
+        if (address.valid === false) {
+            showMessage(address.validationMessage || '필수 주소값이 누락된 등록주소지는 선택할 수 없습니다.', 'danger');
+            return;
+        }
+
+        const selectedType = state.companyAddressModal.addressType;
+        applyCompanyAddressOption(group, selectedType, address);
+        invalidateAddressServerValidation(group, selectedType);
+        const modal = getCompanyAddressModalInstance();
+        if (modal) modal.hide();
+        renderPreview();
+        validateAddressOnServer(state.companyAddressModal.groupIndex, selectedType, null, true);
+    }
+
+    function applyCompanyAddressOption(group, type, address) {
+        const beforeRegion = addressRegionKey(group, type);
+        const roadAddress = address.roadAddress || address.originAddress || address.jibunAddress || '';
+
+        if (type === 'site') {
+            group.siteDelivery = true;
+            group.siteZipCode = address.zipCode || '';
+            group.siteDoName = address.doName || '';
+            group.siteSiName = address.siName || '';
+            group.siteGuName = address.guName || '';
+            group.siteRoadAddress = roadAddress;
+            group.siteJibunAddress = address.jibunAddress || '';
+            group.siteOriginAddress = address.originAddress || '';
+            group.siteDetailAddress = address.detailAddress || '';
+            group.siteAddressDisplayText = `${address.label || '등록주소'}에서 선택한 주소입니다.`;
+        } else {
+            group.zipCode = address.zipCode || '';
+            group.doName = address.doName || '';
+            group.siName = address.siName || '';
+            group.guName = address.guName || '';
+            group.roadAddress = roadAddress;
+            group.jibunAddress = address.jibunAddress || '';
+            group.originAddress = address.originAddress || '';
+            group.detailAddress = address.detailAddress || '';
+        }
+
+        invalidateHandlerWhenRegionChanged(group, type, beforeRegion);
+    }
+
+    async function autoAssignDeliveryHandler(groupIndex, addressType, button) {
+        const group = state.groups[groupIndex];
+        if (!group) return;
+
+        if (activeDeliveryAddressType(group) !== addressType) {
+            showMessage('현재 배송수단에서 실제 사용하는 주소의 담당자배정 버튼을 눌러 주세요.', 'warning');
+            return;
+        }
+        if (!canAutoAssignHandlerForGroup(group)) {
+            const method = findOptionById(state.options.deliveryMethods || [], group.deliveryMethodId);
+            const ruleCode = deliveryRuleCodeFromMethod(method);
+            showMessage(method && !isHandlerRequiredRuleCode(ruleCode)
+                ? `${method.methodName || '현재 배송수단'}은(는) 배송 담당자 지정이 필요하지 않습니다.`
+                : '현재 오더 상태에서는 배송 담당자를 자동배정할 수 없습니다.', 'warning');
+            return;
+        }
+
+        const isSite = addressType === 'site';
+        const payload = {
+            deliveryMethodId: normalizeId(group.deliveryMethodId),
+            addressType,
+            zipCode: isSite ? group.siteZipCode : group.zipCode,
+            doName: isSite ? group.siteDoName : group.doName,
+            siName: isSite ? group.siteSiName : group.siName,
+            guName: isSite ? group.siteGuName : group.guName,
+            roadAddress: isSite ? group.siteRoadAddress : group.roadAddress,
+            jibunAddress: isSite ? group.siteJibunAddress : group.jibunAddress,
+            originAddress: isSite ? group.siteOriginAddress : group.originAddress,
+            detailAddress: isSite ? group.siteDetailAddress : group.detailAddress
+        };
+
+        const addressValidation = validateAddressValues(payload, isSite ? '현장 배송지' : '기본 배송지');
+        if (!addressValidation.valid) {
+            showMessage(`담당자배정 전에 주소를 확인해 주세요. ${addressValidation.message}`, 'danger');
+            return;
+        }
+
+        if (button) {
+            button.disabled = true;
+            button.dataset.originalText = button.textContent;
+            button.textContent = '배정 중...';
+        }
+
+        try {
+            const data = await fetchJson(`${API_BASE}/delivery-handler/auto-assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!data.matched || !data.memberId) {
+                showMessage(data.message || '담당구역이 일치하는 배송 담당자를 찾지 못했습니다.', 'warning');
+                return;
+            }
+
+            group.deliveryHandlerMemberId = data.memberId;
+            group.deliveryHandlerName = data.memberName || '';
+            clearGroupIssuesByField(group, 'deliveryHandler');
+            if (isSite) {
+                group.siteZipCode = data.zipCode || group.siteZipCode || '';
+                group.siteDoName = data.doName || group.siteDoName || '';
+                group.siteSiName = data.siName || group.siteSiName || '';
+                group.siteGuName = data.guName || group.siteGuName || '';
+                group.siteRoadAddress = data.roadAddress || group.siteRoadAddress || '';
+                group.siteJibunAddress = data.jibunAddress || group.siteJibunAddress || '';
+                group.siteOriginAddress = data.originAddress || group.siteOriginAddress || '';
+                group.siteDetailAddress = data.detailAddress || group.siteDetailAddress || '';
+            } else {
+                group.zipCode = data.zipCode || group.zipCode || '';
+                group.doName = data.doName || group.doName || '';
+                group.siName = data.siName || group.siName || '';
+                group.guName = data.guName || group.guName || '';
+                group.roadAddress = data.roadAddress || group.roadAddress || '';
+                group.jibunAddress = data.jibunAddress || group.jibunAddress || '';
+                group.originAddress = data.originAddress || group.originAddress || '';
+                group.detailAddress = data.detailAddress || group.detailAddress || '';
+            }
+            applyGroupDeliveryHandlerToRows(group);
+            renderPreview();
+            showMessage(data.message || `${group.deliveryHandlerName} 담당자로 자동배정되었습니다.`, 'success');
+        } catch (error) {
+            showMessage(error.message || '배송 담당자 자동배정에 실패했습니다.', 'danger');
+        } finally {
+            if (button && document.body.contains(button)) {
+                button.disabled = false;
+                button.textContent = button.dataset.originalText || '담당자배정';
+            }
+        }
+    }
+
+    function addressRegionKey(group, type) {
+        const isSite = type === 'site';
+        return [
+            isSite ? group.siteDoName : group.doName,
+            isSite ? group.siteSiName : group.siName,
+            isSite ? group.siteGuName : group.guName
+        ].map(value => normalizeText(value)).join('|');
+    }
+
+    function invalidateHandlerWhenRegionChanged(group, type, beforeRegion) {
+        if (!group || activeDeliveryAddressType(group) !== type) return;
+        if (beforeRegion !== addressRegionKey(group, type)) {
+            clearGroupDeliveryHandler(group);
+        }
+    }
+
     function openDaumPostcode(groupIndex, type) {
         const group = state.groups[groupIndex];
         if (!group) return;
@@ -1030,14 +1617,19 @@
         new window.daum.Postcode({
             oncomplete: function (data) {
                 applyDaumAddress(group, type, data || {});
+                invalidateAddressServerValidation(group, type);
                 renderPreview();
+                validateAddressOnServer(groupIndex, type, null, true);
             }
         }).open();
     }
 
     function applyDaumAddress(group, type, data) {
+        const beforeRegion = addressRegionKey(group, type);
         const region = splitDaumRegion(data.sido || '', data.sigungu || '');
         const roadAddress = data.roadAddress || data.autoRoadAddress || data.address || '';
+        const jibunAddress = data.jibunAddress || data.autoJibunAddress || '';
+        const originAddress = data.address || roadAddress || jibunAddress || '';
 
         if (type === 'site') {
             group.siteDelivery = true;
@@ -1046,8 +1638,11 @@
             group.siteSiName = region.siName;
             group.siteGuName = region.guName;
             group.siteRoadAddress = roadAddress;
+            group.siteJibunAddress = jibunAddress;
+            group.siteOriginAddress = originAddress;
             group.siteDetailAddress = group.siteDetailAddress || '';
             group.siteAddressDisplayText = '';
+            invalidateHandlerWhenRegionChanged(group, type, beforeRegion);
             return;
         }
 
@@ -1056,23 +1651,31 @@
         group.siName = region.siName;
         group.guName = region.guName;
         group.roadAddress = roadAddress;
+        group.jibunAddress = jibunAddress;
+        group.originAddress = originAddress;
         group.detailAddress = group.detailAddress || '';
+        invalidateHandlerWhenRegionChanged(group, type, beforeRegion);
     }
 
     function clearAddress(groupIndex, type) {
         const group = state.groups[groupIndex];
         if (!group) return;
 
+        const beforeRegion = addressRegionKey(group, type);
+        invalidateAddressServerValidation(group, type);
         if (type === 'site') {
             group.siteZipCode = '';
             group.siteDoName = '';
             group.siteSiName = '';
             group.siteGuName = '';
             group.siteRoadAddress = '';
+            group.siteJibunAddress = '';
+            group.siteOriginAddress = '';
             group.siteDetailAddress = '';
             group.siteRecipientName = '';
             group.siteRecipientPhone = '';
             group.siteAddressDisplayText = '';
+            invalidateHandlerWhenRegionChanged(group, type, beforeRegion);
             return;
         }
 
@@ -1081,7 +1684,10 @@
         group.siName = '';
         group.guName = '';
         group.roadAddress = '';
+        group.jibunAddress = '';
+        group.originAddress = '';
         group.detailAddress = '';
+        invalidateHandlerWhenRegionChanged(group, type, beforeRegion);
     }
 
     function splitDaumRegion(sido, sigungu) {
@@ -1122,7 +1728,9 @@
         return text.endsWith('특별시')
             || text.endsWith('광역시')
             || text.endsWith('특별자치시')
-            || text === '세종특별자치시';
+            || ['서울', '서울시', '부산', '부산시', '대구', '대구시', '인천', '인천시',
+                '광주', '광주시', '대전', '대전시', '울산', '울산시', '세종', '세종시']
+                .includes(text);
     }
 
     function initializeRowImages() {
@@ -1534,7 +2142,7 @@
         const normalized = normalizeText(method && method.methodName);
         if (!normalized) return '';
         if (normalized.includes('미배송')) return 'UNDELIVERED';
-        if (normalized.includes('직배송') || normalized.includes('매장출고')) return 'DIRECT';
+        if (normalized.includes('직배송')) return 'DIRECT';
         if (normalized.includes('현장배송') || normalized === '현장') return 'SITE';
         if (normalized.includes('화물')) return 'CARGO';
         if (normalized.includes('방문')) return 'VISIT';

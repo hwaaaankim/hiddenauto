@@ -688,3 +688,154 @@ body.order-excel-busy {
     font-size: 10px;
     line-height: 1.3;
 }
+
+/* 2026-07-30: 등록주소지 선택 / 배송주소 기준 담당자 자동배정 */
+.order-excel-address-box.is-active {
+    border-color: #86efac;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.08);
+    background: #f0fdf4;
+}
+
+.order-excel-address-box.is-active .order-excel-address-inputs input {
+    background: #ffffff;
+}
+
+.order-excel-address-field-wide {
+    grid-column: span 2;
+}
+
+.order-excel-company-address-loading {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #475569;
+    font-size: 14px;
+}
+
+.order-excel-company-address-loading.d-none {
+    display: none !important;
+}
+
+.order-excel-company-address-list {
+    display: grid;
+    gap: 12px;
+}
+
+.order-excel-company-address-item {
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.order-excel-company-address-item:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.order-excel-company-address-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.order-excel-company-address-full {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.order-excel-company-address-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+    margin: 12px 0;
+}
+
+.order-excel-company-address-details > div {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+}
+
+.order-excel-company-address-details dt,
+.order-excel-company-address-details dd {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.order-excel-company-address-details dt {
+    color: #64748b;
+    font-weight: 700;
+}
+
+.order-excel-company-address-details dd {
+    color: #334155;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 767.98px) {
+    .order-excel-company-address-details {
+        grid-template-columns: 1fr;
+    }
+
+    .order-excel-address-field-wide {
+        grid-column: span 2;
+    }
+}
+
+.order-excel-address-validation,
+.order-excel-handler-rule-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 8px 0 10px;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.order-excel-address-validation.is-valid {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.order-excel-address-validation.is-invalid {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: #991b1b;
+}
+
+.order-excel-handler-rule-info.is-required {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.order-excel-handler-rule-info.is-warning {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.order-excel-company-address-item.is-invalid {
+    border-color: #fecaca;
+    background: #fffafa;
+}

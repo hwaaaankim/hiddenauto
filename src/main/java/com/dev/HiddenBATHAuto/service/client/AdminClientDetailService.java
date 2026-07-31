@@ -28,6 +28,7 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.service.auth.AddressRegionResolver;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +39,7 @@ public class AdminClientDetailService {
 
     private final CompanyRepository companyRepository;
     private final MemberRepository memberRepository;
+    private final AddressRegionResolver addressRegionResolver;
     private final Environment environment;
 
     @Value("${spring.upload.path}")
@@ -73,9 +75,16 @@ public class AdminClientDetailService {
         if (!StringUtils.hasText(zipCode)) {
             throw new IllegalArgumentException("우편번호는 필수입니다.");
         }
-        if (!StringUtils.hasText(doName) || !StringUtils.hasText(siName) || !StringUtils.hasText(roadAddress)) {
+        if (!StringUtils.hasText(doName) || !StringUtils.hasText(roadAddress)) {
             throw new IllegalArgumentException("주소는 필수입니다.");
         }
+
+        AddressRegionResolver.ResolvedRegion resolvedRegion = addressRegionResolver.resolve(
+                doName,
+                siName,
+                guName,
+                roadAddress
+        );
 
         boolean duplicatedBusinessNumber = companyRepository.existsByBusinessNumberAndIdNot(businessNumber, companyId);
         if (duplicatedBusinessNumber) {
@@ -107,9 +116,9 @@ public class AdminClientDetailService {
         company.setPoint(request.getPoint());
         company.setBusinessNumber(businessNumber);
         company.setZipCode(zipCode);
-        company.setDoName(doName);
-        company.setSiName(siName);
-        company.setGuName(guName);
+        company.setDoName(resolvedRegion.doName());
+        company.setSiName(resolvedRegion.siName());
+        company.setGuName(resolvedRegion.guName());
         company.setRoadAddress(roadAddress);
         company.setDetailAddress(detailAddress);
         company.setUpdatedAt(LocalDateTime.now());

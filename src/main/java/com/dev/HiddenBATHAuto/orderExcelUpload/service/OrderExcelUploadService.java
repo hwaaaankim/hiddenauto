@@ -34,6 +34,10 @@ import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.model.task.TaskStatus;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelAddressValidationRequest;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelAddressValidationResponse;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelDeliveryHandlerAssignmentRequest;
+import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelDeliveryHandlerAssignmentResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelIssueDto;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelPreviewGroupDto;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelPreviewResponse;
@@ -51,6 +55,8 @@ import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelOrderReposit
 import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelTaskRepository;
 import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelTeamCategoryRepository;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressParser;
+import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressValidationResult;
+import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressValidator;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelCellReader;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelDeliveryRule;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelProductNameParser;
@@ -114,6 +120,7 @@ public class OrderExcelUploadService {
     private final OrderExcelDeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final OrderExcelCellReader cellReader;
     private final OrderExcelAddressParser addressParser;
+    private final OrderExcelAddressValidator addressValidator;
     private final OrderExcelProductNameParser productNameParser;
     private final OrderExcelUploadLookupService lookupService;
     private final OrderExcelUploadImageStorageService imageStorageService;
@@ -153,6 +160,204 @@ public class OrderExcelUploadService {
         }
     }
 
+    /**
+     * 주소검색/등록주소지 선택 직후와 최종 저장 전 동일한 기준으로 주소를 검증합니다.
+     * 담당자 지정이 필요 없는 배송수단도 주소 자체는 반드시 정상이어야 합니다.
+     */
+    @Transactional(readOnly = true)
+    public OrderExcelAddressValidationResponse validateAddress(OrderExcelAddressValidationRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("검증할 주소 정보가 없습니다.");
+        }
+
+        String addressType = "site".equalsIgnoreCase(safe(request.getAddressType())) ? "site" : "basic";
+        String label = "site".equals(addressType) ? "현장 배송지" : "기본 배송지";
+        String normalizedZipCode = safe(request.getZipCode()).replaceAll("[^0-9]", "");
+
+        OrderExcelAddressValidationResult validation = addressValidator.validate(
+                label,
+                normalizedZipCode,
+                request.getDoName(),
+                request.getSiName(),
+                request.getGuName(),
+                request.getRoadAddress(),
+                request.getJibunAddress(),
+                request.getOriginAddress()
+        );
+
+        OrderExcelAddressValidationResponse response = new OrderExcelAddressValidationResponse();
+        response.setValid(validation.isValid());
+        response.setAddressType(addressType);
+        response.setZipCode(normalizedZipCode);
+        response.setDoName(safe(request.getDoName()));
+        response.setSiName(safe(request.getSiName()));
+        response.setGuName(safe(request.getGuName()));
+        response.setRoadAddress(safe(request.getRoadAddress()));
+        response.setJibunAddress(safe(request.getJibunAddress()));
+        response.setOriginAddress(safe(request.getOriginAddress()));
+        response.setDetailAddress(safe(request.getDetailAddress()));
+        response.setMessages(validation.getMessages());
+        response.setMessage(validation.isValid()
+                ? label + " 주소 검증이 완료되었습니다."
+                : validation.getMessage());
+        return response;
+    }
+
+    /**
+     * 미리보기 화면의 "담당자배정" 버튼에서 호출합니다.
+     * 사용자가 현재 선택한 배송수단과 그 배송수단에서 실제로 사용할 주소의 도/시/구를 기준으로
+     * 기존 DeliveryHandlerAutoAssignService의 와일드카드/우선순위 규칙을 그대로 적용합니다.
+     */
+    @Transactional(readOnly = true)
+    public OrderExcelDeliveryHandlerAssignmentResponse autoAssignDeliveryHandler(
+            OrderExcelDeliveryHandlerAssignmentRequest request
+    ) {
+        if (request == null || request.getDeliveryMethodId() == null) {
+            throw new IllegalArgumentException("배송수단을 먼저 선택해 주세요.");
+        }
+
+        DeliveryMethod deliveryMethod = deliveryMethodRepository.findById(request.getDeliveryMethodId())
+                .orElseThrow(() -> new IllegalArgumentException("선택한 배송수단을 찾을 수 없습니다."));
+        OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(deliveryMethod);
+        if (selectedRule == null || !selectedRule.isHandlerAssignable()) {
+            return new OrderExcelDeliveryHandlerAssignmentResponse(
+                    false,
+                    null,
+                    "",
+                    safe(request.getZipCode()).replaceAll("[^0-9]", ""),
+                    safe(request.getDoName()),
+                    safe(request.getSiName()),
+                    safe(request.getGuName()),
+                    safe(request.getRoadAddress()),
+                    safe(request.getJibunAddress()),
+                    safe(request.getOriginAddress()),
+                    safe(request.getDetailAddress()),
+                    safe(deliveryMethod.getMethodName()) + "은(는) 배송 담당자 지정이 필요하지 않습니다."
+            );
+        }
+
+        String expectedAddressType = selectedRule.needsSiteAddressForAssignment() ? "site" : "basic";
+        String requestedAddressType = "site".equalsIgnoreCase(safe(request.getAddressType())) ? "site" : "basic";
+        if (!expectedAddressType.equals(requestedAddressType)) {
+            throw new IllegalArgumentException(
+                    selectedRule.getLabel() + "에서 실제 사용하는 "
+                            + ("site".equals(expectedAddressType) ? "현장 배송지" : "기본 배송지")
+                            + "를 기준으로 담당자를 배정해 주세요."
+            );
+        }
+
+        AssignmentAddress address = normalizeAssignmentAddress(request);
+        String addressLabel = selectedRule.needsSiteAddressForAssignment() ? "현장 배송지" : "기본 배송지";
+        OrderExcelAddressValidationResult validation = addressValidator.validate(
+                addressLabel,
+                address.zipCode(),
+                address.doName(),
+                address.siName(),
+                address.guName(),
+                address.roadAddress(),
+                address.jibunAddress(),
+                address.originAddress()
+        );
+        if (!validation.isValid()) {
+            throw new IllegalArgumentException("담당자배정 전에 주소를 확인해 주세요. " + validation.getMessage());
+        }
+
+        Optional<Member> matched = findDeliveryHandlerByRegion(
+                address.doName(),
+                address.siName(),
+                address.guName()
+        );
+        if (matched.isEmpty()) {
+            String regionLabel = firstNonBlank(address.doName(), "도 없음")
+                    + " / " + firstNonBlank(address.siName(), "시 없음")
+                    + " / " + firstNonBlank(address.guName(), "구 없음");
+            return new OrderExcelDeliveryHandlerAssignmentResponse(
+                    false,
+                    null,
+                    "",
+                    address.zipCode(),
+                    address.doName(),
+                    address.siName(),
+                    address.guName(),
+                    address.roadAddress(),
+                    address.jibunAddress(),
+                    address.originAddress(),
+                    address.detailAddress(),
+                    "담당구역이 일치하는 배송팀 담당자를 찾지 못했습니다: " + regionLabel
+            );
+        }
+
+        Member member = matched.get();
+        return new OrderExcelDeliveryHandlerAssignmentResponse(
+                true,
+                member.getId(),
+                safe(member.getName()),
+                address.zipCode(),
+                address.doName(),
+                address.siName(),
+                address.guName(),
+                address.roadAddress(),
+                address.jibunAddress(),
+                address.originAddress(),
+                address.detailAddress(),
+                safe(member.getName()) + " 담당자로 자동배정되었습니다."
+        );
+    }
+
+    /**
+     * 주소검색 결과가 아닌 기존 등록값에서 일부 행정구역이 비어 있을 때만 외부 주소검색으로 보정합니다.
+     * 보정 후에도 공통 주소검증을 통과하지 못하면 담당자배정을 수행하지 않습니다.
+     */
+    private AssignmentAddress normalizeAssignmentAddress(OrderExcelDeliveryHandlerAssignmentRequest request) {
+        AssignmentAddress current = new AssignmentAddress(
+                safe(request.getZipCode()).replaceAll("[^0-9]", ""),
+                safe(request.getDoName()),
+                safe(request.getSiName()),
+                safe(request.getGuName()),
+                safe(request.getRoadAddress()),
+                safe(request.getJibunAddress()),
+                safe(request.getOriginAddress()),
+                safe(request.getDetailAddress())
+        );
+
+        OrderExcelAddressValidationResult currentValidation = addressValidator.validate(
+                "배송지",
+                current.zipCode(),
+                current.doName(),
+                current.siName(),
+                current.guName(),
+                current.roadAddress(),
+                current.jibunAddress(),
+                current.originAddress()
+        );
+        if (currentValidation.isValid()) {
+            return current;
+        }
+
+        String addressKeyword = firstNonBlank(
+                current.roadAddress(),
+                current.originAddress(),
+                current.jibunAddress()
+        );
+        if (addressKeyword.isBlank()) {
+            return current;
+        }
+
+        ParsedSiteAddress parsed = addressParser.resolveWithExternal(
+                addressParser.parseLocal(addressKeyword + " " + current.detailAddress())
+        );
+        return new AssignmentAddress(
+                firstNonBlank(parsed.getZipCode(), current.zipCode()),
+                firstNonBlank(parsed.getDoName(), current.doName()),
+                firstNonBlank(parsed.getSiName(), current.siName()),
+                firstNonBlank(parsed.getGuName(), current.guName()),
+                firstNonBlank(parsed.getRoadAddress(), current.roadAddress()),
+                firstNonBlank(parsed.getJibunAddress(), current.jibunAddress()),
+                firstNonBlank(parsed.getOriginalRoadAddress(), parsed.getAddressPart(), current.originAddress()),
+                firstNonBlank(current.detailAddress(), parsed.getDetailAddress())
+        );
+    }
+
     @Transactional
     public OrderExcelSaveResponse save(OrderExcelSaveRequest request, Map<String, List<MultipartFile>> imageFilesByKey) {
         List<OrderExcelIssueDto> issues = validateSaveRequest(request);
@@ -183,8 +388,10 @@ public class OrderExcelUploadService {
             // 고객 발주/취소 상태만 저장되는 Task는 배송수단과 무관하게 배송담당자를 배정하지 않습니다.
             // 혼합 상태 Task인 경우에는 배정 가능한 상태의 Order에만 기존 담당자를 적용합니다.
             boolean hasHandlerAssignableRows = hasDeliveryHandlerAssignableRows(rows);
+            OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(deliveryMethod);
+            boolean handlerAllowedByMethod = selectedRule != null && selectedRule.isHandlerAssignable();
             Member groupDeliveryHandler = null;
-            if (hasHandlerAssignableRows) {
+            if (handlerAllowedByMethod && hasHandlerAssignableRows) {
                 autoAssignDeliveryHandlerForSaveIfPossible(groupRequest, deliveryMethod);
                 groupDeliveryHandler = resolveDeliveryHandlerForSave(
                         groupRequest,
@@ -192,6 +399,7 @@ public class OrderExcelUploadService {
                         deliveryMethod
                 );
             } else {
+                // 화물·직배송·현장배송 이외의 배송수단은 전달된 담당자 값도 저장하지 않습니다.
                 clearDeliveryHandlerSelection(groupRequest);
             }
 
@@ -723,6 +931,7 @@ public class OrderExcelUploadService {
                     });
         }
 
+        validatePreviewAddress(group, rule, firstRowNo(rawRows));
         return group;
     }
 
@@ -737,6 +946,8 @@ public class OrderExcelUploadService {
         group.setSiName(address.siName());
         group.setGuName(address.guName());
         group.setRoadAddress(address.roadAddress());
+        group.setJibunAddress(normalizeMeaningful(company.getJibunAddress()));
+        group.setOriginAddress(normalizeMeaningful(company.getOriginAddress()));
         group.setDetailAddress(address.detailAddress());
 
         if (address.fallbackUsed()) {
@@ -798,38 +1009,26 @@ public class OrderExcelUploadService {
             return;
         }
 
-        Optional<Member> matched = findDeliveryHandlerByRegion(
-                group.getSiteDoName(),
-                group.getSiteSiName(),
-                group.getSiteGuName()
+        boolean siteAddress = selectedRule.needsSiteAddressForAssignment();
+        OrderExcelAddressValidationResult validation = addressValidator.validate(
+                siteAddress ? "현장 배송지" : "기본 배송지",
+                siteAddress ? group.getSiteZipCode() : group.getZipCode(),
+                siteAddress ? group.getSiteDoName() : group.getDoName(),
+                siteAddress ? group.getSiteSiName() : group.getSiName(),
+                siteAddress ? group.getSiteGuName() : group.getGuName(),
+                siteAddress ? group.getSiteRoadAddress() : group.getRoadAddress(),
+                siteAddress ? group.getSiteJibunAddress() : group.getJibunAddress(),
+                siteAddress ? group.getSiteOriginAddress() : group.getOriginAddress()
         );
-
-        if (matched.isEmpty()) {
-            matched = findDeliveryHandlerByRegion(
-                    group.getDoName(),
-                    group.getSiName(),
-                    group.getGuName()
-            );
+        if (!validation.isValid()) {
+            return;
         }
 
-        if (matched.isEmpty() && selectedRule.needsSiteAddressForAssignment()) {
-            String keyword = firstNonBlank(
-                    group.getSiteRoadAddress(),
-                    group.getRoadAddress(),
-                    group.getSiteDetailAddress(),
-                    group.getDetailAddress()
-            );
-
-            if (!keyword.isBlank()) {
-                ParsedSiteAddress parsed = addressParser.resolveWithExternal(addressParser.parseLocal(keyword));
-                applyParsedSiteAddress(group, parsed);
-                matched = findDeliveryHandlerByRegion(
-                        group.getSiteDoName(),
-                        group.getSiteSiName(),
-                        group.getSiteGuName()
-                );
-            }
-        }
+        Optional<Member> matched = findDeliveryHandlerByRegion(
+                siteAddress ? group.getSiteDoName() : group.getDoName(),
+                siteAddress ? group.getSiteSiName() : group.getSiName(),
+                siteAddress ? group.getSiteGuName() : group.getGuName()
+        );
 
         matched.ifPresent(member -> {
             group.setDeliveryHandlerMemberId(member.getId());
@@ -848,6 +1047,8 @@ public class OrderExcelUploadService {
         group.setSiteSiName(firstNonBlank(parsed.getSiName(), group.getSiteSiName()));
         group.setSiteGuName(firstNonBlank(parsed.getGuName(), group.getSiteGuName()));
         group.setSiteRoadAddress(firstNonBlank(parsed.getRoadAddress(), group.getSiteRoadAddress()));
+        group.setSiteJibunAddress(firstNonBlank(parsed.getJibunAddress(), group.getSiteJibunAddress()));
+        group.setSiteOriginAddress(firstNonBlank(parsed.getOriginalRoadAddress(), parsed.getAddressPart(), group.getSiteOriginAddress()));
         group.setSiteDetailAddress(firstNonBlank(group.getSiteDetailAddress(), parsed.getDetailAddress()));
         group.setSiteRecipientName(firstNonBlank(group.getSiteRecipientName(), parsed.getRecipientName()));
         group.setSiteRecipientPhone(firstNonBlank(group.getSiteRecipientPhone(), parsed.getRecipientPhone()));
@@ -857,6 +1058,8 @@ public class OrderExcelUploadService {
         group.setSiName(firstNonBlank(group.getSiName(), group.getSiteSiName()));
         group.setGuName(firstNonBlank(group.getGuName(), group.getSiteGuName()));
         group.setRoadAddress(firstNonBlank(group.getRoadAddress(), group.getSiteRoadAddress()));
+        group.setJibunAddress(firstNonBlank(group.getJibunAddress(), group.getSiteJibunAddress()));
+        group.setOriginAddress(firstNonBlank(group.getOriginAddress(), group.getSiteOriginAddress()));
         group.setDetailAddress(firstNonBlank(group.getDetailAddress(), group.getSiteDetailAddress()));
     }
 
@@ -869,6 +1072,8 @@ public class OrderExcelUploadService {
         group.setSiteSiName(safe(parsed.getSiName()));
         group.setSiteGuName(safe(parsed.getGuName()));
         group.setSiteRoadAddress(firstNonBlank(parsed.getRoadAddress(), rawAddress));
+        group.setSiteJibunAddress(safe(parsed.getJibunAddress()));
+        group.setSiteOriginAddress(firstNonBlank(parsed.getOriginalRoadAddress(), rawAddress));
         group.setSiteDetailAddress(firstNonBlank(parsed.getDetailAddress(), ""));
         group.setSiteRecipientName(safe(parsed.getRecipientName()));
         group.setSiteRecipientPhone(safe(parsed.getRecipientPhone()));
@@ -879,6 +1084,8 @@ public class OrderExcelUploadService {
         group.setSiName(group.getSiteSiName());
         group.setGuName(group.getSiteGuName());
         group.setRoadAddress(group.getSiteRoadAddress());
+        group.setJibunAddress(group.getSiteJibunAddress());
+        group.setOriginAddress(group.getSiteOriginAddress());
         group.setDetailAddress(group.getSiteDetailAddress());
 
         if (!safe(parsed.getRecipientName()).isBlank()) {
@@ -1020,24 +1227,19 @@ public class OrderExcelUploadService {
             }
 
             if (selectedMethod != null) {
-                if (hasDeliveryHandlerAssignableRows(rows)) {
+                OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
+                // 담당자 지정 여부와 무관하게 실제 저장되는 활성 주소는 항상 서버에서 검증합니다.
+                validateActiveAddressForSave(group, selectedRule, issues);
+
+                if (selectedRule != null
+                        && selectedRule.isHandlerAssignable()
+                        && hasDeliveryHandlerAssignableRows(rows)) {
+                    // 주소 검증을 통과할 수 있는 활성 주소만 자동배정 함수가 사용합니다.
                     autoAssignDeliveryHandlerForSaveIfPossible(group, selectedMethod);
                     validateGroupDeliveryHandlerForSave(group, selectedMethod, issues);
                 } else {
-                    // 고객 발주/취소만 포함된 경우 전달된 담당자 값도 서버에서 제거합니다.
+                    // 화물·직배송·현장배송 외 배송수단 또는 고객 발주/취소 전용 Task는 담당자를 저장하지 않습니다.
                     clearDeliveryHandlerSelection(group);
-                }
-
-                OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
-                if (selectedRule != null
-                        && selectedRule.needsSiteAddressForAssignment()
-                        && safe(group.getSiteRoadAddress()).isBlank()) {
-                    issues.add(OrderExcelIssueDto.error(
-                            null,
-                            group.getGroupNo(),
-                            "siteRoadAddress",
-                            selectedRule.getLabel() + "은(는) 현장 배송지 주소가 필요합니다."
-                    ));
                 }
             }
         }
@@ -1143,6 +1345,70 @@ public class OrderExcelUploadService {
             issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "managedBy", "담당자 이름으로 멤버를 찾을 수 없습니다: " + group.getManagedByName()));
         } else if (members.size() > 1) {
             issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "managedBy", "담당자 이름이 중복됩니다. 저장 전 정확히 선택해 주세요: " + group.getManagedByName()));
+        }
+    }
+
+    private void validatePreviewAddress(
+            OrderExcelPreviewGroupDto group,
+            OrderExcelDeliveryRule selectedRule,
+            Integer excelRowNumber
+    ) {
+        if (group == null) {
+            return;
+        }
+
+        // 화물·현장배송만 현장주소를 사용하고, 그 외 배송수단은 기본주소를 검증합니다.
+        boolean siteAddress = selectedRule != null && selectedRule.needsSiteAddressForAssignment();
+        OrderExcelAddressValidationResult validation = addressValidator.validate(
+                siteAddress ? "현장 배송지" : "기본 배송지",
+                siteAddress ? group.getSiteZipCode() : group.getZipCode(),
+                siteAddress ? group.getSiteDoName() : group.getDoName(),
+                siteAddress ? group.getSiteSiName() : group.getSiName(),
+                siteAddress ? group.getSiteGuName() : group.getGuName(),
+                siteAddress ? group.getSiteRoadAddress() : group.getRoadAddress(),
+                siteAddress ? group.getSiteJibunAddress() : group.getJibunAddress(),
+                siteAddress ? group.getSiteOriginAddress() : group.getOriginAddress()
+        );
+
+        for (String message : validation.getMessages()) {
+            group.getIssues().add(OrderExcelIssueDto.error(
+                    excelRowNumber,
+                    group.getGroupNo(),
+                    siteAddress ? "siteAddress" : "address",
+                    message
+            ));
+        }
+    }
+
+    private void validateActiveAddressForSave(
+            OrderExcelSaveGroupRequest group,
+            OrderExcelDeliveryRule selectedRule,
+            List<OrderExcelIssueDto> issues
+    ) {
+        if (group == null) {
+            return;
+        }
+
+        // 화물·현장배송만 현장주소를 사용하고, 그 외 배송수단은 기본주소를 검증합니다.
+        boolean siteAddress = selectedRule != null && selectedRule.needsSiteAddressForAssignment();
+        OrderExcelAddressValidationResult validation = addressValidator.validate(
+                siteAddress ? "현장 배송지" : "기본 배송지",
+                siteAddress ? group.getSiteZipCode() : group.getZipCode(),
+                siteAddress ? group.getSiteDoName() : group.getDoName(),
+                siteAddress ? group.getSiteSiName() : group.getSiName(),
+                siteAddress ? group.getSiteGuName() : group.getGuName(),
+                siteAddress ? group.getSiteRoadAddress() : group.getRoadAddress(),
+                siteAddress ? group.getSiteJibunAddress() : group.getJibunAddress(),
+                siteAddress ? group.getSiteOriginAddress() : group.getOriginAddress()
+        );
+
+        for (String message : validation.getMessages()) {
+            issues.add(OrderExcelIssueDto.error(
+                    null,
+                    group.getGroupNo(),
+                    siteAddress ? "siteAddress" : "address",
+                    message
+            ));
         }
     }
 
@@ -1290,6 +1556,7 @@ public class OrderExcelUploadService {
 
         OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
         if (selectedRule == null || !selectedRule.isHandlerAssignable()) {
+            clearDeliveryHandlerSelection(group);
             return null;
         }
 
@@ -1478,7 +1745,11 @@ public class OrderExcelUploadService {
         order.setSiName(firstMeaningful(group.getSiName(), companyAddress.siName()));
         order.setGuName(firstMeaningful(group.getGuName(), companyAddress.guName()));
 
-        String groupRoadAddress = normalizeMeaningful(group.getRoadAddress());
+        String groupRoadAddress = firstMeaningful(
+                group.getRoadAddress(),
+                group.getOriginAddress(),
+                group.getJibunAddress()
+        );
         String groupDetailAddress = normalizeMeaningful(group.getDetailAddress());
 
         if (hasText(groupRoadAddress) || hasText(groupDetailAddress)) {
@@ -1497,9 +1768,8 @@ public class OrderExcelUploadService {
             DeliveryMethod selectedMethod
     ) {
         OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
-        boolean siteAddressRequiredByMethod = selectedRule == OrderExcelDeliveryRule.SITE
+        boolean useSiteAddress = selectedRule == OrderExcelDeliveryRule.SITE
                 || selectedRule == OrderExcelDeliveryRule.CARGO;
-        boolean useSiteAddress = group.isSiteDelivery() || siteAddressRequiredByMethod;
 
         if (!useSiteAddress) {
             order.setSiteZipCode(null);
@@ -1511,12 +1781,32 @@ public class OrderExcelUploadService {
             return;
         }
 
-        order.setSiteZipCode(trimToNull(group.getSiteZipCode()));
-        order.setSiteDoName(trimToNull(group.getSiteDoName()));
-        order.setSiteSiName(trimToNull(group.getSiteSiName()));
-        order.setSiteGuName(trimToNull(group.getSiteGuName()));
-        order.setSiteRoadAddress(trimToNull(group.getSiteRoadAddress()));
-        order.setSiteDetailAddress(trimToNull(group.getSiteDetailAddress()));
+        String zipCode = trimToNull(group.getSiteZipCode());
+        String doName = trimToNull(group.getSiteDoName());
+        String siName = trimToNull(group.getSiteSiName());
+        String guName = trimToNull(group.getSiteGuName());
+        String roadAddress = trimToNull(firstMeaningful(
+                group.getSiteRoadAddress(),
+                group.getSiteJibunAddress(),
+                group.getSiteOriginAddress()
+        ));
+        String detailAddress = trimToNull(group.getSiteDetailAddress());
+
+        order.setSiteZipCode(zipCode);
+        order.setSiteDoName(doName);
+        order.setSiteSiName(siName);
+        order.setSiteGuName(guName);
+        order.setSiteRoadAddress(roadAddress);
+        order.setSiteDetailAddress(detailAddress);
+
+        // 기존 현장배송 저장 규칙을 유지합니다. 현장/화물은 기본 배송지와 현장 배송지 모두
+        // 실제 현장 주소로 저장하여 배송/출고/명세서 화면에서 서로 다른 주소가 노출되지 않게 합니다.
+        order.setZipCode(zipCode);
+        order.setDoName(doName);
+        order.setSiName(siName);
+        order.setGuName(guName);
+        order.setRoadAddress(roadAddress);
+        order.setDetailAddress(detailAddress);
     }
 
     private void applyOrderer(Order order, OrderExcelSaveGroupRequest group, Company company, Member requestedBy) {
@@ -2042,7 +2332,7 @@ public class OrderExcelUploadService {
         }
         String normalized = safe(method.getMethodName()).replaceAll("\\s+", "");
         return switch (rule) {
-            case DIRECT -> normalized.contains("직배송") || normalized.contains("매장출고");
+            case DIRECT -> normalized.contains("직배송");
             case SITE -> normalized.contains("현장배송") || "현장".equals(normalized);
             case CARGO -> normalized.contains("화물");
             case VISIT -> normalized.contains("방문");
@@ -2215,6 +2505,18 @@ public class OrderExcelUploadService {
             }
         }
         return "";
+    }
+
+    private record AssignmentAddress(
+            String zipCode,
+            String doName,
+            String siName,
+            String guName,
+            String roadAddress,
+            String jibunAddress,
+            String originAddress,
+            String detailAddress
+    ) {
     }
 
     private record ResolvedCompanyAddress(

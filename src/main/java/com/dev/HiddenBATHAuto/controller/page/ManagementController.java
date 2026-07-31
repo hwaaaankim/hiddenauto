@@ -120,6 +120,7 @@ import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.MemberAdminService;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
+import com.dev.HiddenBATHAuto.service.auth.AddressRegionResolver;
 import com.dev.HiddenBATHAuto.service.auth.CompanyService;
 import com.dev.HiddenBATHAuto.service.auth.MemberManagementService;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
@@ -184,6 +185,7 @@ public class ManagementController {
 	private final OrderImageRepository orderImageRepository;
 
 	private final MemberService memberService;
+	private final AddressRegionResolver addressRegionResolver;
 	private final CompanyService companyService;
 	private final ObjectMapper objectMapper;
 	private final MemberManagementService memberMgmtService;
@@ -2552,9 +2554,19 @@ public class ManagementController {
 			String detailAddress = normalizeAdminClientDeliveryAddressValue(
 					request != null ? request.detailAddress() : null, 255, false, "상세주소");
 
+			AddressRegionResolver.ResolvedRegion resolvedRegion = addressRegionResolver.resolve(
+					doName,
+					siName,
+					guName,
+					roadAddress
+			);
+			doName = resolvedRegion.doName();
+			siName = resolvedRegion.siName();
+			guName = resolvedRegion.guName();
+
 			boolean duplicate = companyDeliveryAddressRepository.findByCompany_IdOrderByIdAsc(companyId).stream()
 					.anyMatch(address -> isSameAdminClientDeliveryAddress(
-							address, zipCode, doName, siName, guName, roadAddress, detailAddress));
+							address, zipCode, roadAddress, detailAddress));
 
 			if (duplicate) {
 				throw new IllegalArgumentException("이미 동일한 배송지가 등록되어 있습니다.");
@@ -2685,19 +2697,14 @@ public class ManagementController {
 	private boolean isSameAdminClientDeliveryAddress(
 			CompanyDeliveryAddress address,
 			String zipCode,
-			String doName,
-			String siName,
-			String guName,
 			String roadAddress,
 			String detailAddress) {
+		/*
+		 * 기존 데이터의 시/구 컬럼이 잘못 저장되어 있어도 같은 실주소가 중복 등록되지 않도록
+		 * 우편번호 + 도로명주소 + 상세주소 기준으로 비교합니다.
+		 */
 		return adminClientDeliveryAddressComparisonText(address.getZipCode()).equals(
 				adminClientDeliveryAddressComparisonText(zipCode))
-				&& adminClientDeliveryAddressComparisonText(address.getDoName()).equals(
-						adminClientDeliveryAddressComparisonText(doName))
-				&& adminClientDeliveryAddressComparisonText(address.getSiName()).equals(
-						adminClientDeliveryAddressComparisonText(siName))
-				&& adminClientDeliveryAddressComparisonText(address.getGuName()).equals(
-						adminClientDeliveryAddressComparisonText(guName))
 				&& adminClientDeliveryAddressComparisonText(address.getRoadAddress()).equals(
 						adminClientDeliveryAddressComparisonText(roadAddress))
 				&& adminClientDeliveryAddressComparisonText(address.getDetailAddress()).equals(
