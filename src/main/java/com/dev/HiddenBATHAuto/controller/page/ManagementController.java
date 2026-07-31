@@ -221,9 +221,13 @@ public class ManagementController {
 	public record NonStandardTaskBulkConfirmRequest(List<NonStandardTaskBulkConfirmOrderRequest> orders) {
 	}
 
+	private record NonStandardTaskListFilterItem(String label, String value) {
+	}
+
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
 			@RequestParam(required = false) String orderId,
+			@RequestParam(required = false) String productName,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
@@ -241,7 +245,8 @@ public class ManagementController {
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
 		Long finalOrderId = parsePositiveLongOrNull(orderId);
-		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+		String finalProductName = normalizeNullableSearchText(productName);
+		String finalKeyword = normalizeNullableSearchText(keyword);
 
 		List<NonStandardTaskListSortCriterion> activeSortCriteria =
 				resolveNonStandardTaskListSortCriteria(sortState, sortField, sortDir);
@@ -253,9 +258,18 @@ public class ManagementController {
 				resolvedSort
 		);
 
-		Page<Order> orders = orderRepository.findFilteredOrdersWithOrderId(finalKeyword, finalOrderId,
-				finalDateCriteria, range.getStart(), range.getEnd(), categoryId, statusEnum, standardBool,
-				sortedPageable);
+		Page<Order> orders = orderRepository.findFilteredOrdersWithOrderIdAndProductName(
+				finalKeyword,
+				finalOrderId,
+				finalProductName,
+				finalDateCriteria,
+				range.getStart(),
+				range.getEnd(),
+				categoryId,
+				statusEnum,
+				standardBool,
+				sortedPageable
+		);
 
 		/*
 		 * 속도 개선: 목록에서는 화면에 바로 보이는 데이터만 DTO로 변환합니다. 상세 수정용 회사/회원/주소/주문자 데이터는 넓게보기 AJAX에서
@@ -305,8 +319,9 @@ public class ManagementController {
 		model.addAttribute("companyDeliveryAddressOptions", List.of());
 		model.addAttribute("companyOrdererInfoOptions", List.of());
 
-		model.addAttribute("keyword", (keyword == null) ? "" : keyword);
+		model.addAttribute("keyword", finalKeyword != null ? finalKeyword : "");
 		model.addAttribute("orderId", finalOrderId != null ? String.valueOf(finalOrderId) : "");
+		model.addAttribute("productName", finalProductName != null ? finalProductName : "");
 		model.addAttribute("dateCriteria", finalDateCriteria);
 
 		model.addAttribute("startDate", range.getStartDateStr());
@@ -483,6 +498,7 @@ public class ManagementController {
 	@GetMapping("/nonStandardTaskList/bulk-fragment")
 	public String nonStandardTaskListBulkFragment(@RequestParam(required = false, defaultValue = "") String keyword,
 			@RequestParam(required = false) String orderId,
+			@RequestParam(required = false) String productName,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
@@ -496,11 +512,20 @@ public class ManagementController {
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
 		Long finalOrderId = parsePositiveLongOrNull(orderId);
-		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+		String finalProductName = normalizeNullableSearchText(productName);
+		String finalKeyword = normalizeNullableSearchText(keyword);
 
-		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkViewWithOrderId(finalKeyword,
-				finalOrderId, finalDateCriteria, range.getStart(), range.getEnd(), categoryId, statusEnum,
-				standardBool);
+		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkViewWithOrderIdAndProductName(
+				finalKeyword,
+				finalOrderId,
+				finalProductName,
+				finalDateCriteria,
+				range.getStart(),
+				range.getEnd(),
+				categoryId,
+				statusEnum,
+				standardBool
+		);
 
 		List<NonStandardTaskListOrderRowDto> bulkOrderRows = nonStandardTaskListViewService.toBulkRows(bulkOrders);
 
@@ -782,31 +807,116 @@ public class ManagementController {
 		};
 	}
 
-	@GetMapping("/nonStandardOrder/excel")
-	public void downloadNonStandardOrderExcel(@RequestParam(required = false) String keyword,
+	@GetMapping("/nonStandardOrder/print")
+	public String printNonStandardOrderList(
+			@RequestParam(required = false) String keyword,
 			@RequestParam(required = false) String orderId,
-			@RequestParam(required = false) String dateCriteria, @RequestParam(required = false) String startDate, // ✅
-																													// String
-																													// (빈값
-																													// 안전)
-			@RequestParam(required = false) String endDate, // ✅ String (빈값 안전)
+			@RequestParam(required = false) String productName,
+			@RequestParam(required = false) String dateCriteria,
+			@RequestParam(required = false) String startDate,
+			@RequestParam(required = false) String endDate,
 			@RequestParam(required = false) String orderStatus,
-			@RequestParam(required = false) String productCategoryId, @RequestParam(required = false) String standard,
-			HttpServletResponse response) throws IOException {
+			@RequestParam(required = false) String productCategoryId,
+			@RequestParam(required = false) String standard,
+			@RequestParam(required = false) String sortState,
+			@RequestParam(required = false) String sortField,
+			@RequestParam(required = false) String sortDir,
+			Model model
+	) {
+		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
+		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
+		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
+		Boolean standardBool = parseStandardOrNull(standard);
+		Long finalOrderId = parsePositiveLongOrNull(orderId);
+		String finalProductName = normalizeNullableSearchText(productName);
+		String finalKeyword = normalizeNullableSearchText(keyword);
+
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderIdAndProductName(
+				finalKeyword,
+				finalOrderId,
+				finalProductName,
+				finalDateCriteria,
+				range.getStart(),
+				range.getEnd(),
+				categoryId,
+				status,
+				standardBool
+		);
+
+		List<NonStandardTaskListSortCriterion> sortCriteria =
+				resolveNonStandardTaskListSortCriteria(sortState, sortField, sortDir);
+		List<Order> sortedOrders = sortNonStandardTaskListOutputOrders(orderList, sortCriteria);
+
+		model.addAttribute("rows", nonStandardTaskListViewService.toBulkRows(sortedOrders));
+		model.addAttribute("filters", buildNonStandardTaskListFilterItems(
+				finalKeyword,
+				finalOrderId,
+				finalProductName,
+				finalDateCriteria,
+				range,
+				categoryId,
+				status,
+				standardBool
+		));
+		model.addAttribute("productNameKeyword", finalProductName != null ? finalProductName : "");
+		model.addAttribute("generatedAt", LocalDateTime.now());
+
+		return "administration/management/order/nonStandard/taskListPrint";
+	}
+
+	@GetMapping("/nonStandardOrder/excel")
+	public void downloadNonStandardOrderExcel(
+			@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String orderId,
+			@RequestParam(required = false) String productName,
+			@RequestParam(required = false) String dateCriteria,
+			@RequestParam(required = false) String startDate,
+			@RequestParam(required = false) String endDate,
+			@RequestParam(required = false) String orderStatus,
+			@RequestParam(required = false) String productCategoryId,
+			@RequestParam(required = false) String standard,
+			@RequestParam(required = false) String sortState,
+			@RequestParam(required = false) String sortField,
+			@RequestParam(required = false) String sortDir,
+			HttpServletResponse response
+	) throws IOException {
 
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
-
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
-		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null); // excel은 기본 강제 안함(넘어온 값 기준)
-		// └ 기존 코드도 null/all이면 전체였으니 동작 유지
-		Boolean isStandard = parseStandardOrNull(standard);
+		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
+		Boolean standardBool = parseStandardOrNull(standard);
 		Long finalOrderId = parsePositiveLongOrNull(orderId);
+		String finalProductName = normalizeNullableSearchText(productName);
+		String finalKeyword = normalizeNullableSearchText(keyword);
 
-		String finalKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderIdAndProductName(
+				finalKeyword,
+				finalOrderId,
+				finalProductName,
+				finalDateCriteria,
+				range.getStart(),
+				range.getEnd(),
+				categoryId,
+				status,
+				standardBool
+		);
 
-		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderId(finalKeyword, finalOrderId,
-				finalDateCriteria, range.getStart(), range.getEnd(), categoryId, status, isStandard);
+		List<NonStandardTaskListSortCriterion> sortCriteria =
+				resolveNonStandardTaskListSortCriteria(sortState, sortField, sortDir);
+		orderList = sortNonStandardTaskListOutputOrders(orderList, sortCriteria);
+
+		List<NonStandardTaskListFilterItem> filters = buildNonStandardTaskListFilterItems(
+				finalKeyword,
+				finalOrderId,
+				finalProductName,
+				finalDateCriteria,
+				range,
+				categoryId,
+				status,
+				standardBool
+		);
 
 		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 		response.setHeader("Content-Disposition", "attachment; filename=non_standard_orders.xlsx");
@@ -814,19 +924,35 @@ public class ManagementController {
 		try (Workbook workbook = new XSSFWorkbook()) {
 			Sheet sheet = workbook.createSheet("비규격발주");
 
-			// 스타일
-			CellStyle headerStyle = workbook.createCellStyle();
+			Font titleFont = workbook.createFont();
+			titleFont.setBold(true);
+			titleFont.setFontHeightInPoints((short) 14);
+
 			Font boldFont = workbook.createFont();
 			boldFont.setBold(true);
+
+			CellStyle titleStyle = workbook.createCellStyle();
+			titleStyle.setFont(titleFont);
+			titleStyle.setAlignment(HorizontalAlignment.CENTER);
+			titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+			CellStyle filterStyle = workbook.createCellStyle();
+			filterStyle.setWrapText(true);
+			filterStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+			CellStyle headerStyle = workbook.createCellStyle();
 			headerStyle.setFont(boldFont);
 			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
 			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+			headerStyle.setAlignment(HorizontalAlignment.CENTER);
+			headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 			headerStyle.setBorderTop(BorderStyle.THIN);
 			headerStyle.setBorderBottom(BorderStyle.THIN);
 			headerStyle.setBorderLeft(BorderStyle.THIN);
 			headerStyle.setBorderRight(BorderStyle.THIN);
 
 			CellStyle borderedStyle = workbook.createCellStyle();
+			borderedStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 			borderedStyle.setBorderTop(BorderStyle.THIN);
 			borderedStyle.setBorderBottom(BorderStyle.THIN);
 			borderedStyle.setBorderLeft(BorderStyle.THIN);
@@ -835,20 +961,44 @@ public class ManagementController {
 			CellStyle wrapStyle = workbook.createCellStyle();
 			wrapStyle.cloneStyleFrom(borderedStyle);
 			wrapStyle.setWrapText(true);
+			wrapStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
-			// 헤더
 			String[] headers = { "대리점명", "신청자", "신청일", "배송희망일", "우편번호", "도", "시", "구", "도로명주소", "상세주소", "수량", "제품비용",
 					"주문메모", "팀카테고리", "배송수단", "배송담당자", "옵션 정보" };
 
-			Row header = sheet.createRow(0);
+			Row titleRow = sheet.createRow(0);
+			titleRow.setHeightInPoints(24);
+			Cell titleCell = titleRow.createCell(0);
+			titleCell.setCellValue("관리자 발주관리 조회 결과");
+			titleCell.setCellStyle(titleStyle);
+			sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, headers.length - 1));
+
+			Row filterRow = sheet.createRow(1);
+			filterRow.setHeightInPoints(36);
+			Cell filterCell = filterRow.createCell(0);
+			filterCell.setCellValue(filters.stream()
+					.map(filter -> filter.label() + ": " + filter.value())
+					.collect(Collectors.joining(" | ")));
+			filterCell.setCellStyle(filterStyle);
+			sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, headers.length - 1));
+
+			Row countRow = sheet.createRow(2);
+			Cell countCell = countRow.createCell(0);
+			countCell.setCellValue("조회 건수: " + orderList.size() + "건");
+			countCell.setCellStyle(filterStyle);
+			sheet.addMergedRegion(new CellRangeAddress(2, 2, 0, headers.length - 1));
+
+			Row header = sheet.createRow(3);
+			header.setHeightInPoints(22);
 			for (int i = 0; i < headers.length; i++) {
 				Cell cell = header.createCell(i);
 				cell.setCellValue(headers[i]);
 				cell.setCellStyle(headerStyle);
-				sheet.setColumnWidth(i, 5000);
+				sheet.setColumnWidth(i, i == 16 ? 12000 : (i == 8 || i == 9 || i == 12 ? 9000 : 5000));
 			}
+			sheet.createFreezePane(0, 4);
 
-			int rowIdx = 1;
+			int rowIdx = 4;
 
 			for (Order order : orderList) {
 				Row row = sheet.createRow(rowIdx++);
@@ -858,22 +1008,17 @@ public class ManagementController {
 
 				String agencyName = safe(() -> order.getTask().getRequestedBy().getCompany().getCompanyName(), "미지정");
 				String requester = safe(() -> order.getTask().getRequestedBy().getName(), "미지정");
-				String createdAt = (order.getCreatedAt() != null) ? order.getCreatedAt().toString() : "";
-				String deliveryDate = (order.getPreferredDeliveryDate() != null)
-						? order.getPreferredDeliveryDate().toString()
-						: "";
-
+				String createdAt = order.getCreatedAt() != null ? order.getCreatedAt().toString() : "";
+				String deliveryDate = order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "";
 				String zip = defaultIfNull(order.getZipCode());
 				String doName = defaultIfNull(order.getDoName());
 				String siName = defaultIfNull(order.getSiName());
 				String guName = defaultIfNull(order.getGuName());
 				String road = defaultIfNull(order.getRoadAddress());
 				String detail = defaultIfNull(order.getDetailAddress());
-
 				int quantity = order.getQuantity();
 				int productCost = order.getProductCost();
 				String comment = defaultIfNull(order.getOrderComment());
-
 				String category = safe(() -> order.getProductCategory().getName(), "미지정");
 				String deliveryMethod = safe(() -> order.getDeliveryMethod().getMethodName(), "미지정");
 				String handler = safe(() -> order.getAssignedDeliveryHandler().getName(), "미지정");
@@ -882,14 +1027,12 @@ public class ManagementController {
 				row.createCell(1).setCellValue(requester);
 				row.createCell(2).setCellValue(createdAt);
 				row.createCell(3).setCellValue(deliveryDate);
-
 				row.createCell(4).setCellValue(zip);
 				row.createCell(5).setCellValue(doName);
 				row.createCell(6).setCellValue(siName);
 				row.createCell(7).setCellValue(guName);
 				row.createCell(8).setCellValue(road);
 				row.createCell(9).setCellValue(detail);
-
 				row.createCell(10).setCellValue(quantity);
 				row.createCell(11).setCellValue(productCost);
 				row.createCell(12).setCellValue(comment);
@@ -897,23 +1040,160 @@ public class ManagementController {
 				row.createCell(14).setCellValue(deliveryMethod);
 				row.createCell(15).setCellValue(handler);
 
-				// ✅ 옵션: 줄바꿈 없이 " / "로만 + 끝 찌꺼기 없음
-				String optionsText = buildOptionsTextNoTrailing(item);
-
 				Cell optionCell = row.createCell(16);
-				optionCell.setCellValue(optionsText);
+				optionCell.setCellValue(buildOptionsTextNoTrailing(item));
 				optionCell.setCellStyle(wrapStyle);
 
-				// 기본 테두리 적용(기존 borderedStyle 의도 유지)
 				for (int i = 0; i <= 15; i++) {
-					Cell c = row.getCell(i);
-					if (c != null)
-						c.setCellStyle(borderedStyle);
+					Cell cell = row.getCell(i);
+					if (cell != null) {
+						cell.setCellStyle(i == 8 || i == 9 || i == 12 ? wrapStyle : borderedStyle);
+					}
 				}
 			}
 
 			workbook.write(response.getOutputStream());
 		}
+	}
+
+
+	private String normalizeNullableSearchText(String value) {
+		if (value == null) {
+			return null;
+		}
+		String normalized = value.trim();
+		return normalized.isEmpty() ? null : normalized;
+	}
+
+	private List<NonStandardTaskListFilterItem> buildNonStandardTaskListFilterItems(
+			String keyword,
+			Long orderId,
+			String productName,
+			String dateCriteria,
+			DateRange range,
+			Long productCategoryId,
+			OrderStatus status,
+			Boolean standard
+	) {
+		String categoryLabel = productCategoryId == null
+				? "전체"
+				: teamCategoryRepository.findById(productCategoryId)
+						.map(TeamCategory::getName)
+						.filter(name -> name != null && !name.isBlank())
+						.orElse("ID " + productCategoryId);
+
+		String dateLabel;
+		if ("order".equals(dateCriteria)) {
+			dateLabel = "발주일 " + buildFilterDateRangeText(range);
+		} else if ("delivery".equals(dateCriteria)) {
+			dateLabel = "출고일 " + buildFilterDateRangeText(range);
+		} else {
+			dateLabel = "전체기간";
+		}
+
+		return List.of(
+				new NonStandardTaskListFilterItem("오더 ID", orderId != null ? String.valueOf(orderId) : "전체"),
+				new NonStandardTaskListFilterItem("제품명", productName != null ? productName : "전체"),
+				new NonStandardTaskListFilterItem("키워드", keyword != null ? keyword : "전체"),
+				new NonStandardTaskListFilterItem("기간", dateLabel),
+				new NonStandardTaskListFilterItem("제품분류", categoryLabel),
+				new NonStandardTaskListFilterItem("발주상태", status != null ? status.getLabel() : "전체"),
+				new NonStandardTaskListFilterItem("규격 여부",
+						standard == null ? "전체" : (standard ? "규격" : "비규격"))
+		);
+	}
+
+	private String buildFilterDateRangeText(DateRange range) {
+		if (range == null) {
+			return "전체";
+		}
+		String start = normalizeNullableSearchText(range.getStartDateStr());
+		String end = normalizeNullableSearchText(range.getEndDateStr());
+		if (start == null && end == null) {
+			return "전체";
+		}
+		return (start != null ? start : "처음") + " ~ " + (end != null ? end : "현재");
+	}
+
+	private List<Order> sortNonStandardTaskListOutputOrders(
+			List<Order> orders,
+			List<NonStandardTaskListSortCriterion> criteria
+	) {
+		if (orders == null || orders.isEmpty()) {
+			return List.of();
+		}
+
+		Comparator<Order> comparator = null;
+		if (criteria != null) {
+			for (NonStandardTaskListSortCriterion criterion : criteria) {
+				Comparator<Order> next = buildNonStandardTaskListOutputComparator(criterion);
+				if (next != null) {
+					comparator = comparator == null ? next : comparator.thenComparing(next);
+				}
+			}
+		}
+
+		if (comparator == null) {
+			comparator = Comparator.comparing(
+					Order::getCreatedAt,
+					Comparator.nullsLast(Comparator.reverseOrder())
+			);
+		}
+
+		comparator = comparator.thenComparing(
+				Order::getId,
+				Comparator.nullsLast(Comparator.reverseOrder())
+		);
+
+		return orders.stream().sorted(comparator).toList();
+	}
+
+	private Comparator<Order> buildNonStandardTaskListOutputComparator(
+			NonStandardTaskListSortCriterion criterion
+	) {
+		if (criterion == null || criterion.field() == null) {
+			return null;
+		}
+
+		boolean ascending = "asc".equals(criterion.direction());
+
+		return switch (criterion.field()) {
+		case "orderId" -> Comparator.comparing(Order::getId, nullableComparableComparator(ascending));
+		case "agencyName" -> Comparator.comparing(this::resolveNonStandardTaskAgencyName,
+				nullableComparableComparator(ascending));
+		case "productCategoryName" -> Comparator.comparing(this::resolveNonStandardTaskCategoryName,
+				nullableComparableComparator(ascending));
+		case "standard" -> Comparator.comparing(Order::isStandard,
+				nullableComparableComparator(ascending));
+		case "orderDate" -> Comparator.comparing(Order::getCreatedAt,
+				nullableComparableComparator(ascending));
+		case "preferredDeliveryDate" -> Comparator.comparing(Order::getPreferredDeliveryDate,
+				nullableComparableComparator(ascending));
+		case "status" -> Comparator.comparing(
+				order -> order != null && order.getStatus() != null ? order.getStatus().name() : null,
+				nullableComparableComparator(ascending)
+		);
+		default -> null;
+		};
+	}
+
+	private <T extends Comparable<? super T>> Comparator<T> nullableComparableComparator(boolean ascending) {
+		Comparator<T> valueComparator = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
+		return Comparator.nullsLast(valueComparator);
+	}
+
+	private String resolveNonStandardTaskAgencyName(Order order) {
+		if (order == null || order.getTask() == null || order.getTask().getRequestedBy() == null
+				|| order.getTask().getRequestedBy().getCompany() == null) {
+			return null;
+		}
+		return normalizeNullableSearchText(order.getTask().getRequestedBy().getCompany().getCompanyName());
+	}
+
+	private String resolveNonStandardTaskCategoryName(Order order) {
+		return order != null && order.getProductCategory() != null
+				? normalizeNullableSearchText(order.getProductCategory().getName())
+				: null;
 	}
 
 	// 1) dateCriteria 정규화 (all/order/delivery만 허용)
