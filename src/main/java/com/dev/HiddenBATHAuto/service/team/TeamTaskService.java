@@ -713,96 +713,128 @@ public class TeamTaskService {
 
 	@Transactional(readOnly = true)
 	public List<StickerPrintDto> getStickerPrintItems(List<Long> orderIds, Long allowedCategoryId) {
+		if (orderIds == null || orderIds.isEmpty()) {
+			return List.of();
+		}
 
 		List<Order> orders = orderRepository.findAllForStickerPrint(orderIds);
 
+		if (orders == null || orders.isEmpty()) {
+			return List.of();
+		}
+
 		if (allowedCategoryId != null) {
-			orders = orders.stream().filter(
-					o -> o.getProductCategory() != null && allowedCategoryId.equals(o.getProductCategory().getId()))
+			orders = orders.stream()
+					.filter(Objects::nonNull)
+					.filter(o -> o.getProductCategory() != null
+							&& allowedCategoryId.equals(o.getProductCategory().getId()))
 					.toList();
 		}
 
 		List<StickerPrintDto> result = new ArrayList<>();
 
-		for (Order o : orders) {
-			OrderItem orderItem = o.getOrderItem();
-
-			// 업체명
-			String companyName = "-";
-			try {
-				if (o.getTask() != null && o.getTask().getRequestedBy() != null
-						&& o.getTask().getRequestedBy().getCompany() != null) {
-					String n = o.getTask().getRequestedBy().getCompany().getCompanyName();
-					if (n != null && !n.isBlank())
-						companyName = n;
-				}
-			} catch (Exception ignore) {
-				companyName = "-";
+		for (Order order : orders) {
+			if (order == null) {
+				continue;
 			}
 
-			boolean standard = o.isStandard();
+			OrderItem orderItem = order.getOrderItem();
+			Map<String, String> optionMap = parseOptionJsonToMap(
+					orderItem != null ? orderItem.getOptionJson() : null
+			);
 
-			// 옵션 JSON 파싱
-			Map<String, String> optMap = parseOptionJsonToMap(orderItem != null ? orderItem.getOptionJson() : null);
+			/*
+			 * 스티커 데이터는 요청한 기준을 그대로 사용합니다.
+			 * - 품목: optionJson["카테고리"]
+			 * - 색상: optionJson["색상"]
+			 * - 사이즈: optionJson["사이즈"]
+			 * - 제품명: OrderItem.productName
+			 */
+			String category = valueOrDash(optionMap.get("카테고리"));
+			String productName = orderItem != null
+					? valueOrDash(orderItem.getProductName())
+					: "-";
+			String colorRaw = safeText(optionMap.get("색상"));
+			String color = valueOrDash(colorRaw);
+			String size = valueOrDash(optionMap.get("사이즈"));
 
-			// 모델명 규칙
-			String modelName = standard ? nvl(optMap.get("제품명")) : nvl(optMap.get("제품"));
-			if (isBlank(modelName))
-				modelName = "-";
+			String companyName = resolveCompanyName(order);
+			String deliveryDateText = formatDateTime(order.getPreferredDeliveryDate());
+			String adminMemo = nvl(order.getAdminMemo()).trim();
+			String firstManagementImageUrl = resolveFirstManagementImageUrl(order);
 
-			// ✅✅ 규격일 때 제품코드
-			String productCode = "";
-			if (standard) {
-				productCode = nvl(optMap.get("제품코드")).trim();
-				if (isBlank(productCode))
-					productCode = ""; // 출력 조건에서 걸러짐
-			}
+			/*
+			 * 기존 DTO 필드도 함께 채워 기존 코드가 참조하더라도 깨지지 않게 유지합니다.
+			 */
+			String productCode = order.isStandard()
+					? safeText(optionMap.get("제품코드"))
+					: "";
 
-			// 색상 (코드면 한글명 병기)
-			String colorRaw = nvl(optMap.get("색상")).trim();
-			String colorDisplay = buildColorDisplay(colorRaw);
-
-			// 사이즈 (넓이 숫자 뒤 mm)
-			String sizeRaw = nvl(optMap.get("사이즈")).trim();
-			String size = buildSizeWithWidthMm(sizeRaw);
-			if (isBlank(size))
-				size = "-";
-
-			// 옵션여부(4개)
-			// 1순위: 기존 key 직접 조회
-			// 2순위: 해당 key가 없거나 비어 있으면 전체 value에서 키워드 포함 여부 조회
-			// 3순위: 둘 다 없으면 "없음"으로 출력
 			List<String> optionFlags = new ArrayList<>();
-			addOptOrNone(optionFlags, "티슈위치", optMap, "티슈");
-			addOptOrNone(optionFlags, "드라이걸이", optMap, "드라이");
-			addOptOrNone(optionFlags, "콘센트", optMap, "콘센트");
-			addOptOrNone(optionFlags, "LED", optMap, "LED");
+			addOptOrNone(optionFlags, "티슈위치", optionMap, "티슈");
+			addOptOrNone(optionFlags, "드라이걸이", optionMap, "드라이");
+			addOptOrNone(optionFlags, "콘센트", optionMap, "콘센트");
+			addOptOrNone(optionFlags, "LED", optionMap, "LED");
 
-			// 비고
-			String adminMemo = nvl(o.getAdminMemo()).trim();
-
-			// 관리자 업로드 이미지 1장
-			String adminImageUrl = "";
-			try {
-				List<OrderImage> adminImages = (o.getAdminUploadedImages() != null) ? o.getAdminUploadedImages()
-						: List.of();
-				if (!adminImages.isEmpty()) {
-					adminImageUrl = resolveAdminImageUrl(adminImages.get(0));
-				}
-			} catch (Exception ignore) {
-				adminImageUrl = "";
-			}
-
-			StickerPrintDto dto = StickerPrintDto.builder().orderId(o.getId()).companyName(companyName)
-					.standard(standard).modelName(modelName).productCode(productCode) // ✅ 추가
-					.colorDisplay(colorDisplay).size(size).optionFlags(optionFlags).adminMemo(adminMemo)
-					.adminImageUrl(adminImageUrl).build();
+			StickerPrintDto dto = StickerPrintDto.builder()
+					.orderId(order.getId())
+					.deliveryDateText(deliveryDateText)
+					.companyName(companyName)
+					.standard(order.isStandard())
+					.category(category)
+					.productName(productName)
+					.color(color)
+					.size(size)
+					.adminMemo(adminMemo)
+					.adminImageUrl(firstManagementImageUrl)
+					.modelName(productName)
+					.productCode(productCode)
+					.colorDisplay(buildColorDisplay(colorRaw))
+					.optionFlags(optionFlags)
+					.build();
 
 			result.add(dto);
 		}
 
-		result.sort(Comparator.comparingInt(d -> orderIds.indexOf(d.getOrderId())));
+		/*
+		 * Repository 조회 순서와 관계없이 사용자가 체크한 순서대로 출력합니다.
+		 */
+		result.sort(Comparator.comparingInt(dto -> orderIds.indexOf(dto.getOrderId())));
 		return result;
+	}
+
+	/**
+	 * MANAGEMENT 타입 이미지 중 가장 먼저 등록된 유효 이미지 한 장을 반환합니다.
+	 *
+	 * Order.orderImages에는 @OrderBy가 없으므로 List의 우연한 조회 순서에 의존하지 않고,
+	 * DB 식별자(id) 오름차순을 "첫 번째" 기준으로 사용합니다.
+	 */
+	private String resolveFirstManagementImageUrl(Order order) {
+		if (order == null) {
+			return "";
+		}
+
+		try {
+			List<OrderImage> managementImages = order.getAdminUploadedImages();
+
+			if (managementImages == null || managementImages.isEmpty()) {
+				return "";
+			}
+
+			return managementImages.stream()
+					.filter(Objects::nonNull)
+					.sorted(Comparator.comparing(
+							OrderImage::getId,
+							Comparator.nullsLast(Comparator.naturalOrder())
+					))
+					.map(this::resolveAdminImageUrl)
+					.filter(url -> !isBlank(url))
+					.findFirst()
+					.orElse("");
+
+		} catch (Exception ignore) {
+			return "";
+		}
 	}
 
 	private Map<String, String> parseOptionJsonToMap(String optionJson) {
