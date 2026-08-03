@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -59,6 +60,7 @@ import com.dev.HiddenBATHAuto.dto.production.ProductionCheckViewDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionListExcelRowDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionListOutputOptions;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
+import com.dev.HiddenBATHAuto.dto.production.ProductionSortOrder;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewImageDto;
@@ -170,10 +172,19 @@ public class TeamController {
 			"DELIVERY_DONE"
 	);
 
+	private static final List<String> PRODUCTION_LIST_ALLOWED_SORT_KEYS = List.of(
+			"id",
+			"productName",
+			"productSeries",
+			"deliveryDate",
+			"checked"
+	);
+
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false) Long productCategoryId, @RequestParam(required = false) String orderId,
             @RequestParam(required = false) String productName,
+            @RequestParam(required = false, defaultValue = "ALL") String standardType,
 			@RequestParam(required = false, defaultValue = "preferred") String dateType,
 			@RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
 
@@ -181,12 +192,16 @@ public class TeamController {
 			@RequestParam(required = false, defaultValue = "0") int page,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-			@RequestParam(required = false) String sortKey, @RequestParam(required = false) String sortDir,
+			@RequestParam(required = false) String sortSpec,
+			@RequestParam(required = false) String sortKey,
+			@RequestParam(required = false) String sortDir,
 			Model model) {
 
 		Member member = principal.getMember();
 		Long orderIdFilter = parsePositiveLongOrNull(orderId);
         String productNameFilter = normalizeSearchText(productName);
+        String normalizedStandardType = normalizeProductionListStandardType(standardType);
+        Boolean standardFilter = parseProductionListStandardFilter(normalizedStandardType);
 
 		if (member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
 			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
@@ -279,59 +294,74 @@ public class TeamController {
 			statusEnum = null;
 		}
 
-		boolean defaultWorkSort = sortKey == null || sortKey.isBlank();
-		String normalizedSortKey = defaultWorkSort ? "" : sortKey.trim();
-
-		String normalizedSortDir = (sortDir == null || sortDir.isBlank())
-				? (defaultWorkSort ? "DESC" : "ASC")
-				: sortDir.trim().toUpperCase();
-
-		if (!"ASC".equals(normalizedSortDir) && !"DESC".equals(normalizedSortDir)) {
-			normalizedSortDir = defaultWorkSort ? "DESC" : "ASC";
-		}
-
-		boolean checkedSort = "checked".equalsIgnoreCase(normalizedSortKey);
-		boolean revisionAwareSort = defaultWorkSort || checkedSort;
-
 		/*
-		 * 기본 조회: 재수정만 최상단에 두고 나머지는 선택 날짜 기준 최신순입니다.
-		 * 체크 컬럼을 직접 선택한 경우: 재수정 -> 미확인 -> 확인 순서를 적용합니다.
+		 * 다중 정렬 규칙
+		 * - sortSpec 예: id:ASC,productName:DESC
+		 * - 배열 순서가 ORDER BY 우선순서입니다.
+		 * - 같은 컬럼/같은 방향 화살표를 다시 누르면 해당 조건만 제거됩니다.
+		 * - 구버전 단일 sortKey/sortDir URL도 첫 진입 시 자동 변환하여 호환합니다.
 		 */
-		if (checkedSort) {
-			normalizedSortDir = "ASC";
-		}
+		List<ProductionSortOrder> productionSortOrders = parseProductionSortOrders(sortSpec, sortKey, sortDir);
+		String normalizedSortSpec = serializeProductionSortOrders(productionSortOrders);
+		boolean hasCustomSort = !productionSortOrders.isEmpty();
+		boolean requiresMemberCheckSort = productionSortOrders.stream()
+				.anyMatch(order -> "checked".equals(order.key()));
 
-		Pageable pageable = PageRequest.of(page, size, revisionAwareSort ? Sort.unsorted()
-				: buildProductionSort(normalizedSortKey, normalizedSortDir, normalizedDateType));
-
+		Pageable pageable = PageRequest.of(
+				page,
+				size,
+				hasCustomSort && !requiresMemberCheckSort
+						? buildProductionMultiSort(productionSortOrders, normalizedDateType)
+						: Sort.unsorted()
+		);
 		Page<Order> orderPage;
 
-		if (revisionAwareSort) {
-			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
-                    targetCategoryId,
-                    orderIdFilter,
-                    productNameFilter,
-                    normalizedDateType,
-                    statusEnum,
-                    start,
-                    end,
-                    mirrorCuttingOnly,
-                    member.getId(),
-                    checkedSort,
-                    pageable
-            );
-		} else {
+		if (hasCustomSort && requiresMemberCheckSort) {
+			// 체크상태는 로그인 사용자별 계산값이므로 체크 정렬이 포함된 경우에만 서비스 다중 정렬을 사용합니다.
+			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
+					targetCategoryId,
+					orderIdFilter,
+					productNameFilter,
+					standardFilter,
+					normalizedDateType,
+					statusEnum,
+					start,
+					end,
+					mirrorCuttingOnly,
+					member,
+					productionSortOrders,
+					pageable
+			);
+		} else if (hasCustomSort) {
+			// ID/제품명/중분류/배송일만 사용하면 DB Pageable 다중 정렬로 처리합니다.
 			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
-                    targetCategoryId,
-                    orderIdFilter,
-                    productNameFilter,
-                    normalizedDateType,
-                    statusEnum,
-                    start,
-                    end,
-                    mirrorCuttingOnly,
-                    pageable
-            );
+					targetCategoryId,
+					orderIdFilter,
+					productNameFilter,
+					standardFilter,
+					normalizedDateType,
+					statusEnum,
+					start,
+					end,
+					mirrorCuttingOnly,
+					pageable
+			);
+		} else {
+			// 정렬 조건이 모두 해제되면 기존 최초 조회 순서로 복원합니다.
+			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+					targetCategoryId,
+					orderIdFilter,
+					productNameFilter,
+					standardFilter,
+					normalizedDateType,
+					statusEnum,
+					start,
+					end,
+					mirrorCuttingOnly,
+					member.getId(),
+					false,
+					pageable
+			);
 		}
 
 		/*
@@ -397,6 +427,7 @@ public class TeamController {
 		model.addAttribute("targetProductCategoryId", targetCategoryId);
 		model.addAttribute("orderId", orderIdFilter);
         model.addAttribute("productName", productNameFilter);
+        model.addAttribute("standardType", normalizedStandardType);
 		model.addAttribute("dateType", normalizedDateType);
 		model.addAttribute("statusFilter", sf);
 
@@ -423,10 +454,87 @@ public class TeamController {
 		model.addAttribute("cuttingEligibilityMap",
 				materialCuttingService.buildCuttingEligibilityMap(orderPage.getContent()));
 
-		model.addAttribute("sortKey", normalizedSortKey);
-		model.addAttribute("sortDir", normalizedSortDir);
+		model.addAttribute("sortSpec", normalizedSortSpec);
+		model.addAttribute("sortOrders", productionSortOrders);
+		// 구버전 템플릿/링크 호환용으로 첫 번째 조건도 함께 제공합니다.
+		model.addAttribute("sortKey", productionSortOrders.isEmpty() ? "" : productionSortOrders.get(0).key());
+		model.addAttribute("sortDir", productionSortOrders.isEmpty() ? "" : productionSortOrders.get(0).directionName());
 
 		return "administration/team/production/productionList";
+	}
+
+	private List<ProductionSortOrder> parseProductionSortOrders(
+			String sortSpec,
+			String legacySortKey,
+			String legacySortDir
+	) {
+		LinkedHashMap<String, ProductionSortOrder> ordered = new LinkedHashMap<>();
+
+		if (StringUtils.hasText(sortSpec)) {
+			for (String token : sortSpec.split(",")) {
+				if (!StringUtils.hasText(token)) {
+					continue;
+				}
+
+				String[] parts = token.trim().split(":", 2);
+				String key = normalizeProductionSortKey(parts[0]);
+				String direction = parts.length > 1 ? normalizeProductionSortDirection(parts[1]) : null;
+
+				if (key == null || direction == null) {
+					continue;
+				}
+
+				ordered.put(key, ProductionSortOrder.of(key, direction));
+			}
+		}
+
+		if (ordered.isEmpty() && StringUtils.hasText(legacySortKey)) {
+			String key = normalizeProductionSortKey(legacySortKey);
+			String direction = normalizeProductionSortDirection(legacySortDir);
+
+			if (key != null) {
+				ordered.put(key, ProductionSortOrder.of(key, direction != null ? direction : "ASC"));
+			}
+		}
+
+		return new ArrayList<>(ordered.values());
+	}
+
+	private String serializeProductionSortOrders(List<ProductionSortOrder> sortOrders) {
+		if (sortOrders == null || sortOrders.isEmpty()) {
+			return "";
+		}
+
+		return sortOrders.stream()
+				.filter(Objects::nonNull)
+				.map(order -> order.key() + ":" + order.directionName())
+				.collect(Collectors.joining(","));
+	}
+
+	private String normalizeProductionSortKey(String rawKey) {
+		if (!StringUtils.hasText(rawKey)) {
+			return null;
+		}
+
+		String candidate = rawKey.trim();
+
+		for (String allowedKey : PRODUCTION_LIST_ALLOWED_SORT_KEYS) {
+			if (allowedKey.equalsIgnoreCase(candidate)) {
+				return allowedKey;
+			}
+		}
+
+		// 기존 orderId 키도 id로 호환합니다.
+		return "orderId".equalsIgnoreCase(candidate) ? "id" : null;
+	}
+
+	private String normalizeProductionSortDirection(String rawDirection) {
+		if (!StringUtils.hasText(rawDirection)) {
+			return null;
+		}
+
+		String direction = rawDirection.trim().toUpperCase(Locale.ROOT);
+		return "ASC".equals(direction) || "DESC".equals(direction) ? direction : null;
 	}
 
 	private String buildProductionDateRangeLabel(LocalDate startDate, LocalDate endDate) {
@@ -449,6 +557,32 @@ public class TeamController {
 		}
 
 		return "~ " + endDate.format(formatter);
+	}
+
+	private String normalizeProductionListStandardType(String rawStandardType) {
+		if (!StringUtils.hasText(rawStandardType)) {
+			return "ALL";
+		}
+
+		String normalized = rawStandardType.trim().toUpperCase(Locale.ROOT);
+
+		return switch (normalized) {
+		case "STANDARD", "TRUE" -> "STANDARD";
+		case "NON_STANDARD", "NONSTANDARD", "FALSE" -> "NON_STANDARD";
+		default -> "ALL";
+		};
+	}
+
+	private Boolean parseProductionListStandardFilter(String normalizedStandardType) {
+		if ("STANDARD".equals(normalizedStandardType)) {
+			return Boolean.TRUE;
+		}
+
+		if ("NON_STANDARD".equals(normalizedStandardType)) {
+			return Boolean.FALSE;
+		}
+
+		return null;
 	}
 
 	private String normalizeProductionListStatusFilter(String rawStatusFilter) {
@@ -644,38 +778,53 @@ public class TeamController {
 		return "하부장".equals(categoryName);
 	}
 
-	private Sort buildProductionSort(String sortKey, String sortDir, String dateType) {
-		String key = (sortKey == null || sortKey.isBlank()) ? "date" : sortKey.trim();
-		String dir = (sortDir == null || sortDir.isBlank()) ? "DESC" : sortDir.trim().toUpperCase();
+	private Sort buildProductionMultiSort(
+			List<ProductionSortOrder> sortOrders,
+			String dateType
+	) {
+		List<Sort.Order> springOrders = new ArrayList<>();
+		List<String> appliedKeys = new ArrayList<>();
 
-		Sort.Direction direction = "ASC".equals(dir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+		if (sortOrders != null) {
+			for (ProductionSortOrder sortOrder : sortOrders) {
+				if (sortOrder == null || appliedKeys.contains(sortOrder.key())) {
+					continue;
+				}
 
-		if ("standard".equalsIgnoreCase(key)) {
-			return Sort.by(direction, "standard").and(Sort.by(Sort.Direction.DESC, "id"));
+				String property = switch (sortOrder.key()) {
+				case "id" -> "id";
+				case "productName" -> "orderItem.productName";
+				case "productSeries" -> "orderItem.productionProductSeriesSortValue";
+				case "deliveryDate" -> "preferredDeliveryDate";
+				default -> null;
+				};
+
+				if (property == null) {
+					continue;
+				}
+
+				Sort.Direction direction = sortOrder.ascending()
+						? Sort.Direction.ASC
+						: Sort.Direction.DESC;
+
+				springOrders.add(new Sort.Order(direction, property));
+				appliedKeys.add(sortOrder.key());
+			}
 		}
 
-		if ("productName".equalsIgnoreCase(key)) {
-			return Sort.by(direction, "orderItem.productName").and(Sort.by(Sort.Direction.DESC, "id"));
+		String defaultDateProperty = "created".equalsIgnoreCase(dateType)
+				? "createdAt"
+				: "preferredDeliveryDate";
+
+		if (!("preferredDeliveryDate".equals(defaultDateProperty) && appliedKeys.contains("deliveryDate"))) {
+			springOrders.add(new Sort.Order(Sort.Direction.DESC, defaultDateProperty));
 		}
 
-		if ("productSeries".equalsIgnoreCase(key) || "middleCategory".equalsIgnoreCase(key)) {
-			return Sort.by(direction, "orderItem.productionProductSeriesSortValue")
-					.and(Sort.by(Sort.Direction.DESC, "id"));
+		if (!appliedKeys.contains("id")) {
+			springOrders.add(new Sort.Order(Sort.Direction.DESC, "id"));
 		}
 
-		if ("deliveryDate".equalsIgnoreCase(key) || "preferredDeliveryDate".equalsIgnoreCase(key)) {
-			return Sort.by(direction, "preferredDeliveryDate").and(Sort.by(Sort.Direction.DESC, "id"));
-		}
-
-		if ("date".equalsIgnoreCase(key)) {
-			String field = "created".equalsIgnoreCase(dateType) ? "createdAt" : "preferredDeliveryDate";
-
-			return Sort.by(direction, field).and(Sort.by(Sort.Direction.DESC, "id"));
-		}
-
-		String field = "created".equalsIgnoreCase(dateType) ? "createdAt" : "preferredDeliveryDate";
-
-		return Sort.by(Sort.Direction.DESC, field).and(Sort.by(Sort.Direction.DESC, "id"));
+		return springOrders.isEmpty() ? Sort.unsorted() : Sort.by(springOrders);
 	}
 
 	@GetMapping("/productionList/{orderId}/management-images")

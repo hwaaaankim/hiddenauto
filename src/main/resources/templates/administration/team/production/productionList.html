@@ -127,6 +127,23 @@
 								</div>
 
 								<div class="col-lg-2 col-xl-2">
+									<label class="form-label">규격 구분</label>
+									<select name="standardType" class="form-control w-100"
+										id="team-production-standardType">
+										<option value="ALL"
+											th:selected="${standardType == null or standardType == '' or standardType == 'ALL'}">
+											전체
+										</option>
+										<option value="STANDARD" th:selected="${standardType == 'STANDARD'}">
+											규격
+										</option>
+										<option value="NON_STANDARD" th:selected="${standardType == 'NON_STANDARD'}">
+											비규격
+										</option>
+									</select>
+								</div>
+
+								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">표시</label>
 									<select name="size" class="form-control w-100" id="team-production-size">
 										<option value="100" th:selected="${size == 100}">100</option>
@@ -137,11 +154,23 @@
 									</select>
 								</div>
 
-								<div class="col-lg-2 col-xl-2">
-									<label class="form-label">조회</label>
-									<button type="submit" class="btn btn-primary w-100" id="team-production-search-btn">
-										검색
-									</button>
+								<div class="col-lg-6 col-xl-6">
+									<label class="form-label">조회 / 초기화</label>
+									<div class="d-flex flex-wrap gap-2">
+										<button type="submit" class="btn btn-primary" id="team-production-search-btn">
+											검색
+										</button>
+										<button type="button" class="btn btn-outline-secondary"
+											id="team-production-search-reset-btn"
+											title="검색 조건만 최초 상태로 되돌리고 현재 정렬은 유지합니다.">
+											검색초기화
+										</button>
+										<button type="button" class="btn btn-outline-danger"
+											id="team-production-sort-reset-btn"
+											title="검색 조건은 유지하고 오름·내림차순 정렬만 모두 해제합니다.">
+											필터초기화
+										</button>
+									</div>
 								</div>
 
 								<div class="col-lg-12 col-xl-12">
@@ -187,12 +216,9 @@
 								</div>
 								<input type="hidden" id="team-production-can-material-cutting"
 									th:value="${canMaterialCutting}">
-								<!-- 정렬 파라미터 -->
-								<input type="hidden" name="sortKey" id="team-production-sortKey"
-									th:value="${sortKey != null ? sortKey : ''}">
-
-								<input type="hidden" name="sortDir" id="team-production-sortDir"
-									th:value="${sortDir != null ? sortDir : ''}">
+								<!-- 다중 정렬 파라미터: 예) id:ASC,productName:DESC -->
+								<input type="hidden" name="sortSpec" id="team-production-sortSpec"
+									th:value="${sortSpec != null ? sortSpec : ''}">
 							</div>
 						</div>
 					</form>
@@ -238,27 +264,60 @@
 
 									<thead class="team-production-thead">
 										<tr>
-											<th class="team-production-th">ID</th>
+											<th class="team-production-th">
+												<div class="d-inline-flex align-items-center gap-1">
+													<span>ID</span>
+													<span class="team-production-sort-controls" data-sort-key="id">
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="id" data-sort-dir="ASC" aria-label="오더 ID 오름차순">
+															<span class="team-production-sort-icon">▲</span>
+														</button>
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="id" data-sort-dir="DESC" aria-label="오더 ID 내림차순">
+															<span class="team-production-sort-icon">▼</span>
+														</button>
+														<span class="team-production-sort-priority" aria-hidden="true"></span>
+													</span>
+												</div>
+											</th>
 
 											<th class="team-production-th">
 												<div class="d-inline-flex align-items-center gap-1">
 													<span>제품명</span>
-													<button type="button"
-														class="btn btn-sm btn-link p-0 team-production-sort-btn"
-														data-sort-key="productName" aria-label="제품명 정렬">
-														<span class="team-production-sort-icon">▲▼</span>
-													</button>
+													<span class="team-production-sort-controls" data-sort-key="productName">
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="productName" data-sort-dir="ASC" aria-label="제품명 오름차순">
+															<span class="team-production-sort-icon">▲</span>
+														</button>
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="productName" data-sort-dir="DESC" aria-label="제품명 내림차순">
+															<span class="team-production-sort-icon">▼</span>
+														</button>
+														<span class="team-production-sort-priority" aria-hidden="true"></span>
+													</span>
 												</div>
 											</th>
 
 											<th class="team-production-th">
 												<div class="d-inline-flex align-items-center gap-1">
 													<span>중분류</span>
-													<button type="button"
-														class="btn btn-sm btn-link p-0 team-production-sort-btn"
-														data-sort-key="productSeries" aria-label="중분류 정렬">
-														<span class="team-production-sort-icon">▲▼</span>
-													</button>
+													<span class="team-production-sort-controls" data-sort-key="productSeries">
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="productSeries" data-sort-dir="ASC" aria-label="중분류 오름차순">
+															<span class="team-production-sort-icon">▲</span>
+														</button>
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="productSeries" data-sort-dir="DESC" aria-label="중분류 내림차순">
+															<span class="team-production-sort-icon">▼</span>
+														</button>
+														<span class="team-production-sort-priority" aria-hidden="true"></span>
+													</span>
 												</div>
 											</th>
 
@@ -270,11 +329,19 @@
 											<th class="team-production-th text-center">
 												<div class="d-inline-flex align-items-center justify-content-center gap-1">
 													<span>배송일</span>
-													<button type="button"
-														class="btn btn-sm btn-link p-0 team-production-sort-btn"
-														data-sort-key="deliveryDate" aria-label="배송일 정렬">
-														<span class="team-production-sort-icon">▲▼</span>
-													</button>
+													<span class="team-production-sort-controls" data-sort-key="deliveryDate">
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="deliveryDate" data-sort-dir="ASC" aria-label="배송일 오름차순">
+															<span class="team-production-sort-icon">▲</span>
+														</button>
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="deliveryDate" data-sort-dir="DESC" aria-label="배송일 내림차순">
+															<span class="team-production-sort-icon">▼</span>
+														</button>
+														<span class="team-production-sort-priority" aria-hidden="true"></span>
+													</span>
 												</div>
 											</th>
 
@@ -286,11 +353,19 @@
 												<div
 													class="d-inline-flex align-items-center justify-content-center gap-1">
 													<span>체크</span>
-													<button type="button"
-														class="btn btn-sm btn-link p-0 team-production-sort-btn"
-														data-sort-key="checked" aria-label="체크 정렬">
-														<span class="team-production-sort-icon">▲▼</span>
-													</button>
+													<span class="team-production-sort-controls" data-sort-key="checked">
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="checked" data-sort-dir="ASC" aria-label="체크 오름차순">
+															<span class="team-production-sort-icon">▲</span>
+														</button>
+														<button type="button"
+															class="btn btn-sm btn-link p-0 team-production-sort-btn"
+															data-sort-key="checked" data-sort-dir="DESC" aria-label="체크 내림차순">
+															<span class="team-production-sort-icon">▼</span>
+														</button>
+														<span class="team-production-sort-priority" aria-hidden="true"></span>
+													</span>
 												</div>
 											</th>
 
@@ -317,7 +392,10 @@
                                                       isRevisedAfterCheck=${checkState == 'REVISED_AFTER_CHECK'},
                                                       displayProductName=${productName != null and productName != '' and order.orderItem != null and order.orderItem.productName != null and order.orderItem.productName != ''
                                                           ? order.orderItem.productName
-                                                          : (order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-')}
+                                                          : (order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-')},
+                                                      displayProductCategory=${order.orderItem != null and order.orderItem.productionCategory != null and order.orderItem.productionCategory != ''
+                                                          ? order.orderItem.productionCategory
+                                                          : (order.productCategory != null and order.productCategory.name != null and order.productCategory.name != '' ? order.productCategory.name : '미분류')}
                                                   ">
 											<tr class="team-production-overview-row team-production-clickable-row"
 												th:classappend="${isRevisedAfterCheck} ? ' team-production-row-revised' : (${isLatestChecked} ? ' team-production-row-checked' : ' team-production-row-unchecked')"
@@ -336,7 +414,7 @@
                     data-company-name=${orderCompanyNameMap != null and orderCompanyNameMap[order.id] != null ? orderCompanyNameMap[order.id] : '-'},
                     data-managed-by-name=${order.task != null and order.task.managedBy != null and order.task.managedBy.name != null and order.task.managedBy.name != '' ? order.task.managedBy.name : '미배정'},
                     data-product-name=${displayProductName},
-                    data-product-category-name=${order.orderItem != null and order.orderItem.productionCategory != null and order.orderItem.productionCategory != '' ? order.orderItem.productionCategory : '-'},
+                    data-product-category-name=${displayProductCategory},
                     data-standard-label=${order.standard ? '규격' : '비규격'},
                     data-date-text=${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd') : '-'},
                     data-admin-memo=${order.adminMemo != null and order.adminMemo != '' ? order.adminMemo : '-'},
@@ -413,10 +491,10 @@
 												</td>
 
 												<td class="team-production-td">
-													<div class="team-production-compact-text"
-														th:text="${order.orderItem != null and order.orderItem.productionCategory != null and order.orderItem.productionCategory != '' ? order.orderItem.productionCategory : '-'}"
-														th:title="${order.orderItem != null and order.orderItem.productionCategory != null and order.orderItem.productionCategory != '' ? order.orderItem.productionCategory : '-'}">
-														카테고리
+													<div class="team-production-compact-text team-production-category-text"
+														th:text="${displayProductCategory == '하부장' ? displayProductCategory + '(' + (order.standard ? '규격' : '비규격') + ')' : displayProductCategory}"
+														th:title="${displayProductCategory == '하부장' ? displayProductCategory + '(' + (order.standard ? '규격' : '비규격') + ')' : displayProductCategory}">
+														하부장(규격)
 													</div>
 												</td>
 
@@ -502,12 +580,12 @@
                         orderId=${orderId},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
+                        standardType=${standardType},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
                         startDate=${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : ''},
                         endDate=${endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : ''},
-                        sortKey=${sortKey != null ? sortKey : ''},
-                        sortDir=${sortDir != null ? sortDir : ''}
+                        sortSpec=${sortSpec != null ? sortSpec : ''}
                    )}">
 										FIRST
 									</a>
@@ -520,12 +598,12 @@
                         orderId=${orderId},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
+                        standardType=${standardType},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
                         startDate=${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : ''},
                         endDate=${endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : ''},
-                        sortKey=${sortKey != null ? sortKey : ''},
-                        sortDir=${sortDir != null ? sortDir : ''}
+                        sortSpec=${sortSpec != null ? sortSpec : ''}
                    )}">
 										PREVIOUS
 									</a>
@@ -539,12 +617,12 @@
                         orderId=${orderId},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
+                        standardType=${standardType},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
                         startDate=${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : ''},
                         endDate=${endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : ''},
-                        sortKey=${sortKey != null ? sortKey : ''},
-                        sortDir=${sortDir != null ? sortDir : ''}
+                        sortSpec=${sortSpec != null ? sortSpec : ''}
                    )}">
 										1
 									</a>
@@ -557,12 +635,12 @@
                         orderId=${orderId},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
+                        standardType=${standardType},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
                         startDate=${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : ''},
                         endDate=${endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : ''},
-                        sortKey=${sortKey != null ? sortKey : ''},
-                        sortDir=${sortDir != null ? sortDir : ''}
+                        sortSpec=${sortSpec != null ? sortSpec : ''}
                    )}">
 										NEXT
 									</a>
@@ -575,12 +653,12 @@
                         orderId=${orderId},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
+                        standardType=${standardType},
                         dateType=${dateType},
                         statusFilter=${statusFilter},
                         startDate=${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : ''},
                         endDate=${endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : ''},
-                        sortKey=${sortKey != null ? sortKey : ''},
-                        sortDir=${sortDir != null ? sortDir : ''}
+                        sortSpec=${sortSpec != null ? sortSpec : ''}
                    )}">
 										LAST
 									</a>
@@ -1149,6 +1227,52 @@
         .team-production-revision-fields th {
             width: 19%;
             background: #fff8d9;
+        }
+
+        .team-production-sort-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 1px;
+            min-width: 38px;
+        }
+
+        .team-production-sort-btn {
+            width: 15px;
+            min-width: 15px;
+            line-height: 1;
+            color: #9ca3af;
+            text-decoration: none !important;
+            opacity: .72;
+        }
+
+        .team-production-sort-btn:hover {
+            color: #2563eb;
+            opacity: 1;
+        }
+
+        .team-production-sort-btn.is-active {
+            color: #0d6efd;
+            opacity: 1;
+            font-weight: 900;
+        }
+
+        .team-production-sort-priority {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            min-width: 16px;
+            height: 16px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: #0d6efd;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .team-production-sort-priority.is-visible {
+            display: inline-flex;
         }
 
 	</style>
