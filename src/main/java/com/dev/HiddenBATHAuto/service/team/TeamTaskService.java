@@ -1093,14 +1093,43 @@ public class TeamTaskService {
 					.optionFlags(optionFlags)
 					.build();
 
-			result.add(dto);
+			/*
+			 * 제품 한 개마다 스티커 한 장이 필요하므로 수량만큼 동일 DTO를 추가합니다.
+			 * - OrderItem이 있으면 OrderItem.quantity를 우선합니다.
+			 * - OrderItem이 없는 예외 데이터만 Order.quantity를 사용합니다.
+			 * - 회수용 음수 수량도 실제 제품 개수 기준으로 절댓값을 사용합니다.
+			 * - 수량이 0이면 출력할 실제 제품이 없으므로 스티커를 만들지 않습니다.
+			 */
+			int stickerQuantity = resolveStickerPrintQuantity(order, orderItem);
+
+			for (int copyIndex = 0; copyIndex < stickerQuantity; copyIndex++) {
+				result.add(dto);
+			}
 		}
 
 		/*
 		 * Repository 조회 순서와 관계없이 사용자가 체크한 순서대로 출력합니다.
+		 * 동일 오더에서 수량만큼 복제된 스티커는 안정 정렬에 의해 서로 붙어서 유지됩니다.
 		 */
 		result.sort(Comparator.comparingInt(dto -> orderIds.indexOf(dto.getOrderId())));
 		return result;
+	}
+
+	private int resolveStickerPrintQuantity(Order order, OrderItem orderItem) {
+		int rawQuantity = orderItem != null
+				? orderItem.getQuantity()
+				: (order != null ? order.getQuantity() : 0);
+
+		long absoluteQuantity = Math.abs((long) rawQuantity);
+
+		if (absoluteQuantity > Integer.MAX_VALUE) {
+			Long orderId = order != null ? order.getId() : null;
+			throw new IllegalStateException(
+					"스티커 출력 수량이 허용 범위를 초과했습니다. orderId=" + orderId
+			);
+		}
+
+		return (int) absoluteQuantity;
 	}
 
 	/**

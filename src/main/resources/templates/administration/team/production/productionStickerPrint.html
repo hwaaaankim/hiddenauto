@@ -31,8 +31,6 @@
             --label-height: 140mm;
             --label-column-gap: 2mm;
             --label-row-gap: 1.7mm;
-            --label-radius: 2.5mm;
-            --label-outline-width: 0.22mm;
             --label-padding: 3mm;
 
             /* 스티커 내부 고정 규격 */
@@ -48,7 +46,6 @@
 
             --line-color: #8f8f8f;
             --line-width: 0.22mm;
-            --label-outline-color: #8a8a8a;
 
             --font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
 
@@ -141,8 +138,9 @@
                 var(--label-header-height)
                 var(--label-header-gap)
                 minmax(0, 1fr);
-            border: var(--label-outline-width) solid var(--label-outline-color);
-            border-radius: var(--label-radius);
+            /* 실제 스티커 용지에 외곽선이 있으므로 별도 외곽선은 출력하지 않습니다. */
+            border: 0;
+            border-radius: 0;
             overflow: hidden;
             background: #fff;
             break-inside: avoid;
@@ -227,21 +225,25 @@
             min-width: 0;
             min-height: 0;
             padding: 1.25mm 1.55mm;
-            border-right: var(--line-width) solid var(--line-color);
-            border-bottom: var(--line-width) solid var(--line-color);
+            border: 0;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: flex-start;
         }
 
-        /* 외곽선은 report-grid가 담당하므로 바깥쪽 중복선을 제거합니다. */
-        .report-row > .report-cell:last-child {
-            border-right: 0;
+        /*
+         * 선을 양쪽 셀에서 각각 그리지 않고 공유 경계 한쪽에서만 그립니다.
+         * - 가로선: 다음 행의 위쪽 테두리만 사용
+         * - 세로선: 다음 셀의 왼쪽 테두리만 사용
+         * 이 방식으로 품목/색상/제품명 등 인접 셀 경계가 겹쳐 진해지는 현상을 방지합니다.
+         */
+        .report-row + .report-row {
+            border-top: var(--line-width) solid var(--line-color);
         }
 
-        .report-row:last-child > .report-cell {
-            border-bottom: 0;
+        .report-row > .report-cell + .report-cell {
+            border-left: var(--line-width) solid var(--line-color);
         }
 
         .report-label {
