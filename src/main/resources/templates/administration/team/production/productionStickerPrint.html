@@ -1,470 +1,180 @@
 <!-- productionStickerPrint.html -->
 <!doctype html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>생산 스티커 출력</title>
-
     <style>
         :root {
-            /*
-             * A4 스티커 용지 실측 규격
-             * - 용지: 210mm × 297mm
-             * - 좌/우 여백: 4.9mm
-             * - 상단 여백: 7mm
-             * - 하단 여백: 8.3mm
-             * - 스티커: 99.1mm × 140mm
-             * - 가로 간격: 2mm
-             * - 세로 간격: 1.7mm
-             * - 모서리 반경: 2.5mm
-             */
             --sheet-width: 210mm;
             --sheet-height: 297mm;
             --sheet-padding-top: 7mm;
             --sheet-padding-right: 4.9mm;
             --sheet-padding-bottom: 8.3mm;
             --sheet-padding-left: 4.9mm;
-
             --label-width: 99.1mm;
             --label-height: 140mm;
             --label-column-gap: 2mm;
             --label-row-gap: 1.7mm;
             --label-padding: 3mm;
-
-            /* 스티커 내부 고정 규격 */
             --label-header-height: 7mm;
             --label-header-gap: 1.5mm;
-
-            /* 도면 행은 남은 높이를 자동 사용합니다. */
             --row-company-height: 11mm;
             --row-category-color-height: 11mm;
             --row-product-height: 18mm;
             --row-size-height: 11mm;
             --row-memo-height: 32mm;
-
+            --row-drawing-height: 42.5mm;
             --line-color: #8f8f8f;
-            --line-width: 0.22mm;
-
+            --line-width: 0.75pt;
             --font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
-
-            /* 기존 기준보다 1.5pt 크게 설정 */
             --font-base: 9.7pt;
             --font-label: 9.3pt;
             --font-header: 8.9pt;
             --font-brand: 10.5pt;
         }
-
-        @page {
-            size: 210mm 297mm;
-            margin: 0;
+        @page { size: 210mm 297mm; margin: 0; }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0; width: var(--sheet-width); color: #222; background: #fff;
+            font-family: var(--font-family); -webkit-print-color-adjust: exact; print-color-adjust: exact;
         }
-
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            width: var(--sheet-width);
-            color: #222;
-            background: #fff;
-            font-family: var(--font-family);
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        body {
-            font-size: var(--font-base);
-        }
-
-        .no-print-items {
-            width: var(--sheet-width);
-            padding: 20px;
-            font-size: 12pt;
-        }
-
-        /*
-         * A4 전체를 기준으로 실측 위치에 2열 × 2행을 배치합니다.
-         * 중앙 점선이나 별도의 재단선은 출력하지 않습니다.
-         */
+        body { font-size: var(--font-base); }
+        .no-print-items { width: var(--sheet-width); padding: 20px; font-size: 12pt; }
         .sheet {
-            position: relative;
-            width: var(--sheet-width);
-            height: var(--sheet-height);
-            min-width: var(--sheet-width);
-            min-height: var(--sheet-height);
-            max-width: var(--sheet-width);
-            max-height: var(--sheet-height);
-            margin: 0;
-            padding:
-                var(--sheet-padding-top)
-                var(--sheet-padding-right)
-                var(--sheet-padding-bottom)
-                var(--sheet-padding-left);
-            display: grid;
-            grid-template-columns: var(--label-width) var(--label-width);
+            width: var(--sheet-width); height: var(--sheet-height); margin: 0;
+            padding: var(--sheet-padding-top) var(--sheet-padding-right) var(--sheet-padding-bottom) var(--sheet-padding-left);
+            display: grid; grid-template-columns: var(--label-width) var(--label-width);
             grid-template-rows: var(--label-height) var(--label-height);
-            column-gap: var(--label-column-gap);
-            row-gap: var(--label-row-gap);
-            align-content: start;
-            justify-content: start;
-            overflow: hidden;
-            break-after: page;
-            page-break-after: always;
+            column-gap: var(--label-column-gap); row-gap: var(--label-row-gap);
+            align-content: start; justify-content: start; overflow: hidden;
+            break-after: page; page-break-after: always;
         }
-
-        .sheet:last-of-type {
-            break-after: auto;
-            page-break-after: auto;
-        }
-
+        .sheet:last-of-type { break-after: auto; page-break-after: auto; }
         .label {
-            position: relative;
-            width: var(--label-width);
-            height: var(--label-height);
-            min-width: var(--label-width);
-            min-height: var(--label-height);
-            max-width: var(--label-width);
-            max-height: var(--label-height);
-            padding: var(--label-padding);
-            display: grid;
-            grid-template-rows:
-                var(--label-header-height)
-                var(--label-header-gap)
-                minmax(0, 1fr);
-            /* 실제 스티커 용지에 외곽선이 있으므로 별도 외곽선은 출력하지 않습니다. */
-            border: 0;
-            border-radius: 0;
-            overflow: hidden;
-            background: #fff;
-            break-inside: avoid;
-            page-break-inside: avoid;
+            width: var(--label-width); height: var(--label-height); padding: var(--label-padding);
+            display: grid; grid-template-rows: var(--label-header-height) var(--label-header-gap) 125.5mm;
+            border: 0; border-radius: 0; outline: 0; overflow: hidden; background: #fff;
+            break-inside: avoid; page-break-inside: avoid;
         }
-
-        /* 마지막 페이지의 빈 스티커 영역은 위치만 유지하고 아무것도 출력하지 않습니다. */
-        .label.empty {
-            visibility: hidden;
-        }
-
+        .label.empty { visibility: hidden; }
         .label-header {
-            grid-row: 1;
-            width: 100%;
-            min-width: 0;
-            min-height: 0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 3mm;
-            overflow: hidden;
+            grid-row: 1; width: 100%; min-width: 0; display: flex; align-items: center;
+            justify-content: space-between; gap: 3mm; overflow: hidden;
         }
+        .label-header-left { min-width: 0; display: flex; align-items: center; gap: 1.7mm; overflow: hidden; font-size: var(--font-header); line-height: 1; white-space: nowrap; }
+        .brand-name { flex: 0 0 auto; font-size: var(--font-brand); font-weight: 500; line-height: 1; letter-spacing: 0.48mm; white-space: nowrap; }
 
-        .label-header-left {
-            min-width: 0;
-            display: flex;
-            align-items: center;
-            gap: 1.7mm;
-            overflow: hidden;
-            font-size: var(--font-header);
-            line-height: 1;
-            white-space: nowrap;
+        /* 실제 table + border-collapse로 모든 공유 경계를 단일 선으로 병합합니다. */
+        .report-table {
+            grid-row: 3; width: 100%; height: 125.5mm; table-layout: fixed;
+            border-collapse: collapse; border-spacing: 0; background: #fff;
+            font-size: var(--font-base); line-height: 1.28;
         }
-
-        .label-header-divider {
-            color: #777;
-        }
-
-        .brand-name {
-            flex: 0 0 auto;
-            font-size: var(--font-brand);
-            font-weight: 500;
-            line-height: 1;
-            letter-spacing: 0.48mm;
-            white-space: nowrap;
-        }
-
-        /*
-         * HTML table 대신 고정 grid를 사용하여 데이터 길이가 길어져도
-         * 스티커 크기와 각 행의 규격이 변하지 않도록 합니다.
-         */
-        .report-grid {
-            grid-row: 3;
-            width: 100%;
-            height: 100%;
-            min-width: 0;
-            min-height: 0;
-            display: grid;
-            grid-template-rows:
-                var(--row-company-height)
-                var(--row-category-color-height)
-                var(--row-product-height)
-                var(--row-size-height)
-                var(--row-memo-height)
-                minmax(0, 1fr);
+        .report-table col.col-label { width: 16%; }
+        .report-table col.col-value-main { width: 42%; }
+        .report-table col.col-label-secondary { width: 16%; }
+        .report-table col.col-value-secondary { width: 26%; }
+        .report-table tr.row-company { height: var(--row-company-height); }
+        .report-table tr.row-category-color { height: var(--row-category-color-height); }
+        .report-table tr.row-product { height: var(--row-product-height); }
+        .report-table tr.row-size { height: var(--row-size-height); }
+        .report-table tr.row-memo { height: var(--row-memo-height); }
+        .report-table tr.row-drawing { height: var(--row-drawing-height); }
+        .report-table th, .report-table td {
             border: var(--line-width) solid var(--line-color);
-            overflow: hidden;
-            font-size: var(--font-base);
-            line-height: 1.28;
+            min-width: 0; padding: 1.25mm 1.55mm; overflow: hidden;
+            vertical-align: middle; text-align: left; font-weight: 400;
         }
-
-        .report-row {
-            width: 100%;
-            min-width: 0;
-            min-height: 0;
-            display: grid;
-            grid-template-columns: 16% 42% 16% 26%;
-            overflow: hidden;
+        .report-table th.report-label {
+            padding-left: 0.7mm; padding-right: 0.7mm; text-align: center;
+            font-size: var(--font-label); font-weight: 700; line-height: 1.12; white-space: nowrap;
         }
-
-        .report-cell {
-            min-width: 0;
-            min-height: 0;
-            padding: 1.25mm 1.55mm;
-            border: 0;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-        }
-
-        /*
-         * 선을 양쪽 셀에서 각각 그리지 않고 공유 경계 한쪽에서만 그립니다.
-         * - 가로선: 다음 행의 위쪽 테두리만 사용
-         * - 세로선: 다음 셀의 왼쪽 테두리만 사용
-         * 이 방식으로 품목/색상/제품명 등 인접 셀 경계가 겹쳐 진해지는 현상을 방지합니다.
-         */
-        .report-row + .report-row {
-            border-top: var(--line-width) solid var(--line-color);
-        }
-
-        .report-row > .report-cell + .report-cell {
-            border-left: var(--line-width) solid var(--line-color);
-        }
-
-        .report-label {
-            padding-left: 0.7mm;
-            padding-right: 0.7mm;
-            justify-content: center;
-            text-align: center;
-            font-size: var(--font-label);
-            font-weight: 700;
-            line-height: 1.12;
-            white-space: nowrap;
-            background: #fff;
-        }
-
-        .report-value {
-            font-weight: 400;
-        }
-
-        .span-3 {
-            grid-column: span 3;
-        }
-
-        .align-top {
-            align-items: flex-start;
-        }
-
-        /*
-         * 셀 크기는 절대 변경하지 않습니다.
-         * 정상 줄바꿈을 먼저 적용하고, 그래도 넘치는 경우에만 JS가 글꼴을 줄입니다.
-         */
-        .fit-cell {
-            position: relative;
-        }
-
-        .fit-text {
-            display: block;
-            width: 100%;
-            max-width: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: visible;
-            white-space: pre-wrap;
-            word-break: keep-all;
-            overflow-wrap: normal;
-            line-height: 1.24;
-        }
-
-        .company-value .fit-text,
-        .product-value .fit-text {
-            font-weight: 500;
-        }
-
-        .drawing-cell {
-            padding: 0.9mm 1.2mm;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .drawing-frame {
-            width: 100%;
-            height: 100%;
-            min-width: 0;
-            min-height: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        .drawing-image {
-            display: block;
-            width: auto;
-            height: auto;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            object-position: center;
-        }
-
+        .fit-cell { position: relative; }
+        .fit-text { display: block; width: 100%; max-width: 100%; margin: 0; padding: 0; overflow: visible; white-space: pre-wrap; word-break: keep-all; overflow-wrap: normal; line-height: 1.24; }
+        .company-value .fit-text, .product-value .fit-text { font-weight: 500; }
+        .align-top { vertical-align: top !important; }
+        .drawing-cell { padding: 0.9mm 1.2mm !important; }
+        .drawing-frame { width: 100%; height: 100%; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .drawing-image { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; }
         @media screen {
-            html,
-            body {
-                width: auto;
-                min-width: var(--sheet-width);
-            }
-
-            body {
-                padding: 12px;
-                background: #eceff3;
-            }
-
-            .sheet {
-                margin: 0 auto 16px;
-                background: #fff;
-                box-shadow: 0 2px 14px rgba(0, 0, 0, 0.12);
-            }
+            html, body { width: auto; min-width: var(--sheet-width); }
+            body { padding: 12px; background: #eceff3; }
+            .sheet { margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.12); }
         }
-
         @media print {
-            html,
-            body {
-                width: var(--sheet-width);
-                background: #fff;
-            }
-
-            body {
-                padding: 0;
-            }
-
-            .sheet {
-                margin: 0;
-                box-shadow: none;
-            }
+            html, body { width: var(--sheet-width); background: #fff; }
+            body { padding: 0; }
+            .sheet { margin: 0; box-shadow: none; }
+            .report-table, .report-table th, .report-table td { border-color: var(--line-color) !important; }
         }
     </style>
 </head>
-
 <body>
-
-    <div th:if="${totalCount == 0}" class="no-print-items">
-        출력할 항목이 없습니다.
-    </div>
-
+    <div th:if="${totalCount == 0}" class="no-print-items">출력할 항목이 없습니다.</div>
     <div th:each="pageItems : ${pages}" class="sheet">
-
         <article th:each="item : ${pageItems}" class="label">
             <header class="label-header">
-                <div class="label-header-left">
-                    <span th:text="${item.standard ? '규격' : '비규격'}">비규격</span>
-                </div>
-
+                <div class="label-header-left"><span th:text="${item.standard ? '규격' : '비규격'}">비규격</span></div>
                 <div class="brand-name">HIDDEN BATH</div>
             </header>
 
-            <div class="report-grid" role="table" aria-label="생산 스티커 정보">
-                <div class="report-row" role="row">
-                    <div class="report-cell report-label" role="rowheader">업체명</div>
-                    <div class="report-cell report-value span-3 fit-cell company-value"
-                        role="cell" data-max-font="9.7" data-min-font="5.5">
-                        <span class="fit-text"
-                            th:text="${item.companyName != null and item.companyName != '' ? item.companyName : '-'}">
-                            주식회사 더이케이파트너스
-                        </span>
-                    </div>
-                </div>
-
-                <div class="report-row" role="row">
-                    <div class="report-cell report-label" role="rowheader">품목</div>
-                    <div class="report-cell report-value fit-cell"
-                        role="cell" data-max-font="9.7" data-min-font="5.2">
-                        <span class="fit-text"
-                            th:text="${item.category != null and item.category != '' ? item.category : '-'}">
-                            욕실용품
-                        </span>
-                    </div>
-                    <div class="report-cell report-label" role="rowheader">색상</div>
-                    <div class="report-cell report-value fit-cell"
-                        role="cell" data-max-font="9.7" data-min-font="5.0">
-                        <span class="fit-text"
-                            th:text="${item.color != null and item.color != '' ? item.color : '-'}">
-                            페블 프러스트
-                        </span>
-                    </div>
-                </div>
-
-                <div class="report-row" role="row">
-                    <div class="report-cell report-label" role="rowheader">제품명</div>
-                    <div class="report-cell report-value span-3 fit-cell product-value"
-                        role="cell" data-max-font="9.7" data-min-font="4.8">
-                        <span class="fit-text"
-                            th:text="${item.productName != null and item.productName != '' ? item.productName : '-'}">
-                            대리석 일자 선반 W (페블프러스트)
-                        </span>
-                    </div>
-                </div>
-
-                <div class="report-row" role="row">
-                    <div class="report-cell report-label" role="rowheader">사이즈</div>
-                    <div class="report-cell report-value span-3 fit-cell"
-                        role="cell" data-max-font="9.7" data-min-font="5.2">
-                        <span class="fit-text"
-                            th:text="${item.size != null and item.size != '' ? item.size : '-'}">
-                            700*100
-                        </span>
-                    </div>
-                </div>
-
-                <div class="report-row" role="row">
-                    <div class="report-cell report-label" role="rowheader">비고</div>
-                    <div class="report-cell report-value span-3 fit-cell align-top"
-                        role="cell" data-max-font="9.3" data-min-font="4.0">
-                        <span class="fit-text"
-                            th:text="${item.adminMemo != null ? item.adminMemo : ''}">
-                            관리자 메모
-                        </span>
-                    </div>
-                </div>
-
-                <div class="report-row" role="row">
-                    <div class="report-cell report-label" role="rowheader">도면</div>
-                    <div class="report-cell report-value span-3 drawing-cell" role="cell">
-                        <div class="drawing-frame">
-                            <img th:if="${item.adminImageUrl != null and item.adminImageUrl != ''}"
-                                class="drawing-image"
-                                th:src="${item.adminImageUrl}"
-                                alt="관리자 도면 이미지">
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <table class="report-table" aria-label="생산 스티커 정보">
+                <colgroup>
+                    <col class="col-label">
+                    <col class="col-value-main">
+                    <col class="col-label-secondary">
+                    <col class="col-value-secondary">
+                </colgroup>
+                <tbody>
+                    <tr class="row-company">
+                        <th scope="row" class="report-label">업체명</th>
+                        <td colspan="3" class="fit-cell company-value" data-max-font="9.7" data-min-font="5.5">
+                            <span class="fit-text" th:text="${item.companyName != null and item.companyName != '' ? item.companyName : '-'}">주식회사 더이케이파트너스</span>
+                        </td>
+                    </tr>
+                    <tr class="row-category-color">
+                        <th scope="row" class="report-label">품목</th>
+                        <td class="fit-cell" data-max-font="9.7" data-min-font="5.2">
+                            <span class="fit-text" th:text="${item.category != null and item.category != '' ? item.category : '-'}">욕실용품</span>
+                        </td>
+                        <th scope="row" class="report-label">색상</th>
+                        <td class="fit-cell" data-max-font="9.7" data-min-font="5.0">
+                            <span class="fit-text" th:text="${item.color != null and item.color != '' ? item.color : '-'}">페블 프러스트</span>
+                        </td>
+                    </tr>
+                    <tr class="row-product">
+                        <th scope="row" class="report-label">제품명</th>
+                        <td colspan="3" class="fit-cell product-value" data-max-font="9.7" data-min-font="4.8">
+                            <span class="fit-text" th:text="${item.productName != null and item.productName != '' ? item.productName : '-'}">대리석 일자 선반 W (페블프러스트)</span>
+                        </td>
+                    </tr>
+                    <tr class="row-size">
+                        <th scope="row" class="report-label">사이즈</th>
+                        <td colspan="3" class="fit-cell" data-max-font="9.7" data-min-font="5.2">
+                            <span class="fit-text" th:text="${item.size != null and item.size != '' ? item.size : '-'}">700*100</span>
+                        </td>
+                    </tr>
+                    <tr class="row-memo">
+                        <th scope="row" class="report-label">비고</th>
+                        <td colspan="3" class="fit-cell align-top" data-max-font="9.3" data-min-font="4.0">
+                            <span class="fit-text" th:text="${item.adminMemo != null ? item.adminMemo : ''}">관리자 메모</span>
+                        </td>
+                    </tr>
+                    <tr class="row-drawing">
+                        <th scope="row" class="report-label">도면</th>
+                        <td colspan="3" class="drawing-cell">
+                            <div class="drawing-frame">
+                                <img th:if="${item.adminImageUrl != null and item.adminImageUrl != ''}" class="drawing-image" th:src="${item.adminImageUrl}" alt="관리자 도면 이미지">
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </article>
-
-        <!-- 마지막 페이지가 4건 미만이어도 빈 칸이 같은 규격을 점유합니다. -->
-        <article th:if="${pageItems.size() < 4}"
-            th:each="x : ${#numbers.sequence(1, 4 - pageItems.size())}"
-            class="label empty"
-            aria-hidden="true">
-            <span>.</span>
-        </article>
+        <article th:if="${pageItems.size() < 4}" th:each="x : ${#numbers.sequence(1, 4 - pageItems.size())}" class="label empty" aria-hidden="true"><span>.</span></article>
     </div>
-
     <script>
         (function () {
             'use strict';
