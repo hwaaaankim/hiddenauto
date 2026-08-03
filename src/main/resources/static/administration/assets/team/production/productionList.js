@@ -8,9 +8,11 @@
 	// ===== DOM =====
 	const $form = document.getElementById('team-production-filter-form');
 
-	const $sortKey = document.getElementById('team-production-sortKey');
-	const $sortDir = document.getElementById('team-production-sortDir');
+	const $sortSpec = document.getElementById('team-production-sortSpec');
 	const $sortBtns = Array.from(document.querySelectorAll('.team-production-sort-btn'));
+	const $sortControls = Array.from(document.querySelectorAll('.team-production-sort-controls'));
+	const $searchResetBtn = document.getElementById('team-production-search-reset-btn');
+	const $sortResetBtn = document.getElementById('team-production-sort-reset-btn');
 
 	const canBulkComplete = (document.getElementById('team-production-can-bulk-complete')?.value === 'true');
 	const $btnBulkDone = document.getElementById('team-production-bulk-done-btn');
@@ -94,20 +96,37 @@
 	}
 
 	function syncSortIcons() {
-		const cur = getCurrentSort();
+		const sortOrders = getCurrentSortOrders();
+		const activeMap = new Map();
+
+		sortOrders.forEach((order, index) => {
+			activeMap.set(order.key, { dir: order.dir, priority: index + 1 });
+		});
 
 		$sortBtns.forEach(btn => {
-			const key = btn.getAttribute('data-sort-key');
-			const icon = btn.querySelector('.team-production-sort-icon');
-			if (!icon) return;
+			const key = String(btn.getAttribute('data-sort-key') || '').trim();
+			const dir = String(btn.getAttribute('data-sort-dir') || '').trim().toUpperCase();
+			const active = activeMap.get(key);
 
-			btn.classList.toggle('is-active', !!cur.key && cur.key === key);
+			btn.classList.toggle('is-active', !!active && active.dir === dir);
+			btn.setAttribute('aria-pressed', active && active.dir === dir ? 'true' : 'false');
 
-			if (cur.key === key) {
-				icon.textContent = cur.dir === 'DESC' ? '▼' : '▲';
+			if (active && active.dir === dir) {
+				btn.title = `${active.priority}순위 ${dir === 'ASC' ? '오름차순' : '내림차순'} - 다시 누르면 이 조건만 해제`;
 			} else {
-				icon.textContent = '▲▼';
+				btn.title = `${dir === 'ASC' ? '오름차순' : '내림차순'} 정렬 추가`;
 			}
+		});
+
+		$sortControls.forEach(control => {
+			const key = String(control.getAttribute('data-sort-key') || '').trim();
+			const priority = control.querySelector('.team-production-sort-priority');
+			const active = activeMap.get(key);
+
+			if (!priority) return;
+
+			priority.textContent = active ? String(active.priority) : '';
+			priority.classList.toggle('is-visible', !!active);
 		});
 	}
 
@@ -257,38 +276,130 @@
 		}
 	});
 
-	// ===== 정렬 기능 (항상 동작) =====
-	function submitWithSort(nextKey, nextDir) {
+	// ===== 다중 정렬 / 초기화 =====
+	const allowedSortKeys = new Set(['id', 'productName', 'productSeries', 'deliveryDate', 'checked']);
+
+	function normalizeSortDirection(value) {
+		const normalized = String(value || '').trim().toUpperCase();
+		return normalized === 'ASC' || normalized === 'DESC' ? normalized : null;
+	}
+
+	function parseSortSpec(value) {
+		const result = [];
+		const indexByKey = new Map();
+
+		String(value || '').split(',').forEach(token => {
+			const parts = token.trim().split(':');
+			const key = String(parts[0] || '').trim();
+			const dir = normalizeSortDirection(parts[1]);
+
+			if (!allowedSortKeys.has(key) || !dir) return;
+
+			if (indexByKey.has(key)) {
+				result[indexByKey.get(key)] = { key, dir };
+				return;
+			}
+
+			indexByKey.set(key, result.length);
+			result.push({ key, dir });
+		});
+
+		return result;
+	}
+
+	function serializeSortOrders(sortOrders) {
+		return (sortOrders || [])
+			.filter(order => order && allowedSortKeys.has(order.key) && normalizeSortDirection(order.dir))
+			.map(order => `${order.key}:${normalizeSortDirection(order.dir)}`)
+			.join(',');
+	}
+
+	function getCurrentSortOrders() {
+		return parseSortSpec($sortSpec?.value || '');
+	}
+
+	function submitWithSortOrders(sortOrders) {
 		if (!$form) return;
-		if ($sortKey) $sortKey.value = nextKey || '';
-		if ($sortDir) $sortDir.value = nextDir || '';
-		// 정렬 변경 시 첫 페이지로
+		if ($sortSpec) $sortSpec.value = serializeSortOrders(sortOrders);
+
 		const pageInput = $form.querySelector('input[name="page"]');
 		if (pageInput) pageInput.value = '0';
+
 		$form.submit();
 	}
 
-	function getCurrentSort() {
-		const key = ($sortKey?.value || '').trim();
-		const dir = ($sortDir?.value || '').trim().toUpperCase();
-		return { key, dir };
+	function toggleSortCondition(clickedKey, clickedDir) {
+		const key = String(clickedKey || '').trim();
+		const dir = normalizeSortDirection(clickedDir);
+
+		if (!allowedSortKeys.has(key) || !dir) return;
+
+		const current = getCurrentSortOrders();
+		const index = current.findIndex(order => order.key === key);
+
+		if (index < 0) {
+			current.push({ key, dir });
+		} else if (current[index].dir === dir) {
+			// 같은 화살표를 다시 누르면 해당 정렬 조건만 제거합니다.
+			current.splice(index, 1);
+		} else {
+			// 반대 화살표는 기존 우선순위를 유지한 채 방향만 변경합니다.
+			current[index] = { key, dir };
+		}
+
+		submitWithSortOrders(current);
 	}
 
-	function computeNextDir(clickedKey) {
-		const cur = getCurrentSort();
-		if (!cur.key || cur.key !== clickedKey) return 'ASC';
-		return (cur.dir === 'ASC') ? 'DESC' : 'ASC';
+	function setFormValue(selector, value) {
+		const element = $form?.querySelector(selector);
+		if (element) element.value = value;
+	}
+
+	function resetSearchFilters() {
+		if (!$form) return;
+
+		// 정렬(sortSpec)과 표시 개수(size)는 유지하고 검색 조건만 최초 상태로 복원합니다.
+		setFormValue('[name="orderId"]', '');
+		setFormValue('[name="productName"]', '');
+		setFormValue('[name="productCategoryId"]', '');
+		setFormValue('[name="dateType"]', 'preferred');
+		setFormValue('[name="startDate"]', '');
+		setFormValue('[name="endDate"]', '');
+		setFormValue('[name="statusFilter"]', 'CONFIRMED');
+		setFormValue('[name="standardType"]', 'ALL');
+
+		const pageInput = $form.querySelector('input[name="page"]');
+		if (pageInput) pageInput.value = '0';
+
+		$form.submit();
+	}
+
+	function resetAllSortFilters() {
+		if (!$form) return;
+		if ($sortSpec) $sortSpec.value = '';
+
+		const pageInput = $form.querySelector('input[name="page"]');
+		if (pageInput) pageInput.value = '0';
+
+		$form.submit();
 	}
 
 	$sortBtns.forEach(btn => {
 		btn.addEventListener('click', function () {
-			const key = btn.getAttribute('data-sort-key');
-			if (!key) return;
-
-			const nextDir = computeNextDir(key);
-			submitWithSort(key, nextDir);
+			toggleSortCondition(
+				btn.getAttribute('data-sort-key'),
+				btn.getAttribute('data-sort-dir')
+			);
 		});
 	});
+
+	if ($searchResetBtn) {
+		$searchResetBtn.addEventListener('click', resetSearchFilters);
+	}
+
+	if ($sortResetBtn) {
+		$sortResetBtn.addEventListener('click', resetAllSortFilters);
+	}
 
 	// ===== 벌크 기능 (권한 있을 때만 활성) =====
 	if (!canBulkComplete) {

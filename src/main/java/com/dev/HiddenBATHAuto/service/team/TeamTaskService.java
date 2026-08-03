@@ -10,13 +10,16 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,7 @@ import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
 import com.dev.HiddenBATHAuto.dto.production.ProductionCheckViewDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionListExcelRowDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOrderCheckResponse;
+import com.dev.HiddenBATHAuto.dto.production.ProductionSortOrder;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewFieldDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionOverviewImageDto;
@@ -66,6 +70,7 @@ public class TeamTaskService {
 			OrderStatus.DISPATCH_DONE,
 			OrderStatus.DELIVERY_DONE
 	);
+	private static final int PRODUCTION_CHECK_VIEW_BATCH_SIZE = 500;
 
 	private static final Long MIRROR_CUTTING_TEAM_CATEGORY_ID = 14L;
 	private static final String MIRROR_CUTTING_TEAM_CATEGORY_NAME = "재단(거울)";
@@ -75,10 +80,43 @@ public class TeamTaskService {
 			MIRROR_CUTTING_TEAM_CATEGORY_NAME
 	);
 
+	/**
+	 * 기존 호출부 호환용입니다. 규격 조건을 지정하지 않은 전체 조회로 위임합니다.
+	 */
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
             Long categoryId,
             Long orderId,
             String productNameKeyword,
+            String dateType,
+            OrderStatus statusFilter,
+            LocalDateTime start,
+            LocalDateTime end,
+            boolean mirrorCuttingOnly,
+            Long memberId,
+            boolean prioritizeUnchecked,
+            Pageable pageable
+    ) {
+        return getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+                categoryId,
+                orderId,
+                productNameKeyword,
+                null,
+                dateType,
+                statusFilter,
+                start,
+                end,
+                mirrorCuttingOnly,
+                memberId,
+                prioritizeUnchecked,
+                pageable
+        );
+    }
+
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+            Long categoryId,
+            Long orderId,
+            String productNameKeyword,
+            Boolean standard,
             String dateType,
             OrderStatus statusFilter,
             LocalDateTime start,
@@ -102,6 +140,7 @@ public class TeamTaskService {
                     mirrorCuttingOnly,
                     orderId,
                     normalizedProductNameKeyword,
+                    standard,
                     allStatus,
                     effectiveStatusFilter,
                     PRODUCTION_LIST_VISIBLE_STATUSES,
@@ -118,6 +157,7 @@ public class TeamTaskService {
                     mirrorCuttingOnly,
                     orderId,
                     normalizedProductNameKeyword,
+                    standard,
                     allStatus,
                     effectiveStatusFilter,
                     PRODUCTION_LIST_VISIBLE_STATUSES,
@@ -226,21 +266,42 @@ public class TeamTaskService {
 	}
 
 	/**
-	 * ✅ 신규 추가(에러 해결 핵심): 컨트롤러에서 호출하는 메서드 시그니처와 동일합니다.
-	 *
-	 * - statusFilter가 null이면 ALL (전체) - statusFilter가 있으면 해당 상태만 -
-	 * dateType(created/preferred)에 따라 createdAt or preferredDeliveryDate 기준 기간 필터
-	 * 적용
-	 *
-	 * ⚠️ 이 메서드를 사용하려면 OrderRepository에
-	 * findProductionListByCreatedRangeStatusSortable /
-	 * findProductionListByPreferredRangeStatusSortable 메서드가 존재해야 합니다(아래 2)에서 전체 코드
-	 * 제공).
+	 * 기존 호출부 호환용입니다. 규격 조건을 지정하지 않은 전체 조회로 위임합니다.
 	 */
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
 	        Long categoryId,
 	        Long orderId,
             String productNameKeyword,
+	        String dateType,
+	        OrderStatus statusFilter,
+	        LocalDateTime start,
+	        LocalDateTime end,
+	        boolean mirrorCuttingOnly,
+	        Pageable pageable
+	) {
+        return getProductionOrdersByDateTypeAndStatusFilter(
+                categoryId,
+                orderId,
+                productNameKeyword,
+                null,
+                dateType,
+                statusFilter,
+                start,
+                end,
+                mirrorCuttingOnly,
+                pageable
+        );
+    }
+
+	/**
+	 * 생산팀 목록을 상태, 기간, 제품명, 규격 여부로 조회합니다.
+	 * standard가 null이면 규격/비규격 전체를 조회합니다.
+	 */
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
+	        Long categoryId,
+	        Long orderId,
+            String productNameKeyword,
+            Boolean standard,
 	        String dateType,
 	        OrderStatus statusFilter,
 	        LocalDateTime start,
@@ -262,6 +323,7 @@ public class TeamTaskService {
 		            mirrorCuttingOnly,
 		            orderId,
                     normalizedProductNameKeyword,
+                    standard,
 		            allStatus,
 		            effectiveStatusFilter,
 		            PRODUCTION_LIST_VISIBLE_STATUSES,
@@ -275,6 +337,7 @@ public class TeamTaskService {
 		            mirrorCuttingOnly,
 		            orderId,
                     normalizedProductNameKeyword,
+                    standard,
 		            allStatus,
 		            effectiveStatusFilter,
 		            PRODUCTION_LIST_VISIBLE_STATUSES,
@@ -287,6 +350,233 @@ public class TeamTaskService {
 		applySingleLineOptionSummary(page);
 
 		return page;
+	}
+
+	/**
+	 * 화면에서 선택한 여러 정렬 조건을 클릭 순서대로 적용합니다.
+	 *
+	 * 제품 중분류는 optionJson을 가공한 표시값이고 체크상태는 로그인 사용자별 값이므로
+	 * 단순한 Pageable Sort만으로는 정확한 다중 정렬을 만들 수 없습니다.
+	 * 사용자 정렬이 있는 경우에만 필터 결과 전체를 조회한 뒤 정렬하고, 마지막에 현재 페이지를 잘라 반환합니다.
+	 * 정렬 조건이 없는 기본 조회는 기존 DB 페이징 경로를 그대로 사용합니다.
+	 */
+	@Transactional(readOnly = true)
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
+			Long categoryId,
+			Long orderId,
+			String productNameKeyword,
+			Boolean standard,
+			String dateType,
+			OrderStatus statusFilter,
+			LocalDateTime start,
+			LocalDateTime end,
+			boolean mirrorCuttingOnly,
+			Member loginMember,
+			List<ProductionSortOrder> sortOrders,
+			Pageable pageable
+	) {
+		validateProductionTeamMember(loginMember);
+
+		boolean useCreated = "created".equalsIgnoreCase(dateType);
+		String normalizedProductNameKeyword = normalizeKeyword(productNameKeyword);
+		OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
+		boolean allStatus = effectiveStatusFilter == null;
+
+		List<Order> orders = useCreated
+				? orderRepository.findProductionListByCreatedRangeStatusForMultiSort(
+						categoryId, mirrorCuttingOnly, orderId, normalizedProductNameKeyword, standard,
+						allStatus, effectiveStatusFilter, PRODUCTION_LIST_VISIBLE_STATUSES, start, end)
+				: orderRepository.findProductionListByPreferredRangeStatusForMultiSort(
+						categoryId, mirrorCuttingOnly, orderId, normalizedProductNameKeyword, standard,
+						allStatus, effectiveStatusFilter, PRODUCTION_LIST_VISIBLE_STATUSES, start, end);
+
+		if (orders == null || orders.isEmpty()) {
+			return pageable == null || pageable.isUnpaged()
+					? new PageImpl<>(List.of())
+					: new PageImpl<>(List.of(), pageable, 0);
+		}
+
+		applySingleLineOptionSummary(orders);
+
+		List<Long> orderIds = orders.stream()
+				.map(Order::getId)
+				.filter(Objects::nonNull)
+				.toList();
+
+		Map<Long, ProductionCheckViewDto> checkViewMap = getProductionCheckViewMapInBatches(
+				orderIds,
+				loginMember
+		);
+
+		orders.sort(buildProductionMultiComparator(sortOrders, checkViewMap, dateType));
+
+		if (pageable == null || pageable.isUnpaged()) {
+			return new PageImpl<>(new ArrayList<>(orders));
+		}
+
+		int total = orders.size();
+		int fromIndex = (int) Math.min(pageable.getOffset(), total);
+		int toIndex = Math.min(fromIndex + pageable.getPageSize(), total);
+
+		return new PageImpl<>(
+				new ArrayList<>(orders.subList(fromIndex, toIndex)),
+				pageable,
+				total
+		);
+	}
+
+	private Comparator<Order> buildProductionMultiComparator(
+			List<ProductionSortOrder> sortOrders,
+			Map<Long, ProductionCheckViewDto> checkViewMap,
+			String dateType
+	) {
+		Comparator<Order> combined = null;
+		LinkedHashSet<String> appliedKeys = new LinkedHashSet<>();
+
+		if (sortOrders != null) {
+			for (ProductionSortOrder sortOrder : sortOrders) {
+				if (sortOrder == null || sortOrder.key() == null || sortOrder.key().isBlank()) {
+					continue;
+				}
+
+				String key = sortOrder.key().trim();
+				if (!appliedKeys.add(key)) {
+					continue;
+				}
+
+				Comparator<Order> next = buildProductionComparatorForKey(key, sortOrder.ascending(), checkViewMap);
+				if (next == null) {
+					appliedKeys.remove(key);
+					continue;
+				}
+
+				combined = combined == null ? next : combined.thenComparing(next);
+			}
+		}
+
+		// 사용자가 선택한 조건의 동률 데이터는 기존 최초 조회 순서로 안정적으로 정렬합니다.
+		if (!appliedKeys.contains("checked")) {
+			Comparator<Order> revisedFirst = Comparator.comparingInt(
+					order -> resolveDefaultRevisionRank(order, checkViewMap)
+			);
+			combined = combined == null ? revisedFirst : combined.thenComparing(revisedFirst);
+		}
+
+		String defaultDateKey = "created".equalsIgnoreCase(dateType) ? "createdAt" : "preferredDeliveryDate";
+		if (!("preferredDeliveryDate".equals(defaultDateKey) && appliedKeys.contains("deliveryDate"))) {
+			Comparator<Order> defaultDate = "createdAt".equals(defaultDateKey)
+					? compareNullable(Order::getCreatedAt, false)
+					: compareNullable(Order::getPreferredDeliveryDate, false);
+			combined = combined == null ? defaultDate : combined.thenComparing(defaultDate);
+		}
+
+		if (!appliedKeys.contains("id")) {
+			Comparator<Order> defaultId = compareNullable(Order::getId, false);
+			combined = combined == null ? defaultId : combined.thenComparing(defaultId);
+		}
+
+		return combined != null ? combined : compareNullable(Order::getId, false);
+	}
+
+	private Comparator<Order> buildProductionComparatorForKey(
+			String key,
+			boolean ascending,
+			Map<Long, ProductionCheckViewDto> checkViewMap
+	) {
+		return switch (key) {
+		case "id" -> compareNullable(Order::getId, ascending);
+		case "productName" -> compareNullable(this::resolveProductionSortProductName, ascending);
+		case "productSeries" -> compareNullable(this::resolveProductionSortProductSeries, ascending);
+		case "deliveryDate" -> compareNullable(Order::getPreferredDeliveryDate, ascending);
+		case "checked" -> {
+			Comparator<Order> comparator = Comparator.comparingInt(
+					order -> resolveFullCheckRank(order, checkViewMap)
+			);
+			yield ascending ? comparator : comparator.reversed();
+		}
+		default -> null;
+		};
+	}
+
+	private <T extends Comparable<? super T>> Comparator<Order> compareNullable(
+			Function<Order, T> extractor,
+			boolean ascending
+	) {
+		Comparator<T> valueComparator = ascending
+				? Comparator.nullsLast(Comparator.naturalOrder())
+				: Comparator.nullsLast(Comparator.reverseOrder());
+
+		return Comparator.comparing(extractor, valueComparator);
+	}
+
+	private String resolveProductionSortProductName(Order order) {
+		OrderItem item = order != null ? order.getOrderItem() : null;
+		String value = firstNonBlank(
+				item != null ? item.getProductionProductName() : null,
+				item != null ? item.getProductName() : null
+		);
+		return normalizeSortText(value);
+	}
+
+	private String resolveProductionSortProductSeries(Order order) {
+		OrderItem item = order != null ? order.getOrderItem() : null;
+		return normalizeSortText(item != null ? item.getProductionProductSeries() : null);
+	}
+
+	private String normalizeSortText(String value) {
+		String normalized = safeText(value);
+		return normalized.isBlank() ? null : normalized.toLowerCase(Locale.KOREAN);
+	}
+
+	private int resolveFullCheckRank(Order order, Map<Long, ProductionCheckViewDto> checkViewMap) {
+		String state = resolveCheckStateName(order, checkViewMap);
+
+		if (OrderCheckState.REVISED_AFTER_CHECK.name().equals(state)) {
+			return 0;
+		}
+		if (OrderCheckState.CHECKED.name().equals(state)) {
+			return 2;
+		}
+		return 1;
+	}
+
+	private int resolveDefaultRevisionRank(Order order, Map<Long, ProductionCheckViewDto> checkViewMap) {
+		return OrderCheckState.REVISED_AFTER_CHECK.name().equals(resolveCheckStateName(order, checkViewMap)) ? 0 : 1;
+	}
+
+	private String resolveCheckStateName(Order order, Map<Long, ProductionCheckViewDto> checkViewMap) {
+		if (order == null || order.getId() == null || checkViewMap == null) {
+			return OrderCheckState.UNCHECKED.name();
+		}
+
+		ProductionCheckViewDto checkView = checkViewMap.get(order.getId());
+		String state = checkView != null ? checkView.getCheckState() : null;
+		return state == null || state.isBlank() ? OrderCheckState.UNCHECKED.name() : state;
+	}
+
+	private Map<Long, ProductionCheckViewDto> getProductionCheckViewMapInBatches(
+			List<Long> orderIds,
+			Member loginMember
+	) {
+		Map<Long, ProductionCheckViewDto> result = new LinkedHashMap<>();
+
+		if (orderIds == null || orderIds.isEmpty()) {
+			return result;
+		}
+
+		for (int from = 0; from < orderIds.size(); from += PRODUCTION_CHECK_VIEW_BATCH_SIZE) {
+			int to = Math.min(from + PRODUCTION_CHECK_VIEW_BATCH_SIZE, orderIds.size());
+			List<Long> batch = orderIds.subList(from, to);
+
+			Map<Long, ProductionCheckViewDto> batchResult = orderChangeAuditService
+					.getProductionCheckViewMap(batch, loginMember);
+
+			if (batchResult != null && !batchResult.isEmpty()) {
+				result.putAll(batchResult);
+			}
+		}
+
+		return result;
 	}
 
 	private String normalizeKeyword(String value) {
@@ -314,26 +604,36 @@ public class TeamTaskService {
 		
 	// ✅ 옵션 한줄 요약 세팅(공통화)
 	private void applySingleLineOptionSummary(Page<Order> page) {
-	    if (page == null || page.getContent() == null) {
-	        return;
-	    }
+		if (page == null) {
+			return;
+		}
+		applySingleLineOptionSummary(page.getContent());
+	}
 
-	    for (Order order : page.getContent()) {
-	        OrderItem item = order.getOrderItem();
+	private void applySingleLineOptionSummary(List<Order> orders) {
+		if (orders == null || orders.isEmpty()) {
+			return;
+		}
 
-	        if (item == null) {
-	            continue;
-	        }
+		for (Order order : orders) {
+			if (order == null) {
+				continue;
+			}
 
-	        item.setFormattedOptionText(buildOptionSummarySingleLine(order, item));
+			OrderItem item = order.getOrderItem();
+			if (item == null) {
+				continue;
+			}
 
-	        ProductionListDisplayParts displayParts = buildProductionListDisplayParts(order, item);
-	        item.setProductionProductName(displayParts.productName());
-	        item.setProductionProductSeries(displayParts.productSeries());
-	        item.setProductionColor(displayParts.color());
-	        item.setProductionSize(displayParts.size());
-	        item.setProductionCategory(displayParts.category());
-	    }
+			item.setFormattedOptionText(buildOptionSummarySingleLine(order, item));
+
+			ProductionListDisplayParts displayParts = buildProductionListDisplayParts(order, item);
+			item.setProductionProductName(displayParts.productName());
+			item.setProductionProductSeries(displayParts.productSeries());
+			item.setProductionColor(displayParts.color());
+			item.setProductionSize(displayParts.size());
+			item.setProductionCategory(displayParts.category());
+		}
 	}
 	
 	private ProductionListDisplayParts buildProductionListDisplayParts(Order order, OrderItem item) {

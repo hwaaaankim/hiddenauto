@@ -791,6 +791,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
               AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+              AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
@@ -801,6 +802,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
             @Param("productNameKeyword") String productNameKeyword,
+            @Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
 			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
@@ -817,6 +819,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			      AND (:orderId IS NULL OR o.id = :orderId)
               AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+              AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
 			      AND (:start IS NULL OR o.createdAt >= :start)
@@ -827,12 +830,75 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
             @Param("productNameKeyword") String productNameKeyword,
+            @Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
 			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
 			@Param("start") LocalDateTime start,
 			@Param("end") LocalDateTime end,
 			Pageable pageable
+	);
+
+	// =========================
+	// 생산팀 목록 - 사용자 다중 정렬용 전체 조회
+	//
+	// 화면에서 선택한 여러 정렬 조건을 클릭 순서대로 적용하려면
+	// 체크상태와 optionJson 기반 중분류까지 함께 비교해야 하므로,
+	// 조건에 맞는 전체 목록을 조회한 뒤 TeamTaskService에서 정렬/페이징합니다.
+	// 기본 조회(정렬 조건 없음)는 기존 DB 페이징 쿼리를 그대로 사용합니다.
+	// =========================
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy", "checkStatus" })
+	@Query("""
+			    SELECT o FROM Order o
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderId IS NULL OR o.id = :orderId)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+			""")
+	List<Order> findProductionListByPreferredRangeStatusForMultiSort(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderId") Long orderId,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end
+	);
+
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy", "checkStatus" })
+	@Query("""
+			    SELECT o FROM Order o
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderId IS NULL OR o.id = :orderId)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.createdAt >= :start)
+			      AND (:end IS NULL OR o.createdAt < :end)
+			""")
+	List<Order> findProductionListByCreatedRangeStatusForMultiSort(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderId") Long orderId,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end
 	);
 
 	// =========================
@@ -860,6 +926,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                   AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
                   AND (:orderId IS NULL OR o.id = :orderId)
                   AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+                  AND (:standard IS NULL OR o.standard = :standard)
                   AND o.status IN :visibleStatuses
                   AND (:allStatus = true OR o.status = :statusFilter)
                   AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
@@ -887,6 +954,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                   AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
                   AND (:orderId IS NULL OR o.id = :orderId)
                   AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+                  AND (:standard IS NULL OR o.standard = :standard)
                   AND o.status IN :visibleStatuses
                   AND (:allStatus = true OR o.status = :statusFilter)
                   AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
@@ -898,6 +966,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderId") Long orderId,
             @Param("productNameKeyword") String productNameKeyword,
+            @Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
 			@Param("statusFilter") OrderStatus statusFilter,
 			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
@@ -931,6 +1000,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
               AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
               AND (:orderId IS NULL OR o.id = :orderId)
               AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+              AND (:standard IS NULL OR o.standard = :standard)
               AND o.status IN :visibleStatuses
               AND (:allStatus = true OR o.status = :statusFilter)
               AND (:start IS NULL OR o.createdAt >= :start)
@@ -958,6 +1028,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
               AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
               AND (:orderId IS NULL OR o.id = :orderId)
               AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+              AND (:standard IS NULL OR o.standard = :standard)
               AND o.status IN :visibleStatuses
               AND (:allStatus = true OR o.status = :statusFilter)
               AND (:start IS NULL OR o.createdAt >= :start)
@@ -969,6 +1040,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	        @Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 	        @Param("orderId") Long orderId,
             @Param("productNameKeyword") String productNameKeyword,
+            @Param("standard") Boolean standard,
 	        @Param("allStatus") boolean allStatus,
 	        @Param("statusFilter") OrderStatus statusFilter,
 	        @Param("visibleStatuses") List<OrderStatus> visibleStatuses,
