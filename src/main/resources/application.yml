@@ -1,5 +1,9 @@
 # application.yml - 프로젝트에 존재
 
+feature:
+  amount-item-sync:
+    enabled: true
+
 spring:
   profiles:
     active: test
