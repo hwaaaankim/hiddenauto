@@ -7,18 +7,169 @@
 
 <body class="twocolumn-panel">
 	<style>
-		.admin-task-list-second-page .admin-task-list-second-note-cell,
-		.admin-task-list-second-page .admin-task-list-second-product-cell,
+		/*
+		 * 관리자 발주 목록 전용 열 너비
+		 *
+		 * 고정 열은 colgroup에서 지정하고, 상태 열만 남는 공간을 사용합니다.
+		 * 따라서 대리점명이 임의로 넓어지지 않으며 제품정보 250px,
+		 * 비고 300px, 날짜 열 너비가 안정적으로 유지됩니다.
+		 */
+		.admin-task-list-second-page .admin-task-list-second-table-wrap {
+			width: 100%;
+			overflow-x: auto;
+			overflow-y: visible;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-table {
+			width: 100% !important;
+			min-width: 1380px !important;
+			table-layout: fixed !important;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-table th,
+		.admin-task-list-second-page .admin-task-list-second-table td {
+			box-sizing: border-box;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-main-row {
+			height: auto !important;
+			min-height: 0 !important;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-main-row>td {
+			height: auto !important;
+			min-height: 0 !important;
+			padding-top: 12px !important;
+			padding-bottom: 12px !important;
+			vertical-align: middle !important;
+		}
+
+		/* 대리점명: 120px 열 안에서 한 줄 말줄임 */
+		.admin-task-list-second-page .admin-task-list-second-agency-column,
+		.admin-task-list-second-page .admin-task-list-second-agency-column .admin-task-list-second-ellipsis {
+			min-width: 0 !important;
+			max-width: 100% !important;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-agency-column .admin-task-list-second-ellipsis {
+			display: block !important;
+			overflow: hidden !important;
+			white-space: nowrap !important;
+			text-overflow: ellipsis !important;
+		}
+
+		/* 제품분류: 90px 열 안에서 한 줄 말줄임 */
+		.admin-task-list-second-page .admin-task-list-second-category-column,
+		.admin-task-list-second-page .admin-task-list-second-category-column .admin-task-list-second-ellipsis {
+			min-width: 0 !important;
+			max-width: 100% !important;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-category-column .admin-task-list-second-ellipsis {
+			display: block !important;
+			overflow: hidden !important;
+			white-space: nowrap !important;
+			text-overflow: ellipsis !important;
+		}
+
+		/* 제품정보: colgroup 기준 250px, 초과 내용은 줄바꿈 */
+		.admin-task-list-second-page .admin-task-list-second-product-column {
+			min-width: 0 !important;
+			max-width: 300px !important;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-product-cell {
+			display: block !important;
+			width: 100% !important;
+			min-width: 0 !important;
+			max-width: 100% !important;
+			height: auto !important;
+			min-height: 0 !important;
+			max-height: none !important;
+			margin: 0 !important;
+			padding: 0 !important;
+			white-space: normal !important;
+			word-break: break-word !important;
+			overflow-wrap: anywhere !important;
+			overflow: visible !important;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-product-name {
+			display: block !important;
+			width: 100% !important;
+			min-width: 0 !important;
+			max-width: 100% !important;
+			margin: 0 0 2px 0 !important;
+			padding: 0 !important;
+			font-size: 14px;
+			font-weight: 700;
+			line-height: 1.3;
+			color: #111827;
+			white-space: normal !important;
+			word-break: break-word !important;
+			overflow-wrap: anywhere !important;
+		}
+
 		.admin-task-list-second-page .admin-task-list-second-product-summary {
+			display: block !important;
+			width: 100% !important;
+			min-width: 0 !important;
+			max-width: 100% !important;
+			height: auto !important;
+			min-height: 0 !important;
+			max-height: none !important;
+			margin: 0 !important;
+			padding: 0 !important;
+			font-size: 12px;
+			font-weight: 400;
+			line-height: 1.35;
+			color: #64748b;
+			white-space: normal !important;
+			word-break: break-word !important;
+			overflow-wrap: anywhere !important;
+			overflow: visible !important;
+			text-overflow: clip !important;
+			-webkit-line-clamp: unset !important;
+			-webkit-box-orient: initial !important;
+		}
+
+		/* 비고: colgroup 기준 300px, 원래 줄바꿈과 자동 줄바꿈 모두 유지 */
+		.admin-task-list-second-page .admin-task-list-second-note-column {
+			min-width: 0 !important;
+			max-width: 400px !important;
+		}
+
+		.admin-task-list-second-page .admin-task-list-second-note-cell {
+			display: block !important;
+			width: 100% !important;
+			min-width: 0 !important;
+			max-width: 100% !important;
+			height: auto !important;
+			min-height: 0 !important;
+			max-height: none !important;
+			margin: 0 !important;
+			padding: 0 !important;
 			white-space: pre-wrap !important;
 			word-break: break-word !important;
 			overflow-wrap: anywhere !important;
 			overflow: visible !important;
 			text-overflow: clip !important;
-			max-height: none !important;
-			display: block !important;
 			-webkit-line-clamp: unset !important;
 			-webkit-box-orient: initial !important;
+		}
+
+		/* 날짜는 한 줄 유지 */
+		.admin-task-list-second-page .admin-task-list-second-date-cell {
+			white-space: nowrap !important;
+			text-align: center;
+		}
+
+		/* 상태 열이 남는 공간을 사용하고 긴 변경이력은 정상 줄바꿈 */
+		.admin-task-list-second-page .admin-task-list-second-status-column {
+			min-width: 0 !important;
+			white-space: normal !important;
+			word-break: break-word !important;
+			overflow-wrap: anywhere !important;
 		}
 
 		.admin-task-list-second-product-highlight {
@@ -334,15 +485,28 @@
 									<div class="table-responsive table-card mb-4 admin-task-list-second-table-wrap">
 										<table class="table align-middle mb-0 admin-task-list-second-table"
 											id="tasksTable">
+											<colgroup>
+												<col style="width:42px;">
+												<col style="width:78px;">
+												<col style="width:120px;">
+												<col style="width:90px;">
+												<col style="width:300px;">
+												<col style="width:70px;">
+												<col style="width:450px;">
+												<col style="width:95px;">
+												<col style="width:95px;">
+												<col>
+												<col style="width:48px;">
+											</colgroup>
 											<thead class="table-light text-muted">
 												<tr>
-													<th style="width:52px;" class="text-center">
+													<th class="text-center">
 														<div class="form-check d-flex justify-content-center m-0">
 															<input class="form-check-input" type="checkbox"
 																id="task-list-check-all">
 														</div>
 													</th>
-													<th style="width:88px;">
+													<th>
 														<div class="task-list-added-sort-header">
 															<span>오더ID</span>
 															<span class="task-list-added-sort-icons">
@@ -358,7 +522,7 @@
 														</div>
 													</th>
 
-													<th style="min-width:150px;">
+													<th class="admin-task-list-second-agency-column">
 														<div class="task-list-added-sort-header">
 															<span>대리점명</span>
 															<span class="task-list-added-sort-icons">
@@ -373,7 +537,7 @@
 															</span>
 														</div>
 													</th>
-													<th style="width:106px;">
+													<th class="admin-task-list-second-category-column">
 														<div class="task-list-added-sort-header">
 															<span>제품분류</span>
 															<span class="task-list-added-sort-icons">
@@ -389,9 +553,9 @@
 														</div>
 													</th>
 
-													<th style="min-width:180px;">제품정보</th>
+													<th class="admin-task-list-second-product-column">제품정보</th>
 
-													<th style="width:76px;">
+													<th>
 														<div class="task-list-added-sort-header">
 															<span>규격</span>
 															<span class="task-list-added-sort-icons">
@@ -407,9 +571,9 @@
 														</div>
 													</th>
 
-													<th style="min-width:300px;">비고</th>
+													<th class="admin-task-list-second-note-column">비고</th>
 
-													<th style="width:84px;">
+													<th>
 														<div class="task-list-added-sort-header">
 															<span>발주일</span>
 															<span class="task-list-added-sort-icons">
@@ -425,7 +589,7 @@
 														</div>
 													</th>
 
-													<th style="width:96px;">
+													<th>
 														<div class="task-list-added-sort-header">
 															<span>배송희망일</span>
 															<span class="task-list-added-sort-icons">
@@ -441,7 +605,7 @@
 														</div>
 													</th>
 
-													<th style="width:108px;">
+													<th class="admin-task-list-second-status-column">
 														<div class="task-list-added-sort-header">
 															<span>상태</span>
 															<span class="task-list-added-sort-icons">
@@ -457,7 +621,7 @@
 														</div>
 													</th>
 
-													<th style="width:48px;" class="text-center">상세</th>
+													<th class="text-center">상세</th>
 												</tr>
 											</thead>
 
@@ -493,23 +657,25 @@
 																th:text="${row.orderId}">1</a>-->
 														</td>
 
-														<td>
+														<td class="admin-task-list-second-agency-column">
 															<a th:if="${row.companyId != null}"
 																th:href="@{'/management/agency/' + ${row.companyId}}"
+																th:title="${row.companyName}"
 																class="fw-medium link-primary admin-task-list-second-ellipsis"
 																th:text="${row.companyName}">대리점명</a>
 															<span th:if="${row.companyId == null}"
 																class="admin-task-list-second-ellipsis"
+																th:title="${row.companyName}"
 																th:text="${row.companyName}">-</span>
 														</td>
-														<td>
+														<td class="admin-task-list-second-category-column">
 															<span
 																class="admin-task-list-second-ellipsis admin-task-list-second-product-category-cell"
 																th:title="${row.productCategoryName != null and row.productCategoryName != '' ? row.productCategoryName : '미지정'}"
 																th:text="${row.productCategoryName != null and row.productCategoryName != '' ? row.productCategoryName : '미지정'}">제품분류</span>
 														</td>
 
-														<td>
+														<td class="admin-task-list-second-product-column">
 															<div class="admin-task-list-second-product-cell"
 																th:title="${row.productSummary}">
 
@@ -538,7 +704,7 @@
 																class="badge bg-primary-subtle text-primary">비규격</span>
 														</td>
 
-														<td>
+														<td class="admin-task-list-second-note-column">
 															<div class="admin-task-list-second-note-cell"
 																th:title="${row.noteSummary}"
 																th:text="${row.noteSummary}">
@@ -556,7 +722,7 @@
 															-
 														</td>
 
-														<td>
+														<td class="admin-task-list-second-status-column">
 															<span class="badge bg-secondary-subtle text-secondary"
 																th:text="${row.statusLabel}">상태</span>
 

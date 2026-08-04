@@ -9110,7 +9110,6 @@ body.admin-task-list-second-modal-open {
 }
 
 .admin-task-list-second-page .admin-task-list-second-product-name {
-	display: block;
 	margin-bottom: 3px;
 	font-size: 14px;
 	font-weight: 700;
@@ -9122,7 +9121,6 @@ body.admin-task-list-second-modal-open {
 }
 
 .admin-task-list-second-page .admin-task-list-second-product-summary {
-	display: block !important;
 	font-size: 12px;
 	font-weight: 400;
 	line-height: 1.4;
