@@ -79,7 +79,7 @@
 }
 
 .delivery-manager-added-table {
-	min-width: 1440px;
+	min-width: 1540px;
 	table-layout: fixed;
 }
 
@@ -248,4 +248,10 @@
 	.delivery-manager-added-table {
 		min-width: 1280px;
 	}
+}
+
+.delivery-manager-added-admin-request-btn {
+	white-space: nowrap;
+	font-size: 12px;
+	font-weight: 700;
 }

@@ -6308,16 +6308,30 @@ body.admin-task-list-second-modal-open {
 }
 
 .product-detail-added-action-area {
-	flex: 0 0 300px;
-	max-width: 300px;
+	flex: 0 0 390px;
+	max-width: 390px;
 }
 
-.product-detail-added-done-button {
+.product-detail-added-action-buttons {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 8px;
+}
+
+.product-detail-added-done-button,
+.product-detail-added-admin-request-button {
 	width: 100%;
 	height: 44px;
 	border-radius: 12px;
 	font-weight: 900;
 	letter-spacing: -0.02em;
+	white-space: nowrap;
+}
+
+.product-detail-added-admin-request-button:disabled,
+.product-detail-added-done-button:disabled {
+	cursor: not-allowed;
+	opacity: 0.48;
 }
 
 .product-detail-added-action-help {
@@ -8534,7 +8548,7 @@ body.admin-task-list-second-modal-open {
 
 .team-production-overview-list-top {
 	position: relative;
-	padding-right: 120px;
+	padding-right: 232px;
 	min-height: 58px;
 	overflow: visible;
 }
@@ -8547,7 +8561,8 @@ body.admin-task-list-second-modal-open {
 	z-index: 5;
 	display: flex;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-end;
+	gap: 8px;
 }
 
 .team-production-overview-list-complete-btn {
@@ -8562,6 +8577,34 @@ body.admin-task-list-second-modal-open {
 .team-production-overview-list-complete-btn:disabled {
 	cursor: not-allowed;
 	opacity: 0.45;
+}
+
+.team-production-overview-list-admin-request-btn {
+	min-width: 108px;
+	height: 32px;
+	padding: 0 11px;
+	white-space: nowrap;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.team-production-overview-list-admin-request-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+@media (max-width: 767.98px) {
+	.team-production-overview-list-top {
+		padding-right: 12px;
+		padding-bottom: 54px;
+	}
+
+	.team-production-overview-list-top-complete-wrap {
+		top: auto;
+		right: 12px;
+		bottom: 10px;
+		transform: none;
+	}
 }
 
 .team-production-clickable-row {
@@ -9024,8 +9067,33 @@ body.admin-task-list-second-modal-open {
 	color: #64748b;
 }
 
-.team-production-inline-complete-btn {
+.team-production-inline-action-buttons {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
 	flex: 0 0 auto;
+}
+
+.team-production-inline-complete-btn,
+.team-production-inline-admin-request-btn {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+	.team-production-inline-action-row {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.team-production-inline-action-buttons {
+		width: 100%;
+	}
+
+	.team-production-inline-action-buttons .btn {
+		flex: 1 1 0;
+	}
 }
 
 .team-production-overview-list-card.is-checked,

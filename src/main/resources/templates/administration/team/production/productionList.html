@@ -35,13 +35,21 @@
 					<form method="get" th:action="@{/team/productionList}" class="row" id="team-production-filter-form">
 						<div class="col-lg-12">
 							<div class="row g-3 mb-3 align-items-end">
-								<div class="col-lg-2 col-xl-2">
-									<label class="form-label">오더ID</label>
-									<input type="number" name="orderId" class="form-control w-100"
-										id="team-production-orderId" min="1" step="1" placeholder="ID"
-										th:value="${orderId != null ? orderId : ''}">
+								<div class="col-lg-4 col-xl-4">
+									<label class="form-label">오더ID 범위 <span class="form-text">(FROM만 입력시 이상, TO만 입력시 이하, 단건은 해당오더.)</span></label>
+									
+									<div class="d-flex align-items-center gap-2">
+										<input type="number" name="orderIdFrom" class="form-control w-100"
+											id="team-production-orderIdFrom" min="1" step="1" inputmode="numeric"
+											placeholder="FROM" th:value="${orderIdFrom != null ? orderIdFrom : ''}">
+										<span class="text-muted fw-semibold">~</span>
+										<input type="number" name="orderIdTo" class="form-control w-100"
+											id="team-production-orderIdTo" min="1" step="1" inputmode="numeric"
+											placeholder="TO" th:value="${orderIdTo != null ? orderIdTo : ''}">
+									</div>
+									
 								</div>
-								<div class="col-lg-4 col-xl-2">
+								<div class="col-lg-4 col-xl-4">
 									<label class="form-label">제품명</label>
 									<input type="text" name="productName" class="form-control w-100"
 										id="team-production-productName" maxlength="100" placeholder="제품명 포함검색"
@@ -154,7 +162,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-6 col-xl-6">
+								<div class="col-lg-2 col-xl-2">
 									<label class="form-label">조회 / 초기화</label>
 									<div class="d-flex flex-wrap gap-2">
 										<button type="submit" class="btn btn-primary" id="team-production-search-btn">
@@ -577,7 +585,8 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=0,
                         size=${size},
-                        orderId=${orderId},
+                        orderIdFrom=${orderIdFrom},
+                        orderIdTo=${orderIdTo},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
@@ -595,7 +604,8 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=${page.number - 1},
                         size=${size},
-                        orderId=${orderId},
+                        orderIdFrom=${orderIdFrom},
+                        orderIdTo=${orderIdTo},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
@@ -614,7 +624,8 @@
 									<a class="page-link" th:text="${i + 1}" th:href="@{/team/productionList(
                         page=${i},
                         size=${size},
-                        orderId=${orderId},
+                        orderIdFrom=${orderIdFrom},
+                        orderIdTo=${orderIdTo},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
@@ -632,7 +643,8 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=${page.number + 1},
                         size=${size},
-                        orderId=${orderId},
+                        orderIdFrom=${orderIdFrom},
+                        orderIdTo=${orderIdTo},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
@@ -650,7 +662,8 @@
 									<a class="page-link" th:href="@{/team/productionList(
                         page=${page.totalPages - 1},
                         size=${size},
-                        orderId=${orderId},
+                        orderIdFrom=${orderIdFrom},
+                        orderIdTo=${orderIdTo},
                         productName=${productName},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
@@ -690,6 +703,17 @@
 											id="team-production-overview-complete-btn" th:disabled="${!canBulkComplete}"
 											th:title="${canBulkComplete ? '승인 완료 상태의 처리 가능한 주문에서만 활성화됩니다.' : '재단 직원은 생산완료 처리를 할 수 없습니다.'}">
 											생산완료
+										</button>
+
+										<button type="button" class="btn btn-danger btn-sm order-admin-request-btn"
+											id="team-production-overview-admin-request-btn"
+											data-order-admin-request
+											data-order-id=""
+											data-admin-request-message="생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다."
+											title="발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다."
+											style="display:inline-flex;visibility:visible;opacity:1;">
+
+											<i class="ri-alarm-warning-line me-1"></i>관리자요청
 										</button>
 
 										<button type="button" class="btn-close" data-bs-dismiss="modal"
@@ -1298,9 +1322,9 @@
 	<script th:src="@{/administration/assets/team/production/productionList.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionPrint.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOrderCheck.js}"></script>
-	<script th:src="@{/administration/assets/team/production/productionListDetail.js}"></script>
-	<script th:src="@{/administration/assets/team/production/productionOverview.js}"></script>
-	<script th:src="@{/administration/assets/team/production/productionOverviewList.js}"></script>
+	<script th:src="@{/administration/assets/team/production/productionListDetail.js(v='20260804-7')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionOverview.js(v='20260804-6')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionOverviewList.js(v='20260804-6')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionListImageExcel.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionCuttingOpen.js}"></script>
 

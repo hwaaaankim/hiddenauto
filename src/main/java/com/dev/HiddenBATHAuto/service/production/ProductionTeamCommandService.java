@@ -10,18 +10,26 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.order.OrderOperationalChangeRecorder;
 
 @Service
 public class ProductionTeamCommandService {
 
 	private final OrderRepository orderRepository;
+	private final OrderOperationalChangeRecorder changeRecorder;
 
-	public ProductionTeamCommandService(OrderRepository orderRepository) {
+	public ProductionTeamCommandService(
+			OrderRepository orderRepository,
+			OrderOperationalChangeRecorder changeRecorder
+	) {
 		this.orderRepository = orderRepository;
+		this.changeRecorder = changeRecorder;
 	}
 
 	@Transactional
@@ -96,6 +104,22 @@ public class ProductionTeamCommandService {
 
 		// ✅ 명시적 저장 (JPA 더티체킹으로도 되지만, 운영 안정성 위해 saveAll 권장)
 		orderRepository.saveAll(orders);
+		orderRepository.flush();
+
+		for (Order order : orders) {
+			changeRecorder.recordStatusChange(
+					order,
+					OrderChangeSourceArea.PRODUCTION,
+					loginMember,
+					OrderStatus.CONFIRMED,
+					OrderStatus.PRODUCTION_DONE,
+					"PRODUCTION_BULK_COMPLETE",
+					"생산완료 일괄 처리",
+					"/api/team/production/orders/complete",
+					OrderWorkArea.DISPATCH,
+					OrderWorkArea.DELIVERY
+			);
+		}
 
 		return orders.size();
 	}

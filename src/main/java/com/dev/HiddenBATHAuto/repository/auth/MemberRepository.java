@@ -82,6 +82,13 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByIdAndTeam_Id(Long id, Long teamId);
 	
 	List<Member> findByTeam_IdAndEnabledTrueOrderByNameAscIdAsc(Long teamId);
+
+    List<Member> findByTeamCategory_IdAndEnabledTrueOrderByNameAscIdAsc(Long teamCategoryId);
+
+    List<Member> findByTeam_NameAndTeamCategory_IdAndEnabledTrueOrderByNameAscIdAsc(
+            String teamName,
+            Long teamCategoryId
+    );
 	
 	Optional<Member> findFirstByCompanyIdAndRoleOrderByIdAsc(Long companyId, MemberRole role);
 	

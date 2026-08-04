@@ -565,6 +565,10 @@
 
 		const checkboxDisabled = '';
 		const completeDisabled = !row.dispatchCompletable ? 'disabled' : '';
+		const adminRequestButton = '<button type="button" class="btn btn-outline-danger dispatch-list-admin-request-btn"' +
+			' data-order-admin-request data-order-id="' + escapeAttr(row.orderId) + '"' +
+			' data-admin-request-message="출고 절차 오류 또는 출고 확인이 필요합니다."' +
+			' title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">관리자요청</button>';
 
 		tr.innerHTML = [
 			'<td>',
@@ -624,6 +628,7 @@
 			'    data-order-id="' + escapeAttr(row.orderId) + '" ' + completeDisabled + '>',
 			'    출고완료(' + escapeHtml(row.statusLabel || '-') + ')',
 			'  </button>',
+			'  ' + adminRequestButton,
 			'</td>'
 		].join('');
 

@@ -229,12 +229,13 @@
 													</th>
 
 													<th>상태</th>
+													<th class="text-center">관리자요청</th>
 												</tr>
 											</thead>
 
 											<tbody>
 												<tr th:if="${deliveryPage.content == null or #lists.isEmpty(deliveryPage.content)}">
-													<td colspan="11" class="text-center text-muted py-5">
+													<td colspan="12" class="text-center text-muted py-5">
 														조회된 배송건이 없습니다.
 													</td>
 												</tr>
@@ -286,6 +287,16 @@
 															상태
 														</span>
 													</td>
+                                                    <td class="text-center">
+                                                        <button type="button"
+                                                            class="btn btn-outline-danger btn-sm delivery-manager-added-admin-request-btn"
+                                                            data-order-admin-request
+                                                            data-admin-request-message="배송 누락 또는 현장 배송 문제 확인이 필요합니다."
+                                                            th:attr="data-order-id=${row.orderId}"
+                                                            title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">
+                                                            <i class="ri-alarm-warning-line me-1"></i>요청
+                                                        </button>
+                                                    </td>
 												</tr>
 											</tbody>
 										</table>
@@ -338,7 +349,7 @@
 		<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 		<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-		<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryManager.css">
+		<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryManager.css?v=20260804-6">
 		<script src="/administration/assets/team/delivery/deliveryManager.js"></script>
 
 	</body>

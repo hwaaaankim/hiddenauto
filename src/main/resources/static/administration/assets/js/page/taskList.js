@@ -2,6 +2,9 @@
 document.addEventListener("DOMContentLoaded", function() {
 	"use strict";
 
+	const filterForm = document.getElementById("task-list-filter-form");
+	const orderIdFromInput = document.getElementById("task-list-order-id-from-search");
+	const orderIdToInput = document.getElementById("task-list-order-id-to-search");
 	const dateCriteriaSelect = document.getElementById("dateCriteria");
 	const startDateInput = document.getElementById("startDate");
 	const endDateInput = document.getElementById("endDate");
@@ -205,6 +208,47 @@ document.addEventListener("DOMContentLoaded", function() {
 		navigateTaskList(url, "정렬을 초기화하는 중입니다.");
 	}
 
+	function parsePositiveIntegerInput(input) {
+		if (!input) {
+			return null;
+		}
+
+		const raw = String(input.value || "").trim();
+		if (!raw) {
+			return null;
+		}
+
+		const value = Number(raw);
+		return Number.isInteger(value) && value > 0 ? value : null;
+	}
+
+	function validateOrderIdRange() {
+		const fromRaw = String(orderIdFromInput?.value || "").trim();
+		const toRaw = String(orderIdToInput?.value || "").trim();
+		const from = parsePositiveIntegerInput(orderIdFromInput);
+		const to = parsePositiveIntegerInput(orderIdToInput);
+
+		if (fromRaw && from == null) {
+			alert("오더 ID FROM은 1 이상의 정수로 입력해 주세요.");
+			orderIdFromInput?.focus();
+			return false;
+		}
+
+		if (toRaw && to == null) {
+			alert("오더 ID TO는 1 이상의 정수로 입력해 주세요.");
+			orderIdToInput?.focus();
+			return false;
+		}
+
+		if (from != null && to != null && from > to) {
+			alert("오더 ID TO는 FROM보다 크거나 같아야 합니다.\n단건 조회는 FROM과 TO에 같은 값을 입력해 주세요.");
+			orderIdToInput?.focus();
+			return false;
+		}
+
+		return true;
+	}
+
 	function resetSearchOnly() {
 		const url = new URL(window.location.href);
 		const currentSortState = getNormalizedSortState();
@@ -212,6 +256,8 @@ document.addEventListener("DOMContentLoaded", function() {
 		[
 			"page",
 			"keyword",
+			"orderIdFrom",
+			"orderIdTo",
 			"orderId",
 			"productName",
 			"dateCriteria",
@@ -1249,6 +1295,15 @@ document.addEventListener("DOMContentLoaded", function() {
 	function initializeBaseEvents() {
 		updateDateInputs();
 		highlightProductNameMatches(document);
+
+		if (filterForm) {
+			filterForm.addEventListener("submit", function(event) {
+				if (!validateOrderIdRange()) {
+					event.preventDefault();
+					event.stopImmediatePropagation();
+				}
+			});
+		}
 
 		if (dateCriteriaSelect) {
 			dateCriteriaSelect.addEventListener("change", updateDateInputs);

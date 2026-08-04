@@ -258,7 +258,7 @@
 																</div>
 															</div>
 
-															<div class="action-btn-group delivery-list-added-action">
+															<div class="action-btn-group delivery-list-added-action delivery-list-added-action-has-admin-request">
                                                             <button type="button"
                                                                 th:if="${canCompleteDelivery}"
                                                                 class="action-btn btn-complete delivery-list-added-open-complete-modal"
@@ -272,6 +272,15 @@
                                                                 title="생산완료 상태의 주문만 배송완료 처리할 수 있습니다.">
                                                                 <span class="delivery-list-added-btn-text">완료 불가</span>
                                                                 <span class="delivery-list-added-btn-icon" aria-hidden="true">-</span>
+                                                            </button>
+                                                            <button type="button"
+                                                                class="action-btn delivery-list-added-admin-request-btn"
+                                                                data-order-admin-request
+                                                                data-admin-request-message="배송 누락 또는 현장 배송 문제 확인이 필요합니다."
+                                                                th:attr="data-order-id=${o.id}"
+                                                                title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">
+                                                                <span class="delivery-list-added-btn-text">관리자요청</span>
+                                                                <span class="delivery-list-added-btn-icon" aria-hidden="true">!</span>
                                                             </button>
                                                         </div>
 
@@ -391,15 +400,23 @@
 																</div>
 															</div>
 
-															<div class="action-btn-group delivery-list-added-action">
-														<button type="button"
-															class="action-btn delivery-list-added-open-detail-modal"
-															th:attr="data-order-id=${o.id}">
-															<span class="delivery-list-added-btn-text">배송상세</span>
-															<span class="delivery-list-added-btn-icon"
-																aria-hidden="true">상세</span>
-														</button>
-													</div>
+																	<div class="action-btn-group delivery-list-added-action delivery-list-added-action-has-admin-request">
+																		<button type="button"
+																			class="action-btn delivery-list-added-open-detail-modal"
+																			th:attr="data-order-id=${o.id}">
+																			<span class="delivery-list-added-btn-text">배송상세</span>
+																			<span class="delivery-list-added-btn-icon" aria-hidden="true">상세</span>
+																		</button>
+																		<button type="button"
+																			class="action-btn delivery-list-added-admin-request-btn"
+																			data-order-admin-request
+																			data-admin-request-message="배송 누락 또는 현장 배송 문제 확인이 필요합니다."
+																			th:attr="data-order-id=${o.id}"
+																			title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">
+																			<span class="delivery-list-added-btn-text">관리자요청</span>
+																			<span class="delivery-list-added-btn-icon" aria-hidden="true">!</span>
+																		</button>
+																	</div>
 
 												</div>
 											</div>
@@ -517,15 +534,23 @@
 																</div>
 															</div>
 
-															<div class="action-btn-group delivery-list-added-action">
-														<button type="button"
-															class="action-btn delivery-list-added-open-detail-modal"
-															th:attr="data-order-id=${o.id}">
-															<span class="delivery-list-added-btn-text">배송상세</span>
-															<span class="delivery-list-added-btn-icon"
-																aria-hidden="true">상세</span>
-														</button>
-													</div>
+																	<div class="action-btn-group delivery-list-added-action delivery-list-added-action-has-admin-request">
+																		<button type="button"
+																			class="action-btn delivery-list-added-open-detail-modal"
+																			th:attr="data-order-id=${o.id}">
+																			<span class="delivery-list-added-btn-text">배송상세</span>
+																			<span class="delivery-list-added-btn-icon" aria-hidden="true">상세</span>
+																		</button>
+																		<button type="button"
+																			class="action-btn delivery-list-added-admin-request-btn"
+																			data-order-admin-request
+																			data-admin-request-message="배송 누락 또는 현장 배송 문제 확인이 필요합니다."
+																			th:attr="data-order-id=${o.id}"
+																			title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">
+																			<span class="delivery-list-added-btn-text">관리자요청</span>
+																			<span class="delivery-list-added-btn-icon" aria-hidden="true">!</span>
+																		</button>
+																	</div>
 
 												</div>
 											</div>
@@ -721,8 +746,8 @@
 	<script src="https://cdn.lordicon.com/libs/mssddfmo/lord-icon-2.1.0.js"></script>
 	<script src="/administration/assets/js/pages/modal.init.js"></script>
 
-	<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryList.added.css">
-	<script src="/administration/assets/team/delivery/deliveryList.added.js"></script>
+	<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryList.added.css?v=20260804-6">
+	<script src="/administration/assets/team/delivery/deliveryList.added.js?v=20260804-6"></script>
 	<script src="/administration/assets/team/delivery/deliveryList.print.js"></script>
 
 </body>

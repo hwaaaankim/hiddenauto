@@ -1,12 +1,14 @@
 package com.dev.HiddenBATHAuto.service.order;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
 import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -67,15 +69,24 @@ public class OrderOperationalChangeRecorder {
             String operationLabel,
             String requestPath
     ) {
-        recordDeliveryHandlerChange(
+        recordChangesWithAdditionalRecipients(
                 order,
                 sourceArea,
                 actor,
-                resolveMemberLabel(beforeHandler),
-                resolveMemberLabel(afterHandler),
                 operationCode,
                 operationLabel,
-                requestPath
+                requestPath,
+                beforeHandler != null && beforeHandler.getId() != null
+                        ? List.of(beforeHandler.getId())
+                        : List.of(),
+                OrderFieldChangeCommand.of(
+                        "assignedDeliveryHandler",
+                        "배송담당자",
+                        resolveMemberLabel(beforeHandler),
+                        resolveMemberLabel(afterHandler),
+                        OrderWorkArea.DISPATCH,
+                        OrderWorkArea.DELIVERY
+                )
         );
     }
 
@@ -130,6 +141,34 @@ public class OrderOperationalChangeRecorder {
                 operationLabel,
                 requestPath,
                 changes == null ? List.of() : Arrays.asList(changes)
+        );
+    }
+
+    @Transactional
+    public void recordChangesWithAdditionalRecipients(
+            Order order,
+            OrderChangeSourceArea sourceArea,
+            Member actor,
+            String operationCode,
+            String operationLabel,
+            String requestPath,
+            Collection<Long> additionalRecipientMemberIds,
+            OrderFieldChangeCommand... changes
+    ) {
+        orderChangeAuditService.recordOrderChange(
+                order,
+                sourceArea,
+                actor != null ? actor.getId() : null,
+                actor != null ? actor.getUsername() : null,
+                resolveActorDisplay(actor),
+                operationCode,
+                operationLabel,
+                requestPath,
+                changes == null ? List.of() : Arrays.asList(changes),
+                OrderNotificationAudience.RELATED_USERS,
+                null,
+                null,
+                additionalRecipientMemberIds
         );
     }
 

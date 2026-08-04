@@ -44,6 +44,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.DeliveryOrderIndexUpdateRequest;
@@ -182,7 +183,10 @@ public class TeamController {
 
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) Long productCategoryId, @RequestParam(required = false) String orderId,
+			@RequestParam(required = false) Long productCategoryId,
+			@RequestParam(required = false) String orderIdFrom,
+			@RequestParam(required = false) String orderIdTo,
+			@RequestParam(required = false) String orderId,
             @RequestParam(required = false) String productName,
             @RequestParam(required = false, defaultValue = "ALL") String standardType,
 			@RequestParam(required = false, defaultValue = "preferred") String dateType,
@@ -198,7 +202,9 @@ public class TeamController {
 			Model model) {
 
 		Member member = principal.getMember();
-		Long orderIdFilter = parsePositiveLongOrNull(orderId);
+		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
+		Long orderIdFromFilter = orderIdRange.from();
+		Long orderIdToFilter = orderIdRange.to();
         String productNameFilter = normalizeSearchText(productName);
         String normalizedStandardType = normalizeProductionListStandardType(standardType);
         Boolean standardFilter = parseProductionListStandardFilter(normalizedStandardType);
@@ -285,11 +291,11 @@ public class TeamController {
 		OrderStatus statusEnum = parseProductionListStatusFilter(sf);
 
 		/*
-		 * 오더 ID는 단건 식별값이므로 상태 필터보다 우선합니다.
-		 * 기본 상태가 CONFIRMED인 화면에서도 이미 생산완료(PRODUCTION_DONE)된 오더 ID를
-		 * 바로 검색할 수 있도록, ID 검색 시에는 생산팀 허용 상태 전체를 대상으로 조회합니다.
+		 * 오더 ID 범위 검색은 상태 필터보다 우선합니다.
+		 * 기본 상태가 CONFIRMED인 화면에서도 범위 안의 생산완료(PRODUCTION_DONE) 오더를
+		 * 함께 찾을 수 있도록, FROM 또는 TO가 입력되면 생산팀 허용 상태 전체를 조회합니다.
 		 */
-		if (orderIdFilter != null) {
+		if (orderIdFromFilter != null || orderIdToFilter != null) {
 			sf = "ALL";
 			statusEnum = null;
 		}
@@ -320,7 +326,8 @@ public class TeamController {
 			// 체크상태는 로그인 사용자별 계산값이므로 체크 정렬이 포함된 경우에만 서비스 다중 정렬을 사용합니다.
 			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
 					targetCategoryId,
-					orderIdFilter,
+					orderIdFromFilter,
+					orderIdToFilter,
 					productNameFilter,
 					standardFilter,
 					normalizedDateType,
@@ -336,7 +343,8 @@ public class TeamController {
 			// ID/제품명/중분류/배송일만 사용하면 DB Pageable 다중 정렬로 처리합니다.
 			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilter(
 					targetCategoryId,
-					orderIdFilter,
+					orderIdFromFilter,
+					orderIdToFilter,
 					productNameFilter,
 					standardFilter,
 					normalizedDateType,
@@ -350,7 +358,8 @@ public class TeamController {
 			// 정렬 조건이 모두 해제되면 기존 최초 조회 순서로 복원합니다.
 			orderPage = teamTaskService.getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
 					targetCategoryId,
-					orderIdFilter,
+					orderIdFromFilter,
+					orderIdToFilter,
 					productNameFilter,
 					standardFilter,
 					normalizedDateType,
@@ -425,7 +434,10 @@ public class TeamController {
 		// 실제 조회는 위에서 계산한 targetCategoryId로 계속 수행됩니다.
 		model.addAttribute("productCategoryId", selectedProductCategoryId);
 		model.addAttribute("targetProductCategoryId", targetCategoryId);
-		model.addAttribute("orderId", orderIdFilter);
+		model.addAttribute("orderIdFrom", orderIdFromFilter);
+		model.addAttribute("orderIdTo", orderIdToFilter);
+		// 기존 단건 URL/템플릿 호환용입니다. 범위가 단건일 때만 값을 제공합니다.
+		model.addAttribute("orderId", Objects.equals(orderIdFromFilter, orderIdToFilter) ? orderIdFromFilter : null);
         model.addAttribute("productName", productNameFilter);
         model.addAttribute("standardType", normalizedStandardType);
 		model.addAttribute("dateType", normalizedDateType);
@@ -630,16 +642,53 @@ public class TeamController {
         return value.trim();
     }
 
-	private Long parsePositiveLongOrNull(String value) {
+	private record OrderIdRangeFilter(Long from, Long to) {
+	}
+
+	private OrderIdRangeFilter resolveOrderIdRange(
+			String orderIdFrom,
+			String orderIdTo,
+			String legacyOrderId
+	) {
+		boolean hasExplicitRange = StringUtils.hasText(orderIdFrom) || StringUtils.hasText(orderIdTo);
+
+		Long from = parsePositiveLongFilter(orderIdFrom, "오더 ID FROM");
+		Long to = parsePositiveLongFilter(orderIdTo, "오더 ID TO");
+
+		if (!hasExplicitRange) {
+			Long legacy = parsePositiveLongFilter(legacyOrderId, "오더 ID");
+			if (legacy != null) {
+				from = legacy;
+				to = legacy;
+			}
+		}
+
+		if (from != null && to != null && from > to) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"오더 ID TO는 FROM보다 크거나 같아야 합니다. 단건 조회는 FROM과 TO를 같은 값으로 입력해 주세요."
+			);
+		}
+
+		return new OrderIdRangeFilter(from, to);
+	}
+
+	private Long parsePositiveLongFilter(String value, String fieldLabel) {
 		if (!StringUtils.hasText(value)) {
 			return null;
 		}
 
 		try {
 			long parsed = Long.parseLong(value.trim());
-			return parsed > 0 ? parsed : null;
+			if (parsed <= 0) {
+				throw new NumberFormatException("positive value required");
+			}
+			return parsed;
 		} catch (NumberFormatException e) {
-			return null;
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					fieldLabel + "는 1 이상의 정수로 입력해 주세요."
+			);
 		}
 	}
 
@@ -1342,7 +1391,7 @@ public class TeamController {
 				throw new IllegalStateException("배송완료 이미지는 1장 이상 필요합니다.");
 			}
 
-			deliveryCompletionService.completeSingle(order.getId(), validFiles);
+			deliveryCompletionService.completeSingle(member, order.getId(), validFiles);
 
 			if (fetchRequest) {
 				Map<String, Object> body = new HashMap<>();
@@ -1416,7 +1465,7 @@ public class TeamController {
 					.collect(Collectors.toList());
 
 			List<Long> completedOrderIds = deliveryCompletionService
-					.completeSameAddress(targetOrderIds, validFiles);
+					.completeSameAddress(member, targetOrderIds, validFiles);
 
 			Map<String, Object> body = new HashMap<>();
 			body.put("success", true);

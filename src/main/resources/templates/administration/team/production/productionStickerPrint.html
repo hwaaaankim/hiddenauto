@@ -13,114 +13,372 @@
             --sheet-padding-right: 4.9mm;
             --sheet-padding-bottom: 8.3mm;
             --sheet-padding-left: 4.9mm;
+
             --label-width: 99.1mm;
             --label-height: 140mm;
             --label-column-gap: 2mm;
             --label-row-gap: 1.7mm;
             --label-padding: 3mm;
-            --label-header-height: 7mm;
-            --label-header-gap: 1.5mm;
-            --row-company-height: 11mm;
-            --row-category-color-height: 11mm;
-            --row-product-height: 18mm;
-            --row-size-height: 11mm;
-            --row-memo-height: 32mm;
-            --row-drawing-height: 42.5mm;
-            --line-color: #8f8f8f;
-            --line-width: 0.75pt;
-            --font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
-            --font-base: 9.7pt;
-            --font-label: 9.3pt;
-            --font-header: 8.9pt;
-            --font-brand: 10.5pt;
-        }
-        @page { size: 210mm 297mm; margin: 0; }
-        *, *::before, *::after { box-sizing: border-box; }
-        html, body {
-            margin: 0; padding: 0; width: var(--sheet-width); color: #222; background: #fff;
-            font-family: var(--font-family); -webkit-print-color-adjust: exact; print-color-adjust: exact;
-        }
-        body { font-size: var(--font-base); }
-        .no-print-items { width: var(--sheet-width); padding: 20px; font-size: 12pt; }
-        .sheet {
-            width: var(--sheet-width); height: var(--sheet-height); margin: 0;
-            padding: var(--sheet-padding-top) var(--sheet-padding-right) var(--sheet-padding-bottom) var(--sheet-padding-left);
-            display: grid; grid-template-columns: var(--label-width) var(--label-width);
-            grid-template-rows: var(--label-height) var(--label-height);
-            column-gap: var(--label-column-gap); row-gap: var(--label-row-gap);
-            align-content: start; justify-content: start; overflow: hidden;
-            break-after: page; page-break-after: always;
-        }
-        .sheet:last-of-type { break-after: auto; page-break-after: auto; }
-        .label {
-            width: var(--label-width); height: var(--label-height); padding: var(--label-padding);
-            display: grid; grid-template-rows: var(--label-header-height) var(--label-header-gap) 125.5mm;
-            border: 0; border-radius: 0; outline: 0; overflow: hidden; background: #fff;
-            break-inside: avoid; page-break-inside: avoid;
-        }
-        .label.empty { visibility: hidden; }
-        .label-header {
-            grid-row: 1; width: 100%; min-width: 0; display: flex; align-items: center;
-            justify-content: space-between; gap: 3mm; overflow: hidden;
-        }
-        .label-header-left { min-width: 0; display: flex; align-items: center; gap: 1.7mm; overflow: hidden; font-size: var(--font-header); line-height: 1; white-space: nowrap; }
-        .brand-name { flex: 0 0 auto; font-size: var(--font-brand); font-weight: 500; line-height: 1; letter-spacing: 0.48mm; white-space: nowrap; }
 
-        /* 실제 table + border-collapse로 모든 공유 경계를 단일 선으로 병합합니다. */
+            /*
+             * 확대된 글씨가 table의 최소 높이를 밀어 올려 아래쪽 라벨이 잘리지 않도록
+             * 표 자체를 라벨 내부 높이보다 여유 있게 구성합니다.
+             */
+            --label-header-height: 9mm;
+            --label-header-gap: 2mm;
+            --report-table-height: 116mm;
+
+            /* 업체명/품목·색상/제품명/사이즈 행은 모두 동일한 높이입니다. */
+            --row-main-height: 22mm;
+            --row-memo-height: 28mm;
+
+            --line-color: #7f7f7f;
+            --line-width: 0.75pt;
+            --label-background: #f4f4f4;
+
+            --font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
+            --font-base: 14.7pt;
+            --font-label: 14.3pt;
+            --font-header: 13.9pt;
+            --font-brand: 15.5pt;
+        }
+
+        @page {
+            size: 210mm 297mm;
+            margin: 0;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: var(--sheet-width);
+            margin: 0;
+            padding: 0;
+            color: #222;
+            background: #fff;
+            font-family: var(--font-family);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            font-size: var(--font-base);
+        }
+
+        .no-print-items {
+            width: var(--sheet-width);
+            padding: 20px;
+            font-size: 14pt;
+        }
+
+        .sheet {
+            width: var(--sheet-width);
+            height: var(--sheet-height);
+            margin: 0;
+            padding: var(--sheet-padding-top) var(--sheet-padding-right) var(--sheet-padding-bottom) var(--sheet-padding-left);
+            display: grid;
+            grid-template-columns: var(--label-width) var(--label-width);
+            grid-template-rows: var(--label-height) var(--label-height);
+            column-gap: var(--label-column-gap);
+            row-gap: var(--label-row-gap);
+            align-content: start;
+            justify-content: start;
+            overflow: hidden;
+            break-after: page;
+            page-break-after: always;
+        }
+
+        .sheet:last-of-type {
+            break-after: auto;
+            page-break-after: auto;
+        }
+
+        .label {
+            width: var(--label-width);
+            height: var(--label-height);
+            padding: var(--label-padding);
+            display: grid;
+            grid-template-rows:
+                var(--label-header-height)
+                var(--label-header-gap)
+                var(--report-table-height);
+            border: 0;
+            border-radius: 0;
+            outline: 0;
+            overflow: hidden;
+            background: #fff;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .label.empty {
+            visibility: hidden;
+        }
+
+        .label-header {
+            grid-row: 1;
+            width: 100%;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 3mm;
+            overflow: hidden;
+        }
+
+        .label-header-left {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            font-size: var(--font-header);
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.12mm;
+            white-space: nowrap;
+        }
+
+        .brand-name {
+            flex: 0 0 auto;
+            font-size: var(--font-brand);
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.42mm;
+            white-space: nowrap;
+        }
+
+        /*
+         * 인쇄 렌더러가 table 셀 테두리를 합성할 때 생기는 모서리 돌출을 막기 위해
+         * table은 내용 배치만 담당하고, 모든 선은 하나의 SVG 레이어에서 그립니다.
+         */
+        .report-table-frame {
+            grid-row: 3;
+            position: relative;
+            width: 100%;
+            height: var(--report-table-height);
+            overflow: hidden;
+            background: #fff;
+        }
+
         .report-table {
-            grid-row: 3; width: 100%; height: 125.5mm; table-layout: fixed;
-            border-collapse: collapse; border-spacing: 0; background: #fff;
-            font-size: var(--font-base); line-height: 1.28;
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            table-layout: fixed;
+            border: 0;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: #fff;
+            font-size: var(--font-base);
+            line-height: 1.22;
         }
-        .report-table col.col-label { width: 16%; }
-        .report-table col.col-value-main { width: 42%; }
-        .report-table col.col-label-secondary { width: 16%; }
-        .report-table col.col-value-secondary { width: 26%; }
-        .report-table tr.row-company { height: var(--row-company-height); }
-        .report-table tr.row-category-color { height: var(--row-category-color-height); }
-        .report-table tr.row-product { height: var(--row-product-height); }
-        .report-table tr.row-size { height: var(--row-size-height); }
-        .report-table tr.row-memo { height: var(--row-memo-height); }
-        .report-table tr.row-drawing { height: var(--row-drawing-height); }
-        .report-table th, .report-table td {
-            border: var(--line-width) solid var(--line-color);
-            min-width: 0; padding: 1.25mm 1.55mm; overflow: hidden;
-            vertical-align: middle; text-align: left; font-weight: 400;
+
+        .report-grid-lines {
+            position: absolute;
+            z-index: 3;
+            inset: 0;
+            display: block;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
         }
+
+        .report-grid-lines rect,
+        .report-grid-lines line {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: var(--line-width);
+            vector-effect: non-scaling-stroke;
+            shape-rendering: geometricPrecision;
+        }
+
+        .report-grid-lines line {
+            stroke-linecap: butt;
+        }
+
+        .report-grid-lines rect {
+            stroke-linejoin: miter;
+        }
+
+        /* 글씨 확대 후에도 '업체명/제품명/사이즈'가 한 줄로 보이도록 라벨 열을 넓힙니다. */
+        .report-table col.col-label {
+            width: 20%;
+        }
+
+        .report-table col.col-value-main {
+            width: 30%;
+        }
+
+        .report-table col.col-label-secondary {
+            width: 20%;
+        }
+
+        .report-table col.col-value-secondary {
+            width: 30%;
+        }
+
+        .report-table tr.row-company,
+        .report-table tr.row-category-color,
+        .report-table tr.row-product,
+        .report-table tr.row-size {
+            height: var(--row-main-height);
+        }
+
+        .report-table tr.row-memo {
+            height: var(--row-memo-height);
+        }
+
+        /*
+         * table의 height는 브라우저에서 최소 높이처럼 처리될 수 있습니다.
+         * 따라서 각 셀과 내부 뷰포트의 실제 높이를 함께 고정하여
+         * 비고 줄 수가 많아도 행 자체가 늘어나지 않도록 합니다.
+         */
+        .report-table tr.row-company > th,
+        .report-table tr.row-company > td,
+        .report-table tr.row-category-color > th,
+        .report-table tr.row-category-color > td,
+        .report-table tr.row-product > th,
+        .report-table tr.row-product > td,
+        .report-table tr.row-size > th,
+        .report-table tr.row-size > td {
+            height: var(--row-main-height);
+        }
+
+        .report-table tr.row-memo > th,
+        .report-table tr.row-memo > td {
+            height: var(--row-memo-height);
+        }
+
+        .report-table th,
+        .report-table td {
+            min-width: 0;
+            padding: 1.8mm 2.2mm;
+            overflow: hidden;
+            border: 0;
+            vertical-align: middle;
+            text-align: left;
+            font-weight: 700;
+        }
+
         .report-table th.report-label {
-            padding-left: 0.7mm; padding-right: 0.7mm; text-align: center;
-            font-size: var(--font-label); font-weight: 700; line-height: 1.12; white-space: nowrap;
+            padding-right: 1mm;
+            padding-left: 1mm;
+            background: var(--label-background);
+            font-size: var(--font-label);
+            font-weight: 700;
+            line-height: 1.08;
+            text-align: center;
+            white-space: nowrap;
         }
-        .fit-cell { position: relative; }
-        .fit-text { display: block; width: 100%; max-width: 100%; margin: 0; padding: 0; overflow: visible; white-space: pre-wrap; word-break: keep-all; overflow-wrap: normal; line-height: 1.24; }
-        .company-value .fit-text, .product-value .fit-text { font-weight: 500; }
-        .align-top { vertical-align: top !important; }
-        .drawing-cell { padding: 0.9mm 1.2mm !important; }
-        .drawing-frame { width: 100%; height: 100%; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .drawing-image { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; }
+
+        .fit-cell {
+            position: relative;
+        }
+
+        /*
+         * 내용이 셀 높이를 밀어 올리지 못하도록 고정 크기 뷰포트 안에 넣습니다.
+         * 주요 정보 행: 22mm - 패딩/테두리 여유
+         * 비고 행: 28mm - 패딩/테두리 여유
+         */
+        .fit-viewport {
+            width: 100%;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .row-company .fit-viewport,
+        .row-category-color .fit-viewport,
+        .row-product .fit-viewport,
+        .row-size .fit-viewport {
+            height: 17.4mm;
+            max-height: 17.4mm;
+        }
+
+        .row-memo .fit-viewport {
+            height: 23.3mm;
+            max-height: 23.3mm;
+            align-items: flex-start;
+        }
+
+        .fit-text {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+            flex: 0 0 100%;
+            overflow: visible;
+            line-height: 1.18;
+            font-weight: 700;
+            white-space: pre-wrap;
+            word-break: keep-all;
+            overflow-wrap: normal;
+        }
+
+        .align-top {
+            padding-top: 2.2mm !important;
+            vertical-align: top !important;
+        }
+
         @media screen {
-            html, body { width: auto; min-width: var(--sheet-width); }
-            body { padding: 12px; background: #eceff3; }
-            .sheet { margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.12); }
+            html,
+            body {
+                width: auto;
+                min-width: var(--sheet-width);
+            }
+
+            body {
+                padding: 12px;
+                background: #eceff3;
+            }
+
+            .sheet {
+                margin: 0 auto 16px;
+                background: #fff;
+                box-shadow: 0 2px 14px rgba(0, 0, 0, 0.12);
+            }
         }
+
         @media print {
-            html, body { width: var(--sheet-width); background: #fff; }
-            body { padding: 0; }
-            .sheet { margin: 0; box-shadow: none; }
-            .report-table, .report-table th, .report-table td { border-color: var(--line-color) !important; }
+            html,
+            body {
+                width: var(--sheet-width);
+                background: #fff;
+            }
+
+            body {
+                padding: 0;
+            }
+
+            .sheet {
+                margin: 0;
+                box-shadow: none;
+            }
+
         }
     </style>
 </head>
 <body>
     <div th:if="${totalCount == 0}" class="no-print-items">출력할 항목이 없습니다.</div>
+
     <div th:each="pageItems : ${pages}" class="sheet">
         <article th:each="item : ${pageItems}" class="label">
             <header class="label-header">
-                <div class="label-header-left"><span th:text="${item.standard ? '규격' : '비규격'}">비규격</span></div>
+                <div class="label-header-left">
+                    <span th:text="${item.standard ? '규격' : '비규격'}">비규격</span>
+                </div>
                 <div class="brand-name">HIDDEN BATH</div>
             </header>
 
-            <table class="report-table" aria-label="생산 스티커 정보">
+            <div class="report-table-frame">
+                <table class="report-table" aria-label="생산 스티커 정보">
                 <colgroup>
                     <col class="col-label">
                     <col class="col-value-main">
@@ -130,57 +388,129 @@
                 <tbody>
                     <tr class="row-company">
                         <th scope="row" class="report-label">업체명</th>
-                        <td colspan="3" class="fit-cell company-value" data-max-font="9.7" data-min-font="5.5">
-                            <span class="fit-text" th:text="${item.companyName != null and item.companyName != '' ? item.companyName : '-'}">주식회사 더이케이파트너스</span>
+                        <td colspan="3"
+                            class="fit-cell company-value"
+                            data-max-font="14.7"
+                            data-min-font="9.0">
+                            <div class="fit-viewport">
+                                <span class="fit-text"
+                                      th:text="${item.companyName != null and item.companyName != '' ? item.companyName : '-'}">
+                                    주식회사 더이케이파트너스
+                                </span>
+                            </div>
                         </td>
                     </tr>
+
                     <tr class="row-category-color">
                         <th scope="row" class="report-label">품목</th>
-                        <td class="fit-cell" data-max-font="9.7" data-min-font="5.2">
-                            <span class="fit-text" th:text="${item.category != null and item.category != '' ? item.category : '-'}">욕실용품</span>
+                        <td class="fit-cell"
+                            data-max-font="14.7"
+                            data-min-font="8.0">
+                            <div class="fit-viewport">
+                                <span class="fit-text"
+                                      th:text="${item.category != null and item.category != '' ? item.category : '-'}">
+                                    욕실용품
+                                </span>
+                            </div>
                         </td>
                         <th scope="row" class="report-label">색상</th>
-                        <td class="fit-cell" data-max-font="9.7" data-min-font="5.0">
-                            <span class="fit-text" th:text="${item.color != null and item.color != '' ? item.color : '-'}">페블 프러스트</span>
+                        <td class="fit-cell"
+                            data-max-font="14.7"
+                            data-min-font="7.5">
+                            <div class="fit-viewport">
+                                <span class="fit-text"
+                                      th:text="${item.color != null and item.color != '' ? item.color : '-'}">
+                                    페블 프러스트
+                                </span>
+                            </div>
                         </td>
                     </tr>
+
                     <tr class="row-product">
                         <th scope="row" class="report-label">제품명</th>
-                        <td colspan="3" class="fit-cell product-value" data-max-font="9.7" data-min-font="4.8">
-                            <span class="fit-text" th:text="${item.productName != null and item.productName != '' ? item.productName : '-'}">대리석 일자 선반 W (페블프러스트)</span>
+                        <td colspan="3"
+                            class="fit-cell product-value"
+                            data-max-font="14.7"
+                            data-min-font="7.5">
+                            <div class="fit-viewport">
+                                <span class="fit-text product-name-text"
+                                      th:text="${item.productName != null and item.productName != '' ? item.productName : '-'}">
+                                    대리석 일자 선반 W (페블프러스트)
+                                </span>
+                            </div>
                         </td>
                     </tr>
+
                     <tr class="row-size">
                         <th scope="row" class="report-label">사이즈</th>
-                        <td colspan="3" class="fit-cell" data-max-font="9.7" data-min-font="5.2">
-                            <span class="fit-text" th:text="${item.size != null and item.size != '' ? item.size : '-'}">700*100</span>
+                        <td colspan="3"
+                            class="fit-cell"
+                            data-max-font="14.7"
+                            data-min-font="8.0">
+                            <div class="fit-viewport">
+                                <span class="fit-text"
+                                      th:text="${item.size != null and item.size != '' ? item.size : '-'}">
+                                    700*100
+                                </span>
+                            </div>
                         </td>
                     </tr>
+
                     <tr class="row-memo">
                         <th scope="row" class="report-label">비고</th>
-                        <td colspan="3" class="fit-cell align-top" data-max-font="9.3" data-min-font="4.0">
-                            <span class="fit-text" th:text="${item.adminMemo != null ? item.adminMemo : ''}">관리자 메모</span>
-                        </td>
-                    </tr>
-                    <tr class="row-drawing">
-                        <th scope="row" class="report-label">도면</th>
-                        <td colspan="3" class="drawing-cell">
-                            <div class="drawing-frame">
-                                <img th:if="${item.adminImageUrl != null and item.adminImageUrl != ''}" class="drawing-image" th:src="${item.adminImageUrl}" alt="관리자 도면 이미지">
+                        <td colspan="3"
+                            class="fit-cell align-top memo-value"
+                            data-max-font="12.5"
+                            data-min-font="6.5">
+                            <div class="fit-viewport memo-viewport">
+                                <span class="fit-text"
+                                      th:text="${item.adminMemo != null and item.adminMemo != '' ? item.adminMemo : '-'}">
+                                    관리자 메모
+                                </span>
                             </div>
                         </td>
                     </tr>
                 </tbody>
-            </table>
+                </table>
+
+                <!--
+                    viewBox는 표의 100% 너비 × 116mm 높이를 1000 × 1160 좌표로 표현합니다.
+                    외곽선은 실제 영역 안쪽으로 1.5좌표만큼 넣고, 모든 내부선은 butt cap으로
+                    정확히 끝내므로 어느 모서리에서도 선 끝이 바깥으로 튀어나오지 않습니다.
+                -->
+                <svg class="report-grid-lines"
+                     viewBox="0 0 1000 1160"
+                     preserveAspectRatio="none"
+                     aria-hidden="true"
+                     focusable="false">
+                    <rect x="1.5" y="1.5" width="997" height="1157"></rect>
+
+                    <line x1="1.5" y1="220" x2="998.5" y2="220"></line>
+                    <line x1="1.5" y1="440" x2="998.5" y2="440"></line>
+                    <line x1="1.5" y1="660" x2="998.5" y2="660"></line>
+                    <line x1="1.5" y1="880" x2="998.5" y2="880"></line>
+
+                    <line x1="200" y1="1.5" x2="200" y2="1158.5"></line>
+                    <line x1="500" y1="220" x2="500" y2="440"></line>
+                    <line x1="700" y1="220" x2="700" y2="440"></line>
+                </svg>
+            </div>
         </article>
-        <article th:if="${pageItems.size() < 4}" th:each="x : ${#numbers.sequence(1, 4 - pageItems.size())}" class="label empty" aria-hidden="true"><span>.</span></article>
+
+        <article th:if="${pageItems.size() < 4}"
+                 th:each="x : ${#numbers.sequence(1, 4 - pageItems.size())}"
+                 class="label empty"
+                 aria-hidden="true">
+            <span>.</span>
+        </article>
     </div>
+
     <script>
         (function () {
             'use strict';
 
-            var DEFAULT_MAX_FONT_PT = 9.7;
-            var ABSOLUTE_MIN_FONT_PT = 3.0;
+            var DEFAULT_MAX_FONT_PT = 14.7;
+            var ABSOLUTE_MIN_FONT_PT = 5.0;
             var FONT_PRECISION_PT = 0.05;
             var FIT_TOLERANCE_PX = 0.75;
 
@@ -190,6 +520,19 @@
             }
 
             function availableContentSize(cell) {
+                var viewport = cell.querySelector('.fit-viewport');
+
+                /*
+                 * 고정 뷰포트가 있으면 그 크기만을 기준으로 적합 여부를 판단합니다.
+                 * 긴 비고 때문에 실제 table 행이 커진 값을 기준으로 삼지 않습니다.
+                 */
+                if (viewport) {
+                    return {
+                        width: Math.max(0, viewport.clientWidth),
+                        height: Math.max(0, viewport.clientHeight)
+                    };
+                }
+
                 var style = window.getComputedStyle(cell);
                 var width = cell.clientWidth
                     - numberOrDefault(parseFloat(style.paddingLeft), 0)
@@ -223,6 +566,40 @@
                     && content.scrollHeight <= size.height + FIT_TOLERANCE_PX;
             }
 
+            /*
+             * 제품명 마지막에 붙는 대괄호 정보는 내용 비교 없이 제거합니다.
+             *
+             * 예시
+             * "대리석 일자 선반 W [욕실용품]" -> "대리석 일자 선반 W"
+             * "대리석 일자 선반 W[대리석 일자 선반 W]" -> "대리석 일자 선반 W"
+             * "제품명 [품목] [추가 품목]" -> "제품명"
+             */
+            function removeTrailingBracketText(value) {
+                var text = String(value || '').trim();
+
+                /*
+                 * Thymeleaf가 JavaScript 정규식의 연속 대괄호를
+                 * 인라인 표현식으로 오해할 수 있으므로 정규식을 사용하지 않습니다.
+                 */
+                while (text.endsWith(']')) {
+                    var openingBracketIndex = text.lastIndexOf('[');
+
+                    if (openingBracketIndex < 0) {
+                        break;
+                    }
+
+                    text = text.substring(0, openingBracketIndex).trim();
+                }
+
+                return text || '-';
+            }
+
+            function sanitizeAllProductNames() {
+                document.querySelectorAll('.product-name-text').forEach(function (element) {
+                    element.textContent = removeTrailingBracketText(element.textContent);
+                });
+            }
+
             function findLargestFittedFont(content, size, minFont, maxFont) {
                 var low = minFont;
                 var high = maxFont;
@@ -246,11 +623,12 @@
 
             /*
              * 처리 순서
-             * 1. 커진 기준 글꼴 그대로 자연스러운 줄바꿈
-             * 2. 긴 단어만 셀 안에서 추가 줄바꿈
-             * 3. 그래도 넘칠 때에만 글꼴을 단계적으로 축소
+             * 1. 확대된 기준 글꼴로 자연스러운 줄바꿈
+             * 2. 한 단어가 너무 길 때만 셀 내부 강제 줄바꿈
+             * 3. 그래도 넘치는 경우에만 해당 셀 글꼴 축소
              *
-             * 셀과 행의 실제 크기는 어떤 경우에도 변경하지 않습니다.
+             * 표 전체 크기와 각 행 높이는 항상 고정합니다.
+             * 내용 줄 수가 늘어나도 칸은 커지지 않고 글꼴 크기만 축소됩니다.
              */
             function fitTextCell(cell) {
                 var content = cell.querySelector('.fit-text');
@@ -275,7 +653,7 @@
 
                 content.style.width = '100%';
                 content.style.maxWidth = '100%';
-                content.style.lineHeight = '1.24';
+                content.style.lineHeight = '1.18';
                 cell.style.overflow = 'hidden';
 
                 setFontSize(content, maxFont);
@@ -322,27 +700,13 @@
                     }
                 }
 
-                /* 비정상적으로 긴 값도 고정 양식 바깥으로는 절대 나오지 않습니다. */
+                /* 비정상적으로 긴 값도 고정 스티커 영역 밖으로 나오지 않도록 제한합니다. */
                 setFontSize(content, ABSOLUTE_MIN_FONT_PT);
             }
 
             function fitAllText() {
+                sanitizeAllProductNames();
                 document.querySelectorAll('.fit-cell').forEach(fitTextCell);
-            }
-
-            function waitForImages() {
-                var images = Array.prototype.slice.call(document.images || []);
-
-                return Promise.all(images.map(function (image) {
-                    if (image.complete) {
-                        return Promise.resolve();
-                    }
-
-                    return new Promise(function (resolve) {
-                        image.addEventListener('load', resolve, { once: true });
-                        image.addEventListener('error', resolve, { once: true });
-                    });
-                }));
             }
 
             function waitForFonts() {
@@ -358,7 +722,7 @@
             window.addEventListener('beforeprint', fitAllText);
 
             window.addEventListener('load', function () {
-                Promise.all([waitForFonts(), waitForImages()]).then(function () {
+                waitForFonts().then(function () {
                     fitAllText();
 
                     window.requestAnimationFrame(function () {
@@ -371,7 +735,5 @@
             });
         })();
     </script>
-
 </body>
-
 </html>

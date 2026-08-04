@@ -81,7 +81,7 @@ public class TeamTaskService {
 	);
 
 	/**
-	 * 기존 호출부 호환용입니다. 규격 조건을 지정하지 않은 전체 조회로 위임합니다.
+	 * 기존 단건 호출부 호환용입니다. orderId를 FROM/TO에 동일하게 전달합니다.
 	 */
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
             Long categoryId,
@@ -99,6 +99,7 @@ public class TeamTaskService {
         return getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
                 categoryId,
                 orderId,
+                orderId,
                 productNameKeyword,
                 null,
                 dateType,
@@ -112,9 +113,47 @@ public class TeamTaskService {
         );
     }
 
+	/**
+	 * 기존 단건 + 규격 조건 호출부 호환용입니다.
+	 */
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
             Long categoryId,
             Long orderId,
+            String productNameKeyword,
+            Boolean standard,
+            String dateType,
+            OrderStatus statusFilter,
+            LocalDateTime start,
+            LocalDateTime end,
+            boolean mirrorCuttingOnly,
+            Long memberId,
+            boolean prioritizeUnchecked,
+            Pageable pageable
+    ) {
+        return getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+                categoryId,
+                orderId,
+                orderId,
+                productNameKeyword,
+                standard,
+                dateType,
+                statusFilter,
+                start,
+                end,
+                mirrorCuttingOnly,
+                memberId,
+                prioritizeUnchecked,
+                pageable
+        );
+    }
+
+	/**
+	 * 생산팀 목록을 오더 ID 포함 범위로 조회하고 개인 체크상태 기본 정렬을 적용합니다.
+	 */
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+            Long categoryId,
+            Long orderIdFrom,
+            Long orderIdTo,
             String productNameKeyword,
             Boolean standard,
             String dateType,
@@ -135,10 +174,11 @@ public class TeamTaskService {
         Page<Order> page;
 
         if (useCreated) {
-            page = orderRepository.findProductionListByCreatedRangeStatusCheckSorted(
+            page = orderRepository.findProductionListByCreatedRangeStatusCheckSortedWithOrderIdRange(
                     categoryId,
                     mirrorCuttingOnly,
-                    orderId,
+                    orderIdFrom,
+                    orderIdTo,
                     normalizedProductNameKeyword,
                     standard,
                     allStatus,
@@ -152,10 +192,11 @@ public class TeamTaskService {
                     pageable
             );
         } else {
-            page = orderRepository.findProductionListByPreferredRangeStatusCheckSorted(
+            page = orderRepository.findProductionListByPreferredRangeStatusCheckSortedWithOrderIdRange(
                     categoryId,
                     mirrorCuttingOnly,
-                    orderId,
+                    orderIdFrom,
+                    orderIdTo,
                     normalizedProductNameKeyword,
                     standard,
                     allStatus,
@@ -266,7 +307,7 @@ public class TeamTaskService {
 	}
 
 	/**
-	 * 기존 호출부 호환용입니다. 규격 조건을 지정하지 않은 전체 조회로 위임합니다.
+	 * 기존 단건 호출부 호환용입니다. orderId를 FROM/TO에 동일하게 전달합니다.
 	 */
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
 	        Long categoryId,
@@ -282,6 +323,7 @@ public class TeamTaskService {
         return getProductionOrdersByDateTypeAndStatusFilter(
                 categoryId,
                 orderId,
+                orderId,
                 productNameKeyword,
                 null,
                 dateType,
@@ -294,12 +336,43 @@ public class TeamTaskService {
     }
 
 	/**
-	 * 생산팀 목록을 상태, 기간, 제품명, 규격 여부로 조회합니다.
-	 * standard가 null이면 규격/비규격 전체를 조회합니다.
+	 * 기존 단건 + 규격 조건 호출부 호환용입니다.
 	 */
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
 	        Long categoryId,
 	        Long orderId,
+            String productNameKeyword,
+            Boolean standard,
+	        String dateType,
+	        OrderStatus statusFilter,
+	        LocalDateTime start,
+	        LocalDateTime end,
+	        boolean mirrorCuttingOnly,
+	        Pageable pageable
+	) {
+        return getProductionOrdersByDateTypeAndStatusFilter(
+                categoryId,
+                orderId,
+                orderId,
+                productNameKeyword,
+                standard,
+                dateType,
+                statusFilter,
+                start,
+                end,
+                mirrorCuttingOnly,
+                pageable
+        );
+    }
+
+	/**
+	 * 생산팀 목록을 상태, 기간, 제품명, 규격 여부, 오더 ID 포함 범위로 조회합니다.
+	 * standard가 null이면 규격/비규격 전체를 조회합니다.
+	 */
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
+	        Long categoryId,
+	        Long orderIdFrom,
+	        Long orderIdTo,
             String productNameKeyword,
             Boolean standard,
 	        String dateType,
@@ -318,10 +391,11 @@ public class TeamTaskService {
 		Page<Order> page;
 
 		if (useCreated) {
-		    page = orderRepository.findProductionListByCreatedRangeStatusSortable(
+		    page = orderRepository.findProductionListByCreatedRangeStatusSortableWithOrderIdRange(
 		            categoryId,
 		            mirrorCuttingOnly,
-		            orderId,
+		            orderIdFrom,
+		            orderIdTo,
                     normalizedProductNameKeyword,
                     standard,
 		            allStatus,
@@ -332,10 +406,11 @@ public class TeamTaskService {
 		            pageable
 		    );
 		} else {
-		    page = orderRepository.findProductionListByPreferredRangeStatusSortable(
+		    page = orderRepository.findProductionListByPreferredRangeStatusSortableWithOrderIdRange(
 		            categoryId,
 		            mirrorCuttingOnly,
-		            orderId,
+		            orderIdFrom,
+		            orderIdTo,
                     normalizedProductNameKeyword,
                     standard,
 		            allStatus,
@@ -353,17 +428,49 @@ public class TeamTaskService {
 	}
 
 	/**
-	 * 화면에서 선택한 여러 정렬 조건을 클릭 순서대로 적용합니다.
-	 *
-	 * 제품 중분류는 optionJson을 가공한 표시값이고 체크상태는 로그인 사용자별 값이므로
-	 * 단순한 Pageable Sort만으로는 정확한 다중 정렬을 만들 수 없습니다.
-	 * 사용자 정렬이 있는 경우에만 필터 결과 전체를 조회한 뒤 정렬하고, 마지막에 현재 페이지를 잘라 반환합니다.
-	 * 정렬 조건이 없는 기본 조회는 기존 DB 페이징 경로를 그대로 사용합니다.
+	 * 기존 단건 다중 정렬 호출부 호환용입니다.
 	 */
 	@Transactional(readOnly = true)
 	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
 			Long categoryId,
 			Long orderId,
+			String productNameKeyword,
+			Boolean standard,
+			String dateType,
+			OrderStatus statusFilter,
+			LocalDateTime start,
+			LocalDateTime end,
+			boolean mirrorCuttingOnly,
+			Member loginMember,
+			List<ProductionSortOrder> sortOrders,
+			Pageable pageable
+	) {
+		return getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
+				categoryId,
+				orderId,
+				orderId,
+				productNameKeyword,
+				standard,
+				dateType,
+				statusFilter,
+				start,
+				end,
+				mirrorCuttingOnly,
+				loginMember,
+				sortOrders,
+				pageable
+		);
+	}
+
+	/**
+	 * 화면에서 선택한 여러 정렬 조건을 클릭 순서대로 적용합니다.
+	 * 오더 ID는 FROM/TO 포함 범위로 제한합니다.
+	 */
+	@Transactional(readOnly = true)
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
+			Long categoryId,
+			Long orderIdFrom,
+			Long orderIdTo,
 			String productNameKeyword,
 			Boolean standard,
 			String dateType,
@@ -383,11 +490,11 @@ public class TeamTaskService {
 		boolean allStatus = effectiveStatusFilter == null;
 
 		List<Order> orders = useCreated
-				? orderRepository.findProductionListByCreatedRangeStatusForMultiSort(
-						categoryId, mirrorCuttingOnly, orderId, normalizedProductNameKeyword, standard,
+				? orderRepository.findProductionListByCreatedRangeStatusForMultiSortWithOrderIdRange(
+						categoryId, mirrorCuttingOnly, orderIdFrom, orderIdTo, normalizedProductNameKeyword, standard,
 						allStatus, effectiveStatusFilter, PRODUCTION_LIST_VISIBLE_STATUSES, start, end)
-				: orderRepository.findProductionListByPreferredRangeStatusForMultiSort(
-						categoryId, mirrorCuttingOnly, orderId, normalizedProductNameKeyword, standard,
+				: orderRepository.findProductionListByPreferredRangeStatusForMultiSortWithOrderIdRange(
+						categoryId, mirrorCuttingOnly, orderIdFrom, orderIdTo, normalizedProductNameKeyword, standard,
 						allStatus, effectiveStatusFilter, PRODUCTION_LIST_VISIBLE_STATUSES, start, end);
 
 		if (orders == null || orders.isEmpty()) {

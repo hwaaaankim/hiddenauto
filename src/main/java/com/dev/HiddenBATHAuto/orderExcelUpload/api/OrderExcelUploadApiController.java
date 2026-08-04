@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -115,13 +116,14 @@ public class OrderExcelUploadApiController {
     @PostMapping(value = "/save", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> saveMultipart(
             @RequestPart("payload") OrderExcelSaveRequest request,
-            MultipartHttpServletRequest multipartRequest
+            MultipartHttpServletRequest multipartRequest,
+            Authentication authentication
     ) {
         try {
             Map<String, List<MultipartFile>> imageMap = multipartRequest == null
                     ? Map.of()
                     : multipartRequest.getMultiFileMap();
-            OrderExcelSaveResponse response = uploadService.save(request, imageMap);
+            OrderExcelSaveResponse response = uploadService.save(request, imageMap, resolveUsername(authentication));
             return ResponseEntity.ok(response);
         } catch (OrderExcelUploadValidationException e) {
             return ResponseEntity.badRequest().body(new OrderExcelSaveResponse(false, e.getMessage(), 0, 0, java.util.List.of(), e.getIssues()));
@@ -136,9 +138,12 @@ public class OrderExcelUploadApiController {
      * 이미지가 없는 구버전 화면에서도 저장할 수 있도록 JSON 저장 엔드포인트를 같이 유지합니다.
      */
     @PostMapping(value = "/save", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> saveJson(@RequestBody OrderExcelSaveRequest request) {
+    public ResponseEntity<?> saveJson(
+            @RequestBody OrderExcelSaveRequest request,
+            Authentication authentication
+    ) {
         try {
-            OrderExcelSaveResponse response = uploadService.save(request, Map.of());
+            OrderExcelSaveResponse response = uploadService.save(request, Map.of(), resolveUsername(authentication));
             return ResponseEntity.ok(response);
         } catch (OrderExcelUploadValidationException e) {
             return ResponseEntity.badRequest().body(new OrderExcelSaveResponse(false, e.getMessage(), 0, 0, java.util.List.of(), e.getIssues()));
@@ -148,4 +153,11 @@ public class OrderExcelUploadApiController {
             return ResponseEntity.internalServerError().body(new OrderExcelSaveResponse(false, "엑셀 발주 저장 중 오류가 발생했습니다.", 0, 0, java.util.List.of(), java.util.List.of()));
         }
     }
+    private String resolveUsername(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return null;
+        }
+        return authentication.getName().trim();
+    }
+
 }

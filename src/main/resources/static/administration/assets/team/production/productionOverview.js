@@ -34,6 +34,8 @@
 		els.prevBtn = document.getElementById('team-production-overview-prev-btn');
 		els.nextBtn = document.getElementById('team-production-overview-next-btn');
 		els.completeBtn = document.getElementById('team-production-overview-complete-btn');
+		els.headerActions = document.querySelector('#team-production-overview-modal .team-production-overview-header-actions');
+		els.adminRequestBtn = ensureOverviewAdminRequestButton();
 
 		els.imageModal = document.getElementById('team-production-overview-image-modal');
 		els.imageViewer = document.getElementById('team-production-overview-image-viewer');
@@ -44,6 +46,74 @@
 		els.imageOriginalBtn = document.getElementById('team-production-overview-image-original-btn');
 		els.imageZoomInBtn = document.getElementById('team-production-overview-image-zoom-in-btn');
 		els.imageZoomOutBtn = document.getElementById('team-production-overview-image-zoom-out-btn');
+	}
+
+	function ensureOverviewAdminRequestButton() {
+		const headerActions = els.headerActions ||
+			document.querySelector('#team-production-overview-modal .team-production-overview-header-actions');
+
+		if (!headerActions) {
+			console.error('[생산 넓게보기] 관리자요청 버튼을 넣을 헤더 영역을 찾지 못했습니다.');
+			return null;
+		}
+
+		els.headerActions = headerActions;
+
+		let button = document.getElementById('team-production-overview-admin-request-btn');
+		const wasCreated = !button;
+
+		if (!button) {
+			button = document.createElement('button');
+			button.type = 'button';
+			button.id = 'team-production-overview-admin-request-btn';
+			button.innerHTML = '<i class="ri-alarm-warning-line me-1"></i>관리자요청';
+		}
+
+		button.type = 'button';
+		button.hidden = false;
+		button.removeAttribute('hidden');
+		button.removeAttribute('aria-hidden');
+		button.classList.add('btn', 'btn-danger', 'btn-sm', 'order-admin-request-btn');
+		button.setAttribute('data-order-admin-request', '');
+		button.setAttribute(
+			'data-admin-request-message',
+			'생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다.'
+		);
+		button.title = '발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다.';
+
+		/*
+		 * 기존 반응형 CSS나 부모 모달 스타일이 버튼을 숨겨도 반드시 노출합니다.
+		 * 생산완료 버튼 바로 다음 형제로 이동시켜 사용자가 요청한 위치를 보장합니다.
+		 */
+		button.style.setProperty('display', 'inline-flex', 'important');
+		button.style.setProperty('visibility', 'visible', 'important');
+		button.style.setProperty('opacity', '1', 'important');
+		button.style.setProperty('align-items', 'center', 'important');
+		button.style.setProperty('justify-content', 'center', 'important');
+		button.style.setProperty('flex', '0 0 auto', 'important');
+		headerActions.style.setProperty('overflow', 'visible', 'important');
+
+		const completeButton = document.getElementById('team-production-overview-complete-btn');
+		const closeButton = headerActions.querySelector('.btn-close');
+
+		if (completeButton && completeButton.parentElement === headerActions) {
+			if (completeButton.nextElementSibling !== button) {
+				completeButton.insertAdjacentElement('afterend', button);
+			}
+		} else if (button.parentElement !== headerActions) {
+			headerActions.insertBefore(button, closeButton || null);
+		}
+
+		if (button.getAttribute('data-production-overview-admin-bound') !== 'true') {
+			button.setAttribute('data-production-overview-admin-bound', 'true');
+			button.addEventListener('click', requestCurrentOrderAdmin);
+		}
+
+		if (wasCreated) {
+			console.info('[생산 넓게보기] 누락된 관리자요청 버튼을 생산완료 버튼 옆에 자동 생성했습니다.');
+		}
+
+		return button;
 	}
 
 	function bindEvents() {
@@ -66,6 +136,7 @@
 		if (els.completeBtn) {
 			els.completeBtn.addEventListener('click', completeCurrentOrder);
 		}
+
 
 		if (els.host) {
 			els.host.addEventListener('click', handleHostClick);
@@ -120,6 +191,13 @@
 		document.addEventListener('team-production:order-completed', handleProductionCompleted);
 
 		if (els.modal) {
+			const restoreAdminRequestButton = function() {
+				els.adminRequestBtn = ensureOverviewAdminRequestButton();
+				updateNavigationState();
+			};
+
+			els.modal.addEventListener('show.bs.modal', restoreAdminRequestButton);
+			els.modal.addEventListener('shown.bs.modal', restoreAdminRequestButton);
 			els.modal.addEventListener('hidden.bs.modal', function() {
 				closeImageModal();
 			});
@@ -1257,6 +1335,41 @@
 		}
 	}
 
+	function requestCurrentOrderAdmin(event) {
+		if (event) {
+			event.preventDefault();
+			event.stopPropagation();
+		}
+
+		const order = getCurrentOrder();
+		const adminRequestState = getAdminRequestState(order);
+
+		console.info('[생산 넓게보기] 관리자요청 버튼 클릭', {
+			orderId: order ? order.id : null,
+			status: order ? resolveOrderStatusCode(order) : null,
+			available: adminRequestState.available
+		});
+
+		if (!adminRequestState.available || !order || !order.id) {
+			window.alert(adminRequestState.message || '관리자요청을 보낼 수 없는 발주입니다.');
+			return;
+		}
+
+		const notificationApi = window.HiddenBathOrderNotification;
+
+		if (!notificationApi || typeof notificationApi.requestAdmin !== 'function') {
+			console.error('[생산 넓게보기] HiddenBathOrderNotification.requestAdmin을 찾을 수 없습니다.');
+			window.alert('관리자요청 스크립트를 불러오지 못했습니다. Ctrl+F5 후 다시 시도해 주세요.');
+			return;
+		}
+
+		notificationApi.requestAdmin(
+			Number(order.id),
+			'생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다.',
+			els.adminRequestBtn
+		);
+	}
+
 	function moveOrder(direction) {
 		if (state.orders.length === 0) {
 			return;
@@ -1292,11 +1405,67 @@
 			const order = getCurrentOrder();
 			const completeState = getOrderCompleteState(order);
 			const isBusy = Boolean(order && state.completeBusyOrderId === toText(order.id));
+			const status = resolveOrderStatusCode(order);
+			const completeLabel = status === 'PRODUCTION_DONE' ? '생산완료됨' : '생산완료';
 
 			els.completeBtn.disabled = isBusy || !completeState.available;
-			els.completeBtn.textContent = isBusy ? '처리 중...' : '생산완료';
+			els.completeBtn.textContent = isBusy ? '처리 중...' : completeLabel;
 			els.completeBtn.title = isBusy ? '생산완료 처리 중입니다.' : completeState.message;
 		}
+
+		if (els.adminRequestBtn) {
+			const order = getCurrentOrder();
+			const adminRequestState = getAdminRequestState(order);
+
+			els.adminRequestBtn.disabled = !adminRequestState.available;
+			els.adminRequestBtn.setAttribute(
+				'data-order-id',
+				adminRequestState.available ? toText(order.id) : ''
+			);
+			els.adminRequestBtn.setAttribute(
+				'data-admin-request-message',
+				'생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다.'
+			);
+			els.adminRequestBtn.title = adminRequestState.message;
+		}
+	}
+
+	function getAdminRequestState(order) {
+		if (!order || !order.id) {
+			return {
+				available: false,
+				message: '관리자요청을 보낼 발주 정보가 없습니다.'
+			};
+		}
+
+		return {
+			available: true,
+			message: '발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다.'
+		};
+	}
+
+	function resolveOrderStatusCode(order) {
+		if (!order) {
+			return '';
+		}
+
+		const status = normalizeOrderStatus(order.status);
+
+		if (status === 'CONFIRMED' || status === 'PRODUCTION_DONE') {
+			return status;
+		}
+
+		const statusLabel = toText(order.statusLabel).replace(/\s+/g, '');
+
+		if (statusLabel === '승인완료') {
+			return 'CONFIRMED';
+		}
+
+		if (statusLabel === '생산완료') {
+			return 'PRODUCTION_DONE';
+		}
+
+		return status;
 	}
 
 	function getCurrentOrder() {

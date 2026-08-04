@@ -13,6 +13,8 @@
 	const $sortControls = Array.from(document.querySelectorAll('.team-production-sort-controls'));
 	const $searchResetBtn = document.getElementById('team-production-search-reset-btn');
 	const $sortResetBtn = document.getElementById('team-production-sort-reset-btn');
+	const $orderIdFrom = document.getElementById('team-production-orderIdFrom');
+	const $orderIdTo = document.getElementById('team-production-orderIdTo');
 
 	const canBulkComplete = (document.getElementById('team-production-can-bulk-complete')?.value === 'true');
 	const $btnBulkDone = document.getElementById('team-production-bulk-done-btn');
@@ -355,11 +357,49 @@
 		if (element) element.value = value;
 	}
 
+	function parsePositiveIntegerInput(input) {
+		if (!input) return null;
+
+		const raw = String(input.value || '').trim();
+		if (!raw) return null;
+
+		const value = Number(raw);
+		return Number.isInteger(value) && value > 0 ? value : null;
+	}
+
+	function validateOrderIdRange() {
+		const fromRaw = String($orderIdFrom?.value || '').trim();
+		const toRaw = String($orderIdTo?.value || '').trim();
+		const from = parsePositiveIntegerInput($orderIdFrom);
+		const to = parsePositiveIntegerInput($orderIdTo);
+
+		if (fromRaw && from == null) {
+			alert('오더 ID FROM은 1 이상의 정수로 입력해 주세요.');
+			$orderIdFrom?.focus();
+			return false;
+		}
+
+		if (toRaw && to == null) {
+			alert('오더 ID TO는 1 이상의 정수로 입력해 주세요.');
+			$orderIdTo?.focus();
+			return false;
+		}
+
+		if (from != null && to != null && from > to) {
+			alert('오더 ID TO는 FROM보다 크거나 같아야 합니다.\n단건 조회는 FROM과 TO에 같은 값을 입력해 주세요.');
+			$orderIdTo?.focus();
+			return false;
+		}
+
+		return true;
+	}
+
 	function resetSearchFilters() {
 		if (!$form) return;
 
 		// 정렬(sortSpec)과 표시 개수(size)는 유지하고 검색 조건만 최초 상태로 복원합니다.
-		setFormValue('[name="orderId"]', '');
+		setFormValue('[name="orderIdFrom"]', '');
+		setFormValue('[name="orderIdTo"]', '');
 		setFormValue('[name="productName"]', '');
 		setFormValue('[name="productCategoryId"]', '');
 		setFormValue('[name="dateType"]', 'preferred');
@@ -392,6 +432,15 @@
 			);
 		});
 	});
+
+	if ($form) {
+		$form.addEventListener('submit', function (event) {
+			if (!validateOrderIdRange()) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+		});
+	}
 
 	if ($searchResetBtn) {
 		$searchResetBtn.addEventListener('click', resetSearchFilters);

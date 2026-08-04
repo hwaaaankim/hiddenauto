@@ -316,6 +316,16 @@ body.twocolumn-panel .container-fluid {
 	font-weight: 900;
 }
 
+.dispatch-list-admin-request-btn {
+	width: 100%;
+	min-height: 31px;
+	margin-top: 5px;
+	border-radius: 5px;
+	font-size: 12px;
+	font-weight: 900;
+	white-space: nowrap;
+}
+
 .dispatch-list-empty {
 	padding: 54px 10px !important;
 	text-align: center;

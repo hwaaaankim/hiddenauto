@@ -34,6 +34,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodChangeRequest;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodChangeResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkDeliveryMethodPreviewResponse;
@@ -49,6 +50,8 @@ import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DeliveryMethodDto;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DispatchOrderRowDto;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DispatchOrderSearchRequest;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DispatchOrderSearchResponse;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
@@ -65,6 +68,7 @@ import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy.MethodGroup;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
+import com.dev.HiddenBATHAuto.service.order.OrderOperationalChangeRecorder;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -101,6 +105,7 @@ public class DispatchTeamService {
     private final MemberRepository memberRepository;
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final DeliveryOrderIndexService deliveryOrderIndexService;
+    private final OrderOperationalChangeRecorder changeRecorder;
 
     @Transactional(readOnly = true)
     public DispatchOrderSearchResponse searchDispatchOrders(
@@ -253,6 +258,7 @@ public class DispatchTeamService {
         List<DispatchOrderRowDto> updatedRows = new ArrayList<>();
         List<BulkDispatchFailDto> failedItems = new ArrayList<>();
         List<Order> saveTargets = new ArrayList<>();
+        Map<Long, OrderStatus> beforeStatusMap = new LinkedHashMap<>();
 
         for (Long orderId : normalizedIds) {
             Order order = orderMap.get(orderId);
@@ -273,6 +279,7 @@ public class DispatchTeamService {
                 continue;
             }
 
+            beforeStatusMap.put(orderId, order.getStatus());
             order.setStatus(OrderStatus.DISPATCH_DONE);
             order.setUpdatedAt(LocalDateTime.now());
 
@@ -285,6 +292,18 @@ public class DispatchTeamService {
             orderRepository.flush();
 
             for (Order order : saveTargets) {
+                changeRecorder.recordStatusChange(
+                        order,
+                        OrderChangeSourceArea.DISPATCH,
+                        loginMember,
+                        beforeStatusMap.get(order.getId()),
+                        OrderStatus.DISPATCH_DONE,
+                        "DISPATCH_COMPLETE",
+                        "출고완료 처리",
+                        "/team/dispatchList/api/orders/complete",
+                        OrderWorkArea.DISPATCH,
+                        OrderWorkArea.DELIVERY
+                );
                 updatedRows.add(toDispatchOrderRowDto(order));
             }
         }
@@ -334,6 +353,8 @@ public class DispatchTeamService {
         MethodGroup nextGroup = DeliveryMethodAssignmentPolicy.classify(nextDeliveryMethod);
         DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
         Member currentHandler = resolveAssignedDeliveryHandler(order, existingIndex);
+        String beforeMethodLabel = deliveryMethodLabel(order.getDeliveryMethod());
+        String beforeHandlerLabel = memberLabel(currentHandler);
         Member nextHandler = null;
         Set<Long> affectedHandlerIds = new HashSet<>();
 
@@ -373,6 +394,34 @@ public class DispatchTeamService {
         }
 
         deliveryOrderIndexRepository.flush();
+
+        changeRecorder.recordChangesWithAdditionalRecipients(
+                order,
+                OrderChangeSourceArea.DISPATCH,
+                loginMember,
+                "DISPATCH_DELIVERY_METHOD_CHANGE",
+                "출고팀 배송수단/담당자 변경",
+                "/team/dispatchList/api/orders/" + orderId + "/delivery-method",
+                currentHandler != null && currentHandler.getId() != null
+                        ? List.of(currentHandler.getId())
+                        : List.of(),
+                OrderFieldChangeCommand.of(
+                        "deliveryMethod",
+                        "배송수단",
+                        beforeMethodLabel,
+                        deliveryMethodLabel(nextDeliveryMethod),
+                        OrderWorkArea.DISPATCH,
+                        OrderWorkArea.DELIVERY
+                ),
+                OrderFieldChangeCommand.of(
+                        "assignedDeliveryHandler",
+                        "배송담당자",
+                        beforeHandlerLabel,
+                        memberLabel(nextHandler),
+                        OrderWorkArea.DISPATCH,
+                        OrderWorkArea.DELIVERY
+                )
+        );
 
         DeliveryOrderIndex savedDeliveryOrderIndex = findDeliveryOrderIndex(order);
         return toDeliveryMethodDto(nextDeliveryMethod, savedDeliveryOrderIndex);
@@ -464,6 +513,8 @@ public class DispatchTeamService {
 
         Map<Long, Order> orderMap = findLockedOrderMap(normalizedIds);
         List<Order> changeTargets = new ArrayList<>();
+        Map<Long, String> beforeHandlerLabels = new LinkedHashMap<>();
+        Map<Long, Long> beforeHandlerIds = new LinkedHashMap<>();
         List<Long> excludedOrderIds = new ArrayList<>();
         Set<Long> affectedHandlerIds = new HashSet<>();
         affectedHandlerIds.add(targetHandler.getId());
@@ -493,6 +544,8 @@ public class DispatchTeamService {
                     order,
                     findDeliveryOrderIndex(order)
             );
+            beforeHandlerLabels.put(orderId, memberLabel(currentHandler));
+            beforeHandlerIds.put(orderId, currentHandler != null ? currentHandler.getId() : null);
             if (currentHandler != null && currentHandler.getId() != null) {
                 affectedHandlerIds.add(currentHandler.getId());
             }
@@ -536,6 +589,28 @@ public class DispatchTeamService {
         }
 
         deliveryOrderIndexRepository.flush();
+
+        for (Order order : changeTargets) {
+            changeRecorder.recordChangesWithAdditionalRecipients(
+                    order,
+                    OrderChangeSourceArea.DISPATCH,
+                    loginMember,
+                    "DISPATCH_HANDLER_BULK_CHANGE",
+                    "출고팀 배송담당자 일괄 변경",
+                    "/team/dispatchList/api/orders/bulk-handler",
+                    beforeHandlerIds.get(order.getId()) != null
+                            ? List.of(beforeHandlerIds.get(order.getId()))
+                            : List.of(),
+                    OrderFieldChangeCommand.of(
+                            "assignedDeliveryHandler",
+                            "배송담당자",
+                            beforeHandlerLabels.get(order.getId()),
+                            memberLabel(targetHandler),
+                            OrderWorkArea.DISPATCH,
+                            OrderWorkArea.DELIVERY
+                    )
+            );
+        }
 
         List<DispatchOrderRowDto> updatedRows = changeTargets.stream()
                 .map(this::toDispatchOrderRowDto)
@@ -681,6 +756,9 @@ public class DispatchTeamService {
         );
         Map<Long, Member> handlerCache = new HashMap<>();
         Map<Long, Order> orderMap = findLockedOrderMap(normalizedIds);
+        Map<Long, String> beforeMethodLabels = new LinkedHashMap<>();
+        Map<Long, String> beforeHandlerLabelsForMethodChange = new LinkedHashMap<>();
+        Map<Long, Long> beforeHandlerIdsForMethodChange = new LinkedHashMap<>();
         List<BulkDeliveryMethodPlan> plans = new ArrayList<>();
         List<Long> actualAssignmentRequiredOrderIds = new ArrayList<>();
         List<Long> actualRemovalOrderIds = new ArrayList<>();
@@ -701,6 +779,9 @@ public class DispatchTeamService {
 
             DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
             Member currentHandler = resolveAssignedDeliveryHandler(order, existingIndex);
+            beforeMethodLabels.put(orderId, deliveryMethodLabel(order.getDeliveryMethod()));
+            beforeHandlerLabelsForMethodChange.put(orderId, memberLabel(currentHandler));
+            beforeHandlerIdsForMethodChange.put(orderId, currentHandler != null ? currentHandler.getId() : null);
             boolean hasCurrentAssignment = currentHandler != null || existingIndex != null;
             MethodGroup currentGroup = DeliveryMethodAssignmentPolicy.classify(order.getDeliveryMethod());
 
@@ -807,6 +888,38 @@ public class DispatchTeamService {
         }
 
         deliveryOrderIndexRepository.flush();
+
+        for (BulkDeliveryMethodPlan plan : plans) {
+            Order order = plan.order();
+            Member afterHandler = plan.removeAssignment() ? null : plan.handler();
+            changeRecorder.recordChangesWithAdditionalRecipients(
+                    order,
+                    OrderChangeSourceArea.DISPATCH,
+                    loginMember,
+                    "DISPATCH_DELIVERY_METHOD_BULK_CHANGE",
+                    "출고팀 배송수단 일괄 변경",
+                    "/team/dispatchList/api/orders/bulk-delivery-method",
+                    beforeHandlerIdsForMethodChange.get(order.getId()) != null
+                            ? List.of(beforeHandlerIdsForMethodChange.get(order.getId()))
+                            : List.of(),
+                    OrderFieldChangeCommand.of(
+                            "deliveryMethod",
+                            "배송수단",
+                            beforeMethodLabels.get(order.getId()),
+                            deliveryMethodLabel(targetMethod),
+                            OrderWorkArea.DISPATCH,
+                            OrderWorkArea.DELIVERY
+                    ),
+                    OrderFieldChangeCommand.of(
+                            "assignedDeliveryHandler",
+                            "배송담당자",
+                            beforeHandlerLabelsForMethodChange.get(order.getId()),
+                            memberLabel(afterHandler),
+                            OrderWorkArea.DISPATCH,
+                            OrderWorkArea.DELIVERY
+                    )
+            );
+        }
 
         List<DispatchOrderRowDto> updatedRows = saveTargets.stream()
                 .map(this::toDispatchOrderRowDto)
@@ -1623,6 +1736,21 @@ public class DispatchTeamService {
         }
 
         return "";
+    }
+
+    private String deliveryMethodLabel(DeliveryMethod method) {
+        if (method == null) return "미지정";
+        return safeTextOrDash(method.getMethodName());
+    }
+
+    private String memberLabel(Member member) {
+        if (member == null) return "미배정";
+        String name = member.getName() != null ? member.getName().trim() : "";
+        String username = member.getUsername() != null ? member.getUsername().trim() : "";
+        if (!name.isEmpty() && !username.isEmpty()) return name + "(" + username + ")";
+        if (!name.isEmpty()) return name;
+        if (!username.isEmpty()) return username;
+        return member.getId() != null ? "MEMBER-" + member.getId() : "미배정";
     }
 
     private String safeTextOrDash(Object value) {
