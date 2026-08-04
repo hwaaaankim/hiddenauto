@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.dto.OrderRequestItemDTO;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.District;
@@ -75,6 +76,7 @@ public class OrderProcessingService {
 	private final MemberRegionRepository memberRegionRepository;
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final CartRepository cartRepository;
+	private final OrderRegistrationAuditService orderRegistrationAuditService;
 
 	@Value("${spring.upload.path}")
 	private String uploadRootPath;
@@ -279,7 +281,25 @@ public class OrderProcessingService {
 
 		task.setOrders(orderList);
 		task.setTotalPrice(totalPrice);
-		taskRepository.save(task);
+		taskRepository.saveAndFlush(task);
+
+		/*
+		 * 고객 직접 발주는 현재 REQUESTED 상태이므로 팀 알림은 생성하지 않고
+		 * 누가 어떤 발주를 등록했는지 감사이력만 남깁니다. 추후 승인되어 업무 화면에
+		 * 노출되는 시점의 상태 전환 알림은 관리 승인 로직에서 별도로 생성됩니다.
+		 */
+		for (Order order : orderList) {
+			orderRegistrationAuditService.recordRegistration(
+					order,
+					OrderChangeSourceArea.CUSTOMER,
+					member.getId(),
+					member.getUsername(),
+					member.getName(),
+					"CUSTOMER_ORDER_CREATED",
+					"고객 발주 등록",
+					"/api/order/submit"
+			);
+		}
 
 		System.out.println("🎉 발주 저장 완료!");
 		return "발주가 완료되었습니다.";

@@ -5,46 +5,34 @@
         summary: '/api/internal/order-notifications/summary',
         list: '/api/internal/order-notifications',
         read: function (id) { return '/api/internal/order-notifications/' + encodeURIComponent(id) + '/read'; },
-        readAll: '/api/internal/order-notifications/read-all',
-        adminRequest: function (orderId) { return '/api/internal/orders/' + encodeURIComponent(orderId) + '/admin-request'; },
-        managementOrderList: function (orderId, orderStatus) {
-            const params = new URLSearchParams();
-            params.set('orderId', String(orderId));
-            params.set('productName', '');
-            params.set('keyword', '');
-            params.set('dateCriteria', 'all');
-            params.set('productCategoryId', 'all');
-            /*
-             * 알림 목록을 조회하는 시점의 실제 Order.status 값을 그대로 전달합니다.
-             * orderId와 상태가 모두 동일한 한 건만 조회되므로 다른 상태의 발주가 섞이지 않습니다.
-             */
-            params.set('orderStatus', String(orderStatus));
-            params.set('standard', 'all');
-            params.set('size', '10');
-            params.set('sortState', '');
-            return '/management/nonStandardTaskList?' + params.toString();
-        }
+        readLoaded: '/api/internal/order-notifications/read-loaded',
+        adminRequest: function (orderId) { return '/api/internal/orders/' + encodeURIComponent(orderId) + '/admin-request'; }
     };
 
     const state = {
         category: 'PRODUCTION',
+        isManagement: false,
         summary: { totalUnreadCount: 0, unreadCountByCategory: {} },
+        items: [],
+        nextCursor: null,
+        hasNext: false,
+        loadingInitial: false,
+        loadingMore: false,
+        hasLoaded: false,
         socket: null,
         reconnectTimer: null,
         reconnectDelay: 1000,
         modal: null,
-        loading: false
+        socketBuffer: new Map(),
+        socketFlushTimer: null,
+        summaryTimer: null,
+        listRequestVersion: 0
     };
 
     const els = {};
     let adminRequestDelegationBound = false;
     let adminRequestButtonObserver = null;
 
-    /*
-     * 관리자요청은 종 아이콘/알림 모달의 렌더링 여부와 무관하게
-     * 생산·배송·출고 화면 어디서든 사용할 수 있어야 합니다.
-     * 함수 선언은 호이스팅되므로 DOMContentLoaded 이전에도 안전하게 공개할 수 있습니다.
-     */
     window.HiddenBathOrderNotification = {
         requestAdmin: requestAdmin,
         refreshSummary: refreshSummary
@@ -57,19 +45,14 @@
         bindAdminRequestDelegation();
         enableStateIndependentAdminRequestButtons();
 
-        /*
-         * 알림 센터 UI가 없는 화면에서도 관리자요청 API는 계속 동작합니다.
-         * 아래부터는 종 아이콘/알림 모달 전용 초기화입니다.
-         */
-        if (!els.bellButton || !els.modalElement) {
-            return;
-        }
-
+        if (!els.bellButton || !els.modalElement) return;
         if (!window.bootstrap || !window.bootstrap.Modal) {
             console.error('[발주알림] Bootstrap Modal을 찾을 수 없습니다.');
             return;
         }
 
+        state.isManagement = Boolean(els.managementMode);
+        if (!state.isManagement) state.category = null;
         state.modal = window.bootstrap.Modal.getOrCreateInstance(els.modalElement);
         bindNotificationCenterEvents();
         refreshSummary();
@@ -83,175 +66,112 @@
         els.modalElement = document.getElementById('order-notification-center-modal');
         els.list = document.getElementById('order-notification-list');
         els.readAllButton = document.getElementById('order-notification-read-all-btn');
-        els.managementOrderLinkEnabled = document.getElementById('order-notification-management-link-enabled');
+        els.refreshButton = document.getElementById('order-notification-refresh-btn');
+        els.loadMoreButton = document.getElementById('order-notification-load-more-btn');
+        els.loadMoreWrap = document.getElementById('order-notification-load-more-wrap');
+        els.newArrival = document.getElementById('order-notification-new-arrival');
+        els.managementMode = document.getElementById('order-notification-management-mode');
         els.tabs = Array.from(document.querySelectorAll('[data-order-notification-category]'));
     }
 
     function bindNotificationCenterEvents() {
-        els.bellButton.addEventListener('click', function () {
-            state.modal.show();
-        });
-
+        els.bellButton.addEventListener('click', function () { state.modal.show(); });
         els.modalElement.addEventListener('shown.bs.modal', function () {
-            loadNotifications();
+            if (!state.hasLoaded) reloadNotifications();
         });
 
         els.tabs.forEach(function (tab) {
             tab.addEventListener('click', function () {
                 state.category = tab.getAttribute('data-order-notification-category') || 'PRODUCTION';
                 updateTabs();
-                loadNotifications();
+                reloadNotifications();
             });
         });
 
-        if (els.readAllButton) {
-            els.readAllButton.addEventListener('click', markAllRead);
-        }
-
+        if (els.readAllButton) els.readAllButton.addEventListener('click', markLoadedRead);
+        if (els.refreshButton) els.refreshButton.addEventListener('click', reloadNotifications);
+        if (els.loadMoreButton) els.loadMoreButton.addEventListener('click', loadMoreNotifications);
         if (els.list) {
             els.list.addEventListener('click', handleNotificationClick);
             els.list.addEventListener('keydown', handleNotificationKeydown);
+            els.list.addEventListener('scroll', function () {
+                if (!state.hasNext || state.loadingMore || state.loadingInitial) return;
+                if (els.list.scrollTop + els.list.clientHeight >= els.list.scrollHeight - 120) {
+                    loadMoreNotifications();
+                }
+            });
         }
     }
 
     function bindAdminRequestDelegation() {
-        if (adminRequestDelegationBound) {
-            return;
-        }
-
+        if (adminRequestDelegationBound) return;
         adminRequestDelegationBound = true;
-
         document.addEventListener('click', function (event) {
             const target = event.target;
             const button = target && typeof target.closest === 'function'
-                ? target.closest('[data-order-admin-request]')
-                : null;
-
-            if (!button) {
-                return;
-            }
-
+                ? target.closest('[data-order-admin-request]') : null;
+            if (!button) return;
             event.preventDefault();
             event.stopPropagation();
-
-            if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
-                return;
-            }
+            if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
 
             const orderId = Number(button.getAttribute('data-order-id'));
-
             if (!Number.isFinite(orderId) || orderId <= 0) {
-                console.error('[관리자요청] 유효한 발주 ID가 없습니다.', {
-                    orderId: button.getAttribute('data-order-id'),
-                    button: button
-                });
+                console.error('[관리자요청] 유효한 발주 ID가 없습니다.', button);
                 showAlert('error', '관리자요청을 보낼 발주 ID가 없습니다. 화면을 새로고침해 주세요.');
                 return;
             }
-
-            requestAdmin(
-                orderId,
-                button.getAttribute('data-admin-request-message') || null,
-                button
-            );
+            requestAdmin(orderId, button.getAttribute('data-admin-request-message') || null, button);
         });
     }
 
-
-    /**
-     * 관리자요청은 발주 상태와 무관합니다.
-     * 서버에서 상태 제한을 두지 않는 것과 동일하게, 화면에 남아 있는 과거 disabled
-     * 속성이나 동적으로 생성된 버튼의 상태 제한도 공통 스크립트에서 제거합니다.
-     * 단, 발주 ID가 아직 지정되지 않았거나 실제 전송 중인 버튼은 활성화하지 않습니다.
-     */
     function enableStateIndependentAdminRequestButtons() {
         normalizeAdminRequestButtons(document);
-
-        if (!document.body || typeof MutationObserver === 'undefined' || adminRequestButtonObserver) {
-            return;
-        }
-
+        if (!document.body || typeof MutationObserver === 'undefined' || adminRequestButtonObserver) return;
         adminRequestButtonObserver = new MutationObserver(function (mutations) {
             mutations.forEach(function (mutation) {
                 if (mutation.type === 'childList') {
                     mutation.addedNodes.forEach(function (node) {
-                        if (!node || node.nodeType !== 1) {
-                            return;
-                        }
-                        normalizeAdminRequestButtons(node);
+                        if (node && node.nodeType === 1) normalizeAdminRequestButtons(node);
                     });
-                    return;
-                }
-
-                if (mutation.type === 'attributes' && mutation.target) {
+                } else if (mutation.type === 'attributes' && mutation.target) {
                     normalizeAdminRequestButton(mutation.target);
                 }
             });
         });
-
         adminRequestButtonObserver.observe(document.body, {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: [
-                'data-order-id',
-                'disabled',
-                'aria-disabled',
-                'data-admin-request-busy'
-            ]
+            attributeFilter: ['data-order-id', 'disabled', 'aria-disabled', 'data-admin-request-busy']
         });
     }
 
     function normalizeAdminRequestButtons(root) {
-        if (!root) {
-            return;
-        }
-
+        if (!root) return;
         if (typeof root.matches === 'function' && root.matches('[data-order-admin-request]')) {
             normalizeAdminRequestButton(root);
         }
-
-        if (typeof root.querySelectorAll !== 'function') {
-            return;
+        if (typeof root.querySelectorAll === 'function') {
+            root.querySelectorAll('[data-order-admin-request]').forEach(normalizeAdminRequestButton);
         }
-
-        root.querySelectorAll('[data-order-admin-request]').forEach(normalizeAdminRequestButton);
     }
 
     function normalizeAdminRequestButton(button) {
-        if (!button || typeof button.matches !== 'function' || !button.matches('[data-order-admin-request]')) {
-            return;
-        }
-
-        if (button.getAttribute('data-admin-request-busy') === 'true') {
-            return;
-        }
-
+        if (!button || typeof button.matches !== 'function' || !button.matches('[data-order-admin-request]')) return;
+        if (button.getAttribute('data-admin-request-busy') === 'true') return;
         const orderId = Number(button.getAttribute('data-order-id'));
-        const hasValidOrderId = Number.isFinite(orderId) && orderId > 0;
-
-        if (!hasValidOrderId) {
-            if (!button.disabled) {
-                button.disabled = true;
-            }
-            if (button.getAttribute('aria-disabled') !== 'true') {
-                button.setAttribute('aria-disabled', 'true');
-            }
+        const valid = Number.isFinite(orderId) && orderId > 0;
+        if (!valid) {
+            button.disabled = true;
+            button.setAttribute('aria-disabled', 'true');
             return;
         }
-
-        if (button.disabled) {
-            button.disabled = false;
-        }
-        if (button.hasAttribute('disabled')) {
-            button.removeAttribute('disabled');
-        }
-        if (button.hasAttribute('aria-disabled')) {
-            button.removeAttribute('aria-disabled');
-        }
-
+        button.disabled = false;
+        button.removeAttribute('disabled');
+        button.removeAttribute('aria-disabled');
         if (!button.title || /상태|승인완료|생산완료|요청을 보낼 수 없/.test(button.title)) {
-            button.title = '발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다.';
+            button.title = '이 발주의 관리 담당자에게 긴급 확인을 요청합니다.';
         }
     }
 
@@ -266,11 +186,17 @@
         }
     }
 
+    function scheduleSummaryRefresh() {
+        window.clearTimeout(state.summaryTimer);
+        state.summaryTimer = window.setTimeout(refreshSummary, 350);
+    }
+
     function renderSummary() {
         const total = Number(state.summary.totalUnreadCount || 0);
-        els.badge.textContent = total > 99 ? '99+' : String(total);
-        els.badge.classList.toggle('is-empty', total <= 0);
-
+        if (els.badge) {
+            els.badge.textContent = total > 99 ? '99+' : String(total);
+            els.badge.classList.toggle('is-empty', total <= 0);
+        }
         els.tabs.forEach(function (tab) {
             const category = tab.getAttribute('data-order-notification-category');
             const countElement = tab.querySelector('.order-notification-tab-count');
@@ -279,63 +205,114 @@
         });
     }
 
-    async function loadNotifications() {
-        if (state.loading || !els.list) return;
-        state.loading = true;
-        els.list.innerHTML = '<div class="order-notification-loading"><div><span class="spinner-border spinner-border-sm me-2"></span>알림을 불러오는 중입니다.</div></div>';
-
+    async function reloadNotifications() {
+        if (!els.list) return;
+        const requestVersion = ++state.listRequestVersion;
+        state.items = [];
+        state.nextCursor = null;
+        state.hasNext = false;
+        state.loadingInitial = true;
+        state.loadingMore = false;
+        hideNewArrival();
+        els.list.innerHTML = '<div class="order-notification-loading"><div><span class="spinner-border spinner-border-sm me-2"></span>알림을 한 번에 불러오는 중입니다.</div></div>';
+        updateLoadMoreControl();
         try {
-            const url = API.list + '?category=' + encodeURIComponent(state.category) + '&page=0&size=50';
-            const response = await fetch(url, { headers: ajaxHeaders() });
-            const data = await parseResponse(response);
-            if (!response.ok) throw new Error(data.message || '알림 조회에 실패했습니다.');
-            renderList(data.content || []);
+            const applied = await fetchNotificationPage(true, 50, requestVersion);
+            if (applied && requestVersion === state.listRequestVersion) state.hasLoaded = true;
         } catch (error) {
-            els.list.innerHTML = '<div class="order-notification-empty">' + escapeHtml(error.message || '알림 조회에 실패했습니다.') + '</div>';
+            if (requestVersion === state.listRequestVersion) {
+                els.list.innerHTML = '<div class="order-notification-empty">' + escapeHtml(error.message || '알림 조회에 실패했습니다.') + '</div>';
+            }
         } finally {
-            state.loading = false;
+            if (requestVersion === state.listRequestVersion) {
+                state.loadingInitial = false;
+                updateLoadMoreControl();
+            }
         }
     }
 
-    function renderList(items) {
-        if (!items.length) {
-            els.list.innerHTML = '<div class="order-notification-empty">이 카테고리의 알림이 없습니다.</div>';
+    async function loadMoreNotifications() {
+        if (!state.hasNext || state.loadingMore || state.loadingInitial) return;
+        const requestVersion = state.listRequestVersion;
+        state.loadingMore = true;
+        updateLoadMoreControl();
+        try {
+            await fetchNotificationPage(false, 30, requestVersion);
+        } catch (error) {
+            if (requestVersion === state.listRequestVersion) {
+                showAlert('error', error.message || '추가 알림 조회에 실패했습니다.');
+            }
+        } finally {
+            if (requestVersion === state.listRequestVersion) {
+                state.loadingMore = false;
+                updateLoadMoreControl();
+            }
+        }
+    }
+
+    async function fetchNotificationPage(reset, size, requestVersion) {
+        const params = new URLSearchParams();
+        const categorySnapshot = state.category;
+        const cursorSnapshot = reset ? null : state.nextCursor;
+        if (state.isManagement && categorySnapshot) params.set('category', categorySnapshot);
+        if (cursorSnapshot) params.set('cursor', String(cursorSnapshot));
+        params.set('size', String(size));
+
+        const response = await fetch(API.list + '?' + params.toString(), { headers: ajaxHeaders() });
+        const data = await parseResponse(response);
+        if (!response.ok) throw new Error(data.message || '알림 조회에 실패했습니다.');
+        if (requestVersion !== state.listRequestVersion || categorySnapshot !== state.category) return false;
+
+        const incoming = Array.isArray(data.content) ? data.content : [];
+        if (reset) {
+            state.items = deduplicateItems(incoming);
+        } else {
+            state.items = deduplicateItems(state.items.concat(incoming));
+        }
+        state.nextCursor = data.nextCursor || null;
+        state.hasNext = Boolean(data.hasNext);
+        renderList();
+        return true;
+    }
+
+    function deduplicateItems(items) {
+        const seen = new Set();
+        return items.filter(function (item) {
+            const key = String(item && item.id);
+            if (!item || !item.id || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
+
+    function renderList() {
+        if (!state.items.length) {
+            els.list.innerHTML = '<div class="order-notification-empty">확인할 미확인 알림이 없습니다.</div>';
+            updateLoadMoreControl();
             return;
         }
 
-        els.list.innerHTML = items.map(function (item) {
+        els.list.innerHTML = state.items.map(function (item) {
             const unreadClass = item.read ? '' : ' is-unread';
             const emergencyClass = item.category === 'EMERGENCY' ? ' is-emergency' : '';
             const changes = Array.isArray(item.changes) ? item.changes : [];
             const changeHtml = changes.length
                 ? '<div class="order-notification-changes">' + changes.map(renderChange).join('') + '</div>'
                 : '';
-            const orderId = Number(item.orderId);
-            const orderStatus = normalizeOrderStatus(item.orderStatus);
-            const canOpenManagementOrder = Boolean(els.managementOrderLinkEnabled) &&
-                Number.isFinite(orderId) && orderId > 0 && orderStatus !== null;
-            const shortcutHtml = canOpenManagementOrder
+            const shortcutHtml = item.shortcutEnabled && item.shortcutUrl
                 ? [
                     '<div class="order-notification-item-actions">',
                     '  <a class="btn btn-sm btn-primary order-notification-go-btn"',
-                    '     href="' + escapeAttr(API.managementOrderList(orderId, orderStatus)) + '"',
-                    '     data-order-notification-go',
-                    '     data-order-id="' + escapeAttr(orderId) + '"',
-                    '     data-order-status="' + escapeAttr(orderStatus) + '">',
-                    '    <i class="ri-external-link-line me-1"></i>해당 발주 바로가기',
+                    '     href="' + escapeAttr(item.shortcutUrl) + '" data-order-notification-go>',
+                    '    <i class="ri-external-link-line me-1"></i>' + escapeHtml(item.shortcutLabel || '해당 발주 바로가기'),
                     '  </a>',
                     '</div>'
                 ].join('')
                 : '';
 
-            /*
-             * 바로가기 링크를 내부에 둘 수 있도록 최상위 요소를 button이 아닌 article로 사용합니다.
-             * button 안에 a/button을 넣는 중첩 인터랙티브 마크업은 브라우저별 클릭 오류를 유발합니다.
-             */
             return [
                 '<article class="order-notification-item' + unreadClass + emergencyClass + '"',
-                ' data-notification-id="' + escapeAttr(item.id) + '"',
-                ' role="button" tabindex="0" aria-expanded="false">',
+                ' data-notification-id="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="false">',
                 '  <div class="order-notification-item-header">',
                 '    <span class="order-notification-item-title">' + escapeHtml(item.title || '발주 알림') + '</span>',
                 '    <span class="order-notification-item-time">' + escapeHtml(item.createdAtText || '') + '</span>',
@@ -352,24 +329,16 @@
                 '</article>'
             ].join('');
         }).join('');
+        updateLoadMoreControl();
     }
 
-    function normalizeOrderStatus(value) {
-        if (value == null) {
-            return null;
-        }
-
-        const normalized = String(value).trim().toUpperCase();
-        const allowed = [
-            'REQUESTED',
-            'CONFIRMED',
-            'PRODUCTION_DONE',
-            'DISPATCH_DONE',
-            'DELIVERY_DONE',
-            'CANCELED'
-        ];
-
-        return allowed.includes(normalized) ? normalized : null;
+    function updateLoadMoreControl() {
+        if (!els.loadMoreWrap || !els.loadMoreButton) return;
+        els.loadMoreWrap.classList.toggle('d-none', !state.hasNext);
+        els.loadMoreButton.disabled = state.loadingMore;
+        els.loadMoreButton.innerHTML = state.loadingMore
+            ? '<span class="spinner-border spinner-border-sm me-1"></span>불러오는 중'
+            : '<i class="ri-arrow-down-line me-1"></i>30개 더보기';
     }
 
     function renderChange(change) {
@@ -385,24 +354,15 @@
 
     async function handleNotificationClick(event) {
         const shortcut = event.target.closest('[data-order-notification-go]');
-
         if (shortcut) {
             event.preventDefault();
             event.stopPropagation();
-
             const item = shortcut.closest('.order-notification-item');
             const href = shortcut.getAttribute('href');
-
-            if (!href) {
-                console.error('[발주알림] 바로가기 URL이 없습니다.', shortcut);
-                return;
-            }
-
+            if (!href) return;
             shortcut.classList.add('disabled');
             shortcut.setAttribute('aria-disabled', 'true');
             shortcut.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>이동 중';
-
-            /* 읽음 처리 실패가 발생해도 업무 화면 이동은 막지 않습니다. */
             await markNotificationItemRead(item, false);
             window.location.assign(href);
             return;
@@ -410,7 +370,6 @@
 
         const item = event.target.closest('.order-notification-item');
         if (!item) return;
-
         const expanded = !item.classList.contains('is-expanded');
         item.classList.toggle('is-expanded', expanded);
         item.setAttribute('aria-expanded', String(expanded));
@@ -418,43 +377,25 @@
     }
 
     function handleNotificationKeydown(event) {
-        if (event.target.closest('[data-order-notification-go]')) {
-            return;
-        }
-
-        if (event.key !== 'Enter' && event.key !== ' ') {
-            return;
-        }
-
+        if (event.target.closest('[data-order-notification-go]')) return;
+        if (event.key !== 'Enter' && event.key !== ' ') return;
         const item = event.target.closest('.order-notification-item');
-        if (!item) {
-            return;
-        }
-
+        if (!item) return;
         event.preventDefault();
         item.click();
     }
 
     async function markNotificationItemRead(item, refreshBadge) {
-        if (!item || !item.classList.contains('is-unread')) {
-            return true;
-        }
-
+        if (!item || !item.classList.contains('is-unread')) return true;
         const id = item.getAttribute('data-notification-id');
-        if (!id) {
-            return false;
-        }
-
+        if (!id) return false;
         try {
             const response = await fetch(API.read(id), { method: 'POST', headers: ajaxHeaders() });
-            if (!response.ok) {
-                return false;
-            }
-
+            if (!response.ok) return false;
             item.classList.remove('is-unread');
-            if (refreshBadge) {
-                await refreshSummary();
-            }
+            const target = state.items.find(function (row) { return String(row.id) === String(id); });
+            if (target) target.read = true;
+            if (refreshBadge) await refreshSummary();
             return true;
         } catch (error) {
             console.warn('알림 읽음 처리 실패', error);
@@ -462,26 +403,41 @@
         }
     }
 
-    async function markAllRead() {
-        try {
-            const response = await fetch(
-                API.readAll + '?category=' + encodeURIComponent(state.category),
-                { method: 'POST', headers: ajaxHeaders() }
-            );
-            const data = await parseResponse(response);
-            if (!response.ok) throw new Error(data.message || '전체 읽음 처리에 실패했습니다.');
-            await Promise.all([refreshSummary(), loadNotifications()]);
-        } catch (error) {
-            showAlert('error', error.message || '전체 읽음 처리에 실패했습니다.');
+    async function markLoadedRead() {
+        const ids = state.items.map(function (item) { return Number(item.id); })
+            .filter(function (id) { return Number.isFinite(id) && id > 0; });
+        if (!ids.length) {
+            showAlert('success', '현재 화면에 확인할 알림이 없습니다.');
+            return;
         }
+        setBatchButtonBusy(true);
+        try {
+            const response = await fetch(API.readLoaded, {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, ajaxHeaders()),
+                body: JSON.stringify({ notificationIds: ids })
+            });
+            const data = await parseResponse(response);
+            if (!response.ok) throw new Error(data.message || '일괄확인 처리에 실패했습니다.');
+            await Promise.all([refreshSummary(), reloadNotifications()]);
+        } catch (error) {
+            showAlert('error', error.message || '일괄확인 처리에 실패했습니다.');
+        } finally {
+            setBatchButtonBusy(false);
+        }
+    }
+
+    function setBatchButtonBusy(busy) {
+        if (!els.readAllButton) return;
+        els.readAllButton.disabled = busy;
+        els.readAllButton.innerHTML = busy
+            ? '<span class="spinner-border spinner-border-sm me-1"></span>확인 처리 중'
+            : '<i class="ri-check-double-line me-1"></i>현재 표시 알림 일괄확인';
     }
 
     function updateTabs() {
         els.tabs.forEach(function (tab) {
-            tab.classList.toggle(
-                'active',
-                tab.getAttribute('data-order-notification-category') === state.category
-            );
+            tab.classList.toggle('active', tab.getAttribute('data-order-notification-category') === state.category);
         });
     }
 
@@ -579,10 +535,8 @@
     function connectWebSocket() {
         if (!window.WebSocket || !els.bellButton) return;
         clearTimeout(state.reconnectTimer);
-
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const url = protocol + '//' + window.location.host + '/ws/order-notifications';
-
         try {
             state.socket = new WebSocket(url);
         } catch (error) {
@@ -590,29 +544,50 @@
             return;
         }
 
-        state.socket.onopen = function () {
-            state.reconnectDelay = 1000;
-        };
-
+        state.socket.onopen = function () { state.reconnectDelay = 1000; };
         state.socket.onmessage = function (event) {
             try {
                 const payload = JSON.parse(event.data || '{}');
-                if (payload.type !== 'ORDER_NOTIFICATION_CREATED') return;
+                if (payload.type !== 'ORDER_NOTIFICATION_CREATED' || !payload.notification) return;
                 animateBell();
-                refreshSummary();
-                if (els.modalElement.classList.contains('show') &&
-                    payload.notification && payload.notification.category === state.category) {
-                    loadNotifications();
-                }
+                scheduleSummaryRefresh();
+                bufferSocketNotification(payload.notification);
             } catch (error) {
                 console.warn('실시간 알림 메시지 처리 실패', error);
             }
         };
-
         state.socket.onclose = scheduleReconnect;
-        state.socket.onerror = function () {
-            try { state.socket.close(); } catch (ignore) {}
-        };
+        state.socket.onerror = function () { try { state.socket.close(); } catch (ignore) {} };
+    }
+
+    function bufferSocketNotification(notification) {
+        /* 모달이 닫혀 있어도 메모리/DOM 목록에 누적하여 다시 열 때 읽은 항목이 임의로 사라지지 않게 합니다. */
+        if (state.isManagement && notification.category !== state.category) return;
+        if (!notification.id) return;
+        state.socketBuffer.set(String(notification.id), notification);
+        window.clearTimeout(state.socketFlushTimer);
+        state.socketFlushTimer = window.setTimeout(flushSocketNotifications, 500);
+    }
+
+    function flushSocketNotifications() {
+        const incoming = Array.from(state.socketBuffer.values());
+        state.socketBuffer.clear();
+        if (!incoming.length) return;
+        incoming.sort(function (a, b) { return Number(b.id || 0) - Number(a.id || 0); });
+        state.items = deduplicateItems(incoming.concat(state.items));
+        renderList();
+        showNewArrival(incoming.length);
+    }
+
+    function showNewArrival(count) {
+        if (!els.newArrival) return;
+        els.newArrival.textContent = '새 알림 ' + count + '건이 도착했습니다.';
+        els.newArrival.classList.remove('d-none');
+        window.setTimeout(hideNewArrival, 2800);
+    }
+
+    function hideNewArrival() {
+        if (els.newArrival) els.newArrival.classList.add('d-none');
     }
 
     function scheduleReconnect() {
@@ -622,6 +597,7 @@
     }
 
     function animateBell() {
+        if (!els.bellButton) return;
         els.bellButton.classList.remove('is-alerting');
         void els.bellButton.offsetWidth;
         els.bellButton.classList.add('is-alerting');

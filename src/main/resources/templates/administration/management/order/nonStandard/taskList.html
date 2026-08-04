@@ -180,20 +180,22 @@
 												<div class="d-flex align-items-center gap-2">
 													<input type="number" min="1" step="1" inputmode="numeric"
 														id="task-list-order-id-from-search" name="orderIdFrom"
-														class="form-control bg-light border-light"
-														placeholder="FROM" th:value="${orderIdFrom}">
+														class="form-control bg-light border-light" placeholder="FROM"
+														th:value="${orderIdFrom}">
 													<span class="text-muted fw-semibold">~</span>
 													<input type="number" min="1" step="1" inputmode="numeric"
 														id="task-list-order-id-to-search" name="orderIdTo"
-														class="form-control bg-light border-light"
-														placeholder="TO" th:value="${orderIdTo}">
+														class="form-control bg-light border-light" placeholder="TO"
+														th:value="${orderIdTo}">
 												</div>
 												<div class="form-text">FROM만: 이상 / TO만: 이하 / 단건: 같은 값</div>
 											</div>
 											<div class="col-xxl-2 col-sm-4">
-												<label class="form-label" for="task-list-product-name-search">제품명</label>
+												<label class="form-label"
+													for="task-list-product-name-search">제품명</label>
 												<div class="search-box">
-													<input type="text" id="task-list-product-name-search" name="productName"
+													<input type="text" id="task-list-product-name-search"
+														name="productName"
 														class="form-control search bg-light border-light"
 														placeholder="제품명 포함 검색" th:value="${productName}">
 													<i class="ri-search-line search-icon"></i>
@@ -311,8 +313,7 @@
 											<div class="col-xxl-2 col-sm-4">
 												<label class="form-label">정렬</label>
 												<button type="button" class="btn btn-outline-secondary w-100"
-													id="task-list-sort-reset-btn"
-													title="검색 조건은 유지하고 정렬만 초기화합니다.">
+													id="task-list-sort-reset-btn" title="검색 조건은 유지하고 정렬만 초기화합니다.">
 													<i class="fa-solid fa-arrow-rotate-left"></i> 필터초기화
 												</button>
 											</div>
@@ -320,8 +321,7 @@
 											<div class="col-xxl-2 col-sm-4">
 												<label class="form-label">검색조건</label>
 												<button type="button" class="btn btn-outline-danger w-100"
-													id="task-list-search-reset-btn"
-													title="정렬은 유지하고 검색 조건만 초기화합니다.">
+													id="task-list-search-reset-btn" title="정렬은 유지하고 검색 조건만 초기화합니다.">
 													<i class="fa-solid fa-eraser"></i> 검색초기화
 												</button>
 											</div>
@@ -348,16 +348,12 @@
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['orderId'] == 'asc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="orderId"
-																	data-sort-dir="asc"
-																	title="오름차순 적용/해제">▲</a>
+																	href="#" data-sort-field="orderId"
+																	data-sort-dir="asc" title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['orderId'] == 'desc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="orderId"
-																	data-sort-dir="desc"
-																	title="내림차순 적용/해제">▼</a>
+																	href="#" data-sort-field="orderId"
+																	data-sort-dir="desc" title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -368,16 +364,12 @@
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['agencyName'] == 'asc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="agencyName"
-																	data-sort-dir="asc"
-																	title="오름차순 적용/해제">▲</a>
+																	href="#" data-sort-field="agencyName"
+																	data-sort-dir="asc" title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['agencyName'] == 'desc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="agencyName"
-																	data-sort-dir="desc"
-																	title="내림차순 적용/해제">▼</a>
+																	href="#" data-sort-field="agencyName"
+																	data-sort-dir="desc" title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -387,16 +379,12 @@
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['productCategoryName'] == 'asc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="productCategoryName"
-																	data-sort-dir="asc"
-																	title="오름차순 적용/해제">▲</a>
+																	href="#" data-sort-field="productCategoryName"
+																	data-sort-dir="asc" title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['productCategoryName'] == 'desc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="productCategoryName"
-																	data-sort-dir="desc"
-																	title="내림차순 적용/해제">▼</a>
+																	href="#" data-sort-field="productCategoryName"
+																	data-sort-dir="desc" title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -409,16 +397,12 @@
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['standard'] == 'desc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="standard"
-																	data-sort-dir="desc"
-																	title="내림차순 적용/해제">▲</a>
+																	href="#" data-sort-field="standard"
+																	data-sort-dir="desc" title="내림차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['standard'] == 'asc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="standard"
-																	data-sort-dir="asc"
-																	title="오름차순 적용/해제">▼</a>
+																	href="#" data-sort-field="standard"
+																	data-sort-dir="asc" title="오름차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -431,16 +415,12 @@
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['orderDate'] == 'asc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="orderDate"
-																	data-sort-dir="asc"
-																	title="오름차순 적용/해제">▲</a>
+																	href="#" data-sort-field="orderDate"
+																	data-sort-dir="asc" title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['orderDate'] == 'desc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="orderDate"
-																	data-sort-dir="desc"
-																	title="내림차순 적용/해제">▼</a>
+																	href="#" data-sort-field="orderDate"
+																	data-sort-dir="desc" title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -451,16 +431,12 @@
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['preferredDeliveryDate'] == 'asc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="preferredDeliveryDate"
-																	data-sort-dir="asc"
-																	title="오름차순 적용/해제">▲</a>
+																	href="#" data-sort-field="preferredDeliveryDate"
+																	data-sort-dir="asc" title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['preferredDeliveryDate'] == 'desc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="preferredDeliveryDate"
-																	data-sort-dir="desc"
-																	title="내림차순 적용/해제">▼</a>
+																	href="#" data-sort-field="preferredDeliveryDate"
+																	data-sort-dir="desc" title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -471,16 +447,12 @@
 															<span class="task-list-added-sort-icons">
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['status'] == 'asc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="status"
-																	data-sort-dir="asc"
-																	title="오름차순 적용/해제">▲</a>
+																	href="#" data-sort-field="status"
+																	data-sort-dir="asc" title="오름차순 적용/해제">▲</a>
 																<a class="task-list-added-sort-link"
 																	th:classappend="${activeSortDirections['status'] == 'desc'} ? ' task-list-added-active' : ''"
-																	href="#"
-																	data-sort-field="status"
-																	data-sort-dir="desc"
-																	title="내림차순 적용/해제">▼</a>
+																	href="#" data-sort-field="status"
+																	data-sort-dir="desc" title="내림차순 적용/해제">▼</a>
 															</span>
 														</div>
 													</th>
@@ -504,8 +476,7 @@
 														<td class="text-center">
 															<div class="form-check d-flex justify-content-center m-0">
 																<input class="form-check-input task-list-order-checkbox"
-																	type="checkbox" th:value="${row.orderId}"
-																	th:attr="data-task-id=${row.taskId},
+																	type="checkbox" th:value="${row.orderId}" th:attr="data-task-id=${row.taskId},
 																		         data-order-status=${row.statusName},
 																		         data-order-status-label=${row.statusLabel},
 																		         data-delivery-method-name=${row.deliveryMethodName},
@@ -532,7 +503,8 @@
 																th:text="${row.companyName}">-</span>
 														</td>
 														<td>
-															<span class="admin-task-list-second-ellipsis admin-task-list-second-product-category-cell"
+															<span
+																class="admin-task-list-second-ellipsis admin-task-list-second-product-category-cell"
 																th:title="${row.productCategoryName != null and row.productCategoryName != '' ? row.productCategoryName : '미지정'}"
 																th:text="${row.productCategoryName != null and row.productCategoryName != '' ? row.productCategoryName : '미지정'}">제품분류</span>
 														</td>
@@ -540,8 +512,22 @@
 														<td>
 															<div class="admin-task-list-second-product-cell"
 																th:title="${row.productSummary}">
-																<span class="admin-task-list-second-product-summary admin-task-list-second-product-highlight-target"
-																	th:text="${row.productSummary}">제품정보</span>
+
+																<!-- 제품명: 굵고 크게 표시 -->
+																<span
+																	class="admin-task-list-second-product-name admin-task-list-second-product-highlight-target"
+																	th:text="${row.productName}">
+																	제품명
+																</span>
+
+																<!-- 제품명을 제외한 제품코드/시리즈/사이즈/색상/수량 -->
+																<span class="admin-task-list-second-product-summary"
+																	th:if="${row.productDetailSummary != null
+				and row.productDetailSummary != ''
+				and row.productDetailSummary != '-'}" th:text="${row.productDetailSummary}">
+																	제품 상세정보
+																</span>
+
 															</div>
 														</td>
 
@@ -584,33 +570,37 @@
 															<span th:if="${!row.revisedAfterCheck and !row.checked}"
 																class="badge bg-warning-subtle text-warning ms-1">미확인</span>
 
-                                                            <th:block th:with="
+															<th:block th:with="
                                                                 personalCheck=${productionCheckAggregateMap != null ? productionCheckAggregateMap[row.orderId] : null},
                                                                 latestChange=${latestOrderChangeMap != null ? latestOrderChangeMap[row.orderId] : null}
                                                             ">
-                                                                <div class="small mt-1" th:if="${personalCheck != null}">
-                                                                    <span class="badge bg-info-subtle text-info"
-                                                                        th:text="${personalCheck.displayText}">개인 확인기록</span>
-                                                                </div>
-                                                                <div class="small text-muted mt-1"
-                                                                    th:if="${latestChange != null}"
-                                                                    th:title="|${latestChange.changedAtText} / ${latestChange.requestPath}|">
-                                                                    <i class="fa-solid fa-clock-rotate-left me-1"></i>
-                                                                    <strong th:text="${latestChange.actorDisplay}">수정자</strong>
-                                                                    <span th:text="| · ${latestChange.summary}|">변경내용</span>
-                                                                </div>
-                                                            </th:block>
+																<div class="small mt-1"
+																	th:if="${personalCheck != null}">
+																	<span class="badge bg-info-subtle text-info"
+																		th:text="${personalCheck.displayText}">개인
+																		확인기록</span>
+																</div>
+																<div class="small text-muted mt-1"
+																	th:if="${latestChange != null}"
+																	th:title="|${latestChange.changedAtText} / ${latestChange.requestPath}|">
+																	<i class="fa-solid fa-clock-rotate-left me-1"></i>
+																	<strong
+																		th:text="${latestChange.actorDisplay}">수정자</strong>
+																	<span
+																		th:text="| · ${latestChange.summary}|">변경내용</span>
+																</div>
+															</th:block>
 														</td>
 
 														<td class="text-center">
 															<button type="button"
-																		class="btn btn-sm btn-outline-primary admin-task-list-second-wide-toggle-btn"
-																		title="넓게보기"
-																		aria-label="넓게보기"
-																		th:attr="data-order-id=${row.orderId}">
-																		<i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-																		<span class="visually-hidden">넓게보기</span>
-																	</button>
+																class="btn btn-sm btn-outline-primary admin-task-list-second-wide-toggle-btn"
+																title="넓게보기" aria-label="넓게보기"
+																th:attr="data-order-id=${row.orderId}">
+																<i class="fa-solid fa-up-right-and-down-left-from-center"
+																	aria-hidden="true"></i>
+																<span class="visually-hidden">넓게보기</span>
+															</button>
 														</td>
 													</tr>
 
@@ -776,12 +766,9 @@
 	</div>
 
 	<!-- 고객 발주 일괄 컨펌 시 배송담당자 지정 모달 -->
-	<div id="task-list-bulk-confirm-modal"
-		class="position-fixed top-0 start-0 w-100 h-100 d-none"
-		style="z-index: 2060; background: rgba(15, 23, 42, 0.56);"
-		aria-hidden="true">
-		<div id="task-list-bulk-confirm-modal-overlay"
-			class="position-absolute top-0 start-0 w-100 h-100"></div>
+	<div id="task-list-bulk-confirm-modal" class="position-fixed top-0 start-0 w-100 h-100 d-none"
+		style="z-index: 2060; background: rgba(15, 23, 42, 0.56);" aria-hidden="true">
+		<div id="task-list-bulk-confirm-modal-overlay" class="position-absolute top-0 start-0 w-100 h-100"></div>
 
 		<div class="position-relative d-flex align-items-center justify-content-center w-100 h-100 p-3"
 			style="pointer-events: none;">
@@ -794,9 +781,7 @@
 							직배송·화물·현장배송 오더는 승인 완료로 변경하기 전에 배송팀 담당자를 지정해야 합니다.
 						</p>
 					</div>
-					<button type="button"
-						id="task-list-bulk-confirm-modal-close-btn"
-						class="btn btn-sm btn-light"
+					<button type="button" id="task-list-bulk-confirm-modal-close-btn" class="btn btn-sm btn-light"
 						aria-label="닫기">×</button>
 				</div>
 
@@ -809,20 +794,17 @@
 				</div>
 
 				<div class="card-footer d-flex justify-content-end gap-2">
-					<button type="button"
-						id="task-list-bulk-confirm-modal-cancel-btn"
+					<button type="button" id="task-list-bulk-confirm-modal-cancel-btn"
 						class="btn btn-outline-secondary">취소</button>
-					<button type="button"
-						id="task-list-bulk-confirm-modal-submit-btn"
-						class="btn btn-warning">승인 완료 저장</button>
+					<button type="button" id="task-list-bulk-confirm-modal-submit-btn" class="btn btn-warning">승인 완료
+						저장</button>
 				</div>
 			</div>
 		</div>
 
 		<select id="task-list-bulk-confirm-handler-option-source" class="d-none" aria-hidden="true" tabindex="-1">
 			<option value="">배송팀 담당자 선택</option>
-			<option th:each="member : ${deliveryTeamMembers}"
-				th:value="${member.id}"
+			<option th:each="member : ${deliveryTeamMembers}" th:value="${member.id}"
 				th:text="${member.name != null and member.name != '' and member.username != null and member.username != ''
 					? member.name + '(' + member.username + ')'
 					: (member.name != null and member.name != '' ? member.name : (member.username != null and member.username != '' ? member.username : '이름없음'))}">
@@ -907,9 +889,9 @@
 												<span class="badge bg-secondary-subtle text-secondary"
 													th:text="${row.statusLabel}">상태</span>
 
-                                                <span class="badge bg-info-subtle text-info"
-                                                    th:if="${productionCheckAggregateMap != null and productionCheckAggregateMap[row.orderId] != null}"
-                                                    th:text="${productionCheckAggregateMap[row.orderId].displayText}">개인확인</span>
+												<span class="badge bg-info-subtle text-info"
+													th:if="${productionCheckAggregateMap != null and productionCheckAggregateMap[row.orderId] != null}"
+													th:text="${productionCheckAggregateMap[row.orderId].displayText}">개인확인</span>
 
 												<span th:if="${row.standard}"
 													class="badge bg-success-subtle text-success">규격</span>
@@ -919,14 +901,15 @@
 										</div>
 
 										<div class="alert alert-light border py-2 px-3 mb-3 small"
-                                            th:if="${latestOrderChangeMap != null and latestOrderChangeMap[row.orderId] != null}"
-                                            th:with="latestChange=${latestOrderChangeMap[row.orderId]}">
-                                            <i class="fa-solid fa-clock-rotate-left me-1"></i>
-                                            <strong th:text="${latestChange.actorDisplay}">수정자</strong>
-                                            <span th:text="| · ${latestChange.summary} · ${latestChange.changedAtText}|">변경이력</span>
-                                        </div>
+											th:if="${latestOrderChangeMap != null and latestOrderChangeMap[row.orderId] != null}"
+											th:with="latestChange=${latestOrderChangeMap[row.orderId]}">
+											<i class="fa-solid fa-clock-rotate-left me-1"></i>
+											<strong th:text="${latestChange.actorDisplay}">수정자</strong>
+											<span
+												th:text="| · ${latestChange.summary} · ${latestChange.changedAtText}|">변경이력</span>
+										</div>
 
-                                        <div class="admin-task-list-second-bulk-info-grid">
+										<div class="admin-task-list-second-bulk-info-grid">
 
 											<div
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-2">
@@ -996,7 +979,8 @@
 											<div
 												class="admin-task-list-second-bulk-info admin-task-list-second-bulk-span-3">
 												<label>제품정보</label>
-												<div class="admin-task-list-second-product-highlight-target" th:text="${row.productSummary}">제품정보</div>
+												<div class="admin-task-list-second-product-highlight-target"
+													th:text="${row.productSummary}">제품정보</div>
 											</div>
 
 											<div

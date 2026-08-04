@@ -101,6 +101,18 @@
 								</div>
 
 								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label" for="dispatch-list-order-id-from">Order ID From</label>
+									<input type="number" min="1" step="1" id="dispatch-list-order-id-from"
+										class="form-control dispatch-list-form-control" placeholder="이상">
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label" for="dispatch-list-order-id-to">Order ID To</label>
+									<input type="number" min="1" step="1" id="dispatch-list-order-id-to"
+										class="form-control dispatch-list-form-control" placeholder="이하">
+								</div>
+
+								<div class="col-lg-2 col-md-4 col-6">
 									<label class="dispatch-list-label" for="dispatch-list-province-id">도/특별시</label>
 									<select id="dispatch-list-province-id"
 										class="form-select dispatch-list-form-select">
@@ -377,6 +389,18 @@
 							<label class="dispatch-list-label" for="dispatch-list-modal-order-date">출고일</label>
 							<input type="date" id="dispatch-list-modal-order-date"
 								class="form-control dispatch-list-form-control">
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-order-id-from">Order ID From</label>
+							<input type="number" min="1" step="1" id="dispatch-list-modal-order-id-from"
+								class="form-control dispatch-list-form-control" placeholder="이상">
+						</div>
+
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-order-id-to">Order ID To</label>
+							<input type="number" min="1" step="1" id="dispatch-list-modal-order-id-to"
+								class="form-control dispatch-list-form-control" placeholder="이하">
 						</div>
 
 						<div class="col-md-4 col-6">
@@ -870,7 +894,7 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<script th:src="@{/administration/assets/team/dispatch/dispatchList.js(v='20260804-6')}"></script>
+	<script th:src="@{/administration/assets/team/dispatch/dispatchList.js(v='20260804-8')}"></script>
 
 </body>
 

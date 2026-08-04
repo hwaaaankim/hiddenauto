@@ -58,14 +58,24 @@ public class DeliveryRouteController {
             @AuthenticationPrincipal PrincipalDetails principal,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deliveryDate,
+            @RequestParam(required = false) Long orderIdFrom,
+            @RequestParam(required = false) Long orderIdTo,
             Model model
     ) {
         Member loginMember = requireLoginMember(principal);
+        validateOrderIdRange(orderIdFrom, orderIdTo);
         LocalDate selectedDate = deliveryDate == null ? LocalDate.now() : deliveryDate;
-        Page routePage = deliveryRouteService.getRoutePage(loginMember, selectedDate);
+        Page routePage = deliveryRouteService.getRoutePage(
+                loginMember,
+                selectedDate,
+                orderIdFrom,
+                orderIdTo
+        );
 
         model.addAttribute("routePage", routePage);
         model.addAttribute("selectedDate", selectedDate);
+        model.addAttribute("orderIdFrom", orderIdFrom);
+        model.addAttribute("orderIdTo", orderIdTo);
         model.addAttribute("previousDate", selectedDate.minusDays(1));
         model.addAttribute("nextDate", selectedDate.plusDays(1));
         model.addAttribute("today", LocalDate.now());
@@ -446,6 +456,18 @@ public class DeliveryRouteController {
         body.put("success", false);
         body.put("message", message != null ? message : "요청 처리 중 오류가 발생했습니다.");
         return ResponseEntity.status(status).body(body);
+    }
+
+    private void validateOrderIdRange(Long orderIdFrom, Long orderIdTo) {
+        if (orderIdFrom != null && orderIdFrom <= 0) {
+            throw new IllegalArgumentException("Order ID 시작값은 1 이상이어야 합니다.");
+        }
+        if (orderIdTo != null && orderIdTo <= 0) {
+            throw new IllegalArgumentException("Order ID 종료값은 1 이상이어야 합니다.");
+        }
+        if (orderIdFrom != null && orderIdTo != null && orderIdFrom > orderIdTo) {
+            throw new IllegalArgumentException("Order ID 시작값은 종료값보다 클 수 없습니다.");
+        }
     }
 
     private Member requireLoginMember(PrincipalDetails principal) {

@@ -37,4 +37,31 @@ public interface DeliveryRouteQueryRepository extends Repository<DeliveryOrderIn
             @Param("deliveryDate") LocalDate deliveryDate,
             @Param("statuses") List<OrderStatus> statuses
     );
+
+    @Query("""
+            select distinct doi
+            from DeliveryOrderIndex doi
+            join fetch doi.deliveryHandler handler
+            join fetch doi.order o
+            left join fetch o.task task
+            left join fetch task.requestedBy requestedBy
+            left join fetch requestedBy.company company
+            left join fetch o.deliveryMethod deliveryMethod
+            left join fetch o.orderItem orderItem
+            left join fetch o.productCategory productCategory
+            where handler.id = :handlerId
+              and doi.deliveryDate = :deliveryDate
+              and o.status in :statuses
+              and (:orderIdFrom is null or o.id >= :orderIdFrom)
+              and (:orderIdTo is null or o.id <= :orderIdTo)
+            order by doi.orderIndex asc, o.id asc
+            """)
+    List<DeliveryOrderIndex> findRouteRowsFiltered(
+            @Param("handlerId") Long handlerId,
+            @Param("deliveryDate") LocalDate deliveryDate,
+            @Param("statuses") List<OrderStatus> statuses,
+            @Param("orderIdFrom") Long orderIdFrom,
+            @Param("orderIdTo") Long orderIdTo
+    );
+
 }

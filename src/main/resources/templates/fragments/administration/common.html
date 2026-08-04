@@ -18,7 +18,7 @@
 	<link href="/administration/assets/css/custom.css?v=20260804-3" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/add.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/dispatch.css" rel="stylesheet" type="text/css" />
-	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260804-6" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260804-8" rel="stylesheet" type="text/css" />
 	<script src="/administration/assets/js/layout.js"></script>
 	<link href="/administration/assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -156,7 +156,10 @@
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
 					</div>
 					<div class="modal-body">
-						<div class="order-notification-tabs" role="tablist">
+						<span id="order-notification-management-mode" class="d-none"
+							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')" aria-hidden="true"></span>
+						<div class="order-notification-tabs" role="tablist"
+							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')">
 							<button type="button" class="order-notification-tab active" data-order-notification-category="PRODUCTION">
 								생산팀 <span class="order-notification-tab-count">0</span>
 							</button>
@@ -170,13 +173,20 @@
 								긴급 <span class="order-notification-tab-count">0</span>
 							</button>
 						</div>
-						<span id="order-notification-management-link-enabled" class="d-none"
-							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')" aria-hidden="true"></span>
+						<div id="order-notification-new-arrival" class="order-notification-new-arrival d-none" aria-live="polite"></div>
 						<div id="order-notification-list" class="order-notification-list"></div>
+						<div id="order-notification-load-more-wrap" class="order-notification-load-more-wrap d-none">
+							<button type="button" class="btn btn-sm btn-outline-primary" id="order-notification-load-more-btn">
+								<i class="ri-arrow-down-line me-1"></i>30개 더보기
+							</button>
+						</div>
 					</div>
-					<div class="modal-footer">
-						<button type="button" class="btn btn-outline-secondary" id="order-notification-read-all-btn">
-							현재 탭 모두 읽음
+					<div class="modal-footer order-notification-footer">
+						<button type="button" class="btn btn-outline-primary" id="order-notification-refresh-btn">
+							<i class="ri-refresh-line me-1"></i>새로고침
+						</button>
+						<button type="button" class="btn btn-primary" id="order-notification-read-all-btn">
+							<i class="ri-check-double-line me-1"></i>현재 표시 알림 일괄확인
 						</button>
 						<button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
 					</div>
@@ -575,7 +585,7 @@
 		<script src="/administration/assets/libs/list.pagination.js/list.pagination.min.js"></script>
 		<script src="/administration/assets/libs/sweetalert2/sweetalert2.min.js"></script>
 		<script src="/administration/assets/js/app.js"></script>
-		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260804-6"></script>
+		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260804-8"></script>
 	</th:block>
 
 </body>

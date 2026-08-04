@@ -49,6 +49,7 @@
 
 	document.addEventListener('DOMContentLoaded', function() {
 		bindElements();
+		initializeOrderIdRangeFromUrl();
 		bindEvents();
 		initFloatingButtonObserver();
 		searchOrders(true);
@@ -67,6 +68,8 @@
 		els.productCategoryId = document.getElementById('dispatch-list-product-category-id');
 		els.standard = document.getElementById('dispatch-list-standard');
 		els.orderDate = document.getElementById('dispatch-list-order-date');
+		els.orderIdFrom = document.getElementById('dispatch-list-order-id-from');
+		els.orderIdTo = document.getElementById('dispatch-list-order-id-to');
 		els.provinceId = document.getElementById('dispatch-list-province-id');
 		els.cityId = document.getElementById('dispatch-list-city-id');
 		els.districtId = document.getElementById('dispatch-list-district-id');
@@ -92,6 +95,8 @@
 		els.modalProductCategoryId = document.getElementById('dispatch-list-modal-product-category-id');
 		els.modalStandard = document.getElementById('dispatch-list-modal-standard');
 		els.modalOrderDate = document.getElementById('dispatch-list-modal-order-date');
+		els.modalOrderIdFrom = document.getElementById('dispatch-list-modal-order-id-from');
+		els.modalOrderIdTo = document.getElementById('dispatch-list-modal-order-id-to');
 		els.modalProvinceId = document.getElementById('dispatch-list-modal-province-id');
 		els.modalCityId = document.getElementById('dispatch-list-modal-city-id');
 		els.modalDistrictId = document.getElementById('dispatch-list-modal-district-id');
@@ -508,6 +513,12 @@
 	}
 
 	function buildSearchPayload() {
+		const orderIdFrom = validatePositiveOrderId(valueOf(els.orderIdFrom), 'Order ID From');
+		const orderIdTo = validatePositiveOrderId(valueOf(els.orderIdTo), 'Order ID To');
+		if (orderIdFrom !== null && orderIdTo !== null && orderIdFrom > orderIdTo) {
+			throw new Error('Order ID From은 To보다 클 수 없습니다.');
+		}
+
 		return {
 			keywordType: valueOf(els.keywordType),
 			keyword: valueOf(els.keyword),
@@ -517,6 +528,8 @@
 			siName: selectedOptionName(els.cityId),
 			guName: selectedOptionName(els.districtId),
 			orderDate: valueOf(els.orderDate),
+			orderIdFrom: orderIdFrom,
+			orderIdTo: orderIdTo,
 			deliveryMethodId: numberOrNull(valueOf(els.deliveryMethodId)),
 			size: 50,
 			lastStatusSort: null,
@@ -563,8 +576,10 @@
 		tr.setAttribute('data-status-sort', row.statusSort || '');
 		tr.setAttribute('data-dispatch-completable', row.dispatchCompletable ? 'true' : 'false');
 
-		const checkboxDisabled = '';
+		const deliveryCompleted = normalizeStatus(row.status) === 'DELIVERY_DONE';
+		const checkboxDisabled = deliveryCompleted ? 'disabled' : '';
 		const completeDisabled = !row.dispatchCompletable ? 'disabled' : '';
+		const deliveryMethodDisabled = deliveryCompleted ? 'disabled' : '';
 		const adminRequestButton = '<button type="button" class="btn btn-outline-danger dispatch-list-admin-request-btn"' +
 			' data-order-admin-request data-order-id="' + escapeAttr(row.orderId) + '"' +
 			' data-admin-request-message="출고 절차 오류 또는 출고 확인이 필요합니다."' +
@@ -617,8 +632,10 @@
 			'    data-delivery-method-name="' + escapeAttr(row.deliveryMethodName || '') + '"',
 			'    data-delivery-handler-id="' + escapeAttr(row.deliveryHandlerId || '') + '"',
 			'    data-delivery-handler-name="' + escapeAttr(row.deliveryHandlerName || '') + '"',
-			'    data-delivery-order-index="' + escapeAttr(row.deliveryOrderIndex || '') + '"',
-			'    title="' + escapeAttr(buildDeliveryMethodTitleFromRow(row)) + '">',
+			'    data-delivery-order-index="' + escapeAttr(row.deliveryOrderIndex || '') + '" ' + deliveryMethodDisabled,
+			'    title="' + escapeAttr(deliveryCompleted
+				? '배송완료된 발주는 배송수단을 변경할 수 없습니다.'
+				: buildDeliveryMethodTitleFromRow(row)) + '">',
 			'    ' + escapeHtml(row.deliveryMethodName),
 			'  </button>',
 			'</td>',
@@ -2250,6 +2267,8 @@
 		els.productCategoryId.value = '';
 		els.standard.value = 'ALL';
 		els.orderDate.value = valueOf(els.today) || '';
+		els.orderIdFrom.value = '';
+		els.orderIdTo.value = '';
 		els.provinceId.value = '';
 		resetSelect(els.cityId, '전체');
 		resetSelect(els.districtId, '전체');
@@ -2266,6 +2285,8 @@
 		els.modalProductCategoryId.value = valueOf(els.productCategoryId);
 		els.modalStandard.value = valueOf(els.standard);
 		els.modalOrderDate.value = valueOf(els.orderDate);
+		els.modalOrderIdFrom.value = valueOf(els.orderIdFrom);
+		els.modalOrderIdTo.value = valueOf(els.orderIdTo);
 		els.modalDeliveryMethodId.value = valueOf(els.deliveryMethodId);
 
 		copySelectOptions(els.provinceId, els.modalProvinceId);
@@ -2286,6 +2307,8 @@
 		els.productCategoryId.value = valueOf(els.modalProductCategoryId);
 		els.standard.value = valueOf(els.modalStandard);
 		els.orderDate.value = valueOf(els.modalOrderDate);
+		els.orderIdFrom.value = valueOf(els.modalOrderIdFrom);
+		els.orderIdTo.value = valueOf(els.modalOrderIdTo);
 		els.deliveryMethodId.value = valueOf(els.modalDeliveryMethodId);
 
 		copySelectOptions(els.modalProvinceId, els.provinceId);
@@ -2382,7 +2405,7 @@
 			return 'dispatch-list-row-production-done';
 		}
 
-		if (normalized === 'DISPATCH_DONE') {
+		if (normalized === 'DISPATCH_DONE' || normalized === 'DELIVERY_DONE') {
 			return 'dispatch-list-row-dispatch-done';
 		}
 
@@ -2400,7 +2423,7 @@
 			return 'dispatch-list-status-production-done';
 		}
 
-		if (normalized === 'DISPATCH_DONE') {
+		if (normalized === 'DISPATCH_DONE' || normalized === 'DELIVERY_DONE') {
 			return 'dispatch-list-status-dispatch-done';
 		}
 
@@ -2433,6 +2456,27 @@
 		return normalized.indexOf('직배송') >= 0
 			|| normalized.indexOf('현장배송') >= 0
 			|| normalized.indexOf('화물') >= 0;
+	}
+
+	function initializeOrderIdRangeFromUrl() {
+		const params = new URLSearchParams(window.location.search || '');
+		const from = params.get('orderIdFrom');
+		const to = params.get('orderIdTo');
+		if (from && els.orderIdFrom) els.orderIdFrom.value = from;
+		if (to && els.orderIdTo) els.orderIdTo.value = to;
+		/* 알림 바로가기에서는 날짜 기본값 때문에 과거 발주가 누락되지 않도록 ID 검색을 우선합니다. */
+		if ((from || to) && els.orderDate && !params.get('orderDate')) {
+			els.orderDate.value = '';
+		}
+	}
+
+	function validatePositiveOrderId(value, label) {
+		if (value == null || String(value).trim() === '') return null;
+		const parsed = Number(value);
+		if (!Number.isInteger(parsed) || parsed <= 0) {
+			throw new Error(label + '은 1 이상의 정수여야 합니다.');
+		}
+		return parsed;
 	}
 
 	function valueOf(element) {

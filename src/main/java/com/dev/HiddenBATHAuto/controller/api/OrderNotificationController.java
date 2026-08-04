@@ -7,12 +7,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationItemDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationPageDto;
+import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationReadLoadedRequest;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationSummaryDto;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationCategory;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
@@ -36,13 +38,13 @@ public class OrderNotificationController {
     public OrderNotificationPageDto list(
             @AuthenticationPrincipal PrincipalDetails principal,
             @RequestParam(required = false) OrderNotificationCategory category,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "50") int size
     ) {
         return notificationService.getNotifications(
                 principal != null ? principal.getMember() : null,
                 category,
-                page,
+                cursor,
                 size
         );
     }
@@ -58,14 +60,14 @@ public class OrderNotificationController {
         );
     }
 
-    @PostMapping("/read-all")
-    public ResponseEntity<Map<String, Object>> readAll(
+    @PostMapping("/read-loaded")
+    public ResponseEntity<Map<String, Object>> readLoaded(
             @AuthenticationPrincipal PrincipalDetails principal,
-            @RequestParam(required = false) OrderNotificationCategory category
+            @RequestBody(required = false) OrderNotificationReadLoadedRequest request
     ) {
-        int updatedCount = notificationService.markAllRead(
+        int updatedCount = notificationService.markLoadedRead(
                 principal != null ? principal.getMember() : null,
-                category
+                request != null ? request.getNotificationIds() : null
         );
         return ResponseEntity.ok(Map.of(
                 "success", true,

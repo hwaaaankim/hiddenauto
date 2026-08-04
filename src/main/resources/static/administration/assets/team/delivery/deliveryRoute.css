@@ -1012,3 +1012,27 @@
         margin-left: auto;
     }
 }
+
+/* Order ID 범위 검색 */
+.delivery-route-order-id-field {
+    min-width: 145px;
+}
+
+.delivery-route-order-id-field .form-label {
+    margin-bottom: 5px;
+    color: var(--route-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.delivery-route-order-id-help {
+    color: var(--route-muted);
+    font-size: 12px;
+}
+
+@media (max-width: 1199.98px) {
+    .delivery-route-date-nav,
+    .delivery-route-date-form {
+        flex-wrap: wrap;
+    }
+}

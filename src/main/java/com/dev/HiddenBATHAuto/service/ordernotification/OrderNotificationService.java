@@ -1,16 +1,21 @@
 package com.dev.HiddenBATHAuto.service.ordernotification;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,10 +27,13 @@ import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationPageDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationSummaryDto;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationCategory;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.notification.OrderNotification;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeField;
 import com.dev.HiddenBATHAuto.repository.notification.OrderNotificationRepository;
@@ -37,11 +45,14 @@ import lombok.RequiredArgsConstructor;
 public class OrderNotificationService {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int READ_BATCH_SIZE = 500;
 
     private final OrderNotificationRepository notificationRepository;
     private final OrderNotificationRecipientResolver recipientResolver;
     private final OrderNotificationProperties properties;
     private final ApplicationEventPublisher eventPublisher;
+    private final OrderNotificationBatchContext batchContext;
 
     @Transactional
     public List<OrderNotification> createForChangeEvent(
@@ -56,26 +67,23 @@ public class OrderNotificationService {
             return List.of();
         }
 
-        Order order = event.getOrder();
         List<OrderNotificationRecipientResolver.RecipientTarget> targets = recipientResolver.resolve(
-                order,
-                event.getSourceArea(),
+                event,
                 affectedAreas,
                 audience,
-                event.getActorMemberId(),
                 additionalRecipientMemberIds
         );
-
         if (targets.isEmpty()) {
             return List.of();
         }
 
-        String title = normalizeText(explicitTitle) != null
+        String defaultTitle = normalizeText(explicitTitle) != null
                 ? explicitTitle.trim()
                 : defaultTitle(event, audience);
-        String message = normalizeText(explicitMessage) != null
+        String defaultMessage = normalizeText(explicitMessage) != null
                 ? explicitMessage.trim()
                 : defaultMessage(event);
+        String kakaoBatchKey = batchContext.currentBatchKey();
 
         List<OrderNotification> notifications = new ArrayList<>(targets.size());
         for (OrderNotificationRecipientResolver.RecipientTarget target : targets) {
@@ -83,8 +91,9 @@ public class OrderNotificationService {
                     event,
                     target.member(),
                     target.category(),
-                    title,
-                    message
+                    firstNonBlank(target.title(), defaultTitle),
+                    firstNonBlank(target.message(), defaultMessage),
+                    kakaoBatchKey
             ));
         }
 
@@ -93,13 +102,11 @@ public class OrderNotificationService {
 
         List<Long> ids = saved.stream()
                 .map(OrderNotification::getId)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
-
         if (!ids.isEmpty()) {
             eventPublisher.publishEvent(new OrderNotificationsCreatedEvent(ids));
         }
-
         return saved;
     }
 
@@ -125,37 +132,57 @@ public class OrderNotificationService {
                 .build();
     }
 
+    /**
+     * 읽지 않은 알림만 ID 커서 방식으로 조회합니다. 새 알림이 동시에 들어와도 다음 페이지가 중복/누락되지 않습니다.
+     */
     @Transactional(readOnly = true)
     public OrderNotificationPageDto getNotifications(
             Member member,
             OrderNotificationCategory category,
-            int page,
+            Long cursor,
             int size
     ) {
         Long memberId = requireMemberId(member);
-        int safePage = Math.max(0, page);
-        int safeSize = Math.min(100, Math.max(1, size));
-        PageRequest pageable = PageRequest.of(safePage, safeSize);
+        int safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
+        List<Long> fetchedIds = notificationRepository.findUnreadIds(
+                memberId,
+                category,
+                cursor,
+                PageRequest.of(0, safeSize + 1)
+        );
 
-        Page<OrderNotification> result = category == null
-                ? notificationRepository.findByRecipient_IdOrderByCreatedAtDescIdDesc(memberId, pageable)
-                : notificationRepository.findByRecipient_IdAndCategoryOrderByCreatedAtDescIdDesc(
-                        memberId,
-                        category,
-                        pageable
-                );
+        boolean hasNext = fetchedIds.size() > safeSize;
+        List<Long> pageIds = hasNext
+                ? new ArrayList<>(fetchedIds.subList(0, safeSize))
+                : new ArrayList<>(fetchedIds);
+        Long nextCursor = hasNext && !pageIds.isEmpty()
+                ? pageIds.get(pageIds.size() - 1)
+                : null;
+
+        Map<Long, OrderNotification> notificationById = pageIds.isEmpty()
+                ? Map.of()
+                : notificationRepository.findPageDetailsByIdIn(pageIds).stream()
+                        .filter(row -> row != null && row.getId() != null)
+                        .collect(java.util.stream.Collectors.toMap(
+                                OrderNotification::getId,
+                                row -> row,
+                                (left, right) -> left,
+                                LinkedHashMap::new
+                        ));
+        List<OrderNotification> pageRows = pageIds.stream()
+                .map(notificationById::get)
+                .filter(Objects::nonNull)
+                .toList();
 
         return OrderNotificationPageDto.builder()
-                .content(result.getContent().stream().map(this::toDto).toList())
-                .page(result.getNumber())
-                .size(result.getSize())
-                .totalElements(result.getTotalElements())
-                .totalPages(result.getTotalPages())
-                .first(result.isFirst())
-                .last(result.isLast())
+                .content(pageRows.stream().map(this::toDto).toList())
+                .nextCursor(nextCursor)
+                .hasNext(hasNext)
+                .size(safeSize)
                 .build();
     }
 
+    /** 개별 확인은 DB에만 반영합니다. 화면 제거는 사용자가 새로고침을 눌렀을 때 수행됩니다. */
     @Transactional
     public OrderNotificationItemDto markRead(Member member, Long notificationId) {
         Long memberId = requireMemberId(member);
@@ -169,17 +196,39 @@ public class OrderNotificationService {
         return toDto(notification);
     }
 
+    /**
+     * 일괄확인은 현재 브라우저에 실제로 로드된 ID만 처리합니다. 다른 사용자의 ID는 recipient 조건으로 무시됩니다.
+     */
     @Transactional
-    public int markAllRead(Member member, OrderNotificationCategory category) {
-        return notificationRepository.markAllRead(requireMemberId(member), category);
+    public int markLoadedRead(Member member, Collection<Long> notificationIds) {
+        Long memberId = requireMemberId(member);
+        LinkedHashSet<Long> ids = new LinkedHashSet<>();
+        if (notificationIds != null) {
+            notificationIds.stream()
+                    .filter(Objects::nonNull)
+                    .filter(id -> id > 0)
+                    .forEach(ids::add);
+        }
+        if (ids.isEmpty()) return 0;
+
+        int updated = 0;
+        List<Long> list = new ArrayList<>(ids);
+        for (int start = 0; start < list.size(); start += READ_BATCH_SIZE) {
+            int end = Math.min(start + READ_BATCH_SIZE, list.size());
+            updated += notificationRepository.markReadByIds(memberId, list.subList(start, end));
+        }
+        return updated;
     }
 
     public OrderNotificationItemDto toDto(OrderNotification notification) {
         OrderChangeEvent event = notification.getEvent();
         Order order = notification.getOrder();
-        List<OrderNotificationFieldDto> changes = event != null && event.getFields() != null
+        boolean registrationEvent = event != null
+                && normalizeText(event.getOperationCode()) != null
+                && event.getOperationCode().toUpperCase(Locale.ROOT).contains("ORDER_CREATED");
+        List<OrderNotificationFieldDto> changes = !registrationEvent && event != null && event.getFields() != null
                 ? event.getFields().stream()
-                        .sorted(java.util.Comparator.comparingInt(OrderChangeField::getSortOrder))
+                        .sorted(Comparator.comparingInt(OrderChangeField::getSortOrder))
                         .map(field -> OrderNotificationFieldDto.builder()
                                 .fieldKey(field.getFieldKey())
                                 .fieldLabel(field.getFieldLabel())
@@ -189,6 +238,7 @@ public class OrderNotificationService {
                         .toList()
                 : List.of();
 
+        Shortcut shortcut = resolveShortcut(notification);
         return OrderNotificationItemDto.builder()
                 .id(notification.getId())
                 .eventId(event != null ? event.getId() : null)
@@ -215,12 +265,93 @@ public class OrderNotificationService {
                         ? notification.getCreatedAt().format(DATE_TIME_FORMATTER)
                         : "")
                 .changes(changes)
+                .shortcutEnabled(shortcut.enabled())
+                .shortcutLabel(shortcut.label())
+                .shortcutUrl(shortcut.url())
                 .build();
+    }
+
+    private Shortcut resolveShortcut(OrderNotification notification) {
+        Order order = notification.getOrder();
+        OrderChangeEvent event = notification.getEvent();
+        Member recipient = notification.getRecipient();
+        if (order == null || order.getId() == null || recipient == null) return Shortcut.disabled();
+
+        OrderStatus transitionAfter = resolveStatusAfter(event);
+        if (isHidden(order.getStatus()) || isHidden(transitionAfter) || isAssignmentRelease(notification)) {
+            return Shortcut.disabled();
+        }
+
+        long orderId = order.getId();
+        String status = order.getStatus() != null ? order.getStatus().name() : "all";
+        MemberRole role = recipient.getRole();
+        if (role == MemberRole.ADMIN || role == MemberRole.MANAGEMENT) {
+            return new Shortcut(true, "발주 바로가기",
+                    "/management/nonStandardTaskList?orderIdFrom=" + orderId
+                            + "&orderIdTo=" + orderId
+                            + "&orderStatus=" + encode(status)
+                            + "&dateCriteria=all&productCategoryId=all&standard=all&size=10");
+        }
+
+        String teamName = recipient.getTeam() != null ? normalizeText(recipient.getTeam().getName()) : null;
+        if ("생산팀".equals(teamName)) {
+            return new Shortcut(true, "생산 발주 바로가기",
+                    "/team/productionList?orderIdFrom=" + orderId
+                            + "&orderIdTo=" + orderId
+                            + "&statusFilter=" + encode(status));
+        }
+        if ("배송팀".equals(teamName)) {
+            Member assignedHandler = order.getAssignedDeliveryHandler();
+            if (assignedHandler == null || !Objects.equals(assignedHandler.getId(), recipient.getId())) {
+                return Shortcut.disabled();
+            }
+            StringBuilder url = new StringBuilder("/team/deliveryRoute?orderIdFrom=")
+                    .append(orderId).append("&orderIdTo=").append(orderId);
+            if (order.getPreferredDeliveryDate() != null) {
+                url.append("&deliveryDate=").append(order.getPreferredDeliveryDate().toLocalDate());
+            }
+            return new Shortcut(true, "배송 발주 바로가기", url.toString());
+        }
+        if ("출고팀".equals(teamName)) {
+            return new Shortcut(true, "출고 발주 바로가기",
+                    "/team/dispatchList?orderIdFrom=" + orderId + "&orderIdTo=" + orderId);
+        }
+        return Shortcut.disabled();
+    }
+
+    private boolean isAssignmentRelease(OrderNotification notification) {
+        String title = normalizeText(notification != null ? notification.getTitle() : null);
+        if (title == null) return false;
+        return title.contains("담당 해제") || title.contains("업무 담당 해제");
+    }
+
+    private OrderStatus resolveStatusAfter(OrderChangeEvent event) {
+        if (event == null || event.getFields() == null) return null;
+        for (OrderChangeField field : event.getFields()) {
+            if (field == null || !"status".equalsIgnoreCase(normalizeText(field.getFieldKey()))) continue;
+            String value = normalizeText(field.getAfterValue());
+            if (value == null) return null;
+            for (OrderStatus status : OrderStatus.values()) {
+                if (status.name().equalsIgnoreCase(value) || status.getLabel().equals(value)) return status;
+            }
+        }
+        return null;
+    }
+
+    private boolean isHidden(OrderStatus status) {
+        return status == OrderStatus.REQUESTED || status == OrderStatus.CANCELED;
     }
 
     private String defaultTitle(OrderChangeEvent event, OrderNotificationAudience audience) {
         if (audience == OrderNotificationAudience.MANAGED_BY_ONLY) {
             return "긴급 관리자요청 · 발주 #" + event.getOrder().getId();
+        }
+
+        String operationCode = normalizeText(event.getOperationCode());
+        if (operationCode != null && operationCode.toUpperCase(Locale.ROOT).contains("ORDER_CREATED")) {
+            return event.getSourceArea() == OrderChangeSourceArea.CUSTOMER
+                    ? "고객 발주등록"
+                    : "관리자 발주등록";
         }
         return event.getOperationLabel() + " · 발주 #" + event.getOrder().getId();
     }
@@ -230,7 +361,16 @@ public class OrderNotificationService {
         if (actor == null) actor = normalizeText(event.getActorUsername());
         if (actor == null) actor = "시스템";
 
-        return actor + "님이 " + event.getOperationLabel() + " 작업을 처리했습니다. " + event.getSummary();
+        String operationCode = normalizeText(event.getOperationCode());
+        if (operationCode != null && operationCode.toUpperCase(Locale.ROOT).contains("ORDER_CREATED")) {
+            String registrationType = event.getSourceArea() == OrderChangeSourceArea.CUSTOMER
+                    ? "고객 발주등록"
+                    : "관리자 발주등록";
+            return actor + "님이 " + registrationType + "을 완료했습니다.";
+        }
+        String summary = normalizeText(event.getSummary());
+        return actor + "님이 " + event.getOperationLabel() + " 작업을 처리했습니다."
+                + (summary == null ? "" : " " + summary);
     }
 
     private Long requireMemberId(Member member) {
@@ -240,9 +380,23 @@ public class OrderNotificationService {
         return member.getId();
     }
 
+    private String firstNonBlank(String preferred, String fallback) {
+        return normalizeText(preferred) != null ? preferred.trim() : fallback;
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+
     private String normalizeText(String value) {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private record Shortcut(boolean enabled, String label, String url) {
+        static Shortcut disabled() {
+            return new Shortcut(false, null, null);
+        }
     }
 }

@@ -50,7 +50,19 @@ public class NonStandardTaskListOrderRowDto {
     private int totalAmount;
     private int packingCost;
     private int deliveryCost;
+
+    /**
+     * 제품명까지 포함된 전체 제품정보입니다.
+     * 일괄보기, 출력 등 기존 화면 호환을 위해 유지합니다.
+     */
     private String productSummary;
+
+    /**
+     * 관리자 발주 목록에서 굵은 제품명 아래에 표시할 상세정보입니다.
+     * 제품명은 제외하고 제품코드/시리즈/사이즈/색상/수량만 포함합니다.
+     */
+    private String productDetailSummary;
+
     private Map<String, String> optionMap;
 
     private String zipCode;

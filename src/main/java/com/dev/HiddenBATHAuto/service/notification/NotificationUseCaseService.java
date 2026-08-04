@@ -67,6 +67,31 @@ public class NotificationUseCaseService {
             Long requestedByMemberId,
             String requestedByUsername
     ) {
+        return sendTaskChanged(
+                "TASK_CHANGED",
+                taskId,
+                targetPhone,
+                taskName,
+                changedContent,
+                actorName,
+                requestedByMemberId,
+                requestedByUsername
+        );
+    }
+
+    /**
+     * 발주 알림처럼 운영 중인 테스트 템플릿을 재사용하는 경우 템플릿 코드만 설정에서 교체할 수 있는 오버로드입니다.
+     */
+    public NotificationSendResult sendTaskChanged(
+            String templateCode,
+            Long taskId,
+            String targetPhone,
+            String taskName,
+            String changedContent,
+            String actorName,
+            Long requestedByMemberId,
+            String requestedByUsername
+    ) {
         String occurredAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
         Map<String, String> variables = new LinkedHashMap<>();
@@ -89,7 +114,7 @@ public class NotificationUseCaseService {
         );
 
         return notificationMessageService.sendAlimtalk(NotificationSendCommand.builder()
-                .templateCode("TASK_CHANGED")
+                .templateCode(templateCode == null || templateCode.isBlank() ? "TASK_CHANGED" : templateCode.trim())
                 .to(targetPhone)
                 .messageTextForLog(textForLog)
                 .variables(variables)

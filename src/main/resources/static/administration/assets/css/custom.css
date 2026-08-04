@@ -9108,3 +9108,26 @@ body.admin-task-list-second-modal-open {
 .team-production-overview-list-card.is-unchecked {
 	background: #ffffff;
 }
+
+.admin-task-list-second-page .admin-task-list-second-product-name {
+	display: block;
+	margin-bottom: 3px;
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1.35;
+	color: #111827;
+	white-space: normal;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+.admin-task-list-second-page .admin-task-list-second-product-summary {
+	display: block !important;
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	color: #64748b;
+	white-space: normal !important;
+	word-break: break-word !important;
+	overflow-wrap: anywhere !important;
+}
