@@ -1,576 +1,583 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
-	data-sidebar-image="none" data-preloader="disable">
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
 
-<head th:replace="~{fragments/administration/common :: autoAdminHead}">
-</head>
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
 
-	<div id="layout-wrapper">
+    <div class="main-content">
+        <div class="page-content management-delivery-list-page" id="management-delivery-list-page">
+            <div class="container-fluid">
 
-		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-title-box d-sm-flex align-items-center justify-content-between gap-3">
+                            <div>
+                                <h4 class="mb-1">관리자 배송관리</h4>
+                                <p class="text-muted mb-0">
+                                    동일 업체·동일 실제 배송지·동일 배송수단·동일 배송일 기준으로 발주를 묶어 확인합니다.
+                                </p>
+                            </div>
+                            <div class="page-title-right">
+                                <ol class="breadcrumb m-0">
+                                    <li class="breadcrumb-item">발주관리</li>
+                                    <li class="breadcrumb-item active">배송관리</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
-		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
-		<div class="vertical-overlay"></div>
+                <div class="row g-3 management-delivery-summary-row">
+                    <div class="col-xl-3 col-md-6">
+                        <div class="management-delivery-summary-card">
+                            <span>조회 묶음</span>
+                            <strong><b th:text="${groups.totalElements}">0</b>개</strong>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="management-delivery-summary-card">
+                            <span>포함 오더</span>
+                            <strong><b th:text="${filteredOrderCount}">0</b>건</strong>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="management-delivery-summary-card">
+                            <span>현재 페이지</span>
+                            <strong>
+                                <b th:text="${groups.totalPages > 0 ? groups.number + 1 : 0}">0</b>
+                                / <b th:text="${groups.totalPages}">0</b>
+                            </strong>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="management-delivery-summary-card">
+                            <span>기본 상태</span>
+                            <strong th:text="${status == 'DELIVERY_DONE' ? '배송완료' : (status == '' ? '전체' : '선택 상태')}">
+                                배송완료
+                            </strong>
+                        </div>
+                    </div>
+                </div>
 
-		<div class="main-content">
+                <div class="card management-delivery-filter-card">
+                    <div class="card-header border-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <div>
+                            <h5 class="card-title mb-1">배송 조회 조건</h5>
+                            <p class="text-muted mb-0 small">
+                                오더 ID는 FROM만 입력하면 이상, TO만 입력하면 이하, 단건은 같은 값을 입력합니다.
+                            </p>
+                        </div>
+                        <a class="btn btn-success"
+                           th:classappend="${groups.totalElements == 0} ? ' disabled' : ''"
+                           th:href="@{/management/deliveryList/excel(
+                                categoryId=${categoryId},
+                                assignedMemberId=${assignedMemberId},
+                                status=${status},
+                                deliveryMethodId=${deliveryMethodId},
+                                dateType=${dateType},
+                                startDate=${startDate},
+                                endDate=${endDate},
+                                orderIdFrom=${orderIdFrom},
+                                orderIdTo=${orderIdTo},
+                                productName=${productName},
+                                companyName=${companyName},
+                                sortField=${sortField},
+                                sortDir=${sortDir}
+                           )}">
+                            <i class="ri-file-excel-2-line me-1"></i>묶음 엑셀 출력
+                        </a>
+                    </div>
 
-			<div class="page-content">
-				<div class="container-fluid">
+                    <div class="card-body">
+                        <form method="get" th:action="@{/management/deliveryList}"
+                              id="management-delivery-search-form" class="row g-3 align-items-end">
+                            <input type="hidden" name="sortField" id="management-delivery-sort-field"
+                                   th:value="${sortField}">
+                            <input type="hidden" name="sortDir" id="management-delivery-sort-dir"
+                                   th:value="${sortDir}">
 
-					<div class="row">
-						<div class="col-12">
-							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">배송팀업무관리</h4>
-								<div class="page-title-right">
-									<ol class="breadcrumb m-0">
-										<li class="breadcrumb-item"><a href="javascript: void(0);">팀관리</a></li>
-										<li class="breadcrumb-item active">배송팀업무관리</li>
-									</ol>
-								</div>
-							</div>
-						</div>
-					</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-status">오더 상태</label>
+                                <select class="form-select" name="status" id="management-delivery-status">
+                                    <option value="" th:selected="${status == null or status == ''}">전체</option>
+                                    <option th:each="orderStatus : ${orderStatusList}"
+                                            th:value="${orderStatus.name()}"
+                                            th:text="${orderStatus.label}"
+                                            th:selected="${orderStatus.name() == status}">배송완료</option>
+                                </select>
+                            </div>
 
-					<div class="row">
-						<div class="col-lg-12">
-							<div class="card" id="tasksList">
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-method">배송수단</label>
+                                <select class="form-select" name="deliveryMethodId" id="management-delivery-method">
+                                    <option value="" th:selected="${deliveryMethodId == null}">전체</option>
+                                    <option th:each="method : ${deliveryMethods}"
+                                            th:value="${method.id}"
+                                            th:text="${method.methodName}"
+                                            th:selected="${method.id == deliveryMethodId}">직배송</option>
+                                </select>
+                            </div>
 
-								<div class="card-header border-0">
-									<div class="d-flex align-items-center">
-										<h5 class="card-title mb-0 flex-grow-1">DELIVERY MANAGER</h5>
-										<div class="flex-shrink-0">
-											<div class="d-flex flex-wrap gap-2">
-												<a th:href="@{/management/deliveryList/excel(
-													    categoryId=${categoryId},
-													    assignedMemberId=${assignedMemberId},
-													    status=${status},
-													    dateType=${dateType},
-													    startDate=${startDate},
-													    endDate=${endDate},
-													    sortField=${sortField},
-													    sortDir=${sortDir},
-													    size=${pageSize}
-													)}" class="btn btn-success">
-													<i class="fa-solid fa-download"></i> 엑셀 다운로드
-												</a>
-											</div>
-										</div>
-									</div>
-								</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-category">제품 카테고리</label>
+                                <select class="form-select" name="categoryId" id="management-delivery-category">
+                                    <option value="" th:selected="${categoryId == null}">전체</option>
+                                    <option th:each="category : ${categories}"
+                                            th:value="${category.id}"
+                                            th:text="${category.name}"
+                                            th:selected="${category.id == categoryId}">카테고리</option>
+                                </select>
+                            </div>
 
-								<div class="card-body border border-dashed border-end-0 border-start-0">
-									<form method="get" th:action="@{/management/deliveryList}"
-										class="row g-3 align-items-end">
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-handler">배송 담당자</label>
+                                <select class="form-select" name="assignedMemberId" id="management-delivery-handler">
+                                    <option value="" th:selected="${assignedMemberId == null}">전체</option>
+                                    <option th:each="member : ${assignees}"
+                                            th:value="${member.id}"
+                                            th:text="${#strings.isEmpty(member.name) ? member.username : member.name}"
+                                            th:selected="${member.id == assignedMemberId}">담당자</option>
+                                </select>
+                            </div>
 
-										<!-- ✅ 정렬 유지용 hidden -->
-										<input type="hidden" name="sortField" th:value="${sortField}">
-										<input type="hidden" name="sortDir" th:value="${sortDir}">
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-date-type">날짜 기준</label>
+                                <select class="form-select" name="dateType" id="management-delivery-date-type">
+                                    <option value="preferred" th:selected="${dateType == 'preferred'}">배송일</option>
+                                    <option value="created" th:selected="${dateType == 'created'}">신청일</option>
+                                </select>
+                            </div>
 
-										<!-- 오더 상태 -->
-										<div class="col-md-2">
-											<label class="form-label">오더 상태</label>
-											<select class="form-select" name="status">
-												<option value="" th:selected="${status == null or status == ''}">전체
-												</option>
-												<option th:each="s : ${orderStatusList}" th:value="${s.name()}"
-													th:text="${s.label}" th:selected="${s.name() == status}">
-												</option>
-											</select>
-										</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-page-size">표시 묶음</label>
+                                <select class="form-select" name="size" id="management-delivery-page-size">
+                                    <option value="100" th:selected="${pageSize == 100}">100</option>
+                                    <option value="200" th:selected="${pageSize == 200}">200</option>
+                                    <option value="300" th:selected="${pageSize == 300}">300</option>
+                                    <option value="400" th:selected="${pageSize == 400}">400</option>
+                                    <option value="500" th:selected="${pageSize == 500}">500</option>
+                                </select>
+                            </div>
 
-										<!-- 제품 카테고리 -->
-										<div class="col-md-2">
-											<label class="form-label">제품 카테고리</label>
-											<select class="form-select" name="categoryId">
-												<option value="" th:selected="${categoryId == null}">전체</option>
-												<option th:each="c : ${categories}" th:value="${c.id}"
-													th:text="${c.name}" th:selected="${c.id == categoryId}">
-												</option>
-											</select>
-										</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-order-id-from">오더 ID FROM</label>
+                                <input type="number" min="1" step="1" class="form-control"
+                                       name="orderIdFrom" id="management-delivery-order-id-from"
+                                       th:value="${orderIdFrom}" placeholder="이상">
+                            </div>
 
-										<!-- 담당자 -->
-										<div class="col-md-1">
-											<label class="form-label">담당자</label>
-											<select class="form-select" name="assignedMemberId">
-												<option value="" th:selected="${assignedMemberId == null}">전체</option>
-												<option th:each="m : ${assignees}" th:value="${m.id}"
-													th:text="${m.name}" th:selected="${m.id == assignedMemberId}">
-												</option>
-											</select>
-										</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-order-id-to">오더 ID TO</label>
+                                <input type="number" min="1" step="1" class="form-control"
+                                       name="orderIdTo" id="management-delivery-order-id-to"
+                                       th:value="${orderIdTo}" placeholder="이하">
+                            </div>
 
-										<!-- 날짜 기준 -->
-										<div class="col-md-1">
-											<label class="form-label">날짜 기준</label>
-											<select class="form-select" name="dateType">
-												<option value="preferred"
-													th:selected="${dateType == null or dateType == 'preferred'}">출고일
-												</option>
-												<option value="created" th:selected="${dateType == 'created'}">신청일
-												</option>
-											</select>
-										</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-product-name">제품명</label>
+                                <input type="text" class="form-control" name="productName"
+                                       id="management-delivery-product-name" th:value="${productName}"
+                                       placeholder="제품명 포함 검색">
+                            </div>
 
-										<!-- 시작일 -->
-										<div class="col-md-2">
-											<label class="form-label">시작일</label>
-											<input type="date" class="form-control" name="startDate"
-												th:value="${startDate}" />
-										</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-company-name">대리점명</label>
+                                <input type="text" class="form-control" name="companyName"
+                                       id="management-delivery-company-name" th:value="${companyName}"
+                                       placeholder="대리점명 포함 검색">
+                            </div>
 
-										<!-- 종료일 -->
-										<div class="col-md-2">
-											<label class="form-label">종료일</label>
-											<input type="date" class="form-control" name="endDate"
-												th:value="${endDate}" />
-										</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-start-date">시작일</label>
+                                <input type="date" class="form-control" name="startDate"
+                                       id="management-delivery-start-date" th:value="${startDate}">
+                            </div>
 
-										<!-- ✅ 페이지 사이즈 -->
-										<div class="col-md-1">
-											<label class="form-label">표시</label>
-											<select class="form-select" name="size" id="delivery-list-added-page-size">
-												<option value="10" th:selected="${pageSize == 10}">10</option>
-												<option value="30" th:selected="${pageSize == 30}">30</option>
-												<option value="50" th:selected="${pageSize == 50}">50</option>
-												<option value="100" th:selected="${pageSize == 100}">100</option>
-											</select>
-										</div>
+                            <div class="col-xl-2 col-lg-3 col-md-4">
+                                <label class="form-label" for="management-delivery-end-date">종료일</label>
+                                <input type="date" class="form-control" name="endDate"
+                                       id="management-delivery-end-date" th:value="${endDate}">
+                            </div>
 
-										<!-- 검색 버튼 -->
-										<div class="col-md-1">
-											<button type="submit" class="btn btn-primary w-100">
-												<i class="fa-solid fa-magnifying-glass me-1"></i> 검색
-											</button>
-										</div>
-									</form>
-								</div>
+                            <div class="col-12">
+                                <div class="d-flex flex-wrap justify-content-end gap-2">
+                                    <a class="btn btn-light" th:href="@{/management/deliveryList}">
+                                        <i class="ri-refresh-line me-1"></i>검색 초기화
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="ri-search-line me-1"></i>조회
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
 
-								<div class="card-body">
-									<div class="table-responsive table-card mb-4">
+                <div class="management-delivery-active-filter-list" th:if="${activeFilters != null}">
+                    <span class="management-delivery-filter-chip" th:each="filter : ${activeFilters}">
+                        <small th:text="${filter.label}">조건</small>
+                        <strong th:text="${filter.value}">전체</strong>
+                    </span>
+                </div>
 
-										<table class="table align-middle table-nowrap mb-0" id="tasksTable">
-											<thead class="table-light text-muted">
-												<tr>
+                <div class="card management-delivery-table-card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive management-delivery-table-wrap">
+                            <table class="table align-middle mb-0 management-delivery-table">
+                                <thead>
+                                <tr>
+                                    <th>
+                                        <button type="button" class="management-delivery-sort-button"
+                                                data-management-delivery-sort="orderId"
+                                                th:classappend="${sortField == 'orderId'} ? ' is-active' : ''">
+                                            오더 ID
+                                            <i th:class="${sortField == 'orderId' and sortDir == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+                                        </button>
+                                    </th>
+                                    <th>
+                                        <button type="button" class="management-delivery-sort-button"
+                                                data-management-delivery-sort="company"
+                                                th:classappend="${sortField == 'company'} ? ' is-active' : ''">
+                                            대리점명
+                                            <i th:class="${sortField == 'company' and sortDir == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+                                        </button>
+                                    </th>
+                                    <th>배송지</th>
+                                    <th>배송수단</th>
+                                    <th>
+                                        <button type="button" class="management-delivery-sort-button"
+                                                data-management-delivery-sort="createdDate"
+                                                th:classappend="${sortField == 'createdDate'} ? ' is-active' : ''">
+                                            신청일
+                                            <i th:class="${sortField == 'createdDate' and sortDir == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+                                        </button>
+                                    </th>
+                                    <th>
+                                        <button type="button" class="management-delivery-sort-button"
+                                                data-management-delivery-sort="deliveryDate"
+                                                th:classappend="${sortField == 'deliveryDate'} ? ' is-active' : ''">
+                                            배송일
+                                            <i th:class="${sortField == 'deliveryDate' and sortDir == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+                                        </button>
+                                    </th>
+                                    <th>
+                                        <button type="button" class="management-delivery-sort-button"
+                                                data-management-delivery-sort="handler"
+                                                th:classappend="${sortField == 'handler'} ? ' is-active' : ''">
+                                            배송 담당자
+                                            <i th:class="${sortField == 'handler' and sortDir == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+                                        </button>
+                                    </th>
+                                    <th>
+                                        <button type="button" class="management-delivery-sort-button"
+                                                data-management-delivery-sort="orderCount"
+                                                th:classappend="${sortField == 'orderCount'} ? ' is-active' : ''">
+                                            발주수량
+                                            <i th:class="${sortField == 'orderCount' and sortDir == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+                                        </button>
+                                    </th>
+                                    <th>
+                                        <button type="button" class="management-delivery-sort-button"
+                                                data-management-delivery-sort="status"
+                                                th:classappend="${sortField == 'status'} ? ' is-active' : ''">
+                                            상태
+                                            <i th:class="${sortField == 'status' and sortDir == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+                                        </button>
+                                    </th>
+                                    <th>비고</th>
+                                </tr>
+                                </thead>
 
-													<th>ID</th>
+                                <tbody th:if="${groups != null and !groups.content.isEmpty()}">
+                                <th:block th:each="group : ${groups.content}">
+                                    <tr class="management-delivery-group-row"
+                                        th:classappend="${' management-delivery-status-' + #strings.toLowerCase(group.statusCode)}"
+                                        th:attr="data-management-delivery-group=${group.groupId}">
+                                        <td class="management-delivery-order-id-cell">
+                                            <span th:text="${group.orderIdsText}">5543, 5544</span>
+                                        </td>
+                                        <td>
+                                            <strong class="management-delivery-company-name"
+                                                    th:text="${group.companyName}">대리점명</strong>
+                                            <small th:text="${group.requesterNames}">신청자</small>
+                                        </td>
+                                        <td class="management-delivery-address-cell" th:text="${group.address}">배송지</td>
+                                        <td>
+                                            <span class="badge bg-primary-subtle text-primary"
+                                                  th:text="${group.deliveryMethodName}">직배송</span>
+                                        </td>
+                                        <td class="text-nowrap" th:text="${group.createdDateText}">2026/01/01</td>
+                                        <td class="text-nowrap" th:text="${group.deliveryDateText}">2026/01/01</td>
+                                        <td th:text="${group.handlerNames}">담당자</td>
+                                        <td>
+                                            <span class="management-delivery-count-badge">
+                                                <b th:text="${group.orderCount}">1</b>건
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge management-delivery-status-badge"
+                                                  th:classappend="${' management-delivery-status-badge-' + #strings.toLowerCase(group.statusCode)}"
+                                                  th:text="${group.statusLabel}">배송완료</span>
+                                        </td>
+                                        <td>
+                                            <div class="management-delivery-action-buttons">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        data-management-delivery-open-images
+                                                        th:attr="data-group-id=${group.groupId}"
+                                                        th:disabled="${not group.hasImages}">
+                                                    <i class="ri-image-line me-1"></i>이미지보기
+                                                    <span class="badge bg-primary-subtle text-primary ms-1"
+                                                          th:text="${group.imageCount}">0</span>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-dark"
+                                                        data-management-delivery-toggle
+                                                        th:attr="data-group-id=${group.groupId},aria-controls=${group.groupId + '-detail'}"
+                                                        aria-expanded="false">
+                                                    <i class="ri-layout-row-line me-1"></i>
+                                                    <span>넓게보기</span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-													<!-- ✅ 대리점명 정렬 -->
-													<th>
-														<div class="delivery-list-added-sort-wrap">
-															<span>대리점명</span>
-															<div class="delivery-list-added-sort-icons" th:with="active=${sortField == 'agency'},
-																         upActive=${active and sortDir == 'asc'},
-																         downActive=${active and sortDir == 'desc'},
-																         upDir='asc', downDir='desc'">
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='agency',
-																	sortDir=${upDir}
-																)}" th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='agency',
-																	sortDir=${downDir}
-																)}" th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</div>
-														</div>
-													</th>
+                                    <tr class="management-delivery-detail-row"
+                                        th:id="${group.groupId + '-detail'}"
+                                        th:attr="data-management-delivery-detail=${group.groupId}"
+                                        hidden>
+                                        <td colspan="10">
+                                            <div class="management-delivery-detail-panel">
+                                                <div class="row g-4">
+                                                    <div class="col-xl-8 col-lg-7">
+                                                        <div class="management-delivery-detail-summary">
+                                                            <div><span>대리점명</span><strong th:text="${group.companyName}">-</strong></div>
+                                                            <div><span>배송수단</span><strong th:text="${group.deliveryMethodName}">-</strong></div>
+                                                            <div><span>배송 담당자</span><strong th:text="${group.handlerNames}">-</strong></div>
+                                                            <div><span>발주수량</span><strong><b th:text="${group.orderCount}">0</b>건</strong></div>
+                                                            <div class="management-delivery-detail-summary-wide">
+                                                                <span>실제 배송지</span><strong th:text="${group.address}">-</strong>
+                                                            </div>
+                                                        </div>
 
-													<!-- ✅ 신청자 정렬 -->
-													<th>
-														<div class="delivery-list-added-sort-wrap">
-															<span>신청자</span>
-															<div class="delivery-list-added-sort-icons" th:with="active=${sortField == 'requester'},
-																         upActive=${active and sortDir == 'asc'},
-																         downActive=${active and sortDir == 'desc'}">
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='requester',
-																	sortDir='asc'
-																)}" th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='requester',
-																	sortDir='desc'
-																)}" th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</div>
-														</div>
-													</th>
+                                                        <div class="management-delivery-order-list">
+                                                            <article class="management-delivery-order-card"
+                                                                     th:each="order : ${group.orders}"
+                                                                     th:classappend="${' management-delivery-order-status-' + #strings.toLowerCase(order.statusCode)}">
+                                                                <div class="management-delivery-order-card-head">
+                                                                    <div>
+                                                                        <span class="management-delivery-order-number"
+                                                                              th:text="${order.orderId}">5543</span>
+                                                                        <span class="badge"
+                                                                              th:classappend="${order.standard} ? ' bg-primary-subtle text-primary' : ' bg-warning-subtle text-warning'"
+                                                                              th:text="${order.standard} ? '규격' : '비규격'">규격</span>
+                                                                        <span class="badge bg-light text-dark"
+                                                                              th:text="${order.statusLabel}">배송완료</span>
+                                                                    </div>
+                                                                    <div class="management-delivery-order-dates">
+                                                                        <span>신청 <b th:text="${order.createdDateText}">2026/01/01</b></span>
+                                                                        <span>배송 <b th:text="${order.deliveryDateText}">2026/01/01</b></span>
+                                                                    </div>
+                                                                </div>
 
-													<!-- ✅ 규격-비규격 정렬 -->
-													<th>
-														<div class="delivery-list-added-sort-wrap">
-															<span>규격-비규격</span>
-															<div class="delivery-list-added-sort-icons" th:with="active=${sortField == 'standard'},
-																         upActive=${active and sortDir == 'asc'},
-																         downActive=${active and sortDir == 'desc'}">
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='standard',
-																	sortDir='asc'
-																)}" th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='standard',
-																	sortDir='desc'
-																)}" th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</div>
-														</div>
-													</th>
+                                                                <div class="management-delivery-product-grid">
+                                                                    <div><span>카테고리</span><strong th:text="${order.category}">-</strong></div>
+                                                                    <div class="management-delivery-product-name"><span>제품명</span><strong th:text="${order.productName}">-</strong></div>
+                                                                    <div><span>사이즈</span><strong th:text="${order.size}">-</strong></div>
+                                                                    <div><span>색상</span><strong th:text="${order.color}">-</strong></div>
+                                                                    <div><span>수량</span><strong th:text="${order.quantity}">0</strong></div>
+                                                                    <div><span>옵션</span><strong th:text="${order.optionText}">-</strong></div>
+                                                                </div>
 
-													<!-- ✅ 신청일 정렬 -->
-													<th>
-														<div class="delivery-list-added-sort-wrap">
-															<span>신청일</span>
-															<div class="delivery-list-added-sort-icons" th:with="active=${sortField == 'createdAt'},
-																         upActive=${active and sortDir == 'asc'},
-																         downActive=${active and sortDir == 'desc'}">
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='createdAt',
-																	sortDir='asc'
-																)}" th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='createdAt',
-																	sortDir='desc'
-																)}" th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</div>
-														</div>
-													</th>
+                                                                <div class="management-delivery-order-info-grid">
+                                                                    <div><span>신청자</span><strong th:text="${order.requesterName}">-</strong></div>
+                                                                    <div><span>주문자</span><strong th:text="${order.ordererName}">-</strong></div>
+                                                                    <div><span>연락처</span><strong th:text="${order.ordererPhone}">-</strong></div>
+                                                                    <div><span>배송 담당자</span><strong th:text="${order.handlerName}">-</strong></div>
+                                                                </div>
 
-													<!-- ✅ 배송희망일 정렬 -->
-													<th>
-														<div class="delivery-list-added-sort-wrap">
-															<span>배송희망일</span>
-															<div class="delivery-list-added-sort-icons" th:with="active=${sortField == 'preferredDeliveryDate'},
-																         upActive=${active and sortDir == 'asc'},
-																         downActive=${active and sortDir == 'desc'}">
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='preferredDeliveryDate',
-																	sortDir='asc'
-																)}" th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='preferredDeliveryDate',
-																	sortDir='desc'
-																)}" th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</div>
-														</div>
-													</th>
+                                                                <div class="management-delivery-memo-grid">
+                                                                    <div><span>관리자 메모</span><p th:text="${order.adminMemo}">-</p></div>
+                                                                    <div><span>발주 메모</span><p th:text="${order.orderComment}">-</p></div>
+                                                                    <div><span>출고 완료 메모</span><p th:text="${order.dispatchCompleteMessage}">-</p></div>
+                                                                </div>
+                                                            </article>
+                                                        </div>
+                                                    </div>
 
-													<th>수정일</th>
+                                                    <div class="col-xl-4 col-lg-5">
+                                                        <div class="management-delivery-group-gallery"
+                                                             th:attr="data-management-delivery-gallery=${group.groupId}">
+                                                            <div class="management-delivery-gallery-heading">
+                                                                <div>
+                                                                    <span>배송완료 이미지</span>
+                                                                    <strong><b th:text="${group.imageCount}">0</b>장</strong>
+                                                                </div>
+                                                                <small>이미지를 누르면 크게 볼 수 있습니다.</small>
+                                                            </div>
 
-													<!-- ✅ 상태 정렬 -->
-													<th>
-														<div class="delivery-list-added-sort-wrap">
-															<span>상태</span>
-															<div class="delivery-list-added-sort-icons" th:with="active=${sortField == 'status'},
-																         upActive=${active and sortDir == 'asc'},
-																         downActive=${active and sortDir == 'desc'}">
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='status',
-																	sortDir='asc'
-																)}" th:classappend="${upActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a th:href="@{/management/deliveryList(
-																	page=${orders.number},
-																	size=${pageSize},
-																	categoryId=${categoryId},
-																	assignedMemberId=${assignedMemberId},
-																	status=${status},
-																	dateType=${dateType},
-																	startDate=${startDate},
-																	endDate=${endDate},
-																	sortField='status',
-																	sortDir='desc'
-																)}" th:classappend="${downActive} ? 'delivery-list-added-sort-active'">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</div>
-														</div>
-													</th>
+                                                            <div class="management-delivery-gallery-main" th:if="${group.hasImages}">
+                                                                <button type="button" class="management-delivery-gallery-arrow is-prev"
+                                                                        data-management-delivery-gallery-prev
+                                                                        th:attr="data-group-id=${group.groupId}" aria-label="이전 이미지">
+                                                                    <i class="ri-arrow-left-s-line"></i>
+                                                                </button>
+                                                                <button type="button" class="management-delivery-gallery-image-button"
+                                                                        data-management-delivery-gallery-open
+                                                                        th:attr="data-group-id=${group.groupId}">
+                                                                    <img th:src="${group.images[0].url}"
+                                                                         th:alt="${group.images[0].filename}"
+                                                                         data-management-delivery-gallery-main-image>
+                                                                </button>
+                                                                <button type="button" class="management-delivery-gallery-arrow is-next"
+                                                                        data-management-delivery-gallery-next
+                                                                        th:attr="data-group-id=${group.groupId}" aria-label="다음 이미지">
+                                                                    <i class="ri-arrow-right-s-line"></i>
+                                                                </button>
+                                                                <span class="management-delivery-gallery-counter"
+                                                                      data-management-delivery-gallery-counter>1 / 1</span>
+                                                            </div>
 
-												</tr>
-											</thead>
+                                                            <div class="management-delivery-gallery-empty" th:unless="${group.hasImages}">
+                                                                <i class="ri-image-line"></i>
+                                                                <strong>배송완료 이미지가 없습니다.</strong>
+                                                            </div>
 
-											<tbody class="list form-check-all">
-												<tr th:each="order : ${orders.content}">
+                                                            <div class="management-delivery-gallery-thumbnails" th:if="${group.hasImages}">
+                                                                <button type="button" class="management-delivery-gallery-thumbnail"
+                                                                        th:each="image, imageStat : ${group.images}"
+                                                                        th:classappend="${imageStat.first} ? ' is-active' : ''"
+                                                                        data-management-delivery-gallery-thumbnail
+                                                                        th:attr="data-group-id=${group.groupId},data-image-index=${imageStat.index}">
+                                                                    <img th:src="${image.url}" th:alt="${image.filename}">
+                                                                </button>
+                                                            </div>
 
-													<td class="id">
-														<a th:href="@{/management/deliveryDetail/{id}(id=${order.id})}"
-															class="fw-medium link-primary"
-															th:text="'#ORDER_' + ${order.id}">#ORDER_ID</a>
-													</td>
+                                                            <div class="management-delivery-image-source-list d-none"
+                                                                 th:attr="data-management-delivery-image-source-list=${group.groupId}">
+                                                                <button type="button" th:each="image : ${group.images}"
+                                                                        data-management-delivery-image-source
+                                                                        th:attr="data-image-url=${image.url},data-image-name=${image.filename}"></button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </th:block>
+                                </tbody>
 
-													<td class="project_name">
-														<a th:href="@{'/management/agency/' + ${order.task.requestedBy.company.id}}"
-															class="fw-medium link-primary"
-															th:text="${order.task.requestedBy.company.companyName}">대리점명</a>
-													</td>
+                                <tbody th:if="${groups == null or groups.content.isEmpty()}">
+                                <tr>
+                                    <td colspan="10">
+                                        <div class="management-delivery-empty-state">
+                                            <i class="ri-truck-line"></i>
+                                            <strong>조회된 배송 묶음이 없습니다.</strong>
+                                            <span>검색 조건을 변경한 뒤 다시 조회해 주세요.</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
-													<td class="client_name">
-														<a th:href="@{'/management/customer/' + ${order.task.requestedBy.id}}"
-															th:text="${order.task.requestedBy.name}">신청자명</a>
-													</td>
+                <div class="d-flex justify-content-end mt-3" th:if="${groups != null and groups.totalPages > 0}">
+                    <nav aria-label="관리자 배송관리 페이지">
+                        <ul class="pagination mb-0">
+                            <li class="page-item" th:classappend="${groups.first} ? ' disabled' : ''">
+                                <a class="page-link" th:href="@{/management/deliveryList(
+                                    page=0,size=${pageSize},categoryId=${categoryId},assignedMemberId=${assignedMemberId},
+                                    status=${status},deliveryMethodId=${deliveryMethodId},dateType=${dateType},
+                                    startDate=${startDate},endDate=${endDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},
+                                    productName=${productName},companyName=${companyName},sortField=${sortField},sortDir=${sortDir}
+                                )}">처음</a>
+                            </li>
+                            <li class="page-item" th:classappend="${groups.first} ? ' disabled' : ''">
+                                <a class="page-link" th:href="@{/management/deliveryList(
+                                    page=${groups.first ? 0 : groups.number - 1},size=${pageSize},categoryId=${categoryId},assignedMemberId=${assignedMemberId},
+                                    status=${status},deliveryMethodId=${deliveryMethodId},dateType=${dateType},
+                                    startDate=${startDate},endDate=${endDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},
+                                    productName=${productName},companyName=${companyName},sortField=${sortField},sortDir=${sortDir}
+                                )}">이전</a>
+                            </li>
+                            <li class="page-item" th:each="pageNumber : ${pageNumbers}"
+                                th:classappend="${groups.number == pageNumber} ? ' active' : ''">
+                                <a class="page-link" th:text="${pageNumber + 1}"
+                                   th:href="@{/management/deliveryList(
+                                    page=${pageNumber},size=${pageSize},categoryId=${categoryId},assignedMemberId=${assignedMemberId},
+                                    status=${status},deliveryMethodId=${deliveryMethodId},dateType=${dateType},
+                                    startDate=${startDate},endDate=${endDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},
+                                    productName=${productName},companyName=${companyName},sortField=${sortField},sortDir=${sortDir}
+                                   )}">1</a>
+                            </li>
+                            <li class="page-item" th:classappend="${groups.last} ? ' disabled' : ''">
+                                <a class="page-link" th:href="@{/management/deliveryList(
+                                    page=${groups.last ? groups.number : groups.number + 1},size=${pageSize},categoryId=${categoryId},assignedMemberId=${assignedMemberId},
+                                    status=${status},deliveryMethodId=${deliveryMethodId},dateType=${dateType},
+                                    startDate=${startDate},endDate=${endDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},
+                                    productName=${productName},companyName=${companyName},sortField=${sortField},sortDir=${sortDir}
+                                )}">다음</a>
+                            </li>
+                            <li class="page-item" th:classappend="${groups.last} ? ' disabled' : ''">
+                                <a class="page-link" th:href="@{/management/deliveryList(
+                                    page=${groups.totalPages - 1},size=${pageSize},categoryId=${categoryId},assignedMemberId=${assignedMemberId},
+                                    status=${status},deliveryMethodId=${deliveryMethodId},dateType=${dateType},
+                                    startDate=${startDate},endDate=${endDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},
+                                    productName=${productName},companyName=${companyName},sortField=${sortField},sortDir=${sortDir}
+                                )}">마지막</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
 
-													<!-- ✅ 규격/비규격 표시 -->
-													<td>
-														<span class="badge"
-															th:classappend="${order.standard} ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-warning'"
-															th:text="${order.standard} ? '규격' : '비규격'">규격</span>
-													</td>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
 
-													<td class="due_date"
-														th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')}">
-														00:00:00</td>
+<div class="modal fade" id="management-delivery-image-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl management-delivery-image-modal-dialog">
+        <div class="modal-content management-delivery-image-modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1">배송완료 이미지</h5>
+                    <p class="text-muted mb-0 small" id="management-delivery-modal-image-name">-</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <div class="management-delivery-modal-stage">
+                    <button type="button" class="management-delivery-modal-arrow is-prev"
+                            id="management-delivery-modal-prev" aria-label="이전 이미지">
+                        <i class="ri-arrow-left-s-line"></i>
+                    </button>
+                    <img id="management-delivery-modal-main-image" src="" alt="배송완료 이미지">
+                    <button type="button" class="management-delivery-modal-arrow is-next"
+                            id="management-delivery-modal-next" aria-label="다음 이미지">
+                        <i class="ri-arrow-right-s-line"></i>
+                    </button>
+                    <span class="management-delivery-modal-counter" id="management-delivery-modal-counter">0 / 0</span>
+                </div>
+                <div class="management-delivery-modal-thumbnails" id="management-delivery-modal-thumbnails"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
-													<td class="due_date"
-														th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy-MM-dd HH:mm:ss') : '-'}">
-														00:00:00</td>
+<link rel="stylesheet" href="/administration/assets/management/delivery/managementDeliveryList.css?v=20260805-1">
 
-													<td class="due_date"
-														th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">
-														00:00:00</td>
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-													<td class="status">
-														<span
-															class="badge bg-secondary-subtle text-secondary text-uppercase"
-															th:text="${order.status}">대기중</span>
-													</td>
-												</tr>
-											</tbody>
-										</table>
-
-										<div class="noresult" style="display: none">
-											<div class="text-center">
-												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
-													colors="primary:#121331,secondary:#08a88a"
-													style="width:75px;height:75px"></lord-icon>
-												<h5 class="mt-2">결과가 존재하지않습니다.</h5>
-												<p class="text-muted mb-0">다른 조건으로 검색을 진행 해 주시기 바랍니다.</p>
-											</div>
-										</div>
-									</div>
-
-									<!-- ✅ 페이지네이션: 최대 5개 숫자만 노출 -->
-									<div class="d-flex justify-content-end mt-2"
-										th:if="${orders != null and orders.totalPages > 0}" th:with="
-		totalPages=${orders.totalPages},
-		currentPage=${orders.number},
-		windowSize=${5},
-		startPage=${totalPages <= windowSize ? 0 : (currentPage <= 2 ? 0 : (currentPage >= totalPages - 3 ? totalPages - windowSize : currentPage - 2))},
-		endPage=${totalPages <= windowSize ? totalPages - 1 : (currentPage <= 2 ? windowSize - 1 : (currentPage >= totalPages - 3 ? totalPages - 1 : currentPage + 2))}
-	">
-										<div class="pagination-wrap hstack gap-2">
-											<nav aria-label="navigation" style="text-align: center;">
-												<ul class="pagination justify-content-center">
-
-													<!-- First -->
-													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-							page=0,
-							size=${pageSize},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${startDate},
-							endDate=${endDate},
-							sortField=${sortField},
-							sortDir=${sortDir}
-					   )}">First</a>
-													</li>
-
-													<!-- Previous -->
-													<li class="page-item" th:classappend="${orders.first} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-							page=${orders.first ? 0 : orders.number - 1},
-							size=${pageSize},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${startDate},
-							endDate=${endDate},
-							sortField=${sortField},
-							sortDir=${sortDir}
-					   )}">Previous</a>
-													</li>
-
-													<!-- Number: 최대 5개만 노출 -->
-													<li class="page-item"
-														th:each="pageNum : ${#numbers.sequence(startPage, endPage)}"
-														th:classappend="${orders.number == pageNum} ? 'active'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-							page=${pageNum},
-							size=${pageSize},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${startDate},
-							endDate=${endDate},
-							sortField=${sortField},
-							sortDir=${sortDir}
-					   )}" th:text="${pageNum + 1}">1</a>
-													</li>
-
-													<!-- Next -->
-													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-							page=${orders.last ? orders.number : orders.number + 1},
-							size=${pageSize},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${startDate},
-							endDate=${endDate},
-							sortField=${sortField},
-							sortDir=${sortDir}
-					   )}">Next</a>
-													</li>
-
-													<!-- Last -->
-													<li class="page-item" th:classappend="${orders.last} ? 'disabled'">
-														<a class="page-link" th:href="@{/management/deliveryList(
-							page=${orders.totalPages > 0 ? orders.totalPages - 1 : 0},
-							size=${pageSize},
-							categoryId=${categoryId},
-							assignedMemberId=${assignedMemberId},
-							status=${status},
-							dateType=${dateType},
-							startDate=${startDate},
-							endDate=${endDate},
-							sortField=${sortField},
-							sortDir=${sortDir}
-					   )}">Last</a>
-													</li>
-
-												</ul>
-											</nav>
-										</div>
-									</div>
-
-								</div>
-							</div>
-						</div>
-					</div>
-
-				</div>
-			</div>
-
-			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
-		</div>
-	</div>
-
-	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
-	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+<script src="/administration/assets/management/delivery/managementDeliveryList.js?v=20260805-1"></script>
 </body>
-
 </html>
