@@ -5,6 +5,7 @@ public enum OrderChangeSourceArea {
     PRODUCTION("생산팀"),
     DISPATCH("출고팀"),
     DELIVERY("배송팀"),
+    CUSTOMER("고객"),
     SYSTEM("시스템");
 
     private final String label;

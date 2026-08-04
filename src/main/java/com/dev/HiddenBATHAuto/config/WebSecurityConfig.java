@@ -133,7 +133,8 @@ public class WebSecurityConfig {
      * 반대 권한 화면에서 호출할 수 없으므로 별도 경로로 분리합니다.
      */
     private final String[] internalApiUrls = {
-            "/api/internal/**"
+            "/api/internal/**",
+            "/ws/order-notifications"
     };
 
     private final String[] customersUrls = {

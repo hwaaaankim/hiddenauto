@@ -51,6 +51,7 @@ import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardProductSeriesRepository;
+import com.dev.HiddenBATHAuto.service.order.OrderRegistrationAuditService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -88,6 +89,7 @@ public class ProductOrderAddCommandService {
     private final MirrorCuttingProductMatcher mirrorCuttingProductMatcher;
     private final ObjectMapper objectMapper;
     private final EntityManager entityManager;
+    private final OrderRegistrationAuditService orderRegistrationAuditService;
 
     @Value("${spring.upload.path}")
     private String uploadPath;
@@ -258,6 +260,14 @@ public class ProductOrderAddCommandService {
                     : fileMap.get("orderFiles_" + i);
 
             saveOrderFiles(files, task.getId(), order);
+
+            orderRegistrationAuditService.recordManagementRegistration(
+                    order,
+                    taskManagerUsername,
+                    "MANAGEMENT_FORM_ORDER_CREATED",
+                    "관리자 폼 발주 등록",
+                    "/management/api/product-order-add"
+            );
 
             ordersTotalAmount += order.getTotalAmount();
         }

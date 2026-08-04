@@ -966,7 +966,7 @@
 			buildListTopItemHtml('분류', order.productCategoryName || '-'),
 			buildListTopItemHtml('규격', order.standardLabel || '-'),
 			buildListTopItemHtml('일자', order.dateText || '-'),
-			buildListCompleteButtonHtml(order),
+			buildListActionButtonsHtml(order),
 			'</section>'
 		].join('');
 	}
@@ -991,9 +991,12 @@
 		].join('');
 	}
 
-	function buildListCompleteButtonHtml(order) {
+	function buildListActionButtonsHtml(order) {
 		const completeState = getOrderCompleteState(order);
-		const disabledAttr = completeState.available ? '' : ' disabled';
+		const adminRequestState = getAdminRequestState(order);
+		const completeDisabledAttr = completeState.available ? '' : ' disabled';
+		const status = resolveOrderStatusCode(order);
+		const completeLabel = status === 'PRODUCTION_DONE' ? '생산완료됨' : '생산완료';
 
 		return [
 			'<div class="team-production-overview-list-top-complete-wrap">',
@@ -1002,8 +1005,15 @@
 			' data-list-complete-order="true"',
 			' data-order-id="' + escapeAttr(order.id || '') + '"',
 			' title="' + escapeAttr(completeState.message) + '"',
-			disabledAttr,
-			'>생산완료</button>',
+			completeDisabledAttr,
+			'>' + escapeHtml(completeLabel) + '</button>',
+			'<button type="button"',
+			' class="btn btn-outline-danger btn-sm team-production-overview-list-admin-request-btn order-admin-request-btn"',
+			' data-order-admin-request',
+			' data-order-id="' + escapeAttr(order.id || '') + '"',
+			' data-admin-request-message="생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다."',
+			' title="' + escapeAttr(adminRequestState.message) + '"',
+			'><i class="ri-alarm-warning-line me-1"></i>관리자요청</button>',
 			'</div>'
 		].join('');
 	}
@@ -1293,10 +1303,14 @@
 		const isBusy = state.completeBusyOrderIds.has(orderId);
 		const completeState = getOrderCompleteState(order);
 		const button = preferredButton || card.querySelector('[data-list-complete-order="true"]');
+		const adminRequestButton = card.querySelector('[data-order-admin-request]');
+		const adminRequestState = getAdminRequestState(order);
 		const statusText = card.querySelector('[data-list-order-status-text="true"]');
 		const statusValue = '#' + (order.id || '-') + ' · ' + (order.statusLabel || '-');
+		const status = resolveOrderStatusCode(order);
+		const completeLabel = status === 'PRODUCTION_DONE' ? '생산완료됨' : '생산완료';
 
-		card.setAttribute('data-status', normalizeOrderStatus(order.status));
+		card.setAttribute('data-status', status);
 
 		if (statusText) {
 			statusText.textContent = statusValue;
@@ -1305,9 +1319,53 @@
 
 		if (button) {
 			button.disabled = isBusy || !completeState.available;
-			button.textContent = isBusy ? '처리 중...' : '생산완료';
+			button.textContent = isBusy ? '처리 중...' : completeLabel;
 			button.title = isBusy ? '생산완료 처리 중입니다.' : completeState.message;
 		}
+
+		if (adminRequestButton) {
+			adminRequestButton.disabled = !adminRequestState.available;
+			adminRequestButton.setAttribute('data-order-id', toText(order.id));
+			adminRequestButton.title = adminRequestState.message;
+		}
+	}
+
+	function getAdminRequestState(order) {
+		if (!order || !order.id) {
+			return {
+				available: false,
+				message: '관리자요청을 보낼 발주 정보가 없습니다.'
+			};
+		}
+
+		return {
+			available: true,
+			message: '발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다.'
+		};
+	}
+
+	function resolveOrderStatusCode(order) {
+		if (!order) {
+			return '';
+		}
+
+		const status = normalizeOrderStatus(order.status);
+
+		if (status === 'CONFIRMED' || status === 'PRODUCTION_DONE') {
+			return status;
+		}
+
+		const statusLabel = toText(order.statusLabel).replace(/\s+/g, '');
+
+		if (statusLabel === '승인완료') {
+			return 'CONFIRMED';
+		}
+
+		if (statusLabel === '생산완료') {
+			return 'PRODUCTION_DONE';
+		}
+
+		return status;
 	}
 
 	function getOrderCompleteState(order) {

@@ -25,6 +25,7 @@ import com.dev.HiddenBATHAuto.dto.orderchange.OrderCheckAggregateDto;
 import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
 import com.dev.HiddenBATHAuto.dto.orderchange.OrderMemberCheckStateDto;
 import com.dev.HiddenBATHAuto.dto.production.ProductionCheckViewDto;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
 import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.enums.order.OrderCheckState;
 import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
@@ -35,11 +36,13 @@ import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeField;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeImpact;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderMemberCheckStatus;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderWorkRevision;
+import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderChangeEventRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderChangeImpactRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderMemberCheckStatusRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderWorkRevisionRepository;
+import com.dev.HiddenBATHAuto.service.ordernotification.OrderNotificationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -50,10 +53,12 @@ public class OrderChangeAuditService {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final OrderRepository orderRepository;
+    private final MemberRepository memberRepository;
     private final OrderWorkRevisionRepository orderWorkRevisionRepository;
     private final OrderMemberCheckStatusRepository orderMemberCheckStatusRepository;
     private final OrderChangeEventRepository orderChangeEventRepository;
     private final OrderChangeImpactRepository orderChangeImpactRepository;
+    private final OrderNotificationService orderNotificationService;
 
     /**
      * 어느 팀의 변경이든 동일한 형식으로 기록하는 공통 진입점입니다.
@@ -70,6 +75,78 @@ public class OrderChangeAuditService {
             String operationLabel,
             String requestPath,
             List<OrderFieldChangeCommand> changes
+    ) {
+        return recordOrderChange(
+                order,
+                sourceArea,
+                actorMemberId,
+                actorUsername,
+                actorDisplayName,
+                operationCode,
+                operationLabel,
+                requestPath,
+                changes,
+                OrderNotificationAudience.RELATED_USERS,
+                null,
+                null
+        );
+    }
+
+    /**
+     * 변경 이력, 팀별 재확인 버전, 수신자별 웹 알림을 한 트랜잭션에서 생성합니다.
+     * 카카오/SOLAPI와 WebSocket 전달은 커밋 이후 별도 단계에서 실행됩니다.
+     */
+    @Transactional
+    public OrderChangeEvent recordOrderChange(
+            Order order,
+            OrderChangeSourceArea sourceArea,
+            Long actorMemberId,
+            String actorUsername,
+            String actorDisplayName,
+            String operationCode,
+            String operationLabel,
+            String requestPath,
+            List<OrderFieldChangeCommand> changes,
+            OrderNotificationAudience notificationAudience,
+            String notificationTitle,
+            String notificationMessage
+    ) {
+        return recordOrderChange(
+                order,
+                sourceArea,
+                actorMemberId,
+                actorUsername,
+                actorDisplayName,
+                operationCode,
+                operationLabel,
+                requestPath,
+                changes,
+                notificationAudience,
+                notificationTitle,
+                notificationMessage,
+                List.of()
+        );
+    }
+
+    /**
+     * 담당자 변경처럼 변경 이전 관계자에게도 마지막 알림을 보내야 하는 경우
+     * additionalRecipientMemberIds에 기존 담당자 ID를 전달합니다.
+     */
+    @Transactional
+    public OrderChangeEvent recordOrderChange(
+            Order order,
+            OrderChangeSourceArea sourceArea,
+            Long actorMemberId,
+            String actorUsername,
+            String actorDisplayName,
+            String operationCode,
+            String operationLabel,
+            String requestPath,
+            List<OrderFieldChangeCommand> changes,
+            OrderNotificationAudience notificationAudience,
+            String notificationTitle,
+            String notificationMessage,
+            Collection<Long> additionalRecipientMemberIds
     ) {
         if (order == null || order.getId() == null) {
             throw new IllegalArgumentException("변경이력을 기록할 오더가 없습니다.");
@@ -90,12 +167,14 @@ public class OrderChangeAuditService {
                 .distinct()
                 .collect(Collectors.joining(", ")) + " 변경";
 
+        ResolvedActor resolvedActor = resolveActor(actorMemberId, actorUsername, actorDisplayName);
+
         OrderChangeEvent event = OrderChangeEvent.create(
                 lockedOrder,
                 sourceArea,
-                actorMemberId,
-                actorUsername,
-                actorDisplayName,
+                resolvedActor.memberId(),
+                resolvedActor.username(),
+                resolvedActor.displayName(),
                 operationCode,
                 operationLabel,
                 requestPath,
@@ -123,7 +202,19 @@ public class OrderChangeAuditService {
             event.addImpact(OrderChangeImpact.of(workArea, nextVersion));
         }
 
-        return orderChangeEventRepository.save(event);
+        OrderChangeEvent savedEvent = orderChangeEventRepository.save(event);
+        orderChangeEventRepository.flush();
+
+        orderNotificationService.createForChangeEvent(
+                savedEvent,
+                notificationAudience == null ? OrderNotificationAudience.RELATED_USERS : notificationAudience,
+                affectedAreas,
+                notificationTitle,
+                notificationMessage,
+                additionalRecipientMemberIds
+        );
+
+        return savedEvent;
     }
 
     @Transactional(readOnly = true)
@@ -425,6 +516,44 @@ public class OrderChangeAuditService {
                 .requestPath(safeText(event.getRequestPath()))
                 .changedAtText(formatDateTime(event.getCreatedAt()))
                 .build();
+    }
+
+    private ResolvedActor resolveActor(
+            Long actorMemberId,
+            String actorUsername,
+            String actorDisplayName
+    ) {
+        String normalizedUsername = safeText(actorUsername);
+        String normalizedDisplayName = safeText(actorDisplayName);
+
+        Member actor = null;
+        if (actorMemberId != null) {
+            actor = memberRepository.findById(actorMemberId).orElse(null);
+        } else if (!normalizedUsername.isBlank()) {
+            actor = memberRepository.findByUsername(normalizedUsername).orElse(null);
+        }
+
+        if (actor == null) {
+            return new ResolvedActor(
+                    actorMemberId,
+                    normalizedUsername,
+                    normalizedDisplayName
+            );
+        }
+
+        String resolvedUsername = normalizedUsername.isBlank()
+                ? safeText(actor.getUsername())
+                : normalizedUsername;
+        boolean displayLooksLikeUsername = !normalizedUsername.isBlank()
+                && normalizedDisplayName.equals(normalizedUsername);
+        String resolvedDisplayName = normalizedDisplayName.isBlank() || displayLooksLikeUsername
+                ? resolveMemberDisplay(actor)
+                : normalizedDisplayName;
+
+        return new ResolvedActor(actor.getId(), resolvedUsername, resolvedDisplayName);
+    }
+
+    private record ResolvedActor(Long memberId, String username, String displayName) {
     }
 
     private String resolveEventActor(OrderChangeEvent event) {

@@ -68,6 +68,7 @@ import com.dev.HiddenBATHAuto.service.productOrderAdd.DeliveryHandlerAutoAssignS
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.dev.HiddenBATHAuto.service.order.OrderRegistrationAuditService;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -121,6 +122,7 @@ public class OrderExcelUploadService {
     private final OrderExcelCellReader cellReader;
     private final OrderExcelAddressParser addressParser;
     private final OrderExcelAddressValidator addressValidator;
+    private final OrderRegistrationAuditService orderRegistrationAuditService;
     private final OrderExcelProductNameParser productNameParser;
     private final OrderExcelUploadLookupService lookupService;
     private final OrderExcelUploadImageStorageService imageStorageService;
@@ -359,7 +361,19 @@ public class OrderExcelUploadService {
     }
 
     @Transactional
-    public OrderExcelSaveResponse save(OrderExcelSaveRequest request, Map<String, List<MultipartFile>> imageFilesByKey) {
+    public OrderExcelSaveResponse save(
+            OrderExcelSaveRequest request,
+            Map<String, List<MultipartFile>> imageFilesByKey
+    ) {
+        return save(request, imageFilesByKey, null);
+    }
+
+    @Transactional
+    public OrderExcelSaveResponse save(
+            OrderExcelSaveRequest request,
+            Map<String, List<MultipartFile>> imageFilesByKey,
+            String actorUsername
+    ) {
         List<OrderExcelIssueDto> issues = validateSaveRequest(request);
 
         if (!issues.isEmpty()) {
@@ -486,6 +500,14 @@ public class OrderExcelUploadService {
                 if (deliveryHandler != null) {
                     registerDeliveryOrderIndex(order, deliveryHandler, deliveryDate, deliveryIndexCache);
                 }
+
+                orderRegistrationAuditService.recordManagementRegistration(
+                        order,
+                        actorUsername,
+                        "MANAGEMENT_EXCEL_ORDER_CREATED",
+                        "관리자 엑셀 발주 등록",
+                        "/management/api/order-excel-upload/save"
+                );
 
                 ordersTotalAmount += order.getTotalAmount();
                 orderCount++;

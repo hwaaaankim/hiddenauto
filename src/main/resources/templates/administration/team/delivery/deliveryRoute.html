@@ -351,6 +351,14 @@
                                                       th:classappend="${order.deliveryDone} ? ' bg-success' : (${order.status == 'DISPATCH_DONE'} ? ' bg-warning text-dark' : (${order.completable} ? ' bg-info' : ' bg-secondary'))"
                                                       th:text="${order.statusLabel}">생산완료</span>
                                             </div>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger delivery-route-admin-request-btn"
+                                                    data-order-admin-request
+                                                    data-admin-request-message="배송 누락 또는 현장 배송 문제 확인이 필요합니다."
+                                                    th:attr="data-order-id=${order.orderId}"
+                                                    title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">
+                                                <i class="ri-alarm-warning-line me-1"></i>관리자요청
+                                            </button>
                                             <span class="delivery-route-order-number">
                                                 주문 #<b th:text="${order.orderId}">1</b>
                                                 <small>순서 <span th:text="${order.orderIndex}">1</span></small>
@@ -479,6 +487,14 @@
                                                       th:classappend="${order.deliveryDone} ? ' bg-success' : ' bg-secondary'"
                                                       th:text="${order.statusLabel}">생산완료</span>
                                             </div>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger delivery-route-admin-request-btn"
+                                                    data-order-admin-request
+                                                    data-admin-request-message="배송 누락 또는 화물 배송 문제 확인이 필요합니다."
+                                                    th:attr="data-order-id=${order.orderId}"
+                                                    title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">
+                                                <i class="ri-alarm-warning-line me-1"></i>관리자요청
+                                            </button>
                                             <span class="delivery-route-order-number">
                                                 주문 #<b th:text="${order.orderId}">1</b>
                                                 <small>순서 <span th:text="${order.orderIndex}">999</span></small>
@@ -755,7 +771,7 @@
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css">
+<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css?v=20260804-6">
 <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.export-completion.css">
 <script src="/administration/assets/team/delivery/deliveryRoute.js"></script>
 <script src="/administration/assets/team/delivery/deliveryTeamStatementPreview.js"></script>

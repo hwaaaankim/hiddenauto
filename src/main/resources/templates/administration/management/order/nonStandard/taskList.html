@@ -106,7 +106,8 @@
 
 												<a th:href="@{/management/nonStandardOrder/print(
                                                     keyword=${keyword},
-                                                    orderId=${orderId},
+                                                    orderIdFrom=${orderIdFrom},
+                                                    orderIdTo=${orderIdTo},
                                                     productName=${productName},
                                                     dateCriteria=${dateCriteria},
                                                     startDate=${startDateStr},
@@ -122,7 +123,8 @@
 												</a>
 												<a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
-                                                    orderId=${orderId},
+                                                    orderIdFrom=${orderIdFrom},
+                                                    orderIdTo=${orderIdTo},
                                                     productName=${productName},
                                                     dateCriteria=${dateCriteria},
                                                     startDate=${startDateStr},
@@ -139,6 +141,8 @@
 												</a>
 												<a sec:authorize="hasAuthority('ROLE_ADMIN')" th:href="@{/admin/amount-excel/sales-voucher-download(
 											        keyword=${keyword},
+												        orderIdFrom=${orderIdFrom},
+												        orderIdTo=${orderIdTo},
 												        orderId=${orderId},
 												        productName=${productName},
 											        dateCriteria=${dateCriteria},
@@ -167,15 +171,24 @@
 								</div>
 
 								<div class="card-body border border-dashed border-end-0 border-start-0">
-									<form method="get" th:action="@{/management/nonStandardTaskList}">
+									<form method="get" th:action="@{/management/nonStandardTaskList}"
+										id="task-list-filter-form">
 										<div class="row g-3">
 
 											<div class="col-xxl-2 col-sm-4">
-												<label class="form-label" for="task-list-order-id-search">오더 ID</label>
-												<input type="number" min="1" step="1" inputmode="numeric"
-													id="task-list-order-id-search" name="orderId"
-													class="form-control bg-light border-light"
-													placeholder="오더 ID" th:value="${orderId}">
+												<label class="form-label">오더 ID 범위</label>
+												<div class="d-flex align-items-center gap-2">
+													<input type="number" min="1" step="1" inputmode="numeric"
+														id="task-list-order-id-from-search" name="orderIdFrom"
+														class="form-control bg-light border-light"
+														placeholder="FROM" th:value="${orderIdFrom}">
+													<span class="text-muted fw-semibold">~</span>
+													<input type="number" min="1" step="1" inputmode="numeric"
+														id="task-list-order-id-to-search" name="orderIdTo"
+														class="form-control bg-light border-light"
+														placeholder="TO" th:value="${orderIdTo}">
+												</div>
+												<div class="form-text">FROM만: 이상 / TO만: 이하 / 단건: 같은 값</div>
 											</div>
 											<div class="col-xxl-2 col-sm-4">
 												<label class="form-label" for="task-list-product-name-search">제품명</label>
@@ -388,7 +401,7 @@
 														</div>
 													</th>
 
-													<th style="min-width:260px;">제품정보</th>
+													<th style="min-width:180px;">제품정보</th>
 
 													<th style="width:76px;">
 														<div class="task-list-added-sort-header">
@@ -410,7 +423,7 @@
 														</div>
 													</th>
 
-													<th style="min-width:360px;">비고</th>
+													<th style="min-width:300px;">비고</th>
 
 													<th style="width:84px;">
 														<div class="task-list-added-sort-header">
@@ -634,7 +647,8 @@
                                                                 page=0,
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-                                                                orderId=${orderId},
+                                                                orderIdFrom=${orderIdFrom},
+                                                                orderIdTo=${orderIdTo},
                                                                 productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
@@ -656,7 +670,8 @@
                                                                 page=${prevPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-                                                                orderId=${orderId},
+                                                                orderIdFrom=${orderIdFrom},
+                                                                orderIdTo=${orderIdTo},
                                                                 productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
@@ -679,7 +694,8 @@
                                                                 page=${i - 1},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-                                                                orderId=${orderId},
+                                                                orderIdFrom=${orderIdFrom},
+                                                                orderIdTo=${orderIdTo},
                                                                 productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
@@ -701,7 +717,8 @@
                                                                 page=${nextPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-                                                                orderId=${orderId},
+                                                                orderIdFrom=${orderIdFrom},
+                                                                orderIdTo=${orderIdTo},
                                                                 productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},
@@ -723,7 +740,8 @@
                                                                 page=${lastPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-                                                                orderId=${orderId},
+                                                                orderIdFrom=${orderIdFrom},
+                                                                orderIdTo=${orderIdTo},
                                                                 productName=${productName},
                                                                 dateCriteria=${dateCriteria},
                                                                 startDate=${startDateStr},

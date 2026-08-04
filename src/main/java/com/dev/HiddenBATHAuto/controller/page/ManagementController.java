@@ -68,6 +68,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.ApiResponse;
@@ -226,6 +227,8 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false) String orderIdFrom,
+			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false) String productName,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
@@ -244,7 +247,9 @@ public class ManagementController {
 		Boolean standardBool = parseStandardOrNull(standard);
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
-		Long finalOrderId = parsePositiveLongOrNull(orderId);
+		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
+		Long finalOrderIdFrom = orderIdRange.from();
+		Long finalOrderIdTo = orderIdRange.to();
 		String finalProductName = normalizeNullableSearchText(productName);
 		String finalKeyword = normalizeNullableSearchText(keyword);
 
@@ -258,9 +263,10 @@ public class ManagementController {
 				resolvedSort
 		);
 
-		Page<Order> orders = orderRepository.findFilteredOrdersWithOrderIdAndProductName(
+		Page<Order> orders = orderRepository.findFilteredOrdersWithOrderIdRangeAndProductName(
 				finalKeyword,
-				finalOrderId,
+				finalOrderIdFrom,
+				finalOrderIdTo,
 				finalProductName,
 				finalDateCriteria,
 				range.getStart(),
@@ -320,7 +326,12 @@ public class ManagementController {
 		model.addAttribute("companyOrdererInfoOptions", List.of());
 
 		model.addAttribute("keyword", finalKeyword != null ? finalKeyword : "");
-		model.addAttribute("orderId", finalOrderId != null ? String.valueOf(finalOrderId) : "");
+		model.addAttribute("orderIdFrom", finalOrderIdFrom != null ? String.valueOf(finalOrderIdFrom) : "");
+		model.addAttribute("orderIdTo", finalOrderIdTo != null ? String.valueOf(finalOrderIdTo) : "");
+		// 기존 orderId 단건 URL과 범위 미지원 외부 다운로드 링크 호환용입니다.
+		model.addAttribute("orderId", java.util.Objects.equals(finalOrderIdFrom, finalOrderIdTo)
+				? (finalOrderIdFrom != null ? String.valueOf(finalOrderIdFrom) : "")
+				: "");
 		model.addAttribute("productName", finalProductName != null ? finalProductName : "");
 		model.addAttribute("dateCriteria", finalDateCriteria);
 
@@ -497,6 +508,8 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardTaskList/bulk-fragment")
 	public String nonStandardTaskListBulkFragment(@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false) String orderIdFrom,
+			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false) String productName,
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
@@ -511,13 +524,16 @@ public class ManagementController {
 		Boolean standardBool = parseStandardOrNull(standard);
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
-		Long finalOrderId = parsePositiveLongOrNull(orderId);
+		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
+		Long finalOrderIdFrom = orderIdRange.from();
+		Long finalOrderIdTo = orderIdRange.to();
 		String finalProductName = normalizeNullableSearchText(productName);
 		String finalKeyword = normalizeNullableSearchText(keyword);
 
-		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkViewWithOrderIdAndProductName(
+		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkViewWithOrderIdRangeAndProductName(
 				finalKeyword,
-				finalOrderId,
+				finalOrderIdFrom,
+				finalOrderIdTo,
 				finalProductName,
 				finalDateCriteria,
 				range.getStart(),
@@ -810,6 +826,8 @@ public class ManagementController {
 	@GetMapping("/nonStandardOrder/print")
 	public String printNonStandardOrderList(
 			@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String orderIdFrom,
+			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false) String productName,
 			@RequestParam(required = false) String dateCriteria,
@@ -828,13 +846,16 @@ public class ManagementController {
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
 		Boolean standardBool = parseStandardOrNull(standard);
-		Long finalOrderId = parsePositiveLongOrNull(orderId);
+		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
+		Long finalOrderIdFrom = orderIdRange.from();
+		Long finalOrderIdTo = orderIdRange.to();
 		String finalProductName = normalizeNullableSearchText(productName);
 		String finalKeyword = normalizeNullableSearchText(keyword);
 
-		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderIdAndProductName(
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderIdRangeAndProductName(
 				finalKeyword,
-				finalOrderId,
+				finalOrderIdFrom,
+				finalOrderIdTo,
 				finalProductName,
 				finalDateCriteria,
 				range.getStart(),
@@ -851,7 +872,8 @@ public class ManagementController {
 		model.addAttribute("rows", nonStandardTaskListViewService.toBulkRows(sortedOrders));
 		model.addAttribute("filters", buildNonStandardTaskListFilterItems(
 				finalKeyword,
-				finalOrderId,
+				finalOrderIdFrom,
+				finalOrderIdTo,
 				finalProductName,
 				finalDateCriteria,
 				range,
@@ -868,6 +890,8 @@ public class ManagementController {
 	@GetMapping("/nonStandardOrder/excel")
 	public void downloadNonStandardOrderExcel(
 			@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String orderIdFrom,
+			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false) String productName,
 			@RequestParam(required = false) String dateCriteria,
@@ -887,13 +911,16 @@ public class ManagementController {
 		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
 		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
 		Boolean standardBool = parseStandardOrNull(standard);
-		Long finalOrderId = parsePositiveLongOrNull(orderId);
+		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
+		Long finalOrderIdFrom = orderIdRange.from();
+		Long finalOrderIdTo = orderIdRange.to();
 		String finalProductName = normalizeNullableSearchText(productName);
 		String finalKeyword = normalizeNullableSearchText(keyword);
 
-		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderIdAndProductName(
+		List<Order> orderList = orderRepository.findFilteredOrdersForExcelWithOrderIdRangeAndProductName(
 				finalKeyword,
-				finalOrderId,
+				finalOrderIdFrom,
+				finalOrderIdTo,
 				finalProductName,
 				finalDateCriteria,
 				range.getStart(),
@@ -909,7 +936,8 @@ public class ManagementController {
 
 		List<NonStandardTaskListFilterItem> filters = buildNonStandardTaskListFilterItems(
 				finalKeyword,
-				finalOrderId,
+				finalOrderIdFrom,
+				finalOrderIdTo,
 				finalProductName,
 				finalDateCriteria,
 				range,
@@ -1067,7 +1095,8 @@ public class ManagementController {
 
 	private List<NonStandardTaskListFilterItem> buildNonStandardTaskListFilterItems(
 			String keyword,
-			Long orderId,
+			Long orderIdFrom,
+			Long orderIdTo,
 			String productName,
 			String dateCriteria,
 			DateRange range,
@@ -1092,7 +1121,7 @@ public class ManagementController {
 		}
 
 		return List.of(
-				new NonStandardTaskListFilterItem("오더 ID", orderId != null ? String.valueOf(orderId) : "전체"),
+				new NonStandardTaskListFilterItem("오더 ID", buildOrderIdRangeText(orderIdFrom, orderIdTo)),
 				new NonStandardTaskListFilterItem("제품명", productName != null ? productName : "전체"),
 				new NonStandardTaskListFilterItem("키워드", keyword != null ? keyword : "전체"),
 				new NonStandardTaskListFilterItem("기간", dateLabel),
@@ -1219,18 +1248,74 @@ public class ManagementController {
 		return buildDateRange(startDateStr, endDateStr);
 	}
 
-	// 오더 ID 검색값: 빈값/숫자 형식 오류/0 이하 값은 검색 조건에서 제외합니다.
-	private Long parsePositiveLongOrNull(String value) {
-		if (value == null || value.isBlank()) {
+	private record OrderIdRangeFilter(Long from, Long to) {
+	}
+
+	/**
+	 * 오더 ID 검색 범위를 정규화합니다.
+	 * 기존 orderId 파라미터만 전달된 URL은 단건 범위(FROM=TO)로 호환합니다.
+	 */
+	private OrderIdRangeFilter resolveOrderIdRange(
+			String orderIdFrom,
+			String orderIdTo,
+			String legacyOrderId
+	) {
+		boolean hasExplicitRange = StringUtils.hasText(orderIdFrom) || StringUtils.hasText(orderIdTo);
+
+		Long from = parsePositiveLongFilter(orderIdFrom, "오더 ID FROM");
+		Long to = parsePositiveLongFilter(orderIdTo, "오더 ID TO");
+
+		if (!hasExplicitRange) {
+			Long legacy = parsePositiveLongFilter(legacyOrderId, "오더 ID");
+			if (legacy != null) {
+				from = legacy;
+				to = legacy;
+			}
+		}
+
+		if (from != null && to != null && from > to) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"오더 ID TO는 FROM보다 크거나 같아야 합니다. 단건 조회는 FROM과 TO를 같은 값으로 입력해 주세요."
+			);
+		}
+
+		return new OrderIdRangeFilter(from, to);
+	}
+
+	private Long parsePositiveLongFilter(String value, String fieldLabel) {
+		if (!StringUtils.hasText(value)) {
 			return null;
 		}
 
 		try {
 			long parsed = Long.parseLong(value.trim());
-			return parsed > 0 ? parsed : null;
+			if (parsed <= 0) {
+				throw new NumberFormatException("positive value required");
+			}
+			return parsed;
 		} catch (NumberFormatException e) {
-			return null;
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					fieldLabel + "는 1 이상의 정수로 입력해 주세요."
+			);
 		}
+	}
+
+	private String buildOrderIdRangeText(Long orderIdFrom, Long orderIdTo) {
+		if (orderIdFrom == null && orderIdTo == null) {
+			return "전체";
+		}
+
+		if (orderIdFrom != null && orderIdTo != null) {
+			return orderIdFrom.equals(orderIdTo)
+					? String.valueOf(orderIdFrom)
+					: orderIdFrom + " ~ " + orderIdTo;
+		}
+
+		return orderIdFrom != null
+				? orderIdFrom + " 이상"
+				: orderIdTo + " 이하";
 	}
 
 	// 3) productCategoryId: all/빈값/오류 -> null

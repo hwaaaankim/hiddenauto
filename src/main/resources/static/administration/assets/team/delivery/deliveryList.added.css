@@ -842,3 +842,62 @@
 		display: none !important;
 	}
 }
+
+/* 관리자요청 버튼: 업무 카드 안에서 다른 완료 버튼과 시각적으로 구분합니다. */
+.delivery-list-added-admin-request-btn {
+	border-color: #dc3545 !important;
+	background: #fff !important;
+	color: #dc3545 !important;
+}
+
+.delivery-list-added-admin-request-btn:hover,
+.delivery-list-added-admin-request-btn:focus {
+	background: #dc3545 !important;
+	color: #fff !important;
+}
+
+/* 기존 모바일 카드가 전체 액션 영역을 숨기므로 관리자요청만 별도 노출합니다. */
+@media (max-width: 576px) {
+	.delivery-list-added-item-content .delivery-list-added-action.delivery-list-added-action-has-admin-request {
+		display: flex !important;
+		grid-column: 2;
+		grid-row: 2;
+		justify-content: flex-end;
+		width: 100% !important;
+		min-width: 0 !important;
+		max-width: 100% !important;
+		height: auto !important;
+		min-height: 34px !important;
+		max-height: none !important;
+		padding: 7px 0 0 !important;
+		margin: 0 !important;
+		gap: 6px !important;
+		overflow: visible !important;
+		pointer-events: auto !important;
+	}
+
+	.delivery-list-added-action-has-admin-request .action-btn:not(.delivery-list-added-admin-request-btn) {
+		display: none !important;
+	}
+
+	.delivery-list-added-action-has-admin-request .delivery-list-added-admin-request-btn {
+		display: inline-flex !important;
+		align-items: center;
+		justify-content: center;
+		width: auto !important;
+		min-width: 104px !important;
+		max-width: 100% !important;
+		height: auto !important;
+		min-height: 32px !important;
+		max-height: none !important;
+		padding: 6px 10px !important;
+		margin: 0 !important;
+		overflow: visible !important;
+		pointer-events: auto !important;
+	}
+
+	.delivery-list-added-admin-request-btn .delivery-list-added-btn-text,
+	.delivery-list-added-admin-request-btn .delivery-list-added-btn-icon {
+		display: inline-flex !important;
+	}
+}

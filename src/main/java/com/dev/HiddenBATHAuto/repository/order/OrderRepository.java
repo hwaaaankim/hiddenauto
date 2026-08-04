@@ -418,6 +418,49 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			Pageable pageable
 	);
 
+	/**
+	 * 관리자 발주 목록의 오더 ID 포함 범위 + 제품명 검색입니다.
+	 */
+	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
+			"deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus" })
+	@Query("""
+			SELECT o FROM Order o
+			LEFT JOIN o.orderItem filterItem
+			WHERE
+			    (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			    AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			    AND (:productName IS NULL OR
+			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
+			    AND (:keyword IS NULL OR
+			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+			    AND (:status IS NULL OR o.status = :status)
+			    AND (:standard IS NULL OR o.standard = :standard)
+			    AND (
+			        (:dateCriteria = 'order' AND
+			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
+			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
+			        OR (:dateCriteria = 'delivery' AND
+			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
+			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
+			        OR :dateCriteria = 'all'
+			    )
+			""")
+	Page<Order> findFilteredOrdersWithOrderIdRangeAndProductName(
+			@Param("keyword") String keyword,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productName") String productName,
+			@Param("dateCriteria") String dateCriteria,
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endDateTime") LocalDateTime endDateTime,
+			@Param("productCategoryId") Long productCategoryId,
+			@Param("status") OrderStatus status,
+			@Param("standard") Boolean standard,
+			Pageable pageable
+	);
+
 	@Query("""
 			    SELECT o FROM Order o
 			    WHERE
@@ -558,6 +601,48 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	List<Order> findFilteredOrdersForExcelWithOrderIdAndProductName(
 			@Param("keyword") String keyword,
 			@Param("orderId") Long orderId,
+			@Param("productName") String productName,
+			@Param("dateCriteria") String dateCriteria,
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endDateTime") LocalDateTime endDateTime,
+			@Param("productCategoryId") Long productCategoryId,
+			@Param("status") OrderStatus status,
+			@Param("standard") Boolean standard
+	);
+
+	/**
+	 * 관리자 발주 출력/엑셀의 오더 ID 포함 범위 + 제품명 검색입니다.
+	 */
+	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
+			"deliveryMethod", "productCategory", "assignedProductionTeam", "assignedDeliveryHandler", "checkStatus" })
+	@Query("""
+			SELECT o FROM Order o
+			LEFT JOIN o.orderItem filterItem
+			WHERE (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			    AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			    AND (:productName IS NULL OR
+			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
+			    AND (:keyword IS NULL OR
+			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+			    AND (:status IS NULL OR o.status = :status)
+			    AND (:standard IS NULL OR o.standard = :standard)
+			    AND (
+			        (:dateCriteria = 'order' AND
+			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
+			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
+			        OR (:dateCriteria = 'delivery' AND
+			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
+			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
+			        OR :dateCriteria = 'all'
+			    )
+			ORDER BY o.preferredDeliveryDate DESC, o.id DESC
+			""")
+	List<Order> findFilteredOrdersForExcelWithOrderIdRangeAndProductName(
+			@Param("keyword") String keyword,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
 			@Param("productName") String productName,
 			@Param("dateCriteria") String dateCriteria,
 			@Param("startDateTime") LocalDateTime startDateTime,
@@ -902,6 +987,271 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	);
 
 	// =========================
+	// 생산팀 목록 - 오더 ID 포함 범위 조회
+	// FROM만 있으면 이상, TO만 있으면 이하, 둘 다 있으면 BETWEEN과 동일하게 포함 범위입니다.
+	// 기존 단건 메서드는 유지하여 다른 호출부와의 호환성을 보장합니다.
+	// =========================
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy", "checkStatus" })
+	@Query("""
+			    SELECT o FROM Order o
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+			""")
+	Page<Order> findProductionListByPreferredRangeStatusSortableWithOrderIdRange(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy", "checkStatus" })
+	@Query("""
+			    SELECT o FROM Order o
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.createdAt >= :start)
+			      AND (:end IS NULL OR o.createdAt < :end)
+			""")
+	Page<Order> findProductionListByCreatedRangeStatusSortableWithOrderIdRange(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy", "checkStatus" })
+	@Query("""
+			    SELECT o FROM Order o
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+			""")
+	List<Order> findProductionListByPreferredRangeStatusForMultiSortWithOrderIdRange(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end
+	);
+
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy", "checkStatus" })
+	@Query("""
+			    SELECT o FROM Order o
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.createdAt >= :start)
+			      AND (:end IS NULL OR o.createdAt < :end)
+			""")
+	List<Order> findProductionListByCreatedRangeStatusForMultiSortWithOrderIdRange(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end
+	);
+
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy" })
+	@Query(value = """
+			    SELECT o
+			    FROM Order o
+			    LEFT JOIN OrderMemberCheckStatus mcs
+			      ON mcs.order = o
+			     AND mcs.member.id = :memberId
+			     AND mcs.workArea = :workArea
+			    LEFT JOIN OrderWorkRevision wr
+			      ON wr.order = o
+			     AND wr.workArea = :workArea
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+			    ORDER BY
+			      CASE
+			        WHEN mcs.id IS NOT NULL AND mcs.lastCheckedVersion < COALESCE(wr.currentVersion, 0) THEN 0
+			        WHEN :prioritizeUnchecked = true AND mcs.id IS NULL THEN 1
+			        WHEN :prioritizeUnchecked = true THEN 2
+			        ELSE 1
+			      END ASC,
+			      o.preferredDeliveryDate DESC,
+			      o.id DESC
+			""", countQuery = """
+			    SELECT COUNT(o)
+			    FROM Order o
+			    LEFT JOIN OrderMemberCheckStatus mcs
+			      ON mcs.order = o
+			     AND mcs.member.id = :memberId
+			     AND mcs.workArea = :workArea
+			    LEFT JOIN OrderWorkRevision wr
+			      ON wr.order = o
+			     AND wr.workArea = :workArea
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.preferredDeliveryDate >= :start)
+			      AND (:end IS NULL OR o.preferredDeliveryDate < :end)
+			      AND (:prioritizeUnchecked = true OR :prioritizeUnchecked = false)
+			""")
+	Page<Order> findProductionListByPreferredRangeStatusCheckSortedWithOrderIdRange(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			@Param("memberId") Long memberId,
+			@Param("workArea") OrderWorkArea workArea,
+			@Param("prioritizeUnchecked") boolean prioritizeUnchecked,
+			Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = { "orderItem", "productCategory", "task", "task.requestedBy",
+			"task.requestedBy.company", "task.managedBy" })
+	@Query(value = """
+			    SELECT o
+			    FROM Order o
+			    LEFT JOIN OrderMemberCheckStatus mcs
+			      ON mcs.order = o
+			     AND mcs.member.id = :memberId
+			     AND mcs.workArea = :workArea
+			    LEFT JOIN OrderWorkRevision wr
+			      ON wr.order = o
+			     AND wr.workArea = :workArea
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.createdAt >= :start)
+			      AND (:end IS NULL OR o.createdAt < :end)
+			    ORDER BY
+			      CASE
+			        WHEN mcs.id IS NOT NULL AND mcs.lastCheckedVersion < COALESCE(wr.currentVersion, 0) THEN 0
+			        WHEN :prioritizeUnchecked = true AND mcs.id IS NULL THEN 1
+			        WHEN :prioritizeUnchecked = true THEN 2
+			        ELSE 1
+			      END ASC,
+			      o.createdAt DESC,
+			      o.id DESC
+			""", countQuery = """
+			    SELECT COUNT(o)
+			    FROM Order o
+			    LEFT JOIN OrderMemberCheckStatus mcs
+			      ON mcs.order = o
+			     AND mcs.member.id = :memberId
+			     AND mcs.workArea = :workArea
+			    LEFT JOIN OrderWorkRevision wr
+			      ON wr.order = o
+			     AND wr.workArea = :workArea
+			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (:standard IS NULL OR o.standard = :standard)
+			      AND o.status IN :visibleStatuses
+			      AND (:allStatus = true OR o.status = :statusFilter)
+			      AND (:start IS NULL OR o.createdAt >= :start)
+			      AND (:end IS NULL OR o.createdAt < :end)
+			      AND (:prioritizeUnchecked = true OR :prioritizeUnchecked = false)
+			""")
+	Page<Order> findProductionListByCreatedRangeStatusCheckSortedWithOrderIdRange(
+			@Param("categoryId") Long categoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productNameKeyword") String productNameKeyword,
+			@Param("standard") Boolean standard,
+			@Param("allStatus") boolean allStatus,
+			@Param("statusFilter") OrderStatus statusFilter,
+			@Param("visibleStatuses") List<OrderStatus> visibleStatuses,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end,
+			@Param("memberId") Long memberId,
+			@Param("workArea") OrderWorkArea workArea,
+			@Param("prioritizeUnchecked") boolean prioritizeUnchecked,
+			Pageable pageable
+	);
+
+	// =========================
 	// 생산팀 목록 - 체크 상태 정렬
 	// 정렬 순서 고정:
 	// 1) REVISED_AFTER_CHECK 재수정
@@ -1238,6 +1588,60 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("standard") Boolean standard
 	);
 
+	/**
+	 * 관리자 일괄보기의 오더 ID 포함 범위 + 제품명 검색입니다.
+	 */
+	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
+			"deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus" })
+	@Query("""
+			SELECT o FROM Order o
+			LEFT JOIN o.checkStatus cs
+			LEFT JOIN o.orderItem filterItem
+			WHERE (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			    AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			    AND (:productName IS NULL OR
+			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
+			    AND (:keyword IS NULL OR
+			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+			    AND (:status IS NULL OR o.status = :status)
+			    AND (:standard IS NULL OR o.standard = :standard)
+			    AND (
+			        (:dateCriteria = 'order' AND
+			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
+			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
+			        OR (:dateCriteria = 'delivery' AND
+			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
+			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
+			        OR :dateCriteria = 'all'
+			    )
+			ORDER BY
+			    CASE
+			        WHEN cs.checkState = 'REVISED_AFTER_CHECK' THEN 0
+			        WHEN cs.id IS NULL THEN 1
+			        WHEN cs.checkState IS NULL AND cs.checked = false THEN 1
+			        WHEN cs.checkState = 'UNCHECKED' THEN 1
+			        WHEN cs.checkState = 'CHECKED' THEN 2
+			        WHEN cs.checkState IS NULL AND cs.checked = true THEN 2
+			        ELSE 1
+			    END ASC,
+			    o.createdAt DESC,
+			    o.id DESC
+			""")
+	List<Order> findFilteredOrdersForBulkViewWithOrderIdRangeAndProductName(
+			@Param("keyword") String keyword,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productName") String productName,
+			@Param("dateCriteria") String dateCriteria,
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endDateTime") LocalDateTime endDateTime,
+			@Param("productCategoryId") Long productCategoryId,
+			@Param("status") OrderStatus status,
+			@Param("standard") Boolean standard
+	);
+
 	@Query("""
 			    select distinct o
 			    from Order o
@@ -1276,6 +1680,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    where o.id = :orderId
 			""")
 	Optional<Order> findByIdForProductionCheck(@Param("orderId") Long orderId);
+
+	@EntityGraph(attributePaths = {
+            "task", "task.managedBy", "assignedProductionHandler", "assignedDeliveryHandler",
+            "assignedProductionTeam", "assignedDeliveryTeam", "productCategory"
+    })
+    @Query("select o from Order o where o.id = :orderId")
+    Optional<Order> findByIdForOrderNotification(@Param("orderId") Long orderId);
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

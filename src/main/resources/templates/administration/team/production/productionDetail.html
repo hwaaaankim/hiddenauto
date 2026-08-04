@@ -73,15 +73,27 @@
                                         </div>
 
                                         <div class="product-detail-added-action-area">
-                                            <button type="submit"
-                                                    class="btn btn-success product-detail-added-done-button"
-                                                    th:disabled="${!canChangeStatus}"
-                                                    th:text="${canChangeStatus ? '생산완료' : (order.status != null and order.status.name() == 'PRODUCTION_DONE' ? '생산완료됨' : '처리불가')}">
-                                                생산완료
-                                            </button>
+                                            <div class="product-detail-added-action-buttons">
+                                                <button type="submit"
+                                                        class="btn btn-success product-detail-added-done-button"
+                                                        th:disabled="${!canChangeStatus}"
+                                                        th:text="${canChangeStatus ? '생산완료' : (order.status != null and order.status.name() == 'PRODUCTION_DONE' ? '생산완료됨' : '처리불가')}">
+                                                    생산완료
+                                                </button>
+
+                                                <button type="button"
+                                                        class="btn btn-outline-danger product-detail-added-admin-request-button order-admin-request-btn"
+                                                        data-order-admin-request
+                                                        th:data-order-id="${order.id}"
+                                                        data-admin-request-message="생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다."
+                                                        title="발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다.">
+                                                    <i class="ri-alarm-warning-line me-1"></i>관리자요청
+                                                </button>
+                                            </div>
+
                                             <p class="product-detail-added-action-help"
-                                               th:text="${canChangeStatus ? '내 팀 제품의 승인 완료 주문만 생산완료 처리할 수 있습니다.' : '현재 상태에서는 생산완료 처리가 불가능합니다.'}">
-                                                내 팀 제품의 승인 완료 주문만 생산완료 처리할 수 있습니다.
+                                               th:text="${canChangeStatus ? '생산완료 처리 또는 관리자요청을 선택할 수 있습니다.' : '생산완료 처리는 현재 상태에 따라 제한되지만 관리자요청은 언제든 보낼 수 있습니다.'}">
+                                                생산완료 처리는 현재 상태에 따라 제한되지만 관리자요청은 언제든 보낼 수 있습니다.
                                             </p>
                                         </div>
                                     </div>

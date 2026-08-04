@@ -184,7 +184,7 @@
 		}
 
 		return Boolean(target.closest(
-			'a, button, input, select, textarea, label, .team-production-detail-row, [data-inline-complete-order], [data-inline-image-open], [data-inline-image-index], [data-inline-image-move]'
+			'a, button, input, select, textarea, label, .team-production-detail-row, [data-inline-complete-order], [data-order-admin-request], [data-inline-image-open], [data-inline-image-index], [data-inline-image-move]'
 		));
 	}
 
@@ -856,6 +856,7 @@
 	function buildInlineActionHtml(order) {
 		const completeState = getOrderCompleteState(order);
 		const disabledAttr = completeState.available ? '' : ' disabled';
+		const completeLabel = completeState.available ? '생산완료' : '생산완료';
 
 		return [
 			'<section class="team-production-inline-action-row">',
@@ -863,13 +864,22 @@
 			buildCheckStateBadgeHtml(order),
 			buildCheckStateMetaHtml(order),
 			'</div>',
+			'<div class="team-production-inline-action-buttons">',
 			'<button type="button"',
 			' class="btn btn-success btn-sm team-production-inline-complete-btn"',
 			' data-inline-complete-order="true"',
 			' data-inline-complete-order-id="' + escapeAttr(order.id) + '"',
 			' title="' + escapeAttr(completeState.message) + '"',
 			disabledAttr,
-			'>생산완료</button>',
+			'>' + completeLabel + '</button>',
+			'<button type="button"',
+			' class="btn btn-danger btn-sm team-production-inline-admin-request-btn order-admin-request-btn"',
+			' data-order-admin-request',
+			' data-order-id="' + escapeAttr(order.id) + '"',
+			' data-admin-request-message="생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다."',
+			' title="발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다."',
+			'><i class="ri-alarm-warning-line me-1"></i>관리자요청</button>',
+			'</div>',
 			'</section>'
 		].join('');
 	}

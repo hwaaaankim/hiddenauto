@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
 import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Company;
@@ -70,8 +71,8 @@ public class OrderUpdateService {
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final CompanyRepository companyRepository;
 	private final TaskRepository taskRepository;
-	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final OrderImageRepository orderImageRepository;
+	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final ObjectMapper objectMapper;
 	private final OrderCheckStatusService orderCheckStatusService;
 	private final OrderChangeAuditService orderChangeAuditService;
@@ -265,9 +266,9 @@ public class OrderUpdateService {
 		deliveryOrderIndexService.ensureIndex(order);
 
 		ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
-		boolean productionVisibleChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
+		boolean managementChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
 
-        if (productionVisibleChanged) {
+        if (managementChanged) {
             orderChangeAuditService.recordOrderChange(
                     order,
                     OrderChangeSourceArea.MANAGEMENT,
@@ -277,10 +278,27 @@ public class OrderUpdateService {
                     "MANAGEMENT_ORDER_UPDATE",
                     "관리자 주문 수정",
                     "/management/nonStandardOrderItemUpdate/" + orderId,
-                    buildOrderChangeCommands(beforeSnapshot, afterSnapshot, adminImageChanged)
+                    buildOrderChangeCommands(beforeSnapshot, afterSnapshot, adminImageChanged),
+                    OrderNotificationAudience.RELATED_USERS,
+                    null,
+                    null,
+                    extractEntityId(beforeSnapshot.assignedDeliveryHandlerId()) != null
+                            ? List.of(extractEntityId(beforeSnapshot.assignedDeliveryHandlerId()))
+                            : List.of()
             );
         }
 	}
+
+    private Long extractEntityId(String entityLabel) {
+        if (entityLabel == null || entityLabel.isBlank()) return null;
+        String firstToken = entityLabel.split("\\s*/\\s*", 2)[0].trim();
+        try {
+            long value = Long.parseLong(firstToken);
+            return value > 0 ? value : null;
+        } catch (NumberFormatException ignore) {
+            return null;
+        }
+    }
 
 	private Order getOrderOrThrow(Long orderId) {
 		return orderRepository.findById(orderId)
@@ -442,175 +460,134 @@ public class OrderUpdateService {
     ) {
         List<OrderFieldChangeCommand> changes = new ArrayList<>();
 
-        changes.add(OrderFieldChangeCommand.of(
-                "status",
-                "발주상태",
-                before.statusName(),
-                after.statusName(),
-                OrderWorkArea.PRODUCTION,
-                OrderWorkArea.DISPATCH,
-                OrderWorkArea.DELIVERY
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "productCategory",
-                "생산팀 카테고리",
-                before.productCategoryId(),
-                after.productCategoryId(),
-                OrderWorkArea.PRODUCTION
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "mirrorCuttingProduct",
-                "거울 재단 상품 여부",
-                before.mirrorCuttingProduct(),
-                after.mirrorCuttingProduct(),
-                OrderWorkArea.PRODUCTION
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "preferredDeliveryDate",
-                "배송희망일",
-                before.preferredDeliveryDate(),
-                after.preferredDeliveryDate(),
-                OrderWorkArea.PRODUCTION,
-                OrderWorkArea.DISPATCH,
-                OrderWorkArea.DELIVERY
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "deliveryMethod",
-                "배송수단",
-                before.deliveryMethodId(),
-                after.deliveryMethodId(),
-                OrderWorkArea.PRODUCTION,
-                OrderWorkArea.DISPATCH,
-                OrderWorkArea.DELIVERY
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "assignedDeliveryHandler",
-                "배송담당자",
-                before.assignedDeliveryHandlerId(),
-                after.assignedDeliveryHandlerId(),
-                OrderWorkArea.PRODUCTION,
-                OrderWorkArea.DISPATCH,
-                OrderWorkArea.DELIVERY
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "deliveryAddress",
-                "배송주소",
-                before.deliveryAddress(),
-                after.deliveryAddress(),
-                OrderWorkArea.PRODUCTION,
-                OrderWorkArea.DISPATCH,
-                OrderWorkArea.DELIVERY
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "siteAddress",
-                "현장주소",
-                before.siteAddress(),
-                after.siteAddress(),
-                OrderWorkArea.PRODUCTION,
-                OrderWorkArea.DISPATCH,
-                OrderWorkArea.DELIVERY
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "quantity",
-                "수량",
-                before.quantity(),
-                after.quantity(),
-                OrderWorkArea.PRODUCTION
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "adminMemo",
-                "관리자 남김말",
-                before.adminMemo(),
-                after.adminMemo(),
-                OrderWorkArea.PRODUCTION
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "optionJson",
-                "제품 옵션",
-                before.optionJson(),
-                after.optionJson(),
-                OrderWorkArea.PRODUCTION
-        ));
-        changes.add(OrderFieldChangeCommand.of(
-                "productName",
-                "제품명",
-                before.orderItemProductName(),
-                after.orderItemProductName(),
-                OrderWorkArea.PRODUCTION
-        ));
+        addManagementChange(changes, "status", "발주상태", before.statusName(), after.statusName());
+        addManagementChange(changes, "productCategory", "생산팀 카테고리",
+                before.productCategoryId(), after.productCategoryId());
+        addManagementChange(changes, "mirrorCuttingProduct", "거울 재단 상품 여부",
+                before.mirrorCuttingProduct(), after.mirrorCuttingProduct());
+        addManagementChange(changes, "preferredDeliveryDate", "배송희망일",
+                before.preferredDeliveryDate(), after.preferredDeliveryDate());
+        addManagementChange(changes, "deliveryMethod", "배송수단",
+                before.deliveryMethodId(), after.deliveryMethodId());
+        addManagementChange(changes, "assignedDeliveryTeam", "배송팀 카테고리",
+                before.assignedDeliveryTeamId(), after.assignedDeliveryTeamId());
+        addManagementChange(changes, "assignedDeliveryHandler", "배송담당자",
+                before.assignedDeliveryHandlerId(), after.assignedDeliveryHandlerId());
+        addManagementChange(changes, "deliveryAddress", "배송주소",
+                before.deliveryAddress(), after.deliveryAddress());
+        addManagementChange(changes, "siteAddress", "현장주소",
+                before.siteAddress(), after.siteAddress());
+
+        addManagementChange(changes, "quantity", "수량", before.quantity(), after.quantity());
+        addManagementChange(changes, "productCost", "단가", before.productCost(), after.productCost());
+        addManagementChange(changes, "supplyPrice", "공급가", before.supplyPrice(), after.supplyPrice());
+        addManagementChange(changes, "totalAmount", "총비용", before.totalAmount(), after.totalAmount());
+        addManagementChange(changes, "packingCost", "포장비", before.packingCost(), after.packingCost());
+        addManagementChange(changes, "deliveryCost", "배송비", before.deliveryCost(), after.deliveryCost());
+
+        addManagementChange(changes, "requesterCompany", "신청 업체",
+                before.requesterCompanyId(), after.requesterCompanyId());
+        addManagementChange(changes, "requesterMember", "신청자",
+                before.requesterMemberId(), after.requesterMemberId());
+        addManagementChange(changes, "ordererName", "주문자명",
+                before.ordererName(), after.ordererName());
+        addManagementChange(changes, "ordererPhone", "주문자 연락처",
+                before.ordererPhone(), after.ordererPhone());
+
+        addManagementChange(changes, "adminMemo", "관리자 남김말",
+                before.adminMemo(), after.adminMemo());
+        addManagementChange(changes, "dispatchCompleteMessage", "출고완료 메시지",
+                before.dispatchCompleteMessage(), after.dispatchCompleteMessage());
+        addManagementChange(changes, "optionJson", "제품 옵션",
+                before.optionJson(), after.optionJson());
+        addManagementChange(changes, "productName", "제품명",
+                before.orderItemProductName(), after.orderItemProductName());
 
         if (adminImageChanged) {
             changes.add(OrderFieldChangeCommand.of(
                     "managementImages",
                     "관리자 첨부파일",
-                    "기존 파일",
-                    "추가 또는 삭제",
-                    OrderWorkArea.PRODUCTION
+                    before.managementImageCount() + "개",
+                    after.managementImageCount() + "개 (추가/삭제/교체)",
+                    OrderWorkArea.values()
             ));
         }
 
         return changes;
     }
 
-	private String buildProductionRevisionReason(ProductionVisibleOrderSnapshot before,
-			ProductionVisibleOrderSnapshot after, boolean adminImageChanged) {
-		List<String> reasons = new ArrayList<>();
+    /**
+     * 관리팀의 발주 수정은 사용자 요구사항상 생산/출고/배송 업무 전체에 영향을 줍니다.
+     * 따라서 필드 종류와 관계없이 세 업무영역의 재확인 버전을 함께 증가시킵니다.
+     */
+    private void addManagementChange(
+            List<OrderFieldChangeCommand> changes,
+            String fieldKey,
+            String fieldLabel,
+            Object beforeValue,
+            Object afterValue
+    ) {
+        changes.add(OrderFieldChangeCommand.of(
+                fieldKey,
+                fieldLabel,
+                beforeValue,
+                afterValue,
+                OrderWorkArea.values()
+        ));
+    }
 
-		if (!Objects.equals(before.statusName(), after.statusName()))
-			reasons.add("발주상태");
-		if (!Objects.equals(before.productCategoryId(), after.productCategoryId()))
-			reasons.add("생산팀 카테고리");
-		if (before.mirrorCuttingProduct() != after.mirrorCuttingProduct())
-			reasons.add("거울 재단 상품 여부");
-		if (!Objects.equals(before.preferredDeliveryDate(), after.preferredDeliveryDate()))
-			reasons.add("배송희망일");
-		if (!Objects.equals(before.deliveryMethodId(), after.deliveryMethodId()))
-			reasons.add("배송수단");
-		if (!Objects.equals(before.assignedDeliveryHandlerId(), after.assignedDeliveryHandlerId()))
-			reasons.add("배송담당자");
-		if (!Objects.equals(before.deliveryAddress(), after.deliveryAddress()))
-			reasons.add("배송주소");
-		if (!Objects.equals(before.siteAddress(), after.siteAddress()))
-			reasons.add("현장주소");
-		if (before.quantity() != after.quantity())
-			reasons.add("수량");
-		if (!Objects.equals(before.adminMemo(), after.adminMemo()))
-			reasons.add("관리자 남김말");
-		if (!Objects.equals(before.optionJson(), after.optionJson()))
-			reasons.add("제품 옵션");
-		if (!Objects.equals(before.orderItemProductName(), after.orderItemProductName()))
-			reasons.add("제품명");
-		if (adminImageChanged)
-			reasons.add("관리자 첨부파일");
-
-		if (reasons.isEmpty()) {
-			return "관리자 수정";
-		}
-
-		return String.join(", ", reasons) + " 수정";
-	}
-
-	private record ProductionVisibleOrderSnapshot(String statusName, String productCategoryId,
-			boolean mirrorCuttingProduct, String preferredDeliveryDate, String deliveryMethodId,
-			String assignedDeliveryHandlerId, String deliveryAddress, String siteAddress, int quantity, String adminMemo,
-			String optionJson, String orderItemProductName) {
+	private record ProductionVisibleOrderSnapshot(
+            String statusName,
+            String productCategoryId,
+            boolean mirrorCuttingProduct,
+            String preferredDeliveryDate,
+            String deliveryMethodId,
+            String assignedDeliveryTeamId,
+            String assignedDeliveryHandlerId,
+            String deliveryAddress,
+            String siteAddress,
+            int quantity,
+            int productCost,
+            int supplyPrice,
+            int totalAmount,
+            int packingCost,
+            int deliveryCost,
+            String requesterCompanyId,
+            String requesterMemberId,
+            String ordererName,
+            String ordererPhone,
+            String adminMemo,
+            String dispatchCompleteMessage,
+            String optionJson,
+            String orderItemProductName,
+            int managementImageCount
+    ) {
 		static ProductionVisibleOrderSnapshot from(Order order) {
 			if (order == null) {
-				return new ProductionVisibleOrderSnapshot(null, null, false, null, null, null, null, null, 0, null, null,
-						null);
+				return new ProductionVisibleOrderSnapshot(
+                        null, null, false, null, null, null, null, null, null,
+                        0, 0, 0, 0, 0, 0,
+                        null, null, null, null, null, null, null, null, 0
+                );
 			}
 
 			OrderItem orderItem = order.getOrderItem();
+            Task task = order.getTask();
+            Member requester = task != null ? task.getRequestedBy() : null;
+            Company requesterCompany = requester != null ? requester.getCompany() : null;
 
 			return new ProductionVisibleOrderSnapshot(
                     order.getStatus() != null ? order.getStatus().getLabel() : null,
                     order.getProductCategory() != null
                             ? entityLabel(order.getProductCategory().getId(), order.getProductCategory().getName())
                             : null,
-					order.isMirrorCuttingProduct(),
-					order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : null,
+                    order.isMirrorCuttingProduct(),
+                    order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : null,
                     order.getDeliveryMethod() != null
                             ? entityLabel(order.getDeliveryMethod().getId(), order.getDeliveryMethod().getMethodName())
+                            : null,
+                    order.getAssignedDeliveryTeam() != null
+                            ? entityLabel(order.getAssignedDeliveryTeam().getId(), order.getAssignedDeliveryTeam().getName())
                             : null,
                     order.getAssignedDeliveryHandler() != null
                             ? entityLabel(
@@ -621,13 +598,30 @@ public class OrderUpdateService {
                                     )
                             )
                             : null,
-					join(order.getZipCode(), order.getDoName(), order.getSiName(), order.getGuName(),
-							order.getRoadAddress(), order.getDetailAddress()),
-					join(order.getSiteZipCode(), order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(),
-							order.getSiteRoadAddress(), order.getSiteDetailAddress()),
-					order.getQuantity(), normalize(order.getAdminMemo()),
-					orderItem != null ? normalize(orderItem.getOptionJson()) : null,
-					orderItem != null ? normalize(orderItem.getProductName()) : null);
+                    join(order.getZipCode(), order.getDoName(), order.getSiName(), order.getGuName(),
+                            order.getRoadAddress(), order.getDetailAddress()),
+                    join(order.getSiteZipCode(), order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(),
+                            order.getSiteRoadAddress(), order.getSiteDetailAddress()),
+                    order.getQuantity(),
+                    order.getProductCost(),
+                    order.getSupplyPrice(),
+                    order.getTotalAmount(),
+                    order.getPackingCost(),
+                    order.getDeliveryCost(),
+                    requesterCompany != null
+                            ? entityLabel(requesterCompany.getId(), requesterCompany.getCompanyName())
+                            : null,
+                    requester != null
+                            ? entityLabel(requester.getId(), firstNonBlank(requester.getName(), requester.getUsername()))
+                            : null,
+                    normalize(order.getOrdererName()),
+                    normalize(order.getOrdererPhone()),
+                    normalize(order.getAdminMemo()),
+                    normalize(order.getDispatchCompleteMessage()),
+                    orderItem != null ? normalize(orderItem.getOptionJson()) : null,
+                    orderItem != null ? normalize(orderItem.getProductName()) : null,
+                    order.getAdminUploadedImages() != null ? order.getAdminUploadedImages().size() : 0
+            );
 		}
 
         private static String firstNonBlank(String... values) {
