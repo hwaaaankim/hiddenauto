@@ -1730,4 +1730,64 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	        """)
 	List<Order> findAllForDeliveryStatementByIds(@Param("orderIds") Collection<Long> orderIds);
 
+
+
+	/**
+	 * 관리자 배송관리 화면 전용 조회입니다.
+	 *
+	 * 모든 검색 조건을 DB에 먼저 적용한 뒤 서비스에서
+	 * 동일 업체/동일 실제 배송지/동일 배송수단/동일 배송일 기준으로 묶습니다.
+	 * 묶음 생성 시 상세 및 배송완료 이미지까지 추가 쿼리 없이 사용할 수 있도록
+	 * 필요한 연관관계를 EntityGraph로 함께 조회합니다.
+	 */
+	@EntityGraph(attributePaths = {
+			"task",
+			"task.requestedBy",
+			"task.requestedBy.company",
+			"orderItem",
+			"deliveryMethod",
+			"productCategory",
+			"assignedDeliveryHandler",
+			"orderImages"
+	})
+	@Query("""
+			SELECT DISTINCT o
+			FROM Order o
+			LEFT JOIN o.orderItem item
+			LEFT JOIN o.task task
+			LEFT JOIN task.requestedBy requester
+			LEFT JOIN requester.company company
+			WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
+			  AND (:assignedMemberId IS NULL OR o.assignedDeliveryHandler.id = :assignedMemberId)
+			  AND (:status IS NULL OR o.status = :status)
+			  AND (:deliveryMethodId IS NULL OR o.deliveryMethod.id = :deliveryMethodId)
+			  AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
+			  AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
+			  AND (:productName IS NULL OR LOWER(item.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
+			  AND (:companyName IS NULL OR LOWER(company.companyName) LIKE LOWER(CONCAT('%', :companyName, '%')))
+			  AND (
+			       (:dateType = 'created'
+			        AND (:startDateTime IS NULL OR o.createdAt >= :startDateTime)
+			        AND (:endDateTimeExclusive IS NULL OR o.createdAt < :endDateTimeExclusive))
+			       OR
+			       (:dateType = 'preferred'
+			        AND (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime)
+			        AND (:endDateTimeExclusive IS NULL OR o.preferredDeliveryDate < :endDateTimeExclusive))
+			  )
+			ORDER BY o.preferredDeliveryDate DESC, o.id DESC
+			""")
+	List<Order> findManagementDeliveryListOrders(
+			@Param("categoryId") Long categoryId,
+			@Param("assignedMemberId") Long assignedMemberId,
+			@Param("status") OrderStatus status,
+			@Param("deliveryMethodId") Long deliveryMethodId,
+			@Param("dateType") String dateType,
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endDateTimeExclusive") LocalDateTime endDateTimeExclusive,
+			@Param("orderIdFrom") Long orderIdFrom,
+			@Param("orderIdTo") Long orderIdTo,
+			@Param("productName") String productName,
+			@Param("companyName") String companyName
+	);
+
 }

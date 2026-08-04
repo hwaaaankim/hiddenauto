@@ -83,6 +83,9 @@ import com.dev.HiddenBATHAuto.dto.employee.EmployeeUpdateResult;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.EmployeeUpdateRequest;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.MemberRegionSimpleDTO;
 import com.dev.HiddenBATHAuto.dto.employeeDetail.RegionBulkSaveRequest;
+import com.dev.HiddenBATHAuto.dto.management.delivery.ManagementDeliveryListDtos.GroupRow;
+import com.dev.HiddenBATHAuto.dto.management.delivery.ManagementDeliveryListDtos.SearchCondition;
+import com.dev.HiddenBATHAuto.dto.management.delivery.ManagementDeliveryListDtos.SearchResult;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyDeliveryAddressOptionDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyMemberOptionDto;
 import com.dev.HiddenBATHAuto.dto.task.NonStandardTaskListCompanyOptionDto;
@@ -130,6 +133,8 @@ import com.dev.HiddenBATHAuto.service.order.NonStandardOrderItemService;
 import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
 import com.dev.HiddenBATHAuto.service.order.NonStandardTaskListViewService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
+import com.dev.HiddenBATHAuto.service.management.delivery.ManagementDeliveryListExcelService;
+import com.dev.HiddenBATHAuto.service.management.delivery.ManagementDeliveryListService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -199,6 +204,8 @@ public class ManagementController {
 
 	private final NonStandardTaskListViewService nonStandardTaskListViewService;
 	private final OrderChangeAuditService orderChangeAuditService;
+	private final ManagementDeliveryListService managementDeliveryListService;
+	private final ManagementDeliveryListExcelService managementDeliveryListExcelService;
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -2441,192 +2448,167 @@ public class ManagementController {
 	}
 
 	@GetMapping("/deliveryList")
-	public String deliveryListPage(@RequestParam(required = false) Long categoryId,
-			@RequestParam(required = false) Long assignedMemberId, @RequestParam(required = false) String status,
-			@RequestParam(required = false) String dateType, @RequestParam(required = false) String startDate,
-			@RequestParam(required = false) String endDate,
+	public String deliveryListPage(
+			@RequestParam(required = false) Long categoryId,
+			@RequestParam(required = false) Long assignedMemberId,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long deliveryMethodId,
+			@RequestParam(required = false) String dateType,
+			@RequestParam(required = false)
+			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false)
+			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) Long orderIdFrom,
+			@RequestParam(required = false) Long orderIdTo,
+			@RequestParam(required = false) String productName,
+			@RequestParam(required = false) String companyName,
+			@RequestParam(required = false) String sortField,
+			@RequestParam(required = false) String sortDir,
+			@RequestParam(required = false, defaultValue = "0") Integer page,
+			@RequestParam(required = false, defaultValue = "100") Integer size,
+			Model model
+	) {
+		SearchCondition condition;
 
-			// ✅ 추가
-			@RequestParam(required = false, defaultValue = "0") int page,
-			@RequestParam(required = false, defaultValue = "10") int size,
-			@RequestParam(required = false) String sortField, @RequestParam(required = false) String sortDir,
+		try {
+			condition = managementDeliveryListService.resolveCondition(
+					categoryId,
+					assignedMemberId,
+					status,
+					deliveryMethodId,
+					dateType,
+					startDate,
+					endDate,
+					orderIdFrom,
+					orderIdTo,
+					productName,
+					companyName,
+					sortField,
+					sortDir,
+					page,
+					size
+			);
+		} catch (IllegalArgumentException e) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+		}
 
-			Model model) {
+		SearchResult result = managementDeliveryListService.search(condition);
+		Page<GroupRow> groups = result.groups();
 
-		// 1) dateType 정규화
-		String finalDateType = normalizeDateType(dateType);
+		int totalPages = groups.getTotalPages();
+		int currentPage = groups.getNumber();
+		int pageStart = 0;
+		int pageEnd = -1;
+		List<Integer> pageNumbers = List.of();
 
-		// 2) status 정규화 (화면 기본값: PRODUCTION_DONE)
-		StatusResult statusResult = normalizeStatusForList(status);
+		if (totalPages > 0) {
+			pageStart = Math.max(0, currentPage - 2);
+			pageEnd = Math.min(totalPages - 1, pageStart + 4);
+			pageStart = Math.max(0, pageEnd - 4);
+			pageNumbers = IntStream.rangeClosed(pageStart, pageEnd).boxed().toList();
+		}
 
-		// 3) 날짜 파싱 + 범위
-		DateRange range = buildDateRange(startDate, endDate);
+		model.addAttribute("groups", groups);
+		model.addAttribute("filteredOrderCount", result.filteredOrderCount());
+		model.addAttribute("activeFilters", result.filters());
+		model.addAttribute("pageNumbers", pageNumbers);
 
-		// 4) 정렬 생성 (허용 필드만)
-		Sort sort = buildDeliveryListSort(sortField, sortDir, finalDateType);
-
-		// 5) Pageable 생성
-		int safeSize = normalizePageSize(size);
-		Pageable pageable = PageRequest.of(Math.max(page, 0), safeSize, sort);
-
-		// 6) 조회
-		Page<Order> orders = orderStatusService.getOrders(range.getStart(), range.getEnd(), categoryId,
-				assignedMemberId, statusResult.getParsedStatus(), finalDateType, pageable);
-
-		// 7) 모델
-		model.addAttribute("orders", orders);
-
-		model.addAttribute("categoryId", categoryId);
-		model.addAttribute("assignedMemberId", assignedMemberId);
-
-		model.addAttribute("status", statusResult.getStatusForView());
-		model.addAttribute("dateType", finalDateType);
-
-		model.addAttribute("startDate", range.getStartDateStr());
-		model.addAttribute("endDate", range.getEndDateStr());
+		model.addAttribute("categoryId", condition.categoryId());
+		model.addAttribute("assignedMemberId", condition.assignedMemberId());
+		model.addAttribute("status", condition.statusForView());
+		model.addAttribute("deliveryMethodId", condition.deliveryMethodId());
+		model.addAttribute("dateType", condition.dateType());
+		model.addAttribute("startDate", condition.startDate());
+		model.addAttribute("endDate", condition.endDate());
+		model.addAttribute("orderIdFrom", condition.orderIdFrom());
+		model.addAttribute("orderIdTo", condition.orderIdTo());
+		model.addAttribute("productName", condition.productName() != null ? condition.productName() : "");
+		model.addAttribute("companyName", condition.companyName() != null ? condition.companyName() : "");
+		model.addAttribute("sortField", condition.sortField());
+		model.addAttribute("sortDir", condition.sortDir());
+		model.addAttribute("pageSize", condition.size());
 
 		model.addAttribute("categories", teamCategoryRepository.findByTeamName("생산팀"));
-		model.addAttribute("assignees", memberRepository.findByTeamName("배송팀"));
+		model.addAttribute("assignees",
+				memberRepository.findByTeam_NameAndEnabledTrueOrderByNameAsc("배송팀"));
+		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
 		model.addAttribute("orderStatusList", OrderStatus.values());
-
-		// ✅ 추가 (뷰에서 사용)
-		model.addAttribute("sortField", normalizeSortField(sortField));
-		model.addAttribute("sortDir", normalizeSortDir(sortDir));
-		model.addAttribute("pageSize", safeSize);
 
 		return "administration/management/delivery/deliveryList";
 	}
 
-	private int normalizePageSize(int size) {
-		if (size == 30 || size == 50 || size == 100)
-			return size;
-		return 10;
-	}
-
-	private Sort buildDeliveryListSort(String sortField, String sortDir, String finalDateType) {
-		String safeField = normalizeSortField(sortField);
-		String safeDir = normalizeSortDir(sortDir);
-
-		// ✅ 기본 정렬: 기존 동작 최대한 유지
-		if (safeField == null) {
-			if ("created".equals(finalDateType)) {
-				return Sort.by(Sort.Direction.DESC, "createdAt");
-			}
-			return Sort.by(Sort.Direction.DESC, "preferredDeliveryDate");
-		}
-
-		Sort.Direction direction = "asc".equals(safeDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-
-		// ✅ 정렬 필드 매핑 (연관관계 포함)
-		Map<String, String> sortMapping = Map.of("agency", "task.requestedBy.company.companyName", "requester",
-				"task.requestedBy.name", "standard", "standard", "createdAt", "createdAt", "preferredDeliveryDate",
-				"preferredDeliveryDate", "status", "status");
-
-		String propertyPath = sortMapping.getOrDefault(safeField, "preferredDeliveryDate");
-
-		// tie-breaker: 동일값일 때 id desc로 안정화 (원하시면 asc로 변경 가능)
-		return Sort.by(direction, propertyPath).and(Sort.by(Sort.Direction.DESC, "id"));
-	}
-
 	/**
-	 * 배송 목록 엑셀 다운로드 (관리자) - 화면과 동일한 필터 규칙으로 조회 - 페이지네이션 없이 "전체 조회 결과" 출력
+	 * 관리자 배송관리 조회결과를 화면과 동일한 묶음 기준으로 전체 출력합니다.
 	 */
 	@GetMapping("/deliveryList/excel")
-	public void downloadDeliveryListExcel(@RequestParam(required = false) Long categoryId,
-			@RequestParam(required = false) String status, @RequestParam(required = false) String dateType,
-			@RequestParam(required = false) Long assignedMemberId, @RequestParam(required = false) String startDate,
-			@RequestParam(required = false) String endDate, HttpServletResponse response) throws IOException {
+	public void downloadDeliveryListExcel(
+			@RequestParam(required = false) Long categoryId,
+			@RequestParam(required = false) Long assignedMemberId,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long deliveryMethodId,
+			@RequestParam(required = false) String dateType,
+			@RequestParam(required = false)
+			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(required = false)
+			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(required = false) Long orderIdFrom,
+			@RequestParam(required = false) Long orderIdTo,
+			@RequestParam(required = false) String productName,
+			@RequestParam(required = false) String companyName,
+			@RequestParam(required = false) String sortField,
+			@RequestParam(required = false) String sortDir,
+			HttpServletResponse response
+	) throws IOException {
+		SearchCondition condition;
 
-		String finalDateType = normalizeDateType(dateType);
-
-		// ✅ 엑셀도 화면과 동일 규칙
-		StatusResult statusResult = normalizeStatusForExcel(status);
-
-		// ✅ 엑셀도 화면과 동일 규칙(둘 다 없으면 null/null)
-		DateRange range = buildDateRange(startDate, endDate);
-
-		// ✅ 엑셀은 전체 조회
-		List<Order> orders = orderStatusService.getAllOrders(range.getStart(), range.getEnd(), categoryId,
-				assignedMemberId, statusResult.getParsedStatus(), finalDateType);
-
-		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-		response.setHeader("Content-Disposition", "attachment; filename=delivery_list.xlsx");
-
-		try (Workbook workbook = new XSSFWorkbook()) {
-			Sheet sheet = workbook.createSheet("배송 리스트");
-
-			Row header = sheet.createRow(0);
-			String[] headers = { "대리점명", "신청자", "주소", "수량", "제품가격", "배송일", "상태", "담당자", "제품 상세" };
-			for (int i = 0; i < headers.length; i++) {
-				header.createCell(i).setCellValue(headers[i]);
-			}
-
-			int rowIdx = 1;
-			for (Order order : orders) {
-				Row row = sheet.createRow(rowIdx++);
-				row.setHeightInPoints(80);
-
-				String companyName = safe(() -> order.getTask().getRequestedBy().getCompany().getCompanyName());
-				String requesterName = safe(() -> order.getTask().getRequestedBy().getName());
-				String address = (nvl(order.getRoadAddress()) + " " + nvl(order.getDetailAddress())).trim();
-
-				row.createCell(0).setCellValue(companyName);
-				row.createCell(1).setCellValue(requesterName);
-				row.createCell(2).setCellValue(address);
-
-				// ✅ 문제 지점 수정(원시타입/래퍼타입 모두 안전)
-				// - int/long이면 null 비교 자체가 불가하므로, null 체크를 없애고 안전 변환으로 처리
-				row.createCell(3).setCellValue(toLongValue(order.getQuantity())); // 수량
-				row.createCell(4).setCellValue(toLongValue(order.getProductCost())); // 제품가격
-
-				row.createCell(5).setCellValue(
-						order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toString() : "");
-				row.createCell(6).setCellValue(order.getStatus() != null ? order.getStatus().name() : "");
-
-				Member deliveryHandler = order.getAssignedDeliveryHandler();
-				row.createCell(7).setCellValue(deliveryHandler != null ? nvl(deliveryHandler.getName()) : "");
-
-				// ✅ 옵션 JSON: 줄바꿈 없이 " / "로 연결
-				row.createCell(8).setCellValue(buildDetailTextNoNewline(order));
-			}
-
-			workbook.write(response.getOutputStream());
-		}
-	}
-
-	// =========================
-	// Helpers (컨트롤러 내부 전용)
-	// =========================
-
-	/**
-	 * 화면 목록: status 파라미터가 null이면 기본값(PRODUCTION_DONE) 강제
-	 */
-	private StatusResult normalizeStatusForList(String status) {
-		if (status == null) {
-			return new StatusResult(OrderStatus.PRODUCTION_DONE, OrderStatus.PRODUCTION_DONE.name());
-		}
-		if (status.isBlank()) {
-			return new StatusResult(null, ""); // 전체
-		}
 		try {
-			OrderStatus parsed = OrderStatus.valueOf(status);
-			return new StatusResult(parsed, status);
+			condition = managementDeliveryListService.resolveCondition(
+					categoryId,
+					assignedMemberId,
+					status,
+					deliveryMethodId,
+					dateType,
+					startDate,
+					endDate,
+					orderIdFrom,
+					orderIdTo,
+					productName,
+					companyName,
+					sortField,
+					sortDir,
+					0,
+					100
+			);
 		} catch (IllegalArgumentException e) {
-			return new StatusResult(OrderStatus.PRODUCTION_DONE, OrderStatus.PRODUCTION_DONE.name());
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
 		}
+
+		byte[] excelBytes;
+
+		try {
+			List<GroupRow> groups = managementDeliveryListService.findAllGroups(condition);
+			excelBytes = managementDeliveryListExcelService.buildExcel(
+					groups,
+					managementDeliveryListService.getFilterItems(condition)
+			);
+		} catch (IllegalArgumentException e) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+		}
+
+		String filename = "관리자_배송관리_" + LocalDate.now() + ".xlsx";
+		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+		response.setHeader(
+				HttpHeaders.CONTENT_DISPOSITION,
+				ContentDisposition.attachment()
+						.filename(filename, StandardCharsets.UTF_8)
+						.build()
+						.toString()
+		);
+		response.setContentLength(excelBytes.length);
+		response.getOutputStream().write(excelBytes);
 	}
 
-	/**
-	 * 엑셀: 화면과 동일 규칙
-	 */
-	private StatusResult normalizeStatusForExcel(String status) {
-		return normalizeStatusForList(status);
-	}
-
-	/**
-	 * startDate/endDate 문자열을 LocalDateTime 범위로 변환 - 둘 다 비어있으면 start/end = null/null
-	 * (날짜 필터 미적용)
-	 */
+	// 관리자 배송관리 외의 기존 화면에서도 사용하는 날짜범위 유틸입니다.
 	private DateRange buildDateRange(String startDateStr, String endDateStr) {
 		String s = (startDateStr == null) ? "" : startDateStr.trim();
 		String e = (endDateStr == null) ? "" : endDateStr.trim();
@@ -2652,81 +2634,6 @@ public class ManagementController {
 			return LocalDate.parse(s, YMD);
 		} catch (Exception ex) {
 			return null;
-		}
-	}
-
-	/**
-	 * 옵션 상세 문자열(줄바꿈 없이 " / ")
-	 */
-	private String buildDetailTextNoNewline(Order order) {
-		StringBuilder detail = new StringBuilder();
-
-		TeamCategory cat = order.getProductCategory();
-		if (cat != null) {
-			detail.append("카테고리: ").append(nvl(cat.getName()));
-		}
-
-		OrderItem item = order.getOrderItem();
-		if (item != null) {
-			if (detail.length() > 0)
-				detail.append(" / ");
-			detail.append("제품명: ").append(nvl(item.getProductName()));
-
-			String optionJson = item.getOptionJson();
-			if (optionJson != null && !optionJson.isBlank()) {
-				try {
-					Map<String, String> optionMap = objectMapper.readValue(optionJson,
-							new TypeReference<Map<String, String>>() {
-							});
-					for (Map.Entry<String, String> entry : optionMap.entrySet()) {
-						detail.append(" / ").append(entry.getKey()).append(": ").append(entry.getValue());
-					}
-				} catch (Exception e) {
-					detail.append(" / ").append("[옵션 파싱 실패]");
-				}
-			}
-		}
-
-		return detail.toString().trim();
-	}
-
-	private String nvl(String s) {
-		return s == null ? "" : s;
-	}
-
-	private String safe(SupplierThrows<String> s) {
-		try {
-			String v = s.get();
-			return v == null ? "" : v;
-		} catch (Exception e) {
-			return "";
-		}
-	}
-
-	private long toLongValue(int n) {
-		return (long) n;
-	}
-
-	@FunctionalInterface
-	private interface SupplierThrows<T> {
-		T get() throws Exception;
-	}
-
-	private static class StatusResult {
-		private final OrderStatus parsedStatus;
-		private final String statusForView;
-
-		StatusResult(OrderStatus parsedStatus, String statusForView) {
-			this.parsedStatus = parsedStatus;
-			this.statusForView = statusForView;
-		}
-
-		public OrderStatus getParsedStatus() {
-			return parsedStatus;
-		}
-
-		public String getStatusForView() {
-			return statusForView;
 		}
 	}
 
