@@ -1267,11 +1267,26 @@ public class DispatchTeamService {
             Join<Order, DeliveryMethod> deliveryMethodJoin,
             DispatchOrderSearchRequest request
     ) {
-        predicates.add(orderRoot.get("status").in(
-                OrderStatus.CONFIRMED,
-                OrderStatus.PRODUCTION_DONE,
-                OrderStatus.DISPATCH_DONE
-        ));
+        boolean orderIdRangeSearch = request.getOrderIdFrom() != null || request.getOrderIdTo() != null;
+        predicates.add(orderIdRangeSearch
+                ? orderRoot.get("status").in(
+                        OrderStatus.CONFIRMED,
+                        OrderStatus.PRODUCTION_DONE,
+                        OrderStatus.DISPATCH_DONE,
+                        OrderStatus.DELIVERY_DONE
+                )
+                : orderRoot.get("status").in(
+                        OrderStatus.CONFIRMED,
+                        OrderStatus.PRODUCTION_DONE,
+                        OrderStatus.DISPATCH_DONE
+                ));
+
+        if (request.getOrderIdFrom() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(orderRoot.get("id"), request.getOrderIdFrom()));
+        }
+        if (request.getOrderIdTo() != null) {
+            predicates.add(cb.lessThanOrEqualTo(orderRoot.get("id"), request.getOrderIdTo()));
+        }
 
         if (request.getProductCategoryId() != null) {
             predicates.add(cb.equal(
@@ -1325,6 +1340,8 @@ public class DispatchTeamService {
                 ? new DispatchOrderSearchRequest()
                 : request;
 
+        validateOrderIdRange(normalized.getOrderIdFrom(), normalized.getOrderIdTo());
+
         if (normalized.getSize() == null) {
             normalized.setSize(DEFAULT_SIZE);
         }
@@ -1334,6 +1351,18 @@ public class DispatchTeamService {
         }
 
         return normalized;
+    }
+
+    private void validateOrderIdRange(Long orderIdFrom, Long orderIdTo) {
+        if (orderIdFrom != null && orderIdFrom <= 0) {
+            throw new IllegalArgumentException("Order ID 시작값은 1 이상이어야 합니다.");
+        }
+        if (orderIdTo != null && orderIdTo <= 0) {
+            throw new IllegalArgumentException("Order ID 종료값은 1 이상이어야 합니다.");
+        }
+        if (orderIdFrom != null && orderIdTo != null && orderIdFrom > orderIdTo) {
+            throw new IllegalArgumentException("Order ID 시작값은 종료값보다 클 수 없습니다.");
+        }
     }
 
     private int normalizeSize(Integer size) {
@@ -1433,32 +1462,13 @@ public class DispatchTeamService {
             return null;
         }
 
-        if (lastStatusSort <= 1) {
-            return cb.or(
-                    orderRoot.get("status").in(
-                            OrderStatus.PRODUCTION_DONE,
-                            OrderStatus.DISPATCH_DONE
-                    ),
-                    cb.and(
-                            cb.equal(orderRoot.get("status"), OrderStatus.CONFIRMED),
-                            cb.lessThan(orderRoot.get("id"), lastOrderId)
-                    )
-            );
-        }
-
-        if (lastStatusSort == 2) {
-            return cb.or(
-                    cb.equal(orderRoot.get("status"), OrderStatus.DISPATCH_DONE),
-                    cb.and(
-                            cb.equal(orderRoot.get("status"), OrderStatus.PRODUCTION_DONE),
-                            cb.lessThan(orderRoot.get("id"), lastOrderId)
-                    )
-            );
-        }
-
-        return cb.and(
-                cb.equal(orderRoot.get("status"), OrderStatus.DISPATCH_DONE),
-                cb.lessThan(orderRoot.get("id"), lastOrderId)
+        Expression<Integer> statusSort = buildStatusSortExpression(cb, orderRoot);
+        return cb.or(
+                cb.greaterThan(statusSort, lastStatusSort),
+                cb.and(
+                        cb.equal(statusSort, lastStatusSort),
+                        cb.lessThan(orderRoot.get("id"), lastOrderId)
+                )
         );
     }
 
@@ -1470,6 +1480,7 @@ public class DispatchTeamService {
                 .when(cb.equal(orderRoot.get("status"), OrderStatus.CONFIRMED), 1)
                 .when(cb.equal(orderRoot.get("status"), OrderStatus.PRODUCTION_DONE), 2)
                 .when(cb.equal(orderRoot.get("status"), OrderStatus.DISPATCH_DONE), 3)
+                .when(cb.equal(orderRoot.get("status"), OrderStatus.DELIVERY_DONE), 4)
                 .otherwise(99);
     }
 
@@ -1665,6 +1676,10 @@ public class DispatchTeamService {
 
         if (status == OrderStatus.DISPATCH_DONE) {
             return 3;
+        }
+
+        if (status == OrderStatus.DELIVERY_DONE) {
+            return 4;
         }
 
         return 99;

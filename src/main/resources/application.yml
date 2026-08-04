@@ -53,9 +53,17 @@ juso:
   timeout-seconds: 5
 
 app:
+  order-notification:
+    enabled: true
+    notify-actor: false
+    kakao:
+      enabled: true
+      emergency-enabled: true
+      normal-enabled: true
+      template-code: "D8jAppuvn1"
   notification:
     solapi:
-      # 기본 application.yml은 실발송 방지
+      # 현재 공통 설정은 발주 알림 SOLAPI 실발송 활성화
       enabled: true
       base-url: "https://api.solapi.com"
       api-key: "NCSGC2QXIZYWKYN5"
@@ -66,7 +74,7 @@ app:
       strict: true
       allow-duplicates: false
       request-timeout-seconds: 10
-      
+
 security:
   remember-me:
     key: hiddenremember
@@ -129,4 +137,4 @@ hiddenbath:
         - 히든블랙
         - 히든화이트
         - 히든크림
-    
+

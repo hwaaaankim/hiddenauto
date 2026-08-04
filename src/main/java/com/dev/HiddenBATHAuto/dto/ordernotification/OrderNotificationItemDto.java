@@ -32,4 +32,8 @@ public class OrderNotificationItemDto {
     private LocalDateTime createdAt;
     private String createdAtText;
     private List<OrderNotificationFieldDto> changes;
+    /** 취소/비노출 알림은 false이며 URL도 null입니다. */
+    private boolean shortcutEnabled;
+    private String shortcutLabel;
+    private String shortcutUrl;
 }

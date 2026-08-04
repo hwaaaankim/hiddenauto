@@ -25,6 +25,8 @@ public class OrderAdminRequestService {
 
     private final OrderRepository orderRepository;
     private final OrderChangeAuditService orderChangeAuditService;
+    private static final Long FIXED_ADMIN_MEMBER_ID = 1L;
+    private static final String FIXED_ADMIN_USERNAME = "admin";
 
     @Transactional
     public OrderAdminRequestResponse request(
@@ -43,12 +45,7 @@ public class OrderAdminRequestService {
         Order order = orderRepository.findByIdForOrderNotification(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다. orderId=" + orderId));
 
-        Member managedBy = order.getTask() != null ? order.getTask().getManagedBy() : null;
-        if (managedBy == null || managedBy.getId() == null || !managedBy.isEnabled()) {
-            throw new IllegalStateException(
-                    "해당 발주의 우리회사 관리 담당자(Task.managedBy)가 지정되어 있지 않습니다. 관리자를 먼저 배정해 주세요."
-            );
-        }
+        Member managedBy = resolveEnabledManagedBy(order);
 
         String reason = resolveReason(sourceArea, request);
         String actorName = actor.getName() != null && !actor.getName().isBlank()
@@ -82,9 +79,9 @@ public class OrderAdminRequestService {
                 .orderId(orderId)
                 .taskId(order.getTask() != null ? order.getTask().getId() : null)
                 .eventId(event != null ? event.getId() : null)
-                .managedById(managedBy.getId())
-                .managedByName(displayName(managedBy))
-                .message(displayName(managedBy) + " 담당자에게 관리자요청을 전달했습니다.")
+                .managedById(managedBy != null ? managedBy.getId() : null)
+                .managedByName(managedBy != null ? displayName(managedBy) : null)
+                .message(buildRecipientMessage(managedBy))
                 .build();
     }
 
@@ -96,6 +93,44 @@ public class OrderAdminRequestService {
         throw new AccessDeniedException("생산팀, 배송팀, 출고팀만 관리자요청을 보낼 수 있습니다.");
     }
 
+    /**
+     * 활성화된 Task 관리 담당자만 반환합니다.
+     *
+     * <p>
+     * 담당자가 없거나 비활성화된 경우에도 관리자요청 자체는 막지 않고
+     * 고정 admin에게만 전달합니다.
+     * </p>
+     */
+    private Member resolveEnabledManagedBy(Order order) {
+        Member managedBy = order.getTask() != null
+                ? order.getTask().getManagedBy()
+                : null;
+
+        if (managedBy == null
+                || managedBy.getId() == null
+                || !managedBy.isEnabled()) {
+            return null;
+        }
+
+        return managedBy;
+    }
+
+    private String buildRecipientMessage(Member managedBy) {
+        if (managedBy == null || isFixedAdmin(managedBy)) {
+            return "admin 관리자에게 관리자요청을 전달했습니다.";
+        }
+
+        return "admin 관리자와 "
+                + displayName(managedBy)
+                + " 담당자에게 관리자요청을 전달했습니다.";
+    }
+
+    private boolean isFixedAdmin(Member member) {
+        return member != null
+                && FIXED_ADMIN_MEMBER_ID.equals(member.getId())
+                && FIXED_ADMIN_USERNAME.equals(member.getUsername());
+    }
+    
     /**
      * 관리자요청은 발주의 현재 상태와 무관하게 허용합니다.
      * 각 팀 화면에서 조회 가능한 발주라면 REQUESTED, CONFIRMED,

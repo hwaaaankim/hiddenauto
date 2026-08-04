@@ -83,10 +83,26 @@ public class DeliveryRouteService {
      */
     @Transactional(readOnly = true)
     public Page getRoutePage(Member loginMember, LocalDate deliveryDate) {
+        return getRoutePage(loginMember, deliveryDate, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page getRoutePage(
+            Member loginMember,
+            LocalDate deliveryDate,
+            Long orderIdFrom,
+            Long orderIdTo
+    ) {
         validateDeliveryTeamMember(loginMember);
+        validateOrderIdRange(orderIdFrom, orderIdTo);
 
         LocalDate targetDate = deliveryDate == null ? LocalDate.now() : deliveryDate;
-        List<DeliveryOrderIndex> allRows = loadRows(loginMember.getId(), targetDate);
+        List<DeliveryOrderIndex> allRows = loadRows(
+                loginMember.getId(),
+                targetDate,
+                orderIdFrom,
+                orderIdTo
+        );
 
         List<DeliveryOrderIndex> directRows = new ArrayList<>();
         List<DeliveryOrderIndex> freightRows = new ArrayList<>();
@@ -389,13 +405,41 @@ public class DeliveryRouteService {
     }
 
     private List<DeliveryOrderIndex> loadRows(Long handlerId, LocalDate deliveryDate) {
-        return deliveryRouteQueryRepository.findRouteRows(handlerId, deliveryDate, VISIBLE_STATUSES).stream()
+        return loadRows(handlerId, deliveryDate, null, null);
+    }
+
+    private List<DeliveryOrderIndex> loadRows(
+            Long handlerId,
+            LocalDate deliveryDate,
+            Long orderIdFrom,
+            Long orderIdTo
+    ) {
+        validateOrderIdRange(orderIdFrom, orderIdTo);
+        return deliveryRouteQueryRepository.findRouteRowsFiltered(
+                        handlerId,
+                        deliveryDate,
+                        VISIBLE_STATUSES,
+                        orderIdFrom,
+                        orderIdTo
+                ).stream()
                 .filter(Objects::nonNull)
                 .filter(row -> row.getOrder() != null)
                 .sorted(Comparator
                         .comparingInt(DeliveryOrderIndex::getOrderIndex)
                         .thenComparingLong(this::safeOrderId))
                 .toList();
+    }
+
+    private void validateOrderIdRange(Long orderIdFrom, Long orderIdTo) {
+        if (orderIdFrom != null && orderIdFrom <= 0) {
+            throw new IllegalArgumentException("Order ID 시작값은 1 이상이어야 합니다.");
+        }
+        if (orderIdTo != null && orderIdTo <= 0) {
+            throw new IllegalArgumentException("Order ID 종료값은 1 이상이어야 합니다.");
+        }
+        if (orderIdFrom != null && orderIdTo != null && orderIdFrom > orderIdTo) {
+            throw new IllegalArgumentException("Order ID 시작값은 종료값보다 클 수 없습니다.");
+        }
     }
 
     private List<Group> buildGroups(

@@ -4,7 +4,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,39 +27,71 @@ public interface OrderNotificationRepository extends JpaRepository<OrderNotifica
             """)
     List<Object[]> countUnreadByCategory(@Param("recipientId") Long recipientId);
 
-    @EntityGraph(attributePaths = {
-            "event", "order", "task", "recipient"
-    })
-    Page<OrderNotification> findByRecipient_IdOrderByCreatedAtDescIdDesc(
-            Long recipientId,
+    @Query("""
+            select n.id
+              from OrderNotification n
+             where n.recipient.id = :recipientId
+               and n.readAt is null
+               and (:category is null or n.category = :category)
+               and (:cursor is null or n.id < :cursor)
+             order by n.id desc
+            """)
+    List<Long> findUnreadIds(
+            @Param("recipientId") Long recipientId,
+            @Param("category") OrderNotificationCategory category,
+            @Param("cursor") Long cursor,
             Pageable pageable
     );
 
     @EntityGraph(attributePaths = {
-            "event", "order", "task", "recipient"
+            "event", "event.fields", "order", "task", "recipient", "recipient.team"
     })
-    Page<OrderNotification> findByRecipient_IdAndCategoryOrderByCreatedAtDescIdDesc(
-            Long recipientId,
-            OrderNotificationCategory category,
-            Pageable pageable
-    );
+    @Query("select distinct n from OrderNotification n where n.id in :ids")
+    List<OrderNotification> findPageDetailsByIdIn(@Param("ids") Collection<Long> ids);
 
     @EntityGraph(attributePaths = {
-            "event", "event.fields", "order", "task", "recipient"
+            "event", "event.fields", "order", "task", "recipient", "recipient.team"
     })
     Optional<OrderNotification> findByIdAndRecipient_Id(Long id, Long recipientId);
 
     @EntityGraph(attributePaths = {
-            "event", "event.fields", "event.order", "event.order.task", "recipient"
+            "event", "event.fields", "event.order", "event.order.task", "recipient", "recipient.team"
     })
     List<OrderNotification> findByIdIn(Collection<Long> ids);
 
     @EntityGraph(attributePaths = {
             "event", "event.fields", "event.order", "event.order.task",
-            "event.order.task.managedBy", "recipient"
+            "event.order.task.managedBy", "recipient", "recipient.team"
     })
     @Query("select n from OrderNotification n where n.id = :id")
     Optional<OrderNotification> findDeliveryTargetById(@Param("id") Long id);
+
+    @EntityGraph(attributePaths = {
+            "event", "event.fields", "event.order", "event.order.task",
+            "event.order.task.managedBy", "recipient", "recipient.team"
+    })
+    @Query("""
+            select distinct n
+              from OrderNotification n
+             where n.kakaoBatchKey = :batchKey
+               and n.recipient.id = :recipientId
+             order by n.id asc
+            """)
+    List<OrderNotification> findKakaoBatch(
+            @Param("batchKey") String kakaoBatchKey,
+            @Param("recipientId") Long recipientId
+    );
+
+    @Query("""
+            select min(n.id)
+              from OrderNotification n
+             where n.kakaoBatchKey = :batchKey
+               and n.recipient.id = :recipientId
+            """)
+    Long findKakaoBatchLeaderId(
+            @Param("batchKey") String batchKey,
+            @Param("recipientId") Long recipientId
+    );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
@@ -68,10 +99,10 @@ public interface OrderNotificationRepository extends JpaRepository<OrderNotifica
                set n.readAt = current_timestamp
              where n.recipient.id = :recipientId
                and n.readAt is null
-               and (:category is null or n.category = :category)
+               and n.id in :notificationIds
             """)
-    int markAllRead(
+    int markReadByIds(
             @Param("recipientId") Long recipientId,
-            @Param("category") OrderNotificationCategory category
+            @Param("notificationIds") Collection<Long> notificationIds
     );
 }

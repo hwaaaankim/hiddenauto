@@ -42,34 +42,52 @@
                     <div class="card-body">
                         <div class="delivery-route-date-nav">
                             <a class="btn btn-outline-secondary delivery-route-date-step"
-                               th:href="@{/team/deliveryRoute(deliveryDate=${previousDate})}"
+                               th:href="@{/team/deliveryRoute(deliveryDate=${previousDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo})}"
                                aria-label="이전 날짜">
                                 <i class="ri-arrow-left-s-line"></i>
                             </a>
 
-                            <form class="delivery-route-date-form" method="get" th:action="@{/team/deliveryRoute}">
+                            <form class="delivery-route-date-form" id="delivery-route-search-form" method="get"
+                                  th:action="@{/team/deliveryRoute}">
                                 <div class="delivery-route-date-field">
                                     <label for="delivery-route-date" class="form-label">배송일</label>
                                     <input type="date" class="form-control" id="delivery-route-date"
                                            name="deliveryDate" th:value="${selectedDate}" required>
                                 </div>
+                                <div class="delivery-route-order-id-field">
+                                    <label for="delivery-route-order-id-from" class="form-label">Order ID From</label>
+                                    <input type="number" min="1" step="1" class="form-control"
+                                           id="delivery-route-order-id-from" name="orderIdFrom"
+                                           th:value="${orderIdFrom}" placeholder="이상">
+                                </div>
+                                <div class="delivery-route-order-id-field">
+                                    <label for="delivery-route-order-id-to" class="form-label">Order ID To</label>
+                                    <input type="number" min="1" step="1" class="form-control"
+                                           id="delivery-route-order-id-to" name="orderIdTo"
+                                           th:value="${orderIdTo}" placeholder="이하">
+                                </div>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="ri-search-line me-1"></i>조회
                                 </button>
+                                <a class="btn btn-outline-secondary"
+                                   th:href="@{/team/deliveryRoute(deliveryDate=${selectedDate})}">ID 초기화</a>
                             </form>
 
                             <a class="btn btn-outline-primary delivery-route-today-btn"
                                th:classappend="${isToday} ? ' active' : ''"
-                               th:href="@{/team/deliveryRoute(deliveryDate=${today})}">
+                               th:href="@{/team/deliveryRoute(deliveryDate=${today},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo})}">
                                 오늘
                             </a>
 
                             <a class="btn btn-outline-secondary delivery-route-date-step"
-                               th:href="@{/team/deliveryRoute(deliveryDate=${nextDate})}"
+                               th:href="@{/team/deliveryRoute(deliveryDate=${nextDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo})}"
                                aria-label="다음 날짜">
                                 <i class="ri-arrow-right-s-line"></i>
                             </a>
                         </div>
+                        <p class="delivery-route-order-id-help mb-0 mt-2 text-center">
+                            From만 입력하면 해당 ID 이상, To만 입력하면 해당 ID 이하, 단건은 From과 To를 같은 값으로 입력합니다.
+                        </p>
                     </div>
                 </div>
 
@@ -771,8 +789,28 @@
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css?v=20260804-6">
+<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css?v=20260804-8">
 <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.export-completion.css">
+<script>
+(function () {
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('delivery-route-search-form');
+        if (!form) return;
+        form.addEventListener('submit', function (event) {
+            const fromInput = document.getElementById('delivery-route-order-id-from');
+            const toInput = document.getElementById('delivery-route-order-id-to');
+            const from = fromInput && fromInput.value ? Number(fromInput.value) : null;
+            const to = toInput && toInput.value ? Number(toInput.value) : null;
+            if (from !== null && to !== null && from > to) {
+                event.preventDefault();
+                window.alert('Order ID From은 To보다 클 수 없습니다.');
+                toInput.focus();
+            }
+        });
+    });
+})();
+</script>
 <script src="/administration/assets/team/delivery/deliveryRoute.js"></script>
 <script src="/administration/assets/team/delivery/deliveryTeamStatementPreview.js"></script>
 </body>

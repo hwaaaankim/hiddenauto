@@ -27,5 +27,7 @@ public class OrderNotificationProperties {
         private boolean emergencyEnabled = true;
         /** 일반 변경/완료/담당자 변경 발송 */
         private boolean normalEnabled = false;
+        /** notification-test.html에서 검증한 tb_notification_template.template_code. 승인 후 설정만 교체합니다. */
+        private String templateCode = "D8jAppuvn1";
     }
 }

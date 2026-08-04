@@ -9,10 +9,8 @@ import lombok.Getter;
 @Builder
 public class OrderNotificationPageDto {
     private List<OrderNotificationItemDto> content;
-    private int page;
+    /** 다음 조회 시 사용할 마지막 알림 ID입니다. */
+    private Long nextCursor;
+    private boolean hasNext;
     private int size;
-    private long totalElements;
-    private int totalPages;
-    private boolean first;
-    private boolean last;
 }

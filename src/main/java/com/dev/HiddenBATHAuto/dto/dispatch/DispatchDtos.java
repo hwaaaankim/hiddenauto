@@ -47,6 +47,10 @@ public class DispatchDtos {
          */
         private LocalDate orderDate;
 
+        /** Order.id 범위: From만 있으면 이상, To만 있으면 이하, 같은 값이면 단건 */
+        private Long orderIdFrom;
+        private Long orderIdTo;
+
         private Long deliveryMethodId;
 
         private Integer size = 50;

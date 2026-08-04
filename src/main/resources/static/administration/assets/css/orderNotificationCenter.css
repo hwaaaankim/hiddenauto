@@ -432,3 +432,52 @@
 		flex: 1 1 0;
 	}
 }
+
+/* 2026-08-04 알림 점진 조회/수동 새로고침 UX */
+.order-notification-new-arrival {
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border: 1px solid rgba(10, 179, 156, .35);
+    border-radius: 8px;
+    background: rgba(10, 179, 156, .08);
+    color: #078675;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.order-notification-load-more-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 2px;
+}
+
+.order-notification-load-more-wrap .btn {
+    min-width: 150px;
+}
+
+.order-notification-footer {
+    flex-wrap: wrap;
+}
+
+.order-notification-item:not(.is-unread) {
+    opacity: .78;
+}
+
+.order-notification-item:not(.is-unread)::after {
+    content: '확인됨 · 새로고침 시 목록에서 제외';
+    display: block;
+    margin-top: 8px;
+    color: #878a99;
+    font-size: 11px;
+}
+
+@media (max-width: 575.98px) {
+    .order-notification-footer > .btn {
+        flex: 1 1 calc(50% - 6px);
+    }
+
+    .order-notification-footer > .btn:last-child {
+        flex-basis: 100%;
+    }
+}

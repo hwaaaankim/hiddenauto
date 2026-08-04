@@ -39,7 +39,8 @@ import lombok.ToString;
                 @Index(name = "idx_order_notification_recipient_unread", columnList = "recipient_member_id,read_at,created_at,id"),
                 @Index(name = "idx_order_notification_recipient_category", columnList = "recipient_member_id,category,created_at,id"),
                 @Index(name = "idx_order_notification_order", columnList = "order_id,created_at,id"),
-                @Index(name = "idx_order_notification_task", columnList = "task_id,created_at,id")
+                @Index(name = "idx_order_notification_task", columnList = "task_id,created_at,id"),
+                @Index(name = "idx_order_notification_kakao_batch", columnList = "kakao_batch_key,recipient_member_id,id")
         }
 )
 @Getter
@@ -87,6 +88,10 @@ public class OrderNotification {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    /** 같은 트랜잭션에서 생성된 알림의 카카오 발송 묶음 키 */
+    @Column(name = "kakao_batch_key", nullable = true, length = 64)
+    private String kakaoBatchKey;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "kakao_status", nullable = false, length = 30)
     private OrderNotificationKakaoStatus kakaoStatus = OrderNotificationKakaoStatus.NOT_REQUESTED;
@@ -108,7 +113,8 @@ public class OrderNotification {
             Member recipient,
             OrderNotificationCategory category,
             String title,
-            String message
+            String message,
+            String kakaoBatchKey
     ) {
         if (event == null || event.getOrder() == null) {
             throw new IllegalArgumentException("알림 이벤트 또는 오더가 없습니다.");
@@ -125,6 +131,7 @@ public class OrderNotification {
         notification.category = category == null ? OrderNotificationCategory.EMERGENCY : category;
         notification.title = required(title, "발주 변경 알림", 200);
         notification.message = required(message, "발주 정보가 변경되었습니다.", 4000);
+        notification.kakaoBatchKey = required(kakaoBatchKey, java.util.UUID.randomUUID().toString(), 64);
         notification.createdAt = LocalDateTime.now();
         return notification;
     }
@@ -164,6 +171,9 @@ public class OrderNotification {
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        if (kakaoBatchKey == null || kakaoBatchKey.isBlank()) {
+            kakaoBatchKey = java.util.UUID.randomUUID().toString();
+        }
         if (kakaoStatus == null) kakaoStatus = OrderNotificationKakaoStatus.NOT_REQUESTED;
     }
 

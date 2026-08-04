@@ -124,6 +124,7 @@ public class NonStandardTaskListViewService {
                 .packingCost(order.getPackingCost())
                 .deliveryCost(order.getDeliveryCost())
                 .productSummary(buildProductSummary(productName, optionMap, order.getQuantity()))
+                .productDetailSummary(buildProductDetailSummary(optionMap, order.getQuantity()))
                 .optionMap(optionMap)
 
                 .zipCode(order.getZipCode())
@@ -185,6 +186,50 @@ public class NonStandardTaskListViewService {
                 .build();
     }
 
+    /**
+     * 관리자 발주 목록의 굵은 제품명 아래에 표시할 상세정보를 생성합니다.
+     *
+     * 제품명은 별도 영역에서 굵게 표시하므로 여기에는 포함하지 않습니다.
+     */
+    private String buildProductDetailSummary(
+            Map<String, String> optionMap,
+            int quantity
+    ) {
+        String productCode = firstNotBlank(
+                optionMap.get("제품코드"),
+                optionMap.get("상품코드"),
+                null
+        );
+
+        String size = firstNotBlank(
+                optionMap.get("사이즈"),
+                optionMap.get("규격"),
+                null
+        );
+
+        String color = firstNotBlank(
+                optionMap.get("색상"),
+                null
+        );
+
+        String series = firstNotBlank(
+                optionMap.get("제품시리즈"),
+                optionMap.get("시리즈"),
+                null
+        );
+
+        String summary = joinNonBlank(
+                " / ",
+                productCode,
+                series,
+                size,
+                color,
+                quantity > 0 ? "수량 " + quantity : null
+        );
+
+        return summary.isBlank() ? "-" : summary;
+    }
+    
     public List<NonStandardTaskListOrderRowDto> toBulkRows(List<Order> orders) {
         if (orders == null || orders.isEmpty()) {
             return List.of();
