@@ -1,4 +1,3 @@
-# application-prod.yml - 프로젝트에 존재
 spring:
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
@@ -53,6 +52,11 @@ security:
     secure-cookie: false
 
 app:
+  order-excel-upload:
+    image:
+      max-file-size-bytes: 524288000
+      max-total-size-bytes: 1073741824
+
   order-notification:
     enabled: true
     notify-actor: false

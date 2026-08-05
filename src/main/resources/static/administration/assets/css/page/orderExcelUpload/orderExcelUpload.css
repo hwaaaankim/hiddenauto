@@ -839,3 +839,66 @@ body.order-excel-busy {
     border-color: #fecaca;
     background: #fffafa;
 }
+
+/* 2026-08-05: 엑셀 발주 이미지 업로드 용량 표시 */
+.order-excel-image-size {
+    position: absolute;
+    left: 3px;
+    bottom: 3px;
+    max-width: calc(100% - 6px);
+    padding: 2px 5px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* 2026-08-05: 저장 버튼 옆 이미지 현재용량/최대용량 표시 */
+.order-excel-footer-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.order-excel-image-size-summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.order-excel-image-size-summary.is-over-limit {
+    border-color: #fca5a5;
+    background: #fff1f2;
+    color: #b91c1c;
+}
+
+
+@media (max-width: 767.98px) {
+    .order-excel-footer-actions {
+        width: 100%;
+        align-items: stretch !important;
+    }
+
+    .order-excel-image-size-summary {
+        width: 100%;
+        justify-content: center;
+        order: 3;
+    }
+
+    #order-excel-save-btn {
+        order: 4;
+    }
+}

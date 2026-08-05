@@ -18,6 +18,7 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
+import com.dev.HiddenBATHAuto.orderExcelUpload.config.OrderExcelUploadImageProperties;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelCompanyAddressLookupResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelCompanyAddressOptionResponse;
 import com.dev.HiddenBATHAuto.orderExcelUpload.dto.OrderExcelDeliveryMethodOptionResponse;
@@ -51,6 +52,7 @@ public class OrderExcelUploadLookupService {
     private final OrderExcelCompanyRepository companyRepository;
     private final OrderExcelCompanyDeliveryAddressRepository companyDeliveryAddressRepository;
     private final OrderExcelAddressValidator addressValidator;
+    private final OrderExcelUploadImageProperties imageProperties;
 
     public OrderExcelLookupOptionsResponse getOptions() {
         OrderExcelLookupOptionsResponse response = new OrderExcelLookupOptionsResponse();
@@ -61,6 +63,8 @@ public class OrderExcelUploadLookupService {
         response.setMiddleCategoriesByCategory(getMiddleCategoriesByCategory(response.getProductionCategories()));
         response.setManagers(getManagers());
         response.setDeliveryHandlers(getDeliveryHandlers());
+        response.setImageMaxFileSizeBytes(imageProperties.resolvedMaxFileSizeBytes());
+        response.setImageMaxTotalSizeBytes(imageProperties.resolvedMaxTotalSizeBytes());
         return response;
     }
 

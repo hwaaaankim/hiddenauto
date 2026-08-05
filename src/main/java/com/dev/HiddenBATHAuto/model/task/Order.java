@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.hibernate.Hibernate;
+
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
@@ -25,15 +27,20 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 @Entity
 @Table(name = "tb_order")
-@Data
+@Getter
+@Setter
+@ToString(onlyExplicitlyIncluded = true)
 public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @ToString.Include
     private Long id;
 
     @ManyToOne
@@ -76,7 +83,7 @@ public class Order {
 
     @Column(name = "site_detail_address", length = 255)
     private String siteDetailAddress;
-    
+
     @Column(nullable = false)
     private int quantity = 0;
 
@@ -111,7 +118,7 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
-    
+
     @Lob
     @Column(name = "dispatch_complete_message", nullable = true)
     private String dispatchCompleteMessage;
@@ -173,7 +180,8 @@ public class Order {
         if (orderImages == null) {
             return List.of();
         }
-        return orderImages.stream().filter(img -> "CUSTOMER".equalsIgnoreCase(img.getType()))
+        return orderImages.stream()
+                .filter(img -> "CUSTOMER".equalsIgnoreCase(img.getType()))
                 .collect(Collectors.toList());
     }
 
@@ -181,7 +189,8 @@ public class Order {
         if (orderImages == null) {
             return List.of();
         }
-        return orderImages.stream().filter(img -> "MANAGEMENT".equalsIgnoreCase(img.getType()))
+        return orderImages.stream()
+                .filter(img -> "MANAGEMENT".equalsIgnoreCase(img.getType()))
                 .collect(Collectors.toList());
     }
 
@@ -189,7 +198,8 @@ public class Order {
         if (orderImages == null) {
             return List.of();
         }
-        return orderImages.stream().filter(img -> "DELIVERY".equalsIgnoreCase(img.getType()))
+        return orderImages.stream()
+                .filter(img -> "DELIVERY".equalsIgnoreCase(img.getType()))
                 .collect(Collectors.toList());
     }
 
@@ -197,7 +207,9 @@ public class Order {
         if (orderImages == null) {
             return List.of();
         }
-        return orderImages.stream().filter(img -> "PROOF".equalsIgnoreCase(img.getType())).collect(Collectors.toList());
+        return orderImages.stream()
+                .filter(img -> "PROOF".equalsIgnoreCase(img.getType()))
+                .collect(Collectors.toList());
     }
 
     @Transient
@@ -205,7 +217,30 @@ public class Order {
         if (orderImages == null) {
             return List.of();
         }
-        return orderImages.stream().filter(img -> type != null && type.equalsIgnoreCase(img.getType()))
+        return orderImages.stream()
+                .filter(img -> type != null && type.equalsIgnoreCase(img.getType()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * JPA 연관관계를 포함하는 Lombok @Data hashCode 사용 시
+     * Order -> OrderItem -> Order 순환으로 StackOverflowError가 발생합니다.
+     * 영속 식별자만 비교하여 연관 엔티티/프록시를 hashCode 계산에서 제외합니다.
+     */
+    @Override
+    public final boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || Hibernate.getClass(this) != Hibernate.getClass(other)) {
+            return false;
+        }
+        Order that = (Order) other;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public final int hashCode() {
+        return Hibernate.getClass(this).hashCode();
     }
 }

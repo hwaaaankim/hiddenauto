@@ -3,8 +3,12 @@
     'use strict';
 
     const API_BASE = '/management/api/order-excel-upload';
+    const ORDER_EXCEL_UPLOAD_PAGE_URL = '/management/order-excel-upload';
     const BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = '12';
     const BATHROOM_GOODS_CATEGORY_NAME = '욕실용품';
+    const DEFAULT_MAX_IMAGE_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+    const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 1024 * 1024 * 1024;
+    const ALLOWED_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'bmp']);
     const KNOWN_PROVINCES = new Set([
         '서울', '서울시', '서울특별시', '부산', '부산시', '부산광역시', '대구', '대구시', '대구광역시',
         '인천', '인천시', '인천광역시', '광주', '광주시', '광주광역시', '대전', '대전시', '대전광역시',
@@ -28,7 +32,9 @@
             productionCategories: [],
             orderStatuses: DEFAULT_ORDER_STATUSES,
             managers: [],
-            deliveryHandlers: []
+            deliveryHandlers: [],
+            imageMaxFileSizeBytes: DEFAULT_MAX_IMAGE_FILE_SIZE_BYTES,
+            imageMaxTotalSizeBytes: DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES
         },
         groups: [],
         saving: false,
@@ -65,6 +71,7 @@
         els.footer = document.getElementById('order-excel-footer');
         els.previewSummary = document.getElementById('order-excel-preview-summary');
         els.footerSummary = document.getElementById('order-excel-footer-summary');
+        els.imageSizeSummary = document.getElementById('order-excel-image-size-summary');
         els.collapseAll = document.getElementById('order-excel-collapse-all');
         els.expandAll = document.getElementById('order-excel-expand-all');
         els.managerList = document.getElementById('order-excel-manager-list');
@@ -107,9 +114,10 @@
     async function loadOptions() {
         try {
             const data = await fetchJson(`${API_BASE}/options`);
-            state.options = data || state.options;
+            state.options = Object.assign({}, state.options, data || {});
             renderMethodSelects();
             renderDatalists();
+            updateSummary();
         } catch (error) {
             showMessage(error.message || '옵션 정보를 불러오지 못했습니다.', 'danger');
         }
@@ -174,7 +182,7 @@
         try {
             const data = await fetchMultipart(`${API_BASE}/preview`, formData);
             state.groups = data.groups || [];
-            state.options = data.options || state.options;
+            state.options = Object.assign({}, state.options, data.options || {});
             normalizeDeliveryHandlerSelections();
             initializeRowImages();
             state.previewLoaded = true;
@@ -198,7 +206,10 @@
         if (siteValue) els.siteMethod.value = siteValue;
     }
 
-    function renderPreview() {
+    function renderPreview(options) {
+        const renderOptions = options || {};
+        const scrollState = renderOptions.preserveScroll ? capturePreviewScrollState() : null;
+
         if (!state.groups.length) {
             els.empty.classList.remove('d-none');
             els.previewWrap.classList.add('d-none');
@@ -214,6 +225,72 @@
         els.previewWrap.innerHTML = state.groups.map(renderGroup).join('');
         refreshImagePasteTargetUi();
         updateSummary();
+
+        if (scrollState) {
+            restorePreviewScrollState(scrollState);
+        }
+    }
+
+    /**
+     * 미리보기는 상태 변경 때 tbody 일부만 바꾸는 방식이 아니라 전체 HTML을 다시 그립니다.
+     * 따라서 이미지 추가/삭제 직전에 현재 페이지와 Task별 테이블 스크롤 위치를 저장합니다.
+     */
+    function capturePreviewScrollState() {
+        const tableScrolls = [];
+
+        if (els.previewWrap) {
+            els.previewWrap.querySelectorAll('.order-excel-group[data-group-index]').forEach(groupElement => {
+                const tableWrap = groupElement.querySelector('.order-excel-table-wrap');
+                if (!tableWrap) return;
+
+                tableScrolls.push({
+                    groupIndex: Number(groupElement.dataset.groupIndex),
+                    scrollLeft: tableWrap.scrollLeft,
+                    scrollTop: tableWrap.scrollTop
+                });
+            });
+        }
+
+        return {
+            windowX: window.scrollX || window.pageXOffset || 0,
+            windowY: window.scrollY || window.pageYOffset || 0,
+            previewScrollLeft: els.previewWrap ? els.previewWrap.scrollLeft : 0,
+            previewScrollTop: els.previewWrap ? els.previewWrap.scrollTop : 0,
+            tableScrolls
+        };
+    }
+
+    /**
+     * 전체 재렌더링 직후 같은 Task의 내부 가로/세로 스크롤과 페이지 위치를 복원합니다.
+     * 두 번의 animation frame에 걸쳐 복원해 썸네일 DOM 반영으로 인한 위치 흔들림도 막습니다.
+     */
+    function restorePreviewScrollState(scrollState) {
+        if (!scrollState) return;
+
+        const applyScrollState = function () {
+            if (els.previewWrap) {
+                els.previewWrap.scrollLeft = Number(scrollState.previewScrollLeft || 0);
+                els.previewWrap.scrollTop = Number(scrollState.previewScrollTop || 0);
+            }
+
+            (scrollState.tableScrolls || []).forEach(item => {
+                if (!Number.isFinite(item.groupIndex) || !els.previewWrap) return;
+
+                const groupElement = els.previewWrap.querySelector(`.order-excel-group[data-group-index="${item.groupIndex}"]`);
+                const tableWrap = groupElement ? groupElement.querySelector('.order-excel-table-wrap') : null;
+                if (!tableWrap) return;
+
+                tableWrap.scrollLeft = Number(item.scrollLeft || 0);
+                tableWrap.scrollTop = Number(item.scrollTop || 0);
+            });
+
+            window.scrollTo(Number(scrollState.windowX || 0), Number(scrollState.windowY || 0));
+        };
+
+        window.requestAnimationFrame(() => {
+            applyScrollState();
+            window.requestAnimationFrame(applyScrollState);
+        });
     }
 
     function renderGroup(group, groupIndex) {
@@ -686,6 +763,16 @@
         `).join('') || `<option value="분류없음" selected>분류없음</option>`;
     }
 
+    function getMaxImageFileSizeBytes() {
+        const value = Number(state.options && state.options.imageMaxFileSizeBytes);
+        return Number.isFinite(value) && value > 0 ? value : DEFAULT_MAX_IMAGE_FILE_SIZE_BYTES;
+    }
+
+    function getMaxTotalImageSizeBytes() {
+        const value = Number(state.options && state.options.imageMaxTotalSizeBytes);
+        return Number.isFinite(value) && value > 0 ? value : DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES;
+    }
+
     function renderRowImages(groupIndex, rowIndex, row) {
         ensureRowImageState(row);
         const images = row.images || [];
@@ -694,6 +781,7 @@
                 ${images.map(image => `
                     <div class="order-excel-image-thumb" title="${escapeHtml(image.name || '')}">
                         <img src="${image.url}" alt="${escapeHtml(image.name || '업로드 이미지')}">
+                        <div class="order-excel-image-size">${escapeHtml(formatFileSize(image.size || 0))}</div>
                         <button type="button" class="order-excel-image-remove" data-action="remove-image" data-group-index="${groupIndex}" data-row-index="${rowIndex}" data-image-id="${image.id}" aria-label="이미지 삭제">×</button>
                     </div>
                 `).join('')}
@@ -702,10 +790,10 @@
 
         return `
             <div class="order-excel-image-drop" tabindex="0" role="button" aria-label="이미지 업로드 영역. 파일 선택, 드래그 앤 드롭, 컨트롤 브이 붙여넣기로 이미지를 추가할 수 있습니다." data-group-index="${groupIndex}" data-row-index="${rowIndex}">
-                <input type="file" class="order-excel-image-input" accept="image/*" multiple data-group-index="${groupIndex}" data-row-index="${rowIndex}">
+                <input type="file" class="order-excel-image-input" accept=".jpg,.jpeg,.jfif,.png,.gif,.webp,.bmp,image/jpeg,image/png,image/gif,image/webp,image/bmp" multiple data-group-index="${groupIndex}" data-row-index="${rowIndex}">
                 <button type="button" class="btn btn-sm btn-outline-primary order-excel-image-add-btn" data-action="open-image-picker" data-group-index="${groupIndex}" data-row-index="${rowIndex}">이미지 추가</button>
-                <div class="order-excel-image-help">드래그 · 파일선택 · Ctrl+V 붙여넣기</div>
-                <div class="order-excel-image-paste-hint">영역 위에 마우스를 올리거나 클릭한 뒤 이미지를 붙여넣을 수 있습니다.</div>
+                <div class="order-excel-image-help">드래그 · 파일선택 · Ctrl+V · 파일당 최대 ${formatFileSize(getMaxImageFileSizeBytes())}</div>
+                <div class="order-excel-image-paste-hint">jpg, jpeg, jfif, png, gif, webp, bmp만 가능하며 전체 첨부는 ${formatFileSize(getMaxTotalImageSizeBytes())} 이하입니다.</div>
                 ${imageList}
             </div>
         `;
@@ -863,7 +951,7 @@
 
         if (action === 'remove-image') {
             removeRowImage(Number(button.dataset.groupIndex), Number(button.dataset.rowIndex), button.dataset.imageId);
-            renderPreview();
+            renderPreview({ preserveScroll: true });
             return;
         }
 
@@ -1099,6 +1187,12 @@
             return;
         }
 
+        const imageValidation = validateSelectedImagesForSave(payload);
+        if (!imageValidation.valid) {
+            showMessage(imageValidation.message, 'danger');
+            return;
+        }
+
         const invalidAddress = findFirstInvalidActiveAddress(payload.groups);
         if (invalidAddress) {
             const stateGroup = state.groups.find(group => String(group.groupNo) === String(invalidAddress.group.groupNo));
@@ -1125,7 +1219,10 @@
             return;
         }
 
-        if (!confirm(`${payload.groups.length}개 Task / ${activeOrderCount}개 Order를 저장하시겠습니까?`)) {
+        const imageConfirmText = imageValidation.imageCount > 0
+            ? ` / 이미지 ${imageValidation.imageCount}개 (${formatFileSize(imageValidation.totalImageSize)})`
+            : '';
+        if (!confirm(`${payload.groups.length}개 Task / ${activeOrderCount}개 Order${imageConfirmText}를 저장하시겠습니까?`)) {
             return;
         }
 
@@ -1140,14 +1237,26 @@
                 return;
             }
 
-            showMessage(`${response.message} Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`, 'success');
+            const completedMessage = `${response.message || '엑셀 발주 등록이 완료되었습니다.'}
+Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
+            showMessage(completedMessage.replace('\n', ' · '), 'success');
+
+            // 완료 확인창이 로딩 오버레이 뒤에 가리지 않도록 먼저 저장 상태를 해제합니다.
+            setSaving(false);
+            window.alert(completedMessage);
+
+            // 호스트/포트를 고정하지 않아 로컬, 테스트, 운영에서 모두 현재 서버의 초기 화면으로 이동합니다.
+            window.location.replace(ORDER_EXCEL_UPLOAD_PAGE_URL);
+            return;
         } catch (error) {
             if (error.payload && error.payload.issues) {
                 renderSaveIssues(error.payload.issues);
             }
             showMessage(error.message || '저장에 실패했습니다.', 'danger');
         } finally {
-            setSaving(false);
+            if (state.saving) {
+                setSaving(false);
+            }
         }
     }
 
@@ -1793,9 +1902,10 @@
         if (target) {
             setSelectedImagePasteTarget(target);
         }
-        addFilesToRow(Number(input.dataset.groupIndex), Number(input.dataset.rowIndex), input.files);
+        const result = addFilesToRow(Number(input.dataset.groupIndex), Number(input.dataset.rowIndex), input.files);
         input.value = '';
-        renderPreview();
+        renderPreview({ preserveScroll: true });
+        notifyImageAddResult(result);
     }
 
     function handleImageDragOver(event) {
@@ -1819,8 +1929,9 @@
         drop.classList.remove('is-dragover');
         const target = getImagePasteTargetFromDrop(drop);
         setSelectedImagePasteTarget(target);
-        addFilesToRow(target.groupIndex, target.rowIndex, event.dataTransfer.files);
-        renderPreview();
+        const result = addFilesToRow(target.groupIndex, target.rowIndex, event.dataTransfer.files);
+        renderPreview({ preserveScroll: true });
+        notifyImageAddResult(result);
     }
 
     function handleImagePaste(event) {
@@ -1838,8 +1949,9 @@
 
         event.preventDefault();
         setSelectedImagePasteTarget(target);
-        addFilesToRow(target.groupIndex, target.rowIndex, imageFiles);
-        renderPreview();
+        const result = addFilesToRow(target.groupIndex, target.rowIndex, imageFiles);
+        renderPreview({ preserveScroll: true });
+        notifyImageAddResult(result);
     }
 
     function resolveImagePasteTarget(event) {
@@ -1977,11 +2089,51 @@
     }
 
     function addFilesToRow(groupIndex, rowIndex, fileList) {
+        const result = { addedCount: 0, rejectedMessages: [], capacityExceeded: false };
         const row = getRow(groupIndex, rowIndex);
-        if (!row || !fileList || !fileList.length) return;
+        if (!row || !fileList || !fileList.length) {
+            return result;
+        }
+
         ensureRowImageState(row, groupIndex, rowIndex);
-        Array.from(fileList).forEach(file => {
-            if (!file || !file.type || !file.type.startsWith('image/')) return;
+        const candidates = [];
+
+        for (const file of Array.from(fileList)) {
+            const validation = validateImageFile(file);
+            if (!validation.valid) {
+                result.rejectedMessages.push(validation.message);
+                continue;
+            }
+
+            const duplicated = row.images.some(image => {
+                return image && image.file
+                    && String(image.name || '') === String(file.name || '')
+                    && Number(image.size || 0) === Number(file.size || 0)
+                    && Number(image.file.lastModified || 0) === Number(file.lastModified || 0);
+            });
+            if (duplicated) {
+                result.rejectedMessages.push(`${file.name || '이미지'}: 이미 같은 파일이 첨부되어 있습니다.`);
+                continue;
+            }
+            candidates.push(file);
+        }
+
+        const currentStats = getSelectedImageStats();
+        const candidateSize = row.saveTarget === false
+            ? 0
+            : candidates.reduce((sum, file) => sum + Number(file.size || 0), 0);
+        const maxTotalSize = getMaxTotalImageSizeBytes();
+        const projectedTotalSize = currentStats.totalSize + candidateSize;
+
+        if (projectedTotalSize > maxTotalSize) {
+            result.capacityExceeded = true;
+            result.rejectedMessages.push(
+                `이미지를 추가하면 전체 최대 용량을 초과합니다. 현재 ${formatFileSize(currentStats.totalSize)} + 선택 ${formatFileSize(candidateSize)} = ${formatFileSize(projectedTotalSize)} / 최대 ${formatFileSize(maxTotalSize)}입니다.`
+            );
+            return result;
+        }
+
+        candidates.forEach(file => {
             row.images.push({
                 id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
                 file,
@@ -1989,8 +2141,106 @@
                 size: file.size,
                 url: URL.createObjectURL(file)
             });
+            result.addedCount += 1;
         });
+
         row.imageCount = row.images.length;
+        return result;
+    }
+
+    function validateImageFile(file) {
+        if (!file) {
+            return { valid: false, message: '비어 있는 파일은 첨부할 수 없습니다.' };
+        }
+
+        const filename = String(file.name || '이미지').trim();
+        const extension = getFileExtension(filename);
+        const contentType = String(file.type || '').trim().toLowerCase();
+        const extensionAllowed = ALLOWED_IMAGE_EXTENSIONS.has(extension);
+        const mimeAllowed = [
+            'image/jpeg', 'image/jpg', 'image/jfif', 'image/pjpeg', 'image/png', 'image/gif',
+            'image/webp', 'image/bmp', 'image/x-ms-bmp'
+        ].includes(contentType);
+
+        const invalidDeclaredMime = contentType && contentType !== 'application/octet-stream' && !mimeAllowed;
+        if ((!extensionAllowed && !mimeAllowed) || invalidDeclaredMime) {
+            return {
+                valid: false,
+                message: `${filename}: jpg, jpeg, jfif, png, gif, webp, bmp 이미지 파일만 첨부할 수 있습니다.`
+            };
+        }
+
+        if (!Number.isFinite(Number(file.size)) || Number(file.size) <= 0) {
+            return { valid: false, message: `${filename}: 파일 내용이 비어 있습니다.` };
+        }
+
+        const maxFileSize = getMaxImageFileSizeBytes();
+        if (Number(file.size) > maxFileSize) {
+            return {
+                valid: false,
+                message: `${filename}: 파일당 최대 용량을 초과했습니다. 현재 ${formatFileSize(file.size)} / 최대 ${formatFileSize(maxFileSize)}입니다.`
+            };
+        }
+
+        return { valid: true, message: '' };
+    }
+
+    function validateSelectedImagesForSave(payload) {
+        let imageCount = 0;
+        let totalImageSize = 0;
+
+        for (const group of state.groups || []) {
+            for (const row of group.rows || []) {
+                if (row.saveTarget === false || !Array.isArray(row.images)) {
+                    continue;
+                }
+
+                for (const image of row.images) {
+                    if (!image || !image.file) {
+                        continue;
+                    }
+                    const validation = validateImageFile(image.file);
+                    if (!validation.valid) {
+                        return {
+                            valid: false,
+                            message: `Task ${group.groupNo} · 엑셀 ${row.excelRowNumber || '-'}행 이미지 오류: ${validation.message}`,
+                            imageCount,
+                            totalImageSize
+                        };
+                    }
+                    imageCount += 1;
+                    totalImageSize += Number(image.file.size || 0);
+                }
+            }
+        }
+
+        const maxTotalSize = getMaxTotalImageSizeBytes();
+        if (totalImageSize > maxTotalSize) {
+            return {
+                valid: false,
+                message: `저장 대상 이미지 전체 용량이 최대값을 초과했습니다. 현재 ${formatFileSize(totalImageSize)} / 최대 ${formatFileSize(maxTotalSize)}입니다.`,
+                imageCount,
+                totalImageSize
+            };
+        }
+
+        return { valid: true, message: '', imageCount, totalImageSize };
+    }
+
+    function notifyImageAddResult(result) {
+        if (!result || !Array.isArray(result.rejectedMessages) || !result.rejectedMessages.length) {
+            return;
+        }
+        const addedText = result.addedCount > 0 ? `이미지 ${result.addedCount}개는 추가되었고, ` : '';
+        const message = `${addedText}${result.rejectedMessages.join(' ')}`;
+        showMessage(message, result.capacityExceeded ? 'danger' : 'warning');
+        window.alert(message);
+    }
+
+    function getFileExtension(filename) {
+        const value = String(filename || '').trim().toLowerCase();
+        const dotIndex = value.lastIndexOf('.');
+        return dotIndex >= 0 && dotIndex < value.length - 1 ? value.substring(dotIndex + 1) : '';
     }
 
     function removeRowImage(groupIndex, rowIndex, imageId) {
@@ -2011,7 +2261,8 @@
 
     function buildSaveFormData(payload) {
         const formData = new FormData();
-        formData.append('payload', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+        const payloadJson = JSON.stringify(payload);
+        formData.append('payload', new Blob([payloadJson], { type: 'application/json' }), 'payload.json');
         state.groups.forEach(group => {
             (group.rows || []).forEach(row => {
                 if (row.saveTarget === false || !row.imageKey || !Array.isArray(row.images)) return;
@@ -2063,20 +2314,52 @@
         renderPreview();
     }
 
+    function getSelectedImageStats() {
+        let count = 0;
+        let totalSize = 0;
+        (state.groups || []).forEach(group => {
+            (group.rows || []).forEach(row => {
+                if (row.saveTarget === false || !Array.isArray(row.images)) return;
+                row.images.forEach(image => {
+                    if (!image || !image.file) return;
+                    count += 1;
+                    totalSize += Number(image.file.size || 0);
+                });
+            });
+        });
+        return { count, totalSize };
+    }
+
     function updateSummary() {
         const groupCount = state.groups.length;
         const rowCount = state.groups.reduce((sum, group) => sum + (group.rows || []).length, 0);
         const activeCount = state.groups.reduce((sum, group) => sum + (group.rows || []).filter(row => row.saveTarget !== false).length, 0);
         const total = state.groups.reduce((sum, group) => sum + getGroupTotal(group), 0);
         const errorCount = countErrors();
+        const imageStats = getSelectedImageStats();
+        const maxTotalImageSize = getMaxTotalImageSizeBytes();
+        const imageExceeded = imageStats.totalSize > maxTotalImageSize;
+        const imageText = imageStats.count > 0
+            ? ` / 이미지 ${imageStats.count}개 (${formatFileSize(imageStats.totalSize)})`
+            : '';
 
         els.previewSummary.textContent = groupCount
-            ? `Task ${groupCount}건 / Order ${rowCount}건 / 저장대상 ${activeCount}건 / ${formatCurrency(total)}`
+            ? `Task ${groupCount}건 / Order ${rowCount}건 / 저장대상 ${activeCount}건${imageText} / ${formatCurrency(total)}`
             : '미리보기 없음';
 
         els.footerSummary.textContent = errorCount
             ? `오류 ${errorCount}건 확인 필요 · 저장대상 ${activeCount}건 · 총액 ${formatCurrency(total)}`
             : `저장대상 ${activeCount}건 · 총액 ${formatCurrency(total)}`;
+
+        if (els.imageSizeSummary) {
+            els.imageSizeSummary.textContent = `이미지 ${imageStats.count}개 · ${formatFileSize(imageStats.totalSize)} / ${formatFileSize(maxTotalImageSize)}`;
+            els.imageSizeSummary.classList.toggle('is-over-limit', imageExceeded);
+            els.imageSizeSummary.setAttribute('title', `파일당 최대 ${formatFileSize(getMaxImageFileSizeBytes())} · 전체 최대 ${formatFileSize(maxTotalImageSize)}`);
+        }
+
+        if (els.saveBtn && !state.saving) {
+            els.saveBtn.disabled = imageExceeded;
+        }
     }
 
     function getGroupTotal(group) {
@@ -2271,6 +2554,15 @@
         return `${formatNumber(value)}원`;
     }
 
+    function formatFileSize(bytes) {
+        const size = Number(bytes || 0);
+        if (!Number.isFinite(size) || size <= 0) return '0 B';
+        if (size < 1024) return `${Math.round(size)} B`;
+        if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+        if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+        return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`;
+    }
+
     function showMessage(message, type) {
         els.message.className = `alert alert-${type || 'info'}`;
         els.message.textContent = message;
@@ -2292,7 +2584,10 @@
         state.saving = saving;
         els.saveBtn.disabled = saving;
         els.saveBtn.textContent = saving ? '저장 중...' : '수정 내용 저장';
-        setPageLoading(saving, '엑셀 발주 등록 중입니다.', 'Task, Order, 이미지, 배송담당자 인덱스를 저장하고 있습니다.');
+        setPageLoading(saving, '엑셀 발주 등록 중입니다.', 'Task, Order, 이미지, 배송담당자 인덱스를 저장하고 있습니다. 대용량 이미지가 많으면 시간이 오래 걸릴 수 있습니다.');
+        if (!saving) {
+            updateSummary();
+        }
     }
 
     function setPageLoading(loading, title, desc) {
@@ -2327,15 +2622,55 @@
 
     async function handleFetchResponse(response) {
         const contentType = response.headers.get('content-type') || '';
-        const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+        const rawText = await response.text();
+        let payload = null;
+
+        if (rawText) {
+            try {
+                payload = JSON.parse(rawText);
+            } catch (parseError) {
+                payload = rawText;
+            }
+        }
 
         if (!response.ok) {
-            const error = new Error(payload && payload.message ? payload.message : '요청 처리 중 오류가 발생했습니다.');
-            error.payload = payload;
+            const error = new Error(extractResponseErrorMessage(response.status, payload));
+            error.payload = payload && typeof payload === 'object' ? payload : null;
+            error.status = response.status;
             throw error;
         }
 
-        return payload;
+        if (contentType.includes('application/json') && rawText && (payload == null || typeof payload !== 'object')) {
+            throw new Error('서버 JSON 응답을 해석하지 못했습니다. 서버 로그를 확인해 주세요.');
+        }
+
+        return payload == null ? {} : payload;
+    }
+
+    function extractResponseErrorMessage(status, payload) {
+        if (payload && typeof payload === 'object') {
+            const message = payload.message || payload.detail || payload.error || payload.title;
+            if (message) {
+                return String(message);
+            }
+        }
+
+        if (status === 413) {
+            return '첨부 이미지 용량이 서버 허용 범위를 초과했습니다. 파일 크기를 줄이거나 첨부 수를 나누어 주세요.';
+        }
+        if (status === 400) {
+            return '전송한 발주 데이터 또는 첨부 파일 형식이 올바르지 않습니다.';
+        }
+        if (status === 401) {
+            return '로그인 정보가 만료되었습니다. 다시 로그인한 뒤 저장해 주세요.';
+        }
+        if (status === 403) {
+            return '엑셀 발주를 저장할 권한이 없습니다.';
+        }
+        if (status >= 500) {
+            return '서버에서 엑셀 발주 저장 중 오류가 발생했습니다. 서버 로그를 확인해 주세요.';
+        }
+        return `요청 처리 중 오류가 발생했습니다. (HTTP ${status})`;
     }
 
     function escapeHtml(value) {

@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.orderExcelUpload.api;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +32,9 @@ import com.dev.HiddenBATHAuto.orderExcelUpload.service.OrderExcelUploadService;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelUploadValidationException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/management/api/order-excel-upload")
 @RequiredArgsConstructor
@@ -61,6 +64,8 @@ public class OrderExcelUploadApiController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new OrderExcelErrorResponse(false, e.getMessage(), List.of()));
         } catch (Exception e) {
+            log.error("등록주소지 조회 중 오류가 발생했습니다. companyId={}, businessNumber={}, companyName={}",
+                    companyId, businessNumber, companyName, e);
             return ResponseEntity.internalServerError().body(
                     new OrderExcelErrorResponse(false, "등록주소지 조회 중 오류가 발생했습니다.", List.of())
             );
@@ -75,6 +80,7 @@ public class OrderExcelUploadApiController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new OrderExcelErrorResponse(false, e.getMessage(), List.of()));
         } catch (Exception e) {
+            log.error("주소 검증 중 오류가 발생했습니다.", e);
             return ResponseEntity.internalServerError().body(
                     new OrderExcelErrorResponse(false, "주소 검증 중 오류가 발생했습니다.", List.of())
             );
@@ -91,6 +97,7 @@ public class OrderExcelUploadApiController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new OrderExcelErrorResponse(false, e.getMessage(), List.of()));
         } catch (Exception e) {
+            log.error("배송 담당자 자동배정 중 오류가 발생했습니다.", e);
             return ResponseEntity.internalServerError().body(
                     new OrderExcelErrorResponse(false, "배송 담당자 자동배정 중 오류가 발생했습니다.", List.of())
             );
@@ -109,6 +116,10 @@ public class OrderExcelUploadApiController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new OrderExcelErrorResponse(false, e.getMessage(), java.util.List.of()));
         } catch (Exception e) {
+            log.error("엑셀 미리보기 중 오류가 발생했습니다. filename={}, size={}",
+                    file == null ? null : file.getOriginalFilename(),
+                    file == null ? null : file.getSize(),
+                    e);
             return ResponseEntity.internalServerError().body(new OrderExcelErrorResponse(false, "엑셀 미리보기 중 오류가 발생했습니다.", java.util.List.of()));
         }
     }
@@ -119,17 +130,28 @@ public class OrderExcelUploadApiController {
             MultipartHttpServletRequest multipartRequest,
             Authentication authentication
     ) {
+        String username = resolveUsername(authentication);
         try {
-            Map<String, List<MultipartFile>> imageMap = multipartRequest == null
-                    ? Map.of()
-                    : multipartRequest.getMultiFileMap();
-            OrderExcelSaveResponse response = uploadService.save(request, imageMap, resolveUsername(authentication));
+            Map<String, List<MultipartFile>> imageMap = extractImageFiles(multipartRequest);
+            OrderExcelSaveResponse response = uploadService.save(request, imageMap, username);
             return ResponseEntity.ok(response);
         } catch (OrderExcelUploadValidationException e) {
             return ResponseEntity.badRequest().body(new OrderExcelSaveResponse(false, e.getMessage(), 0, 0, java.util.List.of(), e.getIssues()));
         } catch (IllegalArgumentException e) {
+            log.warn("엑셀 발주 저장 요청이 거절되었습니다. username={}, message={}", username, e.getMessage());
             return ResponseEntity.badRequest().body(new OrderExcelSaveResponse(false, e.getMessage(), 0, 0, java.util.List.of(), java.util.List.of()));
+        } catch (StackOverflowError e) {
+            log.error("엑셀 발주 저장 중 JPA 연관 엔티티 hashCode 순환이 발생했습니다. username={}", username, e);
+            return ResponseEntity.internalServerError().body(new OrderExcelSaveResponse(
+                    false,
+                    "발주 엔티티 연관관계 처리 중 오류가 발생했습니다. Order/OrderItem/Task/TeamCategory 엔티티 수정 파일이 모두 반영되었는지 확인해 주세요.",
+                    0,
+                    0,
+                    java.util.List.of(),
+                    java.util.List.of()
+            ));
         } catch (Exception e) {
+            log.error("엑셀 발주 저장 중 오류가 발생했습니다. username={}", username, e);
             return ResponseEntity.internalServerError().body(new OrderExcelSaveResponse(false, "엑셀 발주 저장 중 오류가 발생했습니다.", 0, 0, java.util.List.of(), java.util.List.of()));
         }
     }
@@ -142,17 +164,45 @@ public class OrderExcelUploadApiController {
             @RequestBody OrderExcelSaveRequest request,
             Authentication authentication
     ) {
+        String username = resolveUsername(authentication);
         try {
-            OrderExcelSaveResponse response = uploadService.save(request, Map.of(), resolveUsername(authentication));
+            OrderExcelSaveResponse response = uploadService.save(request, Map.of(), username);
             return ResponseEntity.ok(response);
         } catch (OrderExcelUploadValidationException e) {
             return ResponseEntity.badRequest().body(new OrderExcelSaveResponse(false, e.getMessage(), 0, 0, java.util.List.of(), e.getIssues()));
         } catch (IllegalArgumentException e) {
+            log.warn("엑셀 발주 JSON 저장 요청이 거절되었습니다. username={}, message={}", username, e.getMessage());
             return ResponseEntity.badRequest().body(new OrderExcelSaveResponse(false, e.getMessage(), 0, 0, java.util.List.of(), java.util.List.of()));
+        } catch (StackOverflowError e) {
+            log.error("엑셀 발주 JSON 저장 중 JPA 연관 엔티티 hashCode 순환이 발생했습니다. username={}", username, e);
+            return ResponseEntity.internalServerError().body(new OrderExcelSaveResponse(
+                    false,
+                    "발주 엔티티 연관관계 처리 중 오류가 발생했습니다. Order/OrderItem/Task/TeamCategory 엔티티 수정 파일이 모두 반영되었는지 확인해 주세요.",
+                    0,
+                    0,
+                    java.util.List.of(),
+                    java.util.List.of()
+            ));
         } catch (Exception e) {
+            log.error("엑셀 발주 JSON 저장 중 오류가 발생했습니다. username={}", username, e);
             return ResponseEntity.internalServerError().body(new OrderExcelSaveResponse(false, "엑셀 발주 저장 중 오류가 발생했습니다.", 0, 0, java.util.List.of(), java.util.List.of()));
         }
     }
+
+    private Map<String, List<MultipartFile>> extractImageFiles(MultipartHttpServletRequest multipartRequest) {
+        if (multipartRequest == null) {
+            return Map.of();
+        }
+
+        Map<String, List<MultipartFile>> imageMap = new LinkedHashMap<>();
+        multipartRequest.getMultiFileMap().forEach((partName, files) -> {
+            if (partName != null && partName.startsWith("images_") && files != null && !files.isEmpty()) {
+                imageMap.put(partName, List.copyOf(files));
+            }
+        });
+        return imageMap;
+    }
+
     private String resolveUsername(Authentication authentication) {
         if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
             return null;

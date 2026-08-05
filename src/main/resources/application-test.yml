@@ -1,9 +1,8 @@
-# application-test.yml - 프로젝트에 존재
 spring:
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
 #    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
-    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
     username: root
     password: 'hidden3660!@'
     hikari:
@@ -48,6 +47,11 @@ security:
     secure-cookie: false
 
 app:
+  order-excel-upload:
+    image:
+      max-file-size-bytes: 524288000
+      max-total-size-bytes: 1073741824
+
   order-notification:
     enabled: true
     notify-actor: false
