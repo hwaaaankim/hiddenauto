@@ -3,6 +3,8 @@ package com.dev.HiddenBATHAuto.model.task;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.hibernate.Hibernate;
+
 import com.dev.HiddenBATHAuto.model.auth.Member;
 
 import jakarta.persistence.CascadeType;
@@ -18,31 +20,31 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 @Entity
 @Table(name = "tb_task")
-@Data
+@Getter
+@Setter
+@ToString(onlyExplicitlyIncluded = true)
 public class Task {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @ToString.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     private Member requestedBy;
 
-    /**
-     * 우리회사측 발주 등록/관리 담당자입니다.
-     *
-     * DB 컬럼은 nullable/default null 로 먼저 추가합니다.
-     * 그래야 서버 코드 배포 전에 DB를 먼저 반영해도 기존 발주 등록 로직이 실패하지 않습니다.
-     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "managed_by_id", nullable = true)
     private Member managedBy;
 
     @Enumerated(EnumType.STRING)
-    private TaskStatus status = TaskStatus.REQUESTED; // 요청 후 기본값
+    private TaskStatus status = TaskStatus.REQUESTED;
 
     @Column(name = "total_price")
     private int totalPrice;
@@ -58,4 +60,21 @@ public class Task {
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
     private List<TaskHistory> historyLogs;
+
+    @Override
+    public final boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || Hibernate.getClass(this) != Hibernate.getClass(other)) {
+            return false;
+        }
+        Task that = (Task) other;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public final int hashCode() {
+        return Hibernate.getClass(this).hashCode();
+    }
 }

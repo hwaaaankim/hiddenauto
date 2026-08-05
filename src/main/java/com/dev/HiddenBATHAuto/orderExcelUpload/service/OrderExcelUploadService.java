@@ -385,6 +385,10 @@ public class OrderExcelUploadService {
         Map<String, Integer> deliveryIndexCache = new HashMap<>();
         Map<String, List<MultipartFile>> safeImageMap = imageFilesByKey == null ? Map.of() : imageFilesByKey;
 
+        // DB 저장을 시작하기 전에 파일 형식, 파일당 용량, 전체 누적 용량을 한 번에 검증합니다.
+        // 오류가 있는 경우 Task/Order를 만들기 전에 종료합니다.
+        imageStorageService.validateManagementImages(safeImageMap);
+
         for (OrderExcelSaveGroupRequest groupRequest : request.getGroups()) {
             List<OrderExcelSaveRowRequest> rows = activeRows(groupRequest);
             if (rows.isEmpty()) {
@@ -495,8 +499,11 @@ public class OrderExcelUploadService {
                 // order.id 확보를 위해 먼저 Order를 저장한 뒤 이미지를 연결합니다.
                 order = orderRepository.save(order);
                 attachImages(order, rowRequest, safeImageMap);
-                order = orderRepository.save(order);
 
+                // order는 현재 트랜잭션의 managed 엔티티이며, 이미지 엔티티는
+                // OrderExcelUploadImageStorageService에서 명시적으로 saveAll 합니다.
+                // 이미지를 붙인 뒤 orderRepository.save(order)를 다시 호출하면 merge 과정에서
+                // 기존 Lombok 연관관계 hashCode 순환이 재현될 수 있으므로 두 번째 save를 하지 않습니다.
                 if (deliveryHandler != null) {
                     registerDeliveryOrderIndex(order, deliveryHandler, deliveryDate, deliveryIndexCache);
                 }
