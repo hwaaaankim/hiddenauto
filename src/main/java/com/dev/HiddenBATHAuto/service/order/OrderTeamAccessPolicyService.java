@@ -1,7 +1,9 @@
 package com.dev.HiddenBATHAuto.service.order;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -9,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
@@ -27,6 +30,15 @@ public class OrderTeamAccessPolicyService {
     private static final String PRODUCTION_TEAM = "생산팀";
     private static final String DELIVERY_TEAM = "배송팀";
     private static final String DISPATCH_TEAM = "출고팀";
+
+    /*
+     * 생산 실무상 거울과 LED거울은 동일 작업 그룹입니다.
+     * DB의 TeamCategory는 분리된 상태를 유지하되 생산 변경 권한만 상호 허용합니다.
+     */
+    private static final Set<String> MIRROR_EQUIVALENT_CATEGORY_KEYS = Set.of(
+            "거울",
+            "led거울"
+    );
 
     private static final List<OrderStatus> PRODUCTION_VISIBLE_STATUSES = List.of(
             OrderStatus.CONFIRMED,
@@ -59,13 +71,33 @@ public class OrderTeamAccessPolicyService {
     }
 
     /**
-     * 생산 변경은 재단 계열을 제외하고 로그인 사용자의 TeamCategory와 오더 카테고리가 같을 때만 허용합니다.
+     * 생산 변경은 재단 계열을 제외하고 동일 TeamCategory에 허용하며, 거울과 LED거울은 동일 작업 그룹으로 봅니다.
      */
     public boolean canOperateProductionOrder(Member member, Order order) {
         if (!canViewProductionOrder(member, order) || isCuttingProductionMember(member)) return false;
-        if (member.getTeamCategory() == null || member.getTeamCategory().getId() == null) return false;
-        if (order.getProductCategory() == null || order.getProductCategory().getId() == null) return false;
-        return Objects.equals(member.getTeamCategory().getId(), order.getProductCategory().getId());
+        return canOperateProductionCategory(member, order.getProductCategory());
+    }
+
+    /**
+     * 생산 카테고리 작업 가능 여부를 판정합니다.
+     * 기본은 동일 TeamCategory만 허용하고, 거울과 LED거울만 동일 작업 그룹으로 상호 허용합니다.
+     */
+    public boolean canOperateProductionCategory(Member member, TeamCategory orderCategory) {
+        if (!isTeam(member, PRODUCTION_TEAM) || isCuttingProductionMember(member)) return false;
+
+        TeamCategory memberCategory = member.getTeamCategory();
+        if (memberCategory == null || memberCategory.getId() == null) return false;
+        if (orderCategory == null || orderCategory.getId() == null) return false;
+
+        if (Objects.equals(memberCategory.getId(), orderCategory.getId())) {
+            return true;
+        }
+
+        String memberCategoryKey = normalizeCategoryKey(memberCategory.getName());
+        String orderCategoryKey = normalizeCategoryKey(orderCategory.getName());
+
+        return MIRROR_EQUIVALENT_CATEGORY_KEYS.contains(memberCategoryKey)
+                && MIRROR_EQUIVALENT_CATEGORY_KEYS.contains(orderCategoryKey);
     }
 
     /** 배송팀은 현재 자신에게 배정된 오더만 조회·조작할 수 있습니다. */
@@ -110,7 +142,7 @@ public class OrderTeamAccessPolicyService {
 
     public void assertCanOperateProduction(Member actor, Order order) {
         if (!canOperateProductionOrder(actor, order)) {
-            throw new AccessDeniedException("자신의 생산 카테고리에 속한 발주만 생산완료 처리할 수 있습니다.");
+            throw new AccessDeniedException("자신의 생산 카테고리 또는 거울·LED거울 공통 작업 그룹의 발주만 생산완료 처리할 수 있습니다.");
         }
     }
 
@@ -126,6 +158,12 @@ public class OrderTeamAccessPolicyService {
                 && member.isEnabled()
                 && member.getTeam() != null
                 && teamName.equals(normalize(member.getTeam().getName()));
+    }
+
+    private String normalizeCategoryKey(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) return null;
+        return normalized.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
     }
 
     private String normalize(String value) {

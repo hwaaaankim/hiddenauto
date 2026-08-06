@@ -1244,10 +1244,18 @@
 		try {
 			const result = await requestProductionComplete(order.id);
 			applyProductionCompleted(result);
-			alert(toText(result && result.message) || '생산완료 처리되었습니다.');
+
+			// 공통 완료 처리에서 로딩/완료 안내를 표시합니다.
+			// 공통 스크립트가 없는 구형 화면에서만 기존 alert를 유지합니다.
+			if (!window.TeamActionFeedback) {
+				alert(toText(result && result.message) || '생산완료 처리되었습니다.');
+			}
 		} catch (error) {
 			console.error(error);
-			alert(error && error.message ? error.message : '생산완료 처리 중 오류가 발생했습니다.');
+
+			if (!window.TeamActionFeedback) {
+				alert(error && error.message ? error.message : '생산완료 처리 중 오류가 발생했습니다.');
+			}
 		} finally {
 			state.completeBusyOrderIds.delete(orderId);
 			updateListCardCompletionUi(orderIndex, button);

@@ -245,6 +245,12 @@
 		}
 
 		pendingSingleCompleteIds.add(id);
+		const feedback = window.TeamActionFeedback || null;
+		const feedbackToken = feedback ? feedback.begin({
+			title: id + '번 오더 생산완료 처리 중',
+			message: '발주 상태와 생산 담당자, 알림 내역을 반영하고 있습니다.',
+			detail: '처리가 끝날 때까지 현재 화면을 유지해 주세요.'
+		}) : null;
 
 		try {
 			const response = await fetch(buildSingleCompleteUrl(id), {
@@ -263,7 +269,24 @@
 			applyCompletedStateToPage(result);
 			dispatchCompletedEvent(result);
 
+			if (feedback) {
+				await feedback.success({
+					title: id + '번 오더 생산완료',
+					message: result.message || '생산완료 처리되었습니다.',
+					detail: '현재 화면에 변경된 상태를 반영했습니다.'
+				}, feedbackToken);
+			}
+
 			return result;
+		} catch (error) {
+			if (feedback) {
+				await feedback.error({
+					title: '생산완료 처리 실패',
+					message: error && error.message ? error.message : '생산완료 처리 중 오류가 발생했습니다.',
+					detail: '주문 상태와 생산 카테고리 권한을 확인해 주세요.'
+				}, feedbackToken);
+			}
+			throw error;
 		} finally {
 			pendingSingleCompleteIds.delete(id);
 		}
@@ -507,6 +530,15 @@
 				const headers = { 'Content-Type': 'application/json' };
 				if (csrf.token && csrf.header) headers[csrf.header] = csrf.token;
 
+				const feedback = window.TeamActionFeedback || null;
+				const feedbackToken = feedback ? feedback.begin({
+					title: ids.length + '건 생산완료 처리 중',
+					message: '선택한 발주의 상태와 담당자, 알림 내역을 일괄 반영하고 있습니다.',
+					detail: '완료 후 현재 조건으로 화면을 새로고침합니다.'
+				}) : null;
+
+				$btnBulkDone.disabled = true;
+
 				try {
 					const res = await fetch('/api/team/production/orders/complete', {
 						method: 'POST',
@@ -516,14 +548,32 @@
 
 					if (!res.ok) {
 						const text = await res.text();
-						alert(text || '처리에 실패했습니다.');
-						return;
+						throw new Error(text || '처리에 실패했습니다.');
 					}
 
-					alert('생산완료 처리되었습니다.');
+					if (feedback) {
+						await feedback.success({
+							title: '생산완료 처리가 끝났습니다.',
+							message: ids.length + '건이 정상적으로 생산완료 처리되었습니다.',
+							detail: '최신 상태를 다시 불러옵니다.'
+						}, feedbackToken);
+					} else {
+						alert('생산완료 처리되었습니다.');
+					}
+
 					window.location.reload();
 				} catch (e) {
-					alert(e?.message || '네트워크 오류가 발생했습니다.');
+					if (feedback) {
+						await feedback.error({
+							title: '생산완료 처리 실패',
+							message: e && e.message ? e.message : '네트워크 오류가 발생했습니다.',
+							detail: '실패한 주문은 변경되지 않았습니다.'
+						}, feedbackToken);
+					} else {
+						alert(e?.message || '네트워크 오류가 발생했습니다.');
+					}
+				} finally {
+					syncButtonState();
 				}
 			});
 		}

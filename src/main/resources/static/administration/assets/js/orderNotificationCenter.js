@@ -484,6 +484,16 @@
             button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>요청 중';
         }
 
+        const actionFeedback = window.TeamActionFeedback || null;
+        const feedbackToken = actionFeedback
+            ? actionFeedback.begin({
+                eyebrow: '관리자 알림 전송 중',
+                title: '관리자요청을 전달하고 있습니다.',
+                message: '발주 #' + normalizedOrderId + '의 담당 관리자와 공통 관리자에게 알림을 보내고 있습니다.',
+                detail: '알림 저장과 메시지 전송이 끝날 때까지 잠시 기다려 주세요.'
+            })
+            : null;
+
         console.info('[관리자요청] 전송 시작', {
             orderId: normalizedOrderId,
             message: message || null
@@ -506,11 +516,33 @@
             }
 
             console.info('[관리자요청] 전송 완료', data);
-            showAlert('success', data.message || '관리자요청을 전달했습니다.');
+            const successMessage = data.message || '관리자요청을 전달했습니다.';
+
+            if (actionFeedback) {
+                await actionFeedback.success({
+                    title: '관리자요청이 전달되었습니다.',
+                    message: successMessage,
+                    detail: '관리 담당자와 공통 관리자 알림에 반영했습니다.'
+                }, feedbackToken);
+            } else {
+                showAlert('success', successMessage);
+            }
             return true;
         } catch (error) {
             console.error('[관리자요청] 전송 실패', error);
-            showAlert('error', error && error.message ? error.message : '관리자요청 전송에 실패했습니다.');
+            const errorMessage = error && error.message
+                ? error.message
+                : '관리자요청 전송에 실패했습니다.';
+
+            if (actionFeedback) {
+                await actionFeedback.error({
+                    title: '관리자요청을 전달하지 못했습니다.',
+                    message: errorMessage,
+                    detail: '네트워크 상태와 발주 정보를 확인한 뒤 다시 시도해 주세요.'
+                }, feedbackToken);
+            } else {
+                showAlert('error', errorMessage);
+            }
             return false;
         } finally {
             if (button) {

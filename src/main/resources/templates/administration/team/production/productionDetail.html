@@ -43,6 +43,9 @@
                       id="product-detail-added-production-done-form"
                       class="product-detail-added-form">
 
+                    <div id="product-detail-added-action-flash" hidden
+                         th:attr="data-success-message=${successMessage},data-error-message=${errorMessage}"></div>
+
                     <input type="hidden" name="status" value="PRODUCTION_DONE">
 
                     <div class="row">
@@ -469,9 +472,12 @@
     }
 </style>
 
+<link rel="stylesheet" th:href="@{/administration/assets/css/teamActionFeedback.css(v='20260806-1')}">
+<script th:src="@{/administration/assets/js/teamActionFeedback.js(v='20260806-1')}"></script>
+
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-<script src="/administration/assets/js/page/productionDetail.js"></script>
+<script src="/administration/assets/js/page/productionDetail.js?v=20260806-1"></script>
 </body>
 </html>

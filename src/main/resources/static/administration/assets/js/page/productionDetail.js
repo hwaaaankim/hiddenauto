@@ -4,6 +4,7 @@
 	"use strict";
 
 	document.addEventListener("DOMContentLoaded", function() {
+		showServerActionResult();
 		initProductionDoneConfirm();
 		initLayoutToggle();
 		initImageViewer();
@@ -28,8 +29,50 @@
 
 			if (!confirmed) {
 				event.preventDefault();
+				return;
+			}
+
+			if (submitButton) {
+				submitButton.disabled = true;
+				submitButton.textContent = "처리 중...";
+			}
+
+			if (window.TeamActionFeedback) {
+				window.TeamActionFeedback.begin({
+					title: "생산완료 처리 중입니다.",
+					message: "발주 상태와 담당자, 알림 내역을 반영하고 있습니다.",
+					detail: "처리가 끝나면 결과 화면으로 자동 이동합니다."
+				});
 			}
 		});
+	}
+
+	function showServerActionResult() {
+		var flash = document.getElementById("product-detail-added-action-flash");
+		if (!flash) {
+			return;
+		}
+
+		var successMessage = flash.getAttribute("data-success-message") || "";
+		var errorMessage = flash.getAttribute("data-error-message") || "";
+
+		if (!successMessage && !errorMessage) {
+			return;
+		}
+
+		if (window.TeamActionFeedback) {
+			window.TeamActionFeedback.showFlash({
+				successTitle: "생산완료 처리가 끝났습니다.",
+				successMessage: successMessage,
+				successDetail: "현재 발주의 최신 상태를 표시했습니다.",
+				errorTitle: "생산완료 처리에 실패했습니다.",
+				errorMessage: errorMessage,
+				errorDetail: "발주 상태와 작업 권한을 확인해 주세요."
+			});
+			return;
+		}
+
+		window.alert(errorMessage || successMessage);
 	}
 
 	function initLayoutToggle() {

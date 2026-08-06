@@ -786,6 +786,9 @@
     }
 </style>
 
+<link rel="stylesheet" th:href="@{/administration/assets/css/teamActionFeedback.css(v='20260806-1')}">
+<script th:src="@{/administration/assets/js/teamActionFeedback.js(v='20260806-1')}"></script>
+
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
@@ -811,7 +814,7 @@
     });
 })();
 </script>
-<script src="/administration/assets/team/delivery/deliveryRoute.js"></script>
+<script src="/administration/assets/team/delivery/deliveryRoute.js?v=20260806-1"></script>
 <script src="/administration/assets/team/delivery/deliveryTeamStatementPreview.js"></script>
 </body>
 </html>

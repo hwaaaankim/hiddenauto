@@ -1577,7 +1577,7 @@ public class TeamTaskService {
 	            .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
 
 	    if (!accessPolicyService.canOperateProductionOrder(loginMember, order)) {
-	        throw new AccessDeniedException("자신의 생산 카테고리에 속한 발주만 생산완료 처리할 수 있습니다.");
+	        throw new AccessDeniedException("자신의 생산 카테고리 또는 거울·LED거울 공통 작업 그룹의 발주만 생산완료 처리할 수 있습니다.");
 	    }
 
 	    if (order.getStatus() != OrderStatus.CONFIRMED) {

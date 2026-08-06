@@ -1,0 +1,254 @@
+/* /administration/assets/css/teamActionFeedback.css */
+body.team-action-feedback-open {
+    overflow: hidden !important;
+}
+
+.team-action-feedback {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .18s ease, visibility .18s ease;
+}
+
+.team-action-feedback.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.team-action-feedback-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, .68);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+}
+
+.team-action-feedback-panel {
+    position: relative;
+    width: min(460px, 100%);
+    padding: 32px 30px 27px;
+    border: 1px solid rgba(255, 255, 255, .72);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, .98);
+    box-shadow: 0 28px 80px rgba(15, 23, 42, .34);
+    text-align: center;
+    transform: translateY(10px) scale(.985);
+    transition: transform .2s ease;
+}
+
+.team-action-feedback.is-visible .team-action-feedback-panel {
+    transform: translateY(0) scale(1);
+}
+
+.team-action-feedback-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    margin-bottom: 18px;
+    border-radius: 24px;
+    background: #eef4ff;
+    color: #2563eb;
+}
+
+.team-action-feedback-spinner {
+    width: 42px;
+    height: 42px;
+    border: 4px solid rgba(37, 99, 235, .18);
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: team-action-feedback-spin .78s linear infinite;
+}
+
+.team-action-feedback-symbol {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.team-action-feedback-success .team-action-feedback-icon {
+    background: #ecfdf3;
+    color: #16a34a;
+}
+
+.team-action-feedback-success .team-action-feedback-spinner,
+.team-action-feedback-error .team-action-feedback-spinner {
+    display: none;
+}
+
+.team-action-feedback-success .team-action-feedback-symbol,
+.team-action-feedback-error .team-action-feedback-symbol {
+    display: inline-flex;
+}
+
+.team-action-feedback-success .team-action-feedback-symbol {
+    background: #16a34a;
+}
+
+.team-action-feedback-success .team-action-feedback-symbol::before {
+    content: "✓";
+    transform: translateY(-1px);
+}
+
+.team-action-feedback-error .team-action-feedback-icon {
+    background: #fff1f2;
+    color: #dc2626;
+}
+
+.team-action-feedback-error .team-action-feedback-symbol {
+    background: #dc2626;
+}
+
+.team-action-feedback-error .team-action-feedback-symbol::before {
+    content: "!";
+    transform: translateY(-1px);
+}
+
+.team-action-feedback-eyebrow {
+    margin-bottom: 7px;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.team-action-feedback-success .team-action-feedback-eyebrow {
+    color: #15803d;
+}
+
+.team-action-feedback-error .team-action-feedback-eyebrow {
+    color: #b91c1c;
+}
+
+.team-action-feedback-title {
+    margin: 0;
+    color: #0f172a;
+    font-size: 24px;
+    font-weight: 900;
+    line-height: 1.35;
+    word-break: keep-all;
+}
+
+.team-action-feedback-message {
+    margin: 11px 0 0;
+    color: #475569;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.65;
+    white-space: pre-line;
+    word-break: keep-all;
+}
+
+.team-action-feedback-detail {
+    margin-top: 15px;
+    padding: 11px 13px;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.55;
+    white-space: pre-line;
+    word-break: keep-all;
+}
+
+.team-action-feedback-progress {
+    position: relative;
+    height: 6px;
+    margin-top: 22px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e2e8f0;
+}
+
+.team-action-feedback-progress > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 34%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #2563eb, #60a5fa);
+    animation: team-action-feedback-progress 1.15s ease-in-out infinite;
+}
+
+.team-action-feedback-success .team-action-feedback-progress > span {
+    width: 100%;
+    background: #22c55e;
+    animation: none;
+}
+
+.team-action-feedback-error .team-action-feedback-progress > span {
+    width: 100%;
+    background: #ef4444;
+    animation: none;
+}
+
+.team-action-feedback-guide {
+    margin-top: 11px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    word-break: keep-all;
+}
+
+@keyframes team-action-feedback-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes team-action-feedback-progress {
+    0% { left: -38%; }
+    50% { left: 52%; }
+    100% { left: 108%; }
+}
+
+@media (max-width: 575.98px) {
+    .team-action-feedback {
+        padding: 16px;
+    }
+
+    .team-action-feedback-panel {
+        padding: 28px 22px 24px;
+        border-radius: 20px;
+    }
+
+    .team-action-feedback-icon {
+        width: 68px;
+        height: 68px;
+        border-radius: 21px;
+    }
+
+    .team-action-feedback-title {
+        font-size: 21px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .team-action-feedback,
+    .team-action-feedback-panel {
+        transition: none;
+    }
+
+    .team-action-feedback-spinner {
+        animation-duration: 1.5s;
+    }
+
+    .team-action-feedback-progress > span {
+        animation-duration: 2s;
+    }
+}
