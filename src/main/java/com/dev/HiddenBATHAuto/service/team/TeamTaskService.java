@@ -50,6 +50,7 @@ import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderCheckStatusRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
+import com.dev.HiddenBATHAuto.service.order.OrderTeamAccessPolicyService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -64,6 +65,7 @@ public class TeamTaskService {
 	private final ObjectMapper objectMapper;
 	private final OrderCheckStatusRepository orderCheckStatusRepository;
 	private final OrderChangeAuditService orderChangeAuditService;
+	private final OrderTeamAccessPolicyService accessPolicyService;
 	private static final List<OrderStatus> PRODUCTION_LIST_VISIBLE_STATUSES = List.of(
 			OrderStatus.CONFIRMED,
 			OrderStatus.PRODUCTION_DONE,
@@ -226,7 +228,7 @@ public class TeamTaskService {
         Order order = orderRepository.findByIdForProductionCheck(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
 
-        if (!canAccessProductionOrder(loginMember, order)) {
+        if (!accessPolicyService.canViewProductionOrder(loginMember, order)) {
             throw new AccessDeniedException("해당 발주를 확인 처리할 권한이 없습니다.");
         }
 
@@ -859,7 +861,7 @@ public class TeamTaskService {
 	@Transactional(readOnly = true)
 	public boolean canAccessProductionOrderForProductionMember(Member loginMember, Order order) {
 		validateProductionTeamMember(loginMember);
-		return canAccessProductionOrder(loginMember, order);
+		return accessPolicyService.canViewProductionOrder(loginMember, order);
 	}
 
 	@Transactional(readOnly = true)
@@ -887,7 +889,7 @@ public class TeamTaskService {
 
 	    Order order = orders.get(0);
 
-	    if (!canAccessProductionOrder(loginMember, order)) {
+	    if (!accessPolicyService.canViewProductionOrder(loginMember, order)) {
 	        throw new AccessDeniedException("해당 발주 이미지를 조회할 권한이 없습니다.");
 	    }
 
@@ -925,7 +927,7 @@ public class TeamTaskService {
 
         for (Long orderId : distinctIds) {
             Order order = orderMap.get(orderId);
-            if (order == null || !canAccessProductionOrder(loginMember, order)) {
+            if (order == null || !accessPolicyService.canViewProductionOrder(loginMember, order)) {
                 continue;
             }
 
@@ -1549,7 +1551,7 @@ public class TeamTaskService {
 	            continue;
 	        }
 
-	        if (!canAccessProductionOrder(loginMember, order)) {
+	        if (!accessPolicyService.canViewProductionOrder(loginMember, order)) {
 	            continue;
 	        }
 
@@ -1574,8 +1576,8 @@ public class TeamTaskService {
 	    Order order = orderRepository.findByIdForProductionStatusUpdate(orderId)
 	            .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다."));
 
-	    if (!canAccessProductionOrder(loginMember, order)) {
-	        throw new AccessDeniedException("해당 발주를 생산완료 처리할 권한이 없습니다.");
+	    if (!accessPolicyService.canOperateProductionOrder(loginMember, order)) {
+	        throw new AccessDeniedException("자신의 생산 카테고리에 속한 발주만 생산완료 처리할 수 있습니다.");
 	    }
 
 	    if (order.getStatus() != OrderStatus.CONFIRMED) {
@@ -1670,7 +1672,8 @@ public class TeamTaskService {
 	            .orderId(order.getId())
 	            .status(status != null ? status.name() : "")
 	            .statusLabel(status != null ? status.getLabel() : "-")
-	            .canComplete(status == OrderStatus.CONFIRMED && canAccessProductionOrder(loginMember, order))
+	            .canComplete(status == OrderStatus.CONFIRMED && accessPolicyService.canOperateProductionOrder(loginMember, order))
+            .canRequestAdmin(accessPolicyService.canOperateProductionOrder(loginMember, order))
 	            .companyName(companyName)
 	            .productName(item != null ? safeText(item.getProductName()) : "-")
 	            .categoryName(order.getProductCategory() != null ? safeText(order.getProductCategory().getName()) : "-")
@@ -1840,32 +1843,6 @@ public class TeamTaskService {
 	    if (member == null || member.getTeam() == null || !"생산팀".equals(member.getTeam().getName())) {
 	        throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
 	    }
-	}
-
-	private boolean canAccessProductionOrder(Member member, Order order) {
-	    if (member == null || order == null) {
-	        return false;
-	    }
-
-	    if (order.getStatus() == null || !PRODUCTION_LIST_VISIBLE_STATUSES.contains(order.getStatus())) {
-	        return false;
-	    }
-
-	    if (isMirrorCuttingProductionMember(member)) {
-	        return order.isMirrorCuttingProduct();
-	    }
-
-	    if (canAccessMirrorCuttingOrders(member) && order.isMirrorCuttingProduct()) {
-	        return true;
-	    }
-
-	    if (member.getTeamCategory() != null && "하부장".equals(member.getTeamCategory().getName())) {
-	        return order.getProductCategory() != null
-	                && order.getProductCategory().getId() != null
-	                && order.getProductCategory().getId().equals(member.getTeamCategory().getId());
-	    }
-
-	    return true;
 	}
 
 	private boolean isCuttingProductionMember(Member member) {

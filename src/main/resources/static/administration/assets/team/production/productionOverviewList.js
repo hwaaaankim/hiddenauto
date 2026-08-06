@@ -294,6 +294,7 @@
 			adminMemo: toText(firstValue(raw.adminMemo, findFieldValue(raw.fields, ['관리자메모', 'adminMemo']))),
 			options: fields,
 			images: normalizeImages(raw),
+			canRequestAdmin: raw.canRequestAdmin === true,
 			checkState: normalizeCheckState(raw),
 			checkStateLabel: normalizeCheckStateLabel(raw),
 			checked: isLatestCheckedRaw(raw),
@@ -897,6 +898,7 @@
 				adminMemo: toText(row.getAttribute('data-admin-memo')) || '-',
 				options: optionFields.length > 0 ? optionFields : [],
 				images: [],
+				canRequestAdmin: String(row.getAttribute('data-admin-request-allowed') || '').toLowerCase() === 'true',
 				checkState: normalizeCheckState({
 					checkState: row.getAttribute('data-check-state'),
 					checked: row.getAttribute('data-checked')
@@ -995,6 +997,7 @@
 		const completeState = getOrderCompleteState(order);
 		const adminRequestState = getAdminRequestState(order);
 		const completeDisabledAttr = completeState.available ? '' : ' disabled';
+		const adminRequestDisabledAttr = adminRequestState.available ? '' : ' disabled';
 		const status = resolveOrderStatusCode(order);
 		const completeLabel = status === 'PRODUCTION_DONE' ? '생산완료됨' : '생산완료';
 
@@ -1010,9 +1013,11 @@
 			'<button type="button"',
 			' class="btn btn-outline-danger btn-sm team-production-overview-list-admin-request-btn order-admin-request-btn"',
 			' data-order-admin-request',
+			' data-admin-request-allowed="' + (adminRequestState.available ? 'true' : 'false') + '"',
 			' data-order-id="' + escapeAttr(order.id || '') + '"',
 			' data-admin-request-message="생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다."',
 			' title="' + escapeAttr(adminRequestState.message) + '"',
+			adminRequestDisabledAttr,
 			'><i class="ri-alarm-warning-line me-1"></i>관리자요청</button>',
 			'</div>'
 		].join('');
@@ -1325,6 +1330,8 @@
 
 		if (adminRequestButton) {
 			adminRequestButton.disabled = !adminRequestState.available;
+			adminRequestButton.setAttribute('data-admin-request-allowed', adminRequestState.available ? 'true' : 'false');
+			adminRequestButton.setAttribute('aria-disabled', adminRequestState.available ? 'false' : 'true');
 			adminRequestButton.setAttribute('data-order-id', toText(order.id));
 			adminRequestButton.title = adminRequestState.message;
 		}
@@ -1335,6 +1342,13 @@
 			return {
 				available: false,
 				message: '관리자요청을 보낼 발주 정보가 없습니다.'
+			};
+		}
+
+		if (order.canRequestAdmin !== true) {
+			return {
+				available: false,
+				message: '다른 생산 카테고리의 발주는 조회와 확인만 가능하며 관리자요청은 할 수 없습니다.'
 			};
 		}
 

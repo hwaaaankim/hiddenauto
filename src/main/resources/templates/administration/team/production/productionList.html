@@ -410,6 +410,7 @@
 												th:attr="
                     data-overview-order-id=${order.id},
                     data-overview-status=${order.status != null ? order.status.name() : ''},
+                    data-admin-request-allowed=${canBulkComplete},
                     data-cutting-available=${cuttingEligibilityMap != null and cuttingEligibilityMap[order.id] == true},
                     data-checked=${isLatestChecked},
                     data-check-state=${checkState},
@@ -708,6 +709,7 @@
 										<button type="button" class="btn btn-danger btn-sm order-admin-request-btn"
 											id="team-production-overview-admin-request-btn"
 											data-order-admin-request
+											data-admin-request-allowed="false"
 											data-order-id=""
 											data-admin-request-message="생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다."
 											title="발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다."

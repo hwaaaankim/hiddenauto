@@ -20,6 +20,7 @@ import com.dev.HiddenBATHAuto.enums.notification.NotificationMessageType;
 import com.dev.HiddenBATHAuto.enums.notification.NotificationSendStatus;
 import com.dev.HiddenBATHAuto.model.notification.NotificationMessageLog;
 import com.dev.HiddenBATHAuto.model.notification.NotificationTemplate;
+import com.dev.HiddenBATHAuto.provider.notification.InvalidPhoneNumberException;
 import com.dev.HiddenBATHAuto.provider.notification.PhoneNumberNormalizer;
 import com.dev.HiddenBATHAuto.provider.notification.SolapiMessageClient;
 import com.dev.HiddenBATHAuto.repository.notification.NotificationMessageLogRepository;
@@ -46,11 +47,19 @@ public class NotificationMessageService {
         }
 
         NotificationTemplate template = templateRepository.findByTemplateCodeAndEnabledTrue(command.getTemplateCode())
-                .orElseThrow(() -> new IllegalArgumentException("사용 가능한 알림 템플릿이 없습니다: " + command.getTemplateCode()));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "사용 가능한 알림 템플릿이 없습니다: " + command.getTemplateCode()
+                ));
 
         String requestKey = UUID.randomUUID().toString();
-        String to = phoneNumberNormalizer.normalizeKoreanPhone(command.getTo());
-        String from = resolveFrom(command.getFrom(), template.getDefaultFromNumber());
+        String to;
+        String from;
+        try {
+            to = phoneNumberNormalizer.normalizeKoreanMobile(command.getTo());
+            from = resolveFrom(command.getFrom(), template.getDefaultFromNumber());
+        } catch (InvalidPhoneNumberException e) {
+            return saveValidationFailureLog(command, template, requestKey, e.getMessage());
+        }
 
         Map<String, String> variables = normalizeVariables(command.getVariables());
 
@@ -91,7 +100,7 @@ public class NotificationMessageService {
             log.setAcceptedAt(LocalDateTime.now());
         } else {
             log.setSendStatus(NotificationSendStatus.REQUEST_FAILED);
-            log.setFailureReason(apiResult.getStatusMessage());
+            log.setFailureReason(normalizeFailureReason(apiResult.getStatusMessage()));
             log.setCompletedAt(LocalDateTime.now());
         }
 
@@ -142,19 +151,44 @@ public class NotificationMessageService {
     }
 
     private NotificationSendResult saveDisabledLog(NotificationSendCommand command) {
+        return saveFailedLog(
+                command,
+                null,
+                UUID.randomUUID().toString(),
+                "SOLAPI 발송 기능이 비활성화되어 있습니다."
+        );
+    }
+
+    private NotificationSendResult saveValidationFailureLog(
+            NotificationSendCommand command,
+            NotificationTemplate template,
+            String requestKey,
+            String failureReason
+    ) {
+        return saveFailedLog(command, template, requestKey, normalizeFailureReason(failureReason));
+    }
+
+    private NotificationSendResult saveFailedLog(
+            NotificationSendCommand command,
+            NotificationTemplate template,
+            String requestKey,
+            String failureReason
+    ) {
         NotificationMessageLog log = new NotificationMessageLog();
-        log.setRequestKey(UUID.randomUUID().toString());
+        log.setRequestKey(requestKey);
         log.setProvider("SOLAPI");
         log.setMessageType(NotificationMessageType.ATA);
         log.setSendStatus(NotificationSendStatus.REQUEST_FAILED);
         log.setBusinessType(command.getBusinessType());
         log.setBusinessId(command.getBusinessId());
-        log.setTemplateCode(command.getTemplateCode());
-        log.setToNumber(command.getTo());
-        log.setFromNumber(command.getFrom());
+        log.setTemplateCode(template != null ? template.getTemplateCode() : command.getTemplateCode());
+        log.setProviderTemplateId(template != null ? template.getProviderTemplateId() : null);
+        log.setPfId(template != null ? template.getPfId() : null);
+        log.setToNumber(maskedLogNumber(command.getTo()));
+        log.setFromNumber(maskedLogNumber(command.getFrom()));
         log.setMessageText(command.getMessageTextForLog());
         log.setVariablesJson(toJson(command.getVariables()));
-        log.setFailureReason("SOLAPI 발송 기능이 비활성화되어 있습니다.");
+        log.setFailureReason(failureReason);
         log.setRequestedByMemberId(command.getRequestedByMemberId());
         log.setRequestedByUsername(command.getRequestedByUsername());
         log.setRequestedAt(LocalDateTime.now());
@@ -182,36 +216,39 @@ public class NotificationMessageService {
             return phoneNumberNormalizer.normalizeKoreanPhone(solapiProperties.getDefaultFrom());
         }
 
-        throw new IllegalArgumentException("발신번호가 없습니다. SOLAPI 대체발송을 사용하려면 등록된 발신번호가 필요합니다.");
+        throw new InvalidPhoneNumberException(
+                "발신번호가 없습니다. SOLAPI 대체발송을 사용하려면 등록된 발신번호가 필요합니다."
+        );
     }
 
     private Map<String, String> normalizeVariables(Map<String, String> variables) {
         Map<String, String> normalized = new LinkedHashMap<>();
-
-        if (variables == null) {
-            return normalized;
-        }
+        if (variables == null) return normalized;
 
         for (Map.Entry<String, String> entry : variables.entrySet()) {
             String key = entry.getKey();
             String value = entry.getValue();
-
-            if (key == null || key.isBlank()) {
-                continue;
-            }
+            if (key == null || key.isBlank()) continue;
 
             String normalizedKey = key.trim();
-            if (!normalizedKey.startsWith("#{")) {
-                normalizedKey = "#{" + normalizedKey;
-            }
-            if (!normalizedKey.endsWith("}")) {
-                normalizedKey = normalizedKey + "}";
-            }
-
+            if (!normalizedKey.startsWith("#{")) normalizedKey = "#{" + normalizedKey;
+            if (!normalizedKey.endsWith("}")) normalizedKey = normalizedKey + "}";
             normalized.put(normalizedKey, value == null || value.isBlank() ? "-" : value.trim());
         }
-
         return normalized;
+    }
+
+    private String maskedLogNumber(String raw) {
+        if (raw == null || raw.isBlank()) return "(없음)";
+        String digits = raw.replaceAll("[^0-9]", "");
+        if (digits.length() < 4) return "(형식오류)";
+        return "***" + digits.substring(digits.length() - 4);
+    }
+
+    private String normalizeFailureReason(String value) {
+        if (value == null || value.isBlank()) return "알림톡 발송에 실패했습니다.";
+        String normalized = value.trim().replaceAll("[\\r\\n\\t]+", " ");
+        return normalized.length() > 1000 ? normalized.substring(0, 1000) : normalized;
     }
 
     private String toJson(Object value) {

@@ -18,12 +18,18 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 
 import com.dev.HiddenBATHAuto.dto.nonStandardList.NonStandardOrderDeleteResponse;
+import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
+import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
+import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +43,7 @@ public class NonStandardTaskBulkDeleteService {
     private final OrderRepository orderRepository;
     private final TaskRepository taskRepository;
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
+    private final OrderChangeAuditService orderChangeAuditService;
 
     /**
      * 선택된 Order 들이 속한 Task 전체 삭제
@@ -46,7 +53,7 @@ public class NonStandardTaskBulkDeleteService {
      * - DeliveryOrderIndex 별도 삭제
      * - 이미지 파일시스템 삭제(afterCommit)
      */
-    public NonStandardOrderDeleteResponse deleteTasksByOrderIds(List<Long> rawOrderIds) {
+    public NonStandardOrderDeleteResponse deleteTasksByOrderIds(List<Long> rawOrderIds, Member actor) {
         List<Long> orderIds = normalizeOrderIds(rawOrderIds);
         validateOrderIds(orderIds);
 
@@ -74,6 +81,7 @@ public class NonStandardTaskBulkDeleteService {
                 .distinct()
                 .toList();
 
+        recordDeleteAudit(allOrdersInTasks, actor, "MANAGEMENT_TASK_DELETE", "태스크 전체 삭제");
         scheduleImageFileDeleteAfterCommit(allOrdersInTasks);
 
         if (!allOrderIdsInTasks.isEmpty()) {
@@ -104,7 +112,7 @@ public class NonStandardTaskBulkDeleteService {
      * - 삭제 후 Task 에 남은 Order 가 0건이면 Task 자동 삭제
      * - 이미지 파일시스템 삭제(afterCommit)
      */
-    public NonStandardOrderDeleteResponse deleteOrdersByOrderIds(List<Long> rawOrderIds) {
+    public NonStandardOrderDeleteResponse deleteOrdersByOrderIds(List<Long> rawOrderIds, Member actor) {
         List<Long> orderIds = normalizeOrderIds(rawOrderIds);
         validateOrderIds(orderIds);
 
@@ -120,6 +128,7 @@ public class NonStandardTaskBulkDeleteService {
             }
         }
 
+        recordDeleteAudit(orders, actor, "MANAGEMENT_ORDER_DELETE", "발주 삭제");
         scheduleImageFileDeleteAfterCommit(orders);
 
         deliveryOrderIndexRepository.deleteByOrderIdIn(orderIds);
@@ -156,6 +165,47 @@ public class NonStandardTaskBulkDeleteService {
                 .deletedOrderCount(orders.size())
                 .deletedTaskCount(autoDeletedTaskCount)
                 .build();
+    }
+
+    private void recordDeleteAudit(
+            List<Order> orders,
+            Member actor,
+            String operationCode,
+            String operationLabel
+    ) {
+        if (orders == null || orders.isEmpty()) return;
+
+        Long actorId = actor != null ? actor.getId() : null;
+        String actorUsername = actor != null ? actor.getUsername() : "system";
+        String actorName = actor != null && StringUtils.hasText(actor.getName())
+                ? actor.getName().trim()
+                : actorUsername;
+
+        for (Order order : orders) {
+            if (order == null || order.getId() == null) continue;
+            orderChangeAuditService.recordOrderChange(
+                    order,
+                    OrderChangeSourceArea.MANAGEMENT,
+                    actorId,
+                    actorUsername,
+                    actorName,
+                    operationCode,
+                    operationLabel,
+                    "/management/api/non-standard-task/delete",
+                    List.of(OrderFieldChangeCommand.of(
+                            "deleted",
+                            "삭제 여부",
+                            "유지",
+                            "삭제",
+                            OrderWorkArea.PRODUCTION,
+                            OrderWorkArea.DISPATCH,
+                            OrderWorkArea.DELIVERY
+                    )),
+                    OrderNotificationAudience.RELATED_USERS,
+                    operationLabel + " · 발주 #" + order.getId(),
+                    actorName + "님이 발주 #" + order.getId() + "을(를) 삭제했습니다. 삭제된 발주는 바로가기를 제공하지 않습니다."
+            );
+        }
     }
 
     private void validateOrderIds(List<Long> orderIds) {

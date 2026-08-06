@@ -21,6 +21,7 @@ public class ProductionOverviewOrderDto {
     private String status;
     private String statusLabel;
     private boolean canComplete;
+    private boolean canRequestAdmin;
 
     private String companyName;
     private String productName;

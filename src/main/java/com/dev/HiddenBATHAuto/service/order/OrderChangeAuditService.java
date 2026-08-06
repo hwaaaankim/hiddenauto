@@ -339,6 +339,10 @@ public class OrderChangeAuditService {
 
         orderMemberCheckStatusRepository.save(status);
 
+        if (firstCheck || revisedBeforeCheck) {
+            recordCheckAudit(lockedOrder, member, workArea, firstCheck, currentVersion);
+        }
+
         return new OrderMemberCheckResult(
                 order.getId(),
                 currentVersion,
@@ -442,6 +446,46 @@ public class OrderChangeAuditService {
                 .toList();
     }
 
+    private void recordCheckAudit(
+            Order order,
+            Member member,
+            OrderWorkArea workArea,
+            boolean firstCheck,
+            long currentVersion
+    ) {
+        OrderChangeSourceArea sourceArea = switch (workArea) {
+            case PRODUCTION -> OrderChangeSourceArea.PRODUCTION;
+            case DISPATCH -> OrderChangeSourceArea.DISPATCH;
+            case DELIVERY -> OrderChangeSourceArea.DELIVERY;
+        };
+        String areaLabel = switch (workArea) {
+            case PRODUCTION -> "생산팀";
+            case DISPATCH -> "출고팀";
+            case DELIVERY -> "배송팀";
+        };
+        String beforeState = firstCheck ? "미확인" : "재수정 확인 필요";
+
+        OrderChangeEvent event = OrderChangeEvent.create(
+                order,
+                sourceArea,
+                member.getId(),
+                member.getUsername(),
+                resolveMemberDisplay(member),
+                workArea.name() + "_CHECK_CONFIRM",
+                areaLabel + " 확인 처리",
+                "/team/" + workArea.name().toLowerCase(java.util.Locale.ROOT) + "/orders/" + order.getId() + "/check",
+                areaLabel + " 사용자 확인 완료 (버전 " + currentVersion + ")"
+        );
+        event.addField(OrderChangeField.of(
+                "memberCheckState",
+                "개인 확인상태",
+                beforeState,
+                "확인 완료",
+                0
+        ));
+        orderChangeEventRepository.save(event);
+    }
+
     private OrderWorkRevision getOrCreateRevisionForUpdate(Order order, OrderWorkArea workArea) {
         return orderWorkRevisionRepository.findForUpdate(order.getId(), workArea)
                 .orElseGet(() -> orderWorkRevisionRepository.save(OrderWorkRevision.initial(order, workArea)));
@@ -507,7 +551,7 @@ public class OrderChangeAuditService {
     private OrderChangeSummaryDto toSummaryDto(OrderChangeEvent event) {
         return OrderChangeSummaryDto.builder()
                 .eventId(event.getId())
-                .orderId(event.getOrder() != null ? event.getOrder().getId() : null)
+                .orderId(event.resolveOrderId())
                 .sourceArea(event.getSourceArea() != null ? event.getSourceArea().name() : "SYSTEM")
                 .sourceAreaLabel(event.getSourceArea() != null ? event.getSourceArea().getLabel() : "시스템")
                 .actorDisplay(resolveEventActor(event))

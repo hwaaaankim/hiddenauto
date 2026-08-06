@@ -16,6 +16,7 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
+import com.dev.HiddenBATHAuto.service.order.OrderTeamAccessPolicyService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +26,7 @@ public class OrderAdminRequestService {
 
     private final OrderRepository orderRepository;
     private final OrderChangeAuditService orderChangeAuditService;
+    private final OrderTeamAccessPolicyService accessPolicyService;
     private static final Long FIXED_ADMIN_MEMBER_ID = 1L;
     private static final String FIXED_ADMIN_USERNAME = "admin";
 
@@ -44,6 +46,7 @@ public class OrderAdminRequestService {
         OrderChangeSourceArea sourceArea = resolveSourceArea(actor);
         Order order = orderRepository.findByIdForOrderNotification(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 발주를 찾을 수 없습니다. orderId=" + orderId));
+        accessPolicyService.assertCanRequestAdmin(actor, order, sourceArea);
 
         Member managedBy = resolveEnabledManagedBy(order);
 
@@ -132,13 +135,8 @@ public class OrderAdminRequestService {
     }
     
     /**
-     * 관리자요청은 발주의 현재 상태와 무관하게 허용합니다.
-     * 각 팀 화면에서 조회 가능한 발주라면 REQUESTED, CONFIRMED,
-     * PRODUCTION_DONE, DISPATCH_DONE, DELIVERY_DONE, CANCELED 등
-     * 어떤 상태에서도 Task.managedBy에게 긴급 확인을 요청할 수 있습니다.
-     *
-     * 상태 변경 가능 범위와 관리자 확인 요청 가능 범위는 서로 다른 업무 규칙이므로
-     * 이 서비스에서는 Order.status를 제한 조건으로 사용하지 않습니다.
+     * 관리자요청 사유 자체는 상태별로 다르게 제한하지 않습니다.
+     * 다만 request() 진입 시 중앙 권한 정책으로 현재 팀 화면에서 조회·조작 가능한 오더인지 먼저 검증합니다.
      */
     private String resolveReason(OrderChangeSourceArea sourceArea, OrderAdminRequestDto request) {
         String customMessage = request != null ? normalize(request.getMessage()) : null;

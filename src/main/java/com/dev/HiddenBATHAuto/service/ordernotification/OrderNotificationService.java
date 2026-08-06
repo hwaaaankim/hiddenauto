@@ -25,6 +25,7 @@ import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationFieldDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationItemDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationPageDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationSummaryDto;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAction;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationCategory;
 import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
@@ -37,6 +38,8 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeField;
 import com.dev.HiddenBATHAuto.repository.notification.OrderNotificationRepository;
+import com.dev.HiddenBATHAuto.service.order.OrderTeamAccessPolicyService;
+import com.dev.HiddenBATHAuto.service.ordernotification.OrderNotificationPolicyService.ChannelPolicy;
 
 import lombok.RequiredArgsConstructor;
 
@@ -50,6 +53,9 @@ public class OrderNotificationService {
 
     private final OrderNotificationRepository notificationRepository;
     private final OrderNotificationRecipientResolver recipientResolver;
+    private final OrderNotificationActionResolver actionResolver;
+    private final OrderNotificationPolicyService policyService;
+    private final OrderTeamAccessPolicyService accessPolicyService;
     private final OrderNotificationProperties properties;
     private final ApplicationEventPublisher eventPublisher;
     private final OrderNotificationBatchContext batchContext;
@@ -77,6 +83,10 @@ public class OrderNotificationService {
             return List.of();
         }
 
+        OrderNotificationAction action = actionResolver.resolve(event);
+        Map<com.dev.HiddenBATHAuto.enums.notification.OrderNotificationRecipientGroup, ChannelPolicy> policies =
+                policyService.resolvePolicies(event.getSourceArea(), action);
+
         String defaultTitle = normalizeText(explicitTitle) != null
                 ? explicitTitle.trim()
                 : defaultTitle(event, audience);
@@ -87,15 +97,28 @@ public class OrderNotificationService {
 
         List<OrderNotification> notifications = new ArrayList<>(targets.size());
         for (OrderNotificationRecipientResolver.RecipientTarget target : targets) {
+            ChannelPolicy channelPolicy = policies.getOrDefault(
+                    target.recipientGroup(),
+                    policyService.defaultPolicy(event.getSourceArea(), action, target.recipientGroup())
+            );
+            if (!channelPolicy.webEnabled() && !channelPolicy.kakaoEnabled()) {
+                continue;
+            }
+
             notifications.add(OrderNotification.create(
                     event,
                     target.member(),
                     target.category(),
+                    action,
+                    target.recipientGroup(),
+                    channelPolicy.webEnabled(),
+                    channelPolicy.kakaoEnabled(),
                     firstNonBlank(target.title(), defaultTitle),
                     firstNonBlank(target.message(), defaultMessage),
                     kakaoBatchKey
             ));
         }
+        if (notifications.isEmpty()) return List.of();
 
         List<OrderNotification> saved = notificationRepository.saveAll(notifications);
         notificationRepository.flush();
@@ -127,13 +150,13 @@ public class OrderNotificationService {
         }
 
         return OrderNotificationSummaryDto.builder()
-                .totalUnreadCount(notificationRepository.countByRecipient_IdAndReadAtIsNull(memberId))
+                .totalUnreadCount(notificationRepository.countByRecipient_IdAndReadAtIsNullAndWebEnabledTrue(memberId))
                 .unreadCountByCategory(counts)
                 .build();
     }
 
     /**
-     * 읽지 않은 알림만 ID 커서 방식으로 조회합니다. 새 알림이 동시에 들어와도 다음 페이지가 중복/누락되지 않습니다.
+     * 읽지 않은 웹 알림만 ID 커서 방식으로 조회합니다. 새 알림이 동시에 들어와도 다음 페이지가 중복/누락되지 않습니다.
      */
     @Transactional(readOnly = true)
     public OrderNotificationPageDto getNotifications(
@@ -182,7 +205,7 @@ public class OrderNotificationService {
                 .build();
     }
 
-    /** 개별 확인은 DB에만 반영합니다. 화면 제거는 사용자가 새로고침을 눌렀을 때 수행됩니다. */
+    /** 개별 확인은 웹 알림으로 생성된 행에만 반영합니다. */
     @Transactional
     public OrderNotificationItemDto markRead(Member member, Long notificationId) {
         Long memberId = requireMemberId(member);
@@ -190,7 +213,8 @@ public class OrderNotificationService {
             throw new IllegalArgumentException("알림 ID가 없습니다.");
         }
 
-        OrderNotification notification = notificationRepository.findByIdAndRecipient_Id(notificationId, memberId)
+        OrderNotification notification = notificationRepository
+                .findByIdAndRecipient_IdAndWebEnabledTrue(notificationId, memberId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 알림을 찾을 수 없습니다."));
         notification.markRead(LocalDateTime.now());
         return toDto(notification);
@@ -222,7 +246,7 @@ public class OrderNotificationService {
 
     public OrderNotificationItemDto toDto(OrderNotification notification) {
         OrderChangeEvent event = notification.getEvent();
-        Order order = notification.getOrder();
+        OrderStatus resolvedStatus = notification.resolveOrderStatus();
         boolean registrationEvent = event != null
                 && normalizeText(event.getOperationCode()) != null
                 && event.getOperationCode().toUpperCase(Locale.ROOT).contains("ORDER_CREATED");
@@ -242,10 +266,10 @@ public class OrderNotificationService {
         return OrderNotificationItemDto.builder()
                 .id(notification.getId())
                 .eventId(event != null ? event.getId() : null)
-                .orderId(order != null ? order.getId() : null)
-                .orderStatus(order != null && order.getStatus() != null ? order.getStatus().name() : null)
-                .orderStatusLabel(order != null && order.getStatus() != null ? order.getStatus().getLabel() : null)
-                .taskId(notification.getTask() != null ? notification.getTask().getId() : null)
+                .orderId(notification.resolveOrderId())
+                .orderStatus(resolvedStatus != null ? resolvedStatus.name() : null)
+                .orderStatusLabel(resolvedStatus != null ? resolvedStatus.getLabel() : null)
+                .taskId(notification.resolveTaskId())
                 .category(notification.getCategory().name())
                 .categoryLabel(notification.getCategory().getLabel())
                 .title(notification.getTitle())
@@ -275,17 +299,18 @@ public class OrderNotificationService {
         Order order = notification.getOrder();
         OrderChangeEvent event = notification.getEvent();
         Member recipient = notification.getRecipient();
-        if (order == null || order.getId() == null || recipient == null) return Shortcut.disabled();
 
-        OrderStatus transitionAfter = resolveStatusAfter(event);
-        if (isHidden(order.getStatus()) || isHidden(transitionAfter) || isAssignmentRelease(notification)) {
-            return Shortcut.disabled();
-        }
+        /*
+         * 오더가 삭제되었거나 FK가 해제된 감사 이력은 ID 스냅샷만 표시하고 링크는 제공하지 않습니다.
+         * 담당자 변경 후 이전 담당자처럼 현재 조회 권한을 잃은 수신자도 아래 권한 검사에서 링크가 제거됩니다.
+         */
+        if (order == null || order.getId() == null || recipient == null) return Shortcut.disabled();
 
         long orderId = order.getId();
         String status = order.getStatus() != null ? order.getStatus().name() : "all";
         MemberRole role = recipient.getRole();
         if (role == MemberRole.ADMIN || role == MemberRole.MANAGEMENT) {
+            // 관리자는 승인 전·취소 상태를 포함해 모든 발주를 조회할 수 있으므로 삭제된 경우에만 링크가 없습니다.
             return new Shortcut(true, "발주 바로가기",
                     "/management/nonStandardTaskList?orderIdFrom=" + orderId
                             + "&orderIdTo=" + orderId
@@ -293,16 +318,23 @@ public class OrderNotificationService {
                             + "&dateCriteria=all&productCategoryId=all&standard=all&size=10");
         }
 
+        OrderStatus transitionAfter = resolveStatusAfter(event);
+        if (isHidden(order.getStatus()) || isHidden(transitionAfter)) {
+            return Shortcut.disabled();
+        }
+
         String teamName = recipient.getTeam() != null ? normalizeText(recipient.getTeam().getName()) : null;
         if ("생산팀".equals(teamName)) {
+            if (!accessPolicyService.canViewProductionOrder(recipient, order)) {
+                return Shortcut.disabled();
+            }
             return new Shortcut(true, "생산 발주 바로가기",
                     "/team/productionList?orderIdFrom=" + orderId
                             + "&orderIdTo=" + orderId
                             + "&statusFilter=" + encode(status));
         }
         if ("배송팀".equals(teamName)) {
-            Member assignedHandler = order.getAssignedDeliveryHandler();
-            if (assignedHandler == null || !Objects.equals(assignedHandler.getId(), recipient.getId())) {
+            if (!accessPolicyService.canViewDeliveryOrder(recipient, order)) {
                 return Shortcut.disabled();
             }
             StringBuilder url = new StringBuilder("/team/deliveryRoute?orderIdFrom=")
@@ -313,16 +345,13 @@ public class OrderNotificationService {
             return new Shortcut(true, "배송 발주 바로가기", url.toString());
         }
         if ("출고팀".equals(teamName)) {
+            if (!accessPolicyService.canViewDispatchOrder(recipient, order)) {
+                return Shortcut.disabled();
+            }
             return new Shortcut(true, "출고 발주 바로가기",
                     "/team/dispatchList?orderIdFrom=" + orderId + "&orderIdTo=" + orderId);
         }
         return Shortcut.disabled();
-    }
-
-    private boolean isAssignmentRelease(OrderNotification notification) {
-        String title = normalizeText(notification != null ? notification.getTitle() : null);
-        if (title == null) return false;
-        return title.contains("담당 해제") || title.contains("업무 담당 해제");
     }
 
     private OrderStatus resolveStatusAfter(OrderChangeEvent event) {
@@ -343,8 +372,9 @@ public class OrderNotificationService {
     }
 
     private String defaultTitle(OrderChangeEvent event, OrderNotificationAudience audience) {
+        Long orderId = event.resolveOrderId();
         if (audience == OrderNotificationAudience.MANAGED_BY_ONLY) {
-            return "긴급 관리자요청 · 발주 #" + event.getOrder().getId();
+            return "긴급 관리자요청 · 발주 #" + orderId;
         }
 
         String operationCode = normalizeText(event.getOperationCode());
@@ -353,7 +383,7 @@ public class OrderNotificationService {
                     ? "고객 발주등록"
                     : "관리자 발주등록";
         }
-        return event.getOperationLabel() + " · 발주 #" + event.getOrder().getId();
+        return event.getOperationLabel() + " · 발주 #" + orderId;
     }
 
     private String defaultMessage(OrderChangeEvent event) {

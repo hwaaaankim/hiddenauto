@@ -2,10 +2,13 @@ package com.dev.HiddenBATHAuto.model.notification;
 
 import java.time.LocalDateTime;
 
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAction;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationCategory;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationKakaoStatus;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationRecipientGroup;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent;
 
@@ -36,11 +39,20 @@ import lombok.ToString;
                 columnNames = {"event_id", "recipient_member_id", "category"}
         ),
         indexes = {
-                @Index(name = "idx_order_notification_recipient_unread", columnList = "recipient_member_id,read_at,created_at,id"),
-                @Index(name = "idx_order_notification_recipient_category", columnList = "recipient_member_id,category,created_at,id"),
+                @Index(name = "idx_order_notification_recipient_unread",
+                        columnList = "recipient_member_id,read_at,created_at,id"),
+                @Index(name = "idx_order_notification_recipient_web_unread",
+                        columnList = "recipient_member_id,web_enabled,read_at,created_at,id"),
+                @Index(name = "idx_order_notification_recipient_category",
+                        columnList = "recipient_member_id,category,created_at,id"),
                 @Index(name = "idx_order_notification_order", columnList = "order_id,created_at,id"),
                 @Index(name = "idx_order_notification_task", columnList = "task_id,created_at,id"),
-                @Index(name = "idx_order_notification_kakao_batch", columnList = "kakao_batch_key,recipient_member_id,id")
+                @Index(name = "idx_order_notification_kakao_batch",
+                        columnList = "kakao_batch_key,recipient_member_id,id"),
+                @Index(name = "idx_order_notification_kakao_batch_enabled",
+                        columnList = "kakao_batch_key,recipient_member_id,kakao_enabled,id"),
+                @Index(name = "idx_order_notification_policy_snapshot",
+                        columnList = "notification_action,recipient_group,web_enabled,kakao_enabled")
         }
 )
 @Getter
@@ -56,8 +68,12 @@ public class OrderNotification {
     @ToString.Exclude
     private OrderChangeEvent event;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
+    /**
+     * 삭제 알림과 감사이력을 보존하기 위해 nullable입니다.
+     * DB FK는 ON DELETE SET NULL로 적용하고 orderIdSnapshot을 함께 저장합니다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
     @ToString.Exclude
     private Order order;
 
@@ -65,6 +81,16 @@ public class OrderNotification {
     @JoinColumn(name = "task_id")
     @ToString.Exclude
     private Task task;
+
+    @Column(name = "order_id_snapshot", nullable = false)
+    private Long orderIdSnapshot;
+
+    @Column(name = "task_id_snapshot")
+    private Long taskIdSnapshot;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_status_snapshot", length = 30)
+    private OrderStatus orderStatusSnapshot;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recipient_member_id", nullable = false)
@@ -74,6 +100,21 @@ public class OrderNotification {
     @Enumerated(EnumType.STRING)
     @Column(name = "category", nullable = false, length = 30)
     private OrderNotificationCategory category;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notification_action", nullable = false, length = 50)
+    private OrderNotificationAction action;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "recipient_group", nullable = false, length = 50)
+    private OrderNotificationRecipientGroup recipientGroup;
+
+    /** 생성 당시 관리 정책의 스냅샷입니다. 이후 설정을 바꿔도 이미 생성된 알림은 뒤집지 않습니다. */
+    @Column(name = "web_enabled", nullable = false)
+    private boolean webEnabled;
+
+    @Column(name = "kakao_enabled", nullable = false)
+    private boolean kakaoEnabled;
 
     @Column(name = "title", nullable = false, length = 200)
     private String title;
@@ -88,8 +129,7 @@ public class OrderNotification {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    /** 같은 트랜잭션에서 생성된 알림의 카카오 발송 묶음 키 */
-    @Column(name = "kakao_batch_key", nullable = true, length = 64)
+    @Column(name = "kakao_batch_key", length = 64)
     private String kakaoBatchKey;
 
     @Enumerated(EnumType.STRING)
@@ -112,23 +152,37 @@ public class OrderNotification {
             OrderChangeEvent event,
             Member recipient,
             OrderNotificationCategory category,
+            OrderNotificationAction action,
+            OrderNotificationRecipientGroup recipientGroup,
+            boolean webEnabled,
+            boolean kakaoEnabled,
             String title,
             String message,
             String kakaoBatchKey
     ) {
-        if (event == null || event.getOrder() == null) {
+        if (event == null || event.getOrder() == null || event.getOrder().getId() == null) {
             throw new IllegalArgumentException("알림 이벤트 또는 오더가 없습니다.");
         }
         if (recipient == null || recipient.getId() == null) {
             throw new IllegalArgumentException("알림 수신자가 없습니다.");
         }
 
+        Order currentOrder = event.getOrder();
         OrderNotification notification = new OrderNotification();
         notification.event = event;
-        notification.order = event.getOrder();
-        notification.task = event.getOrder().getTask();
+        notification.order = currentOrder;
+        notification.task = currentOrder.getTask();
+        notification.orderIdSnapshot = currentOrder.getId();
+        notification.taskIdSnapshot = currentOrder.getTask() != null ? currentOrder.getTask().getId() : null;
+        notification.orderStatusSnapshot = currentOrder.getStatus();
         notification.recipient = recipient;
         notification.category = category == null ? OrderNotificationCategory.EMERGENCY : category;
+        notification.action = action == null ? OrderNotificationAction.UPDATE : action;
+        notification.recipientGroup = recipientGroup == null
+                ? OrderNotificationRecipientGroup.MANAGEMENT
+                : recipientGroup;
+        notification.webEnabled = webEnabled;
+        notification.kakaoEnabled = kakaoEnabled;
         notification.title = required(title, "발주 변경 알림", 200);
         notification.message = required(message, "발주 정보가 변경되었습니다.", 4000);
         notification.kakaoBatchKey = required(kakaoBatchKey, java.util.UUID.randomUUID().toString(), 64);
@@ -136,10 +190,20 @@ public class OrderNotification {
         return notification;
     }
 
+    public Long resolveOrderId() {
+        return order != null && order.getId() != null ? order.getId() : orderIdSnapshot;
+    }
+
+    public Long resolveTaskId() {
+        return task != null && task.getId() != null ? task.getId() : taskIdSnapshot;
+    }
+
+    public OrderStatus resolveOrderStatus() {
+        return order != null && order.getStatus() != null ? order.getStatus() : orderStatusSnapshot;
+    }
+
     public void markRead(LocalDateTime when) {
-        if (readAt == null) {
-            readAt = when == null ? LocalDateTime.now() : when;
-        }
+        if (readAt == null) readAt = when == null ? LocalDateTime.now() : when;
     }
 
     public void markKakaoSkipped(String reason) {
@@ -175,6 +239,11 @@ public class OrderNotification {
             kakaoBatchKey = java.util.UUID.randomUUID().toString();
         }
         if (kakaoStatus == null) kakaoStatus = OrderNotificationKakaoStatus.NOT_REQUESTED;
+        if (action == null) action = OrderNotificationAction.UPDATE;
+        if (recipientGroup == null) recipientGroup = OrderNotificationRecipientGroup.MANAGEMENT;
+        if (orderIdSnapshot == null && order != null) orderIdSnapshot = order.getId();
+        if (taskIdSnapshot == null && task != null) taskIdSnapshot = task.getId();
+        if (orderStatusSnapshot == null && order != null) orderStatusSnapshot = order.getStatus();
     }
 
     private static String required(String value, String fallback, int max) {
