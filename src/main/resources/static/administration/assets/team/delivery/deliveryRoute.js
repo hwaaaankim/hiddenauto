@@ -1151,6 +1151,15 @@
                 const requestedOrderIds = activeOrderIds.slice();
                 const requestedImageCount = selectedFiles.length;
                 const targetGroup = activeGroup;
+                const actionFeedback = window.TeamActionFeedback || null;
+                const feedbackToken = actionFeedback
+                    ? actionFeedback.begin({
+                        eyebrow: '배송팀 작업 처리 중',
+                        title: '배송완료를 반영하고 있습니다.',
+                        message: `${requestedOrderIds.length}건의 주문과 ${requestedImageCount}장의 이미지를 저장하고 있습니다.`,
+                        detail: '이미지 용량과 주문 건수에 따라 시간이 걸릴 수 있습니다.'
+                    })
+                    : null;
 
                 try {
                     clearCompletionFeedback();
@@ -1178,12 +1187,18 @@
 
                     modal.hide();
 
-                    await showMessage(
-                        '배송완료 처리되었습니다.',
-                        responseBody.message
-                            || `${requestedOrderIds.length}건을 ${requestedImageCount}장의 이미지로 배송완료 처리했습니다.`,
-                        'success'
-                    );
+                    const successMessage = responseBody.message
+                        || `${requestedOrderIds.length}건을 ${requestedImageCount}장의 이미지로 배송완료 처리했습니다.`;
+
+                    if (actionFeedback) {
+                        await actionFeedback.success({
+                            title: '배송완료 처리되었습니다.',
+                            message: successMessage,
+                            detail: '현재 화면의 주문 상태와 선택 항목을 갱신했습니다.'
+                        }, feedbackToken);
+                    } else {
+                        await showMessage('배송완료 처리되었습니다.', successMessage, 'success');
+                    }
 
                 } catch (error) {
                     const message = error && error.message
@@ -1191,7 +1206,16 @@
                         : '요청 처리 중 오류가 발생했습니다.';
 
                     showCompletionFeedback(message, 'error');
-                    await showMessage('배송완료 처리 실패', message, 'error');
+
+                    if (actionFeedback) {
+                        await actionFeedback.error({
+                            title: '배송완료 처리에 실패했습니다.',
+                            message: message,
+                            detail: '선택 주문과 등록 이미지는 유지됩니다. 내용을 확인한 뒤 다시 시도해 주세요.'
+                        }, feedbackToken);
+                    } else {
+                        await showMessage('배송완료 처리 실패', message, 'error');
+                    }
                 } finally {
                     setSubmitting(false);
                 }

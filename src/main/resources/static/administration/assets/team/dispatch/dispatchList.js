@@ -30,6 +30,7 @@
 		lastOrderId: null,
 		loadedOrderIds: [],
 		selectedOrderIds: new Set(),
+		completeBusy: false,
 		activeDeliveryOrderId: null,
 		activeDeliveryHandlerId: null,
 		bulkHandlerOrderIds: [],
@@ -732,8 +733,8 @@
 		setText(els.modalSelectedCountInfo, selectedCount);
 		setText(els.modalCompleteCount, completableSelectedCount);
 
-		setDisabled(els.bulkCompleteBtn, completableSelectedCount === 0);
-		setDisabled(els.modalBulkCompleteBtn, completableSelectedCount === 0);
+		setDisabled(els.bulkCompleteBtn, state.completeBusy || completableSelectedCount === 0);
+		setDisabled(els.modalBulkCompleteBtn, state.completeBusy || completableSelectedCount === 0);
 		setDisabled(els.bulkHandlerBtn, selectedCount === 0);
 		setDisabled(els.bulkDeliveryMethodBtn, selectedCount === 0);
 		setDisabled(els.modalBulkHandlerBtn, selectedCount === 0);
@@ -755,6 +756,10 @@
 	}
 
 	async function completeOrders(orderIds) {
+		if (state.completeBusy) {
+			return;
+		}
+
 		const normalizedOrderIds = (orderIds || [])
 			.map(function(id) {
 				return Number(id);
@@ -775,6 +780,19 @@
 		if (!confirmed) {
 			return;
 		}
+
+		state.completeBusy = true;
+		setDispatchCompleteControlsBusy(true);
+
+		const actionFeedback = window.TeamActionFeedback || null;
+		const feedbackToken = actionFeedback
+			? actionFeedback.begin({
+				eyebrow: '출고팀 작업 처리 중',
+				title: '출고완료를 반영하고 있습니다.',
+				message: normalizedOrderIds.length + '건의 주문 상태와 알림을 처리하고 있습니다.',
+				detail: '처리가 끝날 때까지 같은 버튼을 다시 누르지 마세요.'
+			})
+			: null;
 
 		try {
 			const response = await fetch(API.complete, {
@@ -801,12 +819,45 @@
 				message += '\n실패 ' + data.failedCount + '건이 있습니다.';
 			}
 
-			alertMessage(message);
+			if (actionFeedback) {
+				await actionFeedback.success({
+					title: '출고완료 처리되었습니다.',
+					message: message.replace(/\n/g, ' · '),
+					detail: data.failedCount && data.failedCount > 0
+						? '실패 항목은 현재 화면에 남아 있습니다. 내용을 확인해 다시 처리해 주세요.'
+						: '현재 화면의 주문 상태와 선택 항목을 갱신했습니다.'
+				}, feedbackToken);
+			} else {
+				alertMessage(message);
+			}
 
 		} catch (error) {
 			console.error(error);
-			alertMessage(error.message || '출고완료 처리 중 오류가 발생했습니다.');
+			const message = error.message || '출고완료 처리 중 오류가 발생했습니다.';
+
+			if (actionFeedback) {
+				await actionFeedback.error({
+					title: '출고완료 처리에 실패했습니다.',
+					message: message,
+					detail: '선택 상태는 유지됩니다. 오류 내용을 확인한 뒤 다시 시도해 주세요.'
+				}, feedbackToken);
+			} else {
+				alertMessage(message);
+			}
+		} finally {
+			state.completeBusy = false;
+			setDispatchCompleteControlsBusy(false);
 		}
+	}
+
+	function setDispatchCompleteControlsBusy(busy) {
+		updateCounts();
+
+		document.querySelectorAll('.dispatch-list-complete-btn').forEach(function(button) {
+			const row = button.closest('.dispatch-list-row');
+			const completable = row && row.getAttribute('data-dispatch-completable') === 'true';
+			button.disabled = Boolean(busy) || !completable;
+		});
 	}
 
 	function applyUpdatedRow(row) {
@@ -918,6 +969,14 @@
 		}
 
 		const originalHtml = els.deliveryMethodSaveBtn ? els.deliveryMethodSaveBtn.innerHTML : '';
+		const actionFeedback = window.TeamActionFeedback || null;
+		const feedbackToken = actionFeedback
+			? actionFeedback.begin({
+				eyebrow: '출고팀 설정 변경 중',
+				title: '배송수단을 변경하고 있습니다.',
+				message: '주문 정보와 담당자 배정 내용을 안전하게 반영하고 있습니다.'
+			})
+			: null;
 
 		try {
 			if (els.deliveryMethodSaveBtn) {
@@ -944,12 +1003,30 @@
 				message += '\n배송순번: ' + (data.deliveryOrderIndex || '-');
 			}
 
-			window.setTimeout(function() {
-				alertMessage(message);
-			}, 180);
+			if (actionFeedback) {
+				await actionFeedback.success({
+					title: '배송수단이 변경되었습니다.',
+					message: message.replace(/\n/g, ' · '),
+					detail: '현재 목록의 배송수단과 담당자 정보를 갱신했습니다.'
+				}, feedbackToken);
+			} else {
+				window.setTimeout(function() {
+					alertMessage(message);
+				}, 180);
+			}
 		} catch (error) {
 			console.error(error);
-			alertMessage(error.message || '배송수단 변경 중 오류가 발생했습니다.');
+			const message = error.message || '배송수단 변경 중 오류가 발생했습니다.';
+
+			if (actionFeedback) {
+				await actionFeedback.error({
+					title: '배송수단 변경에 실패했습니다.',
+					message: message,
+					detail: '선택한 배송수단과 담당자를 확인한 뒤 다시 시도해 주세요.'
+				}, feedbackToken);
+			} else {
+				alertMessage(message);
+			}
 		} finally {
 			if (els.deliveryMethodSaveBtn && originalHtml) {
 				els.deliveryMethodSaveBtn.innerHTML = originalHtml;
@@ -1158,6 +1235,20 @@
 		els.bulkHandlerSaveBtn.disabled = true;
 		els.bulkHandlerSaveBtn.innerHTML = '<i class="ri-loader-4-line me-1"></i>변경 중';
 
+		const actionFeedback = window.TeamActionFeedback || null;
+		const requestedCount = Number(
+			state.bulkHandlerPreview && state.bulkHandlerPreview.changeableCount
+			|| state.bulkHandlerOrderIds.length
+			|| 0
+		);
+		const feedbackToken = actionFeedback
+			? actionFeedback.begin({
+				eyebrow: '출고팀 설정 변경 중',
+				title: '담당자를 일괄 변경하고 있습니다.',
+				message: requestedCount + '건의 담당자 배정과 배송순서를 다시 계산하고 있습니다.'
+			})
+			: null;
+
 		try {
 			const response = await fetch(API.bulkHandler, {
 				method: 'POST',
@@ -1181,17 +1272,34 @@
 			if (data.excludedCount) {
 				message += '\n담당자 지정 불가 ' + data.excludedCount + '건은 제외되었습니다.';
 			}
-			window.setTimeout(function() {
-				alertMessage(message);
-			}, 180);
+			if (actionFeedback) {
+				await actionFeedback.success({
+					title: '담당자 변경이 완료되었습니다.',
+					message: message.replace(/\n/g, ' · '),
+					detail: '현재 목록의 담당자와 배송순서 정보를 갱신했습니다.'
+				}, feedbackToken);
+			} else {
+				window.setTimeout(function() {
+					alertMessage(message);
+				}, 180);
+			}
 		} catch (error) {
 			console.error(error);
 			state.bulkHandlerPreview = null;
+			const message = error.message || '일괄 담당자 변경 중 오류가 발생했습니다.';
 			showBulkInlineError(
 				els.bulkHandlerBlockingArea,
 				els.bulkHandlerBlockingList,
-				error.message || '일괄 담당자 변경 중 오류가 발생했습니다.'
+				message
 			);
+
+			if (actionFeedback) {
+				await actionFeedback.error({
+					title: '담당자 변경에 실패했습니다.',
+					message: message,
+					detail: '오류 내용을 모달에 표시했습니다. 대상 주문과 담당자를 다시 확인해 주세요.'
+				}, feedbackToken);
+			}
 		} finally {
 			state.bulkHandlerBusy = false;
 			if (els.bulkHandlerSaveBtn) {
@@ -1422,6 +1530,16 @@
 			els.bulkMethodId.disabled = true;
 		}
 
+		const actionFeedback = window.TeamActionFeedback || null;
+		const feedbackToken = actionFeedback
+			? actionFeedback.begin({
+				eyebrow: '출고팀 설정 변경 중',
+				title: '배송수단을 일괄 변경하고 있습니다.',
+				message: state.bulkMethodOrderIds.length + '건의 배송수단과 담당자 배정을 반영하고 있습니다.',
+				detail: '담당자 배정 생성·삭제가 포함된 경우 처리 시간이 더 걸릴 수 있습니다.'
+			})
+			: null;
+
 		try {
 			const response = await fetch(API.bulkDeliveryMethod, {
 				method: 'POST',
@@ -1449,17 +1567,34 @@
 			if (data.assignmentRemovedCount) {
 				message += '\n기존 배정업무 삭제 ' + data.assignmentRemovedCount + '건';
 			}
-			window.setTimeout(function() {
-				alertMessage(message);
-			}, 180);
+			if (actionFeedback) {
+				await actionFeedback.success({
+					title: '배송수단 변경이 완료되었습니다.',
+					message: message.replace(/\n/g, ' · '),
+					detail: '현재 목록의 배송수단과 담당자 배정 정보를 갱신했습니다.'
+				}, feedbackToken);
+			} else {
+				window.setTimeout(function() {
+					alertMessage(message);
+				}, 180);
+			}
 		} catch (error) {
 			console.error(error);
 			state.bulkMethodPreview = null;
+			const message = error.message || '일괄 배송수단 변경 중 오류가 발생했습니다.';
 			showBulkInlineError(
 				els.bulkMethodBlockingArea,
 				els.bulkMethodBlockingList,
-				error.message || '일괄 배송수단 변경 중 오류가 발생했습니다.'
+				message
 			);
+
+			if (actionFeedback) {
+				await actionFeedback.error({
+					title: '배송수단 변경에 실패했습니다.',
+					message: message,
+					detail: '오류 내용을 모달에 표시했습니다. 변경 대상과 담당자 배정을 확인해 주세요.'
+				}, feedbackToken);
+			}
 		} finally {
 			state.bulkMethodBusy = false;
 			if (els.bulkMethodId) {

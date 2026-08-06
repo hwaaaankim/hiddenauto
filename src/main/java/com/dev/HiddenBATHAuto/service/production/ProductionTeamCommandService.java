@@ -64,6 +64,7 @@ public class ProductionTeamCommandService {
         /*
          * 화면에서 버튼이 숨겨져 있더라도 API를 직접 호출할 수 있으므로 모든 오더를 서버에서 재검증합니다.
          * 생산팀은 다른 카테고리를 조회·확인할 수 있지만 완료 처리는 본인 TeamCategory만 가능합니다.
+         * 단, 거울과 LED거울은 동일 작업 그룹으로 서로의 오더를 완료 처리할 수 있습니다.
          * 재단/재단(거울) 구성원은 조회·확인만 가능하고 완료 처리는 불가합니다.
          */
         for (Order order : orders) {

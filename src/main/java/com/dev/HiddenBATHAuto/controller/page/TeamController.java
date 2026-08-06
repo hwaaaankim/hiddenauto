@@ -87,6 +87,7 @@ import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryHandlerChangeAuditService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
+import com.dev.HiddenBATHAuto.service.order.OrderTeamAccessPolicyService;
 import com.dev.HiddenBATHAuto.service.order.DeliveryCompletionService;
 import com.dev.HiddenBATHAuto.service.production.MaterialCuttingService;
 import com.dev.HiddenBATHAuto.service.production.ProductionListExcelService;
@@ -121,6 +122,7 @@ public class TeamController {
 	private final DeliveryExcelService deliveryExcelService;
 	private final ProductionListExcelService productionListExcelService;
 	private final OrderChangeAuditService orderChangeAuditService;
+	private final OrderTeamAccessPolicyService orderTeamAccessPolicyService;
 
 	private final MaterialCuttingService materialCuttingService;
 	private final ObjectMapper objectMapper;
@@ -374,13 +376,15 @@ public class TeamController {
 		}
 
 		/*
-		 * 생산완료 가능 여부 - 재단 직원: 무조건 불가 - 하부장 등 기존 제한 대상: 자기 카테고리 조회일 때만 가능 - 그 외 생산팀 직원:
-		 * 가능
+		 * 생산완료 가능 여부 - 재단 직원: 무조건 불가 - 일반 생산팀: 자기 카테고리만 가능
+		 * - 거울과 LED거울: 동일 작업 그룹으로 서로의 카테고리도 가능
 		 */
-		boolean canBulkComplete = !isCuttingProductionMember
-				&& member.getTeamCategory() != null
-				&& member.getTeamCategory().getId() != null
-				&& Objects.equals(member.getTeamCategory().getId(), targetCategoryId);
+		TeamCategory targetProductionCategory = targetCategoryId == null
+				? null
+				: teamCategoryRepository.findById(targetCategoryId).orElse(null);
+
+		boolean canBulkComplete = orderTeamAccessPolicyService
+				.canOperateProductionCategory(member, targetProductionCategory);
 
 		/*
 		 * 자재재단 버튼은 하부장 직원에게만 노출
@@ -1098,10 +1102,8 @@ public class TeamController {
 		boolean isCuttingProductionMember = isCuttingProductionMember(loginMember);
 		boolean isMirrorCuttingProductionMember = isLegacyMirrorCuttingProductionMember(loginMember);
 
-		boolean canRequestAdmin = !isCuttingProductionMember
-				&& loginMember.getTeamCategory() != null
-				&& order.getProductCategory() != null
-				&& loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId());
+		boolean canRequestAdmin = orderTeamAccessPolicyService
+				.canOperateProductionOrder(loginMember, order);
 		boolean canChangeStatus = canRequestAdmin
 				&& order.getStatus() == OrderStatus.CONFIRMED;
 
