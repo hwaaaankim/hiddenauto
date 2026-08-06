@@ -143,7 +143,7 @@
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['data-order-id', 'disabled', 'aria-disabled', 'data-admin-request-busy']
+            attributeFilter: ['data-order-id', 'disabled', 'aria-disabled', 'data-admin-request-busy', 'data-admin-request-allowed']
         });
     }
 
@@ -160,6 +160,11 @@
     function normalizeAdminRequestButton(button) {
         if (!button || typeof button.matches !== 'function' || !button.matches('[data-order-admin-request]')) return;
         if (button.getAttribute('data-admin-request-busy') === 'true') return;
+        if (button.getAttribute('data-admin-request-allowed') === 'false') {
+            button.disabled = true;
+            button.setAttribute('aria-disabled', 'true');
+            return;
+        }
         const orderId = Number(button.getAttribute('data-order-id'));
         const valid = Number.isFinite(orderId) && orderId > 0;
         if (!valid) {
@@ -395,6 +400,11 @@
             item.classList.remove('is-unread');
             const target = state.items.find(function (row) { return String(row.id) === String(id); });
             if (target) target.read = true;
+
+            /*
+             * 개별 확인 직후에는 사용자가 펼쳐 본 내용을 유지합니다.
+             * 읽음 항목 제거는 알림창의 새로고침에서 반영하고, 일괄확인은 즉시 목록을 비웁니다.
+             */
             if (refreshBadge) await refreshSummary();
             return true;
         } catch (error) {

@@ -38,6 +38,7 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 			    left join fetch o.deliveryMethod deliveryMethod
 			    left join fetch o.assignedDeliveryHandler assignedDeliveryHandler
 			    where d.deliveryHandler.id = :deliveryHandlerId
+			      and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :deliveryHandlerId)
 			      and o.status in :statuses
 			      and (:fromDateTime is null or o.preferredDeliveryDate >= :fromDateTime)
 			      and (:toDateTime is null or o.preferredDeliveryDate < :toDateTime)
@@ -61,6 +62,7 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 			    left join fetch o.productCategory category
 			    left join fetch o.deliveryMethod deliveryMethod
 			    where d.deliveryHandler.id = :handlerId
+			      and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :handlerId)
 			      and o.id in :orderIds
 			""")
 	List<DeliveryOrderIndex> findAllByHandlerAndOrderIdsForDeliveryExcel(@Param("handlerId") Long handlerId,
@@ -101,14 +103,18 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 
 	boolean existsByOrder_Id(Long orderId);
 
+	boolean existsByOrder_IdAndDeliveryHandler_Id(Long orderId, Long deliveryHandlerId);
+
 	boolean existsByOrder(Order order);
 
 	@Query("""
 			    select doi
 			    from DeliveryOrderIndex doi
+			    join doi.order o
 			    where doi.deliveryHandler.id = :handlerId
+			      and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :handlerId)
 			      and doi.deliveryDate = :deliveryDate
-			      and doi.order.status in :statuses
+			      and o.status in :statuses
 			    order by doi.orderIndex asc
 			""")
 	Page<DeliveryOrderIndex> findByHandlerAndDateAndStatusIn(@Param("handlerId") Long handlerId,
@@ -133,6 +139,7 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 			    left join fetch rb.company c
 			    left join fetch o.assignedDeliveryHandler adh
 			    where doi.deliveryHandler.id = :handlerId
+			      and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :handlerId)
 			      and doi.deliveryDate = :deliveryDate
 			      and o.status in :statuses
 			    order by
@@ -171,6 +178,7 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 			    left join fetch rb.company c
 			    left join fetch o.assignedDeliveryHandler adh
 			    where doi.deliveryHandler.id = :handlerId
+			      and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :handlerId)
 			      and doi.deliveryDate = :deliveryDate
 			    order by
 			      case
@@ -190,6 +198,7 @@ public interface DeliveryOrderIndexRepository extends JpaRepository<DeliveryOrde
 			    from DeliveryOrderIndex doi
 			    join fetch doi.order o
 			    where doi.deliveryHandler.id = :handlerId
+			      and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :handlerId)
 			      and doi.deliveryDate = :deliveryDate
 			      and o.id = :orderId
 			""")

@@ -22,7 +22,10 @@ public class OrderNotificationAfterCommitListener {
             try {
                 deliveryService.deliver(notificationId);
             } catch (Exception e) {
-                log.warn("커밋 후 오더 알림 전달 실패: notificationId={}", notificationId, e);
+                String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                reason = reason.replaceAll("[\\r\\n\\t]+", " ");
+                if (reason.length() > 300) reason = reason.substring(0, 300);
+                log.warn("커밋 후 오더 알림 전달 실패 - 알림ID={}, 사유={}", notificationId, reason);
             }
         }
     }

@@ -1,6 +1,8 @@
 package com.dev.HiddenBATHAuto.controller.api;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dev.HiddenBATHAuto.dto.nonStandardList.NonStandardOrderDeleteRequest;
 import com.dev.HiddenBATHAuto.dto.nonStandardList.NonStandardOrderDeleteResponse;
+import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.service.nonstandard.NonStandardTaskBulkDeleteService;
 
 import lombok.RequiredArgsConstructor;
@@ -18,17 +21,21 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/management/api/non-standard-task")
 @RequiredArgsConstructor
 @Validated
+@PreAuthorize("hasAnyRole('ADMIN', 'MANAGEMENT')")
 public class NonStandardTaskBulkDeleteApiController {
 
     private final NonStandardTaskBulkDeleteService nonStandardTaskBulkDeleteService;
 
     @PostMapping("/delete-tasks")
     public ResponseEntity<NonStandardOrderDeleteResponse> deleteTasks(
-            @RequestBody NonStandardOrderDeleteRequest request
+            @RequestBody NonStandardOrderDeleteRequest request,
+            @AuthenticationPrincipal PrincipalDetails principal
     ) {
         try {
             NonStandardOrderDeleteResponse response =
-                    nonStandardTaskBulkDeleteService.deleteTasksByOrderIds(request.getOrderIds());
+                    nonStandardTaskBulkDeleteService.deleteTasksByOrderIds(
+                            request.getOrderIds(), principal != null ? principal.getMember() : null
+                    );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
@@ -41,11 +48,14 @@ public class NonStandardTaskBulkDeleteApiController {
 
     @PostMapping("/delete-orders")
     public ResponseEntity<NonStandardOrderDeleteResponse> deleteOrders(
-            @RequestBody NonStandardOrderDeleteRequest request
+            @RequestBody NonStandardOrderDeleteRequest request,
+            @AuthenticationPrincipal PrincipalDetails principal
     ) {
         try {
             NonStandardOrderDeleteResponse response =
-                    nonStandardTaskBulkDeleteService.deleteOrdersByOrderIds(request.getOrderIds());
+                    nonStandardTaskBulkDeleteService.deleteOrdersByOrderIds(
+                            request.getOrderIds(), principal != null ? principal.getMember() : null
+                    );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()

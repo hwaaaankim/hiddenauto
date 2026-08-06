@@ -269,12 +269,20 @@ public class OrderUpdateService {
 		boolean managementChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
 
         if (managementChanged) {
+            Member actor = updatedByUsername == null || updatedByUsername.isBlank()
+                    ? null
+                    : memberRepository.findByUsername(updatedByUsername.trim()).orElse(null);
+            String actorUsername = actor != null ? actor.getUsername() : updatedByUsername;
+            String actorDisplayName = actor != null && actor.getName() != null && !actor.getName().isBlank()
+                    ? actor.getName().trim()
+                    : actorUsername;
+
             orderChangeAuditService.recordOrderChange(
                     order,
                     OrderChangeSourceArea.MANAGEMENT,
-                    null,
-                    updatedByUsername,
-                    updatedByUsername,
+                    actor != null ? actor.getId() : null,
+                    actorUsername,
+                    actorDisplayName,
                     "MANAGEMENT_ORDER_UPDATE",
                     "관리자 주문 수정",
                     "/management/nonStandardOrderItemUpdate/" + orderId,

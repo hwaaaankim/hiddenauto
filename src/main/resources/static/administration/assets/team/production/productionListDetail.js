@@ -432,6 +432,7 @@
 			options: optionFields,
 			images: normalizeImages(raw),
 			canComplete: Boolean(raw.canComplete),
+			canRequestAdmin: raw.canRequestAdmin === true,
 			checkState: normalizeCheckState(raw),
 			checkStateLabel: normalizeCheckStateLabel(raw),
 			checked: isLatestCheckedRaw(raw),
@@ -855,7 +856,9 @@
 
 	function buildInlineActionHtml(order) {
 		const completeState = getOrderCompleteState(order);
+		const adminRequestState = getAdminRequestState(order);
 		const disabledAttr = completeState.available ? '' : ' disabled';
+		const adminRequestDisabledAttr = adminRequestState.available ? '' : ' disabled';
 		const completeLabel = completeState.available ? '생산완료' : '생산완료';
 
 		return [
@@ -875,13 +878,36 @@
 			'<button type="button"',
 			' class="btn btn-danger btn-sm team-production-inline-admin-request-btn order-admin-request-btn"',
 			' data-order-admin-request',
+			' data-admin-request-allowed="' + (adminRequestState.available ? 'true' : 'false') + '"',
 			' data-order-id="' + escapeAttr(order.id) + '"',
 			' data-admin-request-message="생산 진행, 생산완료 또는 재생산 여부에 대한 관리자 확인이 필요합니다."',
-			' title="발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다."',
+			' title="' + escapeAttr(adminRequestState.message) + '"',
+			adminRequestDisabledAttr,
 			'><i class="ri-alarm-warning-line me-1"></i>관리자요청</button>',
 			'</div>',
 			'</section>'
 		].join('');
+	}
+
+	function getAdminRequestState(order) {
+		if (!order || !order.id) {
+			return {
+				available: false,
+				message: '관리자요청을 보낼 발주 정보가 없습니다.'
+			};
+		}
+
+		if (order.canRequestAdmin !== true) {
+			return {
+				available: false,
+				message: '다른 생산 카테고리의 발주는 조회와 확인만 가능하며 관리자요청은 할 수 없습니다.'
+			};
+		}
+
+		return {
+			available: true,
+			message: '발주 상태와 무관하게 이 발주의 관리 담당자에게 긴급 확인을 요청합니다.'
+		};
 	}
 
 	function buildOptionPanelHtml(order) {

@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.model.task.Order;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -31,6 +32,7 @@ import lombok.ToString;
         name = "tb_order_change_event",
         indexes = {
                 @Index(name = "idx_order_change_event_order_id", columnList = "order_id,id"),
+                @Index(name = "idx_order_change_event_order_snapshot", columnList = "order_id_snapshot,id"),
                 @Index(name = "idx_order_change_event_created_at", columnList = "created_at")
         }
 )
@@ -42,10 +44,21 @@ public class OrderChangeEvent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
+    /** 삭제 이력을 보존하기 위해 nullable + DB ON DELETE SET NULL로 사용합니다. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
     @ToString.Exclude
     private Order order;
+
+    @Column(name = "order_id_snapshot", nullable = false)
+    private Long orderIdSnapshot;
+
+    @Column(name = "task_id_snapshot")
+    private Long taskIdSnapshot;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_status_snapshot", length = 30)
+    private OrderStatus orderStatusSnapshot;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "source_area", nullable = false, length = 30)
@@ -95,8 +108,15 @@ public class OrderChangeEvent {
             String requestPath,
             String summary
     ) {
+        if (order == null || order.getId() == null) {
+            throw new IllegalArgumentException("변경이력을 기록할 오더가 없습니다.");
+        }
+
         OrderChangeEvent event = new OrderChangeEvent();
         event.order = order;
+        event.orderIdSnapshot = order.getId();
+        event.taskIdSnapshot = order.getTask() != null ? order.getTask().getId() : null;
+        event.orderStatusSnapshot = order.getStatus();
         event.sourceArea = sourceArea == null ? OrderChangeSourceArea.SYSTEM : sourceArea;
         event.actorMemberId = actorMemberId;
         event.actorUsername = normalize(actorUsername, 100);
@@ -107,6 +127,20 @@ public class OrderChangeEvent {
         event.summary = required(summary, "오더 정보 변경", 1000);
         event.createdAt = LocalDateTime.now();
         return event;
+    }
+
+    public Long resolveOrderId() {
+        return order != null && order.getId() != null ? order.getId() : orderIdSnapshot;
+    }
+
+    public Long resolveTaskId() {
+        return order != null && order.getTask() != null
+                ? order.getTask().getId()
+                : taskIdSnapshot;
+    }
+
+    public OrderStatus resolveOrderStatus() {
+        return order != null && order.getStatus() != null ? order.getStatus() : orderStatusSnapshot;
     }
 
     public void addField(OrderChangeField field) {
@@ -124,6 +158,11 @@ public class OrderChangeEvent {
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        if (orderIdSnapshot == null && order != null) orderIdSnapshot = order.getId();
+        if (taskIdSnapshot == null && order != null && order.getTask() != null) {
+            taskIdSnapshot = order.getTask().getId();
+        }
+        if (orderStatusSnapshot == null && order != null) orderStatusSnapshot = order.getStatus();
     }
 
     private static String required(String value, String fallback, int max) {

@@ -386,7 +386,8 @@
 			revisionMarkedAtText: toText(raw.revisionMarkedAtText),
 			revisionReason: toText(raw.revisionReason),
 			revisionCount: Number(raw.revisionCount || 0),
-			images: normalizeImages(raw)
+			images: normalizeImages(raw),
+			canRequestAdmin: raw.canRequestAdmin === true
 		};
 
 		if (!order.productSeries) {
@@ -1132,7 +1133,8 @@
 				dateText: toText(row.getAttribute('data-date-text')) || '-',
 				adminMemo: toText(row.getAttribute('data-admin-memo')) || '-',
 				options: optionFields.length > 0 ? optionFields : [],
-				images: []
+				images: [],
+				canRequestAdmin: String(row.getAttribute('data-admin-request-allowed') || '').toLowerCase() === 'true'
 			};
 		}).filter(function(order) {
 			return order.id;
@@ -1418,6 +1420,8 @@
 			const adminRequestState = getAdminRequestState(order);
 
 			els.adminRequestBtn.disabled = !adminRequestState.available;
+			els.adminRequestBtn.setAttribute('data-admin-request-allowed', adminRequestState.available ? 'true' : 'false');
+			els.adminRequestBtn.setAttribute('aria-disabled', adminRequestState.available ? 'false' : 'true');
 			els.adminRequestBtn.setAttribute(
 				'data-order-id',
 				adminRequestState.available ? toText(order.id) : ''
@@ -1435,6 +1439,13 @@
 			return {
 				available: false,
 				message: '관리자요청을 보낼 발주 정보가 없습니다.'
+			};
+		}
+
+		if (order.canRequestAdmin !== true) {
+			return {
+				available: false,
+				message: '다른 생산 카테고리의 발주는 조회와 확인만 가능하며 관리자요청은 할 수 없습니다.'
 			};
 		}
 

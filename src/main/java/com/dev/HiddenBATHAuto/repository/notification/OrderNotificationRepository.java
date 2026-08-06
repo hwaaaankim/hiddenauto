@@ -16,12 +16,13 @@ import com.dev.HiddenBATHAuto.model.notification.OrderNotification;
 
 public interface OrderNotificationRepository extends JpaRepository<OrderNotification, Long> {
 
-    long countByRecipient_IdAndReadAtIsNull(Long recipientId);
+    long countByRecipient_IdAndReadAtIsNullAndWebEnabledTrue(Long recipientId);
 
     @Query("""
             select n.category, count(n)
             from OrderNotification n
             where n.recipient.id = :recipientId
+              and n.webEnabled = true
               and n.readAt is null
             group by n.category
             """)
@@ -31,6 +32,7 @@ public interface OrderNotificationRepository extends JpaRepository<OrderNotifica
             select n.id
               from OrderNotification n
              where n.recipient.id = :recipientId
+               and n.webEnabled = true
                and n.readAt is null
                and (:category is null or n.category = :category)
                and (:cursor is null or n.id < :cursor)
@@ -46,13 +48,13 @@ public interface OrderNotificationRepository extends JpaRepository<OrderNotifica
     @EntityGraph(attributePaths = {
             "event", "event.fields", "order", "task", "recipient", "recipient.team"
     })
-    @Query("select distinct n from OrderNotification n where n.id in :ids")
+    @Query("select distinct n from OrderNotification n where n.id in :ids and n.webEnabled = true")
     List<OrderNotification> findPageDetailsByIdIn(@Param("ids") Collection<Long> ids);
 
     @EntityGraph(attributePaths = {
             "event", "event.fields", "order", "task", "recipient", "recipient.team"
     })
-    Optional<OrderNotification> findByIdAndRecipient_Id(Long id, Long recipientId);
+    Optional<OrderNotification> findByIdAndRecipient_IdAndWebEnabledTrue(Long id, Long recipientId);
 
     @EntityGraph(attributePaths = {
             "event", "event.fields", "event.order", "event.order.task", "recipient", "recipient.team"
@@ -61,20 +63,21 @@ public interface OrderNotificationRepository extends JpaRepository<OrderNotifica
 
     @EntityGraph(attributePaths = {
             "event", "event.fields", "event.order", "event.order.task",
-            "event.order.task.managedBy", "recipient", "recipient.team"
+            "event.order.task.managedBy", "order", "task", "recipient", "recipient.team"
     })
     @Query("select n from OrderNotification n where n.id = :id")
     Optional<OrderNotification> findDeliveryTargetById(@Param("id") Long id);
 
     @EntityGraph(attributePaths = {
             "event", "event.fields", "event.order", "event.order.task",
-            "event.order.task.managedBy", "recipient", "recipient.team"
+            "event.order.task.managedBy", "order", "task", "recipient", "recipient.team"
     })
     @Query("""
             select distinct n
               from OrderNotification n
              where n.kakaoBatchKey = :batchKey
                and n.recipient.id = :recipientId
+               and n.kakaoEnabled = true
              order by n.id asc
             """)
     List<OrderNotification> findKakaoBatch(
@@ -87,6 +90,7 @@ public interface OrderNotificationRepository extends JpaRepository<OrderNotifica
               from OrderNotification n
              where n.kakaoBatchKey = :batchKey
                and n.recipient.id = :recipientId
+               and n.kakaoEnabled = true
             """)
     Long findKakaoBatchLeaderId(
             @Param("batchKey") String batchKey,
@@ -98,6 +102,7 @@ public interface OrderNotificationRepository extends JpaRepository<OrderNotifica
             update OrderNotification n
                set n.readAt = current_timestamp
              where n.recipient.id = :recipientId
+               and n.webEnabled = true
                and n.readAt is null
                and n.id in :notificationIds
             """)

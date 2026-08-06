@@ -1,0 +1,218 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid notification-policy-page">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                        <h4 class="mb-1">로깅알림 관리</h4>
+                        <p class="text-muted mb-0">행동 주체·작업·수신 대상별로 종 모양 웹 알림과 카카오톡 발송을 각각 제어합니다.</p>
+                    </div>
+                    <a href="/admin/notification/test" class="btn btn-outline-secondary">
+                        <i class="ri-message-2-line me-1"></i>카카오톡 테스트
+                    </a>
+                </div>
+
+                <div th:if="${savedMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="ri-checkbox-circle-line me-1"></i>
+                    <span th:text="${savedMessage}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="닫기"></button>
+                </div>
+
+                <div class="alert alert-warning policy-guide" role="alert">
+                    <h6 class="alert-heading mb-2"><i class="ri-information-line me-1"></i>바로가기 링크 제공 기준</h6>
+                    <p class="mb-1">삭제된 오더는 누구에게도 링크를 제공하지 않습니다. 취소·승인 전 상태는 팀 화면에서 조회할 수 없으므로 팀 수신자에게는 링크가 없지만, 모든 상태를 조회할 수 있는 관리자에게는 링크가 유지됩니다.</p>
+                    <p class="mb-0">담당자 변경으로 실제 조회 권한을 잃은 기존 배송 담당자에게는 변경 사실만 전달하며, 현재 권한으로 조회 가능한 수신자에게만 링크가 표시됩니다.</p>
+                </div>
+
+                <div class="alert alert-info policy-guide" role="alert">
+                    <p class="mb-1"><strong>체크됨</strong>: 해당 수단으로 전송합니다. <strong>체크 해제 후 저장</strong>: 해당 수단으로 전송하지 않습니다.</p>
+                    <p class="mb-0">확인/재확인 행은 사용자별 체크 이력만 저장하고 다른 사람에게 알림을 보내지 않는 감사 전용 항목입니다. 전체 알림 또는 카카오톡 설정이 비활성화되어 있으면 이 페이지에서 체크되어 있어도 발송되지 않습니다.</p>
+                </div>
+
+                <form method="post" th:action="@{/admin/order-notification-policy}" id="notification-policy-form">
+                    <div class="card" th:each="section : ${policySections}">
+                        <div class="card-header bg-white d-flex align-items-center justify-content-between gap-2">
+                            <div>
+                                <h5 class="mb-1" th:text="${section.key + ' 행동'}">관리팀 행동</h5>
+                                <small class="text-muted">각 행은 실제 발주 변경 이벤트의 발신 주체와 수신 대상 조합입니다.</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary js-section-all"
+                                        data-channel="web">웹 전체</button>
+                                <button type="button" class="btn btn-sm btn-outline-warning js-section-all"
+                                        data-channel="kakao">카카오 전체</button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 notification-policy-table">
+                                <colgroup>
+                                    <col class="policy-col-action">
+                                    <col class="policy-col-recipient">
+                                    <col>
+                                    <col class="policy-col-channel">
+                                    <col class="policy-col-channel">
+                                </colgroup>
+                                <thead class="table-light">
+                                <tr>
+                                    <th>작업</th>
+                                    <th>알림받는 대상</th>
+                                    <th>동작 설명</th>
+                                    <th class="text-center">종 알림</th>
+                                    <th class="text-center">카카오톡</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="row : ${section.value}"
+                                    th:classappend="${!row.configurable} ? 'policy-audit-row' : ''">
+                                    <td>
+                                        <strong th:text="${row.actionLabel}">발주 수정</strong>
+                                        <div class="small text-muted" th:text="${row.action}">UPDATE</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-soft-primary text-primary"
+                                              th:text="${row.recipientGroupLabel}">현재 배송 담당자</span>
+                                    </td>
+                                    <td class="policy-description" th:text="${row.description}">설명</td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-flex justify-content-center">
+                                            <input class="form-check-input js-policy-checkbox"
+                                                   data-channel="web"
+                                                   type="checkbox"
+                                                   name="webKeys"
+                                                   th:id="${'web-' + row.key}"
+                                                   th:value="${row.key}"
+                                                   th:checked="${row.webEnabled}"
+                                                   th:disabled="${!row.configurable}">
+                                            <label class="visually-hidden" th:for="${'web-' + row.key}">종 알림</label>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-flex justify-content-center">
+                                            <input class="form-check-input js-policy-checkbox"
+                                                   data-channel="kakao"
+                                                   type="checkbox"
+                                                   name="kakaoKeys"
+                                                   th:id="${'kakao-' + row.key}"
+                                                   th:value="${row.key}"
+                                                   th:checked="${row.kakaoEnabled}"
+                                                   th:disabled="${!row.configurable}">
+                                            <label class="visually-hidden" th:for="${'kakao-' + row.key}">카카오톡</label>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="sticky-save-bar">
+                        <div class="text-muted small">저장 시 현재 화면의 모든 설정이 한 번에 반영됩니다.</div>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="ri-save-3-line me-1"></i>설정 저장
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+<style>
+    .notification-policy-page {
+        max-width: 1480px;
+        padding-bottom: 90px;
+    }
+
+    .notification-policy-page .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, .045);
+        margin-bottom: 20px;
+    }
+
+    .notification-policy-table {
+        min-width: 980px;
+        table-layout: fixed;
+    }
+
+    .policy-col-action { width: 190px; }
+    .policy-col-recipient { width: 210px; }
+    .policy-col-channel { width: 110px; }
+
+    .policy-description {
+        white-space: normal;
+        line-height: 1.55;
+    }
+
+    .policy-audit-row {
+        background: #f8fafc;
+    }
+
+    .policy-audit-row .policy-description::after {
+        content: ' · 감사이력 전용';
+        font-weight: 700;
+        color: #64748b;
+    }
+
+    .policy-guide {
+        border-radius: 12px;
+    }
+
+    .sticky-save-bar {
+        position: fixed;
+        z-index: 1010;
+        left: calc(var(--vz-vertical-menu-width, 250px) + 24px);
+        right: 24px;
+        bottom: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 18px;
+        border: 1px solid #dbe3ed;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, .97);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, .12);
+        backdrop-filter: blur(8px);
+    }
+
+    @media (max-width: 991.98px) {
+        .sticky-save-bar {
+            left: 16px;
+            right: 16px;
+        }
+    }
+</style>
+
+<script>
+    document.querySelectorAll('.js-section-all').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const card = button.closest('.card');
+            const channel = button.dataset.channel;
+            const boxes = Array.from(card.querySelectorAll('.js-policy-checkbox[data-channel="' + channel + '"]:not(:disabled)'));
+            if (!boxes.length) return;
+            const shouldCheck = boxes.some(function (box) { return !box.checked; });
+            boxes.forEach(function (box) { box.checked = shouldCheck; });
+        });
+    });
+</script>
+</body>
+</html>

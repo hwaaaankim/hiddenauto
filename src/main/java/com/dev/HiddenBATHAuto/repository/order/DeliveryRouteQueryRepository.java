@@ -28,6 +28,7 @@ public interface DeliveryRouteQueryRepository extends Repository<DeliveryOrderIn
             left join fetch o.orderItem orderItem
             left join fetch o.productCategory productCategory
             where handler.id = :handlerId
+              and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :handlerId)
               and doi.deliveryDate = :deliveryDate
               and o.status in :statuses
             order by doi.orderIndex asc, o.id asc
@@ -50,6 +51,7 @@ public interface DeliveryRouteQueryRepository extends Repository<DeliveryOrderIn
             left join fetch o.orderItem orderItem
             left join fetch o.productCategory productCategory
             where handler.id = :handlerId
+              and (o.assignedDeliveryHandler is null or o.assignedDeliveryHandler.id = :handlerId)
               and doi.deliveryDate = :deliveryDate
               and o.status in :statuses
               and (:orderIdFrom is null or o.id >= :orderIdFrom)

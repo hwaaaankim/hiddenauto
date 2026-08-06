@@ -524,7 +524,13 @@
 									</a>
 								</li>
 
-								<li class="nav-item">
+								<li class="nav-item" th:if="${isAdmin}">
+									<a href="/admin/order-notification-policy" class="nav-link" data-key="t-manager">
+										로깅알림 관리
+									</a>
+								</li>
+
+								<li class="nav-item" th:if="${isAdmin}">
 									<a href="/admin/notification/test" class="nav-link" data-key="t-manager">
 										카카오톡발송
 									</a>

@@ -252,7 +252,7 @@ public class TeamController {
 			targetCategoryId = member.getTeamCategory() != null ? member.getTeamCategory().getId() : null;
 		}
 
-		boolean mirrorCuttingOnly = mirrorCuttingFilterSelected || isLegacyMirrorCuttingProductionMember;
+		boolean mirrorCuttingOnly = mirrorCuttingFilterSelected;
 
 		String normalizedDateType = (dateType == null || dateType.isBlank()) ? "preferred" : dateType.trim();
 
@@ -377,14 +377,10 @@ public class TeamController {
 		 * 생산완료 가능 여부 - 재단 직원: 무조건 불가 - 하부장 등 기존 제한 대상: 자기 카테고리 조회일 때만 가능 - 그 외 생산팀 직원:
 		 * 가능
 		 */
-		boolean canBulkComplete = true;
-
-		if (isCuttingProductionMember) {
-			canBulkComplete = false;
-		} else if (isLowerCabinetProductionMember) {
-			canBulkComplete = member.getTeamCategory() != null
-					&& Objects.equals(member.getTeamCategory().getId(), targetCategoryId);
-		}
+		boolean canBulkComplete = !isCuttingProductionMember
+				&& member.getTeamCategory() != null
+				&& member.getTeamCategory().getId() != null
+				&& Objects.equals(member.getTeamCategory().getId(), targetCategoryId);
 
 		/*
 		 * 자재재단 버튼은 하부장 직원에게만 노출
@@ -1102,10 +1098,11 @@ public class TeamController {
 		boolean isCuttingProductionMember = isCuttingProductionMember(loginMember);
 		boolean isMirrorCuttingProductionMember = isLegacyMirrorCuttingProductionMember(loginMember);
 
-		boolean canChangeStatus = !isCuttingProductionMember
+		boolean canRequestAdmin = !isCuttingProductionMember
 				&& loginMember.getTeamCategory() != null
 				&& order.getProductCategory() != null
-				&& loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())
+				&& loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId());
+		boolean canChangeStatus = canRequestAdmin
 				&& order.getStatus() == OrderStatus.CONFIRMED;
 
 		model.addAttribute("order", order);
@@ -1114,6 +1111,7 @@ public class TeamController {
 				teamTaskService.buildProductionOverviewDetailFields(order));
 		model.addAttribute("managedByName", teamTaskService.resolveProductionManagedByName(order));
 		model.addAttribute("canChangeStatus", canChangeStatus);
+		model.addAttribute("canRequestAdmin", canRequestAdmin);
 		model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
 		model.addAttribute("isMirrorCuttingProductionMember", isMirrorCuttingProductionMember);
         model.addAttribute("productionCheckResponse", productionCheckResponse);
@@ -1135,64 +1133,23 @@ public class TeamController {
 
 		Member loginMember = principal.getMember();
 
-		// 2. 오더 조회
-		Order order = orderRepository.findById(orderId)
-				.orElseThrow(() -> new IllegalArgumentException("주문이 존재하지 않습니다."));
-
-		// 3. 생산팀 여부 확인
-		if (loginMember.getTeam() == null || !"생산팀".equals(loginMember.getTeam().getName())) {
-			redirectAttributes.addFlashAttribute("errorMessage", "생산팀만 상태를 변경할 수 있습니다.");
+		if (newStatus != OrderStatus.PRODUCTION_DONE) {
+			redirectAttributes.addFlashAttribute("errorMessage", "생산완료 상태로만 변경할 수 있습니다.");
 			return "redirect:/team/productionDetail/" + orderId;
 		}
 
-		// 4. 재단 직원은 생산완료 처리 불가
-		if (isCuttingProductionMember(loginMember)) {
-			redirectAttributes.addFlashAttribute("errorMessage", "재단 직원은 생산완료 처리를 할 수 없습니다.");
-			return "redirect:/team/productionDetail/" + orderId;
+		/*
+		 * 상세 화면의 기존 상태 변경 경로도 리스트/넓게보기와 같은 중앙 권한 정책 및
+		 * 감사·알림 파이프라인을 사용합니다. 화면 파라미터만 조작해 타 카테고리를
+		 * 생산완료 처리하거나 중복 로그를 생성하는 우회 경로가 생기지 않도록 합니다.
+		 */
+		try {
+			teamTaskService.completeProductionOrderFromOverview(orderId, loginMember);
+			redirectAttributes.addFlashAttribute("successMessage", "상태가 성공적으로 변경되었습니다.");
+		} catch (AccessDeniedException | IllegalArgumentException | IllegalStateException e) {
+			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
 		}
 
-		// 5. 상태 변경 허용 조건 확인
-		if (order.getStatus() != OrderStatus.CONFIRMED || newStatus != OrderStatus.PRODUCTION_DONE) {
-			redirectAttributes.addFlashAttribute("errorMessage", "변경 가능한 상태가 아닙니다.");
-			return "redirect:/team/productionDetail/" + orderId;
-		}
-
-		// 6. 권한 체크: 로그인한 멤버의 팀 카테고리와 오더의 제품 카테고리가 같아야 함
-		if (loginMember.getTeamCategory() == null || order.getProductCategory() == null) {
-			redirectAttributes.addFlashAttribute("errorMessage", "상태 변경 권한을 확인할 수 없습니다.");
-			return "redirect:/team/productionDetail/" + orderId;
-		}
-
-		if (!loginMember.getTeamCategory().getId().equals(order.getProductCategory().getId())) {
-			redirectAttributes.addFlashAttribute("errorMessage", "상태 변경 권한이 없습니다.");
-			return "redirect:/team/productionDetail/" + orderId;
-		}
-
-		// 7. 상태 변경
-		order.setStatus(OrderStatus.PRODUCTION_DONE);
-		order.setUpdatedAt(LocalDateTime.now());
-		orderRepository.save(order);
-
-        orderChangeAuditService.recordOrderChange(
-                order,
-                OrderChangeSourceArea.PRODUCTION,
-                loginMember.getId(),
-                loginMember.getUsername(),
-                loginMember.getName(),
-                "PRODUCTION_COMPLETE_DETAIL",
-                "생산 상세에서 생산완료 처리",
-                "/team/updateStatus/" + orderId,
-                List.of(OrderFieldChangeCommand.of(
-                        "status",
-                        "오더 상태",
-                        OrderStatus.CONFIRMED.getLabel(),
-                        OrderStatus.PRODUCTION_DONE.getLabel(),
-                        OrderWorkArea.DISPATCH,
-                        OrderWorkArea.DELIVERY
-                ))
-        );
-
-		redirectAttributes.addFlashAttribute("successMessage", "상태가 성공적으로 변경되었습니다.");
 		return "redirect:/team/productionDetail/" + orderId;
 	}
 

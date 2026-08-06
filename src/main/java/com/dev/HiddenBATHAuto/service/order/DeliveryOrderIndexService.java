@@ -1021,6 +1021,12 @@ public class DeliveryOrderIndexService {
             return false;
         }
 
+        Member currentHandler = order.getAssignedDeliveryHandler();
+        if (currentHandler != null
+                && !Objects.equals(currentHandler.getId(), deliveryOrderIndex.getDeliveryHandler().getId())) {
+            return false;
+        }
+
         return true;
     }
 
@@ -1188,6 +1194,18 @@ public class DeliveryOrderIndexService {
 
         if (!index.getDeliveryHandler().getId().equals(loginMember.getId())) {
             throw new AccessDeniedException("현재 로그인한 배송 담당자의 주문만 처리할 수 있습니다.");
+        }
+
+        /*
+         * 담당자 변경 직후 과거 DeliveryOrderIndex가 비정상적으로 남아 있더라도
+         * Order의 현재 담당자가 다른 사람이라면 이전 담당자의 직접 API 호출을 차단합니다.
+         * Order 담당자가 null인 과거 데이터만 인덱스를 기준으로 호환합니다.
+         */
+        Order order = index.getOrder();
+        if (order != null
+                && order.getAssignedDeliveryHandler() != null
+                && !Objects.equals(order.getAssignedDeliveryHandler().getId(), loginMember.getId())) {
+            throw new AccessDeniedException("현재 배송 담당자에게 배정된 주문만 처리할 수 있습니다.");
         }
     }
 

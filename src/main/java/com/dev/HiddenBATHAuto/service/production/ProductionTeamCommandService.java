@@ -17,110 +17,87 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.OrderOperationalChangeRecorder;
+import com.dev.HiddenBATHAuto.service.order.OrderTeamAccessPolicyService;
 
 @Service
 public class ProductionTeamCommandService {
 
-	private final OrderRepository orderRepository;
-	private final OrderOperationalChangeRecorder changeRecorder;
+    private final OrderRepository orderRepository;
+    private final OrderOperationalChangeRecorder changeRecorder;
+    private final OrderTeamAccessPolicyService accessPolicyService;
 
-	public ProductionTeamCommandService(
-			OrderRepository orderRepository,
-			OrderOperationalChangeRecorder changeRecorder
-	) {
-		this.orderRepository = orderRepository;
-		this.changeRecorder = changeRecorder;
-	}
+    public ProductionTeamCommandService(
+            OrderRepository orderRepository,
+            OrderOperationalChangeRecorder changeRecorder,
+            OrderTeamAccessPolicyService accessPolicyService
+    ) {
+        this.orderRepository = orderRepository;
+        this.changeRecorder = changeRecorder;
+        this.accessPolicyService = accessPolicyService;
+    }
 
-	@Transactional
-	public int bulkComplete(Member loginMember, List<Long> orderIds) {
+    @Transactional
+    public int bulkComplete(Member loginMember, List<Long> orderIds) {
+        if (loginMember == null) {
+            throw new AccessDeniedException("접근 불가");
+        }
+        if (orderIds == null || orderIds.isEmpty()) {
+            throw new IllegalArgumentException("orderIds가 비어있습니다.");
+        }
 
-		if (loginMember == null) {
-			throw new AccessDeniedException("접근 불가");
-		}
-		if (orderIds == null || orderIds.isEmpty()) {
-			throw new IllegalArgumentException("orderIds가 비어있습니다.");
-		}
+        List<Long> uniqueIds = orderIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (uniqueIds.isEmpty()) {
+            throw new IllegalArgumentException("유효한 orderIds가 없습니다.");
+        }
 
-		// ✅ 중복 제거(체크박스 중복은 흔치 않지만 방어)
-		List<Long> uniqueIds = orderIds.stream()
-				.filter(Objects::nonNull)
-				.distinct()
-				.toList();
+        List<Order> orders = orderRepository.findAllById(uniqueIds);
+        Set<Long> foundIds = orders.stream().map(Order::getId).collect(Collectors.toSet());
+        for (Long requestedId : uniqueIds) {
+            if (!foundIds.contains(requestedId)) {
+                throw new IllegalArgumentException("주문 없음: " + requestedId);
+            }
+        }
 
-		boolean isSubLeaderTeam = (loginMember.getTeamCategory() != null
-				&& "하부장".equals(loginMember.getTeamCategory().getName()));
-		Long myCategoryId = (loginMember.getTeamCategory() != null) ? loginMember.getTeamCategory().getId() : null;
+        /*
+         * 화면에서 버튼이 숨겨져 있더라도 API를 직접 호출할 수 있으므로 모든 오더를 서버에서 재검증합니다.
+         * 생산팀은 다른 카테고리를 조회·확인할 수 있지만 완료 처리는 본인 TeamCategory만 가능합니다.
+         * 재단/재단(거울) 구성원은 조회·확인만 가능하고 완료 처리는 불가합니다.
+         */
+        for (Order order : orders) {
+            accessPolicyService.assertCanOperateProduction(loginMember, order);
+            if (order.getStatus() != OrderStatus.CONFIRMED) {
+                throw new IllegalStateException(order.getId() + "번 오더는 완료처리할 수 없습니다.");
+            }
+        }
 
-		// ✅ 한번에 조회 (N+1 방지 + 검증/처리 단순화)
-		List<Order> orders = orderRepository.findAllById(uniqueIds);
+        LocalDateTime now = LocalDateTime.now();
+        for (Order order : orders) {
+            order.setStatus(OrderStatus.PRODUCTION_DONE);
+            order.setUpdatedAt(now);
+            order.setAssignedProductionHandler(loginMember);
+        }
 
-		// ✅ 존재하지 않는 주문ID 검증 (요청한 id 중 누락이 있으면 즉시 실패)
-		Set<Long> foundIds = orders.stream().map(Order::getId).collect(Collectors.toSet());
-		for (Long requestedId : uniqueIds) {
-			if (!foundIds.contains(requestedId)) {
-				throw new IllegalArgumentException("주문 없음: " + requestedId);
-			}
-		}
+        orderRepository.saveAll(orders);
+        orderRepository.flush();
 
-		// =========================
-		// 1) 서버 검증 단계 (하나라도 위반이면 즉시 실패)
-		// =========================
+        for (Order order : orders) {
+            changeRecorder.recordStatusChange(
+                    order,
+                    OrderChangeSourceArea.PRODUCTION,
+                    loginMember,
+                    OrderStatus.CONFIRMED,
+                    OrderStatus.PRODUCTION_DONE,
+                    "PRODUCTION_BULK_COMPLETE",
+                    "생산완료 일괄 처리",
+                    "/api/team/production/orders/complete",
+                    OrderWorkArea.DISPATCH,
+                    OrderWorkArea.DELIVERY
+            );
+        }
 
-		// 1-1) 하부장팀 제한 검증
-		if (isSubLeaderTeam) {
-			if (myCategoryId == null) {
-				throw new AccessDeniedException("하부장 권한 처리 불가(내 카테고리 정보 없음)");
-			}
-
-			for (Order order : orders) {
-				if (order.getProductCategory() == null || order.getProductCategory().getId() == null) {
-					throw new AccessDeniedException("하부장 권한 처리 불가(카테고리 정보 없음)");
-				}
-				if (!myCategoryId.equals(order.getProductCategory().getId())) {
-					throw new AccessDeniedException("하부장팀은 하부장 생산만 완료처리할 수 있습니다.");
-				}
-			}
-		}
-
-		// 1-2) 상태 검증: 선택된 것 중 하나라도 CONFIRMED가 아니면 실패
-		// ✅ 요구사항 메시지: "__번 오더는 완료처리할 수 없다"
-		for (Order order : orders) {
-			if (order.getStatus() != OrderStatus.CONFIRMED) {
-				throw new IllegalStateException(order.getId() + "번 오더는 완료처리할 수 없습니다.");
-			}
-		}
-
-		// =========================
-		// 2) 처리 단계 (여기까지 왔으면 모두 처리 가능 상태)
-		// =========================
-		LocalDateTime now = LocalDateTime.now();
-
-		for (Order order : orders) {
-			order.setStatus(OrderStatus.PRODUCTION_DONE);
-			order.setUpdatedAt(now);
-			order.setAssignedProductionHandler(loginMember);
-		}
-
-		// ✅ 명시적 저장 (JPA 더티체킹으로도 되지만, 운영 안정성 위해 saveAll 권장)
-		orderRepository.saveAll(orders);
-		orderRepository.flush();
-
-		for (Order order : orders) {
-			changeRecorder.recordStatusChange(
-					order,
-					OrderChangeSourceArea.PRODUCTION,
-					loginMember,
-					OrderStatus.CONFIRMED,
-					OrderStatus.PRODUCTION_DONE,
-					"PRODUCTION_BULK_COMPLETE",
-					"생산완료 일괄 처리",
-					"/api/team/production/orders/complete",
-					OrderWorkArea.DISPATCH,
-					OrderWorkArea.DELIVERY
-			);
-		}
-
-		return orders.size();
-	}
+        return orders.size();
+    }
 }
