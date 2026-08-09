@@ -122,6 +122,7 @@ import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderImageRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.dev.HiddenBATHAuto.service.MemberAdminService;
 import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.auth.AddressRegionResolver;
@@ -295,8 +296,12 @@ public class ManagementController {
                 .filter(java.util.Objects::nonNull)
                 .toList();
 
+        // 상세/일괄보기는 등록 이력까지 기존 그대로 사용합니다.
         model.addAttribute("latestOrderChangeMap",
                 orderChangeAuditService.getLatestChangeMap(currentOrderIds));
+        // 일반 목록의 한 줄 변경표시에서는 신규 등록 이벤트만 제외합니다.
+        model.addAttribute("latestListOrderChangeMap",
+                orderChangeAuditService.getLatestListChangeMap(currentOrderIds));
         model.addAttribute("productionCheckAggregateMap",
                 orderChangeAuditService.getCheckAggregateMap(currentOrderIds, OrderWorkArea.PRODUCTION));
 
@@ -650,10 +655,9 @@ public class ManagementController {
 
 	private String buildOrderListFullAddress(String zipCode, String doName, String siName, String guName,
 			String roadAddress, String detailAddress) {
-		String fullAddress = orderListJoinNonBlank(" ", orderListWrapIfNotBlank(zipCode, "(", ")"), doName, siName,
-				guName, roadAddress, detailAddress);
-
-		return fullAddress.isBlank() ? "-" : fullAddress;
+		return DeliveryAddressNormalizationUtil
+				.build(zipCode, doName, siName, guName, roadAddress, detailAddress)
+				.display();
 	}
 
 	private String buildOrderListFullAddress(CompanyDeliveryAddress address) {

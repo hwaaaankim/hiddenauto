@@ -1657,6 +1657,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			""")
 	List<Order> findAllForProductionOverviewByIds(@Param("orderIds") List<Long> orderIds);
 
+	/*
+	 * 생산팀 넓게보기/일괄보기 본문 전용 조회입니다.
+	 * 이미지 컬렉션을 함께 join fetch 하면 주문 수 x 이미지 수 만큼 결과 행이 팽창하고,
+	 * 대량 조회 시 브라우저에 전달되는 JSON도 급격히 커집니다.
+	 * 본문 데이터에서는 이미지를 제외하고 이미지는 /management-images API로 필요할 때 조회합니다.
+	 */
+	@Query("""
+			    select distinct o
+			    from Order o
+			    left join fetch o.task t
+			    left join fetch t.requestedBy rb
+			    left join fetch rb.company c
+			    left join fetch t.managedBy mb
+			    left join fetch o.productCategory pc
+			    left join fetch o.orderItem oi
+			    left join fetch o.checkStatus cs
+			    where o.id in :orderIds
+			""")
+	List<Order> findAllForProductionOverviewDataByIds(@Param("orderIds") List<Long> orderIds);
+
 	@Query("""
 			    select distinct o
 			    from Order o

@@ -355,15 +355,44 @@ public class OrderChangeAuditService {
 
     @Transactional(readOnly = true)
     public Map<Long, OrderChangeSummaryDto> getLatestChangeMap(Collection<Long> orderIds) {
+        return getLatestChangeMap(orderIds, false);
+    }
+
+    /**
+     * 관리자 발주 목록의 한 줄 요약 전용입니다.
+     *
+     * <p>발주 등록도 감사이력으로는 정상 보존하지만, 목록에서는 신규 등록 직후
+     * "없는 값 → 있는 값"이 여러 건의 변경처럼 보이지 않도록 등록 이벤트를 제외합니다.
+     * 상세/넓게보기의 전체 이력은 {@link #getOrderHistory(Long, int)}를 그대로 사용하므로
+     * 기존 등록 이력과 알림/카카오 정책에는 영향을 주지 않습니다.</p>
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, OrderChangeSummaryDto> getLatestListChangeMap(Collection<Long> orderIds) {
+        return getLatestChangeMap(orderIds, true);
+    }
+
+    private Map<Long, OrderChangeSummaryDto> getLatestChangeMap(
+            Collection<Long> orderIds,
+            boolean excludeRegistrationEvents
+    ) {
         List<Long> ids = normalizeOrderIds(orderIds);
         if (ids.isEmpty()) return Map.of();
 
         Map<Long, OrderChangeSummaryDto> result = new LinkedHashMap<>();
         for (OrderChangeEvent event : orderChangeEventRepository.findLatestCandidates(ids)) {
             if (event.getOrder() == null || event.getOrder().getId() == null) continue;
+            if (excludeRegistrationEvents && isOrderRegistrationEvent(event)) continue;
             result.putIfAbsent(event.getOrder().getId(), toSummaryDto(event));
         }
         return result;
+    }
+
+    private boolean isOrderRegistrationEvent(OrderChangeEvent event) {
+        if (event == null || event.getOperationCode() == null) return false;
+        String operationCode = event.getOperationCode().trim().toUpperCase(java.util.Locale.ROOT);
+        return operationCode.contains("ORDER_CREATED")
+                || operationCode.contains("ORDER_REGISTER")
+                || operationCode.contains("REGISTRATION");
     }
 
     @Transactional(readOnly = true)

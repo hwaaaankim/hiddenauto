@@ -350,7 +350,7 @@ public class DispatchTeamService {
         DeliveryMethod nextDeliveryMethod = deliveryMethodRepository.findById(deliveryMethodId)
                 .orElseThrow(() -> new IllegalArgumentException("배송수단을 찾을 수 없습니다."));
 
-        MethodGroup nextGroup = DeliveryMethodAssignmentPolicy.classify(nextDeliveryMethod);
+        boolean nextHandlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(nextDeliveryMethod);
         DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
         Member currentHandler = resolveAssignedDeliveryHandler(order, existingIndex);
         String beforeMethodLabel = deliveryMethodLabel(order.getDeliveryMethod());
@@ -362,7 +362,7 @@ public class DispatchTeamService {
             affectedHandlerIds.add(currentHandler.getId());
         }
 
-        if (nextGroup != MethodGroup.NO_HANDLER) {
+        if (nextHandlerRequired) {
             Long resolvedHandlerId = deliveryHandlerId != null
                     ? deliveryHandlerId
                     : currentHandler != null ? currentHandler.getId() : null;
@@ -383,11 +383,12 @@ public class DispatchTeamService {
 
         order.setDeliveryMethod(nextDeliveryMethod);
         order.setAssignedDeliveryHandler(nextHandler);
+        order.setAssignedDeliveryTeam(nextHandler != null ? nextHandler.getTeamCategory() : null);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
         orderRepository.flush();
 
-        if (nextGroup == MethodGroup.NO_HANDLER) {
+        if (!nextHandlerRequired) {
             deliveryOrderIndexService.removeIndex(order);
         } else {
             deliveryOrderIndexService.ensureIndex(order);
@@ -464,7 +465,7 @@ public class DispatchTeamService {
                 excludedOrders.add(toBulkOrderInfo(
                         order,
                         methodName + " 건은 담당자 지정이 불가능합니다. "
-                                + "배송수단을 직배송/현장배송/화물로 변경한 후 담당자를 지정할 수 있습니다."
+                                + "배송수단을 직배송/현장배송으로 변경한 후 담당자를 지정할 수 있습니다."
                 ));
                 continue;
             }
@@ -647,7 +648,7 @@ public class DispatchTeamService {
         DeliveryMethod targetMethod = deliveryMethodRepository.findById(deliveryMethodId)
                 .orElseThrow(() -> new IllegalArgumentException("변경할 배송수단을 찾을 수 없습니다."));
 
-        MethodGroup targetGroup = DeliveryMethodAssignmentPolicy.classify(targetMethod);
+        boolean targetHandlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(targetMethod);
         Map<Long, Order> orderMap = findOrderMap(normalizedIds);
 
         List<BulkOrderInfoDto> assignmentRequiredOrders = new ArrayList<>();
@@ -671,11 +672,11 @@ public class DispatchTeamService {
             DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
             Member currentHandler = resolveAssignedDeliveryHandler(order, existingIndex);
             boolean hasCurrentAssignment = currentHandler != null || existingIndex != null;
-            MethodGroup currentGroup = DeliveryMethodAssignmentPolicy.classify(order.getDeliveryMethod());
+            boolean currentHandlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(order.getDeliveryMethod());
 
-            if (targetGroup == MethodGroup.NO_HANDLER) {
+            if (!targetHandlerRequired) {
                 boolean assignmentRemovalConfirmationRequired =
-                        currentGroup != MethodGroup.NO_HANDLER || hasCurrentAssignment;
+                        currentHandlerRequired || hasCurrentAssignment;
 
                 if (assignmentRemovalConfirmationRequired) {
                     assignmentRemovalOrders.add(toBulkOrderInfo(
@@ -691,7 +692,7 @@ public class DispatchTeamService {
                 continue;
             }
 
-            boolean explicitAssignmentRequired = currentGroup == MethodGroup.NO_HANDLER
+            boolean explicitAssignmentRequired = !currentHandlerRequired
                     || !isSelectableDeliveryHandler(currentHandler);
 
             if (explicitAssignmentRequired) {
@@ -747,7 +748,7 @@ public class DispatchTeamService {
         DeliveryMethod targetMethod = deliveryMethodRepository.findById(request.getDeliveryMethodId())
                 .orElseThrow(() -> new IllegalArgumentException("변경할 배송수단을 찾을 수 없습니다."));
 
-        MethodGroup targetGroup = DeliveryMethodAssignmentPolicy.classify(targetMethod);
+        boolean targetHandlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(targetMethod);
         Map<Long, Long> assignmentMap = normalizeAssignmentMap(request.getAssignments(), normalizedIds);
         Set<Long> acknowledgedRemovalIds = normalizeAcknowledgedOrderIdSet(
                 request.getAcknowledgedAssignmentRemovalOrderIds(),
@@ -783,15 +784,15 @@ public class DispatchTeamService {
             beforeHandlerLabelsForMethodChange.put(orderId, memberLabel(currentHandler));
             beforeHandlerIdsForMethodChange.put(orderId, currentHandler != null ? currentHandler.getId() : null);
             boolean hasCurrentAssignment = currentHandler != null || existingIndex != null;
-            MethodGroup currentGroup = DeliveryMethodAssignmentPolicy.classify(order.getDeliveryMethod());
+            boolean currentHandlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(order.getDeliveryMethod());
 
             if (currentHandler != null && currentHandler.getId() != null) {
                 handlerIdsToLock.add(currentHandler.getId());
             }
 
-            if (targetGroup == MethodGroup.NO_HANDLER) {
+            if (!targetHandlerRequired) {
                 boolean assignmentRemovalConfirmationRequired =
-                        currentGroup != MethodGroup.NO_HANDLER || hasCurrentAssignment;
+                        currentHandlerRequired || hasCurrentAssignment;
 
                 if (assignmentRemovalConfirmationRequired) {
                     actualRemovalOrderIds.add(orderId);
@@ -805,7 +806,7 @@ public class DispatchTeamService {
             requireDeliveryDate(order);
 
             Long requestedHandlerId = assignmentMap.get(orderId);
-            boolean explicitAssignmentRequired = currentGroup == MethodGroup.NO_HANDLER
+            boolean explicitAssignmentRequired = !currentHandlerRequired
                     || !isSelectableDeliveryHandler(currentHandler);
 
             Member nextHandler;
@@ -872,6 +873,7 @@ public class DispatchTeamService {
             Order order = plan.order();
             order.setDeliveryMethod(targetMethod);
             order.setAssignedDeliveryHandler(plan.removeAssignment() ? null : plan.handler());
+            order.setAssignedDeliveryTeam(plan.removeAssignment() ? null : plan.handler().getTeamCategory());
             order.setUpdatedAt(now);
             saveTargets.add(order);
         }
@@ -1171,7 +1173,7 @@ public class DispatchTeamService {
                         ? safeTextOrDash(deliveryMethod.getMethodName())
                         : "미지정")
                 .methodGroup(group.name())
-                .handlerRequired(group != MethodGroup.NO_HANDLER)
+                .handlerRequired(DeliveryMethodAssignmentPolicy.requiresHandler(deliveryMethod))
                 .build();
     }
 

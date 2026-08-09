@@ -398,6 +398,8 @@
                                                       checkStateLabel=${checkView != null ? checkView.checkStateLabel : '미확인'},
                                                       isLatestChecked=${checkState == 'CHECKED'},
                                                       isRevisedAfterCheck=${checkState == 'REVISED_AFTER_CHECK'},
+                                                      canOperateOrder=${productionOperationAllowedMap != null and productionOperationAllowedMap[order.id] == true},
+                                                      canCompleteOrder=${canOperateOrder and order.status != null and order.status.name() == 'CONFIRMED'},
                                                       displayProductName=${productName != null and productName != '' and order.orderItem != null and order.orderItem.productName != null and order.orderItem.productName != ''
                                                           ? order.orderItem.productName
                                                           : (order.orderItem != null and order.orderItem.productionProductName != null and order.orderItem.productionProductName != '' ? order.orderItem.productionProductName : '-')},
@@ -410,7 +412,9 @@
 												th:attr="
                     data-overview-order-id=${order.id},
                     data-overview-status=${order.status != null ? order.status.name() : ''},
-                    data-admin-request-allowed=${canBulkComplete},
+                    data-admin-request-allowed=${canOperateOrder},
+                    data-production-operation-allowed=${canOperateOrder},
+                    data-production-can-complete=${canCompleteOrder},
                     data-cutting-available=${cuttingEligibilityMap != null and cuttingEligibilityMap[order.id] == true},
                     data-checked=${isLatestChecked},
                     data-check-state=${checkState},
@@ -552,7 +556,7 @@
 													<input type="checkbox" class="team-production-check-item" th:attr="
                         data-order-id=${order.id},
                         data-status=${order.status != null ? order.status.name() : ''}
-                    " th:disabled="${!canBulkComplete}">
+                    " th:disabled="${!canOperateOrder}">
 												</td>
 											</tr>
 
@@ -1327,9 +1331,9 @@
 	<script th:src="@{/administration/assets/team/production/productionList.js(v='20260806-1')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionPrint.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOrderCheck.js}"></script>
-	<script th:src="@{/administration/assets/team/production/productionListDetail.js(v='20260804-7')}"></script>
-	<script th:src="@{/administration/assets/team/production/productionOverview.js(v='20260806-1')}"></script>
-	<script th:src="@{/administration/assets/team/production/productionOverviewList.js(v='20260806-1')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionListDetail.js(v='20260809-3')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionOverview.js(v='20260809-3')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionOverviewList.js(v='20260809-3')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionListImageExcel.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionCuttingOpen.js}"></script>
 

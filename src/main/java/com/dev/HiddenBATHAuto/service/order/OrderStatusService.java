@@ -46,7 +46,7 @@ public class OrderStatusService {
      * 기존 API 호출부 보호용 메서드입니다.
      *
      * 배송담당자 선택값을 함께 보내지 않는 기존 일괄 컨펌 요청은
-     * 직배송/화물/현장배송처럼 담당자 필수 배송수단이 포함되어 있으면 저장하지 않습니다.
+     * 직배송/현장배송처럼 담당자 필수 배송수단이 포함되어 있으면 저장하지 않습니다.
      * 담당자 필수 건은 관리자 발주관리 화면의 신규 일괄 컨펌 모달을 사용해야 합니다.
      */
     @Transactional
@@ -59,7 +59,7 @@ public class OrderStatusService {
      *
      * 처리 규칙:
      * - 현재 상태가 REQUESTED인 오더만 처리합니다.
-     * - 직배송/화물/현장배송은 오더별 배송팀 담당자가 필수입니다.
+     * - 직배송/현장배송은 오더별 배송팀 담당자가 필수이며, 화물/방문/택배는 담당자를 지정하지 않습니다.
      * - 담당자가 지정되면 배송희망일이 반드시 있어야 합니다.
      * - 담당자와 assignedDeliveryTeam을 함께 저장합니다.
      * - 상태 변경 후 DeliveryOrderIndexService.ensureIndex를 호출하여 인덱스를 생성합니다.
@@ -118,7 +118,14 @@ public class OrderStatusService {
             validateRequestedStatus(orderId, order);
 
             Long deliveryHandlerId = normalizedHandlerIds.get(orderId);
+            boolean handlerAllowed = DeliveryMethodAssignmentPolicy.allowsHandler(order.getDeliveryMethod());
             boolean handlerRequired = deliveryOrderIndexService.isDeliveryHandlerRequiredMethod(order);
+
+            // 화물/방문/택배 등은 요청에 담당자 ID가 포함되어도 담당자를 저장하지 않습니다.
+            if (!handlerAllowed) {
+                resolvedHandlerByOrderId.put(orderId, null);
+                continue;
+            }
 
             if (handlerRequired && deliveryHandlerId == null) {
                 String methodName = resolveDeliveryMethodName(order);

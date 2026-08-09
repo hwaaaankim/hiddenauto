@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	const bulkConfirmHandlerList = document.getElementById("task-list-bulk-confirm-handler-list");
 	const bulkConfirmHandlerOptionSource = document.getElementById("task-list-bulk-confirm-handler-option-source");
 
-	const REQUIRED_BULK_CONFIRM_HANDLER_METHOD_KEYWORDS = ["직배송", "화물", "현장배송"];
+	const REQUIRED_BULK_CONFIRM_HANDLER_METHOD_KEYWORDS = ["직배송", "현장배송"];
 
 	const pageLoadingOverlay = document.getElementById("admin-task-list-second-loading-overlay");
 	const pageLoadingMessage = document.getElementById("admin-task-list-second-loading-message");

@@ -50,6 +50,7 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.Task;
+import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.order.DeliveryRouteQueryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
@@ -82,6 +83,7 @@ public class DeliveryStatementLayoutService {
     private static final int VERTICAL_SEPARATOR_ROW_HEIGHT = 8;
 
     private static final String DELIVERY_TEAM_NAME = "배송팀";
+    private static final String DISPATCH_STATEMENT_CONTACT_USERNAME = "dis_001";
 
     private static final List<OrderStatus> DELIVERY_ROUTE_VISIBLE_STATUSES = List.of(
             OrderStatus.CONFIRMED,
@@ -97,6 +99,7 @@ public class DeliveryStatementLayoutService {
 
     private final OrderRepository orderRepository;
     private final DeliveryRouteQueryRepository deliveryRouteQueryRepository;
+    private final MemberRepository memberRepository;
     private final ObjectMapper objectMapper;
 
     public String normalizeLayoutType(String layoutType) {
@@ -696,6 +699,11 @@ public class DeliveryStatementLayoutService {
             }
 
             handlerKey = "HANDLER:" + ref.deliveryHandlerId();
+        } else if (isSiteDeliveryMethod(order)) {
+            Member assignedHandler = order.getAssignedDeliveryHandler();
+            handlerKey = assignedHandler != null && assignedHandler.getId() != null
+                    ? "HANDLER:" + assignedHandler.getId()
+                    : "HANDLER:FALLBACK_DISPATCH";
         }
 
         String companyKey = resolveCompanyGroupingKey(order);
@@ -773,6 +781,7 @@ public class DeliveryStatementLayoutService {
         Company company = resolveCompany(representative);
         RecipientData recipient = resolveRecipient(representative);
         AddressData address = resolveStatementAddress(representative);
+        DeliveryContactData deliveryContact = resolveStatementDeliveryContact(representative);
 
         StatementGroup group = new StatementGroup();
         group.taskId = resolveSingleTaskId(orders);
@@ -785,6 +794,8 @@ public class DeliveryStatementLayoutService {
         group.recipientPhone = safeTextOrDash(recipient.phone());
         group.postalCode = safeText(address.postalCode());
         group.addressText = safeTextOrDash(address.addressText());
+        group.deliveryContactName = safeTextOrDash(deliveryContact.name());
+        group.deliveryContactPhone = safeTextOrDash(deliveryContact.phone());
         group.deliveryDateTexts.add(formatStatementGroupDate(groupKey.deliveryDateKey()));
 
         if (source == StatementSource.DELIVERY_TEAM) {
@@ -957,14 +968,67 @@ public class DeliveryStatementLayoutService {
                 .postalCode(group.postalCode)
                 .addressText(group.addressText)
                 .deliveryMethodName(joinOrDash(group.deliveryMethodNames, ", "))
+                .deliveryContactName(group.deliveryContactName)
+                .deliveryContactPhone(group.deliveryContactPhone)
                 .trackingNumber("")
                 .freightType("")
                 .packingMethod("")
-                .managerName(parcel ? "히든바스" : "")
+                .managerName(parcel ? formatDeliveryContact(group.deliveryContactName, group.deliveryContactPhone) : "")
                 .acceptanceText(parcel ? "" : "위 품목을 이상없이 출고 인수 하였습니다.")
                 .signatureText(parcel ? "" : "확인 : ____________________ (서명 또는 인)")
                 .items(pageItems)
                 .build();
+    }
+
+    private DeliveryContactData resolveStatementDeliveryContact(Order order) {
+        if (isSiteDeliveryMethod(order)) {
+            Member assignedHandler = order != null ? order.getAssignedDeliveryHandler() : null;
+            if (assignedHandler != null) {
+                return toDeliveryContactData(assignedHandler);
+            }
+        }
+
+        Member dispatchContact = memberRepository.findByUsername(DISPATCH_STATEMENT_CONTACT_USERNAME)
+                .orElseThrow(() -> new IllegalStateException(
+                        "명세서 출고팀 담당자 계정 '" + DISPATCH_STATEMENT_CONTACT_USERNAME + "'을 찾을 수 없습니다."
+                ));
+        return toDeliveryContactData(dispatchContact);
+    }
+
+    private boolean isSiteDeliveryMethod(Order order) {
+        return order != null
+                && order.getDeliveryMethod() != null
+                && DeliveryMethodAssignmentPolicy.containsKeyword(
+                        order.getDeliveryMethod().getMethodName(),
+                        "현장배송"
+                );
+    }
+
+    private DeliveryContactData toDeliveryContactData(Member member) {
+        if (member == null) {
+            return new DeliveryContactData("-", "-");
+        }
+
+        return new DeliveryContactData(
+                firstNonBlank(member.getName(), member.getUsername(), "-"),
+                firstNonBlank(member.getPhone(), member.getTelephone(), "-")
+        );
+    }
+
+    private String formatDeliveryContact(String name, String phone) {
+        String safeName = safeTextOrDash(name);
+        String safePhone = safeTextOrDash(phone);
+        return safeName + " / " + safePhone;
+    }
+
+    private String formatDeliveryMethodWithContact(StatementPageDto page) {
+        if (page == null) {
+            return "-";
+        }
+
+        return safeTextOrDash(page.getDeliveryMethodName())
+                + " / 담당자: "
+                + formatDeliveryContact(page.getDeliveryContactName(), page.getDeliveryContactPhone());
     }
 
     private RecipientData resolveRecipient(Order order) {
@@ -1298,7 +1362,7 @@ public class DeliveryStatementLayoutService {
                 "출고일",
                 safeTextOrDash(page.getDateText()),
                 "배송수단",
-                safeTextOrDash(page.getDeliveryMethodName()),
+                formatDeliveryMethodWithContact(page),
                 styles,
                 styles.get("emphasis")
         );
@@ -2005,6 +2069,9 @@ public class DeliveryStatementLayoutService {
     private record RecipientData(String name, String phone) {
     }
 
+    private record DeliveryContactData(String name, String phone) {
+    }
+
     private record AddressData(String postalCode, String addressText) {
     }
 
@@ -2017,6 +2084,8 @@ public class DeliveryStatementLayoutService {
         private String recipientPhone;
         private String postalCode;
         private String addressText;
+        private String deliveryContactName;
+        private String deliveryContactPhone;
         private Long deliveryHandlerId;
         private String deliveryHandlerName;
 

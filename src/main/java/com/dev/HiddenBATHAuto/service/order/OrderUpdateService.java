@@ -382,11 +382,21 @@ public class OrderUpdateService {
 			return;
 		}
 
+		/*
+		 * 화물/방문/택배 등 배송팀 담당자 비대상 배송수단은 요청 파라미터에
+		 * 담당자 ID가 들어와도 기존 배정을 유지하지 않고 즉시 해제합니다.
+		 * 이후 ensureIndex()가 기존 DeliveryOrderIndex까지 삭제/재정렬합니다.
+		 */
+		if (!DeliveryMethodAssignmentPolicy.allowsHandler(order.getDeliveryMethod())) {
+			clearDeliveryAssignment(order);
+			return;
+		}
+
 		Optional<Long> normalizedHandlerId = normalizeId(deliveryHandlerId);
 		String methodName = getDeliveryMethodName(order).orElse("배송수단");
 
 		/*
-		 * 직배송/화물/현장배송처럼 담당자 필수 배송수단은 기존 담당자가 이미 있으면
+		 * 직배송/현장배송처럼 담당자 필수 배송수단은 기존 담당자가 이미 있으면
 		 * 호출부에서 담당자 파라미터가 누락되더라도 기존 배정을 유지합니다.
 		 * 고객 발주/취소에서 활성 상태로 변경하는 경우에는 기존 담당자가 없으므로
 		 * 아래 필수 검증에 따라 새 담당자를 반드시 선택해야 합니다.

@@ -25,8 +25,9 @@ public class ProductOrderAddRequest {
     @NotNull(message = "배송수단을 선택해 주세요.")
     private Long deliveryMethodId;
 
-    // 직배송/현장배송/화물에서 관리자가 직접 지정한 경우 우선 적용됩니다.
-    // null이면 주소 기준 자동 배정을 시도하고, 매칭 담당자가 없으면 미지정으로 저장합니다.
+    // 직배송/현장배송에서 관리자가 직접 지정한 경우 우선 적용됩니다.
+    // null이면 해당 배송지 주소 기준 자동 배정을 시도하고, 매칭 담당자가 없으면 미지정으로 저장합니다.
+    // 화물/방문/택배 등 담당자 비대상 배송수단에서는 전달되어도 저장하지 않습니다.
     private Long deliveryHandlerId;
 
     private int packingCost = 0;
@@ -35,7 +36,7 @@ public class ProductOrderAddRequest {
     private String ordererName;
     private String ordererPhone;
 
-    // 공통 배송지: 직배송/화물 자동배정 기준 주소
+    // 공통 배송지: 직배송 자동배정 및 일반 배송지 저장 기준 주소
     private String zipCode;
     private String doName;
     private String siName;

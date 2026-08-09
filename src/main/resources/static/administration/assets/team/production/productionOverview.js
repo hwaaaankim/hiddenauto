@@ -6,6 +6,26 @@
 	'use strict';
 
 	const config = window.teamProductionOverviewConfig || {};
+	const DIAG = '[생산조회 진단][넓게보기]';
+
+	function diag(message, detail) {
+		if (detail === undefined) {
+			console.info(DIAG, message);
+			return;
+		}
+		console.info(DIAG, message, detail);
+	}
+
+	function getTableDiagnostic() {
+		const rows = Array.from(document.querySelectorAll('.team-production-overview-row'));
+		return {
+			rowCount: rows.length,
+			operableCount: rows.filter(function(row) { return row.getAttribute('data-production-operation-allowed') === 'true'; }).length,
+			adminAllowedCount: rows.filter(function(row) { return row.getAttribute('data-admin-request-allowed') === 'true'; }).length,
+			firstOrderIds: rows.slice(0, 10).map(function(row) { return row.getAttribute('data-overview-order-id'); }),
+			query: window.location.search
+		};
+	}
 
 	const els = {};
 	const state = {
@@ -24,6 +44,7 @@
 	function init() {
 		cacheElements();
 		bindEvents();
+		diag('초기화 완료', getTableDiagnostic());
 	}
 
 	function cacheElements() {
@@ -205,11 +226,15 @@
 	}
 
 	function openOverviewModal() {
+		diag('버튼 클릭', Object.assign({ loaded: state.loaded, isLoading: state.isLoading }, getTableDiagnostic()));
+
 		if (!els.modal || !els.host) {
+			console.error(DIAG, '모달 또는 host 요소가 없습니다.', { modal: !!els.modal, host: !!els.host });
 			return;
 		}
 
 		showBootstrapModal(els.modal);
+		diag('Bootstrap 모달 show 호출 완료');
 
 		if (!state.loaded && !state.isLoading) {
 			loadOverviewOrders();
@@ -222,9 +247,12 @@
 	async function loadOverviewOrders() {
 		state.isLoading = true;
 		setHostLoading();
+		const requestUrl = buildOverviewUrl();
+		const startedAt = performance.now();
+		diag('overview-data 요청 시작', { url: requestUrl, table: getTableDiagnostic() });
 
 		try {
-			const response = await fetch(buildOverviewUrl(), {
+			const response = await fetch(requestUrl, {
 				method: 'GET',
 				credentials: 'same-origin',
 				headers: {
@@ -232,12 +260,21 @@
 				}
 			});
 
+			diag('overview-data 응답 수신', { status: response.status, ok: response.ok, elapsedMs: Math.round(performance.now() - startedAt) });
+
 			if (!response.ok) {
 				throw new Error('일괄보기 데이터를 불러오지 못했습니다. status=' + response.status);
 			}
 
 			const data = await response.json();
 			const normalizedOrders = normalizeOrders(data);
+			diag('응답 JSON 정규화 완료', {
+				rawCount: Array.isArray(data) ? data.length : null,
+				normalizedCount: normalizedOrders.length,
+				canCompleteCount: normalizedOrders.filter(function(order) { return order.canComplete === true; }).length,
+				canRequestAdminCount: normalizedOrders.filter(function(order) { return order.canRequestAdmin === true; }).length,
+				elapsedMs: Math.round(performance.now() - startedAt)
+			});
 
 			state.orders = sortUncheckedFirst(normalizedOrders.length > 0 ? normalizedOrders : buildOrdersFromCurrentTable());
 			state.currentIndex = 0;
@@ -245,7 +282,7 @@
 
 			renderCurrentOrder();
 		} catch (error) {
-			console.error(error);
+			console.error(DIAG, '데이터 로드 실패', error);
 
 			state.orders = sortUncheckedFirst(buildOrdersFromCurrentTable());
 			state.currentIndex = 0;
@@ -259,6 +296,7 @@
 			setHostEmpty('일괄보기 데이터를 불러오지 못했습니다.');
 		} finally {
 			state.isLoading = false;
+			diag('데이터 로드 종료', { loaded: state.loaded, orderCount: state.orders.length, elapsedMs: Math.round(performance.now() - startedAt) });
 		}
 	}
 
@@ -387,6 +425,10 @@
 			revisionReason: toText(raw.revisionReason),
 			revisionCount: Number(raw.revisionCount || 0),
 			images: normalizeImages(raw),
+			imagesLoaded: false,
+			imagesLoading: false,
+			imageLoadError: false,
+			canComplete: raw.canComplete === true,
 			canRequestAdmin: raw.canRequestAdmin === true
 		};
 
@@ -1134,6 +1176,10 @@
 				adminMemo: toText(row.getAttribute('data-admin-memo')) || '-',
 				options: optionFields.length > 0 ? optionFields : [],
 				images: [],
+				imagesLoaded: false,
+				imagesLoading: false,
+				imageLoadError: false,
+				canComplete: String(row.getAttribute('data-production-can-complete') || '').toLowerCase() === 'true',
 				canRequestAdmin: String(row.getAttribute('data-admin-request-allowed') || '').toLowerCase() === 'true'
 			};
 		}).filter(function(order) {
@@ -1155,12 +1201,14 @@
 		state.currentIndex = clamp(state.currentIndex, 0, state.orders.length - 1);
 
 		const order = state.orders[state.currentIndex];
+		diag('현재 오더 렌더 시작', { index: state.currentIndex, orderId: order && order.id, canComplete: order && order.canComplete, canRequestAdmin: order && order.canRequestAdmin });
 		markCurrentOrderViewed(order);
 		const imageIndex = getOrderImageIndex(order);
 		const image = order.images[imageIndex];
 
 		els.host.innerHTML = buildOrderCardHtml(order, image, imageIndex);
 
+		ensureCurrentOrderImagesLoaded(order);
 		updateNavigationState();
 		updateOptionOverflow();
 	}
@@ -1267,12 +1315,21 @@
 	function buildImagePanelHtml(order, image, imageIndex) {
 		const images = order.images || [];
 		const hasImages = images.length > 0;
+		const isLoading = order.imagesLoaded !== true && order.imageLoadError !== true;
+		const countText = isLoading ? '불러오는 중' : (hasImages ? (imageIndex + 1) + ' / ' + images.length : '없음');
+		let emptyHtml = '<div class="team-production-overview-image-empty">등록된 이미지가 없습니다.</div>';
+
+		if (isLoading) {
+			emptyHtml = '<div class="team-production-overview-image-empty">이미지를 불러오는 중입니다...</div>';
+		} else if (order.imageLoadError === true) {
+			emptyHtml = '<div class="team-production-overview-image-empty">이미지를 불러오지 못했습니다.</div>';
+		}
 
 		return [
 			'<section class="team-production-overview-panel team-production-overview-image-panel">',
-			'<div class="team-production-overview-panel-title">이미지 <small>' + (hasImages ? (imageIndex + 1) + ' / ' + images.length : '없음') + '</small></div>',
+			'<div class="team-production-overview-panel-title">이미지 <small>' + countText + '</small></div>',
 			'<div class="team-production-overview-image-main">',
-			hasImages ? buildMainImageHtml(image) : '<div class="team-production-overview-image-empty">등록된 이미지가 없습니다.</div>',
+			hasImages ? buildMainImageHtml(image) : emptyHtml,
 			hasImages && images.length > 1 ? '<button type="button" class="team-production-overview-inner-image-nav team-production-overview-inner-image-prev" data-image-move="-1" aria-label="이전 이미지">‹</button>' : '',
 			hasImages && images.length > 1 ? '<button type="button" class="team-production-overview-inner-image-nav team-production-overview-inner-image-next" data-image-move="1" aria-label="다음 이미지">›</button>' : '',
 			'</div>',
@@ -1282,7 +1339,7 @@
 	}
 
 	function buildMainImageHtml(image) {
-		return '<img src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '관리자 업로드 이미지') + '" data-image-open="true">';
+		return '<img loading="lazy" decoding="async" src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '관리자 업로드 이미지') + '" data-image-open="true">';
 	}
 
 	function buildThumbsHtml(images, activeIndex) {
@@ -1292,11 +1349,75 @@
 				const activeClass = index === activeIndex ? ' active' : '';
 
 				return '<button type="button" class="team-production-overview-image-thumb' + activeClass + '" data-image-index="' + index + '" aria-label="이미지 ' + (index + 1) + '">' +
-					'<img src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '이미지') + '">' +
+					'<img loading="lazy" decoding="async" src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '이미지') + '">' +
 					'</button>';
 			}).join(''),
 			'</div>'
 		].join('');
+	}
+
+	function buildManagementImagesUrl(orderId) {
+		const fallbackPrefix = '/team/productionList/';
+		let prefix = toText(config.managementImageUrlPrefix) || fallbackPrefix;
+
+		if (!prefix.endsWith('/')) {
+			prefix += '/';
+		}
+
+		return prefix + encodeURIComponent(orderId) + '/management-images';
+	}
+
+	async function fetchManagementImages(orderId) {
+		const response = await fetch(buildManagementImagesUrl(orderId), {
+			method: 'GET',
+			credentials: 'same-origin',
+			headers: {
+				'Accept': 'application/json'
+			}
+		});
+
+		if (!response.ok) {
+			throw new Error('관리자 이미지를 불러오지 못했습니다. status=' + response.status);
+		}
+
+		const data = await response.json();
+		return normalizeImages({
+			adminImages: Array.isArray(data) ? data : []
+		});
+	}
+
+	function ensureCurrentOrderImagesLoaded(order) {
+		if (!order || !order.id || order.imagesLoaded === true || order.imagesLoading === true) {
+			return;
+		}
+
+		order.imagesLoading = true;
+		order.imageLoadError = false;
+
+		fetchManagementImages(order.id).then(function(images) {
+			order.images = images;
+			order.imagesLoaded = true;
+			order.imagesLoading = false;
+			order.imageLoadError = false;
+			order.imageIndex = 0;
+		}).catch(function(error) {
+			console.error(error);
+			order.images = [];
+			order.imagesLoaded = true;
+			order.imagesLoading = false;
+			order.imageLoadError = true;
+		}).finally(function() {
+			const currentOrder = state.orders[state.currentIndex];
+
+			if (!els.host || currentOrder !== order) {
+				return;
+			}
+
+			const currentImageIndex = getOrderImageIndex(order);
+			const currentImage = order.images[currentImageIndex];
+			els.host.innerHTML = buildOrderCardHtml(order, currentImage, currentImageIndex);
+			updateOptionOverflow();
+		});
 	}
 
 	function updateOptionOverflow() {
@@ -1715,7 +1836,7 @@
 				alert(toText(result && result.message) || '생산완료 처리되었습니다.');
 			}
 		} catch (error) {
-			console.error(error);
+			console.error(DIAG, '생산완료 처리 실패', error);
 
 			if (!window.TeamActionFeedback) {
 				alert(error && error.message ? error.message : '생산완료 처리 중 오류가 발생했습니다.');
@@ -1775,10 +1896,14 @@
 			};
 		}
 
-		if (!isBulkCompleteAllowed()) {
+		if (order.canComplete !== true) {
 			return {
 				available: false,
-				message: '생산완료 처리 권한이 없습니다.'
+				message: isCompletableOrderStatus(order)
+					? '다른 생산 카테고리의 발주는 조회와 확인만 가능하며 생산완료 처리할 수 없습니다.'
+					: (normalizeOrderStatus(order.status) === 'PRODUCTION_DONE'
+						? '이미 생산 완료 처리된 주문입니다.'
+						: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.')
 			};
 		}
 
@@ -1788,15 +1913,6 @@
 				message: normalizeOrderStatus(order.status) === 'PRODUCTION_DONE'
 					? '이미 생산 완료 처리된 주문입니다.'
 					: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.'
-			};
-		}
-
-		const checkbox = getOrderCheckbox(order.id);
-
-		if (!checkbox || checkbox.disabled) {
-			return {
-				available: false,
-				message: '현재 주문은 이 화면에서 생산완료 처리할 수 없습니다.'
 			};
 		}
 

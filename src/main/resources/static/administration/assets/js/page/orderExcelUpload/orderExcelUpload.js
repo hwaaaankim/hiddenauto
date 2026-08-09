@@ -534,7 +534,7 @@
             return '<div class="order-excel-handler-rule-info"><i class="ri-information-line"></i> 고객 발주·취소 상태만 있어 배송 담당자를 배정하지 않습니다.</div>';
         }
 
-        return '<div class="order-excel-handler-rule-info is-required"><i class="ri-user-location-line"></i> 화물·직배송·현장배송은 주소 검증 후 배송 담당자 지정이 필요합니다.</div>';
+        return '<div class="order-excel-handler-rule-info is-required"><i class="ri-user-location-line"></i> 직배송·현장배송은 주소 검증 후 배송 담당자 지정이 필요합니다. 화물은 방문·택배와 동일하게 담당자를 지정하지 않습니다.</div>';
     }
 
     function addressValuesFromGroup(group, type) {
@@ -2438,11 +2438,11 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
     }
 
     function isHandlerRequiredRuleCode(code) {
-        return ['DIRECT', 'SITE', 'CARGO'].includes(String(code || '').toUpperCase());
+        return ['DIRECT', 'SITE'].includes(String(code || '').toUpperCase());
     }
 
     function isNoHandlerRuleCode(code) {
-        return ['VISIT', 'PARCEL', 'UNDELIVERED'].includes(String(code || '').toUpperCase());
+        return ['CARGO', 'VISIT', 'PARCEL', 'UNDELIVERED'].includes(String(code || '').toUpperCase());
     }
 
     function normalizeDeliveryHandlerSelections() {

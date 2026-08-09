@@ -672,6 +672,14 @@
     	].join('');
     }
 
+    function buildStatementDeliveryMethodText(page) {
+    	const methodName = toText(page && page.deliveryMethodName) || '-';
+    	const contactName = toText(page && page.deliveryContactName) || '-';
+    	const contactPhone = toText(page && page.deliveryContactPhone) || '-';
+
+    	return methodName + ' / 담당자: ' + contactName + ' / ' + contactPhone;
+    }
+
     function buildSiteStatementCopyHtml(page, copyLabel, layoutType) {
     	const fixedRows = layoutType === 'VERTICAL' ? 5 : 8;
     	const items = page && Array.isArray(page.items) ? page.items : [];
@@ -708,7 +716,7 @@
     		'    <tr>',
     		'      <th>출고일</th><td>' + statementMetaValueHtml(page && page.dateText) + '</td>',
     		'      <th>배송수단</th><td class="statement-delivery-method-value">' +
-    			statementMetaValueHtml(page && page.deliveryMethodName) +
+    			statementMetaValueHtml(buildStatementDeliveryMethodText(page)) +
     		'</td>',
     		'    </tr>',
     		'  </tbody>',

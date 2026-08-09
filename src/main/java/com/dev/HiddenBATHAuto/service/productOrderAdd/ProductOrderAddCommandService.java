@@ -308,15 +308,16 @@ public class ProductOrderAddCommandService {
             boolean autoAssignTargetMethod,
             boolean siteDelivery
     ) {
+        // 화물/방문/택배 등 담당자 비대상 배송수단은 클라이언트에서 ID가 넘어와도 저장하지 않습니다.
+        if (!autoAssignTargetMethod) {
+            return null;
+        }
+
         Long requestedDeliveryHandlerId = normalizePositiveId(request.getDeliveryHandlerId());
 
         if (requestedDeliveryHandlerId != null) {
             return memberRepository.findByIdAndTeam_Id(requestedDeliveryHandlerId, DELIVERY_TEAM_ID)
                     .orElseThrow(() -> new IllegalArgumentException("배송 담당자는 팀 ID 3 소속 멤버만 선택할 수 있습니다."));
-        }
-
-        if (!autoAssignTargetMethod) {
-            return null;
         }
 
         DeliveryAddressForAssignment assignmentAddress = siteDelivery
@@ -344,8 +345,7 @@ public class ProductOrderAddCommandService {
         String methodName = normalizeDeliveryMethodName(deliveryMethod);
 
         return methodName.contains("직배송")
-                || methodName.contains("현장배송")
-                || methodName.contains("화물");
+                || methodName.contains("현장배송");
     }
 
     private boolean isSiteDeliveryMethod(DeliveryMethod deliveryMethod) {
