@@ -6,6 +6,23 @@
 	'use strict';
 
 	const config = window.teamProductionOverviewConfig || {};
+	const DIAG = '[생산조회 진단][리스트형]';
+
+	function diag(message, detail) {
+		if (detail === undefined) { console.info(DIAG, message); return; }
+		console.info(DIAG, message, detail);
+	}
+
+	function getTableDiagnostic() {
+		const rows = Array.from(document.querySelectorAll('.team-production-overview-row'));
+		return {
+			rowCount: rows.length,
+			operableCount: rows.filter(function(row) { return row.getAttribute('data-production-operation-allowed') === 'true'; }).length,
+			adminAllowedCount: rows.filter(function(row) { return row.getAttribute('data-admin-request-allowed') === 'true'; }).length,
+			firstOrderIds: rows.slice(0, 10).map(function(row) { return row.getAttribute('data-overview-order-id'); }),
+			query: window.location.search
+		};
+	}
 
 	const els = {};
 	const state = {
@@ -17,6 +34,7 @@
 		imageIndex: 0,
 		zoom: 1,
 		viewObserver: null,
+		renderToken: 0,
 		completeBusyOrderIds: new Set()
 	};
 
@@ -25,6 +43,7 @@
 	function init() {
 		cacheElements();
 		bindEvents();
+		diag('초기화 완료', getTableDiagnostic());
 	}
 
 	function cacheElements() {
@@ -117,11 +136,14 @@
 	}
 
 	function openListModal() {
+		diag('버튼 클릭', Object.assign({ loaded: state.loaded, isLoading: state.isLoading }, getTableDiagnostic()));
 		if (!els.modal || !els.host) {
+			console.error(DIAG, '모달 또는 host 요소가 없습니다.', { modal: !!els.modal, host: !!els.host });
 			return;
 		}
 
 		showBootstrapModal(els.modal);
+		diag('Bootstrap 모달 show 호출 완료');
 
 		if (!state.loaded && !state.isLoading) {
 			loadListOrders();
@@ -134,9 +156,12 @@
 	async function loadListOrders() {
 		state.isLoading = true;
 		setHostLoading();
+		const requestUrl = buildOverviewUrl();
+		const startedAt = performance.now();
+		diag('overview-data 요청 시작', { url: requestUrl, table: getTableDiagnostic() });
 
 		try {
-			const response = await fetch(buildOverviewUrl(), {
+			const response = await fetch(requestUrl, {
 				method: 'GET',
 				credentials: 'same-origin',
 				headers: {
@@ -144,19 +169,22 @@
 				}
 			});
 
+			diag('overview-data 응답 수신', { status: response.status, ok: response.ok, elapsedMs: Math.round(performance.now() - startedAt) });
+
 			if (!response.ok) {
 				throw new Error('리스트형 일괄보기 데이터를 불러오지 못했습니다. status=' + response.status);
 			}
 
 			const data = await response.json();
 			const normalizedOrders = normalizeOrders(data);
+			diag('응답 JSON 정규화 완료', { rawCount: Array.isArray(data) ? data.length : null, normalizedCount: normalizedOrders.length, canCompleteCount: normalizedOrders.filter(function(order) { return order.canComplete === true; }).length, canRequestAdminCount: normalizedOrders.filter(function(order) { return order.canRequestAdmin === true; }).length, elapsedMs: Math.round(performance.now() - startedAt) });
 
 			state.orders = sortUncheckedFirst(normalizedOrders.length > 0 ? normalizedOrders : buildOrdersFromCurrentTable());
 			state.loaded = true;
 
 			renderListOrders();
 		} catch (error) {
-			console.error(error);
+			console.error(DIAG, '데이터 로드 실패', error);
 
 			state.orders = sortUncheckedFirst(buildOrdersFromCurrentTable());
 			state.loaded = true;
@@ -169,6 +197,7 @@
 			setHostEmpty('리스트형 일괄보기 데이터를 불러오지 못했습니다.');
 		} finally {
 			state.isLoading = false;
+			diag('데이터 로드 종료', { loaded: state.loaded, orderCount: state.orders.length, elapsedMs: Math.round(performance.now() - startedAt) });
 		}
 	}
 
@@ -294,6 +323,10 @@
 			adminMemo: toText(firstValue(raw.adminMemo, findFieldValue(raw.fields, ['관리자메모', 'adminMemo']))),
 			options: fields,
 			images: normalizeImages(raw),
+			imagesLoaded: false,
+			imagesLoading: false,
+			imageLoadError: false,
+			canComplete: raw.canComplete === true,
 			canRequestAdmin: raw.canRequestAdmin === true,
 			checkState: normalizeCheckState(raw),
 			checkStateLabel: normalizeCheckStateLabel(raw),
@@ -898,6 +931,10 @@
 				adminMemo: toText(row.getAttribute('data-admin-memo')) || '-',
 				options: optionFields.length > 0 ? optionFields : [],
 				images: [],
+				imagesLoaded: false,
+				imagesLoading: false,
+				imageLoadError: false,
+				canComplete: String(row.getAttribute('data-production-can-complete') || '').toLowerCase() === 'true',
 				canRequestAdmin: String(row.getAttribute('data-admin-request-allowed') || '').toLowerCase() === 'true',
 				checkState: normalizeCheckState({
 					checkState: row.getAttribute('data-check-state'),
@@ -920,8 +957,14 @@
 	}
 
 	function renderListOrders() {
+		diag('리스트 렌더 시작', { orderCount: state.orders.length, renderToken: state.renderToken + 1 });
 		if (!els.host) {
 			return;
+		}
+
+		if (state.viewObserver) {
+			state.viewObserver.disconnect();
+			state.viewObserver = null;
 		}
 
 		if (state.orders.length === 0) {
@@ -929,14 +972,40 @@
 			return;
 		}
 
-		els.host.innerHTML = state.orders.map(buildListCardHtml).join('');
+		state.renderToken += 1;
+		const renderToken = state.renderToken;
+		els.host.innerHTML = '';
 
 		if (els.counter) {
 			els.counter.textContent = state.orders.length + '건';
 		}
 
+		renderListOrderBatch(renderToken, 0);
+	}
+
+	function renderListOrderBatch(renderToken, startIndex) {
+		if (!els.host || renderToken !== state.renderToken) {
+			return;
+		}
+
+		const batchSize = 20;
+		const endIndex = Math.min(startIndex + batchSize, state.orders.length);
+		const html = state.orders.slice(startIndex, endIndex).map(function(order, offset) {
+			return buildListCardHtml(order, startIndex + offset);
+		}).join('');
+
+		els.host.insertAdjacentHTML('beforeend', html);
+
+		if (endIndex < state.orders.length) {
+			requestAnimationFrame(function() {
+				renderListOrderBatch(renderToken, endIndex);
+			});
+			return;
+		}
+
 		updateListOptionOverflow();
 		setupListViewedObserver();
+		diag('리스트 렌더 완료', { orderCount: state.orders.length, cardCount: els.host.querySelectorAll('.team-production-overview-list-card').length });
 	}
 
 	function buildListCardHtml(order, orderIndex) {
@@ -1036,7 +1105,7 @@
 
 		state.viewObserver = new IntersectionObserver(function(entries) {
 			entries.forEach(function(entry) {
-				if (!entry.isIntersecting || entry.intersectionRatio < 0.55) {
+				if (!entry.isIntersecting) {
 					return;
 				}
 
@@ -1044,32 +1113,42 @@
 				const orderIndex = Number(card.getAttribute('data-list-order-index')) || 0;
 				const order = state.orders[orderIndex];
 
-				if (!order || !order.id || isLatestCheckedOrder(order)) {
+				if (!order || !order.id) {
+					state.viewObserver.unobserve(card);
 					return;
 				}
 
-				markOrderObjectChecked(order);
-				card.setAttribute('data-checked', 'true');
-				card.setAttribute('data-check-state', 'CHECKED');
-				card.setAttribute('data-check-state-label', '확인');
-				card.classList.add('is-checked');
-				card.classList.remove('is-unchecked', 'is-revised');
+				// 화면에 들어온 카드만 이미지를 개별 조회합니다.
+				ensureListOrderImagesLoaded(orderIndex, card);
 
-				const stateText = card.querySelector('[data-list-check-state-text]');
-				if (stateText) {
-					stateText.textContent = '확인';
-					stateText.title = '확인된 발주입니다.';
+				if (entry.intersectionRatio < 0.55) {
+					return;
 				}
 
-				if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
-					window.TeamProductionOrderCheck.mark(order.id);
+				if (!isLatestCheckedOrder(order)) {
+					markOrderObjectChecked(order);
+					card.setAttribute('data-checked', 'true');
+					card.setAttribute('data-check-state', 'CHECKED');
+					card.setAttribute('data-check-state-label', '확인');
+					card.classList.add('is-checked');
+					card.classList.remove('is-unchecked', 'is-revised');
+
+					const stateText = card.querySelector('[data-list-check-state-text]');
+					if (stateText) {
+						stateText.textContent = '확인';
+						stateText.title = '확인된 발주입니다.';
+					}
+
+					if (window.TeamProductionOrderCheck && typeof window.TeamProductionOrderCheck.mark === 'function') {
+						window.TeamProductionOrderCheck.mark(order.id);
+					}
 				}
 
 				state.viewObserver.unobserve(card);
 			});
 		}, {
 			root: els.host,
-			threshold: [0.55]
+			threshold: [0.01, 0.55]
 		});
 
 		els.host.querySelectorAll('.team-production-overview-list-card').forEach(function(card) {
@@ -1087,7 +1166,13 @@
 		const orderIndex = Number(firstCard.getAttribute('data-list-order-index')) || 0;
 		const order = state.orders[orderIndex];
 
-		if (!order || !order.id || isLatestCheckedOrder(order)) {
+		if (!order || !order.id) {
+			return;
+		}
+
+		ensureListOrderImagesLoaded(orderIndex, firstCard);
+
+		if (isLatestCheckedOrder(order)) {
 			return;
 		}
 
@@ -1146,12 +1231,21 @@
 	function buildListImagePanelHtml(order, image, imageIndex) {
 		const images = order.images || [];
 		const hasImages = images.length > 0;
+		const isLoading = order.imagesLoaded !== true && order.imageLoadError !== true;
+		const countText = isLoading ? '대기 중' : (hasImages ? (imageIndex + 1) + ' / ' + images.length : '없음');
+		let emptyHtml = '<div class="team-production-overview-list-image-empty">등록된 이미지가 없습니다.</div>';
+
+		if (isLoading) {
+			emptyHtml = '<div class="team-production-overview-list-image-empty">화면에 표시되면 이미지를 불러옵니다.</div>';
+		} else if (order.imageLoadError === true) {
+			emptyHtml = '<div class="team-production-overview-list-image-empty">이미지를 불러오지 못했습니다.</div>';
+		}
 
 		return [
 			'<section class="team-production-overview-list-panel team-production-overview-list-image-panel">',
-			'<div class="team-production-overview-list-panel-title">이미지 <small>' + (hasImages ? (imageIndex + 1) + ' / ' + images.length : '없음') + '</small></div>',
+			'<div class="team-production-overview-list-panel-title">이미지 <small>' + countText + '</small></div>',
 			'<div class="team-production-overview-list-image-main">',
-			hasImages ? buildListMainImageHtml(image) : '<div class="team-production-overview-list-image-empty">등록된 이미지가 없습니다.</div>',
+			hasImages ? buildListMainImageHtml(image) : emptyHtml,
 			hasImages && images.length > 1 ? '<button type="button" class="team-production-overview-list-inner-image-nav team-production-overview-list-inner-image-prev" data-list-image-move="-1" aria-label="이전 이미지">‹</button>' : '',
 			hasImages && images.length > 1 ? '<button type="button" class="team-production-overview-list-inner-image-nav team-production-overview-list-inner-image-next" data-list-image-move="1" aria-label="다음 이미지">›</button>' : '',
 			'</div>',
@@ -1161,7 +1255,7 @@
 	}
 
 	function buildListMainImageHtml(image) {
-		return '<img src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '관리자 업로드 이미지') + '" data-list-image-open="true">';
+		return '<img loading="lazy" decoding="async" src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '관리자 업로드 이미지') + '" data-list-image-open="true">';
 	}
 
 	function buildListThumbsHtml(images, activeIndex) {
@@ -1171,11 +1265,86 @@
 				const activeClass = index === activeIndex ? ' active' : '';
 
 				return '<button type="button" class="team-production-overview-list-image-thumb' + activeClass + '" data-list-image-index="' + index + '" aria-label="이미지 ' + (index + 1) + '">' +
-					'<img src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '이미지') + '">' +
+					'<img loading="lazy" decoding="async" src="' + escapeAttr(image.url) + '" alt="' + escapeAttr(image.name || '이미지') + '">' +
 					'</button>';
 			}).join(''),
 			'</div>'
 		].join('');
+	}
+
+	function buildManagementImagesUrl(orderId) {
+		const fallbackPrefix = '/team/productionList/';
+		let prefix = toText(config.managementImageUrlPrefix) || fallbackPrefix;
+
+		if (!prefix.endsWith('/')) {
+			prefix += '/';
+		}
+
+		return prefix + encodeURIComponent(orderId) + '/management-images';
+	}
+
+	async function fetchManagementImages(orderId) {
+		const response = await fetch(buildManagementImagesUrl(orderId), {
+			method: 'GET',
+			credentials: 'same-origin',
+			headers: {
+				'Accept': 'application/json'
+			}
+		});
+
+		if (!response.ok) {
+			throw new Error('관리자 이미지를 불러오지 못했습니다. status=' + response.status);
+		}
+
+		const data = await response.json();
+		return normalizeImages({
+			adminImages: Array.isArray(data) ? data : []
+		});
+	}
+
+	function ensureListOrderImagesLoaded(orderIndex, card) {
+		const order = state.orders[orderIndex];
+
+		if (!order || !order.id || order.imagesLoaded === true || order.imagesLoading === true) {
+			return;
+		}
+
+		order.imagesLoading = true;
+		order.imageLoadError = false;
+
+		fetchManagementImages(order.id).then(function(images) {
+			order.images = images;
+			order.imagesLoaded = true;
+			order.imagesLoading = false;
+			order.imageLoadError = false;
+			order.listImageIndex = 0;
+		}).catch(function(error) {
+			console.error(error);
+			order.images = [];
+			order.imagesLoaded = true;
+			order.imagesLoading = false;
+			order.imageLoadError = true;
+		}).finally(function() {
+			if (!els.host || state.orders[orderIndex] !== order) {
+				return;
+			}
+
+			const currentCard = card && card.isConnected
+				? card
+				: els.host.querySelector('.team-production-overview-list-card[data-list-order-index="' + orderIndex + '"]');
+
+			if (!currentCard) {
+				return;
+			}
+
+			const panel = currentCard.querySelector('.team-production-overview-list-image-panel');
+			if (!panel) {
+				return;
+			}
+
+			const imageIndex = getOrderListImageIndex(order);
+			panel.outerHTML = buildListImagePanelHtml(order, order.images[imageIndex], imageIndex);
+		});
 	}
 
 	function handleListHostClick(event) {
@@ -1251,7 +1420,7 @@
 				alert(toText(result && result.message) || '생산완료 처리되었습니다.');
 			}
 		} catch (error) {
-			console.error(error);
+			console.error(DIAG, '생산완료 처리 실패', error);
 
 			if (!window.TeamActionFeedback) {
 				alert(error && error.message ? error.message : '생산완료 처리 중 오류가 발생했습니다.');
@@ -1398,10 +1567,14 @@
 			};
 		}
 
-		if (!isBulkCompleteAllowed()) {
+		if (order.canComplete !== true) {
 			return {
 				available: false,
-				message: '생산완료 처리 권한이 없습니다.'
+				message: isCompletableOrderStatus(order)
+					? '다른 생산 카테고리의 발주는 조회와 확인만 가능하며 생산완료 처리할 수 없습니다.'
+					: (normalizeOrderStatus(order.status) === 'PRODUCTION_DONE'
+						? '이미 생산 완료 처리된 주문입니다.'
+						: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.')
 			};
 		}
 
@@ -1411,15 +1584,6 @@
 				message: normalizeOrderStatus(order.status) === 'PRODUCTION_DONE'
 					? '이미 생산 완료 처리된 주문입니다.'
 					: '승인 완료 상태의 주문만 생산완료 처리할 수 있습니다.'
-			};
-		}
-
-		const checkbox = getOrderCheckbox(order.id);
-
-		if (!checkbox || checkbox.disabled) {
-			return {
-				available: false,
-				message: '현재 주문은 이 화면에서 생산완료 처리할 수 없습니다.'
 			};
 		}
 

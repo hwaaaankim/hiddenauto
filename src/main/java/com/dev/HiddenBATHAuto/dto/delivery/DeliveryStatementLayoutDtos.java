@@ -64,12 +64,19 @@ public final class DeliveryStatementLayoutDtos {
         private String addressText;
         private String deliveryMethodName;
 
+        /**
+         * 명세서에 표시할 실제 작업 담당자입니다.
+         * 현장배송은 배송팀 담당자, 화물/방문/택배는 출고팀 dis_001을 사용합니다.
+         */
+        private String deliveryContactName;
+        private String deliveryContactPhone;
+
         /** 택배명세서 수기 작성란. 현재는 공란으로 전달합니다. */
         private String trackingNumber;
         private String freightType;
         private String packingMethod;
 
-        /** 택배명세서 고정 담당자 표기 */
+        /** 택배명세서 담당자 표기(하위 호환 필드) */
         private String managerName;
 
         private String acceptanceText;

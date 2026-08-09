@@ -32,6 +32,17 @@
     const els = {};
     let adminRequestDelegationBound = false;
     let adminRequestButtonObserver = null;
+    const adminRequestDiagnosticEnabled = window.location.pathname.includes('/team/production');
+    let adminRequestNormalizationLogCount = 0;
+
+    function adminRequestDiagnostic(message, detail) {
+        if (!adminRequestDiagnosticEnabled) return;
+        if (detail === undefined) {
+            console.info('[관리자요청 진단]', message);
+            return;
+        }
+        console.info('[관리자요청 진단]', message, detail);
+    }
 
     window.HiddenBathOrderNotification = {
         requestAdmin: requestAdmin,
@@ -128,23 +139,44 @@
     function enableStateIndependentAdminRequestButtons() {
         normalizeAdminRequestButtons(document);
         if (!document.body || typeof MutationObserver === 'undefined' || adminRequestButtonObserver) return;
+
         adminRequestButtonObserver = new MutationObserver(function (mutations) {
+            let adminRequestMutationCount = 0;
+
             mutations.forEach(function (mutation) {
                 if (mutation.type === 'childList') {
                     mutation.addedNodes.forEach(function (node) {
                         if (node && node.nodeType === 1) normalizeAdminRequestButtons(node);
                     });
-                } else if (mutation.type === 'attributes' && mutation.target) {
+                    return;
+                }
+
+                if (mutation.type === 'attributes' && mutation.target) {
+                    adminRequestMutationCount += 1;
                     normalizeAdminRequestButton(mutation.target);
                 }
             });
+
+            /*
+             * 생산팀 타 카테고리 조회에서 브라우저가 멈추는 문제 추적용입니다.
+             * 정상 상태라면 한 번의 동적 렌더링 뒤 소수의 attribute mutation만 발생하고 즉시 수렴해야 합니다.
+             * 이 값이 계속 대량으로 반복된다면 콘솔에서 바로 확인할 수 있습니다.
+             */
+            if (adminRequestDiagnosticEnabled && adminRequestMutationCount >= 20) {
+                console.warn('[관리자요청 진단] 한 MutationObserver 배치에서 속성 변경이 많이 감지되었습니다.', {
+                    mutationCount: adminRequestMutationCount
+                });
+            }
         });
+
         adminRequestButtonObserver.observe(document.body, {
             childList: true,
             subtree: true,
             attributes: true,
             attributeFilter: ['data-order-id', 'disabled', 'aria-disabled', 'data-admin-request-busy', 'data-admin-request-allowed']
         });
+
+        adminRequestDiagnostic('관리자요청 버튼 MutationObserver 연결 완료');
     }
 
     function normalizeAdminRequestButtons(root) {
@@ -160,23 +192,57 @@
     function normalizeAdminRequestButton(button) {
         if (!button || typeof button.matches !== 'function' || !button.matches('[data-order-admin-request]')) return;
         if (button.getAttribute('data-admin-request-busy') === 'true') return;
-        if (button.getAttribute('data-admin-request-allowed') === 'false') {
-            button.disabled = true;
-            button.setAttribute('aria-disabled', 'true');
-            return;
-        }
+
+        const allowed = button.getAttribute('data-admin-request-allowed') !== 'false';
         const orderId = Number(button.getAttribute('data-order-id'));
-        const valid = Number.isFinite(orderId) && orderId > 0;
-        if (!valid) {
-            button.disabled = true;
-            button.setAttribute('aria-disabled', 'true');
-            return;
+        const validOrderId = Number.isFinite(orderId) && orderId > 0;
+        const shouldDisable = !allowed || !validOrderId;
+        const reason = !allowed ? '권한없음' : (!validOrderId ? 'orderId없음' : '사용가능');
+
+        /*
+         * 중요: MutationObserver가 disabled/aria-disabled 자체를 감시하고 있으므로
+         * 현재 값과 동일한 속성을 매번 다시 setAttribute/property 대입하면
+         *   observer -> normalize -> attribute mutation -> observer ...
+         * 형태의 무한 microtask 루프가 생깁니다.
+         * 특히 타 생산 카테고리는 data-admin-request-allowed=false라 기존 코드가
+         * 이 루프에 들어가 브라우저 메인 스레드를 완전히 점유할 수 있었습니다.
+         * 반드시 값이 실제로 달라질 때만 DOM 속성을 변경합니다.
+         */
+        let changed = false;
+
+        if (button.disabled !== shouldDisable) {
+            button.disabled = shouldDisable;
+            changed = true;
         }
-        button.disabled = false;
-        button.removeAttribute('disabled');
-        button.removeAttribute('aria-disabled');
-        if (!button.title || /상태|승인완료|생산완료|요청을 보낼 수 없/.test(button.title)) {
+
+        if (shouldDisable) {
+            if (button.getAttribute('aria-disabled') !== 'true') {
+                button.setAttribute('aria-disabled', 'true');
+                changed = true;
+            }
+        } else if (button.hasAttribute('aria-disabled')) {
+            button.removeAttribute('aria-disabled');
+            changed = true;
+        }
+
+        if (!shouldDisable && (!button.title || /상태|승인완료|생산완료|요청을 보낼 수 없/.test(button.title))) {
             button.title = '이 발주의 관리 담당자에게 긴급 확인을 요청합니다.';
+        }
+
+        if (changed && adminRequestDiagnosticEnabled) {
+            adminRequestNormalizationLogCount += 1;
+            if (adminRequestNormalizationLogCount <= 20) {
+                adminRequestDiagnostic('관리자요청 버튼 상태 정규화', {
+                    orderId: validOrderId ? orderId : null,
+                    allowed: allowed,
+                    disabled: shouldDisable,
+                    reason: reason,
+                    elementId: button.id || null,
+                    logIndex: adminRequestNormalizationLogCount
+                });
+            } else if (adminRequestNormalizationLogCount === 21) {
+                console.info('[관리자요청 진단] 동일 유형 로그가 많아 이후 버튼별 정규화 로그는 생략합니다.');
+            }
         }
     }
 

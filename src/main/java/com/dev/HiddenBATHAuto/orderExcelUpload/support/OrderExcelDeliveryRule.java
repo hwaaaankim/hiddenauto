@@ -3,7 +3,7 @@ package com.dev.HiddenBATHAuto.orderExcelUpload.support;
 public enum OrderExcelDeliveryRule {
     DIRECT("DIRECT", "직배송", "직배송", true),
     SITE("SITE", "현장배송", "현장배송", true),
-    CARGO("CARGO", "화물", "화물", true),
+    CARGO("CARGO", "화물", "화물", false),
     VISIT("VISIT", "방문", "방문", false),
     PARCEL("PARCEL", "택배", "택배", false),
     UNDELIVERED("UNDELIVERED", "미배송", "미배송", false);
@@ -36,12 +36,18 @@ public enum OrderExcelDeliveryRule {
         return handlerAssignable;
     }
 
+    /** 담당자 자동배정에 현장주소를 사용하는 배송수단입니다. */
     public boolean needsSiteAddressForAssignment() {
+        return this == SITE;
+    }
+
+    /** 저장/표시 시 현장주소를 실제 배송지로 사용하는 배송수단입니다. */
+    public boolean usesSiteAddress() {
         return this == SITE || this == CARGO;
     }
 
     public boolean isNoHandlerRule() {
-        return this == VISIT || this == PARCEL || this == UNDELIVERED;
+        return this == CARGO || this == VISIT || this == PARCEL || this == UNDELIVERED;
     }
 
     public static OrderExcelDeliveryRule fromCode(String code) {

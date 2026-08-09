@@ -20,7 +20,8 @@
 	};
 
 	const SITE_DELIVERY_METHOD_NAME = "현장배송";
-	const REQUIRED_HANDLER_METHOD_NAMES = new Set(["직배송", "화물", "현장배송"]);
+	const REQUIRED_HANDLER_METHOD_NAMES = new Set(["직배송", "현장배송"]);
+	const PROHIBITED_HANDLER_METHOD_NAMES = new Set(["화물", "방문", "택배", "미배송"]);
 
 	const OPTION_VALUE_FIXED_KEYS = new Set([
 		"카테고리",
@@ -190,6 +191,7 @@
 
 		const methodName = resolveSelectedDeliveryMethodName(methodSelect);
 		const required = isDeliveryHandlerRequiredMethodName(methodName);
+		const prohibited = isDeliveryHandlerProhibitedMethodName(methodName);
 		const assignmentBlocked = isDeliveryAssignmentBlockedStatus(form);
 
 		if (assignmentBlocked) {
@@ -207,6 +209,17 @@
 			handlerSelect.classList.add("bg-light");
 			if (help) {
 				help.textContent = "고객 발주 또는 취소 상태에서는 배송담당자와 배송순서가 저장되지 않습니다.";
+			}
+			return;
+		}
+
+		if (prohibited) {
+			handlerSelect.value = "";
+			handlerSelect.disabled = true;
+			handlerSelect.required = false;
+			handlerSelect.classList.add("bg-light");
+			if (help) {
+				help.textContent = "화물·방문·택배 등은 배송팀 담당자를 지정하지 않으며, 저장 시 기존 담당자와 배송순번도 삭제됩니다.";
 			}
 			return;
 		}
@@ -307,6 +320,7 @@
 
 		const methodName = resolveSelectedDeliveryMethodName(methodSelect);
 		const required = isDeliveryHandlerRequiredMethodName(methodName);
+		const prohibited = isDeliveryHandlerProhibitedMethodName(methodName);
 		const assignmentBlocked = isDeliveryAssignmentBlockedStatus(form);
 
 		if (assignmentBlocked) {
@@ -316,7 +330,15 @@
 			return;
 		}
 
+		if (prohibited) {
+			handlerSelect.value = "";
+			handlerSelect.disabled = true;
+			handlerSelect.required = false;
+			return;
+		}
+
 		handlerSelect.disabled = false;
+		handlerSelect.required = required;
 
 		if (required && !handlerSelect.value) {
 			throw new Error(methodName + " 선택 시 배송팀 담당자는 필수입니다.");
@@ -374,6 +396,13 @@
 		return String(dataName || textName)
 			.replace(/\s*\(금액:.*?\)\s*$/g, "")
 			.trim();
+	}
+
+	function isDeliveryHandlerProhibitedMethodName(methodName) {
+		const normalized = normalizeDeliveryMethodName(methodName);
+		return Array.from(PROHIBITED_HANDLER_METHOD_NAMES).some(function(prohibitedName) {
+			return normalized.indexOf(normalizeDeliveryMethodName(prohibitedName)) >= 0;
+		});
 	}
 
 	function isDeliveryHandlerRequiredMethodName(methodName) {

@@ -72,14 +72,15 @@ public class DeliveryOrderIndexService {
      * 처리 기준:
      * - 고객 발주/취소 또는 담당자 없음 => 기존 DeliveryOrderIndex 삭제
      * - 담당자가 있는데 배송희망일이 없음 => 잘못된 상태이므로 저장 차단
-     * - 직배송/화물/현장배송 => 담당자 필수
+     * - 직배송/현장배송 => 담당자 필수
+     * - 화물/방문/택배 등 담당자 비대상 배송수단 => 기존 담당자와 DeliveryOrderIndex 삭제
      * - 담당자/날짜 변경 => 기존 row 삭제 후 새 담당자/날짜의 배송수단별 section 끝에 추가
      * - 담당자/날짜 동일 + 배송수단/상태만 변경 => section range가 달라지면 재배치
      * - 담당자 선택이 가능한 기타 배송수단 => 담당자가 지정된 경우 OTHER section으로 유지
      *
      * section 규칙:
      * - 직배송/현장배송 진행 건: 1부터 시작
-     * - 화물: 99,999부터 시작
+     * - 화물: 신규 정책에서는 인덱스를 생성하지 않음(99,999 구간은 과거 데이터 정리 호환용)
      * - 직배송/현장배송 배송완료: 1,000,000부터 시작
      * - 기타: 2,000,000부터 시작
      */
@@ -96,6 +97,18 @@ public class DeliveryOrderIndexService {
                 : order.getPreferredDeliveryDate().toLocalDate();
 
         if (!isDeliveryAssignmentAllowedStatus(order.getStatus())) {
+            order.setAssignedDeliveryHandler(null);
+            order.setAssignedDeliveryTeam(null);
+            deleteExistingIndex(existing);
+            return;
+        }
+
+        /*
+         * 화물/방문/택배 등 담당자 비대상 배송수단은 과거 배정 데이터가 남아 있더라도
+         * 담당자와 배송순번을 함께 제거합니다. deleteExistingIndex()가 삭제 전 큐를 기억해
+         * 같은 담당자/날짜의 남은 순번까지 연속되게 재정렬합니다.
+         */
+        if (!DeliveryMethodAssignmentPolicy.allowsHandler(order.getDeliveryMethod())) {
             order.setAssignedDeliveryHandler(null);
             order.setAssignedDeliveryTeam(null);
             deleteExistingIndex(existing);
@@ -775,7 +788,8 @@ public class DeliveryOrderIndexService {
 
     /**
      * 담당자 필수 배송수단 여부입니다.
-     * 배송수단명에 직배송/현장배송/화물 단어가 포함되면 담당자 필수로 판정합니다.
+     * 배송수단명에 직배송/현장배송 단어가 포함되면 담당자 필수로 판정합니다.
+     * 화물은 방문/택배와 동일하게 담당자를 지정하지 않습니다.
      */
     public boolean isDeliveryHandlerRequiredMethod(Order order) {
         return order != null
@@ -1018,6 +1032,11 @@ public class DeliveryOrderIndexService {
         }
 
         if (deliveryOrderIndex.getDeliveryDate() == null) {
+            return false;
+        }
+
+        // 화물/방문/택배/미배송은 과거 DeliveryOrderIndex가 남아 있어도 배송팀 화면에 노출하지 않습니다.
+        if (!DeliveryMethodAssignmentPolicy.allowsHandler(order.getDeliveryMethod())) {
             return false;
         }
 

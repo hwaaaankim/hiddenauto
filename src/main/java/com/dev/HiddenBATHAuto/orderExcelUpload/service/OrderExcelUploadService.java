@@ -417,7 +417,7 @@ public class OrderExcelUploadService {
                         deliveryMethod
                 );
             } else {
-                // 화물·직배송·현장배송 이외의 배송수단은 전달된 담당자 값도 저장하지 않습니다.
+                // 직배송·현장배송 이외의 배송수단(화물/방문/택배/미배송 포함)은 전달된 담당자 값도 저장하지 않습니다.
                 clearDeliveryHandlerSelection(groupRequest);
             }
 
@@ -833,7 +833,7 @@ public class OrderExcelUploadService {
                 .reduce((first, second) -> second)
                 .orElse(null);
 
-        group.setSiteDelivery(siteAddressRow != null || rule.needsSiteAddressForAssignment() || rule == OrderExcelDeliveryRule.PARCEL);
+        group.setSiteDelivery(siteAddressRow != null || rule.usesSiteAddress() || rule == OrderExcelDeliveryRule.PARCEL);
 
         Long requestedDeliveryMethodId = rule == OrderExcelDeliveryRule.DIRECT
                 ? directDeliveryMethodId
@@ -872,8 +872,8 @@ public class OrderExcelUploadService {
         if (siteAddressRow != null) {
             ParsedSiteAddress parsed;
 
-            if (rule.needsSiteAddressForAssignment()) {
-                // 1차: 주소 원문에 포함된 도/시/구만 해석하여 외부 API 호출 없이 바로 담당자를 찾습니다.
+            if (rule.isHandlerAssignable() && rule.needsSiteAddressForAssignment()) {
+                // 1차: 담당자 자동배정 대상인 현장배송은 주소 원문에 포함된 도/시/구로 먼저 담당자를 찾습니다.
                 parsed = addressParser.parseLocal(siteAddressRow.itemName);
                 applyParsedSiteAddress(group, parsed);
                 groupDeliveryHandler = findDeliveryHandlerByRegion(
@@ -902,7 +902,7 @@ public class OrderExcelUploadService {
                 group.getIssues().add(OrderExcelIssueDto.warn(siteAddressRow.excelRowNumber, groupNo, "siteAddress", warning));
             }
 
-            if (rule.needsSiteAddressForAssignment() && groupDeliveryHandler == null) {
+            if (rule.isHandlerAssignable() && rule.needsSiteAddressForAssignment() && groupDeliveryHandler == null) {
                 String addressSource = parsed.isExternalResolved()
                         ? firstNonBlank(parsed.getExternalSource(), "외부 주소 API")
                         : "직접 해석 및 외부 주소 API 미해석";
@@ -913,11 +913,11 @@ public class OrderExcelUploadService {
                         siteAddressRow.excelRowNumber,
                         groupNo,
                         "deliveryHandler",
-                        "현장/화물 주소 담당자를 자동 매칭하지 못했습니다. 주소 해석="
+                        "현장배송 주소 담당자를 자동 매칭하지 못했습니다. 주소 해석="
                                 + addressSource + " [" + regionLabel + "]. 저장 전 배송 담당자를 선택해 주세요."
                 ));
             }
-        } else if (rule.needsSiteAddressForAssignment()) {
+        } else if (rule.usesSiteAddress()) {
             group.getIssues().add(OrderExcelIssueDto.error(
                     firstRowNo(rawRows),
                     groupNo,
@@ -1267,7 +1267,7 @@ public class OrderExcelUploadService {
                     autoAssignDeliveryHandlerForSaveIfPossible(group, selectedMethod);
                     validateGroupDeliveryHandlerForSave(group, selectedMethod, issues);
                 } else {
-                    // 화물·직배송·현장배송 외 배송수단 또는 고객 발주/취소 전용 Task는 담당자를 저장하지 않습니다.
+                    // 직배송·현장배송 외 배송수단(화물 포함) 또는 고객 발주/취소 전용 Task는 담당자를 저장하지 않습니다.
                     clearDeliveryHandlerSelection(group);
                 }
             }
@@ -1386,8 +1386,8 @@ public class OrderExcelUploadService {
             return;
         }
 
-        // 화물·현장배송만 현장주소를 사용하고, 그 외 배송수단은 기본주소를 검증합니다.
-        boolean siteAddress = selectedRule != null && selectedRule.needsSiteAddressForAssignment();
+        // 화물·현장배송은 현장주소를 사용하고, 그 외 배송수단은 기본주소를 검증합니다.
+        boolean siteAddress = selectedRule != null && selectedRule.usesSiteAddress();
         OrderExcelAddressValidationResult validation = addressValidator.validate(
                 siteAddress ? "현장 배송지" : "기본 배송지",
                 siteAddress ? group.getSiteZipCode() : group.getZipCode(),
@@ -1418,8 +1418,8 @@ public class OrderExcelUploadService {
             return;
         }
 
-        // 화물·현장배송만 현장주소를 사용하고, 그 외 배송수단은 기본주소를 검증합니다.
-        boolean siteAddress = selectedRule != null && selectedRule.needsSiteAddressForAssignment();
+        // 화물·현장배송은 현장주소를 사용하고, 그 외 배송수단은 기본주소를 검증합니다.
+        boolean siteAddress = selectedRule != null && selectedRule.usesSiteAddress();
         OrderExcelAddressValidationResult validation = addressValidator.validate(
                 siteAddress ? "현장 배송지" : "기본 배송지",
                 siteAddress ? group.getSiteZipCode() : group.getZipCode(),
@@ -1797,8 +1797,7 @@ public class OrderExcelUploadService {
             DeliveryMethod selectedMethod
     ) {
         OrderExcelDeliveryRule selectedRule = resolveDeliveryRuleFromMethod(selectedMethod);
-        boolean useSiteAddress = selectedRule == OrderExcelDeliveryRule.SITE
-                || selectedRule == OrderExcelDeliveryRule.CARGO;
+        boolean useSiteAddress = selectedRule != null && selectedRule.usesSiteAddress();
 
         if (!useSiteAddress) {
             order.setSiteZipCode(null);

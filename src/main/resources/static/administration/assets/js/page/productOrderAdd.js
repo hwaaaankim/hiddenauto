@@ -722,7 +722,7 @@
 
 		const value = (els.deliveryInput.value || '').trim();
 
-		// 직배송/현장배송/화물이어도 담당자 선택은 선택사항입니다.
+		// 직배송/현장배송은 담당자 선택이 가능하며, 미선택 시 주소 기준 자동배정을 시도합니다.
 		// 값을 입력한 경우에만 반드시 자동완성 목록에서 정확히 선택되어야 합니다.
 		if (!value) {
 			clearSelectedDeliveryHandler(false);
@@ -823,8 +823,7 @@
 
 		return Boolean(state.deliveryMethod.directDelivery) ||
 			isDirectDeliverySelected() ||
-			isSiteDeliverySelected() ||
-			isFreightDeliverySelected();
+			isSiteDeliverySelected();
 	}
 
 	function syncDeliveryHandlerAvailability() {
@@ -837,7 +836,7 @@
 		els.deliveryInput.disabled = !assignable;
 		els.deliveryInput.placeholder = assignable
 			? '선택사항입니다. 미선택 시 주소 기준으로 자동 배정됩니다.'
-			: '직배송/현장배송/화물 선택 시 지정할 수 있습니다.';
+			: '화물/방문/택배는 배송 담당자를 지정하지 않습니다.';
 
 		if (!assignable) {
 			els.deliveryInput.classList.remove('product-admin-add-invalid');
@@ -1268,21 +1267,10 @@
 			return;
 		}
 
-		const region = [
-			state.siteAddress.doName,
-			state.siteAddress.siName,
-			state.siteAddress.guName
-		].filter(item => item && item.trim()).join(' / ');
-
-		const fullAddress = [
-			state.siteAddress.roadAddress,
-			state.siteAddress.detailAddress
-		].filter(item => item && item.trim()).join(' ');
+		const fullAddress = getDeliveryAddressSummaryText(state.siteAddress);
 
 		els.siteAddressSummary.innerHTML = `
-            <div><strong>우편번호</strong> ${escapeHtml(state.siteAddress.zipCode || '-')}</div>
             <div><strong>현장 배송지</strong> ${escapeHtml(fullAddress || '-')}</div>
-            <div><strong>행정구역</strong> ${escapeHtml(region || '-')}</div>
         `;
 		els.siteAddressSummary.classList.remove('d-none');
 	}
@@ -3541,7 +3529,9 @@
                     <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">배송 담당자</span>
                         <span class="product-admin-add-summary-item-value">
-                            ${isDeliveryHandlerAssignableSelected() && state.deliveryHandler ? `${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})` : '자동배정 또는 미지정'}
+                            ${isDeliveryHandlerAssignableSelected()
+                                ? (state.deliveryHandler ? `${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})` : '주소 기준 자동배정')
+                                : '지정하지 않음'}
                         </span>
                     </div>
 
@@ -3795,22 +3785,30 @@
 
 
 	function getDeliveryAddressSummaryText(targetAddress = state.address) {
-		const address = [
-			targetAddress.roadAddress,
-			targetAddress.detailAddress
-		].filter(item => item && item.trim()).join(' ');
-
-		const region = [
-			targetAddress.doName,
-			targetAddress.siName,
-			targetAddress.guName
-		].filter(item => item && item.trim()).join(' / ');
+		const safeAddress = targetAddress || {};
+		const roadAddress = String(safeAddress.roadAddress || '').trim();
+		const detailAddress = String(safeAddress.detailAddress || '').trim();
+		const normalizedRoad = normalizeAddressCompareText(roadAddress);
+		const missingRegionParts = [safeAddress.doName, safeAddress.siName, safeAddress.guName]
+			.map(value => String(value || '').trim())
+			.filter(Boolean)
+			.filter(value => !normalizedRoad.includes(normalizeAddressCompareText(value)));
 
 		return [
-			targetAddress.zipCode ? `(${targetAddress.zipCode})` : '',
-			address,
-			region ? `[${region}]` : ''
+			safeAddress.zipCode ? `(${safeAddress.zipCode})` : '',
+			missingRegionParts.join(' '),
+			roadAddress,
+			detailAddress && !normalizeAddressCompareText(roadAddress).endsWith(normalizeAddressCompareText(detailAddress))
+				? detailAddress
+				: ''
 		].filter(Boolean).join(' ');
+	}
+
+	function normalizeAddressCompareText(value) {
+		return String(value || '')
+			.normalize('NFKC')
+			.replace(/[\s,·ㆍ:;\[\](){}]/g, '')
+			.toLowerCase();
 	}
 
 	async function submitForm() {

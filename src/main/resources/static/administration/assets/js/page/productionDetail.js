@@ -4,6 +4,15 @@
 	"use strict";
 
 	document.addEventListener("DOMContentLoaded", function() {
+		var adminRequestButton = document.querySelector('[data-order-admin-request]');
+		console.info('[생산조회 진단][상세페이지] 초기화', {
+			orderId: adminRequestButton ? adminRequestButton.getAttribute('data-order-id') : null,
+			adminRequestAllowed: adminRequestButton ? adminRequestButton.getAttribute('data-admin-request-allowed') : null,
+			disabled: adminRequestButton ? adminRequestButton.disabled : null,
+			ariaDisabled: adminRequestButton ? adminRequestButton.getAttribute('aria-disabled') : null,
+			path: window.location.pathname
+		});
+
 		showServerActionResult();
 		initProductionDoneConfirm();
 		initLayoutToggle();

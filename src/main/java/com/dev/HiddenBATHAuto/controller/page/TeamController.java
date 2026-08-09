@@ -102,11 +102,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Controller
 @RequestMapping("/team")
 @PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
 @RequiredArgsConstructor
+@Slf4j
 public class TeamController {
 
 	private final TeamTaskService teamTaskService;
@@ -376,15 +378,26 @@ public class TeamController {
 		}
 
 		/*
-		 * 생산완료 가능 여부 - 재단 직원: 무조건 불가 - 일반 생산팀: 자기 카테고리만 가능
-		 * - 거울과 LED거울: 동일 작업 그룹으로 서로의 카테고리도 가능
+		 * 조회권한과 변경권한을 분리합니다.
+		 * - 생산팀 구성원은 현재 생산목록에 노출되는 다른 카테고리도 상세조회/개인확인 가능
+		 * - 생산완료/관리자요청은 오더별 canOperateProductionOrder 결과로만 허용
+		 * - 거울과 LED거울은 OrderTeamAccessPolicyService에서 동일 작업 그룹으로 상호 허용
+		 *
+		 * 기존처럼 선택된 카테고리 하나로 화면 전체 권한을 계산하면 타 카테고리 조회 시
+		 * 상세 UI까지 변경권한과 결합될 수 있으므로 반드시 행 단위로 계산합니다.
 		 */
-		TeamCategory targetProductionCategory = targetCategoryId == null
-				? null
-				: teamCategoryRepository.findById(targetCategoryId).orElse(null);
+		Map<Long, Boolean> productionOperationAllowedMap = orderPage.getContent().stream()
+				.filter(Objects::nonNull)
+				.filter(order -> order.getId() != null)
+				.collect(Collectors.toMap(
+						Order::getId,
+						order -> orderTeamAccessPolicyService.canOperateProductionOrder(member, order),
+						(left, right) -> left,
+						LinkedHashMap::new
+				));
 
-		boolean canBulkComplete = orderTeamAccessPolicyService
-				.canOperateProductionCategory(member, targetProductionCategory);
+		boolean canBulkComplete = productionOperationAllowedMap.values().stream()
+				.anyMatch(Boolean.TRUE::equals);
 
 		/*
 		 * 자재재단 버튼은 하부장 직원에게만 노출
@@ -451,6 +464,7 @@ public class TeamController {
 
 		model.addAttribute("canBulkComplete", canBulkComplete);
 		model.addAttribute("canChangeProductionStatus", canBulkComplete);
+		model.addAttribute("productionOperationAllowedMap", productionOperationAllowedMap);
 		model.addAttribute("isCuttingProductionMember", isCuttingProductionMember);
 		model.addAttribute("isMirrorCuttingProductionMember", isLegacyMirrorCuttingProductionMember);
 		model.addAttribute("canUseMirrorCuttingFilter", canUseMirrorCuttingFilter);
@@ -880,7 +894,25 @@ public class TeamController {
 	@ResponseBody
 	public ResponseEntity<List<ProductionOverviewImageDto>> getProductionManagementImages(@PathVariable Long orderId,
 			@AuthenticationPrincipal(expression = "member") Member loginMember) {
-		return ResponseEntity.ok(teamTaskService.getProductionManagementImages(orderId, loginMember));
+		long startedAt = System.nanoTime();
+		log.info("[생산조회 진단][management-images] START orderId={}, memberId={}, username={}, memberCategory={}",
+				orderId,
+				loginMember != null ? loginMember.getId() : null,
+				loginMember != null ? loginMember.getUsername() : null,
+				resolveProductionDiagnosticCategory(loginMember));
+
+		try {
+			List<ProductionOverviewImageDto> images = teamTaskService.getProductionManagementImages(orderId, loginMember);
+			log.info("[생산조회 진단][management-images] END orderId={}, imageCount={}, elapsedMs={}",
+					orderId,
+					images != null ? images.size() : 0,
+					elapsedMillis(startedAt));
+			return ResponseEntity.ok(images);
+		} catch (RuntimeException e) {
+			log.warn("[생산조회 진단][management-images] FAIL orderId={}, elapsedMs={}, message={}",
+					orderId, elapsedMillis(startedAt), e.getMessage(), e);
+			throw e;
+		}
 	}
 
 	@GetMapping("/productionList/excel")
@@ -981,20 +1013,40 @@ public class TeamController {
 	public ResponseEntity<?> getProductionOverviewData(@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false) String orderIds) {
 
+		long startedAt = System.nanoTime();
+
 		try {
 			Member member = principal.getMember();
-
 			List<Long> parsedOrderIds = parseProductionOverviewOrderIds(orderIds);
 
-			List<ProductionOverviewOrderDto> result = teamTaskService.getProductionOverviewOrders(parsedOrderIds,
-					member);
+			log.info("[생산조회 진단][overview-data] START memberId={}, username={}, memberCategory={}, requestedCount={}, sampleOrderIds={}",
+					member != null ? member.getId() : null,
+					member != null ? member.getUsername() : null,
+					resolveProductionDiagnosticCategory(member),
+					parsedOrderIds.size(),
+					parsedOrderIds.stream().limit(10).toList());
+
+			List<ProductionOverviewOrderDto> result = teamTaskService.getProductionOverviewOrders(parsedOrderIds, member);
+			long canCompleteCount = result.stream().filter(ProductionOverviewOrderDto::isCanComplete).count();
+			long canRequestAdminCount = result.stream().filter(ProductionOverviewOrderDto::isCanRequestAdmin).count();
+
+			log.info("[생산조회 진단][overview-data] END memberId={}, resultCount={}, canCompleteCount={}, canRequestAdminCount={}, elapsedMs={}",
+					member != null ? member.getId() : null,
+					result.size(),
+					canCompleteCount,
+					canRequestAdminCount,
+					elapsedMillis(startedAt));
 
 			return ResponseEntity.ok(result);
 
 		} catch (AccessDeniedException e) {
+			log.warn("[생산조회 진단][overview-data] FORBIDDEN elapsedMs={}, message={}",
+					elapsedMillis(startedAt), e.getMessage());
 			return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));
 
 		} catch (Exception e) {
+			log.error("[생산조회 진단][overview-data] FAIL elapsedMs={}, message={}",
+					elapsedMillis(startedAt), e.getMessage(), e);
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
 		}
 	}
@@ -1041,17 +1093,33 @@ public class TeamController {
 	public ResponseEntity<?> checkProductionOrder(@AuthenticationPrincipal PrincipalDetails principal,
 			@PathVariable Long orderId) {
 
+		long startedAt = System.nanoTime();
+
 		try {
 			Member member = principal.getMember();
+			log.info("[생산조회 진단][check] START orderId={}, memberId={}, username={}, memberCategory={}",
+					orderId,
+					member != null ? member.getId() : null,
+					member != null ? member.getUsername() : null,
+					resolveProductionDiagnosticCategory(member));
 
 			ProductionOrderCheckResponse response = teamTaskService.markProductionOrderChecked(orderId, member);
 
+			log.info("[생산조회 진단][check] END orderId={}, checkState={}, revisedBeforeCheck={}, elapsedMs={}",
+					orderId,
+					response != null ? response.getCheckState() : null,
+					response != null && response.isRevisedBeforeCheck(),
+					elapsedMillis(startedAt));
 			return ResponseEntity.ok(response);
 
 		} catch (AccessDeniedException e) {
+			log.warn("[생산조회 진단][check] FORBIDDEN orderId={}, elapsedMs={}, message={}",
+					orderId, elapsedMillis(startedAt), e.getMessage());
 			return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));
 
 		} catch (Exception e) {
+			log.error("[생산조회 진단][check] FAIL orderId={}, elapsedMs={}, message={}",
+					orderId, elapsedMillis(startedAt), e.getMessage(), e);
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
 		}
 	}
@@ -1060,11 +1128,15 @@ public class TeamController {
 	public String getProductionDetail(@PathVariable Long orderId, @AuthenticationPrincipal PrincipalDetails principal,
 			Model model) {
 
+		long startedAt = System.nanoTime();
+
 		if (principal == null || principal.getMember() == null) {
 			throw new AccessDeniedException("로그인이 필요합니다.");
 		}
 
 		Member loginMember = principal.getMember();
+		log.info("[생산조회 진단][detail-page] START orderId={}, memberId={}, username={}, memberCategory={}",
+				orderId, loginMember.getId(), loginMember.getUsername(), resolveProductionDiagnosticCategory(loginMember));
 
 		if (loginMember.getTeam() == null || !"생산팀".equals(loginMember.getTeam().getName())) {
 			throw new AccessDeniedException("접근 불가: 생산팀만 접근 가능합니다.");
@@ -1120,6 +1192,13 @@ public class TeamController {
         model.addAttribute("productionRevisionNotices", productionCheckResponse.getChangeNotices());
         model.addAttribute("productionRevisedBeforeCheck", productionCheckResponse.isRevisedBeforeCheck());
 
+		log.info("[생산조회 진단][detail-page] END orderId={}, orderCategory={}, canChangeStatus={}, canRequestAdmin={}, elapsedMs={}",
+				orderId,
+				order.getProductCategory() != null ? order.getProductCategory().getName() : "-",
+				canChangeStatus,
+				canRequestAdmin,
+				elapsedMillis(startedAt));
+
 		return "administration/team/production/productionDetail";
 	}
 
@@ -1153,6 +1232,19 @@ public class TeamController {
 		}
 
 		return "redirect:/team/productionDetail/" + orderId;
+	}
+
+	private String resolveProductionDiagnosticCategory(Member member) {
+		if (member == null || member.getTeamCategory() == null) {
+			return "-";
+		}
+
+		String name = member.getTeamCategory().getName();
+		return name == null || name.isBlank() ? "-" : name;
+	}
+
+	private long elapsedMillis(long startedAtNanos) {
+		return (System.nanoTime() - startedAtNanos) / 1_000_000L;
 	}
 
 	@GetMapping("/deliveryList")

@@ -738,7 +738,7 @@
 
 															<th:block th:with="
                                                                 personalCheck=${productionCheckAggregateMap != null ? productionCheckAggregateMap[row.orderId] : null},
-                                                                latestChange=${latestOrderChangeMap != null ? latestOrderChangeMap[row.orderId] : null}
+                                                                latestChange=${latestListOrderChangeMap != null ? latestListOrderChangeMap[row.orderId] : null}
                                                             ">
 																<div class="small mt-1"
 																	th:if="${personalCheck != null}">
@@ -944,7 +944,7 @@
 					<div>
 						<h5 class="card-title mb-1">승인 완료 담당자 지정</h5>
 						<p class="text-muted mb-0">
-							직배송·화물·현장배송 오더는 승인 완료로 변경하기 전에 배송팀 담당자를 지정해야 합니다.
+							직배송·현장배송 오더는 승인 완료로 변경하기 전에 배송팀 담당자를 지정해야 합니다. 화물·방문·택배는 담당자를 지정하지 않습니다.
 						</p>
 					</div>
 					<button type="button" id="task-list-bulk-confirm-modal-close-btn" class="btn btn-sm btn-light"

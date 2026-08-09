@@ -1535,7 +1535,7 @@ public class TeamTaskService {
 	        return List.of();
 	    }
 
-	    List<Order> orders = orderRepository.findAllForProductionOverviewByIds(distinctIds);
+	    List<Order> orders = orderRepository.findAllForProductionOverviewDataByIds(distinctIds);
         Map<Long, ProductionCheckViewDto> checkViewMap = orderChangeAuditService
                 .getProductionCheckViewMap(distinctIds, loginMember);
 
@@ -1643,25 +1643,9 @@ public class TeamTaskService {
 	        companyName = "-";
 	    }
 
-	    List<ProductionOverviewImageDto> adminImages = new ArrayList<>();
-	    try {
-	        List<OrderImage> images = order.getAdminUploadedImages();
-	        if (images != null) {
-	            for (OrderImage img : images) {
-	                String url = resolveAdminImageUrl(img);
-	                if (!isBlank(url)) {
-	                    adminImages.add(ProductionOverviewImageDto.builder()
-	                            .imageId(img.getId())
-	                            .url(url)
-	                            .filename(safeText(img.getFilename()))
-	                            .type(safeText(img.getType()))
-	                            .build());
-	                }
-	            }
-	        }
-	    } catch (Exception ignore) {
-	        adminImages = new ArrayList<>();
-	    }
+	    // 대량 overview 응답에서는 이미지를 의도적으로 제외합니다.
+	    // 각 화면이 현재 필요한 주문의 이미지만 /productionList/{orderId}/management-images 로 지연 조회합니다.
+	    List<ProductionOverviewImageDto> adminImages = List.of();
 
 	    OrderStatus status = order.getStatus();
         String checkStateName = checkView != null ? checkView.getCheckState() : OrderCheckState.UNCHECKED.name();

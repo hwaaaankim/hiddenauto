@@ -20,6 +20,7 @@ import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderCheckStatus;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -293,7 +294,9 @@ public class NonStandardTaskListViewService {
     }
 
     private String buildFullAddress(String zipCode, String doName, String siName, String guName, String roadAddress, String detailAddress) {
-        return joinNonBlank(" ", wrapIfNotBlank(zipCode, "(", ")"), doName, siName, guName, roadAddress, detailAddress);
+        return DeliveryAddressNormalizationUtil
+                .build(zipCode, doName, siName, guName, roadAddress, detailAddress)
+                .display();
     }
 
     private String formatMemberNameWithUsername(Member member) {
