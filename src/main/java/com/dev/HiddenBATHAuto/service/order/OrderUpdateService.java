@@ -178,7 +178,9 @@ public class OrderUpdateService {
 	}
 
 	/**
-	 * 현장주소와 거울 재단 상품 여부까지 함께 수정하는 실제 처리 메서드입니다.
+	 * 현장주소와 거울 재단 상품 여부까지 함께 수정하는 기존 실제 처리 메서드입니다.
+	 *
+	 * <p>기존 호출부 호환을 위해 주소 입력이 비어 있으면 현재 DB 주소를 유지하는 기존 동작을 보존합니다.</p>
 	 */
 	@Transactional
 	public void updateOrder(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
@@ -190,6 +192,55 @@ public class OrderUpdateService {
 			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
 			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
 			String updatedByUsername, boolean mirrorCuttingProduct) {
+		updateOrderInternal(
+				orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
+				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
+				requesterMemberId, zipCode, doName, siName, guName, roadAddress, detailAddress, siteZipCode,
+				siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress, ordererName, ordererPhone,
+				optionJson, deleteAdminImageIds, adminImages, adminMemo, dispatchCompleteMessage,
+				dispatchCompleteMessageSubmitted, updatedByUsername, mirrorCuttingProduct,
+				false
+		);
+	}
+
+	/**
+	 * /management/nonStandardTaskList 넓게보기 전용 저장 진입점입니다.
+	 *
+	 * <p>넓게보기 폼은 일반주소/현장주소의 모든 필드를 항상 제출하므로, 빈 si/gu/detail 값도
+	 * 현재 화면의 명시적인 값으로 취급합니다. 이를 통해 Daum 주소검색으로 다른 지역으로 변경할 때
+	 * 이전 주소의 시/구가 다시 살아나는 문제와 상세주소를 비울 수 없는 문제를 방지합니다.</p>
+	 */
+	@Transactional
+	public void updateOrderWithExplicitAddressValues(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
+			int packingCost, int deliveryCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String siteZipCode, String siteDoName,
+			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress, String ordererName,
+			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
+			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
+			String updatedByUsername, boolean mirrorCuttingProduct) {
+		updateOrderInternal(
+				orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
+				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
+				requesterMemberId, zipCode, doName, siName, guName, roadAddress, detailAddress, siteZipCode,
+				siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress, ordererName, ordererPhone,
+				optionJson, deleteAdminImageIds, adminImages, adminMemo, dispatchCompleteMessage,
+				dispatchCompleteMessageSubmitted, updatedByUsername, mirrorCuttingProduct,
+				true
+		);
+	}
+
+	private void updateOrderInternal(Long orderId, int productCost, int quantity, int supplyPrice, int totalAmount,
+			int packingCost, int deliveryCost, LocalDate preferredDeliveryDate, String statusStr,
+			Optional<Long> deliveryMethodId, Optional<Long> deliveryHandlerId, Optional<Long> productCategoryId,
+			Optional<Long> companyId, Optional<Long> requesterMemberId, String zipCode, String doName, String siName,
+			String guName, String roadAddress, String detailAddress, String siteZipCode, String siteDoName,
+			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress, String ordererName,
+			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
+			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
+			String updatedByUsername, boolean mirrorCuttingProduct,
+			boolean explicitAddressValues) {
 		Order order = getOrderOrThrow(orderId);
 
 		ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
@@ -223,7 +274,7 @@ public class OrderUpdateService {
 		boolean siteDelivery = isSiteDeliveryMethod(order);
 		boolean handlerRequired = isDeliveryHandlerRequired(order);
 
-		applyDeliveryAddress(order, siteDelivery, zipCode, doName, siName, guName, roadAddress, detailAddress,
+		applyDeliveryAddress(order, siteDelivery, explicitAddressValues, zipCode, doName, siName, guName, roadAddress, detailAddress,
 				siteZipCode, siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress);
 
 		applyDeliveryHandler(order, preferredDeliveryDate, deliveryHandlerId, deliveryAssignmentAllowed,
@@ -295,7 +346,7 @@ public class OrderUpdateService {
                             : List.of()
             );
         }
-	}
+		}
 
     private Long extractEntityId(String entityLabel) {
         if (entityLabel == null || entityLabel.isBlank()) return null;
@@ -313,15 +364,16 @@ public class OrderUpdateService {
 				.orElseThrow(() -> new IllegalArgumentException("Order not found. orderId=" + orderId));
 	}
 
-	private void applyDeliveryAddress(Order order, boolean siteDelivery, String zipCode, String doName, String siName,
-			String guName, String roadAddress, String detailAddress, String siteZipCode, String siteDoName,
-			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress) {
-		String resolvedZipCode = firstNotBlank(zipCode, order.getZipCode());
-		String resolvedDoName = firstNotBlank(doName, order.getDoName());
-		String resolvedSiName = firstNotBlank(siName, order.getSiName());
-		String resolvedGuName = firstNotBlank(guName, order.getGuName());
-		String resolvedRoadAddress = firstNotBlank(roadAddress, order.getRoadAddress());
-		String resolvedDetailAddress = firstNotBlank(detailAddress, order.getDetailAddress());
+	private void applyDeliveryAddress(Order order, boolean siteDelivery, boolean explicitAddressValues,
+			String zipCode, String doName, String siName, String guName, String roadAddress, String detailAddress,
+			String siteZipCode, String siteDoName, String siteSiName, String siteGuName, String siteRoadAddress,
+			String siteDetailAddress) {
+		String resolvedZipCode = resolveSubmittedAddressValue(zipCode, order.getZipCode(), explicitAddressValues);
+		String resolvedDoName = resolveSubmittedAddressValue(doName, order.getDoName(), explicitAddressValues);
+		String resolvedSiName = resolveSubmittedAddressValue(siName, order.getSiName(), explicitAddressValues);
+		String resolvedGuName = resolveSubmittedAddressValue(guName, order.getGuName(), explicitAddressValues);
+		String resolvedRoadAddress = resolveSubmittedAddressValue(roadAddress, order.getRoadAddress(), explicitAddressValues);
+		String resolvedDetailAddress = resolveSubmittedAddressValue(detailAddress, order.getDetailAddress(), explicitAddressValues);
 
 		order.setZipCode(resolvedZipCode);
 		order.setDoName(resolvedDoName);
@@ -331,12 +383,12 @@ public class OrderUpdateService {
 		order.setDetailAddress(resolvedDetailAddress);
 
 		if (siteDelivery) {
-			String resolvedSiteZipCode = firstNotBlank(siteZipCode, order.getSiteZipCode());
-			String resolvedSiteDoName = firstNotBlank(siteDoName, order.getSiteDoName());
-			String resolvedSiteSiName = firstNotBlank(siteSiName, order.getSiteSiName());
-			String resolvedSiteGuName = firstNotBlank(siteGuName, order.getSiteGuName());
-			String resolvedSiteRoadAddress = firstNotBlank(siteRoadAddress, order.getSiteRoadAddress());
-			String resolvedSiteDetailAddress = firstNotBlank(siteDetailAddress, order.getSiteDetailAddress());
+			String resolvedSiteZipCode = resolveSubmittedAddressValue(siteZipCode, order.getSiteZipCode(), explicitAddressValues);
+			String resolvedSiteDoName = resolveSubmittedAddressValue(siteDoName, order.getSiteDoName(), explicitAddressValues);
+			String resolvedSiteSiName = resolveSubmittedAddressValue(siteSiName, order.getSiteSiName(), explicitAddressValues);
+			String resolvedSiteGuName = resolveSubmittedAddressValue(siteGuName, order.getSiteGuName(), explicitAddressValues);
+			String resolvedSiteRoadAddress = resolveSubmittedAddressValue(siteRoadAddress, order.getSiteRoadAddress(), explicitAddressValues);
+			String resolvedSiteDetailAddress = resolveSubmittedAddressValue(siteDetailAddress, order.getSiteDetailAddress(), explicitAddressValues);
 
 			if (resolvedSiteRoadAddress == null) {
 				throw new IllegalArgumentException("현장배송 선택 시 현장주소는 필수입니다.");
@@ -765,13 +817,20 @@ public class OrderUpdateService {
 		}
 	}
 
-	private String firstNotBlank(String submittedValue, String currentValue) {
+	private String resolveSubmittedAddressValue(
+			String submittedValue,
+			String currentValue,
+			boolean explicitAddressValues
+	) {
 		String normalizedSubmittedValue = normalizeNullableText(submittedValue);
-		if (normalizedSubmittedValue != null) {
+
+		if (explicitAddressValues) {
 			return normalizedSubmittedValue;
 		}
 
-		return normalizeNullableText(currentValue);
+		return normalizedSubmittedValue != null
+				? normalizedSubmittedValue
+				: normalizeNullableText(currentValue);
 	}
 
 	private void updateRequesterIfNeeded(Order order, Optional<Long> companyId, Optional<Long> requesterMemberId) {

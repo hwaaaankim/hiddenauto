@@ -22,6 +22,8 @@
 	const SITE_DELIVERY_METHOD_NAME = "현장배송";
 	const REQUIRED_HANDLER_METHOD_NAMES = new Set(["직배송", "현장배송"]);
 	const PROHIBITED_HANDLER_METHOD_NAMES = new Set(["화물", "방문", "택배", "미배송"]);
+	const DAUM_POSTCODE_SCRIPT_ID = "admin-task-list-second-daum-postcode-script";
+	const DAUM_POSTCODE_SCRIPT_URL = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
 
 	const OPTION_VALUE_FIXED_KEYS = new Set([
 		"카테고리",
@@ -49,6 +51,7 @@
 	]);
 
 	let activePicker = null;
+	let daumPostcodeLoadingPromise = null;
 
 	const companyOptionsCache = new Map();
 	const companyOptionsLoading = new Map();
@@ -219,7 +222,7 @@
 			handlerSelect.required = false;
 			handlerSelect.classList.add("bg-light");
 			if (help) {
-				help.textContent = "화물·방문·택배 등은 배송팀 담당자를 지정하지 않으며, 저장 시 기존 담당자와 배송순번도 삭제됩니다.";
+				help.textContent = "배송수단 미지정·화물·방문·택배·미배송은 배송팀 담당자를 지정하지 않으며, 저장 시 기존 담당자와 배송순번도 삭제됩니다.";
 			}
 			return;
 		}
@@ -398,29 +401,45 @@
 			.trim();
 	}
 
+	/**
+	 * 배송수단 비교용 공통 정규화 함수입니다.
+	 *
+	 * 2026-08 화물 무담당자 정책 반영 과정에서 prohibited 판별 함수가 이 함수를
+	 * 호출하도록 변경되었지만 정의가 누락되어 ReferenceError가 발생했습니다.
+	 * 모든 배송수단 판별을 이 함수로 통일하여 동일 문제가 재발하지 않도록 합니다.
+	 */
+	function normalizeDeliveryMethodName(value) {
+		return String(value || "")
+			.replace(/\(\s*금액\s*:.*?\)/g, "")
+			.replace(/\s+/g, "")
+			.trim();
+	}
+
 	function isDeliveryHandlerProhibitedMethodName(methodName) {
 		const normalized = normalizeDeliveryMethodName(methodName);
+		if (!normalized) {
+			return true;
+		}
+
 		return Array.from(PROHIBITED_HANDLER_METHOD_NAMES).some(function(prohibitedName) {
-			return normalized.indexOf(normalizeDeliveryMethodName(prohibitedName)) >= 0;
+			return normalized.includes(normalizeDeliveryMethodName(prohibitedName));
 		});
 	}
 
 	function isDeliveryHandlerRequiredMethodName(methodName) {
-		const normalized = String(methodName || "").trim().replace(/\s+/g, "");
+		const normalized = normalizeDeliveryMethodName(methodName);
 		if (!normalized) {
 			return false;
 		}
 
 		return Array.from(REQUIRED_HANDLER_METHOD_NAMES).some(function(requiredName) {
-			return normalized.includes(String(requiredName || "").replace(/\s+/g, ""));
+			return normalized.includes(normalizeDeliveryMethodName(requiredName));
 		});
 	}
 
 	function isSiteDeliverySelected(methodSelect) {
-		const normalized = String(resolveSelectedDeliveryMethodName(methodSelect) || "")
-			.trim()
-			.replace(/\s+/g, "");
-		return normalized.includes(SITE_DELIVERY_METHOD_NAME.replace(/\s+/g, ""));
+		const normalized = normalizeDeliveryMethodName(resolveSelectedDeliveryMethodName(methodSelect));
+		return normalized.includes(normalizeDeliveryMethodName(SITE_DELIVERY_METHOD_NAME));
 	}
 
 	function isDeliveryAssignmentBlockedStatus(form) {
@@ -686,16 +705,18 @@
 		};
 	}
 
-	function openDaumPostcode(form, role) {
-		if (!window.daum || !window.daum.Postcode) {
-			alert("Daum 우편번호 스크립트를 불러오지 못했습니다. 네트워크 또는 스크립트 경로를 확인해 주세요.");
+	async function openDaumPostcode(form, role) {
+		try {
+			await ensureDaumPostcodeLoaded();
+		} catch (error) {
+			console.error("[taskListOrderEditExtension] Daum Postcode load failed", error);
+			alert("Daum 우편번호 서비스를 불러오지 못했습니다. 네트워크 연결 또는 외부 스크립트 차단 여부를 확인한 뒤 다시 시도해 주세요.");
 			return;
 		}
 
 		new window.daum.Postcode({
 			oncomplete: function(data) {
-				const sigungu = data.sigungu || "";
-				const parsed = splitSigungu(sigungu);
+				const parsed = splitSigungu(data.sigungu || "", data.sido || "");
 
 				applyAddress(form, role, {
 					zipCode: data.zonecode || "",
@@ -714,12 +735,94 @@
 		}).open();
 	}
 
-	function splitSigungu(sigungu) {
+	function ensureDaumPostcodeLoaded() {
+		if (window.daum && window.daum.Postcode) {
+			return Promise.resolve();
+		}
+
+		if (daumPostcodeLoadingPromise) {
+			return daumPostcodeLoadingPromise;
+		}
+
+		daumPostcodeLoadingPromise = new Promise(function(resolve, reject) {
+			/*
+			 * 최초 HTML script가 네트워크/CSP 등의 이유로 실패한 경우에도
+			 * 주소검색 버튼 클릭 시 한 번 더 명시적 HTTPS 경로로 재시도합니다.
+			 */
+			const existingScript = document.getElementById(DAUM_POSTCODE_SCRIPT_ID)
+				|| document.querySelector('script[src*="postcode/prod/postcode.v2.js"]');
+
+			if (existingScript && existingScript.parentNode) {
+				existingScript.parentNode.removeChild(existingScript);
+			}
+
+			const script = document.createElement("script");
+			script.id = DAUM_POSTCODE_SCRIPT_ID;
+			script.src = DAUM_POSTCODE_SCRIPT_URL;
+			script.async = true;
+
+			const timeoutId = window.setTimeout(function() {
+				reject(new Error("Daum Postcode script load timeout"));
+			}, 10000);
+
+			script.onload = function() {
+				window.clearTimeout(timeoutId);
+				if (window.daum && window.daum.Postcode) {
+					resolve();
+					return;
+				}
+				reject(new Error("Daum Postcode global object is unavailable"));
+			};
+
+			script.onerror = function() {
+				window.clearTimeout(timeoutId);
+				reject(new Error("Daum Postcode script network error"));
+			};
+
+			document.head.appendChild(script);
+		}).catch(function(error) {
+			daumPostcodeLoadingPromise = null;
+			throw error;
+		});
+
+		return daumPostcodeLoadingPromise;
+	}
+
+	function splitSigungu(sigungu, sido) {
 		const parts = String(sigungu || "").trim().split(/\s+/).filter(Boolean);
+		const normalizedSido = normalizeAddressPart(sido);
+
 		if (parts.length === 0) {
 			return { siName: "", guName: "" };
 		}
-		return { siName: parts[0] || "", guName: parts.slice(1).join(" ") };
+
+		if (parts.length === 1) {
+			const single = parts[0];
+
+			// 세종처럼 sido와 sigungu가 같은 값으로 내려오는 경우 중복 저장하지 않습니다.
+			if (normalizedSido && normalizeAddressPart(single) === normalizedSido) {
+				return { siName: "", guName: "" };
+			}
+
+			/*
+			 * 서울특별시 강남구처럼 sigungu가 "강남구" 하나만 내려오는 경우
+			 * 이를 siName에 넣으면 시/구 컬럼이 뒤섞이므로 guName으로 저장합니다.
+			 */
+			if (single.endsWith("구")) {
+				return { siName: "", guName: single };
+			}
+
+			return { siName: single, guName: "" };
+		}
+
+		return {
+			siName: parts[0] || "",
+			guName: parts.slice(1).join(" ")
+		};
+	}
+
+	function normalizeAddressPart(value) {
+		return String(value || "").replace(/\s+/g, "").trim();
 	}
 
 	function applyAddress(form, role, item) {
@@ -763,13 +866,32 @@
 			return;
 		}
 
-		const text = [
-			getAddressValue(form, normalizedRole, "zipCode") ? "(" + getAddressValue(form, normalizedRole, "zipCode") + ")" : "",
+		const zipCode = getAddressValue(form, normalizedRole, "zipCode");
+		const roadAddress = getAddressValue(form, normalizedRole, "roadAddress");
+		const detailAddress = getAddressValue(form, normalizedRole, "detailAddress");
+		const regionParts = [
 			getAddressValue(form, normalizedRole, "doName"),
 			getAddressValue(form, normalizedRole, "siName"),
-			getAddressValue(form, normalizedRole, "guName"),
-			getAddressValue(form, normalizedRole, "roadAddress"),
-			getAddressValue(form, normalizedRole, "detailAddress")
+			getAddressValue(form, normalizedRole, "guName")
+		].filter(Boolean);
+
+		/*
+		 * Daum roadAddress에는 보통 시/도·시/군/구가 이미 포함되어 있습니다.
+		 * 기존 미리보기는 regionParts와 roadAddress를 무조건 이어 붙여
+		 * "서울 강남구 서울 강남구 ..."처럼 중복 표시될 수 있었습니다.
+		 */
+		const normalizedRoadAddress = normalizeAddressPart(roadAddress);
+		const missingRegionParts = roadAddress
+			? regionParts.filter(function(part) {
+				return !normalizedRoadAddress.includes(normalizeAddressPart(part));
+			})
+			: regionParts;
+
+		const text = [
+			zipCode ? "(" + zipCode + ")" : "",
+			...missingRegionParts,
+			roadAddress,
+			detailAddress
 		].filter(Boolean).join(" ");
 
 		preview.textContent = text || "-";

@@ -222,6 +222,9 @@ public class NonStandardOrderItemService {
      * /management/nonStandardTaskList 넓게보기 수정폼 전용 메서드입니다.
      * 일반 배송주소와 현장주소를 모두 수신하고, 배송수단에 따라 OrderUpdateService에서 검증/저장/삭제합니다.
      * 거울 재단 상품 여부도 이 수정폼에서만 직접 수신해 저장합니다.
+     *
+     * <p>이 폼은 주소 hidden/input 전체를 항상 제출하므로, 빈 시/구/상세주소도 명시적인 수정값으로 처리하는
+     * 전용 OrderUpdateService 진입점을 사용합니다.</p>
      */
     @Transactional
     public void updateNonStandardOrderItemWithSiteAddress(
@@ -262,7 +265,7 @@ public class NonStandardOrderItemService {
             List<MultipartFile> adminImages,
             String updatedByUsername
     ) {
-        orderUpdateService.updateOrder(
+        orderUpdateService.updateOrderWithExplicitAddressValues(
                 orderId,
                 productCost,
                 quantity,
