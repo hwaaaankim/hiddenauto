@@ -164,21 +164,28 @@
                                                 th:if="${history.requestPath != null and history.requestPath != ''}"
                                                 th:text="|처리 경로: ${history.requestPath}|">처리 경로</div>
 
-                                            <div class="table-responsive mt-2"
+                                            <div class="table-responsive mt-2 admin-task-list-second-history-table-wrap"
                                                 th:if="${history.fields != null and !history.fields.isEmpty()}">
-                                                <table class="table table-sm table-bordered align-middle mb-0">
+                                                <table class="table table-sm table-bordered align-middle mb-0 admin-task-list-second-history-table">
+                                                    <colgroup>
+                                                        <col class="admin-task-list-second-history-col-field">
+                                                        <col class="admin-task-list-second-history-col-before">
+                                                        <col class="admin-task-list-second-history-col-after">
+                                                    </colgroup>
                                                     <thead class="table-light">
                                                         <tr>
-                                                            <th style="width:22%;">항목</th>
-                                                            <th>변경 전</th>
-                                                            <th>변경 후</th>
+                                                            <th scope="col">항목</th>
+                                                            <th scope="col">변경 전</th>
+                                                            <th scope="col">변경 후</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         <tr th:each="field : ${history.fields}">
-                                                            <th th:text="${field.fieldLabel}">항목</th>
-                                                            <td th:text="${field.beforeValue}">변경 전</td>
-                                                            <td th:text="${field.afterValue}">변경 후</td>
+                                                            <th scope="row" th:text="${field.fieldLabel}">항목</th>
+                                                            <td class="admin-task-list-second-history-before"
+                                                                th:text="${field.beforeValue}">변경 전</td>
+                                                            <td class="admin-task-list-second-history-after"
+                                                                th:text="${field.afterValue}">변경 후</td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
