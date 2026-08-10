@@ -5147,12 +5147,12 @@ body.admin-task-detail-modal-open {
 	min-width: 1420px;
 }
 
-.admin-task-list-second-table th,
-.admin-task-list-second-table td {
+.admin-task-list-second-table > thead > tr > th,
+.admin-task-list-second-table > tbody > tr > td {
 	vertical-align: middle !important;
 }
 
-.admin-task-list-second-table thead th {
+.admin-task-list-second-table > thead > tr > th {
 	white-space: nowrap;
 	font-size: 13px;
 	font-weight: 700;
@@ -9159,8 +9159,8 @@ body.admin-task-list-second-modal-open {
 	table-layout: fixed !important;
 }
 
-.admin-task-list-second-page .admin-task-list-second-table th,
-.admin-task-list-second-page .admin-task-list-second-table td {
+.admin-task-list-second-page .admin-task-list-second-table > thead > tr > th,
+.admin-task-list-second-page .admin-task-list-second-table > tbody > tr > td {
 	box-sizing: border-box;
 }
 
@@ -9311,21 +9311,116 @@ body.admin-task-list-second-modal-open {
 
 
 /*
- * 상세 열은 테이블 외곽선 자체는 카드 끝까지 유지하되,
- * 헤더/버튼이 우측 벽에 붙어 보이지 않도록 내부 여백을 둡니다.
+ * 상세 열은 메인 목록의 마지막 열에만 적용합니다.
+ * 내부 변경이력/개인확인 테이블의 마지막 열까지 64px로 줄어드는 것을 방지하기 위해
+ * 반드시 메인 thead 및 main-row의 직계 셀만 선택합니다.
  */
-.admin-task-list-second-page .admin-task-list-second-table th:last-child,
-.admin-task-list-second-page .admin-task-list-second-table td:last-child {
+.admin-task-list-second-page .admin-task-list-second-table > thead > tr > th:last-child,
+.admin-task-list-second-page .admin-task-list-second-table > tbody > tr.admin-task-list-second-main-row > td:last-child {
 	width: 64px !important;
 	padding-left: 8px !important;
 	padding-right: 14px !important;
 	text-align: center !important;
 }
 
-.admin-task-list-second-page .admin-task-list-second-table th:last-child .admin-task-list-second-wide-toggle-btn,
-.admin-task-list-second-page .admin-task-list-second-table td:last-child .admin-task-list-second-wide-toggle-btn {
+.admin-task-list-second-page .admin-task-list-second-table > thead > tr > th:last-child .admin-task-list-second-wide-toggle-btn,
+.admin-task-list-second-page .admin-task-list-second-table > tbody > tr.admin-task-list-second-main-row > td:last-child .admin-task-list-second-wide-toggle-btn {
 	margin-left: auto;
 	margin-right: auto;
+}
+
+
+/* =========================================================
+   관리자 발주 넓게보기 > 오더 변경이력
+   메인 목록 colgroup/상세 열 CSS와 완전히 분리된 내부 테이블
+   ========================================================= */
+
+.admin-task-list-second-page .admin-task-list-second-history-table-wrap {
+	width: 100%;
+	max-width: 100%;
+	overflow-x: auto;
+	overflow-y: hidden;
+	border-radius: 5px;
+	-webkit-overflow-scrolling: touch;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-table {
+	width: 100% !important;
+	min-width: 720px;
+	table-layout: fixed !important;
+	border-collapse: collapse;
+	margin: 0 !important;
+	background: #ffffff;
+}
+
+/* 항목 22% / 변경 전 39% / 변경 후 39% */
+.admin-task-list-second-page .admin-task-list-second-history-col-field {
+	width: 22%;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-col-before,
+.admin-task-list-second-page .admin-task-list-second-history-col-after {
+	width: 39%;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-table > thead > tr > th {
+	padding: 9px 12px !important;
+	background: #f3f6fa !important;
+	color: #334155;
+	font-size: 12px;
+	font-weight: 800;
+	line-height: 1.35;
+	text-align: center;
+	vertical-align: middle !important;
+	white-space: nowrap !important;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-table > tbody > tr > th,
+.admin-task-list-second-page .admin-task-list-second-history-table > tbody > tr > td {
+	padding: 10px 12px !important;
+	font-size: 12px;
+	line-height: 1.5;
+	vertical-align: top !important;
+	white-space: pre-wrap !important;
+	word-break: break-word !important;
+	overflow-wrap: anywhere !important;
+	max-width: none !important;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-table > tbody > tr > th {
+	background: #fafbfc;
+	color: #334155;
+	font-weight: 800;
+	text-align: center;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-before {
+	background: #ffffff;
+	color: #64748b;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-after {
+	background: #f8fbff;
+	color: #0f172a;
+	font-weight: 700;
+}
+
+.admin-task-list-second-page .admin-task-list-second-history-table > tbody > tr:hover > th,
+.admin-task-list-second-page .admin-task-list-second-history-table > tbody > tr:hover > td {
+	background-color: #f7faff;
+}
+
+@media (max-width: 767.98px) {
+	.admin-task-list-second-page .admin-task-list-second-history-table {
+		min-width: 660px;
+	}
+
+	.admin-task-list-second-page .admin-task-list-second-history-table > thead > tr > th,
+	.admin-task-list-second-page .admin-task-list-second-history-table > tbody > tr > th,
+	.admin-task-list-second-page .admin-task-list-second-history-table > tbody > tr > td {
+		padding-left: 10px !important;
+		padding-right: 10px !important;
+	}
 }
 
 .admin-task-list-second-product-highlight {
