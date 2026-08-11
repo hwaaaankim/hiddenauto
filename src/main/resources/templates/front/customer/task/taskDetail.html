@@ -6,111 +6,147 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
+	<link rel="stylesheet" href="/front/customer-management-v2.css">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
-	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
-	<div id="page" class="container">
+	<div id="page" class="container task-detail-page">
 		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+
 		<div class="page-content header-clear-medium">
-			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
-				<div class="card-center ms-3">
-					<h1 class="color-white mb-0">발주 상세</h1>
-					<p class="color-white mt-n1 mb-0">발주 상세 내용을 확인할 수 있습니다.</p>
+			<div class="card card-style preload-img task-detail-hero" data-src="/front/images/pictures/18.jpg" data-card-height="104">
+				<div class="card-center ms-3 task-detail-hero-copy">
+					<h1 class="color-white mb-0 task-detail-hero-title">발주 상세</h1>
+					<p class="color-white mb-0 task-detail-hero-description">Task 공통 정보와 포함된 모든 Order를 한 화면에서 확인합니다.</p>
 				</div>
 				<div class="card-center me-3">
-					<a href="/index" data-back-button
-						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+					<a href="/customer/taskList" class="btn btn-m float-end font-800 bg-highlight task-detail-home-btn">목록</a>
 				</div>
 				<div class="card-overlay bg-black opacity-80"></div>
 			</div>
-			<!-- 상단 Task 정보 카드 -->
-			<div class="card card-style">
-				<div class="content">
-					<div class="row mb-2 mt-n2">
-						<div class="col-6 text-start">
-							<h4 class="font-700 text-uppercase font-12 opacity-50 mt-1">발주 상세</h4>
-						</div>
-						<div class="col-6 text-end">
-							<a href="#" data-menu="menu-manage" class="font-14 color-theme icon icon-xxs">
-								<i class="fa fa-cog fa-spin"></i>
-							</a>
-						</div>
+
+			<section class="task-detail-summary-panel">
+				<div class="task-detail-section-head">
+					<div>
+						<span class="task-detail-kicker">TASK SUMMARY</span>
+						<h2 th:text="${'TASK-' + task.id}">TASK-1</h2>
 					</div>
-					<div class="divider mb-3"></div>
-
-					<div class="d-flex">
-						<div class="w-25 ps-3">
-							<h4>주문번호</h4>
-							<p class="color-blue-dark font-11 mb-0" th:text="'#ORDER_ID_' + ${task.id}">#ORDER_ID_1</p>
-						</div>
-						<div class="w-25 ps-3">
-							<h4>상태</h4>
-							<p class="color-blue-dark font-11 mb-0" th:text="${task.status}">REQUESTED</p>
-
-						</div>
-						<div class="w-25 ps-3">
-
-							<h4>총 금액</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${#numbers.formatInteger(task.totalPrice, 3, 'COMMA')} + '원'">0원</p>
-
-						</div>
-						<div class="w-25 ps-3">
-
-							<h4>고객 메모</h4>
-							<p class="color-blue-dark font-11 mb-0" th:text="${task.customerNote}">-</p>
-						</div>
-						<div class="w-25 ps-3">
-
-							<h4>작성일</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${#temporals.format(task.createdAt, 'yyyy.MM.dd HH:mm')}">-</p>
-
-						</div>
-						<div class="w-25 ps-3">
-							<h4>최근 수정일</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${task.updatedAt != null ? #temporals.format(task.updatedAt, 'yyyy.MM.dd HH:mm') : '없음'}">
-								-</p>
-						</div>
-					</div>
-					<div class="divider mt-4 mb-3"></div>
-				</div>
-			</div>
-
-			<!-- 반복되는 주문 리스트 카드 -->
-			<a class="card card-style mb-3" th:each="order : ${task.orders}"
-				th:href="@{'/customer/orderDetail/' + ${order.id}}">
-				<div class="content">
-					<h3 th:text="${order.productCategory.name}">카테고리</h3>
-					<p class="font-11 mt-n2 mb-0 opacity-50">
-						배송 희망일:
-						<span
-							th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy.MM.dd') : '미지정'}"></span>
-					</p>
-
-					<div class="row mb-n2 color-theme mt-2">
-						<div class="col-6 font-10 text-start">
-							<span class="badge bg-highlight color-white font-10 mt-2"
-								th:text="'수량: ' + ${order.quantity} + '개'">수량</span>
-							<span class="badge bg-black color-white font-10 mt-2"
-								th:text="'상태: ' + ${order.status}">상태</span>
-						</div>
-						<div class="col-6 font-10 text-end opacity-30">
-							<i class="fa fa-calendar pe-2"></i>
-							<span th:text="${#temporals.format(order.createdAt, 'yyyy.MM.dd')}">날짜</span>
-						</div>
+					<div class="task-detail-head-actions">
+						<span class="task-detail-status-badge" th:classappend="${' task-detail-status-' + #strings.toLowerCase(taskSummary.statusKey)}" th:text="${taskSummary.statusLabel}">상태</span>
+						<a href="#" data-menu="menu-manage" class="task-detail-manage-link" title="관리 메뉴"><i class="fa fa-cog fa-spin"></i></a>
 					</div>
 				</div>
-			</a>
 
+				<div class="row g-0 task-detail-summary-grid">
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>Task ID</span><strong th:text="${'#' + task.id}">#1</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>주문자명</span><strong th:text="${taskSummary.ordererName}">-</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>주문자 연락처</span><strong><a th:if="${taskSummary.ordererPhone != null and taskSummary.ordererPhone != '-'}" th:href="|tel:${taskSummary.ordererPhone}|" th:text="${taskSummary.ordererPhone}"></a><span th:unless="${taskSummary.ordererPhone != null and taskSummary.ordererPhone != '-'}">-</span></strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>발주일</span><strong th:text="${task.createdAt != null ? #temporals.format(task.createdAt, 'yyyy/MM/dd') : '-'}">-</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>배송예정일</span><strong th:text="${taskSummary.deliveryDate != null ? #temporals.format(taskSummary.deliveryDate, 'yyyy/MM/dd') : '-'}">-</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>담당자</span><strong th:text="${taskSummary.managerName}">미지정</strong></div>
+					<div class="col-xl-3 col-lg-4 col-md-6 task-detail-summary-item"><span>배송수단</span><strong th:text="${taskSummary.deliveryMethodName}">-</strong></div>
+					<div class="col-xl-5 col-lg-8 col-md-6 task-detail-summary-item"><span>배송지</span><strong th:text="${taskSummary.deliveryAddress}">-</strong></div>
+					<div class="col-xl-2 col-lg-4 col-md-6 col-6 task-detail-summary-item"><span>총 오더수</span><strong th:text="${taskSummary.orderCount + '건'}">0건</strong></div>
+					<div class="col-xl-2 col-lg-4 col-md-6 col-6 task-detail-summary-item"><span>총 금액</span><strong th:text="${#numbers.formatInteger(task.totalPrice, 1, 'COMMA') + '원'}">0원</strong></div>
+				</div>
+
+				<div class="task-detail-category-summary" th:if="${taskSummary.categoryCounts != null and !taskSummary.categoryCounts.isEmpty()}">
+					<span class="task-detail-category-chip" th:each="category : ${taskSummary.categoryCounts}" th:text="${category.name + ' ' + category.count + '개'}">거울 1개</span>
+				</div>
+
+				<div class="task-detail-customer-note" th:if="${task.customerNote != null and !#strings.isEmpty(task.customerNote)}">
+					<span>고객 메모</span><p th:text="${task.customerNote}"></p>
+				</div>
+			</section>
+
+			<section class="task-detail-orders-panel">
+				<div class="task-detail-orders-head">
+					<div><span class="task-detail-kicker">ORDER ITEMS</span><h3>주문 제품</h3></div>
+					<span th:text="${taskSummary.orderCount + '건'}">0건</span>
+				</div>
+
+				<div class="task-detail-orders-scroll">
+					<table class="table task-detail-orders-table align-middle mb-0">
+						<colgroup><col style="width:90px"><col style="width:130px"><col style="width:260px"><col style="width:90px"><col style="width:130px"><col style="width:140px"><col style="width:180px"><col style="width:100px"></colgroup>
+						<thead><tr><th>Order ID</th><th>카테고리</th><th>제품명</th><th>수량</th><th>제품 금액</th><th>상태</th><th>배송 담당자</th><th>상세</th></tr></thead>
+						<tbody>
+							<th:block th:each="order : ${taskOrders}">
+								<tr class="task-detail-order-main-row" th:id="'task-detail-order-' + ${order.id}">
+									<td th:text="${'#' + order.id}">#1</td>
+									<td th:text="${order.productCategory != null ? order.productCategory.name : '-'}">-</td>
+									<td class="task-detail-product-name" th:text="${order.orderItem != null and order.orderItem.productName != null ? order.orderItem.productName : '-'}">-</td>
+									<td th:text="${order.quantity + '개'}">1개</td>
+									<td th:text="${#numbers.formatInteger(order.productCost, 1, 'COMMA') + '원'}">0원</td>
+									<td><span class="task-detail-order-status" th:classappend="${' task-detail-order-status-' + (order.status != null ? #strings.toLowerCase(order.status.name()) : 'none')}" th:text="${order.status != null ? order.status.label : '-'}">-</span></td>
+									<td>
+										<div class="task-detail-handler-name" th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : '미지정'}">미지정</div>
+										<a class="task-detail-handler-phone" th:if="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}" th:href="|tel:${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}|"><i class="fa fa-phone me-1"></i><span th:text="${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}"></span></a>
+									</td>
+									<td><button type="button" class="btn btn-sm btn-outline-secondary task-detail-order-toggle" th:attr="data-target='#task-detail-order-detail-' + ${order.id}">보기</button></td>
+								</tr>
+								<tr class="task-detail-order-detail-row">
+									<td colspan="8" class="p-0 border-0">
+										<div class="task-detail-order-slide" th:id="'task-detail-order-detail-' + ${order.id}">
+											<div class="task-detail-order-inner">
+												<div class="row g-3">
+													<div class="col-lg-7">
+														<div class="task-detail-order-section">
+															<h5>주문 옵션 정보</h5>
+															<div class="task-detail-option-grid" th:if="${order.orderItem != null and order.orderItem.parsedOptionMap != null and !order.orderItem.parsedOptionMap.isEmpty()}">
+																<div class="task-detail-option-item" th:each="entry : ${order.orderItem.parsedOptionMap}"><span th:text="${entry.key}">옵션</span><strong th:text="${entry.value}">값</strong></div>
+															</div>
+															<div class="task-detail-empty-text" th:if="${order.orderItem == null or order.orderItem.parsedOptionMap == null or order.orderItem.parsedOptionMap.isEmpty()}">등록된 옵션 정보가 없습니다.</div>
+															<div class="task-detail-order-comment" th:if="${order.orderComment != null and !#strings.isEmpty(order.orderComment)}"><span>주문 비고</span><p th:text="${order.orderComment}"></p></div>
+														</div>
+													</div>
+													<div class="col-lg-5">
+														<div class="task-detail-order-section">
+															<h5>배송 / 담당 정보</h5>
+															<dl class="task-detail-order-info-list">
+																<div><dt>배송수단</dt><dd th:text="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '-'}">-</dd></div>
+																<div><dt>배송희망일</dt><dd th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy/MM/dd') : '-'}">-</dd></div>
+																<div><dt>배송 담당자</dt><dd th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : '미지정'}">-</dd></div>
+																<div><dt>담당자 연락처</dt><dd><a th:if="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}" th:href="|tel:${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}|" th:text="${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}"></a><span th:unless="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}">-</span></dd></div>
+															</dl>
+														</div>
+													</div>
+												</div>
+
+												<div class="task-detail-order-section task-detail-media-section">
+													<h5>업로드 이미지</h5>
+													<div class="row g-2">
+														<div class="col-xl-3 col-md-6" th:if="${!order.customerUploadedImages.isEmpty()}"><div class="task-detail-media-group"><div><strong>고객 업로드</strong><span th:text="${order.customerUploadedImages.size() + '장'}"></span></div><button type="button" class="task-detail-media-open" th:attr="data-media-source-id='task-detail-customer-' + ${order.id},data-media-title='고객 업로드'">슬라이드 보기</button><div class="d-none" th:id="'task-detail-customer-' + ${order.id}"><span class="task-detail-media-source-item" th:each="img : ${order.customerUploadedImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+														<div class="col-xl-3 col-md-6" th:if="${!order.adminUploadedImages.isEmpty()}"><div class="task-detail-media-group"><div><strong>관리자 업로드</strong><span th:text="${order.adminUploadedImages.size() + '장'}"></span></div><button type="button" class="task-detail-media-open" th:attr="data-media-source-id='task-detail-management-' + ${order.id},data-media-title='관리자 업로드'">슬라이드 보기</button><div class="d-none" th:id="'task-detail-management-' + ${order.id}"><span class="task-detail-media-source-item" th:each="img : ${order.adminUploadedImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+														<div class="col-xl-3 col-md-6" th:if="${!order.deliveryImages.isEmpty()}"><div class="task-detail-media-group"><div><strong>배송 사진</strong><span th:text="${order.deliveryImages.size() + '장'}"></span></div><button type="button" class="task-detail-media-open" th:attr="data-media-source-id='task-detail-delivery-' + ${order.id},data-media-title='배송 사진'">슬라이드 보기</button><div class="d-none" th:id="'task-detail-delivery-' + ${order.id}"><span class="task-detail-media-source-item" th:each="img : ${order.deliveryImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+														<div class="col-xl-3 col-md-6" th:if="${!order.proofImages.isEmpty()}"><div class="task-detail-media-group"><div><strong>증빙 자료</strong><span th:text="${order.proofImages.size() + '장'}"></span></div><button type="button" class="task-detail-media-open" th:attr="data-media-source-id='task-detail-proof-' + ${order.id},data-media-title='증빙 자료'">슬라이드 보기</button><div class="d-none" th:id="'task-detail-proof-' + ${order.id}"><span class="task-detail-media-source-item" th:each="img : ${order.proofImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+														<div class="col-12" th:if="${order.customerUploadedImages.isEmpty() and order.adminUploadedImages.isEmpty() and order.deliveryImages.isEmpty() and order.proofImages.isEmpty()}"><div class="task-detail-empty-text">등록된 이미지가 없습니다.</div></div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</th:block>
+						</tbody>
+					</table>
+				</div>
+			</section>
 		</div>
-		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+
 	</div>
+
 	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+	<script src="/front/taskDetailV2.js"></script>
+
+	<div class="modal fade task-detail-media-modal" id="task-detail-media-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-centered">
+			<div class="modal-content task-detail-media-modal-content">
+				<div class="modal-header"><h5 class="modal-title" id="task-detail-media-modal-title">이미지 보기</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button></div>
+				<div class="modal-body"><div id="task-detail-media-modal-carousel" class="carousel slide" data-bs-interval="false"><div class="carousel-inner" id="task-detail-media-modal-inner"></div><button class="carousel-control-prev" type="button" data-bs-target="#task-detail-media-modal-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button><button class="carousel-control-next" type="button" data-bs-target="#task-detail-media-modal-carousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button></div></div>
+			</div>
+		</div>
+	</div>
 
 </body>
-
 </html>

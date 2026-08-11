@@ -2295,7 +2295,7 @@ button {
 }
 
 .card-style .card-overlay {
-	border-radius: 15px;
+	border-radius: 5px;
 }
 
 .card-body {
@@ -7346,4 +7346,10 @@ input[type=number] {
 	font-weight: 500;
 	color: #7a271a;
 	word-break: keep-all;
+}
+.task-detail-hero{
+	border-radius:0px !important;
+	margin-right:0px !important;
+	margin-left:0px !important;
+	
 }

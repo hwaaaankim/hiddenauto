@@ -11,27 +11,28 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.dev.HiddenBATHAuto.dto.as.AsTaskScheduleSummaryProjection;
+import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTaskSchedule;
 
 public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, Long> {
 
-	@Query("select s.asTask.id as taskId, s.scheduledDate as scheduledDate, s.orderIndex as orderIndex " +
-	           "from AsTaskSchedule s " +
-	           "where s.asTask.id in :taskIds")
+    @Query("select s.asTask.id as taskId, s.scheduledDate as scheduledDate, s.orderIndex as orderIndex " +
+           "from AsTaskSchedule s " +
+           "where s.asTask.id in :taskIds")
     List<AsTaskScheduleSummaryProjection> findSummariesByTaskIdIn(@Param("taskIds") List<Long> taskIds);
-	
-	@Query("select coalesce(max(s.orderIndex), -1) from AsTaskSchedule s where s.scheduledDate = :scheduledDate")
-	Integer findMaxOrderIndexByScheduledDate(@Param("scheduledDate") LocalDate scheduledDate);
-	
-	List<AsTaskSchedule> findByAsTask_Id(Long asTaskId);
-	
-	/**
+
+    @Query("select coalesce(max(s.orderIndex), -1) from AsTaskSchedule s where s.scheduledDate = :scheduledDate")
+    Integer findMaxOrderIndexByScheduledDate(@Param("scheduledDate") LocalDate scheduledDate);
+
+    List<AsTaskSchedule> findByAsTask_Id(Long asTaskId);
+
+    /**
      * 화면 표시용 최소 필드만 프로젝션으로 조회 (Lazy 이슈/불필요 fetch 방지)
      */
     interface AsTaskScheduleSimpleView {
         Long getAsTaskId();
-        java.time.LocalDate getScheduledDate();
+        LocalDate getScheduledDate();
     }
 
     @Query("""
@@ -41,12 +42,12 @@ public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, 
          where s.asTask.id in :taskIds
     """)
     List<AsTaskScheduleSimpleView> findSimpleByAsTaskIdIn(@Param("taskIds") Collection<Long> taskIds);
-	
+
     Optional<AsTaskSchedule> findByAsTaskId(Long asTaskId);
 
     List<AsTaskSchedule> findByScheduledDateOrderByOrderIndexAsc(LocalDate date);
 
-    // ✅ 기존 유지(누락 없이 그대로 둠)
+    // ✅ 기존 유지
     @Query("""
         select s from AsTaskSchedule s
         where s.scheduledDate between :start and :end
@@ -54,7 +55,7 @@ public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, 
     List<AsTaskSchedule> findBetweenDates(@Param("start") LocalDate start,
                                           @Param("end") LocalDate end);
 
-    // ✅ FullCalendar용(권장): end exclusive + 정렬
+    // ✅ FullCalendar용: end exclusive + 정렬
     @Query("""
         select s
         from AsTaskSchedule s
@@ -85,16 +86,41 @@ public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, 
     List<AsTaskSchedule> findByTaskIds(@Param("taskIds") List<Long> taskIds);
 
     @Query("""
-	    select s
-	    from AsTaskSchedule s
-	    join fetch s.asTask t
-	    left join fetch t.requestedBy
-	    left join fetch t.assignedHandler
-	    where s.scheduledDate = :scheduledDate
-	      and t.status = :status
-	""")
-	List<AsTaskSchedule> findSchedulesByDateAndTaskStatus(
-	        @Param("scheduledDate") LocalDate scheduledDate,
-	        @Param("status") AsStatus status
-	);
+        select s
+        from AsTaskSchedule s
+        join fetch s.asTask t
+        left join fetch t.requestedBy
+        left join fetch t.assignedHandler
+        where s.scheduledDate = :scheduledDate
+          and t.status = :status
+    """)
+    List<AsTaskSchedule> findSchedulesByDateAndTaskStatus(
+            @Param("scheduledDate") LocalDate scheduledDate,
+            @Param("status") AsStatus status
+    );
+
+    /**
+     * index 메인 "앞으로 7일 처리예정" AS 전용.
+     * - 로그인 고객이 신청한 AS만 조회
+     * - 방문 스케줄이 현재~7일 범위에 존재하는 건만 조회
+     * - 완료/취소 상태는 제외
+     * - 담당자까지 fetch하여 카드 렌더링 중 Lazy 조회를 피함
+     */
+    @Query("""
+        select s
+        from AsTaskSchedule s
+        join fetch s.asTask t
+        left join fetch t.assignedHandler ah
+        where t.requestedBy = :member
+          and s.scheduledDate >= :start
+          and s.scheduledDate < :end
+          and (t.status is null or t.status not in :excludedStatuses)
+        order by s.scheduledDate asc, s.orderIndex asc, t.id asc
+    """)
+    List<AsTaskSchedule> findIndexUpcomingSchedules(
+            @Param("member") Member member,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("excludedStatuses") List<AsStatus> excludedStatuses
+    );
 }
