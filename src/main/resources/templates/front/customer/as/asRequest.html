@@ -4,328 +4,396 @@
 
 <head th:replace="fragments/front/common :: autoHead"></head>
 
-<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+<body class="theme-light as-request-page" data-highlight="highlight-red" data-gradient="body-default">
+
+	<link rel="stylesheet" href="/front/asRequest.css">
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
 	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
 
-	<div id="page" class="container">
+	<div id="page" class="container as-request-page-root">
 		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
 
-		<div class="page-content header-clear-medium">
+		<div class="page-content header-clear-medium as-request-page-content">
+			<main id="as-request-root" class="as-request-shell">
 
-			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
-				<div class="card-center ms-3">
-					<h1 class="color-white mb-0">AS 신청</h1>
-					<p class="color-white mt-n1 mb-0">AS를 신청할 수 있습니다.</p>
-				</div>
-				<div class="card-center me-3">
-					<a href="/index" data-back-button
-						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
-				</div>
-				<div class="card-overlay bg-black opacity-80"></div>
-			</div>
-
-
-			<form id="as-request-fifth-form" action="/customer/asSubmit" enctype="multipart/form-data" method="POST">
-				<div class="card card-style as-request-fifth-section-card">
-					<div class="as-request-fifth-section-head">
-						<div>
-							<h2>고객 정보</h2>
-							<div class="as-request-fifth-section-desc">AS 진행을 위한 기본 정보를 입력해 주세요.</div>
+				<section class="as-request-hero" aria-labelledby="as-request-page-title">
+					<div class="as-request-hero-copy">
+						<div class="as-request-hero-eyebrow">
+							<span class="as-request-hero-dot" aria-hidden="true"></span>
+							CUSTOMER SERVICE
 						</div>
-						<label class="as-request-fifth-inline-check">
-							<input type="checkbox" id="as-request-fifth-same-address">
-							<span>회원 정보와 동일</span>
-						</label>
+						<h1 id="as-request-page-title">AS 신청</h1>
+						<p>고객과 접수자 정보를 먼저 입력한 뒤 제품별 증상과 첨부자료를 구분해 등록할 수 있습니다.</p>
 					</div>
 
-					<div class="input-style no-borders no-icon mb-4">
-						<input type="text" id="as-request-fifth-customerName" class="form-control" required
-							placeholder="고객 성함을 입력해 주세요.">
-					</div>
-
-					<div class="input-style no-borders no-icon mt-1">
-						<input type="text" class="form-control" id="as-request-fifth-roadAddress" required readonly
-							placeholder="AS 장소의 주소를 검색해 주세요." autocomplete="off">
-						<button type="button" id="as-request-fifth-searchAddressBtn">주소검색</button>
-						<label for="as-request-fifth-roadAddress" class="color-blue-dark font-10 mt-1">주소</label>
-					</div>
-
-					<div class="input-style no-borders no-icon mb-4">
-						<input type="text" class="form-control" id="as-request-fifth-detailAddress"
-							placeholder="상세 주소를 작성해 주세요.">
-						<input type="hidden" id="as-request-fifth-doName">
-						<input type="hidden" id="as-request-fifth-siName">
-						<input type="hidden" id="as-request-fifth-guName">
-						<input type="hidden" id="as-request-fifth-zipCode">
-						<label for="as-request-fifth-detailAddress" class="color-blue-dark">상세주소</label>
-					</div>
-
-					<div class="input-style no-borders no-icon mb-1">
-						<input type="text" id="as-request-fifth-onsiteContact" class="form-control" required
-							placeholder="- 없이 숫자만 입력해 주세요. 예) 0311234567 / 01012345678" autocomplete="tel">
-					</div>
-				</div>
-
-				<div class="card card-style as-request-fifth-section-card">
-					<div class="as-request-fifth-section-head">
-						<div>
-							<h2>접수자 정보</h2>
-							<div class="as-request-fifth-section-desc">AS 신청을 실제로 접수하는 담당자 정보를 입력해 주세요.</div>
+					<div class="as-request-hero-side">
+						<div class="as-request-hero-flow" aria-label="AS 신청 순서">
+							<span><b>01</b> 고객 정보</span>
+							<i aria-hidden="true"></i>
+							<span><b>02</b> 접수자</span>
+							<i aria-hidden="true"></i>
+							<span><b>03</b> 제품 · 증상</span>
 						</div>
-						<label class="as-request-fifth-inline-check">
-							<input type="checkbox" id="as-request-fifth-same-member-info">
-							<span>계정정보와 동일</span>
-						</label>
+						<a href="/index" class="as-request-home-link">
+							<i class="fa fa-home" aria-hidden="true"></i>
+							<span>홈으로</span>
+						</a>
 					</div>
+				</section>
 
-					<div class="as-request-fifth-grid-2">
-						<div class="input-style no-borders no-icon mb-4">
-							<input type="text" id="as-request-fifth-applicantName" class="form-control" required
-								placeholder="신청 담당자 이름">
-						</div>
+				<form id="as-request-form" class="as-request-form" action="/customer/asSubmit"
+					enctype="multipart/form-data" method="POST" novalidate>
 
-						<div class="input-style no-borders no-icon mb-4">
-							<input type="text" id="as-request-fifth-applicantPhone" class="form-control" required
-								placeholder="신청 담당자 연락처">
-						</div>
-					</div>
-
-					<div class="input-style no-borders no-icon mb-1">
-						<input type="email" id="as-request-fifth-applicantEmail" class="form-control"
-							placeholder="신청 담당자 이메일(선택)">
-					</div>
-				</div>
-
-				<div class="as-request-fifth-progress-card" id="as-request-fifth-progressCard">
-					<div class="font-700 color-dark" id="as-request-fifth-progressText">업로드 준비 중입니다.</div>
-					<div class="as-request-fifth-progress-bar-wrap">
-						<div class="as-request-fifth-progress-bar" id="as-request-fifth-progressBar"></div>
-					</div>
-				</div>
-
-				<div class="card card-style as-request-fifth-section-card">
-					<div class="as-request-fifth-section-head">
-						<div>
-							<h2>제품 정보 및 증상</h2>
-							<div class="as-request-fifth-section-desc">최대 3개 제품까지 한 번에 신청할 수 있습니다.</div>
-						</div>
-						<button type="button" class="as-request-fifth-btn-soft as-request-fifth-add-btn"
-							id="as-request-fifth-addProductBtnTop">
-							+ 제품추가
-						</button>
-					</div>
-
-					<div id="as-request-fifth-productSections">
-						<div class="as-request-fifth-product-section as-request-fifth-mounted" data-section-index="1">
-							<div class="as-request-fifth-product-section-inner">
-								<div class="as-request-fifth-product-title">
-									<h3 class="as-request-fifth-product-title-text">제품 신청 1</h3>
-									<div class="as-request-fifth-product-actions">
-										<button type="button"
-											class="as-request-fifth-btn-soft as-request-fifth-btn-danger as-request-fifth-remove-section-btn"
-											style="display:none;">삭제</button>
+					<div class="as-request-info-grid">
+						<section class="as-request-panel" aria-labelledby="as-request-customer-title">
+							<header class="as-request-panel-head">
+								<div class="as-request-panel-title-wrap">
+									<span class="as-request-step-badge">01</span>
+									<div>
+										<h2 id="as-request-customer-title">고객 정보</h2>
+										<p>AS가 진행될 고객과 현장 정보를 입력해 주세요.</p>
 									</div>
 								</div>
 
-								<div class="as-request-fifth-grid-2">
-									<div class="input-style has-borders no-icon mb-4">
-										<input type="date" class="form-control as-request-fifth-purchaseDate">
-										<label class="color-blue-dark">구매일자</label>
+								<label class="as-request-copy-toggle" for="as-request-same-address">
+									<input type="checkbox" id="as-request-same-address" class="as-request-native-check">
+									<span class="as-request-check-ui" aria-hidden="true"><i class="fa fa-check"></i></span>
+									<span>회원 정보와 동일</span>
+								</label>
+							</header>
+
+							<div class="as-request-panel-body as-request-customer-fields">
+								<div class="as-request-field">
+									<label class="as-request-field-label" for="as-request-customer-name">고객 성함 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" id="as-request-customer-name" class="as-request-control"
+											placeholder="고객 성함" autocomplete="name" data-as-request-enter="as-request-onsite-contact">
+										<span class="as-request-enter-hint">Enter → 연락처</span>
 									</div>
+									<div class="as-request-field-error" aria-live="polite"></div>
+								</div>
 
-									<div class="mb-4">
-										<label class="color-blue-dark font-12 d-block mb-2">비용 청구 주체</label>
-										<div class="as-request-fifth-billing-wrap">
-											<label class="as-request-fifth-billing-item">
-												<input type="radio" value="CUSTOMER"
-													class="as-request-fifth-billingTarget">
-												<span>고객 청구</span>
-											</label>
-											<label class="as-request-fifth-billing-item">
-												<input type="radio" value="DEALER"
-													class="as-request-fifth-billingTarget">
-												<span>대리점 청구</span>
-											</label>
-										</div>
+								<div class="as-request-field">
+									<label class="as-request-field-label" for="as-request-onsite-contact">현장 연락처 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" id="as-request-onsite-contact" class="as-request-control"
+											placeholder="0311234567 / 01012345678" autocomplete="tel" inputmode="tel">
+									</div>
+									<div class="as-request-field-error" aria-live="polite"></div>
+								</div>
+
+								<div class="as-request-field as-request-location-field">
+									<span class="as-request-field-label">AS 장소 <em>필수</em></span>
+									<div class="as-request-location-row">
+										<input type="text" id="as-request-road-address" class="as-request-control" readonly
+											placeholder="주소를 검색해 주세요." autocomplete="off">
+										<button type="button" id="as-request-search-address" class="as-request-search-address-button">
+											<i class="fa fa-search" aria-hidden="true"></i>
+											<span>주소검색</span>
+										</button>
+										<input type="text" id="as-request-detail-address" class="as-request-control"
+											placeholder="동 · 호수 · 현장명 등" autocomplete="address-line2">
+									</div>
+									<div class="as-request-field-error" aria-live="polite"></div>
+								</div>
+
+								<input type="hidden" id="as-request-do-name">
+								<input type="hidden" id="as-request-si-name">
+								<input type="hidden" id="as-request-gu-name">
+								<input type="hidden" id="as-request-zip-code">
+							</div>
+						</section>
+
+						<section class="as-request-panel" aria-labelledby="as-request-applicant-title">
+							<header class="as-request-panel-head">
+								<div class="as-request-panel-title-wrap">
+									<span class="as-request-step-badge">02</span>
+									<div>
+										<h2 id="as-request-applicant-title">접수자 정보</h2>
+										<p>신청 내용을 확인할 담당자 정보를 입력해 주세요.</p>
 									</div>
 								</div>
 
-								<div class="input-style has-borders no-icon mb-4">
-									<input type="text" class="form-control as-request-fifth-productName"
-										placeholder="제품명을 입력해 주세요.">
-								</div>
+								<label class="as-request-copy-toggle" for="as-request-same-member-info">
+									<input type="checkbox" id="as-request-same-member-info" class="as-request-native-check">
+									<span class="as-request-check-ui" aria-hidden="true"><i class="fa fa-check"></i></span>
+									<span>계정정보와 동일</span>
+								</label>
+							</header>
 
-								<div class="as-request-fifth-grid-2">
-									<div class="input-style has-borders no-icon mb-4">
-										<input type="text" class="form-control as-request-fifth-productSize"
-											placeholder="사이즈 예) 600x800">
+							<div class="as-request-panel-body as-request-applicant-fields">
+								<div class="as-request-field">
+									<label class="as-request-field-label" for="as-request-applicant-name">접수자 이름 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" id="as-request-applicant-name" class="as-request-control"
+											placeholder="접수 담당자 이름" autocomplete="name" data-as-request-enter="as-request-applicant-phone">
+										<span class="as-request-enter-hint">Enter → 연락처</span>
 									</div>
+									<div class="as-request-field-error" aria-live="polite"></div>
+								</div>
 
-									<div class="input-style has-borders no-icon mb-4">
-										<input type="text" class="form-control as-request-fifth-productColor"
-											placeholder="색상 예) 화이트">
+								<div class="as-request-field">
+									<label class="as-request-field-label" for="as-request-applicant-phone">접수자 연락처 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" id="as-request-applicant-phone" class="as-request-control"
+											placeholder="연락 가능한 번호" autocomplete="tel" inputmode="tel"
+											data-as-request-enter="as-request-applicant-email">
+										<span class="as-request-enter-hint">Enter → 이메일</span>
+									</div>
+									<div class="as-request-field-error" aria-live="polite"></div>
+								</div>
+
+								<div class="as-request-field as-request-applicant-email-field">
+									<label class="as-request-field-label" for="as-request-applicant-email">접수자 이메일 <span>선택</span></label>
+									<div class="as-request-control-wrap">
+										<input type="email" id="as-request-applicant-email" class="as-request-control"
+											placeholder="example@domain.com" autocomplete="email">
+									</div>
+									<div class="as-request-field-error" aria-live="polite"></div>
+								</div>
+							</div>
+						</section>
+					</div>
+
+					<section class="as-request-products-panel" aria-labelledby="as-request-products-title">
+						<header class="as-request-products-head">
+							<div class="as-request-panel-title-wrap">
+								<span class="as-request-step-badge">03</span>
+								<div>
+									<h2 id="as-request-products-title">제품 정보 및 증상</h2>
+									<p>제품마다 구매정보, 증상, 첨부자료를 구분해 필요한 만큼 추가할 수 있습니다.</p>
+								</div>
+							</div>
+
+							<div class="as-request-products-head-actions">
+								<span class="as-request-product-count"><strong id="as-request-product-count">1</strong>건 작성 중</span>
+								<button type="button" id="as-request-add-product" class="as-request-add-button">
+									<i class="fa fa-plus" aria-hidden="true"></i>
+									<span>제품 추가</span>
+								</button>
+							</div>
+						</header>
+
+						<div id="as-request-progress" class="as-request-progress" aria-live="polite" hidden>
+							<div class="as-request-progress-head">
+								<div class="as-request-progress-copy">
+									<span class="as-request-progress-spinner" aria-hidden="true"></span>
+									<div>
+										<strong id="as-request-progress-text">업로드를 준비하고 있습니다.</strong>
+										<small id="as-request-progress-subtext">첨부파일 용량에 따라 잠시 시간이 걸릴 수 있습니다.</small>
 									</div>
 								</div>
+								<strong id="as-request-progress-percent" class="as-request-progress-percent">0%</strong>
+							</div>
+							<div class="as-request-progress-track">
+								<span id="as-request-progress-bar" class="as-request-progress-bar"></span>
+							</div>
+						</div>
 
-								<div class="input-style has-borders no-icon mb-4">
-									<input type="text" class="form-control as-request-fifth-productOptions"
-										placeholder="옵션 예) LED, 손잡이 없음">
+						<div class="as-request-workspace">
+							<div class="as-request-product-column">
+								<div id="as-request-product-sections" class="as-request-product-sections" aria-live="polite"></div>
+							</div>
+
+							<aside class="as-request-overview" aria-labelledby="as-request-overview-title">
+								<div class="as-request-overview-head">
+									<div>
+										<span class="as-request-overview-kicker">REQUEST OVERVIEW</span>
+										<h3 id="as-request-overview-title">신청 제품 오버뷰</h3>
+										<p>제품별 입력 상태와 첨부 개수를 한눈에 확인합니다.</p>
+									</div>
+									<span id="as-request-overview-count" class="as-request-overview-count">1</span>
 								</div>
 
-								<div class="input-style has-borders no-icon mb-3">
-									<label class="color-blue-dark">카테고리</label>
-									<select class="as-request-fifth-subjectCategory">
-										<option value="" selected>== 카테고리 선택 ==</option>
-										<option value="상부장">상부장</option>
-										<option value="슬라이드장">슬라이드장</option>
-										<option value="플랩장">플랩장</option>
-										<option value="하부장">하부장</option>
-										<option value="거울">거울</option>
-									</select>
-									<span><i class="fa fa-chevron-down"></i></span>
+								<div class="as-request-overview-stats">
+									<div><span>제품</span><strong id="as-request-stat-products">1</strong></div>
+									<div><span>첨부</span><strong id="as-request-stat-files">0</strong></div>
+									<div><span>입력완료</span><strong id="as-request-stat-ready">0</strong></div>
 								</div>
 
-								<div class="input-style has-borders no-icon mb-4">
-									<label class="color-blue-dark">증상</label>
-									<select class="as-request-fifth-subject" disabled>
-										<option value="" selected>== 증상 선택 ==</option>
-									</select>
-									<span><i class="fa fa-chevron-down"></i></span>
+								<div id="as-request-overview-list" class="as-request-overview-list"></div>
+
+								<div class="as-request-overview-foot">
+									<i class="fa fa-info-circle" aria-hidden="true"></i>
+									<span>제품을 누르면 해당 입력 영역을 열고 이동합니다.</span>
+								</div>
+							</aside>
+						</div>
+
+						<footer class="as-request-submit-area">
+							<div class="as-request-submit-summary">
+								<strong>신청 전 최종 확인</strong>
+								<span id="as-request-submit-summary">제품 1건 · 첨부 0개</span>
+							</div>
+							<div class="as-request-submit-actions">
+								<button type="button" id="as-request-add-product-bottom" class="as-request-secondary-button">
+									<i class="fa fa-plus" aria-hidden="true"></i>
+									<span>제품 추가</span>
+								</button>
+								<button type="submit" id="as-request-submit" class="as-request-submit-button">
+									<i class="fa fa-paper-plane" aria-hidden="true"></i>
+									<span>AS 신청하기</span>
+								</button>
+							</div>
+						</footer>
+					</section>
+				</form>
+
+				<div id="as-request-toast" class="as-request-toast" role="status" aria-live="polite"></div>
+
+				<template id="as-request-product-template">
+					<article class="as-request-product-card" data-as-request-index="0" data-as-request-submitted="false">
+						<header class="as-request-product-card-head">
+							<div class="as-request-product-head-main">
+								<span class="as-request-product-index">01</span>
+								<div>
+									<h3 class="as-request-product-title">제품 신청 1</h3>
+									<div class="as-request-product-head-summary">
+										<span class="as-request-product-summary-name">제품명 미입력</span>
+										<span class="as-request-product-summary-divider">·</span>
+										<span class="as-request-product-summary-category">카테고리 미선택</span>
+										<span class="as-request-product-summary-divider">·</span>
+										<span class="as-request-product-summary-files">첨부 0개</span>
+									</div>
+								</div>
+							</div>
+
+							<div class="as-request-product-card-actions">
+								<span class="as-request-product-state">작성 중</span>
+								<button type="button" class="as-request-remove-product" title="제품 삭제">
+									<i class="fa fa-trash" aria-hidden="true"></i>
+									<span>삭제</span>
+								</button>
+								<button type="button" class="as-request-product-toggle" aria-expanded="true" title="접기/펼치기">
+									<i class="fa fa-chevron-up" aria-hidden="true"></i>
+								</button>
+							</div>
+						</header>
+
+						<div class="as-request-product-body">
+							<div class="as-request-product-grid">
+								<div class="as-request-field as-request-col-3">
+									<label class="as-request-field-label">구매일자 <span>선택</span></label>
+									<div class="as-request-control-wrap">
+										<input type="date" class="as-request-control as-request-purchase-date">
+									</div>
+									<div class="as-request-field-error"></div>
 								</div>
 
-								<div class="input-style has-borders no-icon validate-field mb-4">
-									<textarea class="form-control as-request-fifth-reason"
-										placeholder="기타 필요하신 내용을 입력해 주세요."></textarea>
-									<label class="color-blue-dark">남김말</label>
+								<div class="as-request-field as-request-col-4">
+									<span class="as-request-field-label">비용 청구 주체 <em>필수</em></span>
+									<div class="as-request-billing-segment" role="radiogroup" aria-label="비용 청구 주체">
+										<label class="as-request-billing-option">
+											<input type="radio" value="CUSTOMER" class="as-request-native-radio as-request-billing-target">
+											<span class="as-request-radio-ui" aria-hidden="true"></span>
+											<span>고객 청구</span>
+										</label>
+										<label class="as-request-billing-option">
+											<input type="radio" value="DEALER" class="as-request-native-radio as-request-billing-target">
+											<span class="as-request-radio-ui" aria-hidden="true"></span>
+											<span>대리점 청구</span>
+										</label>
+									</div>
+									<div class="as-request-field-error"></div>
 								</div>
 
-								<div class="as-request-fifth-attachment-box">
-									<input type="file" class="as-request-fifth-attachments-input"
-										accept="image/*,video/*" multiple hidden>
-									<button type="button" class="as-request-fifth-attachment-trigger">
-										사진 또는 동영상 첨부
+								<div class="as-request-field as-request-col-5">
+									<label class="as-request-field-label">제품명 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" class="as-request-control as-request-product-name"
+											placeholder="제품명을 입력해 주세요." data-as-request-next="size">
+										<span class="as-request-enter-hint">Enter → 사이즈</span>
+									</div>
+									<div class="as-request-field-error"></div>
+								</div>
+
+								<div class="as-request-field as-request-col-3">
+									<label class="as-request-field-label">사이즈 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" class="as-request-control as-request-product-size"
+											placeholder="예) 600x800" data-as-request-next="color">
+										<span class="as-request-enter-hint">Enter → 색상</span>
+									</div>
+									<div class="as-request-field-error"></div>
+								</div>
+
+								<div class="as-request-field as-request-col-3">
+									<label class="as-request-field-label">색상 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" class="as-request-control as-request-product-color"
+											placeholder="예) 화이트" data-as-request-next="options">
+										<span class="as-request-enter-hint">Enter → 옵션</span>
+									</div>
+									<div class="as-request-field-error"></div>
+								</div>
+
+								<div class="as-request-field as-request-col-6">
+									<label class="as-request-field-label">옵션 <em>필수</em></label>
+									<div class="as-request-control-wrap">
+										<input type="text" class="as-request-control as-request-product-options"
+											placeholder="예) LED, 손잡이 없음 / 없으면 '없음'">
+									</div>
+									<div class="as-request-field-error"></div>
+								</div>
+
+								<div class="as-request-field as-request-col-5">
+									<label class="as-request-field-label">카테고리 <em>필수</em></label>
+									<div class="as-request-select-wrap">
+										<select class="as-request-control as-request-select as-request-subject-category">
+											<option value="">카테고리 선택</option>
+											<option value="상부장">상부장</option>
+											<option value="슬라이드장">슬라이드장</option>
+											<option value="플랩장">플랩장</option>
+											<option value="하부장">하부장</option>
+											<option value="거울">거울</option>
+										</select>
+										<i class="fa fa-chevron-down" aria-hidden="true"></i>
+									</div>
+									<div class="as-request-field-error"></div>
+								</div>
+
+								<div class="as-request-field as-request-col-7">
+									<label class="as-request-field-label">증상 <em>필수</em></label>
+									<div class="as-request-select-wrap">
+										<select class="as-request-control as-request-select as-request-subject" disabled>
+											<option value="">카테고리를 먼저 선택해 주세요.</option>
+										</select>
+										<i class="fa fa-chevron-down" aria-hidden="true"></i>
+									</div>
+									<div class="as-request-field-error"></div>
+								</div>
+
+								<div class="as-request-field as-request-col-6 as-request-large-field">
+									<label class="as-request-field-label">남김말 <span>선택</span></label>
+									<textarea class="as-request-control as-request-textarea as-request-reason"
+										placeholder="추가로 전달할 내용을 작성해 주세요."></textarea>
+									<div class="as-request-field-error"></div>
+								</div>
+
+								<div class="as-request-field as-request-col-6 as-request-large-field">
+									<label class="as-request-field-label">사진 · 동영상 <em>필수</em> <span class="as-request-file-count">0개</span></label>
+									<input type="file" class="as-request-attachments" accept="image/*,video/*" multiple hidden>
+									<button type="button" class="as-request-dropzone">
+										<span class="as-request-dropzone-icon"><i class="fa fa-cloud-upload-alt" aria-hidden="true"></i></span>
+										<strong>파일 선택 또는 이곳에 끌어놓기</strong>
+										<small>이미지와 동영상을 여러 개 첨부할 수 있습니다.</small>
 									</button>
-									<div class="as-request-fifth-attachment-help">
-										이미지 및 동영상 모두 첨부할 수 있습니다. 첨부 후 미리보기에서 삭제할 수 있습니다.
-									</div>
-									<div class="as-request-fifth-preview-list"></div>
+									<div class="as-request-field-error"></div>
 								</div>
 							</div>
-						</div>
-					</div>
 
-					<div class="as-request-fifth-bottom-actions">
-						<button type="button"
-							class="btn btn-full w-100 btn-m text-uppercase font-800 rounded-sm as-request-fifth-add-btn"
-							id="as-request-fifth-addProductBtnBottom">
-							+ 제품추가
-						</button>
-
-						<button type="submit" id="as-request-fifth-submitBtn"
-							class="btn btn-full w-100 btn-m text-uppercase font-800 rounded-sm as-request-fifth-submit-btn">
-							AS신청
-						</button>
-					</div>
-				</div>
-			</form>
-
-			<template id="as-request-fifth-productTemplate">
-				<div class="as-request-fifth-product-section" data-section-index="0">
-					<div class="as-request-fifth-product-section-inner">
-						<div class="as-request-fifth-product-title">
-							<h3 class="as-request-fifth-product-title-text">제품 신청</h3>
-							<div class="as-request-fifth-product-actions">
-								<button type="button"
-									class="as-request-fifth-btn-soft as-request-fifth-btn-danger as-request-fifth-remove-section-btn">삭제</button>
-							</div>
-						</div>
-
-						<div class="as-request-fifth-grid-2">
-							<div class="input-style has-borders no-icon mb-4">
-								<input type="date" class="form-control as-request-fifth-purchaseDate">
-								<label class="color-blue-dark">구매일자</label>
-							</div>
-
-							<div class="mb-4">
-								<label class="color-blue-dark font-12 d-block mb-2">비용 청구 주체</label>
-								<div class="as-request-fifth-billing-wrap">
-									<label class="as-request-fifth-billing-item">
-										<input type="radio" value="CUSTOMER" class="as-request-fifth-billingTarget">
-										<span>고객 청구</span>
-									</label>
-									<label class="as-request-fifth-billing-item">
-										<input type="radio" value="DEALER" class="as-request-fifth-billingTarget">
-										<span>대리점 청구</span>
-									</label>
+							<div class="as-request-preview-area" hidden>
+								<div class="as-request-preview-head">
+									<strong>첨부 미리보기</strong>
+									<span>각 파일 우측 상단의 × 버튼으로 제외할 수 있습니다.</span>
 								</div>
+								<div class="as-request-preview-list"></div>
 							</div>
 						</div>
-
-						<div class="input-style has-borders no-icon mb-4">
-							<input type="text" class="form-control as-request-fifth-productName"
-								placeholder="제품명을 입력해 주세요.">
-						</div>
-
-						<div class="as-request-fifth-grid-2">
-							<div class="input-style has-borders no-icon mb-4">
-								<input type="text" class="form-control as-request-fifth-productSize"
-									placeholder="사이즈 예) 600x800">
-							</div>
-
-							<div class="input-style has-borders no-icon mb-4">
-								<input type="text" class="form-control as-request-fifth-productColor"
-									placeholder="색상 예) 화이트">
-							</div>
-						</div>
-
-						<div class="input-style has-borders no-icon mb-4">
-							<input type="text" class="form-control as-request-fifth-productOptions"
-								placeholder="옵션 예) LED, 손잡이 없음">
-						</div>
-
-						<div class="input-style has-borders no-icon mb-3">
-							<label class="color-blue-dark">카테고리</label>
-							<select class="as-request-fifth-subjectCategory">
-								<option value="" selected>== 카테고리 선택 ==</option>
-								<option value="상부장">상부장</option>
-								<option value="슬라이드장">슬라이드장</option>
-								<option value="플랩장">플랩장</option>
-								<option value="하부장">하부장</option>
-								<option value="거울">거울</option>
-							</select>
-							<span><i class="fa fa-chevron-down"></i></span>
-						</div>
-
-						<div class="input-style has-borders no-icon mb-4">
-							<label class="color-blue-dark">증상</label>
-							<select class="as-request-fifth-subject" disabled>
-								<option value="" selected>== 증상 선택 ==</option>
-							</select>
-							<span><i class="fa fa-chevron-down"></i></span>
-						</div>
-
-						<div class="input-style has-borders no-icon validate-field mb-4">
-							<textarea class="form-control as-request-fifth-reason"
-								placeholder="기타 필요하신 내용을 입력해 주세요."></textarea>
-							<label class="color-blue-dark">남김말</label>
-						</div>
-
-						<div class="as-request-fifth-attachment-box">
-							<input type="file" class="as-request-fifth-attachments-input" accept="image/*,video/*"
-								multiple hidden>
-							<button type="button" class="as-request-fifth-attachment-trigger">
-								사진 또는 동영상 첨부
-							</button>
-							<div class="as-request-fifth-attachment-help">
-								이미지 및 동영상 모두 첨부할 수 있습니다. 첨부 후 미리보기에서 삭제할 수 있습니다.
-							</div>
-							<div class="as-request-fifth-preview-list"></div>
-						</div>
-					</div>
-				</div>
-			</template>
+					</article>
+				</template>
+			</main>
 		</div>
 
 		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
