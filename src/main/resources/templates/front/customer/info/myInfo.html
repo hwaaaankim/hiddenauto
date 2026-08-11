@@ -1,248 +1,833 @@
 <!-- myInfo.html -->
 <!DOCTYPE HTML>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head th:replace="fragments/front/common :: autoHead"></head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
-	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
+
+	<!--
+		바텀 메뉴는 의도적으로 로드하지 않습니다.
+		fragments/front/common.html 의 autoFooterMenu fragment 자체는 수정하지 않습니다.
+	-->
+	<link rel="stylesheet" href="/front/page/myInfo/myInfo.css">
 
 	<div id="page" class="container">
 		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
 
-		<div class="page-content header-clear-medium">
+		<div class="page-content header-clear-medium myinfo-page">
 
-			<!-- ✅ 페이지 전용 CSS -->
-			<link rel="stylesheet" href="/front/page/myInfo/myInfo.css">
+			<!-- 상단 타이틀 -->
+			<section class="myinfo-hero">
+				<div class="myinfo-hero-overlay"></div>
 
-			<div class="card card-style">
-				<div class="content mb-0">
-					<h2>계정정보</h2>
-					<p class="mb-4">아이디는 변경할 수 없습니다.</p>
+				<div class="myinfo-hero-content">
+					<div>
+						<div class="myinfo-hero-kicker">ACCOUNT MANAGEMENT</div>
+						<h1 class="myinfo-hero-title">계정 관리</h1>
+						<p class="myinfo-hero-desc">
+							개인정보와 회사정보, 주문자 및 배송지 정보를 한 화면에서 관리할 수 있습니다.
+						</p>
+					</div>
 
-					<!-- ✅ 서버 메시지(백엔드 최종 방어) -->
-					<div class="myinfo-added-alert myinfo-added-alert-danger" th:if="${myInfoError != null}"
-						th:text="${myInfoError}"></div>
-					<div class="myinfo-added-alert myinfo-added-alert-success" th:if="${myInfoSuccess != null}"
-						th:text="${myInfoSuccess}"></div>
+					<a href="/index" class="myinfo-hero-home" aria-label="홈으로 이동">
+						<i class="fa fa-home"></i>
+						<span>홈</span>
+					</a>
+				</div>
+			</section>
 
-					<form class="myinfo-added-form" method="POST" action="/customer/myInfoUpdate"
+			<!-- 서버 메시지 + JS 메시지 -->
+			<div id="myinfo-page-notice" class="myinfo-notice-wrap">
+				<div class="myinfo-notice myinfo-notice-danger"
+					th:if="${myInfoError != null}">
+					<i class="fa fa-exclamation-circle"></i>
+					<span th:text="${myInfoError}">오류 메시지</span>
+				</div>
+
+				<div class="myinfo-notice myinfo-notice-success"
+					th:if="${myInfoSuccess != null}">
+					<i class="fa fa-check-circle"></i>
+					<span th:text="${myInfoSuccess}">저장 완료 메시지</span>
+				</div>
+			</div>
+
+			<div class="row g-3 align-items-start">
+
+				<!-- ==================================================
+					메인 편집 영역
+				================================================== -->
+				<div class="col-xl-9 col-lg-8 col-12">
+
+					<form id="myinfo-main-form"
+						class="myinfo-form"
+						method="POST"
+						action="/customer/myInfoUpdate"
 						enctype="multipart/form-data">
-						<!-- 사용자 성함 -->
-						<div class="input-style input-style-always-active has-borders has-icon">
-							<i class="fa fa-user font-12"></i>
-							<input type="text" class="form-control" name="name" th:value="${member.name}"
-								placeholder="성함" required>
-							<label class="color-blue-dark font-13">성함</label>
-						</div>
 
-						<!-- 연락처 -->
-						<div class="input-style input-style-always-active has-borders has-icon mt-4">
-							<i class="fa fa-phone font-12"></i>
-							<input type="text" class="form-control" id="myinfo-added-phone" name="phone"
-								th:value="${member.phone}" placeholder="휴대폰 번호(숫자만 입력, 자동 '-' 적용)" required
-								autocomplete="off">
-							<label class="color-blue-dark font-13">연락처</label>
-							<div class="myinfo-added-help" id="myinfo-added-phone-help"></div>
-						</div>
-
-						<!-- 이메일 -->
-						<div class="input-style input-style-always-active has-borders has-icon mt-4">
-							<i class="fa-solid fa-inbox font-12"></i>
-							<input type="email" class="form-control" required name="email" th:value="${member.email}"
-								placeholder="이메일">
-							<label class="color-blue-dark font-13">이메일</label>
-						</div>
-
-						<hr class="my-4" />
-
-						<h2>회사 정보</h2>
-
-						<!-- 회사명 (대표만 수정 가능) -->
-						<div class="input-style input-style-always-active has-borders has-icon mt-3">
-							<i class="fa-regular fa-building font-12"></i>
-							<input type="text" class="form-control" name="companyName" th:value="${company.companyName}"
-								placeholder="대리점명" required th:readonly="${!isRepresentative}">
-							<label class="color-blue-dark font-13">대리점명</label>
-						</div>
-
-						<hr class="my-4" />
-						<div class="customer-myInfo-section-head">
-							<div>
-								<h2 class="mb-1">주문자 정보</h2>
-								<p class="mb-0">회사에 등록된 주문자 이름과 연락처를 관리할 수 있습니다.</p>
-							</div>
-						</div>
-
-						<div class="mb-3 mt-3">
-							<a href="javascript:void(0);" id="customer-myInfo-orderer-add-btn"
-								class="btn btn-full bg-blue-dark btn-m text-uppercase rounded-sm shadow-l font-900">
-								+ 주문자 정보 추가
-							</a>
-						</div>
-
-						<div id="customer-myInfo-orderer-list" class="customer-myInfo-orderer-list mb-3"></div>
-
-						<!-- ✅ 사업자등록번호 (수정 가능) -->
-						<div class="input-style input-style-always-active has-borders has-icon mt-3">
-							<i class="fa-solid fa-receipt font-12"></i>
-							<input type="text" class="form-control" id="myinfo-added-businessNumber"
-								name="businessNumber" th:value="${company.businessNumber}"
-								placeholder="사업자등록번호(숫자만 입력, 자동 '-' 적용)" required autocomplete="off"
-								th:readonly="${!isRepresentative}">
-							<label class="color-blue-dark font-13">사업자등록번호</label>
-							<div class="myinfo-added-help" id="myinfo-added-businessNumber-help"></div>
-						</div>
-
-						<!-- 포인트 -->
-						<div class="input-style input-style-always-active has-borders has-icon mt-3">
-							<i class="fa-regular fa-building font-12"></i>
-							<input type="text" class="form-control" th:value="${company.point}" readonly>
-							<label class="color-blue-dark font-13">포인트</label>
-						</div>
-
-						<!-- 주소 검색 영역 (대표만 수정 가능) -->
-						<div class="input-style input-style-always-active has-borders has-icon mt-3">
-							<i class="fa-regular fa-address-book"></i>
-							<input type="text" class="form-control" id="searchAddress" name="roadAddress" required
-								placeholder="주소를 검색 해 주세요." autocomplete="off" th:value="${company.roadAddress}"
-								th:readonly="${!isRepresentative}">
-							<button type="button" onclick="execDaumPostcode()"
-								th:disabled="${!isRepresentative}">주소검색</button>
-							<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
-						</div>
-
-						<!-- 상세주소 + hidden 행정구역 (대표만 수정 가능) -->
-						<div class="input-style input-style-always-active has-borders has-icon mt-3">
-							<i class="fa-regular fa-address-book"></i>
-							<input type="text" class="form-control" id="detailAddress" name="detailAddress" required
-								placeholder="상세 주소를 입력 해 주세요." autocomplete="off" th:value="${company.detailAddress}"
-								th:readonly="${!isRepresentative}">
-							<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
-
-							<input type="hidden" name="doName" id="doName" th:value="${company.doName}" required>
-							<input type="hidden" name="siName" id="siName" th:value="${company.siName}">
-							<input type="hidden" name="guName" id="guName" th:value="${company.guName}">
-							<input type="hidden" name="zipCode" id="zipCode" required th:value="${company.zipCode}">
-						</div>
-
-						<hr class="my-4" />
-						<h2>추가 배송지</h2>
-						<p class="mb-3">회사에 등록된 추가 배송지를 관리할 수 있습니다.</p>
-
-						<div class="mb-3">
-							<a href="javascript:void(0);" id="companyAddDeliveryBtn"
-								class="btn btn-full bg-blue-dark btn-m text-uppercase rounded-sm shadow-l font-900">
-								+ 배송지 추가
-							</a>
-						</div>
-
-						<div id="companyDeliveryList" class="mb-3"></div>
-
-						<input type="hidden" id="companyDeliveryAddressesJson" name="companyDeliveryAddressesJson"
-							value="" />
-
-						<!-- =========================
-						     ✅ 사업자등록증(대표만)
-						     ========================= -->
-						<hr class="my-4" />
-						<h2>사업자등록증</h2>
-						<p class="mb-3">사업자등록증은 필수 항목입니다.</p>
-
-						<div class="pb-1" th:if="${isRepresentative}">
-							<label class="signUpImageBtn">
-								<input type="file" id="myinfo-added-license-input" name="businessLicenseFile"
-									class="signUpImageInput" accept="image/*">
-								<i class="fa-regular fa-file"></i> 사업자등록증 업로드
-							</label>
-
-							<!-- ✅ 프리뷰 영역(기존/신규 공통) -->
-							<div class="myinfo-added-license-wrap">
-								<!-- 기존 이미지가 있으면 표시 -->
-								<div id="myinfo-added-license-existing" class="myinfo-added-license-box"
-									th:classappend="${company.businessLicenseUrl == null} ? ' d-none' : ''">
-									<a class="myinfo-added-license-link" th:href="@{${company.businessLicenseUrl}}"
-										target="_blank">
-										<img id="myinfo-added-license-existing-img"
-											th:src="@{${company.businessLicenseUrl}}" alt="사업자등록증"
-											class="myinfo-added-license-img">
-									</a>
-									<button type="button" class="myinfo-added-license-x"
-										id="myinfo-added-license-existing-remove" aria-label="삭제">×</button>
-								</div>
-
-								<!-- 신규 선택 프리뷰(기본 숨김) -->
-								<div id="myinfo-added-license-new" class="myinfo-added-license-box d-none">
-									<img id="myinfo-added-license-new-img" alt="사업자등록증(신규)"
-										class="myinfo-added-license-img">
-									<button type="button" class="myinfo-added-license-x"
-										id="myinfo-added-license-new-remove" aria-label="삭제">×</button>
+						<!-- 계정 기본 정보 -->
+						<section class="myinfo-panel">
+							<div class="myinfo-panel-head">
+								<div>
+									<div class="myinfo-panel-title">
+										<i class="fa fa-user"></i>
+										<span>계정 기본 정보</span>
+									</div>
+									<p class="myinfo-panel-desc">
+										로그인 아이디는 변경할 수 없으며, 성함·연락처·이메일은 직접 수정할 수 있습니다.
+									</p>
 								</div>
 							</div>
 
-							<!-- 필수 상태 안내 -->
-							<div class="myinfo-added-help" id="myinfo-added-license-help"></div>
+							<div class="myinfo-panel-body">
+								<div class="row g-3">
+									<div class="col-lg-6 col-md-6 col-12">
+										<label class="myinfo-label" for="myinfo-username">
+											로그인 아이디
+										</label>
+										<div class="myinfo-input-wrap myinfo-input-readonly">
+											<i class="fa fa-id-badge myinfo-input-icon"></i>
+											<input id="myinfo-username"
+												type="text"
+												class="form-control myinfo-input"
+												th:value="${member.username}"
+												readonly>
+											<span class="myinfo-readonly-mark">
+												<i class="fa fa-lock"></i>
+											</span>
+										</div>
+									</div>
 
-							<input type="hidden" id="removeBusinessLicense" name="removeBusinessLicense"
-								value="false" />
-						</div>
+									<div class="col-lg-6 col-md-6 col-12">
+										<label class="myinfo-label" for="myinfo-name">
+											성함 <span class="myinfo-required">*</span>
+										</label>
+										<div class="myinfo-input-wrap">
+											<i class="fa fa-user myinfo-input-icon"></i>
+											<input id="myinfo-name"
+												type="text"
+												class="form-control myinfo-input"
+												name="name"
+												th:value="${member.name}"
+												placeholder="성함을 입력해 주세요."
+												required>
+										</div>
+									</div>
 
-						<!-- 수정 버튼 -->
-						<div class="mt-4 mb-2">
-							<button type="submit" id="myinfo-added-submit"
-								class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l font-900">
+									<div class="col-lg-6 col-md-6 col-12">
+										<label class="myinfo-label" for="myinfo-added-phone">
+											연락처 <span class="myinfo-required">*</span>
+										</label>
+										<div class="myinfo-input-wrap">
+											<i class="fa fa-phone myinfo-input-icon"></i>
+											<input id="myinfo-added-phone"
+												type="text"
+												class="form-control myinfo-input"
+												name="phone"
+												th:value="${member.phone}"
+												placeholder="휴대폰 번호"
+												required
+												inputmode="numeric"
+												autocomplete="off">
+										</div>
+										<div class="myinfo-field-help" id="myinfo-added-phone-help"></div>
+									</div>
+
+									<div class="col-lg-6 col-md-6 col-12">
+										<label class="myinfo-label" for="myinfo-email">
+											이메일 <span class="myinfo-required">*</span>
+										</label>
+										<div class="myinfo-input-wrap">
+											<i class="fa fa-envelope myinfo-input-icon"></i>
+											<input id="myinfo-email"
+												type="email"
+												class="form-control myinfo-input"
+												name="email"
+												th:value="${member.email}"
+												placeholder="이메일을 입력해 주세요."
+												required>
+										</div>
+									</div>
+								</div>
+							</div>
+						</section>
+
+						<!-- 회사 정보 -->
+						<section class="myinfo-panel">
+							<div class="myinfo-panel-head">
+								<div>
+									<div class="myinfo-panel-title">
+										<i class="fa fa-building"></i>
+										<span>회사 정보</span>
+									</div>
+									<p class="myinfo-panel-desc"
+										th:text="${isRepresentative}
+											? '대표 계정은 회사 기본정보를 수정할 수 있습니다.'
+											: '회사 기본정보는 대표 계정에서만 수정할 수 있습니다.'">
+										대표 계정은 회사 기본정보를 수정할 수 있습니다.
+									</p>
+								</div>
+
+								<span class="myinfo-role-badge"
+									th:classappend="${isRepresentative} ? ' myinfo-role-badge-representative' : ' myinfo-role-badge-employee'"
+									th:text="${isRepresentative} ? '대표 계정' : '직원 계정'">
+									대표 계정
+								</span>
+							</div>
+
+							<div class="myinfo-panel-body">
+								<div class="row g-3">
+									<div class="col-lg-5 col-md-6 col-12">
+										<label class="myinfo-label" for="myinfo-company-name">
+											대리점명 <span class="myinfo-required">*</span>
+										</label>
+										<div class="myinfo-input-wrap"
+											th:classappend="${!isRepresentative} ? ' myinfo-input-readonly' : ''">
+											<i class="fa fa-building myinfo-input-icon"></i>
+											<input id="myinfo-company-name"
+												type="text"
+												class="form-control myinfo-input"
+												name="companyName"
+												th:value="${company.companyName}"
+												placeholder="대리점명"
+												required
+												th:readonly="${!isRepresentative}">
+											<span class="myinfo-readonly-mark"
+												th:if="${!isRepresentative}">
+												<i class="fa fa-lock"></i>
+											</span>
+										</div>
+									</div>
+
+									<div class="col-lg-4 col-md-6 col-12">
+										<label class="myinfo-label" for="myinfo-added-businessNumber">
+											사업자등록번호 <span class="myinfo-required">*</span>
+										</label>
+										<div class="myinfo-input-wrap"
+											th:classappend="${!isRepresentative} ? ' myinfo-input-readonly' : ''">
+											<i class="fa fa-receipt myinfo-input-icon"></i>
+											<input id="myinfo-added-businessNumber"
+												type="text"
+												class="form-control myinfo-input"
+												name="businessNumber"
+												th:value="${company.businessNumber}"
+												placeholder="000-00-00000"
+												required
+												inputmode="numeric"
+												autocomplete="off"
+												th:readonly="${!isRepresentative}">
+											<span class="myinfo-readonly-mark"
+												th:if="${!isRepresentative}">
+												<i class="fa fa-lock"></i>
+											</span>
+										</div>
+										<div class="myinfo-field-help" id="myinfo-added-businessNumber-help"></div>
+									</div>
+
+									<div class="col-lg-3 col-md-6 col-12">
+										<label class="myinfo-label" for="myinfo-company-point">
+											포인트
+										</label>
+										<div class="myinfo-input-wrap myinfo-input-readonly">
+											<i class="fa fa-coins myinfo-input-icon"></i>
+											<input id="myinfo-company-point"
+												type="text"
+												class="form-control myinfo-input"
+												th:value="${company.point != null ? #numbers.formatInteger(company.point, 1, 'COMMA') + ' P' : '0 P'}"
+												readonly>
+										</div>
+									</div>
+
+									<div class="col-12">
+										<div class="myinfo-subsection-label">회사 기본 주소</div>
+									</div>
+
+									<div class="col-lg-8 col-md-8 col-12">
+										<label class="myinfo-label" for="searchAddress">
+											도로명 주소 <span class="myinfo-required">*</span>
+										</label>
+
+										<div class="myinfo-address-search">
+											<div class="myinfo-input-wrap flex-grow-1"
+												th:classappend="${!isRepresentative} ? ' myinfo-input-readonly' : ''">
+												<i class="fa fa-map-marker-alt myinfo-input-icon"></i>
+												<input id="searchAddress"
+													type="text"
+													class="form-control myinfo-input"
+													name="roadAddress"
+													th:value="${company.roadAddress}"
+													placeholder="주소를 검색해 주세요."
+													required
+													autocomplete="off"
+													th:readonly="${!isRepresentative}">
+											</div>
+
+											<button type="button"
+												class="btn myinfo-btn myinfo-btn-secondary myinfo-address-search-btn"
+												onclick="execDaumPostcode()"
+												th:disabled="${!isRepresentative}">
+												<i class="fa fa-search"></i>
+												주소검색
+											</button>
+										</div>
+									</div>
+
+									<div class="col-lg-4 col-md-4 col-12">
+										<label class="myinfo-label" for="detailAddress">
+											상세 주소 <span class="myinfo-required">*</span>
+										</label>
+										<div class="myinfo-input-wrap"
+											th:classappend="${!isRepresentative} ? ' myinfo-input-readonly' : ''">
+											<i class="fa fa-map-pin myinfo-input-icon"></i>
+											<input id="detailAddress"
+												type="text"
+												class="form-control myinfo-input"
+												name="detailAddress"
+												th:value="${company.detailAddress}"
+												placeholder="상세 주소"
+												required
+												autocomplete="off"
+												th:readonly="${!isRepresentative}">
+										</div>
+									</div>
+								</div>
+
+								<input type="hidden" name="doName" id="doName" th:value="${company.doName}" required>
+								<input type="hidden" name="siName" id="siName" th:value="${company.siName}">
+								<input type="hidden" name="guName" id="guName" th:value="${company.guName}">
+								<input type="hidden" name="zipCode" id="zipCode" th:value="${company.zipCode}" required>
+							</div>
+						</section>
+
+						<!-- 주문자 정보 -->
+						<section class="myinfo-panel">
+							<div class="myinfo-panel-head myinfo-panel-head-action">
+								<div>
+									<div class="myinfo-panel-title">
+										<i class="fa fa-address-card"></i>
+										<span>주문자 정보</span>
+									</div>
+									<p class="myinfo-panel-desc">
+										발주 시 선택할 수 있는 회사 공용 주문자 이름과 연락처입니다.
+									</p>
+								</div>
+
+								<button type="button"
+									id="customer-myInfo-orderer-add-btn"
+									class="btn myinfo-btn myinfo-btn-primary">
+									<i class="fa fa-plus"></i>
+									주문자 추가
+								</button>
+							</div>
+
+							<div class="myinfo-panel-body myinfo-panel-body-table">
+								<div class="myinfo-list-table">
+									<div class="myinfo-list-head myinfo-orderer-grid">
+										<div>이름</div>
+										<div>연락처</div>
+										<div class="text-center">관리</div>
+									</div>
+
+									<div id="customer-myInfo-orderer-list"
+										class="myinfo-list-body"
+										aria-live="polite">
+									</div>
+								</div>
+							</div>
+						</section>
+
+						<!-- 추가 배송지 -->
+						<section class="myinfo-panel">
+							<div class="myinfo-panel-head myinfo-panel-head-action">
+								<div>
+									<div class="myinfo-panel-title">
+										<i class="fa fa-truck"></i>
+										<span>추가 배송지</span>
+									</div>
+									<p class="myinfo-panel-desc">
+										자주 사용하는 추가 배송지를 회사 공용 목록으로 관리합니다.
+									</p>
+								</div>
+
+								<button type="button"
+									id="companyAddDeliveryBtn"
+									class="btn myinfo-btn myinfo-btn-primary">
+									<i class="fa fa-plus"></i>
+									배송지 추가
+								</button>
+							</div>
+
+							<div class="myinfo-panel-body myinfo-panel-body-table">
+								<div class="myinfo-list-table">
+									<div class="myinfo-list-head myinfo-delivery-grid">
+										<div>우편번호</div>
+										<div>배송지</div>
+										<div class="text-center">관리</div>
+									</div>
+
+									<div id="companyDeliveryList"
+										class="myinfo-list-body"
+										aria-live="polite">
+									</div>
+								</div>
+
+								<input type="hidden"
+									id="companyDeliveryAddressesJson"
+									name="companyDeliveryAddressesJson"
+									value="">
+							</div>
+						</section>
+
+						<!-- 사업자등록증: 대표만 -->
+						<section class="myinfo-panel" th:if="${isRepresentative}">
+							<div class="myinfo-panel-head myinfo-panel-head-action">
+								<div>
+									<div class="myinfo-panel-title">
+										<i class="fa fa-file-alt"></i>
+										<span>사업자등록증</span>
+									</div>
+									<p class="myinfo-panel-desc">
+										사업자등록증은 필수 항목입니다. 새 파일을 선택하면 기존 파일을 교체합니다.
+									</p>
+								</div>
+
+								<label for="myinfo-added-license-input"
+									class="btn myinfo-btn myinfo-btn-secondary mb-0">
+									<i class="fa fa-upload"></i>
+									파일 선택
+								</label>
+
+								<input type="file"
+									id="myinfo-added-license-input"
+									name="businessLicenseFile"
+									class="d-none"
+									accept="image/*">
+							</div>
+
+							<div class="myinfo-panel-body">
+								<div class="myinfo-license-list">
+
+									<!-- 기존 파일 -->
+									<div id="myinfo-added-license-existing"
+										class="myinfo-license-item"
+										th:classappend="${company.businessLicenseUrl == null} ? ' d-none' : ''">
+
+										<a class="myinfo-license-thumb"
+											th:href="@{${company.businessLicenseUrl}}"
+											target="_blank"
+											rel="noopener">
+											<img id="myinfo-added-license-existing-img"
+												th:src="@{${company.businessLicenseUrl}}"
+												alt="등록된 사업자등록증">
+										</a>
+
+										<div class="myinfo-license-meta">
+											<div class="myinfo-license-state">
+												<span class="myinfo-status-dot myinfo-status-dot-success"></span>
+												현재 등록 파일
+											</div>
+
+											<a class="myinfo-license-name"
+												th:href="@{${company.businessLicenseUrl}}"
+												target="_blank"
+												rel="noopener"
+												th:text="${company.businessLicenseFilename != null and !#strings.isEmpty(company.businessLicenseFilename)
+													? company.businessLicenseFilename
+													: '사업자등록증'}">
+												사업자등록증
+											</a>
+
+											<div class="myinfo-license-guide">
+												파일명을 누르면 원본을 확인할 수 있습니다.
+											</div>
+										</div>
+
+										<button type="button"
+											class="myinfo-icon-btn myinfo-icon-btn-secondary"
+											id="myinfo-added-license-existing-remove"
+											aria-label="현재 사업자등록증 교체"
+											title="파일 교체">
+											<i class="fa fa-sync-alt"></i>
+										</button>
+									</div>
+
+									<!-- 새 선택 파일 -->
+									<div id="myinfo-added-license-new"
+										class="myinfo-license-item myinfo-license-item-new d-none">
+
+										<div class="myinfo-license-thumb">
+											<img id="myinfo-added-license-new-img"
+												alt="새 사업자등록증 미리보기">
+										</div>
+
+										<div class="myinfo-license-meta">
+											<div class="myinfo-license-state">
+												<span class="myinfo-status-dot myinfo-status-dot-primary"></span>
+												저장 예정 파일
+											</div>
+
+											<div id="myinfo-license-new-name"
+												class="myinfo-license-name">
+												선택한 파일
+											</div>
+
+											<div class="myinfo-license-guide">
+												변경사항 저장 시 기존 파일과 교체됩니다.
+											</div>
+										</div>
+
+										<button type="button"
+											class="myinfo-icon-btn myinfo-icon-btn-danger"
+											id="myinfo-added-license-new-remove"
+											aria-label="새 사업자등록증 선택 취소"
+											title="선택 취소">
+											<i class="fa fa-times"></i>
+										</button>
+									</div>
+
+									<div id="myinfo-license-empty"
+										class="myinfo-empty-state"
+										th:classappend="${company.businessLicenseUrl != null} ? ' d-none' : ''">
+										<i class="fa fa-file-upload"></i>
+										<div>
+											<strong>등록된 사업자등록증이 없습니다.</strong>
+											<span>파일 선택 버튼으로 사업자등록증을 등록해 주세요.</span>
+										</div>
+									</div>
+
+								</div>
+
+								<div class="myinfo-field-help mt-2"
+									id="myinfo-added-license-help">
+								</div>
+
+								<input type="hidden"
+									id="removeBusinessLicense"
+									name="removeBusinessLicense"
+									value="false">
+							</div>
+						</section>
+
+						<!-- 저장 영역 -->
+						<div class="myinfo-savebar">
+							<div class="myinfo-savebar-info">
+								<i class="fa fa-info-circle"></i>
+								<span>
+									입력값과 추가 배송지 변경사항은 <strong>변경사항 저장</strong>을 눌러야 반영됩니다.
+								</span>
+							</div>
+
+							<button type="submit"
+								id="myinfo-added-submit"
+								class="btn myinfo-btn myinfo-btn-save">
+								<i class="fa fa-save"></i>
 								변경사항 저장
 							</button>
 						</div>
 					</form>
-
 				</div>
-			</div>
 
-			<div class="card card-style" th:if="${isRepresentative}">
-				<div class="content mb-0">
-					<h2>대리점코드</h2>
-					<p class="mb-4">직원 등록시 대리점 코드 입력이 필수입니다.</p>
-					<div class="input-style input-style-always-active has-borders has-icon">
-						<i class="fa-solid fa-key font-12"></i>
-						<input type="text" class="form-control" placeholder="대리점코드" readonly
-							th:value="${company.registrationKey}">
-						<label class="color-blue-dark font-13">대리점코드</label>
+				<!-- ==================================================
+					우측 보조 영역
+				================================================== -->
+				<div class="col-xl-3 col-lg-4 col-12">
+					<div class="myinfo-side-stack">
+
+						<!-- 계정 상태 -->
+						<section class="myinfo-side-panel">
+							<div class="myinfo-side-title">계정 정보</div>
+
+							<div class="myinfo-account-card">
+								<div class="myinfo-account-avatar">
+									<i class="fa fa-user"></i>
+								</div>
+
+								<div class="myinfo-account-main">
+									<div class="myinfo-account-name"
+										th:text="${member.name != null ? member.name : '-'}">
+										회원명
+									</div>
+									<div class="myinfo-account-company"
+										th:text="${company.companyName != null ? company.companyName : '-'}">
+										회사명
+									</div>
+								</div>
+							</div>
+
+							<div class="myinfo-info-list">
+								<div class="myinfo-info-row">
+									<span>권한</span>
+									<strong th:text="${isRepresentative} ? '대표 계정' : '직원 계정'">
+										대표 계정
+									</strong>
+								</div>
+
+								<div class="myinfo-info-row">
+									<span>상태</span>
+									<strong class="myinfo-text-success"
+										th:text="${member.enabled} ? '사용중' : '사용중지'">
+										사용중
+									</strong>
+								</div>
+
+								<div class="myinfo-info-row">
+									<span>로그인 ID</span>
+									<strong th:text="${member.username}">username</strong>
+								</div>
+							</div>
+						</section>
+
+						<!-- 대리점 코드: 대표만 -->
+						<section class="myinfo-side-panel" th:if="${isRepresentative}">
+							<div class="myinfo-side-title-row">
+								<div class="myinfo-side-title mb-0">대리점 코드</div>
+								<span class="myinfo-mini-badge">대표 전용</span>
+							</div>
+
+							<p class="myinfo-side-desc">
+								직원 가입 시 현재 대리점 코드를 입력해야 회사에 연결됩니다.
+							</p>
+
+							<div class="myinfo-code-box">
+								<input type="text"
+									id="myinfo-registration-key"
+									class="myinfo-code-input"
+									th:value="${company.registrationKey}"
+									readonly
+									aria-label="대리점 코드">
+
+								<button type="button"
+									id="myinfo-registration-copy-btn"
+									class="myinfo-code-copy-btn"
+									title="대리점 코드 복사">
+									<i class="fa fa-copy"></i>
+								</button>
+							</div>
+
+							<button type="button"
+								id="myinfo-registration-generate-btn"
+								class="btn myinfo-btn myinfo-btn-primary w-100">
+								<i class="fa fa-key"></i>
+								새 코드 생성
+							</button>
+						</section>
+
+						<!-- 비밀번호 -->
+						<section class="myinfo-side-panel">
+							<div class="myinfo-side-title">비밀번호 변경</div>
+							<p class="myinfo-side-desc">
+								새 비밀번호를 두 번 입력한 후 변경해 주세요.
+							</p>
+
+							<form method="POST"
+								id="passwordForm"
+								action="/customer/changePassword">
+
+								<div class="mb-3">
+									<label class="myinfo-label"
+										for="myinfo-new-password">
+										새 비밀번호 <span class="myinfo-required">*</span>
+									</label>
+
+									<div class="myinfo-input-wrap">
+										<i class="fa fa-lock myinfo-input-icon"></i>
+										<input id="myinfo-new-password"
+											type="password"
+											name="newPassword"
+											class="form-control myinfo-input"
+											required
+											autocomplete="new-password"
+											placeholder="새 비밀번호">
+									</div>
+								</div>
+
+								<div class="mb-3">
+									<label class="myinfo-label"
+										for="myinfo-new-password-confirm">
+										비밀번호 확인 <span class="myinfo-required">*</span>
+									</label>
+
+									<div class="myinfo-input-wrap">
+										<i class="fa fa-check myinfo-input-icon"></i>
+										<input id="myinfo-new-password-confirm"
+											type="password"
+											class="form-control myinfo-input"
+											required
+											autocomplete="new-password"
+											placeholder="새 비밀번호 확인">
+									</div>
+
+									<div id="myinfo-password-help"
+										class="myinfo-field-help">
+									</div>
+								</div>
+
+								<button type="submit"
+									class="btn myinfo-btn myinfo-btn-secondary w-100">
+									<i class="fa fa-shield-alt"></i>
+									비밀번호 변경
+								</button>
+							</form>
+						</section>
+
 					</div>
-					<a href="javascript:void(0);" onclick="generateKey()"
-						class="btn btn-full bg-green-dark btn-m text-uppercase rounded-sm shadow-l mb-3 mt-4 font-900">
-						코드생성
-					</a>
 				</div>
 			</div>
-
-			<div class="card card-style">
-				<div class="content mb-0">
-					<h2 class="mb-0">비밀번호</h2>
-					<p class="mb-4">비밀번호 변경을 진행할 수 있습니다.</p>
-					<form method="POST" id="passwordForm" action="/customer/changePassword">
-						<div class="input-style input-style-always-active has-borders no-icon">
-							<input type="password" name="newPassword" class="form-control" required
-								placeholder="새로운 비밀번호 입력">
-							<label class="color-blue-dark font-12">새로운 비밀번호</label>
-							<em>(required)</em>
-						</div>
-						<button type="submit"
-							class="btn btn-full w-100 bg-green-dark btn-m text-uppercase rounded-sm shadow-l mb-3 mt-4 font-900">
-							비밀번호 변경
-						</button>
-					</form>
-				</div>
-			</div>
-
 		</div>
 
+		<!-- 기존 fragment 구조 보존. 현재 페이지에서는 visible footer bar를 로드하지 않습니다. -->
 		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 	</div>
 
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
+
+	<!-- ==================================================
+		Bootstrap Modal
+		#page 밖에 배치하여 상위 transform/overflow 영향을 받지 않도록 합니다.
+	================================================== -->
+
+	<!-- 추가 배송지 상세주소 -->
+	<div class="modal fade myinfo-modal"
+		id="companyDeliveryDetailModal"
+		tabindex="-1"
+		aria-hidden="true">
+
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content myinfo-modal-content">
+				<div class="modal-header myinfo-modal-header">
+					<div>
+						<h5 class="modal-title myinfo-modal-title">추가 배송지 등록</h5>
+						<p class="myinfo-modal-desc">선택한 주소의 상세주소를 입력해 주세요.</p>
+					</div>
+
+					<button type="button"
+						class="btn-close"
+						data-bs-dismiss="modal"
+						aria-label="닫기">
+					</button>
+				</div>
+
+				<div class="modal-body myinfo-modal-body">
+					<div class="mb-3">
+						<label class="myinfo-label">선택한 주소</label>
+						<div id="companyDeliverySelectedAddress"
+							class="myinfo-selected-address">
+						</div>
+					</div>
+
+					<div>
+						<label class="myinfo-label"
+							for="companyDeliveryDetailInput">
+							상세 주소
+						</label>
+						<input type="text"
+							class="form-control myinfo-input"
+							id="companyDeliveryDetailInput"
+							placeholder="예: 101동 1203호">
+						<div class="myinfo-field-help">
+							상세 주소가 없으면 비워도 됩니다.
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer myinfo-modal-footer">
+					<button type="button"
+						class="btn myinfo-btn myinfo-btn-light"
+						data-bs-dismiss="modal">
+						취소
+					</button>
+					<button type="button"
+						class="btn myinfo-btn myinfo-btn-primary"
+						id="companyDeliveryDetailSaveBtn">
+						<i class="fa fa-save"></i>
+						저장
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- 주문자 정보 등록 -->
+	<div class="modal fade myinfo-modal"
+		id="customer-myInfo-orderer-modal"
+		tabindex="-1"
+		aria-hidden="true">
+
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content myinfo-modal-content">
+				<div class="modal-header myinfo-modal-header">
+					<div>
+						<h5 class="modal-title myinfo-modal-title">주문자 정보 추가</h5>
+						<p class="myinfo-modal-desc">발주 시 사용할 주문자 이름과 연락처를 등록합니다.</p>
+					</div>
+
+					<button type="button"
+						class="btn-close"
+						data-bs-dismiss="modal"
+						aria-label="닫기">
+					</button>
+				</div>
+
+				<div class="modal-body myinfo-modal-body">
+					<div class="mb-3">
+						<label class="myinfo-label"
+							for="customer-myInfo-orderer-name">
+							이름 <span class="myinfo-required">*</span>
+						</label>
+
+						<div class="myinfo-input-wrap">
+							<i class="fa fa-user myinfo-input-icon"></i>
+							<input type="text"
+								class="form-control myinfo-input"
+								id="customer-myInfo-orderer-name"
+								placeholder="이름을 입력해 주세요."
+								maxlength="50"
+								autocomplete="off">
+						</div>
+					</div>
+
+					<div>
+						<label class="myinfo-label"
+							for="customer-myInfo-orderer-phone">
+							연락처 <span class="myinfo-required">*</span>
+						</label>
+
+						<div class="myinfo-input-wrap">
+							<i class="fa fa-phone myinfo-input-icon"></i>
+							<input type="text"
+								class="form-control myinfo-input"
+								id="customer-myInfo-orderer-phone"
+								placeholder="숫자만 입력해 주세요."
+								inputmode="numeric"
+								autocomplete="off">
+						</div>
+
+						<div class="myinfo-field-help"
+							id="customer-myInfo-orderer-phone-help">
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer myinfo-modal-footer">
+					<button type="button"
+						class="btn myinfo-btn myinfo-btn-light"
+						data-bs-dismiss="modal">
+						취소
+					</button>
+					<button type="button"
+						class="btn myinfo-btn myinfo-btn-primary"
+						id="customer-myInfo-orderer-save-btn">
+						<i class="fa fa-plus"></i>
+						등록
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
 
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
@@ -254,75 +839,8 @@
 		window.__MYINFO_IS_REPRESENTATIVE__ = /*[[${isRepresentative}]]*/ false;
 	</script>
 
-	<!-- ✅ 외부 JS(요청 경로) -->
 	<script src="/front/addressRegion.js"></script>
 	<script src="/front/page/myInfo/myInfo.js"></script>
 
-	<!-- =========================
-	     ✅ 추가 배송지 상세주소 입력 모달(기존 유지)
-	     ========================= -->
-	<div class="modal fade" id="companyDeliveryDetailModal" tabindex="-1" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content rounded-lg">
-				<div class="modal-header">
-					<h5 class="modal-title">추가 배송지 상세주소</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-
-				<div class="modal-body">
-					<div class="mb-3">
-						<div class="font-600 mb-1">선택한 주소</div>
-						<div id="companyDeliverySelectedAddress" class="p-2 border rounded-sm"></div>
-					</div>
-
-					<div class="mb-3">
-						<label for="companyDeliveryDetailInput" class="form-label font-600">상세 주소</label>
-						<input type="text" class="form-control" id="companyDeliveryDetailInput"
-							placeholder="상세 주소를 입력해 주세요. (예: 101동 1203호)">
-						<div class="form-text">상세 주소가 없으면 비워도 됩니다.</div>
-					</div>
-				</div>
-
-				<div class="modal-footer">
-					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
-					<button type="button" class="btn btn-primary" id="companyDeliveryDetailSaveBtn">저장</button>
-				</div>
-			</div>
-		</div>
-	</div>
-	<!-- =========================
-	     ✅ 주문자 정보 등록 모달
-	     ========================= -->
-	<div class="modal fade" id="customer-myInfo-orderer-modal" tabindex="-1" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content customer-myInfo-orderer-modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title">주문자 정보 추가</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-
-				<div class="modal-body">
-					<div class="mb-3">
-						<label for="customer-myInfo-orderer-name" class="form-label font-600">이름</label>
-						<input type="text" class="form-control" id="customer-myInfo-orderer-name"
-							placeholder="이름을 입력해 주세요." maxlength="50" autocomplete="off">
-					</div>
-
-					<div class="mb-2">
-						<label for="customer-myInfo-orderer-phone" class="form-label font-600">연락처</label>
-						<input type="text" class="form-control" id="customer-myInfo-orderer-phone"
-							placeholder="숫자만 입력해 주세요. 자동으로 '-'가 적용됩니다." inputmode="numeric" autocomplete="off">
-						<div class="customer-myInfo-orderer-help" id="customer-myInfo-orderer-phone-help"></div>
-					</div>
-				</div>
-
-				<div class="modal-footer">
-					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
-					<button type="button" class="btn btn-primary" id="customer-myInfo-orderer-save-btn">등록</button>
-				</div>
-			</div>
-		</div>
-	</div>
 </body>
-
 </html>

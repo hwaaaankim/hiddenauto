@@ -6,544 +6,648 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
-	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+	<link rel="stylesheet" href="/front/customer-management-v2.css">
 
-	<div id="page" class="container">
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
+
+	<div id="page" class="container as-list-page">
 		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
 
 		<div class="page-content header-clear-medium">
-			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
-				<div class="card-center ms-3">
-					<h1 class="color-white mb-0">AS 신청리스트</h1>
-					<p class="color-white mt-n1 mb-0">AS 신청을 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
-				</div>
-				<div class="card-center me-3">
-					<a href="/index" data-back-button
-						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
-				</div>
-				<div class="card-overlay bg-black opacity-80"></div>
-			</div>
 
-			<!-- 검색 -->
-			<div class="card card-style">
-				<div class="content mb-0">
-					<form method="get" th:action="@{/customer/asList}" class="row g-2 align-items-end">
-						<div class="col-6">
-							<div class="input-style no-borders has-icon mt-1">
-								<input type="date" name="startDate" th:value="${startDate}"
-									class="form-control validate-text">
-							</div>
-						</div>
-						<div class="col-6">
-							<div class="input-style no-borders has-icon mt-1 d-flex gap-2">
-								<input type="date" class="form-control" name="endDate" th:value="${endDate}">
-								<button type="submit" class="btn btn-s bg-highlight color-white rounded-s">검색</button>
-							</div>
-						</div>
-					</form>
-				</div>
-			</div>
+			<form method="get" th:action="@{/customer/asList}" id="as-list-filter-form" class="as-list-filter-form">
+				<input type="hidden" name="page" value="0">
+				<input type="hidden" name="sort" id="as-list-sort-value" th:value="${filter.sort}">
 
-			<!-- 리스트 -->
-			<div class="card card-style"
-				th:each="asTask, i : ${asTaskPage.content}"
-				th:with="
-					customerDisplayStatus=${asTask.status == null ? '요청중'
-						: (asTask.status.name() == 'REQUESTED' ? '요청중'
-						: (asTask.status.name() == 'IN_PROGRESS' ? '진행중'
-						: (asTask.status.name() == 'COMPLETED' ? '완료'
-						: (asTask.status.name() == 'CANCELED' ? '취소됨' : '요청중'))))}
-				">
-				<div class="accordion" th:id="'accordion-as-' + ${i.index}">
-					<div class="mb-0">
-
-						<!-- 헤더 -->
-						<button class="btn accordion-btn no-effect" data-bs-toggle="collapse"
-							th:attr="data-bs-target='#as-'+${i.index}">
-							<div class="content">
-
-								<div class="d-flex justify-content-between align-items-start">
-									<div>
-										<h3 class="mb-1 index-third-aslist-title"
-											th:text="${(asTask.productName != null and !#strings.isEmpty(asTask.productName)) ? asTask.productName : 'AS 신청'}">
-											AS 신청
-										</h3>
-
-										<p class="font-11 mt-n2 mb-0 opacity-50 index-third-aslist-subtitle">제품 AS신청</p>
-									</div>
-
-									<div class="text-end">
-										<span class="badge rounded-pill px-3 py-2 font-12"
-											th:classappend="${asTask.customerStatusBadgeClass}"
-											th:text="${customerDisplayStatus}">
-											요청됨
-										</span>
-									</div>
-								</div>
-
-								<div class="row mb-n2 color-theme mt-2">
-									<div class="col-6 font-10 text-start">
-										<span class="badge bg-black color-white font-10 mt-2">AS</span>
-
-										<span class="badge bg-black color-white font-10 mt-2"
-											th:text="${customerDisplayStatus}">요청됨</span>
-									</div>
-									<div class="col-6 font-10 text-end opacity-30">
-										<i class="fa fa-calendar pe-2"></i>
-										<span th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd')}"></span>
-									</div>
-								</div>
-
-							</div>
-						</button>
-
-						<!-- 상세 -->
-						<div th:id="'as-' + ${i.index}" class="collapse"
-							th:attr="data-bs-parent='#accordion-as-' + ${i.index}">
-							<div class="pt-1 pb-2 ps-3 pe-3">
-								<div class="content task-content">
-
-									<!-- 고객 정보 -->
-									<div class="index-third-aslist-section">
-										<div class="index-third-aslist-section-title">고객 정보</div>
-
-										<div class="row g-1">
-											<div class="col-lg-4 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">고객 성함</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.customerName != null ? asTask.customerName : '-'}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-4 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">연락처</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.requestedBy != null ? (asTask.requestedBy.phone != null ? asTask.requestedBy.phone : (asTask.requestedBy.telephone != null ? asTask.requestedBy.telephone : '-')) : '-'}">
-														-
-													</div>
-												</div>
-											</div>
-
-											<div class="col-lg-4 col-md-12">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">현장 연락처</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.onsiteContact != null ? asTask.onsiteContact : '-'}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-12">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">주소</div>
-													<div class="index-third-aslist-value text-end" th:text="${(asTask.roadAddress != null and !#strings.isEmpty(asTask.roadAddress))
-                                                                    ? (asTask.detailAddress != null and !#strings.isEmpty(asTask.detailAddress)
-                                                                        ? asTask.roadAddress + ' ' + asTask.detailAddress
-                                                                        : asTask.roadAddress)
-                                                                    : '-'}">
-														-
-													</div>
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- 추가 정보 -->
-									<div class="index-third-aslist-section mt-4">
-										<div class="index-third-aslist-section-title">추가 정보</div>
-
-										<div class="row g-1">
-											<div class="col-lg-4 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">접수 담당자명</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.applicantNameSafe}">-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-4 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">접수 담당자 연락처</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.applicantPhoneSafe}">-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-4 col-md-12">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">접수 담당자 이메일</div>
-													<div class="index-third-aslist-value text-end"
-														th:text="${asTask.applicantEmailSafe}">-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-6 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">비용 청구 주체</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.billingTargetLabelSafe}">-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-6 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">납품일자</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy.MM.dd') : '-'}">
-														-</div>
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- 제품 정보 -->
-									<div class="index-third-aslist-section mt-4">
-										<div class="index-third-aslist-section-title">제품 정보</div>
-
-										<div class="row g-1">
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">제품이름</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.productName != null ? asTask.productName : '-'}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">제품사이즈</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.productSize != null ? asTask.productSize : '-'}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">제품 컬러</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.productColor != null ? asTask.productColor : '-'}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">옵션 여부</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.productOptions != null ? asTask.productOptions : '-'}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-12">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">AS 증상</div>
-													<div class="index-third-aslist-value text-end"
-														th:text="${asTask.subjectSafe}">-</div>
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- 진행 정보 -->
-									<div class="index-third-aslist-section mt-4">
-										<div class="index-third-aslist-section-title">진행 정보</div>
-
-										<div class="row g-1">
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">신청일</div>
-													<div class="index-third-aslist-value"
-														th:text="${#temporals.format(asTask.requestedAt, 'yyyy.MM.dd HH:mm:ss')}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">처리일</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.asProcessDate != null ? #temporals.format(asTask.asProcessDate, 'yyyy.MM.dd HH:mm:ss') : '-'}">
-														-</div>
-												</div>
-											</div>
-
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">예정일</div>
-													<div class="index-third-aslist-value"
-														th:text="${asScheduleDateMap[asTask.id] != null ? #temporals.format(asScheduleDateMap[asTask.id], 'yyyy.MM.dd') : '-'}">
-														-
-													</div>
-												</div>
-											</div>
-
-											<div class="col-lg-3 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">처리금액</div>
-													<div class="index-third-aslist-value"
-														th:text="${asTask.price > 0 ? (#numbers.formatInteger(asTask.price, 3, 'COMMA') + ' 원') : '-'}">
-														-
-													</div>
-												</div>
-											</div>
-
-											<div class="col-lg-6 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">
-														<i class="fa fa-user me-1"></i>AS 담당자
-													</div>
-													<div class="index-third-aslist-value fw-bold text-end"
-														th:text="${asHandlerNameMap[asTask.id]}">
-														담당자 배정 전
-													</div>
-												</div>
-											</div>
-
-											<div class="col-lg-6 col-md-6">
-												<div
-													class="index-third-aslist-field d-flex justify-content-between align-items-center">
-													<div class="index-third-aslist-label">
-														<i class="fa fa-phone me-1"></i>담당자 연락처
-													</div>
-
-													<a th:if="${asHandlerContactMap[asTask.id] != null and asHandlerContactMap[asTask.id] != '-'}"
-														class="index-third-aslist-value fw-bold text-end color-highlight"
-														th:href="|tel:${asHandlerContactMap[asTask.id]}|"
-														th:text="${asHandlerContactMap[asTask.id]}">
-														010-0000-0000
-													</a>
-
-													<div th:unless="${asHandlerContactMap[asTask.id] != null and asHandlerContactMap[asTask.id] != '-'}"
-														class="index-third-aslist-value text-end opacity-50">
-														-
-													</div>
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- 이미지 -->
-									<div class="index-third-aslist-section mt-4">
-										<div class="index-third-aslist-section-title">이미지</div>
-
-										<div class="row mt-1 g-1">
-											<div class="col-sm-12 col-lg-6">
-												<div class="d-flex justify-content-between align-items-center">
-													<strong class="color-theme">신청이미지</strong>
-													<span class="font-11 opacity-50"
-														th:text="${asTask.requestImages != null ? asTask.requestImages.size() : 0} + '장'">0장</span>
-												</div>
-
-												<div class="d-flex flex-wrap gap-2 mt-2"
-													th:if="${asTask.requestImages != null and !asTask.requestImages.isEmpty()}">
-													<a th:each="img : ${asTask.requestImages}" th:href="${img.url}"
-														target="_blank" rel="noopener">
-														<img th:src="${img.url}" class="rounded shadow-sm" width="84"
-															height="84" style="object-fit:cover;">
-													</a>
-												</div>
-
-												<div class="mt-2 font-12 opacity-50"
-													th:if="${asTask.requestImages == null or asTask.requestImages.isEmpty()}">
-													등록된 신청 이미지가 없습니다.
-												</div>
-											</div>
-
-											<div class="col-sm-12 col-lg-6">
-												<div class="d-flex justify-content-between align-items-center">
-													<strong class="color-theme">완료이미지</strong>
-													<span class="font-11 opacity-50"
-														th:text="${asTask.resultImages != null ? asTask.resultImages.size() : 0} + '장'">0장</span>
-												</div>
-
-												<div class="d-flex flex-wrap gap-2 mt-2"
-													th:if="${asTask.resultImages != null and !asTask.resultImages.isEmpty()}">
-													<a th:each="img : ${asTask.resultImages}" th:href="${img.url}"
-														target="_blank" rel="noopener">
-														<img th:src="${img.url}" class="rounded shadow-sm" width="84"
-															height="84" style="object-fit:cover;">
-													</a>
-												</div>
-
-												<div class="mt-2 font-12 opacity-50"
-													th:if="${asTask.resultImages == null or asTask.resultImages.isEmpty()}">
-													아직 결과 이미지가 등록되지 않았습니다.
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- 비디오 -->
-									<div class="index-third-aslist-section mt-4">
-										<div class="index-third-aslist-section-title">비디오</div>
-
-										<div class="row mt-1 g-1">
-											<div class="col-12">
-												<div class="d-flex justify-content-between align-items-center">
-													<strong class="color-theme">신청 비디오</strong>
-													<span class="font-11 opacity-50"
-														th:text="${asTask.requestVideos != null ? asTask.requestVideos.size() : 0} + '개'">0개</span>
-												</div>
-
-												<div class="d-flex flex-wrap gap-2 mt-2"
-													th:if="${asTask.requestVideos != null and !asTask.requestVideos.isEmpty()}">
-													<div th:each="video : ${asTask.requestVideos}" class="me-2">
-														<video th:src="${video.url}" controls preload="metadata"
-															style="width:180px; height:120px; object-fit:cover; border-radius:10px;"></video>
-														<div class="font-11 mt-1 opacity-70"
-															th:text="${video.filename}">video.mp4</div>
-													</div>
-												</div>
-
-												<div class="mt-2 font-12 opacity-50"
-													th:if="${asTask.requestVideos == null or asTask.requestVideos.isEmpty()}">
-													등록된 신청 비디오가 없습니다.
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- 수정/삭제 버튼 -->
-									<div class="client-as-update-first-trigger-wrap"
-										th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
-
-										<div class="d-flex flex-wrap gap-2">
-											<button type="button"
-												class="btn bg-highlight color-white rounded-s client-as-update-first-trigger-btn client-as-update-first-open-btn"
-												th:attr="
-									                data-as-id=${asTask.id},
-									                data-customer-name=${asTask.customerName},
-									                data-road-address=${asTask.roadAddress},
-									                data-detail-address=${asTask.detailAddress},
-									                data-do-name=${asTask.doName},
-									                data-si-name=${asTask.siName},
-									                data-gu-name=${asTask.guName},
-									                data-zip-code=${asTask.zipCode},
-									                data-onsite-contact=${asTask.onsiteContact},
-									                data-product-name=${asTask.productName},
-									                data-product-size=${asTask.productSize},
-									                data-product-color=${asTask.productColor},
-									                data-product-options=${asTask.productOptions},
-									                data-subject=${asTask.subject},
-									                data-purchase-date=${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy-MM-dd') : ''},
-									                data-applicant-name=${asTask.applicantName},
-									                data-applicant-phone=${asTask.applicantPhone},
-									                data-applicant-email=${asTask.applicantEmail},
-									                data-billing-target=${asTask.billingTarget != null ? asTask.billingTarget.name() : ''}">
-												수정하기
-											</button>
-
-											<button type="button" style="width:100%;"
-												class="btn border border-danger text-danger bg-white rounded-s client-as-update-first-trigger-btn client-as-delete-btn"
-												th:attr="
-									                data-as-id=${asTask.id},
-									                data-product-name=${(asTask.productName != null and !#strings.isEmpty(asTask.productName)) ? asTask.productName : 'AS 신청'}">
-												삭제
-											</button>
-										</div>
-									</div>
-
-									<!-- JS 원본 데이터 -->
-									<div class="d-none client-as-update-first-origin-images"
-										th:attr="data-task-id=${asTask.id}">
-										<div th:each="img : ${asTask.requestImages}"
-											class="client-as-update-first-origin-image" th:attr="
-                                                data-image-id=${img.id},
-                                                data-image-url=${img.url},
-                                                data-image-filename=${img.filename}">
-										</div>
-									</div>
-									<div class="d-none client-as-update-first-origin-videos"
-										th:attr="data-task-id=${asTask.id}">
-										<div th:each="video : ${asTask.requestVideos}"
-											class="client-as-update-first-origin-video" th:attr="
-									            data-video-id=${video.id},
-									            data-video-url=${video.url},
-									            data-video-filename=${video.filename}">
-										</div>
-									</div>
-									<textarea class="d-none client-as-update-first-origin-reason"
-										th:attr="data-task-id=${asTask.id}" th:text="${asTask.reason}"></textarea>
-
-								</div>
-							</div>
+				<section class="as-list-filter-panel">
+					<div class="row g-2 align-items-end">
+						<div class="col-xl-1 col-lg-2 col-md-3 col-6">
+							<label class="as-list-filter-label" for="as-list-size">표시 수</label>
+							<select id="as-list-size" name="size" class="form-select form-select-sm as-list-control">
+								<option value="30" th:selected="${filter.size == 30}">30건</option>
+								<option value="50" th:selected="${filter.size == 50}">50건</option>
+								<option value="70" th:selected="${filter.size == 70}">70건</option>
+								<option value="100" th:selected="${filter.size == 100}">100건</option>
+								<option value="200" th:selected="${filter.size == 200}">200건</option>
+							</select>
 						</div>
 
+						<div class="col-xl-2 col-lg-3 col-md-4 col-6">
+							<label class="as-list-filter-label" for="as-list-text-type">검색 항목</label>
+							<select id="as-list-text-type" name="textType"
+								class="form-select form-select-sm as-list-control">
+								<option value="id" th:selected="${filter.textType == 'id'}">AS ID</option>
+								<option value="customerName"
+									th:selected="${filter.textType == null or filter.textType == 'customerName'}">고객명
+								</option>
+								<option value="applicantName" th:selected="${filter.textType == 'applicantName'}">신청자명
+								</option>
+								<option value="subject" th:selected="${filter.textType == 'subject'}">제목</option>
+								<option value="productName" th:selected="${filter.textType == 'productName'}">제품명
+								</option>
+							</select>
+						</div>
+
+						<div class="col-xl-5 col-lg-4 col-md-5 col-12">
+							<label class="as-list-filter-label" for="as-list-keyword">검색어</label>
+							<input id="as-list-keyword" type="text" name="keyword" th:value="${filter.keyword}"
+								class="form-control form-control-sm as-list-control" placeholder="검색어를 입력해 주세요.">
+						</div>
+
+						<div class="col-xl-4 col-lg-3 col-12">
+							<div class="as-list-filter-actions">
+								<button type="submit" class="btn btn-sm bg-highlight color-white as-list-search-btn">
+									<i class="fa fa-search me-1"></i>검색
+								</button>
+								<button type="button" class="btn btn-sm btn-outline-secondary as-list-advanced-btn"
+									data-bs-toggle="modal" data-bs-target="#as-list-advanced-modal">
+									<i class="fa fa-sliders-h me-1"></i>고급검색
+								</button>
+								<button type="button" id="as-list-excel-download"
+									class="btn btn-sm btn-outline-success as-list-excel-btn">
+									<i class="fa fa-file-excel me-1"></i>엑셀다운로드
+								</button>
+							</div>
+						</div>
 					</div>
+
+					<div class="as-list-filter-summary"
+						th:if="${filter.startDate != null or filter.endDate != null or (filter.billingType != null and filter.billingType != 'all') or (filter.status != null and filter.status != 'all') or filter.provinceId != null}">
+						<span class="as-list-filter-chip" th:if="${filter.startDate != null or filter.endDate != null}">
+							<i class="fa fa-calendar me-1"></i>
+							<span
+								th:text="${(filter.dateType == 'scheduled' ? '방문예정일' : (filter.dateType == 'processed' ? '처리일' : '신청일')) + ' ' + (filter.startDate != null ? filter.startDate : '처음') + ' ~ ' + (filter.endDate != null ? filter.endDate : '이후 전체')}"></span>
+						</span>
+						<span class="as-list-filter-chip"
+							th:if="${filter.billingType != null and filter.billingType != 'all'}"
+							th:text="${filter.billingType == 'paid' ? '유상' : '무상'}"></span>
+						<span class="as-list-filter-chip" th:if="${filter.status != null and filter.status != 'all'}"
+							th:text="${T(com.dev.HiddenBATHAuto.model.task.AsStatus).labelOf(filter.status)}"></span>
+						<span class="as-list-filter-chip" th:if="${filter.provinceId != null}">지역 필터 적용</span>
+					</div>
+				</section>
+
+			</form>
+
+			<section class="as-list-table-panel">
+				<div class="as-list-table-meta">
+					<div>
+						<strong
+							th:text="${#numbers.formatInteger(asTaskPage.totalElements, 1, 'COMMA') + '건'}">0건</strong>
+						<span>조회되었습니다.</span>
+					</div>
+					<div class="as-list-sort-guide"><i class="fa fa-sort me-1"></i>화살표를 누르면 다중 정렬이 적용됩니다.</div>
 				</div>
-			</div>
 
-			<!-- 페이지네이션 -->
-			<div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
-				<ul class="pagination">
+				<div class="as-list-table-scroll">
+					<table class="table as-list-table align-middle mb-0">
+						<colgroup>
+							<col class="as-list-col-id">
+							<col class="as-list-col-customer">
+							<col class="as-list-col-phone">
+							<col class="as-list-col-product">
+							<col class="as-list-col-subject">
+							<col class="as-list-col-handler">
+							<col class="as-list-col-phone">
+							<col class="as-list-col-date">
+							<col class="as-list-col-date">
+							<col class="as-list-col-date">
+							<col class="as-list-col-price">
+							<col class="as-list-col-status">
+							<col class="as-list-col-action">
+						</colgroup>
+						<thead>
+							<tr>
+								<th>
+									<div class="as-list-sortable-head"><span>ID</span><span
+											class="as-list-sort-buttons"><button type="button" data-sort-field="id"
+												data-sort-dir="asc">↑</button><button type="button" data-sort-field="id"
+												data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th>
+									<div class="as-list-sortable-head"><span>고객명</span><span
+											class="as-list-sort-buttons"><button type="button"
+												data-sort-field="customerName" data-sort-dir="asc">↑</button><button
+												type="button" data-sort-field="customerName"
+												data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th class="text-center">현장 연락</th>
+								<th>
+									<div class="as-list-sortable-head"><span>제품정보</span><span
+											class="as-list-sort-buttons"><button type="button"
+												data-sort-field="productInfo" data-sort-dir="asc">↑</button><button
+												type="button" data-sort-field="productInfo"
+												data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th>AS 증상 제목</th>
+								<th>AS 담당사원</th>
+								<th class="text-center">담당 연락</th>
+								<th>
+									<div class="as-list-sortable-head"><span>신청일</span><span
+											class="as-list-sort-buttons"><button type="button"
+												data-sort-field="requestedAt" data-sort-dir="asc">↑</button><button
+												type="button" data-sort-field="requestedAt"
+												data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th>
+									<div class="as-list-sortable-head"><span>방문예정일</span><span
+											class="as-list-sort-buttons"><button type="button"
+												data-sort-field="scheduledDate" data-sort-dir="asc">↑</button><button
+												type="button" data-sort-field="scheduledDate"
+												data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th>
+									<div class="as-list-sortable-head"><span>처리일</span><span
+											class="as-list-sort-buttons"><button type="button"
+												data-sort-field="processedAt" data-sort-dir="asc">↑</button><button
+												type="button" data-sort-field="processedAt"
+												data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th>
+									<div class="as-list-sortable-head"><span>금액</span><span
+											class="as-list-sort-buttons"><button type="button" data-sort-field="price"
+												data-sort-dir="asc">↑</button><button type="button"
+												data-sort-field="price" data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th>
+									<div class="as-list-sortable-head"><span>상태</span><span
+											class="as-list-sort-buttons"><button type="button" data-sort-field="status"
+												data-sort-dir="asc">↑</button><button type="button"
+												data-sort-field="status" data-sort-dir="desc">↓</button></span></div>
+								</th>
+								<th class="text-center">비고</th>
+							</tr>
+						</thead>
+						<tbody>
+							<th:block th:each="row : ${asTaskPage.content}" th:with="asTask=${row.asTask}">
+								<tr class="as-list-main-row">
+									<td class="as-list-id-cell" th:text="${'#' + asTask.id}">#1</td>
+									<td class="as-list-customer-cell" th:text="${asTask.customerNameSafe}">고객명</td>
+									<td class="text-center">
+										<a th:if="${asTask.onsiteContact != null and !#strings.isEmpty(asTask.onsiteContact)}"
+											th:href="|tel:${asTask.onsiteContact}|" class="as-list-phone-link"
+											title="현장 연락처로 전화">
+											<i class="fa fa-phone"></i>
+										</a>
+										<span
+											th:unless="${asTask.onsiteContact != null and !#strings.isEmpty(asTask.onsiteContact)}">-</span>
+									</td>
+									<td class="as-list-product-cell" th:text="${row.productInfo}">제품 (Size / Color)</td>
+									<td>
+										<div class="as-list-subject-ellipsis" th:text="${asTask.subjectSafe}"
+											th:title="${asTask.subjectSafe}">AS 증상</div>
+									</td>
+									<td th:text="${row.handlerName}">담당자 배정 전</td>
+									<td class="text-center">
+										<a th:if="${row.handlerContact != null and row.handlerContact != '-'}"
+											th:href="|tel:${row.handlerContact}|" class="as-list-phone-link"
+											title="AS 담당자에게 전화"><i class="fa fa-phone"></i></a>
+										<span
+											th:unless="${row.handlerContact != null and row.handlerContact != '-'}">-</span>
+									</td>
+									<td
+										th:text="${asTask.requestedAt != null ? #temporals.format(asTask.requestedAt, 'yyyy/MM/dd') : '-'}">
+										-</td>
+									<td>
+										<span th:if="${row.scheduledDate != null}"
+											th:text="${#temporals.format(row.scheduledDate, 'yyyy/MM/dd') + (asTask.visitPlannedTime != null ? ' ' + #temporals.format(asTask.visitPlannedTime, 'HH:mm') : '')}">-</span>
+										<span th:unless="${row.scheduledDate != null}">-</span>
+									</td>
+									<td
+										th:text="${asTask.asProcessDate != null ? #temporals.format(asTask.asProcessDate, 'yyyy/MM/dd') : '-'}">
+										-</td>
+									<td class="as-list-price-cell"
+										th:text="${#numbers.formatInteger(asTask.price, 1, 'COMMA') + '원'}">0원</td>
+									<td>
+										<div class="as-list-status-stack">
+											<span class="as-list-billing-badge"
+												th:classappend="${asTask.price > 0} ? ' as-list-billing-paid' : ' as-list-billing-free'"
+												th:text="${asTask.price > 0 ? '유상' : '무상'}">무상</span>
+											<span class="as-list-status-badge"
+												th:classappend="${' as-list-status-' + (asTask.status != null ? #strings.toLowerCase(asTask.status.name()) : 'none')}"
+												th:text="${asTask.status != null ? asTask.status.labelKr : '-'}">요청됨</span>
+										</div>
+									</td>
+									<td class="text-center">
+										<div class="as-list-action-cell">
+											<div class="as-list-media-icons">
+												<i class="fa fa-image"
+													th:classappend="${row.hasImages} ? ' as-list-media-icon-active' : ' as-list-media-icon-inactive'"
+													title="이미지"></i>
+												<i class="fa fa-video"
+													th:classappend="${row.hasVideos} ? ' as-list-media-icon-active' : ' as-list-media-icon-inactive'"
+													title="비디오"></i>
+											</div>
+											<button type="button"
+												class="btn btn-sm btn-outline-secondary as-list-detail-toggle"
+												th:attr="data-target='#as-list-detail-' + ${asTask.id}">넓게보기</button>
+										</div>
+									</td>
+								</tr>
 
-					<li class="page-item" th:classappend="${asTaskPage.first} ? 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
+								<tr class="as-list-detail-row">
+									<td colspan="13" class="p-0 border-0">
+										<div class="as-list-detail-slide" th:id="'as-list-detail-' + ${asTask.id}">
+											<div class="as-list-detail-inner">
+												<div class="as-list-detail-heading">
+													<div><strong th:text="${'AS #' + asTask.id}">AS #1</strong><span
+															th:text="${asTask.subjectSafe}">증상</span></div>
+													<div class="as-list-detail-heading-badges">
+														<span class="as-list-billing-badge"
+															th:classappend="${asTask.price > 0} ? ' as-list-billing-paid' : ' as-list-billing-free'"
+															th:text="${asTask.price > 0 ? '유상' : '무상'}"></span>
+														<span class="as-list-status-badge"
+															th:classappend="${' as-list-status-' + (asTask.status != null ? #strings.toLowerCase(asTask.status.name()) : 'none')}"
+															th:text="${asTask.status != null ? asTask.status.labelKr : '-'}"></span>
+													</div>
+												</div>
+
+												<div class="row g-3">
+													<div class="col-xl-4 col-lg-6">
+														<div class="as-list-detail-section">
+															<h5>고객 / 현장 정보</h5>
+															<dl class="as-list-detail-list">
+																<div>
+																	<dt>고객 성함</dt>
+																	<dd th:text="${asTask.customerNameSafe}">-</dd>
+																</div>
+																<div>
+																	<dt>현장 연락처</dt>
+																	<dd><a th:if="${asTask.onsiteContact != null}"
+																			th:href="|tel:${asTask.onsiteContact}|"
+																			th:text="${asTask.onsiteContact}"></a><span
+																			th:unless="${asTask.onsiteContact != null}">-</span>
+																	</dd>
+																</div>
+																<div>
+																	<dt>주소</dt>
+																	<dd
+																		th:text="${(asTask.roadAddress != null ? asTask.roadAddress : '') + ' ' + (asTask.detailAddress != null ? asTask.detailAddress : '')}">
+																		-</dd>
+																</div>
+															</dl>
+														</div>
+													</div>
+
+													<div class="col-xl-4 col-lg-6">
+														<div class="as-list-detail-section">
+															<h5>접수 정보</h5>
+															<dl class="as-list-detail-list">
+																<div>
+																	<dt>신청자명</dt>
+																	<dd th:text="${asTask.applicantNameSafe}">-</dd>
+																</div>
+																<div>
+																	<dt>신청자 연락처</dt>
+																	<dd th:text="${asTask.applicantPhoneSafe}">-</dd>
+																</div>
+																<div>
+																	<dt>신청자 이메일</dt>
+																	<dd th:text="${asTask.applicantEmailSafe}">-</dd>
+																</div>
+																<div>
+																	<dt>납품일자</dt>
+																	<dd
+																		th:text="${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy/MM/dd') : '-'}">
+																		-</dd>
+																</div>
+																<div>
+																	<dt>비용 청구 주체</dt>
+																	<dd th:text="${asTask.billingTargetLabelSafe}">-
+																	</dd>
+																</div>
+															</dl>
+														</div>
+													</div>
+
+													<div class="col-xl-4 col-lg-12">
+														<div class="as-list-detail-section">
+															<h5>처리 정보</h5>
+															<dl class="as-list-detail-list">
+																<div>
+																	<dt>AS 담당자</dt>
+																	<dd th:text="${row.handlerName}">-</dd>
+																</div>
+																<div>
+																	<dt>담당자 연락처</dt>
+																	<dd><a th:if="${row.handlerContact != '-'}"
+																			th:href="|tel:${row.handlerContact}|"
+																			th:text="${row.handlerContact}"></a><span
+																			th:unless="${row.handlerContact != '-'}">-</span>
+																	</dd>
+																</div>
+																<div>
+																	<dt>신청일</dt>
+																	<dd
+																		th:text="${asTask.requestedAt != null ? #temporals.format(asTask.requestedAt, 'yyyy/MM/dd') : '-'}">
+																		-</dd>
+																</div>
+																<div>
+																	<dt>방문예정</dt>
+																	<dd
+																		th:text="${row.scheduledDate != null ? #temporals.format(row.scheduledDate, 'yyyy/MM/dd') + (asTask.visitPlannedTime != null ? ' ' + #temporals.format(asTask.visitPlannedTime, 'HH:mm') : '') : '-'}">
+																		-</dd>
+																</div>
+																<div>
+																	<dt>처리일</dt>
+																	<dd
+																		th:text="${asTask.asProcessDate != null ? #temporals.format(asTask.asProcessDate, 'yyyy/MM/dd') : '-'}">
+																		-</dd>
+																</div>
+																<div>
+																	<dt>처리금액</dt>
+																	<dd
+																		th:text="${#numbers.formatInteger(asTask.price, 1, 'COMMA') + '원'}">
+																		0원</dd>
+																</div>
+															</dl>
+														</div>
+													</div>
+
+													<div class="col-lg-6">
+														<div
+															class="as-list-detail-section as-list-detail-product-section">
+															<h5>제품 정보</h5>
+															<dl class="as-list-detail-list">
+																<div>
+																	<dt>제품명</dt>
+																	<dd th:text="${asTask.productNameSafe}">-</dd>
+																</div>
+																<div>
+																	<dt>사이즈</dt>
+																	<dd
+																		th:text="${asTask.productSize != null ? asTask.productSize : '-'}">
+																		-</dd>
+																</div>
+																<div>
+																	<dt>색상</dt>
+																	<dd
+																		th:text="${asTask.productColor != null ? asTask.productColor : '-'}">
+																		-</dd>
+																</div>
+																<div>
+																	<dt>옵션</dt>
+																	<dd
+																		th:text="${asTask.productOptions != null ? asTask.productOptions : '-'}">
+																		-</dd>
+																</div>
+															</dl>
+														</div>
+													</div>
+
+													<div class="col-lg-6">
+														<div class="as-list-detail-section">
+															<h5>AS 증상</h5>
+															<div class="as-list-detail-subject"
+																th:text="${asTask.subjectSafe}">-</div>
+															<div class="as-list-detail-reason"
+																th:text="${asTask.reason != null and !#strings.isEmpty(asTask.reason) ? asTask.reason : '추가로 남긴 내용이 없습니다.'}">
+																-</div>
+														</div>
+													</div>
+												</div>
+
+												<div class="as-list-detail-section as-list-media-section">
+													<h5>이미지 / 비디오</h5>
+													<div class="row g-3">
+														<div class="col-xl-3 col-md-6"
+															th:if="${asTask.requestImages != null and !asTask.requestImages.isEmpty()}">
+															<div class="as-list-media-card">
+																<div class="as-list-media-card-head"><span>신청
+																		이미지</span><button type="button"
+																		class="as-list-media-open"
+																		th:attr="data-media-source-id='as-list-request-images-' + ${asTask.id},data-media-title='신청 이미지'">크게보기</button>
+																</div>
+																<div th:id="'as-list-request-images-carousel-' + ${asTask.id}"
+																	class="carousel slide" data-bs-interval="false">
+																	<div class="carousel-inner">
+																		<div class="carousel-item"
+																			th:each="img, mediaStat : ${asTask.requestImages}"
+																			th:classappend="${mediaStat.first} ? ' active'">
+																			<img th:src="${img.url}"
+																				class="as-list-media-preview"
+																				th:alt="${img.filename}">
+																		</div>
+																	</div>
+																	<button th:if="${asTask.requestImages.size() > 1}"
+																		class="carousel-control-prev" type="button"
+																		th:attr="data-bs-target='#as-list-request-images-carousel-' + ${asTask.id}"
+																		data-bs-slide="prev"><span
+																			class="carousel-control-prev-icon"></span></button>
+																	<button th:if="${asTask.requestImages.size() > 1}"
+																		class="carousel-control-next" type="button"
+																		th:attr="data-bs-target='#as-list-request-images-carousel-' + ${asTask.id}"
+																		data-bs-slide="next"><span
+																			class="carousel-control-next-icon"></span></button>
+																</div>
+																<div class="d-none"
+																	th:id="'as-list-request-images-' + ${asTask.id}">
+																	<span class="as-list-media-source-item"
+																		th:each="img : ${asTask.requestImages}"
+																		data-media-type="image"
+																		th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span>
+																</div>
+															</div>
+														</div>
+
+														<div class="col-xl-3 col-md-6"
+															th:if="${asTask.resultImages != null and !asTask.resultImages.isEmpty()}">
+															<div class="as-list-media-card">
+																<div class="as-list-media-card-head"><span>완료
+																		이미지</span><button type="button"
+																		class="as-list-media-open"
+																		th:attr="data-media-source-id='as-list-result-images-' + ${asTask.id},data-media-title='완료 이미지'">크게보기</button>
+																</div>
+																<div th:id="'as-list-result-images-carousel-' + ${asTask.id}"
+																	class="carousel slide" data-bs-interval="false">
+																	<div class="carousel-inner">
+																		<div class="carousel-item"
+																			th:each="img, mediaStat : ${asTask.resultImages}"
+																			th:classappend="${mediaStat.first} ? ' active'">
+																			<img th:src="${img.url}"
+																				class="as-list-media-preview"
+																				th:alt="${img.filename}"></div>
+																	</div><button
+																		th:if="${asTask.resultImages.size() > 1}"
+																		class="carousel-control-prev" type="button"
+																		th:attr="data-bs-target='#as-list-result-images-carousel-' + ${asTask.id}"
+																		data-bs-slide="prev"><span
+																			class="carousel-control-prev-icon"></span></button><button
+																		th:if="${asTask.resultImages.size() > 1}"
+																		class="carousel-control-next" type="button"
+																		th:attr="data-bs-target='#as-list-result-images-carousel-' + ${asTask.id}"
+																		data-bs-slide="next"><span
+																			class="carousel-control-next-icon"></span></button>
+																</div>
+																<div class="d-none"
+																	th:id="'as-list-result-images-' + ${asTask.id}">
+																	<span class="as-list-media-source-item"
+																		th:each="img : ${asTask.resultImages}"
+																		data-media-type="image"
+																		th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span>
+																</div>
+															</div>
+														</div>
+
+														<div class="col-xl-3 col-md-6"
+															th:if="${asTask.requestVideos != null and !asTask.requestVideos.isEmpty()}">
+															<div class="as-list-media-card">
+																<div class="as-list-media-card-head"><span>신청
+																		비디오</span><button type="button"
+																		class="as-list-media-open"
+																		th:attr="data-media-source-id='as-list-request-videos-' + ${asTask.id},data-media-title='신청 비디오'">크게보기</button>
+																</div>
+																<div th:id="'as-list-request-videos-carousel-' + ${asTask.id}"
+																	class="carousel slide" data-bs-interval="false">
+																	<div class="carousel-inner">
+																		<div class="carousel-item"
+																			th:each="video, mediaStat : ${asTask.requestVideos}"
+																			th:classappend="${mediaStat.first} ? ' active'">
+																			<video th:src="${video.url}"
+																				class="as-list-media-preview" controls
+																				preload="metadata"></video></div>
+																	</div><button
+																		th:if="${asTask.requestVideos.size() > 1}"
+																		class="carousel-control-prev" type="button"
+																		th:attr="data-bs-target='#as-list-request-videos-carousel-' + ${asTask.id}"
+																		data-bs-slide="prev"><span
+																			class="carousel-control-prev-icon"></span></button><button
+																		th:if="${asTask.requestVideos.size() > 1}"
+																		class="carousel-control-next" type="button"
+																		th:attr="data-bs-target='#as-list-request-videos-carousel-' + ${asTask.id}"
+																		data-bs-slide="next"><span
+																			class="carousel-control-next-icon"></span></button>
+																</div>
+																<div class="d-none"
+																	th:id="'as-list-request-videos-' + ${asTask.id}">
+																	<span class="as-list-media-source-item"
+																		th:each="video : ${asTask.requestVideos}"
+																		data-media-type="video"
+																		th:attr="data-media-url=${video.url},data-media-name=${video.filename}"></span>
+																</div>
+															</div>
+														</div>
+
+														<div class="col-xl-3 col-md-6"
+															th:if="${asTask.resultVideos != null and !asTask.resultVideos.isEmpty()}">
+															<div class="as-list-media-card">
+																<div class="as-list-media-card-head"><span>완료
+																		비디오</span><button type="button"
+																		class="as-list-media-open"
+																		th:attr="data-media-source-id='as-list-result-videos-' + ${asTask.id},data-media-title='완료 비디오'">크게보기</button>
+																</div>
+																<div th:id="'as-list-result-videos-carousel-' + ${asTask.id}"
+																	class="carousel slide" data-bs-interval="false">
+																	<div class="carousel-inner">
+																		<div class="carousel-item"
+																			th:each="video, mediaStat : ${asTask.resultVideos}"
+																			th:classappend="${mediaStat.first} ? ' active'">
+																			<video th:src="${video.url}"
+																				class="as-list-media-preview" controls
+																				preload="metadata"></video></div>
+																	</div><button
+																		th:if="${asTask.resultVideos.size() > 1}"
+																		class="carousel-control-prev" type="button"
+																		th:attr="data-bs-target='#as-list-result-videos-carousel-' + ${asTask.id}"
+																		data-bs-slide="prev"><span
+																			class="carousel-control-prev-icon"></span></button><button
+																		th:if="${asTask.resultVideos.size() > 1}"
+																		class="carousel-control-next" type="button"
+																		th:attr="data-bs-target='#as-list-result-videos-carousel-' + ${asTask.id}"
+																		data-bs-slide="next"><span
+																			class="carousel-control-next-icon"></span></button>
+																</div>
+																<div class="d-none"
+																	th:id="'as-list-result-videos-' + ${asTask.id}">
+																	<span class="as-list-media-source-item"
+																		th:each="video : ${asTask.resultVideos}"
+																		data-media-type="video"
+																		th:attr="data-media-url=${video.url},data-media-name=${video.filename}"></span>
+																</div>
+															</div>
+														</div>
+
+														<div class="col-12"
+															th:if="${(asTask.requestImages == null or asTask.requestImages.isEmpty()) and (asTask.resultImages == null or asTask.resultImages.isEmpty()) and (asTask.requestVideos == null or asTask.requestVideos.isEmpty()) and (asTask.resultVideos == null or asTask.resultVideos.isEmpty())}">
+															<div class="as-list-media-empty">등록된 이미지 또는 비디오가 없습니다.</div>
+														</div>
+													</div>
+												</div>
+
+												<div class="as-list-detail-actions client-as-update-first-trigger-wrap"
+													th:if="${asTask.status != null and asTask.status.name() == 'REQUESTED'}">
+													<button type="button"
+														class="btn bg-highlight color-white client-as-update-first-trigger-btn client-as-update-first-open-btn as-list-edit-btn"
+														th:attr="data-as-id=${asTask.id},data-customer-name=${asTask.customerName},data-road-address=${asTask.roadAddress},data-detail-address=${asTask.detailAddress},data-do-name=${asTask.doName},data-si-name=${asTask.siName},data-gu-name=${asTask.guName},data-zip-code=${asTask.zipCode},data-onsite-contact=${asTask.onsiteContact},data-product-name=${asTask.productName},data-product-size=${asTask.productSize},data-product-color=${asTask.productColor},data-product-options=${asTask.productOptions},data-subject=${asTask.subject},data-purchase-date=${asTask.purchaseDate != null ? #temporals.format(asTask.purchaseDate, 'yyyy-MM-dd') : ''},data-applicant-name=${asTask.applicantName},data-applicant-phone=${asTask.applicantPhone},data-applicant-email=${asTask.applicantEmail},data-billing-target=${asTask.billingTarget != null ? asTask.billingTarget.name() : ''}">
+														수정하기
+													</button>
+													<button type="button"
+														class="btn btn-outline-danger client-as-update-first-trigger-btn client-as-delete-btn as-list-delete-btn"
+														th:attr="data-as-id=${asTask.id},data-product-name=${(asTask.productName != null and !#strings.isEmpty(asTask.productName)) ? asTask.productName : 'AS 신청'}">삭제</button>
+												</div>
+
+												<div class="d-none client-as-update-first-origin-images"
+													th:attr="data-task-id=${asTask.id}">
+													<div th:each="img : ${asTask.requestImages}"
+														class="client-as-update-first-origin-image"
+														th:attr="data-image-id=${img.id},data-image-url=${img.url},data-image-filename=${img.filename}">
+													</div>
+												</div>
+												<div class="d-none client-as-update-first-origin-videos"
+													th:attr="data-task-id=${asTask.id}">
+													<div th:each="video : ${asTask.requestVideos}"
+														class="client-as-update-first-origin-video"
+														th:attr="data-video-id=${video.id},data-video-url=${video.url},data-video-filename=${video.filename}">
+													</div>
+												</div>
+												<textarea class="d-none client-as-update-first-origin-reason"
+													th:attr="data-task-id=${asTask.id}"
+													th:text="${asTask.reason}"></textarea>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</th:block>
+
+							<tr th:if="${asTaskPage.empty}">
+								<td colspan="13" class="as-list-empty-cell">조건에 맞는 AS 신청 내역이 없습니다.</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<nav class="as-list-pagination-wrap" th:if="${asTaskPage.totalPages > 0}" aria-label="AS 목록 페이지">
+				<ul class="pagination pagination-sm mb-0">
+					<li class="page-item" th:classappend="${asTaskPage.first} ? ' disabled'">
+						<button type="button" class="page-link as-list-page-btn" data-page="0"
+							th:disabled="${asTaskPage.first}">FIRST</button>
 					</li>
-
-					<li class="page-item" th:classappend="${asTaskPage.hasPrevious()} ? '' : 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${asTaskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
-							PREVIOUS
-						</a>
+					<li class="page-item" th:classappend="${asTaskPage.first} ? ' disabled'">
+						<button type="button" class="page-link as-list-page-btn"
+							th:attr="data-page=${asTaskPage.hasPrevious() ? asTaskPage.number - 1 : 0}"
+							th:disabled="${asTaskPage.first}">PREV</button>
 					</li>
-
-					<li class="page-item" th:each="p : ${#numbers.sequence(0, asTaskPage.totalPages - 1)}"
-						th:classappend="${asTaskPage.number == p} ? 'active'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${p}, startDate=${startDate}, endDate=${endDate})}"
-							th:text="${p + 1}">1</a>
+					<li class="page-item" th:if="${pageEnd >= pageStart}"
+						th:each="p : ${#numbers.sequence(pageStart, pageEnd)}"
+						th:classappend="${asTaskPage.number == p} ? ' active'">
+						<button type="button" class="page-link as-list-page-btn" th:attr="data-page=${p}"
+							th:text="${p + 1}" th:disabled="${asTaskPage.number == p}">1</button>
 					</li>
-
-					<li class="page-item" th:classappend="${asTaskPage.hasNext()} ? '' : 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${asTaskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
-							NEXT
-						</a>
+					<li class="page-item" th:classappend="${asTaskPage.last} ? ' disabled'">
+						<button type="button" class="page-link as-list-page-btn"
+							th:attr="data-page=${asTaskPage.hasNext() ? asTaskPage.number + 1 : asTaskPage.number}"
+							th:disabled="${asTaskPage.last}">NEXT</button>
 					</li>
-
-					<li class="page-item" th:classappend="${asTaskPage.last} ? 'disabled'">
-						<a class="page-link"
-							th:href="@{/customer/asList(page=${asTaskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
-							LAST
-						</a>
+					<li class="page-item" th:classappend="${asTaskPage.last} ? ' disabled'">
+						<button type="button" class="page-link as-list-page-btn"
+							th:attr="data-page=${asTaskPage.totalPages - 1}"
+							th:disabled="${asTaskPage.last}">LAST</button>
 					</li>
-
 				</ul>
-			</div>
-
+			</nav>
 		</div>
 
-		<!-- 수정 모달 -->
-
-		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
 
 	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
@@ -551,6 +655,128 @@
 
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<script src="/front/asListUpdate.js"></script>
+	<script src="/front/asListV2.js"></script>
+
+	<div class="modal fade as-list-advanced-modal" id="as-list-advanced-modal" tabindex="-1"
+		aria-labelledby="as-list-advanced-modal-title" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+			<div class="modal-content as-list-advanced-modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title as-list-advanced-title" id="as-list-advanced-modal-title">AS 고급검색</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+				<div class="modal-body">
+					<div class="row g-3">
+						<div class="col-lg-4 col-md-6">
+							<label class="as-list-filter-label" for="as-list-date-type">날짜 기준</label>
+							<select id="as-list-date-type" name="dateType" form="as-list-filter-form"
+								class="form-select as-list-control">
+								<option value="requested"
+									th:selected="${filter.dateType == null or filter.dateType == 'requested'}">신청일
+								</option>
+								<option value="scheduled" th:selected="${filter.dateType == 'scheduled'}">방문예정일</option>
+								<option value="processed" th:selected="${filter.dateType == 'processed'}">처리일</option>
+							</select>
+						</div>
+						<div class="col-lg-4 col-md-6">
+							<label class="as-list-filter-label" for="as-list-start-date">From</label>
+							<input id="as-list-start-date" type="date" name="startDate" form="as-list-filter-form"
+								th:value="${filter.startDate}" class="form-control as-list-control">
+						</div>
+						<div class="col-lg-4 col-md-6">
+							<label class="as-list-filter-label" for="as-list-end-date">To</label>
+							<input id="as-list-end-date" type="date" name="endDate" form="as-list-filter-form"
+								th:value="${filter.endDate}" class="form-control as-list-control">
+						</div>
+
+						<div class="col-lg-4 col-md-6">
+							<label class="as-list-filter-label" for="as-list-billing-type">유상/무상</label>
+							<select id="as-list-billing-type" name="billingType" form="as-list-filter-form"
+								class="form-select as-list-control">
+								<option value="all"
+									th:selected="${filter.billingType == null or filter.billingType == 'all'}">전체
+								</option>
+								<option value="paid" th:selected="${filter.billingType == 'paid'}">유상</option>
+								<option value="free" th:selected="${filter.billingType == 'free'}">무상</option>
+							</select>
+						</div>
+						<div class="col-lg-4 col-md-6">
+							<label class="as-list-filter-label" for="as-list-status">AS 상태</label>
+							<select id="as-list-status" name="status" form="as-list-filter-form"
+								class="form-select as-list-control">
+								<option value="all" th:selected="${filter.status == null or filter.status == 'all'}">전체
+								</option>
+								<option th:each="status : ${asStatuses}" th:value="${status.name()}"
+									th:text="${status.labelKr}" th:selected="${filter.status == status.name()}">
+								</option>
+							</select>
+						</div>
+
+						<div class="col-12">
+							<div class="as-list-advanced-divider"></div>
+						</div>
+
+						<div class="col-lg-4 col-md-6">
+							<label class="as-list-filter-label" for="as-list-province">도 / 광역시</label>
+							<select id="as-list-province" name="provinceId" form="as-list-filter-form"
+								class="form-select as-list-control">
+								<option value="">전체 지역</option>
+								<option th:each="province : ${regionProvinces}" th:value="${province.id}"
+									th:text="${province.name}" th:selected="${filter.provinceId == province.id}">
+								</option>
+							</select>
+						</div>
+						<div class="col-lg-4 col-md-6" id="as-list-city-wrap"
+							th:classappend="${regionMode != 'CITY'} ? ' d-none'">
+							<label class="as-list-filter-label" for="as-list-city">시 / 군</label>
+							<select id="as-list-city" name="cityId" form="as-list-filter-form"
+								class="form-select as-list-control">
+								<option value="">전체</option>
+								<option th:each="city : ${regionCities}" th:value="${city.id}" th:text="${city.name}"
+									th:selected="${filter.cityId == city.id}"></option>
+							</select>
+						</div>
+						<div class="col-lg-4 col-md-6" id="as-list-district-wrap"
+							th:classappend="${regionDistricts == null or regionDistricts.isEmpty()} ? ' d-none'">
+							<label class="as-list-filter-label" for="as-list-district">구 / 군</label>
+							<select id="as-list-district" name="districtId" form="as-list-filter-form"
+								class="form-select as-list-control">
+								<option value="">전체</option>
+								<option th:each="district : ${regionDistricts}" th:value="${district.id}"
+									th:text="${district.name}" th:selected="${filter.districtId == district.id}">
+								</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-sm btn-light as-list-advanced-reset">고급조건 초기화</button>
+					<button type="submit" form="as-list-filter-form"
+						class="btn btn-sm bg-highlight color-white as-list-advanced-apply">조건 적용</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade as-list-media-modal" id="as-list-media-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-centered">
+			<div class="modal-content as-list-media-modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="as-list-media-modal-title">미디어 보기</h5><button type="button"
+						class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+				<div class="modal-body">
+					<div id="as-list-media-modal-carousel" class="carousel slide" data-bs-interval="false">
+						<div class="carousel-inner" id="as-list-media-modal-inner"></div><button
+							class="carousel-control-prev" type="button" data-bs-target="#as-list-media-modal-carousel"
+							data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button><button
+							class="carousel-control-next" type="button" data-bs-target="#as-list-media-modal-carousel"
+							data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 
 	<div class="modal fade client-as-update-first-modal" id="client-as-update-first-modal" tabindex="-1"
 		aria-hidden="true">

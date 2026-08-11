@@ -1,14 +1,13 @@
 <!DOCTYPE HTML>
-<html lang="ko" 
-xmlns:th="http://www.thymeleaf.org" 
-xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head th:fragment="autoHead">
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<meta name="viewport"
 		content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover" />
 	<title>AUTO TASK</title>
-	<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,500,500i,700,700i,900,900i|Source+Sans+Pro:300,300i,400,400i,600,600i,700,700i,900,900i&display=swap"
+	<link
+		href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,500,500i,700,700i,900,900i|Source+Sans+Pro:300,300i,400,400i,600,600i,700,700i,900,900i&display=swap"
 		rel="stylesheet">
 	<link rel="apple-touch-icon" sizes="180x180" href="/front/app/icons/icon-192x192.png">
 	<link rel="stylesheet" type="text/css" href="/front/styles/bootstrap.css">
@@ -30,8 +29,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 	<div id="footer-bar" class="footer-bar-1">
 		<a href="/index"><i class="fa fa-home"></i><span>홈</span></a>
 		<a href="#" data-menu="bottombar-task"><i class="fa-solid fa-list-check"></i><span>업무관리</span></a>
-		<a href="#" data-menu="bottombar-order"><i
-				class="fa-brands fa-product-hunt"></i><span>발주관리</span></a>
+		<a href="#" data-menu="bottombar-order"><i class="fa-brands fa-product-hunt"></i><span>발주관리</span></a>
 		<a href="#" data-menu="bottombar-as"><i class="fa-solid fa-screwdriver-wrench"></i><span>AS관리</span></a>
 		<a href="#" data-menu="bottombar-account"><i class="fa-solid fa-id-card"></i><span>계정관리</span></a>
 		<!--<a href="/search"><i class="fa fa-search"></i><span>제품검색</span></a>-->
@@ -98,8 +96,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="#"
-   onclick="event.preventDefault(); alert('준비중입니다. 빠른 시일내에 찾아뵙겠습니다.');">
+				<a href="#" onclick="event.preventDefault(); alert('준비중입니다. 빠른 시일내에 찾아뵙겠습니다.');">
 					<span>준비중입니다.</span>
 					<strong>발주하기 기능은 현재 준비중입니다.</strong>
 					<i class="fa fa-angle-right"></i>
@@ -154,63 +151,177 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 </th:block>
 <th:block th:fragment="autoSideBar">
 	<div id="menu-sidebar-left-4" class="bg-white menu menu-box-left" data-menu-width="310">
+
 		<div class="divider mb-3"></div>
+
+		<!-- 로그인 사용자 정보 -->
 		<div class="ps-3 pe-3 pt-2 mb-4">
 			<div class="d-flex">
 				<div class="flex-grow-1 align-self-center ps-2">
-					<h1 class="font-20 font-700 mb-0" th:text="${#authentication.principal.name}">회원명</h1>
-					<p class="mt-n2 mb-0 font-10 font-400" th:text="${#authentication.principal.company.companyName}">회사명</p>
+					<h1 class="font-20 font-700 mb-0" th:text="${#authentication.principal.name}">
+						회원명
+					</h1>
+
+					<p class="mt-n2 mb-0 font-10 font-400" th:text="${#authentication.principal.company.companyName}">
+						회사명
+					</p>
 				</div>
 			</div>
 		</div>
 
 		<div class="divider divider-margins mb-0"></div>
 
+
+		<!-- ==================================================
+			메인
+		================================================== -->
 		<div class="me-3 ms-3">
 			<div class="list-group list-custom-small list-icon-0">
+
 				<a href="/index">
-					<i class="fa font-14 fa-star color-yellow-dark"></i>
+					<i class="fa fa-home font-14 color-blue-dark"></i>
 					<span>메인</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<!--<a href="/standardOrderProduct">
-					<i class="fa font-14 fa-file color-brown-dark"></i>
-					<span>규격제품발주</span>
-					<i class="fa fa-angle-right"></i>
-				</a>
-				<a href="/nonStandardOrderProduct">
-					<i class="fa font-14 fa-file color-brown-dark"></i>
-					<span>비규격제품발주</span>
-					<i class="fa fa-angle-right"></i>
-				</a>-->
-				<a href="/customer/asRequest">
-					<i class="fa font-14 fa-camera color-green-dark"></i>
-					<span>AS접수</span>
-					<i class="fa fa-angle-right"></i>
-				</a>
+
 			</div>
 		</div>
 
+
+		<!-- ==================================================
+			업무관리
+		================================================== -->
 		<div class="me-3 ms-3 mt-4 pt-2">
-			<span class="text-uppercase font-900 font-11 opacity-30">계정관리</span>
+
+			<span class="text-uppercase font-900 font-11 opacity-30">
+				업무관리
+			</span>
+
 			<div class="list-group list-custom-small list-icon-0">
-				<a href="/customer/myInfo" class="border-0">
-					<i class="fa font-14 fa-cog color-brown-dark"></i>
-					<span>계정관리</span>
+
+				<!-- 발주 관리 -->
+				<a th:href="@{/customer/taskList}">
+					<i class="fa fa-list-check font-14 color-blue-dark"></i>
+					<span>발주 관리</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
-				<a href="/customer/memberList" class="border-0"  sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
-					<i class="fa font-14 fa-cog color-brown-dark"></i>
+
+				<!-- AS 관리 -->
+				<a th:href="@{/customer/asList}">
+					<i class="fa fa-screwdriver-wrench font-14 color-red-dark"></i>
+					<span>AS 관리</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+
+			</div>
+		</div>
+
+
+		<!-- ==================================================
+			발주관리
+		================================================== -->
+		<div class="me-3 ms-3 mt-4 pt-2">
+
+			<span class="text-uppercase font-900 font-11 opacity-30">
+				발주관리
+			</span>
+
+			<div class="list-group list-custom-small list-icon-0">
+
+				<!-- 준비중 메뉴
+					autoFooterMenu에 존재하던 준비중 기능 그대로 유지
+				-->
+				<a href="#" onclick="event.preventDefault(); alert('준비중입니다. 빠른 시일내에 찾아뵙겠습니다.');">
+					<i class="fa fa-hourglass-half font-14 color-gray-dark"></i>
+					<span>발주하기</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+
+				<!-- 규격 제품발주 -->
+				<a href="/standardOrderProduct">
+					<i class="fa fa-box font-14 color-green-dark"></i>
+					<span>규격 제품발주</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+
+				<!-- 비규격 제품발주 -->
+				<a href="/nonStandardOrderProduct">
+					<i class="fa fa-ruler-combined font-14 color-orange-dark"></i>
+					<span>비규격 제품발주</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+
+				<!--
+				현재 autoFooterMenu에서도 주석 처리되어 있으므로
+				사이드바에서도 활성화하지 않음
+
+				<a href="/customer/productMarkList">
+					<i class="fa fa-star font-14 color-yellow-dark"></i>
+					<span>즐겨찾기</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+				-->
+
+			</div>
+		</div>
+
+
+		<!-- ==================================================
+			AS관리
+		================================================== -->
+		<div class="me-3 ms-3 mt-4 pt-2">
+
+			<span class="text-uppercase font-900 font-11 opacity-30">
+				AS관리
+			</span>
+
+			<div class="list-group list-custom-small list-icon-0">
+
+				<a href="/customer/asRequest">
+					<i class="fa fa-wrench font-14 color-green-dark"></i>
+					<span>AS 접수</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+
+			</div>
+		</div>
+
+
+		<!-- ==================================================
+			계정관리
+		================================================== -->
+		<div class="me-3 ms-3 mt-4 pt-2">
+
+			<span class="text-uppercase font-900 font-11 opacity-30">
+				계정관리
+			</span>
+
+			<div class="list-group list-custom-small list-icon-0">
+
+				<!-- 내 계정 -->
+				<a href="/customer/myInfo">
+					<i class="fa fa-user-circle font-14 color-blue-dark"></i>
+					<span>계정정보</span>
+					<i class="fa fa-angle-right"></i>
+				</a>
+
+				<!-- 대표 계정만 직원관리 노출 -->
+				<a href="/customer/memberList" sec:authorize="hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')">
+					<i class="fa fa-users font-14 color-green-dark"></i>
 					<span>직원관리</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
+
+				<!-- 로그아웃 -->
 				<a href="/logout" class="border-0">
-					<i class="fa font-14 fa-cog color-brown-dark"></i>
+					<i class="fa fa-sign-out-alt font-14 color-red-dark"></i>
 					<span>로그아웃</span>
 					<i class="fa fa-angle-right"></i>
 				</a>
+
 			</div>
 		</div>
+
 	</div>
 </th:block>
 

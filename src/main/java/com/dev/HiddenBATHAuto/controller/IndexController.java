@@ -19,10 +19,9 @@ public class IndexController {
 
 	@GetMapping({ "/index", "/", "" })
 	public String index(Model model) {
-		// ✅ 현재 노출 대상만 dispOrder ASC, createdAt DESC 로 정렬해 전달
+		// 기존 기능 유지: 현재 노출 대상 팝업만 정렬해 전달합니다.
 		List<Popup> popups = popupManagerService.listActiveOrderByIndex();
 		model.addAttribute("popups", popups);
 		return "front/index";
 	}
-
 }

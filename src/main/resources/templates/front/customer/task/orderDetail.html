@@ -6,147 +6,104 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
+	<link rel="stylesheet" href="/front/customer-management-v2.css">
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
 	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
 
-	<div id="page" class="container">
+	<div id="page" class="container order-detail-page">
 		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+
 		<div class="page-content header-clear-medium">
-			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
-				<div class="card-center ms-3">
-					<h1 class="color-white mb-0">발주 상세페이지</h1>
-					<p class="color-white mt-n1 mb-0">주문의 상세 사항을 확인할 수 있습니다.</p>
+			<div class="card card-style preload-img order-detail-hero" data-src="/front/images/pictures/18.jpg" data-card-height="104">
+				<div class="card-center ms-3 order-detail-hero-copy">
+					<h1 class="color-white mb-0 order-detail-hero-title">Order 상세</h1>
+					<p class="color-white mb-0 order-detail-hero-description">개별 주문의 제품 옵션, 배송 정보와 업로드 이미지를 확인합니다.</p>
 				</div>
 				<div class="card-center me-3">
-					<a href="/index" data-back-button
-						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
+					<a th:href="@{'/customer/taskDetail/' + ${order.task.id}}" class="btn btn-m float-end font-800 bg-highlight order-detail-home-btn">Task 상세</a>
 				</div>
 				<div class="card-overlay bg-black opacity-80"></div>
 			</div>
-			<div class="card card-overflow card-style">
-				<div class="content">
-					<!-- 주문 기본 정보 -->
-					<div class="d-flex flex-wrap">
-						<div class="w-25 ps-3">
-							<h4>주문번호</h4>
-							<p class="color-blue-dark font-11 mb-0" th:text="'#ORDER_ID_' + ${order.id}">#ORDER_ID_1</p>
-						</div>
 
-						<div class="w-25 ps-3">
-							<h4>상태</h4>
-							<p class="color-blue-dark font-11 mb-0" th:text="${order.status}">REQUESTED</p>
-						</div>
-
-						<div class="w-25 ps-3">
-							<h4>제품 금액</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${#numbers.formatInteger(order.productCost, 3, 'COMMA')} + '원'">10,000원</p>
-						</div>
-
-						<div class="w-25 ps-3">
-							<h4>제품 수량</h4>
-							<p class="color-blue-dark font-11 mb-0" th:text="${order.quantity} + '개'">1개</p>
-						</div>
-
-						<div class="w-25 ps-3">
-							<h4>배송 희망일</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy.MM.dd') : '미지정'}">
-								-</p>
-						</div>
-
-						<div class="w-25 ps-3">
-							<h4>작성일</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${#temporals.format(order.createdAt, 'yyyy.MM.dd HH:mm')}">-</p>
-						</div>
-
-						<div class="w-25 ps-3">
-							<h4>최근 수정일</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy.MM.dd HH:mm') : '없음'}">
-								-</p>
-						</div>
-
-						<div class="w-25 ps-3">
-							<h4>배송지</h4>
-							<p class="color-blue-dark font-11 mb-0"
-								th:text="${order.roadAddress + ' ' + order.detailAddress}">주소</p>
-						</div>
+			<section class="order-detail-summary-panel">
+				<div class="order-detail-section-head">
+					<div>
+						<span class="order-detail-kicker" th:text="${'TASK-' + order.task.id}">TASK-1</span>
+						<h2 th:text="${'ORDER #' + order.id}">ORDER #1</h2>
 					</div>
+					<span class="order-detail-status-badge"
+						th:classappend="${' order-detail-status-' + (order.status != null ? #strings.toLowerCase(order.status.name()) : 'none')}"
+						th:text="${order.status != null ? order.status.label : '-'}">상태</span>
+				</div>
 
-					<!-- 옵션 정보 -->
-					<div class="divider mt-3 mb-2"></div>
-					<h4 class="font-16 mb-2">주문 옵션 정보</h4>
-					<ul class="list-group mb-3" th:if="${order.orderItem != null}">
-						<li class="list-group-item" th:each="entry : ${order.orderItem.parsedOptionMap}">
-							<strong th:text="${entry.key}">옵션명</strong>: <span th:text="${entry.value}">옵션값</span>
-						</li>
-					</ul>
+				<div class="row g-0 order-detail-summary-grid">
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>주문번호</span><strong th:text="${'#' + order.id}">#1</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>카테고리</span><strong th:text="${order.productCategory != null ? order.productCategory.name : '-'}">-</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>수량</span><strong th:text="${order.quantity + '개'}">1개</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>제품 금액</span><strong th:text="${#numbers.formatInteger(order.productCost, 1, 'COMMA') + '원'}">0원</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>작성일</span><strong th:text="${order.createdAt != null ? #temporals.format(order.createdAt, 'yyyy/MM/dd') : '-'}">-</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>배송희망일</span><strong th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy/MM/dd') : '-'}">-</strong></div>
+					<div class="col-xl-3 col-lg-4 col-md-6 order-detail-summary-item"><span>배송수단</span><strong th:text="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '-'}">-</strong></div>
+					<div class="col-xl-5 col-lg-8 col-md-6 order-detail-summary-item"><span>배송지</span><strong th:text="${(order.siteRoadAddress != null and !#strings.isEmpty(order.siteRoadAddress)) ? order.siteRoadAddress + ' ' + (order.siteDetailAddress != null ? order.siteDetailAddress : '') : (order.roadAddress != null ? order.roadAddress : '') + ' ' + (order.detailAddress != null ? order.detailAddress : '')}">-</strong></div>
+					<div class="col-xl-4 col-lg-6 order-detail-summary-item"><span>배송 담당자</span><strong th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : '미지정'}">미지정</strong></div>
+			</div>
+			</section>
 
-					<!-- 이미지 정보 -->
-					<div class="divider mt-4 mb-2"></div>
-					<h4 class="font-16">업로드된 이미지</h4>
-
-					<!-- 이미지 블럭 반복 -->
-					<div class="mb-3" th:if="${order.getCustomerUploadedImages().size() > 0}">
-						<h5 class="font-13 mt-2 mb-2">고객 업로드</h5>
-						<div class="row g-2">
-							<div class="col-4" th:each="img : ${order.getCustomerUploadedImages()}">
-								<a th:href="@{${img.url}}" target="_blank">
-									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="customer-upload">
-								</a>
-							</div>
+			<div class="row g-3">
+				<div class="col-lg-8">
+					<section class="order-detail-panel">
+						<div class="order-detail-panel-head"><span class="order-detail-kicker">PRODUCT OPTIONS</span><h3>주문 옵션 정보</h3></div>
+						<div class="order-detail-product-name" th:if="${order.orderItem != null and order.orderItem.productName != null}"><span>제품명</span><strong th:text="${order.orderItem.productName}">-</strong></div>
+						<div class="order-detail-option-grid" th:if="${order.orderItem != null and order.orderItem.parsedOptionMap != null and !order.orderItem.parsedOptionMap.isEmpty()}">
+							<div class="order-detail-option-item" th:each="entry : ${order.orderItem.parsedOptionMap}"><span th:text="${entry.key}">옵션</span><strong th:text="${entry.value}">값</strong></div>
 						</div>
-					</div>
+						<div class="order-detail-empty-text" th:if="${order.orderItem == null or order.orderItem.parsedOptionMap == null or order.orderItem.parsedOptionMap.isEmpty()}">등록된 옵션 정보가 없습니다.</div>
+						<div class="order-detail-comment" th:if="${order.orderComment != null and !#strings.isEmpty(order.orderComment)}"><span>주문 비고</span><p th:text="${order.orderComment}"></p></div>
+					</section>
+				</div>
 
-					<div class="mb-3" th:if="${order.getAdminUploadedImages().size() > 0}">
-						<h5 class="font-13 mt-2 mb-2">관리자 업로드</h5>
-						<div class="row g-2">
-							<div class="col-4" th:each="img : ${order.getAdminUploadedImages()}">
-								<a th:href="@{${img.url}}" target="_blank">
-									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="admin-upload">
-								</a>
-							</div>
-						</div>
-					</div>
-
-					<div class="mb-3" th:if="${order.getDeliveryImages().size() > 0}">
-						<h5 class="font-13 mt-2 mb-2">배송 사진</h5>
-						<div class="row g-2">
-							<div class="col-4" th:each="img : ${order.getDeliveryImages()}">
-								<a th:href="@{${img.url}}" target="_blank">
-									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="delivery">
-								</a>
-							</div>
-						</div>
-					</div>
-
-					<div class="mb-3" th:if="${order.getProofImages().size() > 0}">
-						<h5 class="font-13 mt-2 mb-2">증빙 자료</h5>
-						<div class="row g-2">
-							<div class="col-4" th:each="img : ${order.getProofImages()}">
-								<a th:href="@{${img.url}}" target="_blank">
-									<img class="img-fluid rounded-sm" th:src="@{${img.url}}" alt="proof">
-								</a>
-							</div>
-						</div>
-					</div>
-
-					<div class="divider mt-4"></div>
-
-					<!--<a href="#" data-toast="snackbar-cart"
-						class="btn btn-full btn-m font-900 text-uppercase rounded-sm shadow-l bg-red-dark">주문취소 요청</a>-->
+				<div class="col-lg-4">
+					<section class="order-detail-panel">
+						<div class="order-detail-panel-head"><span class="order-detail-kicker">DELIVERY</span><h3>배송 / 담당 정보</h3></div>
+						<dl class="order-detail-info-list">
+							<div><dt>주문자명</dt><dd th:text="${order.ordererName != null ? order.ordererName : '-'}">-</dd></div>
+							<div><dt>주문자 연락처</dt><dd><a th:if="${order.ordererPhone != null}" th:href="|tel:${order.ordererPhone}|" th:text="${order.ordererPhone}"></a><span th:unless="${order.ordererPhone != null}">-</span></dd></div>
+							<div><dt>배송 담당자</dt><dd th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : '미지정'}">-</dd></div>
+							<div><dt>담당자 연락처</dt><dd><a th:if="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}" th:href="|tel:${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}|" th:text="${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}"></a><span th:unless="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}">-</span></dd></div>
+							<div><dt>최근 수정일</dt><dd th:text="${order.updatedAt != null ? #temporals.format(order.updatedAt, 'yyyy/MM/dd HH:mm') : '-'}">-</dd></div>
+						</dl>
+					</section>
 				</div>
 			</div>
 
+			<section class="order-detail-panel order-detail-media-panel">
+				<div class="order-detail-panel-head"><span class="order-detail-kicker">MEDIA</span><h3>업로드 이미지</h3></div>
+				<div class="row g-2">
+					<div class="col-xl-3 col-md-6" th:if="${!order.customerUploadedImages.isEmpty()}"><div class="order-detail-media-group"><div><strong>고객 업로드</strong><span th:text="${order.customerUploadedImages.size() + '장'}"></span></div><button type="button" class="order-detail-media-open" th:attr="data-media-source-id='order-detail-customer-' + ${order.id},data-media-title='고객 업로드'">슬라이드 보기</button><div class="d-none" th:id="'order-detail-customer-' + ${order.id}"><span class="order-detail-media-source-item" th:each="img : ${order.customerUploadedImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+					<div class="col-xl-3 col-md-6" th:if="${!order.adminUploadedImages.isEmpty()}"><div class="order-detail-media-group"><div><strong>관리자 업로드</strong><span th:text="${order.adminUploadedImages.size() + '장'}"></span></div><button type="button" class="order-detail-media-open" th:attr="data-media-source-id='order-detail-management-' + ${order.id},data-media-title='관리자 업로드'">슬라이드 보기</button><div class="d-none" th:id="'order-detail-management-' + ${order.id}"><span class="order-detail-media-source-item" th:each="img : ${order.adminUploadedImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+					<div class="col-xl-3 col-md-6" th:if="${!order.deliveryImages.isEmpty()}"><div class="order-detail-media-group"><div><strong>배송 사진</strong><span th:text="${order.deliveryImages.size() + '장'}"></span></div><button type="button" class="order-detail-media-open" th:attr="data-media-source-id='order-detail-delivery-' + ${order.id},data-media-title='배송 사진'">슬라이드 보기</button><div class="d-none" th:id="'order-detail-delivery-' + ${order.id}"><span class="order-detail-media-source-item" th:each="img : ${order.deliveryImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+					<div class="col-xl-3 col-md-6" th:if="${!order.proofImages.isEmpty()}"><div class="order-detail-media-group"><div><strong>증빙 자료</strong><span th:text="${order.proofImages.size() + '장'}"></span></div><button type="button" class="order-detail-media-open" th:attr="data-media-source-id='order-detail-proof-' + ${order.id},data-media-title='증빙 자료'">슬라이드 보기</button><div class="d-none" th:id="'order-detail-proof-' + ${order.id}"><span class="order-detail-media-source-item" th:each="img : ${order.proofImages}" th:attr="data-media-url=${img.url},data-media-name=${img.filename}"></span></div></div></div>
+					<div class="col-12" th:if="${order.customerUploadedImages.isEmpty() and order.adminUploadedImages.isEmpty() and order.deliveryImages.isEmpty() and order.proofImages.isEmpty()}"><div class="order-detail-empty-text">등록된 이미지가 없습니다.</div></div>
+				</div>
+			</section>
 		</div>
+
 		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 	</div>
+
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<script src="/front/orderDetailV2.js"></script>
+
+	<div class="modal fade order-detail-media-modal" id="order-detail-media-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-centered">
+			<div class="modal-content order-detail-media-modal-content">
+				<div class="modal-header"><h5 class="modal-title" id="order-detail-media-modal-title">이미지 보기</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button></div>
+				<div class="modal-body"><div id="order-detail-media-modal-carousel" class="carousel slide" data-bs-interval="false"><div class="carousel-inner" id="order-detail-media-modal-inner"></div><button class="carousel-control-prev" type="button" data-bs-target="#order-detail-media-modal-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button><button class="carousel-control-next" type="button" data-bs-target="#order-detail-media-modal-carousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button></div></div>
+			</div>
+		</div>
+	</div>
 
 </body>
-
 </html>

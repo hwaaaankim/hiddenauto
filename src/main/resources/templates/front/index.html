@@ -5,67 +5,243 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
+	<!--
+		index 전용 스타일.
+		autoHead가 <head> 자체를 th:replace 하는 기존 구조이므로 공용 fragment를 건드리지 않고
+		이 페이지에서만 추가 로딩합니다. 브라우저는 stylesheet link를 정상 처리합니다.
+	-->
+	<link rel="stylesheet" href="/front/index-main.css">
+
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
-	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
 
-	<div id="page" class="container">
-		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+	<!-- 상단 비동기 작업 표시 -->
+	<div id="index-main-loading-bar" class="index-main-loading-bar" aria-hidden="true">
+		<div class="index-main-loading-track">
+			<span class="index-main-loading-progress"></span>
+		</div>
+		<div class="index-main-loading-caption">
+			<span class="index-main-loading-dot" aria-hidden="true"></span>
+			<span id="index-main-loading-text">데이터를 불러오는 중입니다.</span>
+		</div>
+	</div>
 
-		<div class="page-content header-clear-medium">
-			<div class="card card-style web-mb-5">
-				<div class="content web-mb-5">
+	<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
+	<div id="page" class="container index-main-page">
 
-					<!-- ✅ 달력 기준 토글 버튼 (prefix: index-calendar-) -->
-					<div class="d-flex justify-content-end mb-2 gap-2" id="index-calendar-basis-wrap">
+		<main class="page-content header-clear-medium index-main-content">
+
+			<!-- =====================================================
+			     HERO / 기준 전환
+			     ===================================================== -->
+			<section class="index-main-hero" aria-labelledby="index-main-hero-title">
+				<div class="index-main-hero-orb index-main-hero-orb-one" aria-hidden="true"></div>
+				<div class="index-main-hero-orb index-main-hero-orb-two" aria-hidden="true"></div>
+
+				<div class="index-main-hero-copy">
+					<div class="index-main-hero-eyebrow">
+						<span class="index-main-hero-live-dot" aria-hidden="true"></span>
+						HIDDEN BATH · WORKSPACE
+					</div>
+					<h1 id="index-main-hero-title">일정과 흐름을<br> 한 화면에서 확인하세요.</h1>
+					<p>
+						발주와 AS의 신청·처리 흐름, 최근 완료 업무, 다가오는 일정과 핵심 지표를
+						달력 기준에 맞춰 빠르게 확인할 수 있습니다.
+					</p>
+					<div class="index-main-hero-state-wrap" aria-live="polite">
+						<span class="index-main-hero-state-icon" aria-hidden="true"></span>
+						<span id="index-main-hero-state">현재 기간의 데이터를 준비하고 있습니다.</span>
+					</div>
+				</div>
+
+				<div class="index-main-basis-card" id="index-calendar-basis-wrap">
+					<div class="index-main-basis-card-head">
+						<div>
+							<span class="index-main-basis-kicker">CALENDAR BASIS</span>
+							<h2>달력 조회 기준</h2>
+						</div>
+						<span class="index-main-basis-sync" aria-hidden="true"></span>
+					</div>
+
+					<div class="index-main-basis-switch" role="group" aria-label="달력 조회 기준">
 						<button type="button"
-							class="btn btn-sm btn-outline-primary"
-							id="index-calendar-basis-request">
-							신청일기준
+							id="index-calendar-basis-request"
+							class="index-main-basis-button"
+							aria-pressed="true">
+							<span class="index-main-basis-button-icon index-main-basis-button-icon-request" aria-hidden="true"></span>
+							<span>
+								<strong>신청일 기준</strong>
+								<small>발주일 · AS 신청일</small>
+							</span>
 						</button>
+
 						<button type="button"
-							class="btn btn-sm btn-outline-primary"
-							id="index-calendar-basis-process">
-							처리일기준
+							id="index-calendar-basis-process"
+							class="index-main-basis-button"
+							aria-pressed="false">
+							<span class="index-main-basis-button-icon index-main-basis-button-icon-process" aria-hidden="true"></span>
+							<span>
+								<strong>처리일 기준</strong>
+								<small>배송희망일 · AS 완료일</small>
+							</span>
 						</button>
 					</div>
 
-					<div id="auto-calendar"></div>
+					<p class="index-main-basis-help">
+						기준을 바꾸면 달력과 현재 조회기간 오버뷰가 함께 다시 계산됩니다.
+					</p>
 				</div>
-			</div>
+			</section>
+
+			<!-- =====================================================
+			     최근 7일 완료 / 앞으로 7일 예정
+			     ===================================================== -->
+			<section class="index-main-section index-main-work-section" aria-labelledby="index-main-work-title">
+				<header class="index-main-section-head">
+					<div>
+						<span class="index-main-section-kicker">WORK FLOW</span>
+						<h2 id="index-main-work-title">최근 처리와 다가오는 업무</h2>
+						<p>오늘을 기준으로 완료된 업무와 앞으로 처리할 업무를 7일 단위로 이어서 보여드립니다.</p>
+					</div>
+					<button type="button" id="index-main-work-window-refresh" class="index-main-icon-button" aria-label="최근/예정 업무 새로고침" title="새로고침">
+						<span class="index-main-refresh-icon" aria-hidden="true"></span>
+					</button>
+				</header>
+
+				<div id="index-main-work-window-content" class="index-main-work-window-content" aria-live="polite">
+					<div class="index-main-work-grid index-main-work-grid-skeleton" aria-hidden="true">
+						<div class="index-main-work-skeleton-panel"></div>
+						<div class="index-main-work-skeleton-panel"></div>
+					</div>
+				</div>
+			</section>
+
+			<!-- =====================================================
+			     CALENDAR
+			     ===================================================== -->
+			<section class="index-main-calendar-card" aria-labelledby="index-main-calendar-title">
+				<header class="index-main-calendar-toolbar">
+					<div class="index-main-calendar-heading">
+						<span class="index-main-section-kicker">SCHEDULE</span>
+						<h2 id="index-main-calendar-title">달력</h2>
+						<p id="index-main-calendar-range">조회 기간을 계산하고 있습니다.</p>
+					</div>
+
+					<div class="index-main-calendar-actions">
+						<div class="index-main-calendar-legend" aria-label="달력 구분">
+							<span class="index-main-calendar-legend-item index-main-calendar-legend-task">
+								<i aria-hidden="true"></i> 발주
+							</span>
+							<span class="index-main-calendar-legend-item index-main-calendar-legend-as">
+								<i aria-hidden="true"></i> AS
+							</span>
+						</div>
+
+						<div class="index-main-calendar-nav" role="group" aria-label="달력 이동">
+							<button type="button" id="index-main-calendar-today" class="index-main-calendar-today">오늘</button>
+							<button type="button" id="index-main-calendar-prev" class="index-main-calendar-nav-button" aria-label="이전 기간">
+								<span class="index-main-chevron index-main-chevron-left" aria-hidden="true"></span>
+							</button>
+							<button type="button" id="index-main-calendar-next" class="index-main-calendar-nav-button" aria-label="다음 기간">
+								<span class="index-main-chevron index-main-chevron-right" aria-hidden="true"></span>
+							</button>
+						</div>
+					</div>
+				</header>
+
+				<div class="index-main-calendar-tip">
+					<span class="index-main-calendar-tip-icon" aria-hidden="true"></span>
+					<span>날짜 또는 일정 표시를 누르면 해당 날짜의 발주·AS 상세를 확인할 수 있습니다.</span>
+				</div>
+
+				<div id="auto-calendar" class="index-main-calendar"></div>
+
+				<div class="index-main-calendar-mobile-note">
+					모바일에서는 가독성을 위해 하루 단위 일정으로 자동 전환됩니다.
+				</div>
+			</section>
+
+			<!-- =====================================================
+			     OVERVIEW
+			     ===================================================== -->
+			<section class="index-main-section index-main-overview-section" aria-labelledby="index-main-overview-title">
+				<header class="index-main-section-head index-main-overview-head">
+					<div>
+						<span class="index-main-section-kicker">PERFORMANCE OVERVIEW</span>
+						<h2 id="index-main-overview-title">조회기간 오버뷰</h2>
+						<p>
+							<span id="index-main-overview-period">조회 기간 계산 중</span>
+							<span class="index-main-overview-divider">·</span>
+							<strong id="index-main-overview-basis">신청일 기준</strong>
+						</p>
+					</div>
+					<div class="index-main-overview-head-note">
+						<span class="index-main-overview-head-note-icon" aria-hidden="true"></span>
+						<div>
+							<strong>현재 달력 화면과 동기화</strong>
+							<span>기간을 이동하면 펼쳐진 더보기는 자동 초기화됩니다.</span>
+						</div>
+					</div>
+				</header>
+
+				<div id="index-main-overview-content" class="index-main-overview-content" aria-live="polite">
+					<div class="index-main-overview-skeleton" aria-hidden="true">
+						<div class="index-main-overview-skeleton-row">
+							<div class="index-main-overview-skeleton-card"></div>
+							<div class="index-main-overview-skeleton-card"></div>
+							<div class="index-main-overview-skeleton-card"></div>
+							<div class="index-main-overview-skeleton-card"></div>
+						</div>
+						<div class="index-main-overview-skeleton-panel"></div>
+					</div>
+				</div>
+			</section>
 
 			<th:block th:replace="~{fragments/front/common :: autoFooter}"></th:block>
-		</div>
+		</main>
+
 		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
 
 	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
 
-	<!-- 기존 모달 -->
-	<div id="auto-modal" class="auto-modal">
-		<div class="auto-modal-content">
-			<span id="auto-close">&times;</span>
-			<h3 id="auto-modal-title"></h3>
-			<div id="auto-modal-body"></div>
+	<!-- =====================================================
+	     일정 상세 모달 - 기존 ID 유지 / 디자인만 전면 개선
+	     ===================================================== -->
+	<div id="auto-modal" class="auto-modal index-main-modal" style="display:none;" aria-hidden="true">
+		<div class="auto-modal-content index-main-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auto-modal-title">
+			<header class="index-main-modal-head">
+				<div class="index-main-modal-title-wrap">
+					<span class="index-main-modal-head-icon" aria-hidden="true"></span>
+					<div>
+						<span class="index-main-modal-kicker">DAILY SCHEDULE</span>
+						<h3 id="auto-modal-title">일정 상세</h3>
+						<p id="index-main-modal-subtitle">상세 데이터를 불러오고 있습니다.</p>
+					</div>
+				</div>
+				<button type="button" id="auto-close" class="index-main-modal-close" aria-label="닫기">
+					<span aria-hidden="true">×</span>
+				</button>
+			</header>
+			<div id="auto-modal-body" class="index-main-modal-body"></div>
 		</div>
 	</div>
 
+	<!-- 토스트 알림 -->
+	<div id="index-main-toast" class="index-main-toast index-main-toast-info" role="status" aria-live="polite"></div>
+
 	<!-- =======================
-	     ✅ 퀵 메뉴 (고정 버튼)
-	     위치: bottom 50px; right 10px
-	     prefix: index-third-
+	     기존 퀵 메뉴 - 기능/경로 유지
 	     ======================= -->
 	<div class="index-third-quickmenu" aria-label="퀵 메뉴">
 		<div class="index-third-quickmenu-title">퀵 메뉴</div>
 
 		<div class="d-grid gap-2">
-			<a class="btn btn-sm btn-primary index-third-quickmenu-btn"
-			   href="/customer/asList">
+			<a class="btn btn-sm btn-primary index-third-quickmenu-btn" href="/customer/asList">
 				<span class="d-none d-md-inline">AS 관리</span>
 				<span class="d-inline d-md-none">AS</span>
 			</a>
 
-			<a class="btn btn-sm btn-outline-primary index-third-quickmenu-btn"
-			   href="/customer/taskList">
+			<a class="btn btn-sm btn-outline-primary index-third-quickmenu-btn" href="/customer/taskList">
 				<span class="d-none d-md-inline">발주관리</span>
 				<span class="d-inline d-md-none">발주</span>
 			</a>
@@ -73,8 +249,7 @@
 	</div>
 
 	<!-- =======================
-	     팝업(오버레이 + 모달 + Swiper)
-	     prefix: index-popup-
+	     기존 팝업(오버레이 + 모달 + Swiper) - 기능 유지
 	     ======================= -->
 	<div id="index-popup-overlay" class="index-popup-overlay" style="display:none;"
 		th:if="${popups != null and !#lists.isEmpty(popups)}">
@@ -90,8 +265,7 @@
 								<img th:src="${p.imageUrl}" alt="popup image">
 							</div>
 							<div class="index-popup-link" th:if="${p.linkEnabled}">
-								<a class="index-popup-link-btn" th:href="${p.linkUrl}" target="_blank"
-									rel="noopener">이동하기</a>
+								<a class="index-popup-link-btn" th:href="${p.linkUrl}" target="_blank" rel="noopener">이동하기</a>
 							</div>
 						</div>
 					</div>
@@ -113,8 +287,7 @@
 
 	<!-- 공용 스크립트 -->
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
-	<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
-
+	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 	<script src="/front/calendar.js"></script>
 	<script src="/front/index-popup.js"></script>
 </body>

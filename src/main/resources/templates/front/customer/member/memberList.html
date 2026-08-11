@@ -1,54 +1,612 @@
+<!-- memberList.html -->
 <!DOCTYPE HTML>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head th:replace="~{fragments/front/common :: autoHead}">
 </head>
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
-	<th:block th:replace="~{fragments/front/common :: autoFooterMenu}"></th:block>
+
+	<!--
+		autoFooterMenu는 현재 고객 페이지 개편 방향에 맞춰 로드하지 않습니다.
+		fragments/front/common.html의 fragment 자체는 수정하지 않습니다.
+	-->
+
+	<link rel="stylesheet" href="/front/page/memberList/memberList.css">
 
 	<div id="page" class="container">
 		<th:block th:replace="~{fragments/front/common :: autoHeaderMenu}"></th:block>
-		<div class="page-content header-clear-medium">
-			<div th:each="member : ${employees}" class="card card-style">
-				<div class="content">
-					<div class="memberList-wrap">
-						<h2 th:text="'성함 : ' + ${member.name}">성함 : </h2>
 
-						<p th:if="${member.createdAt != null}"
-							th:text="'가입일 : ' + ${#temporals.format(member.createdAt, 'yyyy.MM.dd HH:mm:ss')}">
-							가입일 :
-						</p>
-						<p th:if="${member.lastLoginAt != null}"
-							th:text="'최근접속일 : ' + ${#temporals.format(member.lastLoginAt, 'yyyy.MM.dd HH:mm:ss')}">
-							최근접속일 :
-						</p>
-						<p th:if="${member.phone != null}" th:text="'연락처 : ' + ${member.phone}">연락처 :</p>
-						<p th:if="${member.telephone != null}" th:text="'매장전화 : ' + ${member.telephone}">팩스 :</p>
-						<p th:if="${member.email != null}" th:text="'이메일 : ' + ${member.email}">이메일 :</p>
-						<p th:text="'상태 : ' + (${member.enabled} ? '활성' : '비활성')"></p>
+		<div class="page-content header-clear-medium member-list-page"
+			th:attr="data-member-list-focus-id=${focusMemberId != null ? focusMemberId : ''}">
 
+			<!-- ==================================================
+				페이지 헤더
+			================================================== -->
+			<section class="member-list-hero">
+				<div class="member-list-hero-overlay"></div>
+
+				<div class="member-list-hero-content">
+					<div class="member-list-hero-copy">
+						<div class="member-list-hero-kicker">EMPLOYEE MANAGEMENT</div>
+						<h1 class="member-list-hero-title">직원 관리</h1>
+						<p class="member-list-hero-desc">
+							<span th:text="${company != null and company.companyName != null ? company.companyName : '회사'}">
+								회사
+							</span>
+							소속 직원의 계정정보와 접속 상태를 한 화면에서 관리합니다.
+						</p>
 					</div>
-					<div class="memberList-btn-wrap">
-						<a th:href="'tel:' + ${member.phone}" class="call-btn default-link btn btn-sm">
-							<i class="fa-solid fa-phone"></i>전화걸기
-						</a>
-						<a th:href="@{/customer/memberManager/{id}(id=${member.id})}"
-							class="detail-btn default-link btn btn-sm">
-							<i class="fa-solid fa-circle-info"></i>상세정보
-						</a>
+
+					<a href="/index" class="member-list-hero-home" aria-label="홈으로 이동">
+						<i class="fa fa-home"></i>
+						<span>홈</span>
+					</a>
+				</div>
+			</section>
+
+			<!-- ==================================================
+				페이지 알림
+			================================================== -->
+			<div id="member-list-notice-wrap"
+				class="member-list-notice-wrap"
+				aria-live="polite"
+				aria-atomic="true">
+			</div>
+
+			<!-- ==================================================
+				요약
+			================================================== -->
+			<section class="member-list-summary-panel">
+				<div class="row g-2">
+					<div class="col-lg-4 col-md-4 col-12">
+						<div class="member-list-summary-item">
+							<div class="member-list-summary-icon">
+								<i class="fa fa-users"></i>
+							</div>
+
+							<div class="member-list-summary-copy">
+								<div class="member-list-summary-label">전체 직원</div>
+								<div class="member-list-summary-value">
+									<strong id="member-list-stat-total"
+										th:text="${employeeCount != null ? employeeCount : 0}">
+										0
+									</strong>
+									<span>명</span>
+								</div>
+							</div>
+						</div>
 					</div>
+
+					<div class="col-lg-4 col-md-4 col-6">
+						<div class="member-list-summary-item">
+							<div class="member-list-summary-icon member-list-summary-icon-active">
+								<i class="fa fa-user-check"></i>
+							</div>
+
+							<div class="member-list-summary-copy">
+								<div class="member-list-summary-label">접속 허용</div>
+								<div class="member-list-summary-value">
+									<strong id="member-list-stat-active"
+										th:text="${activeEmployeeCount != null ? activeEmployeeCount : 0}">
+										0
+									</strong>
+									<span>명</span>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="col-lg-4 col-md-4 col-6">
+						<div class="member-list-summary-item">
+							<div class="member-list-summary-icon member-list-summary-icon-inactive">
+								<i class="fa fa-user-lock"></i>
+							</div>
+
+							<div class="member-list-summary-copy">
+								<div class="member-list-summary-label">접속 차단</div>
+								<div class="member-list-summary-value">
+									<strong id="member-list-stat-inactive"
+										th:text="${inactiveEmployeeCount != null ? inactiveEmployeeCount : 0}">
+										0
+									</strong>
+									<span>명</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- ==================================================
+				직원 목록
+			================================================== -->
+			<section class="member-list-panel">
+				<div class="member-list-panel-head">
+					<div class="member-list-panel-head-copy">
+						<div class="member-list-panel-title">
+							<i class="fa fa-address-book"></i>
+							<span>등록 직원</span>
+						</div>
+
+						<p class="member-list-panel-desc">
+							목록에서 직원을 선택하면 상세정보와 접속 허용 설정이 아래로 펼쳐집니다.
+						</p>
+					</div>
+
+					<div class="member-list-filter">
+						<div class="member-list-search-wrap">
+							<i class="fa fa-search member-list-search-icon"></i>
+
+							<input type="text"
+								id="member-list-search-input"
+								class="form-control member-list-search-input"
+								placeholder="이름 / 아이디 / 연락처 / 이메일 검색"
+								autocomplete="off">
+						</div>
+
+						<select id="member-list-status-filter"
+							class="form-select member-list-status-select"
+							aria-label="직원 접속 상태 필터">
+							<option value="all">전체 상태</option>
+							<option value="enabled">접속 허용</option>
+							<option value="disabled">접속 차단</option>
+						</select>
+
+						<button type="button"
+							id="member-list-filter-reset-btn"
+							class="btn member-list-btn member-list-btn-light"
+							title="검색조건 초기화">
+							<i class="fa fa-redo"></i>
+							<span>초기화</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- 서버 데이터 자체가 없는 경우 -->
+				<div class="member-list-server-empty"
+					th:if="${employees == null or #lists.isEmpty(employees)}">
+
+					<div class="member-list-empty-icon">
+						<i class="fa fa-user-plus"></i>
+					</div>
+
+					<div class="member-list-empty-copy">
+						<h2>등록된 직원이 없습니다.</h2>
+						<p>
+							현재 대리점 코드로 가입된 직원 계정이 없습니다.
+							직원이 가입하면 이 화면에서 접속 상태와 계정정보를 관리할 수 있습니다.
+						</p>
+					</div>
+				</div>
+
+				<!-- 데이터가 있는 경우 -->
+				<div th:if="${employees != null and !#lists.isEmpty(employees)}">
+					<div class="member-list-table-summary">
+						<div>
+							총
+							<strong th:text="${employeeCount != null ? employeeCount : #lists.size(employees)}">0</strong>
+							명의 직원이 등록되어 있습니다.
+						</div>
+
+						<div>
+							현재 화면
+							<strong id="member-list-visible-count"
+								th:text="${employeeCount != null ? employeeCount : #lists.size(employees)}">
+								0
+							</strong>
+							명
+						</div>
+					</div>
+
+					<div class="member-list-table-scroll">
+						<div class="member-list-table-inner">
+
+							<!-- Header -->
+							<div class="member-list-table-head member-list-table-grid">
+								<div>직원</div>
+								<div>아이디</div>
+								<div class="text-center">연락</div>
+								<div>이메일</div>
+								<div>가입일</div>
+								<div>최근 접속</div>
+								<div class="text-center">상태</div>
+								<div class="text-center">관리</div>
+							</div>
+
+							<!-- Rows -->
+							<div id="member-list-rows">
+								<div class="member-list-row-group"
+									th:each="member, memberStat : ${employees}"
+									th:id="'member-list-member-' + ${member.id}"
+									th:attr="
+										data-member-list-id=${member.id},
+										data-member-list-name=${member.name != null ? member.name : ''},
+										data-member-list-username=${member.username != null ? member.username : ''},
+										data-member-list-phone=${member.phone != null ? member.phone : ''},
+										data-member-list-email=${member.email != null ? member.email : ''},
+										data-member-list-enabled=${member.enabled}">
+
+									<!-- Summary row -->
+									<div class="member-list-table-row member-list-table-grid"
+										data-member-list-row-trigger="true"
+										tabindex="0"
+										role="button"
+										th:attr="aria-label=|${member.name != null ? member.name : '직원'} 상세정보 열기|">
+
+										<div class="member-list-person-cell">
+											<div class="member-list-person-index"
+												th:text="${memberStat.index + 1}">
+												1
+											</div>
+
+											<div class="member-list-person-copy">
+												<div class="member-list-person-name"
+													th:text="${member.name != null and !#strings.isEmpty(member.name) ? member.name : '-'}">
+													직원명
+												</div>
+
+												<div class="member-list-person-role">직원 계정</div>
+											</div>
+										</div>
+
+										<div class="member-list-username"
+											th:text="${member.username != null and !#strings.isEmpty(member.username) ? member.username : '-'}">
+											username
+										</div>
+
+										<div class="text-center">
+											<a th:if="${member.phone != null and !#strings.isEmpty(member.phone)}"
+												th:href="'tel:' + ${member.phone}"
+												class="member-list-contact-btn"
+												th:title="|${member.name != null ? member.name : '직원'}에게 전화|"
+												aria-label="전화걸기">
+												<i class="fa fa-phone"></i>
+											</a>
+
+											<span th:unless="${member.phone != null and !#strings.isEmpty(member.phone)}"
+												class="member-list-contact-btn member-list-contact-btn-disabled"
+												title="등록된 연락처 없음">
+												<i class="fa fa-phone-slash"></i>
+											</span>
+										</div>
+
+										<div class="member-list-email"
+											th:title="${member.email}"
+											th:text="${member.email != null and !#strings.isEmpty(member.email) ? member.email : '-'}">
+											email@example.com
+										</div>
+
+										<div class="member-list-date"
+											th:text="${member.createdAt != null ? #temporals.format(member.createdAt, 'yyyy/MM/dd') : '-'}">
+											2026/08/11
+										</div>
+
+										<div class="member-list-date">
+											<span th:if="${member.lastLoginAt != null}"
+												th:text="${#temporals.format(member.lastLoginAt, 'yyyy/MM/dd HH:mm')}">
+												2026/08/11 10:30
+											</span>
+
+											<span th:unless="${member.lastLoginAt != null}"
+												class="member-list-muted">
+												접속 이력 없음
+											</span>
+										</div>
+
+										<div class="text-center">
+											<span class="member-list-status-badge"
+												th:classappend="${member.enabled}
+													? ' member-list-status-enabled'
+													: ' member-list-status-disabled'"
+												th:attr="data-member-list-status-badge=${member.id}"
+												th:text="${member.enabled} ? '접속 허용' : '접속 차단'">
+												접속 허용
+											</span>
+										</div>
+
+										<div class="text-center">
+											<button type="button"
+												class="member-list-detail-btn"
+												th:attr="
+													data-member-list-detail-btn=${member.id},
+													aria-controls=|member-list-detail-${member.id}|,
+													aria-expanded='false'">
+												<span>확인</span>
+												<i class="fa fa-chevron-down"></i>
+											</button>
+										</div>
+									</div>
+
+									<!-- Slide detail -->
+									<div class="member-list-detail"
+										th:id="'member-list-detail-' + ${member.id}"
+										th:attr="data-member-list-detail=${member.id}">
+
+										<div class="member-list-detail-inner">
+											<div class="row g-3 align-items-stretch">
+
+												<!-- 상세 계정정보 -->
+												<div class="col-xl-8 col-lg-7 col-12">
+													<div class="member-list-detail-section">
+														<div class="member-list-detail-title">
+															<i class="fa fa-id-card"></i>
+															<span>직원 상세정보</span>
+														</div>
+
+														<div class="row g-0 member-list-detail-fields">
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">직원 ID</div>
+																<div class="member-list-detail-value"
+																	th:text="'#' + ${member.id}">
+																	#1
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">로그인 아이디</div>
+																<div class="member-list-detail-value"
+																	th:text="${member.username != null ? member.username : '-'}">
+																	username
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">성함</div>
+																<div class="member-list-detail-value"
+																	th:text="${member.name != null ? member.name : '-'}">
+																	직원명
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">소속 대리점</div>
+																<div class="member-list-detail-value"
+																	th:text="${member.company != null and member.company.companyName != null
+																		? member.company.companyName
+																		: '-'}">
+																	대리점
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">휴대폰</div>
+																<div class="member-list-detail-value">
+																	<a th:if="${member.phone != null and !#strings.isEmpty(member.phone)}"
+																		th:href="'tel:' + ${member.phone}"
+																		class="member-list-detail-link"
+																		th:text="${member.phone}">
+																		010-0000-0000
+																	</a>
+
+																	<span th:unless="${member.phone != null and !#strings.isEmpty(member.phone)}">
+																		-
+																	</span>
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">매장전화</div>
+																<div class="member-list-detail-value">
+																	<a th:if="${member.telephone != null and !#strings.isEmpty(member.telephone)}"
+																		th:href="'tel:' + ${member.telephone}"
+																		class="member-list-detail-link"
+																		th:text="${member.telephone}">
+																		02-000-0000
+																	</a>
+
+																	<span th:unless="${member.telephone != null and !#strings.isEmpty(member.telephone)}">
+																		-
+																	</span>
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">이메일</div>
+																<div class="member-list-detail-value member-list-detail-value-break"
+																	th:text="${member.email != null and !#strings.isEmpty(member.email) ? member.email : '-'}">
+																	email@example.com
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">가입일</div>
+																<div class="member-list-detail-value"
+																	th:text="${member.createdAt != null
+																		? #temporals.format(member.createdAt, 'yyyy/MM/dd HH:mm')
+																		: '-'}">
+																	2026/08/11 09:00
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">최근 접속</div>
+																<div class="member-list-detail-value"
+																	th:text="${member.lastLoginAt != null
+																		? #temporals.format(member.lastLoginAt, 'yyyy/MM/dd HH:mm')
+																		: '접속 이력 없음'}">
+																	접속 이력 없음
+																</div>
+															</div>
+
+															<div class="col-md-6 col-12 member-list-detail-field">
+																<div class="member-list-detail-label">회사 주소</div>
+																<div class="member-list-detail-value member-list-detail-value-break"
+																	th:text="${member.company != null
+																		? ((member.company.roadAddress != null ? member.company.roadAddress : '')
+																			+ ' '
+																			+ (member.company.detailAddress != null ? member.company.detailAddress : ''))
+																		: '-'}">
+																	회사 주소
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<!-- 접속 관리 -->
+												<div class="col-xl-4 col-lg-5 col-12">
+													<div class="member-list-access-panel">
+														<div class="member-list-detail-title">
+															<i class="fa fa-shield-alt"></i>
+															<span>접속 관리</span>
+														</div>
+
+														<div class="member-list-access-state">
+															<div>
+																<div class="member-list-access-label">현재 상태</div>
+																<div class="member-list-access-value"
+																	th:attr="data-member-list-access-text=${member.id}"
+																	th:text="${member.enabled} ? '접속 허용중' : '접속 차단중'">
+																	접속 허용중
+																</div>
+															</div>
+
+															<label class="member-list-switch"
+																th:attr="for=|member-list-enabled-${member.id}|">
+																<input type="checkbox"
+																	class="member-list-switch-input"
+																	th:id="'member-list-enabled-' + ${member.id}"
+																	th:checked="${member.enabled}"
+																	th:attr="
+																		data-member-list-toggle=${member.id},
+																		data-member-list-name=${member.name != null ? member.name : '직원'}">
+																<span class="member-list-switch-track"></span>
+															</label>
+														</div>
+
+														<div class="member-list-access-guide">
+															<i class="fa fa-info-circle"></i>
+															<div>
+																<strong>접속 허용</strong>
+																<span>
+																	해제하면 해당 직원은 계정이 삭제되는 것이 아니라
+																	로그인 접속만 제한됩니다.
+																</span>
+															</div>
+														</div>
+
+														<div class="member-list-access-actions">
+															<a th:if="${member.phone != null and !#strings.isEmpty(member.phone)}"
+																th:href="'tel:' + ${member.phone}"
+																class="btn member-list-btn member-list-btn-light">
+																<i class="fa fa-phone"></i>
+																전화걸기
+															</a>
+
+															<a th:if="${member.email != null and !#strings.isEmpty(member.email)}"
+																th:href="'mailto:' + ${member.email}"
+																class="btn member-list-btn member-list-btn-light">
+																<i class="fa fa-envelope"></i>
+																이메일
+															</a>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+						</div>
+					</div>
+
+					<!-- 검색 결과 없음 -->
+					<div id="member-list-filter-empty"
+						class="member-list-filter-empty d-none">
+						<i class="fa fa-search"></i>
+						<div>
+							<strong>검색 조건에 맞는 직원이 없습니다.</strong>
+							<span>검색어 또는 접속 상태 조건을 변경해 주세요.</span>
+						</div>
+					</div>
+				</div>
+			</section>
+		</div>
+
+		<!-- 기존 구조 보존. footer bar는 위에서 로드하지 않습니다. -->
+		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
+	</div>
+
+	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
+
+	<!-- ==================================================
+		상태 변경 확인 Modal
+		#page 바깥에 두어 기존 테마의 transform/overflow 영향을 받지 않도록 합니다.
+	================================================== -->
+	<div class="modal fade member-list-modal"
+		id="member-list-status-modal"
+		tabindex="-1"
+		aria-hidden="true">
+
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content member-list-modal-content">
+
+				<div class="modal-header member-list-modal-header">
+					<div>
+						<h5 class="modal-title member-list-modal-title">직원 접속 상태 변경</h5>
+						<p class="member-list-modal-desc">
+							선택한 직원의 로그인 접속 허용 여부를 변경합니다.
+						</p>
+					</div>
+
+					<button type="button"
+						class="btn-close"
+						data-bs-dismiss="modal"
+						aria-label="닫기">
+					</button>
+				</div>
+
+				<div class="modal-body member-list-modal-body">
+					<div class="member-list-confirm-box">
+						<div class="member-list-confirm-icon">
+							<i class="fa fa-user-shield"></i>
+						</div>
+
+						<div class="member-list-confirm-copy">
+							<div id="member-list-confirm-member"
+								class="member-list-confirm-member">
+								직원명
+							</div>
+
+							<div id="member-list-confirm-message"
+								class="member-list-confirm-message">
+								접속 상태를 변경하시겠습니까?
+							</div>
+						</div>
+					</div>
+
+					<div class="member-list-confirm-guide">
+						계정을 차단해도 직원 정보는 삭제되지 않으며,
+						다시 접속 허용으로 변경할 수 있습니다.
+					</div>
+				</div>
+
+				<div class="modal-footer member-list-modal-footer">
+					<button type="button"
+						class="btn member-list-btn member-list-btn-light"
+						data-bs-dismiss="modal">
+						취소
+					</button>
+
+					<button type="button"
+						id="member-list-confirm-submit"
+						class="btn member-list-btn member-list-btn-primary">
+						<i class="fa fa-check"></i>
+						<span>변경하기</span>
+					</button>
 				</div>
 			</div>
 		</div>
-
-		<th:block th:replace="~{fragments/front/common :: autoBottomMenu}"></th:block>
 	</div>
-	<th:block th:replace="~{fragments/front/common :: autoSideBar}"></th:block>
-	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
-</body>
 
+	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
+	<script src="/front/page/memberList/memberList.js"></script>
+
+</body>
 </html>

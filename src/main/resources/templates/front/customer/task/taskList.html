@@ -6,110 +6,260 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
+	<link rel="stylesheet" href="/front/customer-management-v2.css">
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
-	<th:block th:replace="fragments/front/common :: autoFooterMenu"></th:block>
 
-	<div id="page" class="container">
+	<div id="page" class="container task-list-page">
 		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
+
 		<div class="page-content header-clear-medium">
-			<div class="card card-style preload-img" data-src="/front/images/pictures/18.jpg" data-card-height="130">
-				<div class="card-center ms-3">
-					<h1 class="color-white mb-0">발주 리스트</h1>
-					<p class="color-white mt-n1 mb-0">발주를 통해 진행된 업무 현황을 파악할 수 있습니다.</p>
-				</div>
-				<div class="card-center me-3">
-					<a href="/index" data-back-button
-						class="btn btn-m float-end rounded-xl shadow-xl text-uppercase font-800 bg-highlight">홈</a>
-				</div>
-				<div class="card-overlay bg-black opacity-80"></div>
-			</div>
-			<!-- 날짜 필터 -->
-			<div class="card card-style">
-				<div class="content mb-0">
-					<form method="get" th:action="@{/customer/taskList}" class="row">
-						<div class="row">
-							<div class="input-style no-borders has-icon mt-1 col-6">
-								<input type="date" name="startDate" th:value="${startDate}"
-									class="form-control validate-text">
-							</div>
-							<div class="input-style no-borders has-icon mt-1 col-6">
-								<input type="date" class="form-control" name="endDate" th:value="${endDate}">
-								<button type="submit">검색</button>
-							</div>
 
+			<form method="get" th:action="@{/customer/taskList}" id="task-list-filter-form" class="task-list-filter-form">
+				<input type="hidden" name="page" value="0">
+				<input type="hidden" name="sort" id="task-list-sort-value" th:value="${filter.sort}">
+
+				<section class="task-list-filter-panel">
+					<div class="row g-2 align-items-end">
+						<div class="col-xl-1 col-lg-2 col-md-3 col-6">
+							<label class="task-list-filter-label" for="task-list-size">표시 수</label>
+							<select id="task-list-size" name="size" class="form-select form-select-sm task-list-control">
+								<option value="30" th:selected="${filter.size == 30}">30건</option>
+								<option value="50" th:selected="${filter.size == 50}">50건</option>
+								<option value="70" th:selected="${filter.size == 70}">70건</option>
+								<option value="100" th:selected="${filter.size == 100}">100건</option>
+								<option value="200" th:selected="${filter.size == 200}">200건</option>
+							</select>
 						</div>
-					</form>
-				</div>
-			</div>
 
-			<div class="card card-style" th:each="task : ${taskPage.content}">
-				<a th:href="@{'/customer/taskDetail/' + ${task.id}}">
-					<div class="content">
-						<h3 class="mb-1" th:text="'TASK-' + ${task.id}">TASK TITLE</h3>
-						<p class="font-11 mt-n2 mb-0 opacity-50">제품 발주</p>
-						<div class="row mb-n2 color-theme">
-							<div class="col-6 font-10 text-start">
-								<span class="badge bg-black color-white font-10 mt-2">발주</span>
-								<span class="badge bg-black color-white font-10 mt-2"
-									th:text="${task.status}">처리상태</span>
-							</div>
-							<div class="col-6 font-10 text-end opacity-30">
-								<i class="fa fa-calendar pe-2"></i>
-								<span th:text="${#temporals.format(task.createdAt, 'yyyy.MM.dd')}"></span>
+						<div class="col-xl-2 col-lg-3 col-md-4 col-6">
+							<label class="task-list-filter-label" for="task-list-text-type">검색 항목</label>
+							<select id="task-list-text-type" name="textType" class="form-select form-select-sm task-list-control">
+								<option value="ordererName" th:selected="${filter.textType == null or filter.textType == 'ordererName'}">주문자명</option>
+								<option value="ordererPhone" th:selected="${filter.textType == 'ordererPhone'}">주문자 연락처</option>
+								<option value="taskId" th:selected="${filter.textType == 'taskId'}">Task ID</option>
+								<option value="orderId" th:selected="${filter.textType == 'orderId'}">Order ID</option>
+							</select>
+						</div>
+
+						<div class="col-xl-5 col-lg-4 col-md-5 col-12">
+							<label class="task-list-filter-label" for="task-list-keyword">검색어</label>
+							<input id="task-list-keyword" type="text" name="keyword" th:value="${filter.keyword}"
+								class="form-control form-control-sm task-list-control" placeholder="검색어를 입력해 주세요.">
+						</div>
+
+						<div class="col-xl-4 col-lg-3 col-12">
+							<div class="task-list-filter-actions">
+								<button type="submit" class="btn btn-sm bg-highlight color-white task-list-search-btn"><i class="fa fa-search me-1"></i>검색</button>
+								<button type="button" class="btn btn-sm btn-outline-secondary task-list-advanced-btn" data-bs-toggle="modal" data-bs-target="#task-list-advanced-modal"><i class="fa fa-sliders-h me-1"></i>고급검색</button>
+								<button type="button" id="task-list-excel-download"
+									class="btn btn-sm btn-outline-success task-list-excel-btn">
+									<i class="fa fa-file-excel me-1"></i>엑셀다운로드
+								</button>
 							</div>
 						</div>
 					</div>
-				</a>
-			</div>
-			<div class="pagination pagination-style-1 d-flex justify-content-center mt-4">
-				<ul class="pagination">
 
-					<!-- FIRST -->
-					<li class="page-item" th:classappend="${taskPage.first} ? 'disabled'">
-						<a class="page-link"
-							th:href="@{${pageableUrl}(page=0, startDate=${startDate}, endDate=${endDate})}">FIRST</a>
+					<div class="task-list-filter-summary"
+						th:if="${filter.startDate != null or filter.endDate != null or (filter.status != null and filter.status != 'all') or (filter.category != null and filter.category != 'all') or filter.provinceId != null}">
+						<span class="task-list-filter-chip" th:if="${filter.startDate != null or filter.endDate != null}"
+							th:text="${(filter.dateType == 'delivery' ? '배송예정일' : '발주일') + ' ' + (filter.startDate != null ? filter.startDate : '처음') + ' ~ ' + (filter.endDate != null ? filter.endDate : '이후 전체')}"></span>
+						<span class="task-list-filter-chip" th:if="${selectedOrderStatusLabel != null}"
+							th:text="${selectedOrderStatusLabel}"></span>
+						<span class="task-list-filter-chip" th:if="${filter.category != null and filter.category != 'all'}" th:text="${filter.category}"></span>
+						<span class="task-list-filter-chip" th:if="${filter.provinceId != null}">배송 지역 필터 적용</span>
+					</div>
+				</section>
+
+			</form>
+
+			<section class="task-list-table-panel">
+				<div class="task-list-table-meta">
+					<div><strong th:text="${#numbers.formatInteger(taskPage.totalElements, 1, 'COMMA') + '건'}">0건</strong><span>조회되었습니다.</span></div>
+					<div class="task-list-sort-guide"><i class="fa fa-sort me-1"></i>행을 클릭하면 통합 상세페이지로 이동합니다.</div>
+				</div>
+
+				<div class="task-list-table-scroll">
+					<table class="table task-list-table align-middle mb-0">
+						<colgroup>
+							<col class="task-list-col-id"><col class="task-list-col-orderer"><col class="task-list-col-phone">
+							<col class="task-list-col-orders"><col class="task-list-col-method"><col class="task-list-col-address">
+							<col class="task-list-col-date"><col class="task-list-col-date"><col class="task-list-col-price">
+							<col class="task-list-col-status"><col class="task-list-col-manager">
+						</colgroup>
+						<thead>
+							<tr>
+								<th><div class="task-list-sortable-head"><span>Task ID</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="id" data-sort-dir="asc">↑</button><button type="button" data-sort-field="id" data-sort-dir="desc">↓</button></span></div></th>
+								<th><div class="task-list-sortable-head"><span>주문자명</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="ordererName" data-sort-dir="asc">↑</button><button type="button" data-sort-field="ordererName" data-sort-dir="desc">↓</button></span></div></th>
+								<th class="text-center">연락</th>
+								<th>오더 구성</th>
+								<th><div class="task-list-sortable-head"><span>배송수단</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryMethod" data-sort-dir="asc">↑</button><button type="button" data-sort-field="deliveryMethod" data-sort-dir="desc">↓</button></span></div></th>
+								<th><div class="task-list-sortable-head"><span>배송지</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="address" data-sort-dir="asc">↑</button><button type="button" data-sort-field="address" data-sort-dir="desc">↓</button></span></div></th>
+								<th><div class="task-list-sortable-head"><span>발주일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="createdAt" data-sort-dir="asc">↑</button><button type="button" data-sort-field="createdAt" data-sort-dir="desc">↓</button></span></div></th>
+								<th><div class="task-list-sortable-head"><span>배송예정일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryDate" data-sort-dir="asc">↑</button><button type="button" data-sort-field="deliveryDate" data-sort-dir="desc">↓</button></span></div></th>
+								<th><div class="task-list-sortable-head"><span>금액</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="totalPrice" data-sort-dir="asc">↑</button><button type="button" data-sort-field="totalPrice" data-sort-dir="desc">↓</button></span></div></th>
+								<th><div class="task-list-sortable-head"><span>상태</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="status" data-sort-dir="asc">↑</button><button type="button" data-sort-field="status" data-sort-dir="desc">↓</button></span></div></th>
+								<th>담당자</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr class="task-list-main-row" th:each="row : ${taskPage.content}" th:attr="data-detail-url=@{'/customer/taskDetail/' + ${row.task.id}}">
+								<td class="task-list-id-cell" th:text="${'#' + row.task.id}">#1</td>
+								<td class="task-list-orderer-cell" th:text="${row.ordererName}">주문자</td>
+								<td class="text-center">
+									<a th:if="${row.ordererPhone != null and row.ordererPhone != '-'}" th:href="|tel:${row.ordererPhone}|" class="task-list-phone-link" title="주문자에게 전화"><i class="fa fa-phone"></i></a>
+									<span th:unless="${row.ordererPhone != null and row.ordererPhone != '-'}">-</span>
+								</td>
+								<td>
+									<div class="task-list-order-count"><strong th:text="${row.orderCount + '건'}">0건</strong></div>
+									<div class="task-list-category-badges">
+										<span class="task-list-category-badge" th:each="category : ${row.categoryCounts}"
+											th:classappend="${filter.category != null and filter.category != 'all' and filter.category == category.name} ? ' task-list-category-match'"
+											th:text="${category.name + ' ' + category.count + '개'}">거울 2개</span>
+									</div>
+								</td>
+								<td th:text="${row.deliveryMethodName}">현장배송</td>
+								<td class="task-list-address-cell" th:text="${row.deliveryAddress}">배송지</td>
+								<td th:text="${row.task.createdAt != null ? #temporals.format(row.task.createdAt, 'yyyy/MM/dd') : '-'}">-</td>
+								<td th:text="${row.deliveryDate != null ? #temporals.format(row.deliveryDate, 'yyyy/MM/dd') : '-'}">-</td>
+								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.task.totalPrice, 1, 'COMMA') + '원'}">0원</td>
+								<td><span class="task-list-status-badge" th:classappend="${' task-list-status-' + #strings.toLowerCase(row.statusKey)}" th:text="${row.statusLabel}">상태</span></td>
+								<td th:text="${row.managerName}">미지정</td>
+							</tr>
+							<tr th:if="${taskPage.empty}"><td colspan="11" class="task-list-empty-cell">조건에 맞는 발주 내역이 없습니다.</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<nav class="task-list-pagination-wrap" th:if="${taskPage.totalPages > 0}" aria-label="발주 목록 페이지">
+				<ul class="pagination pagination-sm mb-0">
+					<li class="page-item" th:classappend="${taskPage.first} ? ' disabled'">
+						<button type="button" class="page-link task-list-page-btn" data-page="0"
+							th:disabled="${taskPage.first}">FIRST</button>
 					</li>
-
-					<!-- PREVIOUS -->
-					<li class="page-item" th:classappend="${taskPage.hasPrevious()} ? '' : 'disabled'">
-						<a class="page-link"
-							th:href="@{${pageableUrl}(page=${taskPage.number - 1}, startDate=${startDate}, endDate=${endDate})}">
-							PREVIOUS
-						</a>
+					<li class="page-item" th:classappend="${taskPage.first} ? ' disabled'">
+						<button type="button" class="page-link task-list-page-btn"
+							th:attr="data-page=${taskPage.hasPrevious() ? taskPage.number - 1 : 0}"
+							th:disabled="${taskPage.first}">PREV</button>
 					</li>
-
-					<!-- PAGE NUMBERS -->
-					<li class="page-item" th:each="i : ${#numbers.sequence(0, taskPage.totalPages - 1)}"
-						th:classappend="${taskPage.number == i} ? 'active'">
-						<a class="page-link"
-							th:href="@{${pageableUrl}(page=${i}, startDate=${startDate}, endDate=${endDate})}"
-							th:text="${i + 1}">1</a>
+					<li class="page-item"
+						th:if="${pageEnd >= pageStart}"
+						th:each="p : ${#numbers.sequence(pageStart, pageEnd)}"
+						th:classappend="${taskPage.number == p} ? ' active'">
+						<button type="button" class="page-link task-list-page-btn"
+							th:attr="data-page=${p}"
+							th:text="${p + 1}"
+							th:disabled="${taskPage.number == p}">1</button>
 					</li>
-
-					<!-- NEXT -->
-					<li class="page-item" th:classappend="${taskPage.hasNext()} ? '' : 'disabled'">
-						<a class="page-link"
-							th:href="@{${pageableUrl}(page=${taskPage.number + 1}, startDate=${startDate}, endDate=${endDate})}">
-							NEXT
-						</a>
+					<li class="page-item" th:classappend="${taskPage.last} ? ' disabled'">
+						<button type="button" class="page-link task-list-page-btn"
+							th:attr="data-page=${taskPage.hasNext() ? taskPage.number + 1 : taskPage.number}"
+							th:disabled="${taskPage.last}">NEXT</button>
 					</li>
-
-					<!-- LAST -->
-					<li class="page-item" th:classappend="${taskPage.last} ? 'disabled'">
-						<a class="page-link"
-							th:href="@{${pageableUrl}(page=${taskPage.totalPages - 1}, startDate=${startDate}, endDate=${endDate})}">
-							LAST
-						</a>
+					<li class="page-item" th:classappend="${taskPage.last} ? ' disabled'">
+						<button type="button" class="page-link task-list-page-btn"
+							th:attr="data-page=${taskPage.totalPages - 1}"
+							th:disabled="${taskPage.last}">LAST</button>
 					</li>
 				</ul>
-			</div>
+			</nav>
 		</div>
-		<th:block th:replace="fragments/front/common :: autoBottomMenu"></th:block>
 	</div>
+
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
+	<script src="/front/taskListV2.js"></script>
+
+	<div class="modal fade task-list-advanced-modal" id="task-list-advanced-modal" tabindex="-1"
+		aria-labelledby="task-list-advanced-modal-title" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+			<div class="modal-content task-list-advanced-modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title task-list-advanced-title" id="task-list-advanced-modal-title">발주 고급검색</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+				<div class="modal-body">
+					<div class="row g-3">
+						<div class="col-lg-4 col-md-6">
+							<label class="task-list-filter-label" for="task-list-date-type">날짜 기준</label>
+							<select id="task-list-date-type" name="dateType" form="task-list-filter-form"
+								class="form-select task-list-control">
+								<option value="created" th:selected="${filter.dateType == null or filter.dateType == 'created'}">발주일</option>
+								<option value="delivery" th:selected="${filter.dateType == 'delivery'}">배송예정일</option>
+							</select>
+						</div>
+						<div class="col-lg-4 col-md-6">
+							<label class="task-list-filter-label" for="task-list-start-date">From</label>
+							<input id="task-list-start-date" type="date" name="startDate" form="task-list-filter-form"
+								th:value="${filter.startDate}" class="form-control task-list-control">
+						</div>
+						<div class="col-lg-4 col-md-6">
+							<label class="task-list-filter-label" for="task-list-end-date">To</label>
+							<input id="task-list-end-date" type="date" name="endDate" form="task-list-filter-form"
+								th:value="${filter.endDate}" class="form-control task-list-control">
+						</div>
+
+						<div class="col-lg-6 col-md-6">
+							<label class="task-list-filter-label" for="task-list-status">오더 상태</label>
+							<select id="task-list-status" name="status" form="task-list-filter-form"
+								class="form-select task-list-control">
+								<option value="all" th:selected="${filter.status == null or filter.status == 'all'}">전체</option>
+								<option th:each="status : ${orderStatuses}" th:value="${status.name()}"
+									th:text="${status.label}" th:selected="${filter.status == status.name()}"></option>
+							</select>
+						</div>
+						<div class="col-lg-6 col-md-6">
+							<label class="task-list-filter-label" for="task-list-category">제품 카테고리</label>
+							<select id="task-list-category" name="category" form="task-list-filter-form"
+								class="form-select task-list-control">
+								<option value="all" th:selected="${filter.category == null or filter.category == 'all'}">전체</option>
+								<option th:each="category : ${taskCategories}" th:value="${category}"
+									th:text="${category}" th:selected="${filter.category == category}"></option>
+							</select>
+						</div>
+
+						<div class="col-12"><div class="task-list-advanced-divider"></div></div>
+
+						<div class="col-lg-4 col-md-6">
+							<label class="task-list-filter-label" for="task-list-province">도 / 광역시</label>
+							<select id="task-list-province" name="provinceId" form="task-list-filter-form"
+								class="form-select task-list-control">
+								<option value="">전체 지역</option>
+								<option th:each="province : ${regionProvinces}" th:value="${province.id}"
+									th:text="${province.name}" th:selected="${filter.provinceId == province.id}"></option>
+							</select>
+						</div>
+						<div class="col-lg-4 col-md-6" id="task-list-city-wrap"
+							th:classappend="${regionMode != 'CITY'} ? ' d-none'">
+							<label class="task-list-filter-label" for="task-list-city">시 / 군</label>
+							<select id="task-list-city" name="cityId" form="task-list-filter-form"
+								class="form-select task-list-control">
+								<option value="">전체</option>
+								<option th:each="city : ${regionCities}" th:value="${city.id}"
+									th:text="${city.name}" th:selected="${filter.cityId == city.id}"></option>
+							</select>
+						</div>
+						<div class="col-lg-4 col-md-6" id="task-list-district-wrap"
+							th:classappend="${regionDistricts == null or regionDistricts.isEmpty()} ? ' d-none'">
+							<label class="task-list-filter-label" for="task-list-district">구 / 군</label>
+							<select id="task-list-district" name="districtId" form="task-list-filter-form"
+								class="form-select task-list-control">
+								<option value="">전체</option>
+								<option th:each="district : ${regionDistricts}" th:value="${district.id}"
+									th:text="${district.name}" th:selected="${filter.districtId == district.id}"></option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-sm btn-light task-list-advanced-reset">고급조건 초기화</button>
+					<button type="submit" form="task-list-filter-form"
+						class="btn btn-sm bg-highlight color-white task-list-advanced-apply">조건 적용</button>
+				</div>
+			</div>
+		</div>
+	</div>
 
 </body>
-
 </html>

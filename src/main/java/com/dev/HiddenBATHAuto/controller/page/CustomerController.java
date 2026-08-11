@@ -3,7 +3,6 @@ package com.dev.HiddenBATHAuto.controller.page;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -18,11 +17,9 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,21 +40,31 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dev.HiddenBATHAuto.dto.as.CustomerAsUpdateRequest;
+import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.AsListFilter;
+import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.AsListRow;
+import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskListFilter;
+import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskListRow;
 import com.dev.HiddenBATHAuto.enums.AsBillingTarget;
+import com.dev.HiddenBATHAuto.model.auth.City;
 import com.dev.HiddenBATHAuto.model.auth.Company;
+import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
+import com.dev.HiddenBATHAuto.model.auth.Province;
+import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.ProductMark;
 import com.dev.HiddenBATHAuto.model.task.Task;
-import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
-import com.dev.HiddenBATHAuto.repository.as.AsTaskScheduleRepository;
+import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
+import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductMarkRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
@@ -65,6 +72,8 @@ import com.dev.HiddenBATHAuto.service.as.AsTaskService;
 import com.dev.HiddenBATHAuto.service.auth.CustomerOrdererInfoService;
 import com.dev.HiddenBATHAuto.service.auth.AddressRegionResolver;
 import com.dev.HiddenBATHAuto.service.auth.MemberService;
+import com.dev.HiddenBATHAuto.service.customer.CustomerExcelExportService;
+import com.dev.HiddenBATHAuto.service.customer.CustomerListViewService;
 import com.dev.HiddenBATHAuto.utils.FileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -83,7 +92,6 @@ public class CustomerController {
 	private final MemberRepository memberRepository;
 	private final AsTaskService asTaskService;
 	private final TaskRepository taskRepository;
-	private final AsTaskRepository asTaskRepository;
 	private final OrderRepository orderRepository;
 	private final ObjectMapper objectMapper;
 	private final CompanyRepository companyRepository;
@@ -91,8 +99,12 @@ public class CustomerController {
 	private final MemberService memberService;
 	private final AddressRegionResolver addressRegionResolver;
 	private final ProductMarkRepository productMarkRepository;
-	private final AsTaskScheduleRepository asTaskScheduleRepository;
 	private final CustomerOrdererInfoService customerOrdererInfoService;
+	private final ProvinceRepository provinceRepository;
+	private final CityRepository cityRepository;
+	private final DistrictRepository districtRepository;
+	private final CustomerListViewService customerListViewService;
+	private final CustomerExcelExportService customerExcelExportService;
 	
 	@GetMapping("/productMarkList")
 	public String productMarkList(Model model, @AuthenticationPrincipal PrincipalDetails principalDetails)
@@ -119,23 +131,40 @@ public class CustomerController {
 
 	@GetMapping("/taskList")
 	public String taskList(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-			@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+			@ModelAttribute TaskListFilter filter,
 			Model model) {
 
 		Long companyId = principal.getMember().getCompany().getId();
+		filter.setPage(customerListViewService.normalizePage(filter.getPage()));
+		filter.setSize(customerListViewService.normalizePageSize(filter.getSize()));
 
-		LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-		LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
-
-		Page<Task> taskPage = taskRepository.findByCompanyIdAndCreatedAtBetween(companyId, start, end, pageable);
+		Page<TaskListRow> taskPage = customerListViewService.searchTaskList(companyId, filter);
 
 		model.addAttribute("taskPage", taskPage);
-		model.addAttribute("startDate", startDate);
-		model.addAttribute("endDate", endDate);
+		model.addAttribute("filter", filter);
+		model.addAttribute("orderStatuses", OrderStatus.values());
+		model.addAttribute("selectedOrderStatusLabel", resolveOrderStatusLabel(filter.getStatus()));
+		model.addAttribute("taskCategories", List.of("상부장", "하부장", "슬라이드장", "거울", "플랩장", "LED거울"));
+		addPaginationModel(model, taskPage);
+		addRegionSelectionModel(model, filter.getProvinceId(), filter.getCityId());
 
 		return "front/customer/task/taskList";
+	}
+
+	@GetMapping("/taskList/excel")
+	@ResponseBody
+	public ResponseEntity<byte[]> taskListExcel(@AuthenticationPrincipal PrincipalDetails principal,
+			@ModelAttribute TaskListFilter filter) {
+
+		Long companyId = principal.getMember().getCompany().getId();
+		filter.setPage(0);
+		filter.setSize(customerListViewService.normalizePageSize(filter.getSize()));
+
+		List<TaskListRow> rows = customerListViewService.searchTaskListAll(companyId, filter);
+		List<String> filterDescriptions = customerListViewService.describeTaskFilters(filter, rows.size());
+		byte[] workbook = customerExcelExportService.buildTaskListWorkbook(rows, filterDescriptions);
+
+		return excelResponse("task_list_" + LocalDate.now() + ".xlsx", workbook);
 	}
 
 	@GetMapping("/taskDetail/{taskId}")
@@ -148,7 +177,18 @@ public class CustomerController {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN);
 		}
 
+		List<Order> taskOrders = task.getOrders() == null ? List.of() : task.getOrders().stream()
+				.filter(Objects::nonNull)
+				.sorted(Comparator.comparing(Order::getId, Comparator.nullsLast(Long::compareTo)))
+				.toList();
+
+		for (Order order : taskOrders) {
+			prepareOrderOptionMap(order);
+		}
+
 		model.addAttribute("task", task);
+		model.addAttribute("taskOrders", taskOrders);
+		model.addAttribute("taskSummary", customerListViewService.buildTaskListRow(task));
 		return "front/customer/task/taskDetail";
 	}
 
@@ -166,65 +206,171 @@ public class CustomerController {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "해당 주문에 접근할 수 없습니다.");
 		}
 
-		OrderItem item = order.getOrderItem();
-		if (item != null && item.getOptionJson() != null) {
-			try {
-				Map<String, String> parsedMap = objectMapper.readValue(item.getOptionJson(), new TypeReference<>() {
-				});
-				item.setParsedOptionMap(parsedMap);
-			} catch (IOException e) {
-				throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "옵션 데이터를 파싱할 수 없습니다.");
-			}
-		}
+		prepareOrderOptionMap(order);
 
 		model.addAttribute("order", order);
+		model.addAttribute("taskSummary", customerListViewService.buildTaskListRow(order.getTask()));
 		return "front/customer/task/orderDetail";
 	}
 
 	@GetMapping("/asList")
 	public String asList(@AuthenticationPrincipal PrincipalDetails principal,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-			@PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable,
+			@ModelAttribute AsListFilter filter,
 			Model model) {
 
 		Long companyId = principal.getMember().getCompany().getId();
+		filter.setPage(customerListViewService.normalizePage(filter.getPage()));
+		filter.setSize(customerListViewService.normalizePageSize(filter.getSize()));
 
-		LocalDateTime start = (startDate != null) ? startDate.atStartOfDay() : null;
-		LocalDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX) : null;
-
-		Page<AsTask> asTaskPage = asTaskRepository.findByCompanyIdAndRequestedAtRange(companyId, start, end, pageable);
-
-		Map<Long, LocalDate> asScheduleDateMap = new HashMap<>();
-		List<Long> taskIds = asTaskPage.getContent().stream().map(AsTask::getId).toList();
-
-		if (!taskIds.isEmpty()) {
-			asTaskScheduleRepository.findSimpleByAsTaskIdIn(taskIds).forEach(v -> {
-				asScheduleDateMap.put(v.getAsTaskId(), v.getScheduledDate());
-			});
-		}
-
-		Map<Long, String> asHandlerNameMap = new HashMap<>();
-		Map<Long, String> asHandlerContactMap = new HashMap<>();
-
-		for (AsTask asTask : asTaskPage.getContent()) {
-			Member assignedHandler = asTask.getAssignedHandler();
-
-			asHandlerNameMap.put(asTask.getId(), resolveHandlerName(assignedHandler));
-			asHandlerContactMap.put(asTask.getId(), resolveContact(assignedHandler));
-		}
+		Page<AsListRow> asTaskPage = customerListViewService.searchAsList(companyId, filter);
 
 		model.addAttribute("asTaskPage", asTaskPage);
-		model.addAttribute("startDate", startDate);
-		model.addAttribute("endDate", endDate);
-		model.addAttribute("asScheduleDateMap", asScheduleDateMap);
-		model.addAttribute("asHandlerNameMap", asHandlerNameMap);
-		model.addAttribute("asHandlerContactMap", asHandlerContactMap);
-
-		// ✅ 추가
+		model.addAttribute("filter", filter);
 		model.addAttribute("billingTargets", AsBillingTarget.values());
+		model.addAttribute("asStatuses", AsStatus.values());
+		addPaginationModel(model, asTaskPage);
+		addRegionSelectionModel(model, filter.getProvinceId(), filter.getCityId());
 
 		return "front/customer/task/asList";
+	}
+
+	@GetMapping("/asList/excel")
+	@ResponseBody
+	public ResponseEntity<byte[]> asListExcel(@AuthenticationPrincipal PrincipalDetails principal,
+			@ModelAttribute AsListFilter filter) {
+
+		Long companyId = principal.getMember().getCompany().getId();
+		filter.setPage(0);
+		filter.setSize(customerListViewService.normalizePageSize(filter.getSize()));
+
+		List<AsListRow> rows = customerListViewService.searchAsListAll(companyId, filter);
+		List<String> filterDescriptions = customerListViewService.describeAsFilters(filter, rows.size());
+		byte[] workbook = customerExcelExportService.buildAsListWorkbook(rows, filterDescriptions);
+
+		return excelResponse("as_list_" + LocalDate.now() + ".xlsx", workbook);
+	}
+
+	@GetMapping("/api/regions/province/{provinceId}/children")
+	@ResponseBody
+	public Map<String, Object> customerRegionChildren(@PathVariable Long provinceId) {
+		List<City> cities = cityRepository.findByProvinceId(provinceId).stream()
+				.sorted(Comparator.comparing(City::getName, Comparator.nullsLast(String::compareTo)))
+				.toList();
+
+		if (!cities.isEmpty()) {
+			return Map.of(
+					"mode", "CITY",
+					"items", cities.stream().map(city -> Map.of("id", city.getId(), "name", city.getName() != null ? city.getName() : "-")).toList());
+		}
+
+		List<District> districts = districtRepository.findByProvinceId(provinceId).stream()
+				.sorted(Comparator.comparing(District::getName, Comparator.nullsLast(String::compareTo)))
+				.toList();
+
+		return Map.of(
+				"mode", districts.isEmpty() ? "NONE" : "DISTRICT",
+				"items", districts.stream().map(district -> Map.of("id", district.getId(), "name", district.getName() != null ? district.getName() : "-")).toList());
+	}
+
+	@GetMapping("/api/regions/city/{cityId}/districts")
+	@ResponseBody
+	public Map<String, Object> customerCityDistricts(@PathVariable Long cityId) {
+		List<District> districts = districtRepository.findByCityId(cityId).stream()
+				.sorted(Comparator.comparing(District::getName, Comparator.nullsLast(String::compareTo)))
+				.toList();
+
+		return Map.of(
+				"mode", districts.isEmpty() ? "NONE" : "DISTRICT",
+				"items", districts.stream().map(district -> Map.of("id", district.getId(), "name", district.getName() != null ? district.getName() : "-")).toList());
+	}
+
+	private String resolveOrderStatusLabel(String rawStatus) {
+		if (rawStatus == null || rawStatus.isBlank() || "all".equalsIgnoreCase(rawStatus)) {
+			return null;
+		}
+
+		try {
+			return OrderStatus.valueOf(rawStatus.trim().toUpperCase()).getLabel();
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+	}
+
+	private void prepareOrderOptionMap(Order order) {
+		if (order == null) {
+			return;
+		}
+
+		OrderItem item = order.getOrderItem();
+		if (item == null || item.getOptionJson() == null || item.getOptionJson().isBlank()) {
+			return;
+		}
+
+		try {
+			Map<String, String> parsedMap = objectMapper.readValue(
+					item.getOptionJson(),
+					new TypeReference<Map<String, String>>() {
+					});
+			item.setParsedOptionMap(parsedMap);
+		} catch (IOException e) {
+			item.setParsedOptionMap(new HashMap<>());
+		}
+	}
+
+	private void addPaginationModel(Model model, Page<?> page) {
+		if (page == null || page.getTotalPages() <= 0) {
+			model.addAttribute("pageStart", 0);
+			model.addAttribute("pageEnd", -1);
+			return;
+		}
+
+		int start = (page.getNumber() / 5) * 5;
+		int end = Math.min(start + 4, page.getTotalPages() - 1);
+		model.addAttribute("pageStart", start);
+		model.addAttribute("pageEnd", end);
+	}
+
+	private void addRegionSelectionModel(Model model, Long provinceId, Long cityId) {
+		List<Province> provinces = provinceRepository.findAll().stream()
+				.sorted(Comparator.comparing(Province::getName, Comparator.nullsLast(String::compareTo)))
+				.toList();
+
+		List<City> cities = List.of();
+		List<District> districts = List.of();
+		String regionMode = "NONE";
+
+		if (provinceId != null) {
+			cities = cityRepository.findByProvinceId(provinceId).stream()
+					.sorted(Comparator.comparing(City::getName, Comparator.nullsLast(String::compareTo)))
+					.toList();
+
+			if (!cities.isEmpty()) {
+				regionMode = "CITY";
+				if (cityId != null) {
+					districts = districtRepository.findByCityId(cityId).stream()
+							.sorted(Comparator.comparing(District::getName, Comparator.nullsLast(String::compareTo)))
+							.toList();
+				}
+			} else {
+				districts = districtRepository.findByProvinceId(provinceId).stream()
+						.sorted(Comparator.comparing(District::getName, Comparator.nullsLast(String::compareTo)))
+						.toList();
+				regionMode = districts.isEmpty() ? "NONE" : "DISTRICT";
+			}
+		}
+
+		model.addAttribute("regionProvinces", provinces);
+		model.addAttribute("regionCities", cities);
+		model.addAttribute("regionDistricts", districts);
+		model.addAttribute("regionMode", regionMode);
+	}
+
+	private ResponseEntity<byte[]> excelResponse(String filename, byte[] workbook) {
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+				.contentType(MediaType.parseMediaType(
+						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(workbook);
 	}
 
 	@PostMapping("/asUpdate/{id}")
@@ -883,20 +1029,67 @@ public class CustomerController {
 
 	@PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
 	@GetMapping("/memberList")
-	public String memberList(@AuthenticationPrincipal PrincipalDetails principal, Model model) {
-		Member loginMember = principal.getMember();
-		List<Member> employees = memberService.getCompanyEmployees(loginMember.getCompany());
+	public String memberList(
+			@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false) Long focusMemberId,
+			Model model) {
 
+		Member loginMember = principal.getMember();
+		Company loginCompany = loginMember.getCompany();
+
+		if (loginCompany == null || loginCompany.getId() == null) {
+			throw new IllegalStateException("회사 정보가 없습니다.");
+		}
+
+		List<Member> employees = memberService.getCompanyEmployees(loginCompany).stream()
+				.sorted(Comparator
+						.comparing(Member::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+						.thenComparing(Member::getId, Comparator.nullsLast(Long::compareTo)))
+				.toList();
+
+		long activeEmployeeCount = employees.stream()
+				.filter(Member::isEnabled)
+				.count();
+
+		Long validatedFocusMemberId = null;
+		if (focusMemberId != null
+				&& employees.stream().anyMatch(member -> Objects.equals(member.getId(), focusMemberId))) {
+			validatedFocusMemberId = focusMemberId;
+		}
+
+		model.addAttribute("company", loginCompany);
 		model.addAttribute("employees", employees);
+		model.addAttribute("employeeCount", employees.size());
+		model.addAttribute("activeEmployeeCount", activeEmployeeCount);
+		model.addAttribute("inactiveEmployeeCount", employees.size() - activeEmployeeCount);
+		model.addAttribute("focusMemberId", validatedFocusMemberId);
+
 		return "front/customer/member/memberList";
 	}
 
+	/**
+	 * 기존 상세 URL 호환용입니다.
+	 *
+	 * 직원 관리 기능을 memberList 한 페이지로 통합했으므로
+	 * 기존 /memberManager/{id} 접근은 동일 회사 소속 여부를 검증한 뒤
+	 * 통합 직원관리 페이지의 해당 직원 상세영역으로 이동시킵니다.
+	 */
 	@PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
 	@GetMapping("/memberManager/{id}")
-	public String memberManager(@PathVariable Long id, Model model) {
-		Member member = memberService.getMemberById(id);
-		model.addAttribute("member", member);
-		return "front/customer/member/memberManager";
+	public String memberManager(
+			@PathVariable Long id,
+			@AuthenticationPrincipal PrincipalDetails principal) {
+
+		Member loginMember = principal.getMember();
+		Member targetMember = memberService.getMemberById(id);
+
+		if (loginMember.getCompany() == null
+				|| targetMember.getCompany() == null
+				|| !Objects.equals(loginMember.getCompany().getId(), targetMember.getCompany().getId())) {
+			throw new AccessDeniedException("해당 직원은 당신 회사 소속이 아닙니다.");
+		}
+
+		return "redirect:/customer/memberList?focusMemberId=" + targetMember.getId();
 	}
 
 	@PostMapping("/toggleMemberEnabled")
@@ -904,20 +1097,31 @@ public class CustomerController {
 	@PreAuthorize("hasAuthority('ROLE_CUSTOMER_REPRESENTATIVE')")
 	public Map<String, String> toggleMemberEnabled(@RequestBody Map<String, Object> payload,
 			@AuthenticationPrincipal PrincipalDetails principal) {
+
+		if (payload == null || payload.get("memberId") == null || payload.get("enabled") == null) {
+			throw new IllegalArgumentException("직원 상태 변경 요청값이 올바르지 않습니다.");
+		}
+
 		Long memberId = Long.valueOf(payload.get("memberId").toString());
 		Boolean enabled = Boolean.valueOf(payload.get("enabled").toString());
 
+		Member loginMember = principal.getMember();
 		Member member = memberService.getMemberById(memberId);
 
-		// 소속 검증
-		if (!member.getCompany().getId().equals(principal.getMember().getCompany().getId())) {
+		if (loginMember.getCompany() == null
+				|| member.getCompany() == null
+				|| !Objects.equals(member.getCompany().getId(), loginMember.getCompany().getId())) {
 			throw new AccessDeniedException("해당 직원은 당신 회사 소속이 아닙니다.");
 		}
 
 		member.setEnabled(enabled);
+		member.setUpdatedAt(LocalDateTime.now());
 		memberRepository.save(member);
 
-		return Map.of("message", enabled ? "접속이 허용되었습니다." : "접속이 차단되었습니다.");
+		return Map.of(
+				"message", enabled ? "접속이 허용되었습니다." : "접속이 차단되었습니다.",
+				"enabled", enabled.toString()
+		);
 	}
 
 }
