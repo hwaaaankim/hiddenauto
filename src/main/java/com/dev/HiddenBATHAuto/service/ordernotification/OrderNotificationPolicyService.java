@@ -52,7 +52,11 @@ public class OrderNotificationPolicyService {
         for (OrderNotificationRecipientGroup group : OrderNotificationRecipientGroup.values()) {
             OrderNotificationPolicy row = stored.get(group);
             if (row != null) {
-                result.put(group, new ChannelPolicy(row.isWebEnabled(), row.isKakaoEnabled()));
+                result.put(group, new ChannelPolicy(
+                        row.isWebEnabled(),
+                        row.isKakaoEnabled(),
+                        row.isImportantEnabled()
+                ));
                 continue;
             }
 
@@ -60,11 +64,12 @@ public class OrderNotificationPolicyService {
             if (definition != null) {
                 result.put(group, new ChannelPolicy(
                         definition.defaultWebEnabled(),
-                        definition.defaultKakaoEnabled()
+                        definition.defaultKakaoEnabled(),
+                        definition.defaultImportantEnabled()
                 ));
             } else {
                 // 아직 관리화면 카탈로그에 추가되지 않은 신규 operation도 기존 발송 흐름을 보존합니다.
-                result.put(group, new ChannelPolicy(true, true));
+                result.put(group, new ChannelPolicy(true, true, false));
             }
         }
         return result;
@@ -82,8 +87,12 @@ public class OrderNotificationPolicyService {
                 : recipientGroup;
         OrderNotificationPolicyCatalog.Definition definition = catalog.find(safeSource, safeAction, safeGroup);
         return definition == null
-                ? new ChannelPolicy(true, true)
-                : new ChannelPolicy(definition.defaultWebEnabled(), definition.defaultKakaoEnabled());
+                ? new ChannelPolicy(true, true, false)
+                : new ChannelPolicy(
+                        definition.defaultWebEnabled(),
+                        definition.defaultKakaoEnabled(),
+                        definition.defaultImportantEnabled()
+                );
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +115,9 @@ public class OrderNotificationPolicyService {
             boolean kakaoEnabled = stored != null
                     ? stored.isKakaoEnabled()
                     : definition.defaultKakaoEnabled();
+            boolean importantEnabled = stored != null
+                    ? stored.isImportantEnabled()
+                    : definition.defaultImportantEnabled();
 
             OrderNotificationPolicyRowDto dto = OrderNotificationPolicyRowDto.builder()
                     .key(key)
@@ -118,6 +130,7 @@ public class OrderNotificationPolicyService {
                     .description(definition.description())
                     .webEnabled(webEnabled)
                     .kakaoEnabled(kakaoEnabled)
+                    .importantEnabled(importantEnabled)
                     .configurable(definition.configurable())
                     .build();
 
@@ -128,9 +141,15 @@ public class OrderNotificationPolicyService {
     }
 
     @Transactional
-    public void saveAll(Set<String> webKeys, Set<String> kakaoKeys, Member actor) {
+    public void saveAll(
+            Set<String> webKeys,
+            Set<String> kakaoKeys,
+            Set<String> importantKeys,
+            Member actor
+    ) {
         Set<String> normalizedWebKeys = normalizeKeys(webKeys);
         Set<String> normalizedKakaoKeys = normalizeKeys(kakaoKeys);
+        Set<String> normalizedImportantKeys = normalizeKeys(importantKeys);
         Map<String, OrderNotificationPolicy> existing = policyRepository.findAll().stream()
                 .collect(Collectors.toMap(
                         row -> key(row.getSourceArea(), row.getAction(), row.getRecipientGroup()),
@@ -149,6 +168,7 @@ public class OrderNotificationPolicyService {
             String key = definition.key();
             boolean webEnabled = normalizedWebKeys.contains(key);
             boolean kakaoEnabled = normalizedKakaoKeys.contains(key);
+            boolean importantEnabled = normalizedImportantKeys.contains(key);
             OrderNotificationPolicy row = existing.get(key);
             if (row == null) {
                 row = OrderNotificationPolicy.create(
@@ -157,11 +177,12 @@ public class OrderNotificationPolicyService {
                         definition.recipientGroup(),
                         webEnabled,
                         kakaoEnabled,
+                        importantEnabled,
                         actorId,
                         actorUsername
                 );
             } else {
-                row.update(webEnabled, kakaoEnabled, actorId, actorUsername);
+                row.update(webEnabled, kakaoEnabled, importantEnabled, actorId, actorUsername);
             }
             saves.add(row);
         }
@@ -186,9 +207,9 @@ public class OrderNotificationPolicyService {
         return sourceArea.name() + "|" + action.name() + "|" + recipientGroup.name();
     }
 
-    public record ChannelPolicy(boolean webEnabled, boolean kakaoEnabled) {
+    public record ChannelPolicy(boolean webEnabled, boolean kakaoEnabled, boolean importantEnabled) {
         public boolean disabled() {
-            return !webEnabled && !kakaoEnabled;
+            return !webEnabled && !kakaoEnabled && !importantEnabled;
         }
     }
 }

@@ -59,6 +59,9 @@ public class OrderNotificationPolicy {
     @Column(name = "kakao_enabled", nullable = false)
     private boolean kakaoEnabled;
 
+    @Column(name = "important_enabled", nullable = false)
+    private boolean importantEnabled;
+
     @Column(name = "updated_by_member_id")
     private Long updatedByMemberId;
 
@@ -77,6 +80,7 @@ public class OrderNotificationPolicy {
             OrderNotificationRecipientGroup recipientGroup,
             boolean webEnabled,
             boolean kakaoEnabled,
+            boolean importantEnabled,
             Long updatedByMemberId,
             String updatedByUsername
     ) {
@@ -84,18 +88,20 @@ public class OrderNotificationPolicy {
         policy.sourceArea = sourceArea;
         policy.action = action;
         policy.recipientGroup = recipientGroup;
-        policy.update(webEnabled, kakaoEnabled, updatedByMemberId, updatedByUsername);
+        policy.update(webEnabled, kakaoEnabled, importantEnabled, updatedByMemberId, updatedByUsername);
         return policy;
     }
 
     public void update(
             boolean webEnabled,
             boolean kakaoEnabled,
+            boolean importantEnabled,
             Long updatedByMemberId,
             String updatedByUsername
     ) {
         this.webEnabled = webEnabled;
         this.kakaoEnabled = kakaoEnabled;
+        this.importantEnabled = importantEnabled;
         this.updatedByMemberId = updatedByMemberId;
         this.updatedByUsername = normalize(updatedByUsername, 100);
         this.updatedAt = LocalDateTime.now();
