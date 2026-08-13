@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dev.HiddenBATHAuto.dto.ordernotification.OrderImportantNotificationBatchDto;
+import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationConfirmImportantRequest;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationItemDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationPageDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationReadLoadedRequest;
@@ -38,15 +40,43 @@ public class OrderNotificationController {
     public OrderNotificationPageDto list(
             @AuthenticationPrincipal PrincipalDetails principal,
             @RequestParam(required = false) OrderNotificationCategory category,
+            @RequestParam(defaultValue = "false") boolean importantOnly,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "50") int size
     ) {
         return notificationService.getNotifications(
                 principal != null ? principal.getMember() : null,
                 category,
+                importantOnly,
                 cursor,
                 size
         );
+    }
+
+    @GetMapping("/important/pending")
+    public OrderImportantNotificationBatchDto pendingImportant(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        return notificationService.getPendingImportantNotifications(
+                principal != null ? principal.getMember() : null,
+                size
+        );
+    }
+
+    @PostMapping("/important/confirm-loaded")
+    public ResponseEntity<Map<String, Object>> confirmImportantLoaded(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) OrderNotificationConfirmImportantRequest request
+    ) {
+        int updatedCount = notificationService.confirmImportant(
+                principal != null ? principal.getMember() : null,
+                request != null ? request.getNotificationIds() : null
+        );
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "updatedCount", updatedCount
+        ));
     }
 
     @PostMapping("/{notificationId}/read")

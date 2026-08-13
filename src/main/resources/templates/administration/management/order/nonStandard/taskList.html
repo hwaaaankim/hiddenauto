@@ -321,13 +321,13 @@
 												<col style="width:300px;">
 												<col style="width:70px;">
 
-												<!-- 비고는 넓게, 날짜는 정렬 아이콘까지 여유 있게 -->
-												<col style="width:520px;">
+												<!-- PC 가로 스크롤 최소화: 비고는 충분한 가독성을 유지하며 소폭 축소 -->
+												<col style="width:440px;">
 												<col style="width:110px;">
 												<col style="width:110px;">
 
-												<!-- 상태는 남는 공간 전체를 먹지 않도록 고정 -->
-												<col style="width:270px;">
+												<!-- 상태는 배지를 줄바꿈할 수 있으므로 비고보다 적극적으로 축소 -->
+												<col style="width:130px;">
 
 												<!-- 상세 버튼 우측 내부 여백 확보 -->
 												<col style="width:64px;">
@@ -821,7 +821,7 @@
 				<div>
 					<h3 class="admin-task-list-second-bulk-title">일괄보기</h3>
 					<p class="admin-task-list-second-bulk-desc">
-						현재 조회된 오더를 카드 형태로 한눈에 확인하고, 생산팀 전달 여부를 체크완료 처리합니다.
+						현재 페이지에 조회된 오더만 카드 형태로 한눈에 확인하고, 생산팀 전달 여부를 체크완료 처리합니다.
 					</p>
 				</div>
 
@@ -833,7 +833,7 @@
 
 			<div class="admin-task-list-second-bulk-toolbar">
 				<div class="admin-task-list-second-bulk-summary">
-					<span>현재 조회</span>
+					<span>현재 페이지</span>
 					<strong th:text="${bulkOrderCount}">0</strong>
 					<span>건</span>
 				</div>
@@ -1077,7 +1077,7 @@
 						</div>
 
 						<div class="admin-task-list-second-bulk-empty" th:if="${#lists.isEmpty(bulkOrderRows)}">
-							현재 조회된 오더가 없습니다.
+							현재 페이지에 조회된 오더가 없습니다.
 						</div>
 					</th:block>
 				</div>
@@ -1116,7 +1116,7 @@
 			alert(message);
 		});
 	</script>
-	<script src="/administration/assets/js/page/taskList.js"></script>
+	<script src="/administration/assets/js/page/taskList.js?v=20260813-2"></script>
 	<script src="/administration/assets/js/page/taskListOrderEditExtension.js"></script>
 
 </body>

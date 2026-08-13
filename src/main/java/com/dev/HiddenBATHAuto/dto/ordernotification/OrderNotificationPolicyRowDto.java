@@ -16,5 +16,6 @@ public class OrderNotificationPolicyRowDto {
     private String description;
     private boolean webEnabled;
     private boolean kakaoEnabled;
+    private boolean importantEnabled;
     private boolean configurable;
 }

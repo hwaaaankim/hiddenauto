@@ -36,11 +36,13 @@ public class AdminOrderNotificationPolicyController {
             @AuthenticationPrincipal PrincipalDetails principal,
             @RequestParam(required = false, name = "webKeys") Set<String> webKeys,
             @RequestParam(required = false, name = "kakaoKeys") Set<String> kakaoKeys,
+            @RequestParam(required = false, name = "importantKeys") Set<String> importantKeys,
             RedirectAttributes redirectAttributes
     ) {
         policyService.saveAll(
                 webKeys,
                 kakaoKeys,
+                importantKeys,
                 principal != null ? principal.getMember() : null
         );
         redirectAttributes.addFlashAttribute("savedMessage", "로깅 알림 발송 정책을 저장했습니다.");

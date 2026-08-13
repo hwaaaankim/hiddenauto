@@ -52,7 +52,11 @@ import lombok.ToString;
                 @Index(name = "idx_order_notification_kakao_batch_enabled",
                         columnList = "kakao_batch_key,recipient_member_id,kakao_enabled,id"),
                 @Index(name = "idx_order_notification_policy_snapshot",
-                        columnList = "notification_action,recipient_group,web_enabled,kakao_enabled")
+                        columnList = "notification_action,recipient_group,web_enabled,kakao_enabled"),
+                @Index(name = "idx_order_notification_recipient_important_pending",
+                        columnList = "recipient_member_id,important_enabled,important_confirmed_at,id"),
+                @Index(name = "idx_order_notification_recipient_important_unread",
+                        columnList = "recipient_member_id,important_enabled,read_at,id")
         }
 )
 @Getter
@@ -116,6 +120,14 @@ public class OrderNotification {
     @Column(name = "kakao_enabled", nullable = false)
     private boolean kakaoEnabled;
 
+    /** 중요알림 강제 팝업 및 종 알림의 중요 탭 노출 여부에 대한 생성 시점 정책 스냅샷입니다. */
+    @Column(name = "important_enabled", nullable = false)
+    private boolean importantEnabled;
+
+    /** 강제 중요알림 팝업에서 사용자가 확인 버튼을 누른 시각입니다. 종 알림 readAt과 별도 상태입니다. */
+    @Column(name = "important_confirmed_at")
+    private LocalDateTime importantConfirmedAt;
+
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
@@ -156,6 +168,7 @@ public class OrderNotification {
             OrderNotificationRecipientGroup recipientGroup,
             boolean webEnabled,
             boolean kakaoEnabled,
+            boolean importantEnabled,
             String title,
             String message,
             String kakaoBatchKey
@@ -183,6 +196,7 @@ public class OrderNotification {
                 : recipientGroup;
         notification.webEnabled = webEnabled;
         notification.kakaoEnabled = kakaoEnabled;
+        notification.importantEnabled = importantEnabled;
         notification.title = required(title, "발주 변경 알림", 200);
         notification.message = required(message, "발주 정보가 변경되었습니다.", 4000);
         notification.kakaoBatchKey = required(kakaoBatchKey, java.util.UUID.randomUUID().toString(), 64);
@@ -204,6 +218,12 @@ public class OrderNotification {
 
     public void markRead(LocalDateTime when) {
         if (readAt == null) readAt = when == null ? LocalDateTime.now() : when;
+    }
+
+    public void markImportantConfirmed(LocalDateTime when) {
+        if (importantEnabled && importantConfirmedAt == null) {
+            importantConfirmedAt = when == null ? LocalDateTime.now() : when;
+        }
     }
 
     public void markKakaoSkipped(String reason) {

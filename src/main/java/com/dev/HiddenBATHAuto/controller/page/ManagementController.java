@@ -317,7 +317,8 @@ public class ManagementController {
 		 * 에서 별도 로딩합니다.
 		 */
 		model.addAttribute("bulkOrderRows", List.of());
-		model.addAttribute("bulkOrderCount", orders.getTotalElements());
+		// 일괄보기 대상은 검색 전체 건수가 아니라 현재 페이지에 실제 표시된 주문만 사용합니다.
+		model.addAttribute("bulkOrderCount", orders.getNumberOfElements());
 
 		model.addAttribute("startPage", startPageNum);
 		model.addAttribute("endPage", endPageNum);
@@ -528,7 +529,11 @@ public class ManagementController {
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
 			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
-			@RequestParam(required = false, defaultValue = "all") String standard, Model model) {
+			@RequestParam(required = false, defaultValue = "all") String standard,
+			@RequestParam(required = false) String sortState,
+			@RequestParam(required = false) String sortField,
+			@RequestParam(required = false) String sortDir,
+			@PageableDefault(size = 10) Pageable pageable, Model model) {
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
@@ -542,7 +547,22 @@ public class ManagementController {
 		String finalProductName = normalizeNullableSearchText(productName);
 		String finalKeyword = normalizeNullableSearchText(keyword);
 
-		List<Order> bulkOrders = orderRepository.findFilteredOrdersForBulkViewWithOrderIdRangeAndProductName(
+		/*
+		 * 일괄보기 역시 메인 목록과 완전히 동일한 page/size/정렬을 사용합니다.
+		 * 검색조건 전체를 List로 다시 조회하면 최초 화면에서 수천~수만 건이 한 번에 렌더링될 수 있으므로,
+		 * 현재 페이지에 실제 표시되는 주문만 DTO로 변환합니다.
+		 */
+		List<NonStandardTaskListSortCriterion> activeSortCriteria =
+				resolveNonStandardTaskListSortCriteria(sortState, sortField, sortDir);
+		Sort resolvedSort = buildNonStandardTaskListSort(activeSortCriteria);
+
+		Pageable sortedPageable = PageRequest.of(
+				Math.max(pageable.getPageNumber(), 0),
+				pageable.getPageSize(),
+				resolvedSort
+		);
+
+		Page<Order> bulkOrderPage = orderRepository.findFilteredOrdersWithOrderIdRangeAndProductName(
 				finalKeyword,
 				finalOrderIdFrom,
 				finalOrderIdTo,
@@ -552,16 +572,18 @@ public class ManagementController {
 				range.getEnd(),
 				categoryId,
 				statusEnum,
-				standardBool
+				standardBool,
+				sortedPageable
 		);
 
+		List<Order> bulkOrders = bulkOrderPage.getContent();
 		List<NonStandardTaskListOrderRowDto> bulkOrderRows = nonStandardTaskListViewService.toBulkRows(bulkOrders);
 
 		model.addAttribute("bulkOrderRows", bulkOrderRows);
-        List<Long> bulkOrderIds = bulkOrders.stream().map(Order::getId).filter(java.util.Objects::nonNull).toList();
-        model.addAttribute("latestOrderChangeMap", orderChangeAuditService.getLatestChangeMap(bulkOrderIds));
-        model.addAttribute("productionCheckAggregateMap",
-                orderChangeAuditService.getCheckAggregateMap(bulkOrderIds, OrderWorkArea.PRODUCTION));
+		List<Long> bulkOrderIds = bulkOrders.stream().map(Order::getId).filter(java.util.Objects::nonNull).toList();
+		model.addAttribute("latestOrderChangeMap", orderChangeAuditService.getLatestChangeMap(bulkOrderIds));
+		model.addAttribute("productionCheckAggregateMap",
+				orderChangeAuditService.getCheckAggregateMap(bulkOrderIds, OrderWorkArea.PRODUCTION));
 
 		return "administration/management/order/nonStandard/taskList :: bulkOrderCards";
 	}

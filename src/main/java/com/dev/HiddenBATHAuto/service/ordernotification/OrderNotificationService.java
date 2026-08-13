@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.config.notification.OrderNotificationProperties;
+import com.dev.HiddenBATHAuto.dto.ordernotification.OrderImportantNotificationBatchDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationFieldDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationItemDto;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationPageDto;
@@ -49,6 +50,7 @@ public class OrderNotificationService {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_IMPORTANT_POPUP_SIZE = 100;
     private static final int READ_BATCH_SIZE = 500;
 
     private final OrderNotificationRepository notificationRepository;
@@ -101,7 +103,7 @@ public class OrderNotificationService {
                     target.recipientGroup(),
                     policyService.defaultPolicy(event.getSourceArea(), action, target.recipientGroup())
             );
-            if (!channelPolicy.webEnabled() && !channelPolicy.kakaoEnabled()) {
+            if (channelPolicy.disabled()) {
                 continue;
             }
 
@@ -113,6 +115,7 @@ public class OrderNotificationService {
                     target.recipientGroup(),
                     channelPolicy.webEnabled(),
                     channelPolicy.kakaoEnabled(),
+                    channelPolicy.importantEnabled(),
                     firstNonBlank(target.title(), defaultTitle),
                     firstNonBlank(target.message(), defaultMessage),
                     kakaoBatchKey
@@ -150,29 +153,38 @@ public class OrderNotificationService {
         }
 
         return OrderNotificationSummaryDto.builder()
-                .totalUnreadCount(notificationRepository.countByRecipient_IdAndReadAtIsNullAndWebEnabledTrue(memberId))
+                .totalUnreadCount(notificationRepository.countBellUnread(memberId))
+                .importantUnreadCount(notificationRepository.countImportantUnread(memberId))
+                .pendingImportantConfirmationCount(notificationRepository.countPendingImportantConfirmation(memberId))
                 .unreadCountByCategory(counts)
                 .build();
     }
 
     /**
-     * 읽지 않은 웹 알림만 ID 커서 방식으로 조회합니다. 새 알림이 동시에 들어와도 다음 페이지가 중복/누락되지 않습니다.
+     * 읽지 않은 종 알림을 ID 커서 방식으로 조회합니다. 중요알림 탭은 importantOnly로 분리하며, 새 알림이 동시에 들어와도 다음 페이지가 중복/누락되지 않습니다.
      */
     @Transactional(readOnly = true)
     public OrderNotificationPageDto getNotifications(
             Member member,
             OrderNotificationCategory category,
+            boolean importantOnly,
             Long cursor,
             int size
     ) {
         Long memberId = requireMemberId(member);
         int safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
-        List<Long> fetchedIds = notificationRepository.findUnreadIds(
-                memberId,
-                category,
-                cursor,
-                PageRequest.of(0, safeSize + 1)
-        );
+        List<Long> fetchedIds = importantOnly
+                ? notificationRepository.findUnreadImportantIds(
+                        memberId,
+                        cursor,
+                        PageRequest.of(0, safeSize + 1)
+                )
+                : notificationRepository.findUnreadIds(
+                        memberId,
+                        category,
+                        cursor,
+                        PageRequest.of(0, safeSize + 1)
+                );
 
         boolean hasNext = fetchedIds.size() > safeSize;
         List<Long> pageIds = hasNext
@@ -182,20 +194,7 @@ public class OrderNotificationService {
                 ? pageIds.get(pageIds.size() - 1)
                 : null;
 
-        Map<Long, OrderNotification> notificationById = pageIds.isEmpty()
-                ? Map.of()
-                : notificationRepository.findPageDetailsByIdIn(pageIds).stream()
-                        .filter(row -> row != null && row.getId() != null)
-                        .collect(java.util.stream.Collectors.toMap(
-                                OrderNotification::getId,
-                                row -> row,
-                                (left, right) -> left,
-                                LinkedHashMap::new
-                        ));
-        List<OrderNotification> pageRows = pageIds.stream()
-                .map(notificationById::get)
-                .filter(Objects::nonNull)
-                .toList();
+        List<OrderNotification> pageRows = loadDetailsInOrder(pageIds);
 
         return OrderNotificationPageDto.builder()
                 .content(pageRows.stream().map(this::toDto).toList())
@@ -205,7 +204,29 @@ public class OrderNotificationService {
                 .build();
     }
 
-    /** 개별 확인은 웹 알림으로 생성된 행에만 반영합니다. */
+    /**
+     * 강제 중요알림 팝업에서 아직 확인하지 않은 알림을 조회합니다.
+     * 종 알림 readAt과는 무관하며, 한 번에 최대 100건씩 확인하도록 제한합니다.
+     */
+    @Transactional(readOnly = true)
+    public OrderImportantNotificationBatchDto getPendingImportantNotifications(Member member, int size) {
+        Long memberId = requireMemberId(member);
+        int safeSize = Math.min(MAX_IMPORTANT_POPUP_SIZE, Math.max(1, size));
+        long totalPendingCount = notificationRepository.countPendingImportantConfirmation(memberId);
+        List<Long> ids = totalPendingCount <= 0
+                ? List.of()
+                : notificationRepository.findPendingImportantIds(memberId, PageRequest.of(0, safeSize));
+        List<OrderNotification> rows = loadDetailsInOrder(ids);
+
+        return OrderImportantNotificationBatchDto.builder()
+                .content(rows.stream().map(this::toDto).toList())
+                .totalPendingCount(totalPendingCount)
+                .hasMore(totalPendingCount > rows.size())
+                .size(safeSize)
+                .build();
+    }
+
+    /** 개별 읽음 처리는 종 알림 또는 중요알림으로 노출 가능한 행에 반영합니다. */
     @Transactional
     public OrderNotificationItemDto markRead(Member member, Long notificationId) {
         Long memberId = requireMemberId(member);
@@ -214,7 +235,7 @@ public class OrderNotificationService {
         }
 
         OrderNotification notification = notificationRepository
-                .findByIdAndRecipient_IdAndWebEnabledTrue(notificationId, memberId)
+                .findReadableByIdAndRecipient(notificationId, memberId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 알림을 찾을 수 없습니다."));
         notification.markRead(LocalDateTime.now());
         return toDto(notification);
@@ -226,13 +247,7 @@ public class OrderNotificationService {
     @Transactional
     public int markLoadedRead(Member member, Collection<Long> notificationIds) {
         Long memberId = requireMemberId(member);
-        LinkedHashSet<Long> ids = new LinkedHashSet<>();
-        if (notificationIds != null) {
-            notificationIds.stream()
-                    .filter(Objects::nonNull)
-                    .filter(id -> id > 0)
-                    .forEach(ids::add);
-        }
+        LinkedHashSet<Long> ids = normalizeIds(notificationIds);
         if (ids.isEmpty()) return 0;
 
         int updated = 0;
@@ -240,6 +255,24 @@ public class OrderNotificationService {
         for (int start = 0; start < list.size(); start += READ_BATCH_SIZE) {
             int end = Math.min(start + READ_BATCH_SIZE, list.size());
             updated += notificationRepository.markReadByIds(memberId, list.subList(start, end));
+        }
+        return updated;
+    }
+
+    /**
+     * 강제 중요알림 팝업의 확인 처리입니다. readAt은 변경하지 않으므로 종 알림의 중요알림 탭에는 그대로 남습니다.
+     */
+    @Transactional
+    public int confirmImportant(Member member, Collection<Long> notificationIds) {
+        Long memberId = requireMemberId(member);
+        LinkedHashSet<Long> ids = normalizeIds(notificationIds);
+        if (ids.isEmpty()) return 0;
+
+        int updated = 0;
+        List<Long> list = new ArrayList<>(ids);
+        for (int start = 0; start < list.size(); start += READ_BATCH_SIZE) {
+            int end = Math.min(start + READ_BATCH_SIZE, list.size());
+            updated += notificationRepository.markImportantConfirmedByIds(memberId, list.subList(start, end));
         }
         return updated;
     }
@@ -282,6 +315,10 @@ public class OrderNotificationService {
                 .operationCode(event != null ? event.getOperationCode() : null)
                 .operationLabel(event != null ? event.getOperationLabel() : null)
                 .summary(event != null ? event.getSummary() : null)
+                .webEnabled(notification.isWebEnabled())
+                .important(notification.isImportantEnabled())
+                .importantConfirmed(notification.getImportantConfirmedAt() != null)
+                .importantConfirmedAt(notification.getImportantConfirmedAt())
                 .read(notification.getReadAt() != null)
                 .readAt(notification.getReadAt())
                 .createdAt(notification.getCreatedAt())
@@ -401,6 +438,33 @@ public class OrderNotificationService {
         String summary = normalizeText(event.getSummary());
         return actor + "님이 " + event.getOperationLabel() + " 작업을 처리했습니다."
                 + (summary == null ? "" : " " + summary);
+    }
+
+    private List<OrderNotification> loadDetailsInOrder(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        Map<Long, OrderNotification> notificationById = notificationRepository.findPageDetailsByIdIn(ids).stream()
+                .filter(row -> row != null && row.getId() != null)
+                .collect(java.util.stream.Collectors.toMap(
+                        OrderNotification::getId,
+                        row -> row,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        return ids.stream()
+                .map(notificationById::get)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private LinkedHashSet<Long> normalizeIds(Collection<Long> notificationIds) {
+        LinkedHashSet<Long> ids = new LinkedHashSet<>();
+        if (notificationIds != null) {
+            notificationIds.stream()
+                    .filter(Objects::nonNull)
+                    .filter(id -> id > 0)
+                    .forEach(ids::add);
+        }
+        return ids;
     }
 
     private Long requireMemberId(Member member) {

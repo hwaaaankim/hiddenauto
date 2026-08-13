@@ -27,6 +27,10 @@ public class OrderNotificationItemDto {
     private String operationCode;
     private String operationLabel;
     private String summary;
+    private boolean webEnabled;
+    private boolean important;
+    private boolean importantConfirmed;
+    private LocalDateTime importantConfirmedAt;
     private boolean read;
     private LocalDateTime readAt;
     private LocalDateTime createdAt;

@@ -17,7 +17,7 @@
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                     <div>
                         <h4 class="mb-1">로깅알림 관리</h4>
-                        <p class="text-muted mb-0">행동 주체·작업·수신 대상별로 종 모양 웹 알림과 카카오톡 발송을 각각 제어합니다.</p>
+                        <p class="text-muted mb-0">행동 주체·작업·수신 대상별로 종 알림, 카카오톡, 강제 중요알림을 각각 제어합니다.</p>
                     </div>
                     <a href="/admin/notification/test" class="btn btn-outline-secondary">
                         <i class="ri-message-2-line me-1"></i>카카오톡 테스트
@@ -38,7 +38,14 @@
 
                 <div class="alert alert-info policy-guide" role="alert">
                     <p class="mb-1"><strong>체크됨</strong>: 해당 수단으로 전송합니다. <strong>체크 해제 후 저장</strong>: 해당 수단으로 전송하지 않습니다.</p>
-                    <p class="mb-0">확인/재확인 행은 사용자별 체크 이력만 저장하고 다른 사람에게 알림을 보내지 않는 감사 전용 항목입니다. 전체 알림 또는 카카오톡 설정이 비활성화되어 있으면 이 페이지에서 체크되어 있어도 발송되지 않습니다.</p>
+                    <p class="mb-1"><strong>중요알림</strong>은 수신자 화면 전체를 잠그는 강제 확인 팝업으로 표시됩니다. 팝업의 확인 상태와 종 알림의 읽음 상태는 서로 독립적이므로, 팝업에서 확인한 뒤에도 종의 ‘중요알림’ 탭에 미확인 알림이 남습니다. 중요알림을 켠 행은 ‘종 알림’ 스위치가 꺼져 있어도 중요알림 탭에는 기록됩니다.</p>
+                    <p class="mb-1">설정 변경은 <strong>저장 이후 새로 생성되는 알림부터</strong> 적용됩니다. 이미 발송된 중요알림은 정책을 다시 꺼도 수신자가 강제 팝업에서 확인하기 전까지 유지됩니다.</p>
+                    <p class="mb-0">확인/재확인 행은 사용자별 체크 이력만 저장하고 다른 사람에게 알림을 보내지 않는 감사 전용 항목입니다. 전체 알림 또는 카카오톡 설정이 비활성화되어 있으면 이 페이지에서 체크되어 있어도 해당 수단은 발송되지 않습니다.</p>
+                </div>
+
+                <div class="alert alert-danger policy-guide" role="alert">
+                    <h6 class="alert-heading mb-2"><i class="ri-alarm-warning-line me-1"></i>중요알림 사용 주의</h6>
+                    <p class="mb-0">중요알림은 사용자가 반드시 ‘확인’을 눌러야 화면을 다시 사용할 수 있습니다. 완료·변경 이벤트가 대량으로 발생하는 항목을 무분별하게 켜면 업무 화면이 자주 잠길 수 있으므로 실제로 즉시 확인이 필요한 조합만 활성화해 주세요.</p>
                 </div>
 
                 <form method="post" th:action="@{/admin/order-notification-policy}" id="notification-policy-form">
@@ -53,6 +60,8 @@
                                         data-channel="web">웹 전체</button>
                                 <button type="button" class="btn btn-sm btn-outline-warning js-section-all"
                                         data-channel="kakao">카카오 전체</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-section-all"
+                                        data-channel="important">중요 전체</button>
                             </div>
                         </div>
 
@@ -64,6 +73,7 @@
                                     <col>
                                     <col class="policy-col-channel">
                                     <col class="policy-col-channel">
+                                    <col class="policy-col-channel policy-col-important">
                                 </colgroup>
                                 <thead class="table-light">
                                 <tr>
@@ -72,6 +82,7 @@
                                     <th>동작 설명</th>
                                     <th class="text-center">종 알림</th>
                                     <th class="text-center">카카오톡</th>
+                                    <th class="text-center">중요알림</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -112,6 +123,19 @@
                                             <label class="visually-hidden" th:for="${'kakao-' + row.key}">카카오톡</label>
                                         </div>
                                     </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-flex justify-content-center">
+                                            <input class="form-check-input js-policy-checkbox js-important-policy-checkbox"
+                                                   data-channel="important"
+                                                   type="checkbox"
+                                                   name="importantKeys"
+                                                   th:id="${'important-' + row.key}"
+                                                   th:value="${row.key}"
+                                                   th:checked="${row.importantEnabled}"
+                                                   th:disabled="${!row.configurable}">
+                                            <label class="visually-hidden" th:for="${'important-' + row.key}">중요알림</label>
+                                        </div>
+                                    </td>
                                 </tr>
                                 </tbody>
                             </table>
@@ -149,13 +173,19 @@
     }
 
     .notification-policy-table {
-        min-width: 980px;
+        min-width: 1120px;
         table-layout: fixed;
     }
 
     .policy-col-action { width: 190px; }
     .policy-col-recipient { width: 210px; }
     .policy-col-channel { width: 110px; }
+    .policy-col-important { width: 125px; }
+
+    .js-important-policy-checkbox:checked {
+        background-color: #f06548;
+        border-color: #f06548;
+    }
 
     .policy-description {
         white-space: normal;

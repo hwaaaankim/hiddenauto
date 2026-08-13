@@ -202,6 +202,7 @@ public class OrderNotificationPolicyCatalog {
                 false,
                 false,
                 false,
+                false,
                 description
         ));
     }
@@ -213,7 +214,8 @@ public class OrderNotificationPolicyCatalog {
             OrderNotificationRecipientGroup recipientGroup,
             String description
     ) {
-        rows.add(new Definition(sourceArea, action, recipientGroup, true, true, true, description));
+        // 중요알림은 업무를 강제로 막는 수단이므로 기존 배포 시 갑자기 팝업이 쏟아지지 않도록 기본값은 OFF입니다.
+        rows.add(new Definition(sourceArea, action, recipientGroup, true, true, false, true, description));
     }
 
     public record Definition(
@@ -222,6 +224,7 @@ public class OrderNotificationPolicyCatalog {
             OrderNotificationRecipientGroup recipientGroup,
             boolean defaultWebEnabled,
             boolean defaultKakaoEnabled,
+            boolean defaultImportantEnabled,
             boolean configurable,
             String description
     ) {

@@ -133,12 +133,23 @@
 
                         <div class="col-xl-8">
                             <div class="card h-100 border">
-                                <div class="card-header bg-light d-flex align-items-center justify-content-between">
-                                    <strong>오더 변경이력</strong>
-                                    <span class="badge bg-secondary-subtle text-secondary"
-                                        th:text="${orderChangeHistory != null ? orderChangeHistory.size() : 0} + '건'">0건</span>
+                                <div class="card-header bg-light d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <strong>오더 변경이력</strong>
+                                        <span class="badge bg-secondary-subtle text-secondary"
+                                            th:text="${orderChangeHistory != null ? orderChangeHistory.size() : 0} + '건'">0건</span>
+                                    </div>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-secondary admin-task-list-second-history-toggle-btn"
+                                        aria-expanded="false"
+                                        th:attr="aria-controls=|admin-task-list-second-history-body-${row.orderId}|,
+                                                 data-target-id=|admin-task-list-second-history-body-${row.orderId}|">
+                                        <i class="fa-solid fa-chevron-down me-1" aria-hidden="true"></i>
+                                        <span class="admin-task-list-second-history-toggle-label">펼치기</span>
+                                    </button>
                                 </div>
-                                <div class="card-body">
+                                <div class="card-body d-none admin-task-list-second-history-body"
+                                    th:id="|admin-task-list-second-history-body-${row.orderId}|">
                                     <div class="text-muted small"
                                         th:if="${orderChangeHistory == null or orderChangeHistory.isEmpty()}">
                                         기록된 변경이력이 없습니다.

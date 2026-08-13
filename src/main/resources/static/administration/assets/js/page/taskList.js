@@ -885,6 +885,37 @@ document.addEventListener("DOMContentLoaded", function() {
 		return document.querySelector(`.admin-task-list-second-detail-row[data-order-id="${orderId}"]`);
 	}
 
+	function toggleOrderHistory(button) {
+		if (!button) {
+			return;
+		}
+
+		const targetId = button.dataset.targetId;
+		if (!targetId) {
+			return;
+		}
+
+		const body = document.getElementById(targetId);
+		if (!body) {
+			return;
+		}
+
+		const willOpen = body.classList.contains("d-none");
+		body.classList.toggle("d-none", !willOpen);
+		button.setAttribute("aria-expanded", String(willOpen));
+
+		const icon = button.querySelector("i");
+		if (icon) {
+			icon.classList.toggle("fa-chevron-down", !willOpen);
+			icon.classList.toggle("fa-chevron-up", willOpen);
+		}
+
+		const label = button.querySelector(".admin-task-list-second-history-toggle-label");
+		if (label) {
+			label.textContent = willOpen ? "닫기" : "펼치기";
+		}
+	}
+
 	function openExistingDetailRow(orderId, forceOpen) {
 		const row = findDetailRow(orderId);
 		const button = document.querySelector(`.admin-task-list-second-wide-toggle-btn[data-order-id="${orderId}"]`);
@@ -996,8 +1027,8 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 
 		const url = new URL("/management/nonStandardTaskList/bulk-fragment", window.location.origin);
+		// 현재 목록의 page/size/검색/정렬 조건을 그대로 전달하여 현재 페이지 주문만 조회합니다.
 		const params = new URLSearchParams(window.location.search);
-		params.delete("page");
 		url.search = params.toString();
 
 		try {
@@ -1438,6 +1469,14 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 
 		document.addEventListener("click", function(event) {
+			const historyToggleButton = event.target.closest(".admin-task-list-second-history-toggle-btn");
+
+			if (historyToggleButton) {
+				event.preventDefault();
+				toggleOrderHistory(historyToggleButton);
+				return;
+			}
+
 			const toggleButton = event.target.closest(".admin-task-list-second-wide-toggle-btn");
 
 			if (toggleButton) {

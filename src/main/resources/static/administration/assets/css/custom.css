@@ -9134,9 +9134,9 @@ body.admin-task-list-second-modal-open {
 		 * 관리자 발주 목록 전용 열 너비
 		 *
 		 * 모든 열 폭을 colgroup에서 명시적으로 관리합니다.
-		 * 상태 열이 남는 공간 전체를 차지하지 않도록 고정하고,
-		 * 비고 520px / 발주일 110px / 배송희망일 110px / 상태 270px /
-		 * 상세 64px 기준으로 균형 있게 배치합니다.
+		 * PC 화면에서 불필요한 가로 스크롤이 생기지 않도록 고정 폭을 조정합니다.
+		 * 비고 440px / 발주일 110px / 배송희망일 110px / 상태 130px /
+		 * 상세 64px 기준으로 배치하며, 상태 내부 정보는 줄바꿈하여 모두 유지합니다.
 		 */
 .admin-task-list-second-page .admin-task-list-second-table-wrap {
 	width: auto !important;
@@ -9152,10 +9152,11 @@ body.admin-task-list-second-modal-open {
 .admin-task-list-second-page .admin-task-list-second-table {
 	width: 100% !important;
 	/*
-	 * colgroup 고정 폭 합계(약 1774px)를 최소 폭으로 사용합니다.
-	 * 화면이 좁으면 기존처럼 가로스크롤하고, 넓은 화면에서는 카드 폭을 채웁니다.
+	 * colgroup 고정 폭 합계(약 1554px)를 최소 폭으로 사용합니다.
+	 * 일반 FHD PC에서는 관리자 사이드바를 포함해도 가로 스크롤 발생을 줄이고,
+	 * 실제 표시 영역이 이보다 좁은 환경에서만 안전하게 가로 스크롤을 허용합니다.
 	 */
-	min-width: 1774px !important;
+	min-width: 1554px !important;
 	table-layout: fixed !important;
 }
 
@@ -9266,11 +9267,11 @@ body.admin-task-list-second-modal-open {
 	-webkit-box-orient: initial !important;
 }
 
-/* 비고: colgroup 기준 300px, 원래 줄바꿈과 자동 줄바꿈 모두 유지 */
+/* 비고: 440px 안에서 원래 줄바꿈과 자동 줄바꿈 모두 유지 */
 .admin-task-list-second-page .admin-task-list-second-note-column {
-	width: 520px !important;
+	width: 440px !important;
 	min-width: 0 !important;
-	max-width: 520px !important;
+	max-width: 440px !important;
 }
 
 .admin-task-list-second-page .admin-task-list-second-note-cell {
@@ -9299,11 +9300,11 @@ body.admin-task-list-second-modal-open {
 	text-align: center;
 }
 
-/* 상태 열이 남는 공간을 사용하고 긴 변경이력은 정상 줄바꿈 */
+/* 상태: 비고보다 적극적으로 축소. 배지/변경요약은 줄바꿈하여 내용은 그대로 유지 */
 .admin-task-list-second-page .admin-task-list-second-status-column {
-	width: 270px !important;
+	width: 130px !important;
 	min-width: 0 !important;
-	max-width: 270px !important;
+	max-width: 130px !important;
 	white-space: normal !important;
 	word-break: break-word !important;
 	overflow-wrap: anywhere !important;

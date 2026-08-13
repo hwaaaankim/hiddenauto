@@ -6,13 +6,15 @@
         list: '/api/internal/order-notifications',
         read: function (id) { return '/api/internal/order-notifications/' + encodeURIComponent(id) + '/read'; },
         readLoaded: '/api/internal/order-notifications/read-loaded',
+        importantPending: '/api/internal/order-notifications/important/pending',
+        importantConfirm: '/api/internal/order-notifications/important/confirm-loaded',
         adminRequest: function (orderId) { return '/api/internal/orders/' + encodeURIComponent(orderId) + '/admin-request'; }
     };
 
     const state = {
-        category: 'PRODUCTION',
+        filter: 'PRODUCTION',
         isManagement: false,
-        summary: { totalUnreadCount: 0, unreadCountByCategory: {} },
+        summary: { totalUnreadCount: 0, importantUnreadCount: 0, pendingImportantConfirmationCount: 0, unreadCountByCategory: {} },
         items: [],
         nextCursor: null,
         hasNext: false,
@@ -26,7 +28,11 @@
         socketBuffer: new Map(),
         socketFlushTimer: null,
         summaryTimer: null,
-        listRequestVersion: 0
+        listRequestVersion: 0,
+        importantItems: [],
+        importantTotalPending: 0,
+        importantLoading: false,
+        importantConfirming: false
     };
 
     const els = {};
@@ -63,10 +69,11 @@
         }
 
         state.isManagement = Boolean(els.managementMode);
-        if (!state.isManagement) state.category = null;
+        if (!state.isManagement) state.filter = 'ALL';
         state.modal = window.bootstrap.Modal.getOrCreateInstance(els.modalElement);
         bindNotificationCenterEvents();
         refreshSummary();
+        ensurePendingImportantNotifications(true);
         connectWebSocket();
         window.setInterval(refreshSummary, 60000);
     }
@@ -82,7 +89,13 @@
         els.loadMoreWrap = document.getElementById('order-notification-load-more-wrap');
         els.newArrival = document.getElementById('order-notification-new-arrival');
         els.managementMode = document.getElementById('order-notification-management-mode');
-        els.tabs = Array.from(document.querySelectorAll('[data-order-notification-category]'));
+        els.tabs = Array.from(document.querySelectorAll('[data-order-notification-filter]'));
+        els.importantOverlay = document.getElementById('order-important-notification-overlay');
+        els.importantList = document.getElementById('order-important-notification-list');
+        els.importantCount = document.getElementById('order-important-notification-count');
+        els.importantMore = document.getElementById('order-important-notification-more');
+        els.importantError = document.getElementById('order-important-notification-error');
+        els.importantConfirmButton = document.getElementById('order-important-notification-confirm-btn');
     }
 
     function bindNotificationCenterEvents() {
@@ -93,7 +106,7 @@
 
         els.tabs.forEach(function (tab) {
             tab.addEventListener('click', function () {
-                state.category = tab.getAttribute('data-order-notification-category') || 'PRODUCTION';
+                state.filter = tab.getAttribute('data-order-notification-filter') || (state.isManagement ? 'PRODUCTION' : 'ALL');
                 updateTabs();
                 reloadNotifications();
             });
@@ -102,6 +115,8 @@
         if (els.readAllButton) els.readAllButton.addEventListener('click', markLoadedRead);
         if (els.refreshButton) els.refreshButton.addEventListener('click', reloadNotifications);
         if (els.loadMoreButton) els.loadMoreButton.addEventListener('click', loadMoreNotifications);
+        if (els.importantConfirmButton) els.importantConfirmButton.addEventListener('click', confirmLoadedImportantNotifications);
+        document.addEventListener('keydown', preventImportantOverlayEscape, true);
         if (els.list) {
             els.list.addEventListener('click', handleNotificationClick);
             els.list.addEventListener('keydown', handleNotificationKeydown);
@@ -252,6 +267,15 @@
             if (!response.ok) return;
             state.summary = await response.json();
             renderSummary();
+            const pendingImportant = Number(state.summary.pendingImportantConfirmationCount || 0);
+            if (pendingImportant > 0) {
+                state.importantTotalPending = pendingImportant;
+                ensurePendingImportantNotifications(false);
+            } else if (!state.importantConfirming) {
+                state.importantItems = [];
+                state.importantTotalPending = 0;
+                renderImportantOverlay();
+            }
         } catch (error) {
             console.warn('알림 요약 조회 실패', error);
         }
@@ -269,9 +293,16 @@
             els.badge.classList.toggle('is-empty', total <= 0);
         }
         els.tabs.forEach(function (tab) {
-            const category = tab.getAttribute('data-order-notification-category');
+            const filter = tab.getAttribute('data-order-notification-filter');
             const countElement = tab.querySelector('.order-notification-tab-count');
-            const count = Number((state.summary.unreadCountByCategory || {})[category] || 0);
+            let count = 0;
+            if (filter === 'ALL') {
+                count = total;
+            } else if (filter === 'IMPORTANT') {
+                count = Number(state.summary.importantUnreadCount || 0);
+            } else {
+                count = Number((state.summary.unreadCountByCategory || {})[filter] || 0);
+            }
             if (countElement) countElement.textContent = count > 99 ? '99+' : String(count);
         });
     }
@@ -323,16 +354,20 @@
 
     async function fetchNotificationPage(reset, size, requestVersion) {
         const params = new URLSearchParams();
-        const categorySnapshot = state.category;
+        const filterSnapshot = state.filter;
         const cursorSnapshot = reset ? null : state.nextCursor;
-        if (state.isManagement && categorySnapshot) params.set('category', categorySnapshot);
+        if (filterSnapshot === 'IMPORTANT') {
+            params.set('importantOnly', 'true');
+        } else if (filterSnapshot !== 'ALL') {
+            params.set('category', filterSnapshot);
+        }
         if (cursorSnapshot) params.set('cursor', String(cursorSnapshot));
         params.set('size', String(size));
 
         const response = await fetch(API.list + '?' + params.toString(), { headers: ajaxHeaders() });
         const data = await parseResponse(response);
         if (!response.ok) throw new Error(data.message || '알림 조회에 실패했습니다.');
-        if (requestVersion !== state.listRequestVersion || categorySnapshot !== state.category) return false;
+        if (requestVersion !== state.listRequestVersion || filterSnapshot !== state.filter) return false;
 
         const incoming = Array.isArray(data.content) ? data.content : [];
         if (reset) {
@@ -366,6 +401,8 @@
         els.list.innerHTML = state.items.map(function (item) {
             const unreadClass = item.read ? '' : ' is-unread';
             const emergencyClass = item.category === 'EMERGENCY' ? ' is-emergency' : '';
+            const importantClass = item.important ? ' is-important' : '';
+            const importantBadge = item.important ? '<span class="order-notification-important-badge">중요</span>' : '';
             const changes = Array.isArray(item.changes) ? item.changes : [];
             const changeHtml = changes.length
                 ? '<div class="order-notification-changes">' + changes.map(renderChange).join('') + '</div>'
@@ -382,10 +419,10 @@
                 : '';
 
             return [
-                '<article class="order-notification-item' + unreadClass + emergencyClass + '"',
+                '<article class="order-notification-item' + unreadClass + emergencyClass + importantClass + '"',
                 ' data-notification-id="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="false">',
                 '  <div class="order-notification-item-header">',
-                '    <span class="order-notification-item-title">' + escapeHtml(item.title || '발주 알림') + '</span>',
+                '    <span class="order-notification-item-title">' + importantBadge + escapeHtml(item.title || '발주 알림') + '</span>',
                 '    <span class="order-notification-item-time">' + escapeHtml(item.createdAtText || '') + '</span>',
                 '  </div>',
                 '  <div class="order-notification-item-message">' + escapeHtml(item.message || '') + '</div>',
@@ -513,7 +550,7 @@
 
     function updateTabs() {
         els.tabs.forEach(function (tab) {
-            tab.classList.toggle('active', tab.getAttribute('data-order-notification-category') === state.category);
+            tab.classList.toggle('active', tab.getAttribute('data-order-notification-filter') === state.filter);
         });
     }
 
@@ -640,6 +677,232 @@
         return window.confirm('발주 #' + orderId + '의 관리 담당자에게 관리자요청을 보내시겠습니까?');
     }
 
+    function preventImportantOverlayEscape(event) {
+        if (!isImportantOverlayOpen()) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+        /* 강제 확인 중에는 키보드 포커스도 배경 화면으로 빠져나가지 않게 막습니다. */
+        if (event.key === 'Tab') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (els.importantConfirmButton && !els.importantConfirmButton.disabled) {
+                els.importantConfirmButton.focus();
+            } else if (els.importantOverlay) {
+                els.importantOverlay.setAttribute('tabindex', '-1');
+                els.importantOverlay.focus();
+            }
+        }
+    }
+
+    function isImportantOverlayOpen() {
+        return Boolean(els.importantOverlay && !els.importantOverlay.classList.contains('d-none'));
+    }
+
+    async function ensurePendingImportantNotifications(force) {
+        if (!els.importantOverlay || state.importantLoading || state.importantConfirming) return;
+        if (!force && state.importantItems.length > 0 && state.importantTotalPending <= state.importantItems.length) {
+            renderImportantOverlay();
+            return;
+        }
+
+        state.importantLoading = true;
+        clearImportantError();
+        if (state.importantTotalPending > 0 || isImportantOverlayOpen()) {
+            showImportantOverlay();
+            if (!state.importantItems.length && els.importantList) {
+                els.importantList.innerHTML = '<div class="order-important-notification-loading"><div><span class="spinner-border spinner-border-sm me-2"></span>중요알림을 확인하고 있습니다.</div></div>';
+            }
+        }
+
+        try {
+            const response = await fetch(API.importantPending + '?size=100', { headers: ajaxHeaders() });
+            const data = await parseResponse(response);
+            if (!response.ok) throw new Error(data.message || '중요알림 조회에 실패했습니다.');
+
+            state.importantItems = deduplicateItems(Array.isArray(data.content) ? data.content : [])
+                .filter(function (item) { return item && item.important && !item.importantConfirmed; });
+            state.importantTotalPending = Number(data.totalPendingCount || 0);
+            renderImportantOverlay();
+        } catch (error) {
+            console.error('[중요알림] 조회 실패', error);
+            /* 요약에서 미확인 중요알림 존재를 이미 확인한 경우 조회 실패로 화면 잠금을 우회하지 않습니다. */
+            if (state.importantTotalPending > 0 || isImportantOverlayOpen()) {
+                showImportantOverlay();
+                showImportantError((error && error.message ? error.message : '중요알림 조회에 실패했습니다.') + ' 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+                if (els.importantList && !state.importantItems.length) {
+                    els.importantList.innerHTML = '<div class="order-important-notification-loading">중요알림 내용을 불러오지 못했습니다.</div>';
+                }
+            }
+        } finally {
+            state.importantLoading = false;
+            setImportantConfirmBusy(false);
+        }
+    }
+
+    function enqueueImportantNotification(notification) {
+        if (!notification || !notification.id || !notification.important || notification.importantConfirmed) return;
+        const exists = state.importantItems.some(function (item) { return String(item.id) === String(notification.id); });
+        if (!exists) {
+            state.importantItems.unshift(notification);
+            state.importantItems = deduplicateItems(state.importantItems);
+            state.importantTotalPending = Math.max(state.importantItems.length, Number(state.importantTotalPending || 0) + 1);
+        }
+        clearImportantError();
+        renderImportantOverlay();
+    }
+
+    function renderImportantOverlay() {
+        if (!els.importantOverlay) return;
+        const items = deduplicateItems(state.importantItems)
+            .filter(function (item) { return item && item.important && !item.importantConfirmed; })
+            .sort(function (a, b) { return Number(b.id || 0) - Number(a.id || 0); });
+        state.importantItems = items;
+
+        const total = Math.max(Number(state.importantTotalPending || 0), items.length);
+        if (els.importantCount) els.importantCount.textContent = String(total);
+        if (els.importantMore) els.importantMore.classList.toggle('d-none', total <= items.length);
+
+        if (!items.length) {
+            if (total <= 0 && !state.importantLoading && !state.importantConfirming) {
+                hideImportantOverlay();
+                return;
+            }
+            showImportantOverlay();
+            if (els.importantList && !state.importantLoading) {
+                els.importantList.innerHTML = '<div class="order-important-notification-loading">확인이 필요한 중요알림을 불러오고 있습니다.</div>';
+            }
+            if (els.importantConfirmButton) els.importantConfirmButton.disabled = true;
+            return;
+        }
+
+        if (els.importantList) {
+            els.importantList.innerHTML = items.map(renderImportantNotificationCard).join('');
+        }
+        if (els.importantConfirmButton && !state.importantConfirming) els.importantConfirmButton.disabled = false;
+        showImportantOverlay();
+    }
+
+    function renderImportantNotificationCard(item) {
+        const changes = Array.isArray(item.changes) ? item.changes : [];
+        const changeHtml = changes.length
+            ? '<div class="order-notification-changes">' + changes.map(renderChange).join('') + '</div>'
+            : '';
+        return [
+            '<article class="order-important-notification-card" data-important-notification-id="' + escapeAttr(item.id) + '">',
+            '  <div class="order-important-notification-card-header">',
+            '    <div class="order-important-notification-card-title"><span class="order-notification-important-badge">중요</span>' + escapeHtml(item.title || '중요 발주 알림') + '</div>',
+            '    <div class="order-important-notification-card-time">' + escapeHtml(item.createdAtText || '') + '</div>',
+            '  </div>',
+            '  <div class="order-important-notification-card-message">' + escapeHtml(item.message || '') + '</div>',
+            '  <div class="order-important-notification-card-meta">',
+            '    <span>발주 #' + escapeHtml(item.orderId || '-') + '</span>',
+            '    <span>현재상태: ' + escapeHtml(item.orderStatusLabel || item.orderStatus || '-') + '</span>',
+            '    <span>처리자: ' + escapeHtml(item.actorDisplayName || item.actorUsername || '시스템') + '</span>',
+            '    <span>' + escapeHtml(item.operationLabel || '') + '</span>',
+            '  </div>',
+            changeHtml,
+            '</article>'
+        ].join('');
+    }
+
+    async function confirmLoadedImportantNotifications() {
+        if (state.importantConfirming) return;
+        const ids = state.importantItems.map(function (item) { return Number(item && item.id); })
+            .filter(function (id) { return Number.isFinite(id) && id > 0; });
+        if (!ids.length) {
+            await ensurePendingImportantNotifications(true);
+            return;
+        }
+
+        state.importantConfirming = true;
+        setImportantConfirmBusy(true);
+        clearImportantError();
+        try {
+            const response = await fetch(API.importantConfirm, {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, ajaxHeaders()),
+                body: JSON.stringify({ notificationIds: ids })
+            });
+            const data = await parseResponse(response);
+            if (!response.ok) throw new Error(data.message || '중요알림 확인 처리에 실패했습니다.');
+
+            const confirmed = new Set(ids.map(String));
+            state.importantItems = state.importantItems.filter(function (item) { return !confirmed.has(String(item.id)); });
+            state.importantTotalPending = Math.max(0, Number(state.importantTotalPending || 0) - Number(data.updatedCount || ids.length));
+            state.importantConfirming = false;
+            setImportantConfirmBusy(false);
+            await Promise.all([refreshSummary(), ensurePendingImportantNotifications(true)]);
+        } catch (error) {
+            console.error('[중요알림] 확인 처리 실패', error);
+            showImportantError(error && error.message ? error.message : '중요알림 확인 처리에 실패했습니다.');
+        } finally {
+            state.importantConfirming = false;
+            setImportantConfirmBusy(false);
+        }
+    }
+
+    function setImportantConfirmBusy(busy) {
+        if (!els.importantConfirmButton) return;
+        els.importantConfirmButton.disabled = Boolean(busy) || !state.importantItems.length;
+        els.importantConfirmButton.innerHTML = busy
+            ? '<span class="spinner-border spinner-border-sm me-1"></span>확인 처리 중'
+            : '<i class="ri-check-double-line me-1"></i>위 중요알림 모두 확인';
+    }
+
+    function showImportantOverlay() {
+        if (!els.importantOverlay) return;
+        closeOpenNativeDialogsForImportantOverlay();
+        els.importantOverlay.classList.remove('d-none');
+        els.importantOverlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('order-important-notification-lock');
+        window.setTimeout(function () {
+            if (els.importantConfirmButton && !els.importantConfirmButton.disabled) els.importantConfirmButton.focus();
+        }, 0);
+    }
+
+    function closeOpenNativeDialogsForImportantOverlay() {
+        /* native <dialog>는 CSS z-index보다 높은 top layer에 있으므로 중요알림이 오면 먼저 취소/종료합니다. */
+        Array.from(document.querySelectorAll('dialog[open]')).forEach(function (dialog) {
+            if (dialog === els.importantOverlay) return;
+            try {
+                dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+            } catch (ignore) {}
+            if (dialog.open && typeof dialog.close === 'function') {
+                try { dialog.close('cancel'); } catch (ignore) {}
+            }
+        });
+    }
+
+    function hideImportantOverlay() {
+        if (!els.importantOverlay) return;
+        els.importantOverlay.classList.add('d-none');
+        els.importantOverlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('order-important-notification-lock');
+        clearImportantError();
+    }
+
+    function showImportantError(message) {
+        if (!els.importantError) return;
+        els.importantError.textContent = message || '중요알림 처리 중 오류가 발생했습니다.';
+        els.importantError.classList.remove('d-none');
+    }
+
+    function clearImportantError() {
+        if (!els.importantError) return;
+        els.importantError.textContent = '';
+        els.importantError.classList.add('d-none');
+    }
+
+    function notificationMatchesCurrentFilter(notification) {
+        if (!notification) return false;
+        if (state.filter === 'IMPORTANT') return Boolean(notification.important);
+        if (state.filter === 'ALL') return Boolean(notification.webEnabled || notification.important);
+        return Boolean(notification.webEnabled) && notification.category === state.filter;
+    }
+
     function connectWebSocket() {
         if (!window.WebSocket || !els.bellButton) return;
         clearTimeout(state.reconnectTimer);
@@ -659,6 +922,9 @@
                 if (payload.type !== 'ORDER_NOTIFICATION_CREATED' || !payload.notification) return;
                 animateBell();
                 scheduleSummaryRefresh();
+                if (payload.notification.important && !payload.notification.importantConfirmed) {
+                    enqueueImportantNotification(payload.notification);
+                }
                 bufferSocketNotification(payload.notification);
             } catch (error) {
                 console.warn('실시간 알림 메시지 처리 실패', error);
@@ -670,8 +936,7 @@
 
     function bufferSocketNotification(notification) {
         /* 모달이 닫혀 있어도 메모리/DOM 목록에 누적하여 다시 열 때 읽은 항목이 임의로 사라지지 않게 합니다. */
-        if (state.isManagement && notification.category !== state.category) return;
-        if (!notification.id) return;
+        if (!notification.id || !notificationMatchesCurrentFilter(notification)) return;
         state.socketBuffer.set(String(notification.id), notification);
         window.clearTimeout(state.socketFlushTimer);
         state.socketFlushTimer = window.setTimeout(flushSocketNotifications, 500);

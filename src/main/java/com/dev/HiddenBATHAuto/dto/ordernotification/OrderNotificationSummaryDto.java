@@ -9,5 +9,7 @@ import lombok.Getter;
 @Builder
 public class OrderNotificationSummaryDto {
     private long totalUnreadCount;
+    private long importantUnreadCount;
+    private long pendingImportantConfirmationCount;
     private Map<String, Long> unreadCountByCategory;
 }

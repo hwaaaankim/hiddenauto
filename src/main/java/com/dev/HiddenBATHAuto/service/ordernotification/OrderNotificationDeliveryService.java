@@ -42,7 +42,7 @@ public class OrderNotificationDeliveryService {
                 .orElse(null);
         if (notification == null) return;
 
-        if (notification.isWebEnabled()) {
+        if (notification.isWebEnabled() || notification.isImportantEnabled()) {
             sendWebSocket(notification);
         }
         sendKakaoIfRequired(notification);

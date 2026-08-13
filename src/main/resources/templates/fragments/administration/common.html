@@ -15,10 +15,10 @@
 	<link href="/administration/assets/css/bootstrap.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/icons.min.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/app.css" rel="stylesheet" type="text/css" />
-	<link href="/administration/assets/css/custom.css?v=20260804-3" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/custom.css?v=20260813-4" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/add.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/dispatch.css" rel="stylesheet" type="text/css" />
-	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260804-8" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260813-1" rel="stylesheet" type="text/css" />
 	<script src="/administration/assets/js/layout.js"></script>
 	<link href="/administration/assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -158,19 +158,32 @@
 					<div class="modal-body">
 						<span id="order-notification-management-mode" class="d-none"
 							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')" aria-hidden="true"></span>
-						<div class="order-notification-tabs" role="tablist"
+						<div class="order-notification-tabs order-notification-tabs-management" role="tablist"
 							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')">
-							<button type="button" class="order-notification-tab active" data-order-notification-category="PRODUCTION">
+							<button type="button" class="order-notification-tab active" data-order-notification-filter="PRODUCTION">
 								생산팀 <span class="order-notification-tab-count">0</span>
 							</button>
-							<button type="button" class="order-notification-tab" data-order-notification-category="DELIVERY">
+							<button type="button" class="order-notification-tab" data-order-notification-filter="DELIVERY">
 								배송팀 <span class="order-notification-tab-count">0</span>
 							</button>
-							<button type="button" class="order-notification-tab" data-order-notification-category="DISPATCH">
+							<button type="button" class="order-notification-tab" data-order-notification-filter="DISPATCH">
 								출고팀 <span class="order-notification-tab-count">0</span>
 							</button>
-							<button type="button" class="order-notification-tab" data-order-notification-category="EMERGENCY">
+							<button type="button" class="order-notification-tab" data-order-notification-filter="EMERGENCY">
 								긴급 <span class="order-notification-tab-count">0</span>
+							</button>
+							<button type="button" class="order-notification-tab order-notification-tab-important" data-order-notification-filter="IMPORTANT">
+								중요알림 <span class="order-notification-tab-count">0</span>
+							</button>
+						</div>
+
+						<div class="order-notification-tabs order-notification-tabs-team" role="tablist"
+							sec:authorize="hasAuthority('ROLE_INTERNAL_EMPLOYEE')">
+							<button type="button" class="order-notification-tab active" data-order-notification-filter="ALL">
+								전체 <span class="order-notification-tab-count">0</span>
+							</button>
+							<button type="button" class="order-notification-tab order-notification-tab-important" data-order-notification-filter="IMPORTANT">
+								중요알림 <span class="order-notification-tab-count">0</span>
 							</button>
 						</div>
 						<div id="order-notification-new-arrival" class="order-notification-new-arrival d-none" aria-live="polite"></div>
@@ -190,6 +203,32 @@
 						</button>
 						<button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
 					</div>
+				</div>
+			</div>
+		</div>
+		<div id="order-important-notification-overlay" class="order-important-notification-overlay d-none"
+			role="dialog" aria-modal="true" aria-labelledby="order-important-notification-title" aria-hidden="true"
+			sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT','ROLE_INTERNAL_EMPLOYEE')">
+			<div class="order-important-notification-panel" role="document">
+				<div class="order-important-notification-header">
+					<div class="order-important-notification-icon" aria-hidden="true">!</div>
+					<div class="order-important-notification-heading">
+						<div class="order-important-notification-eyebrow">IMPORTANT ORDER NOTICE</div>
+						<h2 id="order-important-notification-title">중요 발주 알림을 확인해 주세요.</h2>
+						<p>업무에 영향이 있는 중요알림입니다. 아래 내용을 확인한 뒤 <strong>확인</strong> 버튼을 눌러야 화면을 다시 사용할 수 있습니다.</p>
+					</div>
+				</div>
+				<div class="order-important-notification-summary">
+					<span>현재 확인 필요 <strong id="order-important-notification-count">0</strong>건</span>
+					<span id="order-important-notification-more" class="d-none">확인 후 다음 중요알림을 계속 표시합니다.</span>
+				</div>
+				<div id="order-important-notification-list" class="order-important-notification-list" aria-live="assertive"></div>
+				<div id="order-important-notification-error" class="order-important-notification-error d-none" role="alert"></div>
+				<div class="order-important-notification-footer">
+					<p><i class="ri-information-line me-1"></i>이 확인은 강제 팝업만 닫습니다. 종 모양 알림의 <strong>중요알림</strong>은 별도로 읽음 처리하기 전까지 유지됩니다.</p>
+					<button type="button" class="btn btn-danger" id="order-important-notification-confirm-btn">
+						<i class="ri-check-double-line me-1"></i>위 중요알림 모두 확인
+					</button>
 				</div>
 			</div>
 		</div>
@@ -591,7 +630,7 @@
 		<script src="/administration/assets/libs/list.pagination.js/list.pagination.min.js"></script>
 		<script src="/administration/assets/libs/sweetalert2/sweetalert2.min.js"></script>
 		<script src="/administration/assets/js/app.js"></script>
-		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260809-3"></script>
+		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260813-1"></script>
 	</th:block>
 
 </body>
