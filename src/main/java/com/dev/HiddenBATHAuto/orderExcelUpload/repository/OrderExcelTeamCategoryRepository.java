@@ -12,6 +12,7 @@ import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 public interface OrderExcelTeamCategoryRepository extends JpaRepository<TeamCategory, Long> {
     List<TeamCategory> findByTeam_NameOrderByNameAsc(String teamName);
     List<TeamCategory> findByTeam_NameAndNameIgnoreCase(String teamName, String name);
+    List<TeamCategory> findByTeam_IdAndNameIgnoreCase(Long teamId, String name);
 
     @Query(value = """
             select tc.*

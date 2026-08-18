@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -209,6 +210,18 @@ public class ManagementController {
 	private final ManagementDeliveryListExcelService managementDeliveryListExcelService;
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+	private static final Long MANAGEMENT_MIRROR_CUTTING_FILTER_VALUE = -9000001L;
+	private static final String MANAGEMENT_MIRROR_CUTTING_FILTER_LABEL = "재단(거울)";
+	private static final Long PRODUCTION_TEAM_ID = 2L;
+	private static final List<String> MANAGEMENT_REAL_PRODUCT_CATEGORY_NAMES = List.of(
+			"슬라이드장",
+			"상부장",
+			"하부장",
+			"플랩장",
+			"거울",
+			"LED거울",
+			"욕실용품"
+	);
 
 
 	/*
@@ -253,7 +266,8 @@ public class ManagementController {
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
 		Boolean standardBool = parseStandardOrNull(standard);
-		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		boolean mirrorCuttingOnly = isManagementMirrorCuttingFilter(productCategoryId);
+		Long categoryId = mirrorCuttingOnly ? null : resolveManagementRealProductCategoryId(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
 		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
 		Long finalOrderIdFrom = orderIdRange.from();
@@ -280,6 +294,7 @@ public class ManagementController {
 				range.getStart(),
 				range.getEnd(),
 				categoryId,
+				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
 				sortedPageable
@@ -323,7 +338,9 @@ public class ManagementController {
 		model.addAttribute("startPage", startPageNum);
 		model.addAttribute("endPage", endPageNum);
 
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		model.addAttribute("productionTeamCategories", buildManagementProductCategoryOptions());
+		model.addAttribute("mirrorCuttingFilterValue", MANAGEMENT_MIRROR_CUTTING_FILTER_VALUE);
+		model.addAttribute("mirrorCuttingFilterLabel", MANAGEMENT_MIRROR_CUTTING_FILTER_LABEL);
 		model.addAttribute("orderStatuses", OrderStatus.values());
 
 		/*
@@ -412,7 +429,7 @@ public class ManagementController {
 		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
 		model.addAttribute("deliveryTeamMembers",
 				memberRepository.findByTeam_NameAndEnabledTrueOrderByNameAsc("배송팀"));
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		model.addAttribute("productionTeamCategories", buildManagementProductCategoryOptions());
 
 		/*
 		 * 속도 개선 핵심: - 회사 select용 전체 회사 목록만 가볍게 제공 - 현재 오더의 회사에 해당하는 멤버/배송지/주문자만 초기 제공 -
@@ -539,7 +556,8 @@ public class ManagementController {
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
 		Boolean standardBool = parseStandardOrNull(standard);
-		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		boolean mirrorCuttingOnly = isManagementMirrorCuttingFilter(productCategoryId);
+		Long categoryId = mirrorCuttingOnly ? null : resolveManagementRealProductCategoryId(productCategoryId);
 		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
 		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
 		Long finalOrderIdFrom = orderIdRange.from();
@@ -571,6 +589,7 @@ public class ManagementController {
 				range.getStart(),
 				range.getEnd(),
 				categoryId,
+				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
 				sortedPageable
@@ -876,7 +895,8 @@ public class ManagementController {
 	) {
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
-		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		boolean mirrorCuttingOnly = isManagementMirrorCuttingFilter(productCategoryId);
+		Long categoryId = mirrorCuttingOnly ? null : resolveManagementRealProductCategoryId(productCategoryId);
 		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
 		Boolean standardBool = parseStandardOrNull(standard);
 		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
@@ -894,6 +914,7 @@ public class ManagementController {
 				range.getStart(),
 				range.getEnd(),
 				categoryId,
+				mirrorCuttingOnly,
 				status,
 				standardBool
 		);
@@ -911,6 +932,7 @@ public class ManagementController {
 				finalDateCriteria,
 				range,
 				categoryId,
+				mirrorCuttingOnly,
 				status,
 				standardBool
 		));
@@ -941,7 +963,8 @@ public class ManagementController {
 
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
-		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		boolean mirrorCuttingOnly = isManagementMirrorCuttingFilter(productCategoryId);
+		Long categoryId = mirrorCuttingOnly ? null : resolveManagementRealProductCategoryId(productCategoryId);
 		OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
 		Boolean standardBool = parseStandardOrNull(standard);
 		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
@@ -959,6 +982,7 @@ public class ManagementController {
 				range.getStart(),
 				range.getEnd(),
 				categoryId,
+				mirrorCuttingOnly,
 				status,
 				standardBool
 		);
@@ -975,6 +999,7 @@ public class ManagementController {
 				finalDateCriteria,
 				range,
 				categoryId,
+				mirrorCuttingOnly,
 				status,
 				standardBool
 		);
@@ -1118,6 +1143,47 @@ public class ManagementController {
 	}
 
 
+	private List<TeamCategory> buildManagementProductCategoryOptions() {
+		return teamCategoryRepository.findByTeamName("생산팀").stream()
+				.filter(category -> category != null && category.getName() != null)
+				.filter(category -> category.getTeam() != null
+						&& Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId()))
+				.filter(category -> MANAGEMENT_REAL_PRODUCT_CATEGORY_NAMES.contains(category.getName().trim()))
+				.sorted(Comparator.comparingInt(category ->
+						MANAGEMENT_REAL_PRODUCT_CATEGORY_NAMES.indexOf(category.getName().trim())))
+				.toList();
+	}
+
+	private boolean isManagementMirrorCuttingFilter(String productCategoryId) {
+		if (productCategoryId == null || productCategoryId.isBlank()) {
+			return false;
+		}
+		try {
+			return Objects.equals(MANAGEMENT_MIRROR_CUTTING_FILTER_VALUE, Long.valueOf(productCategoryId.trim()));
+		} catch (NumberFormatException e) {
+			return false;
+		}
+	}
+
+	private Long resolveManagementRealProductCategoryId(String productCategoryId) {
+		Long categoryId = parseLongOrNullAllowAll(productCategoryId);
+		if (categoryId == null) {
+			return null;
+		}
+
+		TeamCategory category = teamCategoryRepository.findById(categoryId)
+				.orElseThrow(() -> new IllegalArgumentException("선택한 제품분류를 찾을 수 없습니다."));
+
+		if (category.getTeam() == null
+				|| !Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+				|| category.getName() == null
+				|| !MANAGEMENT_REAL_PRODUCT_CATEGORY_NAMES.contains(category.getName().trim())) {
+			throw new IllegalArgumentException("관리자 제품분류 필터는 7개 실제 제품 카테고리 또는 재단(거울)만 선택할 수 있습니다.");
+		}
+
+		return categoryId;
+	}
+
 	private String normalizeNullableSearchText(String value) {
 		if (value == null) {
 			return null;
@@ -1134,15 +1200,18 @@ public class ManagementController {
 			String dateCriteria,
 			DateRange range,
 			Long productCategoryId,
+			boolean mirrorCuttingOnly,
 			OrderStatus status,
 			Boolean standard
 	) {
-		String categoryLabel = productCategoryId == null
-				? "전체"
-				: teamCategoryRepository.findById(productCategoryId)
-						.map(TeamCategory::getName)
-						.filter(name -> name != null && !name.isBlank())
-						.orElse("ID " + productCategoryId);
+		String categoryLabel = mirrorCuttingOnly
+				? MANAGEMENT_MIRROR_CUTTING_FILTER_LABEL
+				: (productCategoryId == null
+						? "전체"
+						: teamCategoryRepository.findById(productCategoryId)
+								.map(TeamCategory::getName)
+								.filter(name -> name != null && !name.isBlank())
+								.orElse("ID " + productCategoryId));
 
 		String dateLabel;
 		if ("order".equals(dateCriteria)) {
@@ -1504,7 +1573,7 @@ public class ManagementController {
 		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
 		model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
 		model.addAttribute("productionTeamMembers", memberRepository.findByTeamName("생산팀"));
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		model.addAttribute("productionTeamCategories", buildManagementProductCategoryOptions());
 
 		// ✅ 대리점/신청자 드롭다운용 데이터
 		// 현재 신청자
@@ -2469,7 +2538,7 @@ public class ManagementController {
 		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
 		model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
 		model.addAttribute("productionTeamMembers", memberRepository.findByTeamName("생산팀"));
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		model.addAttribute("productionTeamCategories", buildManagementProductCategoryOptions());
 		return "administration/management/production/productionDetail";
 	}
 
@@ -2722,7 +2791,7 @@ public class ManagementController {
 		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
 		model.addAttribute("deliveryTeamMembers", memberRepository.findByTeamName("배송팀"));
 		model.addAttribute("productionTeamMembers", memberRepository.findByTeamName("생산팀"));
-		model.addAttribute("productionTeamCategories", teamCategoryRepository.findByTeamName("생산팀"));
+		model.addAttribute("productionTeamCategories", buildManagementProductCategoryOptions());
 		return "administration/management/delivery/deliveryDetail";
 	}
 
@@ -3342,7 +3411,7 @@ public class ManagementController {
 
 		// 전체 팀 카테고리 목록
 		// HTML option에 data-team-id를 심어두고 JS에서 선택한 팀 기준으로 필터링
-		List<TeamCategory> teamCategories = teamCategoryRepository.findAll();
+		List<TeamCategory> teamCategories = memberMgmtService.getEmployeeAssignableTeamCategories();
 
 		// 시도 정보
 		List<Province> provinces = provinceRepository.findAll();

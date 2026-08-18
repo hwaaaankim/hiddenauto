@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderTeamAccessPolicyService {
 
+    private static final Long PRODUCTION_TEAM_ID = 2L;
     private static final String PRODUCTION_TEAM = "생산팀";
     private static final String DELIVERY_TEAM = "배송팀";
     private static final String DISPATCH_TEAM = "출고팀";
@@ -36,6 +37,15 @@ public class OrderTeamAccessPolicyService {
      * DB의 TeamCategory는 분리된 상태를 유지하되 생산 변경 권한만 상호 허용합니다.
      */
     private static final Set<String> MIRROR_EQUIVALENT_CATEGORY_KEYS = Set.of(
+            "거울",
+            "led거울"
+    );
+
+    private static final Set<String> PRODUCTION_REAL_CATEGORY_KEYS = Set.of(
+            "슬라이드장",
+            "상부장",
+            "하부장",
+            "플랩장",
             "거울",
             "led거울"
     );
@@ -66,6 +76,7 @@ public class OrderTeamAccessPolicyService {
     public boolean canViewProductionOrder(Member member, Order order) {
         return isTeam(member, PRODUCTION_TEAM)
                 && order != null
+                && isProductionRealCategory(order.getProductCategory())
                 && order.getStatus() != null
                 && PRODUCTION_VISIBLE_STATUSES.contains(order.getStatus());
     }
@@ -84,6 +95,7 @@ public class OrderTeamAccessPolicyService {
      */
     public boolean canOperateProductionCategory(Member member, TeamCategory orderCategory) {
         if (!isTeam(member, PRODUCTION_TEAM) || isCuttingProductionMember(member)) return false;
+        if (!isProductionRealCategory(orderCategory)) return false;
 
         TeamCategory memberCategory = member.getTeamCategory();
         if (memberCategory == null || memberCategory.getId() == null) return false;
@@ -150,6 +162,15 @@ public class OrderTeamAccessPolicyService {
         if (!isTeam(member, PRODUCTION_TEAM) || member.getTeamCategory() == null) return false;
         String categoryName = normalize(member.getTeamCategory().getName());
         return categoryName != null && categoryName.contains("재단");
+    }
+
+    private boolean isProductionRealCategory(TeamCategory category) {
+        if (category == null || category.getTeam() == null
+                || !Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())) {
+            return false;
+        }
+        String categoryKey = normalizeCategoryKey(category.getName());
+        return categoryKey != null && PRODUCTION_REAL_CATEGORY_KEYS.contains(categoryKey);
     }
 
     private boolean isTeam(Member member, String teamName) {

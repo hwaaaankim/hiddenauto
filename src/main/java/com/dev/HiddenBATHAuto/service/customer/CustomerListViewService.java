@@ -31,6 +31,7 @@ import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.CategoryCount;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.SortSpec;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskListFilter;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskListRow;
+import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskOrderSummary;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
@@ -42,6 +43,7 @@ import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskScheduleRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.RegionLookupService;
+import com.dev.HiddenBATHAuto.utils.OrderProductNameDisplayUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -62,6 +64,11 @@ public class CustomerListViewService {
 
     private static final List<String> TASK_CATEGORY_ORDER = List.of(
             "상부장", "하부장", "슬라이드장", "거울", "플랩장", "LED거울");
+
+    private static final Set<String> COMPACT_PROVINCE_NAMES = Set.of(
+            "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+            "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주");
+
 
     private final AsTaskRepository asTaskRepository;
     private final AsTaskScheduleRepository asTaskScheduleRepository;
@@ -172,10 +179,13 @@ public class CustomerListViewService {
 
         Order representative = orders.isEmpty() ? null : orders.get(0);
 
+        List<TaskOrderSummary> orderSummaries = orders.stream()
+                .map(this::buildTaskOrderSummary)
+                .toList();
+
         Map<String, Long> categoryCountMap = new LinkedHashMap<>();
-        for (Order order : orders) {
-            String category = extractCategory(order);
-            categoryCountMap.merge(category, 1L, Long::sum);
+        for (TaskOrderSummary summary : orderSummaries) {
+            categoryCountMap.merge(safeText(summary.getCategoryName(), "미분류"), 1L, Long::sum);
         }
 
         List<CategoryCount> categoryCounts = categoryCountMap.entrySet().stream()
@@ -194,12 +204,55 @@ public class CustomerListViewService {
                 .ordererPhone(safeText(representative != null ? representative.getOrdererPhone() : null, "-"))
                 .orderCount(orders.size())
                 .categoryCounts(categoryCounts)
+                .orderSummaries(orderSummaries)
                 .deliveryMethodName(resolveDeliveryMethodName(representative))
                 .deliveryAddress(buildEffectiveDeliveryAddress(representative))
+                .deliveryRegion(buildEffectiveDeliveryRegion(representative))
                 .deliveryDate(representative != null ? representative.getPreferredDeliveryDate() : null)
                 .statusKey(statusSummary.key())
                 .statusLabel(statusSummary.label())
                 .managerName(resolveManagerName(task.getManagedBy()))
+                .vatIncludedTotalPrice(calculateVatIncludedTotalPrice(task.getTotalPrice()))
+                .build();
+    }
+
+    private int calculateVatIncludedTotalPrice(int vatExcludedTotalPrice) {
+        if (vatExcludedTotalPrice <= 0) {
+            return Math.max(vatExcludedTotalPrice, 0);
+        }
+        return (int) Math.round(vatExcludedTotalPrice * 1.1d);
+    }
+
+    private TaskOrderSummary buildTaskOrderSummary(Order order) {
+        if (order == null) {
+            return TaskOrderSummary.builder()
+                    .productName("-")
+                    .size("-")
+                    .color("-")
+                    .deliveryMethodName("-")
+                    .deliveryAddress("-")
+                    .statusKey("NONE")
+                    .statusLabel("-")
+                    .build();
+        }
+
+        OrderItem item = order.getOrderItem();
+        Map<String, Object> optionMap = parseOrderOptionMap(item != null ? item.getOptionJson() : null);
+        OrderStatus status = order.getStatus();
+
+        return TaskOrderSummary.builder()
+                .orderId(order.getId())
+                .categoryName(extractCategory(order, optionMap))
+                .productName(resolveCustomerProductName(item, optionMap))
+                .size(resolveCustomerProductSize(optionMap))
+                .color(resolveCustomerProductColor(optionMap))
+                .quantity(order.getQuantity())
+                .deliveryMethodName(resolveDeliveryMethodName(order))
+                .deliveryAddress(buildEffectiveDeliveryAddress(order))
+                .deliveryDate(order.getPreferredDeliveryDate())
+                .statusKey(status != null ? status.name() : "NONE")
+                .statusLabel(status != null ? status.getLabel() : "-")
+                .orderComment(safeText(order.getOrderComment(), "-"))
                 .build();
     }
 
@@ -212,26 +265,14 @@ public class CustomerListViewService {
         return index >= 0 ? index : TASK_CATEGORY_ORDER.size();
     }
 
-    private String extractCategory(Order order) {
+    private String extractCategory(Order order, Map<String, Object> optionMap) {
         if (order == null) {
             return "미분류";
         }
 
-        OrderItem item = order.getOrderItem();
-        if (item != null && StringUtils.hasText(item.getOptionJson())) {
-            try {
-                Map<String, Object> values = objectMapper.readValue(
-                        item.getOptionJson(),
-                        new TypeReference<Map<String, Object>>() {
-                        });
-
-                Object categoryValue = values.get("카테고리");
-                if (categoryValue != null && StringUtils.hasText(categoryValue.toString())) {
-                    return categoryValue.toString().trim();
-                }
-            } catch (Exception ignore) {
-                // 기존 레거시 JSON이 손상된 경우 화면 전체가 깨지지 않도록 아래 fallback을 사용합니다.
-            }
+        Object categoryValue = optionMap != null ? optionMap.get("카테고리") : null;
+        if (categoryValue != null && StringUtils.hasText(categoryValue.toString())) {
+            return categoryValue.toString().trim();
         }
 
         if (order.getProductCategory() != null && StringUtils.hasText(order.getProductCategory().getName())) {
@@ -239,6 +280,92 @@ public class CustomerListViewService {
         }
 
         return "미분류";
+    }
+
+    private Map<String, Object> parseOrderOptionMap(String optionJson) {
+        if (!StringUtils.hasText(optionJson)) {
+            return Map.of();
+        }
+
+        try {
+            return objectMapper.readValue(optionJson, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception ignore) {
+            return Map.of();
+        }
+    }
+
+    private String resolveCustomerProductName(OrderItem item, Map<String, Object> optionMap) {
+        // 고객 발주 상세 화면과 동일하게 OrderItem.productName을 제품명의 기준값으로 사용합니다.
+        // optionJson 제품명은 OrderItem.productName이 비어 있는 예외 데이터의 표시 보조값으로만 사용합니다.
+        String itemProductName = item != null ? normalizeMeaningfulProductName(item.getProductName()) : null;
+        if (StringUtils.hasText(itemProductName)) {
+            return itemProductName;
+        }
+
+        String optionProductName = normalizeMeaningfulProductName(pickFirstOptionValue(optionMap, List.of(
+                "제품명", "제품", "productName", "product", "ProductName", "Product", "product_name")));
+        return safeText(optionProductName, "-");
+    }
+
+    private String normalizeMeaningfulProductName(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        String normalized = OrderProductNameDisplayUtil.toDisplayName(value);
+        if (!StringUtils.hasText(normalized)
+                || "-".equals(normalized)
+                || "제품명없음".equals(normalized)
+                || "제품없음".equals(normalized)) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private String resolveCustomerProductSize(Map<String, Object> optionMap) {
+        String directSize = pickFirstOptionValue(optionMap, List.of(
+                "사이즈", "규격", "크기", "제품사이즈", "제품규격", "규격사이즈",
+                "productSize", "ProductSize", "size", "Size"));
+        if (StringUtils.hasText(directSize)) {
+            return directSize.trim();
+        }
+
+        List<String> dimensions = new ArrayList<>();
+        String width = pickFirstOptionValue(optionMap, List.of("가로", "가로사이즈", "width", "Width"));
+        String height = pickFirstOptionValue(optionMap, List.of("세로", "세로사이즈", "height", "Height"));
+        String depth = pickFirstOptionValue(optionMap, List.of("깊이", "깊이사이즈", "depth", "Depth"));
+
+        if (StringUtils.hasText(width)) {
+            dimensions.add(width.trim());
+        }
+        if (StringUtils.hasText(height)) {
+            dimensions.add(height.trim());
+        }
+        if (StringUtils.hasText(depth)) {
+            dimensions.add(depth.trim());
+        }
+
+        return dimensions.isEmpty() ? "-" : String.join(" × ", dimensions);
+    }
+
+    private String resolveCustomerProductColor(Map<String, Object> optionMap) {
+        return safeText(pickFirstOptionValue(optionMap, List.of(
+                "색상", "컬러", "제품색상", "productColor", "ProductColor", "color", "Color")), "-");
+    }
+
+    private String pickFirstOptionValue(Map<String, Object> optionMap, List<String> keys) {
+        if (optionMap == null || optionMap.isEmpty() || keys == null || keys.isEmpty()) {
+            return null;
+        }
+
+        for (String key : keys) {
+            Object value = optionMap.get(key);
+            if (value != null && StringUtils.hasText(value.toString())) {
+                return value.toString().trim();
+            }
+        }
+        return null;
     }
 
     private StatusSummary summarizeOrderStatus(List<Order> orders) {
@@ -358,6 +485,12 @@ public class CustomerListViewService {
         }
 
         String type = normalizeKeyword(filter.getTextType());
+        if ("productName".equals(type)) {
+            return safeOrders(row.getTask()).stream()
+                    .map(Order::getOrderItem)
+                    .filter(Objects::nonNull)
+                    .anyMatch(item -> containsIgnoreCase(item.getProductName(), keyword));
+        }
         if ("ordererPhone".equals(type)) {
             return containsDigits(row.getOrdererPhone(), keyword);
         }
@@ -760,6 +893,236 @@ public class CustomerListViewService {
         return joinAddress(order.getRoadAddress(), order.getDetailAddress());
     }
 
+    private String buildEffectiveDeliveryRegion(Order order) {
+        if (order == null) {
+            return "-";
+        }
+
+        boolean site = hasSiteAddress(order);
+        String doName = site ? order.getSiteDoName() : order.getDoName();
+        String siName = site ? order.getSiteSiName() : order.getSiName();
+        String guName = site ? order.getSiteGuName() : order.getGuName();
+        String roadAddress = site ? order.getSiteRoadAddress() : order.getRoadAddress();
+
+        String province = compactProvinceName(doName);
+        if (!StringUtils.hasText(province) && looksLikeProvinceToken(siName)) {
+            province = compactProvinceName(siName);
+        }
+
+        String city = StringUtils.hasText(siName) && !looksLikeProvinceToken(siName) ? siName.trim() : null;
+        String district = StringUtils.hasText(guName) ? guName.trim() : null;
+
+        // 고객 목록은 상세 주소가 아니라 "광역단위 + city 단위"까지만 표시합니다.
+        // 서울/부산 같은 광역시는 구를, 경기/강원 같은 도 단위는 시/군을 우선합니다.
+        String locality;
+        if (isMetropolitanProvince(province)) {
+            locality = firstDifferentRegion(province, district, city);
+        } else {
+            locality = firstDifferentRegion(province, city, district);
+        }
+
+        List<String> parsed = parseCompactRegionFromRoadAddress(roadAddress);
+        if (!StringUtils.hasText(province) && !parsed.isEmpty() && looksLikeProvinceToken(parsed.get(0))) {
+            province = compactProvinceName(parsed.get(0));
+        }
+
+        if (!StringUtils.hasText(locality)) {
+            for (String parsedPart : parsed) {
+                if (!sameRegionLabel(province, parsedPart)) {
+                    locality = parsedPart;
+                    break;
+                }
+            }
+        }
+
+        List<String> result = new ArrayList<>();
+        if (StringUtils.hasText(province)) {
+            result.add(province);
+        }
+        if (StringUtils.hasText(locality) && !sameRegionLabel(province, locality)) {
+            result.add(locality);
+        }
+
+        if (result.isEmpty() && !parsed.isEmpty()) {
+            return String.join(" ", parsed);
+        }
+        return result.isEmpty() ? "-" : String.join(" ", result);
+    }
+
+    private String firstDifferentRegion(String province, String... candidates) {
+        if (candidates == null) {
+            return null;
+        }
+        for (String candidate : candidates) {
+            if (StringUtils.hasText(candidate) && !sameRegionLabel(province, candidate)) {
+                return candidate.trim();
+            }
+        }
+        return null;
+    }
+
+    private boolean isMetropolitanProvince(String compactProvince) {
+        if (!StringUtils.hasText(compactProvince)) {
+            return false;
+        }
+        return Set.of("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종")
+                .contains(compactProvince.trim());
+    }
+
+    private List<String> parseCompactRegionFromRoadAddress(String roadAddress) {
+        if (!StringUtils.hasText(roadAddress)) {
+            return List.of();
+        }
+
+        String[] tokens = roadAddress.trim().replaceAll("\\s+", " ").split(" ");
+        String province = null;
+        String locality = null;
+        String neighborhoodFallback = null;
+
+        for (String rawToken : tokens) {
+            if (!StringUtils.hasText(rawToken) || rawToken.matches("\\d{5}")) {
+                continue;
+            }
+
+            String token = rawToken.trim().replaceAll("^[\\(\\[]|[\\)\\],]$", "");
+            if (!StringUtils.hasText(token)) {
+                continue;
+            }
+
+            if (!StringUtils.hasText(province) && looksLikeProvinceToken(token)) {
+                province = compactProvinceName(token);
+                continue;
+            }
+
+            if (isCityToken(token)) {
+                // 도 단위 주소는 시가 city 단위이므로 여기서 확정합니다.
+                if (!isMetropolitanProvince(province)) {
+                    locality = token;
+                    break;
+                }
+                if (!StringUtils.hasText(locality)) {
+                    locality = token;
+                }
+                continue;
+            }
+
+            if (isDistrictToken(token)) {
+                // 광역시는 구/군이 city 단위입니다. 도 단위에서 시가 없을 때도 군/구를 사용합니다.
+                if (isMetropolitanProvince(province) || !StringUtils.hasText(locality)) {
+                    locality = token;
+                }
+                break;
+            }
+
+            if (isNeighborhoodToken(token)) {
+                neighborhoodFallback = token;
+                break;
+            }
+
+            // 행정구역을 찾은 뒤 도로명/번지 영역으로 진입하면 더 이상 확장하지 않습니다.
+            if (StringUtils.hasText(province) || StringUtils.hasText(locality)) {
+                break;
+            }
+        }
+
+        if (!StringUtils.hasText(locality)) {
+            locality = neighborhoodFallback;
+        }
+
+        List<String> result = new ArrayList<>();
+        if (StringUtils.hasText(province)) {
+            result.add(province);
+        }
+        if (StringUtils.hasText(locality) && !sameRegionLabel(province, locality)) {
+            result.add(locality);
+        }
+        return result;
+    }
+
+    private boolean looksLikeProvinceToken(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim();
+        if (COMPACT_PROVINCE_NAMES.contains(normalized)) {
+            return true;
+        }
+        return normalized.endsWith("특별시")
+                || normalized.endsWith("광역시")
+                || normalized.endsWith("특별자치시")
+                || normalized.endsWith("특별자치도")
+                || normalized.endsWith("도");
+    }
+
+    private boolean isCityToken(String value) {
+        return StringUtils.hasText(value) && value.trim().endsWith("시") && !looksLikeProvinceToken(value);
+    }
+
+    private boolean isDistrictToken(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim();
+        return normalized.endsWith("구") || normalized.endsWith("군");
+    }
+
+    private boolean isNeighborhoodToken(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim();
+        return normalized.endsWith("동") || normalized.endsWith("읍") || normalized.endsWith("면") || normalized.endsWith("리");
+    }
+
+    private String compactProvinceName(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        return switch (value.trim()) {
+            case "서울특별시" -> "서울";
+            case "부산광역시" -> "부산";
+            case "대구광역시" -> "대구";
+            case "인천광역시" -> "인천";
+            case "광주광역시" -> "광주";
+            case "대전광역시" -> "대전";
+            case "울산광역시" -> "울산";
+            case "세종특별자치시" -> "세종";
+            case "경기도" -> "경기";
+            case "강원도", "강원특별자치도" -> "강원";
+            case "충청북도" -> "충북";
+            case "충청남도" -> "충남";
+            case "전라북도", "전북특별자치도" -> "전북";
+            case "전라남도" -> "전남";
+            case "경상북도" -> "경북";
+            case "경상남도" -> "경남";
+            case "제주특별자치도" -> "제주";
+            default -> value.trim();
+        };
+    }
+
+    private boolean sameRegionLabel(String left, String right) {
+        if (!StringUtils.hasText(left) || !StringUtils.hasText(right)) {
+            return false;
+        }
+        return normalizeCompactRegionLabel(left).equals(normalizeCompactRegionLabel(right));
+    }
+
+    private String normalizeCompactRegionLabel(String value) {
+        String normalized = Optional.ofNullable(compactProvinceName(value)).orElse(value).trim().replaceAll("\\s+", "");
+        String[] suffixes = { "특별자치시", "특별자치도", "특별시", "광역시", "자치구", "자치군", "시", "구", "군", "도" };
+        for (String suffix : suffixes) {
+            if (normalized.endsWith(suffix) && normalized.length() > suffix.length()) {
+                return normalized.substring(0, normalized.length() - suffix.length());
+            }
+        }
+        return normalized;
+    }
+
+    private String lastOrNull(List<String> values) {
+        return values == null || values.isEmpty() ? null : values.get(values.size() - 1);
+    }
+
     private boolean hasSiteAddress(Order order) {
         return order != null && StringUtils.hasText(order.getSiteRoadAddress());
     }
@@ -838,6 +1201,7 @@ public class CustomerListViewService {
 
     private String taskTextTypeLabel(String type) {
         return switch (Optional.ofNullable(type).orElse("ordererName")) {
+            case "productName" -> "제품명";
             case "ordererPhone" -> "주문자 연락처";
             case "taskId" -> "Task ID";
             case "orderId" -> "Order ID";

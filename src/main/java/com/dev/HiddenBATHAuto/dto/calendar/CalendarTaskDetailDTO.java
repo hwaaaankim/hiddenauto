@@ -48,5 +48,18 @@ public class CalendarTaskDetailDTO {
         private Integer quantity;
         private Integer price;
         private String categoryName;
+
+        /** index 달력 발주 상세용 제품 정보 */
+        private String productName;
+        private String productSize;
+        private String productColor;
+
+        /** 배송수단은 항상 표시합니다. */
+        private String deliveryMethodName;
+
+        /** 직배송/현장배송일 때만 true이며 담당자 영역을 노출합니다. */
+        private boolean deliveryHandlerVisible;
+        private String deliveryHandlerName;
+        private String deliveryHandlerContact;
     }
 }

@@ -40,6 +40,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 public class MemberManagementService {
 
+	private static final String PRODUCT_ONLY_PRODUCTION_CATEGORY_NAME = "욕실용품";
+
 	private final MemberRepository memberRepository;
 	private final TeamRepository teamRepository;
 	private final TeamCategoryRepository teamCategoryRepository;
@@ -121,6 +123,9 @@ public class MemberManagementService {
 			if (!Objects.equals(resolvedCategory.getTeam().getId(), newTeam.getId())) {
 				throw new IllegalArgumentException("선택한 팀과 팀 카테고리가 일치하지 않습니다.");
 			}
+			if (!isEmployeeAssignableTeamCategory(resolvedCategory)) {
+				throw new IllegalArgumentException("욕실용품은 제품 분류 전용 카테고리이므로 생산팀 직원에게 배정할 수 없습니다.");
+			}
 		} else {
 			Long forcedId = forcedCategoryIdByTeamName(newTeamName);
 			if (forcedId == null) {
@@ -166,7 +171,25 @@ public class MemberManagementService {
 
 	@Transactional(readOnly = true)
 	public List<TeamCategory> getTeamCategories(Long teamId) {
-		return teamCategoryRepository.findByTeamId(teamId);
+		return teamCategoryRepository.findByTeamId(teamId).stream()
+				.filter(this::isEmployeeAssignableTeamCategory)
+				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	public List<TeamCategory> getEmployeeAssignableTeamCategories() {
+		return teamCategoryRepository.findAll().stream()
+				.filter(this::isEmployeeAssignableTeamCategory)
+				.toList();
+	}
+
+	public boolean isEmployeeAssignableTeamCategory(TeamCategory category) {
+		if (category == null || category.getTeam() == null) {
+			return false;
+		}
+		return !(isProductionTeam(category.getTeam().getName())
+				&& PRODUCT_ONLY_PRODUCTION_CATEGORY_NAME.equals(
+						category.getName() == null ? "" : category.getName().trim()));
 	}
 
 	@Transactional(readOnly = true)

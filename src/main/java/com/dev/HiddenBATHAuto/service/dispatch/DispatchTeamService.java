@@ -94,6 +94,16 @@ public class DispatchTeamService {
 
     private static final String DISPATCH_TEAM_NAME = "출고팀";
     private static final String DELIVERY_TEAM_NAME = "배송팀";
+    private static final Long PRODUCTION_TEAM_ID = 2L;
+    private static final Set<String> DISPATCH_PRODUCT_CATEGORY_NAMES = Set.of(
+            "슬라이드장",
+            "상부장",
+            "하부장",
+            "플랩장",
+            "거울",
+            "LED거울",
+            "욕실용품"
+    );
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -1292,6 +1302,10 @@ public class DispatchTeamService {
         }
 
         if (request.getProductCategoryId() != null) {
+            TeamCategory selectedCategory = entityManager.find(TeamCategory.class, request.getProductCategoryId());
+            if (!isDispatchFilterCategory(selectedCategory)) {
+                throw new IllegalArgumentException("출고팀 제품분류 필터는 7개 실제 제품 카테고리만 선택할 수 있습니다.");
+            }
             predicates.add(cb.equal(
                     categoryJoin.get("id"),
                     request.getProductCategoryId()
@@ -1374,6 +1388,14 @@ public class DispatchTeamService {
         }
 
         return Math.min(size, MAX_SIZE);
+    }
+
+    private boolean isDispatchFilterCategory(TeamCategory category) {
+        if (category == null || category.getTeam() == null || category.getName() == null) {
+            return false;
+        }
+        return java.util.Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+                && DISPATCH_PRODUCT_CATEGORY_NAMES.contains(category.getName().trim());
     }
 
     private void addKeywordPredicate(

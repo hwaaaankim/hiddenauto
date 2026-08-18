@@ -69,6 +69,8 @@ import com.dev.HiddenBATHAuto.service.calculate.excel.MirrorUnstandardExcelUploa
 import com.dev.HiddenBATHAuto.service.calculate.excel.SlideExcelUploadService;
 import com.dev.HiddenBATHAuto.service.calculate.excel.TopExcelUploadService;
 import com.dev.HiddenBATHAuto.service.nonstandard.ExcelUploadService;
+import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
+import com.dev.HiddenBATHAuto.utils.OrderProductNameDisplayUtil;
 import com.dev.HiddenBATHAuto.utils.OptionTranslator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -968,7 +970,7 @@ public class APIController {
 		}
 
 		if (order.getOrderItem() != null) {
-			String productName = safeText(order.getOrderItem().getProductName());
+			String productName = safeText(OrderProductNameDisplayUtil.toDisplayName(order.getOrderItem().getProductName()));
 			if (productName != null) {
 				return productName;
 			}
@@ -1125,12 +1127,105 @@ public class APIController {
 			ob.setPrice(o.getProductCost());
 			ob.setCategoryName(o.getProductCategory() != null ? o.getProductCategory().getName() : null);
 
+			// 달력 팝업에서도 고객 발주 목록과 동일한 제품명 표시 규칙을 사용합니다.
+			ob.setProductName(resolveCalendarOrderProductName(o));
+			ob.setProductSize(resolveCalendarOrderProductSize(o));
+			ob.setProductColor(resolveCalendarOrderOptionValue(o,
+					"색상", "컬러", "제품색상", "productColor", "ProductColor", "color", "Color"));
+
+			String deliveryMethodName = o.getDeliveryMethod() != null
+					? safeText(o.getDeliveryMethod().getMethodName())
+					: null;
+			ob.setDeliveryMethodName(deliveryMethodName);
+
+			boolean showDeliveryHandler = DeliveryMethodAssignmentPolicy.isDirectOrSite(o.getDeliveryMethod());
+			ob.setDeliveryHandlerVisible(showDeliveryHandler);
+			if (showDeliveryHandler) {
+				Member deliveryHandler = o.getAssignedDeliveryHandler();
+				ob.setDeliveryHandlerName(deliveryHandler != null ? safeText(deliveryHandler.getName()) : null);
+				ob.setDeliveryHandlerContact(resolveContact(deliveryHandler));
+			}
+
 			dto.getOrders().add(ob);
 		}
 
 		dto.setTitle("TASK_" + t.getId());
 		dto.setAddress(dto.getOrders().isEmpty() ? "-" : dto.getOrders().get(0).getAddress());
 		return dto;
+	}
+
+	private String resolveCalendarOrderProductName(Order order) {
+		if (order == null || order.getOrderItem() == null) {
+			return "-";
+		}
+
+		String productName = safeText(OrderProductNameDisplayUtil.toDisplayName(order.getOrderItem().getProductName()));
+		if (productName != null) {
+			return productName;
+		}
+
+		String fallback = resolveCalendarOrderOptionValue(order,
+				"제품명", "제품", "productName", "ProductName", "product", "Product");
+		fallback = safeText(OrderProductNameDisplayUtil.toDisplayName(fallback));
+		return fallback != null ? fallback : "-";
+	}
+
+	private String resolveCalendarOrderProductSize(Order order) {
+		String direct = resolveCalendarOrderOptionValue(order,
+				"사이즈", "규격", "크기", "제품사이즈", "제품규격",
+				"productSize", "ProductSize", "size", "Size");
+		if (direct != null) {
+			return direct;
+		}
+
+		List<String> dimensions = new ArrayList<>();
+		String width = resolveCalendarOrderOptionValue(order, "가로", "가로사이즈", "width", "Width");
+		String height = resolveCalendarOrderOptionValue(order, "세로", "세로사이즈", "height", "Height");
+		String depth = resolveCalendarOrderOptionValue(order, "깊이", "깊이사이즈", "depth", "Depth");
+
+		if (width != null) dimensions.add(width);
+		if (height != null) dimensions.add(height);
+		if (depth != null) dimensions.add(depth);
+
+		return dimensions.isEmpty() ? null : String.join(" × ", dimensions);
+	}
+
+	private String resolveCalendarOrderOptionValue(Order order, String... keys) {
+		if (order == null || order.getOrderItem() == null || keys == null || keys.length == 0) {
+			return null;
+		}
+
+		String optionJson = safeText(order.getOrderItem().getOptionJson());
+		if (optionJson == null) {
+			return null;
+		}
+
+		try {
+			JsonNode root = CALENDAR_JSON_MAPPER.readTree(optionJson);
+			if (root == null || !root.isObject()) {
+				return null;
+			}
+
+			for (String key : keys) {
+				if (key == null || key.isBlank()) {
+					continue;
+				}
+
+				JsonNode node = root.get(key);
+				if (node == null || node.isNull()) {
+					continue;
+				}
+
+				String value = safeText(node.isTextual() ? node.asText() : node.toString());
+				if (value != null) {
+					return value;
+				}
+			}
+		} catch (Exception ignored) {
+			// optionJson이 깨진 과거 데이터는 팝업 전체 실패 대신 '-'로 표시합니다.
+		}
+
+		return null;
 	}
 
 	private String buildAddress(String doName, String siName, String guName, String roadAddress, String detailAddress) {

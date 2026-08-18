@@ -435,6 +435,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
 			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
 			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+			    AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			    AND (:status IS NULL OR o.status = :status)
 			    AND (:standard IS NULL OR o.standard = :standard)
 			    AND (
@@ -456,6 +457,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("startDateTime") LocalDateTime startDateTime,
 			@Param("endDateTime") LocalDateTime endDateTime,
 			@Param("productCategoryId") Long productCategoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("status") OrderStatus status,
 			@Param("standard") Boolean standard,
 			Pageable pageable
@@ -626,6 +628,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
 			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
 			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
+			    AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
 			    AND (:status IS NULL OR o.status = :status)
 			    AND (:standard IS NULL OR o.standard = :standard)
 			    AND (
@@ -648,6 +651,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("startDateTime") LocalDateTime startDateTime,
 			@Param("endDateTime") LocalDateTime endDateTime,
 			@Param("productCategoryId") Long productCategoryId,
+			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("status") OrderStatus status,
 			@Param("standard") Boolean standard
 	);
@@ -997,6 +1001,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
@@ -1027,6 +1044,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
@@ -1057,6 +1087,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
@@ -1086,6 +1129,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			    SELECT o FROM Order o
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
@@ -1123,6 +1179,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			     AND wr.workArea = :workArea
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
@@ -1152,6 +1221,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			     AND wr.workArea = :workArea
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
@@ -1194,6 +1276,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			     AND wr.workArea = :workArea
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
@@ -1223,6 +1318,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			     AND wr.workArea = :workArea
 			    WHERE (:categoryId IS NULL OR o.productCategory.id = :categoryId)
 			      AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
+			      AND (
+			          (o.productCategory.team.id = 2
+			           AND o.productCategory.name IN ('슬라이드장', '상부장', '하부장', '플랩장', '거울', 'LED거울'))
+			          OR (
+			              :mirrorCuttingOnly = true
+			              AND o.mirrorCuttingProduct = true
+			              AND (
+			                  o.productCategory.id = 14
+			                  OR (o.productCategory.team.id = 2
+			                      AND o.productCategory.name IN ('재단(거울)', '거울(재단)'))
+			              )
+			          )
+			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
 			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))

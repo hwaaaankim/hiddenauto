@@ -22,8 +22,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.persistence.EntityManager;
-
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddRequest;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderAddSaveResponse;
 import com.dev.HiddenBATHAuto.dto.productOrderAdd.ProductOrderCreateRequest;
@@ -67,8 +65,17 @@ public class ProductOrderAddCommandService {
     private static final Long DEFAULT_PRODUCTION_TEAM_CATEGORY_ID = 1L;
     private static final Long DEFAULT_FALLBACK_TEAM_ID = 1L;
 
-    private static final String NON_STANDARD_EXCLUDED_CATEGORY_CUTTING = "재단";
-    private static final String NON_STANDARD_EXCLUDED_CATEGORY_MIRROR_CUTTING = "재단(거울)";
+    private static final List<String> REAL_PRODUCT_CATEGORY_NAMES = List.of(
+            "슬라이드장",
+            "상부장",
+            "하부장",
+            "플랩장",
+            "거울",
+            "LED거울",
+            "욕실용품"
+    );
+    private static final String BATHROOM_GOODS_CATEGORY_NAME = "욕실용품";
+    private static final String DEFAULT_TASK_MANAGER_USERNAME = "admin";
 
     private static final String MANAGEMENT_UPLOAD_TYPE = "MANAGEMENT";
     private static final String NO_STANDARD_SERIES_NAME = "중분류 없음";
@@ -88,7 +95,6 @@ public class ProductOrderAddCommandService {
     private final DeliveryHandlerAutoAssignService deliveryHandlerAutoAssignService;
     private final MirrorCuttingProductMatcher mirrorCuttingProductMatcher;
     private final ObjectMapper objectMapper;
-    private final EntityManager entityManager;
     private final OrderRegistrationAuditService orderRegistrationAuditService;
 
     @Value("${spring.upload.path}")
@@ -232,7 +238,9 @@ public class ProductOrderAddCommandService {
             order.setTotalAmount(orderRequest.getTotalAmount());
             order.setOrderComment(trimToNull(orderRequest.getOrderComment()));
             order.setAdminMemo(trimToNull(orderRequest.getAdminMemo()));
-            order.setStatus(OrderStatus.REQUESTED);
+            order.setStatus(isBathroomGoodsProductionCategory(resolved.productCategory())
+                    ? OrderStatus.PRODUCTION_DONE
+                    : OrderStatus.REQUESTED);
             order.setCreatedAt(now);
             order.setUpdatedAt(now);
 
@@ -263,7 +271,7 @@ public class ProductOrderAddCommandService {
 
             orderRegistrationAuditService.recordManagementRegistration(
                     order,
-                    taskManagerUsername,
+                    managedBy.getUsername(),
                     "MANAGEMENT_FORM_ORDER_CREATED",
                     "관리자 폼 발주 등록",
                     "/management/api/product-order-add"
@@ -290,17 +298,17 @@ public class ProductOrderAddCommandService {
     private Member resolveTaskManager(String username) {
         String normalizedUsername = trimToNull(username);
 
-        if (normalizedUsername == null || "anonymousUser".equalsIgnoreCase(normalizedUsername)) {
-            return null;
+        if (normalizedUsername != null && !"anonymousUser".equalsIgnoreCase(normalizedUsername)) {
+            Member loginMember = memberRepository.findByUsername(normalizedUsername).orElse(null);
+            if (loginMember != null) {
+                return loginMember;
+            }
         }
 
-        return entityManager
-                .createQuery("select m from Member m where m.username = :username", Member.class)
-                .setParameter("username", normalizedUsername)
-                .setMaxResults(1)
-                .getResultStream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("현재 로그인한 담당자 정보를 찾을 수 없습니다."));
+        return memberRepository.findByUsername(DEFAULT_TASK_MANAGER_USERNAME)
+                .orElseThrow(() -> new IllegalStateException(
+                        "기본 발주 담당자 username='" + DEFAULT_TASK_MANAGER_USERNAME + "' 계정을 찾을 수 없습니다."
+                ));
     }
 
     private Member resolveDeliveryHandler(
@@ -468,8 +476,10 @@ public class ProductOrderAddCommandService {
                 .findByIdAndTeam_Id(request.getProductionCategoryId(), PRODUCTION_TEAM_ID)
                 .orElseThrow(() -> new IllegalArgumentException("선택한 생산팀 분류를 찾을 수 없습니다."));
 
-        if (isExcludedNonStandardProductionCategory(productCategory)) {
-            throw new IllegalArgumentException("비규격 주문에서는 재단 또는 재단(거울) 생산팀 분류를 선택할 수 없습니다.");
+        if (!isRealOrderProductCategory(productCategory)) {
+            throw new IllegalArgumentException(
+                    "비규격 주문의 제품 카테고리는 슬라이드장/상부장/하부장/플랩장/거울/LED거울/욕실용품 중 하나여야 합니다."
+            );
         }
 
         return new ResolvedOrderMeta(
@@ -723,15 +733,22 @@ public class ProductOrderAddCommandService {
         return trimmed.isBlank() ? null : trimmed;
     }
 
-    private boolean isExcludedNonStandardProductionCategory(TeamCategory category) {
-        if (category == null) {
-            return true;
+    private boolean isRealOrderProductCategory(TeamCategory category) {
+        if (category == null || category.getTeam() == null
+                || !Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())) {
+            return false;
         }
 
-        String normalizedName = normalizeProductionCategoryName(category.getName());
+        return REAL_PRODUCT_CATEGORY_NAMES.contains(normalizeProductionCategoryName(category.getName()));
+    }
 
-        return NON_STANDARD_EXCLUDED_CATEGORY_CUTTING.equals(normalizedName)
-                || NON_STANDARD_EXCLUDED_CATEGORY_MIRROR_CUTTING.equals(normalizedName);
+    private boolean isBathroomGoodsProductionCategory(TeamCategory category) {
+        if (category == null || category.getTeam() == null) {
+            return false;
+        }
+
+        return Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+                && BATHROOM_GOODS_CATEGORY_NAME.equals(normalizeProductionCategoryName(category.getName()));
     }
 
     private String normalizeProductionCategoryName(String value) {

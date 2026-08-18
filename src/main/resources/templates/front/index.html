@@ -10,7 +10,7 @@
 		autoHead가 <head> 자체를 th:replace 하는 기존 구조이므로 공용 fragment를 건드리지 않고
 		이 페이지에서만 추가 로딩합니다. 브라우저는 stylesheet link를 정상 처리합니다.
 	-->
-	<link rel="stylesheet" href="/front/index-main.css">
+	<link rel="stylesheet" href="/front/index-main.css?v=20260818-3">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
@@ -103,7 +103,12 @@
 						<p>오늘을 기준으로 완료된 업무와 앞으로 처리할 업무를 7일 단위로 이어서 보여드립니다.</p>
 					</div>
 					<button type="button" id="index-main-work-window-refresh" class="index-main-icon-button" aria-label="최근/예정 업무 새로고침" title="새로고침">
-						<span class="index-main-refresh-icon" aria-hidden="true"></span>
+						<svg class="index-main-refresh-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+							<polyline points="23 4 23 10 17 10"></polyline>
+							<polyline points="1 20 1 14 7 14"></polyline>
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+							<path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
+						</svg>
 					</button>
 				</header>
 
@@ -288,7 +293,7 @@
 	<!-- 공용 스크립트 -->
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-	<script src="/front/calendar.js"></script>
+	<script src="/front/calendar.js?v=20260818-3"></script>
 	<script src="/front/index-popup.js"></script>
 </body>
 

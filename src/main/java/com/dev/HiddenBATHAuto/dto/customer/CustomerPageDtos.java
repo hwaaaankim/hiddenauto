@@ -100,12 +100,44 @@ public final class CustomerPageDtos {
         @Builder.Default
         private List<CategoryCount> categoryCounts = new ArrayList<>();
 
+        /**
+         * 고객 발주 목록의 제품 요약/펼침 상세에서 공통으로 사용하는 오더별 표시 데이터입니다.
+         * 엔티티를 화면에서 직접 다시 해석하지 않고 한 번 계산한 값을 재사용하여
+         * 제품명/규격/색상/수량이 목록과 펼침 상세에서 서로 다르게 보이는 것을 방지합니다.
+         */
+        @Builder.Default
+        private List<TaskOrderSummary> orderSummaries = new ArrayList<>();
+
+        private String deliveryMethodName;
+
+        /** 상세/엑셀 등 기존 화면 호환을 위한 전체 주소 */
+        private String deliveryAddress;
+
+        /** 목록 전용 축약 주소: 서울 송파구 / 부산 북구 / 경기 화성시 형태 */
+        private String deliveryRegion;
+
+        private LocalDateTime deliveryDate;
+        private String statusKey;
+        private String statusLabel;
+        private String managerName;
+        private int vatIncludedTotalPrice;
+    }
+
+    @Getter
+    @Builder
+    public static class TaskOrderSummary {
+        private Long orderId;
+        private String categoryName;
+        private String productName;
+        private String size;
+        private String color;
+        private int quantity;
         private String deliveryMethodName;
         private String deliveryAddress;
         private LocalDateTime deliveryDate;
         private String statusKey;
         private String statusLabel;
-        private String managerName;
+        private String orderComment;
     }
 
     @Getter
