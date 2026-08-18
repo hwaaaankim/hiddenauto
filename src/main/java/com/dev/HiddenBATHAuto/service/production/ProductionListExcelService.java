@@ -113,8 +113,6 @@ public class ProductionListExcelService {
             columns.add(new ColumnDefinition("preferredDeliveryDate", "출고일", 14, true));
         }
 
-        columns.add(new ColumnDefinition("categoryName", "카테고리", 16, false));
-        columns.add(new ColumnDefinition("checkState", "체크상태", 12, true));
         return columns;
     }
 
@@ -275,29 +273,8 @@ public class ProductionListExcelService {
             case "quantity" -> dto.getQuantity() == null ? "-" : String.valueOf(dto.getQuantity());
             case "adminMemo" -> text(dto.getAdminMemo());
             case "preferredDeliveryDate" -> text(dto.getPreferredDeliveryDateText());
-            case "categoryName" -> text(dto.getCategoryName());
-            case "checkState" -> resolveCheckStateLabel(dto);
             default -> "-";
         };
-    }
-
-    private String resolveCheckStateLabel(ProductionListExcelRowDto dto) {
-        String label = text(dto.getCheckStateLabel());
-        if (!"-".equals(label)) {
-            return label;
-        }
-
-        String state = text(dto.getCheckState());
-        if ("CHECKED".equalsIgnoreCase(state)) {
-            return "확인";
-        }
-        if ("REVISED_AFTER_CHECK".equalsIgnoreCase(state)) {
-            return "재수정";
-        }
-        if ("UNCHECKED".equalsIgnoreCase(state)) {
-            return "미확인";
-        }
-        return "-";
     }
 
     private void setCell(Row row, int index, String value, CellStyle style) {

@@ -291,6 +291,9 @@
         }
 
         outputMode = mode;
+        if (outputCompanyName) {
+            outputCompanyName.checked = true;
+        }
         updateOutputModal(mode, orderIds.length, buildFilterSummary());
         modal.show();
     }

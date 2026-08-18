@@ -147,7 +147,7 @@ body.twocolumn-panel .container-fluid {
 .dispatch-list-table {
 	position: relative;
 	width: 100%;
-	min-width: 1480px;
+	min-width: 1494px;
 	margin-bottom: 0;
 	table-layout: fixed;
 	border-collapse: separate;
@@ -256,13 +256,15 @@ body.twocolumn-panel .container-fluid {
 
 .dispatch-list-admin-memo {
 	display: -webkit-box;
-	-webkit-line-clamp: 2;
+	-webkit-line-clamp: 3;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 	white-space: normal;
 	word-break: keep-all;
 	overflow-wrap: anywhere;
-	font-weight: 700;
+	font-weight: 800;
+	line-height: 1.35;
+	color: #111827;
 }
 
 .dispatch-list-status-badge {
@@ -296,34 +298,41 @@ body.twocolumn-panel .container-fluid {
 	color: #475569;
 }
 
-.dispatch-list-delivery-method-btn {
-	width: 100%;
-	min-height: 31px;
-	padding: 4px 8px;
-	border-radius: 5px;
-	font-size: 12px;
-	font-weight: 900;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+.dispatch-list-action-head {
+	padding-left: 4px !important;
+	padding-right: 4px !important;
+	font-size: 11px !important;
 }
 
-.dispatch-list-complete-btn {
-	width: 100%;
-	min-height: 31px;
-	border-radius: 5px;
-	font-size: 12px;
-	font-weight: 900;
+.dispatch-list-action-cell {
+	padding-left: 4px !important;
+	padding-right: 4px !important;
+	text-align: center;
 }
 
+.dispatch-list-icon-action-btn,
+.dispatch-list-delivery-method-btn,
+.dispatch-list-complete-btn,
 .dispatch-list-admin-request-btn {
-	width: 100%;
-	min-height: 31px;
-	margin-top: 5px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 34px;
+	min-height: 34px;
+	margin: 0;
+	padding: 0;
 	border-radius: 5px;
-	font-size: 12px;
+	font-size: 17px;
 	font-weight: 900;
+	line-height: 1;
 	white-space: nowrap;
+	overflow: visible;
+}
+
+.dispatch-list-icon-action-btn i {
+	display: block;
+	line-height: 1;
 }
 
 .dispatch-list-empty {
@@ -460,7 +469,7 @@ body.modal-open .dispatch-list-floating-btn {
 	}
 
 	.dispatch-list-table {
-		min-width: 1320px;
+		min-width: 1494px;
 	}
 
 	.dispatch-list-table thead th,

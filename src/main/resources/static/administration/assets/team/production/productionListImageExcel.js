@@ -97,7 +97,7 @@
 
     function resetOutputOptions() {
         if (outputFontSize) outputFontSize.value = '10';
-        if (outputCompanyName) outputCompanyName.checked = false;
+        if (outputCompanyName) outputCompanyName.checked = true;
         if (outputDeliveryDate) outputDeliveryDate.checked = false;
     }
 

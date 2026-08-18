@@ -17,7 +17,7 @@ public record ProductionListOutputOptions(
     }
 
     public static ProductionListOutputOptions defaults() {
-        return new ProductionListOutputOptions(DEFAULT_FONT_SIZE, false, false, "");
+        return new ProductionListOutputOptions(DEFAULT_FONT_SIZE, true, false, "");
     }
 
     public List<String> filterTokens() {

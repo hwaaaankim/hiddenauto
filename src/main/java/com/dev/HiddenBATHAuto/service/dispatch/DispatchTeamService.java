@@ -69,6 +69,7 @@ import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy.MethodGroup;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.order.OrderOperationalChangeRecorder;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -1708,27 +1709,14 @@ public class DispatchTeamService {
             return "-";
         }
 
-        List<String> parts = new ArrayList<>();
-
-        addIfNotBlank(parts, order.getDoName());
-        addIfNotBlank(parts, order.getSiName());
-        addIfNotBlank(parts, order.getGuName());
-        addIfNotBlank(parts, order.getRoadAddress());
-        addIfNotBlank(parts, order.getDetailAddress());
-
-        if (parts.isEmpty()) {
-            return "-";
-        }
-
-        return String.join(" ", parts);
-    }
-
-    private void addIfNotBlank(List<String> parts, String value) {
-        String text = safeText(value);
-
-        if (!text.isBlank()) {
-            parts.add(text);
-        }
+        return DeliveryAddressNormalizationUtil.build(
+                null, // 기존 출고 리스트와 동일하게 우편번호는 표시하지 않습니다.
+                order.getDoName(),
+                order.getSiName(),
+                order.getGuName(),
+                order.getRoadAddress(),
+                order.getDetailAddress()
+        ).display();
     }
 
     private String formatDateTime(LocalDateTime dateTime) {

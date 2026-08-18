@@ -65,7 +65,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-3 col-md-8 col-12">
+								<div class="col-lg-2 col-md-8 col-12">
 									<label class="dispatch-list-label" for="dispatch-list-keyword">키워드</label>
 									<input type="text" id="dispatch-list-keyword"
 										class="form-control dispatch-list-form-control" placeholder="검색어를 입력하세요">
@@ -93,7 +93,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-3 col-md-4 col-12">
+								<div class="col-lg-2 col-md-4 col-12">
 									<label class="dispatch-list-label" for="dispatch-list-order-date">출고일</label>
 									<input type="date" id="dispatch-list-order-date"
 										class="form-control dispatch-list-form-control"
@@ -153,7 +153,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-4 col-md-8 col-12">
+								<div class="col-lg-2 col-md-8 col-12">
 									<div class="dispatch-list-filter-actions">
 										<button type="button" id="dispatch-list-search-btn" class="btn btn-primary">
 											<i class="ri-search-line me-1"></i>검색
@@ -252,12 +252,13 @@
 									<col style="width: 110px;">
 									<col style="width: 220px;">
 									<col style="width: 190px;">
-									<col style="width: 130px;">
+									<col style="width: 80px;">
 									<col style="width: 170px;">
 									<col style="width: 70px;">
-									<col style="width: 230px;">
-									<col style="width: 150px;">
-									<col style="width: 130px;">
+									<col style="width: 300px;">
+									<col style="width: 78px;">
+									<col style="width: 78px;">
+									<col style="width: 78px;">
 								</colgroup>
 								<thead>
 									<tr>
@@ -273,15 +274,16 @@
 										<th>색상</th>
 										<th>규격</th>
 										<th class="text-center">수량</th>
-										<th>adminMemo</th>
-										<th>배송수단</th>
-										<th class="text-center">출고완료</th>
+										<th>관리자메모</th>
+										<th class="text-center dispatch-list-action-head">배송수단</th>
+										<th class="text-center dispatch-list-action-head">상태변경</th>
+										<th class="text-center dispatch-list-action-head">관리자요청</th>
 									</tr>
 								</thead>
 
 								<tbody id="dispatch-list-tbody">
 									<tr>
-										<td colspan="10" class="dispatch-list-empty">
+										<td colspan="11" class="dispatch-list-empty">
 											출고 데이터를 불러오는 중입니다.
 										</td>
 									</tr>

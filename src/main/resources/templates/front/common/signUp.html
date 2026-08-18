@@ -1,299 +1,307 @@
 <!DOCTYPE HTML>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 
-<head th:replace="~{fragments/front/common :: autoHead}">
-</head>
+<head th:replace="~{fragments/front/common :: autoHead}"></head>
 
-<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+<body class="theme-light sign-up-page" data-highlight="highlight-red" data-gradient="body-default">
+	<link rel="stylesheet" href="/front/auth-modern.css">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
-	<div id="page" class="container">
-		<th:block th:replace="~{fragments/front/common :: beforeHeaderMenu}"></th:block>
-
-		<div class="page-content header-clear-medium sign">
-
-			<div class="sign-wrap">
-				<div class="ps-1 pe-1" id="tab-group-1">
-					<h1 class="text-center font-800 font-40 mb-5">가맹점 회원가입</h1>
-
-					<div th:if="${successMessage}" class="alert alert-success">
-						<span style="width:100% !important;" th:text="${successMessage}"></span>
-					</div>
-
-					<!-- 실패 메시지 -->
-					<div th:if="${errorMessage}" class="alert alert-danger">
-						<span style="width:100% !important;" th:text="${errorMessage}"></span>
-					</div>
-
-					<div class="tab-controls tabs-small tabs-rounded" data-highlight="bg-highlight">
-						<a href="#" data-active data-bs-toggle="collapse" data-bs-target="#tab-1">회사대표자 회원가입</a>
-						<a href="#" data-bs-toggle="collapse" data-bs-target="#tab-2">직원 회원가입</a>
-					</div>
-
-					<div class="clearfix mb-3"></div>
-
-					<!-- =========================
-					     1) 대표 회원가입
-					     ========================= -->
-					<div data-bs-parent="#tab-group-1" class="collapse show" id="tab-1">
-
-						<form action="/signUpProcess" method="post" enctype="multipart/form-data" id="repSignUpForm">
-
-							<input type="hidden" name="role" value="CUSTOMER_REPRESENTATIVE">
-
-							<div class="input-style no-borders has-icon">
-								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" name="companyName" id="repCompanyName" required
-									placeholder="업체명을 입력 해 주세요.">
-								<label for="companyName" class="color-blue-dark font-10 mt-1">업체명</label>
-								<em>(required)</em>
-							</div>
-
-							<!-- ✅ 사업자등록번호 추가(대표만) -->
-							<div class="input-style no-borders has-icon">
-								<i class="fa-solid fa-briefcase"></i>
-								<input type="text" class="form-control" name="businessNumber" id="repBusinessNumber"
-									required placeholder="사업자등록번호(숫자 10자리)를 입력 해 주세요." autocomplete="off">
-								<label for="repBusinessNumber" class="color-blue-dark font-10 mt-1">사업자등록번호</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon">
-								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" id="repName" name="name" required
-									placeholder="성함을 입력 해 주세요.">
-								<label for="name" class="color-blue-dark font-10 mt-1">성함</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon">
-								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" name="username" id="repUsername" required
-									placeholder="사용하실 아이디를 입력 해 주세요.">
-								<label for="username" class="color-blue-dark font-10 mt-1">아이디</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-solid fa-lock"></i>
-								<input type="password" class="form-control" name="password" id="repPassword" required
-									placeholder="사용하실 비밀번호를 입력 해 주세요.">
-								<label for="password" class="color-blue-dark font-10 mt-1">비밀번호</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-solid fa-lock"></i>
-								<input type="password" class="form-control" id="repPasswordCheck" name="passwordCheck"
-									required placeholder="비밀번호를 다시한번 입력 해 주세요.">
-								<label for="passwordCheck" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-solid fa-phone"></i>
-								<input type="text" class="form-control" id="repPhone" name="phone" required
-									placeholder="연락처를 입력 해 주세요." autocomplete="off">
-								<label for="phone" class="color-blue-dark font-10 mt-1">연락처</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-regular fa-envelope"></i>
-								<input type="email" class="form-control" id="repEmail" name="email" required
-									placeholder="이메일을 입력 해 주세요.">
-								<label for="email" class="color-blue-dark font-10 mt-1">이메일</label>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-regular fa-address-book"></i>
-								<input type="text" class="form-control" id="searchAddress" name="roadAddress" required
-									placeholder="주소를 검색 해 주세요." autocomplete="off">
-								<button type="button" onclick="execDaumPostcode()">주소검색</button>
-								<label for="searchAddress" class="color-blue-dark font-10 mt-1">주소</label>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-regular fa-address-book"></i>
-								<input type="text" class="form-control" id="detailAddress" name="detailAddress" required
-									placeholder="상세 주소를 입력 해 주세요." autocomplete="off">
-								<label for="detailAddress" class="color-blue-dark font-10 mt-1">상세주소</label>
-
-								<input type="hidden" name="doName" id="doName" required>
-								<input type="hidden" name="siName" id="siName">
-								<input type="hidden" name="guName" id="guName">
-								<input type="hidden" name="zipCode" id="zipCode">
-							</div>
-
-							<div class="pb-1">
-								<label class="signUpImageBtn">
-									<input type="file" id="file-upload" name="businessLicenseFile"
-										class="signUpImageInput" accept="image/*" required>
-									<i class="fa-regular fa-file"></i> 사업자등록증 업로드
-								</label>
-								<span class="required-text">(required)</span>
-
-								<!-- 업로드된 파일 목록 -->
-								<ul id="file-list" class="file-list mt-2"></ul>
-							</div>
-
-							<!-- ✅ 추가 배송지(대표도 사용) -->
-							<div class="mt-2">
-								<div class="d-flex align-items-center justify-content-between">
-									<div class="font-700">추가 배송지</div>
-									<button type="button" class="btn btn-sm btn-outline-primary"
-										id="repAddDeliveryBtn">+ 배송지 추가</button>
-								</div>
-
-								<div id="repDeliveryList" class="mt-2"></div>
-
-								<input type="hidden" name="deliveryAddressesJson" id="repDeliveryAddressesJson"
-									value="">
-							</div>
-
-							<div class="text-center mb-1 mt-1">
-								<a href="/loginForm" class="font-12">이미 회원가입을 하신 사용자의 경우 로그인을 진행 해 주세요.</a>
-							</div>
-
-							<button type="submit"
-								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">
-								회원가입
-							</button>
-						</form>
-					</div>
-
-					<!-- =========================
-					     2) 직원 회원가입
-					     ========================= -->
-					<div data-bs-parent="#tab-group-1" class="collapse" id="tab-2">
-
-						<form action="/signUpProcess" method="post" id="empSignUpForm">
-
-							<input type="hidden" name="role" value="CUSTOMER_EMPLOYEE">
-
-							<div class="input-style no-borders has-icon">
-								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" id="empName" name="name" required
-									placeholder="성함을 입력 해 주세요.">
-								<label for="name" class="color-blue-dark font-10 mt-1">성함</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon">
-								<i class="fa-regular fa-user"></i>
-								<input type="text" class="form-control" name="username" id="empUsername" required
-									placeholder="사용하실 아이디를 입력 해 주세요.">
-								<label for="username" class="color-blue-dark font-10 mt-1">아이디</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-solid fa-lock"></i>
-								<input type="password" class="form-control" name="password" id="empPassword" required
-									placeholder="사용하실 비밀번호를 입력 해 주세요.">
-								<label for="password" class="color-blue-dark font-10 mt-1">비밀번호</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-solid fa-lock"></i>
-								<input type="password" class="form-control" id="empPasswordCheck" name="passwordCheck"
-									required placeholder="비밀번호를 다시한번 입력 해 주세요.">
-								<label for="passwordCheck" class="color-blue-dark font-10 mt-1">비밀번호 확인</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-solid fa-phone"></i>
-								<input type="text" class="form-control" name="phone" id="empPhone" required
-									placeholder="연락처를 입력 해 주세요.">
-								<label for="phone" class="color-blue-dark font-10 mt-1">연락처</label>
-								<em>(required)</em>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-regular fa-envelope"></i>
-								<input type="email" class="form-control" name="email" id="empEmail" required
-									placeholder="이메일을 입력 해 주세요.">
-								<label for="email" class="color-blue-dark font-10 mt-1">이메일</label>
-							</div>
-
-							<div class="input-style no-borders has-icon mt-1">
-								<i class="fa-solid fa-key"></i>
-								<input type="text" class="form-control" id="registrationKey" name="registrationKey"
-									required placeholder="업체 소속인 경우 업체코드를 입력 해 주세요.">
-								<label for="registrationKey" class="color-blue-dark font-10 mt-1">업체코드</label>
-							</div>
-
-							<!-- ✅ 추가 배송지(직원도 사용) -->
-							<div class="mt-2">
-								<div class="d-flex align-items-center justify-content-between">
-									<div class="font-700">추가 배송지</div>
-									<button type="button" class="btn btn-sm btn-outline-primary"
-										id="empAddDeliveryBtn">+ 배송지 추가</button>
-								</div>
-
-								<div id="empDeliveryList" class="mt-2"></div>
-
-								<input type="hidden" name="deliveryAddressesJson" id="empDeliveryAddressesJson"
-									value="">
-							</div>
-
-							<div class="text-center mb-1 mt-1">
-								<a href="/loginForm" class="font-12">이미 회원가입을 하신 사용자의 경우 로그인을 진행 해 주세요.</a>
-							</div>
-
-							<button
-								class="w-100 back-button btn btn-full btn-m shadow-large rounded-sm text-uppercase font-900 bg-highlight">
-								회원가입
-							</button>
-						</form>
-					</div>
-
+	<div id="page">
+		<div class="sign-up-shell">
+			<header class="sign-up-topbar">
+				<div class="container-xl sign-up-topbar-inner">
+					<a class="sign-up-brand" th:href="@{/loginForm}">
+						<span class="sign-up-brand-mark"><i class="fa-solid fa-h"></i></span>
+						<span>HIDDEN BATH</span>
+					</a>
+					<a class="sign-up-topbar-link" th:href="@{/loginForm}">로그인으로 돌아가기</a>
 				</div>
-			</div>
+			</header>
 
+			<main class="sign-up-main">
+				<div class="container-xl">
+					<div class="sign-up-card">
+						<div class="row g-0">
+							<div class="col-lg-4">
+								<section class="sign-up-info-panel">
+									<div>
+										<div class="sign-up-info-kicker">PARTNER REGISTRATION</div>
+										<h1 class="sign-up-info-title">가맹점 계정 등록</h1>
+										<p class="sign-up-info-description">
+											대표자 계정은 업체 정보를 함께 등록하고, 직원 계정은 대표자가 발급한 업체코드로 소속을 연결합니다.
+										</p>
+										<ul class="sign-up-info-list">
+											<li><i class="fa-solid fa-building"></i><span>대표자: 업체 및 사업자 정보 등록</span></li>
+											<li><i class="fa-solid fa-user-group"></i><span>직원: 업체코드로 소속 연결</span></li>
+											<li><i class="fa-solid fa-location-dot"></i><span>기본 배송지 및 추가 배송지 관리</span></li>
+										</ul>
+									</div>
+									<div class="sign-up-info-foot">HIDDEN BATH · CUSTOMER BUSINESS SYSTEM</div>
+								</section>
+							</div>
+
+							<div class="col-lg-8">
+								<section class="sign-up-form-panel">
+									<div class="sign-up-form-wrap">
+										<div class="sign-up-heading">
+											<div class="sign-up-eyebrow">CREATE ACCOUNT</div>
+											<h2 class="sign-up-title">회원가입</h2>
+											<p class="sign-up-subtitle">가입 유형을 선택한 뒤 필요한 정보를 입력해 주세요.</p>
+										</div>
+
+										<div th:if="${successMessage}" class="sign-up-alert sign-up-alert-success" role="status">
+											<i class="fa-solid fa-circle-check mt-1"></i>
+											<span th:text="${successMessage}">회원가입이 완료되었습니다.</span>
+										</div>
+										<div th:if="${errorMessage}" class="sign-up-alert" role="alert">
+											<i class="fa-solid fa-circle-exclamation mt-1"></i>
+											<span th:text="${errorMessage}">회원가입 중 오류가 발생했습니다.</span>
+										</div>
+
+										<div class="nav sign-up-tabs" id="sign-up-account-tabs" role="tablist">
+											<button class="nav-link sign-up-tab-button active" id="sign-up-representative-tab"
+												data-bs-toggle="tab" data-bs-target="#sign-up-representative-pane" type="button" role="tab"
+												aria-controls="sign-up-representative-pane" aria-selected="true">대표자 가입</button>
+											<button class="nav-link sign-up-tab-button" id="sign-up-employee-tab"
+												data-bs-toggle="tab" data-bs-target="#sign-up-employee-pane" type="button" role="tab"
+												aria-controls="sign-up-employee-pane" aria-selected="false">직원 가입</button>
+										</div>
+
+										<div class="tab-content" id="sign-up-account-tab-content">
+											<div class="tab-pane fade show active sign-up-tab-pane" id="sign-up-representative-pane"
+												role="tabpanel" aria-labelledby="sign-up-representative-tab" tabindex="0">
+												<form th:action="@{/signUpProcess}" method="post" enctype="multipart/form-data"
+													id="sign-up-representative-form" autocomplete="on">
+													<input type="hidden" name="role" value="CUSTOMER_REPRESENTATIVE">
+
+													<section class="sign-up-section">
+														<div class="sign-up-section-head">
+															<h3 class="sign-up-section-title">업체 정보</h3>
+															<span class="sign-up-section-guide">대표자 계정에만 필요한 정보입니다.</span>
+														</div>
+														<div class="row g-3">
+															<div class="col-lg-6">
+																<div class="sign-up-field mb-0">
+																	<label class="sign-up-label" for="sign-up-rep-company-name"><span>업체명</span><span class="sign-up-required">필수</span></label>
+																	<input type="text" class="form-control sign-up-control" name="companyName" id="sign-up-rep-company-name"
+																		placeholder="업체명을 입력해 주세요." required>
+																</div>
+															</div>
+															<div class="col-lg-6">
+																<div class="sign-up-field mb-0">
+																	<label class="sign-up-label" for="sign-up-rep-business-number"><span>사업자등록번호</span><span class="sign-up-required">필수</span></label>
+																	<input type="text" class="form-control sign-up-control" name="businessNumber" id="sign-up-rep-business-number"
+																		placeholder="숫자 10자리" inputmode="numeric" maxlength="10" autocomplete="off" required>
+																</div>
+															</div>
+														</div>
+													</section>
+
+													<section class="sign-up-section">
+														<div class="sign-up-section-head"><h3 class="sign-up-section-title">대표자 계정 정보</h3></div>
+														<div class="row g-3">
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-rep-name"><span>성함</span><span class="sign-up-required">필수</span></label>
+																<input type="text" class="form-control sign-up-control" id="sign-up-rep-name" name="name" placeholder="성함" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-rep-username"><span>아이디</span><span class="sign-up-required">필수</span></label>
+																<input type="text" class="form-control sign-up-control" name="username" id="sign-up-rep-username"
+																	placeholder="사용할 아이디" autocomplete="username" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-rep-password"><span>비밀번호</span><span class="sign-up-required">필수</span></label>
+																<input type="password" class="form-control sign-up-control" name="password" id="sign-up-rep-password"
+																	placeholder="비밀번호" autocomplete="new-password" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-rep-password-check"><span>비밀번호 확인</span><span class="sign-up-required">필수</span></label>
+																<input type="password" class="form-control sign-up-control" id="sign-up-rep-password-check" name="passwordCheck"
+																	placeholder="비밀번호 다시 입력" autocomplete="new-password" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-rep-phone"><span>연락처</span><span class="sign-up-required">필수</span></label>
+																<input type="tel" class="form-control sign-up-control sign-up-phone-input" id="sign-up-rep-phone" name="phone"
+																	placeholder="010-0000-0000" inputmode="numeric" maxlength="13" autocomplete="tel" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-rep-email"><span>이메일</span><span class="sign-up-required">필수</span></label>
+																<input type="email" class="form-control sign-up-control" id="sign-up-rep-email" name="email"
+																	placeholder="email@example.com" autocomplete="email" required>
+															</div>
+														</div>
+													</section>
+
+													<section class="sign-up-section">
+														<div class="sign-up-section-head"><h3 class="sign-up-section-title">기본 주소 및 사업자등록증</h3></div>
+														<div class="row g-3">
+															<div class="col-12">
+																<label class="sign-up-label" for="sign-up-rep-road-address"><span>기본 주소</span><span class="sign-up-required">필수</span></label>
+																<div class="sign-up-input-action-wrap">
+																	<input type="text" class="form-control sign-up-control" id="sign-up-rep-road-address" name="roadAddress"
+																		placeholder="주소검색 버튼을 눌러 주세요." autocomplete="off" required>
+																	<button type="button" class="sign-up-address-search-btn" id="sign-up-rep-address-search-btn">주소검색</button>
+																</div>
+															</div>
+															<div class="col-12">
+																<label class="sign-up-label" for="sign-up-rep-detail-address"><span>상세 주소</span><span class="sign-up-required">필수</span></label>
+																<input type="text" class="form-control sign-up-control" id="sign-up-rep-detail-address" name="detailAddress"
+																	placeholder="상세 주소를 입력해 주세요." autocomplete="off" required>
+																<input type="hidden" name="doName" id="sign-up-rep-do-name">
+																<input type="hidden" name="siName" id="sign-up-rep-si-name">
+																<input type="hidden" name="guName" id="sign-up-rep-gu-name">
+																<input type="hidden" name="zipCode" id="sign-up-rep-zip-code">
+															</div>
+															<div class="col-12">
+																<label class="sign-up-label" for="sign-up-rep-business-license"><span>사업자등록증</span><span class="sign-up-required">필수</span></label>
+																<div class="sign-up-file-box">
+																	<label class="sign-up-file-label" for="sign-up-rep-business-license"><i class="fa-regular fa-file-image"></i>파일 선택</label>
+																	<input type="file" id="sign-up-rep-business-license" name="businessLicenseFile"
+																		class="sign-up-file-input" accept="image/*" required>
+																	<span class="sign-up-file-name" id="sign-up-rep-business-license-name">선택된 파일이 없습니다.</span>
+																	<button type="button" class="sign-up-file-remove d-none" id="sign-up-rep-business-license-remove" aria-label="선택 파일 삭제"><i class="fa-solid fa-xmark"></i></button>
+																</div>
+																<div class="sign-up-field-guide">이미지 파일로 등록해 주세요.</div>
+															</div>
+														</div>
+													</section>
+
+													<section class="sign-up-section">
+														<div class="sign-up-section-head">
+															<div>
+																<h3 class="sign-up-section-title">추가 배송지</h3>
+																<div class="sign-up-section-guide">기본 주소 외 자주 사용하는 배송지를 미리 등록할 수 있습니다.</div>
+															</div>
+															<button type="button" class="sign-up-delivery-add-btn" id="sign-up-rep-add-delivery-btn"><i class="fa-solid fa-plus me-1"></i>배송지 추가</button>
+														</div>
+														<div id="sign-up-rep-delivery-list" class="sign-up-delivery-list"></div>
+														<input type="hidden" name="deliveryAddressesJson" id="sign-up-rep-delivery-addresses-json" value="">
+													</section>
+
+													<div class="mt-4">
+														<button type="submit" class="sign-up-submit">대표자 회원가입</button>
+													</div>
+												</form>
+											</div>
+
+											<div class="tab-pane fade sign-up-tab-pane" id="sign-up-employee-pane"
+												role="tabpanel" aria-labelledby="sign-up-employee-tab" tabindex="0">
+												<form th:action="@{/signUpProcess}" method="post" id="sign-up-employee-form" autocomplete="on">
+													<input type="hidden" name="role" value="CUSTOMER_EMPLOYEE">
+
+													<section class="sign-up-section">
+														<div class="sign-up-section-head">
+															<h3 class="sign-up-section-title">직원 계정 정보</h3>
+															<span class="sign-up-section-guide">대표자에게 전달받은 업체코드가 필요합니다.</span>
+														</div>
+														<div class="row g-3">
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-emp-name"><span>성함</span><span class="sign-up-required">필수</span></label>
+																<input type="text" class="form-control sign-up-control" id="sign-up-emp-name" name="name" placeholder="성함" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-emp-username"><span>아이디</span><span class="sign-up-required">필수</span></label>
+																<input type="text" class="form-control sign-up-control" name="username" id="sign-up-emp-username"
+																	placeholder="사용할 아이디" autocomplete="username" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-emp-password"><span>비밀번호</span><span class="sign-up-required">필수</span></label>
+																<input type="password" class="form-control sign-up-control" name="password" id="sign-up-emp-password"
+																	placeholder="비밀번호" autocomplete="new-password" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-emp-password-check"><span>비밀번호 확인</span><span class="sign-up-required">필수</span></label>
+																<input type="password" class="form-control sign-up-control" id="sign-up-emp-password-check" name="passwordCheck"
+																	placeholder="비밀번호 다시 입력" autocomplete="new-password" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-emp-phone"><span>연락처</span><span class="sign-up-required">필수</span></label>
+																<input type="tel" class="form-control sign-up-control sign-up-phone-input" name="phone" id="sign-up-emp-phone"
+																	placeholder="010-0000-0000" inputmode="numeric" maxlength="13" autocomplete="tel" required>
+															</div>
+															<div class="col-lg-6">
+																<label class="sign-up-label" for="sign-up-emp-email"><span>이메일</span><span class="sign-up-required">필수</span></label>
+																<input type="email" class="form-control sign-up-control" name="email" id="sign-up-emp-email"
+																	placeholder="email@example.com" autocomplete="email" required>
+															</div>
+															<div class="col-12">
+																<label class="sign-up-label" for="sign-up-emp-registration-key"><span>업체코드</span><span class="sign-up-required">필수</span></label>
+																<input type="text" class="form-control sign-up-control" id="sign-up-emp-registration-key" name="registrationKey"
+																	placeholder="대표자에게 전달받은 업체코드를 입력해 주세요." autocomplete="off" required>
+															</div>
+														</div>
+													</section>
+
+													<section class="sign-up-section">
+														<div class="sign-up-section-head">
+															<div>
+																<h3 class="sign-up-section-title">추가 배송지</h3>
+																<div class="sign-up-section-guide">직원 개인이 자주 사용하는 배송지를 등록할 수 있습니다.</div>
+															</div>
+															<button type="button" class="sign-up-delivery-add-btn" id="sign-up-emp-add-delivery-btn"><i class="fa-solid fa-plus me-1"></i>배송지 추가</button>
+														</div>
+														<div id="sign-up-emp-delivery-list" class="sign-up-delivery-list"></div>
+														<input type="hidden" name="deliveryAddressesJson" id="sign-up-emp-delivery-addresses-json" value="">
+													</section>
+
+													<div class="mt-4">
+														<button type="submit" class="sign-up-submit">직원 회원가입</button>
+													</div>
+												</form>
+											</div>
+										</div>
+
+										<div class="sign-up-bottom-links">
+											<span>이미 계정이 있으신가요?</span>
+											<a th:href="@{/loginForm}">로그인</a>
+										</div>
+									</div>
+								</section>
+							</div>
+						</div>
+					</div>
+				</div>
+			</main>
 		</div>
 	</div>
 
-	<!-- ✅ 추가 배송지 상세주소 입력 모달 (대표/직원 공통 1개) -->
-	<div class="modal fade" id="deliveryDetailModal" tabindex="-1" aria-hidden="true">
+	<div class="modal fade" id="sign-up-delivery-detail-modal" tabindex="-1"
+		aria-labelledby="sign-up-delivery-detail-title" aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content rounded-lg">
+			<div class="modal-content sign-up-delivery-modal-content">
 				<div class="modal-header">
-					<h5 class="modal-title">추가 배송지 상세주소</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					<div>
+						<h5 class="modal-title sign-up-section-title" id="sign-up-delivery-detail-title">추가 배송지 상세주소</h5>
+						<div class="sign-up-section-guide">선택한 주소에 상세 주소를 추가해 주세요.</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
 				</div>
-
 				<div class="modal-body">
-					<div class="mb-3">
-						<div class="font-600 mb-1">선택한 주소</div>
-						<div id="deliverySelectedAddress" class="p-2 border rounded-sm"></div>
+					<div class="sign-up-field">
+						<label class="sign-up-label">선택한 주소</label>
+						<div id="sign-up-delivery-selected-address" class="sign-up-delivery-selected">-</div>
 					</div>
-
-					<div class="mb-3">
-						<label for="deliveryDetailInput" class="form-label font-600">상세 주소</label>
-						<input type="text" class="form-control" id="deliveryDetailInput"
-							placeholder="상세 주소를 입력해 주세요. (예: 101동 1203호)">
-						<div class="form-text">상세 주소가 없으면 비워도 됩니다.</div>
+					<div class="sign-up-field mb-0">
+						<label class="sign-up-label" for="sign-up-delivery-detail-input">상세 주소</label>
+						<input type="text" class="form-control sign-up-control" id="sign-up-delivery-detail-input"
+							placeholder="예: 101동 1203호" autocomplete="off">
+						<div class="sign-up-field-guide">상세 주소가 없으면 비워두셔도 됩니다.</div>
 					</div>
 				</div>
-
 				<div class="modal-footer">
-					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
-					<button type="button" class="btn btn-primary" id="deliveryDetailSaveBtn">저장</button>
+					<button type="button" class="btn btn-light sign-up-modal-action" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary sign-up-modal-action" id="sign-up-delivery-detail-save-btn">저장</button>
 				</div>
 			</div>
 		</div>
 	</div>
 
 	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}"></th:block>
-
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<script src="/front/addressRegion.js"></script>
 	<script src="/front/signUp.js"></script>
-
 </body>
 
 </html>
