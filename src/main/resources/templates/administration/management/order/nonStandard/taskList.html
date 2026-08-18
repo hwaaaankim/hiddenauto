@@ -224,6 +224,10 @@
 													<select class="form-control" name="productCategoryId">
 														<option value="all" th:selected="${productCategoryId == 'all'}">
 															All</option>
+														<option th:value="${mirrorCuttingFilterValue}"
+															th:text="${mirrorCuttingFilterLabel}"
+															th:selected="${productCategoryId == mirrorCuttingFilterValue.toString()}">
+															재단(거울)</option>
 														<option th:each="category : ${productionTeamCategories}"
 															th:value="${category.id}" th:text="${category.name}"
 															th:selected="${productCategoryId == category.id.toString()}">

@@ -44,6 +44,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
         left join fetch o.orderItem oi
         left join fetch o.deliveryMethod dm
         left join fetch o.productCategory pc
+        left join fetch o.assignedDeliveryHandler adh
         where t.requestedBy = :member
           and t.createdAt >= :start
           and t.createdAt < :end
@@ -68,6 +69,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
         left join fetch o.orderItem oi
         left join fetch o.deliveryMethod dm
         left join fetch o.productCategory pc
+        left join fetch o.assignedDeliveryHandler adh
         where t.requestedBy = :member
           and o.preferredDeliveryDate is not null
           and calendarOrder.preferredDeliveryDate is not null

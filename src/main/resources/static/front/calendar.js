@@ -360,21 +360,42 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function renderTaskModalCard(task, index) {
         const orders = Array.isArray(task.orders) ? task.orders : [];
-        const orderHtml = orders.map((order, orderIndex) => `
-            <div class="index-main-modal-order-card" style="--index-main-delay:${Math.min(orderIndex, 8) * 30}ms">
-                <div class="index-main-modal-order-top">
-                    <span class="index-main-modal-order-id">ORDER #${escapeHtml(order.orderId ?? '-')}</span>
-                    <strong class="index-main-modal-order-price">${order.price != null ? formatCurrency(order.price) : '-'}</strong>
+        const orderHtml = orders.map((order, orderIndex) => {
+            const showDeliveryHandler = Boolean(order && order.deliveryHandlerVisible);
+            const productName = order && order.productName ? order.productName : '-';
+            const productSize = order && order.productSize ? order.productSize : '-';
+            const productColor = order && order.productColor ? order.productColor : '-';
+            const quantity = order && order.quantity != null ? `${formatNumber(order.quantity)}개` : '-';
+
+            return `
+                <div class="index-main-modal-order-card" style="--index-main-delay:${Math.min(orderIndex, 8) * 30}ms">
+                    <div class="index-main-modal-order-top">
+                        <span class="index-main-modal-order-id">ORDER #${escapeHtml(order.orderId ?? '-')}</span>
+                        <strong class="index-main-modal-order-price">${order.price != null ? formatCurrency(order.price) : '-'}</strong>
+                    </div>
+
+                    <div class="index-main-modal-order-product">
+                        <span class="index-main-modal-order-product-label">PRODUCT</span>
+                        <strong class="index-main-modal-order-product-name">${escapeHtml(productName)}</strong>
+                        <div class="index-main-modal-order-product-facts">
+                            <span><em>사이즈</em><b>${escapeHtml(productSize)}</b></span>
+                            <span><em>색상</em><b>${escapeHtml(productColor)}</b></span>
+                            <span><em>수량</em><b>${escapeHtml(quantity)}</b></span>
+                        </div>
+                    </div>
+
+                    <div class="index-main-modal-order-grid">
+                        ${renderInfoItem('배송수단', order.deliveryMethodName || '-')}
+                        ${renderInfoItem('배송 희망일', order.preferredDeliveryDate || '-')}
+                        ${showDeliveryHandler ? renderInfoItem('배송팀 담당자', order.deliveryHandlerName || '미배정') : ''}
+                        ${showDeliveryHandler ? renderInfoItem('담당자 연락처', order.deliveryHandlerContact || '-') : ''}
+                        ${renderInfoItem('배송지', order.address || '-', true)}
+                        ${renderInfoItem('주문일', order.createdAt || '-')}
+                        ${renderInfoItem('카테고리', order.categoryName || '-')}
+                    </div>
                 </div>
-                <div class="index-main-modal-order-grid">
-                    ${renderInfoItem('주문일', order.createdAt || '-')}
-                    ${renderInfoItem('배송 희망일', order.preferredDeliveryDate || '-')}
-                    ${renderInfoItem('수량', order.quantity != null ? `${formatNumber(order.quantity)}개` : '-')}
-                    ${renderInfoItem('카테고리', order.categoryName || '-')}
-                    ${renderInfoItem('배송지', order.address || '-', true)}
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         return `
             <article class="index-main-modal-card index-main-modal-card-task" style="--index-main-delay:${Math.min(index, 8) * 40}ms">
@@ -552,6 +573,22 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
     }
 
+    function renderWorkPanelIcon(recent) {
+        const iconClass = recent ? 'index-main-work-panel-icon-done' : 'index-main-work-panel-icon-next';
+        const iconShape = recent
+            ? '<polyline points="7.5 12.2 10.6 15.2 16.8 8.8"></polyline>'
+            : '<polyline points="8 10 12 14 16 10"></polyline>';
+
+        return `
+            <span class="index-main-work-panel-icon ${iconClass}" aria-hidden="true">
+                <svg class="index-main-work-panel-icon-svg" viewBox="0 0 24 24" focusable="false">
+                    <rect x="4.5" y="4.5" width="15" height="15" rx="4"></rect>
+                    ${iconShape}
+                </svg>
+            </span>
+        `;
+    }
+
     function renderWorkColumn(config) {
         const items = Array.isArray(config.items) ? config.items : [];
         const expanded = expandedWorkWindowKeys.has(config.key);
@@ -562,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <section class="index-main-work-panel ${config.recent ? 'index-main-work-panel-recent' : 'index-main-work-panel-upcoming'} ${expanded ? 'index-main-is-expanded' : ''}">
                 <header class="index-main-work-panel-head">
                     <div class="index-main-work-panel-title-wrap">
-                        <span class="index-main-work-panel-icon ${config.recent ? 'index-main-work-panel-icon-done' : 'index-main-work-panel-icon-next'}"></span>
+                        ${renderWorkPanelIcon(config.recent)}
                         <div>
                             <span class="index-main-work-panel-kicker">${config.recent ? 'RECENTLY COMPLETED' : 'NEXT 7 DAYS'}</span>
                             <h3>${escapeHtml(config.title)}</h3>

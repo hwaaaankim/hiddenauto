@@ -42,8 +42,17 @@ import lombok.RequiredArgsConstructor;
 public class OrderExcelUploadLookupService {
 
     private static final String PRODUCTION_TEAM_NAME = "생산팀";
-    private static final Long BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = 12L;
+    private static final Long PRODUCTION_TEAM_ID = 2L;
     private static final String DELIVERY_TEAM_NAME = "배송팀";
+    private static final List<String> REAL_PRODUCT_CATEGORY_NAMES = List.of(
+            "슬라이드장",
+            "상부장",
+            "하부장",
+            "플랩장",
+            "거울",
+            "LED거울",
+            "욕실용품"
+    );
 
     private final OrderExcelDeliveryMethodRepository deliveryMethodRepository;
     private final OrderExcelTeamCategoryRepository teamCategoryRepository;
@@ -124,22 +133,19 @@ public class OrderExcelUploadLookupService {
     }
 
     private List<OrderExcelOptionDto> getProductionCategories() {
-        List<OrderExcelOptionDto> result = new ArrayList<>(teamCategoryRepository.findByTeam_NameOrderByNameAsc(PRODUCTION_TEAM_NAME)
+        return teamCategoryRepository.findByTeam_NameOrderByNameAsc(PRODUCTION_TEAM_NAME)
                 .stream()
+                .filter(this::isRealProductCategory)
                 .map(this::toCategoryOption)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
+    }
 
-        teamCategoryRepository.findById(BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID)
-                .map(this::toCategoryOption)
-                .ifPresent(option -> {
-                    boolean alreadyExists = result.stream()
-                            .anyMatch(item -> item.getId() != null && item.getId().equals(option.getId()));
-                    if (!alreadyExists) {
-                        result.add(option);
-                    }
-                });
-
-        return result;
+    private boolean isRealProductCategory(TeamCategory category) {
+        if (category == null || category.getName() == null || category.getTeam() == null) {
+            return false;
+        }
+        return java.util.Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+                && REAL_PRODUCT_CATEGORY_NAMES.contains(category.getName().trim());
     }
 
     private List<OrderExcelOptionDto> getMiddleCategories() {

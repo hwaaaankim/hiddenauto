@@ -136,8 +136,9 @@ public class TeamController {
 	 * tb_order.mirror_cutting_product = true 를 조회하기 위한 가상 필터입니다.
 	 * 실제 TeamCategory ID와 충돌하지 않도록 음수 sentinel 값을 사용합니다.
 	 */
+	private static final Long PRODUCTION_TEAM_ID = 2L;
 	private static final Long MIRROR_CUTTING_FILTER_VALUE = -9000001L;
-	private static final String MIRROR_CUTTING_FILTER_LABEL = "거울(재단)";
+	private static final String MIRROR_CUTTING_FILTER_LABEL = "재단(거울)";
 
 	/*
 	 * 기존 재단(거울) 계정/데이터가 남아 있을 수 있어 호환용으로 유지합니다.
@@ -158,8 +159,8 @@ public class TeamController {
 	 * 거울 재단 조회는 반드시 MIRROR_CUTTING_FILTER_VALUE 가상 옵션으로만 처리합니다.
 	 */
 	private static final List<String> MIRROR_CUTTING_REAL_CATEGORY_NAMES_TO_HIDE = List.of(
-			LEGACY_MIRROR_CUTTING_TEAM_CATEGORY_NAME,
-			MIRROR_CUTTING_FILTER_LABEL
+			"재단(거울)",
+			"거울(재단)"
 	);
 
 	private static final List<OrderStatus> PRODUCTION_LIST_VISIBLE_STATUSES = List.of(
@@ -167,6 +168,15 @@ public class TeamController {
 			OrderStatus.PRODUCTION_DONE,
 			OrderStatus.DISPATCH_DONE,
 			OrderStatus.DELIVERY_DONE
+	);
+
+	private static final List<String> PRODUCTION_REAL_CATEGORY_NAMES = List.of(
+			"슬라이드장",
+			"상부장",
+			"하부장",
+			"플랩장",
+			"거울",
+			"LED거울"
 	);
 
 	private static final List<String> PRODUCTION_LIST_ALLOWED_STATUS_FILTERS = List.of(
@@ -237,6 +247,12 @@ public class TeamController {
 		Long selectedProductCategoryId = mirrorCuttingFilterSelected
 				? MIRROR_CUTTING_FILTER_VALUE
 				: normalizeProductCategoryIdOrNull(productCategoryId);
+
+		if (selectedProductCategoryId != null
+				&& !isMirrorCuttingFilterValue(selectedProductCategoryId)
+				&& !isProductionRealCategoryId(selectedProductCategoryId)) {
+			throw new AccessDeniedException("생산팀에서는 실제 6개 생산 카테고리만 조회할 수 있습니다.");
+		}
 
 		/*
 		 * 핵심 조회 분기
@@ -743,8 +759,25 @@ public class TeamController {
 
 		return source.stream()
 				.filter(Objects::nonNull)
-				.filter(category -> !isHiddenRealMirrorCuttingCategory(category))
+				.filter(this::isProductionRealCategory)
 				.collect(Collectors.toList());
+	}
+
+	private boolean isProductionRealCategory(TeamCategory category) {
+		if (category == null || category.getTeam() == null || category.getName() == null) {
+			return false;
+		}
+		return Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+				&& PRODUCTION_REAL_CATEGORY_NAMES.contains(category.getName().trim());
+	}
+
+	private boolean isProductionRealCategoryId(Long categoryId) {
+		if (categoryId == null) {
+			return false;
+		}
+		return teamCategoryRepository.findById(categoryId)
+				.map(this::isProductionRealCategory)
+				.orElse(false);
 	}
 
 	private boolean isHiddenRealMirrorCuttingCategory(TeamCategory category) {

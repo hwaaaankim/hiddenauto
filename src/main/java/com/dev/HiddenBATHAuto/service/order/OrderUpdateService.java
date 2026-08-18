@@ -29,6 +29,7 @@ import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
+import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
@@ -53,6 +54,11 @@ public class OrderUpdateService {
 
 	private static final String ADMIN_IMAGE_TYPE = "MANAGEMENT";
 	private static final String SITE_DELIVERY_METHOD_NAME = "현장배송";
+
+	private static final Long PRODUCTION_TEAM_ID = 2L;
+	private static final Set<String> REAL_ORDER_PRODUCT_CATEGORY_NAMES = Set.of(
+			"슬라이드장", "상부장", "하부장", "플랩장", "거울", "LED거울", "욕실용품"
+	);
 
 	private static final Set<String> OPTION_VALUE_FIXED_KEYS = Set.of("카테고리", "제품시리즈", "제품시리즈ID");
 
@@ -281,8 +287,22 @@ public class OrderUpdateService {
 				handlerRequired);
 
 		normalizeId(productCategoryId).ifPresentOrElse(id -> {
-			var category = teamCategoryRepository.findById(id)
+			TeamCategory category = teamCategoryRepository.findById(id)
 					.orElseThrow(() -> new IllegalArgumentException("Invalid productCategoryId. id=" + id));
+
+			/*
+			 * 신규/변경 제품 카테고리는 실제 7개만 허용합니다.
+			 * 다만 과거 데이터가 이미 재단 등 레거시 카테고리를 가지고 있는 경우,
+			 * 다른 필드만 수정할 때 현재 카테고리를 그대로 유지하는 것은 허용합니다.
+			 */
+			Long currentCategoryId = order.getProductCategory() != null ? order.getProductCategory().getId() : null;
+			boolean preservingLegacyCategory = Objects.equals(currentCategoryId, id);
+			if (!isRealOrderProductCategory(category) && !preservingLegacyCategory) {
+				throw new IllegalArgumentException(
+						"제품 카테고리는 슬라이드장/상부장/하부장/플랩장/거울/LED거울/욕실용품 중 하나만 새로 지정할 수 있습니다."
+				);
+			}
+
 			order.setProductCategory(category);
 		}, () -> order.setProductCategory(null));
 
@@ -759,6 +779,14 @@ public class OrderUpdateService {
 			return Optional.empty();
 		}
 		return Optional.ofNullable(normalizeNullableText(order.getDeliveryMethod().getMethodName()));
+	}
+
+	private boolean isRealOrderProductCategory(TeamCategory category) {
+		if (category == null || category.getTeam() == null || category.getName() == null) {
+			return false;
+		}
+		return Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+				&& REAL_ORDER_PRODUCT_CATEGORY_NAMES.contains(category.getName().trim());
 	}
 
 	private MoneySnapshot normalizeMoney(int productCost, int quantity, int supplyPrice, int totalAmount) {

@@ -41,6 +41,15 @@ public class ProductOrderAddQueryService {
 
     private static final Long PRODUCTION_TEAM_ID = 2L;
     private static final Long DELIVERY_TEAM_ID = 3L;
+    private static final List<String> REAL_PRODUCT_CATEGORY_KEYS = List.of(
+            "슬라이드장",
+            "상부장",
+            "하부장",
+            "플랩장",
+            "거울",
+            "LED거울",
+            "욕실용품"
+    );
 
     private final MemberRepository memberRepository;
     private final TeamCategoryRepository teamCategoryRepository;
@@ -201,10 +210,20 @@ public class ProductOrderAddQueryService {
         List<ProductOrderSimpleOptionResponse> result = new ArrayList<>();
 
         for (TeamCategory category : categories) {
-            result.add(new ProductOrderSimpleOptionResponse(category.getId(), category.getName()));
+            if (isSelectableProductionCategory(category)) {
+                result.add(new ProductOrderSimpleOptionResponse(category.getId(), category.getName()));
+            }
         }
 
         return result;
+    }
+
+    private boolean isSelectableProductionCategory(TeamCategory category) {
+        if (category == null || category.getName() == null) {
+            return false;
+        }
+        String normalized = category.getName().trim().replaceAll("\\s+", "");
+        return REAL_PRODUCT_CATEGORY_KEYS.contains(normalized);
     }
 
     private boolean isDirectDeliveryMethod(DeliveryMethod method) {

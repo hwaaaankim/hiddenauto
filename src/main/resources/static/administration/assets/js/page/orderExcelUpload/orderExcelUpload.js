@@ -4,7 +4,6 @@
 
     const API_BASE = '/management/api/order-excel-upload';
     const ORDER_EXCEL_UPLOAD_PAGE_URL = '/management/order-excel-upload';
-    const BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = '12';
     const BATHROOM_GOODS_CATEGORY_NAME = '욕실용품';
     const DEFAULT_MAX_IMAGE_FILE_SIZE_BYTES = 500 * 1024 * 1024;
     const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 1024 * 1024 * 1024;
@@ -911,9 +910,9 @@
             if (target.dataset.rowField === 'productionCategoryId') {
                 const category = (state.options.productionCategories || []).find(item => String(item.id) === String(target.value));
                 if (category && row) {
-                    const categoryNameForSave = String(category.id) === BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID
-                        ? BATHROOM_GOODS_CATEGORY_NAME
-                        : category.name;
+                    // 욕실용품은 더 이상 출고팀 카테고리 하드코딩 라우팅을 사용하지 않습니다.
+                    // 서버가 내려준 실제 생산팀 TeamCategory 이름을 그대로 저장합니다.
+                    const categoryNameForSave = category.name;
                     row.categoryName = categoryNameForSave;
                     row.orderStatus = defaultOrderStatusForCategory(categoryNameForSave, row.quantity);
                     const hidden = target.closest('tr').querySelector('[data-row-field="categoryName"]');

@@ -76,10 +76,19 @@ import lombok.RequiredArgsConstructor;
 public class OrderExcelUploadService {
 
     private static final String PRODUCTION_TEAM_NAME = "생산팀";
+    private static final Long PRODUCTION_TEAM_ID = 2L;
     private static final String DELIVERY_TEAM_NAME = "배송팀";
-    private static final String DISPATCH_TEAM_NAME = "출고팀";
-    private static final Long BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID = 12L;
     private static final String BATHROOM_GOODS_CATEGORY_NAME = "욕실용품";
+    private static final List<String> REAL_PRODUCT_CATEGORY_NAMES = List.of(
+            "슬라이드장",
+            "상부장",
+            "하부장",
+            "플랩장",
+            "거울",
+            "LED거울",
+            "욕실용품"
+    );
+    private static final String DEFAULT_MANAGER_USERNAME = "admin";
     private static final String MIRROR_CATEGORY_NAME = "거울";
     private static final String LED_MIRROR_CATEGORY_NAME = "LED거울";
     private static final String DEFAULT_MIDDLE_CATEGORY_NAME = "분류없음";
@@ -953,11 +962,14 @@ public class OrderExcelUploadService {
         }
 
         if (firstProduct != null) {
-            resolveMemberByNameForPreview(firstProduct.managerName, group.getIssues(), firstProduct.excelRowNumber, groupNo, "managedBy")
-                    .ifPresent(member -> {
-                        group.setManagedByMemberId(member.getId());
-                        group.setManagedByName(member.getName());
-                    });
+            Member manager = resolveManagerForPreview(
+                    firstProduct.managerName,
+                    group.getIssues(),
+                    firstProduct.excelRowNumber,
+                    groupNo
+            );
+            group.setManagedByMemberId(manager.getId());
+            group.setManagedByName(manager.getName());
         }
 
         validatePreviewAddress(group, rule, firstRowNo(rawRows));
@@ -1358,22 +1370,22 @@ public class OrderExcelUploadService {
     }
 
     private void validateManagerForSave(OrderExcelSaveGroupRequest group, List<OrderExcelIssueDto> issues) {
-        if (group.getManagedByMemberId() != null) {
-            if (memberRepository.findById(group.getManagedByMemberId()).isEmpty()) {
-                issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "managedBy", "선택한 담당자를 찾을 수 없습니다."));
-            }
-            return;
-        }
-
-        if (safe(group.getManagedByName()).isBlank()) {
+        if (group.getManagedByMemberId() != null && memberRepository.findById(group.getManagedByMemberId()).isPresent()) {
             return;
         }
 
         List<Member> members = findMembersByName(group.getManagedByName());
-        if (members.isEmpty()) {
-            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "managedBy", "담당자 이름으로 멤버를 찾을 수 없습니다: " + group.getManagedByName()));
-        } else if (members.size() > 1) {
-            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "managedBy", "담당자 이름이 중복됩니다. 저장 전 정확히 선택해 주세요: " + group.getManagedByName()));
+        if (members.size() == 1) {
+            return;
+        }
+
+        if (memberRepository.findByUsername(DEFAULT_MANAGER_USERNAME).isEmpty()) {
+            issues.add(OrderExcelIssueDto.error(
+                    null,
+                    group.getGroupNo(),
+                    "managedBy",
+                    "담당자 fallback에 사용할 username='" + DEFAULT_MANAGER_USERNAME + "' 계정을 찾을 수 없습니다."
+            ));
         }
     }
 
@@ -1560,17 +1572,18 @@ public class OrderExcelUploadService {
 
     private Member resolveManagerForSave(OrderExcelSaveGroupRequest group) {
         if (group.getManagedByMemberId() != null) {
-            return memberRepository.findById(group.getManagedByMemberId())
-                    .orElseThrow(() -> new IllegalArgumentException("선택한 담당자를 찾을 수 없습니다."));
+            Member selected = memberRepository.findById(group.getManagedByMemberId()).orElse(null);
+            if (selected != null) {
+                return selected;
+            }
         }
-        if (safe(group.getManagedByName()).isBlank()) {
-            return null;
-        }
+
         List<Member> members = findMembersByName(group.getManagedByName());
-        if (members.size() != 1) {
-            throw new IllegalArgumentException("담당자 이름을 정확히 찾을 수 없습니다: " + group.getManagedByName());
+        if (members.size() == 1) {
+            return members.get(0);
         }
-        return members.get(0);
+
+        return resolveDefaultManager();
     }
 
     private Member resolveDeliveryHandlerForSave(
@@ -1640,8 +1653,10 @@ public class OrderExcelUploadService {
                 return selectedCategory;
             }
 
-            if (!isProductionTeamCategory(selectedCategory)) {
-                throw new IllegalArgumentException("욕실용품 외 품목은 생산팀 분류만 선택할 수 있습니다.");
+            if (!isRealOrderProductCategory(selectedCategory)) {
+                throw new IllegalArgumentException(
+                        "제품 카테고리는 슬라이드장/상부장/하부장/플랩장/거울/LED거울/욕실용품 중 하나여야 합니다."
+                );
             }
 
             row.setCategoryName(selectedCategory.getName());
@@ -2093,22 +2108,51 @@ public class OrderExcelUploadService {
         return companyRepository.findByCompanyNameWithoutSpaces(trimmed.replaceAll("\\s+", ""));
     }
 
-    private Optional<Member> resolveMemberByNameForPreview(String name, List<OrderExcelIssueDto> issues, Integer rowNo, int groupNo, String field) {
+    private Member resolveManagerForPreview(
+            String name,
+            List<OrderExcelIssueDto> issues,
+            Integer rowNo,
+            int groupNo
+    ) {
         String normalizedName = safe(name);
-        if (normalizedName.isBlank()) {
-            return Optional.empty();
+        List<Member> members = findMembersByName(normalizedName);
+
+        if (members.size() == 1) {
+            return members.get(0);
         }
 
-        List<Member> members = findMembersByName(normalizedName);
-        if (members.isEmpty()) {
-            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, field, "멤버 이름으로 찾을 수 없습니다: " + normalizedName));
-            return Optional.empty();
+        Member fallback = resolveDefaultManager();
+        String fallbackLabel = safe(fallback.getName()).isBlank()
+                ? fallback.getUsername()
+                : fallback.getName();
+
+        if (normalizedName.isBlank()) {
+            issues.add(OrderExcelIssueDto.warn(
+                    rowNo, groupNo, "managedBy",
+                    "관리 담당자명이 비어 있어 " + fallbackLabel + "(" + DEFAULT_MANAGER_USERNAME + ") 계정으로 지정했습니다."
+            ));
+        } else if (members.isEmpty()) {
+            issues.add(OrderExcelIssueDto.warn(
+                    rowNo, groupNo, "managedBy",
+                    "관리 담당자 '" + normalizedName + "'을(를) 찾을 수 없어 "
+                            + fallbackLabel + "(" + DEFAULT_MANAGER_USERNAME + ") 계정으로 지정했습니다."
+            ));
+        } else {
+            issues.add(OrderExcelIssueDto.warn(
+                    rowNo, groupNo, "managedBy",
+                    "관리 담당자 '" + normalizedName + "'이(가) 동명이인이므로 "
+                            + fallbackLabel + "(" + DEFAULT_MANAGER_USERNAME + ") 계정으로 지정했습니다."
+            ));
         }
-        if (members.size() > 1) {
-            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, field, "동명이인 멤버가 있습니다. 저장 전 셀렉트에서 정확히 선택해 주세요: " + normalizedName));
-            return Optional.empty();
-        }
-        return Optional.of(members.get(0));
+
+        return fallback;
+    }
+
+    private Member resolveDefaultManager() {
+        return memberRepository.findByUsername(DEFAULT_MANAGER_USERNAME)
+                .orElseThrow(() -> new IllegalStateException(
+                        "기본 발주 담당자 username='" + DEFAULT_MANAGER_USERNAME + "' 계정을 찾을 수 없습니다."
+                ));
     }
 
     private Optional<Member> resolveDeliveryHandlerByNameForPreview(String name, List<OrderExcelIssueDto> issues, Integer rowNo, int groupNo) {
@@ -2249,6 +2293,10 @@ public class OrderExcelUploadService {
             return List.of();
         }
 
+        if (!REAL_PRODUCT_CATEGORY_NAMES.contains(normalized)) {
+            return List.of();
+        }
+
         if (isBathroomGoodsCategory(normalized)) {
             return List.of(resolveBathroomGoodsRoutingCategory(null));
         }
@@ -2262,15 +2310,22 @@ public class OrderExcelUploadService {
     }
 
     private TeamCategory resolveBathroomGoodsRoutingCategory(Integer groupNo) {
-        TeamCategory category = teamCategoryRepository.findById(BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID)
-                .orElseThrow(() -> new IllegalArgumentException(prefixGroup(groupNo)
-                        + "욕실용품 담당팀 TeamCategory(id=12)를 찾을 수 없습니다."));
+        List<TeamCategory> categories = teamCategoryRepository
+                .findByTeam_IdAndNameIgnoreCase(PRODUCTION_TEAM_ID, BATHROOM_GOODS_CATEGORY_NAME);
 
-        if (!isBathroomGoodsRoutingCategory(category)) {
-            String teamName = category.getTeam() == null ? "" : safe(category.getTeam().getName());
+        if (categories.isEmpty()) {
             throw new IllegalArgumentException(prefixGroup(groupNo)
-                    + "TeamCategory(id=12)는 출고팀 소속이어야 합니다. 현재 team=" + teamName
-                    + ", name=" + safe(category.getName()));
+                    + "생산팀(team.id=2)의 욕실용품 TeamCategory를 찾을 수 없습니다. 제공된 INSERT SQL을 먼저 적용해 주세요.");
+        }
+        if (categories.size() > 1) {
+            throw new IllegalArgumentException(prefixGroup(groupNo)
+                    + "생산팀(team.id=2)의 욕실용품 TeamCategory가 중복되어 있습니다.");
+        }
+
+        TeamCategory category = categories.get(0);
+        if (!isBathroomGoodsRoutingCategory(category)) {
+            throw new IllegalArgumentException(prefixGroup(groupNo)
+                    + "욕실용품 TeamCategory는 생산팀(team.id=2) 소속이어야 합니다.");
         }
 
         return category;
@@ -2282,15 +2337,22 @@ public class OrderExcelUploadService {
 
     private boolean isBathroomGoodsRoutingCategory(TeamCategory category) {
         return category != null
-                && BATHROOM_GOODS_DISPATCH_TEAM_CATEGORY_ID.equals(category.getId())
                 && category.getTeam() != null
-                && DISPATCH_TEAM_NAME.equals(safe(category.getTeam().getName()));
+                && Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+                && BATHROOM_GOODS_CATEGORY_NAME.equals(normalizeCategoryName(category.getName()));
     }
 
     private boolean isProductionTeamCategory(TeamCategory category) {
         return category != null
                 && category.getTeam() != null
                 && PRODUCTION_TEAM_NAME.equals(safe(category.getTeam().getName()));
+    }
+
+    private boolean isRealOrderProductCategory(TeamCategory category) {
+        return isProductionTeamCategory(category)
+                && category.getTeam() != null
+                && Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+                && REAL_PRODUCT_CATEGORY_NAMES.contains(normalizeCategoryName(category.getName()));
     }
 
     private String resolveOptionCategoryName(OrderExcelSaveRowRequest row, TeamCategory routingCategory) {

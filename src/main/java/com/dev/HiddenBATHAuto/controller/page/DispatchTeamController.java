@@ -63,6 +63,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DispatchTeamController {
 
+    private static final Long PRODUCTION_TEAM_ID = 2L;
+    private static final List<String> DISPATCH_PRODUCT_CATEGORY_NAMES = List.of(
+            "슬라이드장",
+            "상부장",
+            "하부장",
+            "플랩장",
+            "거울",
+            "LED거울",
+            "욕실용품"
+    );
+
     private final DispatchTeamService dispatchTeamService;
     private final TeamCategoryRepository teamCategoryRepository;
     private final DeliveryMethodRepository deliveryMethodRepository;
@@ -79,7 +90,18 @@ public class DispatchTeamController {
         Member loginMember = principal.getMember();
         dispatchTeamService.validateDispatchTeamMember(loginMember);
 
-        List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀");
+        List<TeamCategory> productCategories = teamCategoryRepository.findByTeamName("생산팀")
+                .stream()
+                .filter(category -> category != null
+                        && category.getName() != null
+                        && category.getTeam() != null
+                        && java.util.Objects.equals(PRODUCTION_TEAM_ID, category.getTeam().getId())
+                        && DISPATCH_PRODUCT_CATEGORY_NAMES.contains(category.getName().trim()))
+                .sorted((left, right) -> Integer.compare(
+                        DISPATCH_PRODUCT_CATEGORY_NAMES.indexOf(left.getName().trim()),
+                        DISPATCH_PRODUCT_CATEGORY_NAMES.indexOf(right.getName().trim())
+                ))
+                .toList();
         List<DeliveryMethod> deliveryMethods = deliveryMethodRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
         List<Province> provinces = provinceRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
         List<Member> deliveryHandlers =

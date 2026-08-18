@@ -503,6 +503,10 @@ public class MemberService {
 	            throw new IllegalArgumentException("선택한 카테고리가 해당 팀 소속이 아닙니다.");
 	        }
 
+	        if (!memberManagementService.isEmployeeAssignableTeamCategory(selectedCategory)) {
+	            throw new IllegalArgumentException("욕실용품은 제품 분류 전용 카테고리이므로 생산팀 직원에게 배정할 수 없습니다.");
+	        }
+
 	        return selectedCategory;
 	    }
 

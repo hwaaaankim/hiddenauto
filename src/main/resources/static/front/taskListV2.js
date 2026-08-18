@@ -12,6 +12,8 @@
         initDateValidation(form);
         initExcelDownload(form);
         initPagination(form);
+        initOrderDetailToggle();
+        initProductNameHighlight();
         initRowNavigation();
     });
 
@@ -235,6 +237,81 @@
         form.submit();
     }
 
+
+    function initOrderDetailToggle() {
+        document.querySelectorAll('.task-list-order-detail-toggle[data-target]').forEach(function (button) {
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const targetSelector = button.dataset.target;
+                if (!targetSelector) return;
+
+                let slide = null;
+                try {
+                    slide = document.querySelector(targetSelector);
+                } catch (error) {
+                    console.error('[task-list] invalid order detail target', targetSelector, error);
+                    return;
+                }
+                if (!slide) return;
+
+                const willOpen = !slide.classList.contains('task-list-is-open');
+                slide.classList.toggle('task-list-is-open', willOpen);
+                button.classList.toggle('task-list-is-open', willOpen);
+                button.setAttribute('aria-expanded', String(willOpen));
+                slide.setAttribute('aria-hidden', String(!willOpen));
+
+                const icon = button.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-expand-alt', !willOpen);
+                    icon.classList.toggle('fa-compress-alt', willOpen);
+                }
+            });
+        });
+    }
+
+    function initProductNameHighlight() {
+        const type = document.getElementById('task-list-text-type')?.value || '';
+        const keyword = (document.getElementById('task-list-keyword')?.value || '').trim();
+        if (type !== 'productName' || !keyword) return;
+
+        document.querySelectorAll('.task-list-product-name-text').forEach(function (element) {
+            highlightText(element, keyword);
+        });
+    }
+
+    function highlightText(element, keyword) {
+        if (!element || !keyword) return;
+
+        const source = element.textContent || '';
+        const sourceLower = source.toLocaleLowerCase();
+        const keywordLower = keyword.toLocaleLowerCase();
+        let cursor = 0;
+        let matchIndex = sourceLower.indexOf(keywordLower, cursor);
+        if (matchIndex < 0) return;
+
+        const fragment = document.createDocumentFragment();
+        while (matchIndex >= 0) {
+            if (matchIndex > cursor) {
+                fragment.appendChild(document.createTextNode(source.slice(cursor, matchIndex)));
+            }
+
+            const match = document.createElement('span');
+            match.className = 'task-list-product-search-match';
+            match.textContent = source.slice(matchIndex, matchIndex + keyword.length);
+            fragment.appendChild(match);
+
+            cursor = matchIndex + keyword.length;
+            matchIndex = sourceLower.indexOf(keywordLower, cursor);
+        }
+
+        if (cursor < source.length) {
+            fragment.appendChild(document.createTextNode(source.slice(cursor)));
+        }
+
+        element.replaceChildren(fragment);
+    }
 
     function initRowNavigation() {
         document.querySelectorAll('.task-list-main-row[data-detail-url]').forEach(function (row) {

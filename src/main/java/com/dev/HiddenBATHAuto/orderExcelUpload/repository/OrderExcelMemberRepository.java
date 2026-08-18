@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.orderExcelUpload.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,6 +11,7 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 
 public interface OrderExcelMemberRepository extends JpaRepository<Member, Long> {
+    Optional<Member> findByUsername(String username);
     List<Member> findByName(String name);
     List<Member> findByCompany_IdAndRoleOrderByIdAsc(Long companyId, MemberRole role);
 
