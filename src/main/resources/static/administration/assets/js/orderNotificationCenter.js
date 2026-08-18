@@ -59,6 +59,7 @@
 
     function init() {
         bindElements();
+        resetImportantOverlayOnStartup();
         bindAdminRequestDelegation();
         enableStateIndependentAdminRequestButtons();
 
@@ -698,7 +699,29 @@
     }
 
     function isImportantOverlayOpen() {
-        return Boolean(els.importantOverlay && !els.importantOverlay.classList.contains('d-none'));
+        return Boolean(
+            els.importantOverlay
+            && els.importantOverlay.classList.contains('is-open')
+            && !els.importantOverlay.hasAttribute('hidden')
+        );
+    }
+
+    function resetImportantOverlayOnStartup() {
+        if (!els.importantOverlay) return;
+        /*
+         * 중요알림은 실제 미확인 항목을 API/WebSocket으로 확인한 뒤에만 열립니다.
+         * HTML/CSS 캐시나 이전 화면 상태가 남아 있어도 최초 렌더링에서 화면이 잠기지 않도록
+         * hidden + d-none + is-open 제거를 모두 적용합니다.
+         */
+        els.importantOverlay.setAttribute('hidden', 'hidden');
+        els.importantOverlay.classList.add('d-none');
+        els.importantOverlay.classList.remove('is-open');
+        els.importantOverlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('order-important-notification-lock');
+        if (els.importantCount) els.importantCount.textContent = '0';
+        if (els.importantList) els.importantList.innerHTML = '';
+        if (els.importantConfirmButton) els.importantConfirmButton.disabled = true;
+        clearImportantError();
     }
 
     async function ensurePendingImportantNotifications(force) {
@@ -710,31 +733,39 @@
 
         state.importantLoading = true;
         clearImportantError();
-        if (state.importantTotalPending > 0 || isImportantOverlayOpen()) {
-            showImportantOverlay();
-            if (!state.importantItems.length && els.importantList) {
-                els.importantList.innerHTML = '<div class="order-important-notification-loading"><div><span class="spinner-border spinner-border-sm me-2"></span>중요알림을 확인하고 있습니다.</div></div>';
-            }
-        }
 
         try {
             const response = await fetch(API.importantPending + '?size=100', { headers: ajaxHeaders() });
             const data = await parseResponse(response);
             if (!response.ok) throw new Error(data.message || '중요알림 조회에 실패했습니다.');
 
-            state.importantItems = deduplicateItems(Array.isArray(data.content) ? data.content : [])
-                .filter(function (item) { return item && item.important && !item.importantConfirmed; });
-            state.importantTotalPending = Number(data.totalPendingCount || 0);
+            const verifiedItems = deduplicateItems(Array.isArray(data.content) ? data.content : [])
+                .filter(function (item) { return item && item.id && item.important === true && item.importantConfirmed !== true; });
+            const reportedTotal = Math.max(0, Number(data.totalPendingCount || 0));
+
+            state.importantItems = verifiedItems;
+            state.importantTotalPending = reportedTotal;
+
+            if (reportedTotal > 0 && verifiedItems.length === 0) {
+                console.warn('[중요알림] summary/상세 응답이 일치하지 않아 화면 잠금을 보류합니다.', {
+                    totalPendingCount: reportedTotal,
+                    loadedCount: verifiedItems.length
+                });
+            }
             renderImportantOverlay();
         } catch (error) {
-            console.error('[중요알림] 조회 실패', error);
-            /* 요약에서 미확인 중요알림 존재를 이미 확인한 경우 조회 실패로 화면 잠금을 우회하지 않습니다. */
-            if (state.importantTotalPending > 0 || isImportantOverlayOpen()) {
-                showImportantOverlay();
-                showImportantError((error && error.message ? error.message : '중요알림 조회에 실패했습니다.') + ' 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
-                if (els.importantList && !state.importantItems.length) {
-                    els.importantList.innerHTML = '<div class="order-important-notification-loading">중요알림 내용을 불러오지 못했습니다.</div>';
-                }
+            console.error('[중요알림] 조회 실패 - 실제 알림 항목을 확인하지 못했으므로 화면을 잠그지 않습니다.', error);
+            /*
+             * 중요알림 조회 장애만으로 전체 업무 화면이 잠기면 안 됩니다.
+             * 이미 화면에 검증되어 표시 중인 항목이 있으면 그 항목은 유지하고,
+             * 아직 실제 항목을 한 건도 확보하지 못한 상태라면 fail-open으로 닫아 둡니다.
+             */
+            if (state.importantItems.length > 0) {
+                showImportantError((error && error.message ? error.message : '중요알림 조회에 실패했습니다.') + ' 현재 표시된 알림을 확인해 주세요.');
+                renderImportantOverlay();
+            } else {
+                state.importantTotalPending = 0;
+                hideImportantOverlay();
             }
         } finally {
             state.importantLoading = false;
@@ -762,19 +793,12 @@
         state.importantItems = items;
 
         const total = Math.max(Number(state.importantTotalPending || 0), items.length);
-        if (els.importantCount) els.importantCount.textContent = String(total);
-        if (els.importantMore) els.importantMore.classList.toggle('d-none', total <= items.length);
+        if (els.importantCount) els.importantCount.textContent = String(items.length ? total : 0);
+        if (els.importantMore) els.importantMore.classList.toggle('d-none', !items.length || total <= items.length);
 
+        /* 실제로 검증된 중요알림 항목이 없으면 어떤 카운트/로딩 상태에서도 화면을 잠그지 않습니다. */
         if (!items.length) {
-            if (total <= 0 && !state.importantLoading && !state.importantConfirming) {
-                hideImportantOverlay();
-                return;
-            }
-            showImportantOverlay();
-            if (els.importantList && !state.importantLoading) {
-                els.importantList.innerHTML = '<div class="order-important-notification-loading">확인이 필요한 중요알림을 불러오고 있습니다.</div>';
-            }
-            if (els.importantConfirmButton) els.importantConfirmButton.disabled = true;
+            hideImportantOverlay();
             return;
         }
 
@@ -854,8 +878,18 @@
 
     function showImportantOverlay() {
         if (!els.importantOverlay) return;
+        const hasVerifiedItems = state.importantItems.some(function (item) {
+            return item && item.id && item.important === true && item.importantConfirmed !== true;
+        });
+        if (!hasVerifiedItems) {
+            hideImportantOverlay();
+            return;
+        }
+
         closeOpenNativeDialogsForImportantOverlay();
+        els.importantOverlay.removeAttribute('hidden');
         els.importantOverlay.classList.remove('d-none');
+        els.importantOverlay.classList.add('is-open');
         els.importantOverlay.setAttribute('aria-hidden', 'false');
         document.body.classList.add('order-important-notification-lock');
         window.setTimeout(function () {
@@ -878,9 +912,12 @@
 
     function hideImportantOverlay() {
         if (!els.importantOverlay) return;
+        els.importantOverlay.setAttribute('hidden', 'hidden');
         els.importantOverlay.classList.add('d-none');
+        els.importantOverlay.classList.remove('is-open');
         els.importantOverlay.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('order-important-notification-lock');
+        if (els.importantConfirmButton) els.importantConfirmButton.disabled = true;
         clearImportantError();
     }
 

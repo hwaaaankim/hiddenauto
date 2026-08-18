@@ -18,7 +18,7 @@
 	<link href="/administration/assets/css/custom.css?v=20260813-4" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/add.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/dispatch.css" rel="stylesheet" type="text/css" />
-	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260813-1" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260818-1" rel="stylesheet" type="text/css" />
 	<script src="/administration/assets/js/layout.js"></script>
 	<link href="/administration/assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -206,7 +206,7 @@
 				</div>
 			</div>
 		</div>
-		<div id="order-important-notification-overlay" class="order-important-notification-overlay d-none"
+		<div id="order-important-notification-overlay" class="order-important-notification-overlay d-none" hidden
 			role="dialog" aria-modal="true" aria-labelledby="order-important-notification-title" aria-hidden="true"
 			sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT','ROLE_INTERNAL_EMPLOYEE')">
 			<div class="order-important-notification-panel" role="document">
@@ -630,7 +630,7 @@
 		<script src="/administration/assets/libs/list.pagination.js/list.pagination.min.js"></script>
 		<script src="/administration/assets/libs/sweetalert2/sweetalert2.min.js"></script>
 		<script src="/administration/assets/js/app.js"></script>
-		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260813-1"></script>
+		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260818-1"></script>
 	</th:block>
 
 </body>
