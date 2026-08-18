@@ -1370,3 +1370,87 @@
 .order-detail-modal-backdrop {
     z-index: 20040 !important;
 }
+
+
+/* =========================================================
+   Customer task/AS desktop phone modal
+   - mobile: 기존 tel: 링크 유지
+   - desktop(>=992px): 번호 확인/복사 모달
+========================================================= */
+.customer-task-phone-dialog {
+    max-width: 420px;
+}
+
+.customer-task-phone-content {
+    border: 1px solid #d8dee8;
+    border-radius: 5px;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+    overflow: hidden;
+}
+
+.customer-task-phone-header {
+    min-height: 72px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.customer-task-phone-kicker {
+    margin-bottom: 2px;
+    color: #6b7280;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.customer-task-phone-title {
+    margin: 0;
+    color: #111827;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.customer-task-phone-body {
+    padding: 24px 18px;
+    text-align: center;
+    background: #f8fafc;
+}
+
+.customer-task-phone-context {
+    margin-bottom: 8px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.customer-task-phone-number {
+    color: #111827;
+    font-size: 27px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: .02em;
+    word-break: break-all;
+}
+
+.customer-task-phone-guide {
+    margin-top: 12px;
+    color: #6b7280;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.customer-task-phone-footer {
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.customer-task-phone-close,
+.customer-task-phone-copy {
+    min-width: 104px;
+    min-height: 38px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 800;
+}

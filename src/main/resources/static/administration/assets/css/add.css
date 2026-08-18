@@ -1546,6 +1546,15 @@
 	overflow-wrap: anywhere;
 }
 
+.team-production-size-text {
+	display: block;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow-wrap: normal;
+}
+
 .team-production-admin-memo-td {
 	background: #fffdf7;
 }

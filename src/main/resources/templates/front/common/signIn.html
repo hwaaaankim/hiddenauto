@@ -1,168 +1,182 @@
 <!DOCTYPE HTML>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 
-<head th:replace="~{fragments/front/common :: autoHead}">
-</head>
+<head th:replace="~{fragments/front/common :: autoHead}"></head>
 
-<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+<body class="theme-light sign-in-page" data-highlight="highlight-red" data-gradient="body-default">
+	<link rel="stylesheet" href="/front/auth-modern.css">
 
-	<th:block th:replace="~{fragments/front/common :: autoLoader}">
-	</th:block>
+	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
-	<div id="page" class="container">
-
-		<th:block th:replace="~{fragments/front/common :: beforeHeaderMenu}">
-		</th:block>
-
-		<div class="page-content header-clear-medium sign">
-
-			<div class="sign-wrap">
-
-				<div class="ps-5 pe-5">
-
-					<h1 class="text-center font-800 font-40 mb-5">
-						로그인
-					</h1>
-
-					<!-- 로그인 실패 메시지 -->
-					<div th:if="${loginError}" class="login-message-box mb-4" role="alert" aria-live="polite">
-
-						<span class="login-message-icon">
-							<i class="fa fa-circle-exclamation"></i>
-						</span>
-
-						<span class="login-message-content">
-
-							<span class="login-message-title">
-								로그인에 실패했습니다
-							</span>
-
-							<span class="login-message-text" th:text="${loginErrorMessage}">
-								아이디 또는 비밀번호를 확인해주세요.
-							</span>
-
-						</span>
-
-					</div>
-
-					<form th:action="@{/signinProcess}" method="post" autocomplete="on">
-
-						<!-- 아이디 -->
-						<div class="input-style no-borders has-icon">
-
-							<i class="fa fa-user"></i>
-
-							<input type="text" id="username" name="username" class="form-control"
-								th:value="${loginUsername}" placeholder="아이디를 입력 해 주세요." autocomplete="username"
-								autocapitalize="none" spellcheck="false" required>
-
-							<label for="username" class="color-blue-dark font-10 mt-1">
-								USERNAME
-							</label>
-
-							<em>(required)</em>
-
-						</div>
-
-						<!-- 비밀번호 -->
-						<div class="input-style no-borders has-icon mt-4">
-
-							<i class="fa fa-lock"></i>
-
-							<input type="password" id="password" name="password" class="form-control"
-								placeholder="비밀번호를 입력 해 주세요." autocomplete="current-password" required>
-
-							<label for="password" class="color-blue-dark font-10 mt-1">
-								PASSWORD
-							</label>
-
-							<em>(required)</em>
-
-						</div>
-
-						<!-- 자동 로그인 -->
-						<div class="form-check icon-check">
-
-							<input class="form-check-input" type="checkbox" id="remember" name="remember" value="true">
-
-							<label class="form-check-label" for="remember">
-								자동으로 로그인
-							</label>
-
-							<i class="icon-check-1
-                                      fa
-                                      fa-square
-                                      color-gray-dark
-                                      font-16">
-							</i>
-
-							<i class="icon-check-2
-                                      fa
-                                      fa-check-square
-                                      font-16
-                                      color-highlight">
-							</i>
-
-						</div>
-
-						<!-- 회원가입 및 계정 찾기 -->
-						<div class="d-flex mt-1 mb-1">
-
-							<div class="w-50 font-11 pb-2 text-start">
-
-								<a th:href="@{/signUp}">
-									회원가입
-								</a>
-
-							</div>
-
-							<div class="w-50 font-11 pb-2 text-end">
-
-								<a th:href="@{/findPassword}">
-									비밀번호 찾기
-								</a>
-
-								<span> / </span>
-
-								<a th:href="@{/findUsername}">
-									아이디 찾기
-								</a>
-
-							</div>
-
-						</div>
-
-						<!-- 로그인 버튼 -->
-						<div class="login-btn-wrap">
-
-							<button type="submit" class="w-100
-                                           back-button
-                                           btn
-                                           btn-full
-                                           btn-m
-                                           shadow-large
-                                           rounded-sm
-                                           text-uppercase
-                                           font-700
-                                           bg-highlight">
-								LOGIN
-							</button>
-
-						</div>
-
-					</form>
-
+	<div id="page">
+		<div class="sign-in-shell">
+			<header class="sign-in-topbar">
+				<div class="container-xl sign-in-topbar-inner">
+					<a class="sign-in-brand" th:href="@{/loginForm}">
+						<span class="sign-in-brand-mark"><i class="fa-solid fa-h"></i></span>
+						<span>HIDDEN BATH</span>
+					</a>
+					<a class="sign-in-topbar-link" th:href="@{/signUp}">가맹점 회원가입</a>
 				</div>
+			</header>
 
-			</div>
+			<main class="sign-in-main">
+				<div class="container-xl">
+					<div class="sign-in-card">
+						<div class="row g-0">
+							<div class="col-lg-5">
+								<section class="sign-in-info-panel">
+									<div>
+										<div class="sign-in-info-kicker">BUSINESS PORTAL</div>
+										<h1 class="sign-in-info-title">히든바스 업무 시스템</h1>
+										<p class="sign-in-info-description">
+											발주, 진행상태, 배송 및 AS 업무를 한 곳에서 확인할 수 있는 가맹점 전용 시스템입니다.
+										</p>
+										<ul class="sign-in-info-list">
+											<li><i class="fa-solid fa-check"></i><span>발주 및 진행상태 통합 확인</span></li>
+											<li><i class="fa-solid fa-check"></i><span>배송 및 AS 처리 현황 관리</span></li>
+											<li><i class="fa-solid fa-check"></i><span>대표자·직원 계정 분리 운영</span></li>
+										</ul>
+									</div>
+									<div class="sign-in-info-foot">HIDDEN BATH · CUSTOMER BUSINESS SYSTEM</div>
+								</section>
+							</div>
 
+							<div class="col-lg-7">
+								<section class="sign-in-form-panel">
+									<div class="sign-in-form-wrap">
+										<div class="sign-in-heading">
+											<div class="sign-in-eyebrow">ACCOUNT LOGIN</div>
+											<h2 class="sign-in-title">로그인</h2>
+											<p class="sign-in-subtitle">등록된 계정으로 로그인해 주세요.</p>
+										</div>
+
+										<div th:if="${loginError}" class="sign-in-alert" role="alert" aria-live="polite">
+											<i class="fa-solid fa-circle-exclamation mt-1"></i>
+											<div>
+												<strong>로그인에 실패했습니다.</strong><br>
+												<span th:text="${loginErrorMessage != null and !#strings.isEmpty(loginErrorMessage) ? loginErrorMessage : '아이디 또는 비밀번호를 확인해 주세요.'}">아이디 또는 비밀번호를 확인해 주세요.</span>
+											</div>
+										</div>
+
+										<form id="sign-in-form" th:action="@{/signinProcess}" method="post" autocomplete="on">
+											<div class="sign-in-field">
+												<label class="sign-in-label" for="sign-in-username">
+													<span>아이디</span><span class="sign-in-required">필수</span>
+												</label>
+												<input type="text" id="sign-in-username" name="username"
+													class="form-control sign-in-control" th:value="${loginUsername}"
+													placeholder="아이디를 입력해 주세요." autocomplete="username"
+													autocapitalize="none" spellcheck="false" required>
+											</div>
+
+											<div class="sign-in-field">
+												<label class="sign-in-label" for="sign-in-password">
+													<span>비밀번호</span><span class="sign-in-required">필수</span>
+												</label>
+												<div class="sign-in-password-wrap">
+													<input type="password" id="sign-in-password" name="password"
+														class="form-control sign-in-control" placeholder="비밀번호를 입력해 주세요."
+														autocomplete="current-password" required>
+													<button type="button" class="sign-in-password-toggle" id="sign-in-password-toggle"
+														aria-label="비밀번호 표시 전환" aria-pressed="false">
+														<i class="fa-regular fa-eye"></i>
+													</button>
+												</div>
+											</div>
+
+											<div class="sign-in-form-row">
+												<label class="sign-in-remember" for="sign-in-remember">
+													<input class="form-check-input" type="checkbox" id="sign-in-remember" name="remember" value="true">
+													<span>자동으로 로그인</span>
+												</label>
+												<button type="button" class="sign-in-recovery-open" data-bs-toggle="modal" data-bs-target="#sign-in-recovery-modal">
+													아이디 / 비밀번호 찾기
+												</button>
+											</div>
+
+											<button type="submit" class="sign-in-submit">로그인</button>
+										</form>
+
+										<div class="sign-in-bottom-links">
+											<span>계정이 없으신가요?</span>
+											<a th:href="@{/signUp}">가맹점 회원가입</a>
+										</div>
+									</div>
+								</section>
+							</div>
+						</div>
+					</div>
+				</div>
+			</main>
 		</div>
-
 	</div>
 
-	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}">
-	</th:block>
+	<div class="modal fade sign-in-recovery-modal" id="sign-in-recovery-modal" tabindex="-1"
+		aria-labelledby="sign-in-recovery-title" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered sign-in-recovery-dialog">
+			<div class="modal-content sign-in-recovery-content">
+				<div class="modal-header sign-in-recovery-header">
+					<div>
+						<h5 class="modal-title sign-in-recovery-title" id="sign-in-recovery-title">계정 찾기</h5>
+						<div class="sign-in-recovery-subtitle">가입 시 등록한 정보로 계정을 확인합니다.</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
 
+				<div class="modal-body sign-in-recovery-body">
+					<div class="nav sign-in-recovery-tabs" id="sign-in-recovery-tabs" role="tablist">
+						<button class="nav-link sign-in-recovery-tab active" id="sign-in-recovery-username-tab"
+							data-bs-toggle="tab" data-bs-target="#sign-in-recovery-username-pane" type="button" role="tab"
+							aria-controls="sign-in-recovery-username-pane" aria-selected="true">아이디 찾기</button>
+						<button class="nav-link sign-in-recovery-tab" id="sign-in-recovery-password-tab"
+							data-bs-toggle="tab" data-bs-target="#sign-in-recovery-password-pane" type="button" role="tab"
+							aria-controls="sign-in-recovery-password-pane" aria-selected="false">비밀번호 찾기</button>
+					</div>
+
+					<div class="tab-content">
+						<div class="tab-pane fade show active sign-in-recovery-pane" id="sign-in-recovery-username-pane"
+							role="tabpanel" aria-labelledby="sign-in-recovery-username-tab" tabindex="0">
+							<div class="sign-in-recovery-guide">가입 시 등록한 휴대폰 번호가 확인되면 아이디를 문자로 발송합니다.</div>
+							<form id="sign-in-recovery-username-form" data-sign-in-recovery-form="username" autocomplete="off">
+								<div class="sign-in-field">
+									<label class="sign-in-label" for="sign-in-recovery-username-phone">휴대폰 번호</label>
+									<input type="tel" id="sign-in-recovery-username-phone" name="phone"
+										class="form-control sign-in-control sign-in-phone-input" inputmode="numeric"
+										placeholder="010-0000-0000" maxlength="13" required>
+								</div>
+								<button type="submit" class="sign-in-recovery-submit">아이디 문자 받기</button>
+								<div class="sign-in-recovery-feedback" id="sign-in-recovery-username-feedback" aria-live="polite"></div>
+							</form>
+						</div>
+
+						<div class="tab-pane fade sign-in-recovery-pane" id="sign-in-recovery-password-pane"
+							role="tabpanel" aria-labelledby="sign-in-recovery-password-tab" tabindex="0">
+							<div class="sign-in-recovery-guide">아이디와 휴대폰 번호가 일치하면 임시 비밀번호를 문자로 발송합니다.</div>
+							<form id="sign-in-recovery-password-form" data-sign-in-recovery-form="password" autocomplete="off">
+								<div class="sign-in-field">
+									<label class="sign-in-label" for="sign-in-recovery-password-username">아이디</label>
+									<input type="text" id="sign-in-recovery-password-username" name="username"
+										class="form-control sign-in-control" placeholder="가입한 아이디" autocomplete="username" required>
+								</div>
+								<div class="sign-in-field">
+									<label class="sign-in-label" for="sign-in-recovery-password-phone">휴대폰 번호</label>
+									<input type="tel" id="sign-in-recovery-password-phone" name="phone"
+										class="form-control sign-in-control sign-in-phone-input" inputmode="numeric"
+										placeholder="010-0000-0000" maxlength="13" required>
+								</div>
+								<button type="submit" class="sign-in-recovery-submit">임시 비밀번호 문자 받기</button>
+								<div class="sign-in-recovery-feedback" id="sign-in-recovery-password-feedback" aria-live="polite"></div>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}"></th:block>
+	<script src="/front/signIn.js"></script>
 </body>
 
 </html>

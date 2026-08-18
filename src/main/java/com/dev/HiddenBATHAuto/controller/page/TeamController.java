@@ -933,7 +933,7 @@ public class TeamController {
     public void downloadProductionListExcelWithOptions(
             @RequestParam("orderIds") List<Long> orderIds,
             @RequestParam(value = "fontSize", defaultValue = "10") int fontSize,
-            @RequestParam(value = "includeCompanyName", defaultValue = "false") boolean includeCompanyName,
+            @RequestParam(value = "includeCompanyName", defaultValue = "true") boolean includeCompanyName,
             @RequestParam(value = "includeDeliveryDate", defaultValue = "false") boolean includeDeliveryDate,
             @RequestParam(value = "filterSummary", required = false) String filterSummary,
             @AuthenticationPrincipal(expression = "member") Member loginMember,
@@ -956,7 +956,7 @@ public class TeamController {
     public String printProductionList(
             @RequestParam("orderIds") List<Long> orderIds,
             @RequestParam(value = "fontSize", defaultValue = "10") int fontSize,
-            @RequestParam(value = "includeCompanyName", defaultValue = "false") boolean includeCompanyName,
+            @RequestParam(value = "includeCompanyName", defaultValue = "true") boolean includeCompanyName,
             @RequestParam(value = "includeDeliveryDate", defaultValue = "false") boolean includeDeliveryDate,
             @RequestParam(value = "filterSummary", required = false) String filterSummary,
             @AuthenticationPrincipal(expression = "member") Member loginMember,

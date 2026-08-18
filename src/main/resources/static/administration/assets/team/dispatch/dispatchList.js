@@ -581,10 +581,12 @@
 		const checkboxDisabled = deliveryCompleted ? 'disabled' : '';
 		const completeDisabled = !row.dispatchCompletable ? 'disabled' : '';
 		const deliveryMethodDisabled = deliveryCompleted ? 'disabled' : '';
-		const adminRequestButton = '<button type="button" class="btn btn-outline-danger dispatch-list-admin-request-btn"' +
+		const adminRequestButton = '<button type="button" class="btn btn-outline-danger dispatch-list-admin-request-btn dispatch-list-icon-action-btn"' +
 			' data-order-admin-request data-order-id="' + escapeAttr(row.orderId) + '"' +
 			' data-admin-request-message="출고 절차 오류 또는 출고 확인이 필요합니다."' +
-			' title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">관리자요청</button>';
+			' aria-label="관리자 요청"' +
+			' title="발주 상태와 무관하게 이 발주의 관리자 담당자에게 긴급 확인을 요청합니다.">' +
+			'<i class="ri-alarm-warning-line" aria-hidden="true"></i><span class="visually-hidden">관리자요청</span></button>';
 
 		tr.innerHTML = [
 			'<td>',
@@ -626,28 +628,34 @@
 			'  <div class="dispatch-list-admin-memo" title="' + escapeAttr(row.adminMemo) + '">' + escapeHtml(row.adminMemo) + '</div>',
 			'</td>',
 
-			'<td>',
-			'  <button type="button" class="btn btn-outline-primary dispatch-list-delivery-method-btn"',
+			'<td class="text-center dispatch-list-action-cell">',
+			'  <button type="button" class="btn btn-outline-primary dispatch-list-delivery-method-btn dispatch-list-icon-action-btn"',
 			'    data-order-id="' + escapeAttr(row.orderId) + '"',
 			'    data-delivery-method-id="' + escapeAttr(row.deliveryMethodId || '') + '"',
 			'    data-delivery-method-name="' + escapeAttr(row.deliveryMethodName || '') + '"',
 			'    data-delivery-handler-id="' + escapeAttr(row.deliveryHandlerId || '') + '"',
 			'    data-delivery-handler-name="' + escapeAttr(row.deliveryHandlerName || '') + '"',
 			'    data-delivery-order-index="' + escapeAttr(row.deliveryOrderIndex || '') + '" ' + deliveryMethodDisabled,
+			'    aria-label="배송수단 변경"',
 			'    title="' + escapeAttr(deliveryCompleted
 				? '배송완료된 발주는 배송수단을 변경할 수 없습니다.'
 				: buildDeliveryMethodTitleFromRow(row)) + '">',
-			'    ' + escapeHtml(row.deliveryMethodName),
+			'    <i class="ri-truck-line" aria-hidden="true"></i><span class="visually-hidden">' + escapeHtml(row.deliveryMethodName || '미지정') + '</span>',
 			'  </button>',
 			'</td>',
 
-			'<td class="text-center">',
-			'  <button type="button" class="btn btn-success dispatch-list-complete-btn"',
-			'    data-order-id="' + escapeAttr(row.orderId) + '" ' + completeDisabled + '>',
-			'    출고완료(' + escapeHtml(row.statusLabel || '-') + ')',
+			'<td class="text-center dispatch-list-action-cell">',
+			'  <button type="button" class="btn btn-success dispatch-list-complete-btn dispatch-list-icon-action-btn"',
+			'    data-order-id="' + escapeAttr(row.orderId) + '" ' + completeDisabled,
+			'    aria-label="출고완료 처리" title="출고완료 처리">',
+			'    <i class="ri-check-double-line" aria-hidden="true"></i><span class="visually-hidden">출고완료</span>',
 			'  </button>',
+			'</td>',
+
+			'<td class="text-center dispatch-list-action-cell">',
 			'  ' + adminRequestButton,
 			'</td>'
+
 		].join('');
 
 		return tr;
@@ -885,7 +893,8 @@
 		const completeBtn = tr.querySelector('.dispatch-list-complete-btn');
 		if (completeBtn) {
 			completeBtn.disabled = true;
-			completeBtn.textContent = '출고완료(' + toText(row.statusLabel || '-') + ')';
+			completeBtn.setAttribute('title', '출고완료 처리 완료');
+			completeBtn.setAttribute('aria-label', '출고완료 처리 완료');
 		}
 	}
 
@@ -1044,7 +1053,7 @@
 				button.setAttribute('data-delivery-handler-name', data.deliveryHandlerName || '');
 				button.setAttribute('data-delivery-order-index', data.deliveryOrderIndex || '');
 				button.setAttribute('title', buildDeliveryMethodTitle(data));
-				button.textContent = data.methodName || '미지정';
+				setDeliveryMethodIconContent(button, data.methodName || '미지정');
 			});
 	}
 
@@ -1061,8 +1070,17 @@
 				button.setAttribute('data-delivery-handler-name', row.deliveryHandlerName || '');
 				button.setAttribute('data-delivery-order-index', row.deliveryOrderIndex || '');
 				button.setAttribute('title', buildDeliveryMethodTitleFromRow(row));
-				button.textContent = row.deliveryMethodName || '미지정';
+				setDeliveryMethodIconContent(button, row.deliveryMethodName || '미지정');
 			});
+	}
+
+	function setDeliveryMethodIconContent(button, methodName) {
+		if (!button) {
+			return;
+		}
+
+		button.innerHTML = '<i class="ri-truck-line" aria-hidden="true"></i>' +
+			'<span class="visually-hidden">' + escapeHtml(methodName || '미지정') + '</span>';
 	}
 
 	function buildDeliveryMethodTitle(data) {
@@ -2494,11 +2512,11 @@
 	}
 
 	function renderLoadingRow(message) {
-		els.tbody.innerHTML = '<tr class="dispatch-list-loading-row"><td colspan="10">' + escapeHtml(message) + '</td></tr>';
+		els.tbody.innerHTML = '<tr class="dispatch-list-loading-row"><td colspan="11">' + escapeHtml(message) + '</td></tr>';
 	}
 
 	function renderEmptyRow(message) {
-		els.tbody.innerHTML = '<tr><td colspan="10" class="dispatch-list-empty">' + escapeHtml(message) + '</td></tr>';
+		els.tbody.innerHTML = '<tr><td colspan="11" class="dispatch-list-empty">' + escapeHtml(message) + '</td></tr>';
 	}
 
 	function updateMoreStatus(message) {
