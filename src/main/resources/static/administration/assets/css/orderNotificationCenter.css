@@ -531,7 +531,7 @@ body.order-important-notification-lock {
     position: fixed;
     inset: 0;
     z-index: 2147482500;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 20px;
@@ -541,8 +541,17 @@ body.order-important-notification-lock {
     overscroll-behavior: contain;
 }
 
+/*
+ * 기본값은 무조건 숨김입니다. 실제 미확인 중요알림 항목이 검증된 뒤 JS가 is-open을 붙일 때만 표시합니다.
+ * hidden은 CSS/Bootstrap 캐시가 꼬여도 최초 페이지를 잠그지 않기 위한 이중 안전장치입니다.
+ */
+.order-important-notification-overlay[hidden],
 .order-important-notification-overlay.d-none {
     display: none !important;
+}
+
+.order-important-notification-overlay.is-open:not([hidden]) {
+    display: flex;
 }
 
 .order-important-notification-panel {
