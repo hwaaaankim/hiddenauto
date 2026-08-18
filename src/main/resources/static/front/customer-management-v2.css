@@ -653,6 +653,40 @@
     cursor: pointer;
 }
 
+.task-list-products-head {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+.task-list-products-head-grid,
+.task-list-order-product-line {
+    grid-template-columns: 10px minmax(0, 1fr) 92px 48px 44px;
+}
+
+.task-list-products-head-grid {
+    display: grid;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.task-list-products-head-grid > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-list-products-head-size,
+.task-list-products-head-color,
+.task-list-products-head-quantity,
+.task-list-product-size,
+.task-list-product-color,
+.task-list-product-quantity {
+    padding-left: 8px;
+    text-align: left;
+}
+
 .task-list-products-cell {
     padding-top: 6px !important;
     padding-bottom: 6px !important;
@@ -665,7 +699,6 @@
 
 .task-list-order-product-line {
     display: grid;
-    grid-template-columns: 10px minmax(0, 1fr) 112px 68px 50px;
     align-items: center;
     min-height: 24px;
     gap: 6px;
@@ -720,7 +753,7 @@
 }
 
 .task-list-product-quantity {
-    text-align: right;
+    text-align: left;
 }
 
 .task-list-product-search-match {

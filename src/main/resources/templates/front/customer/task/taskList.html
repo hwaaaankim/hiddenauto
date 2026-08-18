@@ -6,7 +6,7 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20260818-4">
+	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20260818-6">
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
 
@@ -93,7 +93,15 @@
 								<th><div class="task-list-sortable-head"><span>Task ID</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="id" data-sort-dir="asc">↑</button><button type="button" data-sort-field="id" data-sort-dir="desc">↓</button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>주문자명</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="ordererName" data-sort-dir="asc">↑</button><button type="button" data-sort-field="ordererName" data-sort-dir="desc">↓</button></span></div></th>
 								<th class="text-center">연락</th>
-								<th>제품명 / 사이즈 / 색상 / 수량</th>
+								<th class="task-list-products-head">
+									<div class="task-list-products-head-grid" aria-label="제품 정보">
+										<span class="task-list-products-head-spacer" aria-hidden="true"></span>
+										<span class="task-list-products-head-name">제품명</span>
+										<span class="task-list-products-head-size">사이즈</span>
+										<span class="task-list-products-head-color">색상</span>
+										<span class="task-list-products-head-quantity">수량</span>
+									</div>
+								</th>
 								<th><div class="task-list-sortable-head"><span>배송수단</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryMethod" data-sort-dir="asc">↑</button><button type="button" data-sort-field="deliveryMethod" data-sort-dir="desc">↓</button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>배송지</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="address" data-sort-dir="asc">↑</button><button type="button" data-sort-field="address" data-sort-dir="desc">↓</button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>발주일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="createdAt" data-sort-dir="asc">↑</button><button type="button" data-sort-field="createdAt" data-sort-dir="desc">↓</button></span></div></th>
