@@ -62,15 +62,6 @@ public class MemberManagementService {
 		return "생산팀".equals(teamName);
 	}
 
-	private Long forcedCategoryIdByTeamName(String teamName) {
-		return switch (teamName) {
-		case "관리팀" -> 1L;
-		case "배송팀" -> 8L;
-		case "AS팀" -> 10L;
-		default -> null;
-		};
-	}
-
 	@Transactional
 	public void clearMemberRegions(Long memberId) {
 		memberRegionRepository.deleteByMember_Id(memberId);
@@ -83,7 +74,7 @@ public class MemberManagementService {
 		Member m = memberRepository.findById(req.getMemberId())
 				.orElseThrow(() -> new IllegalArgumentException("멤버를 찾을 수 없습니다."));
 
-		if (isBlank(req.getName()) || isBlank(req.getPhone()) || isBlank(req.getRole()) || req.getTeamId() == null) {
+		if (isBlank(req.getName()) || isBlank(req.getRole()) || req.getTeamId() == null) {
 			throw new IllegalArgumentException("필수 항목이 누락되었습니다.");
 		}
 
@@ -111,35 +102,19 @@ public class MemberManagementService {
 		}
 
 		// ✅ 팀카테고리 정책
-		TeamCategory resolvedCategory;
-
-		if (isProductionTeam(newTeamName)) {
-			if (req.getTeamCategoryId() == null) {
-				throw new IllegalArgumentException("생산팀은 카테고리 선택이 필수입니다.");
-			}
-			resolvedCategory = teamCategoryRepository.findById(req.getTeamCategoryId())
-					.orElseThrow(() -> new IllegalArgumentException("팀 카테고리를 찾을 수 없습니다."));
-
-			if (!Objects.equals(resolvedCategory.getTeam().getId(), newTeam.getId())) {
-				throw new IllegalArgumentException("선택한 팀과 팀 카테고리가 일치하지 않습니다.");
-			}
-			if (!isEmployeeAssignableTeamCategory(resolvedCategory)) {
-				throw new IllegalArgumentException("욕실용품은 제품 분류 전용 카테고리이므로 생산팀 직원에게 배정할 수 없습니다.");
-			}
-		} else {
-			Long forcedId = forcedCategoryIdByTeamName(newTeamName);
-			if (forcedId == null) {
-				throw new IllegalArgumentException("지원하지 않는 팀입니다. 팀카테고리 강제 매핑이 필요합니다: " + newTeamName);
-			}
-			resolvedCategory = teamCategoryRepository.findById(forcedId)
-					.orElseThrow(() -> new IllegalArgumentException("고정된 팀 카테고리를 찾을 수 없습니다."));
-		}
+		// 팀/카테고리 ID를 코드에 고정하지 않고 실제 Team -> TeamCategory 관계로 검증합니다.
+		// 따라서 출고팀처럼 신규 팀/카테고리가 추가되어도 DB 관계만 정확하면 동일하게 동작합니다.
+		TeamCategory resolvedCategory = resolveEmployeeTeamCategory(
+				m,
+				newTeam,
+				req.getTeamCategoryId()
+		);
 
 		// ✅ 기본 필드 업데이트
-		m.setName(req.getName());
-		m.setPhone(req.getPhone());
-		m.setTelephone(req.getTelephone());
-		m.setEmail(req.getEmail());
+		m.setName(req.getName().trim());
+		m.setPhone(trimToNull(req.getPhone()));
+		m.setTelephone(trimToNull(req.getTelephone()));
+		m.setEmail(trimToNull(req.getEmail()));
 		m.setRole(MemberRole.valueOf(req.getRole()));
 		m.setTeam(newTeam);
 		m.setTeamCategory(resolvedCategory);
@@ -150,6 +125,65 @@ public class MemberManagementService {
 		String msg = regionsCleared ? "저장되었습니다. 팀 변경으로 인해 기존 담당구역이 초기화되었습니다." : "저장되었습니다.";
 
 		return new EmployeeUpdateResult(regionsCleared, msg);
+	}
+
+	private TeamCategory resolveEmployeeTeamCategory(
+			Member member,
+			Team newTeam,
+			Long requestedTeamCategoryId
+	) {
+		if (newTeam == null || newTeam.getId() == null) {
+			throw new IllegalArgumentException("팀을 확인할 수 없습니다.");
+		}
+
+		if (requestedTeamCategoryId != null) {
+			TeamCategory requestedCategory = teamCategoryRepository
+					.findByIdAndTeam_Id(requestedTeamCategoryId, newTeam.getId())
+					.orElseThrow(() -> new IllegalArgumentException("선택한 팀과 팀 카테고리가 일치하지 않습니다."));
+
+			validateEmployeeAssignableTeamCategory(requestedCategory);
+			return requestedCategory;
+		}
+
+		// 같은 팀에서 연락처 등 다른 정보만 수정하는 경우 기존 카테고리를 안전하게 유지합니다.
+		TeamCategory currentCategory = member != null ? member.getTeamCategory() : null;
+		if (currentCategory != null
+				&& currentCategory.getTeam() != null
+				&& Objects.equals(currentCategory.getTeam().getId(), newTeam.getId())
+				&& isEmployeeAssignableTeamCategory(currentCategory)) {
+			return currentCategory;
+		}
+
+		List<TeamCategory> candidates = teamCategoryRepository.findByTeamId(newTeam.getId()).stream()
+				.filter(this::isEmployeeAssignableTeamCategory)
+				.toList();
+
+		if (candidates.size() == 1) {
+			return candidates.get(0);
+		}
+
+		if (candidates.isEmpty()) {
+			throw new IllegalArgumentException("선택한 팀에 직원에게 배정할 수 있는 팀 카테고리가 없습니다: " + newTeam.getName());
+		}
+
+		throw new IllegalArgumentException(
+				"선택한 팀에 직원용 팀 카테고리가 여러 개입니다. 팀 카테고리를 선택해 주세요: " + newTeam.getName()
+		);
+	}
+
+	private void validateEmployeeAssignableTeamCategory(TeamCategory category) {
+		if (!isEmployeeAssignableTeamCategory(category)) {
+			throw new IllegalArgumentException("욕실용품은 제품 분류 전용 카테고리이므로 생산팀 직원에게 배정할 수 없습니다.");
+		}
+	}
+
+	private String trimToNull(String value) {
+		if (value == null) {
+			return null;
+		}
+
+		String trimmed = value.trim();
+		return trimmed.isEmpty() ? null : trimmed;
 	}
 
 	@Transactional(readOnly = true)

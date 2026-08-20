@@ -23,6 +23,15 @@ public final class DeliveryStatementLayoutDtos {
         private String statementType;
 
         private List<Long> orderIds;
+
+        /**
+         * 출고팀 명세서 담당자 정보 출력 옵션입니다.
+         * 기존 호출부와의 하위 호환을 위해 null은 true(출력)로 처리합니다.
+         */
+        private Boolean showDeliveryTeamContactName;
+        private Boolean showDeliveryTeamContactPhone;
+        private Boolean showDispatchTeamContactName;
+        private Boolean showDispatchTeamContactPhone;
     }
 
     @Data
@@ -66,7 +75,7 @@ public final class DeliveryStatementLayoutDtos {
 
         /**
          * 명세서에 표시할 실제 작업 담당자입니다.
-         * 현장배송은 배송팀 담당자, 화물/방문/택배는 출고팀 dis_001을 사용합니다.
+         * 현장배송/직배송은 배송팀 담당자, 그 외 명세서 배송수단은 기존 출고팀 담당자를 사용합니다.
          */
         private String deliveryContactName;
         private String deliveryContactPhone;

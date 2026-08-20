@@ -32,6 +32,7 @@
 
 	// 상태
 	let currentTeamId = curTeamIdInit;
+	let currentTeamCategoryId = curTeamCategoryIdInit;
 	let currentTeamName = null; // init 시 teams 로딩 후 채움
 	let assignedRegions = []; // 서버에 이미 등록된 담당구역
 
@@ -107,18 +108,53 @@
 		return teamName === "배송팀" || teamName === "AS팀";
 	}
 
-	function isProductionTeam(teamName) {
-		return teamName === "생산팀";
+
+	function setTeamCategoryUiByCount(categoryCount) {
+		// 팀 ID/카테고리 ID를 프론트에서 고정하지 않습니다.
+		// 한 팀에 직원용 카테고리가 1개면 자동 선택 후 잠그고, 2개 이상이면 직접 선택합니다.
+		selTeamCat.disabled = !categoryCount || categoryCount <= 1;
 	}
 
-	function setTeamCategoryUiByTeam(teamName) {
-		// 생산팀만 카테고리 선택 가능, 나머지는 고정이므로 disable
-		if (isProductionTeam(teamName)) {
-			selTeamCat.disabled = false;
-		} else {
-			selTeamCat.disabled = true;
+	function formatMobilePhoneInput(value) {
+		const raw = String(value ?? '');
+
+		// 특수문자/문자 입력은 사용자가 입력한 그대로 허용합니다.
+		if (!/^[0-9-]*$/.test(raw)) {
+			return raw;
+		}
+
+		const digits = raw.replaceAll('-', '');
+
+		// 01x 휴대전화 형태에만 자동 하이픈을 적용합니다.
+		// 000-000-000 같은 임의 문자열/번호는 강제로 형식을 바꾸지 않습니다.
+		if (!/^01\d/.test(digits) || digits.length > 11) {
+			return raw;
+		}
+
+		if (digits.length <= 3) {
+			return digits;
+		}
+
+		if (digits.length <= 7) {
+			return digits.slice(0, 3) + '-' + digits.slice(3);
+		}
+
+		if (digits.length <= 10) {
+			return digits.slice(0, 3) + '-' + digits.slice(3, -4) + '-' + digits.slice(-4);
+		}
+
+		return digits.slice(0, 3) + '-' + digits.slice(3, 7) + '-' + digits.slice(7);
+	}
+
+	function applyPhoneAutoFormatting() {
+		const formatted = formatMobilePhoneInput(inPhone.value);
+		if (formatted !== inPhone.value) {
+			inPhone.value = formatted;
 		}
 	}
+
+	inPhone.addEventListener('input', applyPhoneAutoFormatting);
+	applyPhoneAutoFormatting();
 
 	async function clearAllRegionsWithConfirm(reasonText) {
 		const hasAny = (assignedRegions.length > 0) || (pending.length > 0);
@@ -147,7 +183,6 @@
 		await loadRoles();
 		await loadTeamsAndSelect();           // 여기서 currentTeamName 세팅
 		await loadTeamCategories(currentTeamId, curTeamCategoryIdInit);
-		setTeamCategoryUiByTeam(currentTeamName);
 
 		await loadProvinces();
 		await loadAssignedRegions();
@@ -173,17 +208,28 @@
 	async function loadTeamCategories(teamId, selectedId) {
 		if (!teamId) {
 			selTeamCat.innerHTML = "";
-			return;
+			setTeamCategoryUiByCount(0);
+			return [];
 		}
 		const res = await api(`/management/teamCategories?teamId=` + teamId);
 		const cats = res.data || [];
 
-		// 생산팀 외에는 보통 1개만 내려오는 것이 정상(고정)
-		// selectedId가 없으면 첫번째를 자동 선택
-		selTeamCat.innerHTML = cats.map((c, idx) => {
-			const isSel = selectedId ? (c.id === selectedId) : (idx === 0);
+		const hasSelectedCategory = selectedId != null
+			&& cats.some(c => Number(c.id) === Number(selectedId));
+		const requireExplicitSelection = cats.length > 1 && !hasSelectedCategory;
+
+		const categoryOptions = cats.map((c, idx) => {
+			const isSel = hasSelectedCategory
+				? Number(c.id) === Number(selectedId)
+				: (!requireExplicitSelection && idx === 0);
 			return optionHtml(c.id, c.name, isSel);
 		}).join("");
+
+		selTeamCat.innerHTML = requireExplicitSelection
+			? '<option value="" selected>팀 카테고리를 선택하세요</option>' + categoryOptions
+			: categoryOptions;
+		setTeamCategoryUiByCount(cats.length);
+		return cats;
 	}
 
 	// ✅ 팀 변경 처리
@@ -193,7 +239,6 @@
 
 		// 팀카테고리 재로딩
 		await loadTeamCategories(newTeamId, null);
-		setTeamCategoryUiByTeam(newTeamName);
 
 		const oldTeamName = currentTeamName;
 
@@ -207,8 +252,7 @@
 			if (!ok) {
 				// revert
 				selTeam.value = String(currentTeamId);
-				await loadTeamCategories(currentTeamId, null);
-				setTeamCategoryUiByTeam(currentTeamName);
+				await loadTeamCategories(currentTeamId, currentTeamCategoryId);
 				return;
 			}
 		}
@@ -219,8 +263,7 @@
 			if (!ok) {
 				// revert
 				selTeam.value = String(currentTeamId);
-				await loadTeamCategories(currentTeamId, null);
-				setTeamCategoryUiByTeam(currentTeamName);
+				await loadTeamCategories(currentTeamId, currentTeamCategoryId);
 				return;
 			}
 		}
@@ -232,9 +275,16 @@
 
 		// 상태 갱신
 		currentTeamId = newTeamId;
+		currentTeamCategoryId = selTeamCat.value ? +selTeamCat.value : null;
 		currentTeamName = newTeamName;
 
 		applyRegionUiLock();
+	});
+
+	selTeamCat.addEventListener("change", function() {
+		if (selTeam.value && Number(selTeam.value) === Number(currentTeamId)) {
+			currentTeamCategoryId = selTeamCat.value ? +selTeamCat.value : null;
+		}
 	});
 
 	function applyRegionUiLock() {
@@ -487,17 +537,15 @@
 		const teamName = getSelectedTeamName();
 		const teamCategoryId = selTeamCat.value ? +selTeamCat.value : null;
 
-		if (!name || !phone || !role || !teamId) {
+		if (!name || !role || !teamId) {
 			alert("필수 항목을 확인해 주세요.");
 			return;
 		}
 
-		// 1) 생산팀이면 카테고리 필수
-		if (isProductionTeam(teamName)) {
-			if (!teamCategoryId) {
-				alert("생산팀은 카테고리 선택이 필수입니다.");
-				return;
-			}
+		// 모든 팀은 실제 Team -> TeamCategory 관계로 저장합니다.
+		if (!teamCategoryId) {
+			alert("선택한 팀에 직원용 팀 카테고리가 없습니다. 팀 카테고리 설정을 확인해 주세요.");
+			return;
 		}
 
 		// 2) 배송/AS팀이면 담당구역 필수
@@ -531,12 +579,12 @@
 		const payload = {
 			memberId,
 			name,
-			phone,
+			phone: phone || null,
 			telephone: inTel.value.trim() || null,
 			email: inEmail.value.trim() || null,
 			role,
 			teamId,
-			teamCategoryId: isProductionTeam(teamName) ? teamCategoryId : null // 서버가 생산팀 외에는 강제 카테고리로 처리
+			teamCategoryId
 		};
 
 		try {

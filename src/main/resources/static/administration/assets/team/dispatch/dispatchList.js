@@ -43,6 +43,13 @@
 		bulkMethodRemovalAcknowledged: false,
 		bulkMethodBusy: false,
 		bulkMethodPreviewSequence: 0,
+		pendingStatementAction: null,
+		statementContactOptions: {
+			showDeliveryTeamContactName: true,
+			showDeliveryTeamContactPhone: true,
+			showDispatchTeamContactName: true,
+			showDispatchTeamContactPhone: true
+		}
 	};
 	let pendingConfirmResolver = null;
 
@@ -128,6 +135,15 @@
 		els.statementParcelHorizontalPrintBtn = document.getElementById('dispatch-list-statement-parcel-horizontal-print-btn');
 		els.statementSiteHorizontalDownloadBtn = document.getElementById('dispatch-list-statement-site-horizontal-download-btn');
 		els.statementParcelHorizontalDownloadBtn = document.getElementById('dispatch-list-statement-parcel-horizontal-download-btn');
+
+		els.statementOptionsModal = document.getElementById('dispatch-list-statement-options-modal');
+		els.statementOptionsTitle = document.getElementById('dispatch-list-statement-options-title');
+		els.statementOptionsSummary = document.getElementById('dispatch-list-statement-options-summary');
+		els.statementOptionsApplyBtn = document.getElementById('dispatch-list-statement-options-apply-btn');
+		els.showDeliveryTeamContactName = document.getElementById('dispatch-list-show-delivery-team-contact-name');
+		els.showDeliveryTeamContactPhone = document.getElementById('dispatch-list-show-delivery-team-contact-phone');
+		els.showDispatchTeamContactName = document.getElementById('dispatch-list-show-dispatch-team-contact-name');
+		els.showDispatchTeamContactPhone = document.getElementById('dispatch-list-show-dispatch-team-contact-phone');
 
 		/*
 		 * 세로형 버튼은 dispatchList.html에서 주석으로 숨겨져 있습니다.
@@ -288,25 +304,25 @@
 		bindStatementButton(
 			els.statementSiteHorizontalPrintBtn,
 			function() {
-				printDeliveryStatementLayout('HORIZONTAL', 'SITE', els.statementSiteHorizontalPrintBtn);
+				openStatementOptionsModal('HORIZONTAL', 'SITE', 'PRINT', els.statementSiteHorizontalPrintBtn);
 			}
 		);
 		bindStatementButton(
 			els.statementParcelHorizontalPrintBtn,
 			function() {
-				printDeliveryStatementLayout('HORIZONTAL', 'PARCEL', els.statementParcelHorizontalPrintBtn);
+				openStatementOptionsModal('HORIZONTAL', 'PARCEL', 'PRINT', els.statementParcelHorizontalPrintBtn);
 			}
 		);
 		bindStatementButton(
 			els.statementSiteHorizontalDownloadBtn,
 			function() {
-				downloadDeliveryStatementLayout('HORIZONTAL', 'SITE', els.statementSiteHorizontalDownloadBtn);
+				openStatementOptionsModal('HORIZONTAL', 'SITE', 'DOWNLOAD', els.statementSiteHorizontalDownloadBtn);
 			}
 		);
 		bindStatementButton(
 			els.statementParcelHorizontalDownloadBtn,
 			function() {
-				downloadDeliveryStatementLayout('HORIZONTAL', 'PARCEL', els.statementParcelHorizontalDownloadBtn);
+				openStatementOptionsModal('HORIZONTAL', 'PARCEL', 'DOWNLOAD', els.statementParcelHorizontalDownloadBtn);
 			}
 		);
 
@@ -314,27 +330,37 @@
 		bindStatementButton(
 			els.statementSiteVerticalPrintBtn,
 			function() {
-				printDeliveryStatementLayout('VERTICAL', 'SITE', els.statementSiteVerticalPrintBtn);
+				openStatementOptionsModal('VERTICAL', 'SITE', 'PRINT', els.statementSiteVerticalPrintBtn);
 			}
 		);
 		bindStatementButton(
 			els.statementParcelVerticalPrintBtn,
 			function() {
-				printDeliveryStatementLayout('VERTICAL', 'PARCEL', els.statementParcelVerticalPrintBtn);
+				openStatementOptionsModal('VERTICAL', 'PARCEL', 'PRINT', els.statementParcelVerticalPrintBtn);
 			}
 		);
 		bindStatementButton(
 			els.statementSiteVerticalDownloadBtn,
 			function() {
-				downloadDeliveryStatementLayout('VERTICAL', 'SITE', els.statementSiteVerticalDownloadBtn);
+				openStatementOptionsModal('VERTICAL', 'SITE', 'DOWNLOAD', els.statementSiteVerticalDownloadBtn);
 			}
 		);
 		bindStatementButton(
 			els.statementParcelVerticalDownloadBtn,
 			function() {
-				downloadDeliveryStatementLayout('VERTICAL', 'PARCEL', els.statementParcelVerticalDownloadBtn);
+				openStatementOptionsModal('VERTICAL', 'PARCEL', 'DOWNLOAD', els.statementParcelVerticalDownloadBtn);
 			}
 		);
+
+		if (els.statementOptionsApplyBtn) {
+			els.statementOptionsApplyBtn.addEventListener('click', executePendingStatementAction);
+		}
+
+		if (els.statementOptionsModal) {
+			els.statementOptionsModal.addEventListener('hidden.bs.modal', function() {
+				state.pendingStatementAction = null;
+			});
+		}
 		if (els.deliveryModal) {
 			els.deliveryModal.addEventListener('click', function(event) {
 				const btn = event.target.closest('.dispatch-list-delivery-method-option');
@@ -636,11 +662,11 @@
 			'    data-delivery-handler-id="' + escapeAttr(row.deliveryHandlerId || '') + '"',
 			'    data-delivery-handler-name="' + escapeAttr(row.deliveryHandlerName || '') + '"',
 			'    data-delivery-order-index="' + escapeAttr(row.deliveryOrderIndex || '') + '" ' + deliveryMethodDisabled,
-			'    aria-label="배송수단 변경"',
+			'    aria-label="배송수단 변경: ' + escapeAttr(row.deliveryMethodName || '미지정') + '"',
 			'    title="' + escapeAttr(deliveryCompleted
 				? '배송완료된 발주는 배송수단을 변경할 수 없습니다.'
 				: buildDeliveryMethodTitleFromRow(row)) + '">',
-			'    <i class="ri-truck-line" aria-hidden="true"></i><span class="visually-hidden">' + escapeHtml(row.deliveryMethodName || '미지정') + '</span>',
+			'    <span class="dispatch-list-delivery-method-text">' + escapeHtml(row.deliveryMethodName || '미지정') + '</span>',
 			'  </button>',
 			'</td>',
 
@@ -1053,7 +1079,7 @@
 				button.setAttribute('data-delivery-handler-name', data.deliveryHandlerName || '');
 				button.setAttribute('data-delivery-order-index', data.deliveryOrderIndex || '');
 				button.setAttribute('title', buildDeliveryMethodTitle(data));
-				setDeliveryMethodIconContent(button, data.methodName || '미지정');
+				setDeliveryMethodButtonContent(button, data.methodName || '미지정');
 			});
 	}
 
@@ -1070,17 +1096,18 @@
 				button.setAttribute('data-delivery-handler-name', row.deliveryHandlerName || '');
 				button.setAttribute('data-delivery-order-index', row.deliveryOrderIndex || '');
 				button.setAttribute('title', buildDeliveryMethodTitleFromRow(row));
-				setDeliveryMethodIconContent(button, row.deliveryMethodName || '미지정');
+				setDeliveryMethodButtonContent(button, row.deliveryMethodName || '미지정');
 			});
 	}
 
-	function setDeliveryMethodIconContent(button, methodName) {
+	function setDeliveryMethodButtonContent(button, methodName) {
 		if (!button) {
 			return;
 		}
 
-		button.innerHTML = '<i class="ri-truck-line" aria-hidden="true"></i>' +
-			'<span class="visually-hidden">' + escapeHtml(methodName || '미지정') + '</span>';
+		const text = methodName || '미지정';
+		button.innerHTML = '<span class="dispatch-list-delivery-method-text">' + escapeHtml(text) + '</span>';
+		button.setAttribute('aria-label', '배송수단 변경: ' + text);
 	}
 
 	function buildDeliveryMethodTitle(data) {
@@ -1798,8 +1825,148 @@
 		});
 	}
 
-	async function printDeliveryStatementLayout(layoutType, statementType, button) {
+	function openStatementOptionsModal(layoutType, statementType, actionType, button) {
 		const orderIds = selectedStatementOrderIds();
+
+		if (orderIds.length === 0) {
+			alertMessage('명세서로 처리할 주문을 하나 이상 선택해 주세요.');
+			return;
+		}
+
+		const normalizedLayoutType = normalizeStatementLayoutType(layoutType);
+		const normalizedStatementType = normalizeStatementType(statementType);
+		const normalizedActionType = toText(actionType).toUpperCase() === 'DOWNLOAD' ? 'DOWNLOAD' : 'PRINT';
+
+		state.pendingStatementAction = {
+			layoutType: normalizedLayoutType,
+			statementType: normalizedStatementType,
+			actionType: normalizedActionType,
+			button: button || null,
+			orderIds: orderIds.slice()
+		};
+
+		applyStatementContactOptionsToControls(state.statementContactOptions);
+
+		const actionLabel = normalizedActionType === 'DOWNLOAD' ? '다운로드' : '출력';
+		const statementLabel = statementTypeLabel(normalizedStatementType);
+		const layoutLabel = normalizedLayoutType === 'VERTICAL' ? '세로형' : '가로형';
+
+		setText(els.statementOptionsTitle, statementLabel + ' 담당자 정보 출력 설정');
+		setText(
+			els.statementOptionsSummary,
+			statementLabel + ' · ' + layoutLabel + ' · 선택 ' + orderIds.length + '건 · ' + actionLabel
+		);
+
+		if (els.statementOptionsApplyBtn) {
+			els.statementOptionsApplyBtn.innerHTML = normalizedActionType === 'DOWNLOAD'
+				? '<i class="ri-file-excel-2-line me-1" aria-hidden="true"></i><span>다운로드 진행</span>'
+				: '<i class="ri-printer-line me-1" aria-hidden="true"></i><span>출력 진행</span>';
+		}
+
+		if (!els.statementOptionsModal || !els.statementOptionsApplyBtn) {
+			executePendingStatementAction();
+			return;
+		}
+
+		showModal(els.statementOptionsModal);
+	}
+
+	function applyStatementContactOptionsToControls(options) {
+		const normalized = normalizeStatementContactOptions(options);
+
+		if (els.showDeliveryTeamContactName) {
+			els.showDeliveryTeamContactName.checked = normalized.showDeliveryTeamContactName;
+		}
+		if (els.showDeliveryTeamContactPhone) {
+			els.showDeliveryTeamContactPhone.checked = normalized.showDeliveryTeamContactPhone;
+		}
+		if (els.showDispatchTeamContactName) {
+			els.showDispatchTeamContactName.checked = normalized.showDispatchTeamContactName;
+		}
+		if (els.showDispatchTeamContactPhone) {
+			els.showDispatchTeamContactPhone.checked = normalized.showDispatchTeamContactPhone;
+		}
+	}
+
+	function readStatementContactOptionsFromControls() {
+		return normalizeStatementContactOptions({
+			showDeliveryTeamContactName: els.showDeliveryTeamContactName
+				? els.showDeliveryTeamContactName.checked
+				: true,
+			showDeliveryTeamContactPhone: els.showDeliveryTeamContactPhone
+				? els.showDeliveryTeamContactPhone.checked
+				: true,
+			showDispatchTeamContactName: els.showDispatchTeamContactName
+				? els.showDispatchTeamContactName.checked
+				: true,
+			showDispatchTeamContactPhone: els.showDispatchTeamContactPhone
+				? els.showDispatchTeamContactPhone.checked
+				: true
+		});
+	}
+
+	function normalizeStatementContactOptions(options) {
+		const source = options || {};
+
+		return {
+			showDeliveryTeamContactName: source.showDeliveryTeamContactName !== false,
+			showDeliveryTeamContactPhone: source.showDeliveryTeamContactPhone !== false,
+			showDispatchTeamContactName: source.showDispatchTeamContactName !== false,
+			showDispatchTeamContactPhone: source.showDispatchTeamContactPhone !== false
+		};
+	}
+
+	function buildStatementLayoutRequest(layoutType, statementType, orderIds, contactOptions) {
+		const options = normalizeStatementContactOptions(contactOptions);
+
+		return {
+			layoutType: normalizeStatementLayoutType(layoutType),
+			statementType: normalizeStatementType(statementType),
+			orderIds: (orderIds || []).slice(),
+			showDeliveryTeamContactName: options.showDeliveryTeamContactName,
+			showDeliveryTeamContactPhone: options.showDeliveryTeamContactPhone,
+			showDispatchTeamContactName: options.showDispatchTeamContactName,
+			showDispatchTeamContactPhone: options.showDispatchTeamContactPhone
+		};
+	}
+
+	function executePendingStatementAction() {
+		const pending = state.pendingStatementAction;
+
+		if (!pending) {
+			return;
+		}
+
+		const contactOptions = readStatementContactOptionsFromControls();
+		state.statementContactOptions = contactOptions;
+		state.pendingStatementAction = null;
+
+		if (els.statementOptionsModal) {
+			hideModal(els.statementOptionsModal);
+		}
+
+		if (pending.actionType === 'DOWNLOAD') {
+			downloadDeliveryStatementLayout(
+				pending.layoutType,
+				pending.statementType,
+				pending.button,
+				contactOptions,
+				pending.orderIds
+			);
+			return;
+		}
+
+		printDeliveryStatementLayout(
+			pending.layoutType,
+			pending.statementType,
+			pending.button,
+			contactOptions,
+			pending.orderIds
+		);
+	}
+
+	async function printDeliveryStatementLayout(layoutType, statementType, button, contactOptions, requestedOrderIds) {
+		const orderIds = Array.isArray(requestedOrderIds) ? requestedOrderIds.slice() : selectedStatementOrderIds();
 
 		if (orderIds.length === 0) {
 			alertMessage('명세서로 출력할 주문을 하나 이상 선택해 주세요.');
@@ -1832,11 +1999,9 @@
 			const response = await fetch(API.deliveryStatementLayoutData, {
 				method: 'POST',
 				headers: buildJsonHeaders(),
-				body: JSON.stringify({
-					layoutType: normalizeStatementLayoutType(layoutType),
-					statementType: normalizedStatementType,
-					orderIds: orderIds
-				})
+				body: JSON.stringify(
+					buildStatementLayoutRequest(layoutType, normalizedStatementType, orderIds, contactOptions)
+				)
 			});
 
 			const data = await parseStatementJsonResponse(response);
@@ -1863,8 +2028,8 @@
 		}
 	}
 
-	async function downloadDeliveryStatementLayout(layoutType, statementType, button) {
-		const orderIds = selectedStatementOrderIds();
+	async function downloadDeliveryStatementLayout(layoutType, statementType, button, contactOptions, requestedOrderIds) {
+		const orderIds = Array.isArray(requestedOrderIds) ? requestedOrderIds.slice() : selectedStatementOrderIds();
 
 		if (orderIds.length === 0) {
 			alertMessage('명세서로 다운로드할 주문을 하나 이상 선택해 주세요.');
@@ -1882,11 +2047,9 @@
 			const response = await fetch(API.deliveryStatementLayoutExcel, {
 				method: 'POST',
 				headers: buildJsonHeaders(),
-				body: JSON.stringify({
-					layoutType: normalizedLayoutType,
-					statementType: normalizedStatementType,
-					orderIds: orderIds
-				})
+				body: JSON.stringify(
+					buildStatementLayoutRequest(normalizedLayoutType, normalizedStatementType, orderIds, contactOptions)
+				)
 			});
 
 			if (!response.ok) {
@@ -2064,8 +2227,20 @@
 
 	function buildStatementDeliveryMethodText(page) {
 		const methodName = toText(page && page.deliveryMethodName) || '-';
-		const contactName = toText(page && page.deliveryContactName) || '-';
-		const contactPhone = toText(page && page.deliveryContactPhone) || '-';
+		const contactName = toText(page && page.deliveryContactName).trim();
+		const contactPhone = toText(page && page.deliveryContactPhone).trim();
+
+		if (!contactName && !contactPhone) {
+			return methodName;
+		}
+
+		if (!contactName) {
+			return methodName + ' / 연락처: ' + contactPhone;
+		}
+
+		if (!contactPhone) {
+			return methodName + ' / 담당자: ' + contactName;
+		}
 
 		return methodName + ' / 담당자: ' + contactName + ' / ' + contactPhone;
 	}
@@ -2161,7 +2336,7 @@
 			'    </tr>',
 			'    <tr>',
 			'      <th>거래처명</th><td>' + statementMetaValueHtml(page && page.companyName) + '</td>',
-			'      <th>담당자</th><td>' + statementMetaValueHtml(page && page.managerName) + '</td>',
+			'      <th>담당자</th><td>' + statementMetaValueHtml(page && page.managerName, true) + '</td>',
 			'    </tr>',
 			'  </tbody>',
 			'</table>',

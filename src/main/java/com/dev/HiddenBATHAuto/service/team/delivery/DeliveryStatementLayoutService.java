@@ -137,7 +137,7 @@ public class DeliveryStatementLayoutService {
      * - 동일 배송수단
      * - 동일 배송일
      *
-     * 현장명세서는 방문/현장배송/화물, 택배명세서는 택배만 포함합니다.
+     * 현장명세서는 방문/직배송/현장배송/화물, 택배명세서는 택배만 포함합니다.
      */
     @Transactional(readOnly = true)
     public LayoutResponse buildLayoutResponse(
@@ -157,7 +157,7 @@ public class DeliveryStatementLayoutService {
                 .findFirst()
                 .orElseGet(this::today);
 
-        return buildLayoutResponseFromOrders(
+        LayoutResponse response = buildLayoutResponseFromOrders(
                 layoutType,
                 statementType,
                 requestedOrders,
@@ -165,6 +165,9 @@ public class DeliveryStatementLayoutService {
                 StatementSource.DISPATCH_SELECTION,
                 Map.of()
         );
+
+        applyDispatchStatementContactVisibility(response, request);
+        return response;
     }
 
     /**
@@ -608,10 +611,14 @@ public class DeliveryStatementLayoutService {
         );
 
         if (source == StatementSource.DISPATCH_SELECTION) {
-            return siteOrFreight || DeliveryMethodAssignmentPolicy.containsKeyword(
+            boolean directDelivery = DeliveryMethodAssignmentPolicy.containsKeyword(
                     methodName,
-                    "방문"
+                    "직배송"
             );
+
+            return siteOrFreight
+                    || directDelivery
+                    || DeliveryMethodAssignmentPolicy.containsKeyword(methodName, "방문");
         }
 
         return siteOrFreight;
@@ -628,7 +635,7 @@ public class DeliveryStatementLayoutService {
         }
 
         return source == StatementSource.DISPATCH_SELECTION
-                ? "선택한 주문 중 배송수단이 방문, 현장배송 또는 화물인 주문이 없습니다."
+                ? "선택한 주문 중 배송수단이 방문, 직배송, 현장배송 또는 화물인 주문이 없습니다."
                 : "해당 날짜의 배송순서 중 배송수단이 현장배송 또는 화물인 주문이 없습니다.";
     }
 
@@ -699,11 +706,11 @@ public class DeliveryStatementLayoutService {
             }
 
             handlerKey = "HANDLER:" + ref.deliveryHandlerId();
-        } else if (isSiteDeliveryMethod(order)) {
+        } else if (usesDeliveryTeamStatementContact(order)) {
             Member assignedHandler = order.getAssignedDeliveryHandler();
             handlerKey = assignedHandler != null && assignedHandler.getId() != null
                     ? "HANDLER:" + assignedHandler.getId()
-                    : "HANDLER:FALLBACK_DISPATCH";
+                    : "HANDLER:UNASSIGNED";
         }
 
         String companyKey = resolveCompanyGroupingKey(order);
@@ -980,12 +987,64 @@ public class DeliveryStatementLayoutService {
                 .build();
     }
 
-    private DeliveryContactData resolveStatementDeliveryContact(Order order) {
-        if (isSiteDeliveryMethod(order)) {
-            Member assignedHandler = order != null ? order.getAssignedDeliveryHandler() : null;
-            if (assignedHandler != null) {
-                return toDeliveryContactData(assignedHandler);
+    private void applyDispatchStatementContactVisibility(
+            LayoutResponse response,
+            LayoutRequest request
+    ) {
+        if (response == null || response.getPages() == null || response.getPages().isEmpty()) {
+            return;
+        }
+
+        StatementContactVisibility visibility = StatementContactVisibility.from(request);
+
+        for (StatementPageDto page : response.getPages()) {
+            if (page == null) {
+                continue;
             }
+
+            boolean deliveryTeamContact = isDeliveryTeamStatementContactMethodName(
+                    page.getDeliveryMethodName()
+            );
+
+            if (deliveryTeamContact) {
+                if (!visibility.showDeliveryTeamName()) {
+                    page.setDeliveryContactName("");
+                }
+                if (!visibility.showDeliveryTeamPhone()) {
+                    page.setDeliveryContactPhone("");
+                }
+            } else {
+                if (!visibility.showDispatchTeamName()) {
+                    page.setDeliveryContactName("");
+                }
+                if (!visibility.showDispatchTeamPhone()) {
+                    page.setDeliveryContactPhone("");
+                }
+            }
+
+            if (STATEMENT_PARCEL.equals(page.getDocumentType())) {
+                page.setManagerName(formatDeliveryContact(
+                        page.getDeliveryContactName(),
+                        page.getDeliveryContactPhone()
+                ));
+            }
+        }
+    }
+
+    private boolean isDeliveryTeamStatementContactMethodName(String methodName) {
+        return DeliveryMethodAssignmentPolicy.classify(methodName)
+                == DeliveryMethodAssignmentPolicy.MethodGroup.DIRECT_OR_SITE;
+    }
+
+    private DeliveryContactData resolveStatementDeliveryContact(Order order) {
+        if (usesDeliveryTeamStatementContact(order)) {
+            Member assignedHandler = order != null ? order.getAssignedDeliveryHandler() : null;
+
+            // 직배송/현장배송은 배송팀 담당자만 표시합니다.
+            // 담당자 미배정 상태를 출고팀 담당자로 대체하면 실제 작업자를 잘못 안내하게 되므로 공란 처리합니다.
+            return assignedHandler != null
+                    ? toDeliveryContactData(assignedHandler)
+                    : new DeliveryContactData("", "");
         }
 
         Member dispatchContact = memberRepository.findByUsername(DISPATCH_STATEMENT_CONTACT_USERNAME)
@@ -995,29 +1054,41 @@ public class DeliveryStatementLayoutService {
         return toDeliveryContactData(dispatchContact);
     }
 
-    private boolean isSiteDeliveryMethod(Order order) {
-        return order != null
-                && order.getDeliveryMethod() != null
-                && DeliveryMethodAssignmentPolicy.containsKeyword(
-                        order.getDeliveryMethod().getMethodName(),
-                        "현장배송"
-                );
+    private boolean usesDeliveryTeamStatementContact(Order order) {
+        if (order == null || order.getDeliveryMethod() == null) {
+            return false;
+        }
+
+        return DeliveryMethodAssignmentPolicy.isDirectOrSite(order.getDeliveryMethod());
     }
 
     private DeliveryContactData toDeliveryContactData(Member member) {
         if (member == null) {
-            return new DeliveryContactData("-", "-");
+            return new DeliveryContactData("", "");
         }
 
         return new DeliveryContactData(
-                firstNonBlank(member.getName(), member.getUsername(), "-"),
-                firstNonBlank(member.getPhone(), member.getTelephone(), "-")
+                firstNonBlank(member.getName(), member.getUsername()),
+                firstNonBlank(member.getPhone(), member.getTelephone())
         );
     }
 
     private String formatDeliveryContact(String name, String phone) {
-        String safeName = safeTextOrDash(name);
-        String safePhone = safeTextOrDash(phone);
+        String safeName = safeText(name);
+        String safePhone = safeText(phone);
+
+        if (safeName.isBlank() && safePhone.isBlank()) {
+            return "";
+        }
+
+        if (safeName.isBlank()) {
+            return "연락처: " + safePhone;
+        }
+
+        if (safePhone.isBlank()) {
+            return safeName;
+        }
+
         return safeName + " / " + safePhone;
     }
 
@@ -1026,9 +1097,23 @@ public class DeliveryStatementLayoutService {
             return "-";
         }
 
-        return safeTextOrDash(page.getDeliveryMethodName())
-                + " / 담당자: "
-                + formatDeliveryContact(page.getDeliveryContactName(), page.getDeliveryContactPhone());
+        String methodName = safeTextOrDash(page.getDeliveryMethodName());
+        String contactName = safeText(page.getDeliveryContactName());
+        String contactPhone = safeText(page.getDeliveryContactPhone());
+
+        if (contactName.isBlank() && contactPhone.isBlank()) {
+            return methodName;
+        }
+
+        if (contactName.isBlank()) {
+            return methodName + " / 연락처: " + contactPhone;
+        }
+
+        if (contactPhone.isBlank()) {
+            return methodName + " / 담당자: " + contactName;
+        }
+
+        return methodName + " / 담당자: " + contactName + " / " + contactPhone;
     }
 
     private RecipientData resolveRecipient(Order order) {
@@ -1474,7 +1559,7 @@ public class DeliveryStatementLayoutService {
                 "거래처명",
                 safeTextOrDash(page.getCompanyName()),
                 "담당자",
-                safeTextOrDash(page.getManagerName()),
+                safeText(page.getManagerName()),
                 styles
         );
 
@@ -2064,6 +2149,30 @@ public class DeliveryStatementLayoutService {
             String deliveryMethodKey,
             String deliveryDateKey
     ) {
+    }
+
+    private record StatementContactVisibility(
+            boolean showDeliveryTeamName,
+            boolean showDeliveryTeamPhone,
+            boolean showDispatchTeamName,
+            boolean showDispatchTeamPhone
+    ) {
+        private static StatementContactVisibility from(LayoutRequest request) {
+            if (request == null) {
+                return new StatementContactVisibility(true, true, true, true);
+            }
+
+            return new StatementContactVisibility(
+                    enabledByDefault(request.getShowDeliveryTeamContactName()),
+                    enabledByDefault(request.getShowDeliveryTeamContactPhone()),
+                    enabledByDefault(request.getShowDispatchTeamContactName()),
+                    enabledByDefault(request.getShowDispatchTeamContactPhone())
+            );
+        }
+
+        private static boolean enabledByDefault(Boolean value) {
+            return value == null || value;
+        }
     }
 
     private record RecipientData(String name, String phone) {
