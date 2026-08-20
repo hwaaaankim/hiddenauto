@@ -250,13 +250,13 @@
 								<colgroup>
 									<col style="width: 120px;">
 									<col style="width: 110px;">
-									<col style="width: 220px;">
+									<col style="width: 195px;">
 									<col style="width: 190px;">
 									<col style="width: 80px;">
 									<col style="width: 170px;">
 									<col style="width: 70px;">
 									<col style="width: 300px;">
-									<col style="width: 78px;">
+									<col style="width: 103px;">
 									<col style="width: 78px;">
 									<col style="width: 78px;">
 								</colgroup>
@@ -469,6 +469,104 @@
 					</div>
 				</div>
 
+			</div>
+		</div>
+	</div>
+
+
+	<div class="modal fade dispatch-list-statement-options-modal" id="dispatch-list-statement-options-modal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-0" id="dispatch-list-statement-options-title">
+							명세서 담당자 정보 출력 설정
+						</h5>
+						<div class="text-muted small mt-1" id="dispatch-list-statement-options-summary">
+							선택한 명세서에 표시할 담당자 정보를 선택합니다.
+						</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="dispatch-list-statement-option-guide mb-3">
+						<i class="ri-information-line" aria-hidden="true"></i>
+						<div>
+							<strong>현장배송 · 직배송</strong>은 배송팀 담당자 설정이 적용되고,
+							그 외 명세서 대상 배송수단은 출고팀 담당자 설정이 적용됩니다.
+						</div>
+					</div>
+
+					<div class="dispatch-list-statement-option-section">
+						<div class="dispatch-list-statement-option-head">
+							<div>
+								<div class="fw-bold">배송팀 담당자</div>
+								<div class="text-muted small">현장배송 · 직배송에만 적용</div>
+							</div>
+							<i class="ri-user-location-line" aria-hidden="true"></i>
+						</div>
+
+						<div class="dispatch-list-statement-switch-row">
+							<label class="form-check-label" for="dispatch-list-show-delivery-team-contact-name">
+								담당자 이름
+							</label>
+							<div class="form-check form-switch m-0">
+								<input class="form-check-input" type="checkbox"
+									id="dispatch-list-show-delivery-team-contact-name" checked>
+							</div>
+						</div>
+
+						<div class="dispatch-list-statement-switch-row">
+							<label class="form-check-label" for="dispatch-list-show-delivery-team-contact-phone">
+								담당자 연락처
+							</label>
+							<div class="form-check form-switch m-0">
+								<input class="form-check-input" type="checkbox"
+									id="dispatch-list-show-delivery-team-contact-phone" checked>
+							</div>
+						</div>
+					</div>
+
+					<div class="dispatch-list-statement-option-section mt-3">
+						<div class="dispatch-list-statement-option-head">
+							<div>
+								<div class="fw-bold">출고팀 담당자</div>
+								<div class="text-muted small">현장배송 · 직배송 외 명세서 대상에 적용</div>
+							</div>
+							<i class="ri-user-settings-line" aria-hidden="true"></i>
+						</div>
+
+						<div class="dispatch-list-statement-switch-row">
+							<label class="form-check-label" for="dispatch-list-show-dispatch-team-contact-name">
+								담당자 이름
+							</label>
+							<div class="form-check form-switch m-0">
+								<input class="form-check-input" type="checkbox"
+									id="dispatch-list-show-dispatch-team-contact-name" checked>
+							</div>
+						</div>
+
+						<div class="dispatch-list-statement-switch-row">
+							<label class="form-check-label" for="dispatch-list-show-dispatch-team-contact-phone">
+								담당자 연락처
+							</label>
+							<div class="form-check form-switch m-0">
+								<input class="form-check-input" type="checkbox"
+									id="dispatch-list-show-dispatch-team-contact-phone" checked>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" id="dispatch-list-statement-options-apply-btn" class="btn btn-primary">
+						<i class="ri-printer-line me-1" aria-hidden="true"></i>
+						<span>계속</span>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -899,7 +997,7 @@
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<script th:src="@{/administration/assets/team/dispatch/dispatchList.js(v='20260806-1')}"></script>
+	<script th:src="@{/administration/assets/team/dispatch/dispatchList.js(v='20260820-1')}"></script>
 
 </body>
 

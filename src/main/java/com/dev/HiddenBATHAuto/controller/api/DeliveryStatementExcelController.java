@@ -84,7 +84,7 @@ public class DeliveryStatementExcelController {
     /**
      * 출고팀 바로 출력용 데이터 API입니다.
      *
-     * SITE   : 배송수단이 현장배송, 화물, 방문인 선택 주문만 Task 단위로 출력
+     * SITE   : 배송수단이 현장배송, 직배송, 화물, 방문인 선택 주문만 명세서 기준으로 출력
      * PARCEL : 배송수단이 택배인 선택 주문만 Task 단위로 출력
      */
     @PostMapping("/layout/data")
