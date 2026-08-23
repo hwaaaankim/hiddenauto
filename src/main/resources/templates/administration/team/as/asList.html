@@ -6,6 +6,354 @@
 
 <body class="twocolumn-panel">
 
+	<style>
+		/* =========================================================
+		 * AS LIST - 검색 필터 UX
+		 * 기존 공통 CSS와의 충돌을 피하기 위해 asList-filter-* 범위로 제한
+		 * ========================================================= */
+		.asList-top-filter-area {
+			position: relative;
+		}
+
+		.asList-top-filter-form .form-label,
+		.asList-filter-modal-form .form-label {
+			font-weight: 600;
+			color: var(--vz-body-color, #495057);
+			margin-bottom: 0.45rem;
+		}
+
+		.asList-active-filter-summary {
+			display: none;
+			align-items: center;
+			gap: 12px;
+			padding: 10px 14px;
+			margin: 0 0 16px;
+			background: rgba(255, 255, 255, 0.96);
+			border: 1px solid rgba(64, 81, 137, 0.12);
+			border-radius: 12px;
+			box-shadow: 0 6px 22px rgba(15, 23, 42, 0.06);
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+		}
+
+		.asList-active-filter-summary.is-visible {
+			display: flex;
+			position: sticky;
+			top: 72px;
+			z-index: 1010;
+			animation: asListFilterSummaryIn 0.18s ease-out;
+		}
+
+		.asList-active-filter-summary-title {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			flex: 0 0 auto;
+			font-size: 0.82rem;
+			font-weight: 700;
+			color: #405189;
+			white-space: nowrap;
+		}
+
+		.asList-active-filter-summary-title i {
+			font-size: 1rem;
+		}
+
+		.asList-active-filter-chips {
+			display: flex;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 7px;
+			min-width: 0;
+		}
+
+		.asList-filter-chip {
+			display: inline-flex;
+			align-items: center;
+			min-height: 28px;
+			padding: 4px 9px;
+			border-radius: 999px;
+			background: #f3f6fb;
+			border: 1px solid #e5eaf2;
+			color: #4b5563;
+			font-size: 0.78rem;
+			line-height: 1.2;
+			white-space: nowrap;
+		}
+
+		.asList-filter-chip strong {
+			color: #1f2937;
+			font-weight: 700;
+			margin-right: 4px;
+		}
+
+		.asList-floating-filter-button {
+			position: fixed;
+			right: 28px;
+			/* #back-to-top(bottom:100px)과 우측 정렬을 맞추고 충분한 간격을 확보 */
+			bottom: 144px;
+			height: 40px;
+			min-width: 104px;
+			padding: 0 14px;
+			border: 1px solid #f17171;
+			border-radius: 4px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 7px;
+			background: #f17171;
+			color: #fff;
+			font-size: 13px;
+			font-weight: 600;
+			line-height: 1;
+			letter-spacing: -0.2px;
+			box-shadow: 0 3px 10px rgba(241, 113, 113, 0.22);
+			z-index: 1040;
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(8px);
+			pointer-events: none;
+			transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease,
+				background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+		}
+
+		.asList-floating-filter-button:hover {
+			background: #e56565;
+			border-color: #e56565;
+			color: #fff;
+			box-shadow: 0 6px 16px rgba(229, 101, 101, 0.28);
+			transform: translateY(-2px);
+		}
+
+		.asList-floating-filter-button:focus-visible {
+			background: #e56565;
+			border-color: #e56565;
+			color: #fff;
+			box-shadow: 0 0 0 3px rgba(241, 113, 113, 0.22);
+			outline: none;
+		}
+
+		.asList-floating-filter-button:active {
+			background: #dc5c5c;
+			border-color: #dc5c5c;
+			box-shadow: 0 2px 7px rgba(220, 92, 92, 0.22);
+			transform: translateY(0);
+		}
+
+		.asList-floating-filter-button.is-visible {
+			opacity: 1;
+			visibility: visible;
+			transform: translateY(0);
+			pointer-events: auto;
+		}
+
+		.asList-floating-filter-button > i {
+			font-size: 16px;
+			line-height: 1;
+			flex: 0 0 auto;
+		}
+
+		.asList-floating-filter-button-text {
+			display: inline-block;
+			white-space: nowrap;
+		}
+
+		.asList-floating-filter-count {
+			position: absolute;
+			top: -4px;
+			right: -3px;
+			min-width: 20px;
+			height: 20px;
+			padding: 0 5px;
+			border-radius: 999px;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			background: #f06548;
+			border: 2px solid #fff;
+			color: #fff;
+			font-size: 0.66rem;
+			font-weight: 700;
+			line-height: 1;
+		}
+
+		.asList-floating-filter-button.has-active-filters .asList-floating-filter-count {
+			display: inline-flex;
+		}
+
+		.asList-filter-modal-content {
+			border: 0;
+			border-radius: 16px;
+			overflow: hidden;
+			box-shadow: 0 18px 55px rgba(15, 23, 42, 0.18);
+		}
+
+		.asList-filter-modal-header {
+			padding: 18px 20px;
+			border-bottom: 1px solid #edf0f5;
+		}
+
+		.asList-filter-modal-title-wrap {
+			display: flex;
+			align-items: center;
+			gap: 9px;
+		}
+
+		.asList-filter-modal-title-icon {
+			width: 34px;
+			height: 34px;
+			border-radius: 10px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			background: rgba(64, 81, 137, 0.1);
+			color: #405189;
+			font-size: 1.05rem;
+		}
+
+		.asList-filter-modal-body {
+			padding: 20px;
+			background: #fbfcfe;
+		}
+
+		.asList-filter-modal-section {
+			padding: 16px;
+			background: #fff;
+			border: 1px solid #e9edf3;
+			border-radius: 12px;
+		}
+
+		.asList-filter-modal-footer {
+			padding: 14px 20px;
+			border-top: 1px solid #edf0f5;
+			background: #fff;
+		}
+
+		.asList-filter-reset-btn,
+		.asList-filter-search-btn {
+			min-width: 112px;
+		}
+
+		@keyframes asListFilterSummaryIn {
+			from { opacity: 0; transform: translateY(-5px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+
+		@media (max-width: 991.98px) {
+			.asList-top-filter-area {
+				display: none !important;
+			}
+
+			.asList-active-filter-summary,
+			.asList-active-filter-summary.is-visible {
+				display: flex;
+				position: relative;
+				top: auto;
+				z-index: auto;
+				align-items: flex-start;
+				flex-direction: column;
+				gap: 8px;
+				padding: 11px 12px;
+				margin-top: -2px;
+				margin-bottom: 12px;
+				box-shadow: none;
+				animation: none;
+			}
+
+			.asList-active-filter-chips {
+				gap: 6px;
+			}
+
+			.asList-filter-chip {
+				font-size: 0.74rem;
+				padding: 4px 8px;
+			}
+
+			.asList-floating-filter-button {
+				display: inline-flex;
+				opacity: 1;
+				visibility: visible;
+				transform: none;
+				pointer-events: auto;
+				width: 40px;
+				height: 40px;
+				min-width: 40px;
+				padding: 0;
+				gap: 0;
+				bottom: 144px;
+				right: 28px;
+			}
+
+			/* 모바일에서는 TOP 버튼과 균형을 맞춘 아이콘 전용 필터 버튼 */
+			.asList-floating-filter-button-text,
+			.asList-floating-filter-count {
+				display: none !important;
+			}
+
+			.asList-floating-filter-button > i {
+				font-size: 17px;
+			}
+
+			/* 모바일 페이지네이션: 첫/이전 + 숫자 3개 + 다음/마지막을 항상 한 줄로 표시 */
+			.production-pagination-mobile .pagination {
+				display: flex;
+				flex-wrap: nowrap !important;
+				align-items: center;
+				justify-content: center;
+				gap: 4px;
+				margin-bottom: 0;
+			}
+
+			.production-pagination-mobile .page-item {
+				flex: 0 0 auto;
+				margin: 0 !important;
+			}
+
+			.production-pagination-mobile .page-link {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 32px;
+				height: 32px;
+				min-width: 32px;
+				padding: 0;
+				margin: 0 !important;
+				border-radius: 5px !important;
+				font-size: 12px;
+				line-height: 1;
+			}
+
+			.asList-filter-modal-body {
+				padding: 14px;
+			}
+
+			.asList-filter-modal-section {
+				padding: 14px;
+			}
+
+			.asList-filter-modal-footer {
+				padding: 12px 14px;
+			}
+
+			.asList-filter-modal-footer .btn {
+				flex: 1 1 0;
+				min-width: 0;
+			}
+		}
+
+		@media (max-width: 575.98px) {
+			.asList-filter-modal-content {
+				border-radius: 14px 14px 0 0;
+			}
+
+			.asList-filter-modal-header {
+				padding: 15px 16px;
+			}
+
+		}
+	</style>
+
+
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
@@ -30,7 +378,8 @@
 						</div>
 					</div>
 
-					<form method="get" th:action="@{/team/asList}" class="row">
+					<div id="asList-top-filter-area" class="asList-top-filter-area">
+					<form method="get" th:action="@{/team/asList}" id="asList-top-filter-form" class="row asList-top-filter-form">
 						<div class="col-lg-12">
 							<div class="row g-4 mb-3">
 
@@ -128,6 +477,15 @@
 							</div>
 						</div>
 					</form>
+				</div>
+
+				<div id="asList-active-filter-summary" class="asList-active-filter-summary" aria-live="polite">
+					<div class="asList-active-filter-summary-title">
+						<i class="ri-search-eye-line"></i>
+						<span>현재 조회조건</span>
+					</div>
+					<div id="asList-active-filter-chips" class="asList-active-filter-chips"></div>
+				</div>
 
 					<div class="row">
 						<div class="col-lg-12">
@@ -678,11 +1036,11 @@
         prevPage=${asPage.first ? 0 : asPage.number - 1},
         nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
         lastPage=${asPage.totalPages - 1},
-        startPage=${T(java.lang.Math).max(0, T(java.lang.Math).min(asPage.number - 2, asPage.totalPages - 5))},
-        endPage=${T(java.lang.Math).min(asPage.totalPages - 1, startPage + 4)}">
+        startPage=${T(java.lang.Math).max(0, T(java.lang.Math).min(asPage.number - 1, asPage.totalPages - 3))},
+        endPage=${T(java.lang.Math).min(asPage.totalPages - 1, startPage + 2)}">
 
 						<div class="col-auto">
-							<ul class="pagination pagination-separated flex-wrap justify-content-center">
+							<ul class="pagination pagination-separated justify-content-center">
 
 								<li class="page-item" th:classappend="${asPage.first} ? 'disabled'">
 									<a class="page-link" aria-label="첫 페이지" th:href="@{/team/asList(
@@ -783,6 +1141,119 @@
 			</div>
 
 			<footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+		</div>
+	</div>
+
+
+	<!-- AS 검색 필터 플로팅 버튼 : TOP 버튼과 같은 색상 계열의 직사각형 액션 버튼 -->
+	<button type="button" id="asList-floating-filter-button" class="asList-floating-filter-button"
+		data-bs-toggle="modal" data-bs-target="#asList-filter-modal" aria-label="검색필터 열기" title="검색필터">
+		<i class="ri-filter-3-line" aria-hidden="true"></i>
+		<span class="asList-floating-filter-button-text">검색필터</span>
+		<span id="asList-floating-filter-count" class="asList-floating-filter-count" aria-hidden="true">0</span>
+	</button>
+
+	<!-- PC 스크롤 / 모바일 공용 검색 필터 모달 -->
+	<div class="modal fade" id="asList-filter-modal" tabindex="-1" aria-labelledby="asList-filter-modal-title" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+			<div class="modal-content asList-filter-modal-content">
+				<div class="modal-header asList-filter-modal-header">
+					<div class="asList-filter-modal-title-wrap">
+						<span class="asList-filter-modal-title-icon"><i class="ri-filter-3-line"></i></span>
+						<div>
+							<h5 class="modal-title mb-0" id="asList-filter-modal-title">AS 업무 검색 필터</h5>
+							<div class="small text-muted mt-1">조회 조건을 변경한 뒤 검색하기를 눌러주세요.</div>
+						</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+
+				<form method="get" th:action="@{/team/asList}" id="asList-modal-filter-form" class="asList-filter-modal-form">
+					<div class="modal-body asList-filter-modal-body">
+						<div class="asList-filter-modal-section">
+							<div class="row g-3">
+								<div class="col-6 col-md-3">
+									<label for="as-filter-modal-status" class="form-label">상태</label>
+									<select name="status" id="as-filter-modal-status" class="form-select">
+										<option value="" th:selected="${selectedStatusName == null}">전체</option>
+										<option value="IN_PROGRESS" th:selected="${selectedStatusName == 'IN_PROGRESS'}">진행중</option>
+										<option value="COMPLETED" th:selected="${selectedStatusName == 'COMPLETED'}">완료</option>
+									</select>
+								</div>
+
+								<div class="col-6 col-md-3">
+									<label for="as-filter-modal-date-type" class="form-label">조회조건</label>
+									<select name="dateType" id="as-filter-modal-date-type" class="form-select">
+										<option value="requested" th:selected="${dateType == null || dateType == 'requested'}">신청일</option>
+										<option value="processed" th:selected="${dateType == 'processed'}">처리일</option>
+										<option value="scheduled" th:selected="${dateType == 'scheduled'}">방문예정일</option>
+									</select>
+								</div>
+
+								<div class="col-6 col-md-3">
+									<label for="as-filter-modal-start-date" class="form-label">시작일</label>
+									<input type="date" name="startDate" id="as-filter-modal-start-date" class="form-control"
+										th:value="${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : ''}">
+								</div>
+
+								<div class="col-6 col-md-3">
+									<label for="as-filter-modal-end-date" class="form-label">종료일</label>
+									<input type="date" name="endDate" id="as-filter-modal-end-date" class="form-control"
+										th:value="${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : ''}">
+								</div>
+
+								<div class="col-12 col-md-6">
+									<label for="as-filter-modal-company" class="form-label">업체명</label>
+									<input type="text" name="companyKeyword" id="as-filter-modal-company" class="form-control"
+										placeholder="업체명 검색" th:value="${companyKeyword}">
+								</div>
+
+								<div class="col-12 col-md-6">
+									<label for="as-filter-modal-province-select" class="form-label">도/광역시</label>
+									<select name="provinceId" id="as-filter-modal-province-select" class="form-select">
+										<option value="">전체</option>
+										<option th:each="p : ${provinces}" th:value="${p.id}" th:text="${p.name}"
+											th:selected="${provinceId != null && provinceId == p.id}"></option>
+									</select>
+								</div>
+
+								<div class="col-6 col-md-6" id="as-filter-modal-child-wrapper" style="display:none;">
+									<label class="form-label" id="as-filter-modal-child-label">시/군</label>
+									<select name="cityId" id="as-filter-modal-city-select" class="form-select" style="display:none;">
+										<option value="">전체</option>
+									</select>
+									<select id="as-filter-modal-district-direct-select" class="form-select" style="display:none;">
+										<option value="">전체</option>
+									</select>
+								</div>
+
+								<div class="col-6 col-md-6" id="as-filter-modal-district-wrapper" style="display:none;">
+									<label for="as-filter-modal-district-select" class="form-label">구/읍/면</label>
+									<select id="as-filter-modal-district-select" class="form-select" style="display:none;">
+										<option value="">전체</option>
+									</select>
+								</div>
+							</div>
+						</div>
+
+						<input type="hidden" name="districtId" id="as-filter-modal-district-hidden"
+							th:value="${districtId != null ? districtId : ''}" />
+						<input type="hidden" name="visitTimeSort" th:value="${visitTimeSort != null ? visitTimeSort : ''}" />
+						<input type="hidden" name="scheduledDateSort" th:value="${scheduledDateSort != null ? scheduledDateSort : ''}" />
+						<input type="hidden" name="addressSort" th:value="${addressSort != null ? addressSort : ''}" />
+						<input type="hidden" name="statusSort" th:value="${statusSort != null ? statusSort : ''}" />
+					</div>
+
+					<div class="modal-footer asList-filter-modal-footer">
+						<button type="button" id="asList-filter-reset-button" class="btn btn-light asList-filter-reset-btn">
+							<i class="ri-refresh-line me-1"></i> 초기화
+						</button>
+						<button type="submit" class="btn btn-primary asList-filter-search-btn">
+							<i class="ri-search-line me-1"></i> 검색하기
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
 	</div>
 
