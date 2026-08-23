@@ -1,19 +1,7 @@
 (function() {
 	'use strict';
 
-	const provinceSelect = document.getElementById('as-province-select');
-
-	const childWrapper = document.getElementById('as-child-wrapper');
-	const childLabel = document.getElementById('as-child-label');
-
-	const citySelect = document.getElementById('as-city-select');
-	const districtDirectSelect = document.getElementById('as-district-direct-select');
-
-	const districtWrapper = document.getElementById('as-district-wrapper');
-	const districtSelect = document.getElementById('as-district-select');
-
-	const districtHidden = document.getElementById('as-district-hidden');
-	const selected = window.__AS_SELECTED__ || {};
+	const selectedFromServer = window.__AS_SELECTED__ || {};
 
 	function resetSelect(selectEl, placeholderText) {
 		if (!selectEl) return;
@@ -35,7 +23,7 @@
 
 	function fillOptions(selectEl, items, selectedId) {
 		if (!selectEl) return;
-		items.forEach(item => {
+		(items || []).forEach(item => {
 			const opt = document.createElement('option');
 			opt.value = String(item.id);
 			opt.textContent = item.name;
@@ -46,134 +34,351 @@
 		});
 	}
 
-	function setDistrictHidden(v) {
-		if (!districtHidden) return;
-		districtHidden.value = (v == null) ? '' : String(v);
+	function selectedOptionText(selectEl) {
+		if (!selectEl || !selectEl.value) return '';
+		const opt = selectEl.options && selectEl.selectedIndex >= 0
+			? selectEl.options[selectEl.selectedIndex]
+			: null;
+		return opt ? String(opt.textContent || '').trim() : '';
 	}
 
-	function hideAllRegionControls() {
-		hide(childWrapper);
-		hide(citySelect);
-		hide(districtDirectSelect);
+	function createRegionController(config, initialSelected) {
+		const provinceSelect = document.getElementById(config.provinceSelectId);
+		const childWrapper = document.getElementById(config.childWrapperId);
+		const childLabel = document.getElementById(config.childLabelId);
+		const citySelect = document.getElementById(config.citySelectId);
+		const districtDirectSelect = document.getElementById(config.districtDirectSelectId);
+		const districtWrapper = document.getElementById(config.districtWrapperId);
+		const districtSelect = document.getElementById(config.districtSelectId);
+		const districtHidden = document.getElementById(config.districtHiddenId);
 
-		hide(districtWrapper);
-		hide(districtSelect);
-	}
+		const selected = {
+			cityId: initialSelected?.cityId ?? null,
+			districtId: initialSelected?.districtId ?? null
+		};
 
-	async function onProvinceChange(isInit) {
-		if (!provinceSelect) return;
-
-		const provinceId = provinceSelect.value;
-
-		resetSelect(citySelect, '전체');
-		resetSelect(districtDirectSelect, '전체');
-		resetSelect(districtSelect, '전체');
-
-		hideAllRegionControls();
-
-		if (!provinceId) {
-			setDistrictHidden('');
-			return;
+		function setDistrictHidden(v) {
+			if (!districtHidden) return;
+			districtHidden.value = (v == null) ? '' : String(v);
 		}
 
-		const data = await fetchJson(`/api/regions/provinces/${provinceId}/children`);
-		show(childWrapper);
-
-		if (data.type === 'CITY') {
-			childLabel.textContent = '시/군';
-
-			show(citySelect);
-			fillOptions(citySelect, data.items, isInit ? selected.cityId : null);
-			hide(districtDirectSelect);
-
-			if (isInit && selected.cityId) {
-				await onCityChange(true);
-			} else {
-				hide(districtWrapper);
-				hide(districtSelect);
-				setDistrictHidden('');
-			}
-
-		} else if (data.type === 'DISTRICT') {
-			childLabel.textContent = '구/군';
-
+		function hideAllRegionControls() {
+			hide(childWrapper);
 			hide(citySelect);
-
-			show(districtDirectSelect);
-			fillOptions(districtDirectSelect, data.items, isInit ? selected.districtId : null);
-
+			hide(districtDirectSelect);
 			hide(districtWrapper);
 			hide(districtSelect);
+		}
+
+		async function onCityChange(isInit) {
+			const cityId = citySelect ? citySelect.value : '';
+
+			resetSelect(districtSelect, '전체');
+			hide(districtWrapper);
+			hide(districtSelect);
+
+			if (!cityId) {
+				setDistrictHidden('');
+				return;
+			}
+
+			const items = await fetchJson(`/api/regions/cities/${encodeURIComponent(cityId)}/districts`);
+			show(districtWrapper);
+			show(districtSelect);
+			fillOptions(districtSelect, items, isInit ? selected.districtId : null);
 
 			if (isInit && selected.districtId) {
 				setDistrictHidden(selected.districtId);
 			} else {
-				const v = districtDirectSelect.value;
-				setDistrictHidden(v || '');
+				setDistrictHidden(districtSelect?.value || '');
 			}
+		}
+
+		async function onProvinceChange(isInit) {
+			if (!provinceSelect) return;
+
+			const provinceId = provinceSelect.value;
+
+			resetSelect(citySelect, '전체');
+			resetSelect(districtDirectSelect, '전체');
+			resetSelect(districtSelect, '전체');
+			hideAllRegionControls();
+
+			if (!provinceId) {
+				setDistrictHidden('');
+				return;
+			}
+
+			const data = await fetchJson(`/api/regions/provinces/${encodeURIComponent(provinceId)}/children`);
+			show(childWrapper);
+
+			if (data.type === 'CITY') {
+				if (childLabel) childLabel.textContent = '시/군';
+				show(citySelect);
+				fillOptions(citySelect, data.items, isInit ? selected.cityId : null);
+				hide(districtDirectSelect);
+
+				if (isInit && selected.cityId) {
+					await onCityChange(true);
+				} else {
+					hide(districtWrapper);
+					hide(districtSelect);
+					setDistrictHidden('');
+				}
+			} else if (data.type === 'DISTRICT') {
+				if (childLabel) childLabel.textContent = '구/군';
+				hide(citySelect);
+				show(districtDirectSelect);
+				fillOptions(districtDirectSelect, data.items, isInit ? selected.districtId : null);
+				hide(districtWrapper);
+				hide(districtSelect);
+
+				if (isInit && selected.districtId) {
+					setDistrictHidden(selected.districtId);
+				} else {
+					setDistrictHidden(districtDirectSelect?.value || '');
+				}
+			}
+		}
+
+		function bind() {
+			if (!provinceSelect) return;
+
+			provinceSelect.addEventListener('change', () => {
+				selected.cityId = null;
+				selected.districtId = null;
+				setDistrictHidden('');
+				onProvinceChange(false).catch(console.error);
+			});
+
+			if (citySelect) {
+				citySelect.addEventListener('change', () => {
+					selected.districtId = null;
+					setDistrictHidden('');
+					onCityChange(false).catch(console.error);
+				});
+			}
+
+			if (districtDirectSelect) {
+				districtDirectSelect.addEventListener('change', () => {
+					const v = districtDirectSelect.value;
+					selected.districtId = v ? Number(v) : null;
+					setDistrictHidden(v || '');
+				});
+			}
+
+			if (districtSelect) {
+				districtSelect.addEventListener('change', () => {
+					const v = districtSelect.value;
+					selected.districtId = v ? Number(v) : null;
+					setDistrictHidden(v || '');
+				});
+			}
+		}
+
+		function getRegionLabel() {
+			if (!provinceSelect || !provinceSelect.value) return '전체';
+
+			const parts = [];
+			const provinceText = selectedOptionText(provinceSelect);
+			const cityText = selectedOptionText(citySelect);
+			const directDistrictText = selectedOptionText(districtDirectSelect);
+			const districtText = selectedOptionText(districtSelect);
+
+			if (provinceText) parts.push(provinceText);
+			if (citySelect?.value && cityText) parts.push(cityText);
+			if (districtSelect?.value && districtText) {
+				parts.push(districtText);
+			} else if (districtDirectSelect?.value && directDistrictText) {
+				parts.push(directDistrictText);
+			}
+
+			return parts.length > 0 ? parts.join(' ') : '전체';
+		}
+
+		async function init() {
+			if (!provinceSelect) return;
+			bind();
+			await onProvinceChange(true);
+		}
+
+		return {
+			init,
+			getRegionLabel
+		};
+	}
+
+	const topRegionController = createRegionController({
+		provinceSelectId: 'as-province-select',
+		childWrapperId: 'as-child-wrapper',
+		childLabelId: 'as-child-label',
+		citySelectId: 'as-city-select',
+		districtDirectSelectId: 'as-district-direct-select',
+		districtWrapperId: 'as-district-wrapper',
+		districtSelectId: 'as-district-select',
+		districtHiddenId: 'as-district-hidden'
+	}, selectedFromServer);
+
+	const modalRegionController = createRegionController({
+		provinceSelectId: 'as-filter-modal-province-select',
+		childWrapperId: 'as-filter-modal-child-wrapper',
+		childLabelId: 'as-filter-modal-child-label',
+		citySelectId: 'as-filter-modal-city-select',
+		districtDirectSelectId: 'as-filter-modal-district-direct-select',
+		districtWrapperId: 'as-filter-modal-district-wrapper',
+		districtSelectId: 'as-filter-modal-district-select',
+		districtHiddenId: 'as-filter-modal-district-hidden'
+	}, selectedFromServer);
+
+	const topFilterArea = document.getElementById('asList-top-filter-area');
+	const topFilterForm = document.getElementById('asList-top-filter-form');
+	const filterSummary = document.getElementById('asList-active-filter-summary');
+	const filterChips = document.getElementById('asList-active-filter-chips');
+	const floatingFilterButton = document.getElementById('asList-floating-filter-button');
+	const floatingFilterCount = document.getElementById('asList-floating-filter-count');
+	const filterResetButton = document.getElementById('asList-filter-reset-button');
+	const filterModalEl = document.getElementById('asList-filter-modal');
+
+	function isMobileFilterLayout() {
+		return window.matchMedia('(max-width: 991.98px)').matches;
+	}
+
+	function getFormControl(form, name) {
+		return form ? form.querySelector(`[name="${name}"]`) : null;
+	}
+
+	function getSelectedText(selectEl, fallback) {
+		if (!selectEl) return fallback || '';
+		const opt = selectEl.options && selectEl.selectedIndex >= 0
+			? selectEl.options[selectEl.selectedIndex]
+			: null;
+		return opt ? String(opt.textContent || '').trim() : (fallback || '');
+	}
+
+	function addFilterChip(label, value) {
+		if (!filterChips) return;
+		const chip = document.createElement('span');
+		chip.className = 'asList-filter-chip';
+
+		const strong = document.createElement('strong');
+		strong.textContent = label;
+		chip.appendChild(strong);
+		chip.appendChild(document.createTextNode(value || '-'));
+		filterChips.appendChild(chip);
+	}
+
+	function sortLabelFromForm(form) {
+		if (!form) return '';
+		const configs = [
+			['statusSort', '상태'],
+			['addressSort', '주소'],
+			['scheduledDateSort', '방문예정일'],
+			['visitTimeSort', '방문예정시간']
+		];
+
+		for (const [name, label] of configs) {
+			const value = String(getFormControl(form, name)?.value || '').toLowerCase();
+			if (value === 'asc') return `${label} ↑`;
+			if (value === 'desc') return `${label} ↓`;
+		}
+		return '';
+	}
+
+	function getActiveFilterCount(form) {
+		if (!form) return 0;
+		let count = 0;
+		if (getFormControl(form, 'status')?.value) count++;
+		if (getFormControl(form, 'dateType')?.value && getFormControl(form, 'dateType').value !== 'requested') count++;
+		if (getFormControl(form, 'startDate')?.value || getFormControl(form, 'endDate')?.value) count++;
+		if (String(getFormControl(form, 'companyKeyword')?.value || '').trim()) count++;
+		if (getFormControl(form, 'provinceId')?.value) count++;
+		return count;
+	}
+
+	function renderCurrentFilterSummary() {
+		if (!topFilterForm || !filterChips) return;
+		filterChips.innerHTML = '';
+
+		const statusEl = getFormControl(topFilterForm, 'status');
+		const dateTypeEl = getFormControl(topFilterForm, 'dateType');
+		const startDate = getFormControl(topFilterForm, 'startDate')?.value || '';
+		const endDate = getFormControl(topFilterForm, 'endDate')?.value || '';
+		const companyKeyword = String(getFormControl(topFilterForm, 'companyKeyword')?.value || '').trim();
+		const regionLabel = topRegionController.getRegionLabel();
+		const sortLabel = sortLabelFromForm(topFilterForm);
+
+		addFilterChip('상태', statusEl?.value ? getSelectedText(statusEl, '전체') : '전체');
+		addFilterChip('기준', getSelectedText(dateTypeEl, '신청일'));
+
+		let period = '전체기간';
+		if (startDate && endDate) period = `${startDate} ~ ${endDate}`;
+		else if (startDate) period = `${startDate} ~`;
+		else if (endDate) period = `~ ${endDate}`;
+		addFilterChip('기간', period);
+
+		addFilterChip('업체', companyKeyword || '전체');
+		addFilterChip('지역', regionLabel || '전체');
+		if (sortLabel) addFilterChip('정렬', sortLabel);
+
+		const activeCount = getActiveFilterCount(topFilterForm);
+		if (floatingFilterButton) {
+			floatingFilterButton.classList.toggle('has-active-filters', activeCount > 0);
+		}
+		if (floatingFilterCount) {
+			floatingFilterCount.textContent = String(activeCount);
 		}
 	}
 
-	async function onCityChange(isInit) {
-		const cityId = citySelect ? citySelect.value : '';
+	let floatingRaf = null;
+	function updateFloatingFilterVisibility() {
+		if (!floatingFilterButton || !filterSummary) return;
 
-		resetSelect(districtSelect, '전체');
-		hide(districtWrapper);
-		hide(districtSelect);
-
-		if (!cityId) {
-			setDistrictHidden('');
+		if (isMobileFilterLayout()) {
+			floatingFilterButton.classList.add('is-visible');
+			filterSummary.classList.add('is-visible');
 			return;
 		}
 
-		const items = await fetchJson(`/api/regions/cities/${cityId}/districts`);
-
-		show(districtWrapper);
-		show(districtSelect);
-
-		fillOptions(districtSelect, items, isInit ? selected.districtId : null);
-
-		if (isInit && selected.districtId) {
-			setDistrictHidden(selected.districtId);
-		} else {
-			const v = districtSelect.value;
-			setDistrictHidden(v || '');
+		if (!topFilterArea) {
+			floatingFilterButton.classList.add('is-visible');
+			filterSummary.classList.add('is-visible');
+			return;
 		}
+
+		const rect = topFilterArea.getBoundingClientRect();
+		const headerSafeLine = 72;
+		const filterIsGone = rect.bottom <= headerSafeLine;
+
+		floatingFilterButton.classList.toggle('is-visible', filterIsGone);
+		filterSummary.classList.toggle('is-visible', filterIsGone);
 	}
 
-	function bindRegion() {
-		if (!provinceSelect) return;
-
-		provinceSelect.addEventListener('change', () => {
-			selected.cityId = null;
-			selected.districtId = null;
-			setDistrictHidden('');
-			onProvinceChange(false).catch(console.error);
+	function requestFloatingFilterVisibilityUpdate() {
+		if (floatingRaf) return;
+		floatingRaf = window.requestAnimationFrame(() => {
+			floatingRaf = null;
+			updateFloatingFilterVisibility();
 		});
+	}
 
-		if (citySelect) {
-			citySelect.addEventListener('change', () => {
-				selected.districtId = null;
-				setDistrictHidden('');
-				onCityChange(false).catch(console.error);
+	function bindFilterUx() {
+		window.addEventListener('scroll', requestFloatingFilterVisibilityUpdate, { passive: true });
+		window.addEventListener('resize', requestFloatingFilterVisibilityUpdate);
+
+		if (filterResetButton) {
+			filterResetButton.addEventListener('click', () => {
+				window.location.href = '/team/asList';
 			});
 		}
 
-		if (districtDirectSelect) {
-			districtDirectSelect.addEventListener('change', () => {
-				const v = districtDirectSelect.value;
-				selected.districtId = v ? Number(v) : null;
-				setDistrictHidden(v || '');
+		if (filterModalEl) {
+			filterModalEl.addEventListener('shown.bs.modal', () => {
+				const first = filterModalEl.querySelector('select, input:not([type="hidden"])');
+				if (first && typeof first.focus === 'function') first.focus({ preventScroll: true });
 			});
 		}
 
-		if (districtSelect) {
-			districtSelect.addEventListener('change', () => {
-				const v = districtSelect.value;
-				selected.districtId = v ? Number(v) : null;
-				setDistrictHidden(v || '');
-			});
-		}
+		updateFloatingFilterVisibility();
 	}
 
 	const modalEl = document.getElementById('asList-second-complete-modal');
@@ -554,9 +759,18 @@
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
-		bindRegion();
-		onProvinceChange(true).catch(console.error);
+		Promise.allSettled([
+			topRegionController.init(),
+			modalRegionController.init()
+		]).then((results) => {
+			results.forEach(result => {
+				if (result.status === 'rejected') console.error(result.reason);
+			});
+			renderCurrentFilterSummary();
+			requestFloatingFilterVisibilityUpdate();
+		});
 
+		bindFilterUx();
 		bindRowClickToDetail();
 		bindCompleteButtons();
 		bindUploadButtons();
