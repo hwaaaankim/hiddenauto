@@ -50,6 +50,7 @@ import com.dev.HiddenBATHAuto.repository.nonstandard.ProductRepository;
 import com.dev.HiddenBATHAuto.repository.nonstandard.ProductSeriesRepository;
 import com.dev.HiddenBATHAuto.repository.order.CartRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.dev.HiddenBATHAuto.utils.OptionTranslator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -551,6 +552,9 @@ public class OrderProcessingService {
 		if (s == null)
 			return null;
 		String trimmed = s.trim();
+		if (KoreanAdministrativeRegionNormalizer.isKnownProvince(trimmed)) {
+			return KoreanAdministrativeRegionNormalizer.provinceMatchKey(trimmed);
+		}
 		// 흔한 접미사 제거: 도/특별자치도/광역시/특별시/자치시/시/군/구 (뒤에서부터 최대 1회)
 		String[] suffixes = { "특별자치도", "광역시", "특별시", "자치시", "자치구", "자치군", "도", "시", "군", "구" };
 		for (String suf : suffixes) {

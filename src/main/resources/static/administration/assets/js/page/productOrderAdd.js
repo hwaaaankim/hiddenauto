@@ -1525,11 +1525,28 @@
 
 		return {
 			zipCode: (data.zonecode || '').trim(),
-			doName: (data.sido || '').trim(),
+			doName: normalizeProvinceName(data.sido),
 			siName: sigunguParts.siName,
 			guName: sigunguParts.guName,
 			roadAddress: ((data.roadAddress || data.jibunAddress || '')).trim()
 		};
+	}
+
+	function normalizeProvinceName(value) {
+		const text = String(value || '')
+			.normalize('NFKC')
+			.replace(/\u00A0/g, ' ')
+			.trim()
+			.replace(/\s+/g, ' ');
+		if (!text) return '';
+
+		const compact = text.replace(/\s+/g, '');
+		if (['광주', '광주시', '광주광역시', '전남광주통합특별시', '광주전남통합특별시'].includes(compact)
+				|| (compact.includes('광주') && compact.includes('통합특별시'))) {
+			return '광주광역시';
+		}
+
+		return text;
 	}
 
 	function splitSigungu(sigungu) {

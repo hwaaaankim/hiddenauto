@@ -8,14 +8,27 @@
     const DEFAULT_MAX_IMAGE_FILE_SIZE_BYTES = 500 * 1024 * 1024;
     const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 1024 * 1024 * 1024;
     const ALLOWED_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'bmp']);
-    const KNOWN_PROVINCES = new Set([
-        '서울', '서울시', '서울특별시', '부산', '부산시', '부산광역시', '대구', '대구시', '대구광역시',
-        '인천', '인천시', '인천광역시', '광주', '광주시', '광주광역시', '대전', '대전시', '대전광역시',
-        '울산', '울산시', '울산광역시', '세종', '세종시', '세종특별자치시', '경기', '경기도',
-        '강원', '강원도', '강원특별자치도', '충북', '충청북도', '충남', '충청남도',
-        '전북', '전라북도', '전북특별자치도', '전남', '전라남도', '경북', '경상북도',
-        '경남', '경상남도', '제주', '제주도', '제주특별자치도'
+    const PROVINCE_ALIASES = new Map([
+        ['서울', '서울특별시'], ['서울시', '서울특별시'], ['서울특별시', '서울특별시'],
+        ['부산', '부산광역시'], ['부산시', '부산광역시'], ['부산광역시', '부산광역시'],
+        ['대구', '대구광역시'], ['대구시', '대구광역시'], ['대구광역시', '대구광역시'],
+        ['인천', '인천광역시'], ['인천시', '인천광역시'], ['인천광역시', '인천광역시'],
+        ['광주', '광주광역시'], ['광주시', '광주광역시'], ['광주광역시', '광주광역시'],
+        ['전남광주통합특별시', '광주광역시'], ['광주전남통합특별시', '광주광역시'],
+        ['대전', '대전광역시'], ['대전시', '대전광역시'], ['대전광역시', '대전광역시'],
+        ['울산', '울산광역시'], ['울산시', '울산광역시'], ['울산광역시', '울산광역시'],
+        ['세종', '세종특별자치시'], ['세종시', '세종특별자치시'], ['세종특별자치시', '세종특별자치시'],
+        ['경기', '경기도'], ['경기도', '경기도'],
+        ['강원', '강원특별자치도'], ['강원도', '강원특별자치도'], ['강원특별자치도', '강원특별자치도'],
+        ['충북', '충청북도'], ['충청북도', '충청북도'],
+        ['충남', '충청남도'], ['충청남도', '충청남도'],
+        ['전북', '전북특별자치도'], ['전라북도', '전북특별자치도'], ['전북특별자치도', '전북특별자치도'],
+        ['전남', '전라남도'], ['전라남도', '전라남도'],
+        ['경북', '경상북도'], ['경상북도', '경상북도'],
+        ['경남', '경상남도'], ['경상남도', '경상남도'],
+        ['제주', '제주특별자치도'], ['제주도', '제주특별자치도'], ['제주특별자치도', '제주특별자치도']
     ]);
+    const KNOWN_PROVINCES = new Set(Array.from(PROVINCE_ALIASES.values()));
     const DEFAULT_ORDER_STATUSES = [
         { code: 'REQUESTED', label: '고객 발주' },
         { code: 'CONFIRMED', label: '승인 완료' },
@@ -550,11 +563,31 @@
         };
     }
 
+    function normalizeProvinceName(value) {
+        const text = String(value || '')
+            .normalize('NFKC')
+            .replace(/\u00A0/g, ' ')
+            .trim()
+            .replace(/\s+/g, ' ');
+        if (!text) return '';
+
+        const compact = text.replace(/\s+/g, '');
+        const aliased = PROVINCE_ALIASES.get(compact);
+        if (aliased) return aliased;
+
+        // 외부 주소 서비스에서 광주 통합 명칭의 공백/표기 순서가 달라지는 경우를 보정합니다.
+        if (compact.includes('광주') && compact.includes('통합특별시')) {
+            return '광주광역시';
+        }
+
+        return text;
+    }
+
     function validateAddressValues(values, label) {
         const data = values || {};
         const addressLabel = label || '배송지';
         const zipCode = String(data.zipCode || '').replace(/\D/g, '');
-        const doName = String(data.doName || '').trim();
+        const doName = normalizeProvinceName(data.doName);
         const siName = String(data.siName || '').trim();
         const guName = String(data.guName || '').trim();
         const addressLine = [data.roadAddress, data.jibunAddress, data.originAddress]
@@ -572,7 +605,7 @@
             messages.push(`${addressLabel} 도/시 값이 비어 있습니다.`);
         } else if (!KNOWN_PROVINCES.has(doName)) {
             messages.push(`${addressLabel} 도/시 값이 대한민국 행정구역 형식과 맞지 않습니다.`);
-        } else if (doName.includes('세종')) {
+        } else if (doName === '세종특별자치시') {
             // 세종특별자치시는 city/district가 없는 현재 DB 구조를 허용합니다.
         } else if (isMetropolitanProvince(doName)) {
             if (!guName) {
@@ -1700,7 +1733,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
     function addressRegionKey(group, type) {
         const isSite = type === 'site';
         return [
-            isSite ? group.siteDoName : group.doName,
+            normalizeProvinceName(isSite ? group.siteDoName : group.doName),
             isSite ? group.siteSiName : group.siName,
             isSite ? group.siteGuName : group.guName
         ].map(value => normalizeText(value)).join('|');
@@ -1799,7 +1832,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
     }
 
     function splitDaumRegion(sido, sigungu) {
-        const doName = String(sido || '').trim();
+        const doName = normalizeProvinceName(sido);
         const sigunguText = String(sigungu || '').trim();
         const parts = sigunguText.split(/\s+/).filter(Boolean);
         const metropolitan = isMetropolitanProvince(doName);
@@ -1832,13 +1865,10 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
     }
 
     function isMetropolitanProvince(value) {
-        const text = String(value || '').trim();
+        const text = normalizeProvinceName(value);
         return text.endsWith('특별시')
             || text.endsWith('광역시')
-            || text.endsWith('특별자치시')
-            || ['서울', '서울시', '부산', '부산시', '대구', '대구시', '인천', '인천시',
-                '광주', '광주시', '대전', '대전시', '울산', '울산시', '세종', '세종시']
-                .includes(text);
+            || text.endsWith('특별자치시');
     }
 
     function initializeRowImages() {

@@ -50,6 +50,7 @@ import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardProductSeriesRepository;
 import com.dev.HiddenBATHAuto.service.order.OrderRegistrationAuditService;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -403,7 +404,7 @@ public class ProductOrderAddCommandService {
 
     private void applyCommonDeliveryAddress(Order order, ProductOrderAddRequest request) {
         order.setZipCode(normalizeZipCodeRequired(request.getZipCode(), "우편번호"));
-        order.setDoName(normalizeRequired(request.getDoName(), "도/시"));
+        order.setDoName(normalizeProvinceRequired(request.getDoName(), "도/시"));
         order.setSiName(trimToNull(request.getSiName()));
         order.setGuName(trimToNull(request.getGuName()));
         order.setRoadAddress(normalizeRequired(request.getRoadAddress(), "도로명 주소"));
@@ -412,7 +413,7 @@ public class ProductOrderAddCommandService {
 
     private void applySiteDeliveryAddress(Order order, ProductOrderAddRequest request) {
         order.setSiteZipCode(normalizeZipCodeRequired(request.getSiteZipCode(), "현장주소 우편번호"));
-        order.setSiteDoName(normalizeRequired(request.getSiteDoName(), "현장주소 도/시"));
+        order.setSiteDoName(normalizeProvinceRequired(request.getSiteDoName(), "현장주소 도/시"));
         order.setSiteSiName(trimToNull(request.getSiteSiName()));
         order.setSiteGuName(trimToNull(request.getSiteGuName()));
         order.setSiteRoadAddress(normalizeRequired(request.getSiteRoadAddress(), "현장 도로명 주소"));
@@ -713,6 +714,11 @@ public class ProductOrderAddCommandService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("옵션 JSON 생성에 실패했습니다.");
         }
+    }
+
+    private String normalizeProvinceRequired(String value, String fieldName) {
+        String required = normalizeRequired(value, fieldName);
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(required);
     }
 
     private String normalizeRequired(String value, String fieldName) {

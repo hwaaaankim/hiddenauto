@@ -125,6 +125,9 @@ public class AddressNormalizer {
     public static String normalizeDo(String r1) {
         if (!StringUtils.hasText(r1)) return "";
         r1 = r1.trim();
+        if (KoreanAdministrativeRegionNormalizer.isKnownProvince(r1)) {
+            return KoreanAdministrativeRegionNormalizer.provinceMatchKey(r1);
+        }
         if (r1.endsWith("특별자치시")) return r1.replace("특별자치시", "");
         if (r1.endsWith("특별자치도")) return r1.replace("특별자치도", "");
         if (r1.endsWith("특별시"))     return r1.replace("특별시", "");

@@ -206,12 +206,12 @@
 										</button>
 
 										<button type="button" class="btn btn-outline-success"
-											id="team-production-excel-download-btn">
+											id="team-production-excel-download-btn" disabled>
 											<i class="fa-solid fa-file-excel me-1"></i>
 											엑셀 다운로드
 										</button>
 										<button type="button" class="btn btn-outline-primary"
-											id="team-production-direct-print-btn">
+											id="team-production-direct-print-btn" disabled>
 											<i class="fa-solid fa-print me-1"></i>
 											바로출력
 										</button>
@@ -1095,6 +1095,11 @@
 		}
 
 
+		.team-production-admin-memo {
+			font-weight: 700;
+		}
+
+
 		.team-production-product-name {
 			display: flex;
 			align-items: center;
@@ -1329,12 +1334,12 @@
 	</script>
 
 	<script th:src="@{/administration/assets/team/production/productionList.js(v='20260806-1')}"></script>
-	<script th:src="@{/administration/assets/team/production/productionPrint.js}"></script>
+	<script th:src="@{/administration/assets/team/production/productionPrint.js(v='20260824-1')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOrderCheck.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionListDetail.js(v='20260809-3')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOverview.js(v='20260809-3')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOverviewList.js(v='20260809-3')}"></script>
-	<script th:src="@{/administration/assets/team/production/productionListImageExcel.js}"></script>
+	<script th:src="@{/administration/assets/team/production/productionListImageExcel.js(v='20260824-1')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionCuttingOpen.js}"></script>
 
 </body>

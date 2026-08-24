@@ -45,24 +45,6 @@
             });
     }
 
-    function getCurrentPageOrderIds() {
-        var seen = Object.create(null);
-        var result = [];
-
-        getItemChecks().forEach(function (checkbox) {
-            var value = String(checkbox.getAttribute('data-order-id') || '').trim();
-
-            if (!value || seen[value]) {
-                return;
-            }
-
-            seen[value] = true;
-            result.push(value);
-        });
-
-        return result;
-    }
-
     function syncButtonsAndCheckAll() {
         var items = getItemChecks().filter(function (checkbox) {
             return !checkbox.disabled;
@@ -76,6 +58,14 @@
 
         if (btnBulkDone) {
             btnBulkDone.disabled = !hasAny;
+        }
+
+        if (btnExcel) {
+            btnExcel.disabled = !hasAny;
+        }
+
+        if (btnDirectPrint) {
+            btnDirectPrint.disabled = !hasAny;
         }
 
         if (!checkAll) {
@@ -266,7 +256,7 @@
         }
 
         if (outputFilterPreview) {
-            outputFilterPreview.textContent = '출력 대상: 현재 화면 ' + orderCount + '건 / ' + filterSummary;
+            outputFilterPreview.textContent = '출력 대상: 체크한 주문 ' + orderCount + '건 / ' + filterSummary;
         }
     }
 
@@ -276,10 +266,10 @@
             event.stopImmediatePropagation();
         }
 
-        var orderIds = getCurrentPageOrderIds();
+        var orderIds = getCheckedIds();
 
         if (orderIds.length === 0) {
-            window.alert('출력할 생산 주문이 없습니다.');
+            window.alert('엑셀 다운로드/바로출력할 주문을 먼저 체크해 주세요.');
             return;
         }
 
@@ -326,7 +316,7 @@
 
     function submitOutput() {
         var mode = outputMode;
-        var orderIds = getCurrentPageOrderIds();
+        var orderIds = getCheckedIds();
 
         if (mode !== 'excel' && mode !== 'print') {
             window.alert('출력 방식을 확인할 수 없습니다.');
@@ -334,7 +324,7 @@
         }
 
         if (orderIds.length === 0) {
-            window.alert('출력할 생산 주문이 없습니다.');
+            window.alert('엑셀 다운로드/바로출력할 주문을 먼저 체크해 주세요.');
             return;
         }
 
@@ -420,5 +410,6 @@
     bindCheckboxEvents();
     bindStickerPrint();
     bindOutputEvents();
+    document.addEventListener('team-production:order-completed', syncButtonsAndCheckAll);
     syncButtonsAndCheckAll();
 })();
