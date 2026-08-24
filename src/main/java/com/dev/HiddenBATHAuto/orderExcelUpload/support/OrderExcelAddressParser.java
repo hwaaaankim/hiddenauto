@@ -1,6 +1,5 @@
 package com.dev.HiddenBATHAuto.orderExcelUpload.support;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -8,6 +7,7 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 import com.dev.HiddenBATHAuto.orderExcelUpload.service.OrderExcelExternalAddressSearchService;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,53 +30,6 @@ public class OrderExcelAddressParser {
     private static final Pattern DETAIL_HINT_PATTERN = Pattern.compile(".*(?:\\d+\\s*동|\\d+\\s*호|호실|층|지하|상가|오피스텔|아파트|빌라|건물|타워).*");
 
 
-    private static final Map<String, String> PROVINCE_ALIASES = Map.ofEntries(
-            Map.entry("서울", "서울특별시"),
-            Map.entry("서울시", "서울특별시"),
-            Map.entry("서울특별시", "서울특별시"),
-            Map.entry("부산", "부산광역시"),
-            Map.entry("부산시", "부산광역시"),
-            Map.entry("부산광역시", "부산광역시"),
-            Map.entry("대구", "대구광역시"),
-            Map.entry("대구시", "대구광역시"),
-            Map.entry("대구광역시", "대구광역시"),
-            Map.entry("인천", "인천광역시"),
-            Map.entry("인천시", "인천광역시"),
-            Map.entry("인천광역시", "인천광역시"),
-            Map.entry("광주", "광주광역시"),
-            Map.entry("광주시", "광주광역시"),
-            Map.entry("광주광역시", "광주광역시"),
-            Map.entry("대전", "대전광역시"),
-            Map.entry("대전시", "대전광역시"),
-            Map.entry("대전광역시", "대전광역시"),
-            Map.entry("울산", "울산광역시"),
-            Map.entry("울산시", "울산광역시"),
-            Map.entry("울산광역시", "울산광역시"),
-            Map.entry("세종", "세종특별자치시"),
-            Map.entry("세종시", "세종특별자치시"),
-            Map.entry("세종특별자치시", "세종특별자치시"),
-            Map.entry("경기", "경기도"),
-            Map.entry("경기도", "경기도"),
-            Map.entry("강원", "강원특별자치도"),
-            Map.entry("강원도", "강원특별자치도"),
-            Map.entry("강원특별자치도", "강원특별자치도"),
-            Map.entry("충북", "충청북도"),
-            Map.entry("충청북도", "충청북도"),
-            Map.entry("충남", "충청남도"),
-            Map.entry("충청남도", "충청남도"),
-            Map.entry("전북", "전북특별자치도"),
-            Map.entry("전라북도", "전북특별자치도"),
-            Map.entry("전북특별자치도", "전북특별자치도"),
-            Map.entry("전남", "전라남도"),
-            Map.entry("전라남도", "전라남도"),
-            Map.entry("경북", "경상북도"),
-            Map.entry("경상북도", "경상북도"),
-            Map.entry("경남", "경상남도"),
-            Map.entry("경상남도", "경상남도"),
-            Map.entry("제주", "제주특별자치도"),
-            Map.entry("제주도", "제주특별자치도"),
-            Map.entry("제주특별자치도", "제주특별자치도")
-    );
 
     private final OrderExcelExternalAddressSearchService externalAddressSearchService;
 
@@ -269,6 +222,15 @@ public class OrderExcelAddressParser {
         if (!canonicalProvince.isBlank()) {
             result.setDoName(canonicalProvince);
             cursor++;
+
+            // 특별시/광역시의 구·군은 City가 아니라 Province 바로 아래 District로 취급합니다.
+            // 예: 전남광주통합특별시 신안군 -> 광주광역시 / (시 없음) / 신안군
+            if (KoreanAdministrativeRegionNormalizer.isMetropolitanProvince(canonicalProvince)
+                    && cursor < tokens.length
+                    && isDistrictLike(tokens[cursor])) {
+                result.setGuName(tokens[cursor]);
+                cursor++;
+            }
         } else if (isProvinceLike(tokens[cursor])) {
             result.setDoName(tokens[cursor]);
             cursor++;
@@ -439,8 +401,10 @@ public class OrderExcelAddressParser {
     }
 
     private String canonicalProvince(String value) {
-        String normalized = normalize(value).replaceAll("\\s+", "");
-        return PROVINCE_ALIASES.getOrDefault(normalized, "");
+        if (!KoreanAdministrativeRegionNormalizer.isKnownProvince(value)) {
+            return "";
+        }
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
     }
 
     private boolean isProvinceLike(String token) {

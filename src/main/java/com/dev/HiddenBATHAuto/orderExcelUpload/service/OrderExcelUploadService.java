@@ -65,6 +65,7 @@ import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelUploadValidatio
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.ParsedProductName;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.ParsedSiteAddress;
 import com.dev.HiddenBATHAuto.service.productOrderAdd.DeliveryHandlerAutoAssignService;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -200,7 +201,7 @@ public class OrderExcelUploadService {
         response.setValid(validation.isValid());
         response.setAddressType(addressType);
         response.setZipCode(normalizedZipCode);
-        response.setDoName(safe(request.getDoName()));
+        response.setDoName(normalizeProvinceName(request.getDoName()));
         response.setSiName(safe(request.getSiName()));
         response.setGuName(safe(request.getGuName()));
         response.setRoadAddress(safe(request.getRoadAddress()));
@@ -236,7 +237,7 @@ public class OrderExcelUploadService {
                     null,
                     "",
                     safe(request.getZipCode()).replaceAll("[^0-9]", ""),
-                    safe(request.getDoName()),
+                    normalizeProvinceName(request.getDoName()),
                     safe(request.getSiName()),
                     safe(request.getGuName()),
                     safe(request.getRoadAddress()),
@@ -322,7 +323,7 @@ public class OrderExcelUploadService {
     private AssignmentAddress normalizeAssignmentAddress(OrderExcelDeliveryHandlerAssignmentRequest request) {
         AssignmentAddress current = new AssignmentAddress(
                 safe(request.getZipCode()).replaceAll("[^0-9]", ""),
-                safe(request.getDoName()),
+                normalizeProvinceName(request.getDoName()),
                 safe(request.getSiName()),
                 safe(request.getGuName()),
                 safe(request.getRoadAddress()),
@@ -359,7 +360,7 @@ public class OrderExcelUploadService {
         );
         return new AssignmentAddress(
                 firstNonBlank(parsed.getZipCode(), current.zipCode()),
-                firstNonBlank(parsed.getDoName(), current.doName()),
+                normalizeProvinceName(firstNonBlank(parsed.getDoName(), current.doName())),
                 firstNonBlank(parsed.getSiName(), current.siName()),
                 firstNonBlank(parsed.getGuName(), current.guName()),
                 firstNonBlank(parsed.getRoadAddress(), current.roadAddress()),
@@ -1084,7 +1085,7 @@ public class OrderExcelUploadService {
 
         group.setSiteDelivery(true);
         group.setSiteZipCode(firstNonBlank(group.getSiteZipCode(), parsed.getZipCode()));
-        group.setSiteDoName(firstNonBlank(parsed.getDoName(), group.getSiteDoName()));
+        group.setSiteDoName(normalizeProvinceName(firstNonBlank(parsed.getDoName(), group.getSiteDoName())));
         group.setSiteSiName(firstNonBlank(parsed.getSiName(), group.getSiteSiName()));
         group.setSiteGuName(firstNonBlank(parsed.getGuName(), group.getSiteGuName()));
         group.setSiteRoadAddress(firstNonBlank(parsed.getRoadAddress(), group.getSiteRoadAddress()));
@@ -1095,7 +1096,7 @@ public class OrderExcelUploadService {
         group.setSiteRecipientPhone(firstNonBlank(group.getSiteRecipientPhone(), parsed.getRecipientPhone()));
 
         group.setZipCode(firstNonBlank(group.getZipCode(), group.getSiteZipCode()));
-        group.setDoName(firstNonBlank(group.getDoName(), group.getSiteDoName()));
+        group.setDoName(normalizeProvinceName(firstNonBlank(group.getDoName(), group.getSiteDoName())));
         group.setSiName(firstNonBlank(group.getSiName(), group.getSiteSiName()));
         group.setGuName(firstNonBlank(group.getGuName(), group.getSiteGuName()));
         group.setRoadAddress(firstNonBlank(group.getRoadAddress(), group.getSiteRoadAddress()));
@@ -1109,7 +1110,7 @@ public class OrderExcelUploadService {
         group.setSiteAddressRaw(safe(parsed.getRaw()));
         group.setSiteAddressDisplayText(safe(parsed.getAddressCorrectionText()));
         group.setSiteZipCode(safe(parsed.getZipCode()));
-        group.setSiteDoName(safe(parsed.getDoName()));
+        group.setSiteDoName(normalizeProvinceName(parsed.getDoName()));
         group.setSiteSiName(safe(parsed.getSiName()));
         group.setSiteGuName(safe(parsed.getGuName()));
         group.setSiteRoadAddress(firstNonBlank(parsed.getRoadAddress(), rawAddress));
@@ -1785,7 +1786,7 @@ public class OrderExcelUploadService {
         ResolvedCompanyAddress companyAddress = resolveCompanyDefaultAddress(company);
 
         order.setZipCode(firstMeaningful(group.getZipCode(), companyAddress.zipCode()));
-        order.setDoName(firstMeaningful(group.getDoName(), companyAddress.doName()));
+        order.setDoName(normalizeProvinceName(firstMeaningful(group.getDoName(), companyAddress.doName())));
         order.setSiName(firstMeaningful(group.getSiName(), companyAddress.siName()));
         order.setGuName(firstMeaningful(group.getGuName(), companyAddress.guName()));
 
@@ -1825,7 +1826,7 @@ public class OrderExcelUploadService {
         }
 
         String zipCode = trimToNull(group.getSiteZipCode());
-        String doName = trimToNull(group.getSiteDoName());
+        String doName = trimToNull(normalizeProvinceName(group.getSiteDoName()));
         String siName = trimToNull(group.getSiteSiName());
         String guName = trimToNull(group.getSiteGuName());
         String roadAddress = trimToNull(firstMeaningful(
@@ -2507,6 +2508,14 @@ public class OrderExcelUploadService {
         return rows.get(0).excelRowNumber;
     }
 
+    /**
+     * 외부 주소 API/기존 저장값의 시·도 별칭을 현재 tb_province 기준 명칭으로 통일합니다.
+     * 알 수 없는 값은 원문을 유지하여 공통 검증기가 정상적으로 오류를 표시할 수 있게 합니다.
+     */
+    private String normalizeProvinceName(String value) {
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(safe(value));
+    }
+
     private String safe(String value) {
         return value == null ? "" : value.trim();
     }
@@ -2527,7 +2536,7 @@ public class OrderExcelUploadService {
         if (hasText(roadAddress) || hasText(detailAddress)) {
             return new ResolvedCompanyAddress(
                     normalizeMeaningful(company.getZipCode()),
-                    normalizeMeaningful(company.getDoName()),
+                    normalizeProvinceName(company.getDoName()),
                     normalizeMeaningful(company.getSiName()),
                     normalizeMeaningful(company.getGuName()),
                     roadAddress,
@@ -2543,7 +2552,7 @@ public class OrderExcelUploadService {
 
         return new ResolvedCompanyAddress(
                 normalizeMeaningful(company.getZipCode()),
-                normalizeMeaningful(company.getDoName()),
+                normalizeProvinceName(company.getDoName()),
                 normalizeMeaningful(company.getSiName()),
                 normalizeMeaningful(company.getGuName()),
                 fallbackAddress,

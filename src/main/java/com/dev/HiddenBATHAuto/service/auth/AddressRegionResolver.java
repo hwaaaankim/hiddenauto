@@ -3,7 +3,6 @@ package com.dev.HiddenBATHAuto.service.auth;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -16,6 +15,7 @@ import com.dev.HiddenBATHAuto.model.auth.Province;
 import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 
 /**
@@ -35,53 +35,6 @@ import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 @Service
 public class AddressRegionResolver {
 
-    private static final Map<String, String> PROVINCE_ALIASES = Map.ofEntries(
-            Map.entry("서울", "서울특별시"),
-            Map.entry("서울시", "서울특별시"),
-            Map.entry("서울특별시", "서울특별시"),
-            Map.entry("부산", "부산광역시"),
-            Map.entry("부산시", "부산광역시"),
-            Map.entry("부산광역시", "부산광역시"),
-            Map.entry("대구", "대구광역시"),
-            Map.entry("대구시", "대구광역시"),
-            Map.entry("대구광역시", "대구광역시"),
-            Map.entry("인천", "인천광역시"),
-            Map.entry("인천시", "인천광역시"),
-            Map.entry("인천광역시", "인천광역시"),
-            Map.entry("광주", "광주광역시"),
-            Map.entry("광주시", "광주광역시"),
-            Map.entry("광주광역시", "광주광역시"),
-            Map.entry("대전", "대전광역시"),
-            Map.entry("대전시", "대전광역시"),
-            Map.entry("대전광역시", "대전광역시"),
-            Map.entry("울산", "울산광역시"),
-            Map.entry("울산시", "울산광역시"),
-            Map.entry("울산광역시", "울산광역시"),
-            Map.entry("세종", "세종특별자치시"),
-            Map.entry("세종시", "세종특별자치시"),
-            Map.entry("세종특별자치시", "세종특별자치시"),
-            Map.entry("경기", "경기도"),
-            Map.entry("경기도", "경기도"),
-            Map.entry("강원", "강원특별자치도"),
-            Map.entry("강원도", "강원특별자치도"),
-            Map.entry("강원특별자치도", "강원특별자치도"),
-            Map.entry("충북", "충청북도"),
-            Map.entry("충청북도", "충청북도"),
-            Map.entry("충남", "충청남도"),
-            Map.entry("충청남도", "충청남도"),
-            Map.entry("전북", "전북특별자치도"),
-            Map.entry("전라북도", "전북특별자치도"),
-            Map.entry("전북특별자치도", "전북특별자치도"),
-            Map.entry("전남", "전라남도"),
-            Map.entry("전라남도", "전라남도"),
-            Map.entry("경북", "경상북도"),
-            Map.entry("경상북도", "경상북도"),
-            Map.entry("경남", "경상남도"),
-            Map.entry("경상남도", "경상남도"),
-            Map.entry("제주", "제주특별자치도"),
-            Map.entry("제주도", "제주특별자치도"),
-            Map.entry("제주특별자치도", "제주특별자치도")
-    );
 
     private final ProvinceRepository provinceRepository;
     private final CityRepository cityRepository;
@@ -290,11 +243,7 @@ public class AddressRegionResolver {
     }
 
     private String provinceCanonical(String value) {
-        String cleaned = clean(value);
-        if (cleaned.isBlank()) {
-            return "";
-        }
-        return PROVINCE_ALIASES.getOrDefault(cleaned, cleaned);
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
     }
 
     private String clean(String value) {

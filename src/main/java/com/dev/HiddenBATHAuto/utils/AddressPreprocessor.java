@@ -97,6 +97,8 @@ public class AddressPreprocessor {
             Map.entry("부산시", "부산광역시"),
             Map.entry("대구시", "대구광역시"),
             Map.entry("광주시", "광주광역시"),
+            Map.entry("전남광주통합특별시", "광주광역시"),
+            Map.entry("광주전남통합특별시", "광주광역시"),
             Map.entry("대전시", "대전광역시"),
             Map.entry("울산시", "울산광역시")
     );

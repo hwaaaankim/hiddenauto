@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.ResolvedExternalAddress;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -33,53 +34,6 @@ public class OrderExcelExternalAddressSearchService {
      * 카카오 주소 API가 일부 시·도를 축약해서 반환할 수 있으므로
      * 담당구역 DB와 비교하기 전에 행정구역 정식 명칭으로 통일합니다.
      */
-    private static final Map<String, String> PROVINCE_ALIASES = Map.ofEntries(
-            Map.entry("서울", "서울특별시"),
-            Map.entry("서울시", "서울특별시"),
-            Map.entry("서울특별시", "서울특별시"),
-            Map.entry("부산", "부산광역시"),
-            Map.entry("부산시", "부산광역시"),
-            Map.entry("부산광역시", "부산광역시"),
-            Map.entry("대구", "대구광역시"),
-            Map.entry("대구시", "대구광역시"),
-            Map.entry("대구광역시", "대구광역시"),
-            Map.entry("인천", "인천광역시"),
-            Map.entry("인천시", "인천광역시"),
-            Map.entry("인천광역시", "인천광역시"),
-            Map.entry("광주", "광주광역시"),
-            Map.entry("광주시", "광주광역시"),
-            Map.entry("광주광역시", "광주광역시"),
-            Map.entry("대전", "대전광역시"),
-            Map.entry("대전시", "대전광역시"),
-            Map.entry("대전광역시", "대전광역시"),
-            Map.entry("울산", "울산광역시"),
-            Map.entry("울산시", "울산광역시"),
-            Map.entry("울산광역시", "울산광역시"),
-            Map.entry("세종", "세종특별자치시"),
-            Map.entry("세종시", "세종특별자치시"),
-            Map.entry("세종특별자치시", "세종특별자치시"),
-            Map.entry("경기", "경기도"),
-            Map.entry("경기도", "경기도"),
-            Map.entry("강원", "강원특별자치도"),
-            Map.entry("강원도", "강원특별자치도"),
-            Map.entry("강원특별자치도", "강원특별자치도"),
-            Map.entry("충북", "충청북도"),
-            Map.entry("충청북도", "충청북도"),
-            Map.entry("충남", "충청남도"),
-            Map.entry("충청남도", "충청남도"),
-            Map.entry("전북", "전북특별자치도"),
-            Map.entry("전라북도", "전북특별자치도"),
-            Map.entry("전북특별자치도", "전북특별자치도"),
-            Map.entry("전남", "전라남도"),
-            Map.entry("전라남도", "전라남도"),
-            Map.entry("경북", "경상북도"),
-            Map.entry("경상북도", "경상북도"),
-            Map.entry("경남", "경상남도"),
-            Map.entry("경상남도", "경상남도"),
-            Map.entry("제주", "제주특별자치도"),
-            Map.entry("제주도", "제주특별자치도"),
-            Map.entry("제주특별자치도", "제주특별자치도")
-    );
 
     private final WebClient jusoWebClient;
     private final WebClient kakaoWebClient;
@@ -710,11 +664,7 @@ public class OrderExcelExternalAddressSearchService {
     }
 
     private String canonicalProvince(String value) {
-        String normalized = normalize(value);
-        if (normalized.isBlank()) {
-            return "";
-        }
-        return PROVINCE_ALIASES.getOrDefault(normalized, normalized);
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
     }
 
     private boolean isMetropolitanProvince(String value) {

@@ -22,6 +22,7 @@ import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRegionRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -266,6 +267,10 @@ public class DeliveryHandlerAutoAssignService {
         String trimmed = value.replace('\u00A0', ' ').trim().replaceAll("\\s+", "");
         if (trimmed.isBlank()) {
             return "";
+        }
+
+        if (KoreanAdministrativeRegionNormalizer.isKnownProvince(trimmed)) {
+            return KoreanAdministrativeRegionNormalizer.provinceMatchKey(trimmed);
         }
 
         trimmed = switch (trimmed) {

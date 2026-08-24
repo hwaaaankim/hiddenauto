@@ -2,11 +2,11 @@ package com.dev.HiddenBATHAuto.orderExcelUpload.support;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
+
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 /**
  * 등록주소지 선택, 담당자 자동배정, 최종 저장에서 동일하게 사용하는 주소 검증기입니다.
@@ -25,25 +25,6 @@ public class OrderExcelAddressValidator {
 
     private static final Pattern ZIP_CODE_PATTERN = Pattern.compile("^\\d{5}$");
 
-    private static final Set<String> KNOWN_PROVINCES = Set.of(
-            "서울", "서울시", "서울특별시",
-            "부산", "부산시", "부산광역시",
-            "대구", "대구시", "대구광역시",
-            "인천", "인천시", "인천광역시",
-            "광주", "광주시", "광주광역시",
-            "대전", "대전시", "대전광역시",
-            "울산", "울산시", "울산광역시",
-            "세종", "세종시", "세종특별자치시",
-            "경기", "경기도",
-            "강원", "강원도", "강원특별자치도",
-            "충북", "충청북도",
-            "충남", "충청남도",
-            "전북", "전라북도", "전북특별자치도",
-            "전남", "전라남도",
-            "경북", "경상북도",
-            "경남", "경상남도",
-            "제주", "제주도", "제주특별자치도"
-    );
 
     public OrderExcelAddressValidationResult validate(
             String addressLabel,
@@ -74,11 +55,11 @@ public class OrderExcelAddressValidator {
 
         if (province.isBlank()) {
             messages.add(label + " 도/시 값이 비어 있습니다. 주소검색으로 행정구역을 확인해 주세요.");
-        } else if (!isKnownProvince(province)) {
+        } else if (!KoreanAdministrativeRegionNormalizer.isKnownProvince(province)) {
             messages.add(label + " 도/시 값이 대한민국 행정구역 형식과 맞지 않습니다: " + province);
-        } else if (isSejong(province)) {
+        } else if (KoreanAdministrativeRegionNormalizer.isSejong(province)) {
             // 세종특별자치시는 city/district가 없는 현재 DB 구조를 정상으로 허용합니다.
-        } else if (isMetropolitan(province)) {
+        } else if (KoreanAdministrativeRegionNormalizer.isMetropolitanProvince(province)) {
             if (district.isBlank()) {
                 messages.add(label + " 구/군 값이 비어 있습니다. " + province + " 주소는 구/군을 확인해 주세요.");
             }
@@ -91,24 +72,6 @@ public class OrderExcelAddressValidator {
         }
 
         return new OrderExcelAddressValidationResult(messages);
-    }
-
-    private boolean isKnownProvince(String value) {
-        return KNOWN_PROVINCES.contains(text(value));
-    }
-
-    private boolean isMetropolitan(String value) {
-        String normalized = text(value);
-        return normalized.endsWith("특별시")
-                || normalized.endsWith("광역시")
-                || normalized.endsWith("특별자치시")
-                || Set.of("서울", "서울시", "부산", "부산시", "대구", "대구시", "인천", "인천시",
-                        "광주", "광주시", "대전", "대전시", "울산", "울산시", "세종", "세종시")
-                        .contains(normalized);
-    }
-
-    private boolean isSejong(String value) {
-        return text(value).toLowerCase(Locale.ROOT).contains("세종");
     }
 
     private String digits(String value) {
