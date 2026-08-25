@@ -201,13 +201,13 @@
 															<button type="button"
 																class="btn btn-outline-secondary btn-sm team-as-detail-fourth-copy-btn"
 																id="team-as-detail-fourth-address-copy-btn"
-																th:attr="data-copy-text=|(${#strings.defaultString(asTask.zipCode,'-')}) ${#strings.defaultString(asTask.doName,'')} ${#strings.defaultString(asTask.siName,'')} ${#strings.defaultString(asTask.guName,'')} ${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
+																th:attr="data-copy-text=|${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
 																<i class="ri-file-copy-line"></i>
 																주소 복사
 															</button>
 														</div>
 														<div class="team-as-detail-fourth-info-value"
-															th:text="|(${#strings.defaultString(asTask.zipCode,'-')}) ${#strings.defaultString(asTask.doName,'')} ${#strings.defaultString(asTask.siName,'')} ${#strings.defaultString(asTask.guName,'')} ${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
+															th:text="|${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
 															-
 														</div>
 													</div>

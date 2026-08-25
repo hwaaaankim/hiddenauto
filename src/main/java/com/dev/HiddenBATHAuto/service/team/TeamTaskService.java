@@ -1786,33 +1786,8 @@ public class TeamTaskService {
 	        return "";
 	    }
 
-	    List<String> tokens = new ArrayList<>();
-
-	    if (!isBlank(order.getRoadAddress())) {
-	        tokens.add(safeText(order.getRoadAddress()));
-	    }
-
-	    if (!isBlank(order.getDetailAddress())) {
-	        tokens.add(safeText(order.getDetailAddress()));
-	    }
-
-	    String region = String.join(" ",
-	            List.of(
-	                    safeText(order.getDoName()),
-	                    safeText(order.getSiName()),
-	                    safeText(order.getGuName())
-	            ).stream().filter(v -> !v.isBlank()).toList()
-	    );
-
-	    if (!isBlank(region)) {
-	        tokens.add(region);
-	    }
-
-	    if (!isBlank(order.getZipCode())) {
-	        tokens.add("(" + safeText(order.getZipCode()) + ")");
-	    }
-
-	    return String.join(" ", tokens);
+	    String address = order.getActualDeliveryAddressDisplay();
+	    return "-".equals(address) ? "" : address;
 	}
 
 	private String formatDateTime(LocalDateTime dateTime) {

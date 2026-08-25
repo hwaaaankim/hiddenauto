@@ -1327,7 +1327,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
                     deliveryCost: Number(group.deliveryCost || 0),
                     packingCost: Number(group.packingCost || 0),
                     zipCode: group.zipCode,
-                    doName: group.doName,
+                    doName: normalizeProvinceName(group.doName),
                     siName: group.siName,
                     guName: group.guName,
                     roadAddress: group.roadAddress,
@@ -1335,7 +1335,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
                     originAddress: group.originAddress,
                     detailAddress: group.detailAddress,
                     siteZipCode: group.siteZipCode,
-                    siteDoName: group.siteDoName,
+                    siteDoName: normalizeProvinceName(group.siteDoName),
                     siteSiName: group.siteSiName,
                     siteGuName: group.siteGuName,
                     siteRoadAddress: group.siteRoadAddress,
@@ -1409,7 +1409,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
         const isSite = type === 'site';
         if (isSite) {
             group.siteZipCode = data.zipCode || group.siteZipCode || '';
-            group.siteDoName = data.doName || group.siteDoName || '';
+            group.siteDoName = normalizeProvinceName(data.doName || group.siteDoName || '');
             group.siteSiName = data.siName || group.siteSiName || '';
             group.siteGuName = data.guName || group.siteGuName || '';
             group.siteRoadAddress = data.roadAddress || group.siteRoadAddress || '';
@@ -1418,7 +1418,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
             group.siteDetailAddress = data.detailAddress || group.siteDetailAddress || '';
         } else {
             group.zipCode = data.zipCode || group.zipCode || '';
-            group.doName = data.doName || group.doName || '';
+            group.doName = normalizeProvinceName(data.doName || group.doName || '');
             group.siName = data.siName || group.siName || '';
             group.guName = data.guName || group.guName || '';
             group.roadAddress = data.roadAddress || group.roadAddress || '';
@@ -1618,7 +1618,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
         if (type === 'site') {
             group.siteDelivery = true;
             group.siteZipCode = address.zipCode || '';
-            group.siteDoName = address.doName || '';
+            group.siteDoName = normalizeProvinceName(address.doName);
             group.siteSiName = address.siName || '';
             group.siteGuName = address.guName || '';
             group.siteRoadAddress = roadAddress;
@@ -1628,7 +1628,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
             group.siteAddressDisplayText = `${address.label || '등록주소'}에서 선택한 주소입니다.`;
         } else {
             group.zipCode = address.zipCode || '';
-            group.doName = address.doName || '';
+            group.doName = normalizeProvinceName(address.doName);
             group.siName = address.siName || '';
             group.guName = address.guName || '';
             group.roadAddress = roadAddress;
@@ -1700,7 +1700,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
             clearGroupIssuesByField(group, 'deliveryHandler');
             if (isSite) {
                 group.siteZipCode = data.zipCode || group.siteZipCode || '';
-                group.siteDoName = data.doName || group.siteDoName || '';
+                group.siteDoName = normalizeProvinceName(data.doName || group.siteDoName || '');
                 group.siteSiName = data.siName || group.siteSiName || '';
                 group.siteGuName = data.guName || group.siteGuName || '';
                 group.siteRoadAddress = data.roadAddress || group.siteRoadAddress || '';
@@ -1709,7 +1709,7 @@ Task ${response.taskCount}건 / Order ${response.orderCount}건 저장 완료`;
                 group.siteDetailAddress = data.detailAddress || group.siteDetailAddress || '';
             } else {
                 group.zipCode = data.zipCode || group.zipCode || '';
-                group.doName = data.doName || group.doName || '';
+                group.doName = normalizeProvinceName(data.doName || group.doName || '');
                 group.siName = data.siName || group.siName || '';
                 group.guName = data.guName || group.guName || '';
                 group.roadAddress = data.roadAddress || group.roadAddress || '';

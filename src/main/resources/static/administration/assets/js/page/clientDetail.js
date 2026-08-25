@@ -386,9 +386,6 @@
 
 	function buildAddressPreviewText() {
 		const text = joinAddressText([
-			companyFields.doName ? companyFields.doName.value : '',
-			companyFields.siName ? companyFields.siName.value : '',
-			companyFields.guName ? companyFields.guName.value : '',
 			companyFields.roadAddress ? companyFields.roadAddress.value : '',
 			companyFields.detailAddress ? companyFields.detailAddress.value : ''
 		]);
@@ -820,10 +817,6 @@
 		}
 
 		return joinAddressText([
-			address.zipCode ? '(' + trimValue(address.zipCode) + ')' : '',
-			address.doName,
-			address.siName,
-			address.guName,
 			address.roadAddress,
 			address.detailAddress
 		]);

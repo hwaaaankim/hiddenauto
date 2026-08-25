@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.model.auth;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import jakarta.persistence.Column;
@@ -14,6 +15,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -52,6 +55,26 @@ public class CompanyDeliveryAddress implements Serializable {
 
     @Column(name = "detail_address", length = 255)
     private String detailAddress;
+
+    /**
+     * 추가 배송지의 시/도 값도 프로젝트 표준 명칭으로 저장합니다.
+     */
+    public void setDoName(String doName) {
+        this.doName = normalizeProvincePreservingNull(doName);
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeProvinceNameBeforeSave() {
+        this.doName = normalizeProvincePreservingNull(this.doName);
+    }
+
+    private String normalizeProvincePreservingNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
+    }
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

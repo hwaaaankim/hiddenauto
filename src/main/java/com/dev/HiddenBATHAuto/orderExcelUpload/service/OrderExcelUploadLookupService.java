@@ -33,6 +33,7 @@ import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelMemberReposi
 import com.dev.HiddenBATHAuto.orderExcelUpload.repository.OrderExcelTeamCategoryRepository;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressValidationResult;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressValidator;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -245,7 +246,7 @@ public class OrderExcelUploadLookupService {
         response.setAddressId(company.getId());
         response.setLabel("업체 기본주소");
         response.setZipCode(safe(company.getZipCode()));
-        response.setDoName(safe(company.getDoName()));
+        response.setDoName(normalizeProvinceName(company.getDoName()));
         response.setSiName(safe(company.getSiName()));
         response.setGuName(safe(company.getGuName()));
         response.setRoadAddress(roadAddress);
@@ -263,7 +264,7 @@ public class OrderExcelUploadLookupService {
         response.setAddressId(address.getId());
         response.setLabel("추가 배송지 " + sequence);
         response.setZipCode(safe(address.getZipCode()));
-        response.setDoName(safe(address.getDoName()));
+        response.setDoName(normalizeProvinceName(address.getDoName()));
         response.setSiName(safe(address.getSiName()));
         response.setGuName(safe(address.getGuName()));
         response.setRoadAddress(safe(address.getRoadAddress()));
@@ -347,6 +348,10 @@ public class OrderExcelUploadLookupService {
             }
         }
         return "";
+    }
+
+    private String normalizeProvinceName(String value) {
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
     }
 
     private String safe(String value) {

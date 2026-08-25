@@ -55,7 +55,7 @@
 									<div class="mb-3">
 										<label class="form-label">배송주소</label>
 										<input type="text" class="form-control"
-											th:value="|(${order.zipCode}) ${order.doName} ${order.siName} ${order.guName} ${order.roadAddress} ${order.detailAddress}|"
+											th:value="${order.actualDeliveryAddressDisplay}"
 											readonly>
 									</div>
 

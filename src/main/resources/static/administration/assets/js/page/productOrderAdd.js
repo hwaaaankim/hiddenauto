@@ -6,6 +6,27 @@
 	const DEFAULT_PRODUCTION_CATEGORY_ID = 1;
 	const DEFAULT_PRODUCTION_CATEGORY_LABEL = '기본카테고리(ID 1)';
 
+	const PROVINCE_ALIASES = new Map([
+		['서울', '서울특별시'], ['서울시', '서울특별시'], ['서울특별시', '서울특별시'],
+		['부산', '부산광역시'], ['부산시', '부산광역시'], ['부산광역시', '부산광역시'],
+		['대구', '대구광역시'], ['대구시', '대구광역시'], ['대구광역시', '대구광역시'],
+		['인천', '인천광역시'], ['인천시', '인천광역시'], ['인천광역시', '인천광역시'],
+		['광주', '광주광역시'], ['광주시', '광주광역시'], ['광주광역시', '광주광역시'],
+		['전남광주통합특별시', '광주광역시'], ['광주전남통합특별시', '광주광역시'],
+		['대전', '대전광역시'], ['대전시', '대전광역시'], ['대전광역시', '대전광역시'],
+		['울산', '울산광역시'], ['울산시', '울산광역시'], ['울산광역시', '울산광역시'],
+		['세종', '세종특별자치시'], ['세종시', '세종특별자치시'], ['세종특별자치시', '세종특별자치시'],
+		['경기', '경기도'], ['경기도', '경기도'],
+		['강원', '강원특별자치도'], ['강원도', '강원특별자치도'], ['강원특별자치도', '강원특별자치도'],
+		['충북', '충청북도'], ['충청북도', '충청북도'],
+		['충남', '충청남도'], ['충청남도', '충청남도'],
+		['전북', '전북특별자치도'], ['전라북도', '전북특별자치도'], ['전북특별자치도', '전북특별자치도'],
+		['전남', '전라남도'], ['전라남도', '전라남도'],
+		['경북', '경상북도'], ['경상북도', '경상북도'],
+		['경남', '경상남도'], ['경상남도', '경상남도'],
+		['제주', '제주특별자치도'], ['제주도', '제주특별자치도'], ['제주특별자치도', '제주특별자치도']
+	]);
+
 	const NON_STANDARD_EXCLUDED_PRODUCTION_CATEGORY_NAMES = new Set([
 		'재단',
 		'재단(거울)'
@@ -914,7 +935,7 @@
 	function setAddressState(address, source) {
 		state.address = {
 			zipCode: normalizeZipCode(address.zipCode || ''),
-			doName: (address.doName || '').trim(),
+			doName: normalizeProvinceName(address.doName),
 			siName: (address.siName || '').trim(),
 			guName: (address.guName || '').trim(),
 			roadAddress: (address.roadAddress || '').trim(),
@@ -1165,7 +1186,7 @@
 	function setSiteAddressState(address, source, skipRefresh = false) {
 		state.siteAddress = {
 			zipCode: normalizeZipCode(address.zipCode || ''),
-			doName: (address.doName || '').trim(),
+			doName: normalizeProvinceName(address.doName),
 			siName: (address.siName || '').trim(),
 			guName: (address.guName || '').trim(),
 			roadAddress: (address.roadAddress || '').trim(),
@@ -1541,8 +1562,12 @@
 		if (!text) return '';
 
 		const compact = text.replace(/\s+/g, '');
-		if (['광주', '광주시', '광주광역시', '전남광주통합특별시', '광주전남통합특별시'].includes(compact)
-				|| (compact.includes('광주') && compact.includes('통합특별시'))) {
+		const aliased = PROVINCE_ALIASES.get(compact);
+		if (aliased) {
+			return aliased;
+		}
+
+		if (compact.includes('광주') && compact.includes('통합특별시')) {
 			return '광주광역시';
 		}
 
@@ -3806,16 +3831,11 @@
 		const roadAddress = String(safeAddress.roadAddress || '').trim();
 		const detailAddress = String(safeAddress.detailAddress || '').trim();
 		const normalizedRoad = normalizeAddressCompareText(roadAddress);
-		const missingRegionParts = [safeAddress.doName, safeAddress.siName, safeAddress.guName]
-			.map(value => String(value || '').trim())
-			.filter(Boolean)
-			.filter(value => !normalizedRoad.includes(normalizeAddressCompareText(value)));
+		const normalizedDetail = normalizeAddressCompareText(detailAddress);
 
 		return [
-			safeAddress.zipCode ? `(${safeAddress.zipCode})` : '',
-			missingRegionParts.join(' '),
 			roadAddress,
-			detailAddress && !normalizeAddressCompareText(roadAddress).endsWith(normalizeAddressCompareText(detailAddress))
+			detailAddress && (!normalizedRoad || !normalizedRoad.endsWith(normalizedDetail))
 				? detailAddress
 				: ''
 		].filter(Boolean).join(' ');
@@ -3859,14 +3879,14 @@
 				ordererPhone: (state.orderer.ordererPhone || '').trim() || null,
 
 				zipCode: (state.address.zipCode || '').trim(),
-				doName: (state.address.doName || '').trim(),
+				doName: normalizeProvinceName(state.address.doName),
 				siName: (state.address.siName || '').trim(),
 				guName: (state.address.guName || '').trim(),
 				roadAddress: (state.address.roadAddress || '').trim(),
 				detailAddress: (state.address.detailAddress || '').trim(),
 
 				siteZipCode: isSiteDeliverySelected() ? (state.siteAddress.zipCode || '').trim() : null,
-				siteDoName: isSiteDeliverySelected() ? (state.siteAddress.doName || '').trim() : null,
+				siteDoName: isSiteDeliverySelected() ? normalizeProvinceName(state.siteAddress.doName) : null,
 				siteSiName: isSiteDeliverySelected() ? (state.siteAddress.siName || '').trim() : null,
 				siteGuName: isSiteDeliverySelected() ? (state.siteAddress.guName || '').trim() : null,
 				siteRoadAddress: isSiteDeliverySelected() ? (state.siteAddress.roadAddress || '').trim() : null,

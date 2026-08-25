@@ -17,6 +17,9 @@ import java.util.regex.Pattern;
  *     <li>'- 서울 ...'처럼 주소 앞에 붙은 구분용 하이픈 제거</li>
  *     <li>'398-1'처럼 숫자 사이의 실제 번지 하이픈은 보존</li>
  *     <li>도로명주소가 있으면 우편번호 입력 유무는 동일배송지 판단에서 제외</li>
+ *     <li>시/도 축약명과 정식명칭(예: 경기/경기도)은 동일한 주소 키로 처리</li>
+ *     <li>roadAddress 선두의 시/도 표기도 축약/정식명칭 차이를 동일하게 처리</li>
+ *     <li>화면 표시값은 행정구역 메타데이터를 다시 붙이지 않고 roadAddress + detailAddress만 사용</li>
  *     <li>roadAddress에 상세주소가 이미 포함된 경우 detailAddress 중복 제거</li>
  * </ul>
  */
@@ -51,43 +54,34 @@ public final class DeliveryAddressNormalizationUtil {
         String cleanRoad = cleanAddressComponent(roadAddress);
         String cleanDetail = cleanAddressComponent(detailAddress);
 
-        String region = joinNonBlank(" ", cleanDo, cleanSi, cleanGu);
-        String normalizedRoad = normalizeAddressKeyPart(cleanRoad);
-        String normalizedRegion = normalizeAddressKeyPart(region);
+        String normalizedDo = normalizeProvinceKeyPart(cleanDo);
+        String normalizedSi = normalizeAddressKeyPart(cleanSi);
+        String normalizedGu = normalizeAddressKeyPart(cleanGu);
+        String normalizedRegion = normalizedDo + normalizedSi + normalizedGu;
+        String normalizedRoad = normalizeRoadAddressKeyPart(cleanRoad);
         String normalizedDetail = normalizeAddressKeyPart(cleanDetail);
         String normalizedZip = normalizeAddressKeyPart(cleanZip);
 
-        List<String> missingRegionDisplayParts = new ArrayList<>();
         StringBuilder missingRegionKeyPrefix = new StringBuilder();
 
-        for (String regionPart : List.of(cleanDo, cleanSi, cleanGu)) {
-            String normalizedPart = normalizeAddressKeyPart(regionPart);
-
-            if (!normalizedPart.isBlank() && !normalizedRoad.contains(normalizedPart)) {
-                missingRegionDisplayParts.add(regionPart);
-                missingRegionKeyPrefix.append(normalizedPart);
-            }
+        if (!normalizedDo.isBlank() && !roadContainsSameProvince(cleanRoad, normalizedDo)) {
+            missingRegionKeyPrefix.append(normalizedDo);
         }
-
-        List<String> displayParts = new ArrayList<>();
-
-        if (!cleanZip.isBlank()) {
-            displayParts.add("(" + cleanZip + ")");
+        if (!normalizedSi.isBlank() && !normalizedRoad.contains(normalizedSi)) {
+            missingRegionKeyPrefix.append(normalizedSi);
         }
-
-        if (!cleanRoad.isBlank()) {
-            if (!missingRegionDisplayParts.isEmpty()) {
-                displayParts.add(String.join(" ", missingRegionDisplayParts));
-            }
-            displayParts.add(cleanRoad);
-        } else if (!region.isBlank()) {
-            displayParts.add(region);
+        if (!normalizedGu.isBlank() && !normalizedRoad.contains(normalizedGu)) {
+            missingRegionKeyPrefix.append(normalizedGu);
         }
 
         boolean roadAlreadyContainsDetail = !normalizedRoad.isBlank()
                 && !normalizedDetail.isBlank()
                 && normalizedRoad.endsWith(normalizedDetail);
 
+        List<String> displayParts = new ArrayList<>();
+        if (!cleanRoad.isBlank()) {
+            displayParts.add(cleanRoad);
+        }
         if (!cleanDetail.isBlank() && !roadAlreadyContainsDetail) {
             displayParts.add(cleanDetail);
         }
@@ -166,6 +160,66 @@ public final class DeliveryAddressNormalizationUtil {
         return PLACEHOLDER_PATTERN.matcher(text).matches() ? "" : text;
     }
 
+    private static String normalizeProvinceKeyPart(String value) {
+        String clean = cleanAddressComponent(value);
+        if (clean.isBlank()) {
+            return "";
+        }
+
+        if (KoreanAdministrativeRegionNormalizer.isKnownProvince(clean)) {
+            return normalizeAddressKeyPart(KoreanAdministrativeRegionNormalizer.provinceMatchKey(clean));
+        }
+
+        return normalizeAddressKeyPart(KoreanAdministrativeRegionNormalizer.canonicalProvinceName(clean));
+    }
+
+    /**
+     * roadAddress의 첫 토큰이 대한민국 시/도라면 프로젝트 공통 비교키(경기도 -> 경기)로 치환합니다.
+     * 따라서 외부 주소 API가 "경기 ..."를 주고 DB 메타데이터가 "경기도"인 경우에도 동일 주소가 됩니다.
+     */
+    private static String normalizeRoadAddressKeyPart(String roadAddress) {
+        String cleanRoad = cleanAddressComponent(roadAddress);
+        if (cleanRoad.isBlank()) {
+            return "";
+        }
+
+        String[] tokens = cleanRoad.split("\\s+", 2);
+        String firstToken = tokens[0];
+
+        if (KoreanAdministrativeRegionNormalizer.isKnownProvince(firstToken)) {
+            String provinceKey = KoreanAdministrativeRegionNormalizer.provinceMatchKey(firstToken);
+            cleanRoad = tokens.length > 1
+                    ? provinceKey + " " + tokens[1]
+                    : provinceKey;
+        }
+
+        return normalizeAddressKeyPart(cleanRoad);
+    }
+
+    private static boolean roadContainsSameProvince(String roadAddress, String normalizedProvinceKey) {
+        if (normalizedProvinceKey == null || normalizedProvinceKey.isBlank()) {
+            return true;
+        }
+
+        String cleanRoad = cleanAddressComponent(roadAddress);
+        if (cleanRoad.isBlank()) {
+            return false;
+        }
+
+        String[] tokens = cleanRoad.split("\\s+", 2);
+        String firstToken = tokens[0];
+
+        if (KoreanAdministrativeRegionNormalizer.isKnownProvince(firstToken)) {
+            String roadProvinceKey = normalizeAddressKeyPart(
+                    KoreanAdministrativeRegionNormalizer.provinceMatchKey(firstToken)
+            );
+            return normalizedProvinceKey.equals(roadProvinceKey);
+        }
+
+        // 알 수 없는 행정구역명은 기존 데이터 호환성을 위해 정규화된 road 선두 비교를 허용합니다.
+        return normalizeRoadAddressKeyPart(cleanRoad).startsWith(normalizedProvinceKey);
+    }
+
     private static String normalizeAddressKeyPart(String value) {
         String normalized = cleanAddressComponent(value).toLowerCase(Locale.ROOT);
 
@@ -208,20 +262,6 @@ public final class DeliveryAddressNormalizationUtil {
                 .replace('\uFF0D', '-')
                 .replace('\u00A0', ' ')
                 .trim();
-    }
-
-    private static String joinNonBlank(String delimiter, String... values) {
-        List<String> parts = new ArrayList<>();
-
-        if (values != null) {
-            for (String value : values) {
-                if (value != null && !value.isBlank()) {
-                    parts.add(value);
-                }
-            }
-        }
-
-        return String.join(delimiter, parts);
     }
 
     public record AddressValue(String key, String display, String zipCode) {

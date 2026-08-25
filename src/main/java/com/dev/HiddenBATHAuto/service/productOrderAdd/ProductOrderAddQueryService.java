@@ -31,6 +31,7 @@ import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.caculate.DeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.standard.StandardProductSeriesRepository;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -83,7 +84,7 @@ public class ProductOrderAddQueryService {
                     .joinedAt(company.getCreatedAt())
                     .address(buildCompanyAddress(company))
                     .zipCode(trimToEmpty(company.getZipCode()))
-                    .doName(trimToEmpty(company.getDoName()))
+                    .doName(normalizeProvinceName(company.getDoName()))
                     .siName(trimToEmpty(company.getSiName()))
                     .guName(trimToEmpty(company.getGuName()))
                     .roadAddress(trimToEmpty(company.getRoadAddress()))
@@ -104,7 +105,7 @@ public class ProductOrderAddQueryService {
             result.add(ProductOrderCompanyDeliveryAddressResponse.builder()
                     .id(address.getId())
                     .zipCode(trimToEmpty(address.getZipCode()))
-                    .doName(trimToEmpty(address.getDoName()))
+                    .doName(normalizeProvinceName(address.getDoName()))
                     .siName(trimToEmpty(address.getSiName()))
                     .guName(trimToEmpty(address.getGuName()))
                     .roadAddress(trimToEmpty(address.getRoadAddress()))
@@ -266,6 +267,10 @@ public class ProductOrderAddQueryService {
         }
 
         return detail;
+    }
+
+    private String normalizeProvinceName(String value) {
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
     }
 
     private String trimToEmpty(String value) {

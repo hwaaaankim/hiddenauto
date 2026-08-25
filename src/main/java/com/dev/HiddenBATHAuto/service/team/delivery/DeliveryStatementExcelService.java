@@ -877,19 +877,10 @@ public class DeliveryStatementExcelService {
 
     private String buildAddress(String zipCode, String doName, String siName, String guName, String roadAddress,
             String detailAddress) {
-        List<String> tokens = new ArrayList<>();
-
-        if (StringUtils.hasText(zipCode)) {
-            tokens.add("(" + zipCode.trim() + ")");
-        }
-
-        addIfText(tokens, doName);
-        addIfText(tokens, siName);
-        addIfText(tokens, guName);
-        addIfText(tokens, roadAddress);
-        addIfText(tokens, detailAddress);
-
-        return String.join(" ", tokens).trim();
+        String address = DeliveryAddressNormalizationUtil
+                .build(zipCode, doName, siName, guName, roadAddress, detailAddress)
+                .display();
+        return "-".equals(address) ? "" : address;
     }
 
     private void addIfText(Collection<String> tokens, String value) {

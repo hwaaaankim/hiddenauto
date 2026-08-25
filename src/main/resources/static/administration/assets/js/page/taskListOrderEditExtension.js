@@ -25,6 +25,27 @@
 	const DAUM_POSTCODE_SCRIPT_ID = "admin-task-list-second-daum-postcode-script";
 	const DAUM_POSTCODE_SCRIPT_URL = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
 
+	const PROVINCE_ALIASES = new Map([
+		["서울", "서울특별시"], ["서울시", "서울특별시"], ["서울특별시", "서울특별시"],
+		["부산", "부산광역시"], ["부산시", "부산광역시"], ["부산광역시", "부산광역시"],
+		["대구", "대구광역시"], ["대구시", "대구광역시"], ["대구광역시", "대구광역시"],
+		["인천", "인천광역시"], ["인천시", "인천광역시"], ["인천광역시", "인천광역시"],
+		["광주", "광주광역시"], ["광주시", "광주광역시"], ["광주광역시", "광주광역시"],
+		["전남광주통합특별시", "광주광역시"], ["광주전남통합특별시", "광주광역시"],
+		["대전", "대전광역시"], ["대전시", "대전광역시"], ["대전광역시", "대전광역시"],
+		["울산", "울산광역시"], ["울산시", "울산광역시"], ["울산광역시", "울산광역시"],
+		["세종", "세종특별자치시"], ["세종시", "세종특별자치시"], ["세종특별자치시", "세종특별자치시"],
+		["경기", "경기도"], ["경기도", "경기도"],
+		["강원", "강원특별자치도"], ["강원도", "강원특별자치도"], ["강원특별자치도", "강원특별자치도"],
+		["충북", "충청북도"], ["충청북도", "충청북도"],
+		["충남", "충청남도"], ["충청남도", "충청남도"],
+		["전북", "전북특별자치도"], ["전라북도", "전북특별자치도"], ["전북특별자치도", "전북특별자치도"],
+		["전남", "전라남도"], ["전라남도", "전라남도"],
+		["경북", "경상북도"], ["경상북도", "경상북도"],
+		["경남", "경상남도"], ["경상남도", "경상남도"],
+		["제주", "제주특별자치도"], ["제주도", "제주특별자치도"], ["제주특별자치도", "제주특별자치도"]
+	]);
+
 	const OPTION_VALUE_FIXED_KEYS = new Set([
 		"카테고리",
 		"제품시리즈",
@@ -720,7 +741,7 @@
 
 				applyAddress(form, role, {
 					zipCode: data.zonecode || "",
-					doName: data.sido || "",
+					doName: normalizeProvinceName(data.sido),
 					siName: parsed.siName,
 					guName: parsed.guName,
 					roadAddress: data.roadAddress || data.address || "",
@@ -825,9 +846,28 @@
 		return String(value || "").replace(/\s+/g, "").trim();
 	}
 
+	function normalizeProvinceName(value) {
+		const text = String(value || "")
+			.normalize("NFKC")
+			.replace(/\u00A0/g, " ")
+			.trim()
+			.replace(/\s+/g, " ");
+		if (!text) return "";
+
+		const compact = text.replace(/\s+/g, "");
+		const aliased = PROVINCE_ALIASES.get(compact);
+		if (aliased) return aliased;
+
+		if (compact.includes("광주") && compact.includes("통합특별시")) {
+			return "광주광역시";
+		}
+
+		return text;
+	}
+
 	function applyAddress(form, role, item) {
 		setAddressValue(form, role, "zipCode", item.zipCode);
-		setAddressValue(form, role, "doName", item.doName);
+		setAddressValue(form, role, "doName", normalizeProvinceName(item.doName));
 		setAddressValue(form, role, "siName", item.siName);
 		setAddressValue(form, role, "guName", item.guName);
 		setAddressValue(form, role, "roadAddress", item.roadAddress);
@@ -866,32 +906,16 @@
 			return;
 		}
 
-		const zipCode = getAddressValue(form, normalizedRole, "zipCode");
 		const roadAddress = getAddressValue(form, normalizedRole, "roadAddress");
 		const detailAddress = getAddressValue(form, normalizedRole, "detailAddress");
-		const regionParts = [
-			getAddressValue(form, normalizedRole, "doName"),
-			getAddressValue(form, normalizedRole, "siName"),
-			getAddressValue(form, normalizedRole, "guName")
-		].filter(Boolean);
-
-		/*
-		 * Daum roadAddress에는 보통 시/도·시/군/구가 이미 포함되어 있습니다.
-		 * 기존 미리보기는 regionParts와 roadAddress를 무조건 이어 붙여
-		 * "서울 강남구 서울 강남구 ..."처럼 중복 표시될 수 있었습니다.
-		 */
 		const normalizedRoadAddress = normalizeAddressPart(roadAddress);
-		const missingRegionParts = roadAddress
-			? regionParts.filter(function(part) {
-				return !normalizedRoadAddress.includes(normalizeAddressPart(part));
-			})
-			: regionParts;
+		const normalizedDetailAddress = normalizeAddressPart(detailAddress);
 
 		const text = [
-			zipCode ? "(" + zipCode + ")" : "",
-			...missingRegionParts,
 			roadAddress,
-			detailAddress
+			detailAddress && (!normalizedRoadAddress || !normalizedRoadAddress.endsWith(normalizedDetailAddress))
+				? detailAddress
+				: ""
 		].filter(Boolean).join(" ");
 
 		preview.textContent = text || "-";
