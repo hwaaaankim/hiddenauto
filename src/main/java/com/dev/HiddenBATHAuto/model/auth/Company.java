@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -18,6 +19,8 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -82,6 +85,26 @@ public class Company implements Serializable {
     @JoinColumn(name = "sales_manager_id")
     private Member salesManager; // ✅ 담당 영업사원
     
+    /**
+     * 회사 기본주소도 주문 주소와 동일한 시/도 canonical 명칭을 사용합니다.
+     */
+    public void setDoName(String doName) {
+        this.doName = normalizeProvincePreservingNull(doName);
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeProvinceNameBeforeSave() {
+        this.doName = normalizeProvincePreservingNull(this.doName);
+    }
+
+    private String normalizeProvincePreservingNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
+    }
+
     // ✅ 회사 주문자 정보 목록
     @JsonManagedReference("company-ordererInfo")
     @ToString.Exclude

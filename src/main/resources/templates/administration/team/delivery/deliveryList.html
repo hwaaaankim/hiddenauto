@@ -157,9 +157,7 @@
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
                                                     data-company-key=${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null and o.task.requestedBy.company.id != null ? 'COMPANY-' + o.task.requestedBy.company.id : 'ORDER-' + o.id},
-                                                    data-delivery-address-key=${useSiteAddress
-                                                        ? ((o.siteZipCode != null ? o.siteZipCode : '') + '|' + (o.siteDoName != null ? o.siteDoName : '') + '|' + (o.siteSiName != null ? o.siteSiName : '') + '|' + (o.siteGuName != null ? o.siteGuName : '') + '|' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + '|' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-                                                        : ((o.zipCode != null ? o.zipCode : '') + '|' + (o.doName != null ? o.doName : '') + '|' + (o.siName != null ? o.siName : '') + '|' + (o.guName != null ? o.guName : '') + '|' + (o.roadAddress != null ? o.roadAddress : '') + '|' + (o.detailAddress != null ? o.detailAddress : ''))},
+                                                    data-delivery-address-key=${o.actualDeliveryAddressKey},
                                                     data-order-status=${o.status != null ? o.status.name() : ''},
                                                     data-delivery-section='actionable'
                                                 ">
@@ -209,9 +207,7 @@
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
 															<span class="delivery-list-added-address-value"
-																th:text="${useSiteAddress
-																	? ((o.siteDoName != null ? o.siteDoName : '') + ' ' + (o.siteSiName != null ? o.siteSiName : '') + ' ' + (o.siteGuName != null ? o.siteGuName : '') + ' ' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-																	: ((o.doName != null ? o.doName : '') + ' ' + (o.siName != null ? o.siName : '') + ' ' + (o.guName != null ? o.guName : '') + ' ' + (o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+																th:text="${o.actualDeliveryAddressDisplay}">
 															</span>
 														</div>
 
@@ -311,9 +307,7 @@
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
                                                     data-company-key=${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null and o.task.requestedBy.company.id != null ? 'COMPANY-' + o.task.requestedBy.company.id : 'ORDER-' + o.id},
-                                                    data-delivery-address-key=${useSiteAddress
-                                                        ? ((o.siteZipCode != null ? o.siteZipCode : '') + '|' + (o.siteDoName != null ? o.siteDoName : '') + '|' + (o.siteSiName != null ? o.siteSiName : '') + '|' + (o.siteGuName != null ? o.siteGuName : '') + '|' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + '|' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-                                                        : ((o.zipCode != null ? o.zipCode : '') + '|' + (o.doName != null ? o.doName : '') + '|' + (o.siName != null ? o.siName : '') + '|' + (o.guName != null ? o.guName : '') + '|' + (o.roadAddress != null ? o.roadAddress : '') + '|' + (o.detailAddress != null ? o.detailAddress : ''))},
+                                                    data-delivery-address-key=${o.actualDeliveryAddressKey},
                                                     data-order-status=${o.status != null ? o.status.name() : ''},
                                                     data-delivery-section='done'
                                                 ">
@@ -351,9 +345,7 @@
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
 															<span class="delivery-list-added-address-value"
-																th:text="${useSiteAddress
-																	? ((o.siteDoName != null ? o.siteDoName : '') + ' ' + (o.siteSiName != null ? o.siteSiName : '') + ' ' + (o.siteGuName != null ? o.siteGuName : '') + ' ' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-																	: ((o.doName != null ? o.doName : '') + ' ' + (o.siName != null ? o.siName : '') + ' ' + (o.guName != null ? o.guName : '') + ' ' + (o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+																th:text="${o.actualDeliveryAddressDisplay}">
 															</span>
 														</div>
 
@@ -445,9 +437,7 @@
                                                     data-order-id=${o.id},
                                                     data-task-id=${o.task != null ? o.task.id : 0},
                                                     data-company-key=${o.task != null and o.task.requestedBy != null and o.task.requestedBy.company != null and o.task.requestedBy.company.id != null ? 'COMPANY-' + o.task.requestedBy.company.id : 'ORDER-' + o.id},
-                                                    data-delivery-address-key=${useSiteAddress
-                                                        ? ((o.siteZipCode != null ? o.siteZipCode : '') + '|' + (o.siteDoName != null ? o.siteDoName : '') + '|' + (o.siteSiName != null ? o.siteSiName : '') + '|' + (o.siteGuName != null ? o.siteGuName : '') + '|' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + '|' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-                                                        : ((o.zipCode != null ? o.zipCode : '') + '|' + (o.doName != null ? o.doName : '') + '|' + (o.siName != null ? o.siName : '') + '|' + (o.guName != null ? o.guName : '') + '|' + (o.roadAddress != null ? o.roadAddress : '') + '|' + (o.detailAddress != null ? o.detailAddress : ''))},
+                                                    data-delivery-address-key=${o.actualDeliveryAddressKey},
                                                     data-order-status=${o.status != null ? o.status.name() : ''},
                                                     data-delivery-section='other'
                                                 ">
@@ -485,9 +475,7 @@
 														<div class="delivery-list-added-line">
 															<strong>주소:</strong>
 															<span class="delivery-list-added-address-value"
-																th:text="${useSiteAddress
-																	? ((o.siteDoName != null ? o.siteDoName : '') + ' ' + (o.siteSiName != null ? o.siteSiName : '') + ' ' + (o.siteGuName != null ? o.siteGuName : '') + ' ' + (o.siteRoadAddress != null ? o.siteRoadAddress : '') + ' ' + (o.siteDetailAddress != null ? o.siteDetailAddress : ''))
-																	: ((o.doName != null ? o.doName : '') + ' ' + (o.siName != null ? o.siName : '') + ' ' + (o.guName != null ? o.guName : '') + ' ' + (o.roadAddress != null ? o.roadAddress : '') + ' ' + (o.detailAddress != null ? o.detailAddress : ''))}">
+																th:text="${o.actualDeliveryAddressDisplay}">
 															</span>
 														</div>
 

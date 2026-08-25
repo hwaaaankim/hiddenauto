@@ -10,6 +10,8 @@ import org.hibernate.Hibernate;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -25,6 +27,8 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import lombok.Getter;
@@ -157,6 +161,78 @@ public class Order {
 
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
+
+    /**
+     * 주문 주소의 시/도 값은 저장 경로와 무관하게 프로젝트 표준 명칭으로 유지합니다.
+     * 예: 경기 -> 경기도, 강원 -> 강원특별자치도
+     */
+    public void setDoName(String doName) {
+        this.doName = normalizeProvincePreservingNull(doName);
+    }
+
+    public void setSiteDoName(String siteDoName) {
+        this.siteDoName = normalizeProvincePreservingNull(siteDoName);
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeProvinceNamesBeforeSave() {
+        this.doName = normalizeProvincePreservingNull(this.doName);
+        this.siteDoName = normalizeProvincePreservingNull(this.siteDoName);
+    }
+
+    private String normalizeProvincePreservingNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        return KoreanAdministrativeRegionNormalizer.canonicalProvinceName(value);
+    }
+
+    /**
+     * 현장주소가 실제로 입력되어 있으면 현장주소를, 아니면 기본주소를 실제 배송지로 사용합니다.
+     */
+    @Transient
+    public boolean hasMeaningfulSiteDeliveryAddress() {
+        return DeliveryAddressNormalizationUtil.hasAnyMeaningfulAddressText(
+                siteDoName,
+                siteSiName,
+                siteGuName,
+                siteRoadAddress,
+                siteDetailAddress
+        );
+    }
+
+    @Transient
+    public String getActualDeliveryAddressKey() {
+        return buildActualDeliveryAddressValue().key();
+    }
+
+    @Transient
+    public String getActualDeliveryAddressDisplay() {
+        return buildActualDeliveryAddressValue().display();
+    }
+
+    private DeliveryAddressNormalizationUtil.AddressValue buildActualDeliveryAddressValue() {
+        if (hasMeaningfulSiteDeliveryAddress()) {
+            return DeliveryAddressNormalizationUtil.build(
+                    siteZipCode,
+                    siteDoName,
+                    siteSiName,
+                    siteGuName,
+                    siteRoadAddress,
+                    siteDetailAddress
+            );
+        }
+
+        return DeliveryAddressNormalizationUtil.build(
+                zipCode,
+                doName,
+                siName,
+                guName,
+                roadAddress,
+                detailAddress
+        );
+    }
 
     public void setOrderItem(OrderItem orderItem) {
         this.orderItem = orderItem;

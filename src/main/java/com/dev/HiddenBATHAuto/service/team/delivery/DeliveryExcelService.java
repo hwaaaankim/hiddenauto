@@ -348,15 +348,8 @@ public class DeliveryExcelService {
             return "";
         }
 
-        if (hasMeaningfulSiteAddress(order)) {
-            String siteAddress = buildSiteAddress(order);
-
-            if (!siteAddress.isBlank()) {
-                return siteAddress;
-            }
-        }
-
-        return buildBasicAddress(order);
+        String address = order.getActualDeliveryAddressDisplay();
+        return "-".equals(address) ? "" : address;
     }
 
     private String buildBasicAddress(Order order) {

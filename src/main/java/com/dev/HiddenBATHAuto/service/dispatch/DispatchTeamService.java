@@ -69,7 +69,6 @@ import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy.MethodGroup;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.order.OrderOperationalChangeRecorder;
-import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -1731,14 +1730,7 @@ public class DispatchTeamService {
             return "-";
         }
 
-        return DeliveryAddressNormalizationUtil.build(
-                null, // 기존 출고 리스트와 동일하게 우편번호는 표시하지 않습니다.
-                order.getDoName(),
-                order.getSiName(),
-                order.getGuName(),
-                order.getRoadAddress(),
-                order.getDetailAddress()
-        ).display();
+        return order.getActualDeliveryAddressDisplay();
     }
 
     private String formatDateTime(LocalDateTime dateTime) {

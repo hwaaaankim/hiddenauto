@@ -126,29 +126,7 @@ public class DeliveryOrderSummaryService {
             return "-";
         }
 
-        boolean useSiteAddress = order.getDeliveryMethod() != null
-                && "현장배송".equals(safe(order.getDeliveryMethod().getMethodName()))
-                && !isBlank(order.getSiteRoadAddress());
-
-        String zip = useSiteAddress ? safe(order.getSiteZipCode()) : safe(order.getZipCode());
-        String road = useSiteAddress ? safe(order.getSiteRoadAddress()) : safe(order.getRoadAddress());
-        String detail = useSiteAddress ? safe(order.getSiteDetailAddress()) : safe(order.getDetailAddress());
-
-        StringBuilder sb = new StringBuilder();
-
-        if (!isBlank(zip)) {
-            sb.append("(").append(zip).append(") ");
-        }
-
-        if (!isBlank(road)) {
-            sb.append(road);
-        }
-
-        if (!isBlank(detail)) {
-            sb.append(" ").append(detail);
-        }
-
-        return sb.length() == 0 ? "-" : sb.toString().trim();
+        return order.getActualDeliveryAddressDisplay();
     }
 
     private static String safe(String s) {
