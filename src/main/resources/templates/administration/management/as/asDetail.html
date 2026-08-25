@@ -373,7 +373,7 @@
 													<select class="form-select" id="as-management-third-status"
 														name="status">
 														<option th:each="s : ${asStatuses}" th:value="${s.name()}"
-															th:text="${s.name()}"
+															th:text="${s.labelKr}"
 															th:selected="${asTask.status != null && asTask.status.name() == s.name()}">
 														</option>
 													</select>

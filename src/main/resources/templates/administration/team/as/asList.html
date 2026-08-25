@@ -763,7 +763,7 @@
 																task.status?.name() == 'IN_PROGRESS' ? ' as-list-added-badge-progress' :
 																task.status?.name() == 'COMPLETED' ? ' as-list-added-badge-completed' :
 																task.status?.name() == 'CANCELED' ? ' as-list-added-badge-canceled' : ''
-															}" th:text="${task.status != null ? asStatusLabels[task.status.name()] : '-'}">
+															}" th:text="${task.status != null ? task.status.getLabelKr() : '-'}">
 															요청됨
 														</span>
 													</td>
@@ -1261,7 +1261,7 @@
 		<div class="modal-dialog modal-dialog-scrollable modal-lg">
 			<div class="modal-content asList-second-modal-content">
 				<div class="modal-header">
-					<h5 class="modal-title asList-second-modal-title" th:text="|AS ${asStatusLabels['COMPLETED']} 처리|">
+					<h5 class="modal-title asList-second-modal-title" th:text="|AS ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).COMPLETED.getLabelKr()} 처리|">
 						AS 완료 처리
 					</h5>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1404,7 +1404,7 @@
 			cityId: /*[[${cityId}]]*/ null,
 			districtId: /*[[${districtId}]]*/ null
 		};
-		window.__AS_STATUS_LABELS__ = /*[[${asStatusLabels}]]*/ {};
+		window.__AS_STATUS_LABELS__ = /*[[${T(com.dev.HiddenBATHAuto.model.task.AsStatus).labelMap()}]]*/ {};
 	</script>
 
 	<script src="/administration/assets/js/page/asList.js"></script>

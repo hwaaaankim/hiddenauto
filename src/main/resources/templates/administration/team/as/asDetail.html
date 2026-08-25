@@ -132,11 +132,11 @@
 																name="status">
 																<option value="IN_PROGRESS"
 																	th:selected="${asTask.status.name() == 'IN_PROGRESS'}"
-																	th:text="${asStatusLabels['IN_PROGRESS']}">진행중
+																	th:text="${T(com.dev.HiddenBATHAuto.model.task.AsStatus).IN_PROGRESS.getLabelKr()}">진행중
 																</option>
 																<option value="COMPLETED"
 																	th:selected="${asTask.status.name() == 'COMPLETED'}"
-																	th:text="${asStatusLabels['COMPLETED']}">완료</option>
+																	th:text="${T(com.dev.HiddenBATHAuto.model.task.AsStatus).COMPLETED.getLabelKr()}">완료</option>
 															</select>
 															<span class="team-as-detail-fourth-info-help">
 																현재 진행중 상태이므로 완료 상태로 변경할 수 있습니다.
@@ -147,9 +147,9 @@
 															th:if="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}">
 															<div class="team-as-detail-fourth-info-value">
 																<span class="badge bg-light text-dark border px-3 py-2"
-																	th:text="${#strings.defaultString(asTask.statusLabelKr, '-')}">-</span>
+																	th:text="${asTask.status != null ? asTask.status.getLabelKr() : '-'}">-</span>
 																<span class="team-as-detail-fourth-info-help">
-																	* 진행중(IN_PROGRESS) 상태에서만 상태 변경이 가능합니다.
+																	* 진행중 상태에서만 상태 변경이 가능합니다.
 																</span>
 															</div>
 														</div>
@@ -224,7 +224,7 @@
 														담당자 관리
 													</h5>
 													<div class="team-as-detail-fourth-section-sub">
-														담당자 변경, 담당자용 메모, 방문예정일, 방문예정시간은 진행중(IN_PROGRESS) 상태에서만 수정할 수
+														담당자 변경, 담당자용 메모, 방문예정일, 방문예정시간은 진행중 상태에서만 수정할 수
 														있습니다.
 													</div>
 												</div>
@@ -383,7 +383,7 @@
 														AS 결과 이미지 업로드
 													</h5>
 													<div class="team-as-detail-fourth-section-sub">
-														진행중(IN_PROGRESS) 상태에서만 결과 이미지를 업로드할 수 있습니다.
+														진행중 상태에서만 결과 이미지를 업로드할 수 있습니다.
 													</div>
 												</div>
 											</div>
@@ -492,11 +492,11 @@
 												<div>
 													<div class="fw-semibold mb-1">현재 상태에서는 상세 관리가 불가능합니다.</div>
 													<div class="small text-muted">
-														상태 변경 / 담당자용 메모 / 방문예정시간 / 이미지 업로드 / 저장 기능은 진행중(IN_PROGRESS)
+														상태 변경 / 담당자용 메모 / 방문예정시간 / 이미지 업로드 / 저장 기능은 진행중
 														상태에서만 가능합니다.
 														현재 상태 :
 														<span class="fw-semibold"
-															th:text="${#strings.defaultString(asTask.statusLabelKr, '-')}">-</span>
+															th:text="${asTask.status != null ? asTask.status.getLabelKr() : '-'}">-</span>
 													</div>
 												</div>
 											</div>

@@ -176,7 +176,7 @@
 
 												<span class="as-management-added-badge"
 													th:classappend="' as-management-added-badge-' + ${t.status}"
-													th:text="${asStatusLabels[t.status]}">
+													th:text="${T(com.dev.HiddenBATHAuto.model.task.AsStatus).labelOf(t.status != null ? t.status.toString() : null)}">
 												</span>
 
 												<span
@@ -221,9 +221,9 @@
 											</div>
 
 											<div class="as-management-added-detail-hint text-muted small mt-2">
-												- 이 페이지에서는 진행중(IN_PROGRESS), 완료(COMPLETED)만 조회됩니다.<br />
-												- 진행중(IN_PROGRESS)만 달력 등록/이동이 가능합니다.<br />
-												- 완료(COMPLETED)는 조회만 가능하며 제거/이동할 수 없습니다.
+												- 이 페이지에서는 진행중, 완료 상태만 조회됩니다.<br />
+												- 진행중 상태만 달력 등록/이동이 가능합니다.<br />
+												- 완료 상태는 조회만 가능하며 제거/이동할 수 없습니다.
 											</div>
 										</div>
 									</div>
@@ -285,7 +285,7 @@
 			cityId: /*[[${cityId}]]*/ null,
 			districtId: /*[[${districtId}]]*/ null
 		};
-		window.__AS_STATUS_LABELS__ = /*[[${asStatusLabels}]]*/ {};
+		window.__AS_STATUS_LABELS__ = /*[[${T(com.dev.HiddenBATHAuto.model.task.AsStatus).labelMap()}]]*/ {};
 	</script>
 
 	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>

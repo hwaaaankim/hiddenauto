@@ -80,7 +80,7 @@
 													<option value="">전체</option>
 													<option
 														th:each="st : ${T(com.dev.HiddenBATHAuto.model.task.AsStatus).values()}"
-														th:value="${st}" th:text="${st}"
+														th:value="${st.name()}" th:text="${st.labelKr}"
 														th:selected="${selectedStatus != null and selectedStatus.name() == st.name()}">
 													</option>
 												</select>
@@ -670,7 +670,7 @@
 											                    as.status != null and as.status.name() == 'COMPLETED' ? 'success-subtle text-success' :
 											                    as.status != null and as.status.name() == 'CANCELED' ? 'danger-subtle text-danger' :
 											                    'light'
-											                  }|" th:text="${as.status != null ? as.status.name() : 'UNKNOWN'}">
+											                  }|" th:text="${as.status != null ? as.status.labelKr : '-'}">
 															상태
 														</span>
 													</td>
