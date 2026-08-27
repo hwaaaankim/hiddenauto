@@ -11,6 +11,8 @@
     }
 
     var config = window.teamProductionOverviewConfig || {};
+    var canCompleteProduction = config.canCompleteProduction === true
+        || String(config.canCompleteProduction || '').toLowerCase() === 'true';
 
     var btnBulkDone = qs('#team-production-bulk-done-btn');
     var btnSticker = qs('#team-production-sticker-print-btn');
@@ -57,7 +59,9 @@
         }
 
         if (btnBulkDone) {
-            btnBulkDone.disabled = !hasAny;
+            // 출력 대상 선택과 생산완료 권한은 별개입니다.
+            // 재단팀은 체크/출력은 가능하지만 이 버튼은 항상 비활성 상태를 유지해야 합니다.
+            btnBulkDone.disabled = !canCompleteProduction || !hasAny;
         }
 
         if (btnExcel) {
