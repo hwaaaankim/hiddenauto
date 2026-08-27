@@ -15,7 +15,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderExcelAddressParser {
 
-    private static final Pattern PHONE_PATTERN = Pattern.compile("(01[016789][-\\s]?\\d{3,4}[-\\s]?\\d{4})");
+    private static final String PHONE_SEPARATOR = "[-.\\s]?";
+    private static final String FIXED_LINE_PREFIX = "(?:02|0(?:3[1-3]|4[1-4]|5[1-5]|6[1-4]|70|80)|050[2-8])";
+    private static final Pattern PHONE_PATTERN = Pattern.compile(
+            "(?<!\\d)(?:"
+                    + "01[016789]" + PHONE_SEPARATOR + "\\d{3,4}" + PHONE_SEPARATOR + "\\d{4}"
+                    + "|(?:" + FIXED_LINE_PREFIX + "|\\(" + FIXED_LINE_PREFIX + "\\))"
+                    + PHONE_SEPARATOR + "\\d{3,4}" + PHONE_SEPARATOR + "\\d{4}"
+                    + "|1[5-8]\\d{2}" + PHONE_SEPARATOR + "\\d{4}"
+                    + ")(?!\\d)"
+    );
     private static final Pattern ZIP_PATTERN = Pattern.compile("\\b\\d{5}\\b");
 
     /**
@@ -198,7 +207,7 @@ public class OrderExcelAddressParser {
             return;
         }
 
-        String phone = phoneMatcher.group().replaceAll("[-\\s]+", "-");
+        String phone = normalizePhoneNumber(phoneMatcher.group());
         result.setRecipientPhone(phone);
 
         String beforePhone = source.substring(0, phoneMatcher.start()).replace("/", " ").trim();
@@ -209,6 +218,40 @@ public class OrderExcelAddressParser {
                 result.setRecipientName(candidate);
             }
         }
+    }
+
+    /**
+     * 엑셀 원문에서 인식한 국내 연락처를 화면/저장에 사용하기 좋은 하이픈 형식으로 통일합니다.
+     * - 휴대폰: 010-1234-5678
+     * - 서울: 02-1234-5678
+     * - 지역번호/인터넷전화: 031-123-4567, 070-1234-5678
+     * - 050 안심번호: 0507-1234-5678
+     * - 대표번호: 1588-1234
+     */
+    private String normalizePhoneNumber(String value) {
+        String digits = value == null ? "" : value.replaceAll("\\D", "");
+        if (digits.isBlank()) {
+            return "";
+        }
+
+        if (digits.matches("1[5-8]\\d{6}")) {
+            return digits.substring(0, 4) + "-" + digits.substring(4);
+        }
+
+        if (digits.startsWith("02") && (digits.length() == 9 || digits.length() == 10)) {
+            return digits.substring(0, 2)
+                    + "-" + digits.substring(2, digits.length() - 4)
+                    + "-" + digits.substring(digits.length() - 4);
+        }
+
+        int prefixLength = digits.startsWith("050") ? 4 : 3;
+        if (digits.length() > prefixLength + 4) {
+            return digits.substring(0, prefixLength)
+                    + "-" + digits.substring(prefixLength, digits.length() - 4)
+                    + "-" + digits.substring(digits.length() - 4);
+        }
+
+        return digits;
     }
 
     private void parseRegionByTokens(ParsedSiteAddress result, String addressPart) {
