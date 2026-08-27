@@ -67,7 +67,6 @@
 
 		if (!canBulkComplete) {
 			$btnBulkDone.disabled = true;
-			if ($checkAll) $checkAll.disabled = true;
 			return;
 		}
 
@@ -77,12 +76,6 @@
 
 	function syncCheckAllState() {
 		if (!$checkAll) return;
-
-		if (!canBulkComplete) {
-			$checkAll.checked = false;
-			$checkAll.disabled = true;
-			return;
-		}
 
 		const enabledItems = $items.filter(cb => cb && !cb.disabled);
 		if (enabledItems.length === 0) {
@@ -473,110 +466,99 @@
 		$sortResetBtn.addEventListener('click', resetAllSortFilters);
 	}
 
-	// ===== 벌크 기능 (권한 있을 때만 활성) =====
+	// ===== 선택 기능과 생산완료 권한은 분리 =====
+	// 재단팀은 생산완료 권한이 없어도 체크박스를 사용해 엑셀/바로출력 대상을 선택할 수 있습니다.
+	// 전체선택(현재 페이지)
+	if ($checkAll) {
+		$checkAll.addEventListener('change', function () {
+			const checked = $checkAll.checked;
+			$items.forEach(cb => {
+				if (cb && !cb.disabled) cb.checked = checked;
+			});
+			syncButtonState();
+			syncCheckAllState();
+		});
+	}
+
+	// 개별 체크
+	$items.forEach(cb => {
+		if (!cb) return;
+		cb.addEventListener('change', function () {
+			syncButtonState();
+			syncCheckAllState();
+		});
+	});
+
 	if (!canBulkComplete) {
-		$items.forEach(cb => {
-			if (!cb) return;
-			cb.checked = false;
-			cb.disabled = true;
-		});
-		if ($checkAll) {
-			$checkAll.checked = false;
-			$checkAll.indeterminate = false;
-			$checkAll.disabled = true;
-		}
 		if ($btnBulkDone) $btnBulkDone.disabled = true;
-	} else {
-		// 전체선택(현재 페이지)
-		if ($checkAll) {
-			$checkAll.addEventListener('change', function () {
-				const checked = $checkAll.checked;
-				$items.forEach(cb => {
-					if (cb && !cb.disabled) cb.checked = checked;
+	} else if ($btnBulkDone) {
+		// 생산완료처리: 권한이 있는 생산분류에서만 이벤트를 연결합니다.
+		$btnBulkDone.addEventListener('click', async function () {
+			const checkedItems = getCheckedItems();
+			if (checkedItems.length === 0) return;
+
+			const invalid = getInvalidForComplete(checkedItems);
+			if (invalid.length > 0) {
+				const first = invalid[0];
+				const extra = (invalid.length > 1) ? ` (총 ${invalid.length}건)` : '';
+				alert(`${first.id}번 오더는 완료처리할 수 없습니다.${extra}\nCONFIRMED(승인 완료) 상태만 생산완료 처리 가능합니다.\n체크 해제 후 다시 시도해주세요.`);
+				return;
+			}
+
+			const ids = checkedItems.map(x => x.id);
+
+			if (!window.confirm(`선택된 ${ids.length}건을 생산완료 처리하시겠습니까?`)) return;
+
+			const csrf = getCsrf();
+			const headers = { 'Content-Type': 'application/json' };
+			if (csrf.token && csrf.header) headers[csrf.header] = csrf.token;
+
+			const feedback = window.TeamActionFeedback || null;
+			const feedbackToken = feedback ? feedback.begin({
+				title: ids.length + '건 생산완료 처리 중',
+				message: '선택한 발주의 상태와 담당자, 알림 내역을 일괄 반영하고 있습니다.',
+				detail: '완료 후 현재 조건으로 화면을 새로고침합니다.'
+			}) : null;
+
+			$btnBulkDone.disabled = true;
+
+			try {
+				const res = await fetch('/api/team/production/orders/complete', {
+					method: 'POST',
+					headers,
+					body: JSON.stringify({ orderIds: ids })
 				});
-				syncButtonState();
-				syncCheckAllState();
-			});
-		}
 
-		// 개별 체크
-		$items.forEach(cb => {
-			if (!cb) return;
-			cb.addEventListener('change', function () {
+				if (!res.ok) {
+					const text = await res.text();
+					throw new Error(text || '처리에 실패했습니다.');
+				}
+
+				if (feedback) {
+					await feedback.success({
+						title: '생산완료 처리가 끝났습니다.',
+						message: ids.length + '건이 정상적으로 생산완료 처리되었습니다.',
+						detail: '최신 상태를 다시 불러옵니다.'
+					}, feedbackToken);
+				} else {
+					alert('생산완료 처리되었습니다.');
+				}
+
+				window.location.reload();
+			} catch (e) {
+				if (feedback) {
+					await feedback.error({
+						title: '생산완료 처리 실패',
+						message: e && e.message ? e.message : '네트워크 오류가 발생했습니다.',
+						detail: '실패한 주문은 변경되지 않았습니다.'
+					}, feedbackToken);
+				} else {
+					alert(e?.message || '네트워크 오류가 발생했습니다.');
+				}
+			} finally {
 				syncButtonState();
-				syncCheckAllState();
-			});
+			}
 		});
-
-		// 생산완료처리
-		if ($btnBulkDone) {
-			$btnBulkDone.addEventListener('click', async function () {
-				const checkedItems = getCheckedItems();
-				if (checkedItems.length === 0) return;
-
-				const invalid = getInvalidForComplete(checkedItems);
-				if (invalid.length > 0) {
-					const first = invalid[0];
-					const extra = (invalid.length > 1) ? ` (총 ${invalid.length}건)` : '';
-					alert(`${first.id}번 오더는 완료처리할 수 없습니다.${extra}\nCONFIRMED(승인 완료) 상태만 생산완료 처리 가능합니다.\n체크 해제 후 다시 시도해주세요.`);
-					return;
-				}
-
-				const ids = checkedItems.map(x => x.id);
-
-				if (!window.confirm(`선택된 ${ids.length}건을 생산완료 처리하시겠습니까?`)) return;
-
-				const csrf = getCsrf();
-				const headers = { 'Content-Type': 'application/json' };
-				if (csrf.token && csrf.header) headers[csrf.header] = csrf.token;
-
-				const feedback = window.TeamActionFeedback || null;
-				const feedbackToken = feedback ? feedback.begin({
-					title: ids.length + '건 생산완료 처리 중',
-					message: '선택한 발주의 상태와 담당자, 알림 내역을 일괄 반영하고 있습니다.',
-					detail: '완료 후 현재 조건으로 화면을 새로고침합니다.'
-				}) : null;
-
-				$btnBulkDone.disabled = true;
-
-				try {
-					const res = await fetch('/api/team/production/orders/complete', {
-						method: 'POST',
-						headers,
-						body: JSON.stringify({ orderIds: ids })
-					});
-
-					if (!res.ok) {
-						const text = await res.text();
-						throw new Error(text || '처리에 실패했습니다.');
-					}
-
-					if (feedback) {
-						await feedback.success({
-							title: '생산완료 처리가 끝났습니다.',
-							message: ids.length + '건이 정상적으로 생산완료 처리되었습니다.',
-							detail: '최신 상태를 다시 불러옵니다.'
-						}, feedbackToken);
-					} else {
-						alert('생산완료 처리되었습니다.');
-					}
-
-					window.location.reload();
-				} catch (e) {
-					if (feedback) {
-						await feedback.error({
-							title: '생산완료 처리 실패',
-							message: e && e.message ? e.message : '네트워크 오류가 발생했습니다.',
-							detail: '실패한 주문은 변경되지 않았습니다.'
-						}, feedbackToken);
-					} else {
-						alert(e?.message || '네트워크 오류가 발생했습니다.');
-					}
-				} finally {
-					syncButtonState();
-				}
-			});
-		}
 	}
 
 	// 초기 상태

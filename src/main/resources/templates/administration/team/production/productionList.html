@@ -399,6 +399,7 @@
                                                       isLatestChecked=${checkState == 'CHECKED'},
                                                       isRevisedAfterCheck=${checkState == 'REVISED_AFTER_CHECK'},
                                                       canOperateOrder=${productionOperationAllowedMap != null and productionOperationAllowedMap[order.id] == true},
+                                                      canSelectOrder=${canOperateOrder or isCuttingProductionMember},
                                                       canCompleteOrder=${canOperateOrder and order.status != null and order.status.name() == 'CONFIRMED'},
                                                       displayProductName=${productName != null and productName != '' and order.orderItem != null and order.orderItem.productName != null and order.orderItem.productName != ''
                                                           ? order.orderItem.productName
@@ -556,7 +557,8 @@
 													<input type="checkbox" class="team-production-check-item" th:attr="
                         data-order-id=${order.id},
                         data-status=${order.status != null ? order.status.name() : ''}
-                    " th:disabled="${!canOperateOrder}">
+                    " th:disabled="${!canSelectOrder}"
+                      th:title="${canSelectOrder ? '출력/작업 대상으로 선택합니다.' : '현재 로그인한 생산분류에서 선택할 수 없는 주문입니다.'}">
 												</td>
 											</tr>
 
@@ -1333,8 +1335,8 @@
 		};
 	</script>
 
-	<script th:src="@{/administration/assets/team/production/productionList.js(v='20260806-1')}"></script>
-	<script th:src="@{/administration/assets/team/production/productionPrint.js(v='20260824-1')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionList.js(v='20260827-1')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionPrint.js(v='20260827-1')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOrderCheck.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionListDetail.js(v='20260809-3')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOverview.js(v='20260809-3')}"></script>
