@@ -173,7 +173,7 @@
 															<div><span>배송예정일</span><strong th:text="${orderSummary.deliveryDate != null ? #temporals.format(orderSummary.deliveryDate, 'yyyy/MM/dd') : '-'}">-</strong></div>
 														</div>
 														<div class="task-list-order-detail-address"><span>배송지</span><strong th:text="${orderSummary.deliveryAddress}">-</strong></div>
-														<div class="task-list-order-detail-comment"><span>비고</span><p th:text="${orderSummary.orderComment}">-</p></div>
+														<div class="task-list-order-detail-comment"><span>비고</span><p th:text="${orderSummary.adminMemo}">-</p></div>
 													</article>
 												</div>
 											</div>

@@ -138,6 +138,7 @@ public final class CustomerPageDtos {
         private String statusKey;
         private String statusLabel;
         private String orderComment;
+        private String adminMemo;
     }
 
     @Getter
