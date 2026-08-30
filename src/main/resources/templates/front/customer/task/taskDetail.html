@@ -96,7 +96,7 @@
 																<div class="task-detail-option-item" th:each="entry : ${order.orderItem.parsedOptionMap}"><span th:text="${entry.key}">옵션</span><strong th:text="${entry.value}">값</strong></div>
 															</div>
 															<div class="task-detail-empty-text" th:if="${order.orderItem == null or order.orderItem.parsedOptionMap == null or order.orderItem.parsedOptionMap.isEmpty()}">등록된 옵션 정보가 없습니다.</div>
-															<div class="task-detail-order-comment" th:if="${order.orderComment != null and !#strings.isEmpty(order.orderComment)}"><span>주문 비고</span><p th:text="${order.orderComment}"></p></div>
+															<div class="task-detail-order-comment" th:if="${order.adminMemo != null and !#strings.isEmpty(order.adminMemo)}"><span>비고</span><p th:text="${order.adminMemo}"></p></div>
 														</div>
 													</div>
 													<div class="col-lg-5">

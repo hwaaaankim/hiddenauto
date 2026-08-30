@@ -253,6 +253,7 @@ public class CustomerListViewService {
                 .statusKey(status != null ? status.name() : "NONE")
                 .statusLabel(status != null ? status.getLabel() : "-")
                 .orderComment(safeText(order.getOrderComment(), "-"))
+                .adminMemo(safeText(order.getAdminMemo(), "-"))
                 .build();
     }
 
