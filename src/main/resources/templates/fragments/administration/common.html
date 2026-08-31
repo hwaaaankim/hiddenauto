@@ -18,7 +18,7 @@
 	<link href="/administration/assets/css/custom.css?v=20260813-4" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/add.css" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/dispatch.css?v=20260820-1" rel="stylesheet" type="text/css" />
-	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260818-1" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260831-3" rel="stylesheet" type="text/css" />
 	<script src="/administration/assets/js/layout.js"></script>
 	<link href="/administration/assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -66,7 +66,7 @@
 						<button type="button"
 							class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle order-notification-bell-btn"
 							id="order-notification-bell-btn"
-							aria-label="발주 알림 열기">
+							aria-label="업무 알림 열기">
 							<i class="bx bx-bell fs-22"></i>
 							<span id="order-notification-badge" class="order-notification-badge is-empty">0</span>
 						</button>
@@ -149,15 +149,19 @@
 					<div class="modal-header">
 						<div>
 							<h5 class="modal-title" id="order-notification-center-title">
-								<i class="bx bx-bell me-1"></i> 발주 알림
+								<i class="bx bx-bell me-1"></i> 업무 알림
 							</h5>
-							<p class="text-muted mb-0 mt-1 fs-12">오더 수정, 담당자 변경, 상태 처리 및 긴급요청 이력입니다.</p>
+							<p class="text-muted mb-0 mt-1 fs-12" id="order-notification-center-description">발주 및 AS 업무 변경 알림을 확인합니다.</p>
 						</div>
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
 					</div>
 					<div class="modal-body">
 						<span id="order-notification-management-mode" class="d-none"
 							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')" aria-hidden="true"></span>
+						<span id="order-notification-current-user" class="d-none" aria-hidden="true"
+							th:data-username="${#authentication.name}"
+							th:data-team-id="${#authentication.principal.member.team != null ? #authentication.principal.member.team.id : ''}"
+							th:data-team-name="${#authentication.principal.member.team != null ? #authentication.principal.member.team.name : ''}"></span>
 						<div class="order-notification-tabs order-notification-tabs-management" role="tablist"
 							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')">
 							<button type="button" class="order-notification-tab active" data-order-notification-filter="PRODUCTION">
@@ -172,6 +176,10 @@
 							<button type="button" class="order-notification-tab" data-order-notification-filter="EMERGENCY">
 								긴급 <span class="order-notification-tab-count">0</span>
 							</button>
+							<button type="button" class="order-notification-tab" data-order-notification-filter="AS"
+								th:if="${#authentication.name == 'manager_02' or #authentication.name == 'admin'}">
+								AS <span class="order-notification-tab-count">0</span>
+							</button>
 							<button type="button" class="order-notification-tab order-notification-tab-important" data-order-notification-filter="IMPORTANT">
 								중요알림 <span class="order-notification-tab-count">0</span>
 							</button>
@@ -180,10 +188,12 @@
 						<div class="order-notification-tabs order-notification-tabs-team" role="tablist"
 							sec:authorize="hasAuthority('ROLE_INTERNAL_EMPLOYEE')">
 							<button type="button" class="order-notification-tab active" data-order-notification-filter="ALL">
-								전체 <span class="order-notification-tab-count">0</span>
+								<span th:text="${#authentication.principal.member.team != null and #authentication.principal.member.team.id == 4 ? '내 AS 알림' : '전체'}">전체</span>
+								<span class="order-notification-tab-count">0</span>
 							</button>
 							<button type="button" class="order-notification-tab order-notification-tab-important" data-order-notification-filter="IMPORTANT">
-								중요알림 <span class="order-notification-tab-count">0</span>
+								<span th:text="${#authentication.principal.member.team != null and #authentication.principal.member.team.id == 4 ? '긴급요청' : '중요알림'}">중요알림</span>
+								<span class="order-notification-tab-count">0</span>
 							</button>
 						</div>
 						<div id="order-notification-new-arrival" class="order-notification-new-arrival d-none" aria-live="polite"></div>
@@ -213,8 +223,8 @@
 				<div class="order-important-notification-header">
 					<div class="order-important-notification-icon" aria-hidden="true">!</div>
 					<div class="order-important-notification-heading">
-						<div class="order-important-notification-eyebrow">IMPORTANT ORDER NOTICE</div>
-						<h2 id="order-important-notification-title">중요 발주 알림을 확인해 주세요.</h2>
+						<div class="order-important-notification-eyebrow">IMPORTANT WORK NOTICE</div>
+						<h2 id="order-important-notification-title">중요 업무 알림을 확인해 주세요.</h2>
 						<p>업무에 영향이 있는 중요알림입니다. 아래 내용을 확인한 뒤 <strong>확인</strong> 버튼을 눌러야 화면을 다시 사용할 수 있습니다.</p>
 					</div>
 				</div>
@@ -565,7 +575,13 @@
 
 								<li class="nav-item" th:if="${isAdmin}">
 									<a href="/admin/order-notification-policy" class="nav-link" data-key="t-manager">
-										로깅알림 관리
+										발주 로깅알림 관리
+									</a>
+								</li>
+
+								<li class="nav-item" th:if="${isAdmin}">
+									<a href="/admin/as-notification-policy" class="nav-link" data-key="t-manager">
+										AS 로깅알림 관리
 									</a>
 								</li>
 
@@ -630,7 +646,7 @@
 		<script src="/administration/assets/libs/list.pagination.js/list.pagination.min.js"></script>
 		<script src="/administration/assets/libs/sweetalert2/sweetalert2.min.js"></script>
 		<script src="/administration/assets/js/app.js"></script>
-		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260818-1"></script>
+		<script src="/administration/assets/js/orderNotificationCenter.js?v=20260831-2"></script>
 	</th:block>
 
 </body>

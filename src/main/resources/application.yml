@@ -72,6 +72,13 @@ app:
       emergency-enabled: true
       normal-enabled: true
       template-code: "D8jAppuvn1"
+  as-notification:
+    enabled: true
+    notify-actor: false
+    kakao:
+      enabled: true
+      template-code: "D8jAppuvn1"
+
   notification:
     solapi:
       # 현재 공통 설정은 발주 알림 SOLAPI 실발송 활성화

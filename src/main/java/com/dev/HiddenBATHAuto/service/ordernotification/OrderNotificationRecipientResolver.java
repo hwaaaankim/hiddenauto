@@ -81,13 +81,14 @@ public class OrderNotificationRecipientResolver {
         String operationCode = safeUpper(event.getOperationCode());
 
         /*
-         * 고객 직접 발주 확장 시 REQUESTED 상태 등록도 관리 담당자가 놓치면 안 됩니다.
-         * 등록 이벤트는 비노출 상태의 일반 수정 차단보다 먼저 판정하고, 관리 담당자에게는 항상 전달하되
-         * 생산·출고·배송 수신자는 실제 팀 화면에 노출되는 상태일 때만 추가합니다.
+         * 관리자 발주등록은 NORMAL_REGISTER/URGENT_REGISTER 모두 같은 수신자 범위를 사용합니다.
+         * 일반발주가 REQUESTED로 저장되더라도 등록 사실 자체는 생산 관련자·배송 담당자·출고팀에 전달합니다.
+         * 다만 REQUESTED 상태의 팀 상세 바로가기는 OrderNotificationService 권한 검사에서 기존처럼 비활성화됩니다.
+         * 고객 직접 발주 등 기타 등록은 기존 정책대로 비노출 상태에서는 관리 담당자만 수신합니다.
          */
         if (isRegistration(operationCode)) {
             addManagedBy(targets, event, actorMemberId, null, null);
-            if (isVisible(order.getStatus())) {
+            if (isVisible(order.getStatus()) || isManagementClassifiedRegistration(event, operationCode)) {
                 addProductionRelated(targets, event, actorMemberId, null, null);
                 addDeliveryHandlerOnly(targets, event, actorMemberId, null, null);
                 addDispatchTeam(targets, event, actorMemberId, null, null);
@@ -712,8 +713,13 @@ public class OrderNotificationRecipientResolver {
     }
 
     private OrderNotificationCategory categoryForMember(Member member, OrderChangeEvent event) {
-        if (event != null && safeUpper(event.getOperationCode()).startsWith("ADMIN_REQUEST_")) {
-            return OrderNotificationCategory.EMERGENCY;
+        if (event != null) {
+            String operationCode = safeUpper(event.getOperationCode());
+            if (operationCode.startsWith("ADMIN_REQUEST_")
+                    || operationCode.startsWith("URGENT_REGISTER_")
+                    || operationCode.contains("URGENT_ORDER_CREATED")) {
+                return OrderNotificationCategory.EMERGENCY;
+            }
         }
 
         OrderNotificationCategory sourceCategory = categoryForSource(
@@ -819,6 +825,15 @@ public class OrderNotificationRecipientResolver {
 
     private boolean isVisible(OrderStatus status) {
         return status != null && !isHidden(status);
+    }
+
+    private boolean isManagementClassifiedRegistration(
+            OrderChangeEvent event,
+            String operationCode
+    ) {
+        if (event == null || event.getSourceArea() != OrderChangeSourceArea.MANAGEMENT) return false;
+        String code = safeUpper(operationCode);
+        return code.contains("NORMAL_REGISTER") || code.contains("URGENT_REGISTER");
     }
 
     private boolean isRegistration(String code) {

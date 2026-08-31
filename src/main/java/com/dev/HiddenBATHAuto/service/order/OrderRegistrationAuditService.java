@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.service.order;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,8 +19,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 수동 폼·엑셀·향후 고객 직접 발주가 같은 등록 이력 형식을 사용하도록 만든 공통 서비스입니다.
- * REQUESTED/CANCELED 단계는 아직 팀 화면에 노출되지 않으므로 이력만 남기고,
- * CONFIRMED 이상으로 바로 등록되는 경우에만 관련자 웹/카카오 알림을 생성합니다.
+ * 관리자 등록(NORMAL_REGISTER/URGENT_REGISTER)은 REQUESTED 상태라도 등록 알림을 생성합니다.
+ * 고객 직접 발주 등 기타 source는 기존처럼 실제 업무 노출 상태에서만 관련자 알림을 생성합니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,21 +36,30 @@ public class OrderRegistrationAuditService {
             String operationLabel,
             String requestPath
     ) {
+        boolean urgentRegistration = isSameDayRegistration(order);
+        String baseCode = operationCode == null || operationCode.isBlank()
+                ? "MANAGEMENT_ORDER_CREATED"
+                : operationCode.trim();
+        String classifiedCode = urgentRegistration
+                ? "URGENT_REGISTER_" + baseCode
+                : "NORMAL_REGISTER_" + baseCode;
+        String classifiedLabel = urgentRegistration ? "긴급발주등록" : "일반발주등록";
+
         recordRegistration(
                 order,
                 OrderChangeSourceArea.MANAGEMENT,
                 null,
                 actorUsername,
                 null,
-                operationCode,
-                operationLabel,
+                classifiedCode,
+                classifiedLabel,
                 requestPath
         );
     }
 
     /**
      * 향후 고객 직접 발주에서는 sourceArea=CUSTOMER와 로그인 고객의 memberId/username/name을 전달합니다.
-     * 등록 상태가 REQUESTED이면 팀 알림은 만들지 않고 감사이력만 남습니다.
+     * 고객 직접 발주의 REQUESTED 알림 정책은 기존 동작을 유지하고, 관리자 일반/긴급 등록만 상태와 무관하게 알림을 생성합니다.
      */
     @Transactional
     public void recordRegistration(
@@ -69,6 +79,14 @@ public class OrderRegistrationAuditService {
         OrderItem item = order.getOrderItem();
         List<OrderFieldChangeCommand> changes = new ArrayList<>();
         changes.add(change("registration", "발주 등록", null, "발주 #" + order.getId()));
+        if (sourceArea == OrderChangeSourceArea.MANAGEMENT) {
+            changes.add(change(
+                    "registrationType",
+                    "발주등록 구분",
+                    null,
+                    isSameDayRegistration(order) ? "긴급발주등록" : "일반발주등록"
+            ));
+        }
         changes.add(change(
                 "status",
                 "발주상태",
@@ -101,7 +119,8 @@ public class OrderRegistrationAuditService {
                 memberLabel(order)
         ));
 
-        OrderNotificationAudience audience = isVisibleToWorkTeams(order.getStatus())
+        boolean managementRegistration = isManagementRegistration(sourceArea, operationCode);
+        OrderNotificationAudience audience = managementRegistration || isVisibleToWorkTeams(order.getStatus())
                 ? OrderNotificationAudience.RELATED_USERS
                 : OrderNotificationAudience.NONE;
 
@@ -134,6 +153,28 @@ public class OrderRegistrationAuditService {
                 afterValue,
                 OrderWorkArea.values()
         );
+    }
+
+    /**
+     * 관리자 등록 시 등록일과 배송희망일의 달력 날짜가 같으면 당일 긴급발주로 분류합니다.
+     * 배송희망일/등록일이 없으면 오분류를 피하기 위해 일반발주로 둡니다.
+     */
+    private boolean isSameDayRegistration(Order order) {
+        if (order == null || order.getCreatedAt() == null || order.getPreferredDeliveryDate() == null) {
+            return false;
+        }
+        LocalDate registeredDate = order.getCreatedAt().toLocalDate();
+        LocalDate preferredDate = order.getPreferredDeliveryDate().toLocalDate();
+        return registeredDate.equals(preferredDate);
+    }
+
+    private boolean isManagementRegistration(
+            OrderChangeSourceArea sourceArea,
+            String operationCode
+    ) {
+        if (sourceArea != OrderChangeSourceArea.MANAGEMENT || operationCode == null) return false;
+        String normalized = operationCode.trim().toUpperCase(java.util.Locale.ROOT);
+        return normalized.contains("NORMAL_REGISTER") || normalized.contains("URGENT_REGISTER");
     }
 
     private boolean isVisibleToWorkTeams(OrderStatus status) {

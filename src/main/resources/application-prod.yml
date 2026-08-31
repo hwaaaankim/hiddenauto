@@ -65,6 +65,13 @@ app:
       emergency-enabled: true
       normal-enabled: true
       template-code: "D8jAppuvn1"
+  as-notification:
+    enabled: true
+    notify-actor: false
+    kakao:
+      enabled: true
+      template-code: "D8jAppuvn1"
+
   notification:
     solapi:
       # 운영 발송 활성화. 서버 외부 설정으로 값과 자격증명을 덮어쓸 수 있음

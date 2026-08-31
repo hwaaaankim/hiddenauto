@@ -1,0 +1,187 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid notification-policy-page">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                        <h4 class="mb-1">AS 로깅알림 관리</h4>
+                        <p class="text-muted mb-0">고객·관리팀·AS팀의 행동과 수신 대상별로 카카오톡, 일반알림(종), 강제 긴급알림을 독립적으로 관리합니다.</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/order-notification-policy" class="btn btn-outline-primary">
+                            <i class="ri-file-list-3-line me-1"></i>발주 로깅알림
+                        </a>
+                        <a href="/admin/notification/test" class="btn btn-outline-secondary">
+                            <i class="ri-message-2-line me-1"></i>카카오톡 테스트
+                        </a>
+                    </div>
+                </div>
+
+                <div th:if="${savedMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="ri-checkbox-circle-line me-1"></i>
+                    <span th:text="${savedMessage}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="닫기"></button>
+                </div>
+
+                <div class="alert alert-info policy-guide" role="alert">
+                    <h6 class="alert-heading mb-2"><i class="ri-information-line me-1"></i>AS 알림 수신 원칙</h6>
+                    <p class="mb-1"><strong>고객 행동</strong>은 AS 관리담당자 <code>manager_02</code>와 현재 배정된 AS 담당직원에게 전달할 수 있습니다.</p>
+                    <p class="mb-1"><strong>관리팀 행동</strong>은 신청 고객과 현재 배정된 AS 담당직원에게 전달합니다. 담당자 변경 이력에는 이전 담당자 ID도 감사 스냅샷으로 남지만 알림은 현재 담당자에게만 전송합니다.</p>
+                    <p class="mb-0"><strong>AS팀 행동</strong>은 <code>manager_02</code>와 고객에게 전달합니다. 고객은 화면 종 알림이 없으므로 시스템상 카카오톡만 허용됩니다.</p>
+                </div>
+
+                <div class="alert alert-warning policy-guide" role="alert">
+                    <p class="mb-1"><strong>일반알림(종)</strong>: 내부 사용자 상단 종 모양 알림센터에 표시합니다.</p>
+                    <p class="mb-1"><strong>카카오톡</strong>: 해당 수신자의 연락처로 알림톡을 발송합니다.</p>
+                    <p class="mb-0"><strong>긴급알림</strong>: 내부 업무 화면을 잠그는 강제 확인 팝업입니다. 고객 대상 행은 실수로 체크할 수 없도록 종 알림과 긴급알림을 서버와 화면 양쪽에서 차단합니다.</p>
+                </div>
+
+                <div class="alert alert-danger policy-guide" role="alert">
+                    <h6 class="alert-heading mb-2"><i class="ri-alarm-warning-line me-1"></i>긴급알림 사용 주의</h6>
+                    <p class="mb-0">긴급알림은 수신자가 반드시 확인해야 업무 화면을 다시 사용할 수 있습니다. 방문일정의 잦은 조정이나 일반 메모 수정 등에 광범위하게 켜면 업무를 방해할 수 있으므로 즉시 확인이 필요한 항목만 활성화해 주세요.</p>
+                </div>
+
+                <form method="post" th:action="@{/admin/as-notification-policy}" id="as-notification-policy-form">
+                    <div class="card" th:each="section : ${policySections}">
+                        <div class="card-header bg-white d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                            <div>
+                                <h5 class="mb-1" th:text="${section.key + ' 행동'}">고객 행동</h5>
+                                <small class="text-muted">각 행은 실제 AS 변경 이벤트의 행동 주체와 수신 대상 조합입니다.</small>
+                            </div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary js-section-all" data-channel="web">일반 전체</button>
+                                <button type="button" class="btn btn-sm btn-outline-warning js-section-all" data-channel="kakao">카카오 전체</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-section-all" data-channel="important">긴급 전체</button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 notification-policy-table">
+                                <colgroup>
+                                    <col class="policy-col-action">
+                                    <col class="policy-col-recipient">
+                                    <col>
+                                    <col class="policy-col-channel">
+                                    <col class="policy-col-channel">
+                                    <col class="policy-col-channel policy-col-important">
+                                </colgroup>
+                                <thead class="table-light">
+                                <tr>
+                                    <th>작업</th>
+                                    <th>알림받는 대상</th>
+                                    <th>동작 설명</th>
+                                    <th class="text-center">일반알림</th>
+                                    <th class="text-center">카카오톡</th>
+                                    <th class="text-center">긴급알림</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="row : ${section.value}">
+                                    <td>
+                                        <strong th:text="${row.actionLabel}">AS 신청</strong>
+                                        <div class="small text-muted" th:text="${row.action}">REQUEST_CREATED</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-soft-primary text-primary" th:text="${row.recipientGroupLabel}">AS 담당직원</span>
+                                    </td>
+                                    <td class="policy-description" th:text="${row.description}">설명</td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-flex justify-content-center">
+                                            <input class="form-check-input js-policy-checkbox"
+                                                   data-channel="web" type="checkbox" name="webKeys"
+                                                   th:id="${'as-web-' + row.key}" th:value="${row.key}"
+                                                   th:checked="${row.webEnabled}" th:disabled="${!row.webAllowed}">
+                                            <label class="visually-hidden" th:for="${'as-web-' + row.key}">종 알림</label>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-flex justify-content-center">
+                                            <input class="form-check-input js-policy-checkbox"
+                                                   data-channel="kakao" type="checkbox" name="kakaoKeys"
+                                                   th:id="${'as-kakao-' + row.key}" th:value="${row.key}"
+                                                   th:checked="${row.kakaoEnabled}" th:disabled="${!row.kakaoAllowed}">
+                                            <label class="visually-hidden" th:for="${'as-kakao-' + row.key}">카카오톡</label>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-flex justify-content-center">
+                                            <input class="form-check-input js-policy-checkbox js-important-policy-checkbox"
+                                                   data-channel="important" type="checkbox" name="importantKeys"
+                                                   th:id="${'as-important-' + row.key}" th:value="${row.key}"
+                                                   th:checked="${row.importantEnabled}" th:disabled="${!row.importantAllowed}">
+                                            <label class="visually-hidden" th:for="${'as-important-' + row.key}">긴급알림</label>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="sticky-save-bar">
+                        <div class="text-muted small">저장 이후 새로 생성되는 AS 알림부터 변경된 정책이 적용됩니다.</div>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="ri-save-3-line me-1"></i>설정 저장
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+
+<style>
+    .notification-policy-page { max-width: 1480px; padding-bottom: 90px; }
+    .notification-policy-page .card {
+        border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, .045); margin-bottom: 20px;
+    }
+    .notification-policy-table { min-width: 1120px; table-layout: fixed; }
+    .policy-col-action { width: 190px; }
+    .policy-col-recipient { width: 210px; }
+    .policy-col-channel { width: 110px; }
+    .policy-col-important { width: 125px; }
+    .js-important-policy-checkbox:checked { background-color: #f06548; border-color: #f06548; }
+    .policy-description { white-space: normal; line-height: 1.55; }
+    .policy-guide { border-radius: 12px; }
+    .form-check-input:disabled { opacity: .35; cursor: not-allowed; }
+    .sticky-save-bar {
+        position: fixed; z-index: 1010; left: calc(var(--vz-vertical-menu-width, 250px) + 24px);
+        right: 24px; bottom: 18px; display: flex; align-items: center; justify-content: space-between;
+        gap: 16px; padding: 14px 18px; border: 1px solid #dbe3ed; border-radius: 14px;
+        background: rgba(255, 255, 255, .97); box-shadow: 0 12px 30px rgba(15, 23, 42, .12);
+        backdrop-filter: blur(8px);
+    }
+    @media (max-width: 991.98px) { .sticky-save-bar { left: 16px; right: 16px; } }
+</style>
+
+<script>
+    document.querySelectorAll('.js-section-all').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const card = button.closest('.card');
+            const channel = button.dataset.channel;
+            const boxes = Array.from(card.querySelectorAll('.js-policy-checkbox[data-channel="' + channel + '"]:not(:disabled)'));
+            if (!boxes.length) return;
+            const shouldCheck = boxes.some(function (box) { return !box.checked; });
+            boxes.forEach(function (box) { box.checked = shouldCheck; });
+        });
+    });
+</script>
+</body>
+</html>

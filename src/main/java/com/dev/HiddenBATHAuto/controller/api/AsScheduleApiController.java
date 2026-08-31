@@ -74,8 +74,10 @@ public class AsScheduleApiController {
     }
 
     @DeleteMapping("/remove/{taskId}")
-    public ResponseEntity<?> remove(@PathVariable Long taskId) {
-        asScheduleService.removeFromCalendar(taskId);
+    public ResponseEntity<?> remove(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @PathVariable Long taskId) {
+        asScheduleService.removeFromCalendar(principal != null ? principal.getMember() : null, taskId);
         return ResponseEntity.ok(Map.of("ok", true));
     }
 

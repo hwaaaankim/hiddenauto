@@ -7,7 +7,10 @@ package com.dev.HiddenBATHAuto.enums.notification;
  * 업무 의미가 같은 operationCode를 이 안정적인 분류로 묶습니다.</p>
  */
 public enum OrderNotificationAction {
+    /** 기존 고객 직접등록/과거 이력 호환용입니다. */
     REGISTER("발주 등록"),
+    NORMAL_REGISTER("일반발주등록"),
+    URGENT_REGISTER("긴급발주등록"),
     UPDATE("발주 내용 수정"),
     STATUS_CHANGE("상태 변경"),
     CANCEL_OR_HIDE("취소·업무 비노출"),

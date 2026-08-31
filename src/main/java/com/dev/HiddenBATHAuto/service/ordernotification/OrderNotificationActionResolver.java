@@ -21,6 +21,12 @@ public class OrderNotificationActionResolver {
             return OrderNotificationAction.CHECK_CONFIRM;
         }
         if (code.contains("DELETE")) return OrderNotificationAction.DELETE;
+        if (code.contains("URGENT_REGISTER") || code.contains("URGENT_ORDER_CREATED")) {
+            return OrderNotificationAction.URGENT_REGISTER;
+        }
+        if (code.contains("NORMAL_REGISTER") || code.contains("NORMAL_ORDER_CREATED")) {
+            return OrderNotificationAction.NORMAL_REGISTER;
+        }
         if (code.contains("ORDER_CREATED") || code.contains("ORDER_REGISTER") || code.contains("REGISTRATION")) {
             return OrderNotificationAction.REGISTER;
         }
