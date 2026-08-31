@@ -11,7 +11,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Configuration
 @EnableAsync
-@EnableConfigurationProperties(OrderNotificationProperties.class)
+@EnableConfigurationProperties({OrderNotificationProperties.class, AsNotificationProperties.class})
 public class OrderNotificationConfiguration {
 
     @Bean(name = "orderNotificationExecutor")

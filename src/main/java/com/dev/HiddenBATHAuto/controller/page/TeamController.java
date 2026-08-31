@@ -3,8 +3,6 @@ package com.dev.HiddenBATHAuto.controller.page;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -17,7 +15,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.Workbook;
@@ -70,7 +67,6 @@ import com.dev.HiddenBATHAuto.dto.production.StickerPrintDto;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.auth.TeamCategory;
-import com.dev.HiddenBATHAuto.model.task.AsImage;
 import com.dev.HiddenBATHAuto.model.task.AsStatus;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
@@ -79,7 +75,6 @@ import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
-import com.dev.HiddenBATHAuto.repository.as.AsImageRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
@@ -117,7 +112,6 @@ public class TeamController {
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final DeliveryHandlerChangeAuditService deliveryHandlerChangeAuditService;
 	private final AsTaskService asTaskService;
-	private final AsImageRepository asImageRepository;
 	private final ProvinceRepository provinceRepository;
 	private final DeliveryCompletionService deliveryCompletionService;
 	private final DeliveryOrderSummaryService deliveryOrderSummaryService;
@@ -2101,25 +2095,11 @@ public class TeamController {
 
 	@DeleteMapping("/asImageDelete/{id}")
 	@ResponseBody
-	public ResponseEntity<Void> deleteAsImage(@PathVariable Long id) {
-		Optional<AsImage> imageOpt = asImageRepository.findById(id);
-		if (imageOpt.isEmpty()) {
-			return ResponseEntity.notFound().build();
-		}
-
-		AsImage image = imageOpt.get();
-
-		// 파일 삭제
-		if (image.getPath() != null) {
-			try {
-				Files.deleteIfExists(Paths.get(image.getPath()));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-
-		asImageRepository.delete(image);
-		return ResponseEntity.ok().build();
+	public ResponseEntity<Void> deleteAsImage(@PathVariable Long id,
+			@AuthenticationPrincipal PrincipalDetails principal) {
+		Member loginMember = principal.getMember();
+		boolean deleted = asTaskService.deleteAsImageByHandler(id, loginMember);
+		return deleted ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
 	}
 
 	@PostMapping("/productionStickerPrint")

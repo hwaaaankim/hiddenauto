@@ -43,7 +43,7 @@
 }
 
 .order-notification-modal .modal-dialog {
-    max-width: 860px;
+    max-width: 1040px;
 }
 
 .order-notification-tabs {
@@ -488,7 +488,14 @@
    - 페이지 전체를 잠그고 새 중요알림은 동일 목록에 누적
    ========================================================= */
 .order-notification-tabs-management {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.order-notification-tabs-management .order-notification-tab {
+    min-width: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    white-space: nowrap;
 }
 
 .order-notification-tabs-team {

@@ -63,6 +63,8 @@ import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRegionRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
+import com.dev.HiddenBATHAuto.service.asnotification.AsChangeAuditService;
+import com.dev.HiddenBATHAuto.service.asnotification.AsChangeAuditService.Snapshot;
 
 import lombok.RequiredArgsConstructor;
 
@@ -88,6 +90,7 @@ public class AsTaskService {
 
 	private final AsTaskScheduleRepository asTaskScheduleRepository;
 	private final CompanyRepository companyRepository;
+	private final AsChangeAuditService asChangeAuditService;
 
 	@Value("${spring.upload.path}")
 	private String uploadPath;
@@ -122,6 +125,7 @@ public class AsTaskService {
 			throw new IllegalStateException("접수 상태의 AS만 수정할 수 있습니다.");
 		}
 
+		Snapshot beforeAudit = asChangeAuditService.capture(task);
 		validateUpdateRequest(req);
 
 		task.setCustomerName(normalizeRequired(req.getCustomerName(), "고객 성함"));
@@ -157,6 +161,8 @@ public class AsTaskService {
 		task.setUpdatedAt(LocalDateTime.now());
 
 		asTaskRepository.save(task);
+		asTaskRepository.flush();
+		asChangeAuditService.recordCustomerUpdated(task, loginMember, beforeAudit);
 	}
 
 	private void validateUpdateRequest(CustomerAsUpdateRequest req) {
@@ -699,6 +705,7 @@ public class AsTaskService {
 	        throw new IllegalStateException("진행중(IN_PROGRESS) 상태의 AS만 수정할 수 있습니다.");
 	    }
 
+	    Snapshot beforeAudit = asChangeAuditService.capture(task);
 	    Member targetHandler = resolveTargetAsHandler(assignedHandlerId, task);
 	    Long currentHandlerId = task.getAssignedHandler() != null ? task.getAssignedHandler().getId() : null;
 	    boolean handlerChanged = !Objects.equals(currentHandlerId, targetHandler.getId());
@@ -794,6 +801,9 @@ public class AsTaskService {
 	    if (shouldSave) {
 	        task.setUpdatedAt(LocalDateTime.now());
 	        asTaskRepository.save(task);
+	        asTaskRepository.flush();
+	        asImageRepository.flush();
+	        asChangeAuditService.recordTeamUpdated(task, loginHandler, beforeAudit);
 	    }
 
 	    return handlerChanged;
@@ -970,6 +980,7 @@ public class AsTaskService {
 	@Transactional
 	public void updateAsTask(Long id, Integer price, String statusStr, Long assignedHandlerId) {
 		AsTask asTask = getAsDetail(id);
+		Snapshot beforeAudit = asChangeAuditService.capture(asTask);
 
 		AsStatus status = AsStatus.valueOf(statusStr);
 		asTask.setPrice(price == null ? 0 : price);
@@ -986,6 +997,8 @@ public class AsTaskService {
 		asTask.setUpdatedAt(LocalDateTime.now());
 
 		asTaskRepository.save(asTask);
+		asTaskRepository.flush();
+		asChangeAuditService.recordManagementUpdated(asTask, null, beforeAudit);
 	}
 
 	// =========================================================
@@ -1067,9 +1080,10 @@ public class AsTaskService {
 
 			String deleteRequestImageIds, List<MultipartFile> newRequestImages,
 
-			String deleteRequestVideoIds, List<MultipartFile> newRequestVideos) {
+			String deleteRequestVideoIds, List<MultipartFile> newRequestVideos, Member actor) {
 
 		AsTask asTask = getAsDetail(id);
+		Snapshot beforeAudit = asChangeAuditService.capture(asTask);
 
 		// 완료 상태였는지 먼저 기억
 		boolean wasCompleted = AsStatus.COMPLETED.equals(asTask.getStatus());
@@ -1176,6 +1190,8 @@ public class AsTaskService {
 
 		asTask.setUpdatedAt(LocalDateTime.now());
 		asTaskRepository.save(asTask);
+		asTaskRepository.flush();
+		asChangeAuditService.recordManagementUpdated(asTask, actor, beforeAudit);
 	}
 
 	private void deleteRequestImages(AsTask asTask, List<Long> deleteIds) {
@@ -1363,8 +1379,11 @@ public class AsTaskService {
 	// 3) 삭제 - 일정 + 이미지 + AsTask
 	// =========================================================
 	@Transactional
-	public void deleteAsTaskCascade(Long asTaskId) {
+	public void deleteAsTaskCascade(Long asTaskId, Member actor) {
 		AsTask asTask = getAsDetail(asTaskId);
+
+		// 물리 삭제 전에 수신자와 AS 스냅샷을 확정하여 삭제 후에도 감사이력이 남도록 합니다.
+		asChangeAuditService.recordManagementDeleted(asTask, actor);
 
 		// 1) 일정 삭제
 		List<AsTaskSchedule> schedules = asTaskScheduleRepository.findByAsTask_Id(asTaskId);
@@ -1537,6 +1556,8 @@ public class AsTaskService {
 		// 첨부 저장
 		saveRequestAttachments(savedTask, safeAttachments, member.getId());
 
+		asTaskRepository.flush();
+		asChangeAuditService.recordCustomerCreated(savedTask, member);
 		return savedTask;
 	}
 
@@ -1931,6 +1952,7 @@ public class AsTaskService {
 			throws IOException {
 		AsTask task = asTaskRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("AS 요청이 존재하지 않습니다."));
+		Snapshot beforeAudit = asChangeAuditService.capture(task);
 
 		boolean shouldSave = false;
 
@@ -1973,6 +1995,9 @@ public class AsTaskService {
 		if (shouldSave) {
 			task.setUpdatedAt(LocalDateTime.now());
 			asTaskRepository.save(task);
+			asTaskRepository.flush();
+			asImageRepository.flush();
+			asChangeAuditService.recordTeamUpdated(task, null, beforeAudit);
 		}
 	}
 
@@ -2231,6 +2256,8 @@ public class AsTaskService {
 			throw new IllegalArgumentException("신청중 상태에서만 삭제할 수 있습니다.");
 		}
 
+		asChangeAuditService.recordCustomerCanceled(asTask, loginMember);
+
 		List<AsImage> images = asImageRepository.findAllByAsTask_Id(asTaskId);
 		List<AsVideo> videos = asVideoRepository.findAllByAsTask_Id(asTaskId);
 
@@ -2265,6 +2292,34 @@ public class AsTaskService {
 		}
 	}
 	
+	/**
+	 * AS 담당자가 상세 화면에서 첨부 이미지를 삭제하는 기존 API용 서비스 처리입니다.
+	 * 파일/DB 삭제 동작은 유지하되, 담당 AS 접근 권한을 검증하고 AS 전용 변경이력까지 남깁니다.
+	 */
+	@Transactional
+	public boolean deleteAsImageByHandler(Long imageId, Member loginHandler) {
+		Optional<AsImage> imageOpt = asImageRepository.findById(imageId);
+		if (imageOpt.isEmpty()) {
+			return false;
+		}
+
+		AsImage image = imageOpt.get();
+		AsTask task = image.getAsTask();
+		if (task == null) {
+			throw new IllegalStateException("AS 요청과 연결되지 않은 이미지입니다.");
+		}
+
+		validateAssignedHandlerAccess(task, loginHandler);
+		Snapshot beforeAudit = asChangeAuditService.capture(task);
+
+		deletePhysicalFileSafe(image.getPath());
+		asImageRepository.delete(image);
+		asImageRepository.flush();
+
+		asChangeAuditService.recordTeamUpdated(task, loginHandler, beforeAudit);
+		return true;
+	}
+
 	@Transactional(readOnly = true)
 	public AsTask getAsDetailForAssignedHandler(Long id, Member handler) {
 	    AsTask task = asTaskRepository.findById(id)

@@ -125,6 +125,53 @@ public class NotificationUseCaseService {
                 .build());
     }
 
+    /**
+     * AS 전용 변경 알림입니다. 발주 알림과 같은 승인 템플릿 변수를 사용하되
+     * 알림 로그의 businessType/businessId는 AS로 분리하여 추적합니다.
+     */
+    public NotificationSendResult sendAsChanged(
+            String templateCode,
+            Long asTaskId,
+            String targetPhone,
+            String taskName,
+            String changedContent,
+            String actorName,
+            Long requestedByMemberId,
+            String requestedByUsername
+    ) {
+        String occurredAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("#{업무명}", taskName);
+        variables.put("#{변경내용}", changedContent);
+        variables.put("#{처리자}", actorName);
+        variables.put("#{발생시각}", occurredAt);
+
+        String textForLog = """
+                [AS 변경 알림]
+                업무: %s
+                변경내용: %s
+                처리자: %s
+                발생시각: %s
+                """.formatted(
+                blankToDash(taskName),
+                blankToDash(changedContent),
+                blankToDash(actorName),
+                occurredAt
+        );
+
+        return notificationMessageService.sendAlimtalk(NotificationSendCommand.builder()
+                .templateCode(templateCode == null || templateCode.isBlank() ? "TASK_CHANGED" : templateCode.trim())
+                .to(targetPhone)
+                .messageTextForLog(textForLog)
+                .variables(variables)
+                .businessType("AS")
+                .businessId(asTaskId)
+                .requestedByMemberId(requestedByMemberId)
+                .requestedByUsername(requestedByUsername)
+                .build());
+    }
+
     private String blankToDash(String value) {
         return value == null || value.isBlank() ? "-" : value.trim();
     }

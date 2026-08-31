@@ -415,7 +415,14 @@ public class OrderNotificationService {
         }
 
         String operationCode = normalizeText(event.getOperationCode());
-        if (operationCode != null && operationCode.toUpperCase(Locale.ROOT).contains("ORDER_CREATED")) {
+        String upperCode = operationCode != null ? operationCode.toUpperCase(Locale.ROOT) : "";
+        if (upperCode.contains("URGENT_REGISTER")) {
+            return "긴급발주등록 · 발주 #" + orderId;
+        }
+        if (upperCode.contains("NORMAL_REGISTER")) {
+            return "일반발주등록 · 발주 #" + orderId;
+        }
+        if (upperCode.contains("ORDER_CREATED")) {
             return event.getSourceArea() == OrderChangeSourceArea.CUSTOMER
                     ? "고객 발주등록"
                     : "관리자 발주등록";
@@ -429,8 +436,12 @@ public class OrderNotificationService {
         if (actor == null) actor = "시스템";
 
         String operationCode = normalizeText(event.getOperationCode());
-        if (operationCode != null && operationCode.toUpperCase(Locale.ROOT).contains("ORDER_CREATED")) {
-            String registrationType = event.getSourceArea() == OrderChangeSourceArea.CUSTOMER
+        String upperCode = operationCode != null ? operationCode.toUpperCase(Locale.ROOT) : "";
+        if (upperCode.contains("ORDER_CREATED")) {
+            String registrationType;
+            if (upperCode.contains("URGENT_REGISTER")) registrationType = "긴급발주등록";
+            else if (upperCode.contains("NORMAL_REGISTER")) registrationType = "일반발주등록";
+            else registrationType = event.getSourceArea() == OrderChangeSourceArea.CUSTOMER
                     ? "고객 발주등록"
                     : "관리자 발주등록";
             return actor + "님이 " + registrationType + "을 완료했습니다.";

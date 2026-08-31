@@ -2042,6 +2042,7 @@ public class ManagementController {
 	// =========================================================
 	@PostMapping(value = "/asUpdate/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public String updateAsTask(@PathVariable Long id,
+			@AuthenticationPrincipal PrincipalDetails principal,
 
 			@RequestParam(required = false) String price, @RequestParam(required = false) String status,
 			@RequestParam(required = false) Long assignedHandlerId,
@@ -2082,7 +2083,8 @@ public class ManagementController {
 
 				subject, adminMemo,
 
-				deleteRequestImageIds, newRequestImages, deleteRequestVideoIds, newRequestVideos);
+				deleteRequestImageIds, newRequestImages, deleteRequestVideoIds, newRequestVideos,
+				principal != null ? principal.getMember() : null);
 
 		return "redirect:/management/asDetail/" + id;
 	}
@@ -2091,8 +2093,8 @@ public class ManagementController {
 	// 3) AS 삭제 (일정 + 이미지 + task)
 	// =========================================================
 	@PostMapping("/asDelete/{id}")
-	public String deleteAsTask(@PathVariable Long id) {
-		asTaskService.deleteAsTaskCascade(id);
+	public String deleteAsTask(@PathVariable Long id, @AuthenticationPrincipal PrincipalDetails principal) {
+		asTaskService.deleteAsTaskCascade(id, principal != null ? principal.getMember() : null);
 		return "redirect:/management/asList";
 	}
 

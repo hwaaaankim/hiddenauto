@@ -16,6 +16,7 @@ import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.model.task.AsTaskSchedule;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskScheduleRepository;
+import com.dev.HiddenBATHAuto.service.asnotification.AsChangeAuditService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +26,7 @@ public class AsScheduleService {
 
     private final AsTaskRepository asTaskRepository;
     private final AsTaskScheduleRepository scheduleRepository;
+    private final AsChangeAuditService asChangeAuditService;
 
     // ✅ 등록/이동 가능 상태: IN_PROGRESS만(=컨펌됨)
     private boolean canSchedule(AsTask task) {
@@ -49,6 +51,9 @@ public class AsScheduleService {
             throw new IllegalStateException("이미 달력에 등록된 업무입니다. (재등록하려면 먼저 제거하세요)");
         });
 
+        LocalDate beforeDate = scheduleRepository.findByAsTaskId(taskId)
+                .map(AsTaskSchedule::getScheduledDate).orElse(null);
+
         Integer max = scheduleRepository.findMaxOrderIndexByDate(date);
         int nextIndex = (max == null) ? 0 : (max + 1);
 
@@ -60,10 +65,13 @@ public class AsScheduleService {
                 .build();
 
         scheduleRepository.save(schedule);
+        scheduleRepository.flush();
+        asChangeAuditService.recordTeamScheduleChanged(task, actor, beforeDate, date,
+                "AS_TEAM_SCHEDULE_REGISTER", "방문예정일 등록", "/team/asSchedule/register");
     }
 
     @Transactional
-    public void removeFromCalendar(Long taskId) {
+    public void removeFromCalendar(Member actor, Long taskId) {
         AsTask task = asTaskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("AS 업무 없음: " + taskId));
 
@@ -76,9 +84,12 @@ public class AsScheduleService {
 
         LocalDate date = schedule.getScheduledDate();
         scheduleRepository.delete(schedule);
+        scheduleRepository.flush();
 
         // ✅ 인덱스 재정렬(빈칸 제거)
         reindexDate(date);
+        asChangeAuditService.recordTeamScheduleChanged(task, actor, date, null,
+                "AS_TEAM_SCHEDULE_REMOVE", "방문예정일 제거", "/team/asSchedule/remove/" + taskId);
     }
 
     @Transactional(readOnly = true)
@@ -141,6 +152,9 @@ public class AsScheduleService {
         if (oldDate != null) {
             reindexDate(oldDate);
         }
+        scheduleRepository.flush();
+        asChangeAuditService.recordTeamScheduleChanged(task, actor, oldDate, newDate,
+                "AS_TEAM_SCHEDULE_MOVE", "방문예정일 이동", "/team/asSchedule/move");
         // 새 날짜는 이미 마지막에 넣었으니 보통 reindex 불필요하지만,
         // 혹시 기존 데이터가 꼬여있을 경우를 대비해 정렬 보정이 필요하면 아래 라인 주석 해제
         // reindexDate(newDate);

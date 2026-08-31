@@ -41,15 +41,11 @@ public class OrderNotificationPolicyCatalog {
     private List<Definition> buildDefinitions() {
         List<Definition> rows = new ArrayList<>();
 
-        // 관리팀: 등록/수정/상태변경은 생산·배송·출고의 현재 업무 관계자에게 전달합니다.
-        add(rows, OrderChangeSourceArea.MANAGEMENT, OrderNotificationAction.REGISTER,
-                OrderNotificationRecipientGroup.MANAGEMENT, "Task 관리 담당자와 고정 admin에게 등록 사실을 전달합니다.");
-        add(rows, OrderChangeSourceArea.MANAGEMENT, OrderNotificationAction.REGISTER,
-                OrderNotificationRecipientGroup.PRODUCTION_CURRENT, "등록된 제품 분류의 생산팀에게 전달합니다.");
-        add(rows, OrderChangeSourceArea.MANAGEMENT, OrderNotificationAction.REGISTER,
-                OrderNotificationRecipientGroup.DELIVERY_CURRENT, "현재 배송 담당자가 있을 때 전달합니다.");
-        add(rows, OrderChangeSourceArea.MANAGEMENT, OrderNotificationAction.REGISTER,
-                OrderNotificationRecipientGroup.DISPATCH, "활성 출고팀 구성원에게 전달합니다.");
+        // 관리팀: 관리자 발주등록은 등록일과 배송희망일이 같은지에 따라 일반/긴급으로 분리합니다.
+        addManagementRegistration(rows, OrderNotificationAction.NORMAL_REGISTER,
+                "등록일과 배송희망일이 다른 일반발주등록입니다.");
+        addManagementRegistration(rows, OrderNotificationAction.URGENT_REGISTER,
+                "등록일과 배송희망일이 같은 당일 긴급발주등록입니다. 중요알림을 켜면 강제 확인 팝업으로 사용할 수 있습니다.");
 
         addManagementAllWorkflow(rows, OrderNotificationAction.UPDATE,
                 "관리자가 발주 내용을 수정한 경우 최신 내용을 다시 확인하도록 전달합니다.");
@@ -171,6 +167,21 @@ public class OrderNotificationPolicyCatalog {
                 OrderNotificationRecipientGroup.DISPATCH, "시스템 자동 상태변경을 출고팀에 전달합니다.");
 
         return List.copyOf(rows);
+    }
+
+    private void addManagementRegistration(
+            List<Definition> rows,
+            OrderNotificationAction action,
+            String prefix
+    ) {
+        add(rows, OrderChangeSourceArea.MANAGEMENT, action,
+                OrderNotificationRecipientGroup.MANAGEMENT, prefix + " Task 관리 담당자와 고정 admin에게 전달합니다.");
+        add(rows, OrderChangeSourceArea.MANAGEMENT, action,
+                OrderNotificationRecipientGroup.PRODUCTION_CURRENT, prefix + " 등록된 제품 분류의 생산팀에게 전달합니다.");
+        add(rows, OrderChangeSourceArea.MANAGEMENT, action,
+                OrderNotificationRecipientGroup.DELIVERY_CURRENT, prefix + " 현재 배송 담당자가 있을 때 전달합니다.");
+        add(rows, OrderChangeSourceArea.MANAGEMENT, action,
+                OrderNotificationRecipientGroup.DISPATCH, prefix + " 활성 출고팀 구성원에게 전달합니다.");
     }
 
     private void addManagementAllWorkflow(

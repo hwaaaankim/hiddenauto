@@ -15,7 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestControllerAdvice(assignableTypes = {
         OrderNotificationController.class,
-        OrderAdminRequestController.class
+        OrderAdminRequestController.class,
+        AsNotificationController.class
 })
 public class OrderNotificationApiExceptionHandler {
 
@@ -36,8 +37,8 @@ public class OrderNotificationApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleUnexpected(Exception e) {
-        log.error("발주 알림 API 처리 중 예기치 않은 오류가 발생했습니다.", e);
-        return error(HttpStatus.INTERNAL_SERVER_ERROR, "발주 알림 처리 중 오류가 발생했습니다.");
+        log.error("업무 알림 API 처리 중 예기치 않은 오류가 발생했습니다.", e);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "업무 알림 처리 중 오류가 발생했습니다.");
     }
 
     private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {
