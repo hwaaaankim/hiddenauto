@@ -32,11 +32,23 @@ public class OrderExcelAddressParser {
      * 예: "인천광역시 연수구 계림로 95 (청학동, 현대아파트) 103동 1303호"
      *     -> core="인천광역시 연수구 계림로 95", detail="(청학동, 현대아파트) 103동 1303호"
      */
-    private static final Pattern ROAD_CORE_PATTERN = Pattern.compile("^(.+?(?:대로|번길|로|길)\\s*\\d+(?:-\\d+)?)(.*)$");
+    /*
+     * 도로명 자체에 숫자형 가지 도로가 포함되는 주소를 하나의 도로명으로 인식합니다.
+     * 예: 시청로32번길 59, 강남대로102길 15
+     *
+     * 기존 정규식은 "시청로32번길 59"에서 "시청로32"까지만 먼저 매칭하여
+     * "번길 59"를 상세주소로 잘못 분리할 수 있었습니다.
+     */
+    private static final String ROAD_NAME_AND_BUILDING_NUMBER_PATTERN =
+            "(?:대로|로|길)(?:\\s*\\d+(?:번길|길))?\\s*(?>\\d+(?:-\\d+)?)(?!\\s*(?:번길|길)(?=\\s|\\d|$))";
+    private static final Pattern ROAD_CORE_PATTERN = Pattern.compile(
+            "^(.+?" + ROAD_NAME_AND_BUILDING_NUMBER_PATTERN + ")(.*)$"
+    );
     private static final Pattern ROAD_NUMBER_PATTERN = Pattern.compile(".*(?:대로|번길|로|길)\\s*\\d+(?:-\\d+)?.*");
     private static final Pattern REGION_PATTERN = Pattern.compile(".*(?:특별시|광역시|특별자치시|특별자치도|[가-힣]+도|[가-힣]+시|[가-힣]+군|[가-힣]+구)\\s+.*");
     private static final Pattern JIBUN_ADDRESS_PATTERN = Pattern.compile(".*[가-힣0-9]+(?:동|읍|면|리)\\s+산?\\d+(?:-\\d+)?.*");
     private static final Pattern DETAIL_HINT_PATTERN = Pattern.compile(".*(?:\\d+\\s*동|\\d+\\s*호|호실|층|지하|상가|오피스텔|아파트|빌라|건물|타워).*");
+    private static final Pattern ROAD_OVERLAP_HINT_PATTERN = Pattern.compile(".*(?:대로|번길|로|길).*\\d.*");
 
 
 
@@ -122,6 +134,8 @@ public class OrderExcelAddressParser {
                 detailAddress = originalFullAddress;
             }
 
+            detailAddress = normalizeDetailAddress(roadAddress, detailAddress);
+
             result.setExternalResolved(true);
             result.setExternalSource(external.getSource());
             result.setZipCode(firstNonBlank(external.getZipCode(), result.getZipCode()));
@@ -198,6 +212,49 @@ public class OrderExcelAddressParser {
         }
 
         return hasPhone && hasAddressKeyword;
+    }
+
+    /**
+     * 상세주소 앞에 도로명의 끝부분이 한 번 더 들어간 경우 실제로 겹치는 접두부만 제거합니다.
+     *
+     * 예: roadAddress="경기 화성시 남양읍 시청로32번길 59"
+     *     detailAddress="번길 59, 남양뉴타운 101동 2402호"
+     *     -> "남양뉴타운 101동 2402호"
+     *
+     * 단순히 "번길 + 숫자"를 일괄 삭제하지 않고, 상세주소의 접두부가 확정 도로명의
+     * 실제 접미부와 일치하며 도로 단위와 숫자를 모두 포함할 때만 제거합니다.
+     */
+    public String normalizeDetailAddress(String roadAddress, String detailAddress) {
+        String road = normalize(roadAddress);
+        String detail = trimLeadingAddressSeparators(normalize(detailAddress));
+        if (road.isBlank() || detail.isBlank()) {
+            return detail;
+        }
+
+        String compactRoad = compact(road);
+        int duplicatedPrefixEnd = -1;
+
+        for (int end = 1; end <= detail.length(); end++) {
+            if (!isDetailPrefixBoundary(detail, end)) {
+                continue;
+            }
+
+            String candidate = trimAddressSeparators(detail.substring(0, end));
+            String compactCandidate = compact(candidate);
+            if (compactCandidate.isBlank()
+                    || !ROAD_OVERLAP_HINT_PATTERN.matcher(compactCandidate).matches()
+                    || !compactRoad.endsWith(compactCandidate)) {
+                continue;
+            }
+
+            duplicatedPrefixEnd = end;
+        }
+
+        if (duplicatedPrefixEnd < 0) {
+            return detail;
+        }
+
+        return trimLeadingAddressSeparators(detail.substring(duplicatedPrefixEnd));
     }
 
     private void parseContact(ParsedSiteAddress result, String raw, String contactPart) {
@@ -313,8 +370,7 @@ public class OrderExcelAddressParser {
         Matcher matcher = ROAD_CORE_PATTERN.matcher(source);
         if (matcher.find()) {
             String core = normalize(matcher.group(1));
-            String detail = normalize(matcher.group(2));
-            detail = detail.replaceAll("^[,\\s]+", "").trim();
+            String detail = normalizeDetailAddress(core, matcher.group(2));
             return new RoadAddressParts(core, detail);
         }
 
@@ -328,13 +384,12 @@ public class OrderExcelAddressParser {
             return "";
         }
         if (source.startsWith(road)) {
-            return source.substring(road.length()).trim();
+            return normalizeDetailAddress(road, source.substring(road.length()));
         }
 
-        Matcher roadNumberMatcher = Pattern.compile("(?:대로|로|길|번길)\\s*\\d+(?:-\\d+)?").matcher(source);
-        if (roadNumberMatcher.find()) {
-            String detail = source.substring(roadNumberMatcher.end()).trim();
-            return detail.replaceAll("^[,\\s]+", "").trim();
+        RoadAddressParts sourceParts = splitRoadCoreAndDetail(source);
+        if (!sourceParts.detail().isBlank()) {
+            return normalizeDetailAddress(road, sourceParts.detail());
         }
 
         String compactSource = source.replaceAll("\\s+", "");
@@ -344,6 +399,35 @@ public class OrderExcelAddressParser {
         }
 
         return "";
+    }
+
+    private boolean isDetailPrefixBoundary(String detail, int end) {
+        if (end >= detail.length()) {
+            return true;
+        }
+
+        char next = detail.charAt(end);
+        return Character.isWhitespace(next)
+                || next == ','
+                || next == ';'
+                || next == '|'
+                || next == '｜'
+                || next == '、'
+                || next == '，'
+                || next == '/'
+                || next == '('
+                || next == '[';
+    }
+
+    private String trimLeadingAddressSeparators(String value) {
+        return normalize(value).replaceAll("^[,;|｜、，/\\s]+", "").trim();
+    }
+
+    private String trimAddressSeparators(String value) {
+        return normalize(value)
+                .replaceAll("^[,;|｜、，/\\s]+", "")
+                .replaceAll("[,;|｜、，/\\s]+$", "")
+                .trim();
     }
 
     private String extractDetailFromContactPart(String contactPart) {

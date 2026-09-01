@@ -483,7 +483,7 @@ public class OrderExcelUploadService {
 
                 applyCompanyAddress(order, groupRequest, company);
                 applySiteAddress(order, groupRequest, deliveryMethod);
-                applyOrderer(order, groupRequest, company, requestedBy);
+                applyOrderer(order, groupRequest, requestedBy, selectedRule);
 
                 order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
                 order.setQuantity(rowRequest.getQuantity());
@@ -885,7 +885,7 @@ public class OrderExcelUploadService {
             if (rule.isHandlerAssignable() && rule.needsSiteAddressForAssignment()) {
                 // 1차: 담당자 자동배정 대상인 현장배송은 주소 원문에 포함된 도/시/구로 먼저 담당자를 찾습니다.
                 parsed = addressParser.parseLocal(siteAddressRow.itemName);
-                applyParsedSiteAddress(group, parsed);
+                applyParsedSiteAddress(group, parsed, rule);
                 groupDeliveryHandler = findDeliveryHandlerByRegion(
                         group.getSiteDoName(),
                         group.getSiteSiName(),
@@ -895,7 +895,7 @@ public class OrderExcelUploadService {
                 if (groupDeliveryHandler == null) {
                     // 2차: 직접 매칭에 실패한 경우에만 외부 주소 검색을 한 번 수행한 후 다시 매칭합니다.
                     parsed = addressParser.resolveWithExternal(parsed);
-                    applyParsedSiteAddress(group, parsed);
+                    applyParsedSiteAddress(group, parsed, rule);
                     groupDeliveryHandler = findDeliveryHandlerByRegion(
                             group.getSiteDoName(),
                             group.getSiteSiName(),
@@ -905,7 +905,7 @@ public class OrderExcelUploadService {
             } else {
                 // 담당자 자동 배정이 필요 없는 배송수단은 기존처럼 주소 자체를 정규화합니다.
                 parsed = addressParser.parse(siteAddressRow.itemName);
-                applyParsedSiteAddress(group, parsed);
+                applyParsedSiteAddress(group, parsed, rule);
             }
 
             for (String warning : parsed.getWarnings()) {
@@ -1105,8 +1105,13 @@ public class OrderExcelUploadService {
         group.setDetailAddress(firstNonBlank(group.getDetailAddress(), group.getSiteDetailAddress()));
     }
 
-    private void applyParsedSiteAddress(OrderExcelPreviewGroupDto group, ParsedSiteAddress parsed) {
+    private void applyParsedSiteAddress(
+            OrderExcelPreviewGroupDto group,
+            ParsedSiteAddress parsed,
+            OrderExcelDeliveryRule deliveryRule
+    ) {
         String rawAddress = firstNonBlank(parsed.getAddressPart(), parsed.getRaw());
+        String recipientName = normalizeMeaningful(parsed.getRecipientName());
         group.setSiteAddressRaw(safe(parsed.getRaw()));
         group.setSiteAddressDisplayText(safe(parsed.getAddressCorrectionText()));
         group.setSiteZipCode(safe(parsed.getZipCode()));
@@ -1117,7 +1122,7 @@ public class OrderExcelUploadService {
         group.setSiteJibunAddress(safe(parsed.getJibunAddress()));
         group.setSiteOriginAddress(firstNonBlank(parsed.getOriginalRoadAddress(), rawAddress));
         group.setSiteDetailAddress(firstNonBlank(parsed.getDetailAddress(), ""));
-        group.setSiteRecipientName(safe(parsed.getRecipientName()));
+        group.setSiteRecipientName(recipientName);
         group.setSiteRecipientPhone(safe(parsed.getRecipientPhone()));
 
         // 현장/화물/택배 주소 행이 있는 묶음은 기본 배송지도 현장 주소로 맞춥니다.
@@ -1130,8 +1135,12 @@ public class OrderExcelUploadService {
         group.setOriginAddress(group.getSiteOriginAddress());
         group.setDetailAddress(group.getSiteDetailAddress());
 
-        if (!safe(parsed.getRecipientName()).isBlank()) {
-            group.setOrdererName(parsed.getRecipientName());
+        if (deliveryRule == OrderExcelDeliveryRule.SITE) {
+            // 현장배송의 주문자명은 주소 행에서 읽은 현장 수령자명만 사용합니다.
+            // 이름이 없는 경우 업체 대표자명을 유지하지 않고 빈 값으로 두어 화면에서 '-'로 표시되게 합니다.
+            group.setOrdererName(recipientName);
+        } else if (!recipientName.isBlank()) {
+            group.setOrdererName(recipientName);
         }
         if (!safe(parsed.getRecipientPhone()).isBlank()) {
             group.setOrdererPhone(parsed.getRecipientPhone());
@@ -1834,7 +1843,10 @@ public class OrderExcelUploadService {
                 group.getSiteJibunAddress(),
                 group.getSiteOriginAddress()
         ));
-        String detailAddress = trimToNull(group.getSiteDetailAddress());
+        String detailAddress = trimToNull(addressParser.normalizeDetailAddress(
+                roadAddress,
+                group.getSiteDetailAddress()
+        ));
 
         order.setSiteZipCode(zipCode);
         order.setSiteDoName(doName);
@@ -1853,8 +1865,16 @@ public class OrderExcelUploadService {
         order.setDetailAddress(detailAddress);
     }
 
-    private void applyOrderer(Order order, OrderExcelSaveGroupRequest group, Company company, Member requestedBy) {
-        String ordererName = firstNonBlank(group.getOrdererName(), group.getSiteRecipientName(), requestedBy == null ? null : requestedBy.getName());
+    private void applyOrderer(
+            Order order,
+            OrderExcelSaveGroupRequest group,
+            Member requestedBy,
+            OrderExcelDeliveryRule selectedRule
+    ) {
+        String siteRecipientName = normalizeMeaningful(group.getSiteRecipientName());
+        String ordererName = selectedRule == OrderExcelDeliveryRule.SITE
+                ? siteRecipientName
+                : firstNonBlank(group.getOrdererName(), siteRecipientName, requestedBy == null ? null : requestedBy.getName());
         String ordererPhone = firstNonBlank(group.getOrdererPhone(), group.getSiteRecipientPhone(), requestedBy == null ? null : requestedBy.getPhone());
         order.setOrdererName(trimToNull(ordererName));
         order.setOrdererPhone(trimToNull(ordererPhone));
