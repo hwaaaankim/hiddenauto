@@ -24,6 +24,7 @@ import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.utils.AdministrativeRegionStructureNormalizer.NormalizedRegion;
 
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -181,9 +182,15 @@ public class MemberExcelUploadService {
         company.setRegistrationKey(businessNumberClean);
 
         company.setZipCode(zipCode);
-        company.setDoName(doName);
-        company.setSiName(siName);
-        company.setGuName(guName);
+        NormalizedRegion region = AdministrativeRegionStructureNormalizer.normalize(
+                doName,
+                siName,
+                guName,
+                firstMeaningful(roadAddress, jibunAddress, originAddress)
+        );
+        company.setDoName(region.doName());
+        company.setSiName(region.siName());
+        company.setGuName(region.guName());
 
         company.setOriginAddress(originAddress);
         company.setJibunAddress(jibunAddress);
@@ -299,6 +306,21 @@ public class MemberExcelUploadService {
 
     private static String safe(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String firstMeaningful(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            String normalized = safe(value).trim();
+            if (!normalized.isEmpty()
+                    && !"-".equals(normalized)
+                    && !"NULL".equalsIgnoreCase(normalized)) {
+                return normalized;
+            }
+        }
+        return "";
     }
 
     private static String snapshotRow(Row row, DataFormatter formatter) {
