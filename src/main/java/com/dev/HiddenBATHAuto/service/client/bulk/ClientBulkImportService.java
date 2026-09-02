@@ -36,6 +36,8 @@ import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.service.client.bulk.ClientBulkImportAddressService.AddressResolution;
+import com.dev.HiddenBATHAuto.utils.AdministrativeRegionStructureNormalizer;
+import com.dev.HiddenBATHAuto.utils.AdministrativeRegionStructureNormalizer.NormalizedRegion;
 
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -401,6 +403,20 @@ public class ClientBulkImportService {
             row.setJibunAddress(clean(row.getJibunAddress()));
             row.setRoadAddress(clean(row.getRoadAddress()));
             row.setDetailAddress(clean(row.getDetailAddress()));
+
+            NormalizedRegion region = AdministrativeRegionStructureNormalizer.normalize(
+                    row.getDoName(),
+                    row.getSiName(),
+                    row.getGuName(),
+                    firstMeaningful(
+                            row.getRoadAddress(),
+                            row.getJibunAddress(),
+                            row.getOriginAddress()
+                    )
+            );
+            row.setDoName(region.doName());
+            row.setSiName(region.siName());
+            row.setGuName(region.guName());
         }
 
         return selectedRows;
@@ -652,6 +668,21 @@ public class ClientBulkImportService {
             }
         }
         return String.join(delimiter, texts);
+    }
+
+    private String firstMeaningful(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            String cleaned = clean(value);
+            if (!cleaned.isBlank()
+                    && !"-".equals(cleaned)
+                    && !"NULL".equalsIgnoreCase(cleaned)) {
+                return cleaned;
+            }
+        }
+        return "";
     }
 
     private boolean allBlank(String... values) {

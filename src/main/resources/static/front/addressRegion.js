@@ -61,7 +61,14 @@
 
     function provinceCanonical(value) {
         var cleaned = clean(value);
-        return PROVINCE_ALIASES[cleaned] || cleaned;
+        var compact = cleaned.replace(/\s+/g, '');
+        if (PROVINCE_ALIASES[compact]) {
+            return PROVINCE_ALIASES[compact];
+        }
+        if (compact.indexOf('광주') !== -1 && compact.indexOf('통합특별시') !== -1) {
+            return '광주광역시';
+        }
+        return cleaned;
     }
 
     function split(value) {
@@ -86,12 +93,66 @@
         if (target.indexOf(cleaned) === -1) target.push(cleaned);
     }
 
+    function isProvinceToken(value) {
+        var cleaned = clean(value);
+        var compact = cleaned.replace(/\s+/g, '');
+        if (!cleaned) return false;
+        if (Object.prototype.hasOwnProperty.call(PROVINCE_ALIASES, compact)) return true;
+
+        var canonical = provinceCanonical(cleaned);
+        return endsWithAny(canonical, ['특별자치도', '특별자치시', '광역시', '특별시', '도']);
+    }
+
     function resolveProvince(doName, roadAddress) {
-        var province = clean(doName);
+        var roadTokens = split(roadAddress);
+        var limit = Math.min(roadTokens.length, 2);
+        for (var i = 0; i < limit; i += 1) {
+            if (isProvinceToken(roadTokens[i])) {
+                return provinceCanonical(roadTokens[i]);
+            }
+        }
+
+        var province = provinceCanonical(doName);
         if (province) return province;
 
-        var roadTokens = split(roadAddress);
-        return roadTokens.length ? roadTokens[0] : '';
+        return roadTokens.length ? provinceCanonical(roadTokens[0]) : '';
+    }
+
+    function fieldTokens(value, province) {
+        var result = [];
+        split(value).forEach(function(token) {
+            pushUnique(result, token, province);
+        });
+        return result;
+    }
+
+    function roadPrefixTokens(value, province) {
+        var result = [];
+        split(value).slice(0, 5).forEach(function(token) {
+            pushUnique(result, token, province);
+        });
+        return result;
+    }
+
+    function startsWithProvince(roadAddress, province) {
+        var expected = provinceCanonical(province);
+        var tokens = split(roadAddress);
+        var limit = Math.min(tokens.length, 2);
+        for (var i = 0; i < limit; i += 1) {
+            if (provinceCanonical(tokens[i]) === expected) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function firstEndingWith(values, suffixes) {
+        for (var i = 0; i < values.length; i += 1) {
+            if (endsWithAny(values[i], suffixes)) {
+                return values[i];
+            }
+        }
+        return '';
     }
 
     /**
@@ -101,47 +162,42 @@
     function normalize(doName, siName, guName, roadAddress) {
         var province = resolveProvince(doName, roadAddress);
         var provinceKey = provinceCanonical(province);
-        var tokens = [];
-
-        split(siName).forEach(function(value) {
-            pushUnique(tokens, value, province);
-        });
-        split(guName).forEach(function(value) {
-            pushUnique(tokens, value, province);
-        });
-        split(roadAddress).forEach(function(value) {
-            pushUnique(tokens, value, province);
-        });
+        var siTokens = fieldTokens(siName, provinceKey);
+        var guTokens = fieldTokens(guName, provinceKey);
+        var roadTokens = roadPrefixTokens(roadAddress, provinceKey);
+        var authoritativeRoad = startsWithProvince(roadAddress, provinceKey);
 
         var isDoLevel = provinceKey.slice(-1) === '도';
         var city = '';
         var district = '';
-        var i;
 
         if (isDoLevel) {
             // 도 아래의 시/군: 이천시, 용인시, 양평군, 제주시 등
-            for (i = 0; i < tokens.length; i += 1) {
-                if (endsWithAny(tokens[i], ['시', '군'])) {
-                    city = tokens[i];
-                    break;
-                }
+            city = firstEndingWith(roadTokens, ['시', '군']);
+            if (!city && !authoritativeRoad) {
+                city = firstEndingWith(siTokens, ['시', '군']);
+            }
+            if (!city && !authoritativeRoad) {
+                city = firstEndingWith(guTokens, ['시', '군']);
             }
 
             // 시 아래의 구: 수지구, 분당구, 완산구 등
-            for (i = 0; i < tokens.length; i += 1) {
-                if (endsWithAny(tokens[i], ['구'])) {
-                    district = tokens[i];
-                    break;
-                }
+            district = firstEndingWith(roadTokens, ['구']);
+            if (!district && !authoritativeRoad) {
+                district = firstEndingWith(guTokens, ['구']);
+            }
+            if (!district && !authoritativeRoad) {
+                district = firstEndingWith(siTokens, ['구']);
             }
         } else {
             // 특별시/광역시 아래에는 City 없이 District가 바로 연결됩니다.
             // 서울 관악구, 부산 기장군, 인천 강화군 등
-            for (i = 0; i < tokens.length; i += 1) {
-                if (endsWithAny(tokens[i], ['구', '군'])) {
-                    district = tokens[i];
-                    break;
-                }
+            district = firstEndingWith(roadTokens, ['구', '군']);
+            if (!district && !authoritativeRoad) {
+                district = firstEndingWith(guTokens, ['구', '군']);
+            }
+            if (!district && !authoritativeRoad) {
+                district = firstEndingWith(siTokens, ['구', '군']);
             }
         }
 
