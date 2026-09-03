@@ -9,6 +9,7 @@ import com.dev.HiddenBATHAuto.model.task.Cart;
 import com.dev.HiddenBATHAuto.model.task.ProductMark;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -45,6 +46,7 @@ public class Member implements Serializable {
     @ToString.Include
     private String username;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
     private String name;
     private String phone;

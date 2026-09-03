@@ -49,6 +49,7 @@ public class MemberManagementService {
 	private final CityRepository cityRepository;
 	private final DistrictRepository districtRepository;
 	private final MemberRegionRepository memberRegionRepository;
+	private final MemberPasswordService memberPasswordService;
 
 	private boolean isBlank(String s) {
 		return s == null || s.trim().isEmpty();
@@ -118,6 +119,7 @@ public class MemberManagementService {
 		m.setRole(MemberRole.valueOf(req.getRole()));
 		m.setTeam(newTeam);
 		m.setTeamCategory(resolvedCategory);
+		memberPasswordService.updatePasswordIfRequested(m, req.getPassword(), req.getPasswordConfirm());
 		m.setUpdatedAt(LocalDateTime.now());
 
 		memberRepository.save(m);

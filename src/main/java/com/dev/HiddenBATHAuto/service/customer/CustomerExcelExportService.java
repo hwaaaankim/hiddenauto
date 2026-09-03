@@ -99,7 +99,8 @@ public class CustomerExcelExportService {
                 "배송지",
                 "발주일",
                 "배송예정일",
-                "총 금액",
+                "단가(VAT 제외)",
+                "합계(VAT 포함)",
                 "오더 상태",
                 "담당자"
         );
@@ -116,13 +117,14 @@ public class CustomerExcelExportService {
                     text(row.getDeliveryAddress()),
                     formatDateTimeDate(row.getTask().getCreatedAt()),
                     formatDateTimeDate(row.getDeliveryDate()),
-                    formatMoney(row.getTask().getTotalPrice()),
+                    formatMoney(row.getSupplyPrice()),
+                    formatMoney(row.getVatIncludedTotalPrice()),
                     text(row.getStatusLabel()),
                     text(row.getManagerName())
             ));
         }
 
-        double[] widths = { 11, 14, 16, 11, 34, 15, 46, 13, 13, 16, 15, 14 };
+        double[] widths = { 11, 14, 16, 11, 34, 15, 46, 13, 13, 18, 18, 15, 14 };
 
         return SimpleXlsxWriter.write(
                 "발주 목록",
@@ -162,7 +164,7 @@ public class CustomerExcelExportService {
         return date == null ? "-" : date.format(DATE);
     }
 
-    private String formatMoney(int value) {
+    private String formatMoney(long value) {
         return String.format("%,d원", value);
     }
 

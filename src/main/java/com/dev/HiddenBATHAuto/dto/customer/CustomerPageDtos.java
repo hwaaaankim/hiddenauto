@@ -120,7 +120,12 @@ public final class CustomerPageDtos {
         private String statusKey;
         private String statusLabel;
         private String managerName;
-        private int vatIncludedTotalPrice;
+
+        /** Task에 포함된 모든 Order.supplyPrice의 합계 */
+        private long supplyPrice;
+
+        /** supplyPrice 합계에 VAT 10%를 가산한 금액 */
+        private long vatIncludedTotalPrice;
     }
 
     @Getter

@@ -196,6 +196,7 @@ public class CustomerListViewService {
                 .toList();
 
         StatusSummary statusSummary = summarizeOrderStatus(orders);
+        long supplyPrice = calculateTaskSupplyPrice(orders);
 
         return TaskListRow.builder()
                 .task(task)
@@ -212,15 +213,27 @@ public class CustomerListViewService {
                 .statusKey(statusSummary.key())
                 .statusLabel(statusSummary.label())
                 .managerName(resolveManagerName(task.getManagedBy()))
-                .vatIncludedTotalPrice(calculateVatIncludedTotalPrice(task.getTotalPrice()))
+                .supplyPrice(supplyPrice)
+                .vatIncludedTotalPrice(calculateVatIncludedTotalPrice(supplyPrice))
                 .build();
     }
 
-    private int calculateVatIncludedTotalPrice(int vatExcludedTotalPrice) {
-        if (vatExcludedTotalPrice <= 0) {
-            return Math.max(vatExcludedTotalPrice, 0);
+    private long calculateTaskSupplyPrice(List<Order> orders) {
+        return orders.stream()
+                .mapToLong(Order::getSupplyPrice)
+                .sum();
+    }
+
+    private long calculateVatIncludedTotalPrice(long supplyPrice) {
+        if (supplyPrice <= 0) {
+            return Math.max(supplyPrice, 0);
         }
-        return (int) Math.round(vatExcludedTotalPrice * 1.1d);
+
+        long vatAmount = supplyPrice / 10L;
+        if (supplyPrice % 10L >= 5L) {
+            vatAmount = Math.addExact(vatAmount, 1L);
+        }
+        return Math.addExact(supplyPrice, vatAmount);
     }
 
     private TaskOrderSummary buildTaskOrderSummary(Order order) {
@@ -649,7 +662,7 @@ public class CustomerListViewService {
             case "ordererName" -> compareNullable(normalizeForSort(left.getOrdererName()), normalizeForSort(right.getOrdererName()), asc);
             case "createdAt" -> compareNullable(left.getTask().getCreatedAt(), right.getTask().getCreatedAt(), asc);
             case "deliveryDate" -> compareNullable(left.getDeliveryDate(), right.getDeliveryDate(), asc);
-            case "totalPrice" -> compareNullable(left.getTask().getTotalPrice(), right.getTask().getTotalPrice(), asc);
+            case "totalPrice" -> compareNullable(left.getSupplyPrice(), right.getSupplyPrice(), asc);
             case "status" -> compareNullable(taskStatusSortValue(left), taskStatusSortValue(right), asc);
             case "deliveryMethod" -> compareNullable(normalizeForSort(left.getDeliveryMethodName()), normalizeForSort(right.getDeliveryMethodName()), asc);
             case "address" -> compareNullable(normalizeForSort(left.getDeliveryAddress()), normalizeForSort(right.getDeliveryAddress()), asc);
@@ -1258,7 +1271,7 @@ public class CustomerListViewService {
             case "ordererName" -> "주문자명";
             case "createdAt" -> "발주일";
             case "deliveryDate" -> "배송예정일";
-            case "totalPrice" -> "금액";
+            case "totalPrice" -> "단가(VAT 제외)";
             case "status" -> "상태";
             case "deliveryMethod" -> "배송수단";
             case "address" -> "배송지주소";

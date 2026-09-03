@@ -106,8 +106,8 @@
 								<th><div class="task-list-sortable-head"><span>배송지</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="address" data-sort-dir="asc">↑</button><button type="button" data-sort-field="address" data-sort-dir="desc">↓</button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>발주일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="createdAt" data-sort-dir="asc">↑</button><button type="button" data-sort-field="createdAt" data-sort-dir="desc">↓</button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>배송예정일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryDate" data-sort-dir="asc">↑</button><button type="button" data-sort-field="deliveryDate" data-sort-dir="desc">↓</button></span></div></th>
-								<th><div class="task-list-sortable-head"><span>금액 (VAT 제외)</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="totalPrice" data-sort-dir="asc">↑</button><button type="button" data-sort-field="totalPrice" data-sort-dir="desc">↓</button></span></div></th>
-								<th>부가세 포함 합계</th>
+								<th><div class="task-list-sortable-head"><span>단가(VAT 제외)</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="totalPrice" data-sort-dir="asc">↑</button><button type="button" data-sort-field="totalPrice" data-sort-dir="desc">↓</button></span></div></th>
+								<th>합계(VAT 포함)</th>
 								<th><div class="task-list-sortable-head"><span>상태</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="status" data-sort-dir="asc">↑</button><button type="button" data-sort-field="status" data-sort-dir="desc">↓</button></span></div></th>
 								<th>담당자</th>
 								<th class="text-center">비고</th>
@@ -138,7 +138,7 @@
 									<td class="task-list-address-cell" th:text="${row.deliveryRegion}">서울 송파구</td>
 									<td th:text="${row.task.createdAt != null ? #temporals.format(row.task.createdAt, 'yyyy/MM/dd') : '-'}">-</td>
 									<td th:text="${row.deliveryDate != null ? #temporals.format(row.deliveryDate, 'yyyy/MM/dd') : '-'}">-</td>
-									<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.task.totalPrice, 1, 'COMMA') + '원'}">0원</td>
+									<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.supplyPrice, 1, 'COMMA') + '원'}">0원</td>
 									<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.vatIncludedTotalPrice, 1, 'COMMA') + '원'}">0원</td>
 									<td><span class="task-list-status-badge" th:classappend="${' task-list-status-' + #strings.toLowerCase(row.statusKey)}" th:text="${row.statusLabel}">상태</span></td>
 									<td th:text="${row.managerName}">미지정</td>
