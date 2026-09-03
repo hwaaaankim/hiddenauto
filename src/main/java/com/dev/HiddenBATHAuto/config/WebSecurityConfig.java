@@ -89,6 +89,7 @@ public class WebSecurityConfig {
             "/excelConvert",
             "/api/admin/member-excel/upload",
             "/productImageUpload/**",
+            "/product-spec/**",
             "/loginForm",
             "/signinProcess"
     };

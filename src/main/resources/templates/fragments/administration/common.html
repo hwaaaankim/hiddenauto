@@ -20,6 +20,7 @@
 	<link href="/administration/assets/css/dispatch.css?v=20260820-1" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260831-3" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/internalProfileModal.css?v=20260903-1" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/page/productMaster/productMaster.css?v=20260903-5" rel="stylesheet" type="text/css" />
 	<script src="/administration/assets/js/layout.js"></script>
 	<link href="/administration/assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -475,6 +476,39 @@
 										</ul>
 									</div>
 								</li>
+							</ul>
+						</div>
+					</li>
+
+					<li class="nav-item" th:if="${isAdmin}">
+							<a class="nav-link menu-link" href="#pm-sidebar-product-master" data-bs-toggle="collapse"
+								role="button" aria-expanded="false" aria-controls="pm-sidebar-product-master">
+							<i class="ri-archive-drawer-line"></i>
+								<span>제품관리</span>
+						</a>
+
+							<div class="collapse menu-dropdown" id="pm-sidebar-product-master">
+							<ul class="nav nav-sm flex-column">
+								<li class="nav-item">
+									<a href="/admin/product-master/groups" class="nav-link">
+										코드 그룹 관리
+									</a>
+								</li>
+								<li class="nav-item">
+									<a href="/admin/product-master/products/new" class="nav-link">
+										제품 등록
+									</a>
+								</li>
+									<li class="nav-item">
+										<a href="/admin/product-master/products" class="nav-link">
+											제품 관리
+										</a>
+									</li>
+									<li class="nav-item">
+										<a href="/admin/product-master/automation" class="nav-link">
+											구성 규칙 · 가격
+										</a>
+									</li>
 							</ul>
 						</div>
 					</li>

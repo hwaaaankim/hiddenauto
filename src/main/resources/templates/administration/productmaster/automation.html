@@ -1,0 +1,242 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid pm-page" id="pm-automation-page">
+                <div class="pm-page-header" data-pm-tour="intro">
+                    <div>
+                        <span class="pm-page-eyebrow"><i class="ri-git-merge-line"></i> CONFIGURATION CONTROL</span>
+                        <h1 class="pm-page-title">구성 규칙 · 가격 관리</h1>
+                        <p class="pm-page-description">
+                            고객 질문 흐름과 옵션 간 영향, 수량 계산, 2축 가격표를 각각 관리하고 실제 제품으로 즉시 검증합니다.
+                            우선순위가 큰 규칙이 나중에 적용되어 최종 상태를 결정하며 모든 견적에는 계산 근거가 남습니다.
+                        </p>
+                    </div>
+                    <div class="pm-header-actions">
+                        <button class="btn btn-light pm-btn" type="button" id="pm-start-automation-tour">
+                            <i class="ri-question-line"></i>화면 안내
+                        </button>
+                        <a class="btn btn-outline-primary pm-btn" href="/admin/product-master/groups">
+                            <i class="ri-code-box-line"></i>코드 그룹
+                        </a>
+                        <a class="btn btn-primary pm-btn" href="/admin/product-master/products/new">
+                            <i class="ri-add-circle-line"></i>제품 등록
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pm-automation-health" data-pm-tour="health">
+                    <article><span class="pm-health-icon pm-tone-blue"><i class="ri-git-branch-line"></i></span><div><strong id="pm-rule-count">0</strong><small>조건 규칙</small></div></article>
+                    <article><span class="pm-health-icon pm-tone-violet"><i class="ri-table-2"></i></span><div><strong id="pm-matrix-count">0</strong><small>가격표</small></div></article>
+                    <article><span class="pm-health-icon pm-tone-green"><i class="ri-calculator-line"></i></span><div><strong id="pm-price-rule-count">0</strong><small>가격 규칙</small></div></article>
+                    <article><span class="pm-health-icon pm-tone-amber"><i class="ri-links-line"></i></span><div><strong id="pm-impact-count">0</strong><small>영향 연결 · <b id="pm-risk-count">충돌 0</b></small></div></article>
+                </div>
+
+                <nav class="pm-workspace-tabs" aria-label="구성 규칙 관리 메뉴" data-pm-tour="tabs">
+                    <button class="pm-workspace-tab pm-is-active" type="button" data-pm-workspace="rules">
+                        <i class="ri-git-merge-line"></i><span>조건 · 질문 흐름</span><small>표시, 필수, 자동값</small>
+                    </button>
+                    <button class="pm-workspace-tab" type="button" data-pm-workspace="matrices">
+                        <i class="ri-table-2"></i><span>2축 가격표</span><small>엑셀, 올림, 높이추가</small>
+                    </button>
+                    <button class="pm-workspace-tab" type="button" data-pm-workspace="pricing">
+                        <i class="ri-money-dollar-circle-line"></i><span>가격 계산 규칙</span><small>고정, 수량, 행렬, 구간</small>
+                    </button>
+                    <button class="pm-workspace-tab" type="button" data-pm-workspace="impact">
+                        <i class="ri-radar-line"></i><span>영향도 · 테스트</span><small>연결 확인, 고객 미리보기</small>
+                    </button>
+                </nav>
+
+                <section class="pm-workspace-panel pm-is-active" data-pm-panel="rules" data-pm-tour="rule-workspace">
+                    <div class="row g-3">
+                        <div class="col-lg-5 col-xl-4">
+                            <article class="pm-card pm-sticky-card">
+                                <div class="pm-card-header">
+                                    <div><h2 class="pm-card-title">조건 규칙</h2><p class="pm-card-subtitle">문장처럼 읽히는 단위로 관리합니다.</p></div>
+                                    <button class="btn btn-primary btn-sm pm-btn" type="button" id="pm-new-rule"><i class="ri-add-line"></i>규칙 추가</button>
+                                </div>
+                                <div class="pm-compact-toolbar">
+                                    <div class="pm-search-box"><i class="ri-search-line"></i><input id="pm-rule-search" placeholder="규칙명, 코드, 그룹 검색"></div>
+                                    <select class="form-select form-select-sm" id="pm-rule-scope-filter" aria-label="규칙 범위 필터"><option value="">전체 범위</option><option value="GLOBAL">공통 규칙</option><option value="PRODUCT">제품 전용</option></select>
+                                </div>
+                                <div class="pm-rule-list" id="pm-rule-list"></div>
+                            </article>
+                        </div>
+                        <div class="col-lg-7 col-xl-8">
+                            <article class="pm-card pm-rule-editor-shell">
+                                <div class="pm-context-empty" id="pm-rule-editor-empty">
+                                    <span><i class="ri-route-line"></i></span><h3>관리할 규칙을 선택해 주세요.</h3>
+                                    <p>새 규칙을 누르면 조건과 결과가 필요한 만큼만 열립니다.</p>
+                                </div>
+                                <form class="d-none" id="pm-rule-form" novalidate>
+                                    <input type="hidden" id="pm-rule-id">
+                                    <div class="pm-card-header">
+                                        <div><h2 class="pm-card-title" id="pm-rule-editor-title">새 조건 규칙</h2><p class="pm-card-subtitle" id="pm-rule-editor-code">저장 시 고유 코드가 자동 생성됩니다.</p></div>
+                                        <div class="d-flex gap-2"><button class="btn btn-light btn-sm pm-btn d-none" type="button" id="pm-delete-rule"><i class="ri-delete-bin-line"></i>삭제</button><button class="btn btn-primary btn-sm pm-btn" type="submit"><i class="ri-save-3-line"></i>저장</button></div>
+                                    </div>
+                                    <div class="pm-card-body">
+                                        <div class="row g-3">
+                                            <div class="col-lg-5"><label class="form-label fw-semibold" for="pm-rule-name">규칙명</label><input class="form-control" id="pm-rule-name" maxlength="120" required placeholder="예: 마블 시리즈 대리석 색상 표시"></div>
+                                            <div class="col-lg-4"><label class="form-label fw-semibold" for="pm-rule-scope">적용 범위</label><select class="form-select" id="pm-rule-scope"><option value="">전체 제품 공통</option></select></div>
+                                            <div class="col-lg-3"><label class="form-label fw-semibold" for="pm-rule-priority">우선순위</label><input class="form-control" id="pm-rule-priority" type="number" min="0" max="10000" value="100" required><div class="pm-form-help">큰 수가 최종 결정</div></div>
+                                            <div class="col-lg-4"><label class="form-label fw-semibold" for="pm-rule-match-mode">조건 결합</label><select class="form-select" id="pm-rule-match-mode"><option value="ALL">모두 만족</option><option value="ANY">하나 이상 만족</option></select></div>
+                                            <div class="col-lg-6"><label class="form-label fw-semibold" for="pm-rule-description">관리 메모</label><input class="form-control" id="pm-rule-description" maxlength="500" placeholder="적용 목적이나 예외사항"></div>
+                                            <div class="col-lg-2 d-flex align-items-end"><div class="form-check form-switch pb-2"><input class="form-check-input" type="checkbox" id="pm-rule-active" checked><label class="form-check-label" for="pm-rule-active">사용</label></div></div>
+                                        </div>
+
+                                        <div class="pm-sentence-builder mt-4">
+                                            <div class="pm-sentence-section">
+                                                <div class="pm-sentence-heading"><span class="pm-sentence-keyword">IF</span><div><strong>이 조건일 때</strong><small>옵션 선택이나 W/D/H·수량 범위를 지정합니다.</small></div><button class="btn btn-light btn-sm pm-btn" type="button" id="pm-add-condition"><i class="ri-add-line"></i>조건</button></div>
+                                                <div class="pm-sentence-rows" id="pm-condition-rows"></div>
+                                            </div>
+                                            <div class="pm-rule-connector"><i class="ri-arrow-down-line"></i></div>
+                                            <div class="pm-sentence-section pm-sentence-result">
+                                                <div class="pm-sentence-heading"><span class="pm-sentence-keyword">THEN</span><div><strong>이렇게 처리합니다</strong><small>표시·숨김·필수·비활성·자동값·안내를 설정합니다.</small></div><button class="btn btn-light btn-sm pm-btn" type="button" id="pm-add-action"><i class="ri-add-line"></i>실행</button></div>
+                                                <div class="pm-sentence-rows" id="pm-action-rows"></div>
+                                            </div>
+                                        </div>
+                                        <div class="pm-inline-validation mt-3" id="pm-rule-validation"><i class="ri-shield-check-line"></i><span>저장 전 대상 그룹, 연산자, 반대 실행 충돌을 검사합니다.</span></div>
+                                    </div>
+                                </form>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="pm-workspace-panel" data-pm-panel="matrices" data-pm-tour="matrix-workspace">
+                    <div class="pm-section-toolbar">
+                        <div><h2>2축 가격표</h2><p>첫 행은 X축, 첫 열은 Y축인 엑셀을 검증한 뒤 저장합니다. 빈 교차 셀은 누락으로 표시됩니다.</p></div>
+                        <button class="btn btn-primary pm-btn" type="button" id="pm-new-matrix"><i class="ri-add-line"></i>가격표 등록</button>
+                    </div>
+                    <div class="pm-matrix-gallery" id="pm-matrix-list"></div>
+                </section>
+
+                <section class="pm-workspace-panel" data-pm-panel="pricing" data-pm-tour="pricing-workspace">
+                    <div class="pm-section-toolbar">
+                        <div><h2>가격 계산 규칙</h2><p>옵션 고정금액, 옵션 단가 × 수량, 2축 가격표, 기준값 초과 구간을 제품별 또는 공통으로 적용합니다.</p></div>
+                        <button class="btn btn-primary pm-btn" type="button" id="pm-new-price-rule"><i class="ri-add-line"></i>가격 규칙 추가</button>
+                    </div>
+                    <div class="pm-price-rule-grid" id="pm-price-rule-list"></div>
+                </section>
+
+                <section class="pm-workspace-panel" data-pm-panel="impact" data-pm-tour="impact-workspace">
+                    <div class="row g-3">
+                        <div class="col-xl-7">
+                            <article class="pm-card">
+                                <div class="pm-card-header"><div><h2 class="pm-card-title">옵션·가격 영향도</h2><p class="pm-card-subtitle">질문 분기와 가격 계산에 연결된 원인·결과 그룹을 한 화면에서 추적합니다.</p></div><select class="form-select form-select-sm pm-inline-select" id="pm-impact-group-filter"><option value="">모든 그룹</option></select></div>
+                                <div class="pm-impact-map" id="pm-impact-map"></div>
+                            </article>
+                        </div>
+                        <div class="col-xl-5">
+                            <article class="pm-card pm-sticky-card">
+                                <div class="pm-card-header"><div><h2 class="pm-card-title">실제품 검증</h2><p class="pm-card-subtitle">저장된 제품을 고객의 첫 화면 상태로 계산합니다.</p></div></div>
+                                <div class="pm-card-body">
+                                    <label class="form-label fw-semibold" for="pm-test-product">테스트 제품</label>
+                                    <select class="form-select" id="pm-test-product"><option value="">제품 선택</option></select>
+                                    <div class="d-flex gap-2 mt-3">
+                                        <button class="btn btn-primary pm-btn flex-fill" type="button" id="pm-run-test"><i class="ri-play-circle-line"></i>규칙 계산</button>
+                                        <a class="btn btn-light pm-btn disabled" id="pm-open-customer-preview" href="#" target="_blank" rel="noopener"><i class="ri-message-3-line"></i>고객 화면</a>
+                                    </div>
+                                    <div class="pm-test-result mt-3" id="pm-test-result"><div class="pm-context-empty pm-context-empty-sm"><span><i class="ri-flask-line"></i></span><p>제품을 선택하면 적용 규칙과 첫 견적을 보여줍니다.</p></div></div>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-matrix-modal" tabindex="-1" aria-labelledby="pm-matrix-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content pm-modal-content">
+            <form id="pm-matrix-form" novalidate>
+                <input type="hidden" id="pm-matrix-id">
+                <div class="modal-header pm-modal-header"><div><h5 class="modal-title fw-bold" id="pm-matrix-modal-title">2축 가격표 등록</h5><p class="text-muted small mb-0" id="pm-matrix-modal-subtitle">축과 구간 처리방식을 먼저 정한 뒤 표를 입력합니다.</p></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button></div>
+                <div class="modal-body pm-modal-body">
+                    <div class="row g-3">
+                        <div class="col-lg-4"><label class="form-label fw-semibold" for="pm-matrix-name">가격표명</label><input class="form-control" id="pm-matrix-name" maxlength="120" required placeholder="예: 하부장 W-H 가격표"></div>
+                        <div class="col-lg-5"><label class="form-label fw-semibold" for="pm-matrix-description">관리 설명</label><input class="form-control" id="pm-matrix-description" maxlength="500"></div>
+                        <div class="col-lg-3"><label class="form-label fw-semibold" for="pm-matrix-lookup">구간 조회</label><select class="form-select" id="pm-matrix-lookup"><option value="CEILING">올림 구간</option><option value="EXACT">정확히 일치</option><option value="FLOOR">내림 구간</option></select></div>
+                        <div class="col-lg-3"><label class="form-label fw-semibold" for="pm-matrix-x-group">X축 그룹</label><select class="form-select" id="pm-matrix-x-group" required></select></div>
+                        <div class="col-lg-3"><label class="form-label fw-semibold" for="pm-matrix-x-field">X축 값</label><select class="form-select" id="pm-matrix-x-field"></select></div>
+                        <div class="col-lg-2"><label class="form-label fw-semibold" for="pm-matrix-x-round">X 올림단위</label><input class="form-control" type="number" min="0.001" step="0.001" id="pm-matrix-x-round" value="100" required></div>
+                        <div class="col-lg-3"><label class="form-label fw-semibold" for="pm-matrix-y-group">Y축 그룹</label><select class="form-select" id="pm-matrix-y-group" required></select></div>
+                        <div class="col-lg-3"><label class="form-label fw-semibold" for="pm-matrix-y-field">Y축 값</label><select class="form-select" id="pm-matrix-y-field"></select></div>
+                        <div class="col-lg-2"><label class="form-label fw-semibold" for="pm-matrix-y-round">Y 올림단위</label><input class="form-control" type="number" min="0.001" step="0.001" id="pm-matrix-y-round" value="100" required></div>
+                    </div>
+
+                    <div class="pm-progressive-box mt-3">
+                        <button class="pm-progressive-toggle" type="button" data-pm-toggle-box="pm-matrix-extension"><span><i class="ri-add-box-line"></i><strong>기준 높이 초과 금액 규칙</strong><small>필요한 가격표에서만 추가합니다.</small></span><i class="ri-arrow-down-s-line"></i></button>
+                        <div class="pm-progressive-content" id="pm-matrix-extension">
+                            <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="pm-matrix-extension-enabled"><label class="form-check-label fw-semibold" for="pm-matrix-extension-enabled">초과분 가격 사용</label></div>
+                            <div class="row g-3"><div class="col-md-4"><label class="form-label" for="pm-matrix-extension-start">기준값</label><input class="form-control" type="number" step="0.001" id="pm-matrix-extension-start"></div><div class="col-md-4"><label class="form-label" for="pm-matrix-extension-unit">추가 단위</label><input class="form-control" type="number" min="0.001" step="0.001" id="pm-matrix-extension-unit"></div><div class="col-md-4"><label class="form-label" for="pm-matrix-extension-amount">단위당 금액</label><div class="input-group"><input class="form-control" type="number" min="0" id="pm-matrix-extension-amount"><span class="input-group-text">원</span></div></div></div>
+                        </div>
+                    </div>
+
+                    <div class="pm-matrix-source mt-3">
+                        <div class="pm-matrix-source-tabs"><button class="pm-is-active" type="button" data-pm-matrix-source="excel"><i class="ri-file-excel-2-line"></i>엑셀·CSV 업로드</button><button type="button" data-pm-matrix-source="manual"><i class="ri-edit-box-line"></i>직접 표 만들기</button></div>
+                        <div class="pm-matrix-source-panel pm-is-active" data-pm-matrix-source-panel="excel">
+                            <input class="d-none" id="pm-matrix-file" type="file" accept=".xlsx,.xls,.csv">
+                            <button class="pm-matrix-dropzone" type="button" id="pm-matrix-file-trigger"><i class="ri-upload-cloud-2-line"></i><strong>가격표 파일을 선택하거나 끌어 놓으세요.</strong><small>A1은 제목, B1부터 X축, A2부터 Y축, 교차 셀은 금액</small></button>
+                        </div>
+                        <div class="pm-matrix-source-panel" data-pm-matrix-source-panel="manual">
+                            <div class="row g-2"><div class="col-md-5"><label class="form-label" for="pm-matrix-x-axis">X축 값</label><input class="form-control" id="pm-matrix-x-axis" placeholder="500, 600, 700"></div><div class="col-md-5"><label class="form-label" for="pm-matrix-y-axis">Y축 값</label><input class="form-control" id="pm-matrix-y-axis" placeholder="500, 600, 700"></div><div class="col-md-2 d-flex align-items-end"><button class="btn btn-light pm-btn w-100" type="button" id="pm-build-matrix-grid">표 만들기</button></div></div>
+                        </div>
+                    </div>
+                    <div class="pm-matrix-preview mt-3" id="pm-matrix-preview"><div class="pm-context-empty pm-context-empty-sm"><span><i class="ri-table-line"></i></span><p>파일을 검증하거나 축 값을 입력하면 가격표가 나타납니다.</p></div></div>
+                    <div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" id="pm-matrix-active" checked><label class="form-check-label fw-semibold" for="pm-matrix-active">가격 계산에서 사용</label></div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-danger-subtle text-danger pm-btn me-auto d-none" type="button" id="pm-delete-matrix"><i class="ri-delete-bin-line"></i>가격표 삭제</button><button class="btn btn-light pm-btn" type="button" data-bs-dismiss="modal">취소</button><button class="btn btn-primary pm-btn" type="submit"><i class="ri-save-3-line"></i>가격표 저장</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-price-rule-modal" tabindex="-1" aria-labelledby="pm-price-rule-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content pm-modal-content">
+            <form id="pm-price-rule-form" novalidate>
+                <input type="hidden" id="pm-price-rule-id">
+                <div class="modal-header pm-modal-header"><div><h5 class="modal-title fw-bold" id="pm-price-rule-modal-title">가격 규칙 등록</h5><p class="text-muted small mb-0" id="pm-price-rule-modal-subtitle">유형을 선택하면 필요한 항목만 표시됩니다.</p></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button></div>
+                <div class="modal-body pm-modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-7"><label class="form-label fw-semibold" for="pm-price-rule-name">규칙명</label><input class="form-control" id="pm-price-rule-name" maxlength="120" required placeholder="예: 손잡이 단가 × 손잡이 수량"></div>
+                        <div class="col-md-5"><label class="form-label fw-semibold" for="pm-price-rule-scope">적용 범위</label><select class="form-select" id="pm-price-rule-scope"><option value="">전체 제품 공통</option></select></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold" for="pm-price-rule-type">계산 유형</label><select class="form-select" id="pm-price-rule-type"><option value="FIXED_ADD">조건부 고정금액</option><option value="OPTION_X_NUMBER">옵션 단가 × 수량</option><option value="MATRIX">2축 가격표</option><option value="STEP_ADD">기준값 초과 구간</option></select></div>
+                        <div class="col-md-3"><label class="form-label fw-semibold" for="pm-price-rule-apply">적용 방식</label><select class="form-select" id="pm-price-rule-apply"><option value="ADD">가산</option><option value="REPLACE_BASE">기본가 대체</option></select></div>
+                        <div class="col-md-3"><label class="form-label fw-semibold" for="pm-price-rule-priority">우선순위</label><input class="form-control" id="pm-price-rule-priority" type="number" min="0" max="10000" value="100"></div>
+                    </div>
+                    <div class="pm-dynamic-fields mt-3" id="pm-price-rule-dynamic-fields"></div>
+                    <div class="mt-3"><label class="form-label fw-semibold" for="pm-price-rule-description">관리 메모</label><textarea class="form-control" id="pm-price-rule-description" rows="2" maxlength="500"></textarea></div>
+                    <div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" id="pm-price-rule-active" checked><label class="form-check-label fw-semibold" for="pm-price-rule-active">가격 계산에서 사용</label></div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-danger-subtle text-danger pm-btn me-auto d-none" type="button" id="pm-delete-price-rule"><i class="ri-delete-bin-line"></i>삭제</button><button class="btn btn-light pm-btn" type="button" data-bs-dismiss="modal">취소</button><button class="btn btn-primary pm-btn" type="submit"><i class="ri-save-3-line"></i>가격 규칙 저장</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="pm-tour-overlay" id="pm-tour-overlay" aria-hidden="true"><div class="pm-tour-mask"></div><div class="pm-tour-focus"></div><aside class="pm-tour-popover"><span class="pm-tour-step" id="pm-tour-step">1 / 4</span><h4 id="pm-tour-title">제품 구성 규칙</h4><p id="pm-tour-text"></p><div><button class="btn btn-light btn-sm pm-btn" type="button" id="pm-tour-prev">이전</button><button class="btn btn-primary btn-sm pm-btn" type="button" id="pm-tour-next">다음</button><button class="btn btn-dark btn-sm pm-btn" type="button" id="pm-tour-close">종료</button></div></aside></div>
+
+<div class="pm-loading-overlay" id="pm-loading-overlay" aria-hidden="true"><div class="pm-loading-box"><span class="spinner-border spinner-border-sm text-primary"></span><span data-pm-loading-label>처리 중입니다.</span></div></div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+<script src="/administration/assets/js/page/productMaster/productMasterCommon.js?v=20260903-5"></script>
+<script src="/administration/assets/js/page/productMaster/productMasterAutomation.js?v=20260903-5"></script>
+</body>
+</html>

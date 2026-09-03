@@ -1,0 +1,406 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body th:class="${embedded} ? 'pm-embedded' : 'twocolumn-panel'">
+<div id="layout-wrapper" th:attr="data-pm-product-id=${productId},data-pm-embedded=${embedded}">
+    <th:block th:if="${!embedded}">
+        <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+        <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+        <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+        <div class="vertical-overlay"></div>
+    </th:block>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid pm-page" id="pm-product-form-page">
+                <div class="pm-page-header">
+                    <div>
+                        <span class="pm-page-eyebrow"><i class="ri-function-add-line"></i> PRODUCT BUILDER</span>
+                        <h1 class="pm-page-title" id="pm-product-form-title">제품 등록</h1>
+                        <p class="pm-page-description" id="pm-product-form-description">
+                            필요한 그룹만 추가하고 ‘선택·변경’을 열어 값을 고르면 제품 코드, 팀별 해석, 공급가가 실시간으로 구성됩니다.
+                        </p>
+                    </div>
+                    <div class="pm-header-actions" th:if="${!embedded}">
+                        <a class="btn btn-light pm-btn" href="/admin/product-master/groups">
+                            <i class="ri-code-box-line"></i>코드 그룹 관리
+                        </a>
+                        <a class="btn btn-light pm-btn" href="/admin/product-master/automation">
+                            <i class="ri-node-tree"></i>구성 규칙 · 가격
+                        </a>
+                        <a class="btn btn-outline-primary pm-btn" href="/admin/product-master/products">
+                            <i class="ri-list-check-2"></i>제품 목록
+                        </a>
+                        <button class="btn btn-dark pm-btn d-none" type="button" id="pm-product-qr-button">
+                            <i class="ri-qr-code-line"></i>QR 보기
+                        </button>
+                    </div>
+                </div>
+
+                <form id="pm-product-form" novalidate>
+                    <section class="pm-card mb-3">
+                        <div class="pm-card-header">
+                            <div>
+                                <h2 class="pm-card-title"><span class="pm-guide-index me-2">01</span>제품 기본정보</h2>
+                                <p class="pm-card-subtitle">제품명은 유일해야 하며, 카탈로그 코드와 QR은 최초 저장 시 자동 생성됩니다.</p>
+                            </div>
+                            <span class="pm-code-badge d-none" id="pm-form-catalog-code">저장 전</span>
+                        </div>
+                        <div class="pm-card-body">
+                            <div class="row g-3">
+                                <div class="col-lg-5">
+                                    <label class="form-label fw-semibold" for="pm-product-name">제품명 <span class="text-danger">*</span></label>
+                                    <input class="form-control" id="pm-product-name" maxlength="160"
+                                           placeholder="예: 심플 하부장 600" required>
+                                </div>
+                                <div class="col-lg-3">
+                                    <label class="form-label fw-semibold" for="pm-product-status">제품 상태</label>
+                                    <select class="form-select" id="pm-product-status">
+                                        <option value="DRAFT">작성중</option>
+                                        <option value="ACTIVE">사용중</option>
+                                        <option value="DISCONTINUED">단종</option>
+                                    </select>
+                                    <div class="pm-form-help">QR 공개 페이지는 작성중 상태에서는 열리지 않습니다.</div>
+                                </div>
+                                <div class="col-lg-4">
+                                    <label class="form-label fw-semibold" for="pm-product-safety-stock">안전재고</label>
+                                    <div class="input-group">
+                                        <input class="form-control text-end" id="pm-product-safety-stock" type="number"
+                                               min="0" max="10000000" value="0" required>
+                                        <span class="input-group-text">개</span>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold" for="pm-product-description">제품 설명</label>
+                                    <textarea class="form-control" id="pm-product-description" rows="2" maxlength="1000"
+                                              placeholder="QR 상세 화면에도 표시할 수 있는 제품 설명을 입력해 주세요."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="pm-card mb-3">
+                        <div class="pm-card-header">
+                            <div>
+                                <h2 class="pm-card-title"><span class="pm-guide-index me-2">02</span>제품 구성</h2>
+                                <p class="pm-card-subtitle">왼쪽 그룹을 추가한 뒤 필요한 카드만 펼쳐 선택합니다. 대분류 핵심값은 반드시 1개 필요합니다.</p>
+                            </div>
+                            <span class="pm-count-badge" id="pm-builder-count">0</span>
+                        </div>
+                        <div class="pm-card-body">
+                            <div class="row g-3">
+                                <div class="col-lg-4 col-xl-3">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <strong class="small">사용 가능한 그룹</strong>
+                                        <span class="text-muted small">클릭 또는 드래그</span>
+                                    </div>
+                                    <div class="pm-available-group-list" id="pm-available-group-list">
+                                        <div class="pm-empty"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-8 col-xl-9">
+                                    <div class="pm-builder-canvas" id="pm-builder-canvas">
+                                        <div class="pm-empty" id="pm-builder-empty">
+                                            <div>
+                                                <span class="pm-empty-icon"><i class="ri-drag-drop-line"></i></span>
+                                                <strong>그룹을 이곳에 추가해 주세요.</strong>
+                                                <p class="mt-2 mb-0">핵심 구성은 제품코드와 재고를 결정하고, 추가 옵션은 포함 수량만 관리합니다.</p>
+                                            </div>
+                                        </div>
+                                        <div class="pm-builder-list" id="pm-builder-list"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-xl-5">
+                            <section class="pm-card h-100">
+                                <div class="pm-card-header">
+                                    <div>
+                                        <h2 class="pm-card-title"><span class="pm-guide-index me-2">03</span>가격계산</h2>
+                                        <p class="pm-card-subtitle">공급가와 VAT를 분리 저장하고 변경 이력을 남깁니다.</p>
+                                    </div>
+                                </div>
+                                <div class="pm-card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold" for="pm-pricing-mode">가격계산 방식</label>
+                                        <select class="form-select" id="pm-pricing-mode">
+                                            <option value="FIXED">고정 공급가</option>
+                                            <option value="BASE_PLUS_COMPONENTS">기본가 + 핵심 구성요소 조정액</option>
+                                            <option value="RULE_ENGINE">규칙 기반 견적</option>
+                                        </select>
+                                        <div class="pm-form-help" id="pm-pricing-mode-help">입력한 기본 공급가를 제품 공급가로 사용합니다.</div>
+                                        <a class="pm-inline-management-link" href="/admin/product-master/automation#pricing">
+                                            옵션×수량·가격표·구간 계산식 관리 <i class="ri-arrow-right-line"></i>
+                                        </a>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-7">
+                                            <label class="form-label fw-semibold" for="pm-base-supply-price">기본 공급가</label>
+                                            <div class="input-group">
+                                                <input class="form-control text-end" id="pm-base-supply-price" type="number"
+                                                       min="0" max="2000000000" value="0" required>
+                                                <span class="input-group-text">원</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label fw-semibold" for="pm-vat-rate">VAT</label>
+                                            <div class="input-group">
+                                                <input class="form-control text-end" id="pm-vat-rate" type="number"
+                                                       min="0" max="100" step="0.01" value="10.00" required>
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="pm-price-summary">
+                                        <div class="pm-price-box">
+                                            <span>구성 조정액</span>
+                                            <strong id="pm-preview-component-price">0원</strong>
+                                        </div>
+                                        <div class="pm-price-box">
+                                            <span>공급가</span>
+                                            <strong id="pm-preview-supply-price">0원</strong>
+                                        </div>
+                                        <div class="pm-price-box pm-total">
+                                            <span>VAT 포함</span>
+                                            <strong id="pm-preview-total-price">0원</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div class="col-xl-7">
+                            <section class="pm-card h-100">
+                                <div class="pm-card-header">
+                                    <div>
+                                        <h2 class="pm-card-title"><span class="pm-guide-index me-2">04</span>코드와 화면별 해석</h2>
+                                        <p class="pm-card-subtitle">저장 후 긴 구성 코드는 사양을, 짧은 코드는 카탈로그와 QR을 연결합니다.</p>
+                                    </div>
+                                    <button class="btn btn-light btn-sm pm-btn" type="button" id="pm-copy-product-code">
+                                        <i class="ri-file-copy-line"></i>코드 복사
+                                    </button>
+                                </div>
+                                <div class="pm-card-body">
+                                    <div class="pm-live-code mb-3" id="pm-product-code-preview">PM1|구성요소를 선택하면 코드가 표시됩니다.</div>
+                                    <div class="pm-preview-grid">
+                                        <article class="pm-preview-card">
+                                            <h6><span class="pm-audience-dot"></span>고객 화면</h6>
+                                            <div id="pm-customer-preview"></div>
+                                        </article>
+                                        <article class="pm-preview-card">
+                                            <h6><span class="pm-audience-dot" style="background:#1f9d72"></span>관리팀 화면</h6>
+                                            <div id="pm-management-preview"></div>
+                                        </article>
+                                        <article class="pm-preview-card">
+                                            <h6><span class="pm-audience-dot" style="background:#f59e0b"></span>생산팀 화면</h6>
+                                            <div id="pm-production-preview"></div>
+                                        </article>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+
+                    <section class="pm-card mb-3" id="pm-initial-stock-section">
+                        <div class="pm-card-header">
+                            <div>
+                                <h2 class="pm-card-title"><span class="pm-guide-index me-2">05</span>최초재고</h2>
+                                <p class="pm-card-subtitle">선택사항입니다. 제품 등록 후에는 상세 화면의 재고 원장에서 변경합니다.</p>
+                            </div>
+                        </div>
+                        <div class="pm-card-body">
+                            <div class="row g-3">
+                                <div class="col-lg-3">
+                                    <label class="form-label fw-semibold" for="pm-initial-stock">제품 총재고</label>
+                                    <div class="input-group">
+                                        <input class="form-control text-end" id="pm-initial-stock" type="number" min="0" max="10000000" value="0">
+                                        <span class="input-group-text">개</span>
+                                    </div>
+                                </div>
+                                <div class="col-lg-5">
+                                    <label class="form-label fw-semibold" for="pm-initial-stock-reason">등록 사유</label>
+                                    <input class="form-control" id="pm-initial-stock-reason" maxlength="500" value="제품 등록 최초재고">
+                                </div>
+                                <div class="col-lg-4">
+                                    <label class="form-label fw-semibold">추가 옵션 포함 수량</label>
+                                    <div class="pm-form-help">각 옵션 수량은 총재고를 넘을 수 없습니다. 하나의 제품에 여러 옵션이 함께 포함될 수 있습니다.</div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="pm-addon-balance-grid" id="pm-initial-addon-grid"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </form>
+
+                <section class="pm-card d-none" id="pm-stock-section">
+                    <div class="pm-card-header">
+                        <div>
+                            <h2 class="pm-card-title"><i class="ri-stack-line me-2"></i>재고 원장</h2>
+                            <p class="pm-card-subtitle">총재고와 추가 옵션 포함 수량을 함께 변경합니다. 삭제는 원장을 지우지 않고 취소 이력을 남깁니다.</p>
+                        </div>
+                    </div>
+                    <div class="pm-card-body">
+                        <div class="pm-stock-dashboard mb-3">
+                            <div class="pm-stock-hero">
+                                <span>현재 제품 총재고</span>
+                                <strong id="pm-current-stock">0</strong>
+                                <small id="pm-current-stock-status">재고없음</small>
+                            </div>
+                            <div>
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <strong>추가 옵션 포함 수량</strong>
+                                    <small class="text-muted">별도 SKU 재고가 아닙니다.</small>
+                                </div>
+                                <div class="pm-addon-balance-grid" id="pm-addon-balance-grid"></div>
+                            </div>
+                        </div>
+
+                        <form class="border rounded-3 p-3 mb-4" id="pm-stock-adjust-form" novalidate>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-lg-2">
+                                    <label class="form-label fw-semibold" for="pm-stock-movement-type">처리 유형</label>
+                                    <select class="form-select" id="pm-stock-movement-type">
+                                        <option value="INBOUND">입고</option>
+                                        <option value="OUTBOUND">출고</option>
+                                        <option value="RETURN">반품입고</option>
+                                        <option value="DAMAGE">파손/폐기</option>
+                                        <option value="ADJUSTMENT">재고조정</option>
+                                    </select>
+                                </div>
+                                <div class="col-lg-2">
+                                    <label class="form-label fw-semibold" for="pm-stock-delta">총재고 변경량</label>
+                                    <input class="form-control text-end" id="pm-stock-delta" type="number" min="-10000000" max="10000000" value="1">
+                                    <div class="pm-form-help">입고는 +, 출고·폐기는 -로 자동 보정됩니다.</div>
+                                </div>
+                                <div class="col-lg-5">
+                                    <label class="form-label fw-semibold" for="pm-stock-reason">변경 사유</label>
+                                    <input class="form-control" id="pm-stock-reason" maxlength="500" required placeholder="예: 9월 정기 입고">
+                                </div>
+                                <div class="col-lg-3">
+                                    <button class="btn btn-primary pm-btn w-100" type="submit"><i class="ri-add-box-line"></i>재고 반영</button>
+                                </div>
+                                <div class="col-12">
+                                    <div class="pm-addon-balance-grid" id="pm-stock-addon-delta-grid"></div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <ul class="nav nav-tabs nav-tabs-custom mb-3" role="tablist">
+                            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pm-stock-history-pane" type="button">재고 이력</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pm-price-history-pane" type="button">가격 이력</button></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="pm-stock-history-pane">
+                                <div class="table-responsive border rounded-3">
+                                    <table class="table align-middle pm-history-table mb-0">
+                                        <thead class="table-light">
+                                        <tr><th>일시</th><th>유형</th><th class="text-end">증감</th><th class="text-end">변경 전</th><th class="text-end">변경 후</th><th>추가 옵션</th><th>사유 / 처리자</th><th class="text-end">관리</th></tr>
+                                        </thead>
+                                        <tbody id="pm-stock-history-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="pm-price-history-pane">
+                                <div class="table-responsive border rounded-3">
+                                    <table class="table align-middle pm-history-table mb-0">
+                                        <thead class="table-light">
+                                        <tr><th>일시</th><th>계산 방식</th><th class="text-end">기본가</th><th class="text-end">구성 조정</th><th class="text-end">공급가</th><th class="text-end">VAT</th><th class="text-end">합계</th><th>사유 / 처리자</th></tr>
+                                        </thead>
+                                        <tbody id="pm-price-history-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <th:block th:if="${!embedded}">
+            <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+        </th:block>
+    </div>
+</div>
+
+<div class="pm-save-bar">
+    <span class="pm-save-status" id="pm-save-status">필수값과 구성요소를 확인한 뒤 저장해 주세요.</span>
+    <div class="d-flex gap-2">
+        <a class="btn btn-light pm-btn" th:if="${!embedded}" href="/admin/product-master/products">취소</a>
+        <button class="btn btn-primary pm-btn px-4" type="submit" form="pm-product-form" id="pm-save-product-button">
+            <i class="ri-save-3-line"></i><span>제품 저장</span>
+        </button>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-product-media-modal" tabindex="-1" aria-labelledby="pm-product-media-title" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content pm-modal-content">
+            <div class="modal-header pm-modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="pm-product-media-title">구성 이미지</h5>
+                    <p class="text-muted small mb-0" id="pm-product-media-subtitle">그룹과 옵션값 이미지를 구분해 보여드립니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body pm-modal-body">
+                <div class="pm-media-content" id="pm-product-media-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-product-qr-modal" tabindex="-1" aria-labelledby="pm-product-qr-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content pm-modal-content">
+            <div class="modal-header pm-modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="pm-product-qr-title">제품 QR</h5>
+                    <p class="text-muted small mb-0">QR 화면에서 고객용 사양, 질문형 구성, 선택 견적과 등록 재고 안내를 확인합니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body pm-modal-body">
+                <div class="pm-qr-grid">
+                    <div class="pm-qr-stage" id="pm-product-qr-stage"></div>
+                    <div>
+                        <h5 class="fw-bold" id="pm-product-qr-name">제품명</h5>
+                        <p class="text-muted" id="pm-product-qr-code">카탈로그 코드</p>
+                        <div class="pm-qr-url mb-3" id="pm-product-qr-url"></div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-outline-primary pm-btn" type="button" id="pm-copy-qr-url"><i class="ri-file-copy-line"></i>주소 복사</button>
+                            <button class="btn btn-dark pm-btn" type="button" id="pm-download-qr"><i class="ri-download-line"></i>SVG 다운로드</button>
+                            <a class="btn btn-light pm-btn" id="pm-open-public-spec" href="#" target="_blank" rel="noopener"><i class="ri-external-link-line"></i>상세 열기</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="pm-loading-overlay" id="pm-loading-overlay" aria-hidden="true">
+    <div class="pm-loading-box">
+        <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+        <span data-pm-loading-label>처리 중입니다.</span>
+    </div>
+</div>
+
+<th:block th:if="${!embedded}">
+    <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+    <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+</th:block>
+<th:block th:if="${embedded}">
+    <script src="/administration/assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/administration/assets/libs/sweetalert2/sweetalert2.min.js"></script>
+</th:block>
+<script src="/administration/assets/js/page/productMaster/productMasterCommon.js?v=20260903-5"></script>
+<script src="/administration/assets/js/page/productMaster/productMasterQr.js?v=20260903-5"></script>
+<script src="/administration/assets/js/page/productMaster/productMasterForm.js?v=20260903-5"></script>
+</body>
+</html>

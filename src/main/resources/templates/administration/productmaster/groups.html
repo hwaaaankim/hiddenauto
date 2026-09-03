@@ -1,0 +1,532 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid pm-page" id="pm-group-page">
+                <div class="pm-page-header" data-pm-group-tour="intro">
+                    <div>
+                        <span class="pm-page-eyebrow"><i class="ri-code-box-line"></i> PRODUCT CODE SYSTEM</span>
+                        <h1 class="pm-page-title">코드 그룹 관리</h1>
+                        <p class="pm-page-description">
+                            제품을 이루는 그룹과 값을 고객·관리팀·생산팀용 이름으로 각각 관리합니다.
+                            자동 생성된 코드는 등록 후 변경되지 않아 과거 제품과 QR의 해석 기준을 안전하게 유지합니다.
+                        </p>
+                    </div>
+                    <div class="pm-header-actions">
+                        <button class="btn btn-light pm-btn" type="button" id="pm-start-group-tour">
+                            <i class="ri-guide-line"></i>처음 사용 가이드
+                        </button>
+                        <a class="btn btn-light pm-btn" href="/admin/product-master/products">
+                            <i class="ri-list-check-2"></i>제품 관리
+                        </a>
+                        <a class="btn btn-primary pm-btn" href="/admin/product-master/products/new">
+                            <i class="ri-add-circle-line"></i>제품 등록
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pm-guide" data-pm-group-tour="classification">
+                    <article class="pm-guide-item">
+                        <span class="pm-guide-index">01</span>
+                        <div class="pm-guide-title">핵심 구성과 추가 옵션을 구분합니다</div>
+                        <p class="pm-guide-text">핵심 구성은 제품 코드와 재고를 결정합니다. 추가 옵션은 같은 제품 재고 안에서 포함 수량만 별도로 집계합니다.</p>
+                    </article>
+                    <article class="pm-guide-item">
+                        <span class="pm-guide-index">02</span>
+                        <div class="pm-guide-title">이름과 이미지를 필요한 순간에 엽니다</div>
+                        <p class="pm-guide-text">세 화면의 표시명은 한 코드에 묶고, 이미지는 ‘추가·관리’를 선택할 때만 펼쳐져 여러 장을 등록할 수 있습니다.</p>
+                    </article>
+                    <article class="pm-guide-item">
+                        <span class="pm-guide-index">03</span>
+                        <div class="pm-guide-title">사용 중인 코드는 보호됩니다</div>
+                        <p class="pm-guide-text">제품 또는 재고 이력이 참조하는 그룹과 값은 삭제할 수 없습니다. 표시 이름 수정이나 사용 중지는 가능합니다.</p>
+                    </article>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-lg-4 col-xl-3">
+                        <section class="pm-card pm-sticky-card" data-pm-group-tour="group-list">
+                            <div class="pm-card-header">
+                                <div>
+                                    <h2 class="pm-card-title">옵션 그룹</h2>
+                                    <p class="pm-card-subtitle">끌어서 표시 순서를 변경할 수 있습니다.</p>
+                                </div>
+                                <button class="btn btn-primary btn-sm pm-btn" type="button" id="pm-add-group-button">
+                                    <i class="ri-add-line"></i>그룹 추가
+                                </button>
+                            </div>
+                            <div class="pm-group-list" id="pm-group-list" aria-live="polite">
+                                <div class="pm-empty">
+                                    <div>
+                                        <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+                                        <p class="mt-2 mb-0">그룹을 불러오는 중입니다.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="col-lg-8 col-xl-9">
+                        <section class="pm-card" id="pm-group-editor-card" data-pm-group-tour="editor">
+                            <div class="pm-card-header">
+                                <div>
+                                    <h2 class="pm-card-title" id="pm-group-editor-title">그룹을 선택해 주세요</h2>
+                                    <p class="pm-card-subtitle" id="pm-group-editor-code">왼쪽 목록에서 수정할 그룹을 선택합니다.</p>
+                                </div>
+                                <span class="pm-count-badge" id="pm-group-value-count">0</span>
+                            </div>
+                            <div class="pm-card-body" id="pm-group-editor-empty">
+                                <div class="pm-empty">
+                                    <div>
+                                        <span class="pm-empty-icon"><i class="ri-layout-grid-line"></i></span>
+                                        <strong>관리할 그룹을 선택해 주세요.</strong>
+                                        <p class="mt-2 mb-0">새 그룹을 만들거나 기존 그룹의 세 가지 표시 이름과 옵션값을 편집할 수 있습니다.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pm-card-body d-none" id="pm-group-editor-content">
+                                <form id="pm-group-editor-form" novalidate>
+                                    <input type="hidden" id="pm-group-id">
+                                    <div class="pm-label-grid">
+                                        <div class="pm-audience-field">
+                                            <label class="pm-audience-label" for="pm-group-customer-label">
+                                                <span><span class="pm-audience-dot"></span> 고객 화면</span>
+                                                <small>필수</small>
+                                            </label>
+                                            <input class="form-control" id="pm-group-customer-label" maxlength="80" required>
+                                        </div>
+                                        <div class="pm-audience-field">
+                                            <label class="pm-audience-label" for="pm-group-management-label">
+                                                <span><span class="pm-audience-dot"></span> 관리팀 화면</span>
+                                                <small>필수</small>
+                                            </label>
+                                            <input class="form-control" id="pm-group-management-label" maxlength="80" required>
+                                        </div>
+                                        <div class="pm-audience-field">
+                                            <label class="pm-audience-label" for="pm-group-production-label">
+                                                <span><span class="pm-audience-dot"></span> 생산팀 화면</span>
+                                                <small>필수</small>
+                                            </label>
+                                            <input class="form-control" id="pm-group-production-label" maxlength="80" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-semibold" for="pm-group-type">재고 구분</label>
+                                            <select class="form-select" id="pm-group-type" required>
+                                                <option value="CORE">제품 정체성</option>
+                                                <option value="INTERNAL">내부 구성</option>
+                                                <option value="ADD_ON">외부 추가옵션</option>
+                                            </select>
+                                            <div class="pm-form-help">추가 옵션은 별도 제품 재고를 만들지 않습니다.</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-semibold" for="pm-group-selection-mode">선택 방식</label>
+                                            <select class="form-select" id="pm-group-selection-mode" required>
+                                                <option value="SINGLE">하나 선택</option>
+                                                <option value="MULTIPLE">여러 개 선택</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-semibold" for="pm-group-system-role">시스템 역할</label>
+                                            <select class="form-select" id="pm-group-system-role" required></select>
+                                            <div class="pm-form-help">사이즈 역할은 치수 입력 UI와 검증을 자동 적용합니다.</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-semibold" for="pm-group-input-type">입력 유형</label>
+                                            <select class="form-select" id="pm-group-input-type" required>
+                                                <option value="CHOICE">선택형</option><option value="NUMBER">숫자형</option><option value="TEXT">문자형</option><option value="DIMENSION">사이즈형</option>
+                                            </select>
+                                            <div class="pm-form-help">유형에 맞는 등록 UI와 고객 질문이 자동 구성됩니다.</div>
+                                        </div>
+                                        <div class="col-md-8 d-flex align-items-end">
+                                            <div class="pm-group-type-note" id="pm-group-input-note"><i class="ri-information-line"></i><span>선택형은 아래에서 옵션값을 관리합니다.</span></div>
+                                        </div>
+                                        <div class="col-12">
+                                            <details class="pm-group-question-config" id="pm-group-question-config">
+                                                <summary><span><i class="ri-message-3-line"></i><strong>고객 질문 · 입력 검증 설정</strong><small>질문 문구, 튜토리얼, 숫자 범위가 필요할 때만 펼칩니다.</small></span><i class="ri-arrow-down-s-line"></i></summary>
+                                                <div class="pm-group-question-body">
+                                                    <div class="row g-3">
+                                                        <div class="col-lg-6"><label class="form-label fw-semibold" for="pm-group-question-text">챗봇 질문</label><input class="form-control" id="pm-group-question-text" maxlength="300" placeholder="예: 손잡이는 몇 개 필요한가요?"></div>
+                                                        <div class="col-lg-6"><label class="form-label fw-semibold" for="pm-group-customer-guide">고객 튜토리얼</label><input class="form-control" id="pm-group-customer-guide" maxlength="1000" placeholder="선택 기준과 주의사항"></div>
+                                                        <div class="col-12 pm-number-config d-none" data-pm-group-number-config="pm-group-"><div class="row g-2"><div class="col-md-3"><label class="form-label" for="pm-group-minimum-value">최소값</label><input class="form-control" type="number" step="0.001" id="pm-group-minimum-value"></div><div class="col-md-3"><label class="form-label" for="pm-group-maximum-value">최대값</label><input class="form-control" type="number" step="0.001" id="pm-group-maximum-value"></div><div class="col-md-3"><label class="form-label" for="pm-group-step-value">입력 간격</label><input class="form-control" type="number" min="0.001" step="0.001" id="pm-group-step-value" value="1"></div><div class="col-md-3"><label class="form-label" for="pm-group-unit-label">단위</label><input class="form-control" id="pm-group-unit-label" maxlength="20" placeholder="개, mm"></div></div></div>
+                                                        <div class="col-md-6 pm-dimension-config d-none" data-pm-group-dimension-config="pm-group-"><label class="form-label fw-semibold" for="pm-group-custom-dimension-type">비규격 고객 입력축</label><select class="form-select" id="pm-group-custom-dimension-type"><option value="WIDTH_HEIGHT">W-H</option><option value="WIDTH_DEPTH_HEIGHT">W-D-H</option></select></div>
+                                                        <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch pb-2"><input class="form-check-input" type="checkbox" id="pm-group-required-by-default" checked><label class="form-check-label fw-semibold" for="pm-group-required-by-default">제품에 포함되면 고객 답변 필수</label></div></div>
+                                                    </div>
+                                                </div>
+                                            </details>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label fw-semibold" for="pm-group-description">관리 설명</label>
+                                            <textarea class="form-control" id="pm-group-description" rows="2" maxlength="500"></textarea>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <section class="pm-image-manager" id="pm-group-image-manager">
+                                                <div class="pm-image-manager-head">
+                                                    <div class="pm-image-manager-copy">
+                                                        <span class="pm-image-manager-icon"><i class="ri-image-add-line"></i></span>
+                                                        <div>
+                                                            <strong>그룹 안내 이미지</strong>
+                                                            <small>제품 등록·상세·QR 사양에서 이 그룹 설명용으로 표시합니다.</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="pm-image-manager-control">
+                                                        <span class="pm-count-badge" data-pm-image-count>0장</span>
+                                                        <select class="form-select form-select-sm" data-pm-image-mode aria-label="그룹 이미지 사용 여부">
+                                                            <option value="NONE">이미지 없음</option>
+                                                            <option value="ADD">이미지 추가·관리</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="pm-image-panel" data-pm-image-panel aria-hidden="true">
+                                                    <input class="d-none" type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                                                           multiple data-pm-image-input>
+                                                    <div class="pm-image-dropzone" role="button" tabindex="0" data-pm-image-dropzone>
+                                                        <i class="ri-upload-cloud-2-line"></i>
+                                                        <strong>파일을 선택하거나 이곳에 끌어 놓으세요.</strong>
+                                                        <span data-pm-image-policy>JPG·PNG·GIF·WEBP</span>
+                                                    </div>
+                                                    <div class="pm-image-list" data-pm-image-list></div>
+                                                </div>
+                                            </section>
+                                        </div>
+                                        <div class="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pm-group-active">
+                                                <label class="form-check-label fw-semibold" for="pm-group-active">신규 제품에서 사용</label>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-outline-danger pm-btn" type="button" id="pm-delete-group-button">
+                                                    <i class="ri-delete-bin-line"></i>그룹 삭제
+                                                </button>
+                                                <button class="btn btn-primary pm-btn" type="submit">
+                                                    <i class="ri-save-3-line"></i>그룹 저장
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+
+                                <div class="pm-section-divider"></div>
+
+                                <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+                                    <div>
+                                        <h3 class="pm-card-title">옵션값</h3>
+                                        <p class="pm-card-subtitle">각 행을 끌어 제품 등록 화면의 표시 순서를 정할 수 있습니다.</p>
+                                    </div>
+                                    <button class="btn btn-dark btn-sm pm-btn" type="button" id="pm-add-value-button">
+                                        <i class="ri-add-line"></i>옵션값 추가
+                                    </button>
+                                </div>
+
+                                <div class="table-responsive border rounded-3">
+                                    <table class="table align-middle pm-value-table">
+                                        <colgroup>
+                                            <col style="width:48px">
+                                            <col style="width:105px">
+                                            <col style="width:76px">
+                                            <col style="width:170px">
+                                            <col style="width:150px">
+                                            <col style="width:150px">
+                                            <col style="width:130px">
+                                            <col style="width:120px">
+                                            <col style="width:85px">
+                                            <col style="width:105px">
+                                        </colgroup>
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th></th>
+                                            <th>코드</th>
+                                            <th>이미지</th>
+                                            <th>고객용</th>
+                                            <th>관리팀용</th>
+                                            <th>생산팀용</th>
+                                            <th>입력 방식</th>
+                                            <th class="text-end">가격 조정</th>
+                                            <th class="text-center">상태</th>
+                                            <th class="text-end">관리</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody id="pm-value-table-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-group-modal" tabindex="-1" aria-labelledby="pm-group-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content pm-modal-content">
+            <div class="modal-header pm-modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="pm-group-modal-title">새 옵션 그룹</h5>
+                    <p class="text-muted small mb-0">표시 이름과 제품 코드에서 맡을 역할을 지정합니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <form id="pm-group-create-form" novalidate>
+                <div class="modal-body pm-modal-body">
+                    <div class="pm-label-grid">
+                        <div class="pm-audience-field">
+                            <label class="pm-audience-label" for="pm-new-group-customer-label">
+                                <span><span class="pm-audience-dot"></span> 고객용 그룹명</span>
+                            </label>
+                            <input class="form-control" id="pm-new-group-customer-label" maxlength="80" required>
+                        </div>
+                        <div class="pm-audience-field">
+                            <label class="pm-audience-label" for="pm-new-group-management-label">
+                                <span><span class="pm-audience-dot"></span> 관리팀용 그룹명</span>
+                            </label>
+                            <input class="form-control" id="pm-new-group-management-label" maxlength="80" required>
+                        </div>
+                        <div class="pm-audience-field">
+                            <label class="pm-audience-label" for="pm-new-group-production-label">
+                                <span><span class="pm-audience-dot"></span> 생산팀용 그룹명</span>
+                            </label>
+                            <input class="form-control" id="pm-new-group-production-label" maxlength="80" required>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="pm-new-group-type">재고 구분</label>
+                            <select class="form-select" id="pm-new-group-type">
+                                <option value="CORE">제품 정체성</option>
+                                <option value="INTERNAL">내부 구성</option>
+                                <option value="ADD_ON">외부 추가옵션</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="pm-new-group-selection-mode">선택 방식</label>
+                            <select class="form-select" id="pm-new-group-selection-mode">
+                                <option value="SINGLE">하나 선택</option>
+                                <option value="MULTIPLE">여러 개 선택</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="pm-new-group-system-role">시스템 역할</label>
+                            <select class="form-select" id="pm-new-group-system-role"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="pm-new-group-input-type">입력 유형</label>
+                            <select class="form-select" id="pm-new-group-input-type"><option value="CHOICE">선택형</option><option value="NUMBER">숫자형</option><option value="TEXT">문자형</option><option value="DIMENSION">사이즈형</option></select>
+                        </div>
+                        <div class="col-md-8 d-flex align-items-end"><div class="pm-group-type-note" id="pm-new-group-input-note"><i class="ri-information-line"></i><span>선택형은 그룹 등록 후 옵션값을 추가합니다.</span></div></div>
+                        <div class="col-12">
+                            <details class="pm-group-question-config" open>
+                                <summary><span><i class="ri-message-3-line"></i><strong>고객 질문 · 입력 검증 설정</strong><small>고객 주문에서 사용할 안내를 함께 등록합니다.</small></span><i class="ri-arrow-down-s-line"></i></summary>
+                                <div class="pm-group-question-body"><div class="row g-3">
+                                    <div class="col-lg-6"><label class="form-label fw-semibold" for="pm-new-group-question-text">챗봇 질문</label><input class="form-control" id="pm-new-group-question-text" maxlength="300" placeholder="예: 제품 색상을 선택해 주세요."></div>
+                                    <div class="col-lg-6"><label class="form-label fw-semibold" for="pm-new-group-customer-guide">고객 튜토리얼</label><input class="form-control" id="pm-new-group-customer-guide" maxlength="1000" placeholder="선택 기준과 주의사항"></div>
+                                    <div class="col-12 pm-number-config d-none" data-pm-group-number-config="pm-new-group-"><div class="row g-2"><div class="col-md-3"><label class="form-label" for="pm-new-group-minimum-value">최소값</label><input class="form-control" type="number" step="0.001" id="pm-new-group-minimum-value"></div><div class="col-md-3"><label class="form-label" for="pm-new-group-maximum-value">최대값</label><input class="form-control" type="number" step="0.001" id="pm-new-group-maximum-value"></div><div class="col-md-3"><label class="form-label" for="pm-new-group-step-value">입력 간격</label><input class="form-control" type="number" min="0.001" step="0.001" id="pm-new-group-step-value" value="1"></div><div class="col-md-3"><label class="form-label" for="pm-new-group-unit-label">단위</label><input class="form-control" id="pm-new-group-unit-label" maxlength="20" placeholder="개, mm"></div></div></div>
+                                    <div class="col-md-6 pm-dimension-config d-none" data-pm-group-dimension-config="pm-new-group-"><label class="form-label fw-semibold" for="pm-new-group-custom-dimension-type">비규격 고객 입력축</label><select class="form-select" id="pm-new-group-custom-dimension-type"><option value="WIDTH_HEIGHT">W-H</option><option value="WIDTH_DEPTH_HEIGHT">W-D-H</option></select></div>
+                                                        <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch pb-2"><input class="form-check-input" type="checkbox" id="pm-new-group-required-by-default" checked><label class="form-check-label fw-semibold" for="pm-new-group-required-by-default">제품에 포함되면 고객 답변 필수</label></div></div>
+                                </div></div>
+                            </details>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold" for="pm-new-group-description">설명</label>
+                            <textarea class="form-control" id="pm-new-group-description" rows="2" maxlength="500"></textarea>
+                        </div>
+
+                                        <div class="col-12">
+                                            <section class="pm-image-manager" id="pm-new-group-image-manager">
+                                                <div class="pm-image-manager-head">
+                                                    <div class="pm-image-manager-copy">
+                                                        <span class="pm-image-manager-icon"><i class="ri-image-add-line"></i></span>
+                                                        <div>
+                                                            <strong>그룹 안내 이미지</strong>
+                                                            <small>선택사항입니다. 그룹 저장과 함께 한 장 이상 등록할 수 있습니다.</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="pm-image-manager-control">
+                                                        <span class="pm-count-badge" data-pm-image-count>0장</span>
+                                                        <select class="form-select form-select-sm" data-pm-image-mode aria-label="새 그룹 이미지 사용 여부">
+                                                            <option value="NONE">이미지 없음</option>
+                                                            <option value="ADD">이미지 추가·관리</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="pm-image-panel" data-pm-image-panel aria-hidden="true">
+                                                    <input class="d-none" type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                                                           multiple data-pm-image-input>
+                                                    <div class="pm-image-dropzone" role="button" tabindex="0" data-pm-image-dropzone>
+                                                        <i class="ri-upload-cloud-2-line"></i>
+                                                        <strong>파일을 선택하거나 이곳에 끌어 놓으세요.</strong>
+                                                        <span data-pm-image-policy>JPG·PNG·GIF·WEBP</span>
+                                                    </div>
+                                                    <div class="pm-image-list" data-pm-image-list></div>
+                                                </div>
+                                            </section>
+                                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-light pm-btn" type="button" data-bs-dismiss="modal">취소</button>
+                    <button class="btn btn-primary pm-btn" type="submit"><i class="ri-add-line"></i>그룹 등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-value-modal" tabindex="-1" aria-labelledby="pm-value-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content pm-modal-content">
+            <div class="modal-header pm-modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="pm-value-modal-title">옵션값 등록</h5>
+                    <p class="text-muted small mb-0" id="pm-value-modal-subtitle">선택한 그룹에 새 값을 등록합니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <form id="pm-value-form" novalidate>
+                <input type="hidden" id="pm-value-id">
+                <div class="modal-body pm-modal-body">
+                    <div class="pm-label-grid">
+                        <div class="pm-audience-field">
+                            <label class="pm-audience-label" for="pm-value-customer-label">
+                                <span><span class="pm-audience-dot"></span> 고객용 옵션명</span>
+                            </label>
+                            <input class="form-control" id="pm-value-customer-label" maxlength="120" required>
+                        </div>
+                        <div class="pm-audience-field">
+                            <label class="pm-audience-label" for="pm-value-management-label">
+                                <span><span class="pm-audience-dot"></span> 관리팀용 옵션명</span>
+                            </label>
+                            <input class="form-control" id="pm-value-management-label" maxlength="120" required>
+                        </div>
+                        <div class="pm-audience-field">
+                            <label class="pm-audience-label" for="pm-value-production-label">
+                                <span><span class="pm-audience-dot"></span> 생산팀용 옵션명</span>
+                            </label>
+                            <input class="form-control" id="pm-value-production-label" maxlength="120" required>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6" id="pm-value-dimension-wrap">
+                            <label class="form-label fw-semibold" for="pm-value-dimension-type">옵션값 동작</label>
+                            <select class="form-select" id="pm-value-dimension-type">
+                                <option value="NONE">일반 선택값</option>
+                                <option value="WIDTH_HEIGHT">W-H 입력</option>
+                                <option value="WIDTH_DEPTH_HEIGHT">W-D-H 입력</option>
+                                <option value="CUSTOM">비규격 주문입력</option>
+                            </select>
+                            <div class="pm-form-help" id="pm-value-dimension-help">그룹 역할에 맞는 값만 표시됩니다.</div>
+                            <button class="pm-inline-action" type="button" id="pm-value-custom-preset">
+                                <i class="ri-magic-line"></i>비규격 값 빠른 설정
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="pm-value-price-adjustment">공급가 조정액</label>
+                            <div class="input-group">
+                                <input class="form-control text-end" type="number" id="pm-value-price-adjustment"
+                                       min="-1000000000" max="1000000000" value="0">
+                                <span class="input-group-text">원</span>
+                            </div>
+                            <div class="pm-form-help">‘기본가 + 구성요소’ 가격계산 시 핵심 구성만 반영됩니다.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold" for="pm-value-description">설명</label>
+                            <textarea class="form-control" id="pm-value-description" rows="2" maxlength="500"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold" for="pm-value-customer-guide">고객 선택 도움말</label>
+                            <textarea class="form-control" id="pm-value-customer-guide" rows="2" maxlength="1000" placeholder="이 옵션이 무엇인지, 언제 선택해야 하는지 안내합니다."></textarea>
+                        </div>
+
+                                        <div class="col-12">
+                                            <section class="pm-image-manager" id="pm-value-image-manager">
+                                                <div class="pm-image-manager-head">
+                                                    <div class="pm-image-manager-copy">
+                                                        <span class="pm-image-manager-icon"><i class="ri-image-add-line"></i></span>
+                                                        <div>
+                                                            <strong>옵션값 이미지</strong>
+                                                            <small>선택한 옵션의 형태·색상·부품 등을 제품 등록·상세·QR에서 보여줍니다.</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="pm-image-manager-control">
+                                                        <span class="pm-count-badge" data-pm-image-count>0장</span>
+                                                        <select class="form-select form-select-sm" data-pm-image-mode aria-label="옵션값 이미지 사용 여부">
+                                                            <option value="NONE">이미지 없음</option>
+                                                            <option value="ADD">이미지 추가·관리</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="pm-image-panel" data-pm-image-panel aria-hidden="true">
+                                                    <input class="d-none" type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                                                           multiple data-pm-image-input>
+                                                    <div class="pm-image-dropzone" role="button" tabindex="0" data-pm-image-dropzone>
+                                                        <i class="ri-upload-cloud-2-line"></i>
+                                                        <strong>파일을 선택하거나 이곳에 끌어 놓으세요.</strong>
+                                                        <span data-pm-image-policy>JPG·PNG·GIF·WEBP</span>
+                                                    </div>
+                                                    <div class="pm-image-list" data-pm-image-list></div>
+                                                </div>
+                                            </section>
+                                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="pm-value-active" checked>
+                                <label class="form-check-label fw-semibold" for="pm-value-active">신규 제품에서 사용</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-light pm-btn" type="button" data-bs-dismiss="modal">취소</button>
+                    <button class="btn btn-primary pm-btn" type="submit"><i class="ri-save-3-line"></i>옵션값 저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="pm-tour-overlay" id="pm-group-tour-overlay" aria-hidden="true">
+    <div class="pm-tour-mask"></div>
+    <div class="pm-tour-focus"></div>
+    <aside class="pm-tour-popover">
+        <span class="pm-tour-step" id="pm-group-tour-step">1 / 4</span>
+        <h4 id="pm-group-tour-title">제품 코드 그룹</h4>
+        <p id="pm-group-tour-text"></p>
+        <div>
+            <button class="btn btn-light btn-sm pm-btn" type="button" id="pm-group-tour-prev">이전</button>
+            <button class="btn btn-primary btn-sm pm-btn" type="button" id="pm-group-tour-next">다음</button>
+            <button class="btn btn-dark btn-sm pm-btn ms-auto" type="button" id="pm-group-tour-close">종료</button>
+        </div>
+    </aside>
+</div>
+
+<div class="pm-loading-overlay" id="pm-loading-overlay" aria-hidden="true">
+    <div class="pm-loading-box">
+        <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+        <span data-pm-loading-label>처리 중입니다.</span>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+<script src="/administration/assets/js/page/productMaster/productMasterCommon.js?v=20260903-5"></script>
+<script src="/administration/assets/js/page/productMaster/productMasterImages.js?v=20260903-5"></script>
+<script src="/administration/assets/js/page/productMaster/productMasterGroups.js?v=20260903-5"></script>
+</body>
+</html>
