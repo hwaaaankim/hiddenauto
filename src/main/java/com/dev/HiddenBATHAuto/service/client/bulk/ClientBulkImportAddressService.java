@@ -16,6 +16,8 @@ import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.dev.HiddenBATHAuto.utils.AdministrativeRegionStructureNormalizer;
+import com.dev.HiddenBATHAuto.utils.AdministrativeRegionStructureNormalizer.NormalizedRegion;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -359,67 +361,53 @@ public class ClientBulkImportAddressService {
 
     private RegionParts splitRegion(String doName, String secondDepth) {
         String province = normalizeText(doName);
-        String sgg = normalizeText(secondDepth);
-        if (sgg.isBlank()) {
-            return new RegionParts(province, "", "");
-        }
+        String second = normalizeText(secondDepth);
+        NormalizedRegion normalized = AdministrativeRegionStructureNormalizer.normalize(
+                province,
+                second,
+                second,
+                joinNonBlank(province, second)
+        );
 
-        String[] parts = sgg.split("\\s+");
-        if (isMetropolitanProvince(province)) {
-            return new RegionParts(province, "", parts[0]);
-        }
-
-        if (parts.length >= 2 && (parts[0].endsWith("시") || parts[0].endsWith("군"))) {
-            return new RegionParts(province, parts[0], parts[1]);
-        }
-
-        if (parts[0].endsWith("시") || parts[0].endsWith("군")) {
-            return new RegionParts(province, parts[0], "");
-        }
-
-        if (parts[0].endsWith("구")) {
-            return new RegionParts(province, "", parts[0]);
-        }
-
-        return new RegionParts(province, parts[0], parts.length >= 2 ? parts[1] : "");
+        return new RegionParts(
+                normalized.doName(),
+                normalized.siName(),
+                normalized.guName()
+        );
     }
 
     private RegionParts splitRegionFromFullAddress(String fullAddress) {
-        String normalized = normalizeText(fullAddress);
-        if (normalized.isBlank()) {
-            return new RegionParts("", "", "");
-        }
+        NormalizedRegion normalized = AdministrativeRegionStructureNormalizer.normalize(
+                "",
+                "",
+                "",
+                normalizeText(fullAddress)
+        );
 
-        String[] parts = normalized.split("\\s+");
-        String doName = parts.length > 0 ? parts[0] : "";
-        String secondDepth = parts.length > 1 ? parts[1] : "";
-        String thirdDepth = parts.length > 2 ? parts[2] : "";
-
-        if (isMetropolitanProvince(doName)) {
-            return new RegionParts(doName, "", secondDepth);
-        }
-
-        if ((secondDepth.endsWith("시") || secondDepth.endsWith("군")) && thirdDepth.endsWith("구")) {
-            return new RegionParts(doName, secondDepth, thirdDepth);
-        }
-
-        if (secondDepth.endsWith("시") || secondDepth.endsWith("군")) {
-            return new RegionParts(doName, secondDepth, "");
-        }
-
-        if (secondDepth.endsWith("구")) {
-            return new RegionParts(doName, "", secondDepth);
-        }
-
-        return new RegionParts(doName, secondDepth, thirdDepth);
+        return new RegionParts(
+                normalized.doName(),
+                normalized.siName(),
+                normalized.guName()
+        );
     }
 
-    private boolean isMetropolitanProvince(String value) {
-        String text = normalizeText(value);
-        return text.endsWith("특별시")
-                || text.endsWith("광역시")
-                || text.endsWith("특별자치시")
-                || "세종특별자치시".equals(text);
+    private String joinNonBlank(String... values) {
+        StringBuilder result = new StringBuilder();
+        if (values == null) {
+            return "";
+        }
+
+        for (String value : values) {
+            String normalized = normalizeText(value);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            if (result.length() > 0) {
+                result.append(' ');
+            }
+            result.append(normalized);
+        }
+        return result.toString();
     }
 
     private synchronized void throttleJuso() throws InterruptedException {

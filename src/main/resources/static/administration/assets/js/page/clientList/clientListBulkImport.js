@@ -386,12 +386,19 @@
 
         new window.daum.Postcode({
             oncomplete: function (data) {
-                const region = splitDaumRegion(data.sido || '', data.sigungu || '');
+                const region = window.HiddenAutoAddressRegion
+                    && typeof window.HiddenAutoAddressRegion.fromDaum === 'function'
+                    ? window.HiddenAutoAddressRegion.fromDaum(data)
+                    : splitDaumRegion(data.sido || '', data.sigungu || '');
                 row.zipCode = data.zonecode || '';
                 row.doName = region.doName;
                 row.siName = region.siName;
                 row.guName = region.guName;
-                row.roadAddress = data.roadAddress || data.autoRoadAddress || data.address || '';
+                row.roadAddress = region.roadAddress
+                    || data.roadAddress
+                    || data.autoRoadAddress
+                    || data.address
+                    || '';
                 row.jibunAddress = data.jibunAddress || data.autoJibunAddress || '';
                 row.detailAddress = row.detailAddress || '';
                 row.addressResolved = true;
