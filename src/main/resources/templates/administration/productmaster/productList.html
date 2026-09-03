@@ -1,0 +1,224 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid pm-page" id="pm-product-list-page">
+                <div class="pm-page-header">
+                    <div>
+                        <span class="pm-page-eyebrow"><i class="ri-archive-drawer-line"></i> PRODUCT MASTER</span>
+                        <h1 class="pm-page-title">제품 관리</h1>
+                        <p class="pm-page-description">
+                            제품 코드와 모든 옵션 그룹으로 제품을 찾고, 동일한 제품 단위로 총재고와 추가 옵션 포함 수량을 확인합니다.
+                            표 제목을 반복 클릭하면 오름차순 → 내림차순 → 해제로 바뀌며 여러 열 정렬을 함께 유지합니다.
+                        </p>
+                    </div>
+                    <div class="pm-header-actions">
+                        <button class="btn btn-light pm-btn" type="button" id="pm-open-code-resolver">
+                            <i class="ri-scan-2-line"></i>코드 해석
+                        </button>
+                        <a class="btn btn-outline-primary pm-btn" href="/admin/product-master/groups">
+                            <i class="ri-code-box-line"></i>코드 그룹 관리
+                        </a>
+                        <a class="btn btn-primary pm-btn" href="/admin/product-master/products/new">
+                            <i class="ri-add-circle-line"></i>제품 등록
+                        </a>
+                    </div>
+                </div>
+
+                <section class="pm-card pm-filter-panel pm-filter-panel-v3">
+                    <div class="pm-card-header">
+                        <div>
+                            <h2 class="pm-card-title"><i class="ri-equalizer-2-line me-2"></i>제품 찾기</h2>
+                            <p class="pm-card-subtitle">자주 쓰는 조건만 먼저 보이고, 세부 조건은 필요할 때 펼칩니다.</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-light btn-sm pm-btn" type="button" id="pm-reset-filters"><i class="ri-restart-line"></i>초기화</button>
+                            <button class="btn btn-primary btn-sm pm-btn" type="submit" form="pm-product-filter-form"><i class="ri-search-line"></i>조회</button>
+                        </div>
+                    </div>
+                    <div class="pm-card-body">
+                        <form id="pm-product-filter-form">
+                            <div class="pm-filter-search-row">
+                                <label class="pm-search-field" for="pm-filter-keyword"><i class="ri-search-line"></i><span class="visually-hidden">제품명 또는 코드</span><input id="pm-filter-keyword" placeholder="제품명, 카탈로그 코드, 제품코드 검색"></label>
+                                <button class="pm-advanced-toggle" type="button" id="pm-toggle-advanced-filter" aria-expanded="false"><i class="ri-equalizer-line"></i><span>고급 필터</span><b id="pm-advanced-filter-count">0</b><i class="ri-arrow-down-s-line"></i></button>
+                            </div>
+
+                            <div class="pm-basic-filter-grid" aria-label="기본 필터">
+                                <div class="pm-basic-filter" data-pm-basic-role="CATEGORY"><span class="pm-basic-filter-icon"><i class="ri-layout-grid-line"></i></span><div><small>대분류</small><div data-pm-basic-control>불러오는 중</div></div></div>
+                                <div class="pm-basic-filter" data-pm-basic-role="COLOR"><span class="pm-basic-filter-icon"><i class="ri-palette-line"></i></span><div><small>색상</small><div data-pm-basic-control>불러오는 중</div></div></div>
+                                <div class="pm-basic-filter" data-pm-basic-role="SIZE"><span class="pm-basic-filter-icon"><i class="ri-ruler-2-line"></i></span><div><small>사이즈 유형</small><div data-pm-basic-control>불러오는 중</div></div></div>
+                            </div>
+
+                            <div class="pm-advanced-filter" id="pm-advanced-filter" aria-hidden="true">
+                                <div class="pm-advanced-filter-head"><div><strong>세부 조회 조건</strong><span>상태, 재고, 나머지 옵션, 실제 치수 범위를 조합합니다.</span></div><span class="pm-code-badge">AND 조건</span></div>
+                                <div class="pm-advanced-system-grid">
+                                    <label><span>제품 상태</span><select class="form-select form-select-sm" id="pm-filter-status"><option value="">전체</option><option value="DRAFT">작성중</option><option value="ACTIVE">사용중</option><option value="DISCONTINUED">단종</option></select></label>
+                                    <label><span>재고 상태</span><select class="form-select form-select-sm" id="pm-filter-stock"><option value="">전체</option><option value="IN_STOCK">재고정상</option><option value="LOW_STOCK">안전재고 이하</option><option value="OUT_OF_STOCK">재고없음</option></select></label>
+                                    <label><span>페이지 크기</span><select class="form-select form-select-sm" id="pm-filter-size"><option value="30">30개</option><option value="50">50개</option><option value="100">100개</option><option value="200">200개</option></select></label>
+                                </div>
+                                <div class="pm-advanced-section">
+                                    <div class="pm-advanced-section-title"><strong>옵션 상세</strong><small>선택형은 값, 숫자형은 범위, 문자형은 포함 문구로 자동 구성됩니다.</small></div>
+                                    <div class="pm-advanced-attribute-grid" id="pm-attribute-filter-grid"></div>
+                                </div>
+                                <div class="pm-advanced-section">
+                                    <div class="pm-advanced-section-title"><strong>실제 치수 범위</strong><small>비워 둔 축은 제한하지 않습니다.</small><span class="pm-code-badge">mm</span></div>
+                                    <div class="pm-advanced-dimension-grid">
+                                        <label><span>W 가로</span><div class="pm-axis-range"><input class="form-control form-control-sm" id="pm-filter-width-min" type="number" min="1" max="100000" placeholder="최소"><b>~</b><input class="form-control form-control-sm" id="pm-filter-width-max" type="number" min="1" max="100000" placeholder="최대" aria-label="W 최대"></div></label>
+                                        <label><span>D 깊이</span><div class="pm-axis-range"><input class="form-control form-control-sm" id="pm-filter-depth-min" type="number" min="1" max="100000" placeholder="최소"><b>~</b><input class="form-control form-control-sm" id="pm-filter-depth-max" type="number" min="1" max="100000" placeholder="최대" aria-label="D 최대"></div></label>
+                                        <label><span>H 높이</span><div class="pm-axis-range"><input class="form-control form-control-sm" id="pm-filter-height-min" type="number" min="1" max="100000" placeholder="최소"><b>~</b><input class="form-control form-control-sm" id="pm-filter-height-max" type="number" min="1" max="100000" placeholder="최대" aria-label="H 최대"></div></label>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end pt-3"><button class="btn btn-primary btn-sm pm-btn px-4" type="submit"><i class="ri-search-line"></i>조건 적용</button></div>
+                            </div>
+                        </form>
+                        <div class="pm-active-filters" id="pm-active-filters"></div>
+                    </div>
+                </section>
+
+                <section class="pm-card">
+                    <div class="pm-card-header">
+                        <div>
+                            <h2 class="pm-card-title">등록 제품 <span class="text-primary" id="pm-product-total">0</span></h2>
+                            <p class="pm-card-subtitle" id="pm-sort-summary">기본 정렬: 최근 등록순</p>
+                        </div>
+                        <button class="btn btn-light btn-sm pm-btn" type="button" id="pm-refresh-products"><i class="ri-refresh-line"></i>새로고침</button>
+                    </div>
+                    <div class="pm-table-wrap">
+                        <table class="table align-middle pm-product-table">
+                            <colgroup>
+                                <col style="width:205px">
+                                <col style="width:135px">
+                                <col style="width:285px">
+                                <col style="width:360px">
+                                <col style="width:230px">
+                                <col style="width:125px">
+                                <col style="width:145px">
+                                <col style="width:125px">
+                                <col style="width:150px">
+                            </colgroup>
+                            <thead>
+                            <tr>
+                                <th><button class="pm-sort-control" type="button" data-pm-sort="productName">제품명 <span class="pm-sort-arrows"><i class="ri-arrow-up-s-fill pm-sort-up"></i><i class="ri-arrow-down-s-fill pm-sort-down"></i></span><span class="pm-sort-order d-none"></span></button></th>
+                                <th><button class="pm-sort-control" type="button" data-pm-sort="catalogCode">카탈로그 코드 <span class="pm-sort-arrows"><i class="ri-arrow-up-s-fill pm-sort-up"></i><i class="ri-arrow-down-s-fill pm-sort-down"></i></span><span class="pm-sort-order d-none"></span></button></th>
+                                <th>핵심 제품 코드</th>
+                                <th>핵심 사양</th>
+                                <th>추가 옵션 포함 재고</th>
+                                <th class="text-end"><button class="pm-sort-control" type="button" data-pm-sort="currentStock">총재고 <span class="pm-sort-arrows"><i class="ri-arrow-up-s-fill pm-sort-up"></i><i class="ri-arrow-down-s-fill pm-sort-down"></i></span><span class="pm-sort-order d-none"></span></button></th>
+                                <th class="text-end"><button class="pm-sort-control" type="button" data-pm-sort="totalPrice">VAT 포함가 <span class="pm-sort-arrows"><i class="ri-arrow-up-s-fill pm-sort-up"></i><i class="ri-arrow-down-s-fill pm-sort-down"></i></span><span class="pm-sort-order d-none"></span></button></th>
+                                <th><button class="pm-sort-control" type="button" data-pm-sort="createdAt">등록일 <span class="pm-sort-arrows"><i class="ri-arrow-up-s-fill pm-sort-up"></i><i class="ri-arrow-down-s-fill pm-sort-down"></i></span><span class="pm-sort-order d-none"></span></button></th>
+                                <th class="text-end">관리</th>
+                            </tr>
+                            </thead>
+                            <tbody id="pm-product-table-body">
+                            <tr><td colspan="9"><div class="pm-empty"><span class="spinner-border spinner-border-sm text-primary"></span></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pm-pagination">
+                        <div class="text-muted small" id="pm-page-summary">조회 중입니다.</div>
+                        <div class="pm-page-buttons" id="pm-page-buttons"></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </div>
+</div>
+
+<div class="modal fade pm-wide-modal" id="pm-wide-modal" tabindex="-1" aria-labelledby="pm-wide-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content pm-modal-content">
+            <div class="modal-header pm-modal-header py-2">
+                <div>
+                    <h5 class="modal-title fw-bold" id="pm-wide-title">제품 넓게보기 · 수정</h5>
+                    <p class="text-muted small mb-0">상세 페이지의 모든 사양·가격·재고 기능을 이 창에서 그대로 사용할 수 있습니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body p-0 h-100">
+                <iframe class="pm-wide-frame" id="pm-wide-frame" title="제품 상세 넓게보기"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-list-qr-modal" tabindex="-1" aria-labelledby="pm-list-qr-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content pm-modal-content">
+            <div class="modal-header pm-modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="pm-list-qr-title">제품 QR</h5>
+                    <p class="text-muted small mb-0">고객용 상세 사양과 질문형 구성, 선택 견적 및 등록 재고 안내로 연결됩니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body pm-modal-body">
+                <div class="pm-qr-grid">
+                    <div class="pm-qr-stage" id="pm-list-qr-stage"></div>
+                    <div>
+                        <h5 class="fw-bold" id="pm-list-qr-name">제품명</h5>
+                        <p class="text-muted" id="pm-list-qr-code">카탈로그 코드</p>
+                        <div class="pm-qr-url mb-3" id="pm-list-qr-url"></div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-outline-primary pm-btn" type="button" id="pm-list-copy-qr-url"><i class="ri-file-copy-line"></i>주소 복사</button>
+                            <button class="btn btn-dark pm-btn" type="button" id="pm-list-download-qr"><i class="ri-download-line"></i>SVG 다운로드</button>
+                            <a class="btn btn-light pm-btn" id="pm-list-open-spec" href="#" target="_blank" rel="noopener"><i class="ri-external-link-line"></i>상세 열기</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="pm-code-resolver-modal" tabindex="-1" aria-labelledby="pm-code-resolver-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content pm-modal-content">
+            <div class="modal-header pm-modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="pm-code-resolver-title">제품 코드 해석</h5>
+                    <p class="text-muted small mb-0">HB 카탈로그 코드 또는 PM1 핵심 제품 코드를 입력하면 연결된 제품과 모든 사양을 보여줍니다.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <form id="pm-code-resolver-form">
+                <div class="modal-body pm-modal-body">
+                    <label class="form-label fw-semibold" for="pm-code-resolver-input">제품 코드</label>
+                    <div class="input-group">
+                        <input class="form-control font-monospace" id="pm-code-resolver-input" maxlength="700" required placeholder="HB-XXXX-YY 또는 PM1|...">
+                        <button class="btn btn-primary" type="submit"><i class="ri-search-line me-1"></i>해석</button>
+                    </div>
+                    <div class="mt-3" id="pm-code-resolver-result">
+                        <div class="pm-empty"><div><span class="pm-empty-icon"><i class="ri-scan-2-line"></i></span><strong>제품 코드를 입력해 주세요.</strong></div></div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="pm-loading-overlay" id="pm-loading-overlay" aria-hidden="true">
+    <div class="pm-loading-box">
+        <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+        <span data-pm-loading-label>처리 중입니다.</span>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+<script src="/administration/assets/js/page/productMaster/productMasterCommon.js?v=20260903-5"></script>
+<script src="/administration/assets/js/page/productMaster/productMasterQr.js?v=20260903-5"></script>
+<script src="/administration/assets/js/page/productMaster/productMasterList.js?v=20260903-5"></script>
+</body>
+</html>
