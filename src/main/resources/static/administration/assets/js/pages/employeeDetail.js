@@ -16,6 +16,8 @@
 	const inPhone = $("#employDetail-phone");
 	const inTel = $("#employDetail-telephone");
 	const inEmail = $("#employDetail-email");
+	const inPassword = $("#employDetail-password");
+	const inPasswordConfirm = $("#employDetail-passwordConfirm");
 
 	// 지역
 	const selProvince = $("#employDetail-province");
@@ -80,6 +82,34 @@
 			.replaceAll(">", "&gt;")
 			.replaceAll('"', "&quot;")
 			.replaceAll("'", "&#039;");
+	}
+
+	function utf8ByteLength(value) {
+		if (typeof TextEncoder !== "undefined") {
+			return new TextEncoder().encode(value).length;
+		}
+		return new Blob([value]).size;
+	}
+
+	function clearAndMaskPasswordInputs() {
+		[inPassword, inPasswordConfirm].forEach((input) => {
+			input.value = "";
+			input.type = "password";
+
+			const button = document.querySelector(`[data-password-target="${input.id}"]`);
+			if (!button) return;
+
+			button.setAttribute("aria-pressed", "false");
+			button.setAttribute(
+				"aria-label",
+				(button.getAttribute("aria-label") || "비밀번호 표시").replace(/숨기기$/, "표시")
+			);
+			const icon = button.querySelector("i");
+			if (icon) {
+				icon.classList.remove("ri-eye-off-line");
+				icon.classList.add("ri-eye-line");
+			}
+		});
 	}
 
 	function buildRegionResultHtml(result, defaultMessage, className) {
@@ -532,6 +562,9 @@
 		const name = inName.value.trim();
 		const phone = inPhone.value.trim();
 		const role = selRole.value;
+		const password = inPassword.value;
+		const passwordConfirm = inPasswordConfirm.value;
+		const passwordRequested = password.length > 0 || passwordConfirm.length > 0;
 
 		const teamId = selTeam.value ? +selTeam.value : null;
 		const teamName = getSelectedTeamName();
@@ -539,6 +572,30 @@
 
 		if (!name || !role || !teamId) {
 			alert("필수 항목을 확인해 주세요.");
+			return;
+		}
+
+		if (passwordRequested && (!password || !passwordConfirm)) {
+			alert("새 비밀번호와 비밀번호 확인을 모두 입력해 주세요.");
+			(!password ? inPassword : inPasswordConfirm).focus();
+			return;
+		}
+
+		if (passwordRequested && password.trim().length === 0) {
+			alert("비밀번호는 공백으로만 설정할 수 없습니다.");
+			inPassword.focus();
+			return;
+		}
+
+		if (passwordRequested && password !== passwordConfirm) {
+			alert("새 비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+			inPasswordConfirm.focus();
+			return;
+		}
+
+		if (passwordRequested && utf8ByteLength(password) > 72) {
+			alert("비밀번호는 UTF-8 기준 72바이트 이하로 입력해 주세요.");
+			inPassword.focus();
 			return;
 		}
 
@@ -584,19 +641,25 @@
 			email: inEmail.value.trim() || null,
 			role,
 			teamId,
-			teamCategoryId
+			teamCategoryId,
+			password: passwordRequested ? password : null,
+			passwordConfirm: passwordRequested ? passwordConfirm : null
 		};
 
+		btnSaveMember.disabled = true;
 		try {
 			const res = await api(`/management/employeeUpdate`, {
 				method: "POST",
 				body: JSON.stringify(payload)
 			});
 
+			clearAndMaskPasswordInputs();
 			alert(res.data?.message || "저장되었습니다.");
 		} catch (e) {
 			alert(e.message || "저장에 실패했습니다.");
 			console.error(e);
+		} finally {
+			btnSaveMember.disabled = false;
 		}
 	});
 })();

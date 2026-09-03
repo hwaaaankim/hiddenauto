@@ -3394,8 +3394,12 @@ public class ManagementController {
 	@PostMapping("/employeeUpdate")
 	@ResponseBody
 	public ResponseEntity<ApiResponse<EmployeeUpdateResult>> employeeUpdate(@RequestBody EmployeeUpdateRequest req) {
-		EmployeeUpdateResult result = memberMgmtService.updateEmployee(req);
-		return ResponseEntity.ok(ApiResponse.ok(result));
+		try {
+			EmployeeUpdateResult result = memberMgmtService.updateEmployee(req);
+			return ResponseEntity.ok(ApiResponse.ok(result));
+		} catch (IllegalArgumentException exception) {
+			return ResponseEntity.badRequest().body(ApiResponse.fail(exception.getMessage(), null));
+		}
 	}
 
 	// ✅ 팀 변경 시 담당구역 전체 삭제(확인 후 호출)

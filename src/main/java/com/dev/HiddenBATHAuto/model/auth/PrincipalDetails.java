@@ -147,6 +147,7 @@ public class PrincipalDetails implements UserDetails, Serializable {
     }
 
     @Override
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String getPassword() {
         return member != null ? member.getPassword() : null;
     }

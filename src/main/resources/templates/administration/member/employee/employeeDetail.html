@@ -75,6 +75,38 @@
 													th:value="${member.email}">
 											</div>
 										</div>
+	
+										<div class="row">
+											<div class="col-lg-6 mb-3">
+												<label class="form-label" for="employDetail-password">새 비밀번호</label>
+												<div class="input-group">
+													<input type="password" class="form-control" id="employDetail-password"
+														maxlength="72" autocomplete="new-password" placeholder="변경할 경우에만 입력">
+													<button type="button" class="btn btn-outline-secondary" data-admin-password-toggle
+														data-password-target="employDetail-password" aria-controls="employDetail-password"
+														aria-label="새 비밀번호 표시" aria-pressed="false">
+														<i class="ri-eye-line" aria-hidden="true"></i>
+													</button>
+												</div>
+											</div>
+											<div class="col-lg-6 mb-3">
+												<label class="form-label" for="employDetail-passwordConfirm">비밀번호 확인</label>
+												<div class="input-group">
+													<input type="password" class="form-control" id="employDetail-passwordConfirm"
+														maxlength="72" autocomplete="new-password" placeholder="새 비밀번호 다시 입력">
+													<button type="button" class="btn btn-outline-secondary" data-admin-password-toggle
+														data-password-target="employDetail-passwordConfirm" aria-controls="employDetail-passwordConfirm"
+														aria-label="비밀번호 확인 표시" aria-pressed="false">
+														<i class="ri-eye-line" aria-hidden="true"></i>
+													</button>
+												</div>
+											</div>
+											<div class="col-12 mt-n2 mb-3">
+												<div class="form-text">
+													기존 비밀번호는 표시되지 않습니다. 변경할 경우에만 새 비밀번호를 두 번 입력해 주세요.
+												</div>
+											</div>
+										</div>
 
 										<div class="row">
 											<div class="col-lg-6 mb-3">
@@ -199,7 +231,7 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<script src="/administration/assets/js/pages/employeeDetail.js?v=20260820-1"></script>
+	<script src="/administration/assets/js/pages/employeeDetail.js?v=20260903-1"></script>
 </body>
 
 </html>

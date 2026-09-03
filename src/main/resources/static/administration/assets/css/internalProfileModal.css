@@ -1,0 +1,325 @@
+/* 관리자 공통 헤더 - 내정보 팝업 */
+.internal-profile-modal .modal-dialog {
+	width: min(760px, calc(100% - 2rem));
+	max-width: 760px;
+}
+
+.internal-profile-modal .modal-content {
+	overflow: hidden;
+	border: 0;
+	border-radius: 18px;
+	box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.internal-profile-header {
+	padding: 1.25rem 1.4rem;
+	border-bottom: 1px solid #e8ebf1;
+	background: linear-gradient(135deg, #f8faff 0%, #f3f6ff 100%);
+}
+
+.internal-profile-heading {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	gap: 0.85rem;
+}
+
+.internal-profile-heading-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 44px;
+	width: 44px;
+	height: 44px;
+	border-radius: 13px;
+	color: #fff;
+	background: linear-gradient(135deg, var(--vz-primary, #405189), #6574b8);
+	box-shadow: 0 8px 18px rgba(64, 81, 137, 0.24);
+	font-size: 1.35rem;
+}
+
+.internal-profile-heading .modal-title {
+	margin: 0;
+	font-size: 1.15rem;
+	font-weight: 700;
+	color: #1f2937;
+}
+
+.internal-profile-heading p {
+	margin: 0.22rem 0 0;
+	color: #6b7280;
+	font-size: 0.82rem;
+	line-height: 1.45;
+}
+
+.internal-profile-body {
+	padding: 1.25rem 1.4rem 0.5rem;
+	background: #f7f8fb;
+}
+
+.internal-profile-status {
+	margin-bottom: 1rem;
+	padding: 0.7rem 0.85rem;
+	border-radius: 10px;
+	font-size: 0.85rem;
+}
+
+.internal-profile-section {
+	margin-bottom: 1rem;
+	padding: 1rem;
+	border: 1px solid #e6e9f0;
+	border-radius: 14px;
+	background: #fff;
+}
+
+.internal-profile-section-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 0.85rem;
+}
+
+.internal-profile-section-head h6 {
+	margin: 0;
+	color: #26314f;
+	font-size: 0.92rem;
+	font-weight: 700;
+}
+
+.internal-profile-section-head span {
+	color: #8a93a3;
+	font-size: 0.75rem;
+	line-height: 1.4;
+	text-align: right;
+}
+
+.internal-profile-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.85rem 1rem;
+}
+
+.internal-profile-field {
+	min-width: 0;
+}
+
+.internal-profile-field-wide {
+	grid-column: 1 / -1;
+}
+
+.internal-profile-field .form-label {
+	margin-bottom: 0.4rem;
+	color: #495266;
+	font-size: 0.8rem;
+	font-weight: 600;
+}
+
+.internal-profile-field .form-control,
+.internal-profile-password-group .btn {
+	min-height: 42px;
+}
+
+.internal-profile-field .form-control {
+	border-color: #dfe3eb;
+	border-radius: 9px;
+	font-size: 0.88rem;
+}
+
+.internal-profile-field .form-control:focus {
+	border-color: var(--vz-primary, #405189);
+	box-shadow: 0 0 0 0.2rem rgba(64, 81, 137, 0.12);
+}
+
+.internal-profile-readonly-wrap {
+	position: relative;
+}
+
+.internal-profile-readonly-wrap .form-control {
+	padding-right: 2.5rem;
+	color: #667085;
+	background: #f4f6f9;
+	cursor: not-allowed;
+}
+
+.internal-profile-readonly-wrap > i {
+	position: absolute;
+	top: 50%;
+	right: 0.85rem;
+	transform: translateY(-50%);
+	color: #9aa3b2;
+	pointer-events: none;
+}
+
+.internal-profile-password-group .form-control {
+	border-radius: 9px 0 0 9px;
+}
+
+.internal-profile-password-group .btn {
+	width: 44px;
+	padding: 0;
+	border-color: #dfe3eb;
+	border-radius: 0 9px 9px 0;
+	color: #657083;
+	background: #fff;
+}
+
+.internal-profile-password-group .btn:hover,
+.internal-profile-password-group .btn:focus {
+	color: var(--vz-primary, #405189);
+	background: #f1f4fb;
+}
+
+.internal-profile-password-note {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.42rem;
+	margin: 0.7rem 0 0;
+	color: #737d8f;
+	font-size: 0.75rem;
+	line-height: 1.5;
+}
+
+.internal-profile-password-note i {
+	flex: 0 0 auto;
+	margin-top: 0.08rem;
+	color: #0ab39c;
+	font-size: 0.95rem;
+}
+
+.internal-profile-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 1rem 1.4rem;
+	border-top: 1px solid #e8ebf1;
+	background: #fff;
+}
+
+.internal-profile-footer > p {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.32rem;
+	max-width: 390px;
+	margin: 0;
+	color: #8a93a3;
+	font-size: 0.72rem;
+	line-height: 1.45;
+}
+
+.internal-profile-actions {
+	display: flex;
+	flex: 0 0 auto;
+	gap: 0.5rem;
+}
+
+.internal-profile-actions .btn {
+	min-width: 82px;
+	border-radius: 8px;
+}
+
+.internal-profile-actions .btn-primary {
+	min-width: 132px;
+}
+
+@media (max-width: 767.98px) {
+	.internal-profile-modal .modal-dialog {
+		width: calc(100% - 1.25rem);
+		margin: 0.625rem auto;
+	}
+
+	.internal-profile-modal .modal-content {
+		max-height: calc(100vh - 1.25rem);
+		max-height: calc(100dvh - 1.25rem);
+		border-radius: 14px;
+	}
+
+	.internal-profile-header,
+	.internal-profile-body,
+	.internal-profile-footer {
+		padding-right: 1rem;
+		padding-left: 1rem;
+	}
+
+	.internal-profile-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.internal-profile-field-wide {
+		grid-column: auto;
+	}
+
+	.internal-profile-section-head {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 0.22rem;
+	}
+
+	.internal-profile-section-head span {
+		text-align: left;
+	}
+
+	.internal-profile-footer {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.internal-profile-footer > p {
+		max-width: none;
+	}
+
+	.internal-profile-actions {
+		width: 100%;
+	}
+
+	.internal-profile-actions .btn {
+		flex: 1 1 0;
+		min-height: 44px;
+	}
+}
+
+@media (max-width: 575.98px) {
+	.internal-profile-modal .modal-dialog {
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		min-height: 100%;
+		margin: 0;
+	}
+
+	.internal-profile-modal .modal-content {
+		height: 100vh;
+		height: 100dvh;
+		max-height: none;
+		border-radius: 0;
+	}
+
+	.internal-profile-header {
+		padding-top: max(1rem, env(safe-area-inset-top));
+	}
+
+	.internal-profile-body {
+		padding-top: 1rem;
+	}
+
+	.internal-profile-heading-icon {
+		flex-basis: 40px;
+		width: 40px;
+		height: 40px;
+		border-radius: 11px;
+	}
+
+	.internal-profile-heading p {
+		font-size: 0.76rem;
+	}
+
+	.internal-profile-section {
+		padding: 0.9rem;
+		border-radius: 12px;
+	}
+
+	.internal-profile-footer {
+		padding-bottom: max(0.9rem, env(safe-area-inset-bottom));
+	}
+}

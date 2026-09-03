@@ -1,8 +1,8 @@
 spring:
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
-#    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+#    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
     username: root
     password: 'hidden3660!@'
     hikari:
