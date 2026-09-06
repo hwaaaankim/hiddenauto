@@ -173,46 +173,55 @@
 												</div>
 											</div>
 
-											<div class="row team-as-detail-fourth-grid">
-												<div class="col-12 col-lg-6 mt-1">
-													<div class="team-as-detail-fourth-info-item">
-														<div class="team-as-detail-fourth-info-label">AS 사유</div>
-														<div class="team-as-detail-fourth-info-value team-as-detail-fourth-info-value-pre"
-															th:text="${#strings.defaultString(asTask.reason, '-')}">-
-														</div>
-													</div>
-												</div>
-
-												<div class="col-12 col-lg-6 mt-1">
-													<div class="team-as-detail-fourth-info-item">
-														<div class="team-as-detail-fourth-info-label">관리자 메모</div>
-														<div class="team-as-detail-fourth-info-value team-as-detail-fourth-info-value-pre"
-															th:text="${#strings.defaultString(asTask.adminMemo, '-')}">-
-														</div>
-													</div>
-												</div>
-
-												<div class="col-12 mt-1">
-													<div class="team-as-detail-fourth-info-item">
-														<div
-															class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
-															<div class="team-as-detail-fourth-info-label mb-0">AS 주소
-															</div>
-															<button type="button"
-																class="btn btn-outline-secondary btn-sm team-as-detail-fourth-copy-btn"
-																id="team-as-detail-fourth-address-copy-btn"
-																th:attr="data-copy-text=|${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
-																<i class="ri-file-copy-line"></i>
-																주소 복사
-															</button>
-														</div>
-														<div class="team-as-detail-fourth-info-value"
-															th:text="|${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
-															-
-														</div>
+										<div class="row team-as-detail-fourth-grid">
+											<div class="col-12 mt-1">
+												<div class="team-as-detail-fourth-info-item">
+													<div class="team-as-detail-fourth-info-label">AS 사유</div>
+													<div class="team-as-detail-fourth-info-value team-as-detail-fourth-info-value-pre"
+														th:text="${#strings.defaultString(asTask.reason, '-')}">-
 													</div>
 												</div>
 											</div>
+
+											<div class="col-12 mt-1">
+												<div class="team-as-detail-fourth-info-item">
+													<div class="team-as-detail-fourth-info-label">관리자 메모</div>
+													<div class="team-as-detail-fourth-info-value team-as-detail-fourth-info-value-pre"
+														th:text="${#strings.defaultString(asTask.adminMemo, '-')}">-
+													</div>
+												</div>
+											</div>
+
+											<div class="col-12 mt-1">
+												<div class="team-as-detail-fourth-info-item">
+													<div class="team-as-detail-fourth-info-label">AS 담당자 메모</div>
+													<textarea class="form-control" name="handlerMemo" rows="5"
+														maxlength="2000" placeholder="현장 담당자용 메모를 입력해 주세요."
+														th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}"
+														th:text="${asTask.handlerMemo}"></textarea>
+													<div class="team-as-detail-fourth-info-help mt-2">
+														관리자 메모 바로 아래에서 확인·수정할 수 있으며, 줄바꿈도 저장됩니다.
+													</div>
+												</div>
+											</div>
+
+											<div class="col-12 mt-1">
+												<div class="team-as-detail-fourth-info-item">
+													<div class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
+														<div class="team-as-detail-fourth-info-label mb-0">AS 주소</div>
+														<button type="button"
+															class="btn btn-outline-secondary btn-sm team-as-detail-fourth-copy-btn"
+															id="team-as-detail-fourth-address-copy-btn"
+															th:attr="data-copy-text=|${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">
+															<i class="ri-file-copy-line"></i>주소 복사
+														</button>
+													</div>
+													<div class="team-as-detail-fourth-info-value"
+														th:text="|${#strings.defaultString(asTask.roadAddress,'')} ${#strings.defaultString(asTask.detailAddress,'')}|">-
+													</div>
+												</div>
+											</div>
+										</div>
 										</div>
 
 										<!-- 담당자 관리 -->
@@ -224,14 +233,14 @@
 														담당자 관리
 													</h5>
 													<div class="team-as-detail-fourth-section-sub">
-														담당자 변경, 담당자용 메모, 방문예정일, 방문예정시간은 진행중 상태에서만 수정할 수
+															담당자 변경, 방문예정일, 방문예정시간은 진행중 상태에서만 수정할 수
 														있습니다.
 													</div>
 												</div>
 											</div>
 
 											<div class="row team-as-detail-fourth-grid">
-												<div class="col-12 col-xl-3 mt-1">
+											<div class="col-12 col-xl-4 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">배정 담당자</div>
 
@@ -262,20 +271,7 @@
 													</div>
 												</div>
 
-												<div class="col-12 col-xl-5 mt-1">
-													<div class="team-as-detail-fourth-info-item">
-														<div class="team-as-detail-fourth-info-label">담당자용 메모</div>
-														<textarea class="form-control" name="handlerMemo" rows="6"
-															maxlength="2000" placeholder="현장 담당자용 메모를 입력해 주세요."
-															th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}"
-															th:text="${asTask.handlerMemo}"></textarea>
-														<div class="team-as-detail-fourth-info-help mt-2">
-															줄바꿈 포함 입력 가능합니다.
-														</div>
-													</div>
-												</div>
-
-												<div class="col-12 col-md-6 col-xl-2 mt-1">
+											<div class="col-12 col-md-6 col-xl-4 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">방문예정일</div>
 														<input type="date" class="form-control"
@@ -289,7 +285,7 @@
 													</div>
 												</div>
 
-												<div class="col-12 col-md-6 col-xl-2 mt-1">
+											<div class="col-12 col-md-6 col-xl-4 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">방문예정시간</div>
 														<input type="time" class="form-control"
@@ -440,7 +436,7 @@
 													</div>
 												</div>
 
-												<!-- AS 결과 이미지 -->
+											<!-- AS 결과 이미지 -->
 												<div class="col-12 col-xl-6 mt-1">
 													<div class="team-as-detail-fourth-info-item">
 														<div class="team-as-detail-fourth-info-label">AS 결과 이미지</div>
@@ -479,9 +475,40 @@
 															</div>
 														</div>
 													</div>
-												</div>
-
 											</div>
+
+											<!-- 고객 요청 동영상: 모바일에서도 직접 재생 가능 -->
+											<div class="col-12 mt-1">
+												<div class="team-as-detail-fourth-info-item">
+													<div class="team-as-detail-fourth-info-label">고객 요청 동영상</div>
+													<div class="row g-3 mt-0">
+														<div class="col-12 col-md-6"
+															th:each="video : ${asTask.requestVideos}">
+															<div class="team-as-detail-fourth-video-card">
+																<video class="team-as-detail-fourth-video" controls
+																	preload="metadata" playsinline webkit-playsinline>
+																	<source th:src="@{${video.url}}"
+																		th:type="${video.contentType != null and #strings.startsWith(video.contentType, 'video/') ? video.contentType : null}">
+																	사용 중인 브라우저에서 동영상 재생을 지원하지 않습니다.
+																</video>
+																<div class="team-as-detail-fourth-video-meta">
+																	<span th:text="${video.filename}">filename</span>
+																	<a th:href="@{${video.url}}" download
+																		class="btn btn-sm btn-light border" aria-label="동영상 다운로드">
+																		<i class="ri-download-2-line text-primary"></i>
+																	</a>
+																</div>
+															</div>
+														</div>
+														<div class="col-12 mt-1"
+															th:if="${#lists.isEmpty(asTask.requestVideos)}">
+															<p class="text-muted mb-0">동영상이 없습니다.</p>
+														</div>
+													</div>
+												</div>
+											</div>
+
+										</div>
 										</div>
 
 										<!-- 하단 안내 -->

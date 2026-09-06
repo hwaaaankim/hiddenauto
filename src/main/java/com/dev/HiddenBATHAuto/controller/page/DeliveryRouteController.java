@@ -265,7 +265,8 @@ public class DeliveryRouteController {
      *
      * 대상 주문:
      * - 선택 날짜의 DeliveryOrderIndex에 등록된 현장배송/화물 주문
-     * - 담당자별로 분리한 뒤 업체/실제 배송지/배송수단/배송일 기준으로 묶습니다.
+     * - 담당자별로 먼저 분리한 뒤 업체명/실제 배송지/배송수단/배송일 기준으로 묶습니다.
+     * - 주문일과 Task는 묶음 기준에서 제외합니다.
      */
     @PostMapping("/team-site-statement/data")
     @ResponseBody

@@ -190,4 +190,72 @@ public final class DispatchBulkDtos {
         private LocalDate deliveryDate;
         private String reason;
     }
+
+    /** 통합 발주관리 모달을 열 때 선택 주문의 최신 저장값을 다시 읽기 위한 요청입니다. */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class OrderManagementPreviewRequest {
+        @Builder.Default
+        private List<Long> orderIds = new ArrayList<>();
+    }
+
+    /**
+     * 통합 발주관리 저장 요청입니다. items 전체 검증이 끝난 뒤에만 한 트랜잭션으로 반영됩니다.
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class OrderManagementSaveRequest {
+        @Builder.Default
+        private List<OrderManagementItemDto> items = new ArrayList<>();
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class OrderManagementItemDto {
+        private Long orderId;
+        private Long deliveryMethodId;
+        private Long deliveryHandlerId;
+        private Integer deliveryCost;
+        private boolean dispatchComplete;
+
+        private String zipCode;
+        private String doName;
+        private String siName;
+        private String guName;
+        private String roadAddress;
+        private String detailAddress;
+        private boolean generalAddressSearched;
+
+        private String siteZipCode;
+        private String siteDoName;
+        private String siteSiName;
+        private String siteGuName;
+        private String siteRoadAddress;
+        private String siteDetailAddress;
+        private boolean siteAddressSearched;
+
+        private String ordererName;
+        private String ordererPhone;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class OrderManagementSaveResponse {
+        private int requestedCount;
+        private int updatedCount;
+
+        @Builder.Default
+        private List<Long> updatedOrderIds = new ArrayList<>();
+
+        @Builder.Default
+        private List<DispatchOrderRowDto> updatedRows = new ArrayList<>();
+    }
 }

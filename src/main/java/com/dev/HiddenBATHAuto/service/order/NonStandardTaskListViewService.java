@@ -35,12 +35,20 @@ public class NonStandardTaskListViewService {
     private final ObjectMapper objectMapper;
 
     public NonStandardTaskListOrderRowDto toRow(Order order) {
-        return toRow(order, List.of());
+        return toRow(order, List.of(), List.of());
     }
 
     public NonStandardTaskListOrderRowDto toRow(
             Order order,
             List<NonStandardTaskListOrderImageDto> adminImages
+    ) {
+        return toRow(order, adminImages, List.of());
+    }
+
+    public NonStandardTaskListOrderRowDto toRow(
+            Order order,
+            List<NonStandardTaskListOrderImageDto> adminImages,
+            List<NonStandardTaskListOrderImageDto> readonlyImages
     ) {
         if (order == null) {
             return null;
@@ -184,6 +192,7 @@ public class NonStandardTaskListViewService {
                 .revisionCount(checkStatus != null ? checkStatus.getRevisionCount() : 0)
 
                 .adminImages(adminImages != null ? adminImages : List.of())
+                .readonlyImages(readonlyImages != null ? readonlyImages : List.of())
                 .build();
     }
 

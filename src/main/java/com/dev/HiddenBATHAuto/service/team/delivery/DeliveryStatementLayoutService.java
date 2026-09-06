@@ -642,11 +642,17 @@ public class DeliveryStatementLayoutService {
     /**
      * 명세서 묶음 기준을 화면별로 통일합니다.
      *
-     * 출고팀/배송팀 개인:
-     * - 동일 업체 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일
+     * 출고팀 현장명세서:
+     * - 주문일/Task/배송일과 무관하게 동일 업체 + 동일 실제 배송지 + 동일 배송수단
+     *
+     * 배송팀 개인:
+     * - 동일 배송직원 + 동일 업체명 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일
      *
      * 배송팀 팀장:
-     * - 동일 배송직원 + 동일 업체 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일
+     * - 동일 배송직원 + 동일 업체명 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일
+     *
+     * <p>주문일과 Task는 묶음 키에 포함하지 않습니다. 따라서 같은 배송직원의 같은 출고분은
+     * 서로 다른 Task에서 생성되었더라도 한 명세서에 이어지고, 페이지 수용량을 넘을 때만 분할됩니다.</p>
      */
     private List<StatementGroup> groupOrdersByStatementCriteria(
             List<Order> orders,
@@ -664,6 +670,7 @@ public class DeliveryStatementLayoutService {
 
             StatementGroupKey key = buildStatementGroupKey(
                     order,
+                    statementType,
                     statementDate,
                     source,
                     teamRefByOrderId
@@ -690,10 +697,13 @@ public class DeliveryStatementLayoutService {
 
     private StatementGroupKey buildStatementGroupKey(
             Order order,
+            String statementType,
             LocalDate statementDate,
             StatementSource source,
             Map<Long, TeamStatementOrderRef> teamRefByOrderId
     ) {
+        boolean dispatchSiteStatement = source == StatementSource.DISPATCH_SELECTION
+                && STATEMENT_SITE.equals(statementType);
         String handlerKey = "";
 
         if (source == StatementSource.DELIVERY_TEAM) {
@@ -706,22 +716,30 @@ public class DeliveryStatementLayoutService {
             }
 
             handlerKey = "HANDLER:" + ref.deliveryHandlerId();
-        } else if (usesDeliveryTeamStatementContact(order)) {
+        } else if (source == StatementSource.DELIVERY_MEMBER) {
+            // 개인 화면도 담당자 ID를 명시적인 경계로 유지합니다. 조회 인덱스가 잘못 남아 있어도
+            // 다른 배송직원의 주문이 같은 명세서에 섞이지 않습니다.
             Member assignedHandler = order.getAssignedDeliveryHandler();
             handlerKey = assignedHandler != null && assignedHandler.getId() != null
                     ? "HANDLER:" + assignedHandler.getId()
                     : "HANDLER:UNASSIGNED";
         }
 
-        String companyKey = resolveCompanyGroupingKey(order);
+        boolean groupByCompanyName = STATEMENT_SITE.equals(statementType);
+        String companyKey = resolveCompanyGroupingKey(order, groupByCompanyName);
         String addressKey = resolveAddressGroupingKey(order);
         String methodKey = resolveMethodGroupingKey(order);
         LocalDate deliveryDate = source == StatementSource.DISPATCH_SELECTION
                 ? resolveDeliveryDate(order)
                 : statementDate;
-        String dateKey = deliveryDate != null
-                ? deliveryDate.toString()
-                : "MISSING-DATE-ORDER:" + order.getId();
+        String dateKey;
+        if (dispatchSiteStatement) {
+            dateKey = "ALL-DATES";
+        } else {
+            dateKey = deliveryDate != null
+                    ? deliveryDate.toString()
+                    : "MISSING-DATE-ORDER:" + order.getId();
+        }
 
         return new StatementGroupKey(
                 handlerKey,
@@ -732,8 +750,12 @@ public class DeliveryStatementLayoutService {
         );
     }
 
-    private String resolveCompanyGroupingKey(Order order) {
+    private String resolveCompanyGroupingKey(Order order, boolean groupByCompanyName) {
         Company company = resolveCompany(order);
+
+        if (groupByCompanyName && company != null && StringUtils.hasText(company.getCompanyName())) {
+            return "COMPANY-NAME:" + normalizeGroupingText(company.getCompanyName());
+        }
 
         if (company != null && company.getId() != null) {
             return "COMPANY:" + company.getId();
@@ -803,7 +825,40 @@ public class DeliveryStatementLayoutService {
         group.addressText = safeTextOrDash(address.addressText());
         group.deliveryContactName = safeTextOrDash(deliveryContact.name());
         group.deliveryContactPhone = safeTextOrDash(deliveryContact.phone());
-        group.deliveryDateTexts.add(formatStatementGroupDate(groupKey.deliveryDateKey()));
+        if (source == StatementSource.DISPATCH_SELECTION && STATEMENT_SITE.equals(statementType)) {
+            // 출고팀 현장명세서는 담당자가 달라도 업체/배송수단/배송주소가 같으면 한 묶음입니다.
+            // 대표 주문 한 건의 담당자만 노출하지 않고 묶음에 포함된 담당자를 모두 표시합니다.
+            if (usesDeliveryTeamStatementContact(representative)) {
+                LinkedHashSet<String> deliveryContactNames = orders.stream()
+                        .map(this::resolveStatementDeliveryContact)
+                        .map(DeliveryContactData::name)
+                        .map(this::safeText)
+                        .filter(value -> !value.isBlank())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                LinkedHashSet<String> deliveryContactPhones = orders.stream()
+                        .map(this::resolveStatementDeliveryContact)
+                        .map(DeliveryContactData::phone)
+                        .map(this::safeText)
+                        .filter(value -> !value.isBlank())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                group.deliveryContactName = joinOrDash(deliveryContactNames, ", ");
+                group.deliveryContactPhone = joinOrDash(deliveryContactPhones, ", ");
+            }
+
+            orders.stream()
+                    .map(this::resolveDeliveryDate)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .sorted()
+                    .map(LocalDate::toString)
+                    .map(this::formatStatementGroupDate)
+                    .forEach(group.deliveryDateTexts::add);
+            if (group.deliveryDateTexts.isEmpty()) {
+                group.deliveryDateTexts.add("-");
+            }
+        } else {
+            group.deliveryDateTexts.add(formatStatementGroupDate(groupKey.deliveryDateKey()));
+        }
 
         if (source == StatementSource.DELIVERY_TEAM) {
             TeamStatementOrderRef ref = teamRefByOrderId.get(representative.getId());

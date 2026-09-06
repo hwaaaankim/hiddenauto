@@ -121,4 +121,7 @@ public class NonStandardTaskListOrderRowDto {
     private int revisionCount;
 
     private List<NonStandardTaskListOrderImageDto> adminImages;
+
+    /** testemp 읽기 전용 일괄보기에서 고객·관리자 첨부를 함께 표시하는 이미지 목록입니다. */
+    private List<NonStandardTaskListOrderImageDto> readonlyImages;
 }

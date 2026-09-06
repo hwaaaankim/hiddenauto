@@ -6,7 +6,7 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-	<link rel="stylesheet" href="/front/customer-management-v2.css">
+	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20260906-3">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
@@ -96,13 +96,14 @@
 							th:text="${#numbers.formatInteger(asTaskPage.totalElements, 1, 'COMMA') + '건'}">0건</strong>
 						<span>조회되었습니다.</span>
 					</div>
-					<div class="as-list-sort-guide"><i class="fa fa-sort me-1"></i>화살표를 누르면 다중 정렬이 적용됩니다.</div>
+					<div class="as-list-sort-guide"><i class="fa fa-sort me-1"></i>위·아래 화살표: 오름·내림차순 · 같은 화살표 재클릭: 해당 정렬 해제</div>
 				</div>
 
 				<div class="as-list-table-scroll">
 					<table class="table as-list-table align-middle mb-0">
 						<colgroup>
 							<col class="as-list-col-id">
+							<col class="as-list-col-customer">
 							<col class="as-list-col-customer">
 							<col class="as-list-col-phone">
 							<col class="as-list-col-product">
@@ -124,6 +125,7 @@
 												data-sort-dir="asc">↑</button><button type="button" data-sort-field="id"
 												data-sort-dir="desc">↓</button></span></div>
 								</th>
+								<th>신청자</th>
 								<th>
 									<div class="as-list-sortable-head"><span>고객명</span><span
 											class="as-list-sort-buttons"><button type="button"
@@ -180,9 +182,10 @@
 						</thead>
 						<tbody>
 							<th:block th:each="row : ${asTaskPage.content}" th:with="asTask=${row.asTask}">
-								<tr class="as-list-main-row">
-									<td class="as-list-id-cell" th:text="${'#' + asTask.id}">#1</td>
-									<td class="as-list-customer-cell" th:text="${asTask.customerNameSafe}">고객명</td>
+							<tr class="as-list-main-row">
+								<td class="as-list-id-cell" th:text="${'#' + asTask.id}">#1</td>
+								<td class="as-list-customer-cell" th:text="${row.requesterName}">신청자</td>
+								<td class="as-list-customer-cell" th:text="${asTask.customerNameSafe}">고객명</td>
 									<td class="text-center">
 										<a th:if="${asTask.onsiteContact != null and !#strings.isEmpty(asTask.onsiteContact)}"
 											th:href="|tel:${asTask.onsiteContact}|" class="as-list-phone-link"
@@ -246,7 +249,7 @@
 								</tr>
 
 								<tr class="as-list-detail-row">
-									<td colspan="13" class="p-0 border-0">
+								<td colspan="14" class="p-0 border-0">
 										<div class="as-list-detail-slide" th:id="'as-list-detail-' + ${asTask.id}">
 											<div class="as-list-detail-inner">
 												<div class="as-list-detail-heading">
@@ -610,7 +613,7 @@
 							</th:block>
 
 							<tr th:if="${asTaskPage.empty}">
-								<td colspan="13" class="as-list-empty-cell">조건에 맞는 AS 신청 내역이 없습니다.</td>
+							<td colspan="14" class="as-list-empty-cell">조건에 맞는 AS 신청 내역이 없습니다.</td>
 							</tr>
 						</tbody>
 					</table>
@@ -655,7 +658,7 @@
 
 	<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<script src="/front/asListUpdate.js"></script>
-	<script src="/front/asListV2.js"></script>
+	<script src="/front/asListV2.js?v=20260906-3"></script>
 	<script src="/front/customerTaskPhoneModal.js"></script>
 
 	<div class="modal fade as-list-advanced-modal" id="as-list-advanced-modal" tabindex="-1"

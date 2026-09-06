@@ -188,6 +188,11 @@ public class TeamController {
 			"deliveryDate",
 			"checked"
 	);
+	private static final List<String> PRODUCTION_LIST_ALLOWED_KEYWORD_TYPES = List.of(
+			"PRODUCT_NAME",
+			"SIZE",
+			"COMPANY_NAME"
+	);
 
 	@GetMapping("/productionList")
 	public String getProductionOrders(@AuthenticationPrincipal PrincipalDetails principal,
@@ -195,7 +200,9 @@ public class TeamController {
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
-            @RequestParam(required = false) String productName,
+			@RequestParam(required = false) String productName,
+			@RequestParam(required = false, defaultValue = "PRODUCT_NAME") String keywordType,
+			@RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "ALL") String standardType,
 			@RequestParam(required = false, defaultValue = "preferred") String dateType,
 			@RequestParam(required = false, defaultValue = "CONFIRMED") String statusFilter,
@@ -207,13 +214,15 @@ public class TeamController {
 			@RequestParam(required = false) String sortSpec,
 			@RequestParam(required = false) String sortKey,
 			@RequestParam(required = false) String sortDir,
+			HttpServletRequest request,
 			Model model) {
 
 		Member member = principal.getMember();
 		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
 		Long orderIdFromFilter = orderIdRange.from();
 		Long orderIdToFilter = orderIdRange.to();
-        String productNameFilter = normalizeSearchText(productName);
+		String normalizedKeywordType = normalizeProductionKeywordType(keywordType);
+		String keywordFilter = normalizeSearchText(StringUtils.hasText(keyword) ? keyword : productName);
         String normalizedStandardType = normalizeProductionListStandardType(standardType);
         Boolean standardFilter = parseProductionListStandardFilter(normalizedStandardType);
 
@@ -274,15 +283,23 @@ public class TeamController {
 			normalizedDateType = "preferred";
 		}
 
+		boolean hasExplicitDateRange = request.getParameterMap().containsKey("startDate")
+				|| request.getParameterMap().containsKey("endDate");
+		if (!hasExplicitDateRange) {
+			LocalDate today = LocalDate.now();
+			startDate = today;
+			endDate = today;
+		}
+
 		/*
 		 * 날짜 조회 규칙
 		 * - startDate = endDate: 해당일 1일 조회
 		 * - startDate만 있음: startDate부터 미래 전체 조회
 		 * - endDate만 있음: endDate까지 과거 전체 조회
-		 * - 둘 다 없음: 전체 기간 조회
+		 * - 최초 진입(날짜 파라미터 자체가 없음): 배송희망일 기준 오늘 조회
+		 * - 사용자가 날짜 input을 명시적으로 모두 비워 제출: 전체 기간 조회
 		 *
-		 * 중요: 사용자가 날짜 input을 비워서 빈 값으로 검색한 경우에도 Spring에서는 null로 바인딩됩니다.
-		 * 따라서 여기서 null을 내일 날짜로 다시 채우면 전체 기간 조회가 불가능해지므로 강제 기본 날짜를 넣지 않습니다.
+		 * 날짜 파라미터 존재 여부를 HttpServletRequest로 구분하므로 최초 기본값과 명시적 전체기간 조회가 충돌하지 않습니다.
 		 */
 		if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
 			LocalDate temp = startDate;
@@ -342,7 +359,8 @@ public class TeamController {
 					targetCategoryId,
 					orderIdFromFilter,
 					orderIdToFilter,
-					productNameFilter,
+					normalizedKeywordType,
+					keywordFilter,
 					standardFilter,
 					normalizedDateType,
 					statusEnum,
@@ -359,7 +377,8 @@ public class TeamController {
 					targetCategoryId,
 					orderIdFromFilter,
 					orderIdToFilter,
-					productNameFilter,
+					normalizedKeywordType,
+					keywordFilter,
 					standardFilter,
 					normalizedDateType,
 					statusEnum,
@@ -374,7 +393,8 @@ public class TeamController {
 					targetCategoryId,
 					orderIdFromFilter,
 					orderIdToFilter,
-					productNameFilter,
+					normalizedKeywordType,
+					keywordFilter,
 					standardFilter,
 					normalizedDateType,
 					statusEnum,
@@ -461,7 +481,10 @@ public class TeamController {
 		model.addAttribute("orderIdTo", orderIdToFilter);
 		// 기존 단건 URL/템플릿 호환용입니다. 범위가 단건일 때만 값을 제공합니다.
 		model.addAttribute("orderId", Objects.equals(orderIdFromFilter, orderIdToFilter) ? orderIdFromFilter : null);
-        model.addAttribute("productName", productNameFilter);
+		// productName은 기존 URL/엑셀 스크립트 호환을 위해 동일 키워드로 유지합니다.
+		model.addAttribute("productName", keywordFilter);
+		model.addAttribute("keywordType", normalizedKeywordType);
+		model.addAttribute("keyword", keywordFilter);
         model.addAttribute("standardType", normalizedStandardType);
 		model.addAttribute("dateType", normalizedDateType);
 		model.addAttribute("statusFilter", sf);
@@ -469,6 +492,9 @@ public class TeamController {
 		model.addAttribute("size", size);
 		model.addAttribute("startDate", startDate);
 		model.addAttribute("endDate", endDate);
+		model.addAttribute("dateRangeMode",
+				(startDate != null || endDate != null)
+						&& !(startDate != null && startDate.equals(endDate)));
 		model.addAttribute("productionDateRangeLabel", buildProductionDateRangeLabel(startDate, endDate));
 		model.addAttribute("productCategories", productCategories);
 
@@ -607,6 +633,17 @@ public class TeamController {
 		case "NON_STANDARD", "NONSTANDARD", "FALSE" -> "NON_STANDARD";
 		default -> "ALL";
 		};
+	}
+
+	private String normalizeProductionKeywordType(String rawKeywordType) {
+		if (!StringUtils.hasText(rawKeywordType)) {
+			return "PRODUCT_NAME";
+		}
+
+		String normalized = rawKeywordType.trim().toUpperCase(Locale.ROOT);
+		return PRODUCTION_LIST_ALLOWED_KEYWORD_TYPES.contains(normalized)
+				? normalized
+				: "PRODUCT_NAME";
 	}
 
 	private Boolean parseProductionListStandardFilter(String normalizedStandardType) {

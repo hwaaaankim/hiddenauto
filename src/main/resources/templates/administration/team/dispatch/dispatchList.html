@@ -31,8 +31,7 @@
 									</h4>
 
 									<div class="dispatch-list-status-guide">
-										<span class="dispatch-list-guide-pill dispatch-list-guide-confirmed">승인완료: 출고완료
-											가능</span>
+										<span class="dispatch-list-guide-pill dispatch-list-guide-confirmed">승인완료: 생산완료 대기</span>
 										<span class="dispatch-list-guide-pill dispatch-list-guide-production">생산완료: 출고완료
 											가능</span>
 										<span class="dispatch-list-guide-pill dispatch-list-guide-dispatch">출고완료: 완료된
@@ -58,6 +57,8 @@
 									<select id="dispatch-list-keyword-type"
 										class="form-select dispatch-list-form-select">
 										<option value="COMPANY_NAME">거래처명</option>
+										<option value="PRODUCT_NAME">품목명</option>
+										<option value="SIZE">사이즈</option>
 										<option value="MEMBER_NAME">멤버 이름</option>
 										<option value="MEMBER_USERNAME">멤버 아이디</option>
 										<option value="MEMBER_PHONE">멤버 휴대폰</option>
@@ -93,11 +94,33 @@
 									</select>
 								</div>
 
+								<div class="col-lg-2 col-md-4 col-6">
+									<label class="dispatch-list-label" for="dispatch-list-status">주문 상태</label>
+									<select id="dispatch-list-status" class="form-select dispatch-list-form-select">
+										<option value="ALL">전체</option>
+										<option value="CONFIRMED">승인완료</option>
+										<option value="PRODUCTION_DONE">생산완료</option>
+										<option value="DISPATCH_DONE">출고완료</option>
+									</select>
+								</div>
+
 								<div class="col-lg-2 col-md-4 col-12">
 									<label class="dispatch-list-label" for="dispatch-list-order-date">출고일</label>
-									<input type="date" id="dispatch-list-order-date"
-										class="form-control dispatch-list-form-control"
-										th:value="${#temporals.format(today, 'yyyy-MM-dd')}">
+									<div class="dispatch-list-date-navigation">
+										<button type="button" class="btn btn-outline-secondary dispatch-list-date-step"
+											data-dispatch-date-step="-1" data-date-target="dispatch-list-order-date"
+											data-auto-search="true" aria-label="출고일 하루 전" title="하루 전 조회">
+											<i class="ri-arrow-left-s-line" aria-hidden="true"></i>
+										</button>
+										<input type="date" id="dispatch-list-order-date"
+											class="form-control dispatch-list-form-control"
+											th:value="${#temporals.format(today, 'yyyy-MM-dd')}">
+										<button type="button" class="btn btn-outline-secondary dispatch-list-date-step"
+											data-dispatch-date-step="1" data-date-target="dispatch-list-order-date"
+											data-auto-search="true" aria-label="출고일 하루 후" title="하루 후 조회">
+											<i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+										</button>
+									</div>
 								</div>
 
 								<div class="col-lg-2 col-md-4 col-6">
@@ -144,8 +167,9 @@
 									<label class="dispatch-list-label"
 										for="dispatch-list-delivery-method-id">배송수단</label>
 									<select id="dispatch-list-delivery-method-id"
-										class="form-select dispatch-list-form-select">
+									class="form-select dispatch-list-form-select">
 										<option value="">전체</option>
+										<option value="BUSAN_VISIT">지방 (방문 · 부산)</option>
 										<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
 											th:text="${method.methodName}">
 											배송수단
@@ -230,15 +254,20 @@
 								<i class="ri-file-excel-2-line me-1"></i>엑셀출력
 							</button>
 
-							<button type="button" id="dispatch-list-bulk-handler-btn" class="btn btn-outline-dark" disabled>
+							<button type="button" id="dispatch-list-order-management-btn"
+								class="btn btn-warning dispatch-list-order-management-open" disabled>
+								<i class="ri-settings-3-line me-1"></i>발주관리
+							</button>
+
+							<button type="button" id="dispatch-list-bulk-handler-btn" class="btn btn-outline-dark d-none" disabled>
 								<i class="ri-user-settings-line me-1"></i>일괄담당자변경
 							</button>
 
-							<button type="button" id="dispatch-list-bulk-delivery-method-btn" class="btn btn-outline-warning" disabled>
+							<button type="button" id="dispatch-list-bulk-delivery-method-btn" class="btn btn-outline-warning d-none" disabled>
 								<i class="ri-truck-line me-1"></i>일괄배송수단변경
 							</button>
 
-							<button type="button" id="dispatch-list-bulk-complete-btn" class="btn btn-success" disabled>
+							<button type="button" id="dispatch-list-bulk-complete-btn" class="btn btn-success d-none" disabled>
 								<i class="ri-check-double-line me-1"></i>일괄 출고완료
 							</button>
 						</div>
@@ -257,7 +286,7 @@
 									<col style="width: 70px;">
 									<col style="width: 300px;">
 									<col style="width: 103px;">
-									<col style="width: 78px;">
+									<col style="width: 90px;">
 									<col style="width: 78px;">
 								</colgroup>
 								<thead>
@@ -318,7 +347,7 @@
 					<div>
 						<h5 class="modal-title mb-0">출고관리 빠른 제어</h5>
 						<div class="text-muted small mt-1">
-							현재 화면 위치와 상관없이 검색, 담당자 변경, 배송수단 변경 및 출고완료를 처리합니다.
+							현재 화면 위치와 상관없이 검색하고, 선택 주문은 발주관리에서 한 번에 검토·저장합니다.
 						</div>
 					</div>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
@@ -352,6 +381,8 @@
 							<label class="dispatch-list-label" for="dispatch-list-modal-keyword-type">키워드 구분</label>
 							<select id="dispatch-list-modal-keyword-type" class="form-select dispatch-list-form-select">
 								<option value="COMPANY_NAME">거래처명</option>
+								<option value="PRODUCT_NAME">품목명</option>
+								<option value="SIZE">사이즈</option>
 								<option value="MEMBER_NAME">멤버 이름</option>
 								<option value="MEMBER_USERNAME">멤버 아이디</option>
 								<option value="MEMBER_PHONE">멤버 휴대폰</option>
@@ -387,10 +418,32 @@
 							</select>
 						</div>
 
+						<div class="col-md-4 col-6">
+							<label class="dispatch-list-label" for="dispatch-list-modal-status">주문 상태</label>
+							<select id="dispatch-list-modal-status" class="form-select dispatch-list-form-select">
+								<option value="ALL">전체</option>
+								<option value="CONFIRMED">승인완료</option>
+								<option value="PRODUCTION_DONE">생산완료</option>
+								<option value="DISPATCH_DONE">출고완료</option>
+							</select>
+						</div>
+
 						<div class="col-md-4 col-12">
 							<label class="dispatch-list-label" for="dispatch-list-modal-order-date">출고일</label>
-							<input type="date" id="dispatch-list-modal-order-date"
-								class="form-control dispatch-list-form-control">
+							<div class="dispatch-list-date-navigation">
+								<button type="button" class="btn btn-outline-secondary dispatch-list-date-step"
+									data-dispatch-date-step="-1" data-date-target="dispatch-list-modal-order-date"
+									aria-label="출고일 하루 전" title="하루 전">
+									<i class="ri-arrow-left-s-line" aria-hidden="true"></i>
+								</button>
+								<input type="date" id="dispatch-list-modal-order-date"
+									class="form-control dispatch-list-form-control">
+								<button type="button" class="btn btn-outline-secondary dispatch-list-date-step"
+									data-dispatch-date-step="1" data-date-target="dispatch-list-modal-order-date"
+									aria-label="출고일 하루 후" title="하루 후">
+									<i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+								</button>
+							</div>
 						</div>
 
 						<div class="col-md-4 col-6">
@@ -437,6 +490,7 @@
 							<select id="dispatch-list-modal-delivery-method-id"
 								class="form-select dispatch-list-form-select">
 								<option value="">전체</option>
+								<option value="BUSAN_VISIT">지방 (방문 · 부산)</option>
 								<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
 									th:text="${method.methodName}">
 									배송수단
@@ -451,15 +505,20 @@
 								</button>
 
 								<div class="d-flex flex-wrap gap-2 justify-content-end">
-									<button type="button" id="dispatch-list-modal-bulk-handler-btn" class="btn btn-outline-dark" disabled>
+									<button type="button"
+										class="btn btn-warning dispatch-list-order-management-open" disabled>
+										<i class="ri-settings-3-line me-1"></i>발주관리
+									</button>
+
+									<button type="button" id="dispatch-list-modal-bulk-handler-btn" class="btn btn-outline-dark d-none" disabled>
 										<i class="ri-user-settings-line me-1"></i>일괄담당자변경
 									</button>
 
-									<button type="button" id="dispatch-list-modal-bulk-delivery-method-btn" class="btn btn-outline-warning" disabled>
+									<button type="button" id="dispatch-list-modal-bulk-delivery-method-btn" class="btn btn-outline-warning d-none" disabled>
 										<i class="ri-truck-line me-1"></i>일괄배송수단변경
 									</button>
 
-									<button type="button" id="dispatch-list-modal-bulk-complete-btn" class="btn btn-success" disabled>
+									<button type="button" id="dispatch-list-modal-bulk-complete-btn" class="btn btn-success d-none" disabled>
 										<i class="ri-check-double-line me-1"></i>
 										선택 <span id="dispatch-list-modal-selected-count">0</span>건 출고완료
 									</button>
@@ -565,6 +624,108 @@
 					<button type="button" id="dispatch-list-statement-options-apply-btn" class="btn btn-primary">
 						<i class="ri-printer-line me-1" aria-hidden="true"></i>
 						<span>계속</span>
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- 선택 주문을 주문별로 검토한 뒤 한 번에 원자적으로 저장하는 통합 발주관리 -->
+	<div class="modal fade" id="dispatch-list-order-management-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-lg-down">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-0"><i class="ri-settings-3-line me-1"></i>발주관리</h5>
+						<div class="text-muted small mt-1">
+							체크된 오더의 배송수단·담당자·주소·배송비·출고완료를 검토하고 한 번에 저장합니다.
+						</div>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+
+				<div class="modal-body">
+					<div class="alert alert-info py-2 mb-3">
+						<strong id="dispatch-order-management-count">0건</strong> 선택 · 모든 오더의 검증을 통과해야 저장됩니다.
+						현장배송은 현장주소/수령자/연락처와 배송담당자가, 직배송은 배송담당자가 필수입니다.
+					</div>
+
+					<div class="dispatch-order-management-bulk mb-3">
+						<div class="dispatch-order-management-bulk-controls">
+						<div class="dispatch-order-management-bulk-control">
+							<label class="dispatch-list-label" for="dispatch-order-management-bulk-method">배송수단 일괄 선택</label>
+							<select id="dispatch-order-management-bulk-method" class="form-select">
+								<option value="">선택하지 않음</option>
+								<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
+									th:text="${method.methodName}" th:attr="data-method-name=${method.methodName}">배송수단</option>
+							</select>
+						</div>
+						<div class="dispatch-order-management-bulk-control">
+							<label class="dispatch-list-label" for="dispatch-order-management-bulk-handler">배송담당자 일괄 선택</label>
+							<select id="dispatch-order-management-bulk-handler" class="form-select">
+								<option value="">기존값 유지</option>
+								<option th:each="handler : ${deliveryHandlers}" th:value="${handler.id}"
+									th:text="${handler.name + (handler.username != null ? ' (' + handler.username + ')' : '')}">담당자</option>
+							</select>
+							<div id="dispatch-order-management-bulk-handler-help" class="form-text">직배송·현장배송 오더에만 적용됩니다.</div>
+						</div>
+						<div class="dispatch-order-management-bulk-control">
+							<span class="dispatch-list-label">출고완료 일괄 선택</span>
+							<label class="form-check dispatch-order-management-complete-all mb-0">
+								<input class="form-check-input" type="checkbox" id="dispatch-order-management-complete-all">
+								<span class="form-check-label">생산완료 건 출고완료 전체 선택</span>
+							</label>
+						</div>
+						</div>
+						<button type="button" id="dispatch-order-management-apply-bulk"
+							class="btn btn-outline-primary dispatch-order-management-apply-bulk">
+							<i class="ri-check-line me-1" aria-hidden="true"></i>선택한 일괄 값을 전체에 적용
+						</button>
+					</div>
+
+					<div id="dispatch-order-management-alert" class="alert alert-danger d-none" role="alert"></div>
+					<div id="dispatch-order-management-loading" class="text-center text-muted py-5">
+						<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>최신 저장값을 불러오는 중입니다.
+					</div>
+					<div id="dispatch-order-management-list" class="dispatch-order-management-list"></div>
+				</div>
+
+				<div class="modal-footer">
+					<span class="text-muted small me-auto">저장 전까지 화면의 입력값은 서버 데이터에 반영되지 않습니다.</span>
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" id="dispatch-order-management-save" class="btn btn-primary" disabled>
+						<i class="ri-save-3-line me-1"></i>전체 검증 후 저장
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- 발주관리 입력값을 서버에 반영하기 전 변경 항목만 다시 확인합니다. -->
+	<div class="modal fade" id="dispatch-list-order-management-confirm-modal" tabindex="-1"
+		data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title mb-0"><i class="ri-file-list-3-line me-1"></i>발주관리 변경 내용 확인</h5>
+						<div class="text-muted small mt-1">아래 내용은 아직 저장되지 않았습니다. 최종 저장 전 변경값을 확인해 주세요.</div>
+					</div>
+				</div>
+				<div class="modal-body">
+					<div id="dispatch-order-management-confirm-alert" class="alert alert-danger d-none" role="alert"></div>
+					<div class="dispatch-order-management-confirm-overview mb-3">
+						<strong id="dispatch-order-management-confirm-count">0건 변경</strong>
+						<span>배송수단·담당자·주소·배송비·출고완료 변경만 정리했습니다.</span>
+					</div>
+					<div id="dispatch-order-management-confirm-list" class="dispatch-order-management-confirm-list"></div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" id="dispatch-order-management-confirm-back" class="btn btn-outline-secondary">
+						<i class="ri-arrow-left-line me-1" aria-hidden="true"></i>수정 화면으로
+					</button>
+					<button type="button" id="dispatch-order-management-confirm-save" class="btn btn-primary">
+						<i class="ri-save-3-line me-1" aria-hidden="true"></i>확인 후 최종 저장
 					</button>
 				</div>
 			</div>
@@ -989,6 +1150,197 @@
 				grid-template-columns: 1fr;
 			}
 		}
+
+		.dispatch-order-management-bulk {
+			display: flex;
+			flex-direction: column;
+			gap: .85rem;
+			padding: 1rem;
+			border: 1px solid var(--vz-border-color, #e5e7eb);
+			border-radius: .75rem;
+			background: #f8fafc;
+		}
+
+		.dispatch-order-management-bulk-controls {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: .75rem;
+			align-items: start;
+		}
+
+		.dispatch-order-management-bulk-control {
+			display: flex;
+			min-width: 0;
+			flex-direction: column;
+		}
+
+		.dispatch-order-management-bulk-control > .form-select,
+		.dispatch-order-management-complete-all {
+			min-height: 42px;
+		}
+
+		.dispatch-order-management-complete-all {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: .55rem;
+			width: 100%;
+			padding: .5rem .75rem;
+			border: 1px solid #ced4da;
+			border-radius: .375rem;
+			background: #fff;
+			text-align: center;
+		}
+
+		.dispatch-order-management-complete-all .form-check-input {
+			flex: 0 0 auto;
+			margin: 0;
+		}
+
+		.dispatch-order-management-apply-bulk {
+			width: 100%;
+			min-height: 42px;
+		}
+
+		.dispatch-order-management-list {
+			display: flex;
+			flex-direction: column;
+			gap: .8rem;
+		}
+
+		.dispatch-order-management-card {
+			border: 1px solid var(--vz-border-color, #dfe3e8);
+			border-radius: .75rem;
+			padding: 1rem;
+			background: #fff;
+		}
+
+		.dispatch-order-management-card-needs-action {
+			border: 2px solid #f59e0b;
+			box-shadow: 0 0 0 3px rgba(245, 158, 11, .12);
+		}
+
+		.dispatch-order-management-requirement-guide {
+			display: flex;
+			align-items: flex-start;
+			gap: .5rem;
+			margin-bottom: .8rem;
+			padding: .65rem .75rem;
+			border: 1px solid #fbbf24;
+			border-radius: .55rem;
+			background: #fffbeb;
+			color: #92400e;
+			font-size: .82rem;
+			font-weight: 700;
+			line-height: 1.45;
+		}
+
+		.dispatch-order-management-field-needs-action .form-control,
+		.dispatch-order-management-field-needs-action .form-select,
+		.dispatch-order-management-address.dispatch-order-management-field-needs-action {
+			border-color: #f59e0b;
+			box-shadow: 0 0 0 .16rem rgba(245, 158, 11, .11);
+		}
+
+		.dispatch-order-management-confirm-overview {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: .75rem;
+			padding: .8rem 1rem;
+			border: 1px solid #bfdbfe;
+			border-radius: .65rem;
+			background: #eff6ff;
+			color: #1e3a8a;
+		}
+
+		.dispatch-order-management-confirm-list {
+			display: flex;
+			flex-direction: column;
+			gap: .75rem;
+		}
+
+		.dispatch-order-management-confirm-card {
+			padding: .85rem 1rem;
+			border: 1px solid #dbe2ea;
+			border-radius: .65rem;
+			background: #fff;
+		}
+
+		.dispatch-order-management-confirm-head {
+			display: flex;
+			justify-content: space-between;
+			gap: .75rem;
+			margin-bottom: .6rem;
+		}
+
+		.dispatch-order-management-confirm-change {
+			display: grid;
+			grid-template-columns: minmax(105px, .35fr) minmax(0, 1fr);
+			gap: .5rem;
+			padding: .45rem 0;
+			border-top: 1px dashed #e5e7eb;
+		}
+
+		.dispatch-order-management-confirm-change:first-child {
+			border-top: 0;
+		}
+
+		.dispatch-order-management-confirm-change > span {
+			color: #64748b;
+			font-size: .8rem;
+			font-weight: 700;
+		}
+
+		.dispatch-order-management-confirm-change > strong {
+			color: #111827;
+			font-size: .85rem;
+			line-height: 1.45;
+			word-break: keep-all;
+			overflow-wrap: anywhere;
+		}
+
+		.dispatch-order-management-card-head {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			gap: .75rem;
+			margin-bottom: .8rem;
+		}
+
+		.dispatch-order-management-grid {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: .7rem;
+		}
+
+		.dispatch-order-management-address {
+			grid-column: 1 / -1;
+			padding: .75rem;
+			border-radius: .6rem;
+			background: #f8fafc;
+			border: 1px dashed #ced5df;
+		}
+
+		.dispatch-order-management-address-row {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(180px, .35fr) auto;
+			gap: .5rem;
+			align-items: end;
+		}
+
+		.dispatch-order-management-required::after {
+			content: " *";
+			color: #d63939;
+		}
+
+		@media (max-width: 991.98px) {
+			.dispatch-order-management-bulk-controls,
+			.dispatch-order-management-grid,
+			.dispatch-order-management-address-row {
+				grid-template-columns: 1fr;
+			}
+		}
 	</style>
 
 	<link rel="stylesheet" th:href="@{/administration/assets/css/teamActionFeedback.css(v='20260806-1')}">
@@ -997,7 +1349,10 @@
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<script th:src="@{/administration/assets/team/dispatch/dispatchList.js(v='20260820-1')}"></script>
+	<script id="dispatch-order-management-daum-script"
+		src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+	<script th:src="@{/administration/assets/team/dispatch/dispatchList.js(v='20260906-2')}"></script>
+	<script th:src="@{/administration/assets/team/dispatch/dispatchOrderManagement.js(v='20260906-2')}"></script>
 
 </body>
 

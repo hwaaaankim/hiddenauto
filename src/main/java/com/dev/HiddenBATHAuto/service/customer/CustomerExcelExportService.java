@@ -26,6 +26,7 @@ public class CustomerExcelExportService {
     public byte[] buildAsListWorkbook(List<AsListRow> rows, List<String> filterDescriptions) {
         List<String> headers = List.of(
                 "AS ID",
+				"계정 신청자",
                 "고객명",
                 "현장 연락처",
                 "제품정보",
@@ -52,6 +53,7 @@ public class CustomerExcelExportService {
             AsTask task = row.getAsTask();
             data.add(List.of(
                     text(task.getId()),
+					text(row.getRequesterName()),
                     text(task.getCustomerName()),
                     text(task.getOnsiteContact()),
                     text(row.getProductInfo()),
@@ -74,9 +76,9 @@ public class CustomerExcelExportService {
             ));
         }
 
-        double[] widths = {
-                10, 14, 16, 34, 28, 14, 16, 13, 19, 13,
-                15, 10, 12, 14, 16, 25, 13, 16, 42, 48
+		double[] widths = {
+				10, 14, 14, 16, 34, 28, 14, 16, 13, 19, 13,
+				15, 10, 12, 14, 16, 25, 13, 16, 42, 48
         };
 
         return SimpleXlsxWriter.write(
@@ -91,8 +93,8 @@ public class CustomerExcelExportService {
     public byte[] buildTaskListWorkbook(List<TaskListRow> rows, List<String> filterDescriptions) {
         List<String> headers = List.of(
                 "Task ID",
+				"신청자",
                 "주문자명",
-                "주문자 연락처",
                 "총 오더수",
                 "카테고리 구성",
                 "배송수단",
@@ -100,17 +102,20 @@ public class CustomerExcelExportService {
                 "발주일",
                 "배송예정일",
                 "단가(VAT 제외)",
-                "합계(VAT 포함)",
+				"제품합계(VAT 포함)",
+				"포장비(Task당 1회)",
+				"배송비(Task당 1회)",
+				"최종합계",
                 "오더 상태",
-                "담당자"
+				"배송담당자"
         );
 
         List<List<String>> data = new ArrayList<>();
         for (TaskListRow row : rows) {
             data.add(List.of(
                     text(row.getTask().getId()),
+					text(row.getRequesterName()),
                     text(row.getOrdererName()),
-                    text(row.getOrdererPhone()),
                     row.getOrderCount() + "건",
                     categorySummary(row.getCategoryCounts()),
                     text(row.getDeliveryMethodName()),
@@ -119,12 +124,15 @@ public class CustomerExcelExportService {
                     formatDateTimeDate(row.getDeliveryDate()),
                     formatMoney(row.getSupplyPrice()),
                     formatMoney(row.getVatIncludedTotalPrice()),
+					formatMoney(row.getPackingCost()),
+					formatMoney(row.getDeliveryCost()),
+					formatMoney(row.getGrandTotalPrice()),
                     text(row.getStatusLabel()),
-                    text(row.getManagerName())
+					text(row.getDeliveryHandlerName())
             ));
         }
 
-        double[] widths = { 11, 14, 16, 11, 34, 15, 46, 13, 13, 18, 18, 15, 14 };
+		double[] widths = { 11, 14, 14, 11, 34, 15, 46, 13, 13, 18, 18, 17, 17, 18, 15, 16 };
 
         return SimpleXlsxWriter.write(
                 "발주 목록",

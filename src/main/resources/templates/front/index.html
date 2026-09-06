@@ -3,14 +3,14 @@
 
 <head th:replace="~{fragments/front/common :: autoHead}"></head>
 
-<body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
+<body id="index-main-top" class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
 	<!--
 		index 전용 스타일.
 		autoHead가 <head> 자체를 th:replace 하는 기존 구조이므로 공용 fragment를 건드리지 않고
 		이 페이지에서만 추가 로딩합니다. 브라우저는 stylesheet link를 정상 처리합니다.
 	-->
-	<link rel="stylesheet" href="/front/index-main.css?v=20260818-3">
+	<link rel="stylesheet" href="/front/index-main.css?v=20260906-1">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
@@ -48,7 +48,7 @@
 						달력 기준에 맞춰 빠르게 확인할 수 있습니다.
 					</p>
 					<div class="index-main-hero-state-wrap" aria-live="polite">
-						<span class="index-main-hero-state-icon" aria-hidden="true"></span>
+						<i class="fa-solid fa-circle-check index-main-fa-icon" aria-hidden="true"></i>
 						<span id="index-main-hero-state">현재 기간의 데이터를 준비하고 있습니다.</span>
 					</div>
 				</div>
@@ -59,7 +59,7 @@
 							<span class="index-main-basis-kicker">CALENDAR BASIS</span>
 							<h2>달력 조회 기준</h2>
 						</div>
-						<span class="index-main-basis-sync" aria-hidden="true"></span>
+						<i class="fa-solid fa-arrows-rotate index-main-basis-sync-fa" aria-hidden="true"></i>
 					</div>
 
 					<div class="index-main-basis-switch" role="group" aria-label="달력 조회 기준">
@@ -67,7 +67,7 @@
 							id="index-calendar-basis-request"
 							class="index-main-basis-button"
 							aria-pressed="true">
-							<span class="index-main-basis-button-icon index-main-basis-button-icon-request" aria-hidden="true"></span>
+							<i class="fa-solid fa-calendar-plus index-main-basis-button-fa" aria-hidden="true"></i>
 							<span>
 								<strong>신청일 기준</strong>
 								<small>발주일 · AS 신청일</small>
@@ -78,7 +78,7 @@
 							id="index-calendar-basis-process"
 							class="index-main-basis-button"
 							aria-pressed="false">
-							<span class="index-main-basis-button-icon index-main-basis-button-icon-process" aria-hidden="true"></span>
+							<i class="fa-solid fa-calendar-check index-main-basis-button-fa" aria-hidden="true"></i>
 							<span>
 								<strong>처리일 기준</strong>
 								<small>배송희망일 · AS 완료일</small>
@@ -144,17 +144,17 @@
 						<div class="index-main-calendar-nav" role="group" aria-label="달력 이동">
 							<button type="button" id="index-main-calendar-today" class="index-main-calendar-today">오늘</button>
 							<button type="button" id="index-main-calendar-prev" class="index-main-calendar-nav-button" aria-label="이전 기간">
-								<span class="index-main-chevron index-main-chevron-left" aria-hidden="true"></span>
+								<i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
 							</button>
 							<button type="button" id="index-main-calendar-next" class="index-main-calendar-nav-button" aria-label="다음 기간">
-								<span class="index-main-chevron index-main-chevron-right" aria-hidden="true"></span>
+								<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
 							</button>
 						</div>
 					</div>
 				</header>
 
 				<div class="index-main-calendar-tip">
-					<span class="index-main-calendar-tip-icon" aria-hidden="true"></span>
+					<i class="fa-solid fa-circle-info index-main-calendar-tip-fa" aria-hidden="true"></i>
 					<span>날짜 또는 일정 표시를 누르면 해당 날짜의 발주·AS 상세를 확인할 수 있습니다.</span>
 				</div>
 
@@ -179,11 +179,19 @@
 							<strong id="index-main-overview-basis">신청일 기준</strong>
 						</p>
 					</div>
-					<div class="index-main-overview-head-note">
-						<span class="index-main-overview-head-note-icon" aria-hidden="true"></span>
-						<div>
-							<strong>현재 달력 화면과 동기화</strong>
-							<span>기간을 이동하면 펼쳐진 더보기는 자동 초기화됩니다.</span>
+					<div class="index-main-overview-controls">
+						<form id="index-main-overview-range-form" class="index-main-overview-range-form">
+							<label><span>FROM</span><input type="date" id="index-main-overview-from" required></label>
+							<span class="index-main-overview-range-separator">~</span>
+							<label><span>TO</span><input type="date" id="index-main-overview-to" required></label>
+							<button type="submit">조회</button>
+						</form>
+						<div class="index-main-overview-head-note">
+							<i class="fa-solid fa-link index-main-overview-head-note-fa" aria-hidden="true"></i>
+							<div>
+								<strong>현재 달력 화면과 동기화</strong>
+								<span>범위 조회 후 달력을 이동하면 해당 월 1일~말일로 돌아갑니다.</span>
+							</div>
 						</div>
 					</div>
 				</header>
@@ -216,7 +224,7 @@
 		<div class="auto-modal-content index-main-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auto-modal-title">
 			<header class="index-main-modal-head">
 				<div class="index-main-modal-title-wrap">
-					<span class="index-main-modal-head-icon" aria-hidden="true"></span>
+					<i class="fa-solid fa-calendar-day index-main-modal-head-fa" aria-hidden="true"></i>
 					<div>
 						<span class="index-main-modal-kicker">DAILY SCHEDULE</span>
 						<h3 id="auto-modal-title">일정 상세</h3>
@@ -241,6 +249,16 @@
 		<div class="index-third-quickmenu-title">퀵 메뉴</div>
 
 		<div class="d-grid gap-2">
+			<button type="button" class="btn btn-sm btn-light index-third-quickmenu-btn" id="index-main-scroll-top">
+				<i class="fa-solid fa-arrow-up me-1" aria-hidden="true"></i>
+				<span class="d-none d-md-inline">맨 위로</span><span class="d-inline d-md-none">TOP</span>
+			</button>
+
+			<a class="btn btn-sm btn-danger index-third-quickmenu-btn" href="/customer/asRequest">
+				<i class="fa-solid fa-screwdriver-wrench me-1" aria-hidden="true"></i>
+				<span class="d-none d-md-inline">AS 신청</span><span class="d-inline d-md-none">신청</span>
+			</a>
+
 			<a class="btn btn-sm btn-primary index-third-quickmenu-btn" href="/customer/asList">
 				<span class="d-none d-md-inline">AS 관리</span>
 				<span class="d-inline d-md-none">AS</span>
@@ -293,7 +311,7 @@
 	<!-- 공용 스크립트 -->
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-	<script src="/front/calendar.js?v=20260818-3"></script>
+	<script src="/front/calendar.js?v=20260906-2"></script>
 	<script src="/front/index-popup.js"></script>
 </body>
 

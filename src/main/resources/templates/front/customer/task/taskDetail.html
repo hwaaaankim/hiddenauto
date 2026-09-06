@@ -6,7 +6,7 @@
 
 <body class="theme-light" data-highlight="highlight-red" data-gradient="body-default">
 
-	<link rel="stylesheet" href="/front/customer-management-v2.css">
+	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20260906-1">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
@@ -39,15 +39,17 @@
 
 				<div class="row g-0 task-detail-summary-grid">
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>Task ID</span><strong th:text="${'#' + task.id}">#1</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>신청자</span><strong th:text="${taskSummary.requesterName}">-</strong></div>
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>주문자명</span><strong th:text="${taskSummary.ordererName}">-</strong></div>
-					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>주문자 연락처</span><strong><a th:if="${taskSummary.ordererPhone != null and taskSummary.ordererPhone != '-'}" th:href="|tel:${taskSummary.ordererPhone}|" th:text="${taskSummary.ordererPhone}"></a><span th:unless="${taskSummary.ordererPhone != null and taskSummary.ordererPhone != '-'}">-</span></strong></div>
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>발주일</span><strong th:text="${task.createdAt != null ? #temporals.format(task.createdAt, 'yyyy/MM/dd') : '-'}">-</strong></div>
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>배송예정일</span><strong th:text="${taskSummary.deliveryDate != null ? #temporals.format(taskSummary.deliveryDate, 'yyyy/MM/dd') : '-'}">-</strong></div>
-					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>담당자</span><strong th:text="${taskSummary.managerName}">미지정</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 task-detail-summary-item"><span>배송담당자</span><strong th:text="${taskSummary.deliveryHandlerName}">미지정</strong></div>
 					<div class="col-xl-3 col-lg-4 col-md-6 task-detail-summary-item"><span>배송수단</span><strong th:text="${taskSummary.deliveryMethodName}">-</strong></div>
 					<div class="col-xl-5 col-lg-8 col-md-6 task-detail-summary-item"><span>배송지</span><strong th:text="${taskSummary.deliveryAddress}">-</strong></div>
 					<div class="col-xl-2 col-lg-4 col-md-6 col-6 task-detail-summary-item"><span>총 오더수</span><strong th:text="${taskSummary.orderCount + '건'}">0건</strong></div>
-					<div class="col-xl-2 col-lg-4 col-md-6 col-6 task-detail-summary-item"><span>총 금액</span><strong th:text="${#numbers.formatInteger(task.totalPrice, 1, 'COMMA') + '원'}">0원</strong></div>
+					<div class="col-xl-2 col-lg-4 col-md-6 col-6 task-detail-summary-item"><span>포장비</span><strong th:text="${#numbers.formatInteger(taskSummary.packingCost, 1, 'COMMA') + '원'}">0원</strong></div>
+					<div class="col-xl-2 col-lg-4 col-md-6 col-6 task-detail-summary-item"><span>배송비</span><strong th:text="${#numbers.formatInteger(taskSummary.deliveryCost, 1, 'COMMA') + '원'}">0원</strong></div>
+					<div class="col-xl-2 col-lg-4 col-md-6 col-6 task-detail-summary-item"><span>최종 금액</span><strong th:text="${#numbers.formatInteger(taskSummary.grandTotalPrice, 1, 'COMMA') + '원'}">0원</strong></div>
 				</div>
 
 				<div class="task-detail-category-summary" th:if="${taskSummary.categoryCounts != null and !taskSummary.categoryCounts.isEmpty()}">
@@ -79,7 +81,7 @@
 									<td th:text="${#numbers.formatInteger(order.productCost, 1, 'COMMA') + '원'}">0원</td>
 									<td><span class="task-detail-order-status" th:classappend="${' task-detail-order-status-' + (order.status != null ? #strings.toLowerCase(order.status.name()) : 'none')}" th:text="${order.status != null ? order.status.label : '-'}">-</span></td>
 									<td>
-										<div class="task-detail-handler-name" th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : '미지정'}">미지정</div>
+										<div class="task-detail-handler-name" th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : (order.deliveryMethod != null ? order.deliveryMethod.methodName : '미지정')}">미지정</div>
 										<a class="task-detail-handler-phone" th:if="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}" th:href="|tel:${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}|"><i class="fa fa-phone me-1"></i><span th:text="${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}"></span></a>
 									</td>
 									<td><button type="button" class="btn btn-sm btn-outline-secondary task-detail-order-toggle" th:attr="data-target='#task-detail-order-detail-' + ${order.id}">보기</button></td>
@@ -105,8 +107,8 @@
 															<dl class="task-detail-order-info-list">
 																<div><dt>배송수단</dt><dd th:text="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '-'}">-</dd></div>
 																<div><dt>배송희망일</dt><dd th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy/MM/dd') : '-'}">-</dd></div>
-																<div><dt>배송 담당자</dt><dd th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : '미지정'}">-</dd></div>
-																<div><dt>담당자 연락처</dt><dd><a th:if="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}" th:href="|tel:${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}|" th:text="${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}"></a><span th:unless="${order.assignedDeliveryHandler != null and (order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null)}">-</span></dd></div>
+																		<div><dt>배송 담당자</dt><dd th:text="${order.assignedDeliveryHandler != null ? (order.assignedDeliveryHandler.name != null ? order.assignedDeliveryHandler.name : order.assignedDeliveryHandler.username) : (order.deliveryMethod != null ? order.deliveryMethod.methodName : '미지정')}">-</dd></div>
+														<div th:if="${order.assignedDeliveryHandler != null}"><dt>담당자 연락처</dt><dd><a th:if="${order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null}" th:href="|tel:${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}|" th:text="${order.assignedDeliveryHandler.phone != null ? order.assignedDeliveryHandler.phone : order.assignedDeliveryHandler.telephone}"></a><span th:unless="${order.assignedDeliveryHandler.phone != null or order.assignedDeliveryHandler.telephone != null}">-</span></dd></div>
 															</dl>
 														</div>
 													</div>

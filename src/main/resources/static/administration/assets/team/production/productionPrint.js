@@ -183,8 +183,10 @@
 
     function buildFilterSummary() {
         var tokens = [];
-        var orderId = inputValue('#team-production-orderId');
-        var productName = inputValue('#team-production-productName');
+        var orderIdFrom = inputValue('#team-production-orderIdFrom');
+        var orderIdTo = inputValue('#team-production-orderIdTo');
+        var keyword = inputValue('#team-production-keyword');
+        var keywordTypeSelect = qs('#team-production-keywordType');
         var categorySelect = qs('#team-production-productCategoryId');
         var dateTypeSelect = qs('#team-production-dateType');
         var statusSelect = qs('#team-production-statusFilter');
@@ -194,12 +196,12 @@
         var sortKey = inputValue('#team-production-sortKey');
         var sortDir = inputValue('#team-production-sortDir');
 
-        if (orderId) {
-            tokens.push('오더ID: ' + orderId);
+        if (orderIdFrom || orderIdTo) {
+            tokens.push('오더ID: ' + (orderIdFrom || '처음') + ' ~ ' + (orderIdTo || '끝'));
         }
 
-        if (productName) {
-            tokens.push('제품명: ' + productName);
+        if (keyword) {
+            tokens.push((selectedOptionText(keywordTypeSelect) || '키워드') + ': ' + keyword);
         }
 
         if (categorySelect) {

@@ -80,6 +80,31 @@ body.twocolumn-panel .container-fluid {
 	font-size: 13px;
 }
 
+.dispatch-list-date-navigation {
+	display: grid;
+	grid-template-columns: 36px minmax(0, 1fr) 36px;
+	align-items: center;
+	gap: 5px;
+}
+
+.dispatch-list-date-navigation .dispatch-list-form-control {
+	min-width: 0;
+	padding-right: 5px;
+	padding-left: 7px;
+}
+
+.dispatch-list-date-step {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border-radius: 5px;
+	font-size: 20px;
+	line-height: 1;
+}
+
 .dispatch-list-filter-actions {
 	display: flex;
 	align-items: flex-end;
@@ -147,7 +172,7 @@ body.twocolumn-panel .container-fluid {
 .dispatch-list-table {
 	position: relative;
 	width: 100%;
-	min-width: 1494px;
+	min-width: 1506px;
 	margin-bottom: 0;
 	table-layout: fixed;
 	border-collapse: separate;
@@ -333,6 +358,39 @@ body.twocolumn-panel .container-fluid {
 .dispatch-list-icon-action-btn i {
 	display: block;
 	line-height: 1;
+}
+
+.dispatch-list-complete-btn.dispatch-list-status-action-btn {
+	width: 70px;
+	min-width: 70px;
+	max-width: 70px;
+	padding: 0 6px;
+	font-size: 11px;
+	line-height: 1.15;
+}
+
+.dispatch-list-status-action-confirmed {
+	border-color: #fed7aa;
+	background: #fff7ed;
+	color: #9a3412;
+}
+
+.dispatch-list-status-action-production-done {
+	border-color: #2563eb;
+	background: #2563eb;
+	color: #fff;
+}
+
+.dispatch-list-status-action-dispatch-done,
+.dispatch-list-status-action-delivery-done {
+	border-color: #cbd5e1;
+	background: #e2e8f0;
+	color: #475569;
+}
+
+.dispatch-list-status-action-btn:disabled {
+	opacity: 1;
+	cursor: default;
 }
 
 
@@ -578,7 +636,7 @@ body.modal-open .dispatch-list-floating-btn {
 	}
 
 	.dispatch-list-table {
-		min-width: 1494px;
+		min-width: 1506px;
 	}
 
 	.dispatch-list-table thead th,

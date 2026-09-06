@@ -63,9 +63,14 @@
 													id="admin-task-list-second-bulk-open-btn">
 													<i class="fa-solid fa-layer-group"></i>
 													일괄보기
-													<span class="admin-task-list-second-bulk-count"
-														th:text="${bulkOrderCount}">0</span>
-												</button>
+												<span class="admin-task-list-second-bulk-count"
+													th:text="${bulkOrderCount}">0</span>
+											</button>
+
+											<button type="button" class="btn btn-outline-primary"
+												id="admin-task-readonly-list-open-btn" th:if="${isTestempUser}">
+												<i class="fa-solid fa-list"></i> 일괄보기-리스트형
+											</button>
 
 												<button type="button" class="btn btn-warning"
 													id="task-list-bulk-confirm-btn" disabled>
@@ -151,9 +156,9 @@
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" th:action="@{/management/nonStandardTaskList}"
 										id="task-list-filter-form">
-										<div class="row g-3">
+										<div class="row g-3 task-list-filter-grid">
 
-											<div class="col-xxl-2 col-sm-4">
+											<div class="col-xxl-2 col-sm-4 task-list-filter-order">
 												<label class="form-label">오더 ID 범위</label>
 												<div class="d-flex align-items-center gap-2">
 													<input type="number" min="1" step="1" inputmode="numeric"
@@ -168,7 +173,7 @@
 												</div>
 												<div class="form-text">FROM만: 이상 / TO만: 이하 / 단건: 같은 값</div>
 											</div>
-											<div class="col-xxl-2 col-sm-4">
+											<div class="col-xxl-2 col-sm-4 task-list-filter-product-name">
 												<label class="form-label"
 													for="task-list-product-name-search">제품명</label>
 												<div class="search-box">
@@ -180,7 +185,7 @@
 												</div>
 											</div>
 
-											<div class="col-xxl-2 col-sm-4">
+											<div class="col-xxl-2 col-sm-4 task-list-filter-keyword">
 												<label class="form-label">키워드 검색</label>
 												<div class="search-box">
 													<input type="text" class="form-control search bg-light border-light"
@@ -190,11 +195,10 @@
 												</div>
 											</div>
 
-											<div class="col-md-2">
+											<div class="col-md-2 task-list-filter-date-criteria">
 												<label class="form-label">기준일선택</label>
 												<select class="form-select" name="dateCriteria" id="dateCriteria">
-													<option value="all" th:selected="${dateCriteria == 'all'}">전체
-													</option>
+													<option value="all" th:selected="${dateCriteria == 'all'}">전체</option>
 													<option value="order" th:selected="${dateCriteria == 'order'}">발주일
 														기준</option>
 													<option value="delivery"
@@ -202,23 +206,42 @@
 												</select>
 											</div>
 
-											<div class="col-xxl-2 col-sm-6">
-												<label class="form-label">시작일</label>
-												<input type="date" id="startDate" name="startDate"
-													class="form-control bg-light border-light"
-													th:attr="disabled=${dateCriteria == 'all'}"
-													th:value="${startDateStr}">
+											<div class="col-xxl-6 col-12 task-list-filter-date">
+												<label class="form-label">날짜 조회</label>
+											<div class="task-list-date-control-line">
+												<div class="task-list-date-single-control" role="group" aria-label="단일 날짜 조회">
+														<button type="button" class="btn btn-outline-primary task-list-date-step" data-day-step="-1"
+															aria-label="하루 전 조회" title="하루 전 조회"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+														<input type="date" id="task-list-single-date" class="form-control bg-light border-light"
+															aria-label="단일 조회일" th:value="${!#strings.isEmpty(startDateStr) ? startDateStr : endDateStr}">
+														<button type="button" class="btn btn-outline-primary task-list-date-step" data-day-step="1"
+															aria-label="하루 후 조회" title="하루 후 조회"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+													<button type="button" class="btn btn-outline-secondary" id="task-list-range-toggle"
+														aria-controls="task-list-range-fields" th:attr="aria-expanded=${dateRangeMode}">범위검색</button>
+												</div>
+												<div id="task-list-range-fields" class="task-list-range-fields"
+													th:classappend="${dateRangeMode} ? '' : ' d-none'">
+													<div class="filter-range-panel-field">
+														<label for="startDate">FROM</label>
+														<input type="date" id="startDate" name="startDate"
+															class="form-control bg-light border-light"
+															th:attr="disabled=${dateCriteria == 'all'}" th:value="${startDateStr}">
+													</div>
+													<span class="filter-range-panel-divider" aria-hidden="true">~</span>
+													<div class="filter-range-panel-field">
+														<label for="endDate">TO</label>
+														<input type="date" id="endDate" name="endDate"
+															class="form-control bg-light border-light"
+															th:attr="disabled=${dateCriteria == 'all'}" th:value="${endDateStr}">
+													</div>
+													<button type="submit" class="btn btn-primary filter-range-panel-submit">
+														<i class="ri-search-line" aria-hidden="true"></i> 조회
+													</button>
+												</div>
 											</div>
+										</div>
 
-											<div class="col-xxl-2 col-sm-6">
-												<label class="form-label">종료일</label>
-												<input type="date" id="endDate" name="endDate"
-													class="form-control bg-light border-light"
-													th:attr="disabled=${dateCriteria == 'all'}"
-													th:value="${endDateStr}">
-											</div>
-
-											<div class="col-xxl-2 col-sm-4">
+											<div class="col-xxl-2 col-sm-4 task-list-filter-product">
 												<label class="form-label">제품</label>
 												<div class="input-light">
 													<select class="form-control" name="productCategoryId">
@@ -237,7 +260,7 @@
 												</div>
 											</div>
 
-											<div class="col-xxl-2 col-sm-3">
+											<div class="col-xxl-2 col-sm-3 task-list-filter-status">
 												<label class="form-label">발주상태</label>
 												<div class="input-light">
 													<select class="form-control" name="orderStatus">
@@ -252,7 +275,7 @@
 												</div>
 											</div>
 
-											<div class="col-xxl-2 col-sm-3">
+											<div class="col-xxl-2 col-sm-3 task-list-filter-standard">
 												<label class="form-label">규격 여부</label>
 												<div class="input-light">
 													<select class="form-control" name="standard">
@@ -266,7 +289,7 @@
 												</div>
 											</div>
 
-											<div class="col-xxl-2 col-sm-3">
+											<div class="col-xxl-2 col-sm-3 task-list-filter-page-size">
 												<label class="form-label">페이지 사이즈</label>
 												<div class="input-light">
 													<select class="form-control" id="task-list-added-pageSize"
@@ -285,30 +308,24 @@
 
 											<input type="hidden" name="sortState" th:value="${sortState}">
 
-											<div class="col-xxl-2 col-sm-4">
-												<label class="form-label">조회</label>
-												<button type="submit" class="btn btn-primary w-100">
-													<i class="fa-solid fa-magnifying-glass"></i> 검색
-												</button>
+											<div class="col-xxl-4 col-12 task-list-filter-action-column task-list-filter-actions">
+												<label class="form-label">조회 및 초기화</label>
+												<div class="task-list-filter-action-row">
+													<button type="submit" class="btn btn-primary">
+														<i class="fa-solid fa-magnifying-glass"></i> 검색
+													</button>
+													<button type="button" class="btn btn-outline-secondary"
+														id="task-list-sort-reset-btn" title="검색 조건은 유지하고 정렬만 초기화합니다.">
+														<i class="fa-solid fa-arrow-rotate-left"></i> 필터초기화
+													</button>
+													<button type="button" class="btn btn-outline-danger"
+														id="task-list-search-reset-btn" title="정렬은 유지하고 검색 조건만 초기화합니다.">
+														<i class="fa-solid fa-eraser"></i> 검색초기화
+													</button>
+												</div>
 											</div>
 
-											<div class="col-xxl-2 col-sm-4">
-												<label class="form-label">정렬</label>
-												<button type="button" class="btn btn-outline-secondary w-100"
-													id="task-list-sort-reset-btn" title="검색 조건은 유지하고 정렬만 초기화합니다.">
-													<i class="fa-solid fa-arrow-rotate-left"></i> 필터초기화
-												</button>
-											</div>
-
-											<div class="col-xxl-2 col-sm-4">
-												<label class="form-label">검색조건</label>
-												<button type="button" class="btn btn-outline-danger w-100"
-													id="task-list-search-reset-btn" title="정렬은 유지하고 검색 조건만 초기화합니다.">
-													<i class="fa-solid fa-eraser"></i> 검색초기화
-												</button>
-											</div>
-
-										</div>
+									</div>
 									</form>
 								</div>
 
@@ -1089,6 +1106,116 @@
 		</div>
 	</div>
 
+	<!-- testemp 전용: 수정 동작이 전혀 없는 20건 단위 무한 스크롤 목록 -->
+	<div class="modal fade" id="admin-task-readonly-list-modal" tabindex="-1"
+		aria-labelledby="admin-task-readonly-list-title" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-lg-down">
+			<div class="modal-content">
+				<div class="modal-header">
+					<div>
+						<h5 class="modal-title" id="admin-task-readonly-list-title">일괄보기-리스트형</h5>
+						<p class="text-muted small mb-0">현재 검색 조건 전체를 20건씩 이어서 조회합니다. 이 화면에서는 수정 및 관리자 요청이 불가능합니다.</p>
+					</div>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+				</div>
+				<div class="modal-body admin-task-readonly-list-body" id="admin-task-readonly-list-scroll">
+					<div id="admin-task-readonly-list-host">
+						<th:block th:fragment="readonlyListRows">
+							<article class="card border mb-3 admin-task-readonly-list-card" th:each="row : ${readonlyListRows}">
+								<div class="card-header bg-light d-flex flex-wrap align-items-center justify-content-between gap-2">
+									<div class="fw-bold">
+										<span th:text="|ORDER ${row.orderId}|">ORDER</span>
+										<span class="text-muted ms-2" th:text="|TASK ${row.taskId}|">TASK</span>
+									</div>
+									<div class="d-flex gap-1">
+										<span class="badge bg-info-subtle text-info" th:text="${row.checkStateLabel}">생산확인</span>
+										<span class="badge bg-secondary" th:text="${row.statusLabel}">상태</span>
+										<span class="badge" th:classappend="${row.standard} ? ' bg-success' : ' bg-primary'"
+											th:text="${row.standardLabel}">규격</span>
+									</div>
+								</div>
+								<div class="card-body">
+									<div class="row g-3 small">
+										<div class="col-md-3"><span class="text-muted d-block">업체명</span><strong th:text="${row.companyName}">업체명</strong></div>
+										<div class="col-md-3"><span class="text-muted d-block">신청자</span><span th:text="${row.requesterName}">신청자</span></div>
+										<div class="col-md-3"><span class="text-muted d-block">발주일</span><span th:text="${row.createdAt != null ? #temporals.format(row.createdAt, 'yyyy-MM-dd') : '-'}">-</span></div>
+										<div class="col-md-3"><span class="text-muted d-block">배송희망일</span><span th:text="${row.preferredDeliveryDate != null ? #temporals.format(row.preferredDeliveryDate, 'yyyy-MM-dd') : '-'}">-</span></div>
+										<div class="col-md-3"><span class="text-muted d-block">제품분류</span><span th:text="${row.productCategoryName}">분류</span></div>
+										<div class="col-md-6"><span class="text-muted d-block">제품정보</span><strong th:text="${row.productSummary}">제품정보</strong></div>
+										<div class="col-md-3"><span class="text-muted d-block">수량 / 제품단가</span><span th:text="|${row.quantity}개 / ${#numbers.formatInteger(row.productCost, 0, 'COMMA')}원|">0</span></div>
+										<div class="col-md-3"><span class="text-muted d-block">공급가 / 부가세</span><span th:text="|${#numbers.formatInteger(row.supplyPrice, 0, 'COMMA')}원 / ${#numbers.formatInteger(row.vatPrice, 0, 'COMMA')}원|">0</span></div>
+										<div class="col-md-3"><span class="text-muted d-block">총금액</span><strong th:text="|${#numbers.formatInteger(row.totalAmount, 0, 'COMMA')}원|">0</strong></div>
+										<div class="col-md-3"><span class="text-muted d-block">포장비 / 배송비</span><span th:text="|${#numbers.formatInteger(row.packingCost, 0, 'COMMA')}원 / ${#numbers.formatInteger(row.deliveryCost, 0, 'COMMA')}원|">0</span></div>
+										<div class="col-md-3"><span class="text-muted d-block">배송수단</span><span th:text="${#strings.isEmpty(row.deliveryMethodName) ? '미지정' : row.deliveryMethodName}">미지정</span></div>
+										<div class="col-md-3"><span class="text-muted d-block">배송담당자</span><span th:text="${#strings.isEmpty(row.assignedDeliveryHandlerName) ? '-' : row.assignedDeliveryHandlerName}">-</span></div>
+										<div class="col-md-6"><span class="text-muted d-block">배송주소</span><span th:text="${row.siteDelivery ? row.siteFullAddress : row.fullAddress}">주소</span></div>
+										<div class="col-md-6" th:if="${!#strings.isEmpty(row.ordererSummary)}"><span class="text-muted d-block">현장 수령자</span><span th:text="${row.ordererSummary}">수령자</span></div>
+										<div class="col-md-6" th:if="${!#strings.isEmpty(row.orderComment)}"><span class="text-muted d-block">고객 비고</span><strong th:text="${row.orderComment}">비고</strong></div>
+										<div class="col-md-6" th:if="${!#strings.isEmpty(row.adminMemo)}"><span class="text-muted d-block">관리자 메모</span><strong th:text="${row.adminMemo}">메모</strong></div>
+										<div class="col-md-6" th:if="${!#strings.isEmpty(row.dispatchCompleteMessage)}"><span class="text-muted d-block">출고완료 메시지</span><span th:text="${row.dispatchCompleteMessage}">메시지</span></div>
+									</div>
+									<div class="admin-task-readonly-option-grid mt-3" th:if="${!#maps.isEmpty(row.optionMap)}">
+										<div class="admin-task-readonly-option" th:each="entry : ${row.optionMap}">
+											<span th:text="${entry.key}">옵션</span><strong th:text="${entry.value}">값</strong>
+										</div>
+									</div>
+									<section class="admin-task-readonly-gallery mt-3" tabindex="0" data-readonly-gallery
+										th:if="${row.readonlyImages != null and !row.readonlyImages.isEmpty()}"
+										th:attr="aria-label=|오더 ${row.orderId} 첨부 이미지|">
+										<div class="admin-task-readonly-gallery-head">
+											<strong><i class="ri-image-2-line" aria-hidden="true"></i> 첨부 이미지</strong>
+											<span><b data-readonly-gallery-current>1</b> / <span th:text="${row.readonlyImages.size()}">1</span></span>
+										</div>
+										<div class="admin-task-readonly-gallery-viewport">
+											<div class="admin-task-readonly-gallery-track" data-readonly-gallery-track>
+												<a class="admin-task-readonly-gallery-slide" th:each="image,imageStat : ${row.readonlyImages}"
+													th:href="${image.url}" target="_blank" rel="noopener"
+													th:title="${#strings.isEmpty(image.filename) ? '원본 이미지 열기' : image.filename}">
+													<img th:src="${image.url}"
+														th:alt="${#strings.isEmpty(image.filename) ? '첨부 이미지' : image.filename}"
+														loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false;">
+													<span class="admin-task-readonly-gallery-fallback" hidden>
+														<i class="ri-image-line" aria-hidden="true"></i> 이미지를 불러오지 못했습니다.
+													</span>
+													<span class="admin-task-readonly-gallery-source"
+														th:text="${image.type == 'CUSTOMER' ? '고객 업로드' : '관리자 첨부'}">관리자 첨부</span>
+													<span class="admin-task-readonly-gallery-caption"
+														th:text="${#strings.isEmpty(image.filename) ? '이미지를 누르면 원본이 열립니다.' : image.filename}">파일명</span>
+												</a>
+											</div>
+											<button type="button" class="admin-task-readonly-gallery-nav is-prev"
+												data-readonly-gallery-step="-1" aria-label="이전 이미지"
+												th:if="${row.readonlyImages.size() > 1}"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+											<button type="button" class="admin-task-readonly-gallery-nav is-next"
+												data-readonly-gallery-step="1" aria-label="다음 이미지"
+												th:if="${row.readonlyImages.size() > 1}"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+										</div>
+										<div class="admin-task-readonly-gallery-dots" th:if="${row.readonlyImages.size() > 1}">
+											<button type="button" th:each="image,imageStat : ${row.readonlyImages}"
+												class="admin-task-readonly-gallery-dot"
+												th:classappend="${imageStat.first} ? ' is-active' : ''"
+												th:attr="data-readonly-gallery-go=${imageStat.index},aria-label=|${imageStat.count}번째 이미지|,
+													aria-current=${imageStat.first ? 'true' : 'false'}"></button>
+										</div>
+										<p class="admin-task-readonly-gallery-hint mb-0">좌우 버튼으로 넘기고 이미지를 누르면 원본을 확인할 수 있습니다.</p>
+									</section>
+								</div>
+							</article>
+							<div class="text-center text-muted py-5 admin-task-readonly-list-empty"
+								th:if="${#lists.isEmpty(readonlyListRows) and readonlyListPage == 0}">조회된 주문이 없습니다.</div>
+							<div class="admin-task-readonly-list-batch-meta d-none"
+								th:attr="data-page=${readonlyListPage},data-has-next=${readonlyListHasNext}"></div>
+						</th:block>
+					</div>
+					<div class="text-center py-3 d-none" id="admin-task-readonly-list-loading">
+						<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>추가 조회 중
+					</div>
+					<div class="text-center text-muted small py-3 d-none" id="admin-task-readonly-list-end">모든 주문을 조회했습니다.</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<!-- 등록 주소지 / 주문자 검색 모달 -->
 	<div id="admin-task-list-second-picker-modal" class="admin-task-list-second-picker-modal" aria-hidden="true">
 		<div class="admin-task-list-second-picker-overlay"></div>
@@ -1120,7 +1247,7 @@
 			alert(message);
 		});
 	</script>
-	<script src="/administration/assets/js/page/taskList.js?v=20260813-2"></script>
+	<script src="/administration/assets/js/page/taskList.js?v=20260906-5"></script>
 	<script src="/administration/assets/js/page/taskListOrderEditExtension.js"></script>
 
 </body>

@@ -37,10 +37,12 @@ import lombok.RequiredArgsConstructor;
  *
  * 묶음 기준:
  * - 동일 배송직원
- * - 동일 업체
+ * - 동일 업체명
  * - 동일 실제 배송지
  * - 동일 배송수단
  * - 동일 배송일
+ *
+ * 주문일과 Task는 묶음 기준에 포함하지 않습니다.
  */
 @Service
 @RequiredArgsConstructor

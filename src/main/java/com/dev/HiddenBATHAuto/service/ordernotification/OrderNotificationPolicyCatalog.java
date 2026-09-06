@@ -136,6 +136,14 @@ public class OrderNotificationPolicyCatalog {
                 OrderNotificationRecipientGroup.DELIVERY_CURRENT, "담당자가 필요한 배송수단이면 지정된 배송 담당자에게 전달합니다.");
         add(rows, OrderChangeSourceArea.DISPATCH, OrderNotificationAction.DELIVERY_METHOD_CHANGE,
                 OrderNotificationRecipientGroup.DELIVERY_PREVIOUS, "배송수단 변경으로 담당이 해제되면 기존 담당자에게 전달합니다.");
+        add(rows, OrderChangeSourceArea.DISPATCH, OrderNotificationAction.DELIVERY_ADDRESS_CHANGE,
+                OrderNotificationRecipientGroup.MANAGEMENT, "출고팀이 일반 배송주소 또는 현장주소를 변경하면 관리 담당자에게 전달합니다.");
+        add(rows, OrderChangeSourceArea.DISPATCH, OrderNotificationAction.DELIVERY_ADDRESS_CHANGE,
+                OrderNotificationRecipientGroup.DELIVERY_CURRENT, "변경된 배송지와 현장 수령정보를 현재 배송 담당자에게 전달합니다.");
+        add(rows, OrderChangeSourceArea.DISPATCH, OrderNotificationAction.DELIVERY_COST_CHANGE,
+                OrderNotificationRecipientGroup.MANAGEMENT, "출고팀이 배송비를 변경하면 관리 담당자에게 금액 변경 내용을 전달합니다.");
+        add(rows, OrderChangeSourceArea.DISPATCH, OrderNotificationAction.DELIVERY_COST_CHANGE,
+                OrderNotificationRecipientGroup.DELIVERY_CURRENT, "배송비 변경 내용을 현재 배송 담당자에게 전달합니다.");
         add(rows, OrderChangeSourceArea.DISPATCH, OrderNotificationAction.ADMIN_REQUEST,
                 OrderNotificationRecipientGroup.MANAGEMENT, "출고팀 관리자요청은 관리 담당자와 고정 admin에게만 전달합니다.");
         add(rows, OrderChangeSourceArea.DISPATCH, OrderNotificationAction.UPDATE,

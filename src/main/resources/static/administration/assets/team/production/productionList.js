@@ -15,6 +15,12 @@
 	const $sortResetBtn = document.getElementById('team-production-sort-reset-btn');
 	const $orderIdFrom = document.getElementById('team-production-orderIdFrom');
 	const $orderIdTo = document.getElementById('team-production-orderIdTo');
+	const $singleDate = document.getElementById('team-production-singleDate');
+	const $dateStepButtons = Array.from(document.querySelectorAll('.team-production-date-step'));
+	const $rangeToggle = document.getElementById('team-production-range-toggle');
+	const $rangeFields = document.getElementById('team-production-range-fields');
+	const $startDate = document.getElementById('team-production-startDate');
+	const $endDate = document.getElementById('team-production-endDate');
 
 	const canBulkComplete = (document.getElementById('team-production-can-bulk-complete')?.value === 'true');
 	const $btnBulkDone = document.getElementById('team-production-bulk-done-btn');
@@ -373,6 +379,164 @@
 		if (element) element.value = value;
 	}
 
+	function formatLocalDate(date) {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
+	function parseLocalDate(value) {
+		const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+		if (!matched) return null;
+		const parsed = new Date(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]), 12, 0, 0, 0);
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
+	}
+
+	function applySingleDate(value) {
+		if (!$form || !$startDate || !$endDate) return;
+		if (!value) return;
+		if ($singleDate) $singleDate.value = value;
+		$startDate.value = value;
+		$endDate.value = value;
+		$rangeFields?.classList.add('d-none');
+		$rangeToggle?.setAttribute('aria-expanded', 'false');
+		$rangeToggle?.classList.remove('is-active');
+		$form.requestSubmit();
+	}
+
+	function submitForDayStep(rawStep) {
+		if (!$form || !$startDate || !$endDate) return;
+		const step = Number(rawStep);
+		const target = parseLocalDate($singleDate?.value)
+			|| parseLocalDate($startDate.value)
+			|| new Date();
+		target.setHours(12, 0, 0, 0);
+		target.setDate(target.getDate() + (Number.isFinite(step) ? step : 0));
+		applySingleDate(formatLocalDate(target));
+	}
+
+	function toggleRangeFields() {
+		if (!$rangeFields || !$rangeToggle) return;
+
+		const willOpen = $rangeFields.classList.contains('d-none');
+		$rangeFields.classList.toggle('d-none', !willOpen);
+		$rangeToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+		$rangeToggle.classList.toggle('is-active', willOpen);
+		if (willOpen) {
+			const fallbackDate = $singleDate?.value || formatLocalDate(new Date());
+			if (!$startDate.value) $startDate.value = fallbackDate;
+			if (!$endDate.value) $endDate.value = fallbackDate;
+			window.requestAnimationFrame(function() {
+				$startDate?.focus({ preventScroll: true });
+			});
+		}
+	}
+
+	function initProductionTableHorizontalScroll() {
+		const topScroll = document.getElementById('team-production-table-scroll-top');
+		const mainScroll = document.getElementById('team-production-table-scroll-main');
+		const spacer = document.getElementById('team-production-table-scroll-spacer');
+		const frame = document.getElementById('team-production-table-scroll-frame');
+		const table = document.getElementById('team-production-table');
+		const status = document.getElementById('team-production-horizontal-scroll-status');
+		if (!topScroll || !mainScroll || !spacer || !frame || !table) return;
+
+		let syncing = false;
+		let suppressClicksUntil = 0;
+
+		function syncScroll(source, target) {
+			if (syncing) return;
+			syncing = true;
+			target.scrollLeft = source.scrollLeft;
+			syncing = false;
+			updateScrollState();
+		}
+
+		function updateScrollState() {
+			const max = Math.max(0, mainScroll.scrollWidth - mainScroll.clientWidth);
+			frame.classList.toggle('team-production-scroll-at-start', mainScroll.scrollLeft <= 2);
+			frame.classList.toggle('team-production-scroll-at-end', mainScroll.scrollLeft >= max - 2);
+			topScroll.setAttribute('aria-valuemin', '0');
+			topScroll.setAttribute('aria-valuemax', String(Math.round(max)));
+			topScroll.setAttribute('aria-valuenow', String(Math.round(mainScroll.scrollLeft)));
+		}
+
+		function updateDimensions() {
+			spacer.style.width = Math.max(table.scrollWidth, mainScroll.clientWidth) + 'px';
+			const scrollable = table.scrollWidth > mainScroll.clientWidth + 2;
+			frame.classList.toggle('team-production-is-scrollable', scrollable);
+			topScroll.classList.toggle('d-none', !scrollable);
+			if (status) {
+				status.textContent = scrollable
+					? '숨겨진 열이 있습니다. 상·하단 스크롤바 또는 표 위 드래그로 좌우 이동하세요.'
+					: '현재 화면 너비에 모든 열이 표시됩니다.';
+			}
+			updateScrollState();
+		}
+
+		function bindDragScroll(scroller) {
+			let pointerId = null;
+			let startX = 0;
+			let startScrollLeft = 0;
+			let dragged = false;
+
+			scroller.addEventListener('pointerdown', function(event) {
+				if (event.button !== 0 || event.pointerType === 'touch') return;
+				if (event.target.closest('a, button, input, select, textarea, label')) return;
+				pointerId = event.pointerId;
+				startX = event.clientX;
+				startScrollLeft = scroller.scrollLeft;
+				dragged = false;
+				scroller.setPointerCapture?.(pointerId);
+			});
+
+			scroller.addEventListener('pointermove', function(event) {
+				if (pointerId !== event.pointerId) return;
+				const delta = event.clientX - startX;
+				if (!dragged && Math.abs(delta) < 5) return;
+				dragged = true;
+				event.preventDefault();
+				document.body.classList.add('team-production-is-dragging');
+				window.getSelection()?.removeAllRanges();
+				scroller.scrollLeft = startScrollLeft - delta;
+			});
+
+			function finish(event) {
+				if (pointerId == null || (event.pointerId != null && pointerId !== event.pointerId)) return;
+				if (dragged) suppressClicksUntil = Date.now() + 350;
+				const completedPointerId = pointerId;
+				pointerId = null;
+				dragged = false;
+				document.body.classList.remove('team-production-is-dragging');
+				try { scroller.releasePointerCapture?.(completedPointerId); } catch (_) { /* 이미 해제됨 */ }
+			}
+
+			scroller.addEventListener('pointerup', finish);
+			scroller.addEventListener('pointercancel', finish);
+			scroller.addEventListener('lostpointercapture', finish);
+		}
+
+		topScroll.addEventListener('scroll', function() { syncScroll(topScroll, mainScroll); }, { passive: true });
+		mainScroll.addEventListener('scroll', function() { syncScroll(mainScroll, topScroll); }, { passive: true });
+		mainScroll.addEventListener('click', function(event) {
+			if (Date.now() >= suppressClicksUntil) return;
+			event.preventDefault();
+			event.stopImmediatePropagation();
+		}, true);
+
+		bindDragScroll(topScroll);
+		bindDragScroll(mainScroll);
+		if (window.ResizeObserver) {
+			const observer = new ResizeObserver(updateDimensions);
+			observer.observe(table);
+			observer.observe(mainScroll);
+		} else {
+			window.addEventListener('resize', updateDimensions);
+		}
+		updateDimensions();
+	}
+
 	function parsePositiveIntegerInput(input) {
 		if (!input) return null;
 
@@ -416,11 +580,13 @@
 		// 정렬(sortSpec)과 표시 개수(size)는 유지하고 검색 조건만 최초 상태로 복원합니다.
 		setFormValue('[name="orderIdFrom"]', '');
 		setFormValue('[name="orderIdTo"]', '');
-		setFormValue('[name="productName"]', '');
+		setFormValue('[name="keywordType"]', 'PRODUCT_NAME');
+		setFormValue('[name="keyword"]', '');
 		setFormValue('[name="productCategoryId"]', '');
 		setFormValue('[name="dateType"]', 'preferred');
-		setFormValue('[name="startDate"]', '');
-		setFormValue('[name="endDate"]', '');
+		const today = formatLocalDate(new Date());
+		setFormValue('[name="startDate"]', today);
+		setFormValue('[name="endDate"]', today);
 		setFormValue('[name="statusFilter"]', 'CONFIRMED');
 		setFormValue('[name="standardType"]', 'ALL');
 
@@ -464,6 +630,23 @@
 
 	if ($sortResetBtn) {
 		$sortResetBtn.addEventListener('click', resetAllSortFilters);
+	}
+
+	$dateStepButtons.forEach(button => {
+		button.addEventListener('click', function () {
+			submitForDayStep(button.getAttribute('data-day-step'));
+		});
+	});
+
+	$singleDate?.addEventListener('change', function() {
+		applySingleDate($singleDate.value);
+	});
+
+	if ($rangeToggle) {
+		const isRangeOpen = !$rangeFields?.classList.contains('d-none');
+		$rangeToggle.setAttribute('aria-expanded', isRangeOpen ? 'true' : 'false');
+		$rangeToggle.classList.toggle('is-active', isRangeOpen);
+		$rangeToggle.addEventListener('click', toggleRangeFields);
 	}
 
 	// ===== 선택 기능과 생산완료 권한은 분리 =====
@@ -562,6 +745,7 @@
 	}
 
 	// 초기 상태
+	initProductionTableHorizontalScroll();
 	syncButtonState();
 	syncCheckAllState();
 	syncSortIcons();

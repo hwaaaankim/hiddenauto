@@ -515,12 +515,13 @@
 																	aria-label="비디오 미리보기 열기">
 																	<video
 																		class="w-100 rounded mb-2 as-management-third-media-trigger"
-																		preload="metadata" muted playsinline>
+																		controls preload="metadata" playsinline webkit-playsinline>
 																		<source th:src="@{${video.url}}"
-																			th:type="${video.contentType != null ? video.contentType : 'video/mp4'}">
+																			th:type="${video.contentType != null and #strings.startsWith(video.contentType, 'video/') ? video.contentType : null}">
+																		사용 중인 브라우저에서 동영상 재생을 지원하지 않습니다.
 																	</video>
-																	<span
-																		class="as-management-third-video-preview-badge">미리보기</span>
+																	<button type="button"
+																		class="as-management-third-video-preview-badge">큰 화면</button>
 																</div>
 
 																<div class="small text-truncate"
@@ -597,12 +598,13 @@
 																	aria-label="비디오 미리보기 열기">
 																	<video
 																		class="w-100 rounded mb-2 as-management-third-media-trigger"
-																		preload="metadata" muted playsinline>
+																		controls preload="metadata" playsinline webkit-playsinline>
 																		<source th:src="@{${video.url}}"
-																			th:type="${video.contentType != null ? video.contentType : 'video/mp4'}">
+																			th:type="${video.contentType != null and #strings.startsWith(video.contentType, 'video/') ? video.contentType : null}">
+																		사용 중인 브라우저에서 동영상 재생을 지원하지 않습니다.
 																	</video>
-																	<span
-																		class="as-management-third-video-preview-badge">미리보기</span>
+																	<button type="button"
+																		class="as-management-third-video-preview-badge">큰 화면</button>
 																</div>
 
 																<div class="small text-truncate"
@@ -653,10 +655,16 @@
 											<div class="row g-3">
 												<div class="col-12">
 													<label class="form-label">관리자메모</label>
-													<textarea class="form-control" id="as-management-third-adminMemo"
-														name="adminMemo" rows="4" placeholder="관리자 메모를 입력해 주세요."
-														th:text="${asTask.adminMemo}"></textarea>
-												</div>
+											<textarea class="form-control" id="as-management-third-adminMemo"
+												name="adminMemo" rows="4" placeholder="관리자 메모를 입력해 주세요."
+												th:text="${asTask.adminMemo}"></textarea>
+										</div>
+										<div class="col-12">
+											<label class="form-label">AS 담당자 메모</label>
+											<textarea class="form-control" rows="4" readonly
+												th:text="${asTask.handlerMemo}"
+												placeholder="담당자 메모가 없습니다."></textarea>
+										</div>
 											</div>
 										</div>
 									</div><!-- card-body -->
@@ -751,7 +759,7 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-	<script src="/administration/assets/js/page/as-management-third-asDetail.js"></script>
+	<script src="/administration/assets/js/page/as-management-third-asDetail.js?v=20260906-2"></script>
 
 	<!-- Daum Postcode -->
 	<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
@@ -798,14 +806,17 @@
 		.as-management-third-video-preview-trigger video {
 			display: block;
 			width: 100%;
+			min-height: 220px;
+			max-height: 52vh;
+			object-fit: contain;
 			background: #000;
-			pointer-events: none;
+			pointer-events: auto;
 		}
 
 		.as-management-third-video-preview-badge {
 			position: absolute;
 			left: 0.75rem;
-			bottom: 1rem;
+			top: 0.75rem;
 			z-index: 2;
 			padding: 0.2rem 0.55rem;
 			font-size: 0.75rem;
@@ -813,7 +824,9 @@
 			color: #fff;
 			background: rgba(0, 0, 0, 0.68);
 			border-radius: 999px;
-			pointer-events: none;
+			border: 0;
+			cursor: zoom-in;
+			pointer-events: auto;
 		}
 
 		#as-management-third-mediaPreviewBody {
@@ -831,6 +844,17 @@
 			object-fit: contain;
 			background: #000;
 			border-radius: 0.5rem;
+		}
+
+		@media (max-width: 575.98px) {
+			.as-management-third-video-preview-trigger video {
+				min-height: 190px;
+				max-height: 65vh;
+			}
+
+			#as-management-third-mediaPreviewBody {
+				min-height: 220px;
+			}
 		}
 	</style>
 </body>

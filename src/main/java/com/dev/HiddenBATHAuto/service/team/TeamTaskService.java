@@ -167,11 +167,37 @@ public class TeamTaskService {
             boolean prioritizeUnchecked,
             Pageable pageable
     ) {
+		return getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+				categoryId, orderIdFrom, orderIdTo, "PRODUCT_NAME", productNameKeyword, standard,
+				dateType, statusFilter, start, end, mirrorCuttingOnly, memberId, prioritizeUnchecked, pageable
+		);
+	}
+
+	/**
+	 * 생산팀 목록을 선택한 키워드 구분(제품명/사이즈/업체명)으로 조회합니다.
+	 */
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterCheckedSorted(
+			Long categoryId,
+			Long orderIdFrom,
+			Long orderIdTo,
+			String keywordType,
+			String searchKeyword,
+			Boolean standard,
+			String dateType,
+			OrderStatus statusFilter,
+			LocalDateTime start,
+			LocalDateTime end,
+			boolean mirrorCuttingOnly,
+			Long memberId,
+			boolean prioritizeUnchecked,
+			Pageable pageable
+	) {
         boolean useCreated = "created".equalsIgnoreCase(dateType);
 
         OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
         boolean allStatus = (effectiveStatusFilter == null);
-        String normalizedProductNameKeyword = normalizeKeyword(productNameKeyword);
+		String normalizedKeywordType = normalizeProductionKeywordType(keywordType);
+		String normalizedSearchKeyword = normalizeKeyword(searchKeyword);
 
         Page<Order> page;
 
@@ -181,7 +207,8 @@ public class TeamTaskService {
                     mirrorCuttingOnly,
                     orderIdFrom,
                     orderIdTo,
-                    normalizedProductNameKeyword,
+					normalizedKeywordType,
+					normalizedSearchKeyword,
                     standard,
                     allStatus,
                     effectiveStatusFilter,
@@ -199,7 +226,8 @@ public class TeamTaskService {
                     mirrorCuttingOnly,
                     orderIdFrom,
                     orderIdTo,
-                    normalizedProductNameKeyword,
+					normalizedKeywordType,
+					normalizedSearchKeyword,
                     standard,
                     allStatus,
                     effectiveStatusFilter,
@@ -384,8 +412,29 @@ public class TeamTaskService {
 	        boolean mirrorCuttingOnly,
 	        Pageable pageable
 	) {
+		return getProductionOrdersByDateTypeAndStatusFilter(
+				categoryId, orderIdFrom, orderIdTo, "PRODUCT_NAME", productNameKeyword, standard,
+				dateType, statusFilter, start, end, mirrorCuttingOnly, pageable
+		);
+	}
+
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilter(
+			Long categoryId,
+			Long orderIdFrom,
+			Long orderIdTo,
+			String keywordType,
+			String searchKeyword,
+			Boolean standard,
+			String dateType,
+			OrderStatus statusFilter,
+			LocalDateTime start,
+			LocalDateTime end,
+			boolean mirrorCuttingOnly,
+			Pageable pageable
+	) {
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
-        String normalizedProductNameKeyword = normalizeKeyword(productNameKeyword);
+		String normalizedKeywordType = normalizeProductionKeywordType(keywordType);
+		String normalizedSearchKeyword = normalizeKeyword(searchKeyword);
 
 		OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
 		boolean allStatus = (effectiveStatusFilter == null);
@@ -398,7 +447,8 @@ public class TeamTaskService {
 		            mirrorCuttingOnly,
 		            orderIdFrom,
 		            orderIdTo,
-                    normalizedProductNameKeyword,
+					normalizedKeywordType,
+					normalizedSearchKeyword,
                     standard,
 		            allStatus,
 		            effectiveStatusFilter,
@@ -413,7 +463,8 @@ public class TeamTaskService {
 		            mirrorCuttingOnly,
 		            orderIdFrom,
 		            orderIdTo,
-                    normalizedProductNameKeyword,
+					normalizedKeywordType,
+					normalizedSearchKeyword,
                     standard,
 		            allStatus,
 		            effectiveStatusFilter,
@@ -484,19 +535,45 @@ public class TeamTaskService {
 			List<ProductionSortOrder> sortOrders,
 			Pageable pageable
 	) {
+		return getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
+				categoryId, orderIdFrom, orderIdTo, "PRODUCT_NAME", productNameKeyword, standard,
+				dateType, statusFilter, start, end, mirrorCuttingOnly, loginMember, sortOrders, pageable
+		);
+	}
+
+	@Transactional(readOnly = true)
+	public Page<Order> getProductionOrdersByDateTypeAndStatusFilterMultiSorted(
+			Long categoryId,
+			Long orderIdFrom,
+			Long orderIdTo,
+			String keywordType,
+			String searchKeyword,
+			Boolean standard,
+			String dateType,
+			OrderStatus statusFilter,
+			LocalDateTime start,
+			LocalDateTime end,
+			boolean mirrorCuttingOnly,
+			Member loginMember,
+			List<ProductionSortOrder> sortOrders,
+			Pageable pageable
+	) {
 		validateProductionTeamMember(loginMember);
 
 		boolean useCreated = "created".equalsIgnoreCase(dateType);
-		String normalizedProductNameKeyword = normalizeKeyword(productNameKeyword);
+		String normalizedKeywordType = normalizeProductionKeywordType(keywordType);
+		String normalizedSearchKeyword = normalizeKeyword(searchKeyword);
 		OrderStatus effectiveStatusFilter = normalizeProductionListStatusFilter(statusFilter);
 		boolean allStatus = effectiveStatusFilter == null;
 
 		List<Order> orders = useCreated
 				? orderRepository.findProductionListByCreatedRangeStatusForMultiSortWithOrderIdRange(
-						categoryId, mirrorCuttingOnly, orderIdFrom, orderIdTo, normalizedProductNameKeyword, standard,
+						categoryId, mirrorCuttingOnly, orderIdFrom, orderIdTo,
+						normalizedKeywordType, normalizedSearchKeyword, standard,
 						allStatus, effectiveStatusFilter, PRODUCTION_LIST_VISIBLE_STATUSES, start, end)
 				: orderRepository.findProductionListByPreferredRangeStatusForMultiSortWithOrderIdRange(
-						categoryId, mirrorCuttingOnly, orderIdFrom, orderIdTo, normalizedProductNameKeyword, standard,
+						categoryId, mirrorCuttingOnly, orderIdFrom, orderIdTo,
+						normalizedKeywordType, normalizedSearchKeyword, standard,
 						allStatus, effectiveStatusFilter, PRODUCTION_LIST_VISIBLE_STATUSES, start, end);
 
 		if (orders == null || orders.isEmpty()) {
@@ -696,6 +773,18 @@ public class TeamTaskService {
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
     }
+
+	private String normalizeProductionKeywordType(String value) {
+		if (value == null) {
+			return "PRODUCT_NAME";
+		}
+
+		return switch (value.trim().toUpperCase(Locale.ROOT)) {
+		case "SIZE" -> "SIZE";
+		case "COMPANY_NAME" -> "COMPANY_NAME";
+		default -> "PRODUCT_NAME";
+		};
+	}
 
 	private OrderStatus normalizeProductionListStatusFilter(OrderStatus statusFilter) {
 	    if (statusFilter == null) {

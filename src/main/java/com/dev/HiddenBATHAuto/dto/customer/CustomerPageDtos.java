@@ -80,6 +80,7 @@ public final class CustomerPageDtos {
     @Builder
     public static class AsListRow {
         private AsTask asTask;
+		private String requesterName;
         private LocalDate scheduledDate;
         private String handlerName;
         private String handlerContact;
@@ -93,6 +94,7 @@ public final class CustomerPageDtos {
     public static class TaskListRow {
         private Task task;
         private Order representativeOrder;
+		private String requesterName;
         private String ordererName;
         private String ordererPhone;
         private int orderCount;
@@ -120,12 +122,20 @@ public final class CustomerPageDtos {
         private String statusKey;
         private String statusLabel;
         private String managerName;
+		private String deliveryHandlerName;
 
         /** Task에 포함된 모든 Order.supplyPrice의 합계 */
         private long supplyPrice;
 
         /** supplyPrice 합계에 VAT 10%를 가산한 금액 */
         private long vatIncludedTotalPrice;
+
+		/** Task 전체에 한 번만 반영되는 비용(여러 Order의 양수 최대값) */
+		private long packingCost;
+		private long deliveryCost;
+
+		/** 제품 VAT 포함 합계 + 포장비 + 배송비 */
+		private long grandTotalPrice;
     }
 
     @Getter
@@ -137,6 +147,9 @@ public final class CustomerPageDtos {
         private String size;
         private String color;
         private int quantity;
+		private long unitPrice;
+		private long supplyPrice;
+		private long vatIncludedTotalPrice;
         private String deliveryMethodName;
         private String deliveryAddress;
         private LocalDateTime deliveryDate;
