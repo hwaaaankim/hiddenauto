@@ -252,7 +252,7 @@ public class ManagementController {
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false) String productName,
-			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
+			@RequestParam(required = false, defaultValue = "delivery") String dateCriteria,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
 			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
@@ -260,8 +260,17 @@ public class ManagementController {
 			@RequestParam(required = false) String sortState,
 			@RequestParam(required = false) String sortField,
 			@RequestParam(required = false) String sortDir,
-			@PageableDefault(size = 10) Pageable pageable, HttpServletRequest request, Model model) {
+			@PageableDefault(size = 10) Pageable pageable,
+			@AuthenticationPrincipal PrincipalDetails principal,
+			HttpServletRequest request, Model model) {
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
+		boolean hasExplicitDateRange = request.getParameterMap().containsKey("startDate")
+				|| request.getParameterMap().containsKey("endDate");
+		if (!hasExplicitDateRange && !"all".equals(finalDateCriteria)) {
+			String today = LocalDate.now().format(YMD);
+			startDate = today;
+			endDate = today;
+		}
 
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
 
@@ -332,6 +341,10 @@ public class ManagementController {
 		 * 에서 별도 로딩합니다.
 		 */
 		model.addAttribute("bulkOrderRows", List.of());
+		model.addAttribute("readonlyListRows", List.of());
+		model.addAttribute("readonlyListHasNext", false);
+		model.addAttribute("readonlyListPage", -1);
+		model.addAttribute("isTestempUser", principal != null && "testemp".equals(principal.getUsername()));
 		// 일괄보기 대상은 검색 전체 건수가 아니라 현재 페이지에 실제 표시된 주문만 사용합니다.
 		model.addAttribute("bulkOrderCount", orders.getNumberOfElements());
 
@@ -369,6 +382,10 @@ public class ManagementController {
 		model.addAttribute("endDate", range.getEndDateStr());
 		model.addAttribute("startDateStr", range.getStartDateStr());
 		model.addAttribute("endDateStr", range.getEndDateStr());
+		model.addAttribute("dateRangeMode",
+				(StringUtils.hasText(range.getStartDateStr()) || StringUtils.hasText(range.getEndDateStr()))
+						&& !(StringUtils.hasText(range.getStartDateStr())
+								&& range.getStartDateStr().equals(range.getEndDateStr())));
 
 		model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
 		model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
@@ -398,6 +415,121 @@ public class ManagementController {
 		model.addAttribute("pageSize", orders.getSize());
 
 		return "administration/management/order/nonStandard/taskList";
+	}
+
+	/**
+	 * testemp 전용 읽기 전용 일괄 목록입니다. 20건 단위로만 반환하며 변경 API나
+	 * 관리자 요청 동작을 노출하지 않습니다.
+	 */
+	@GetMapping("/nonStandardTaskList/readonly-list-fragment")
+	public String nonStandardTaskListReadonlyFragment(
+			@AuthenticationPrincipal PrincipalDetails principal,
+			@RequestParam(required = false, defaultValue = "") String keyword,
+			@RequestParam(required = false) String orderIdFrom,
+			@RequestParam(required = false) String orderIdTo,
+			@RequestParam(required = false) String orderId,
+			@RequestParam(required = false) String productName,
+			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
+			@RequestParam(required = false) String startDate,
+			@RequestParam(required = false) String endDate,
+			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
+			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+			@RequestParam(required = false, defaultValue = "all") String standard,
+			@RequestParam(required = false) String sortState,
+			@RequestParam(required = false) String sortField,
+			@RequestParam(required = false) String sortDir,
+			@RequestParam(required = false, defaultValue = "0") int modalPage,
+			Model model
+	) {
+		if (principal == null || !"testemp".equals(principal.getUsername())) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "허용된 계정만 조회할 수 있습니다.");
+		}
+
+		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
+		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
+		Boolean standardBool = parseStandardOrNull(standard);
+		boolean mirrorCuttingOnly = isManagementMirrorCuttingFilter(productCategoryId);
+		Long categoryId = mirrorCuttingOnly ? null : resolveManagementRealProductCategoryId(productCategoryId);
+		OrderStatus statusEnum = parseOrderStatusOrNullWithDefault(orderStatus, OrderStatus.REQUESTED);
+		OrderIdRangeFilter orderIdRange = resolveOrderIdRange(orderIdFrom, orderIdTo, orderId);
+		List<NonStandardTaskListSortCriterion> activeSortCriteria =
+				resolveNonStandardTaskListSortCriteria(sortState, sortField, sortDir);
+
+		Pageable modalPageable = PageRequest.of(
+				Math.max(modalPage, 0),
+				20,
+				buildNonStandardTaskListSort(activeSortCriteria)
+		);
+
+		Page<Order> result = orderRepository.findFilteredOrdersWithOrderIdRangeAndProductName(
+				normalizeNullableSearchText(keyword),
+				orderIdRange.from(),
+				orderIdRange.to(),
+				normalizeNullableSearchText(productName),
+				finalDateCriteria,
+				range.getStart(),
+				range.getEnd(),
+				categoryId,
+				mirrorCuttingOnly,
+				statusEnum,
+				standardBool,
+				modalPageable
+		);
+
+		List<Order> readonlyOrders = result.getContent();
+		List<Long> readonlyOrderIds = readonlyOrders.stream()
+				.map(Order::getId)
+				.filter(Objects::nonNull)
+				.toList();
+		List<OrderImage> readonlyImages = new ArrayList<>();
+		if (!readonlyOrderIds.isEmpty()) {
+			readonlyImages.addAll(
+					orderImageRepository.findByOrder_IdInAndTypeIgnoreCase(readonlyOrderIds, "CUSTOMER")
+			);
+			readonlyImages.addAll(
+					orderImageRepository.findByOrder_IdInAndTypeIgnoreCase(readonlyOrderIds, "MANAGEMENT")
+			);
+			readonlyImages.sort(Comparator.comparing(
+					OrderImage::getId,
+					Comparator.nullsLast(Comparator.naturalOrder())
+			));
+		}
+		Map<Long, List<NonStandardTaskListOrderImageDto>> readonlyImageMap = readonlyImages.stream()
+				.filter(image -> image != null && image.getOrder() != null && image.getOrder().getId() != null)
+				.collect(Collectors.groupingBy(
+						image -> image.getOrder().getId(),
+						LinkedHashMap::new,
+						Collectors.mapping(this::toNonStandardTaskListOrderImageDto, Collectors.toList())
+				));
+		Map<Long, List<NonStandardTaskListOrderImageDto>> readonlyAdminImageMap = readonlyImages.stream()
+				.filter(image -> image != null && "MANAGEMENT".equalsIgnoreCase(image.getType()))
+				.filter(image -> image.getOrder() != null && image.getOrder().getId() != null)
+				.collect(Collectors.groupingBy(
+						image -> image.getOrder().getId(),
+						LinkedHashMap::new,
+						Collectors.mapping(this::toNonStandardTaskListOrderImageDto, Collectors.toList())
+				));
+		List<NonStandardTaskListOrderRowDto> readonlyRows = readonlyOrders.stream()
+				.map(order -> nonStandardTaskListViewService.toRow(
+						order,
+						readonlyAdminImageMap.getOrDefault(order.getId(), List.of()),
+						readonlyImageMap.getOrDefault(order.getId(), List.of())
+				))
+				.toList();
+
+		model.addAttribute("readonlyListRows", readonlyRows);
+		model.addAttribute("readonlyListHasNext", result.hasNext());
+		model.addAttribute("readonlyListPage", result.getNumber());
+		return "administration/management/order/nonStandard/taskList :: readonlyListRows";
+	}
+
+	private NonStandardTaskListOrderImageDto toNonStandardTaskListOrderImageDto(OrderImage image) {
+		return NonStandardTaskListOrderImageDto.builder()
+				.id(image.getId())
+				.type(image.getType())
+				.filename(image.getFilename())
+				.url(image.getUrl())
+				.build();
 	}
 
 	@GetMapping("/nonStandardTaskList/order-detail-fragment/{orderId}")

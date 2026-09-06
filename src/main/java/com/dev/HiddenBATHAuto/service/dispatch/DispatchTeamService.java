@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -44,6 +45,9 @@ import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangePre
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkOrderInfoDto;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.DeliveryMethodOptionDto;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderHandlerAssignmentDto;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderManagementItemDto;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderManagementSaveRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderManagementSaveResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchFailDto;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DeliveryMethodDto;
@@ -69,6 +73,7 @@ import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy.MethodGroup;
 import com.dev.HiddenBATHAuto.service.order.DeliveryOrderIndexService;
 import com.dev.HiddenBATHAuto.service.order.OrderOperationalChangeRecorder;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -103,6 +108,11 @@ public class DispatchTeamService {
             "LED거울",
             "욕실용품"
     );
+    private static final Set<OrderStatus> DISPATCH_SEARCHABLE_STATUSES = Set.of(
+            OrderStatus.CONFIRMED,
+            OrderStatus.PRODUCTION_DONE,
+            OrderStatus.DISPATCH_DONE
+    );
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -136,6 +146,7 @@ public class DispatchTeamService {
         Join<Member, Company> companyJoin = requestedByJoin.join("company", JoinType.LEFT);
         Join<Order, TeamCategory> categoryJoin = orderRoot.join("productCategory", JoinType.LEFT);
         Join<Order, DeliveryMethod> deliveryMethodJoin = orderRoot.join("deliveryMethod", JoinType.LEFT);
+        Join<Order, OrderItem> orderItemJoin = orderRoot.join("orderItem", JoinType.LEFT);
 
         List<Predicate> predicates = new ArrayList<>();
 
@@ -147,6 +158,7 @@ public class DispatchTeamService {
                 companyJoin,
                 categoryJoin,
                 deliveryMethodJoin,
+                orderItemJoin,
                 normalizedRequest
         );
 
@@ -284,7 +296,7 @@ public class DispatchTeamService {
             if (!isDispatchCompletableStatus(order.getStatus())) {
                 failedItems.add(BulkDispatchFailDto.builder()
                         .orderId(orderId)
-                        .message("승인완료 또는 생산완료 상태만 출고완료 처리할 수 있습니다.")
+                        .message("생산완료 상태만 출고완료 처리할 수 있습니다.")
                         .build());
                 continue;
             }
@@ -325,6 +337,299 @@ public class DispatchTeamService {
                 .requestedCount(normalizedIds.size())
                 .updatedCount(updatedOrderIds.size())
                 .failedCount(failedItems.size())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DispatchOrderRowDto> getOrderManagementPreview(
+            List<Long> orderIds,
+            Member loginMember
+    ) {
+        validateDispatchTeamMember(loginMember);
+        List<Long> normalizedIds = normalizeIds(orderIds);
+        if (normalizedIds.isEmpty()) {
+            throw new IllegalArgumentException("발주관리할 주문을 1건 이상 선택해 주세요.");
+        }
+
+        Map<Long, Order> orderMap = findOrderMap(normalizedIds);
+        List<DispatchOrderRowDto> rows = new ArrayList<>();
+        for (Long orderId : normalizedIds) {
+            Order order = orderMap.get(orderId);
+            if (order == null) {
+                throw new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId);
+            }
+            validateBulkTargetOrder(order);
+            rows.add(toDispatchOrderRowDto(order));
+        }
+        return rows;
+    }
+
+    /**
+     * 통합 발주관리 저장입니다.
+     *
+     * <p>선택 주문, 배송수단, 담당자, 주소, 출고완료 가능 여부를 모두 검증한 다음에만
+     * 엔티티를 변경합니다. 중간 검증 실패 시 어떤 주문도 변경되지 않습니다.</p>
+     */
+    @Transactional
+    public OrderManagementSaveResponse saveOrderManagement(
+            OrderManagementSaveRequest request,
+            Member loginMember
+    ) {
+        validateDispatchTeamMember(loginMember);
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("저장할 발주관리 내용이 없습니다.");
+        }
+
+        LinkedHashMap<Long, OrderManagementItemDto> requestedByOrderId = new LinkedHashMap<>();
+        for (OrderManagementItemDto item : request.getItems()) {
+            if (item == null || item.getOrderId() == null || item.getOrderId() <= 0) {
+                throw new IllegalArgumentException("올바르지 않은 주문 ID가 포함되어 있습니다.");
+            }
+            if (requestedByOrderId.putIfAbsent(item.getOrderId(), item) != null) {
+                throw new IllegalArgumentException("동일한 주문이 중복 포함되어 있습니다. orderId=" + item.getOrderId());
+            }
+        }
+
+        List<Long> orderIds = new ArrayList<>(requestedByOrderId.keySet());
+        Map<Long, Order> orderMap = findLockedOrderMap(orderIds);
+        Map<Long, DeliveryMethod> methodCache = new HashMap<>();
+        Map<Long, Member> handlerCache = new HashMap<>();
+        Set<Long> handlerIdsToLock = new HashSet<>();
+        List<OrderManagementPlan> plans = new ArrayList<>();
+
+        for (Map.Entry<Long, OrderManagementItemDto> entry : requestedByOrderId.entrySet()) {
+            Long orderId = entry.getKey();
+            OrderManagementItemDto item = entry.getValue();
+            Order order = orderMap.get(orderId);
+            if (order == null) {
+                throw new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId);
+            }
+            validateBulkTargetOrder(order);
+
+            if (item.getDeliveryMethodId() == null) {
+                throw new IllegalArgumentException("배송수단을 선택해 주세요. orderId=" + orderId);
+            }
+            DeliveryMethod targetMethod = methodCache.computeIfAbsent(
+                    item.getDeliveryMethodId(),
+                    methodId -> deliveryMethodRepository.findById(methodId)
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "배송수단을 찾을 수 없습니다. orderId=" + orderId
+                            ))
+            );
+
+            DeliveryOrderIndex existingIndex = findDeliveryOrderIndex(order);
+            Member beforeHandler = resolveAssignedDeliveryHandler(order, existingIndex);
+            if (beforeHandler != null && beforeHandler.getId() != null) {
+                handlerIdsToLock.add(beforeHandler.getId());
+            }
+
+            boolean handlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(targetMethod);
+            Member targetHandler = null;
+            if (handlerRequired) {
+                targetHandler = getValidatedDeliveryHandler(item.getDeliveryHandlerId(), handlerCache);
+                requireDeliveryDate(order);
+                handlerIdsToLock.add(targetHandler.getId());
+            }
+
+            boolean siteDelivery = isSiteDeliveryMethod(targetMethod);
+            AddressInput targetAddress = siteDelivery
+                    ? normalizeSiteAddress(item)
+                    : normalizeGeneralAddress(item);
+            AddressInput persistedAddress = siteDelivery
+                    ? persistedSiteAddress(order)
+                    : persistedGeneralAddress(order);
+
+            if (!targetAddress.hasDaumAddress()) {
+                throw new IllegalArgumentException(
+                        (siteDelivery ? "현장주소" : "일반 배송주소")
+                                + "를 우편번호 검색으로 입력해 주세요. orderId=" + orderId
+                );
+            }
+
+            boolean addressTypeChanged = isSiteDeliveryMethod(order.getDeliveryMethod()) != siteDelivery;
+            boolean relevantAddressChanged = !targetAddress.sameStoredValues(persistedAddress);
+            boolean postcodeSearchConfirmed = siteDelivery
+                    ? item.isSiteAddressSearched()
+                    : item.isGeneralAddressSearched();
+
+            if ((relevantAddressChanged || addressTypeChanged)
+                    && !postcodeSearchConfirmed) {
+                throw new IllegalArgumentException(
+                        (siteDelivery ? "현장주소" : "일반 배송주소")
+                                + "는 Daum 우편번호 검색을 통해 선택해야 합니다. orderId=" + orderId
+                );
+            }
+
+            String targetOrdererName = cleanInput(item.getOrdererName());
+            String targetOrdererPhone = cleanInput(item.getOrdererPhone());
+            if (siteDelivery && (targetOrdererName == null || targetOrdererPhone == null)) {
+                throw new IllegalArgumentException(
+                        "현장배송 수령자 이름과 연락처를 모두 입력해 주세요. orderId=" + orderId
+                );
+            }
+
+            int targetDeliveryCost = item.getDeliveryCost() == null ? 0 : item.getDeliveryCost();
+            if (targetDeliveryCost < 0) {
+                throw new IllegalArgumentException("배송비는 0원 이상이어야 합니다. orderId=" + orderId);
+            }
+
+            if (item.isDispatchComplete() && order.getStatus() != OrderStatus.PRODUCTION_DONE) {
+                throw new IllegalArgumentException(
+                        "출고완료는 생산완료 상태의 주문만 선택할 수 있습니다. orderId=" + orderId
+                );
+            }
+
+            plans.add(new OrderManagementPlan(
+                    order,
+                    targetMethod,
+                    targetHandler,
+                    siteDelivery,
+                    targetAddress,
+                    targetOrdererName,
+                    targetOrdererPhone,
+                    targetDeliveryCost,
+                    item.isDispatchComplete(),
+                    deliveryMethodLabel(order.getDeliveryMethod()),
+                    memberLabel(beforeHandler),
+                    beforeHandler != null ? beforeHandler.getId() : null,
+                    order.getActualDeliveryAddressDisplay(),
+                    order.getDeliveryCost(),
+                    cleanInput(order.getOrdererName()),
+                    cleanInput(order.getOrdererPhone()),
+                    order.getStatus()
+            ));
+        }
+
+        lockDeliveryHandlerIds(handlerIdsToLock);
+
+        LocalDateTime now = LocalDateTime.now();
+        for (OrderManagementPlan plan : plans) {
+            Order order = plan.order();
+            order.setDeliveryMethod(plan.targetMethod());
+            order.setAssignedDeliveryHandler(plan.targetHandler());
+            order.setAssignedDeliveryTeam(plan.targetHandler() != null
+                    ? plan.targetHandler().getTeamCategory()
+                    : null);
+            order.setDeliveryCost(plan.deliveryCost());
+
+            if (plan.siteDelivery()) {
+                applySiteAddress(order, plan.address());
+                order.setOrdererName(plan.ordererName());
+                order.setOrdererPhone(plan.ordererPhone());
+            } else {
+                applyGeneralAddress(order, plan.address());
+                clearSiteAddress(order);
+            }
+
+            if (plan.dispatchComplete()) {
+                order.setStatus(OrderStatus.DISPATCH_DONE);
+            }
+            order.setUpdatedAt(now);
+        }
+
+        List<Order> saveTargets = plans.stream().map(OrderManagementPlan::order).toList();
+        orderRepository.saveAll(saveTargets);
+        orderRepository.flush();
+
+        for (OrderManagementPlan plan : plans) {
+            if (plan.targetHandler() == null) {
+                deliveryOrderIndexService.removeIndex(plan.order());
+            } else {
+                deliveryOrderIndexService.ensureIndex(plan.order());
+            }
+        }
+        deliveryOrderIndexRepository.flush();
+
+        for (OrderManagementPlan plan : plans) {
+            Order order = plan.order();
+            String managementPath = "/team/dispatchList/api/orders/order-management";
+            OrderFieldChangeCommand methodChange = OrderFieldChangeCommand.of(
+                    "deliveryMethod", "배송수단",
+                    plan.beforeMethodLabel(), deliveryMethodLabel(plan.targetMethod()),
+                    OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY);
+            OrderFieldChangeCommand handlerChange = OrderFieldChangeCommand.of(
+                    "assignedDeliveryHandler", "배송담당자",
+                    plan.beforeHandlerLabel(), memberLabel(plan.targetHandler()),
+                    OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY);
+
+            if (methodChange.isActuallyChanged() || handlerChange.isActuallyChanged()) {
+                boolean methodChanged = methodChange.isActuallyChanged();
+                changeRecorder.recordChangesWithAdditionalRecipients(
+                        order,
+                        OrderChangeSourceArea.DISPATCH,
+                        loginMember,
+                        methodChanged ? "DISPATCH_DELIVERY_METHOD_CHANGE" : "DISPATCH_HANDLER_CHANGE",
+                        methodChanged ? "출고팀 배송수단/담당자 변경" : "출고팀 배송담당자 변경",
+                        managementPath,
+                        plan.beforeHandlerId() != null ? List.of(plan.beforeHandlerId()) : List.of(),
+                        methodChange,
+                        handlerChange
+                );
+            }
+
+            List<OrderFieldChangeCommand> addressChanges = new ArrayList<>();
+            addressChanges.add(OrderFieldChangeCommand.of(
+                    "deliveryAddress", plan.siteDelivery() ? "현장주소" : "배송주소",
+                    plan.beforeAddress(), plan.address().display(),
+                    OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
+            if (plan.siteDelivery()) {
+                addressChanges.add(OrderFieldChangeCommand.of(
+                        "ordererName", "현장배송 수령자",
+                        plan.beforeOrdererName(), plan.ordererName(),
+                        OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
+                addressChanges.add(OrderFieldChangeCommand.of(
+                        "ordererPhone", "현장배송 수령자 연락처",
+                        plan.beforeOrdererPhone(), plan.ordererPhone(),
+                        OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
+            }
+
+            changeRecorder.recordChanges(
+                    order,
+                    OrderChangeSourceArea.DISPATCH,
+                    loginMember,
+                    "DISPATCH_DELIVERY_ADDRESS_CHANGE",
+                    "출고팀 배송지 정보 변경",
+                    managementPath,
+                    addressChanges.toArray(OrderFieldChangeCommand[]::new)
+            );
+
+            changeRecorder.recordChanges(
+                    order,
+                    OrderChangeSourceArea.DISPATCH,
+                    loginMember,
+                    "DISPATCH_DELIVERY_COST_CHANGE",
+                    "출고팀 배송비 변경",
+                    managementPath,
+                    OrderFieldChangeCommand.of(
+                            "deliveryCost", "배송비",
+                            plan.beforeDeliveryCost(), plan.deliveryCost(),
+                            OrderWorkArea.DISPATCH)
+            );
+
+            if (plan.dispatchComplete()) {
+                changeRecorder.recordStatusChange(
+                        order,
+                        OrderChangeSourceArea.DISPATCH,
+                        loginMember,
+                        plan.beforeStatus(),
+                        OrderStatus.DISPATCH_DONE,
+                        "DISPATCH_COMPLETE",
+                        "출고완료 처리",
+                        managementPath,
+                        OrderWorkArea.DISPATCH,
+                        OrderWorkArea.DELIVERY
+                );
+            }
+        }
+
+        List<DispatchOrderRowDto> updatedRows = saveTargets.stream()
+                .map(this::toDispatchOrderRowDto)
+                .toList();
+        return OrderManagementSaveResponse.builder()
+                .requestedCount(plans.size())
+                .updatedCount(plans.size())
+                .updatedOrderIds(saveTargets.stream().map(Order::getId).toList())
+                .updatedRows(updatedRows)
                 .build();
     }
 
@@ -1233,6 +1538,137 @@ public class DispatchTeamService {
     ) {
     }
 
+    private record OrderManagementPlan(
+            Order order,
+            DeliveryMethod targetMethod,
+            Member targetHandler,
+            boolean siteDelivery,
+            AddressInput address,
+            String ordererName,
+            String ordererPhone,
+            int deliveryCost,
+            boolean dispatchComplete,
+            String beforeMethodLabel,
+            String beforeHandlerLabel,
+            Long beforeHandlerId,
+            String beforeAddress,
+            int beforeDeliveryCost,
+            String beforeOrdererName,
+            String beforeOrdererPhone,
+            OrderStatus beforeStatus
+    ) {
+    }
+
+    private record AddressInput(
+            String zipCode,
+            String doName,
+            String siName,
+            String guName,
+            String roadAddress,
+            String detailAddress
+    ) {
+        private boolean hasDaumAddress() {
+            return zipCode != null && roadAddress != null;
+        }
+
+        private boolean sameStoredValues(AddressInput other) {
+            return other != null
+                    && Objects.equals(zipCode, other.zipCode)
+                    && Objects.equals(doName, other.doName)
+                    && Objects.equals(siName, other.siName)
+                    && Objects.equals(guName, other.guName)
+                    && Objects.equals(roadAddress, other.roadAddress)
+                    && Objects.equals(detailAddress, other.detailAddress);
+        }
+
+        private String display() {
+            return DeliveryAddressNormalizationUtil.build(
+                    zipCode, doName, siName, guName, roadAddress, detailAddress
+            ).display();
+        }
+    }
+
+    private AddressInput normalizeGeneralAddress(OrderManagementItemDto item) {
+        return new AddressInput(
+                cleanInput(item.getZipCode()),
+                cleanInput(item.getDoName()),
+                cleanInput(item.getSiName()),
+                cleanInput(item.getGuName()),
+                cleanInput(item.getRoadAddress()),
+                cleanInput(item.getDetailAddress())
+        );
+    }
+
+    private AddressInput normalizeSiteAddress(OrderManagementItemDto item) {
+        return new AddressInput(
+                cleanInput(item.getSiteZipCode()),
+                cleanInput(item.getSiteDoName()),
+                cleanInput(item.getSiteSiName()),
+                cleanInput(item.getSiteGuName()),
+                cleanInput(item.getSiteRoadAddress()),
+                cleanInput(item.getSiteDetailAddress())
+        );
+    }
+
+    private AddressInput persistedGeneralAddress(Order order) {
+        return new AddressInput(
+                cleanInput(order.getZipCode()),
+                cleanInput(order.getDoName()),
+                cleanInput(order.getSiName()),
+                cleanInput(order.getGuName()),
+                cleanInput(order.getRoadAddress()),
+                cleanInput(order.getDetailAddress())
+        );
+    }
+
+    private AddressInput persistedSiteAddress(Order order) {
+        return new AddressInput(
+                cleanInput(order.getSiteZipCode()),
+                cleanInput(order.getSiteDoName()),
+                cleanInput(order.getSiteSiName()),
+                cleanInput(order.getSiteGuName()),
+                cleanInput(order.getSiteRoadAddress()),
+                cleanInput(order.getSiteDetailAddress())
+        );
+    }
+
+    private void applyGeneralAddress(Order order, AddressInput address) {
+        order.setZipCode(address.zipCode());
+        order.setDoName(address.doName());
+        order.setSiName(address.siName());
+        order.setGuName(address.guName());
+        order.setRoadAddress(address.roadAddress());
+        order.setDetailAddress(address.detailAddress());
+    }
+
+    private void applySiteAddress(Order order, AddressInput address) {
+        order.setSiteZipCode(address.zipCode());
+        order.setSiteDoName(address.doName());
+        order.setSiteSiName(address.siName());
+        order.setSiteGuName(address.guName());
+        order.setSiteRoadAddress(address.roadAddress());
+        order.setSiteDetailAddress(address.detailAddress());
+    }
+
+    private void clearSiteAddress(Order order) {
+        order.setSiteZipCode(null);
+        order.setSiteDoName(null);
+        order.setSiteSiName(null);
+        order.setSiteGuName(null);
+        order.setSiteRoadAddress(null);
+        order.setSiteDetailAddress(null);
+    }
+
+    private boolean isSiteDeliveryMethod(DeliveryMethod method) {
+        return method != null
+                && DeliveryMethodAssignmentPolicy.containsKeyword(method.getMethodName(), "현장배송");
+    }
+
+    private String cleanInput(String value) {
+        String clean = DeliveryAddressNormalizationUtil.cleanAddressComponent(value);
+        return clean.isBlank() ? null : clean;
+    }
+
     private List<Order> findDispatchOrdersForExcel(DispatchOrderSearchRequest request) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Order> cq = cb.createQuery(Order.class);
@@ -1243,6 +1679,7 @@ public class DispatchTeamService {
         Join<Member, Company> companyJoin = requestedByJoin.join("company", JoinType.LEFT);
         Join<Order, TeamCategory> categoryJoin = orderRoot.join("productCategory", JoinType.LEFT);
         Join<Order, DeliveryMethod> deliveryMethodJoin = orderRoot.join("deliveryMethod", JoinType.LEFT);
+        Join<Order, OrderItem> orderItemJoin = orderRoot.join("orderItem", JoinType.LEFT);
 
         List<Predicate> predicates = new ArrayList<>();
 
@@ -1254,6 +1691,7 @@ public class DispatchTeamService {
                 companyJoin,
                 categoryJoin,
                 deliveryMethodJoin,
+                orderItemJoin,
                 request
         );
 
@@ -1277,21 +1715,27 @@ public class DispatchTeamService {
             Join<Member, Company> companyJoin,
             Join<Order, TeamCategory> categoryJoin,
             Join<Order, DeliveryMethod> deliveryMethodJoin,
+            Join<Order, OrderItem> orderItemJoin,
             DispatchOrderSearchRequest request
     ) {
         boolean orderIdRangeSearch = request.getOrderIdFrom() != null || request.getOrderIdTo() != null;
-        predicates.add(orderIdRangeSearch
-                ? orderRoot.get("status").in(
-                        OrderStatus.CONFIRMED,
-                        OrderStatus.PRODUCTION_DONE,
-                        OrderStatus.DISPATCH_DONE,
-                        OrderStatus.DELIVERY_DONE
-                )
-                : orderRoot.get("status").in(
-                        OrderStatus.CONFIRMED,
-                        OrderStatus.PRODUCTION_DONE,
-                        OrderStatus.DISPATCH_DONE
-                ));
+        OrderStatus selectedStatus = resolveDispatchSearchStatus(request.getStatus());
+        if (selectedStatus != null) {
+            predicates.add(cb.equal(orderRoot.get("status"), selectedStatus));
+        } else {
+            predicates.add(orderIdRangeSearch
+                    ? orderRoot.get("status").in(
+                            OrderStatus.CONFIRMED,
+                            OrderStatus.PRODUCTION_DONE,
+                            OrderStatus.DISPATCH_DONE,
+                            OrderStatus.DELIVERY_DONE
+                    )
+                    : orderRoot.get("status").in(
+                            OrderStatus.CONFIRMED,
+                            OrderStatus.PRODUCTION_DONE,
+                            OrderStatus.DISPATCH_DONE
+                    ));
+        }
 
         if (request.getOrderIdFrom() != null) {
             predicates.add(cb.greaterThanOrEqualTo(orderRoot.get("id"), request.getOrderIdFrom()));
@@ -1328,7 +1772,16 @@ public class DispatchTeamService {
             predicates.add(cb.lessThan(orderRoot.get("preferredDeliveryDate"), end));
         }
 
-        if (request.getDeliveryMethodId() != null) {
+        if ("BUSAN_VISIT".equals(safeText(request.getDeliveryMethodScope()).toUpperCase())) {
+            predicates.add(cb.equal(
+                    cb.trim(deliveryMethodJoin.<String>get("methodName")),
+                    "방문"
+            ));
+            predicates.add(cb.like(
+                    cb.lower(cb.trim(orderRoot.get("roadAddress"))),
+                    "부산%"
+            ));
+        } else if (request.getDeliveryMethodId() != null) {
             predicates.add(cb.equal(
                     deliveryMethodJoin.get("id"),
                     request.getDeliveryMethodId()
@@ -1340,7 +1793,8 @@ public class DispatchTeamService {
                 predicates,
                 request,
                 requestedByJoin,
-                companyJoin
+                companyJoin,
+                orderItemJoin
         );
 
         addAddressPredicate(
@@ -1366,7 +1820,39 @@ public class DispatchTeamService {
             normalized.setStandard("ALL");
         }
 
+        String status = safeText(normalized.getStatus()).toUpperCase();
+        if (status.isBlank()) {
+            status = "ALL";
+        }
+        resolveDispatchSearchStatus(status);
+        normalized.setStatus(status);
+
+        String methodScope = safeText(normalized.getDeliveryMethodScope()).toUpperCase();
+        if (!methodScope.isBlank() && !"BUSAN_VISIT".equals(methodScope)) {
+            throw new IllegalArgumentException("배송수단 조회 범위가 올바르지 않습니다.");
+        }
+        normalized.setDeliveryMethodScope(methodScope);
+
         return normalized;
+    }
+
+    private OrderStatus resolveDispatchSearchStatus(String rawStatus) {
+        String status = safeText(rawStatus).toUpperCase();
+        if (status.isBlank() || "ALL".equals(status)) {
+            return null;
+        }
+
+        OrderStatus selectedStatus;
+        try {
+            selectedStatus = OrderStatus.valueOf(status);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("주문 상태 조회 조건이 올바르지 않습니다.");
+        }
+
+        if (!DISPATCH_SEARCHABLE_STATUSES.contains(selectedStatus)) {
+            throw new IllegalArgumentException("출고팀에서 조회할 수 없는 주문 상태입니다.");
+        }
+        return selectedStatus;
     }
 
     private void validateOrderIdRange(Long orderIdFrom, Long orderIdTo) {
@@ -1402,7 +1888,8 @@ public class DispatchTeamService {
             List<Predicate> predicates,
             DispatchOrderSearchRequest request,
             Join<Task, Member> requestedByJoin,
-            Join<Member, Company> companyJoin
+            Join<Member, Company> companyJoin,
+            Join<Order, OrderItem> orderItemJoin
     ) {
         String keyword = safeText(request.getKeyword());
 
@@ -1434,12 +1921,22 @@ public class DispatchTeamService {
                     cb.lower(companyJoin.get("companyName")),
                     likeKeyword
             ));
+            case "PRODUCT_NAME" -> predicates.add(cb.like(
+                    cb.lower(orderItemJoin.get("productName")),
+                    likeKeyword
+            ));
+            case "SIZE" -> predicates.add(cb.like(
+                    cb.lower(orderItemJoin.get("optionJson")),
+                    likeKeyword
+            ));
             default -> predicates.add(cb.or(
                     cb.like(cb.lower(companyJoin.get("companyName")), likeKeyword),
                     cb.like(cb.lower(requestedByJoin.get("name")), likeKeyword),
                     cb.like(cb.lower(requestedByJoin.get("username")), likeKeyword),
                     cb.like(cb.lower(requestedByJoin.get("phone")), likeKeyword),
-                    cb.like(cb.lower(requestedByJoin.get("email")), likeKeyword)
+                    cb.like(cb.lower(requestedByJoin.get("email")), likeKeyword),
+                    cb.like(cb.lower(orderItemJoin.get("productName")), likeKeyword),
+                    cb.like(cb.lower(orderItemJoin.get("optionJson")), likeKeyword)
             ));
         }
     }
@@ -1581,12 +2078,26 @@ public class DispatchTeamService {
                 .deliveryHandlerId(deliveryHandler != null ? deliveryHandler.getId() : null)
                 .deliveryHandlerName(deliveryHandler != null ? safeTextOrDash(deliveryHandler.getName()) : null)
                 .deliveryOrderIndex(deliveryOrderIndex != null ? deliveryOrderIndex.getOrderIndex() : null)
+                .zipCode(safeText(order.getZipCode()))
                 .doName(safeText(order.getDoName()))
                 .siName(safeText(order.getSiName()))
                 .guName(safeText(order.getGuName()))
                 .roadAddress(safeText(order.getRoadAddress()))
                 .detailAddress(safeText(order.getDetailAddress()))
                 .fullAddress(buildFullAddress(order))
+                .siteZipCode(safeText(order.getSiteZipCode()))
+                .siteDoName(safeText(order.getSiteDoName()))
+                .siteSiName(safeText(order.getSiteSiName()))
+                .siteGuName(safeText(order.getSiteGuName()))
+                .siteRoadAddress(safeText(order.getSiteRoadAddress()))
+                .siteDetailAddress(safeText(order.getSiteDetailAddress()))
+                .siteFullAddress(buildSiteAddress(order))
+                .ordererName(safeText(order.getOrdererName()))
+                .ordererPhone(safeText(order.getOrdererPhone()))
+                .deliveryCost(order.getDeliveryCost())
+                .preferredDeliveryDateText(order.getPreferredDeliveryDate() != null
+                        ? order.getPreferredDeliveryDate().toLocalDate().toString()
+                        : "")
                 .createdAtText(formatDateTime(order.getCreatedAt()))
                 .build();
     }
@@ -1685,8 +2196,7 @@ public class DispatchTeamService {
     }
 
     private boolean isDispatchCompletableStatus(OrderStatus status) {
-        return status == OrderStatus.CONFIRMED
-                || status == OrderStatus.PRODUCTION_DONE;
+        return status == OrderStatus.PRODUCTION_DONE;
     }
 
     private int statusSort(OrderStatus status) {
@@ -1731,6 +2241,20 @@ public class DispatchTeamService {
         }
 
         return order.getActualDeliveryAddressDisplay();
+    }
+
+    private String buildSiteAddress(Order order) {
+        if (order == null) {
+            return "-";
+        }
+        return DeliveryAddressNormalizationUtil.build(
+                order.getSiteZipCode(),
+                order.getSiteDoName(),
+                order.getSiteSiName(),
+                order.getSiteGuName(),
+                order.getSiteRoadAddress(),
+                order.getSiteDetailAddress()
+        ).display();
     }
 
     private String formatDateTime(LocalDateTime dateTime) {

@@ -357,8 +357,13 @@ document.addEventListener("DOMContentLoaded", function() {
 			type: isVideo ? "video" : "image",
 			url: url,
 			name: nameEl ? nameEl.textContent.trim() : (mediaEl.getAttribute("alt") || "미리보기"),
-			contentType: isVideo ? (sourceEl?.getAttribute("type") || "video/mp4") : ""
+			contentType: isVideo ? normalizeVideoContentType(sourceEl?.getAttribute("type")) : ""
 		};
+	}
+
+	function normalizeVideoContentType(value) {
+		const type = String(value || "").trim().toLowerCase();
+		return type.startsWith("video/") ? type : "";
 	}
 
 	function openMediaPreview(payload) {
@@ -375,13 +380,14 @@ document.addEventListener("DOMContentLoaded", function() {
 			const video = document.createElement("video");
 			video.className = "w-100 rounded";
 			video.controls = true;
-			video.autoplay = true;
 			video.preload = "metadata";
 			video.playsInline = true;
+			video.setAttribute("playsinline", "");
+			video.setAttribute("webkit-playsinline", "");
 
 			const source = document.createElement("source");
 			source.src = payload.url;
-			source.type = payload.contentType || "video/mp4";
+			if (payload.contentType) source.type = payload.contentType;
 
 			video.appendChild(source);
 			mediaPreviewBodyEl.appendChild(video);
@@ -390,10 +396,6 @@ document.addEventListener("DOMContentLoaded", function() {
 			setTimeout(function() {
 				try {
 					video.load();
-					const playPromise = video.play();
-					if (playPromise && typeof playPromise.catch === "function") {
-						playPromise.catch(function() { /* ignore */ });
-					}
 				} catch (e) { /* ignore */ }
 			}, 120);
 
@@ -457,6 +459,8 @@ document.addEventListener("DOMContentLoaded", function() {
 				"video.as-management-third-media-trigger"
 			);
 			if (!triggerEl) return;
+			// 모바일에서는 video 기본 콘트롤이 재생을 담당하도록 클릭을 가로채지 않는다.
+			if (e.target.closest("video[controls]")) return;
 
 			e.preventDefault();
 			e.stopPropagation();
@@ -857,14 +861,16 @@ document.addEventListener("DOMContentLoaded", function() {
 			const video = document.createElement("video");
 			video.className = "w-100 rounded mb-2 as-management-third-media-trigger";
 			video.preload = "metadata";
-			video.muted = true;
+			video.controls = true;
 			video.playsInline = true;
 			video.setAttribute("playsinline", "");
+			video.setAttribute("webkit-playsinline", "");
 			video.src = url;
 
-			const previewBadge = document.createElement("span");
+			const previewBadge = document.createElement("button");
+			previewBadge.type = "button";
 			previewBadge.className = "as-management-third-video-preview-badge";
-			previewBadge.textContent = "미리보기";
+			previewBadge.textContent = "큰 화면";
 
 			const name = document.createElement("div");
 			name.className = "small text-truncate";
@@ -926,6 +932,15 @@ document.addEventListener("DOMContentLoaded", function() {
 	bindMediaPreview(existingResultVideosWrap);
 	bindMediaPreview(previewList);
 	bindMediaPreview(previewVideoList);
+
+	// iOS Safari를 포함한 모바일 브라우저가 인라인 재생 UI와 메타데이터를 즉시 구성하도록 보정한다.
+	document.querySelectorAll(".as-management-third-video-preview-trigger video").forEach(video => {
+		video.controls = true;
+		video.playsInline = true;
+		video.setAttribute("playsinline", "");
+		video.setAttribute("webkit-playsinline", "");
+		try { video.load(); } catch (e) { /* ignore */ }
+	});
 
 	if (mediaPreviewModalEl) {
 		mediaPreviewModalEl.addEventListener("hidden.bs.modal", resetMediaPreview);

@@ -13,6 +13,453 @@
 	--pm-thumb-h: 140px;
 }
 
+/* 생산팀/관리팀 조회 폼은 남는 Bootstrap 열 때문에 빈 공간이 생기지 않도록 명시적인 그리드를 사용합니다. */
+.team-production-filter-grid,
+.task-list-filter-grid {
+	display: grid;
+	grid-template-columns: repeat(12, minmax(0, 1fr));
+	align-items: start;
+	gap: 14px 12px;
+	margin: 0;
+}
+
+.team-production-filter-grid > [class*="col-"],
+.task-list-filter-grid > [class*="col-"] {
+	width: auto;
+	max-width: none;
+	min-width: 0;
+	padding: 0;
+	margin: 0;
+}
+
+.team-production-filter-grid > [class*="team-production-filter-"],
+.task-list-filter-grid > [class*="task-list-filter-"] {
+	grid-column: 1 / -1;
+}
+
+.team-production-filter-range-panel,
+.task-list-filter-range-panel,
+.team-production-filter-operations {
+	grid-column: 1 / -1;
+}
+
+/* 단일 날짜 이동은 한 줄을 유지하고, 범위 조회는 같은 날짜 영역 바로 아래에 작게 펼칩니다. */
+.team-production-date-control-line,
+.task-list-date-control-line {
+	display: block;
+	width: 100%;
+	min-width: 0;
+}
+
+.team-production-date-single-control,
+.task-list-date-single-control {
+	display: grid;
+	grid-template-columns: 38px minmax(130px, 1fr) 38px auto;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	min-width: 0;
+}
+
+.team-production-date-single-control .btn,
+.task-list-date-single-control .btn {
+	min-width: 0;
+	min-height: 38px;
+	padding-right: 10px;
+	padding-left: 10px;
+	white-space: nowrap;
+}
+
+.team-production-date-single-control > input[type="date"],
+.task-list-date-single-control > input[type="date"] {
+	width: 100%;
+	min-width: 0;
+	height: 38px;
+	padding-right: 7px;
+	padding-left: 9px;
+	font-size: 12px;
+}
+
+.team-production-date-step,
+.task-list-date-step {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 38px;
+	padding: 0 !important;
+	font-size: 19px;
+}
+
+#team-production-range-toggle.is-active,
+#task-list-range-toggle.is-active {
+	border-color: #405189;
+	background: #eef1ff;
+	color: #405189;
+	box-shadow: 0 0 0 2px rgba(64, 81, 137, .08);
+}
+
+.team-production-range-fields,
+.task-list-range-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1fr) 74px;
+	align-items: center;
+	gap: 5px;
+	width: 100%;
+	min-width: 0;
+	margin-top: 6px;
+	padding: 5px 6px;
+	border: 1px solid #d9e0ea;
+	border-left: 2px solid #405189;
+	border-radius: 6px;
+	background: #f8fafc;
+}
+
+.filter-range-panel-field {
+	display: grid;
+	grid-template-columns: 32px minmax(0, 1fr);
+	align-items: center;
+	gap: 3px;
+	min-width: 0;
+}
+
+.filter-range-panel-field label {
+	margin: 0;
+	color: #526078;
+	font-size: 9px;
+	font-weight: 800;
+	letter-spacing: .03em;
+	text-align: center;
+}
+
+.team-production-range-fields .form-control,
+.task-list-range-fields .form-control {
+	width: 100%;
+	min-width: 0;
+	height: 34px;
+	padding-right: 5px;
+	padding-left: 7px;
+	font-size: 11px;
+}
+
+.filter-range-panel-divider {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 34px;
+	color: #74809a;
+	font-weight: 700;
+}
+
+.filter-range-panel-submit {
+	min-width: 0;
+	height: 34px;
+	padding-right: 7px;
+	padding-left: 7px;
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+.task-list-filter-action-row {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 6px;
+	width: min(100%, 390px);
+}
+
+.task-list-filter-action-row .btn {
+	min-width: 0;
+	min-height: 38px;
+	padding-right: 5px;
+	padding-left: 5px;
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+@media (min-width: 768px) and (max-width: 1399.98px) {
+	.team-production-filter-order,
+	.team-production-filter-keyword {
+		grid-column: span 6 !important;
+	}
+
+	.team-production-filter-category,
+	.team-production-filter-date-type,
+	.team-production-filter-status,
+	.team-production-filter-standard,
+	.team-production-filter-size,
+	.team-production-filter-actions {
+		grid-column: span 3 !important;
+	}
+
+	.team-production-filter-date {
+		grid-column: span 6 !important;
+	}
+
+	.task-list-filter-order {
+		grid-column: span 6 !important;
+	}
+
+	.task-list-filter-product-name,
+	.task-list-filter-keyword,
+	.task-list-filter-date-criteria,
+	.task-list-filter-product,
+	.task-list-filter-status,
+	.task-list-filter-standard,
+	.task-list-filter-page-size {
+		grid-column: span 3 !important;
+	}
+
+	.task-list-filter-date {
+		grid-column: span 9 !important;
+	}
+
+	.task-list-filter-actions {
+		grid-column: 1 / -1 !important;
+	}
+}
+
+@media (min-width: 1400px) {
+	.team-production-filter-order,
+	.team-production-filter-keyword {
+		grid-column: span 4 !important;
+	}
+
+	.team-production-filter-category,
+	.team-production-filter-date-type,
+	.team-production-filter-status,
+	.team-production-filter-standard,
+	.team-production-filter-size,
+	.team-production-filter-actions {
+		grid-column: span 2 !important;
+	}
+
+	.team-production-filter-date {
+		grid-column: span 4 !important;
+	}
+
+	.task-list-filter-order,
+	.task-list-filter-product-name,
+	.task-list-filter-keyword,
+	.task-list-filter-date-criteria,
+	.task-list-filter-product,
+	.task-list-filter-status,
+	.task-list-filter-standard,
+	.task-list-filter-page-size {
+		grid-column: span 2 !important;
+	}
+
+	.task-list-filter-date,
+	.task-list-filter-actions {
+		grid-column: span 4 !important;
+	}
+}
+
+@media (max-width: 767.98px) {
+	.team-production-filter-grid,
+	.task-list-filter-grid {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 12px;
+	}
+
+	.team-production-date-single-control,
+	.task-list-date-single-control {
+		grid-template-columns: 38px minmax(0, 1fr) 38px;
+	}
+
+	#team-production-range-toggle,
+	#task-list-range-toggle {
+		grid-column: 1 / -1;
+		width: 100%;
+	}
+
+	.team-production-range-fields,
+	.task-list-range-fields {
+		grid-template-columns: minmax(0, 1fr) 8px minmax(0, 1fr);
+		gap: 4px;
+		padding: 5px;
+	}
+
+	.filter-range-panel-divider {
+		display: inline-flex;
+	}
+
+	.filter-range-panel-submit {
+		grid-column: 1 / -1;
+		width: 100%;
+	}
+
+	.task-list-filter-action-row {
+		gap: 4px;
+		width: 100%;
+	}
+
+	.task-list-filter-action-row .btn {
+		padding-right: 2px;
+		padding-left: 2px;
+		font-size: 10px;
+	}
+}
+
+/* 생산팀 검색 셀렉트와 키워드 입력은 한 덩어리처럼 붙지 않도록 분리합니다. */
+.team-production-keyword-controls {
+	display: grid;
+	grid-template-columns: minmax(130px, .42fr) minmax(0, 1fr);
+	align-items: center;
+	gap: 10px;
+}
+
+.team-production-keyword-controls .form-select,
+.team-production-keyword-controls .form-control {
+	width: 100%;
+	min-width: 0;
+	border-radius: .25rem !important;
+}
+
+.team-production-filter-action-row {
+	display: grid;
+	grid-template-columns: .72fr 1fr 1fr;
+	align-items: center;
+	gap: 4px;
+	width: min(100%, 196px);
+}
+
+.team-production-filter-action-row .btn {
+	width: 100%;
+	min-width: 0;
+	min-height: 36px;
+	padding: 6px 3px;
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+	.team-production-keyword-controls {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 6px;
+	}
+}
+
+/* 생산팀 표가 좁은 화면에서 넘칠 때만 상·하단 이동 수단과 방향 안내를 표시합니다. */
+.team-production-list-page,
+.team-production-list-page #layout-wrapper,
+.team-production-list-page .main-content,
+.team-production-list-page .page-content,
+.team-production-list-page .container-fluid {
+	max-width: 100%;
+	overflow-x: hidden;
+	overflow-x: clip;
+}
+
+.team-production-horizontal-scroll-guide {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 7px;
+	color: #64748b;
+	font-weight: 700;
+}
+
+.team-production-table-scroll {
+	width: 100%;
+	max-width: 100%;
+	overflow-x: scroll;
+	overflow-y: hidden;
+	overscroll-behavior-x: contain;
+	scrollbar-color: #8193aa #e9eef4;
+	scrollbar-width: auto;
+}
+
+.team-production-table-scroll-top {
+	height: 15px;
+	margin-bottom: 6px;
+}
+
+.team-production-table-scroll-spacer {
+	height: 1px;
+}
+
+.team-production-table-scroll-frame {
+	position: relative;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+}
+
+.team-production-table-scroll-main {
+	cursor: grab;
+	touch-action: pan-x pan-y;
+}
+
+.team-production-table-scroll-main:active,
+.team-production-table-scroll-top:active,
+body.team-production-is-dragging .team-production-table-scroll-main,
+body.team-production-is-dragging .team-production-table-scroll-top {
+	cursor: grabbing;
+}
+
+body.team-production-is-dragging,
+body.team-production-is-dragging * {
+	user-select: none !important;
+}
+
+.team-production-table-scroll-top::-webkit-scrollbar,
+.team-production-table-scroll-main::-webkit-scrollbar {
+	height: 12px;
+}
+
+.team-production-table-scroll-top::-webkit-scrollbar-track,
+.team-production-table-scroll-main::-webkit-scrollbar-track {
+	border-radius: 999px;
+	background: #e9eef4;
+}
+
+.team-production-table-scroll-top::-webkit-scrollbar-thumb,
+.team-production-table-scroll-main::-webkit-scrollbar-thumb {
+	border: 2px solid #e9eef4;
+	border-radius: 999px;
+	background: #8193aa;
+}
+
+.team-production-scroll-edge {
+	position: absolute;
+	top: 50%;
+	z-index: 4;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 44px;
+	transform: translateY(-50%);
+	border-radius: 6px;
+	background: rgba(15, 23, 42, .78);
+	color: #fff;
+	font-size: 22px;
+	pointer-events: none;
+}
+
+.team-production-scroll-edge-left { left: 6px; }
+.team-production-scroll-edge-right { right: 6px; }
+
+.team-production-table-scroll-frame.team-production-is-scrollable .team-production-scroll-edge {
+	display: inline-flex;
+}
+
+.team-production-table-scroll-frame.team-production-scroll-at-start .team-production-scroll-edge-left,
+.team-production-table-scroll-frame.team-production-scroll-at-end .team-production-scroll-edge-right {
+	display: none;
+}
+
+@media (max-width: 1199.98px) {
+	.team-production-table {
+		min-width: 1180px;
+	}
+
+	.team-production-filter-action-row .btn {
+		padding-right: 1px;
+		padding-left: 1px;
+		font-size: 10px;
+	}
+}
+
 /* ===== 레이아웃 공통 ===== */
 .popupManager-wrap {}
 
@@ -1257,6 +1704,21 @@
 	-webkit-overflow-scrolling: touch;
 }
 
+#asList-second-request-videos video {
+	display: block;
+	width: 100%;
+	min-height: 210px;
+	max-height: 55vh;
+	background: #000;
+	object-fit: contain;
+}
+
+@media (max-width: 575.98px) {
+	#asList-second-request-videos video {
+		min-height: 190px;
+	}
+}
+
 /* ✅ 혹시라도 iOS에서 모달이 살짝 잘리는 케이스 대응 */
 @supports not (height: 100dvh) {
 	#asList-second-complete-modal .asList-second-modal-content {
@@ -1838,6 +2300,40 @@
 	gap: 8px;
 }
 
+.team-as-detail-fourth-video-card {
+	height: 100%;
+	overflow: hidden;
+	border: 1px solid #e9edf3;
+	border-radius: 14px;
+	background: #fff;
+}
+
+.team-as-detail-fourth-video {
+	display: block;
+	width: 100%;
+	min-height: 220px;
+	max-height: 420px;
+	background: #000;
+	object-fit: contain;
+}
+
+.team-as-detail-fourth-video-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 10px 12px;
+	color: #475569;
+	font-size: .85rem;
+}
+
+.team-as-detail-fourth-video-meta span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .team-as-detail-fourth-image-delete {
 	position: absolute;
 	top: 10px;
@@ -1898,6 +2394,11 @@
 
 	.team-as-detail-fourth-image-thumb {
 		height: 135px;
+	}
+
+	.team-as-detail-fourth-video {
+		min-height: 200px;
+		max-height: 70vh;
 	}
 
 	.team-as-detail-fourth-submit-wrap {
@@ -9429,4 +9930,234 @@ body.admin-task-list-second-modal-open {
 	text-decoration: underline;
 	text-underline-offset: 2px;
 	text-decoration-thickness: 1.5px;
+}
+
+/* testemp 전용 읽기 전용 일괄 목록 */
+.admin-task-readonly-list-body {
+	background: #f5f7fb;
+}
+
+.admin-task-readonly-list-card {
+	box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.admin-task-readonly-option-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 8px;
+}
+
+.admin-task-readonly-option {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 9px 11px;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	background: #fff;
+}
+
+.admin-task-readonly-option > span {
+	color: #64748b;
+	font-size: 11px;
+}
+
+.admin-task-readonly-option > strong {
+	color: #172033;
+	font-size: 13px;
+	word-break: break-word;
+}
+
+.admin-task-readonly-gallery {
+	width: min(100%, 760px);
+	padding-top: 12px;
+	border-top: 1px solid #e2e8f0;
+	outline: none;
+}
+
+.admin-task-readonly-gallery:focus-visible {
+	border-radius: 8px;
+	box-shadow: 0 0 0 3px rgba(64, 81, 137, .16);
+}
+
+.admin-task-readonly-gallery-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 7px;
+	color: #334155;
+	font-size: 12px;
+}
+
+.admin-task-readonly-gallery-head strong {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 13px;
+}
+
+.admin-task-readonly-gallery-head b {
+	color: #405189;
+}
+
+.admin-task-readonly-gallery-viewport {
+	position: relative;
+	overflow: hidden;
+	border: 1px solid #d8e0ea;
+	border-radius: 10px;
+	background: #111827;
+}
+
+.admin-task-readonly-gallery-track {
+	display: flex;
+	width: 100%;
+	transition: transform .25s ease;
+	will-change: transform;
+}
+
+.admin-task-readonly-gallery-slide {
+	position: relative;
+	display: flex;
+	flex: 0 0 100%;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	aspect-ratio: 16 / 9;
+	background: #111827;
+	color: #fff;
+	text-decoration: none;
+}
+
+.admin-task-readonly-gallery-slide:hover {
+	color: #fff;
+}
+
+.admin-task-readonly-gallery-slide img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.admin-task-readonly-gallery-fallback {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	padding: 24px;
+	color: #cbd5e1;
+	font-size: 12px;
+	text-align: center;
+}
+
+.admin-task-readonly-gallery-fallback[hidden] {
+	display: none;
+}
+
+.admin-task-readonly-gallery-fallback i {
+	font-size: 30px;
+}
+
+.admin-task-readonly-gallery-source {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	padding: 4px 8px;
+	border: 1px solid rgba(255, 255, 255, .3);
+	border-radius: 999px;
+	background: rgba(15, 23, 42, .78);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 700;
+	backdrop-filter: blur(4px);
+}
+
+.admin-task-readonly-gallery-caption {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	overflow: hidden;
+	padding: 24px 12px 9px;
+	background: linear-gradient(transparent, rgba(15, 23, 42, .86));
+	color: #fff;
+	font-size: 11px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.admin-task-readonly-gallery-nav {
+	position: absolute;
+	top: 50%;
+	z-index: 2;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	transform: translateY(-50%);
+	border: 1px solid rgba(255, 255, 255, .42);
+	border-radius: 50%;
+	background: rgba(15, 23, 42, .72);
+	color: #fff;
+	font-size: 21px;
+}
+
+.admin-task-readonly-gallery-nav:hover,
+.admin-task-readonly-gallery-nav:focus-visible {
+	background: rgba(64, 81, 137, .95);
+	color: #fff;
+}
+
+.admin-task-readonly-gallery-nav.is-prev {
+	left: 10px;
+}
+
+.admin-task-readonly-gallery-nav.is-next {
+	right: 10px;
+}
+
+.admin-task-readonly-gallery-dots {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: 5px;
+	margin-top: 8px;
+}
+
+.admin-task-readonly-gallery-dot {
+	width: 7px;
+	height: 7px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: #cbd5e1;
+}
+
+.admin-task-readonly-gallery-dot.is-active {
+	width: 18px;
+	border-radius: 999px;
+	background: #405189;
+}
+
+.admin-task-readonly-gallery-hint {
+	margin-top: 6px;
+	color: #64748b;
+	font-size: 10px;
+	text-align: center;
+}
+
+@media (max-width: 575.98px) {
+	.admin-task-readonly-gallery-slide {
+		aspect-ratio: 4 / 3;
+	}
+
+	.admin-task-readonly-gallery-nav {
+		width: 32px;
+		height: 32px;
+	}
 }

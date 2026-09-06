@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+	let suppressRowNavigationUntil = 0;
+
     document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('task-list-filter-form');
         const sortInput = document.getElementById('task-list-sort-value');
@@ -14,6 +16,7 @@
         initPagination(form);
         initOrderDetailToggle();
         initProductNameHighlight();
+		initTableHorizontalScroll();
         initRowNavigation();
     });
 
@@ -37,16 +40,16 @@
         document.querySelectorAll('.task-list-sort-buttons button').forEach(function (button) {
             button.addEventListener('click', function () {
                 const field = button.dataset.sortField;
-                const dir = button.dataset.sortDir;
-                if (!field || !dir) return;
+                const dir = String(button.dataset.sortDir || '').toLowerCase();
+                if (!field || (dir !== 'asc' && dir !== 'desc')) return;
 
                 const fieldIndex = specs.findIndex(function (item) { return item.field === field; });
-                if (fieldIndex >= 0 && specs[fieldIndex].dir === dir) {
-                    specs.splice(fieldIndex, 1);
-                } else if (fieldIndex >= 0) {
-                    specs[fieldIndex] = { field: field, dir: dir };
+				if (fieldIndex >= 0 && specs[fieldIndex].dir === dir) {
+					specs.splice(fieldIndex, 1);
+				} else if (fieldIndex >= 0) {
+					specs[fieldIndex] = { field: field, dir: dir };
                 } else {
-                    specs.push({ field: field, dir: dir });
+					specs.push({ field: field, dir: dir });
                 }
 
                 sortInput.value = specs.map(function (item) { return item.field + ':' + item.dir; }).join(',');
@@ -61,12 +64,20 @@
     function paintSortState(specs) {
         document.querySelectorAll('.task-list-sort-buttons button').forEach(function (button) {
             button.classList.remove('task-list-sort-active');
+			button.setAttribute('aria-pressed', 'false');
+			button.removeAttribute('data-active-direction');
+			const dir = String(button.dataset.sortDir || '').toLowerCase();
+			button.title = dir === 'desc' ? '내림차순 정렬 추가' : '오름차순 정렬 추가';
         });
         specs.forEach(function (spec, index) {
-            const button = document.querySelector('.task-list-sort-buttons button[data-sort-field="' + spec.field + '"][data-sort-dir="' + spec.dir + '"]');
+			const button = document.querySelector('.task-list-sort-buttons button[data-sort-field="' + spec.field
+				+ '"][data-sort-dir="' + spec.dir + '"]');
             if (!button) return;
             button.classList.add('task-list-sort-active');
-            button.title = (index + 1) + '순위 ' + (spec.dir === 'asc' ? '오름차순' : '내림차순') + ' / 다시 누르면 이 정렬만 해제';
+			button.setAttribute('aria-pressed', 'true');
+			button.dataset.activeDirection = spec.dir;
+			button.title = (index + 1) + '순위 ' + (spec.dir === 'asc' ? '오름차순' : '내림차순')
+				+ ' / 다시 누르면 이 정렬만 해제';
         });
     }
 
@@ -313,9 +324,115 @@
         element.replaceChildren(fragment);
     }
 
+	function initTableHorizontalScroll() {
+		const topScroll = document.getElementById('task-list-table-scroll-top');
+		const mainScroll = document.getElementById('task-list-table-scroll-main');
+		const spacer = document.getElementById('task-list-table-scroll-spacer');
+		const frame = document.getElementById('task-list-table-scroll-frame');
+		const table = mainScroll?.querySelector('.task-list-table');
+		const status = document.getElementById('task-list-horizontal-scroll-status');
+		if (!topScroll || !mainScroll || !spacer || !frame || !table) return;
+
+		let syncing = false;
+		const syncScroll = function (source, target) {
+			if (syncing) return;
+			syncing = true;
+			target.scrollLeft = source.scrollLeft;
+			syncing = false;
+			updateScrollState();
+		};
+
+		topScroll.addEventListener('scroll', function () { syncScroll(topScroll, mainScroll); }, { passive: true });
+		mainScroll.addEventListener('scroll', function () { syncScroll(mainScroll, topScroll); }, { passive: true });
+
+		function updateDimensions() {
+			spacer.style.width = Math.max(table.scrollWidth, mainScroll.clientWidth) + 'px';
+			const scrollable = table.scrollWidth > mainScroll.clientWidth + 2;
+			frame.classList.toggle('task-list-is-scrollable', scrollable);
+			topScroll.classList.toggle('d-none', !scrollable);
+			if (status) {
+				status.textContent = scrollable
+					? '상단·하단 스크롤바 또는 표 위 드래그로 이동하세요.'
+					: '현재 화면 너비에 모든 열이 표시됩니다.';
+			}
+			updateScrollState();
+		}
+
+		function updateScrollState() {
+			const max = Math.max(0, mainScroll.scrollWidth - mainScroll.clientWidth);
+			const atStart = mainScroll.scrollLeft <= 2;
+			const atEnd = mainScroll.scrollLeft >= max - 2;
+			frame.classList.toggle('task-list-scroll-at-start', atStart);
+			frame.classList.toggle('task-list-scroll-at-end', atEnd);
+			topScroll.setAttribute('aria-valuemin', '0');
+			topScroll.setAttribute('aria-valuemax', String(Math.round(max)));
+			topScroll.setAttribute('aria-valuenow', String(Math.round(mainScroll.scrollLeft)));
+		}
+
+		function bindDragScroll(scroller) {
+			let pointerId = null;
+			let startX = 0;
+			let startScrollLeft = 0;
+			let dragged = false;
+
+			scroller.addEventListener('pointerdown', function (event) {
+				if (event.button !== 0 || event.pointerType === 'touch') return;
+				if (event.target.closest('a, button, input, select, textarea, label')) return;
+				pointerId = event.pointerId;
+				startX = event.clientX;
+				startScrollLeft = scroller.scrollLeft;
+				dragged = false;
+				scroller.setPointerCapture?.(pointerId);
+			});
+
+			scroller.addEventListener('pointermove', function (event) {
+				if (pointerId !== event.pointerId) return;
+				const delta = event.clientX - startX;
+				if (!dragged && Math.abs(delta) < 5) return;
+				dragged = true;
+				event.preventDefault();
+				document.body.classList.add('task-list-is-dragging');
+				window.getSelection()?.removeAllRanges();
+				scroller.scrollLeft = startScrollLeft - delta;
+			});
+
+			const finish = function (event) {
+				if (pointerId == null || (event.pointerId != null && pointerId !== event.pointerId)) return;
+				if (dragged) suppressRowNavigationUntil = Date.now() + 350;
+				const finishedPointerId = pointerId;
+				pointerId = null;
+				dragged = false;
+				document.body.classList.remove('task-list-is-dragging');
+				try { scroller.releasePointerCapture?.(finishedPointerId); } catch (_) { /* 이미 해제된 포인터 */ }
+			};
+
+			scroller.addEventListener('pointerup', finish);
+			scroller.addEventListener('pointercancel', finish);
+			scroller.addEventListener('lostpointercapture', finish);
+		}
+
+		mainScroll.addEventListener('click', function (event) {
+			if (Date.now() >= suppressRowNavigationUntil) return;
+			event.preventDefault();
+			event.stopImmediatePropagation();
+		}, true);
+
+		bindDragScroll(topScroll);
+		bindDragScroll(mainScroll);
+		if (window.ResizeObserver) {
+			const observer = new ResizeObserver(updateDimensions);
+			observer.observe(table);
+			observer.observe(mainScroll);
+		} else {
+			window.addEventListener('resize', updateDimensions);
+		}
+		updateDimensions();
+	}
+
     function initRowNavigation() {
         document.querySelectorAll('.task-list-main-row[data-detail-url]').forEach(function (row) {
             row.addEventListener('click', function (event) {
+				if (Date.now() < suppressRowNavigationUntil) return;
                 if (event.target.closest('a, button, input, select, textarea, label')) return;
                 const url = row.dataset.detailUrl;
                 if (url) window.location.href = url;

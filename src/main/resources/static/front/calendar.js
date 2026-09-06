@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const WORK_WINDOW_DEFAULT_VISIBLE_COUNT = 5;
 
     let currentRange = null;
+	let customOverviewRange = null;
     let lastOverviewData = null;
     let overviewAbortController = null;
     let detailAbortController = null;
@@ -47,6 +48,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const toast = document.getElementById('index-main-toast');
     const workWindowContent = document.getElementById('index-main-work-window-content');
     const workWindowRefreshBtn = document.getElementById('index-main-work-window-refresh');
+	const overviewRangeForm = document.getElementById('index-main-overview-range-form');
+	const overviewFromInput = document.getElementById('index-main-overview-from');
+	const overviewToInput = document.getElementById('index-main-overview-to');
+	const scrollTopButton = document.getElementById('index-main-scroll-top');
 
     function getBasis() {
         const value = localStorage.getItem(LS_KEY);
@@ -159,12 +164,56 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function getViewRangeFromInfo(info) {
+		const view = info && info.view ? info.view : null;
         return {
-            start: String(info.startStr || '').slice(0, 10),
-            end: String(info.endStr || '').slice(0, 10),
+			start: formatDateInputValue(view && view.currentStart ? view.currentStart : info.start),
+			end: formatDateInputValue(view && view.currentEnd ? view.currentEnd : info.end),
             viewType: info.view ? info.view.type : ''
         };
     }
+
+	function formatDateInputValue(date) {
+		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
+	function getCalendarEventFetchRange(fetchInfo) {
+		const fetchStart = fetchInfo && fetchInfo.start instanceof Date ? fetchInfo.start : null;
+		const fetchEnd = fetchInfo && fetchInfo.end instanceof Date ? fetchInfo.end : null;
+		if (!fetchStart || !fetchEnd) return { start: '', end: '' };
+
+		if (mobileMode) {
+			return {
+				start: formatDateInputValue(fetchStart),
+				end: formatDateInputValue(fetchEnd)
+			};
+		}
+
+		/* 월간 뷰의 fetchInfo는 앞뒤 달의 빈 칸까지 포함하므로 가운데 날짜가 속한 달로 정확히 자릅니다. */
+		const middle = new Date((fetchStart.getTime() + fetchEnd.getTime()) / 2);
+		const monthStart = new Date(middle.getFullYear(), middle.getMonth(), 1, 12, 0, 0, 0);
+		const monthEnd = new Date(middle.getFullYear(), middle.getMonth() + 1, 1, 12, 0, 0, 0);
+		return {
+			start: formatDateInputValue(monthStart),
+			end: formatDateInputValue(monthEnd)
+		};
+	}
+
+	function addDaysToDateString(value, days) {
+		const date = parseLocalDate(value);
+		if (!date) return '';
+		date.setDate(date.getDate() + days);
+		return formatDateInputValue(date);
+	}
+
+	function syncOverviewRangeInputs(range) {
+		if (!range || !range.start || !range.end) return;
+		if (overviewFromInput) overviewFromInput.value = range.start;
+		if (overviewToInput) overviewToInput.value = addDaysToDateString(range.end, -1);
+	}
 
     function beginLoading(message) {
         loadingCount += 1;
@@ -308,7 +357,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="index-main-modal-section-grid">
                     <section class="index-main-modal-section">
                         <div class="index-main-modal-section-head">
-                            <span class="index-main-modal-section-icon index-main-modal-section-icon-product"></span>
+                            <span class="index-main-modal-section-icon index-main-modal-section-icon-product" aria-hidden="true"><i class="fa-solid fa-box-open"></i></span>
                             <div>
                                 <h5>제품 정보</h5>
                                 <p>접수된 제품과 증상 정보입니다.</p>
@@ -325,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     <section class="index-main-modal-section">
                         <div class="index-main-modal-section-head">
-                            <span class="index-main-modal-section-icon index-main-modal-section-icon-customer"></span>
+                            <span class="index-main-modal-section-icon index-main-modal-section-icon-customer" aria-hidden="true"><i class="fa-solid fa-location-dot"></i></span>
                             <div>
                                 <h5>고객 · 현장 정보</h5>
                                 <p>현장 방문에 필요한 기본 정보입니다.</p>
@@ -342,7 +391,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     <section class="index-main-modal-section">
                         <div class="index-main-modal-section-head">
-                            <span class="index-main-modal-section-icon index-main-modal-section-icon-handler"></span>
+                            <span class="index-main-modal-section-icon index-main-modal-section-icon-handler" aria-hidden="true"><i class="fa-solid fa-user-gear"></i></span>
                             <div>
                                 <h5>AS 담당자</h5>
                                 <p>현재 배정된 담당자 정보입니다.</p>
@@ -430,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (list.length === 0) {
             modalBody.innerHTML = `
                 <div class="index-main-empty-state index-main-empty-state-modal">
-                    <span class="index-main-empty-icon"></span>
+                    <span class="index-main-empty-icon" aria-hidden="true"><i class="fa-regular fa-calendar-xmark"></i></span>
                     <strong>이 날짜에는 표시할 일정이 없습니다.</strong>
                     <p>다른 날짜를 선택하거나 조회 기준을 변경해 주세요.</p>
                 </div>
@@ -619,7 +668,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     ${visibleItems.map((item, index) => renderWorkItem(item, index, config.recent)).join('')}
                     ${items.length === 0 ? `
                         <div class="index-main-work-empty">
-                            <span class="index-main-work-empty-icon"></span>
+                            <span class="index-main-work-empty-icon" aria-hidden="true"><i class="fa-regular fa-calendar-check"></i></span>
                             <strong>${config.recent ? '최근 완료된 업무가 없습니다.' : '앞으로 7일 내 예정된 업무가 없습니다.'}</strong>
                             <p>${config.recent ? '배송완료 또는 AS 완료 데이터가 생기면 여기에 표시됩니다.' : '배송희망일 또는 AS 방문 일정이 등록되면 여기에 표시됩니다.'}</p>
                         </div>
@@ -632,7 +681,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 data-index-main-work-more="${escapeHtml(config.key)}"
                                 aria-expanded="${expanded ? 'true' : 'false'}">
                             <span>${expanded ? '접기' : `더보기 · ${formatNumber(items.length - WORK_WINDOW_DEFAULT_VISIBLE_COUNT)}건`}</span>
-                            <span class="index-main-more-chevron ${expanded ? 'index-main-is-expanded' : ''}" aria-hidden="true"></span>
+                            <i class="fa-solid fa-chevron-down index-main-more-chevron ${expanded ? 'index-main-is-expanded' : ''}" aria-hidden="true"></i>
                         </button>
                     ` : `<span class="index-main-rank-total">표시된 업무 ${formatNumber(items.length)}건</span>`}
                 </footer>
@@ -787,6 +836,17 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
     }
 
+    function rankIconClass(iconClass) {
+        const icons = {
+            'index-main-rank-icon-category': 'fa-solid fa-layer-group',
+            'index-main-rank-icon-region': 'fa-solid fa-location-dot',
+            'index-main-rank-icon-method': 'fa-solid fa-truck-fast',
+            'index-main-rank-icon-product': 'fa-solid fa-box-open',
+            'index-main-rank-icon-billing': 'fa-solid fa-file-invoice-dollar'
+        };
+        return icons[iconClass] || 'fa-solid fa-chart-bar';
+    }
+
     function renderRankCard(config) {
         const items = Array.isArray(config.items) ? config.items : [];
         const expanded = expandedOverviewKeys.has(config.key);
@@ -802,7 +862,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         <h4>${escapeHtml(config.title)}</h4>
                         <p>${escapeHtml(config.subtitle || '')}</p>
                     </div>
-                    <span class="index-main-rank-card-icon ${escapeHtml(config.iconClass || '')}"></span>
+                    <span class="index-main-rank-card-icon ${escapeHtml(config.iconClass || '')}" aria-hidden="true">
+                        <i class="${rankIconClass(config.iconClass)}"></i>
+                    </span>
                 </div>
 
                 <div class="index-main-rank-list ${expanded ? 'index-main-is-expanded' : ''}">
@@ -825,7 +887,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     ${items.length === 0 ? `
                         <div class="index-main-rank-empty">
-                            <span class="index-main-rank-empty-icon"></span>
+                            <span class="index-main-rank-empty-icon" aria-hidden="true"><i class="fa-regular fa-folder-open"></i></span>
                             <p>집계할 데이터가 없습니다.</p>
                         </div>
                     ` : ''}
@@ -838,7 +900,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 data-index-main-overview-more="${escapeHtml(config.key)}"
                                 aria-expanded="${expanded ? 'true' : 'false'}">
                             <span>${expanded ? '접기' : `더보기 · ${formatNumber(items.length - OVERVIEW_DEFAULT_VISIBLE_COUNT)}개`}</span>
-                            <span class="index-main-more-chevron ${expanded ? 'index-main-is-expanded' : ''}" aria-hidden="true"></span>
+                            <i class="fa-solid fa-chevron-down index-main-more-chevron ${expanded ? 'index-main-is-expanded' : ''}" aria-hidden="true"></i>
                         </button>
                     ` : `
                         <span class="index-main-rank-total">전체 ${formatNumber(items.length)}개 항목</span>
@@ -863,7 +925,7 @@ document.addEventListener('DOMContentLoaded', function () {
         overviewContent.innerHTML = `
             <div class="index-main-kpi-grid">
                 <article class="index-main-kpi-card index-main-kpi-card-order">
-                    <div class="index-main-kpi-icon index-main-kpi-icon-order"></div>
+                    <div class="index-main-kpi-icon index-main-kpi-icon-order" aria-hidden="true"><i class="fa-solid fa-file-invoice"></i></div>
                     <div>
                         <span>발주서</span>
                         <strong>${formatNumber(orderTaskCount)}<small>건</small></strong>
@@ -872,7 +934,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </article>
 
                 <article class="index-main-kpi-card index-main-kpi-card-as">
-                    <div class="index-main-kpi-icon index-main-kpi-icon-as"></div>
+                    <div class="index-main-kpi-icon index-main-kpi-icon-as" aria-hidden="true"><i class="fa-solid fa-screwdriver-wrench"></i></div>
                     <div>
                         <span>AS</span>
                         <strong>${formatNumber(asCount)}<small>건</small></strong>
@@ -881,7 +943,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </article>
 
                 <article class="index-main-kpi-card index-main-kpi-card-money">
-                    <div class="index-main-kpi-icon index-main-kpi-icon-money"></div>
+                    <div class="index-main-kpi-icon index-main-kpi-icon-money" aria-hidden="true"><i class="fa-solid fa-won-sign"></i></div>
                     <div>
                         <span>발주 총 금액</span>
                         <strong class="index-main-kpi-money-value">${formatCurrency(order.totalAmount || 0)}</strong>
@@ -890,7 +952,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </article>
 
                 <article class="index-main-kpi-card index-main-kpi-card-total">
-                    <div class="index-main-kpi-icon index-main-kpi-icon-total"></div>
+                    <div class="index-main-kpi-icon index-main-kpi-icon-total" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div>
                     <div>
                         <span>조회기간 금액 합계</span>
                         <strong class="index-main-kpi-money-value">${formatCurrency(totalAmount)}</strong>
@@ -904,7 +966,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div>
                         <span class="index-main-domain-kicker">ORDER INSIGHT</span>
                         <h3>발주 오버뷰</h3>
-                        <p>현재 달력 기간에 포함된 발주서와 오더를 상태, 옵션 카테고리, 배송 정보로 정리했습니다.</p>
+                        <p>현재 조회기간에 포함된 발주서와 오더를 상태, 옵션 카테고리, 배송 정보로 정리했습니다.</p>
                     </div>
                     <div class="index-main-domain-summary">
                         <span>발주서 <strong>${formatNumber(orderTaskCount)}</strong></span>
@@ -1033,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (overviewContent) overviewContent.classList.add('index-main-is-refreshing');
 
         const basis = getBasis();
-        beginLoading('현재 달력 기간의 오버뷰를 계산하는 중입니다.');
+		beginLoading('선택한 조회 기간의 오버뷰를 계산하는 중입니다.');
 
         try {
             const url = `/api/v1/calendar/overview?basis=${encodeURIComponent(basis)}`
@@ -1117,7 +1179,7 @@ document.addEventListener('DOMContentLoaded', function () {
             html: `
                 <div class="index-main-calendar-event ${isAs ? 'index-main-calendar-event-as' : 'index-main-calendar-event-task'}"
                      aria-label="${label} ${count}건">
-                    <span class="index-main-calendar-event-icon" aria-hidden="true"></span>
+                    <i class="fa-solid ${isAs ? 'fa-screwdriver-wrench' : 'fa-clipboard-list'} index-main-calendar-event-icon" aria-hidden="true"></i>
                     <span class="index-main-calendar-event-label">${label}</span>
                     <sup class="index-main-calendar-event-count">${formatNumber(count)}</sup>
                 </div>
@@ -1133,7 +1195,7 @@ document.addEventListener('DOMContentLoaded', function () {
         selectable: false,
         height: 'auto',
         fixedWeekCount: false,
-        showNonCurrentDates: true,
+		showNonCurrentDates: false,
         dayMaxEvents: false,
         navLinks: false,
         eventDisplay: 'block',
@@ -1149,6 +1211,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         datesSet: function (info) {
             currentRange = getViewRangeFromInfo(info);
+			customOverviewRange = null;
+			syncOverviewRangeInputs(currentRange);
             expandedOverviewKeys.clear();
             expandedWorkWindowKeys.clear();
             if (lastWorkWindowData) renderWorkWindow(lastWorkWindowData);
@@ -1164,8 +1228,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         events: function (fetchInfo, successCallback, failureCallback) {
             const basis = getBasis();
-            const start = String(fetchInfo.startStr || '').slice(0, 10);
-            const end = String(fetchInfo.endStr || '').slice(0, 10);
+			const eventRange = getCalendarEventFetchRange(fetchInfo);
+			const start = eventRange.start;
+			const end = eventRange.end;
 
             const url = `/api/v1/calendar/events?basis=${encodeURIComponent(basis)}`
                 + `&start=${encodeURIComponent(start)}`
@@ -1223,7 +1288,8 @@ document.addEventListener('DOMContentLoaded', function () {
         showToast(`${getBasisText(nextBasis)}으로 전환했습니다.`, 'info');
 
         calendar.refetchEvents();
-        if (currentRange) loadOverview(currentRange, true);
+		const activeOverviewRange = customOverviewRange || currentRange;
+		if (activeOverviewRange) loadOverview(activeOverviewRange, true);
     }
 
     if (btnReq) {
@@ -1245,6 +1311,37 @@ document.addEventListener('DOMContentLoaded', function () {
     if (prevBtn) prevBtn.addEventListener('click', () => calendar.prev());
     if (nextBtn) nextBtn.addEventListener('click', () => calendar.next());
     if (todayBtn) todayBtn.addEventListener('click', () => calendar.today());
+
+	if (overviewRangeForm) {
+		overviewRangeForm.addEventListener('submit', function (event) {
+			event.preventDefault();
+			const start = String(overviewFromInput?.value || '');
+			const endInclusive = String(overviewToInput?.value || '');
+			if (!start || !endInclusive) {
+				showToast('FROM과 TO 날짜를 모두 선택해 주세요.', 'error');
+				return;
+			}
+			if (start > endInclusive) {
+				showToast('FROM 날짜는 TO 날짜보다 늦을 수 없습니다.', 'error');
+				overviewFromInput?.focus();
+				return;
+			}
+
+			customOverviewRange = {
+				start: start,
+				end: addDaysToDateString(endInclusive, 1),
+				viewType: 'custom'
+			};
+			expandedOverviewKeys.clear();
+			loadOverview(customOverviewRange, true);
+		});
+	}
+
+	if (scrollTopButton) {
+		scrollTopButton.addEventListener('click', function () {
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+		});
+	}
 
     // =========================================================
     // 모달 닫기

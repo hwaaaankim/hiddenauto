@@ -142,6 +142,8 @@ public class AmountExcelAdminController {
 
     @GetMapping("/sales-voucher-download")
     public void downloadSalesVoucher(@RequestParam(required = false) String keyword,
+                                     @RequestParam(required = false) String orderIdFrom,
+                                     @RequestParam(required = false) String orderIdTo,
                                      @RequestParam(required = false) String orderId,
                                      @RequestParam(required = false) String productName,
                                      @RequestParam(required = false, defaultValue = "all") String dateCriteria,
@@ -155,6 +157,8 @@ public class AmountExcelAdminController {
                                      HttpServletResponse response) throws IOException {
         salesVoucherExportService.downloadSalesVoucher(
                 keyword,
+                orderIdFrom,
+                orderIdTo,
                 orderId,
                 productName,
                 dateCriteria,

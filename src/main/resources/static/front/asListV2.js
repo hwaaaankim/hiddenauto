@@ -64,7 +64,10 @@
     function paintSortState(specs) {
         document.querySelectorAll('.as-list-sort-buttons button').forEach(function (button) {
             button.classList.remove('as-list-sort-active');
+			button.setAttribute('aria-pressed', 'false');
             button.removeAttribute('data-sort-order');
+			const dir = String(button.dataset.sortDir || '').toLowerCase();
+			button.title = dir === 'desc' ? '내림차순 정렬 추가' : '오름차순 정렬 추가';
         });
 
         specs.forEach(function (spec, index) {
@@ -73,6 +76,7 @@
             const button = document.querySelector(selector);
             if (!button) return;
             button.classList.add('as-list-sort-active');
+			button.setAttribute('aria-pressed', 'true');
             button.dataset.sortOrder = String(index + 1);
             button.title = (index + 1) + '순위 ' + (spec.dir === 'asc' ? '오름차순' : '내림차순') + ' / 다시 누르면 이 정렬만 해제';
         });

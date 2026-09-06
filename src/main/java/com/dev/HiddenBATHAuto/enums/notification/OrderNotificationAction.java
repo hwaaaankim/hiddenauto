@@ -22,7 +22,9 @@ public enum OrderNotificationAction {
     DISPATCH_COMPLETE("출고완료"),
     ADMIN_REQUEST("관리자요청"),
     DELIVERY_HANDLER_CHANGE("배송 담당자 변경"),
-    DELIVERY_METHOD_CHANGE("배송수단 변경");
+    DELIVERY_METHOD_CHANGE("배송수단 변경"),
+    DELIVERY_ADDRESS_CHANGE("배송주소 변경"),
+    DELIVERY_COST_CHANGE("배송비 변경");
 
     private final String label;
 

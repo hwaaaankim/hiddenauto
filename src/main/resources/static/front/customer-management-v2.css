@@ -309,19 +309,30 @@
 .as-list-sort-buttons,
 .task-list-sort-buttons {
     display: inline-flex;
-    gap: 1px;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+	vertical-align: middle;
 }
 
 .as-list-sort-buttons button,
 .task-list-sort-buttons button {
-    width: 16px;
-    height: 18px;
+    width: 18px;
+    height: 14px;
     padding: 0;
     border: 0;
     background: transparent;
     color: #b1b8c0;
-    font-size: 10px;
-    line-height: 18px;
+    font-size: 9px;
+    line-height: 14px;
+}
+
+.task-list-sort-buttons button {
+	width: 18px;
+	height: 14px;
+	font-size: 10px;
+	line-height: 14px;
 }
 
 .as-list-sort-buttons button:hover,
@@ -936,24 +947,39 @@
     border: 0;
 }
 
-.task-list-order-detail-facts span,
-.task-list-order-detail-address span,
-.task-list-order-detail-comment > span {
+.task-list-order-detail-facts span {
     display: block;
     margin-bottom: 3px;
     color: #8a949f;
-    font-size: 8.5px;
+	font-size: 9.5px;
     font-weight: 750;
 }
 
-.task-list-order-detail-facts strong,
-.task-list-order-detail-address strong {
+.task-list-order-detail-facts strong {
     display: block;
     min-width: 0;
     color: #39434d;
-    font-size: 10px;
+	font-size: 12px;
     font-weight: 750;
     overflow-wrap: anywhere;
+}
+
+.task-list-order-detail-address span,
+.task-list-order-detail-comment > span {
+	display: block;
+	margin-bottom: 3px;
+	color: #8a949f;
+	font-size: 8.5px;
+	font-weight: 750;
+}
+
+.task-list-order-detail-address strong {
+	display: block;
+	min-width: 0;
+	color: #39434d;
+	font-size: 10px;
+	font-weight: 750;
+	overflow-wrap: anywhere;
 }
 
 .task-list-order-detail-address,
@@ -968,6 +994,7 @@
     margin: 0;
     color: #46515c;
     font-size: 10px;
+	font-weight: 800;
     line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -1760,4 +1787,173 @@
     border-radius: 5px;
     font-size: 12px;
     font-weight: 800;
+}
+
+/* =========================================================
+   Customer task list horizontal navigation
+   - table-only overflow containment
+   - synchronized top/bottom scrollbars and mouse drag
+========================================================= */
+body.task-list-body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden !important;
+}
+
+#page.task-list-page,
+.task-list-page .page-content,
+.task-list-page .task-list-table-panel {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#page.task-list-page,
+.task-list-page .page-content {
+    overflow-x: clip;
+}
+
+.task-list-horizontal-scroll-guide {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 34px;
+    padding: 7px 12px;
+    border-bottom: 1px solid #e5e9ee;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.task-list-horizontal-scroll-guide span {
+    color: #1d4ed8;
+    white-space: nowrap;
+}
+
+.task-list-horizontal-scroll-guide small {
+    color: #64748b;
+    font-size: 10px;
+    text-align: right;
+}
+
+.task-list-table-scroll-top,
+.task-list-table-scroll-main {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: scroll;
+    overscroll-behavior-x: contain;
+    scrollbar-color: #64748b #e8edf3;
+    scrollbar-width: auto;
+}
+
+.task-list-table-scroll-top {
+    height: 17px;
+    overflow-y: hidden;
+    border-bottom: 1px solid #dde3ea;
+    background: #f3f6f9;
+}
+
+.task-list-table-scroll-spacer {
+    height: 1px;
+}
+
+.task-list-table-scroll-frame {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.task-list-table-scroll-main {
+    position: relative;
+    overflow-y: visible;
+    cursor: grab;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+}
+
+.task-list-table-scroll-main:active,
+.task-list-table-scroll-top:active,
+body.task-list-is-dragging .task-list-table-scroll-main,
+body.task-list-is-dragging .task-list-table-scroll-top {
+    cursor: grabbing;
+}
+
+body.task-list-is-dragging,
+body.task-list-is-dragging * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+.task-list-table-scroll-top::-webkit-scrollbar,
+.task-list-table-scroll-main::-webkit-scrollbar {
+    height: 13px;
+}
+
+.task-list-table-scroll-top::-webkit-scrollbar-track,
+.task-list-table-scroll-main::-webkit-scrollbar-track {
+    border-radius: 999px;
+    background: #e8edf3;
+}
+
+.task-list-table-scroll-top::-webkit-scrollbar-thumb,
+.task-list-table-scroll-main::-webkit-scrollbar-thumb {
+    min-width: 64px;
+    border: 2px solid #e8edf3;
+    border-radius: 999px;
+    background: #64748b;
+}
+
+.task-list-scroll-edge {
+    position: absolute;
+    top: 44px;
+    z-index: 4;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 46px;
+    border: 1px solid rgba(37, 99, 235, .22);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, .94);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .13);
+    color: #2563eb;
+    pointer-events: none;
+}
+
+.task-list-scroll-edge-left {
+    left: 7px;
+}
+
+.task-list-scroll-edge-right {
+    right: 7px;
+}
+
+.task-list-table-scroll-frame.task-list-is-scrollable .task-list-scroll-edge {
+    display: inline-flex;
+}
+
+.task-list-table-scroll-frame.task-list-scroll-at-start .task-list-scroll-edge-left,
+.task-list-table-scroll-frame.task-list-scroll-at-end .task-list-scroll-edge-right {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .task-list-horizontal-scroll-guide {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .task-list-horizontal-scroll-guide small {
+        text-align: left;
+    }
+
+    .task-list-scroll-edge {
+        top: 40px;
+        width: 24px;
+        height: 40px;
+    }
 }

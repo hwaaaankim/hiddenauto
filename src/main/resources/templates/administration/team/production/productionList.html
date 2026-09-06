@@ -5,7 +5,7 @@
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel team-production-list-page">
 
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
@@ -34,9 +34,9 @@
 					<!-- ===== 필터 ===== -->
 					<form method="get" th:action="@{/team/productionList}" class="row" id="team-production-filter-form">
 						<div class="col-lg-12">
-							<div class="row g-3 mb-3 align-items-end">
-								<div class="col-lg-4 col-xl-4">
-									<label class="form-label">오더ID 범위 <span class="form-text">(FROM만 입력시 이상, TO만 입력시 이하, 단건은 해당오더.)</span></label>
+							<div class="row g-3 mb-3 team-production-filter-grid">
+								<div class="col-lg-4 col-xl-4 team-production-filter-order">
+									<label class="form-label">오더ID 범위</label>
 									
 									<div class="d-flex align-items-center gap-2">
 										<input type="number" name="orderIdFrom" class="form-control w-100"
@@ -47,15 +47,23 @@
 											id="team-production-orderIdTo" min="1" step="1" inputmode="numeric"
 											placeholder="TO" th:value="${orderIdTo != null ? orderIdTo : ''}">
 									</div>
-									
+									<div class="form-text">FROM만: 이상 / TO만: 이하 / 단건: 같은 값</div>
 								</div>
-								<div class="col-lg-4 col-xl-4">
-									<label class="form-label">제품명</label>
-									<input type="text" name="productName" class="form-control w-100"
-										id="team-production-productName" maxlength="100" placeholder="제품명 포함검색"
-										th:value="${productName != null ? productName : ''}">
+								<div class="col-lg-4 col-xl-4 team-production-filter-keyword">
+									<label class="form-label">키워드 조회</label>
+									<div class="team-production-keyword-controls">
+										<select name="keywordType" class="form-select team-production-keyword-type"
+											id="team-production-keywordType" aria-label="키워드 구분">
+											<option value="PRODUCT_NAME" th:selected="${keywordType == null or keywordType == 'PRODUCT_NAME'}">제품명 포함</option>
+											<option value="SIZE" th:selected="${keywordType == 'SIZE'}">사이즈 포함</option>
+											<option value="COMPANY_NAME" th:selected="${keywordType == 'COMPANY_NAME'}">업체명 포함</option>
+										</select>
+										<input type="text" name="keyword" class="form-control team-production-keyword-input"
+											id="team-production-keyword" maxlength="100" placeholder="검색어를 입력하세요"
+											th:value="${keyword != null ? keyword : ''}">
+									</div>
 								</div>
-								<div class="col-lg-2 col-xl-2">
+								<div class="col-lg-2 col-xl-2 team-production-filter-category">
 									<label class="form-label">제품분류</label>
 									<select name="productCategoryId" class="form-control w-100"
 										id="team-production-productCategoryId">
@@ -81,7 +89,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-2 col-xl-2">
+								<div class="col-lg-2 col-xl-2 team-production-filter-date-type">
 									<label class="form-label">날짜 기준</label>
 									<select name="dateType" class="form-control w-100" id="team-production-dateType">
 										<option value="preferred"
@@ -94,18 +102,40 @@
 									</select>
 								</div>
 
-								<div class="col-lg-4 col-xl-4">
+								<div class="col-lg-8 col-xl-7 col-xxl-6 team-production-filter-date">
 									<label class="form-label">날짜조회</label>
-									<div class="d-flex gap-2">
-										<input type="date" name="startDate" class="form-control" placeholder="시작일"
-											th:value="${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : ''}">
-
-										<input type="date" name="endDate" class="form-control" placeholder="종료일"
-											th:value="${endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : ''}">
+									<div class="team-production-date-control-line">
+										<div class="team-production-date-single-control" role="group" aria-label="단일 날짜 조회">
+											<button type="button" class="btn btn-outline-primary team-production-date-step" data-day-step="-1"
+												aria-label="하루 전 조회" title="하루 전 조회"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+											<input type="date" id="team-production-singleDate" class="form-control"
+												aria-label="단일 조회일" th:value="${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : (endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : '')}">
+											<button type="button" class="btn btn-outline-primary team-production-date-step" data-day-step="1"
+												aria-label="하루 후 조회" title="하루 후 조회"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+											<button type="button" class="btn btn-outline-secondary" id="team-production-range-toggle"
+												aria-controls="team-production-range-fields" th:attr="aria-expanded=${dateRangeMode}">범위검색</button>
+										</div>
+										<div id="team-production-range-fields" class="team-production-range-fields"
+											th:classappend="${dateRangeMode} ? '' : ' d-none'">
+											<div class="filter-range-panel-field">
+												<label for="team-production-startDate">FROM</label>
+												<input type="date" name="startDate" id="team-production-startDate" class="form-control"
+													th:value="${startDate != null ? #temporals.format(startDate,'yyyy-MM-dd') : ''}">
+											</div>
+											<span class="filter-range-panel-divider" aria-hidden="true">~</span>
+											<div class="filter-range-panel-field">
+												<label for="team-production-endDate">TO</label>
+												<input type="date" name="endDate" id="team-production-endDate" class="form-control"
+													th:value="${endDate != null ? #temporals.format(endDate,'yyyy-MM-dd') : ''}">
+											</div>
+											<button type="submit" class="btn btn-primary filter-range-panel-submit">
+												<i class="ri-search-line" aria-hidden="true"></i> 조회
+											</button>
+										</div>
 									</div>
 								</div>
 
-								<div class="col-lg-2 col-xl-2">
+								<div class="col-lg-2 col-xl-2 team-production-filter-status">
 									<label class="form-label">상태</label>
 									<select name="statusFilter" class="form-control w-100"
 										id="team-production-statusFilter">
@@ -134,7 +164,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-2 col-xl-2">
+								<div class="col-lg-2 col-xl-2 team-production-filter-standard">
 									<label class="form-label">규격 구분</label>
 									<select name="standardType" class="form-control w-100"
 										id="team-production-standardType">
@@ -151,7 +181,7 @@
 									</select>
 								</div>
 
-								<div class="col-lg-2 col-xl-2">
+								<div class="col-lg-2 col-xl-2 team-production-filter-size">
 									<label class="form-label">표시</label>
 									<select name="size" class="form-control w-100" id="team-production-size">
 										<option value="100" th:selected="${size == 100}">100</option>
@@ -162,9 +192,9 @@
 									</select>
 								</div>
 
-								<div class="col-lg-2 col-xl-2">
+								<div class="col-lg-2 col-xl-2 team-production-filter-actions">
 									<label class="form-label">조회 / 초기화</label>
-									<div class="d-flex flex-wrap gap-2">
+									<div class="team-production-filter-action-row">
 										<button type="submit" class="btn btn-primary" id="team-production-search-btn">
 											검색
 										</button>
@@ -181,7 +211,7 @@
 									</div>
 								</div>
 
-								<div class="col-lg-12 col-xl-12">
+								<div class="col-lg-12 col-xl-12 team-production-filter-operations">
 									<label class="form-label">&nbsp;</label>
 									<div class="team-production-overview-action-group">
 										<button type="button" class="btn btn-success" id="team-production-bulk-done-btn"
@@ -250,7 +280,19 @@
 								</div>
 							</div>
 
-							<div class="table-responsive">
+							<div class="team-production-horizontal-scroll-guide">
+								<i class="ri-drag-move-2-line" aria-hidden="true"></i>
+								<small id="team-production-horizontal-scroll-status">표의 숨겨진 열은 상·하단 스크롤바 또는 드래그로 확인할 수 있습니다.</small>
+							</div>
+							<div class="team-production-table-scroll team-production-table-scroll-top d-none"
+								id="team-production-table-scroll-top" role="scrollbar" tabindex="0"
+								aria-controls="team-production-table-scroll-main" aria-label="생산 목록 상단 가로 스크롤">
+								<div id="team-production-table-scroll-spacer" class="team-production-table-scroll-spacer"></div>
+							</div>
+							<div class="team-production-table-scroll-frame" id="team-production-table-scroll-frame">
+								<span class="team-production-scroll-edge team-production-scroll-edge-left" aria-hidden="true"><i class="ri-arrow-left-s-line"></i></span>
+								<div class="table-responsive team-production-table-scroll team-production-table-scroll-main"
+									id="team-production-table-scroll-main" tabindex="0" aria-label="생산 목록 표 가로 스크롤 영역">
 								<table class="table table-hover align-middle mb-0 team-production-table"
 									id="team-production-table">
 
@@ -575,6 +617,8 @@
 										</th:block>
 									</tbody>
 								</table>
+								</div>
+								<span class="team-production-scroll-edge team-production-scroll-edge-right" aria-hidden="true"><i class="ri-arrow-right-s-line"></i></span>
 							</div>
 						</div>
 					</div>
@@ -595,6 +639,8 @@
                         orderIdFrom=${orderIdFrom},
                         orderIdTo=${orderIdTo},
                         productName=${productName},
+						keywordType=${keywordType},
+						keyword=${keyword},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
                         dateType=${dateType},
@@ -614,6 +660,8 @@
                         orderIdFrom=${orderIdFrom},
                         orderIdTo=${orderIdTo},
                         productName=${productName},
+						keywordType=${keywordType},
+						keyword=${keyword},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
                         dateType=${dateType},
@@ -634,6 +682,8 @@
                         orderIdFrom=${orderIdFrom},
                         orderIdTo=${orderIdTo},
                         productName=${productName},
+						keywordType=${keywordType},
+						keyword=${keyword},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
                         dateType=${dateType},
@@ -653,6 +703,8 @@
                         orderIdFrom=${orderIdFrom},
                         orderIdTo=${orderIdTo},
                         productName=${productName},
+						keywordType=${keywordType},
+						keyword=${keyword},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
                         dateType=${dateType},
@@ -672,6 +724,8 @@
                         orderIdFrom=${orderIdFrom},
                         orderIdTo=${orderIdTo},
                         productName=${productName},
+						keywordType=${keywordType},
+						keyword=${keyword},
                         productCategoryId=${productCategoryId},
                         standardType=${standardType},
                         dateType=${dateType},
@@ -1328,20 +1382,21 @@
 			managementImageUrlPrefix: /*[[@{/team/productionList/}]]*/ "/team/productionList/",
 			excelUrl: /*[[@{/team/productionList/excel}]]*/ "/team/productionList/excel",
             printUrl: /*[[@{/team/productionList/print}]]*/ "/team/productionList/print",
-            productNameKeyword: /*[[${productName != null ? productName : ''}]]*/ "",
+			keywordType: /*[[${keywordType != null ? keywordType : 'PRODUCT_NAME'}]]*/ "PRODUCT_NAME",
+			productNameKeyword: /*[[${keyword != null ? keyword : ''}]]*/ "",
 			cuttingUrl: /*[[@{/team/productionList/cutting}]]*/ "/team/productionList/cutting",
 			canCompleteProduction: /*[[${canBulkComplete}]]*/ false,
 			isCuttingProductionMember: /*[[${isCuttingProductionMember}]]*/ false
 		};
 	</script>
 
-	<script th:src="@{/administration/assets/team/production/productionList.js(v='20260827-1')}"></script>
-	<script th:src="@{/administration/assets/team/production/productionPrint.js(v='20260827-1')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionList.js(v='20260906-5')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionPrint.js(v='20260906-1')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOrderCheck.js}"></script>
 	<script th:src="@{/administration/assets/team/production/productionListDetail.js(v='20260809-3')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOverview.js(v='20260809-3')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionOverviewList.js(v='20260809-3')}"></script>
-	<script th:src="@{/administration/assets/team/production/productionListImageExcel.js(v='20260824-1')}"></script>
+	<script th:src="@{/administration/assets/team/production/productionListImageExcel.js(v='20260906-1')}"></script>
 	<script th:src="@{/administration/assets/team/production/productionCuttingOpen.js}"></script>
 
 </body>

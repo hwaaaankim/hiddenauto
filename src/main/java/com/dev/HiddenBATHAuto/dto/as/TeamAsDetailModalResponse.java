@@ -30,6 +30,7 @@ public class TeamAsDetailModalResponse {
     private String requestedAt;
 
     private List<ImageItem> resultImages = new ArrayList<>();
+    private List<VideoItem> requestVideos = new ArrayList<>();
 
     @Getter
     @Setter
@@ -37,5 +38,14 @@ public class TeamAsDetailModalResponse {
         private Long id;
         private String filename;
         private String url;
+    }
+
+    @Getter
+    @Setter
+    public static class VideoItem {
+        private Long id;
+        private String filename;
+        private String url;
+        private String contentType;
     }
 }

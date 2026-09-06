@@ -17,7 +17,10 @@
     // 제품명 검색어 밑줄 표시
     // =========================================================
     function highlightProductNameMatches() {
-        const keyword = String(config.productNameKeyword || getFieldValue('productName') || '').trim();
+        const keywordType = String(config.keywordType || getFieldValue('keywordType') || 'PRODUCT_NAME').trim().toUpperCase();
+        if (keywordType !== 'PRODUCT_NAME') return;
+
+        const keyword = String(config.productNameKeyword || getFieldValue('keyword') || '').trim();
         if (!keyword) return;
 
         const lowerKeyword = keyword.toLocaleLowerCase('ko-KR');

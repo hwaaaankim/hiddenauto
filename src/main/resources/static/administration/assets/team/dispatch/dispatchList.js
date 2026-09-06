@@ -75,6 +75,7 @@
 		els.keyword = document.getElementById('dispatch-list-keyword');
 		els.productCategoryId = document.getElementById('dispatch-list-product-category-id');
 		els.standard = document.getElementById('dispatch-list-standard');
+		els.status = document.getElementById('dispatch-list-status');
 		els.orderDate = document.getElementById('dispatch-list-order-date');
 		els.orderIdFrom = document.getElementById('dispatch-list-order-id-from');
 		els.orderIdTo = document.getElementById('dispatch-list-order-id-to');
@@ -102,6 +103,7 @@
 		els.modalKeyword = document.getElementById('dispatch-list-modal-keyword');
 		els.modalProductCategoryId = document.getElementById('dispatch-list-modal-product-category-id');
 		els.modalStandard = document.getElementById('dispatch-list-modal-standard');
+		els.modalStatus = document.getElementById('dispatch-list-modal-status');
 		els.modalOrderDate = document.getElementById('dispatch-list-modal-order-date');
 		els.modalOrderIdFrom = document.getElementById('dispatch-list-modal-order-id-from');
 		els.modalOrderIdTo = document.getElementById('dispatch-list-modal-order-id-to');
@@ -205,6 +207,15 @@
 		});
 
 		els.resetBtn.addEventListener('click', resetFilters);
+
+		document.querySelectorAll('[data-dispatch-date-step][data-date-target]').forEach(function(button) {
+			button.addEventListener('click', function() {
+				const target = document.getElementById(button.dataset.dateTarget || '');
+				if (!target) return;
+				target.value = shiftIsoDate(valueOf(target) || valueOf(els.today), Number(button.dataset.dispatchDateStep));
+				if (button.dataset.autoSearch === 'true') searchOrders(true);
+			});
+		});
 
 		els.keyword.addEventListener('keydown', function(event) {
 			if (event.key === 'Enter') {
@@ -542,6 +553,7 @@
 	function buildSearchPayload() {
 		const orderIdFrom = validatePositiveOrderId(valueOf(els.orderIdFrom), 'Order ID From');
 		const orderIdTo = validatePositiveOrderId(valueOf(els.orderIdTo), 'Order ID To');
+		const deliveryMethodValue = valueOf(els.deliveryMethodId);
 		if (orderIdFrom !== null && orderIdTo !== null && orderIdFrom > orderIdTo) {
 			throw new Error('Order ID From은 To보다 클 수 없습니다.');
 		}
@@ -551,13 +563,15 @@
 			keyword: valueOf(els.keyword),
 			productCategoryId: numberOrNull(valueOf(els.productCategoryId)),
 			standard: valueOf(els.standard) || 'ALL',
+			status: valueOf(els.status) || 'ALL',
 			doName: selectedOptionName(els.provinceId),
 			siName: selectedOptionName(els.cityId),
 			guName: selectedOptionName(els.districtId),
 			orderDate: valueOf(els.orderDate),
 			orderIdFrom: orderIdFrom,
 			orderIdTo: orderIdTo,
-			deliveryMethodId: numberOrNull(valueOf(els.deliveryMethodId)),
+			deliveryMethodId: deliveryMethodValue === 'BUSAN_VISIT' ? null : numberOrNull(deliveryMethodValue),
+			deliveryMethodScope: deliveryMethodValue === 'BUSAN_VISIT' ? 'BUSAN_VISIT' : '',
 			size: 50,
 			lastStatusSort: null,
 			lastOrderId: null,
@@ -671,10 +685,11 @@
 			'</td>',
 
 			'<td class="text-center dispatch-list-action-cell">',
-			'  <button type="button" class="btn btn-success dispatch-list-complete-btn dispatch-list-icon-action-btn"',
+			'  <button type="button" class="btn dispatch-list-complete-btn dispatch-list-status-action-btn ' + statusActionClass(row.status) + '"',
 			'    data-order-id="' + escapeAttr(row.orderId) + '" ' + completeDisabled,
-			'    aria-label="출고완료 처리" title="출고완료 처리">',
-			'    <i class="ri-check-double-line" aria-hidden="true"></i><span class="visually-hidden">출고완료</span>',
+			'    aria-label="현재 상태: ' + escapeAttr(row.statusLabel || '-') + '" title="' +
+				escapeAttr(row.dispatchCompletable ? '생산완료 상태입니다. 클릭하면 출고완료 처리합니다.' : '현재 상태: ' + (row.statusLabel || '-')) + '">',
+			'    <span>' + escapeHtml(row.statusLabel || '-') + '</span>',
 			'  </button>',
 			'</td>',
 
@@ -919,8 +934,17 @@
 		const completeBtn = tr.querySelector('.dispatch-list-complete-btn');
 		if (completeBtn) {
 			completeBtn.disabled = true;
-			completeBtn.setAttribute('title', '출고완료 처리 완료');
-			completeBtn.setAttribute('aria-label', '출고완료 처리 완료');
+			completeBtn.classList.remove(
+				'dispatch-list-status-action-confirmed',
+				'dispatch-list-status-action-production-done',
+				'dispatch-list-status-action-dispatch-done',
+				'dispatch-list-status-action-delivery-done'
+			);
+			const nextStatusClass = statusActionClass(row.status);
+			if (nextStatusClass) completeBtn.classList.add(nextStatusClass);
+			completeBtn.textContent = row.statusLabel || '-';
+			completeBtn.setAttribute('title', '현재 상태: ' + (row.statusLabel || '-'));
+			completeBtn.setAttribute('aria-label', '현재 상태: ' + (row.statusLabel || '-'));
 		}
 	}
 
@@ -2602,6 +2626,7 @@
 		els.keyword.value = '';
 		els.productCategoryId.value = '';
 		els.standard.value = 'ALL';
+		if (els.status) els.status.value = 'ALL';
 		els.orderDate.value = valueOf(els.today) || '';
 		els.orderIdFrom.value = '';
 		els.orderIdTo.value = '';
@@ -2620,6 +2645,7 @@
 		els.modalKeyword.value = valueOf(els.keyword);
 		els.modalProductCategoryId.value = valueOf(els.productCategoryId);
 		els.modalStandard.value = valueOf(els.standard);
+		if (els.modalStatus) els.modalStatus.value = valueOf(els.status) || 'ALL';
 		els.modalOrderDate.value = valueOf(els.orderDate);
 		els.modalOrderIdFrom.value = valueOf(els.orderIdFrom);
 		els.modalOrderIdTo.value = valueOf(els.orderIdTo);
@@ -2642,6 +2668,7 @@
 		els.keyword.value = valueOf(els.modalKeyword);
 		els.productCategoryId.value = valueOf(els.modalProductCategoryId);
 		els.standard.value = valueOf(els.modalStandard);
+		if (els.status) els.status.value = valueOf(els.modalStatus) || 'ALL';
 		els.orderDate.value = valueOf(els.modalOrderDate);
 		els.orderIdFrom.value = valueOf(els.modalOrderIdFrom);
 		els.orderIdTo.value = valueOf(els.modalOrderIdTo);
@@ -2766,6 +2793,15 @@
 		return '';
 	}
 
+	function statusActionClass(status) {
+		const normalized = normalizeStatus(status);
+		if (normalized === 'CONFIRMED') return 'dispatch-list-status-action-confirmed';
+		if (normalized === 'PRODUCTION_DONE') return 'dispatch-list-status-action-production-done';
+		if (normalized === 'DISPATCH_DONE') return 'dispatch-list-status-action-dispatch-done';
+		if (normalized === 'DELIVERY_DONE') return 'dispatch-list-status-action-delivery-done';
+		return '';
+	}
+
 	function normalizeStatus(status) {
 		return toText(status).replace(/\s+/g, '').toUpperCase();
 	}
@@ -2812,6 +2848,21 @@
 			throw new Error(label + '은 1 이상의 정수여야 합니다.');
 		}
 		return parsed;
+	}
+
+	function shiftIsoDate(rawDate, rawOffset) {
+		const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(rawDate || ''));
+		const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
+		const date = matched
+			? new Date(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]), 12, 0, 0, 0)
+			: new Date();
+		date.setHours(12, 0, 0, 0);
+		date.setDate(date.getDate() + offset);
+		return [
+			date.getFullYear(),
+			String(date.getMonth() + 1).padStart(2, '0'),
+			String(date.getDate()).padStart(2, '0')
+		].join('-');
 	}
 
 	function valueOf(element) {

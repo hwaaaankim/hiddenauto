@@ -33,6 +33,12 @@ public class OrderNotificationActionResolver {
         if (code.contains("DELIVERY_METHOD") && code.contains("CHANGE")) {
             return OrderNotificationAction.DELIVERY_METHOD_CHANGE;
         }
+        if (code.contains("DELIVERY_ADDRESS") && code.contains("CHANGE")) {
+            return OrderNotificationAction.DELIVERY_ADDRESS_CHANGE;
+        }
+        if (code.contains("DELIVERY_COST") && code.contains("CHANGE")) {
+            return OrderNotificationAction.DELIVERY_COST_CHANGE;
+        }
         if (code.contains("HANDLER") && code.contains("CHANGE")) {
             return OrderNotificationAction.DELIVERY_HANDLER_CHANGE;
         }

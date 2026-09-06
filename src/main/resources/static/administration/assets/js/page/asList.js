@@ -390,6 +390,7 @@
 
 	const fileInput = document.getElementById('asList-second-file-input');
 	const imageList = document.getElementById('asList-second-image-list');
+	const requestVideoList = document.getElementById('asList-second-request-videos');
 	const btnComplete = document.getElementById('asList-second-btn-complete');
 
 	const field = {
@@ -413,6 +414,7 @@
 
 	let existingResultImages = [];
 	let selectedFiles = [];
+	let requestVideos = [];
 
 	function isMobile() {
 		return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -501,6 +503,40 @@
 		});
 
 		updateCompleteButtonState();
+	}
+
+	function normalizeVideoType(contentType) {
+		const value = String(contentType || '').trim().toLowerCase();
+		return value.startsWith('video/') ? value : '';
+	}
+
+	function renderRequestVideos() {
+		if (!requestVideoList) return;
+		requestVideoList.innerHTML = '';
+
+		if (!requestVideos.length) {
+			requestVideoList.innerHTML = '<div class="col-12 text-muted small">등록된 동영상이 없습니다.</div>';
+			return;
+		}
+
+		requestVideos.forEach(item => {
+			const col = document.createElement('div');
+			col.className = 'col-12 col-md-6';
+			const type = normalizeVideoType(item.contentType);
+			const sourceType = type ? ` type="${escapeHtml(type)}"` : '';
+			col.innerHTML = `
+				<div class="asList-second-video-card border rounded overflow-hidden bg-dark">
+					<video class="d-block w-100" controls preload="metadata" playsinline webkit-playsinline>
+						<source src="${escapeHtml(item.url || '')}"${sourceType}>
+						사용 중인 브라우저에서 동영상 재생을 지원하지 않습니다.
+					</video>
+					<div class="d-flex align-items-center justify-content-between gap-2 p-2 bg-white">
+						<span class="small text-muted text-truncate">${escapeHtml(item.filename || '동영상')}</span>
+						<a class="btn btn-sm btn-light border" href="${escapeHtml(item.url || '')}" download aria-label="동영상 다운로드">다운로드</a>
+					</div>
+				</div>`;
+			requestVideoList.appendChild(col);
+		});
 	}
 
 	async function deleteExistingImage(imageId) {
@@ -654,6 +690,12 @@
 			url: x.url,
 			filename: x.filename
 		}));
+		requestVideos = (data.requestVideos || []).map(x => ({
+			id: x.id,
+			url: x.url,
+			filename: x.filename,
+			contentType: x.contentType
+		}));
 
 		selectedFiles = [];
 		if (fileInput) {
@@ -662,6 +704,7 @@
 		}
 
 		renderImages();
+		renderRequestVideos();
 		lockModalIfNotInProgress();
 	}
 

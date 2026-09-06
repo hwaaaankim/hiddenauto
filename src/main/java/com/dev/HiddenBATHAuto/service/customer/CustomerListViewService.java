@@ -60,7 +60,8 @@ public class CustomerListViewService {
             "id", "customerName", "requestedAt", "scheduledDate", "processedAt", "price", "status", "productInfo");
 
     private static final Set<String> TASK_SORT_FIELDS = Set.of(
-            "id", "ordererName", "createdAt", "deliveryDate", "totalPrice", "status", "deliveryMethod", "address");
+            "id", "ordererName", "createdAt", "deliveryDate", "totalPrice", "packingCost", "deliveryCost",
+            "status", "deliveryMethod", "address");
 
     private static final List<String> TASK_CATEGORY_ORDER = List.of(
             "상부장", "하부장", "슬라이드장", "거울", "플랩장", "LED거울");
@@ -162,6 +163,7 @@ public class CustomerListViewService {
 
         return AsListRow.builder()
                 .asTask(task)
+				.requesterName(resolveMemberDisplayName(task.getRequestedBy(), "-"))
                 .scheduledDate(scheduledDate)
                 .handlerName(resolveHandlerName(handler))
                 .handlerContact(resolveHandlerContact(handler))
@@ -196,33 +198,90 @@ public class CustomerListViewService {
                 .toList();
 
         StatusSummary statusSummary = summarizeOrderStatus(orders);
-        long supplyPrice = calculateTaskSupplyPrice(orders);
+		long supplyPrice = calculateTaskSupplyPrice(orders);
+		long productVatIncludedTotal = calculateTaskVatIncludedTotalPrice(orders);
+		long packingCost = calculateTaskWideCost(orders, true);
+		long deliveryCost = calculateTaskWideCost(orders, false);
+		long grandTotalPrice = Math.addExact(
+				Math.addExact(productVatIncludedTotal, packingCost),
+				deliveryCost
+		);
+		String deliveryHandlerDisplay = resolveDeliveryHandlerDisplay(orders);
 
         return TaskListRow.builder()
                 .task(task)
                 .representativeOrder(representative)
+				.requesterName(resolveMemberDisplayName(task.getRequestedBy(), "-"))
                 .ordererName(safeText(representative != null ? representative.getOrdererName() : null, "-"))
                 .ordererPhone(safeText(representative != null ? representative.getOrdererPhone() : null, "-"))
                 .orderCount(orders.size())
                 .categoryCounts(categoryCounts)
                 .orderSummaries(orderSummaries)
-                .deliveryMethodName(resolveDeliveryMethodName(representative))
+				.deliveryMethodName(resolveTaskDeliveryMethodName(orders))
                 .deliveryAddress(buildEffectiveDeliveryAddress(representative))
                 .deliveryRegion(buildEffectiveDeliveryRegion(representative))
                 .deliveryDate(representative != null ? representative.getPreferredDeliveryDate() : null)
                 .statusKey(statusSummary.key())
                 .statusLabel(statusSummary.label())
-                .managerName(resolveManagerName(task.getManagedBy()))
+				.managerName(deliveryHandlerDisplay)
+				.deliveryHandlerName(deliveryHandlerDisplay)
                 .supplyPrice(supplyPrice)
-                .vatIncludedTotalPrice(calculateVatIncludedTotalPrice(supplyPrice))
+				.vatIncludedTotalPrice(productVatIncludedTotal)
+				.packingCost(packingCost)
+				.deliveryCost(deliveryCost)
+				.grandTotalPrice(grandTotalPrice)
                 .build();
     }
 
     private long calculateTaskSupplyPrice(List<Order> orders) {
         return orders.stream()
-                .mapToLong(Order::getSupplyPrice)
+				.mapToLong(this::resolveOrderSupplyPrice)
                 .sum();
     }
+
+	private long calculateTaskVatIncludedTotalPrice(List<Order> orders) {
+		return orders.stream()
+				.mapToLong(this::resolveOrderVatIncludedTotalPrice)
+				.sum();
+	}
+
+	private long calculateTaskWideCost(List<Order> orders, boolean packing) {
+		return orders.stream()
+				.mapToLong(order -> Math.max(0L, packing ? order.getPackingCost() : order.getDeliveryCost()))
+				.max()
+				.orElse(0L);
+	}
+
+	private long resolveOrderUnitPrice(Order order) {
+		if (order == null) {
+			return 0L;
+		}
+		if (order.getProductCost() > 0) {
+			return order.getProductCost();
+		}
+		int quantity = Math.max(order.getQuantity(), 1);
+		return Math.max(order.getSupplyPrice(), 0) / quantity;
+	}
+
+	private long resolveOrderSupplyPrice(Order order) {
+		if (order == null) {
+			return 0L;
+		}
+		if (order.getSupplyPrice() > 0) {
+			return order.getSupplyPrice();
+		}
+		return Math.multiplyExact(resolveOrderUnitPrice(order), Math.max(order.getQuantity(), 0));
+	}
+
+	private long resolveOrderVatIncludedTotalPrice(Order order) {
+		if (order == null) {
+			return 0L;
+		}
+		if (order.getTotalAmount() > 0) {
+			return order.getTotalAmount();
+		}
+		return calculateVatIncludedTotalPrice(resolveOrderSupplyPrice(order));
+	}
 
     private long calculateVatIncludedTotalPrice(long supplyPrice) {
         if (supplyPrice <= 0) {
@@ -260,6 +319,9 @@ public class CustomerListViewService {
                 .size(resolveCustomerProductSize(optionMap))
                 .color(resolveCustomerProductColor(optionMap))
                 .quantity(order.getQuantity())
+				.unitPrice(resolveOrderUnitPrice(order))
+				.supplyPrice(resolveOrderSupplyPrice(order))
+				.vatIncludedTotalPrice(resolveOrderVatIncludedTotalPrice(order))
                 .deliveryMethodName(resolveDeliveryMethodName(order))
                 .deliveryAddress(buildEffectiveDeliveryAddress(order))
                 .deliveryDate(order.getPreferredDeliveryDate())
@@ -505,6 +567,9 @@ public class CustomerListViewService {
                     .filter(Objects::nonNull)
                     .anyMatch(item -> containsIgnoreCase(item.getProductName(), keyword));
         }
+		if ("requesterName".equals(type)) {
+			return containsIgnoreCase(row.getRequesterName(), keyword);
+		}
         if ("ordererPhone".equals(type)) {
             return containsDigits(row.getOrdererPhone(), keyword);
         }
@@ -662,7 +727,9 @@ public class CustomerListViewService {
             case "ordererName" -> compareNullable(normalizeForSort(left.getOrdererName()), normalizeForSort(right.getOrdererName()), asc);
             case "createdAt" -> compareNullable(left.getTask().getCreatedAt(), right.getTask().getCreatedAt(), asc);
             case "deliveryDate" -> compareNullable(left.getDeliveryDate(), right.getDeliveryDate(), asc);
-            case "totalPrice" -> compareNullable(left.getSupplyPrice(), right.getSupplyPrice(), asc);
+			case "totalPrice" -> compareNullable(left.getSupplyPrice(), right.getSupplyPrice(), asc);
+            case "packingCost" -> compareNullable(left.getPackingCost(), right.getPackingCost(), asc);
+            case "deliveryCost" -> compareNullable(left.getDeliveryCost(), right.getDeliveryCost(), asc);
             case "status" -> compareNullable(taskStatusSortValue(left), taskStatusSortValue(right), asc);
             case "deliveryMethod" -> compareNullable(normalizeForSort(left.getDeliveryMethodName()), normalizeForSort(right.getDeliveryMethodName()), asc);
             case "address" -> compareNullable(normalizeForSort(left.getDeliveryAddress()), normalizeForSort(right.getDeliveryAddress()), asc);
@@ -875,6 +942,43 @@ public class CustomerListViewService {
         }
         return resolveHandlerName(member);
     }
+
+	private String resolveMemberDisplayName(Member member, String fallback) {
+		if (member == null) {
+			return fallback;
+		}
+		if (StringUtils.hasText(member.getName())) {
+			return member.getName().trim();
+		}
+		if (StringUtils.hasText(member.getUsername())) {
+			return member.getUsername().trim();
+		}
+		return fallback;
+	}
+
+	private String resolveTaskDeliveryMethodName(List<Order> orders) {
+		LinkedHashSet<String> methodNames = orders.stream()
+				.map(this::resolveDeliveryMethodName)
+				.filter(value -> StringUtils.hasText(value) && !"-".equals(value))
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+		return methodNames.isEmpty() ? "-" : String.join(", ", methodNames);
+	}
+
+	private String resolveDeliveryHandlerDisplay(List<Order> orders) {
+		LinkedHashSet<String> displays = new LinkedHashSet<>();
+		for (Order order : orders) {
+			Member handler = order != null ? order.getAssignedDeliveryHandler() : null;
+			if (handler != null) {
+				displays.add(resolveMemberDisplayName(handler, "-"));
+			} else {
+				String methodName = resolveDeliveryMethodName(order);
+				if (StringUtils.hasText(methodName) && !"-".equals(methodName)) {
+					displays.add(methodName);
+				}
+			}
+		}
+		return displays.isEmpty() ? "-" : String.join(", ", displays);
+	}
 
     private String resolveHandlerContact(Member member) {
         if (member == null) {

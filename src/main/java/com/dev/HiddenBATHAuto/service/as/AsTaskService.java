@@ -885,6 +885,17 @@ public class AsTaskService {
 					response.getResultImages().add(item);
 				});
 
+		task.getRequestVideos().stream()
+				.sorted(Comparator.comparing(AsVideo::getUploadedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+				.forEach(video -> {
+					TeamAsDetailModalResponse.VideoItem item = new TeamAsDetailModalResponse.VideoItem();
+					item.setId(video.getId());
+					item.setFilename(video.getFilename());
+					item.setUrl(video.getUrl());
+					item.setContentType(video.getContentType());
+					response.getRequestVideos().add(item);
+				});
+
 		return response;
 	}
 
@@ -2249,7 +2260,12 @@ public class AsTaskService {
 			throw new IllegalArgumentException("로그인 정보가 올바르지 않습니다.");
 		}
 
-		AsTask asTask = asTaskRepository.findByIdAndRequestedBy_Id(asTaskId, loginMember.getId())
+		if (loginMember.getCompany() == null || loginMember.getCompany().getId() == null) {
+			throw new IllegalArgumentException("회사 정보가 없는 계정은 AS 신청을 삭제할 수 없습니다.");
+		}
+
+		AsTask asTask = asTaskRepository.findByIdAndRequestedBy_Company_Id(
+				asTaskId, loginMember.getCompany().getId())
 				.orElseThrow(() -> new IllegalArgumentException("삭제할 AS 신청 내역이 없거나 권한이 없습니다."));
 
 		if (asTask.getStatus() == null || !"REQUESTED".equals(asTask.getStatus().name())) {

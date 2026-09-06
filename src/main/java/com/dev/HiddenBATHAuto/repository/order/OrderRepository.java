@@ -1016,7 +1016,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1028,6 +1033,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderIdFrom") Long orderIdFrom,
 			@Param("orderIdTo") Long orderIdTo,
+			@Param("keywordType") String keywordType,
 			@Param("productNameKeyword") String productNameKeyword,
 			@Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
@@ -1059,7 +1065,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1071,6 +1082,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderIdFrom") Long orderIdFrom,
 			@Param("orderIdTo") Long orderIdTo,
+			@Param("keywordType") String keywordType,
 			@Param("productNameKeyword") String productNameKeyword,
 			@Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
@@ -1102,7 +1114,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1114,6 +1131,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderIdFrom") Long orderIdFrom,
 			@Param("orderIdTo") Long orderIdTo,
+			@Param("keywordType") String keywordType,
 			@Param("productNameKeyword") String productNameKeyword,
 			@Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
@@ -1144,7 +1162,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1156,6 +1179,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderIdFrom") Long orderIdFrom,
 			@Param("orderIdTo") Long orderIdTo,
+			@Param("keywordType") String keywordType,
 			@Param("productNameKeyword") String productNameKeyword,
 			@Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
@@ -1194,7 +1218,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1236,7 +1265,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1249,6 +1283,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderIdFrom") Long orderIdFrom,
 			@Param("orderIdTo") Long orderIdTo,
+			@Param("keywordType") String keywordType,
 			@Param("productNameKeyword") String productNameKeyword,
 			@Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,
@@ -1291,7 +1326,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1333,7 +1373,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			      )
 			      AND (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
 			      AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			      AND (:productNameKeyword IS NULL OR LOWER(o.orderItem.productName) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      AND (
+			          :productNameKeyword IS NULL
+			          OR (:keywordType = 'PRODUCT_NAME' AND LOWER(COALESCE(o.orderItem.productName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'SIZE' AND LOWER(COALESCE(o.orderItem.optionJson, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			          OR (:keywordType = 'COMPANY_NAME' AND LOWER(COALESCE(o.task.requestedBy.company.companyName, '')) LIKE LOWER(CONCAT('%', :productNameKeyword, '%')))
+			      )
 			      AND (:standard IS NULL OR o.standard = :standard)
 			      AND o.status IN :visibleStatuses
 			      AND (:allStatus = true OR o.status = :statusFilter)
@@ -1346,6 +1391,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
 			@Param("orderIdFrom") Long orderIdFrom,
 			@Param("orderIdTo") Long orderIdTo,
+			@Param("keywordType") String keywordType,
 			@Param("productNameKeyword") String productNameKeyword,
 			@Param("standard") Boolean standard,
 			@Param("allStatus") boolean allStatus,

@@ -53,6 +53,7 @@ import com.dev.HiddenBATHAuto.repository.amount.AmountCustomerMasterRepository;
 import com.dev.HiddenBATHAuto.repository.amount.AmountItemMasterRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
+import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletOutputStream;
@@ -66,6 +67,7 @@ public class AmountSalesVoucherExportService {
     private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final String SALES_DIVISION_CODE = "1";
     private static final String TAX_TYPE_CODE = "1";
+    private static final String MIRROR_CUTTING_CATEGORY_FILTER = "-9000001";
 
     private final OrderRepository orderRepository;
     private final AmountCustomerMasterRepository customerRepository;
@@ -146,23 +148,75 @@ public class AmountSalesVoucherExportService {
                                      String sortField,
                                      String sortDir,
                                      HttpServletResponse response) throws IOException {
+        downloadSalesVoucher(
+                keyword,
+                null,
+                null,
+                orderId,
+                productName,
+                dateCriteria,
+                startDate,
+                endDate,
+                productCategoryId,
+                orderStatus,
+                standard,
+                sortField,
+                sortDir,
+                response
+        );
+    }
+
+    /**
+     * 관리자 발주관리 화면의 현재 조회조건 전체를 기준으로 매출전표를 생성합니다.
+     * 체크박스 선택값은 받지 않으며, 기존 단건 orderId는 범위 파라미터가 없을 때만 사용합니다.
+     */
+    @Transactional(readOnly = true)
+    public void downloadSalesVoucher(String keyword,
+                                     String orderIdFrom,
+                                     String orderIdTo,
+                                     String orderId,
+                                     String productName,
+                                     String dateCriteria,
+                                     String startDate,
+                                     String endDate,
+                                     String productCategoryId,
+                                     String orderStatus,
+                                     String standard,
+                                     String sortField,
+                                     String sortDir,
+                                     HttpServletResponse response) throws IOException {
         String finalDateCriteria = normalizeDateCriteria(dateCriteria);
         DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
-        Long categoryId = parseLongOrNullAllowAll(productCategoryId);
         Long finalOrderId = parsePositiveLongOrNull(orderId);
+        Long finalOrderIdFrom = parsePositiveLongOrNull(orderIdFrom);
+        Long finalOrderIdTo = parsePositiveLongOrNull(orderIdTo);
+        if (finalOrderIdFrom == null && finalOrderIdTo == null && finalOrderId != null) {
+            finalOrderIdFrom = finalOrderId;
+            finalOrderIdTo = finalOrderId;
+        }
+        if (finalOrderIdFrom != null && finalOrderIdTo != null && finalOrderIdFrom > finalOrderIdTo) {
+            throw new IllegalArgumentException("오더 ID FROM은 TO보다 클 수 없습니다.");
+        }
+
+        boolean mirrorCuttingOnly = MIRROR_CUTTING_CATEGORY_FILTER.equals(
+                productCategoryId != null ? productCategoryId.trim() : null
+        );
+        Long categoryId = mirrorCuttingOnly ? null : parseLongOrNullAllowAll(productCategoryId);
         OrderStatus status = parseOrderStatusOrNullWithDefault(orderStatus, null);
         Boolean standardBool = parseStandardOrNull(standard);
         String finalKeyword = normalizeNullableText(keyword);
         String finalProductName = normalizeNullableText(productName);
 
-        List<Order> orders = orderRepository.findFilteredOrdersForExcelWithOrderIdAndProductName(
+        List<Order> orders = orderRepository.findFilteredOrdersForExcelWithOrderIdRangeAndProductName(
                 finalKeyword,
-                finalOrderId,
+                finalOrderIdFrom,
+                finalOrderIdTo,
                 finalProductName,
                 finalDateCriteria,
                 range.start(),
                 range.end(),
                 categoryId,
+                mirrorCuttingOnly,
                 status,
                 standardBool
         );
@@ -173,12 +227,14 @@ public class AmountSalesVoucherExportService {
         List<TaskVoucherBlock> blocks = buildTaskBlocks(orders, customers, items, sortField, sortDir);
         VoucherFilterSummary filterSummary = buildVoucherFilterSummary(
                 finalKeyword,
-                finalOrderId,
+                finalOrderIdFrom,
+                finalOrderIdTo,
                 finalProductName,
                 finalDateCriteria,
                 startDate,
                 endDate,
                 categoryId,
+                mirrorCuttingOnly,
                 status,
                 standardBool,
                 orders.size()
@@ -187,8 +243,8 @@ public class AmountSalesVoucherExportService {
     }
 
     /**
-     * 전산입력용 출력 구조:
-     * 거래처 A - Task 1 오더들 - Task 1 운임비/포장비 각 1회 - Task 2 오더들 - 비용 각 1회 ...
+	 * 전산입력용 출력 구조:
+	 * 출고일 + 거래처별 오더들 - 각 Task 운임비/포장비 각 1회 ...
      *
      * deliveryCost/packingCost는 현재 Order에 있지만 실제 업무 의미는 Task 단위 비용이므로,
      * Task 안의 여러 Order에 중복 저장되어 있어도 중복 합산하지 않고 비용별 양수 최대값 1회만 사용합니다.
@@ -204,56 +260,89 @@ public class AmountSalesVoucherExportService {
         }
 
         List<Order> sortedOrders = orders.stream()
-                .sorted(buildTaskOrderComparator(sortField, sortDir))
+                .sorted(buildVoucherDispatchDateComparator(sortField, sortDir))
                 .toList();
 
-        Map<Long, List<Order>> ordersByTask = new LinkedHashMap<>();
+		Map<Long, List<Order>> allOrdersByTask = new LinkedHashMap<>();
         for (Order order : sortedOrders) {
             Long taskId = resolveTaskId(order);
-            ordersByTask.computeIfAbsent(taskId, key -> new ArrayList<>()).add(order);
+			allOrdersByTask.computeIfAbsent(taskId, key -> new ArrayList<>()).add(order);
         }
 
-        List<TaskVoucherBlock> blocks = new ArrayList<>();
-        for (Map.Entry<Long, List<Order>> entry : ordersByTask.entrySet()) {
-            List<Order> taskOrders = entry.getValue().stream()
-                    .sorted(Comparator.comparing(Order::getId, Comparator.nullsLast(Long::compareTo)))
-                    .toList();
-            if (taskOrders.isEmpty()) {
-                continue;
-            }
+		Map<VoucherDispatchGroupKey, List<Order>> dispatchGroups = new LinkedHashMap<>();
+		for (Order order : sortedOrders) {
+			Company company = resolveCompany(order);
+			String companyName = company != null
+					? safe(company.getCompanyName())
+					: safe(() -> order.getTask().getRequestedBy().getCompany().getCompanyName());
+			String companyKey = company != null && company.getId() != null
+					? "ID:" + company.getId()
+					: "NAME:" + companyName.toLowerCase(Locale.ROOT);
+			dispatchGroups.computeIfAbsent(
+					new VoucherDispatchGroupKey(resolveVoucherTransactionDate(order), companyKey, companyName),
+					ignored -> new ArrayList<>()
+			).add(order);
+		}
 
-            Task task = taskOrders.get(0).getTask();
-            Company company = resolveCompany(taskOrders.get(0));
-            String companyName = company != null ? safe(company.getCompanyName()) : safe(() -> task.getRequestedBy().getCompany().getCompanyName());
+        List<TaskVoucherBlock> blocks = new ArrayList<>();
+		Set<Long> chargedTaskIds = new java.util.HashSet<>();
+		for (Map.Entry<VoucherDispatchGroupKey, List<Order>> groupEntry : dispatchGroups.entrySet()) {
+			VoucherDispatchGroupKey groupKey = groupEntry.getKey();
+			List<Order> groupOrders = groupEntry.getValue();
+			if (groupOrders.isEmpty()) {
+				continue;
+			}
+
+			Company company = resolveCompany(groupOrders.get(0));
+			String companyName = groupKey.companyName();
             String businessNumber = company != null ? safe(company.getBusinessNumber()) : "";
             AmountCustomerMatchResult customerMatch = matchCustomer(companyName, businessNumber, customers);
-            LocalDate transactionDate = resolveTaskTransactionDate(task, taskOrders);
+			LocalDate transactionDate = groupKey.dispatchDate();
 
             List<VoucherLine> lines = new ArrayList<>();
-            for (Order order : taskOrders) {
-                VoucherLine line = buildOrderLine(order, entry.getKey(), transactionDate, companyName, customerMatch, items);
-                if (line != null) {
-                    lines.add(line);
-                }
-            }
+			Map<Long, List<Order>> groupOrdersByTask = new LinkedHashMap<>();
+			for (Order order : groupOrders) {
+				groupOrdersByTask.computeIfAbsent(resolveTaskId(order), ignored -> new ArrayList<>()).add(order);
+			}
 
-            List<VoucherLine> chargeLines = buildTaskChargeLines(
-                    entry.getKey(), transactionDate, companyName, customerMatch, taskOrders, items);
-            if (!chargeLines.isEmpty()) {
-                lines.addAll(chargeLines);
+			for (Map.Entry<Long, List<Order>> taskEntry : groupOrdersByTask.entrySet()) {
+				Long taskId = taskEntry.getKey();
+				List<Order> taskOrdersForDate = taskEntry.getValue().stream()
+						.sorted(Comparator.comparing(Order::getId, Comparator.nullsLast(Long::compareTo)))
+						.toList();
+				for (Order order : taskOrdersForDate) {
+					VoucherLine line = buildOrderLine(
+							order, taskId, transactionDate, companyName, customerMatch, items);
+					if (line != null) {
+						lines.add(line);
+					}
+				}
 
-                VoucherLine addressLine = buildTaskAddressLine(
-                        entry.getKey(), transactionDate, companyName, customerMatch, taskOrders);
-                if (addressLine != null) {
-                    lines.add(addressLine);
-                }
-            }
+				// Task 단위 비용은 출고일 그룹이 나뉘어도 최초 그룹에만 한 번 반영합니다.
+				if (chargedTaskIds.add(taskId)) {
+					List<Order> fullTaskOrders = allOrdersByTask.getOrDefault(taskId, taskOrdersForDate);
+					List<VoucherLine> chargeLines = buildTaskChargeLines(
+							taskId, transactionDate, companyName, customerMatch, fullTaskOrders, items);
+					if (!chargeLines.isEmpty()) {
+						lines.addAll(chargeLines);
+						VoucherLine addressLine = buildTaskAddressLine(
+								taskId, transactionDate, companyName, customerMatch, taskOrdersForDate);
+						if (addressLine != null) {
+							lines.add(addressLine);
+						}
+					}
+				}
+			}
 
             BigDecimal taskTotal = lines.stream()
                     .map(VoucherLine::total)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            blocks.add(new TaskVoucherBlock(entry.getKey(), transactionDate, companyName, customerMatch, lines, taskTotal));
+			Long singleTaskId = groupOrdersByTask.size() == 1
+					? groupOrdersByTask.keySet().iterator().next()
+					: null;
+			blocks.add(new TaskVoucherBlock(
+					singleTaskId, transactionDate, companyName, customerMatch, lines, taskTotal));
         }
         return blocks;
     }
@@ -530,6 +619,9 @@ public class AmountSalesVoucherExportService {
         if (order == null) {
             return "";
         }
+		if (isDirectDeliveryOrder(order)) {
+			return "";
+		}
 
         String siteAddress = joinNonBlank(" ",
                 order.getSiteDoName(),
@@ -556,6 +648,7 @@ public class AmountSalesVoucherExportService {
             return "";
         }
         return taskOrders.stream()
+				.filter(order -> !isDirectDeliveryOrder(order))
                 .map(order -> joinNonBlank(" ", order.getOrdererName(), order.getOrdererPhone()))
                 .filter(StringUtils::hasText)
                 .distinct()
@@ -1471,6 +1564,42 @@ public class AmountSalesVoucherExportService {
         return desc && ("preferredDeliveryDate".equals(sortField)) ? comparator.reversed() : comparator;
     }
 
+	private Comparator<Order> buildVoucherDispatchDateComparator(String sortField, String sortDir) {
+		Comparator<LocalDate> dateComparator = "desc".equalsIgnoreCase(sortDir)
+				&& "preferredDeliveryDate".equals(sortField)
+				? Comparator.nullsLast(Comparator.reverseOrder())
+				: Comparator.nullsLast(Comparator.naturalOrder());
+
+		return Comparator
+				.comparing(this::resolveVoucherTransactionDate, dateComparator)
+				.thenComparing(order -> {
+					Company company = resolveCompany(order);
+					return company != null ? safe(company.getCompanyName()) : "";
+				}, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+				.thenComparing(this::resolveTaskId, Comparator.nullsLast(Long::compareTo))
+				.thenComparing(Order::getId, Comparator.nullsLast(Long::compareTo));
+	}
+
+	private LocalDate resolveVoucherTransactionDate(Order order) {
+		if (order != null && order.getPreferredDeliveryDate() != null) {
+			return order.getPreferredDeliveryDate().toLocalDate();
+		}
+		if (order != null && order.getTask() != null && order.getTask().getCreatedAt() != null) {
+			return order.getTask().getCreatedAt().toLocalDate();
+		}
+		if (order != null && order.getCreatedAt() != null) {
+			return order.getCreatedAt().toLocalDate();
+		}
+		return LocalDate.now();
+	}
+
+	private boolean isDirectDeliveryOrder(Order order) {
+		return order != null
+				&& order.getDeliveryMethod() != null
+				&& DeliveryMethodAssignmentPolicy.containsKeyword(
+						order.getDeliveryMethod().getMethodName(), "직배송");
+	}
+
     private Long resolveTaskId(Order order) {
         if (order != null && order.getTask() != null && order.getTask().getId() != null) {
             return order.getTask().getId();
@@ -1710,18 +1839,22 @@ public class AmountSalesVoucherExportService {
     }
 
     private VoucherFilterSummary buildVoucherFilterSummary(String keyword,
-                                                           Long orderId,
+                                                           Long orderIdFrom,
+                                                           Long orderIdTo,
                                                            String productName,
                                                            String dateCriteria,
                                                            String startDate,
                                                            String endDate,
                                                            Long categoryId,
+                                                           boolean mirrorCuttingOnly,
                                                            OrderStatus status,
                                                            Boolean standard,
                                                            int resultCount) {
-        String categoryLabel = categoryId == null
-                ? "전체"
-                : teamCategoryRepository.findById(categoryId)
+        String categoryLabel = mirrorCuttingOnly
+                ? "재단(거울)"
+                : categoryId == null
+                        ? "전체"
+                        : teamCategoryRepository.findById(categoryId)
                         .map(category -> safe(category.getName()))
                         .filter(StringUtils::hasText)
                         .orElse("ID " + categoryId);
@@ -1736,7 +1869,7 @@ public class AmountSalesVoucherExportService {
         }
 
         String displayText = String.join(" | ",
-                "오더 ID: " + (orderId != null ? orderId : "전체"),
+                "오더 ID: " + buildVoucherOrderIdRangeText(orderIdFrom, orderIdTo),
                 "제품명: " + (StringUtils.hasText(productName) ? productName : "전체"),
                 "키워드: " + (StringUtils.hasText(keyword) ? keyword : "전체"),
                 "기간: " + period,
@@ -1746,6 +1879,18 @@ public class AmountSalesVoucherExportService {
         );
 
         return new VoucherFilterSummary(displayText, Math.max(0, resultCount));
+    }
+
+    private String buildVoucherOrderIdRangeText(Long orderIdFrom, Long orderIdTo) {
+        if (orderIdFrom == null && orderIdTo == null) {
+            return "전체";
+        }
+        if (orderIdFrom != null && orderIdTo != null) {
+            return orderIdFrom.equals(orderIdTo)
+                    ? String.valueOf(orderIdFrom)
+                    : orderIdFrom + " ~ " + orderIdTo;
+        }
+        return orderIdFrom != null ? orderIdFrom + " 이상" : orderIdTo + " 이하";
     }
 
     private String buildVoucherDateRangeText(String startDate, String endDate) {
@@ -1912,6 +2057,13 @@ public class AmountSalesVoucherExportService {
                                     List<VoucherLine> lines,
                                     BigDecimal taskTotal) {
     }
+
+	private record VoucherDispatchGroupKey(
+			LocalDate dispatchDate,
+			String companyKey,
+			String companyName
+	) {
+	}
 
     private record VoucherLine(Long taskId,
                                Long orderId,

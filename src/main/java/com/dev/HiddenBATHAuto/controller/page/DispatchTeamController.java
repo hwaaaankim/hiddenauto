@@ -32,6 +32,9 @@ import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangePre
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangePreviewResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangeRequest;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.BulkHandlerChangeResponse;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderManagementPreviewRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderManagementSaveRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.OrderManagementSaveResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchCompleteRequest;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.BulkDispatchCompleteResponse;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DeliveryMethodDto;
@@ -163,6 +166,31 @@ public class DispatchTeamController {
                 );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dispatchList/api/orders/order-management/preview")
+    @ResponseBody
+    public ResponseEntity<List<com.dev.HiddenBATHAuto.dto.dispatch.DispatchDtos.DispatchOrderRowDto>>
+            previewOrderManagement(
+                    @AuthenticationPrincipal PrincipalDetails principal,
+                    @RequestBody(required = false) OrderManagementPreviewRequest request
+            ) {
+        return ResponseEntity.ok(dispatchTeamService.getOrderManagementPreview(
+                request != null ? request.getOrderIds() : List.of(),
+                principal.getMember()
+        ));
+    }
+
+    @PostMapping("/dispatchList/api/orders/order-management")
+    @ResponseBody
+    public ResponseEntity<OrderManagementSaveResponse> saveOrderManagement(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody OrderManagementSaveRequest request
+    ) {
+        return ResponseEntity.ok(dispatchTeamService.saveOrderManagement(
+                request,
+                principal.getMember()
+        ));
     }
 
     @PostMapping("/dispatchList/api/orders/bulk-handler/preview")

@@ -8,6 +8,10 @@ document.addEventListener("DOMContentLoaded", function() {
 	const dateCriteriaSelect = document.getElementById("dateCriteria");
 	const startDateInput = document.getElementById("startDate");
 	const endDateInput = document.getElementById("endDate");
+	const singleDateInput = document.getElementById("task-list-single-date");
+	const dateStepButtons = Array.from(document.querySelectorAll(".task-list-date-step"));
+	const rangeToggleBtn = document.getElementById("task-list-range-toggle");
+	const rangeFields = document.getElementById("task-list-range-fields");
 	const pageSizeSelect = document.getElementById("task-list-added-pageSize");
 	const sortStateInput = document.querySelector('input[name="sortState"]');
 	const sortResetBtn = document.getElementById("task-list-sort-reset-btn");
@@ -44,6 +48,12 @@ document.addEventListener("DOMContentLoaded", function() {
 	const bulkCloseBtn = document.getElementById("admin-task-list-second-bulk-close-btn");
 	const bulkCheckAllBtn = document.getElementById("admin-task-list-second-bulk-check-all-btn");
 	const bulkCompleteBtn = document.getElementById("admin-task-list-second-bulk-complete-btn");
+	const readonlyListOpenBtn = document.getElementById("admin-task-readonly-list-open-btn");
+	const readonlyListModal = document.getElementById("admin-task-readonly-list-modal");
+	const readonlyListScroll = document.getElementById("admin-task-readonly-list-scroll");
+	const readonlyListHost = document.getElementById("admin-task-readonly-list-host");
+	const readonlyListLoading = document.getElementById("admin-task-readonly-list-loading");
+	const readonlyListEnd = document.getElementById("admin-task-readonly-list-end");
 
 	const bulkConfirmModal = document.getElementById("task-list-bulk-confirm-modal");
 	const bulkConfirmModalOverlay = document.getElementById("task-list-bulk-confirm-modal-overlay");
@@ -62,6 +72,10 @@ document.addEventListener("DOMContentLoaded", function() {
 	let pendingBulkConfirmItems = [];
 	let bodyOverflowBeforeBulkConfirmModal = "";
 	const detailLoadingOrderIds = new Set();
+	let readonlyListPage = -1;
+	let readonlyListHasNext = true;
+	let readonlyListLoadingNow = false;
+	let readonlyListModalInstance = null;
 
 	function showPageLoading(message) {
 		if (!pageLoadingOverlay) {
@@ -388,6 +402,202 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		startDateInput.disabled = !shouldEnable;
 		endDateInput.disabled = !shouldEnable;
+		if (singleDateInput) singleDateInput.disabled = !shouldEnable;
+		dateStepButtons.forEach(button => { button.disabled = !shouldEnable; });
+		if (rangeToggleBtn) rangeToggleBtn.disabled = !shouldEnable;
+
+		if (!shouldEnable) {
+			rangeFields?.classList.add("d-none");
+			rangeToggleBtn?.setAttribute("aria-expanded", "false");
+			rangeToggleBtn?.classList.remove("is-active");
+		}
+	}
+
+	function formatLocalDate(date) {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	}
+
+	function canUseSelectedDateCriteria() {
+		if (dateCriteriaSelect && dateCriteriaSelect.value === "all") {
+			alert("날짜를 조회하려면 기준일을 발주일 또는 출고일로 선택해 주세요.");
+			dateCriteriaSelect.focus();
+			return false;
+		}
+		return true;
+	}
+
+	function parseLocalDate(value) {
+		const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+		if (!matched) return null;
+		const parsed = new Date(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]), 12, 0, 0, 0);
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
+	}
+
+	function applySingleDate(dateValue) {
+		if (!filterForm || !startDateInput || !endDateInput || !dateValue) {
+			return;
+		}
+		if (!canUseSelectedDateCriteria()) return;
+		if (singleDateInput) singleDateInput.value = dateValue;
+		startDateInput.value = dateValue;
+		endDateInput.value = dateValue;
+		rangeFields?.classList.add("d-none");
+		rangeToggleBtn?.setAttribute("aria-expanded", "false");
+		rangeToggleBtn?.classList.remove("is-active");
+		filterForm.requestSubmit();
+	}
+
+	function submitDateStep(rawStep) {
+		if (!canUseSelectedDateCriteria()) return;
+		const step = Number(rawStep);
+		const base = parseLocalDate(singleDateInput?.value)
+			|| parseLocalDate(startDateInput?.value)
+			|| new Date();
+		base.setHours(12, 0, 0, 0);
+		base.setDate(base.getDate() + (Number.isFinite(step) ? step : 0));
+		applySingleDate(formatLocalDate(base));
+	}
+
+	function toggleRangeSearch() {
+		if (!rangeFields || !rangeToggleBtn) {
+			return;
+		}
+
+		if (!canUseSelectedDateCriteria()) return;
+		const willOpen = rangeFields.classList.contains("d-none");
+		rangeFields.classList.toggle("d-none", !willOpen);
+		rangeToggleBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
+		rangeToggleBtn.classList.toggle("is-active", willOpen);
+		if (willOpen) {
+			const fallbackDate = singleDateInput?.value || formatLocalDate(new Date());
+			if (!startDateInput.value) startDateInput.value = fallbackDate;
+			if (!endDateInput.value) endDateInput.value = fallbackDate;
+			window.requestAnimationFrame(function() {
+				startDateInput?.focus({ preventScroll: true });
+			});
+		}
+	}
+
+	function updateReadonlyGallery(gallery, requestedIndex) {
+		if (!gallery) return;
+		const track = gallery.querySelector("[data-readonly-gallery-track]");
+		const slides = Array.from(gallery.querySelectorAll(".admin-task-readonly-gallery-slide"));
+		if (!track || !slides.length) return;
+
+		const rawIndex = Number(requestedIndex);
+		const safeIndex = Number.isFinite(rawIndex)
+			? ((Math.trunc(rawIndex) % slides.length) + slides.length) % slides.length
+			: 0;
+
+		gallery.dataset.currentIndex = String(safeIndex);
+		track.style.transform = `translate3d(-${safeIndex * 100}%, 0, 0)`;
+		gallery.querySelectorAll("[data-readonly-gallery-current]").forEach(node => {
+			node.textContent = String(safeIndex + 1);
+		});
+		slides.forEach((slide, index) => {
+			slide.tabIndex = index === safeIndex ? 0 : -1;
+			slide.setAttribute("aria-hidden", index === safeIndex ? "false" : "true");
+		});
+		gallery.querySelectorAll("[data-readonly-gallery-go]").forEach(dot => {
+			const active = Number(dot.dataset.readonlyGalleryGo) === safeIndex;
+			dot.classList.toggle("is-active", active);
+			dot.setAttribute("aria-current", active ? "true" : "false");
+		});
+	}
+
+	function moveReadonlyGallery(gallery, step) {
+		const currentIndex = Number(gallery?.dataset.currentIndex || 0);
+		updateReadonlyGallery(gallery, currentIndex + Number(step || 0));
+	}
+
+	function initializeReadonlyGalleries(root) {
+		(root || document).querySelectorAll("[data-readonly-gallery]").forEach(gallery => {
+			updateReadonlyGallery(gallery, Number(gallery.dataset.currentIndex || 0));
+			if (gallery.dataset.touchReady === "true") return;
+
+			gallery.dataset.touchReady = "true";
+			const viewport = gallery.querySelector(".admin-task-readonly-gallery-viewport");
+			if (!viewport) return;
+			let touchStartX = null;
+			viewport.addEventListener("touchstart", event => {
+				touchStartX = event.touches?.[0]?.clientX ?? null;
+			}, { passive: true });
+			viewport.addEventListener("touchend", event => {
+				if (touchStartX == null) return;
+				const touchEndX = event.changedTouches?.[0]?.clientX;
+				if (typeof touchEndX === "number" && Math.abs(touchEndX - touchStartX) >= 42) {
+					gallery.dataset.lastSwipeAt = String(Date.now());
+					moveReadonlyGallery(gallery, touchEndX < touchStartX ? 1 : -1);
+				}
+				touchStartX = null;
+			}, { passive: true });
+		});
+	}
+
+	async function loadReadonlyListBatch(reset) {
+		if (!readonlyListHost || readonlyListLoadingNow || (!reset && !readonlyListHasNext)) {
+			return;
+		}
+
+		readonlyListLoadingNow = true;
+		readonlyListLoading?.classList.remove("d-none");
+		readonlyListEnd?.classList.add("d-none");
+
+		const nextPage = reset ? 0 : readonlyListPage + 1;
+		const url = new URL("/management/nonStandardTaskList/readonly-list-fragment", window.location.origin);
+		const params = new URLSearchParams(window.location.search);
+		params.delete("page");
+		params.delete("size");
+		params.set("modalPage", String(nextPage));
+		url.search = params.toString();
+
+		try {
+			const response = await fetch(url.toString(), {
+				headers: { "X-Requested-With": "XMLHttpRequest" }
+			});
+			if (!response.ok) {
+				throw new Error("읽기 전용 목록을 불러오지 못했습니다.");
+			}
+
+			const template = document.createElement("template");
+			template.innerHTML = (await response.text()).trim();
+			const meta = template.content.querySelector(".admin-task-readonly-list-batch-meta");
+			if (!meta) {
+				throw new Error("목록 응답 형식이 올바르지 않습니다.");
+			}
+
+			readonlyListPage = Number(meta.dataset.page || nextPage);
+			readonlyListHasNext = meta.dataset.hasNext === "true";
+			meta.remove();
+
+			if (reset) {
+				readonlyListHost.replaceChildren();
+			}
+			readonlyListHost.appendChild(template.content);
+			initializeReadonlyGalleries(readonlyListHost);
+			readonlyListEnd?.classList.toggle("d-none", readonlyListHasNext || readonlyListPage < 0);
+		} catch (error) {
+			alert(error.message || "읽기 전용 목록 조회 중 오류가 발생했습니다.");
+		} finally {
+			readonlyListLoadingNow = false;
+			readonlyListLoading?.classList.add("d-none");
+		}
+	}
+
+	function openReadonlyListModal() {
+		if (!readonlyListModal || !window.bootstrap?.Modal) {
+			alert("목록 모달을 열 수 없습니다. 페이지를 새로고침해 주세요.");
+			return;
+		}
+
+		readonlyListModalInstance = window.bootstrap.Modal.getOrCreateInstance(readonlyListModal);
+		readonlyListModalInstance.show();
+		if (readonlyListPage < 0) {
+			loadReadonlyListBatch(true);
+		}
 	}
 
 	function updateBulkButtons() {
@@ -1326,6 +1536,11 @@ document.addEventListener("DOMContentLoaded", function() {
 	function initializeBaseEvents() {
 		updateDateInputs();
 		highlightProductNameMatches(document);
+		if (rangeToggleBtn) {
+			const isRangeOpen = !rangeFields?.classList.contains("d-none");
+			rangeToggleBtn.setAttribute("aria-expanded", isRangeOpen ? "true" : "false");
+			rangeToggleBtn.classList.toggle("is-active", isRangeOpen);
+		}
 
 		if (filterForm) {
 			filterForm.addEventListener("submit", function(event) {
@@ -1339,6 +1554,52 @@ document.addEventListener("DOMContentLoaded", function() {
 		if (dateCriteriaSelect) {
 			dateCriteriaSelect.addEventListener("change", updateDateInputs);
 		}
+
+		dateStepButtons.forEach(button => {
+			button.addEventListener("click", function() {
+				submitDateStep(button.dataset.dayStep);
+			});
+		});
+
+		singleDateInput?.addEventListener("change", function() {
+			applySingleDate(singleDateInput.value);
+		});
+
+		rangeToggleBtn?.addEventListener("click", toggleRangeSearch);
+		readonlyListOpenBtn?.addEventListener("click", openReadonlyListModal);
+		readonlyListHost?.addEventListener("click", function(event) {
+			const swipedSlide = event.target.closest(".admin-task-readonly-gallery-slide");
+			const swipedGallery = swipedSlide?.closest("[data-readonly-gallery]");
+			if (swipedGallery && Date.now() - Number(swipedGallery.dataset.lastSwipeAt || 0) < 450) {
+				event.preventDefault();
+				return;
+			}
+			const control = event.target.closest("[data-readonly-gallery-step], [data-readonly-gallery-go]");
+			if (!control || !readonlyListHost.contains(control)) return;
+			const gallery = control.closest("[data-readonly-gallery]");
+			if (!gallery) return;
+			event.preventDefault();
+			if (control.hasAttribute("data-readonly-gallery-step")) {
+				moveReadonlyGallery(gallery, control.dataset.readonlyGalleryStep);
+				return;
+			}
+			updateReadonlyGallery(gallery, control.dataset.readonlyGalleryGo);
+		});
+		readonlyListHost?.addEventListener("keydown", function(event) {
+			if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+			const gallery = event.target.closest("[data-readonly-gallery]");
+			if (!gallery || !readonlyListHost.contains(gallery)) return;
+			event.preventDefault();
+			moveReadonlyGallery(gallery, event.key === "ArrowRight" ? 1 : -1);
+		});
+		readonlyListScroll?.addEventListener("scroll", function() {
+			const remaining = readonlyListScroll.scrollHeight
+				- readonlyListScroll.scrollTop
+				- readonlyListScroll.clientHeight;
+			if (remaining < 260) {
+				loadReadonlyListBatch(false);
+			}
+		});
 
 		if (pageSizeSelect) {
 			pageSizeSelect.addEventListener("change", function() {
