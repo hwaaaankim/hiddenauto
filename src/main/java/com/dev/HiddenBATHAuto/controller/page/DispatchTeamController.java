@@ -62,7 +62,7 @@ import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequestMapping("/team")
-@PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
+@PreAuthorize("hasAnyRole('MANAGEMENT', 'INTERNAL_EMPLOYEE') and principal.teamName == '출고팀'")
 @RequiredArgsConstructor
 public class DispatchTeamController {
 

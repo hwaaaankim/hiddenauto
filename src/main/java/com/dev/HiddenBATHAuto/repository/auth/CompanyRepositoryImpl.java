@@ -2,6 +2,7 @@ package com.dev.HiddenBATHAuto.repository.auth;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -34,7 +35,9 @@ public class CompanyRepositoryImpl implements CompanyRepositoryCustom {
     private EntityManager em;
 
     @Override
-    public Page<CompanyListRowDto> searchCompanyList(String keyword, String searchType, String sortField, String sortDir, Pageable pageable) {
+    public Page<CompanyListRowDto> searchCompanyList(String keyword, String searchType,
+                                                     List<String> provinceAliases, String cityName, String districtName,
+                                                     String sortField, String sortDir, Pageable pageable) {
         CriteriaBuilder cb = em.getCriteriaBuilder();
 
         // =========================
@@ -69,6 +72,7 @@ public class CompanyRepositoryImpl implements CompanyRepositoryCustom {
                 CompanyListRowDto.class,
                 company.get("id"),
                 company.get("companyName"),
+                company.get("businessNumber"),
                 representativeExp,
                 company.get("createdAt"),
                 salesManager.get("name"),
@@ -76,13 +80,21 @@ public class CompanyRepositoryImpl implements CompanyRepositoryCustom {
         ));
 
         // where
-        List<Predicate> predicates = buildSearchPredicates(cb, cq, company, keyword, searchType);
+        List<Predicate> predicates = buildSearchPredicates(
+                cb, cq, company, keyword, searchType, provinceAliases, cityName, districtName
+        );
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
         }
 
         // group by (집계 사용)
-        cq.groupBy(company.get("id"), company.get("companyName"), company.get("createdAt"), salesManager.get("name"));
+        cq.groupBy(
+                company.get("id"),
+                company.get("companyName"),
+                company.get("businessNumber"),
+                company.get("createdAt"),
+                salesManager.get("name")
+        );
 
         // order by
         cq.orderBy(buildOrderBy(cb, company, memberCountExp, representativeExp, sortField, sortDir));
@@ -98,7 +110,9 @@ public class CompanyRepositoryImpl implements CompanyRepositoryCustom {
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Company> countRoot = countCq.from(Company.class);
 
-        List<Predicate> countPredicates = buildSearchPredicates(cb, countCq, countRoot, keyword, searchType);
+        List<Predicate> countPredicates = buildSearchPredicates(
+                cb, countCq, countRoot, keyword, searchType, provinceAliases, cityName, districtName
+        );
         if (!countPredicates.isEmpty()) {
             countCq.where(cb.and(countPredicates.toArray(new Predicate[0])));
         }
@@ -121,7 +135,9 @@ public class CompanyRepositoryImpl implements CompanyRepositoryCustom {
 
         cq.select(company).distinct(true);
 
-        List<Predicate> predicates = buildSearchPredicates(cb, cq, company, keyword, searchType);
+        List<Predicate> predicates = buildSearchPredicates(
+                cb, cq, company, keyword, searchType, List.of(), null, null
+        );
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
         }
@@ -147,27 +163,141 @@ public class CompanyRepositoryImpl implements CompanyRepositoryCustom {
     // 공통: 검색 조건
     // -----------------------------
     private List<Predicate> buildSearchPredicates(CriteriaBuilder cb, CriteriaQuery<?> cq, Root<Company> company,
-                                                 String keyword, String searchType) {
+                                                  String keyword, String searchType,
+                                                  List<String> provinceAliases, String cityName,
+                                                  String districtName) {
         List<Predicate> predicates = new ArrayList<>();
 
         if (StringUtils.hasText(keyword)) {
-            String like = "%" + keyword + "%";
+            String like = "%" + escapeLikePattern(keyword.toLowerCase(Locale.ROOT)) + "%";
 
-            if ("member".equalsIgnoreCase(searchType)) {
-                // exists (select 1 from Member m where m.company=company and m.name like :like)
+            if ("member".equalsIgnoreCase(searchType)
+                    || "username".equalsIgnoreCase(searchType)
+                    || "phone".equalsIgnoreCase(searchType)) {
                 Subquery<Long> sq = cq.subquery(Long.class);
                 Root<Member> m = sq.from(Member.class);
                 sq.select(cb.literal(1L));
+
+                Predicate memberSearchPredicate;
+                if ("username".equalsIgnoreCase(searchType)) {
+                    memberSearchPredicate = cb.like(
+                            cb.lower(cb.coalesce(m.<String>get("username"), "")),
+                            like,
+                            '\\'
+                    );
+                } else if ("phone".equalsIgnoreCase(searchType)) {
+                    String phoneLike = "%"
+                            + escapeLikePattern(normalizeLooseNumberSearchKeyword(keyword))
+                            + "%";
+                    memberSearchPredicate = cb.or(
+                            cb.like(normalizeLooseNumberExpression(cb, m.<String>get("phone")), phoneLike, '\\'),
+                            cb.like(normalizeLooseNumberExpression(cb, m.<String>get("telephone")), phoneLike, '\\')
+                    );
+                } else {
+                    memberSearchPredicate = cb.like(
+                            cb.lower(cb.coalesce(m.<String>get("name"), "")),
+                            like,
+                            '\\'
+                    );
+                }
+
                 sq.where(
                         cb.equal(m.get("company"), company),
-                        cb.like(m.get("name"), like)
+                        memberSearchPredicate
                 );
                 predicates.add(cb.exists(sq));
+            } else if ("businessnumber".equalsIgnoreCase(searchType)) {
+                String businessNumberLike = "%"
+                        + escapeLikePattern(normalizeLooseNumberSearchKeyword(keyword))
+                        + "%";
+                predicates.add(cb.like(
+                        normalizeLooseNumberExpression(cb, company.<String>get("businessNumber")),
+                        businessNumberLike,
+                        '\\'
+                ));
             } else {
-                predicates.add(cb.like(company.get("companyName"), like));
+                predicates.add(cb.like(
+                        cb.lower(cb.coalesce(company.<String>get("companyName"), "")),
+                        like,
+                        '\\'
+                ));
             }
         }
+
+        if (provinceAliases != null && !provinceAliases.isEmpty()) {
+            predicates.add(normalizeRegionExpression(cb, company.<String>get("doName")).in(provinceAliases));
+        }
+
+        if (StringUtils.hasText(cityName)) {
+            Predicate currentStructure = cb.equal(
+                    normalizeRegionExpression(cb, company.<String>get("siName")),
+                    normalizeRegionSearchValue(cityName)
+            );
+
+            if (!StringUtils.hasText(districtName)) {
+                Predicate legacyStructure = cb.and(
+                        cb.equal(normalizeRegionExpression(cb, company.<String>get("siName")), ""),
+                        cb.equal(
+                                normalizeRegionExpression(cb, company.<String>get("guName")),
+                                normalizeRegionSearchValue(cityName)
+                        )
+                );
+                predicates.add(cb.or(currentStructure, legacyStructure));
+            } else {
+                predicates.add(currentStructure);
+            }
+        }
+
+        if (StringUtils.hasText(districtName)) {
+            predicates.add(cb.equal(
+                    normalizeRegionExpression(cb, company.<String>get("guName")),
+                    normalizeRegionSearchValue(districtName)
+            ));
+        }
+
         return predicates;
+    }
+
+    private Expression<String> normalizeRegionExpression(CriteriaBuilder cb, Expression<String> expression) {
+        return cb.lower(cb.function(
+                "replace",
+                String.class,
+                cb.trim(cb.coalesce(expression, "")),
+                cb.literal(" "),
+                cb.literal("")
+        ));
+    }
+
+    private String normalizeRegionSearchValue(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+    }
+
+    private Expression<String> normalizeLooseNumberExpression(CriteriaBuilder cb, Expression<String> expression) {
+        Expression<String> normalized = cb.coalesce(expression, "");
+        for (String token : List.of("-", " ", "(", ")", ".", "/", "+")) {
+            normalized = cb.function(
+                    "replace",
+                    String.class,
+                    normalized,
+                    cb.literal(token),
+                    cb.literal("")
+            );
+        }
+        return normalized;
+    }
+
+    private String normalizeLooseNumberSearchKeyword(String value) {
+        if (value == null) {
+            return "";
+        }
+        String digits = value.replaceAll("\\D", "");
+        return digits.isBlank() ? value.trim().toLowerCase(Locale.ROOT) : digits;
+    }
+
+    private String escapeLikePattern(String value) {
+        return value == null
+                ? ""
+                : value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     // -----------------------------

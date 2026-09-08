@@ -20,6 +20,9 @@ public class AdminClientCompanyUpdateRequest {
     private String roadAddress;
     private String detailAddress;
 
+    private Long salesManagerId;
+    private Boolean salesManagerAssignmentIncluded;
+
     /**
      * KEEP / REPLACE / DELETE
      */

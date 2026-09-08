@@ -10,6 +10,7 @@ import lombok.Getter;
 public class CompanyListRowDto {
     private Long id;
     private String companyName;
+    private String businessNumber;
     private String representativeName; // 대표자명 (없으면 null/빈값)
     private LocalDateTime createdAt;
     private String salesManagerName;   // 담당영업사원명 (없으면 null)

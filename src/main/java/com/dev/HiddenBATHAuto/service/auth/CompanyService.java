@@ -3,10 +3,13 @@ package com.dev.HiddenBATHAuto.service.auth;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,12 +33,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.dto.client.CompanyListRowDto;
+import com.dev.HiddenBATHAuto.dto.client.CompanyMemberSearchMatchDto;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress;
+import com.dev.HiddenBATHAuto.model.auth.City;
+import com.dev.HiddenBATHAuto.model.auth.District;
 import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.auth.Province;
+import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyDeliveryAddressRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
+import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
+import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -46,17 +57,213 @@ public class CompanyService {
     private final CompanyRepository companyRepository;
     private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
     private final MemberRepository memberRepository;
+    private final ProvinceRepository provinceRepository;
+    private final CityRepository cityRepository;
+    private final DistrictRepository districtRepository;
 
     /**
      * ✅ (기존 유지) 대리점 리스트 화면 조회용
      */
     @Transactional(readOnly = true)
-    public Page<CompanyListRowDto> getCompanyList(String keyword, String searchType, String sortField, String sortDir,
-                                                  Pageable pageable) {
+    public Page<CompanyListRowDto> getCompanyList(String keyword, String searchType,
+                                                  Long provinceId, Long cityId, Long districtId,
+                                                  String sortField, String sortDir, Pageable pageable) {
         String kw = (keyword == null) ? null : keyword.trim();
         if (kw != null && kw.isEmpty()) kw = null;
 
-        return companyRepository.searchCompanyList(kw, searchType, sortField, sortDir, pageable);
+        String normalizedSearchType = normalizeCompanySearchType(searchType);
+        ResolvedCompanyRegionFilter region = resolveCompanyRegionFilter(provinceId, cityId, districtId);
+
+        return companyRepository.searchCompanyList(
+                kw,
+                normalizedSearchType,
+                region.provinceAliases(),
+                region.cityName(),
+                region.districtName(),
+                sortField,
+                sortDir,
+                pageable
+        );
+    }
+
+    /**
+     * 현재 대리점 목록 페이지에서 검색 조건과 실제로 일치한 멤버 필드를 한 번에 조회합니다.
+     * 회사별 추가 쿼리를 반복하지 않고, 페이지에 포함된 회사들의 멤버를 한 번만 조회한 뒤 그룹화합니다.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<CompanyMemberSearchMatchDto>> getCompanyMemberSearchMatches(
+            List<Long> companyIds,
+            String keyword,
+            String searchType
+    ) {
+        String normalizedType = normalizeCompanySearchType(searchType);
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+
+        if (companyIds == null || companyIds.isEmpty()
+                || normalizedKeyword.isBlank()
+                || !Set.of("member", "username", "phone").contains(normalizedType)) {
+            return Map.of();
+        }
+
+        List<Long> distinctCompanyIds = companyIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (distinctCompanyIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, List<CompanyMemberSearchMatchDto>> matchesByCompanyId = new LinkedHashMap<>();
+        List<Member> members = memberRepository.findAllByCompanyIds(distinctCompanyIds);
+        String comparableNumberKeyword = "phone".equals(normalizedType)
+                ? normalizeLooseNumber(normalizedKeyword)
+                : "";
+
+        for (Member member : members) {
+            if (member == null || member.getCompany() == null || member.getCompany().getId() == null) {
+                continue;
+            }
+
+            if ("member".equals(normalizedType)
+                    && containsIgnoreCase(member.getName(), normalizedKeyword)) {
+                addCompanyMemberSearchMatch(matchesByCompanyId, member, "이름", member.getName());
+            } else if ("username".equals(normalizedType)
+                    && containsIgnoreCase(member.getUsername(), normalizedKeyword)) {
+                addCompanyMemberSearchMatch(matchesByCompanyId, member, "아이디", member.getUsername());
+            } else if ("phone".equals(normalizedType)) {
+                if (containsNormalizedNumber(member.getPhone(), comparableNumberKeyword)) {
+                    addCompanyMemberSearchMatch(matchesByCompanyId, member, "연락처", member.getPhone());
+                }
+                if (containsNormalizedNumber(member.getTelephone(), comparableNumberKeyword)) {
+                    addCompanyMemberSearchMatch(matchesByCompanyId, member, "유선번호", member.getTelephone());
+                }
+            }
+        }
+
+        return matchesByCompanyId;
+    }
+
+    private void addCompanyMemberSearchMatch(
+            Map<Long, List<CompanyMemberSearchMatchDto>> matchesByCompanyId,
+            Member member,
+            String fieldLabel,
+            String matchedValue
+    ) {
+        Long companyId = member.getCompany().getId();
+        matchesByCompanyId.computeIfAbsent(companyId, ignored -> new ArrayList<>())
+                .add(new CompanyMemberSearchMatchDto(
+                        companyId,
+                        member.getId(),
+                        member.getName(),
+                        member.getUsername(),
+                        fieldLabel,
+                        matchedValue
+                ));
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return value != null
+                && keyword != null
+                && value.toLowerCase(Locale.ROOT).contains(keyword.toLowerCase(Locale.ROOT));
+    }
+
+    private boolean containsNormalizedNumber(String value, String normalizedKeyword) {
+        return value != null
+                && normalizedKeyword != null
+                && !normalizedKeyword.isBlank()
+                && normalizeLooseNumber(value).contains(normalizedKeyword);
+    }
+
+    private String normalizeLooseNumber(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        String digits = value.replaceAll("\\D", "");
+        return digits.isBlank() ? value.trim().toLowerCase(Locale.ROOT) : digits;
+    }
+
+    private String normalizeCompanySearchType(String searchType) {
+        if (searchType == null) {
+            return "company";
+        }
+
+        String normalized = searchType.trim().toLowerCase(Locale.ROOT);
+        return Set.of("company", "member", "phone", "username", "businessnumber").contains(normalized)
+                ? normalized
+                : "company";
+    }
+
+    private ResolvedCompanyRegionFilter resolveCompanyRegionFilter(
+            Long provinceId,
+            Long cityId,
+            Long districtId
+    ) {
+        if (provinceId == null) {
+            if (cityId != null || districtId != null) {
+                throw new IllegalArgumentException("상위 시·도를 먼저 선택해 주세요.");
+            }
+            return ResolvedCompanyRegionFilter.empty();
+        }
+
+        Province province = provinceRepository.findById(provinceId)
+                .orElseThrow(() -> new IllegalArgumentException("선택한 시·도 정보가 존재하지 않습니다."));
+
+        City city = null;
+        if (cityId != null) {
+            city = cityRepository.findById(cityId)
+                    .orElseThrow(() -> new IllegalArgumentException("선택한 시·군 정보가 존재하지 않습니다."));
+
+            if (city.getProvince() == null
+                    || !Objects.equals(city.getProvince().getId(), province.getId())) {
+                throw new IllegalArgumentException("선택한 시·군이 해당 시·도에 속하지 않습니다.");
+            }
+        }
+
+        District district = null;
+        if (districtId != null) {
+            district = districtRepository.findById(districtId)
+                    .orElseThrow(() -> new IllegalArgumentException("선택한 구·군 정보가 존재하지 않습니다."));
+
+            Long districtProvinceId = district.getProvince() != null
+                    ? district.getProvince().getId()
+                    : district.getCity() != null && district.getCity().getProvince() != null
+                            ? district.getCity().getProvince().getId()
+                            : null;
+
+            if (!Objects.equals(districtProvinceId, province.getId())) {
+                throw new IllegalArgumentException("선택한 구·군이 해당 시·도에 속하지 않습니다.");
+            }
+
+            if (city != null && (district.getCity() == null
+                    || !Objects.equals(district.getCity().getId(), city.getId()))) {
+                throw new IllegalArgumentException("선택한 구·군이 해당 시·군에 속하지 않습니다.");
+            }
+
+			if (city == null && district.getCity() != null) {
+				throw new IllegalArgumentException("상위 시·군을 먼저 선택해 주세요.");
+            }
+        }
+
+        List<String> provinceAliases = new ArrayList<>(
+                KoreanAdministrativeRegionNormalizer.provinceAliasesForMatch(province.getName())
+        );
+
+        return new ResolvedCompanyRegionFilter(
+                List.copyOf(provinceAliases),
+                city != null ? city.getName() : null,
+                district != null ? district.getName() : null
+        );
+    }
+
+    private record ResolvedCompanyRegionFilter(
+            List<String> provinceAliases,
+            String cityName,
+            String districtName
+    ) {
+        private static ResolvedCompanyRegionFilter empty() {
+            return new ResolvedCompanyRegionFilter(List.of(), null, null);
+        }
     }
 
     /**

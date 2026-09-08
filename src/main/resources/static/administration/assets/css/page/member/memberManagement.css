@@ -1,0 +1,427 @@
+/* 회원관리 화면 공통 보강. 다른 관리자 화면에 영향을 주지 않도록 body scope를 사용합니다. */
+.member-management-page {
+	--member-surface: #ffffff;
+	--member-soft: #f6f8fb;
+	--member-line: #e6eaf0;
+	--member-muted: #667085;
+	--member-ink: #172033;
+	--member-primary: #405bd8;
+	--member-primary-soft: #eef1ff;
+	--member-radius: 14px;
+}
+
+.member-management-page .page-content {
+	background:
+		radial-gradient(circle at 96% 2%, rgba(64, 91, 216, 0.06), transparent 24rem),
+		#f7f8fb;
+}
+
+.member-management-page .page-title-box {
+	margin: 0 0 20px;
+	padding: 18px 20px;
+	border: 1px solid var(--member-line);
+	border-radius: var(--member-radius);
+	background: linear-gradient(135deg, #fff 0%, #f8f9ff 100%);
+	box-shadow: 0 8px 24px rgba(24, 32, 56, 0.045);
+}
+
+.member-management-page .page-title-box h4 {
+	color: var(--member-ink);
+	font-size: 1.12rem;
+	font-weight: 750;
+	letter-spacing: -0.025em;
+}
+
+.member-management-page .member-page-kicker {
+	display: block;
+	margin-bottom: 4px;
+	color: var(--member-primary);
+	font-size: 0.7rem;
+	font-weight: 750;
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+}
+
+.member-management-page .member-page-description {
+	margin: 5px 0 0;
+	color: var(--member-muted);
+	font-size: 0.82rem;
+	font-weight: 400;
+}
+
+.member-management-page .card {
+	border: 1px solid var(--member-line);
+	border-radius: var(--member-radius);
+	box-shadow: 0 8px 25px rgba(24, 32, 56, 0.055);
+	overflow: visible;
+}
+
+.member-management-page .card-header {
+	min-height: 62px;
+	padding: 15px 20px;
+	border-bottom: 1px solid var(--member-line);
+	border-radius: var(--member-radius) var(--member-radius) 0 0;
+	background: var(--member-surface);
+}
+
+.member-management-page .card-header .card-title,
+.member-management-page .member-section-title {
+	color: var(--member-ink);
+	font-weight: 720;
+	letter-spacing: -0.02em;
+}
+
+.member-management-page #tasksList > .card-header > .d-flex,
+.member-client-detail-page .card-header.d-flex {
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.member-management-page .member-section-heading {
+	display: flex;
+	align-items: flex-start;
+	gap: 11px;
+}
+
+.member-management-page .member-section-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	flex: 0 0 34px;
+	border-radius: 10px;
+	color: var(--member-primary);
+	background: var(--member-primary-soft);
+	font-size: 1rem;
+}
+
+.member-management-page .member-section-description {
+	display: block;
+	margin-top: 3px;
+	color: var(--member-muted);
+	font-size: 0.78rem;
+	font-weight: 400;
+}
+
+.member-management-page .form-label {
+	margin-bottom: 7px;
+	color: #344054;
+	font-size: 0.79rem;
+	font-weight: 650;
+}
+
+.member-management-page .form-control,
+.member-management-page .form-select,
+.member-management-page .input-group-text {
+	min-height: 42px;
+	border-color: #dfe4eb;
+	border-radius: 9px;
+}
+
+.member-management-page .form-control:focus,
+.member-management-page .form-select:focus {
+	border-color: rgba(64, 91, 216, 0.72);
+	box-shadow: 0 0 0 3px rgba(64, 91, 216, 0.11);
+}
+
+.member-management-page .form-control[readonly],
+.member-management-page .form-select:disabled {
+	color: #667085;
+	background: #f6f7f9;
+}
+
+.member-management-page .btn {
+	border-radius: 9px;
+	font-weight: 620;
+}
+
+.member-management-page .member-filter-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 2px;
+}
+
+.member-management-page #tasksList > .card-body.border-dashed {
+	background: var(--member-soft);
+	border-color: var(--member-line) !important;
+}
+
+.member-management-page .table-card {
+	border: 1px solid var(--member-line);
+	border-radius: 11px;
+	overflow: auto;
+}
+
+.member-management-page .table-card .table > :not(caption) > * > * {
+	padding: 13px 14px;
+	border-bottom-color: #edf0f4;
+	vertical-align: middle;
+}
+
+.member-management-page .table-card thead th {
+	color: #475467;
+	font-size: 0.75rem;
+	font-weight: 730;
+	white-space: nowrap;
+}
+
+.member-management-page .table-card tbody tr {
+	transition: background-color 0.16s ease;
+}
+
+.member-management-page .table-card tbody tr:hover {
+	background: #fafbff;
+}
+
+.member-management-page .member-empty-row td {
+	padding: 54px 20px !important;
+	color: var(--member-muted);
+	text-align: center;
+}
+
+.member-management-page .member-empty-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 46px;
+	height: 46px;
+	margin-bottom: 10px;
+	border-radius: 14px;
+	color: var(--member-primary);
+	background: var(--member-primary-soft);
+	font-size: 1.25rem;
+}
+
+.member-management-page .member-form-card .card-body {
+	padding: 22px;
+}
+
+.member-management-page .member-form-section + .member-form-section {
+	margin-top: 22px;
+	padding-top: 22px;
+	border-top: 1px dashed #d8dde6;
+}
+
+.member-management-page .member-inline-note {
+	padding: 11px 13px;
+	border: 1px dashed #cbd3e1;
+	border-radius: 10px;
+	color: var(--member-muted);
+	background: #fbfcfe;
+	font-size: 0.78rem;
+}
+
+.member-management-page .member-dynamic-guide {
+	padding: 18px;
+	border: 1.5px dashed #cbd3e1;
+	border-radius: 11px;
+	color: var(--member-muted);
+	background: repeating-linear-gradient(-45deg, #fbfcfe, #fbfcfe 9px, #f7f9fc 9px, #f7f9fc 18px);
+	transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.member-management-page .member-dynamic-guide.is-active {
+	border-color: rgba(64, 91, 216, 0.55);
+	background: var(--member-primary-soft);
+}
+
+.member-management-page .member-dynamic-guide-title {
+	margin-bottom: 5px;
+	color: #344054;
+	font-weight: 700;
+}
+
+.member-management-page .member-dynamic-fields {
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px dashed #d8dde6;
+}
+
+.member-management-page #regionListContainer,
+.member-management-page .employDetail-scroll-list {
+	min-height: 74px;
+	max-height: 288px;
+	padding: 10px;
+	border: 1px dashed #d5dbe5;
+	border-radius: 10px;
+	background: #fbfcfe;
+	overflow: auto;
+}
+
+.member-client-detail-page .table > tbody > tr > td:first-child {
+	color: #475467;
+	background: #fafbfc;
+}
+
+.member-client-detail-page .table > tbody > tr > td {
+	padding: 14px 15px;
+	border-color: #edf0f4;
+}
+
+.admin-client-detail-sales-manager {
+	position: relative;
+	max-width: 580px;
+}
+
+.admin-client-detail-sales-manager-results {
+	position: absolute;
+	z-index: 1060;
+	top: calc(100% + 6px);
+	left: 0;
+	right: 0;
+	max-height: 260px;
+	padding: 6px;
+	border: 1px solid #dfe4eb;
+	border-radius: 11px;
+	background: #fff;
+	box-shadow: 0 16px 40px rgba(24, 32, 56, 0.16);
+	overflow-y: auto;
+}
+
+.admin-client-detail-sales-manager-option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	padding: 10px 11px;
+	border: 0;
+	border-radius: 8px;
+	color: #344054;
+	background: transparent;
+	text-align: left;
+}
+
+.admin-client-detail-sales-manager-option:hover,
+.admin-client-detail-sales-manager-option.active {
+	color: #263eaf;
+	background: #eef1ff;
+}
+
+.admin-client-detail-sales-manager-identity {
+	font-weight: 680;
+}
+
+.admin-client-detail-sales-manager-meta {
+	margin-left: 14px;
+	color: #7b8494;
+	font-size: 0.72rem;
+	white-space: nowrap;
+}
+
+.admin-client-detail-sales-manager-empty {
+	padding: 18px 12px;
+	color: #667085;
+	text-align: center;
+}
+
+.member-management-page .member-detail-meta {
+	padding: 16px;
+	border: 1px dashed #d8dde6;
+	border-radius: 11px;
+	background: #fafbfc;
+}
+
+.member-management-page .member-search-highlight-mark {
+	padding: 0 1px;
+	border-radius: 3px;
+	color: inherit;
+	background: linear-gradient(transparent 57%, rgba(255, 196, 61, 0.48) 57%);
+	font-weight: 800;
+	text-decoration: underline;
+	text-decoration-color: #d29100;
+	text-decoration-thickness: 1.5px;
+	text-underline-offset: 3px;
+}
+
+.member-management-page .member-search-match-cell {
+	min-width: 235px;
+	white-space: normal;
+}
+
+.member-management-page .member-search-match-list {
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+}
+
+.member-management-page .member-search-match-item {
+	padding: 8px 10px;
+	border: 1px solid #e2e7f0;
+	border-radius: 9px;
+	background: #fafbff;
+}
+
+.member-management-page .member-search-match-person {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-bottom: 4px;
+	color: #344054;
+	font-size: 0.76rem;
+	font-weight: 680;
+}
+
+.member-management-page .member-search-match-value {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.79rem;
+}
+
+.member-management-page .member-search-match-field,
+.member-management-page .member-contact-label {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	padding: 2px 6px;
+	border-radius: 5px;
+	color: #405bd8;
+	background: #eef1ff;
+	font-size: 0.68rem;
+	font-weight: 720;
+}
+
+.member-management-page .member-contact-values {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	min-width: 170px;
+}
+
+.member-management-page .member-contact-values > div {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.member-management-page .member-client-telephone {
+	margin-left: 3px;
+	color: #7b8494;
+	font-size: 0.72rem;
+}
+
+@media (max-width: 767.98px) {
+	.member-management-page .page-title-box {
+		padding: 15px;
+	}
+
+	.member-management-page .card-header,
+	.member-management-page .member-form-card .card-body {
+		padding: 16px;
+	}
+
+	.member-management-page .member-filter-actions {
+		justify-content: stretch;
+	}
+
+	.member-management-page .member-filter-actions .btn {
+		flex: 1 1 0;
+	}
+
+	.admin-client-detail-sales-manager-meta {
+		display: none;
+	}
+}

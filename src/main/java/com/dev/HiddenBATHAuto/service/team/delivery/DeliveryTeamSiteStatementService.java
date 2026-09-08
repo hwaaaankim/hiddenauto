@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.LayoutResponse;
 import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.model.auth.MemberRole;
 import com.dev.HiddenBATHAuto.model.task.DeliveryOrderIndex;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
@@ -25,7 +26,7 @@ import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryStatementLayoutServi
 import lombok.RequiredArgsConstructor;
 
 /**
- * 배송팀 팀장 계정에서 선택 날짜의 모든 배송직원 현장명세서를 생성합니다.
+ * 배송팀 MANAGEMENT 권한 계정에서 선택 날짜의 모든 배송직원 현장명세서를 생성합니다.
  *
  * 대상 배송수단:
  * - 현장배송
@@ -49,7 +50,6 @@ import lombok.RequiredArgsConstructor;
 public class DeliveryTeamSiteStatementService {
 
     private static final String DELIVERY_TEAM_NAME = "배송팀";
-    private static final String TEAM_STATEMENT_LEADER_USERNAME = "deli001";
 
     private static final List<OrderStatus> VISIBLE_STATUSES = List.of(
             OrderStatus.CONFIRMED,
@@ -63,10 +63,10 @@ public class DeliveryTeamSiteStatementService {
     private final DeliveryStatementLayoutService deliveryStatementLayoutService;
 
     @Transactional(readOnly = true)
-    public boolean isTeamStatementLeader(Member member) {
+    public boolean isTeamStatementManager(Member member) {
         return member != null
                 && member.isEnabled()
-                && TEAM_STATEMENT_LEADER_USERNAME.equals(normalizeUsername(member.getUsername()))
+                && member.getRole() == MemberRole.MANAGEMENT
                 && member.getTeam() != null
                 && DELIVERY_TEAM_NAME.equals(member.getTeam().getName());
     }
@@ -80,7 +80,7 @@ public class DeliveryTeamSiteStatementService {
             Member loginMember,
             LocalDate deliveryDate
     ) {
-        validateTeamStatementLeader(loginMember);
+        validateTeamStatementManager(loginMember);
 
         if (deliveryDate == null) {
             throw new IllegalArgumentException("배송팀 현장명세서로 출력할 배송일이 없습니다.");
@@ -114,7 +114,7 @@ public class DeliveryTeamSiteStatementService {
             LocalDate deliveryDate,
             String layoutType
     ) {
-        validateTeamStatementLeader(loginMember);
+        validateTeamStatementManager(loginMember);
         validateDeliveryDate(deliveryDate);
 
         TeamStatementData data = loadTeamStatementData(deliveryDate);
@@ -133,7 +133,7 @@ public class DeliveryTeamSiteStatementService {
             LocalDate deliveryDate,
             String layoutType
     ) {
-        validateTeamStatementLeader(loginMember);
+        validateTeamStatementManager(loginMember);
         validateDeliveryDate(deliveryDate);
 
         TeamStatementData data = loadTeamStatementData(deliveryDate);
@@ -256,14 +256,14 @@ public class DeliveryTeamSiteStatementService {
         }
     }
 
-    private void validateTeamStatementLeader(Member member) {
+    private void validateTeamStatementManager(Member member) {
         if (member == null) {
             throw new AccessDeniedException("로그인 사용자 정보를 확인할 수 없습니다.");
         }
 
-        if (!isTeamStatementLeader(member)) {
+        if (!isTeamStatementManager(member)) {
             throw new AccessDeniedException(
-                    "배송팀 전체 현장명세서는 배송팀 deli001 계정만 사용할 수 있습니다."
+                    "배송팀 전체 현장명세서는 배송팀 소속 MANAGEMENT 권한 사용자만 사용할 수 있습니다."
             );
         }
     }

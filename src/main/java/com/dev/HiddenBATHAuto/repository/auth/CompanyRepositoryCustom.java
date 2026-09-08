@@ -11,7 +11,9 @@ import com.dev.HiddenBATHAuto.model.auth.Company;
 
 @Repository
 public interface CompanyRepositoryCustom {
-    Page<CompanyListRowDto> searchCompanyList(String keyword, String searchType, String sortField, String sortDir, Pageable pageable);
+    Page<CompanyListRowDto> searchCompanyList(String keyword, String searchType,
+                                              List<String> provinceAliases, String cityName, String districtName,
+                                              String sortField, String sortDir, Pageable pageable);
 
     List<Company> findAllForExcel(String keyword, String searchType, String sortField, String sortDir);
 }

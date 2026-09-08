@@ -125,10 +125,23 @@ public class MemberService {
     }
 
 	
-	public Page<Member> searchEmployees(String name, Long teamId, Pageable pageable) {
+	public Page<Member> searchEmployees(String keyword, String searchType, Long teamId, Pageable pageable) {
         // 직원만(관리직/현장직)
         List<MemberRole> roles = List.of(MemberRole.INTERNAL_EMPLOYEE, MemberRole.MANAGEMENT);
-        return memberRepository.searchEmployees(name, teamId, roles, pageable);
+
+		String requestedType = searchType == null ? "" : searchType.trim().toLowerCase(java.util.Locale.ROOT);
+		String normalizedType = Set.of("name", "username", "phone").contains(requestedType)
+				? requestedType
+				: "name";
+		String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
+		if ("phone".equals(normalizedType) && normalizedKeyword != null) {
+			String digits = normalizedKeyword.replaceAll("\\D", "");
+			if (!digits.isBlank()) {
+				normalizedKeyword = digits;
+			}
+		}
+
+        return memberRepository.searchEmployees(normalizedKeyword, normalizedType, teamId, roles, pageable);
     }
 
     /**

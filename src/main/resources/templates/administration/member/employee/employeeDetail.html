@@ -4,7 +4,7 @@
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel member-management-page member-employee-detail-page">
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 
@@ -19,7 +19,11 @@
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">직원 상세</h4>
+								<div>
+									<span class="member-page-kicker">Employee Profile</span>
+									<h4 class="mb-sm-0">직원 상세</h4>
+									<p class="member-page-description">계정·소속 정보를 수정하고 배송팀 및 AS팀의 담당 구역을 관리합니다.</p>
+								</div>
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
 										<li class="breadcrumb-item"><a href="javascript:void(0);">직원 관리</a></li>
@@ -35,7 +39,16 @@
 						<div class="row">
 
 							<div class="col-lg-6">
-								<div class="card">
+								<div class="card member-form-card">
+									<div class="card-header">
+										<div class="member-section-heading">
+											<span class="member-section-icon"><i class="ri-account-circle-line"></i></span>
+											<div>
+												<h5 class="card-title mb-0">직원 계정 및 소속</h5>
+												<span class="member-section-description">권한과 팀을 함께 확인한 뒤 저장해 주세요.</span>
+											</div>
+										</div>
+									</div>
 									<div class="card-body">
 
 										<div class="row">
@@ -119,8 +132,8 @@
 											</div>
 										</div>
 
-										<div class="row">
-											<p class="mb-0" style="margin-top:10px; font-size:12px; color:gray;">
+										<div class="row member-detail-meta">
+											<p class="mb-3 text-muted small">
 												* 하기 사항은 추후 추가될 수 있는 기능에 대한 샘플 양식입니다.
 											</p>
 											<div class="col-lg-6 mb-3">
@@ -162,9 +175,15 @@
 
 							<!-- 우측: 담당 구역 관리 -->
 							<div class="col-lg-6" id="employDetail-regionCardWrap">
-								<div class="card">
+								<div class="card member-form-card">
 									<div class="card-header">
-										<strong>담당 구역 관리</strong>
+										<div class="member-section-heading">
+											<span class="member-section-icon"><i class="ri-map-2-line"></i></span>
+											<div>
+												<h5 class="card-title mb-0">담당 구역 관리</h5>
+												<span class="member-section-description">배송팀과 AS팀에서만 활성화되며 상위 지역 단위 지정도 가능합니다.</span>
+											</div>
+										</div>
 									</div>
 									<div class="card-body">
 

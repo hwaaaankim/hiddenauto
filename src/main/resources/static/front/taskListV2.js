@@ -153,7 +153,7 @@
         const resetButton = document.querySelector('.task-list-advanced-reset');
         if (!resetButton) return;
         resetButton.addEventListener('click', function () {
-            setValue('task-list-date-type', 'created');
+			setValue('task-list-date-type', 'delivery');
             setValue('task-list-start-date', '');
             setValue('task-list-end-date', '');
             setValue('task-list-status', 'all');

@@ -135,6 +135,9 @@ public class CustomerController {
 			Model model) {
 
 		Long companyId = principal.getMember().getCompany().getId();
+		if (filter.getDateType() == null || filter.getDateType().isBlank()) {
+			filter.setDateType("delivery");
+		}
 		filter.setPage(customerListViewService.normalizePage(filter.getPage()));
 		filter.setSize(customerListViewService.normalizePageSize(filter.getSize()));
 
@@ -157,6 +160,9 @@ public class CustomerController {
 			@ModelAttribute TaskListFilter filter) {
 
 		Long companyId = principal.getMember().getCompany().getId();
+		if (filter.getDateType() == null || filter.getDateType().isBlank()) {
+			filter.setDateType("delivery");
+		}
 		filter.setPage(0);
 		filter.setSize(customerListViewService.normalizePageSize(filter.getSize()));
 

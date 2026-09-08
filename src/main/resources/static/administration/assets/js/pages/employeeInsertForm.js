@@ -12,9 +12,28 @@ document.addEventListener("DOMContentLoaded", function() {
     const citySelect = document.getElementById("citySelect");
     const districtWrapper = document.getElementById("districtWrapper");
     const districtSelect = document.getElementById("districtSelect");
+	const dynamicGuide = document.getElementById("employee-insert-dynamic-guide");
+	const dynamicGuideTitle = document.getElementById("employee-insert-dynamic-guide-title");
+	const dynamicGuideText = document.getElementById("employee-insert-dynamic-guide-text");
 
     const CATEGORY_REQUIRED_TEAMS = new Set(["생산팀", "출고팀"]);
     const REGION_REQUIRED_TEAMS = new Set(["배송팀", "AS팀"]);
+
+	const renderRegionOptions = (select, placeholder, items) => {
+		select.replaceChildren();
+		const first = document.createElement("option");
+		first.value = "";
+		first.textContent = placeholder;
+		select.appendChild(first);
+
+		(Array.isArray(items) ? items : []).forEach(item => {
+			const option = document.createElement("option");
+			option.value = String(item.id);
+			option.textContent = item.name || "-";
+			option.dataset.name = item.name || "";
+			select.appendChild(option);
+		});
+	};
 
     const allCategoryOptions = Array.from(categorySelect.querySelectorAll("option"))
         .filter(option => option.value)
@@ -47,6 +66,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const regionListContainer = document.createElement("div");
     regionListContainer.id = "regionListContainer";
+	regionListContainer.className = "d-none";
     districtWrapper.insertAdjacentElement("afterend", regionListContainer);
 
     const districtRegisterButton = document.createElement("button");
@@ -59,26 +79,61 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const updateRegionInput = () => {
         regionInput.value = JSON.stringify(selectedRegions);
-        console.log("📦 현재 지역 JSON:", regionInput.value);
     };
 
+	const updateDynamicGuide = (teamName, mode) => {
+		if (!dynamicGuide || !dynamicGuideTitle || !dynamicGuideText) return;
+
+		dynamicGuide.classList.toggle("is-active", !!teamName);
+		const guideIcon = document.createElement("i");
+		guideIcon.className = "ri-layout-grid-line me-1";
+		dynamicGuideTitle.replaceChildren(
+			guideIcon,
+			document.createTextNode(teamName ? `${teamName} 추가 설정` : "팀별 추가 설정")
+		);
+
+		if (mode === "category") {
+			dynamicGuideText.textContent = "선택한 팀에서 사용할 업무 카테고리를 지정해 주세요.";
+		} else if (mode === "region") {
+			dynamicGuideText.textContent = "광역시·도부터 필요한 범위까지 선택하고 [지역 등록]을 눌러 담당 지역을 추가해 주세요.";
+		} else if (teamName) {
+			dynamicGuideText.textContent = "이 팀은 별도의 카테고리나 담당 지역 설정 없이 등록할 수 있습니다.";
+		} else {
+			dynamicGuideText.textContent = "팀을 선택하면 필요한 카테고리 또는 담당 지역 입력란이 이 영역에 표시됩니다.";
+		}
+	};
     const renderRegionList = () => {
-        regionListContainer.innerHTML = "";
+		regionListContainer.replaceChildren();
+
+		if (selectedRegions.length === 0) {
+			const empty = document.createElement("div");
+			empty.className = "text-muted small py-2 text-center";
+			empty.textContent = "등록할 담당 지역이 아직 없습니다.";
+			regionListContainer.appendChild(empty);
+			return;
+		}
 
         selectedRegions.forEach((region, index) => {
             const regionRow = document.createElement("div");
-            regionRow.className = "d-flex justify-content-between align-items-center border p-2 mb-2";
-            regionRow.innerHTML = `
-                <span>${region.provinceName} ${region.cityName || ""} ${region.districtName || ""}</span>
-                <button type="button" class="btn btn-sm btn-outline-danger" data-index="${index}">삭제</button>
-            `;
+			regionRow.className = "d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white";
 
-            regionRow.querySelector("button").addEventListener("click", () => {
+			const label = document.createElement("span");
+			label.textContent = [region.provinceName, region.cityName, region.districtName]
+				.filter(Boolean).join(" ");
+
+			const removeButton = document.createElement("button");
+			removeButton.type = "button";
+			removeButton.className = "btn btn-sm btn-outline-danger";
+			removeButton.dataset.index = String(index);
+			removeButton.textContent = "삭제";
+			removeButton.addEventListener("click", () => {
                 selectedRegions.splice(index, 1);
                 renderRegionList();
                 updateRegionInput();
             });
 
+			regionRow.appendChild(label);
+			regionRow.appendChild(removeButton);
             regionListContainer.appendChild(regionRow);
         });
     };
@@ -91,11 +146,12 @@ document.addEventListener("DOMContentLoaded", function() {
         provinceWrapper.style.display = "none";
         cityWrapper.style.display = "none";
         districtWrapper.style.display = "none";
+		regionListContainer.classList.add("d-none");
 
         resetCategorySelect();
 
-        regionListContainer.innerHTML = "";
         selectedRegions.length = 0;
+		renderRegionList();
         updateRegionInput();
 
         provinceSelect.value = "";
@@ -107,10 +163,12 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         if (!selectedTeamId) {
+			updateDynamicGuide("", "none");
             return;
         }
 
         if (CATEGORY_REQUIRED_TEAMS.has(selectedTeamName)) {
+			updateDynamicGuide(selectedTeamName, "category");
             const categoryCount = renderCategoryOptionsByTeam(selectedTeamId);
             categoryWrapper.style.display = "block";
 
@@ -122,9 +180,14 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         if (REGION_REQUIRED_TEAMS.has(selectedTeamName)) {
+			updateDynamicGuide(selectedTeamName, "region");
             provinceWrapper.style.display = "block";
+			regionListContainer.classList.remove("d-none");
             districtWrapper.insertAdjacentElement("afterend", districtRegisterButton);
+			return;
         }
+
+		updateDynamicGuide(selectedTeamName, "none");
     });
 
     provinceSelect.addEventListener("change", function() {
@@ -143,11 +206,7 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(res => res.json())
             .then(cities => {
                 if (cities.length > 0) {
-                    citySelect.innerHTML = '<option value="">시 선택</option>';
-
-                    cities.forEach(city => {
-                        citySelect.innerHTML += `<option value="${city.id}" data-name="${city.name}">${city.name}</option>`;
-                    });
+					renderRegionOptions(citySelect, "시 선택", cities);
 
                     cityWrapper.style.display = "block";
                     districtWrapper.style.display = "none";
@@ -156,11 +215,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     fetch(`/api/v1/province/${provinceId}/districts`)
                         .then(res => res.json())
                         .then(districts => {
-                            districtSelect.innerHTML = '<option value="">구 선택</option>';
-
-                            districts.forEach(d => {
-                                districtSelect.innerHTML += `<option value="${d.id}" data-name="${d.name}">${d.name}</option>`;
-                            });
+							renderRegionOptions(districtSelect, "구 선택", districts);
 
                             cityWrapper.style.display = "none";
                             districtWrapper.style.display = "block";
@@ -182,11 +237,7 @@ document.addEventListener("DOMContentLoaded", function() {
         fetch(`/api/v1/city/${cityId}/districts`)
             .then(res => res.json())
             .then(data => {
-                districtSelect.innerHTML = '<option value="">구 선택</option>';
-
-                data.forEach(d => {
-                    districtSelect.innerHTML += `<option value="${d.id}" data-name="${d.name}">${d.name}</option>`;
-                });
+				renderRegionOptions(districtSelect, "구 선택", data);
 
                 districtWrapper.style.display = "block";
             });

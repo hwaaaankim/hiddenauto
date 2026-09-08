@@ -5,7 +5,7 @@
 <head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel member-management-page member-client-detail-page">
 
 	<div id="layout-wrapper">
 
@@ -21,7 +21,11 @@
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">대리점 상세</h4>
+								<div>
+									<span class="member-page-kicker">Client Profile</span>
+									<h4 class="mb-sm-0">대리점 상세</h4>
+									<p class="member-page-description">회사 정보, 담당직원, 배송지와 소속 고객 계정을 한 화면에서 관리합니다.</p>
+								</div>
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
@@ -43,9 +47,15 @@
 					<div class="row">
 						<!-- 회사 정보 수정 카드 -->
 						<div class="col-lg-7">
-							<div class="card mb-3">
+							<div class="card member-form-card mb-3">
 								<div class="card-header d-flex justify-content-between align-items-center">
-									<h5 class="card-title mb-0">고객 회사정보</h5>
+									<div class="member-section-heading">
+										<span class="member-section-icon"><i class="ri-building-4-line"></i></span>
+										<div>
+											<h5 class="card-title mb-0">고객 회사정보</h5>
+											<span class="member-section-description">필수 정보와 담당직원 변경사항을 함께 저장합니다.</span>
+										</div>
+									</div>
 									<button type="button" id="admin-client-detail-fourth-company-save-btn"
 										class="btn btn-primary" disabled>
 										수정사항 반영
@@ -68,16 +78,55 @@
 														</td>
 													</tr>
 
-													<tr>
-														<td class="fw-medium admin-client-detail-fourth-required">적립금
+											<tr>
+												<td class="fw-medium admin-client-detail-fourth-required">적립금
 														</td>
 														<td>
 															<input type="number"
 																class="form-control admin-client-detail-fourth-table-input"
 																id="admin-client-detail-fourth-point" name="point"
 																min="0" step="1" th:value="${company.point}">
-														</td>
-													</tr>
+												</td>
+											</tr>
+
+											<tr>
+												<td class="fw-medium">담당직원배정</td>
+												<td>
+													<div class="admin-client-detail-sales-manager"
+														data-sales-manager-autocomplete>
+														<input type="hidden"
+															id="admin-client-detail-fourth-salesManagerId"
+															name="salesManagerId"
+															th:value="${salesManager != null ? salesManager.id : ''}">
+														<div class="input-group">
+															<span class="input-group-text" aria-hidden="true">
+																<i class="ri-user-search-line"></i>
+															</span>
+															<input type="text" class="form-control"
+																id="admin-client-detail-fourth-salesManagerSearch"
+																autocomplete="off" spellcheck="false"
+																role="combobox" aria-autocomplete="list"
+																aria-expanded="false"
+																aria-controls="admin-client-detail-fourth-salesManagerResults"
+																placeholder="관리팀 직원 아이디를 입력해 검색"
+																th:value="${salesManager != null ? salesManager.username : ''}"
+																th:attr="data-selected-label=${salesManager != null ? salesManager.username : ''}">
+															<button type="button" class="btn btn-outline-secondary"
+																id="admin-client-detail-fourth-salesManagerClear"
+																aria-label="담당직원 지정 해제" title="담당직원 지정 해제">
+																<i class="ri-close-line"></i>
+															</button>
+														</div>
+														<div id="admin-client-detail-fourth-salesManagerResults"
+															class="admin-client-detail-sales-manager-results d-none"
+															role="listbox" aria-label="담당직원 검색 결과"></div>
+													</div>
+													<div id="admin-client-detail-fourth-salesManagerStatus"
+														class="form-text" aria-live="polite">
+													활성 상태인 우리회사 관리팀 소속 ADMIN 또는 MANAGEMENT 계정을 아이디로 검색해 지정할 수 있습니다.
+													</div>
+												</td>
+											</tr>
 
 													<tr>
 														<td class="fw-medium admin-client-detail-fourth-required">
@@ -228,7 +277,13 @@
 						<div class="col-lg-5">
 							<div class="card mb-3">
 								<div class="card-header">
-									<h5 class="card-title mb-0">기본 정보</h5>
+									<div class="member-section-heading">
+										<span class="member-section-icon"><i class="ri-information-line"></i></span>
+										<div>
+											<h5 class="card-title mb-0">기본 정보</h5>
+											<span class="member-section-description">등록 현황을 빠르게 확인합니다.</span>
+										</div>
+									</div>
 								</div>
 								<div class="card-body">
 									<div class="table-responsive">
@@ -267,12 +322,15 @@
 
 							<div class="card mb-3">
 								<div class="card-header d-flex justify-content-between align-items-center gap-2">
-									<div>
+									<div class="member-section-heading">
+										<span class="member-section-icon"><i class="ri-map-pin-line"></i></span>
+										<div>
 										<h5 class="card-title mb-1">자주 사용하는 배송지</h5>
 										<span id="admin-client-detail-fourth-delivery-address-summary-count"
 											class="text-muted small"
 											th:attr="data-initial-count=${deliveryAddressCount}"
 											th:text="|${deliveryAddressCount}개 등록|">0개 등록</span>
+										</div>
 									</div>
 
 									<button type="button" id="admin-client-detail-fourth-delivery-address-open-btn"
@@ -291,7 +349,13 @@
 
 							<div class="card mb-3">
 								<div class="card-header">
-									<h5 class="card-title mb-0">회사 멤버</h5>
+									<div class="member-section-heading">
+										<span class="member-section-icon"><i class="ri-group-line"></i></span>
+										<div>
+											<h5 class="card-title mb-0">회사 멤버</h5>
+											<span class="member-section-description">대리점 소속 고객 계정 정보입니다.</span>
+										</div>
+									</div>
 								</div>
 								<div class="card-body">
 									<div th:if="${#lists.isEmpty(members)}" class="text-muted">
@@ -353,10 +417,17 @@
 														<p class="text-muted mb-1">아이디</p>
 														<h5 class="fs-14 mb-0" th:text="${member.username}"></h5>
 													</div>
-													<div class="col-6">
-														<p class="text-muted mb-1">연락처</p>
-														<h5 class="fs-14 mb-0" th:text="${member.phone}"></h5>
-													</div>
+											<div class="col-6">
+												<p class="text-muted mb-1">
+													<span>연락처</span>
+													<span class="member-client-telephone">
+														(유선번호 :
+														<span th:text="${(member.telephone == null or #strings.isEmpty(member.telephone)) ? '-' : member.telephone}">-</span>)
+													</span>
+												</p>
+												<h5 class="fs-14 mb-0"
+													th:text="${(member.phone == null or #strings.isEmpty(member.phone)) ? '-' : member.phone}"></h5>
+											</div>
 													<div class="col-6">
 														<p class="text-muted mb-1">이메일</p>
 														<h5 class="fs-14 mb-0" th:text="${member.email}"></h5>
@@ -551,7 +622,7 @@
 
 	<!-- 회원가입/회원정보/관리자 화면이 동일한 주소 정규화 규칙을 사용합니다. -->
 	<script src="/front/addressRegion.js?v=20260902-1"></script>
-	<script src="/administration/assets/js/page/clientDetail.js?v=20260731-2"></script>
+	<script src="/administration/assets/js/page/clientDetail.js?v=20260908-2"></script>
 
 </body>
 

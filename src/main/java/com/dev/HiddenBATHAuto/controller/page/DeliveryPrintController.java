@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequestMapping("/team/deliveryPrint")
-@PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
+@PreAuthorize("hasAnyRole('MANAGEMENT', 'INTERNAL_EMPLOYEE') and principal.teamName == '배송팀'")
 @RequiredArgsConstructor
 public class DeliveryPrintController {
 

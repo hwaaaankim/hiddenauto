@@ -31,17 +31,15 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
             response.getWriter().write("{\"error\": \"접근이 거부되었습니다.\", \"code\": 403}");
         } else {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String role = "UNKNOWN";
+            PrincipalDetails principal = null;
 
-            if (auth != null && auth.getPrincipal() instanceof PrincipalDetails principal) {
-                role = principal.getMember().getRole().name();
+            if (auth != null && auth.getPrincipal() instanceof PrincipalDetails authenticatedPrincipal) {
+                principal = authenticatedPrincipal;
             }
 
-            String redirectUrl = switch (role) {
-                case "ADMIN", "MANAGEMENT", "INTERNAL_EMPLOYEE" -> "/common/main";
-                case "CUSTOMER_REPRESENTATIVE", "CUSTOMER_EMPLOYEE" -> "/index";
-                default -> "/loginForm?error=forbidden";
-            };
+            String redirectUrl = InternalNavigationPolicy.resolveDefaultRedirectUrl(
+                    principal != null ? principal.getMember() : null
+            );
 
             response.setContentType("text/html;charset=UTF-8");
             response.getWriter().write(

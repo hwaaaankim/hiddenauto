@@ -115,6 +115,8 @@ import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyDeliveryAddressRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyOrdererInfoRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
+import com.dev.HiddenBATHAuto.repository.auth.CityRepository;
+import com.dev.HiddenBATHAuto.repository.auth.DistrictRepository;
 import com.dev.HiddenBATHAuto.repository.auth.MemberRepository;
 import com.dev.HiddenBATHAuto.repository.auth.ProvinceRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
@@ -179,6 +181,15 @@ public class ManagementController {
 	) {
 	}
 
+	public record AdminSalesManagerSearchItem(
+			Long id,
+			String username,
+			String name,
+			String role,
+			String teamName
+	) {
+	}
+
 	private final TaskRepository taskRepository;
 	private final OrderRepository orderRepository;
 	private final MemberRepository memberRepository;
@@ -190,6 +201,8 @@ public class ManagementController {
 	private final CompanyDeliveryAddressRepository companyDeliveryAddressRepository;
 	private final CompanyOrdererInfoRepository companyOrdererInfoRepository;
 	private final ProvinceRepository provinceRepository;
+	private final CityRepository cityRepository;
+	private final DistrictRepository districtRepository;
 	private final OrderImageRepository orderImageRepository;
 
 	private final MemberService memberService;
@@ -212,6 +225,7 @@ public class ManagementController {
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 	private static final Long MANAGEMENT_MIRROR_CUTTING_FILTER_VALUE = -9000001L;
 	private static final String MANAGEMENT_MIRROR_CUTTING_FILTER_LABEL = "재단(거울)";
+	private static final String MANAGEMENT_TEAM_NAME = "관리팀";
 	private static final Long PRODUCTION_TEAM_ID = 2L;
 	private static final List<String> MANAGEMENT_REAL_PRODUCT_CATEGORY_NAMES = List.of(
 			"슬라이드장",
@@ -344,7 +358,6 @@ public class ManagementController {
 		model.addAttribute("readonlyListRows", List.of());
 		model.addAttribute("readonlyListHasNext", false);
 		model.addAttribute("readonlyListPage", -1);
-		model.addAttribute("isTestempUser", principal != null && "testemp".equals(principal.getUsername()));
 		// 일괄보기 대상은 검색 전체 건수가 아니라 현재 페이지에 실제 표시된 주문만 사용합니다.
 		model.addAttribute("bulkOrderCount", orders.getNumberOfElements());
 
@@ -418,7 +431,7 @@ public class ManagementController {
 	}
 
 	/**
-	 * testemp 전용 읽기 전용 일괄 목록입니다. 20건 단위로만 반환하며 변경 API나
+	 * 관리자/관리팀 공용 읽기 전용 일괄 목록입니다. 20건 단위로만 반환하며 변경 API나
 	 * 관리자 요청 동작을 노출하지 않습니다.
 	 */
 	@GetMapping("/nonStandardTaskList/readonly-list-fragment")
@@ -441,8 +454,10 @@ public class ManagementController {
 			@RequestParam(required = false, defaultValue = "0") int modalPage,
 			Model model
 	) {
-		if (principal == null || !"testemp".equals(principal.getUsername())) {
-			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "허용된 계정만 조회할 수 있습니다.");
+		if (principal == null || principal.getMember() == null
+				|| (principal.getMember().getRole() != MemberRole.ADMIN
+						&& principal.getMember().getRole() != MemberRole.MANAGEMENT)) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 또는 관리팀 권한이 필요합니다.");
 		}
 
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
@@ -2932,6 +2947,9 @@ public class ManagementController {
 	@GetMapping("/clientList")
 	public String clientList(@RequestParam(required = false) String keyword,
 			@RequestParam(required = false, defaultValue = "company") String searchType,
+			@RequestParam(required = false) Long provinceId,
+			@RequestParam(required = false) Long cityId,
+			@RequestParam(required = false) Long districtId,
 			@RequestParam(required = false, defaultValue = "0") int page,
 			@RequestParam(required = false, defaultValue = "10") int size,
 			@RequestParam(required = false, defaultValue = "createdAt") String sortField,
@@ -2948,17 +2966,119 @@ public class ManagementController {
 		// 실제 정렬은 repository custom 구현에서 sortField/sortDir로 처리합니다.
 		Pageable pageable = PageRequest.of(page, size, Sort.by(direction, "createdAt"));
 
-		Page<CompanyListRowDto> companies = companyService.getCompanyList(keyword, searchType, sortField, sortDir,
-				pageable);
+		String requestedSearchType = searchType == null ? "" : searchType.trim().toLowerCase(Locale.ROOT);
+		String normalizedSearchType = Set.of("company", "member", "phone", "username", "businessnumber")
+				.contains(requestedSearchType)
+				? requestedSearchType
+				: "company";
+
+		Page<CompanyListRowDto> companies;
+		try {
+			companies = companyService.getCompanyList(
+					keyword,
+					normalizedSearchType,
+					provinceId,
+					cityId,
+					districtId,
+					sortField,
+					sortDir,
+					pageable
+			);
+		} catch (IllegalArgumentException e) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+		}
 
 		model.addAttribute("companies", companies);
 		model.addAttribute("keyword", keyword);
-		model.addAttribute("searchType", searchType);
+		model.addAttribute("searchType", normalizedSearchType);
+		model.addAttribute("provinceId", provinceId);
+		model.addAttribute("cityId", cityId);
+		model.addAttribute("districtId", districtId);
 		model.addAttribute("size", size);
 		model.addAttribute("sortField", sortField);
 		model.addAttribute("sortDir", sortDir);
+		boolean clientMemberSearchActive = StringUtils.hasText(keyword)
+				&& Set.of("member", "phone", "username").contains(normalizedSearchType);
+		model.addAttribute("clientMemberSearchActive", clientMemberSearchActive);
+		model.addAttribute(
+				"clientSearchMatchesByCompanyId",
+				companyService.getCompanyMemberSearchMatches(
+						companies.getContent().stream().map(CompanyListRowDto::getId).toList(),
+						keyword,
+						normalizedSearchType
+				)
+		);
+		addClientListRegionSelectionModel(model, provinceId, cityId);
 
 		return "administration/member/client/clientList";
+	}
+
+	@GetMapping("/clientList/api/regions/province/{provinceId}/children")
+	@ResponseBody
+	public Map<String, Object> clientListRegionChildren(@PathVariable Long provinceId) {
+		provinceRepository.findById(provinceId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "시·도 정보가 존재하지 않습니다."));
+
+		List<City> cities = cityRepository.findByProvinceIdOrderByNameAsc(provinceId);
+		if (!cities.isEmpty()) {
+			return Map.of(
+					"mode", "CITY",
+					"items", cities.stream().map(city -> Map.of(
+							"id", city.getId(),
+							"name", safe(city.getName())
+					)).toList()
+			);
+		}
+
+		List<District> districts = districtRepository.findByProvinceIdAndCityIsNullOrderByNameAsc(provinceId);
+		return Map.of(
+				"mode", districts.isEmpty() ? "NONE" : "DISTRICT",
+				"items", districts.stream().map(district -> Map.of(
+						"id", district.getId(),
+						"name", safe(district.getName())
+				)).toList()
+		);
+	}
+
+	@GetMapping("/clientList/api/regions/city/{cityId}/districts")
+	@ResponseBody
+	public Map<String, Object> clientListCityDistricts(@PathVariable Long cityId) {
+		cityRepository.findById(cityId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "시·군 정보가 존재하지 않습니다."));
+
+		List<District> districts = districtRepository.findByCityIdOrderByNameAsc(cityId);
+		return Map.of(
+				"mode", districts.isEmpty() ? "NONE" : "DISTRICT",
+				"items", districts.stream().map(district -> Map.of(
+						"id", district.getId(),
+						"name", safe(district.getName())
+				)).toList()
+		);
+	}
+
+	private void addClientListRegionSelectionModel(Model model, Long provinceId, Long cityId) {
+		List<Province> provinces = provinceRepository.findAllByOrderByNameAsc();
+		List<City> cities = List.of();
+		List<District> districts = List.of();
+		String mode = "NONE";
+
+		if (provinceId != null && provinceRepository.existsById(provinceId)) {
+			cities = cityRepository.findByProvinceIdOrderByNameAsc(provinceId);
+			if (!cities.isEmpty()) {
+				mode = "CITY";
+				if (cityId != null) {
+					districts = districtRepository.findByCityIdOrderByNameAsc(cityId);
+				}
+			} else {
+				districts = districtRepository.findByProvinceIdAndCityIsNullOrderByNameAsc(provinceId);
+				mode = districts.isEmpty() ? "NONE" : "DISTRICT";
+			}
+		}
+
+		model.addAttribute("clientRegionProvinces", provinces);
+		model.addAttribute("clientRegionCities", cities);
+		model.addAttribute("clientRegionDistricts", districts);
+		model.addAttribute("clientRegionMode", mode);
 	}
 
 	@GetMapping("/clientList/excel")
@@ -3003,9 +3123,30 @@ public class ManagementController {
 		model.addAttribute("company", company);
 		model.addAttribute("members", memberList);
 		model.addAttribute("representative", representative);
+		model.addAttribute("salesManager", company.getSalesManager());
 		model.addAttribute("deliveryAddressCount", deliveryAddresses.size());
 
 		return "administration/member/client/clientDetail";
+	}
+
+	@GetMapping("/api/sales-managers/search")
+	@ResponseBody
+	public List<AdminSalesManagerSearchItem> searchAssignableSalesManagers(
+			@RequestParam(required = false, defaultValue = "") String keyword) {
+		String normalizedKeyword = keyword == null ? "" : keyword.trim();
+
+		return memberRepository.searchAssignableSalesManagers(
+				List.of(MemberRole.ADMIN, MemberRole.MANAGEMENT),
+				MANAGEMENT_TEAM_NAME,
+				normalizedKeyword,
+				PageRequest.of(0, 20)
+		).stream().map(member -> new AdminSalesManagerSearchItem(
+				member.getId(),
+				safe(member.getUsername()),
+				safe(member.getName()),
+				member.getRole() != null ? member.getRole().name() : "",
+				member.getTeam() != null ? safe(member.getTeam().getName()) : ""
+		)).toList();
 	}
 
 	@GetMapping("/clientDetail/{companyId}/deliveryAddresses")
@@ -3275,7 +3416,9 @@ public class ManagementController {
 	}
 
 	@GetMapping("/employeeList")
-	public String employeeList(@RequestParam(value = "name", required = false) String name,
+	public String employeeList(@RequestParam(value = "keyword", required = false) String keyword,
+			@RequestParam(value = "searchType", required = false, defaultValue = "name") String searchType,
+			@RequestParam(value = "name", required = false) String legacyName,
 			@RequestParam(value = "teamId", required = false) Long teamId,
 			@RequestParam(value = "sortField", required = false, defaultValue = "createdAt") String sortField,
 			@RequestParam(value = "sortDir", required = false, defaultValue = "desc") String sortDir,
@@ -3290,8 +3433,19 @@ public class ManagementController {
 		// 3) Pageable에 sort 반영
 		Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
-		// 4) 직원 검색(우리회사 직원만 + 직원 role만) - 기존 기능 유지
-		Page<Member> employeePage = memberService.searchEmployees(name, teamId, sortedPageable);
+		String requestedSearchType = searchType == null ? "" : searchType.trim().toLowerCase(Locale.ROOT);
+		String normalizedSearchType = Set.of("name", "username", "phone").contains(requestedSearchType)
+				? requestedSearchType
+				: "name";
+		String effectiveKeyword = StringUtils.hasText(keyword) ? keyword : legacyName;
+
+		// 4) 직원 검색(우리회사 직원만 + 기존 직원 role 범위 유지)
+		Page<Member> employeePage = memberService.searchEmployees(
+				effectiveKeyword,
+				normalizedSearchType,
+				teamId,
+				sortedPageable
+		);
 
 		// 5) 페이지네이션(5개 윈도우)
 		int totalPages = employeePage.getTotalPages();
@@ -3309,7 +3463,9 @@ public class ManagementController {
 		// 6) 모델 바인딩
 		model.addAttribute("teams", teams);
 		model.addAttribute("employeePage", employeePage);
-		model.addAttribute("name", name);
+		model.addAttribute("keyword", effectiveKeyword);
+		model.addAttribute("searchType", normalizedSearchType);
+		model.addAttribute("name", effectiveKeyword);
 		model.addAttribute("teamId", teamId);
 
 		model.addAttribute("sortField", sortField);
