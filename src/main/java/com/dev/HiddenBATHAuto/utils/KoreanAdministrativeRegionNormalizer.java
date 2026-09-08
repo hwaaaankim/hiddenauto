@@ -1,6 +1,7 @@
 package com.dev.HiddenBATHAuto.utils;
 
 import java.text.Normalizer;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -174,6 +175,26 @@ public final class KoreanAdministrativeRegionNormalizer {
             case "제주특별자치도" -> "제주";
             default -> stripAdministrativeSuffix(compact(canonical));
         };
+    }
+
+    /**
+     * Company.doName처럼 과거 표기와 canonical 표기가 함께 존재할 수 있는 문자열 컬럼을
+     * 조회할 때 사용할 수 있는 모든 동의어를 반환합니다.
+     */
+    public static Set<String> provinceAliasesForMatch(String value) {
+        String canonical = canonicalProvinceName(value);
+        if (canonical.isBlank()) {
+            return Set.of();
+        }
+
+        LinkedHashSet<String> aliases = new LinkedHashSet<>();
+        aliases.add(compact(canonical));
+        PROVINCE_ALIASES.forEach((alias, target) -> {
+            if (canonical.equals(target)) {
+                aliases.add(compact(alias));
+            }
+        });
+        return Set.copyOf(aliases);
     }
 
     private static String stripAdministrativeSuffix(String value) {

@@ -101,7 +101,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Controller
 @RequestMapping("/team")
-@PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
+@PreAuthorize("hasAnyRole('MANAGEMENT', 'INTERNAL_EMPLOYEE')")
 @RequiredArgsConstructor
 @Slf4j
 public class TeamController {

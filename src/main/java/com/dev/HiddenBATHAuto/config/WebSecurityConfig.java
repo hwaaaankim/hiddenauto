@@ -288,10 +288,13 @@ public class WebSecurityConfig {
                         )
 
                         /*
-                         * 생산팀/배송팀/AS팀/출고팀 내부직원 페이지
+                         * 생산팀/배송팀/AS팀/출고팀 페이지
+                         * 팀장은 MANAGEMENT, 팀원은 INTERNAL_EMPLOYEE를 사용할 수 있습니다.
+                         * 실제 소속 팀 일치 여부는 각 팀 컨트롤러에서 다시 검증합니다.
                          */
                         .requestMatchers(teamUrls)
-                        .hasAuthority(
+                        .hasAnyAuthority(
+                                "ROLE_MANAGEMENT",
                                 "ROLE_INTERNAL_EMPLOYEE"
                         )
 

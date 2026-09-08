@@ -30,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/team/asSchedule")
-@PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
+@PreAuthorize("hasAnyRole('MANAGEMENT', 'INTERNAL_EMPLOYEE') and principal.teamName == 'AS팀'")
 @RequiredArgsConstructor
 public class AsScheduleApiController {
 

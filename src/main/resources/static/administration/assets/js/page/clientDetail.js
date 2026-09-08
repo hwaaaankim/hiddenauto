@@ -351,6 +351,12 @@
 	const searchAddressBtn = document.getElementById('admin-client-detail-fourth-search-address-btn');
 	const addressPreviewInlineEl = document.getElementById('admin-client-detail-fourth-address-preview-inline');
 	const currentAddressPreviewEl = document.getElementById('admin-client-detail-fourth-current-address-preview');
+	const salesManagerIdInput = document.getElementById('admin-client-detail-fourth-salesManagerId');
+	const salesManagerSearchInput = document.getElementById('admin-client-detail-fourth-salesManagerSearch');
+	const salesManagerClearBtn = document.getElementById('admin-client-detail-fourth-salesManagerClear');
+	const salesManagerResultsEl = document.getElementById('admin-client-detail-fourth-salesManagerResults');
+	const salesManagerStatusEl = document.getElementById('admin-client-detail-fourth-salesManagerStatus');
+	let companySaving = false;
 
 	const companyFields = {
 		companyName: document.getElementById('admin-client-detail-fourth-companyName'),
@@ -570,6 +576,7 @@
 			guName: trimValue(companyFields.guName ? companyFields.guName.value : ''),
 			roadAddress: trimValue(companyFields.roadAddress ? companyFields.roadAddress.value : ''),
 			detailAddress: trimValue(companyFields.detailAddress ? companyFields.detailAddress.value : ''),
+			salesManagerId: trimValue(salesManagerIdInput ? salesManagerIdInput.value : ''),
 			existingRemoved: companyLicenseState.existingRemoved,
 			hasNewFile: !!companyLicenseState.newFile,
 			newFileName: companyLicenseState.newFile ? companyLicenseState.newFile.name : '',
@@ -615,6 +622,12 @@
 			return false;
 		}
 
+		// 텍스트만 입력한 값으로 임의 직원을 저장하지 않도록 검색 결과 선택을 강제합니다.
+		if (salesManagerSearchInput && trimValue(salesManagerSearchInput.value)
+			&& (!salesManagerIdInput || !trimValue(salesManagerIdInput.value))) {
+			return false;
+		}
+
 		return true;
 	}
 
@@ -627,8 +640,254 @@
 			return;
 		}
 
-		companySaveBtn.disabled = !(validateCompanyForm() && hasCompanyChanges());
+		companySaveBtn.disabled = companySaving || !(validateCompanyForm() && hasCompanyChanges());
 	}
+
+	/* 담당직원 자동완성: 서버가 활성 상태의 우리회사 관리팀 소속 ADMIN / MANAGEMENT만 반환합니다. */
+	const salesManagerState = {
+		items: [],
+		activeIndex: -1,
+		requestSequence: 0,
+		debounceTimer: null
+	};
+
+	function salesManagerLabel(item) {
+		return trimValue(item && item.username);
+	}
+
+	function salesManagerDisplayName(item) {
+		const username = salesManagerLabel(item);
+		const name = trimValue(item && item.name);
+		return name ? username + ' · ' + name : username;
+	}
+
+	function setSalesManagerStatus(message, isError) {
+		if (!salesManagerStatusEl) {
+			return;
+		}
+
+		salesManagerStatusEl.textContent = message;
+		salesManagerStatusEl.classList.toggle('text-danger', !!isError);
+	}
+
+	function closeSalesManagerResults() {
+		if (!salesManagerResultsEl || !salesManagerSearchInput) {
+			return;
+		}
+
+		salesManagerResultsEl.classList.add('d-none');
+		salesManagerSearchInput.setAttribute('aria-expanded', 'false');
+		salesManagerSearchInput.removeAttribute('aria-activedescendant');
+		salesManagerState.activeIndex = -1;
+	}
+
+	function updateSalesManagerActiveResult() {
+		if (!salesManagerResultsEl || !salesManagerSearchInput) {
+			return;
+		}
+
+		const options = Array.from(salesManagerResultsEl.querySelectorAll('[role="option"]'));
+		options.forEach(function(option, index) {
+			const active = index === salesManagerState.activeIndex;
+			option.classList.toggle('active', active);
+			option.setAttribute('aria-selected', active ? 'true' : 'false');
+		});
+
+		const activeOption = options[salesManagerState.activeIndex];
+		if (activeOption) {
+			salesManagerSearchInput.setAttribute('aria-activedescendant', activeOption.id);
+			activeOption.scrollIntoView({ block: 'nearest' });
+		} else {
+			salesManagerSearchInput.removeAttribute('aria-activedescendant');
+		}
+	}
+
+	function chooseSalesManager(item) {
+		if (!salesManagerIdInput || !salesManagerSearchInput || !item) {
+			return;
+		}
+
+		const label = salesManagerLabel(item);
+		window.clearTimeout(salesManagerState.debounceTimer);
+		salesManagerState.requestSequence++;
+		salesManagerIdInput.value = nvl(item.id);
+		salesManagerSearchInput.value = label;
+		salesManagerSearchInput.setAttribute('data-selected-label', label);
+		setSalesManagerStatus(salesManagerDisplayName(item) + ' 담당직원이 선택되었습니다.', false);
+		closeSalesManagerResults();
+		toggleCompanySaveButton();
+	}
+
+	function clearSalesManager() {
+		window.clearTimeout(salesManagerState.debounceTimer);
+		salesManagerState.requestSequence++;
+		if (salesManagerIdInput) {
+			salesManagerIdInput.value = '';
+		}
+
+		if (salesManagerSearchInput) {
+			salesManagerSearchInput.value = '';
+			salesManagerSearchInput.setAttribute('data-selected-label', '');
+		}
+
+		setSalesManagerStatus('담당직원 지정을 해제했습니다. 저장 버튼을 눌러 반영해 주세요.', false);
+		closeSalesManagerResults();
+		toggleCompanySaveButton();
+	}
+
+	function renderSalesManagerResults(items) {
+		if (!salesManagerResultsEl || !salesManagerSearchInput) {
+			return;
+		}
+
+		salesManagerResultsEl.replaceChildren();
+		salesManagerState.items = Array.isArray(items) ? items : [];
+		salesManagerState.activeIndex = salesManagerState.items.length > 0 ? 0 : -1;
+
+		if (salesManagerState.items.length === 0) {
+			const empty = document.createElement('div');
+			empty.className = 'admin-client-detail-sales-manager-empty';
+			empty.textContent = '조건에 맞는 담당직원이 없습니다.';
+			salesManagerResultsEl.appendChild(empty);
+			setSalesManagerStatus('활성 상태인 우리회사 관리팀 소속 ADMIN 또는 MANAGEMENT 계정만 검색됩니다.', false);
+		} else {
+			salesManagerState.items.forEach(function(item, index) {
+				const option = document.createElement('button');
+				option.type = 'button';
+				option.id = 'admin-client-detail-sales-manager-option-' + index;
+				option.className = 'admin-client-detail-sales-manager-option';
+				option.setAttribute('role', 'option');
+				option.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+
+				const identity = document.createElement('span');
+				identity.className = 'admin-client-detail-sales-manager-identity';
+				identity.textContent = salesManagerDisplayName(item);
+
+				const meta = document.createElement('span');
+				meta.className = 'admin-client-detail-sales-manager-meta';
+				meta.textContent = [trimValue(item.role), trimValue(item.teamName)]
+					.filter(Boolean).join(' · ') || '소속 정보 없음';
+
+				option.appendChild(identity);
+				option.appendChild(meta);
+				option.addEventListener('mousedown', function(event) {
+					// 입력창 blur보다 먼저 선택을 확정합니다.
+					event.preventDefault();
+					chooseSalesManager(item);
+				});
+				salesManagerResultsEl.appendChild(option);
+			});
+			setSalesManagerStatus(salesManagerState.items.length + '명의 검색 결과가 있습니다.', false);
+		}
+
+		salesManagerResultsEl.classList.remove('d-none');
+		salesManagerSearchInput.setAttribute('aria-expanded', 'true');
+		updateSalesManagerActiveResult();
+	}
+
+	async function searchSalesManagers() {
+		if (!salesManagerSearchInput) {
+			return;
+		}
+
+		const requestSequence = ++salesManagerState.requestSequence;
+		setSalesManagerStatus('담당직원을 검색하는 중입니다.', false);
+
+		try {
+			const items = await getJson(
+				'/management/api/sales-managers/search?keyword=' + encodeURIComponent(trimValue(salesManagerSearchInput.value))
+			);
+			if (requestSequence !== salesManagerState.requestSequence) {
+				return;
+			}
+			renderSalesManagerResults(items);
+		} catch (error) {
+			if (requestSequence !== salesManagerState.requestSequence) {
+				return;
+			}
+			salesManagerState.items = [];
+			closeSalesManagerResults();
+			setSalesManagerStatus('담당직원 검색에 실패했습니다. 잠시 후 다시 시도해 주세요.', true);
+		}
+	}
+
+	if (salesManagerSearchInput) {
+		salesManagerSearchInput.addEventListener('input', function() {
+			// 선택 문구를 수정하면 기존 선택 ID를 즉시 지워 다른 직원으로 잘못 저장되는 것을 방지합니다.
+			salesManagerState.requestSequence++;
+			salesManagerState.items = [];
+			closeSalesManagerResults();
+			if (salesManagerIdInput) {
+				salesManagerIdInput.value = '';
+			}
+			toggleCompanySaveButton();
+
+			window.clearTimeout(salesManagerState.debounceTimer);
+			salesManagerState.debounceTimer = window.setTimeout(searchSalesManagers, 180);
+		});
+
+		salesManagerSearchInput.addEventListener('focus', function() {
+			window.clearTimeout(salesManagerState.debounceTimer);
+			salesManagerState.debounceTimer = window.setTimeout(searchSalesManagers, 0);
+		});
+
+		salesManagerSearchInput.addEventListener('keydown', function(event) {
+			if (event.key === 'Escape') {
+				closeSalesManagerResults();
+				return;
+			}
+
+			if (!salesManagerResultsEl || salesManagerResultsEl.classList.contains('d-none')) {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					window.clearTimeout(salesManagerState.debounceTimer);
+					searchSalesManagers().then(function() {
+						const first = salesManagerState.items[0];
+						if (first) {
+							chooseSalesManager(first);
+						}
+					});
+				}
+				return;
+			}
+
+			if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+				event.preventDefault();
+				const count = salesManagerState.items.length;
+				if (count === 0) {
+					return;
+				}
+				const direction = event.key === 'ArrowDown' ? 1 : -1;
+				salesManagerState.activeIndex = (salesManagerState.activeIndex + direction + count) % count;
+				updateSalesManagerActiveResult();
+				return;
+			}
+
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				const selected = salesManagerState.items[salesManagerState.activeIndex];
+				if (selected) {
+					chooseSalesManager(selected);
+				}
+			}
+		});
+	}
+
+	if (salesManagerClearBtn) {
+		salesManagerClearBtn.addEventListener('click', function() {
+			clearSalesManager();
+			if (salesManagerSearchInput) {
+				salesManagerSearchInput.focus();
+			}
+		});
+	}
+
+	document.addEventListener('click', function(event) {
+		const target = event.target;
+		if (!(target instanceof Element) || !target.closest('[data-sales-manager-autocomplete]')) {
+			closeSalesManagerResults();
+		}
+	});
 
 	function openAddressSearch() {
 		const Postcode = getPostcodeConstructor();
@@ -730,7 +989,16 @@
 
 	if (companySaveBtn) {
 		companySaveBtn.addEventListener('click', async function() {
+			if (companySaving) {
+				return;
+			}
+
 			if (!validateCompanyForm()) {
+				if (salesManagerSearchInput && trimValue(salesManagerSearchInput.value)
+					&& (!salesManagerIdInput || !trimValue(salesManagerIdInput.value))) {
+					alert('담당직원은 검색 결과에서 선택해 주세요. 아이디 텍스트만 입력한 상태로는 저장할 수 없습니다.');
+					return;
+				}
 				alert('필수 입력값을 확인해주세요. 사업자등록증은 삭제만 할 수 없고 유지 또는 새 파일 등록이 필요합니다.');
 				return;
 			}
@@ -750,11 +1018,17 @@
 			formData.append('guName', trimValue(companyFields.guName.value));
 			formData.append('roadAddress', trimValue(companyFields.roadAddress.value));
 			formData.append('detailAddress', trimValue(companyFields.detailAddress.value));
+			formData.append('salesManagerId', trimValue(salesManagerIdInput ? salesManagerIdInput.value : ''));
+			formData.append('salesManagerAssignmentIncluded', 'true');
 			formData.append('licenseAction', getLicenseAction());
 
 			if (companyLicenseState.newFile) {
 				formData.append('businessLicenseFile', companyLicenseState.newFile);
 			}
+
+			companySaving = true;
+			companySaveBtn.textContent = '저장 중...';
+			toggleCompanySaveButton();
 
 			try {
 				await postFormData('/management/clientDetail/' + companyId + '/updateCompany', formData);
@@ -762,6 +1036,10 @@
 				location.reload();
 			} catch (e) {
 				alert('실패: ' + (e && e.message ? e.message : e));
+			} finally {
+				companySaving = false;
+				companySaveBtn.textContent = '수정사항 반영';
+				toggleCompanySaveButton();
 			}
 		});
 	}

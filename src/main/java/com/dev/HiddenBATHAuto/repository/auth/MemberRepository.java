@@ -119,6 +119,28 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	List<Member> findByCompany_Id(Long companyId); // ✅ 회사 소속 멤버 조회
 
 	List<Member> findByRoleIn(List<MemberRole> roles);
+
+	@EntityGraph(attributePaths = "team")
+	@Query("""
+		select m
+		from Member m
+		where m.company is null
+		  and m.enabled = true
+		  and m.role in :roles
+		  and m.team is not null
+		  and m.team.name = :teamName
+		  and m.username is not null
+		  and trim(m.username) <> ''
+		  and (:keyword is null or trim(:keyword) = ''
+		       or lower(coalesce(m.username, '')) like lower(concat('%', :keyword, '%')))
+		order by m.username asc, m.name asc, m.id asc
+	""")
+	List<Member> searchAssignableSalesManagers(
+			@Param("roles") Collection<MemberRole> roles,
+			@Param("teamName") String teamName,
+			@Param("keyword") String keyword,
+			Pageable pageable
+	);
 	
 	@Query("""
 		    SELECT m FROM Member m
@@ -138,10 +160,25 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
          where m.company is null
            and m.team is not null
            and m.role in :roles
-           and (:name is null or trim(:name) = '' or lower(m.name) like lower(concat('%', :name, '%')))
-           and (:teamId is null or m.team.id = :teamId)
+	           and (
+	                :keyword is null or trim(:keyword) = ''
+	                or (:searchType = 'name'
+	                    and lower(coalesce(m.name, '')) like lower(concat('%', :keyword, '%')))
+	                or (:searchType = 'username'
+	                    and lower(coalesce(m.username, '')) like lower(concat('%', :keyword, '%')))
+	                or (:searchType = 'phone' and (
+	                    function('replace', function('replace', function('replace', function('replace',
+	                        function('replace', coalesce(m.phone, ''), '-', ''), ' ', ''), '(', ''), ')', ''), '.', '')
+	                        like concat('%', :keyword, '%')
+	                    or function('replace', function('replace', function('replace', function('replace',
+	                        function('replace', coalesce(m.telephone, ''), '-', ''), ' ', ''), '(', ''), ')', ''), '.', '')
+	                        like concat('%', :keyword, '%')
+	                ))
+	           )
+	           and (:teamId is null or m.team.id = :teamId)
     """)
-    Page<Member> searchEmployees(@Param("name") String name,
+    Page<Member> searchEmployees(@Param("keyword") String keyword,
+                                 @Param("searchType") String searchType,
                                  @Param("teamId") Long teamId,
                                  @Param("roles") java.util.List<MemberRole> roles,
                                  Pageable pageable);

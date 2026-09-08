@@ -43,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Controller
 @RequestMapping("/team/deliveryRoute")
-@PreAuthorize("hasRole('INTERNAL_EMPLOYEE')")
+@PreAuthorize("hasAnyRole('MANAGEMENT', 'INTERNAL_EMPLOYEE') and principal.teamName == '배송팀'")
 @RequiredArgsConstructor
 public class DeliveryRouteController {
 
@@ -81,8 +81,8 @@ public class DeliveryRouteController {
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("isToday", selectedDate.equals(LocalDate.now()));
         model.addAttribute(
-                "isDeliveryTeamStatementLeader",
-                deliveryTeamSiteStatementService.isTeamStatementLeader(loginMember)
+                "isDeliveryTeamStatementManager",
+                deliveryTeamSiteStatementService.isTeamStatementManager(loginMember)
         );
 
         return "administration/team/delivery/deliveryRoute";
@@ -220,7 +220,7 @@ public class DeliveryRouteController {
     }
 
     /**
-     * 배송팀 팀장 전용 현장명세서 프리뷰입니다.
+     * 배송팀 MANAGEMENT 권한 전용 현장명세서 프리뷰입니다.
      * 활성 배송팀 멤버를 member.id 오름차순으로 반환하며,
      * 각 멤버별 묶음 수와 주문 수를 실제 출력과 동일한 기준으로 계산합니다.
      */
@@ -256,7 +256,7 @@ public class DeliveryRouteController {
     }
 
     /**
-     * deli001 배송팀장 전용 배송팀 전체 현장명세서 출력 데이터입니다.
+     * 배송팀 MANAGEMENT 권한 사용자 전용 배송팀 전체 현장명세서 출력 데이터입니다.
      *
      * 대상 멤버:
      * - team.name = 배송팀
@@ -301,7 +301,7 @@ public class DeliveryRouteController {
     }
 
     /**
-     * deli001 배송팀장 전용 배송팀 전체 현장명세서 엑셀 다운로드입니다.
+     * 배송팀 MANAGEMENT 권한 사용자 전용 배송팀 전체 현장명세서 엑셀 다운로드입니다.
      */
     @PostMapping("/team-site-statement/excel")
     @ResponseBody

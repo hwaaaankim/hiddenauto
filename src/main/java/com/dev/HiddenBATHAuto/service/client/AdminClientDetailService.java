@@ -46,6 +46,7 @@ public class AdminClientDetailService {
     private String uploadPath;
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("png", "jpg", "jpeg", "gif", "webp", "pdf");
+    private static final String MANAGEMENT_TEAM_NAME = "관리팀";
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
@@ -121,6 +122,11 @@ public class AdminClientDetailService {
         company.setGuName(resolvedRegion.guName());
         company.setRoadAddress(roadAddress);
         company.setDetailAddress(detailAddress);
+
+        if (Boolean.TRUE.equals(request.getSalesManagerAssignmentIncluded())) {
+            company.setSalesManager(resolveAssignableSalesManager(request.getSalesManagerId()));
+        }
+
         company.setUpdatedAt(LocalDateTime.now());
 
         if ("REPLACE".equals(licenseAction)) {
@@ -167,6 +173,31 @@ public class AdminClientDetailService {
         member.setEmail(email);
         member.setTelephone(telephone);
         member.setUpdatedAt(LocalDateTime.now());
+    }
+
+    private Member resolveAssignableSalesManager(Long salesManagerId) {
+        if (salesManagerId == null) {
+            return null;
+        }
+
+        Member salesManager = memberRepository.findById(salesManagerId)
+                .orElseThrow(() -> new IllegalArgumentException("선택한 담당직원이 존재하지 않습니다."));
+
+        boolean allowedRole = salesManager.getRole() == MemberRole.ADMIN
+                || salesManager.getRole() == MemberRole.MANAGEMENT;
+        boolean belongsToManagementTeam = salesManager.getTeam() != null
+                && MANAGEMENT_TEAM_NAME.equals(salesManager.getTeam().getName());
+
+        if (!salesManager.isEnabled()
+                || salesManager.getCompany() != null
+                || !allowedRole
+                || !belongsToManagementTeam) {
+            throw new IllegalArgumentException(
+                    "담당직원은 활성 상태인 우리회사 관리팀 소속 ADMIN 또는 MANAGEMENT 권한 직원만 지정할 수 있습니다."
+            );
+        }
+
+        return salesManager;
     }
 
     private void validateLicenseFile(MultipartFile file) {

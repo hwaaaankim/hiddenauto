@@ -68,7 +68,7 @@
 											</button>
 
 											<button type="button" class="btn btn-outline-primary"
-												id="admin-task-readonly-list-open-btn" th:if="${isTestempUser}">
+								id="admin-task-readonly-list-open-btn">
 												<i class="fa-solid fa-list"></i> 일괄보기-리스트형
 											</button>
 
@@ -1106,7 +1106,7 @@
 		</div>
 	</div>
 
-	<!-- testemp 전용: 수정 동작이 전혀 없는 20건 단위 무한 스크롤 목록 -->
+	<!-- 관리자/관리팀 공용: 수정 동작이 전혀 없는 20건 단위 무한 스크롤 목록 -->
 	<div class="modal fade" id="admin-task-readonly-list-modal" tabindex="-1"
 		aria-labelledby="admin-task-readonly-list-title" aria-hidden="true">
 		<div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-lg-down">

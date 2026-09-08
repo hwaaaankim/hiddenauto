@@ -153,14 +153,14 @@
                             -->
 
                             <!--
-                            배송팀장 전용입니다.
+                            배송팀 MANAGEMENT 권한 전용입니다.
                             먼저 멤버별 묶음 수/주문 수 프리뷰를 확인한 뒤 출력 또는 다운로드합니다.
-                            실제 서버 권한은 기존과 동일하게 배송팀 deli001 계정을 다시 검증합니다.
+                            실제 서버에서도 배송팀 소속 MANAGEMENT 권한인지 다시 검증합니다.
                             -->
                             <button type="button"
                                     class="btn btn-sm btn-primary"
                                     id="delivery-route-team-statement-preview-button"
-                                    th:if="${isDeliveryTeamStatementLeader}">
+                                    th:if="${isDeliveryTeamStatementManager}">
                                 <i class="ri-team-line me-1"></i>배송팀 현장명세서 미리보기
                             </button>
 
@@ -171,7 +171,7 @@
                             <button type="button"
                                     class="btn btn-sm btn-primary d-none"
                                     id="delivery-route-team-statement-site-horizontal-print-button"
-                                    th:if="${isDeliveryTeamStatementLeader}"
+                                    th:if="${isDeliveryTeamStatementManager}"
                                     tabindex="-1"
                                     aria-hidden="true">
                                 <i class="ri-team-line me-1"></i>배송팀현장명세서출력
@@ -180,7 +180,7 @@
                             <button type="button"
                                     class="btn btn-sm btn-success d-none"
                                     id="delivery-route-team-statement-site-horizontal-download-button"
-                                    th:if="${isDeliveryTeamStatementLeader}"
+                                    th:if="${isDeliveryTeamStatementManager}"
                                     tabindex="-1"
                                     aria-hidden="true">
                                 <i class="ri-file-excel-2-line me-1"></i>배송팀현장명세서다운로드
@@ -214,20 +214,20 @@
                                 <i class="ri-file-excel-2-line me-1"></i>세로형-택배다운로드
                             </button>
 
-                            deli001 전용 배송팀 전체 현장명세서 세로형입니다.
+                            배송팀 MANAGEMENT 권한 전용 배송팀 전체 현장명세서 세로형입니다.
                             기능은 deliveryRoute.js와 서버에 구현되어 있으며 현재는 함께 숨깁니다.
 
                             <button type="button"
                                     class="btn btn-sm btn-primary"
                                     id="delivery-route-team-statement-site-vertical-print-button"
-                                    th:if="${isDeliveryTeamStatementLeader}">
+                                    th:if="${isDeliveryTeamStatementManager}">
                                 <i class="ri-team-line me-1"></i>세로형-배송팀현장출력
                             </button>
 
                             <button type="button"
                                     class="btn btn-sm btn-success"
                                     id="delivery-route-team-statement-site-vertical-download-button"
-                                    th:if="${isDeliveryTeamStatementLeader}">
+                                    th:if="${isDeliveryTeamStatementManager}">
                                 <i class="ri-file-excel-2-line me-1"></i>세로형-배송팀현장다운로드
                             </button>
                             -->

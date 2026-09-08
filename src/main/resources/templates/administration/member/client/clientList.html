@@ -5,7 +5,7 @@
 <head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel member-management-page member-client-list-page">
 
 	<!-- Begin page -->
 	<div id="layout-wrapper">
@@ -24,7 +24,11 @@
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">대리점관리</h4>
+								<div>
+									<span class="member-page-kicker">Client Management</span>
+									<h4 class="mb-sm-0">대리점 관리</h4>
+									<p class="member-page-description">고객 계정과 회사 소재지를 함께 검색하고 대리점 정보를 관리합니다.</p>
+								</div>
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
@@ -44,7 +48,13 @@
 
 								<div class="card-header border-0">
 									<div class="d-flex align-items-center">
-										<h5 class="card-title mb-0 flex-grow-1">CUSTOMER MANAGER</h5>
+										<div class="member-section-heading flex-grow-1">
+											<span class="member-section-icon"><i class="ri-building-line"></i></span>
+											<div>
+												<h5 class="card-title mb-0">대리점 검색 및 관리</h5>
+												<span class="member-section-description" th:text="|총 ${companies.totalElements}개 대리점|">총 0개 대리점</span>
+											</div>
+										</div>
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
 
@@ -68,26 +78,61 @@
 								<!-- 검색 폼 -->
 								<div class="card-body border border-dashed border-end-0 border-start-0">
 									<form method="get" action="/management/clientList" id="clientList-added-searchForm">
-										<div class="row g-3">
+										<div class="row g-3 align-items-end">
 
-											<div class="col-md-3">
+											<div class="col-xl-2 col-md-4">
 												<label class="form-label">검색조건</label>
 												<select class="form-select" name="searchType">
-													<option th:value="company" th:selected="${searchType == 'company'}">
-														대리점명</option>
-													<option th:value="member" th:selected="${searchType == 'member'}">
-														직원이름</option>
+											<option th:value="company" th:selected="${searchType == 'company'}">
+												대리점명</option>
+											<option th:value="member" th:selected="${searchType == 'member'}">
+												고객 이름</option>
+											<option th:value="phone" th:selected="${searchType == 'phone'}">
+												연락처</option>
+											<option th:value="username" th:selected="${searchType == 'username'}">
+												아이디</option>
+											<option th:value="businessnumber" th:selected="${searchType == 'businessnumber'}">
+												사업자등록번호</option>
 												</select>
 											</div>
 
-											<div class="col-md-3">
+											<div class="col-xl-3 col-md-8">
 												<label class="form-label">검색어</label>
-												<input type="text" class="form-control bg-light border-light"
+												<input type="search" class="form-control"
 													name="keyword" th:value="${keyword}" placeholder="검색어를 입력 해 주세요.">
 											</div>
 
+											<div class="col-xl-2 col-md-4">
+												<label class="form-label" for="client-list-region-province">도 / 광역시</label>
+												<select class="form-select" id="client-list-region-province" name="provinceId">
+													<option value="">전체 지역</option>
+													<option th:each="province : ${clientRegionProvinces}" th:value="${province.id}"
+														th:text="${province.name}" th:selected="${provinceId == province.id}"></option>
+												</select>
+											</div>
+
+											<div class="col-xl-2 col-md-4" id="client-list-region-city-wrap"
+												th:classappend="${clientRegionMode != 'CITY'} ? ' d-none'">
+												<label class="form-label" for="client-list-region-city">시 / 군</label>
+												<select class="form-select" id="client-list-region-city" name="cityId">
+													<option value="">시·군 전체</option>
+													<option th:each="city : ${clientRegionCities}" th:value="${city.id}"
+														th:text="${city.name}" th:selected="${cityId == city.id}"></option>
+												</select>
+											</div>
+
+											<div class="col-xl-2 col-md-4" id="client-list-region-district-wrap"
+												th:classappend="${clientRegionDistricts == null or clientRegionDistricts.isEmpty()} ? ' d-none'">
+												<label class="form-label" for="client-list-region-district">구 / 군</label>
+												<select class="form-select" id="client-list-region-district" name="districtId">
+													<option value="">구·군 전체</option>
+													<option th:each="district : ${clientRegionDistricts}" th:value="${district.id}"
+														th:text="${district.name}" th:selected="${districtId == district.id}"></option>
+												</select>
+											</div>
+
 											<!-- ✅ 페이지 사이즈 필터 -->
-											<div class="col-md-3">
+											<div class="col-xl-1 col-md-4">
 												<label class="form-label">페이지 사이즈</label>
 												<select class="form-select" name="size" id="clientList-added-pageSize">
 													<option value="10" th:selected="${size == 10}">10개씩 보기</option>
@@ -97,11 +142,15 @@
 												</select>
 											</div>
 
-											<div class="col-md-3">
-												<label class="form-label">조회</label>
-												<button type="submit" class="btn btn-primary w-100">
+											<div class="col-12">
+												<div class="member-filter-actions">
+												<a href="/management/clientList" class="btn btn-light">
+													<i class="ri-refresh-line"></i> 초기화
+												</a>
+												<button type="submit" class="btn btn-primary">
 													<i class="fa-solid fa-magnifying-glass"></i> 검색
 												</button>
+												</div>
 											</div>
 
 											<!-- ✅ 정렬 파라미터 유지용 hidden -->
@@ -140,6 +189,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='companyName',
                                                                 sortDir='asc'
                                                            )}" title="오름차순">
@@ -152,6 +204,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='companyName',
                                                                 sortDir='desc'
                                                            )}" title="내림차순">
@@ -159,9 +214,11 @@
 																</a>
 															</span>
 														</div>
-													</th>
+											</th>
 
-													<!-- ✅ 정렬 헤더: 대표자명 -->
+											<th>사업자등록번호</th>
+
+											<!-- ✅ 정렬 헤더: 대표자명 -->
 													<th>
 														<div class="d-flex align-items-center gap-2">
 															<span>대표자명</span>
@@ -173,6 +230,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='representativeName',
                                                                 sortDir='asc'
                                                            )}" title="오름차순">
@@ -185,6 +245,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='representativeName',
                                                                 sortDir='desc'
                                                            )}" title="내림차순">
@@ -206,6 +269,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='createdAt',
                                                                 sortDir='asc'
                                                            )}" title="빠른순">
@@ -218,6 +284,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='createdAt',
                                                                 sortDir='desc'
                                                            )}" title="느린순">
@@ -241,6 +310,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='memberCount',
                                                                 sortDir='desc'
                                                            )}" title="많은순">
@@ -253,6 +325,9 @@
                                                                 size=${size},
                                                                 searchType=${searchType},
                                                                 keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                                 sortField='memberCount',
                                                                 sortDir='asc'
                                                            )}" title="적은순">
@@ -260,9 +335,11 @@
 																</a>
 															</span>
 														</div>
-													</th>
+											</th>
 
-												</tr>
+											<th th:if="${clientMemberSearchActive}">검색 일치 정보</th>
+
+										</tr>
 											</thead>
 
 											<tbody class="list form-check-all">
@@ -283,10 +360,20 @@
 															th:text="'COMP_' + ${company.id}">COMP_1</a>
 													</td>
 
-													<td>
-														<span class="fw-medium"
-															th:text="${company.companyName}">대리점명</span>
-													</td>
+											<td>
+												<span class="fw-medium member-search-highlight"
+													data-search-mode="text"
+													th:attr="data-search-keyword=${searchType == 'company' ? keyword : ''}"
+													th:text="${company.companyName}">대리점명</span>
+											</td>
+
+											<td>
+												<span class="member-search-highlight" data-search-mode="number"
+													th:attr="data-search-keyword=${searchType == 'businessnumber' ? keyword : ''}"
+													th:text="${company.businessNumber != null ? company.businessNumber : '—'}">
+													사업자등록번호
+												</span>
+											</td>
 
 													<td>
 														<span
@@ -305,24 +392,44 @@
 															th:text="${company.salesManagerName != null ? company.salesManagerName : '미지정'}">담당영업</span>
 													</td>
 
-													<td>
-														<span th:text="${company.memberCount} + '명'">0명</span>
-													</td>
+											<td>
+												<span th:text="${company.memberCount} + '명'">0명</span>
+											</td>
 
-												</tr>
-											</tbody>
+											<td class="member-search-match-cell" th:if="${clientMemberSearchActive}"
+												th:with="matches=${clientSearchMatchesByCompanyId.get(company.id)}">
+												<div class="member-search-match-list"
+													th:if="${matches != null and !#lists.isEmpty(matches)}">
+													<div class="member-search-match-item" th:each="match : ${matches}">
+														<div class="member-search-match-person">
+															<span th:text="${(match.memberName == null or #strings.isEmpty(match.memberName)) ? '이름 없음' : match.memberName}">회원명</span>
+															<span class="text-muted" th:if="${match.username != null and !#strings.isEmpty(match.username)}"
+																th:text="|(${match.username})|">(아이디)</span>
+														</div>
+														<div class="member-search-match-value">
+															<span class="member-search-match-field" th:text="${match.fieldLabel}">필드</span>
+															<span class="member-search-highlight"
+																th:attr="data-search-keyword=${keyword},data-search-mode=${searchType == 'phone' ? 'number' : 'text'}"
+																th:text="${match.matchedValue}">일치 값</span>
+														</div>
+													</div>
+												</div>
+												<span class="text-muted small"
+													th:if="${matches == null or #lists.isEmpty(matches)}">일치 정보 없음</span>
+											</td>
+
+										</tr>
+										<tr class="member-empty-row" th:if="${#lists.isEmpty(companies.content)}">
+											<td th:attr="colspan=${clientMemberSearchActive ? 9 : 8}">
+													<span class="member-empty-icon"><i class="ri-search-eye-line"></i></span>
+													<div class="fw-semibold text-dark">검색 결과가 없습니다.</div>
+													<div class="small mt-1">검색어나 지역 범위를 조정해 다시 조회해 주세요.</div>
+												</td>
+											</tr>
+										</tbody>
 
 										</table>
 
-										<div class="noresult" style="display: none">
-											<div class="text-center">
-												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
-													colors="primary:#121331,secondary:#08a88a"
-													style="width:75px;height:75px"></lord-icon>
-												<h5 class="mt-2">결과가 존재하지않습니다.</h5>
-												<p class="text-muted mb-0">다른 조건으로 검색을 진행 해 주시기 바랍니다.</p>
-											</div>
-										</div>
 									</div>
 
 									<!-- ✅ 페이지네이션 (페이지번호 5개만 노출) -->
@@ -345,7 +452,10 @@
                                                             page=0,
                                                             size=${size},
                                                             searchType=${searchType},
-                                                            keyword=${keyword},
+                                                                keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
                                                        )}">First</a>
@@ -357,7 +467,10 @@
                                                             page=${companies.number - 1},
                                                             size=${size},
                                                             searchType=${searchType},
-                                                            keyword=${keyword},
+                                                                keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
                                                        )}">Previous</a>
@@ -370,7 +483,10 @@
                                                             page=${pageNum},
                                                             size=${size},
                                                             searchType=${searchType},
-                                                            keyword=${keyword},
+                                                                keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
                                                        )}" th:text="${pageNum + 1}">1</a>
@@ -382,7 +498,10 @@
                                                             page=${companies.number + 1},
                                                             size=${size},
                                                             searchType=${searchType},
-                                                            keyword=${keyword},
+                                                                keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
                                                        )}">Next</a>
@@ -394,7 +513,10 @@
                                                             page=${companies.totalPages - 1},
                                                             size=${size},
                                                             searchType=${searchType},
-                                                            keyword=${keyword},
+                                                                keyword=${keyword},
+                                                                provinceId=${provinceId},
+                                                                cityId=${cityId},
+                                                                districtId=${districtId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
                                                        )}">Last</a>
@@ -607,6 +729,8 @@
 	<link rel="stylesheet" href="/administration/assets/css/page/clientList/clientListBulkImport.css?v=20260724-3">
 	<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<script src="/front/addressRegion.js?v=20260902-1"></script>
+	<script src="/administration/assets/js/page/member/memberSearchHighlight.js?v=20260908-1"></script>
+	<script src="/administration/assets/js/page/clientList/clientList.js?v=20260908-2"></script>
 	<script src="/administration/assets/js/page/clientList/clientListBulkImport.js?v=20260902-1"></script>
 
 </body>

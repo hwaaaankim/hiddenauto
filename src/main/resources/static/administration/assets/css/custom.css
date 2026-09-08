@@ -9932,7 +9932,7 @@ body.admin-task-list-second-modal-open {
 	text-decoration-thickness: 1.5px;
 }
 
-/* testemp 전용 읽기 전용 일괄 목록 */
+/* 관리자/관리팀 공용 읽기 전용 일괄 목록 */
 .admin-task-readonly-list-body {
 	background: #f5f7fb;
 }

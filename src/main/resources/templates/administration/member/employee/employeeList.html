@@ -4,7 +4,7 @@
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel member-management-page member-employee-list-page">
 
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
@@ -19,7 +19,11 @@
 					<div class="row">
 						<div class="col-12">
 							<div class="page-title-box d-sm-flex align-items-center justify-content-between">
-								<h4 class="mb-sm-0">직원 리스트</h4>
+								<div>
+									<span class="member-page-kicker">Employee Management</span>
+									<h4 class="mb-sm-0">직원 리스트</h4>
+									<p class="member-page-description">이름·아이디·연락처와 소속 팀으로 우리회사 직원을 조회합니다.</p>
+								</div>
 
 								<div class="page-title-right">
 									<ol class="breadcrumb m-0">
@@ -37,7 +41,13 @@
 							<div class="card" id="tasksList">
 								<div class="card-header border-0">
 									<div class="d-flex align-items-center">
-										<h5 class="card-title mb-0 flex-grow-1">AS MANAGER</h5>
+										<div class="member-section-heading flex-grow-1">
+											<span class="member-section-icon"><i class="ri-team-line"></i></span>
+											<div>
+												<h5 class="card-title mb-0">직원 검색 및 관리</h5>
+												<span class="member-section-description" th:text="|총 ${employeePage.totalElements}명|">총 0명</span>
+											</div>
+										</div>
 
 										<div class="flex-shrink-0">
 											<div class="d-flex flex-wrap gap-2">
@@ -119,8 +129,8 @@
 										<input type="hidden" name="sortDir" th:value="${sortDir}">
 										<input type="hidden" name="page" value="0"><!-- 검색 시 0페이지로 -->
 
-										<div class="row g-3">
-											<div class="col-md-3">
+										<div class="row g-3 align-items-end">
+											<div class="col-xl-3 col-md-6">
 												<label class="form-label">팀별 검색</label>
 												<select class="form-select" name="teamId">
 													<option value="">모든 팀</option>
@@ -132,14 +142,23 @@
 												</select>
 											</div>
 
-											<div class="col-md-3">
-												<label class="form-label">이름</label>
-												<input type="text" class="form-control bg-light border-light"
-													name="name" th:value="${name}" placeholder="직원 이름 검색">
+											<div class="col-xl-2 col-md-6">
+												<label class="form-label" for="employee-list-search-type">검색 항목</label>
+												<select class="form-select" id="employee-list-search-type" name="searchType">
+													<option value="name" th:selected="${searchType == 'name'}">이름</option>
+													<option value="username" th:selected="${searchType == 'username'}">아이디</option>
+													<option value="phone" th:selected="${searchType == 'phone'}">연락처</option>
+												</select>
+											</div>
+
+											<div class="col-xl-4 col-md-6">
+												<label class="form-label" for="employee-list-keyword">검색어</label>
+												<input type="search" class="form-control" id="employee-list-keyword"
+													name="keyword" th:value="${keyword}" placeholder="검색어를 입력해 주세요.">
 											</div>
 
 											<!-- ✅ 페이지 사이즈 -->
-											<div class="col-md-3">
+											<div class="col-xl-3 col-md-6">
 												<label class="form-label">페이지 사이즈</label>
 												<select class="form-select" name="size">
 													<option value="10" th:selected="${employeePage.size == 10}">10개씩 보기
@@ -153,11 +172,15 @@
 												</select>
 											</div>
 
-											<div class="col-md-3">
-												<label class="form-label">조회</label>
-												<button type="submit" class="btn btn-primary w-100">
+											<div class="col-12">
+												<div class="member-filter-actions">
+												<a href="/management/employeeList" class="btn btn-light">
+													<i class="ri-refresh-line"></i> 초기화
+												</a>
+												<button type="submit" class="btn btn-primary">
 													<span class="employeeList-added-btn-icon">⌕</span> 검색
 												</button>
+												</div>
 											</div>
 										</div>
 									</form>
@@ -183,7 +206,8 @@
 															<a class="employeeList-added-sort-link" th:href="@{/management/employeeList(
                                                             page=0,
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField='name',
                                                             sortDir=${(sortField == 'name' and sortDir == 'asc') ? 'desc' : 'asc'}
@@ -202,6 +226,8 @@
 															</span>
 														</div>
 													</th>
+													<th>아이디</th>
+													<th>연락처</th>
 
 													<!-- ✅ 정렬: 팀 -->
 													<th>
@@ -209,7 +235,8 @@
 															<a class="employeeList-added-sort-link" th:href="@{/management/employeeList(
                                                             page=0,
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField='team',
                                                             sortDir=${(sortField == 'team' and sortDir == 'asc') ? 'desc' : 'asc'}
@@ -237,7 +264,8 @@
 															<a class="employeeList-added-sort-link" th:href="@{/management/employeeList(
                                                             page=0,
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField='createdAt',
                                                             sortDir=${(sortField == 'createdAt' and sortDir == 'asc') ? 'desc' : 'asc'}
@@ -273,10 +301,36 @@
 
 													<td th:text="${emp.id}"></td>
 
-													<td>
-														<a th:href="@{/management/employeeDetail/{id}(id=${emp.id})}"
-															class="fw-medium link-primary" th:text="${emp.name}">이름</a>
-													</td>
+											<td>
+												<a th:href="@{/management/employeeDetail/{id}(id=${emp.id})}"
+													class="fw-medium link-primary member-search-highlight"
+													data-search-mode="text"
+													th:attr="data-search-keyword=${searchType == 'name' ? keyword : ''}"
+													th:text="${emp.name}">이름</a>
+											</td>
+
+											<td>
+												<span class="member-search-highlight" data-search-mode="text"
+													th:attr="data-search-keyword=${searchType == 'username' ? keyword : ''}"
+													th:text="${emp.username != null ? emp.username : '—'}">아이디</span>
+											</td>
+
+											<td>
+												<div class="member-contact-values">
+													<div>
+														<span class="member-contact-label">연락처</span>
+														<span class="member-search-highlight" data-search-mode="number"
+															th:attr="data-search-keyword=${searchType == 'phone' ? keyword : ''}"
+															th:text="${(emp.phone == null or #strings.isEmpty(emp.phone)) ? '—' : emp.phone}">연락처</span>
+													</div>
+													<div>
+														<span class="member-contact-label">유선번호</span>
+														<span class="member-search-highlight" data-search-mode="number"
+															th:attr="data-search-keyword=${searchType == 'phone' ? keyword : ''}"
+															th:text="${(emp.telephone == null or #strings.isEmpty(emp.telephone)) ? '—' : emp.telephone}">유선번호</span>
+													</div>
+												</div>
+											</td>
 
 													<td th:text="${emp.team != null ? emp.team.name : '—'}">팀</td>
 
@@ -288,22 +342,20 @@
 														th:text="${#temporals.format(emp.createdAt, 'yyyy-MM-dd HH:mm')}">
 													</td>
 
-													<td
-														th:text="${emp.updatedAt != null ? #temporals.format(emp.updatedAt, 'yyyy-MM-dd HH:mm') : '—'}">
-													</td>
-												</tr>
-											</tbody>
+											<td
+												th:text="${emp.updatedAt != null ? #temporals.format(emp.updatedAt, 'yyyy-MM-dd HH:mm') : '—'}">
+											</td>
+										</tr>
+										<tr class="member-empty-row" th:if="${#lists.isEmpty(employeePage.content)}">
+											<td colspan="9">
+												<span class="member-empty-icon"><i class="ri-user-search-line"></i></span>
+												<div class="fw-semibold text-dark">검색 결과가 없습니다.</div>
+												<div class="small mt-1">검색 항목이나 팀 조건을 변경해 다시 조회해 주세요.</div>
+											</td>
+										</tr>
+									</tbody>
 										</table>
 
-										<div class="noresult" style="display:none">
-											<div class="text-center">
-												<lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
-													colors="primary:#121331,secondary:#08a88a"
-													style="width:75px;height:75px"></lord-icon>
-												<h5 class="mt-2">결과가 존재하지않습니다.</h5>
-												<p class="text-muted mb-0">다른 조건으로 검색을 진행 해 주시기 바랍니다.</p>
-											</div>
-										</div>
 									</div>
 
 									<!-- ✅ 페이지네이션 (5개 윈도우) + 정렬/필터 파라미터 유지 -->
@@ -317,7 +369,8 @@
 														<a class="page-link" th:href="@{/management/employeeList(
                                                             page=0,
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
@@ -331,7 +384,8 @@
 														<a class="page-link" th:href="@{/management/employeeList(
                                                             page=${employeePage.number - 1},
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
@@ -346,7 +400,8 @@
 														<a class="page-link" th:href="@{/management/employeeList(
                                                             page=${pageNum},
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
@@ -360,7 +415,8 @@
 														<a class="page-link" th:href="@{/management/employeeList(
                                                             page=${employeePage.number + 1},
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
@@ -374,7 +430,8 @@
 														<a class="page-link" th:href="@{/management/employeeList(
                                                             page=${employeePage.totalPages - 1},
                                                             size=${employeePage.size},
-                                                            name=${name},
+                                                            keyword=${keyword},
+                                                            searchType=${searchType},
                                                             teamId=${teamId},
                                                             sortField=${sortField},
                                                             sortDir=${sortDir}
@@ -473,6 +530,7 @@
 			});
 		})();
 	</script>
+	<script src="/administration/assets/js/page/member/memberSearchHighlight.js?v=20260908-1"></script>
 
 </body>
 

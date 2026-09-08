@@ -62,7 +62,8 @@ public final class CustomerPageDtos {
 
         private String textType;
         private String keyword;
-        private String dateType;
+        @Builder.Default
+        private String dateType = "delivery";
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
         private LocalDate startDate;
 

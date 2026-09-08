@@ -21,6 +21,7 @@
 	<link href="/administration/assets/css/orderNotificationCenter.css?v=20260831-3" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/internalProfileModal.css?v=20260903-1" rel="stylesheet" type="text/css" />
 	<link href="/administration/assets/css/page/productMaster/productMaster.css?v=20260903-5" rel="stylesheet" type="text/css" />
+	<link href="/administration/assets/css/page/member/memberManagement.css?v=20260908-2" rel="stylesheet" type="text/css" />
 	<script src="/administration/assets/js/layout.js"></script>
 	<link href="/administration/assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -410,9 +411,11 @@
 				<ul class="navbar-nav" id="navbar-nav"
 					th:with="
 						memberRole=${#authentication.principal.member.role.name()},
+						teamName=${#authentication.principal.teamName != null ? #authentication.principal.teamName : ''},
 						isAdmin=${memberRole == 'ADMIN'},
 						isManagement=${memberRole == 'MANAGEMENT'},
-						isAdminOrManagement=${memberRole == 'ADMIN' or memberRole == 'MANAGEMENT'}">
+						isAdminOrManagement=${memberRole == 'ADMIN' or memberRole == 'MANAGEMENT'},
+						isTeamRole=${memberRole == 'MANAGEMENT' or memberRole == 'INTERNAL_EMPLOYEE'}">
 
 					<li class="menu-title">
 						<span data-key="t-menu">MENU</span>
@@ -611,7 +614,7 @@
 								</li>
 
 								<li class="nav-item"
-									th:if="${memberRole == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '배송팀'}">
+								th:if="${isTeamRole and teamName == '배송팀'}">
 									<a href="#sidebarDeliveryTaskManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false" aria-controls="sidebarDeliveryTaskManager"
 										data-key="t-membertaskmanager">
@@ -640,7 +643,7 @@
 								</li>
 
 								<li class="nav-item"
-									th:if="${memberRole == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '출고팀'}">
+								th:if="${isTeamRole and teamName == '출고팀'}">
 									<a href="#sidebarDispatchTaskManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false" aria-controls="sidebarDispatchTaskManager"
 										data-key="t-membertaskmanager">
@@ -660,7 +663,7 @@
 								</li>
 
 								<li class="nav-item"
-									th:if="${memberRole == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == '생산팀'}">
+								th:if="${isTeamRole and teamName == '생산팀'}">
 									<a href="#sidebarProductionTaskManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false" aria-controls="sidebarProductionTaskManager"
 										data-key="t-membertaskmanager">
@@ -679,7 +682,7 @@
 								</li>
 
 								<li class="nav-item"
-									th:if="${memberRole == 'INTERNAL_EMPLOYEE' and #authentication.principal.member.team.name == 'AS팀'}">
+								th:if="${isTeamRole and teamName == 'AS팀'}">
 									<a href="#sidebarASTaskManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false" aria-controls="sidebarASTaskManager"
 										data-key="t-membertaskmanager">
