@@ -63,7 +63,7 @@ public class DispatchDtos {
 
         /**
          * 실제 배송수단 ID로 표현할 수 없는 조회 범위입니다.
-         * BUSAN_VISIT: 배송수단이 방문이면서 일반 도로명주소가 부산인 주문
+         * BUSAN_VISIT: 배송수단이 방문이면서 일반 도로명주소가 부산이거나 지정 거래처인 주문
          */
         private String deliveryMethodScope;
 

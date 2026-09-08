@@ -169,7 +169,7 @@
 									<select id="dispatch-list-delivery-method-id"
 									class="form-select dispatch-list-form-select">
 										<option value="">전체</option>
-										<option value="BUSAN_VISIT">지방 (방문 · 부산)</option>
+										<option value="BUSAN_VISIT">지방 (방문 · 부산/지정업체)</option>
 										<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
 											th:text="${method.methodName}">
 											배송수단
@@ -490,7 +490,7 @@
 							<select id="dispatch-list-modal-delivery-method-id"
 								class="form-select dispatch-list-form-select">
 								<option value="">전체</option>
-								<option value="BUSAN_VISIT">지방 (방문 · 부산)</option>
+								<option value="BUSAN_VISIT">지방 (방문 · 부산/지정업체)</option>
 								<option th:each="method : ${deliveryMethods}" th:value="${method.id}"
 									th:text="${method.methodName}">
 									배송수단
