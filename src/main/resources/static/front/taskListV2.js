@@ -7,6 +7,7 @@
         const form = document.getElementById('task-list-filter-form');
         const sortInput = document.getElementById('task-list-sort-value');
 
+		initRowNavigation();
         initSort(form, sortInput);
         initRegionFilter();
         initAdvancedReset();
@@ -17,7 +18,6 @@
         initOrderDetailToggle();
         initProductNameHighlight();
 		initTableHorizontalScroll();
-        initRowNavigation();
     });
 
     function parseSort(raw) {
@@ -331,6 +331,8 @@
 		const frame = document.getElementById('task-list-table-scroll-frame');
 		const table = mainScroll?.querySelector('.task-list-table');
 		const status = document.getElementById('task-list-horizontal-scroll-status');
+		const leftButton = document.getElementById('task-list-scroll-left');
+		const rightButton = document.getElementById('task-list-scroll-right');
 		if (!topScroll || !mainScroll || !spacer || !frame || !table) return;
 
 		let syncing = false;
@@ -352,7 +354,7 @@
 			topScroll.classList.toggle('d-none', !scrollable);
 			if (status) {
 				status.textContent = scrollable
-					? '상단·하단 스크롤바 또는 표 위 드래그로 이동하세요.'
+					? '좌우 화살표·상단/하단 스크롤바 또는 표 위 드래그로 이동하세요.'
 					: '현재 화면 너비에 모든 열이 표시됩니다.';
 			}
 			updateScrollState();
@@ -364,9 +366,34 @@
 			const atEnd = mainScroll.scrollLeft >= max - 2;
 			frame.classList.toggle('task-list-scroll-at-start', atStart);
 			frame.classList.toggle('task-list-scroll-at-end', atEnd);
+			if (leftButton) leftButton.disabled = atStart;
+			if (rightButton) rightButton.disabled = atEnd;
 			topScroll.setAttribute('aria-valuemin', '0');
 			topScroll.setAttribute('aria-valuemax', String(Math.round(max)));
 			topScroll.setAttribute('aria-valuenow', String(Math.round(mainScroll.scrollLeft)));
+		}
+
+		function scrollTable(direction) {
+			const max = Math.max(0, mainScroll.scrollWidth - mainScroll.clientWidth);
+			const distance = Math.max(240, Math.round(mainScroll.clientWidth * 0.7));
+			const target = Math.min(max, Math.max(0, mainScroll.scrollLeft + (direction * distance)));
+
+			if (typeof mainScroll.scrollTo === 'function') {
+				mainScroll.scrollTo({ left: target, behavior: 'smooth' });
+			} else {
+				mainScroll.scrollLeft = target;
+				topScroll.scrollLeft = target;
+				updateScrollState();
+			}
+		}
+
+		function bindScrollButton(button, direction) {
+			if (!button) return;
+			button.addEventListener('click', function (event) {
+				event.preventDefault();
+				event.stopPropagation();
+				if (!button.disabled) scrollTable(direction);
+			});
 		}
 
 		function bindDragScroll(scroller) {
@@ -382,14 +409,16 @@
 				startX = event.clientX;
 				startScrollLeft = scroller.scrollLeft;
 				dragged = false;
-				scroller.setPointerCapture?.(pointerId);
 			});
 
 			scroller.addEventListener('pointermove', function (event) {
 				if (pointerId !== event.pointerId) return;
 				const delta = event.clientX - startX;
 				if (!dragged && Math.abs(delta) < 5) return;
-				dragged = true;
+				if (!dragged) {
+					dragged = true;
+					try { scroller.setPointerCapture?.(pointerId); } catch (_) { /* 포인터가 이미 종료된 경우 */ }
+				}
 				event.preventDefault();
 				document.body.classList.add('task-list-is-dragging');
 				window.getSelection()?.removeAllRanges();
@@ -417,6 +446,8 @@
 			event.stopImmediatePropagation();
 		}, true);
 
+		bindScrollButton(leftButton, -1);
+		bindScrollButton(rightButton, 1);
 		bindDragScroll(topScroll);
 		bindDragScroll(mainScroll);
 		if (window.ResizeObserver) {
@@ -432,11 +463,22 @@
     function initRowNavigation() {
         document.querySelectorAll('.task-list-main-row[data-detail-url]').forEach(function (row) {
             row.addEventListener('click', function (event) {
-				if (Date.now() < suppressRowNavigationUntil) return;
-                if (event.target.closest('a, button, input, select, textarea, label')) return;
-                const url = row.dataset.detailUrl;
-                if (url) window.location.href = url;
+					if (Date.now() < suppressRowNavigationUntil) return;
+				if (event.target.closest('.task-list-scroll-edge, a, button, input, select, textarea, label')) return;
+				navigateToRowDetail(row);
             });
+
+			row.addEventListener('keydown', function (event) {
+				if (event.key !== 'Enter' || Date.now() < suppressRowNavigationUntil) return;
+				if (event.target !== row && event.target.closest('.task-list-scroll-edge, a, button, input, select, textarea, label')) return;
+				event.preventDefault();
+				navigateToRowDetail(row);
+			});
         });
     }
+
+	function navigateToRowDetail(row) {
+		const url = row && row.dataset ? row.dataset.detailUrl : '';
+		if (url) window.location.assign(url);
+	}
 })();

@@ -657,11 +657,47 @@
 .task-list-col-date { width: 105px; }
 .task-list-col-price { width: 112px; }
 .task-list-col-status { width: 112px; }
-.task-list-col-manager { width: 94px; }
+.task-list-col-manager { width: 124px; }
 .task-list-col-note { width: 66px; }
 
 .task-list-main-row {
     cursor: pointer;
+}
+
+.task-list-main-row:focus-visible {
+    outline: 2px solid rgba(63, 110, 168, .75);
+    outline-offset: -2px;
+}
+
+.task-list-delivery-handler-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.task-list-delivery-handler-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    max-width: 100%;
+}
+
+.task-list-delivery-handler-name {
+    overflow-wrap: anywhere;
+}
+
+.task-list-delivery-handler-phone {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+}
+
+.task-list-delivery-handler-phone:focus-visible {
+    outline: 2px solid rgba(63, 110, 168, .45);
+    outline-offset: 2px;
 }
 
 .task-list-products-head {
@@ -1214,13 +1250,54 @@
     font-weight: 700;
 }
 
+.task-detail-handler-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.task-detail-handler-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.task-detail-handler-line-center {
+    justify-content: center;
+}
+
+.task-detail-handler-line-end {
+    justify-content: flex-end;
+}
+
 .task-detail-handler-name {
-    margin-bottom: 3px;
+    flex: 0 0 auto;
+    margin: 0;
+    color: #313942;
+    font-size: inherit;
     font-weight: 700;
 }
 
-.task-detail-handler-phone {
+.task-detail-handler-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex: 0 0 auto;
+    color: #3d6f9f !important;
     font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.3;
+    text-decoration: none !important;
+    white-space: nowrap;
+}
+
+.task-detail-handler-contact:hover,
+.task-detail-handler-contact:focus-visible {
+    color: #214f7c !important;
+    text-decoration: underline !important;
 }
 
 .task-detail-order-toggle {
@@ -1907,6 +1984,7 @@ body.task-list-is-dragging * {
 }
 
 .task-list-scroll-edge {
+    appearance: none;
     position: absolute;
     top: 44px;
     z-index: 4;
@@ -1920,7 +1998,30 @@ body.task-list-is-dragging * {
     background: rgba(255, 255, 255, .94);
     box-shadow: 0 4px 14px rgba(15, 23, 42, .13);
     color: #2563eb;
-    pointer-events: none;
+    cursor: pointer;
+    padding: 0;
+    pointer-events: auto;
+    transition: color .16s ease, background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.task-list-scroll-edge:hover:not(:disabled) {
+    border-color: rgba(37, 99, 235, .48);
+    background: #eff6ff;
+    color: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.task-list-scroll-edge:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.task-list-scroll-edge:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, .45);
+    outline-offset: 2px;
+}
+
+.task-list-scroll-edge:disabled {
+    cursor: default;
 }
 
 .task-list-scroll-edge-left {

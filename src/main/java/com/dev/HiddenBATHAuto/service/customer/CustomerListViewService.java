@@ -29,6 +29,7 @@ import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.AsListFilter;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.AsListRow;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.CategoryCount;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.SortSpec;
+import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskDeliveryHandler;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskListFilter;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskListRow;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskOrderSummary;
@@ -206,7 +207,13 @@ public class CustomerListViewService {
 				Math.addExact(productVatIncludedTotal, packingCost),
 				deliveryCost
 		);
-		String deliveryHandlerDisplay = resolveDeliveryHandlerDisplay(orders);
+		List<TaskDeliveryHandler> deliveryHandlers = resolveDeliveryHandlers(orders);
+		String deliveryHandlerDisplay = deliveryHandlers.stream()
+				.map(TaskDeliveryHandler::getName)
+				.collect(Collectors.joining(", "));
+		if (!StringUtils.hasText(deliveryHandlerDisplay)) {
+			deliveryHandlerDisplay = "-";
+		}
 
         return TaskListRow.builder()
                 .task(task)
@@ -225,6 +232,7 @@ public class CustomerListViewService {
                 .statusLabel(statusSummary.label())
 				.managerName(deliveryHandlerDisplay)
 				.deliveryHandlerName(deliveryHandlerDisplay)
+				.deliveryHandlers(deliveryHandlers)
                 .supplyPrice(supplyPrice)
 				.vatIncludedTotalPrice(productVatIncludedTotal)
 				.packingCost(packingCost)
@@ -964,20 +972,28 @@ public class CustomerListViewService {
 		return methodNames.isEmpty() ? "-" : String.join(", ", methodNames);
 	}
 
-	private String resolveDeliveryHandlerDisplay(List<Order> orders) {
-		LinkedHashSet<String> displays = new LinkedHashSet<>();
+	private List<TaskDeliveryHandler> resolveDeliveryHandlers(List<Order> orders) {
+		Map<String, TaskDeliveryHandler> handlers = new LinkedHashMap<>();
 		for (Order order : orders) {
 			Member handler = order != null ? order.getAssignedDeliveryHandler() : null;
 			if (handler != null) {
-				displays.add(resolveMemberDisplayName(handler, "-"));
+				String name = resolveMemberDisplayName(handler, "-");
+				String contact = resolveHandlerContact(handler);
+				String key = handler.getId() != null
+						? "MEMBER:" + handler.getId()
+						: "MEMBER:" + name + ":" + contact;
+				handlers.putIfAbsent(key, new TaskDeliveryHandler(name, contact));
 			} else {
 				String methodName = resolveDeliveryMethodName(order);
 				if (StringUtils.hasText(methodName) && !"-".equals(methodName)) {
-					displays.add(methodName);
+					handlers.putIfAbsent(
+							"METHOD:" + methodName,
+							new TaskDeliveryHandler(methodName, "-")
+					);
 				}
 			}
 		}
-		return displays.isEmpty() ? "-" : String.join(", ", displays);
+		return new ArrayList<>(handlers.values());
 	}
 
     private String resolveHandlerContact(Member member) {

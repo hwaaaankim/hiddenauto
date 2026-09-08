@@ -113,6 +113,10 @@ public class DispatchTeamService {
             OrderStatus.PRODUCTION_DONE,
             OrderStatus.DISPATCH_DONE
     );
+    private static final Set<String> LOCAL_VISIT_COMPANY_BUSINESS_NUMBERS = Set.of(
+            "3050928148",
+            "7662900213"
+    );
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -1773,13 +1777,26 @@ public class DispatchTeamService {
         }
 
         if ("BUSAN_VISIT".equals(safeText(request.getDeliveryMethodScope()).toUpperCase())) {
-            predicates.add(cb.equal(
+            Predicate visitDeliveryMethod = cb.equal(
                     cb.trim(deliveryMethodJoin.<String>get("methodName")),
                     "방문"
-            ));
-            predicates.add(cb.like(
+            );
+            Predicate busanRoadAddress = cb.like(
                     cb.lower(cb.trim(orderRoot.get("roadAddress"))),
                     "부산%"
+            );
+
+            /*
+             * 지방 방문 조회에는 기존 부산 주소 주문과 지정 거래처 주문을 함께 포함합니다.
+             * Company.businessNumber의 저장 규칙(숫자 10자리)에 맞춰 지정 거래처를 비교합니다.
+             * 방문 배송수단 및 이 메서드 앞부분의 출고팀 공통 상태·제품분류 조건은 그대로 유지됩니다.
+             */
+            Predicate designatedCompany = companyJoin.<String>get("businessNumber")
+                    .in(LOCAL_VISIT_COMPANY_BUSINESS_NUMBERS);
+
+            predicates.add(cb.and(
+                    visitDeliveryMethod,
+                    cb.or(busanRoadAddress, designatedCompany)
             ));
         } else if (request.getDeliveryMethodId() != null) {
             predicates.add(cb.equal(

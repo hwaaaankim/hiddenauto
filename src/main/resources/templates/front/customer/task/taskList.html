@@ -6,7 +6,7 @@
 
 <body class="theme-light task-list-body" data-highlight="highlight-red" data-gradient="body-default">
 
-	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20260906-3">
+	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20260908-2">
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
 
@@ -82,7 +82,7 @@
 
 				<div class="task-list-horizontal-scroll-guide">
 					<span><i class="fa fa-arrows-alt-h" aria-hidden="true"></i> 좌우로 이동할 수 있는 항목이 있습니다.</span>
-					<small id="task-list-horizontal-scroll-status">상단·하단 스크롤바 또는 표 위 드래그로 이동하세요.</small>
+					<small id="task-list-horizontal-scroll-status">좌우 화살표·상단/하단 스크롤바 또는 표 위 드래그로 이동하세요.</small>
 				</div>
 				<div class="task-list-table-scroll task-list-table-scroll-top" id="task-list-table-scroll-top"
 					role="scrollbar" tabindex="0" aria-controls="task-list-table-scroll-main"
@@ -90,7 +90,10 @@
 					<div id="task-list-table-scroll-spacer" class="task-list-table-scroll-spacer"></div>
 				</div>
 				<div class="task-list-table-scroll-frame" id="task-list-table-scroll-frame">
-					<span class="task-list-scroll-edge task-list-scroll-edge-left" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+					<button type="button" id="task-list-scroll-left"
+						class="task-list-scroll-edge task-list-scroll-edge-left"
+						aria-controls="task-list-table-scroll-main" aria-label="발주 목록을 왼쪽으로 이동"
+						title="왼쪽으로 이동"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
 					<div class="task-list-table-scroll task-list-table-scroll-main" id="task-list-table-scroll-main"
 						tabindex="0" aria-label="발주 목록 표 가로 스크롤 영역">
 					<table class="table task-list-table align-middle mb-0">
@@ -131,7 +134,8 @@
 						</thead>
 						<tbody>
 							<th:block th:each="row : ${taskPage.content}">
-							<tr class="task-list-main-row" th:attr="data-detail-url=@{'/customer/taskDetail/' + ${row.task.id}}">
+							<tr class="task-list-main-row" role="link" tabindex="0"
+								th:attr="data-detail-url=@{/customer/taskDetail/{taskId}(taskId=${row.task.id})},aria-label=|Task #${row.task.id} 통합 상세 보기|">
 								<td class="task-list-id-cell" th:text="${'#' + row.task.id}">#1</td>
 								<td class="task-list-orderer-cell" th:text="${row.requesterName}">신청자</td>
 								<td class="task-list-orderer-cell" th:text="${row.ordererName}">주문자</td>
@@ -157,7 +161,23 @@
 								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.deliveryCost, 1, 'COMMA') + '원'}">0원</td>
 								<td class="task-list-price-cell fw-bold" th:text="${#numbers.formatInteger(row.grandTotalPrice, 1, 'COMMA') + '원'}">0원</td>
 								<td><span class="task-list-status-badge" th:classappend="${' task-list-status-' + #strings.toLowerCase(row.statusKey)}" th:text="${row.statusLabel}">상태</span></td>
-								<td th:text="${row.deliveryHandlerName}">미지정</td>
+								<td class="task-list-delivery-handler-cell">
+									<div class="task-list-delivery-handler-list"
+										th:if="${row.deliveryHandlers != null and !row.deliveryHandlers.isEmpty()}">
+										<div class="task-list-delivery-handler-item" th:each="handler : ${row.deliveryHandlers}">
+											<span class="task-list-delivery-handler-name" th:text="${handler.name}">배송담당자</span>
+											<a th:if="${handler.contact != null and handler.contact != '-'}"
+												th:href="|tel:${handler.contact}|"
+												class="task-list-phone-link task-list-delivery-handler-phone"
+												th:title="|${handler.name} 배송담당자에게 전화|"
+												th:attr="aria-label=|${handler.name} 배송담당자에게 전화|,data-phone-context=|${handler.name} 배송담당자|">
+												<i class="fa fa-phone" aria-hidden="true"></i>
+											</a>
+										</div>
+									</div>
+									<span th:unless="${row.deliveryHandlers != null and !row.deliveryHandlers.isEmpty()}"
+										th:text="${row.deliveryHandlerName}">미지정</span>
+								</td>
 									<td class="text-center">
 										<button type="button" class="task-list-order-detail-toggle"
 											th:attr="data-target=|#task-list-order-detail-${row.task.id}|,aria-controls=|task-list-order-detail-${row.task.id}|"
@@ -204,7 +224,10 @@
 						</tbody>
 					</table>
 					</div>
-					<span class="task-list-scroll-edge task-list-scroll-edge-right" aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+					<button type="button" id="task-list-scroll-right"
+						class="task-list-scroll-edge task-list-scroll-edge-right"
+						aria-controls="task-list-table-scroll-main" aria-label="발주 목록을 오른쪽으로 이동"
+						title="오른쪽으로 이동"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>
 				</div>
 			</section>
 
@@ -245,7 +268,8 @@
 
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
-		<script src="/front/taskListV2.js?v=20260906-3"></script>
+		<script src="/front/taskListV2.js?v=20260908-2"></script>
+		<script src="/front/customerTaskPhoneModal.js?v=20260908-1"></script>
 
 	<div class="modal fade task-list-advanced-modal" id="task-list-advanced-modal" tabindex="-1"
 		aria-labelledby="task-list-advanced-modal-title" aria-hidden="true">

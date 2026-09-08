@@ -125,6 +125,13 @@ public final class CustomerPageDtos {
         private String managerName;
 		private String deliveryHandlerName;
 
+		/**
+		 * Task 안의 배송담당자/미배정 배송수단을 기존 표시 순서대로 보존합니다.
+		 * 실제 담당자이며 연락처가 저장된 항목만 contact 값을 가집니다.
+		 */
+		@Builder.Default
+		private List<TaskDeliveryHandler> deliveryHandlers = new ArrayList<>();
+
         /** Task에 포함된 모든 Order.supplyPrice의 합계 */
         private long supplyPrice;
 
@@ -138,6 +145,13 @@ public final class CustomerPageDtos {
 		/** 제품 VAT 포함 합계 + 포장비 + 배송비 */
 		private long grandTotalPrice;
     }
+
+	@Getter
+	@AllArgsConstructor
+	public static class TaskDeliveryHandler {
+		private String name;
+		private String contact;
+	}
 
     @Getter
     @Builder

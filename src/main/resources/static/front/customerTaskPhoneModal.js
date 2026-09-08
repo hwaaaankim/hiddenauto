@@ -24,6 +24,9 @@
     }
 
     function getContextText(link) {
+		const explicitContext = (link && link.getAttribute('data-phone-context') || '').trim();
+		if (explicitContext) return explicitContext;
+
         const title = (link && link.getAttribute('title')) || '';
         if (!title) return '연락처';
 
