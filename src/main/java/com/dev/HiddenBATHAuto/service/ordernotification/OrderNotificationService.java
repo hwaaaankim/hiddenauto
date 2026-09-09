@@ -346,8 +346,9 @@ public class OrderNotificationService {
         long orderId = order.getId();
         String status = order.getStatus() != null ? order.getStatus().name() : "all";
         MemberRole role = recipient.getRole();
-        if (role == MemberRole.ADMIN || role == MemberRole.MANAGEMENT) {
-            // 관리자는 승인 전·취소 상태를 포함해 모든 발주를 조회할 수 있으므로 삭제된 경우에만 링크가 없습니다.
+        if (role == MemberRole.ADMIN || isManagementTeamManager(recipient)) {
+            // ADMIN 또는 관리팀 MANAGEMENT만 관리 발주 페이지 바로가기를 사용합니다.
+            // 타 팀 MANAGEMENT는 아래 팀별 접근 정책으로 내려가 기존 팀원과 동일한 경로를 사용합니다.
             return new Shortcut(true, "발주 바로가기",
                     "/management/nonStandardTaskList?orderIdFrom=" + orderId
                             + "&orderIdTo=" + orderId
@@ -389,6 +390,13 @@ public class OrderNotificationService {
                     "/team/dispatchList?orderIdFrom=" + orderId + "&orderIdTo=" + orderId);
         }
         return Shortcut.disabled();
+    }
+
+    private boolean isManagementTeamManager(Member member) {
+        return member != null
+                && member.getRole() == MemberRole.MANAGEMENT
+                && member.getTeam() != null
+                && "관리팀".equals(normalizeText(member.getTeam().getName()));
     }
 
     private OrderStatus resolveStatusAfter(OrderChangeEvent event) {

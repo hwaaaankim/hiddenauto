@@ -1,7 +1,16 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -12,15 +21,21 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryManagerRowDto;
 import com.dev.HiddenBATHAuto.dto.delivery.DeliveryManagerSearchCondition;
+import com.dev.HiddenBATHAuto.dto.delivery.DeliveryStatementLayoutDtos.LayoutResponse;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.auth.PrincipalDetails;
 import com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod;
 import com.dev.HiddenBATHAuto.service.delivery.DeliveryManagerService;
+import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryManagerStatementService;
+import com.dev.HiddenBATHAuto.service.team.delivery.DeliveryTeamSiteStatementService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +46,8 @@ import lombok.RequiredArgsConstructor;
 public class DeliveryManagerController {
 
     private final DeliveryManagerService deliveryManagerService;
+    private final DeliveryManagerStatementService deliveryManagerStatementService;
+    private final DeliveryTeamSiteStatementService deliveryTeamSiteStatementService;
 
     @GetMapping("/deliveryManager")
     public String deliveryManager(
@@ -138,7 +155,171 @@ public class DeliveryManagerController {
         model.addAttribute("endPage", endPage);
 
         model.addAttribute("deliveryHandlerId", loginMember.getId());
+        model.addAttribute(
+                "isDeliveryTeamStatementManager",
+                deliveryTeamSiteStatementService.isTeamStatementManager(loginMember)
+        );
 
         return "administration/team/delivery/deliveryManager";
+    }
+
+    /**
+     * 배송관리 체크 선택 현장명세서 사전 검증입니다.
+     * 비대상 주문은 실패시키지 않고 Order ID별 제외 사유를 반환합니다.
+     */
+    @PostMapping("/deliveryManager/site-statement/preview")
+    @ResponseBody
+    public ResponseEntity<?> previewSelectedSiteStatement(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DeliveryManagerStatementRequest request
+    ) {
+        try {
+            Member loginMember = requireDeliveryTeamMember(principal);
+            validateStatementRequest(request, false);
+
+            return ResponseEntity.ok(
+                    deliveryManagerStatementService.preview(
+                            loginMember,
+                            request.orderIds()
+                    )
+            );
+        } catch (AccessDeniedException e) {
+            return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            return errorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() != null
+                            ? e.getMessage()
+                            : "현장명세서 대상 확인 중 오류가 발생했습니다."
+            );
+        }
+    }
+
+    /**
+     * 배송관리 체크 선택 현장명세서 A4 출력 데이터입니다.
+     * 선택값을 서버에서 다시 검증하며 현장배송/화물만 포함합니다.
+     */
+    @PostMapping("/deliveryManager/site-statement/data")
+    @ResponseBody
+    public ResponseEntity<?> buildSelectedSiteStatementData(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DeliveryManagerStatementRequest request
+    ) {
+        try {
+            Member loginMember = requireDeliveryTeamMember(principal);
+            validateStatementRequest(request, true);
+
+            LayoutResponse response = deliveryManagerStatementService.buildLayoutResponse(
+                    loginMember,
+                    request.orderIds(),
+                    request.layoutType()
+            );
+
+            return ResponseEntity.ok(response);
+        } catch (AccessDeniedException e) {
+            return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            return errorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() != null
+                            ? e.getMessage()
+                            : "현장명세서 출력 데이터 생성 중 오류가 발생했습니다."
+            );
+        }
+    }
+
+    /**
+     * 배송관리 체크 선택 현장명세서 XLSX 다운로드입니다.
+     */
+    @PostMapping("/deliveryManager/site-statement/excel")
+    @ResponseBody
+    public ResponseEntity<?> downloadSelectedSiteStatementExcel(
+            @AuthenticationPrincipal PrincipalDetails principal,
+            @RequestBody(required = false) DeliveryManagerStatementRequest request
+    ) {
+        try {
+            Member loginMember = requireDeliveryTeamMember(principal);
+            validateStatementRequest(request, true);
+
+            byte[] bytes = deliveryManagerStatementService.buildLayoutExcel(
+                    loginMember,
+                    request.orderIds(),
+                    request.layoutType()
+            );
+
+            String filename = "현장명세서_가로형_선택건.xlsx";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ));
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename(filename, StandardCharsets.UTF_8)
+                    .build());
+            headers.setContentLength(bytes.length);
+
+            return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
+        } catch (AccessDeniedException e) {
+            return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            return errorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() != null
+                            ? e.getMessage()
+                            : "현장명세서 엑셀 생성 중 오류가 발생했습니다."
+            );
+        }
+    }
+
+    private void validateStatementRequest(
+            DeliveryManagerStatementRequest request,
+            boolean requireLayoutType
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("현장명세서 요청이 없습니다.");
+        }
+
+        if (request.orderIds() == null || request.orderIds().isEmpty()) {
+            throw new IllegalArgumentException("현장명세서로 출력할 배송건을 하나 이상 선택해 주세요.");
+        }
+
+        if (requireLayoutType
+                && (request.layoutType() == null || request.layoutType().isBlank())) {
+            throw new IllegalArgumentException("현장명세서 레이아웃 구분이 없습니다.");
+        }
+    }
+
+    private Member requireDeliveryTeamMember(PrincipalDetails principal) {
+        if (principal == null || principal.getMember() == null) {
+            throw new AccessDeniedException("로그인이 필요합니다.");
+        }
+
+        Member member = principal.getMember();
+        if (member.getTeam() == null || !"배송팀".equals(member.getTeam().getName())) {
+            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+        }
+
+        return member;
+    }
+
+    private ResponseEntity<Map<String, Object>> errorResponse(
+            HttpStatus status,
+            String message
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", false);
+        body.put("message", message != null ? message : "요청 처리 중 오류가 발생했습니다.");
+        return ResponseEntity.status(status).body(body);
+    }
+
+    public record DeliveryManagerStatementRequest(
+            List<Long> orderIds,
+            String layoutType
+    ) {
     }
 }

@@ -217,6 +217,60 @@ public class DeliveryStatementLayoutService {
     }
 
     /**
+     * 배송관리(/team/deliveryManager) 체크 선택 전용 현장명세서입니다.
+     *
+     * 배송팀 기존 기준을 그대로 사용하여 현장배송/화물만 포함하고,
+     * 체크된 주문을 실제 주문 배송일 + 업체 + 실제 배송지 + 배송수단 기준으로 묶습니다.
+     * 현재 로그인 배송담당자 소유 여부는 DeliveryManagerStatementService에서 먼저 검증하며,
+     * 이 서비스에서도 배송팀 소속 여부와 선택 주문 존재 여부를 다시 확인합니다.
+     */
+    @Transactional(readOnly = true)
+    public LayoutResponse buildLayoutResponseForDeliveryManagerSelection(
+            List<Long> orderIds,
+            String layoutType,
+            Member loginMember
+    ) {
+        validateDeliveryRouteMember(loginMember);
+
+        String normalizedLayoutType = normalizeLayoutType(layoutType);
+        List<Long> normalizedOrderIds = normalizeOrderIds(orderIds);
+
+        if (normalizedOrderIds.isEmpty()) {
+            throw new IllegalArgumentException("현장명세서로 출력할 배송건을 하나 이상 선택해 주세요.");
+        }
+
+        List<Order> requestedOrders = loadOrdersInRequestedOrder(normalizedOrderIds);
+        LocalDate statementDate = requestedOrders.stream()
+                .map(this::resolveDeliveryDate)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseGet(this::today);
+
+        return buildLayoutResponseFromOrders(
+                normalizedLayoutType,
+                STATEMENT_SITE,
+                requestedOrders,
+                statementDate,
+                StatementSource.DELIVERY_MANAGER_SELECTION,
+                Map.of()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] buildLayoutExcelForDeliveryManagerSelection(
+            List<Long> orderIds,
+            String layoutType,
+            Member loginMember
+    ) {
+        LayoutResponse response = buildLayoutResponseForDeliveryManagerSelection(
+                orderIds,
+                layoutType,
+                loginMember
+        );
+        return buildLayoutExcelFromResponse(response);
+    }
+
+    /**
      * 배송팀 팀장 전용 전체 현장명세서입니다.
      * TeamStatementOrderRef는 서버가 DeliveryOrderIndex를 조회해서 만든 값만 전달해야 합니다.
      * 담당자 ID를 첫 번째 묶음 키로 사용하므로 서로 다른 배송직원의 주문은 절대 합쳐지지 않습니다.
@@ -716,9 +770,10 @@ public class DeliveryStatementLayoutService {
             }
 
             handlerKey = "HANDLER:" + ref.deliveryHandlerId();
-        } else if (source == StatementSource.DELIVERY_MEMBER) {
-            // 개인 화면도 담당자 ID를 명시적인 경계로 유지합니다. 조회 인덱스가 잘못 남아 있어도
-            // 다른 배송직원의 주문이 같은 명세서에 섞이지 않습니다.
+        } else if (source == StatementSource.DELIVERY_MEMBER
+                || source == StatementSource.DELIVERY_MANAGER_SELECTION) {
+            // 배송팀 개인/체크 선택 화면도 담당자 ID를 명시적인 경계로 유지합니다.
+            // 조회 인덱스가 잘못 남아 있어도 다른 배송직원의 주문이 같은 명세서에 섞이지 않습니다.
             Member assignedHandler = order.getAssignedDeliveryHandler();
             handlerKey = assignedHandler != null && assignedHandler.getId() != null
                     ? "HANDLER:" + assignedHandler.getId()
@@ -730,6 +785,7 @@ public class DeliveryStatementLayoutService {
         String addressKey = resolveAddressGroupingKey(order);
         String methodKey = resolveMethodGroupingKey(order);
         LocalDate deliveryDate = source == StatementSource.DISPATCH_SELECTION
+                || source == StatementSource.DELIVERY_MANAGER_SELECTION
                 ? resolveDeliveryDate(order)
                 : statementDate;
         String dateKey;
@@ -2194,6 +2250,7 @@ public class DeliveryStatementLayoutService {
     private enum StatementSource {
         DISPATCH_SELECTION,
         DELIVERY_MEMBER,
+        DELIVERY_MANAGER_SELECTION,
         DELIVERY_TEAM
     }
 
