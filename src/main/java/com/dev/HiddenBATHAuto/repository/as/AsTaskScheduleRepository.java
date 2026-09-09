@@ -123,4 +123,23 @@ public interface AsTaskScheduleRepository extends JpaRepository<AsTaskSchedule, 
             @Param("end") LocalDate end,
             @Param("excludedStatuses") List<AsStatus> excludedStatuses
     );
+
+    /** index 메인 앞으로 처리예정 AS - 같은 고객사 전체 */
+    @Query("""
+        select s
+        from AsTaskSchedule s
+        join fetch s.asTask t
+        left join fetch t.assignedHandler ah
+        where t.requestedBy.company.id = :companyId
+          and s.scheduledDate >= :start
+          and s.scheduledDate < :end
+          and (t.status is null or t.status not in :excludedStatuses)
+        order by s.scheduledDate asc, s.orderIndex asc, t.id asc
+    """)
+    List<AsTaskSchedule> findIndexUpcomingSchedulesByCompanyId(
+            @Param("companyId") Long companyId,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("excludedStatuses") List<AsStatus> excludedStatuses
+    );
 }
