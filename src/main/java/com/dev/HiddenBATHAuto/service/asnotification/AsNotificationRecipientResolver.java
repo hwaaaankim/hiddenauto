@@ -71,9 +71,10 @@ public class AsNotificationRecipientResolver {
         Member manager = memberRepository.findByUsername(AS_MANAGER_USERNAME)
                 .filter(Member::isEnabled)
                 .filter(member -> member.getRole() == MemberRole.MANAGEMENT)
+                .filter(member -> member.getTeam() != null && "관리팀".equals(member.getTeam().getName()))
                 .orElse(null);
         if (manager == null) {
-            log.warn("AS 알림 수신 관리팀 계정 '{}'을 찾지 못했거나 활성 MANAGEMENT 계정이 아닙니다. AS ID={}",
+            log.warn("AS 알림 수신 관리팀 계정 '{}'을 찾지 못했거나 활성 관리팀 MANAGEMENT 계정이 아닙니다. AS ID={}",
                     AS_MANAGER_USERNAME, event.resolveAsTaskId());
             return;
         }

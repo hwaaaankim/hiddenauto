@@ -139,16 +139,34 @@
 												id="delivery-manager-added-site-statement-btn"
 												class="btn btn-outline-primary btn-sm"
 												disabled>
-												<i class="ri-file-list-3-line align-bottom me-1"></i>
+												<i class="ri-printer-line align-bottom me-1"></i>
 												현장명세서출력
 											</button>
 
 											<button type="button"
-												id="delivery-manager-added-parcel-statement-btn"
-												class="btn btn-outline-info btn-sm"
+												id="delivery-manager-added-site-statement-download-btn"
+												class="btn btn-outline-success btn-sm"
 												disabled>
-												<i class="ri-file-paper-2-line align-bottom me-1"></i>
-												택배명세서출력
+												<i class="ri-file-excel-2-line align-bottom me-1"></i>
+												현장명세서다운로드
+											</button>
+
+											<button type="button"
+												id="delivery-manager-added-team-site-statement-print-btn"
+												class="btn btn-primary btn-sm"
+												th:if="${isDeliveryTeamStatementManager}"
+												title="조회 날짜가 하루인 경우 해당 날짜의 배송팀 전체 현장배송/화물 명세서를 출력합니다.">
+												<i class="ri-team-line align-bottom me-1"></i>
+												배송팀전체현장명세서출력
+											</button>
+
+											<button type="button"
+												id="delivery-manager-added-team-site-statement-download-btn"
+												class="btn btn-success btn-sm"
+												th:if="${isDeliveryTeamStatementManager}"
+												title="조회 날짜가 하루인 경우 해당 날짜의 배송팀 전체 현장배송/화물 명세서를 다운로드합니다.">
+												<i class="ri-file-excel-2-line align-bottom me-1"></i>
+												배송팀전체현장명세서다운로드
 											</button>
 
 											<button type="button"
@@ -350,7 +368,8 @@
 		<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
 		<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryManager.css?v=20260804-6">
-		<script src="/administration/assets/team/delivery/deliveryManager.js"></script>
+		<script src="/administration/assets/team/delivery/deliveryRoute.js?v=20260909-1"></script>
+		<script src="/administration/assets/team/delivery/deliveryManager.js?v=20260909-1"></script>
 
 	</body>
 

@@ -291,13 +291,16 @@
 					</div>
 					<div class="modal-body">
 						<span id="order-notification-management-mode" class="d-none"
-							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')" aria-hidden="true"></span>
+							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')"
+							th:if="${#authentication.principal.member.role.name() == 'ADMIN' or (#authentication.principal.member.role.name() == 'MANAGEMENT' and #authentication.principal.teamName == '관리팀')}"
+							aria-hidden="true"></span>
 						<span id="order-notification-current-user" class="d-none" aria-hidden="true"
 							th:data-username="${#authentication.name}"
 							th:data-team-id="${#authentication.principal.member.team != null ? #authentication.principal.member.team.id : ''}"
 							th:data-team-name="${#authentication.principal.member.team != null ? #authentication.principal.member.team.name : ''}"></span>
 						<div class="order-notification-tabs order-notification-tabs-management" role="tablist"
-							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')">
+							sec:authorize="hasAnyAuthority('ROLE_ADMIN','ROLE_MANAGEMENT')"
+							th:if="${#authentication.principal.member.role.name() == 'ADMIN' or (#authentication.principal.member.role.name() == 'MANAGEMENT' and #authentication.principal.teamName == '관리팀')}">
 							<button type="button" class="order-notification-tab active" data-order-notification-filter="PRODUCTION">
 								생산팀 <span class="order-notification-tab-count">0</span>
 							</button>
@@ -320,7 +323,8 @@
 						</div>
 
 						<div class="order-notification-tabs order-notification-tabs-team" role="tablist"
-							sec:authorize="hasAuthority('ROLE_INTERNAL_EMPLOYEE')">
+							sec:authorize="hasAnyAuthority('ROLE_INTERNAL_EMPLOYEE','ROLE_MANAGEMENT')"
+							th:if="${#authentication.principal.member.role.name() == 'INTERNAL_EMPLOYEE' or (#authentication.principal.member.role.name() == 'MANAGEMENT' and #authentication.principal.teamName != '관리팀')}">
 							<button type="button" class="order-notification-tab active" data-order-notification-filter="ALL">
 								<span th:text="${#authentication.principal.member.team != null and #authentication.principal.member.team.id == 4 ? '내 AS 알림' : '전체'}">전체</span>
 								<span class="order-notification-tab-count">0</span>
@@ -414,14 +418,15 @@
 						teamName=${#authentication.principal.teamName != null ? #authentication.principal.teamName : ''},
 						isAdmin=${memberRole == 'ADMIN'},
 						isManagement=${memberRole == 'MANAGEMENT'},
-						isAdminOrManagement=${memberRole == 'ADMIN' or memberRole == 'MANAGEMENT'},
+						isManagementTeam=${teamName == '관리팀'},
+						canUseManagementPages=${isAdmin or (isManagement and isManagementTeam)},
 						isTeamRole=${memberRole == 'MANAGEMENT' or memberRole == 'INTERNAL_EMPLOYEE'}">
 
 					<li class="menu-title">
 						<span data-key="t-menu">MENU</span>
 					</li>
 
-					<li class="nav-item" th:if="${isAdminOrManagement}">
+					<li class="nav-item" th:if="${canUseManagementPages}">
 						<a class="nav-link menu-link" href="#sidebarDashboards" data-bs-toggle="collapse" role="button"
 							aria-expanded="false" aria-controls="sidebarDashboards">
 							<i class="ri-dashboard-2-line"></i>
@@ -526,7 +531,7 @@
 						<div class="collapse menu-dropdown" id="sidebarTask">
 							<ul class="nav nav-sm flex-column">
 
-								<li class="nav-item" th:if="${isAdminOrManagement}">
+								<li class="nav-item" th:if="${canUseManagementPages}">
 									<a href="#sidebarOrderManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false" aria-controls="sidebarOrderManager"
 										data-key="t-ordermanager">
@@ -557,7 +562,7 @@
 									</div>
 								</li>
 
-								<li class="nav-item" th:if="${isAdminOrManagement}">
+								<li class="nav-item" th:if="${canUseManagementPages}">
 									<a href="#sidebarAdminAsManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false" aria-controls="sidebarAdminAsManager"
 										data-key="t-ordermanager">
@@ -575,7 +580,7 @@
 									</div>
 								</li>
 
-								<li class="nav-item" th:if="${isAdminOrManagement}">
+								<li class="nav-item" th:if="${canUseManagementPages}">
 									<a href="#sidebarAdminDeliveryManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false" aria-controls="sidebarAdminDeliveryManager"
 										data-key="t-ordermanager">
@@ -594,7 +599,7 @@
 									</div>
 								</li>
 
-								<li class="nav-item" th:if="${isAdminOrManagement}">
+								<li class="nav-item" th:if="${canUseManagementPages}">
 									<a href="#sidebarAdminProductionManager" class="nav-link" data-bs-toggle="collapse"
 										role="button" aria-expanded="false"
 										aria-controls="sidebarAdminProductionManager" data-key="t-ordermanager">
@@ -709,7 +714,7 @@
 						</div>
 					</li>
 
-					<li class="nav-item" th:if="${isAdminOrManagement}">
+					<li class="nav-item" th:if="${canUseManagementPages}">
 						<a class="nav-link menu-link" href="#sidebarManagement" data-bs-toggle="collapse" role="button"
 							aria-expanded="false" aria-controls="sidebarManagement">
 							<i class="ri-settings-3-line"></i>

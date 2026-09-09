@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 
@@ -99,14 +100,14 @@ public class WebSecurityConfig {
     };
 
     /**
-     * ADMIN과 MANAGEMENT가 함께 사용할 수 있는 /admin 하위 기능입니다.
+     * ADMIN과 관리팀 MANAGEMENT가 함께 사용할 수 있는 /admin 하위 기능입니다.
+     * 기존 common.html에서 MANAGEMENT에도 노출되던 발주 프로세스 기능만 포함합니다.
      *
-     * /admin/** 전체를 MANAGEMENT에 열면 위험하므로,
-     * 실제 메뉴에서 MANAGEMENT도 사용해야 하는 기능만 먼저 허용합니다.
+     * 타 팀의 MANAGEMENT는 팀장 권한이므로 관리팀 기능에 접근할 수 없습니다.
+     * /admin/notification/** 등 기존 ADMIN 전용 메뉴는 아래 /admin/** 규칙으로 계속 ADMIN만 허용합니다.
      */
     private final String[] adminManagementUrls = {
-            "/admin/process/**",
-            "/admin/notification/**"
+            "/admin/process/**"
     };
 
     /**
@@ -260,14 +261,14 @@ public class WebSecurityConfig {
                         )
 
                         /*
-                         * MANAGEMENT도 접근 가능한 /admin 하위 기능은
-                         * /admin/**보다 먼저 선언해야 합니다.
+                         * ADMIN 또는 관리팀 MANAGEMENT만 접근 가능한 /admin 하위 기능입니다.
+                         * 타 팀 MANAGEMENT는 여기서 차단합니다.
                          */
                         .requestMatchers(adminManagementUrls)
-                        .hasAnyAuthority(
-                                "ROLE_ADMIN",
-                                "ROLE_MANAGEMENT"
-                        )
+                        .access(new WebExpressionAuthorizationManager(
+                                "hasAuthority('ROLE_ADMIN') or "
+                                + "(hasAuthority('ROLE_MANAGEMENT') and principal.teamName == '관리팀')"
+                        ))
 
                         /*
                          * /admin/** 나머지와 /analytics는 ADMIN 전용
@@ -278,14 +279,14 @@ public class WebSecurityConfig {
                         )
 
                         /*
-                         * 발주등록, 발주관리, AS관리, 배송관리,
-                         * 생산관리 등 /management/** 기능
+                         * 발주등록, 발주관리, AS관리, 배송관리, 생산관리 등
+                         * /management/**는 ADMIN 또는 관리팀 MANAGEMENT 전용입니다.
                          */
                         .requestMatchers(managementUrls)
-                        .hasAnyAuthority(
-                                "ROLE_ADMIN",
-                                "ROLE_MANAGEMENT"
-                        )
+                        .access(new WebExpressionAuthorizationManager(
+                                "hasAuthority('ROLE_ADMIN') or "
+                                + "(hasAuthority('ROLE_MANAGEMENT') and principal.teamName == '관리팀')"
+                        ))
 
                         /*
                          * 생산팀/배송팀/AS팀/출고팀 페이지

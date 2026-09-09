@@ -1781,28 +1781,46 @@ public class DispatchTeamService {
                     cb.trim(deliveryMethodJoin.<String>get("methodName")),
                     "방문"
             );
-            Predicate busanRoadAddress = cb.like(
-                    cb.lower(cb.trim(orderRoot.get("roadAddress"))),
-                    "부산%"
-            );
 
             /*
-             * 지방 방문 조회에는 기존 부산 주소 주문과 지정 거래처 주문을 함께 포함합니다.
-             * Company.businessNumber의 저장 규칙(숫자 10자리)에 맞춰 지정 거래처를 비교합니다.
-             * 방문 배송수단 및 이 메서드 앞부분의 출고팀 공통 상태·제품분류 조건은 그대로 유지됩니다.
+             * 지방 조회 집합은 반드시 한 곳에서 같은 기준으로 계산합니다.
+             * - 배송수단: 방문
+             * - 부산 주소 또는 지정 사업자번호 업체
+             *
+             * 방문출고 일반 조회에서는 아래 집합을 그대로 제외하여
+             * 같은 주문이 방문/지방 양쪽에 중복 노출되지 않도록 합니다.
              */
-            Predicate designatedCompany = companyJoin.<String>get("businessNumber")
-                    .in(LOCAL_VISIT_COMPANY_BUSINESS_NUMBERS);
-
             predicates.add(cb.and(
                     visitDeliveryMethod,
-                    cb.or(busanRoadAddress, designatedCompany)
+                    buildLocalVisitMembershipPredicate(cb, orderRoot, companyJoin)
             ));
         } else if (request.getDeliveryMethodId() != null) {
+            DeliveryMethod selectedDeliveryMethod = entityManager.find(
+                    DeliveryMethod.class,
+                    request.getDeliveryMethodId()
+            );
+
+            if (selectedDeliveryMethod == null) {
+                throw new IllegalArgumentException("선택한 배송수단을 찾을 수 없습니다.");
+            }
+
             predicates.add(cb.equal(
                     deliveryMethodJoin.get("id"),
                     request.getDeliveryMethodId()
             ));
+
+            /*
+             * 일반 '방문' 조회는 지방 조회 집합과 완전히 분리합니다.
+             * 지정 업체가 부산 외 지역이어도 지방 조회 대상이므로 방문 조회에서는 제외합니다.
+             */
+            if (DeliveryMethodAssignmentPolicy.containsKeyword(
+                    selectedDeliveryMethod.getMethodName(),
+                    "방문"
+            )) {
+                predicates.add(cb.not(
+                        buildLocalVisitMembershipPredicate(cb, orderRoot, companyJoin)
+                ));
+            }
         }
 
         addKeywordPredicate(
@@ -1820,6 +1838,27 @@ public class DispatchTeamService {
                 orderRoot,
                 request
         );
+    }
+
+
+    private Predicate buildLocalVisitMembershipPredicate(
+            CriteriaBuilder cb,
+            Root<Order> orderRoot,
+            Join<Member, Company> companyJoin
+    ) {
+        Expression<String> safeRoadAddress = cb.lower(cb.trim(
+                cb.coalesce(orderRoot.<String>get("roadAddress"), "")
+        ));
+        Expression<String> safeBusinessNumber = cb.trim(
+                cb.coalesce(companyJoin.<String>get("businessNumber"), "")
+        );
+
+        Predicate busanRoadAddress = cb.like(safeRoadAddress, "부산%");
+        Predicate designatedCompany = safeBusinessNumber.in(
+                LOCAL_VISIT_COMPANY_BUSINESS_NUMBERS
+        );
+
+        return cb.or(busanRoadAddress, designatedCompany);
     }
 
     private DispatchOrderSearchRequest normalizeSearchRequest(DispatchOrderSearchRequest request) {

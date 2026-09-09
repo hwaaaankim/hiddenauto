@@ -2116,4 +2116,15 @@
             .replace(/'/g, '&#039;');
     }
 
+    /*
+     * deliveryManager에서도 업체별 배송 화면과 완전히 동일한 A4 명세서 렌더링을 사용합니다.
+     * 이 파일 자체의 초기화는 #delivery-route-page가 없으면 즉시 종료하므로,
+     * 배송관리 페이지에서는 아래 순수 렌더링/다운로드 함수만 안전하게 재사용합니다.
+     */
+    window.HiddenAutoDeliveryStatementRenderer = Object.freeze({
+        buildPrintDocument: buildStatementPrintDocument,
+        resolveDownloadFilename: resolveDownloadFilename,
+        downloadBlob: downloadBlob
+    });
+
 })();
