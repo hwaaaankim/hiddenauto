@@ -325,6 +325,7 @@ public class APIController {
 
 		CalendarDateBasis basis = CalendarDateBasis.from(basisParam);
 		Member member = principalDetails.getMember();
+		Long companyId = requireCompanyId(member);
 
 		LocalDate start = parseDateOrNull(startParam);
 		LocalDate endExclusive = parseDateOrNull(endParam);
@@ -334,12 +335,12 @@ public class APIController {
 				basis, startParam, endParam, (member != null ? member.getUsername() : "비로그인"));
 
 		List<AsTask> asTasks = hasRange
-				? loadAsTasksForCalendarRange(member, basis, start, endExclusive)
-				: loadAllAsTasksForCalendar(member, basis);
+				? loadAsTasksForCalendarRange(companyId, basis, start, endExclusive)
+				: loadAllAsTasksForCalendar(companyId, basis);
 
 		List<Task> tasks = hasRange
-				? loadTasksForCalendarRange(member, basis, start, endExclusive)
-				: loadAllTasksForCalendar(member, basis);
+				? loadTasksForCalendarRange(companyId, basis, start, endExclusive)
+				: loadAllTasksForCalendar(companyId, basis);
 
 		Map<LocalDate, List<AsTask>> asMap = asTasks.stream()
 				.map(t -> new AbstractMap.SimpleEntry<>(extractAsDate(t, basis), t))
@@ -393,11 +394,12 @@ public class APIController {
 		}
 
 		Member member = principalDetails.getMember();
+		Long companyId = requireCompanyId(member);
 		log.info("[CalendarOverview] basis={}, start={}, end={}, requester={}",
 				basis, start, endExclusive, (member != null ? member.getUsername() : "비로그인"));
 
-		List<AsTask> asTasks = loadAsTasksForCalendarRange(member, basis, start, endExclusive);
-		List<Task> tasks = loadTasksForCalendarRange(member, basis, start, endExclusive).stream()
+		List<AsTask> asTasks = loadAsTasksForCalendarRange(companyId, basis, start, endExclusive);
+		List<Task> tasks = loadTasksForCalendarRange(companyId, basis, start, endExclusive).stream()
 				.filter(t -> isDateInRange(extractTaskDate(t, basis), start, endExclusive))
 				.toList();
 
@@ -428,6 +430,7 @@ public class APIController {
 			@AuthenticationPrincipal PrincipalDetails principalDetails) {
 
 		Member member = principalDetails.getMember();
+		Long companyId = requireCompanyId(member);
 		LocalDate today = LocalDate.now();
 
 		LocalDate recentStart = today.minusDays(6);
@@ -447,8 +450,8 @@ public class APIController {
 		LocalDateTime recentStartAt = recentStart.atStartOfDay();
 		LocalDateTime recentEndAt = recentEndExclusive.atStartOfDay();
 
-		List<Task> recentDeliveredTasks = taskRepository.findIndexRecentDeliveryCompletedRange(
-				member,
+		List<Task> recentDeliveredTasks = taskRepository.findIndexRecentDeliveryCompletedRangeByCompanyId(
+				companyId,
 				OrderStatus.DELIVERY_DONE,
 				recentStartAt,
 				recentEndAt);
@@ -470,7 +473,7 @@ public class APIController {
 		}
 
 		LocalDateTime recentAsEndInclusive = recentEndAt.minusNanos(1);
-		asTaskRepository.findByRequestedByAndAsProcessDateBetween(member, recentStartAt, recentAsEndInclusive)
+		asTaskRepository.findCalendarByCompanyIdAndAsProcessDateBetween(companyId, recentStartAt, recentAsEndInclusive)
 				.stream()
 				.filter(t -> t != null && t.getStatus() == AsStatus.COMPLETED && t.getAsProcessDate() != null)
 				.map(this::toRecentAsWorkItem)
@@ -479,8 +482,8 @@ public class APIController {
 		LocalDateTime upcomingStartAt = upcomingStart.atStartOfDay();
 		LocalDateTime upcomingEndAt = upcomingEndExclusive.atStartOfDay();
 
-		List<Task> upcomingOrderTasks = taskRepository.findIndexUpcomingDeliveryRange(
-				member,
+		List<Task> upcomingOrderTasks = taskRepository.findIndexUpcomingDeliveryRangeByCompanyId(
+				companyId,
 				upcomingStartAt,
 				upcomingEndAt,
 				List.of(OrderStatus.DELIVERY_DONE, OrderStatus.CANCELED));
@@ -503,8 +506,8 @@ public class APIController {
 			}
 		}
 
-		List<AsTaskSchedule> upcomingAsSchedules = asTaskScheduleRepository.findIndexUpcomingSchedules(
-				member,
+		List<AsTaskSchedule> upcomingAsSchedules = asTaskScheduleRepository.findIndexUpcomingSchedulesByCompanyId(
+				companyId,
 				upcomingStart,
 				upcomingEndExclusive,
 				List.of(AsStatus.COMPLETED, AsStatus.CANCELED));
@@ -572,12 +575,13 @@ public class APIController {
 		LocalDate endExclusive = target.plusDays(1);
 
 		Member member = principalDetails.getMember();
+		Long companyId = requireCompanyId(member);
 		log.info("[CalendarTasks] basis={}, date={}, requester={}", basis, dateStr,
 				member != null ? member.getUsername() : "비로그인");
 
 		List<CalendarTaskDetailDTO> out = new ArrayList<>();
 
-		List<AsTask> asOnDate = loadAsTasksForCalendarRange(member, basis, target, endExclusive).stream()
+		List<AsTask> asOnDate = loadAsTasksForCalendarRange(companyId, basis, target, endExclusive).stream()
 				.filter(t -> target.equals(extractAsDate(t, basis)))
 				.toList();
 
@@ -590,7 +594,7 @@ public class APIController {
 
 		asOnDate.forEach(t -> out.add(toAsDetailDTO(t, basis, scheduleMap.get(t.getId()))));
 
-		loadTasksForCalendarRange(member, basis, target, endExclusive).stream()
+		loadTasksForCalendarRange(companyId, basis, target, endExclusive).stream()
 				.filter(t -> target.equals(extractTaskDate(t, basis)))
 				.forEach(t -> out.add(toTaskDetailDTO(t, basis)));
 
@@ -603,7 +607,7 @@ public class APIController {
 	// index 달력 범위 조회
 	// =========================================================
 	private List<AsTask> loadAsTasksForCalendarRange(
-			Member member,
+			Long companyId,
 			CalendarDateBasis basis,
 			LocalDate start,
 			LocalDate endExclusive) {
@@ -612,20 +616,20 @@ public class APIController {
 		LocalDateTime endInclusive = endExclusive.atStartOfDay().minusNanos(1);
 
 		if (basis == CalendarDateBasis.PROCESS) {
-			return asTaskRepository.findByRequestedByAndAsProcessDateBetween(member, startAt, endInclusive);
+			return asTaskRepository.findCalendarByCompanyIdAndAsProcessDateBetween(companyId, startAt, endInclusive);
 		}
-		return asTaskRepository.findByRequestedByAndRequestedAtBetween(member, startAt, endInclusive);
+		return asTaskRepository.findCalendarByCompanyIdAndRequestedAtBetween(companyId, startAt, endInclusive);
 	}
 
-	private List<AsTask> loadAllAsTasksForCalendar(Member member, CalendarDateBasis basis) {
+	private List<AsTask> loadAllAsTasksForCalendar(Long companyId, CalendarDateBasis basis) {
 		if (basis == CalendarDateBasis.PROCESS) {
-			return asTaskRepository.findByRequestedByAndAsProcessDateNotNull(member);
+			return asTaskRepository.findCalendarByCompanyIdAndAsProcessDateNotNull(companyId);
 		}
-		return asTaskRepository.findByRequestedBy(member);
+		return asTaskRepository.findCalendarByCompanyId(companyId);
 	}
 
 	private List<Task> loadTasksForCalendarRange(
-			Member member,
+			Long companyId,
 			CalendarDateBasis basis,
 			LocalDate start,
 			LocalDate endExclusive) {
@@ -635,9 +639,9 @@ public class APIController {
 
 		List<Task> tasks;
 		if (basis == CalendarDateBasis.PROCESS) {
-			tasks = taskRepository.findCalendarProcessedRangeCandidates(member, startAt, endAt);
+			tasks = taskRepository.findCalendarProcessedRangeCandidatesByCompanyId(companyId, startAt, endAt);
 		} else {
-			tasks = taskRepository.findCalendarRequestedRange(member, startAt, endAt);
+			tasks = taskRepository.findCalendarRequestedRangeByCompanyId(companyId, startAt, endAt);
 		}
 
 		// PROCESS 후보 조회는 같은 Task 안 다른 Order 날짜로 포함될 수 있으므로
@@ -647,11 +651,18 @@ public class APIController {
 				.toList();
 	}
 
-	private List<Task> loadAllTasksForCalendar(Member member, CalendarDateBasis basis) {
+	private List<Task> loadAllTasksForCalendar(Long companyId, CalendarDateBasis basis) {
 		if (basis == CalendarDateBasis.PROCESS) {
-			return taskRepository.findByRequestedByAndPreferredDeliveryNotNullFetchOrders(member);
+			return taskRepository.findByCompanyIdAndPreferredDeliveryNotNullFetchOrders(companyId);
 		}
-		return taskRepository.findByRequestedByFetchOrders(member);
+		return taskRepository.findByCompanyIdFetchOrders(companyId);
+	}
+
+	private Long requireCompanyId(Member member) {
+		if (member == null || member.getCompany() == null || member.getCompany().getId() == null) {
+			throw new IllegalStateException("회사 정보가 없는 계정은 고객사 업무 정보를 조회할 수 없습니다.");
+		}
+		return member.getCompany().getId();
 	}
 
 	private LocalDate parseDateOrNull(String value) {

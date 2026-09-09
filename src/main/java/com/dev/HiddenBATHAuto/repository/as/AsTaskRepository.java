@@ -612,6 +612,33 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	// AsTaskRepository
 	List<AsTask> findByRequestedByAndRequestedAtBetween(Member member, LocalDateTime start, LocalDateTime end);
 
+	// ===== 고객 index 달력/오버뷰: 로그인 계정이 아닌 Company 전체 범위 =====
+	@Query("select a from AsTask a where a.requestedBy.company.id = :companyId")
+	List<AsTask> findCalendarByCompanyId(@Param("companyId") Long companyId);
+
+	@Query("select a from AsTask a where a.requestedBy.company.id = :companyId and a.asProcessDate is not null")
+	List<AsTask> findCalendarByCompanyIdAndAsProcessDateNotNull(@Param("companyId") Long companyId);
+
+	@Query("""
+		select a from AsTask a
+		where a.requestedBy.company.id = :companyId
+		  and a.asProcessDate between :start and :end
+		""")
+	List<AsTask> findCalendarByCompanyIdAndAsProcessDateBetween(
+			@Param("companyId") Long companyId,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end);
+
+	@Query("""
+		select a from AsTask a
+		where a.requestedBy.company.id = :companyId
+		  and a.requestedAt between :start and :end
+		""")
+	List<AsTask> findCalendarByCompanyIdAndRequestedAtBetween(
+			@Param("companyId") Long companyId,
+			@Param("start") LocalDateTime start,
+			@Param("end") LocalDateTime end);
+
 	@Query("SELECT a FROM AsTask a WHERE a.requestedBy.company.id = :companyId")
 	Page<AsTask> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
 
