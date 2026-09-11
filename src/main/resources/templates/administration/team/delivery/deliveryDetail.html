@@ -31,7 +31,8 @@
 						</div>
 					</div>
 
-					<form th:action="@{/team/deliveryStatus/{orderId}(orderId=${order.id})}" method="post"
+					<form id="delivery-manager-added-detail-form"
+						th:action="@{/team/deliveryStatus/{orderId}(orderId=${order.id})}" method="post"
 						enctype="multipart/form-data" class="row delivery-manager-added-detail-form">
 
 						<div class="col-lg-12">
@@ -97,7 +98,7 @@
 											<label class="form-label delivery-manager-added-label">배송 증빙 이미지</label>
 											<input id="delivery-manager-added-delivery-images"
 												class="form-control delivery-manager-added-control" type="file"
-												name="files" accept="image/*" capture="environment"
+												name="files" accept="image/*,.heic,.heif" capture="environment"
 												th:disabled="${!canCompleteDelivery}">
 										</div>
 
@@ -326,14 +327,43 @@
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
 	<script src="/administration/assets/js/pages/project-overview.init.js"></script>
+	<script src="/administration/assets/js/imageUploadNormalizer.js?v=20260909-1"></script>
 
 	<script>
 		document.addEventListener("DOMContentLoaded", function () {
+			const deliveryForm = document.getElementById("delivery-manager-added-detail-form");
 			const fileInput = document.getElementById("delivery-manager-added-delivery-images");
 			const previewContainer = document.getElementById("delivery-manager-added-preview-container");
+			const submitButton = deliveryForm
+				? deliveryForm.querySelector(".delivery-manager-added-submit-btn")
+				: null;
+			const fileInputOriginallyDisabled = fileInput ? fileInput.disabled : true;
+			const submitOriginallyDisabled = submitButton ? submitButton.disabled : true;
+			let imageProcessing = false;
+
+			function setImageProcessing(processing) {
+				imageProcessing = processing;
+				if (fileInput) {
+					fileInput.disabled = fileInputOriginallyDisabled || processing;
+				}
+				if (submitButton) {
+					submitButton.disabled = submitOriginallyDisabled || processing;
+					submitButton.textContent = processing ? "이미지 변환 중..." : "배송 완료 처리";
+				}
+			}
+
+			if (deliveryForm) {
+				deliveryForm.addEventListener("submit", function (event) {
+					if (!imageProcessing) {
+						return;
+					}
+					event.preventDefault();
+					alert("이미지를 변환하고 있습니다. 변환이 완료된 뒤 다시 시도해주세요.");
+				});
+			}
 
 			if (fileInput && previewContainer) {
-				fileInput.addEventListener("change", function () {
+				fileInput.addEventListener("change", async function () {
 					const files = Array.from(fileInput.files || []);
 					previewContainer.innerHTML = "";
 
@@ -341,40 +371,62 @@
 						return;
 					}
 
-					const file = files[0];
-
 					if (files.length > 1) {
 						alert("배송완료 증빙 이미지는 1장만 등록할 수 있습니다.");
 					}
 
-					const dataTransfer = new DataTransfer();
-					dataTransfer.items.add(file);
-					fileInput.files = dataTransfer.files;
+					if (!window.HiddenAutoImageUpload) {
+						fileInput.value = "";
+						alert("이미지 변환 기능을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.");
+						return;
+					}
 
-					const reader = new FileReader();
+					setImageProcessing(true);
 
-					reader.onload = function (e) {
-						const col = document.createElement("div");
-						col.className = "col-lg-2 col-md-3 col-sm-4 delivery-manager-added-preview-col";
+					try {
+						const normalized = await window.HiddenAutoImageUpload.normalizeFiles([files[0]]);
+						if (!normalized.files.length) {
+							throw new Error("업로드 가능한 이미지가 없습니다.");
+						}
 
-						col.innerHTML = `
-						<div class="delivery-manager-added-preview-card">
-							<img src="${e.target.result}" class="delivery-manager-added-preview-img" alt="배송 증빙 미리보기" />
-							<div class="delivery-manager-added-preview-name" title="${file.name}">${file.name}</div>
-							<button type="button" class="btn btn-sm btn-outline-danger delivery-manager-added-remove-image-btn">
-								&times;
-							</button>
-						</div>
-					`;
+						const file = normalized.files[0];
+						window.HiddenAutoImageUpload.replaceInputFiles(fileInput, [file]);
 
-						previewContainer.appendChild(col);
-					};
+						const reader = new FileReader();
+						reader.onload = function (e) {
+							const col = document.createElement("div");
+							col.className = "col-lg-2 col-md-3 col-sm-4 delivery-manager-added-preview-col";
 
-					reader.readAsDataURL(file);
+							col.innerHTML = `
+							<div class="delivery-manager-added-preview-card">
+								<img src="${e.target.result}" class="delivery-manager-added-preview-img" alt="배송 증빙 미리보기" />
+								<div class="delivery-manager-added-preview-name" title="${file.name}">${file.name}</div>
+								<button type="button" class="btn btn-sm btn-outline-danger delivery-manager-added-remove-image-btn">
+									&times;
+								</button>
+							</div>
+						`;
+
+							previewContainer.appendChild(col);
+						};
+						reader.readAsDataURL(file);
+
+						if (normalized.converted.length > 0) {
+							alert("HEIC/HEIF 이미지를 JPEG로 변환했습니다. 변환된 이미지가 배송완료 증빙으로 업로드됩니다.");
+						}
+					} catch (error) {
+						fileInput.value = "";
+						previewContainer.innerHTML = "";
+						alert(error && error.message
+							? error.message
+							: "이미지를 처리하지 못했습니다. 다른 이미지를 선택해주세요.");
+					} finally {
+						setImageProcessing(false);
+					}
 				});
 
 				previewContainer.addEventListener("click", function (event) {
-					if (!event.target.classList.contains("delivery-manager-added-remove-image-btn")) {
+					if (imageProcessing || !event.target.classList.contains("delivery-manager-added-remove-image-btn")) {
 						return;
 					}
 

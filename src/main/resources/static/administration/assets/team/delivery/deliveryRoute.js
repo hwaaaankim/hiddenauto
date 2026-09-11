@@ -1069,6 +1069,7 @@
         let selectedFiles = [];
         let fileSequence = 0;
         let submitting = false;
+        let imageProcessing = false;
 
         groups.forEach(group => {
             const orderChecks = getCompletableOrderChecks(group);
@@ -1112,30 +1113,32 @@
 
         if (cameraButton && cameraInput) {
             cameraButton.addEventListener('click', function () {
-                if (!submitting) cameraInput.click();
+                if (!submitting && !imageProcessing) cameraInput.click();
             });
 
-            cameraInput.addEventListener('change', function () {
-                appendFiles(cameraInput.files);
+            cameraInput.addEventListener('change', async function () {
+                const files = Array.from(cameraInput.files || []);
                 cameraInput.value = '';
+                await appendFiles(files);
             });
         }
 
         if (galleryButton && galleryInput) {
             galleryButton.addEventListener('click', function () {
-                if (!submitting) galleryInput.click();
+                if (!submitting && !imageProcessing) galleryInput.click();
             });
 
-            galleryInput.addEventListener('change', function () {
-                appendFiles(galleryInput.files);
+            galleryInput.addEventListener('change', async function () {
+                const files = Array.from(galleryInput.files || []);
                 galleryInput.value = '';
+                await appendFiles(files);
             });
         }
 
         if (previewList) {
             previewList.addEventListener('click', function (event) {
                 const removeButton = event.target.closest('[data-delivery-route-remove-file]');
-                if (!removeButton || submitting) return;
+                if (!removeButton || submitting || imageProcessing) return;
 
                 const fileId = removeButton.getAttribute('data-delivery-route-remove-file');
                 removeSelectedFile(fileId);
@@ -1145,6 +1148,11 @@
         if (submitButton) {
             submitButton.addEventListener('click', async function () {
                 if (submitting) return;
+
+                if (imageProcessing) {
+                    showCompletionFeedback('이미지를 JPEG로 변환하고 있습니다. 변환이 끝난 뒤 다시 시도해 주세요.', 'warning');
+                    return;
+                }
 
                 if (activeOrderIds.length === 0) {
                     showCompletionFeedback('배송완료 처리할 주문을 다시 선택해 주세요.', 'warning');
@@ -1248,31 +1256,61 @@
 
         window.addEventListener('beforeunload', revokeAllPreviewUrls);
 
-        function appendFiles(fileList) {
-            const files = Array.from(fileList || []);
-            const invalidFiles = files.filter(file => !isImageFile(file));
-            const imageFiles = files.filter(isImageFile);
+        async function appendFiles(fileList) {
+            const sourceFiles = Array.from(fileList || []);
+            if (sourceFiles.length === 0) return;
 
-            imageFiles.forEach(file => {
-                const id = `delivery-route-file-${Date.now()}-${++fileSequence}`;
-                selectedFiles.push({
-                    id: id,
-                    file: file,
-                    previewUrl: URL.createObjectURL(file)
-                });
-            });
-
-            if (imageFiles.length > 0) {
-                clearCompletionFeedback();
+            if (!window.HiddenAutoImageUpload) {
+                showCompletionFeedback(
+                    '이미지 변환 모듈을 불러오지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+                    'error'
+                );
+                return;
             }
 
-            renderModalState();
-
-            if (invalidFiles.length > 0) {
+            try {
+                setImageProcessing(true);
                 showCompletionFeedback(
-                    `이미지 파일이 아닌 ${invalidFiles.length}개 파일은 제외했습니다.`,
+                    '선택한 이미지를 확인하고 있습니다. HEIC/HEIF 사진은 JPEG로 변환 후 첨부됩니다.',
                     'warning'
                 );
+
+                const normalized = await window.HiddenAutoImageUpload.normalizeFiles(sourceFiles, {
+                    jpegQuality: 0.94
+                });
+
+                normalized.files.forEach(file => {
+                    const id = `delivery-route-file-${Date.now()}-${++fileSequence}`;
+                    selectedFiles.push({
+                        id: id,
+                        file: file,
+                        previewUrl: URL.createObjectURL(file)
+                    });
+                });
+
+                renderModalState();
+
+                if (normalized.converted.length > 0 || normalized.rejected.length > 0) {
+                    const messages = [];
+                    if (normalized.converted.length > 0) {
+                        messages.push(`HEIC/HEIF ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
+                    }
+                    if (normalized.rejected.length > 0) {
+                        messages.push(`이미지가 아닌 ${normalized.rejected.length}개 파일은 제외했습니다.`);
+                    }
+                    showCompletionFeedback(messages.join(' '), normalized.rejected.length > 0 ? 'warning' : 'success');
+                } else {
+                    clearCompletionFeedback();
+                }
+
+            } catch (error) {
+                console.error(error);
+                showCompletionFeedback(
+                    error && error.message ? error.message : '이미지 변환 중 오류가 발생했습니다.',
+                    'error'
+                );
+            } finally {
+                setImageProcessing(false);
             }
         }
 
@@ -1324,6 +1362,7 @@
 
             if (submitButton) {
                 submitButton.disabled = submitting
+                    || imageProcessing
                     || activeOrderIds.length === 0
                     || selectedFiles.length === 0;
 
@@ -1367,11 +1406,21 @@
             return wrapper;
         }
 
+        function setImageProcessing(value) {
+            imageProcessing = Boolean(value);
+
+            [cameraButton, galleryButton].forEach(button => {
+                if (button) button.disabled = submitting || imageProcessing;
+            });
+
+            renderModalState();
+        }
+
         function setSubmitting(value) {
             submitting = Boolean(value);
 
             [cameraButton, galleryButton].forEach(button => {
-                if (button) button.disabled = submitting;
+                if (button) button.disabled = submitting || imageProcessing;
             });
 
             modalElement.querySelectorAll('[data-bs-dismiss="modal"]').forEach(button => {

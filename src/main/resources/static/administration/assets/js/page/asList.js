@@ -415,6 +415,7 @@
 	let existingResultImages = [];
 	let selectedFiles = [];
 	let requestVideos = [];
+	let imageProcessing = false;
 
 	function isMobile() {
 		return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -453,7 +454,7 @@
 
 	function updateCompleteButtonState() {
 		if (btnComplete) {
-			if (currentTaskStatus !== 'IN_PROGRESS') {
+			if (currentTaskStatus !== 'IN_PROGRESS' || imageProcessing) {
 				btnComplete.disabled = true;
 				return;
 			}
@@ -557,6 +558,11 @@
 			return;
 		}
 
+		if (imageProcessing) {
+			alert('이미지 변환이 끝난 뒤 제거해 주세요.');
+			return;
+		}
+
 		selectedFiles = selectedFiles.filter((_, i) => i !== idx);
 		syncFileInputFromSelectedFiles();
 		renderImages();
@@ -592,10 +598,24 @@
 		});
 	}
 
+	function setImageProcessing(value, message) {
+		imageProcessing = Boolean(value);
+
+		const uploadDisabled = imageProcessing || currentTaskStatus !== 'IN_PROGRESS';
+		if (btnUpload) btnUpload.disabled = uploadDisabled;
+		if (btnCamera) btnCamera.disabled = uploadDisabled;
+
+		if (imageProcessing) {
+			setAlert('info', message || '선택한 이미지를 업로드 가능한 형식으로 변환하고 있습니다.');
+		}
+
+		updateCompleteButtonState();
+	}
+
 	function bindFileInput() {
 		if (!fileInput) return;
 
-		fileInput.addEventListener('change', () => {
+		fileInput.addEventListener('change', async () => {
 			if (currentTaskStatus !== 'IN_PROGRESS') {
 				fileInput.value = '';
 				alert('진행중 건에 대해서만 가능합니다.');
@@ -603,13 +623,50 @@
 			}
 
 			const incoming = Array.from(fileInput.files || []);
-			if (incoming.length > 0) {
-				selectedFiles = selectedFiles.concat(incoming);
+			fileInput.value = '';
+			if (incoming.length === 0) {
 				syncFileInputFromSelectedFiles();
-			} else {
-				syncFileInputFromSelectedFiles();
+				return;
 			}
-			renderImages();
+
+			if (!window.HiddenAutoImageUpload) {
+				syncFileInputFromSelectedFiles();
+				alert('이미지 변환 모듈을 불러오지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.');
+				return;
+			}
+
+			try {
+				setImageProcessing(true, '선택한 이미지를 확인하고 있습니다. HEIC/HEIF 사진은 JPEG로 변환 후 첨부됩니다.');
+
+				const normalized = await window.HiddenAutoImageUpload.normalizeFiles(incoming, {
+					jpegQuality: 0.94
+				});
+
+				selectedFiles = selectedFiles.concat(normalized.files);
+				syncFileInputFromSelectedFiles();
+				renderImages();
+
+				const messages = [];
+				if (normalized.converted.length > 0) {
+					messages.push(`HEIC/HEIF ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
+				}
+				if (normalized.rejected.length > 0) {
+					messages.push(`이미지가 아닌 ${normalized.rejected.length}개 파일은 제외했습니다.`);
+				}
+
+				if (messages.length > 0) {
+					setAlert(normalized.rejected.length > 0 ? 'danger' : 'info', messages.join(' '));
+				} else {
+					setAlert(null, null);
+				}
+
+			} catch (error) {
+				console.error(error);
+				syncFileInputFromSelectedFiles();
+				setAlert('danger', error && error.message ? error.message : '이미지 변환 중 오류가 발생했습니다.');
+			} finally {
+				setImageProcessing(false);
+			}
 		});
 	}
 
@@ -618,6 +675,11 @@
 
 		if (currentTaskStatus !== 'IN_PROGRESS') {
 			alert('진행중 건에 대해서만 가능합니다.');
+			return;
+		}
+
+		if (imageProcessing) {
+			alert('이미지 변환이 끝난 뒤 다시 선택해 주세요.');
 			return;
 		}
 
@@ -786,6 +848,12 @@
 	function bindFormSubmitGuard() {
 		if (!formEl) return;
 		formEl.addEventListener('submit', (e) => {
+			if (imageProcessing) {
+				e.preventDefault();
+				alert('이미지를 JPEG로 변환하고 있습니다. 변환이 끝난 뒤 완료처리해 주세요.');
+				return;
+			}
+
 			if (currentTaskStatus !== 'IN_PROGRESS') {
 				e.preventDefault();
 				alert('진행중 건에 대해서만 가능합니다.');

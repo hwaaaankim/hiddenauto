@@ -66,6 +66,7 @@
 
 	let selectedFiles = [];
 	let selectedObjectUrls = [];
+	let imageProcessing = false;
 
 	let requiredImageCount = 0;
 	let targetCount = 0;
@@ -552,7 +553,7 @@
 	}
 
 	function updateSubmitState() {
-		if (currentMode !== "complete") {
+		if (currentMode !== "complete" || imageProcessing) {
 			if (btnSubmitSingleEl) btnSubmitSingleEl.disabled = true;
 			if (btnSubmitBulkEl) btnSubmitBulkEl.disabled = true;
 			return;
@@ -596,6 +597,19 @@
 
 		targetHelpEl.textContent =
 			`현재 이미지 ${fileCount}장 첨부됨 / 이 주문만 완료와 동일주소 일괄완료 모두 이미지 1장 이상이면 가능합니다.`;
+	}
+
+	function setImageProcessing(value, message) {
+		imageProcessing = Boolean(value);
+
+		if (btnCamera) btnCamera.disabled = imageProcessing;
+		if (btnGallery) btnGallery.disabled = imageProcessing;
+
+		if (imageProcessing && targetHelpEl) {
+			targetHelpEl.textContent = message || "선택한 이미지를 업로드 가능한 형식으로 변환하고 있습니다.";
+		}
+
+		updateSubmitState();
 	}
 
 	function setMode(mode) {
@@ -870,31 +884,63 @@
 		});
 	}
 
-	function addFiles(fileList) {
-		const files = Array.from(fileList || [])
-			.filter(f => f && f.type && f.type.startsWith("image/"));
+	async function addFiles(fileList) {
+		const sourceFiles = Array.from(fileList || []);
+		if (sourceFiles.length === 0) return;
 
-		if (files.length === 0) return;
-
-		for (const f of files) {
-			selectedFiles.push(f);
+		if (!window.HiddenAutoImageUpload) {
+			alert("이미지 변환 모듈을 불러오지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.");
+			return;
 		}
 
-		renderThumbs();
-		updateSubmitState();
+		try {
+			setImageProcessing(true, "선택한 이미지를 확인하고 있습니다. HEIC/HEIF 사진은 JPEG로 변환 후 첨부됩니다.");
+
+			const normalized = await window.HiddenAutoImageUpload.normalizeFiles(sourceFiles, {
+				jpegQuality: 0.94
+			});
+
+			for (const file of normalized.files) {
+				selectedFiles.push(file);
+			}
+
+			renderThumbs();
+
+			const messages = [];
+			if (normalized.converted.length > 0) {
+				messages.push(`HEIC/HEIF ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
+			}
+			if (normalized.rejected.length > 0) {
+				messages.push(`이미지가 아닌 ${normalized.rejected.length}개 파일은 제외했습니다.`);
+			}
+
+			if (messages.length > 0) {
+				alert(messages.join("\n"));
+			}
+
+		} catch (error) {
+			console.error(error);
+			alert(error && error.message
+				? error.message
+				: "이미지 변환 중 오류가 발생했습니다.");
+		} finally {
+			setImageProcessing(false);
+		}
 	}
 
 	if (inputCamera) {
-		inputCamera.addEventListener("change", (e) => {
-			addFiles(e.target.files);
+		inputCamera.addEventListener("change", async (e) => {
+			const files = Array.from(e.target.files || []);
 			inputCamera.value = "";
+			await addFiles(files);
 		});
 	}
 
 	if (inputGallery) {
-		inputGallery.addEventListener("change", (e) => {
-			addFiles(e.target.files);
+		inputGallery.addEventListener("change", async (e) => {
+			const files = Array.from(e.target.files || []);
 			inputGallery.value = "";
+			await addFiles(files);
 		});
 	}
 
@@ -953,7 +999,7 @@
 			try {
 				const form = new FormData();
 				for (const f of selectedFiles) {
-					form.append("files", f);
+					form.append("files", f, f.name);
 				}
 
 				const res = await fetch(`/team/deliveryStatus/${currentOrderId}?status=DELIVERY_DONE`, {
@@ -1016,7 +1062,7 @@
 				const form = new FormData();
 
 				for (const f of selectedFiles) {
-					form.append("files", f);
+					form.append("files", f, f.name);
 				}
 
 				const res = await fetch(`/team/deliveryStatus/${currentOrderId}/same-address?status=DELIVERY_DONE`, {

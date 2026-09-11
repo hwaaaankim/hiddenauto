@@ -386,7 +386,7 @@
 
 											<div class="team-as-detail-fourth-upload-wrap">
 												<input type="file" id="team-as-detail-fourth-result-image-upload"
-													name="resultImages" accept="image/*" multiple style="display:none;"
+													name="resultImages" accept="image/*,.heic,.heif" multiple style="display:none;"
 													th:disabled="${asTask.status == null || asTask.status.name() != 'IN_PROGRESS'}" />
 
 												<button type="button" class="btn btn-outline-primary"
@@ -554,6 +554,7 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 	<script src="/administration/assets/js/pages/project-create.init.js"></script>
+	<script src="/administration/assets/js/imageUploadNormalizer.js?v=20260909-1"></script>
 
 	<script th:inline="javascript">
 		/*<![CDATA[*/
@@ -563,6 +564,7 @@
 			const teamAsDetailFourthFileInput = document.getElementById("team-as-detail-fourth-result-image-upload");
 			const teamAsDetailFourthTriggerBtn = document.getElementById("team-as-detail-fourth-trigger-upload");
 			const teamAsDetailFourthPreviewList = document.getElementById("team-as-detail-fourth-result-preview-list");
+			const teamAsDetailFourthSubmitBtn = document.querySelector(".team-as-detail-fourth-submit-btn");
 			const teamAsDetailFourthAddressCopyBtn = document.getElementById("team-as-detail-fourth-address-copy-btn");
 			const teamAsDetailFourthProductCopyBtn = document.getElementById("team-as-detail-fourth-product-copy-btn");
 
@@ -580,6 +582,8 @@
 
 			const teamAsDetailFourthCurrentHandlerId =
             /*[[${asTask.assignedHandler != null ? asTask.assignedHandler.id : null}]]*/ null;
+
+			let teamAsDetailFourthImageProcessing = false;
 
 			function teamAsDetailFourthFallbackCopy(text) {
 				const textarea = document.createElement("textarea");
@@ -627,6 +631,21 @@
 					} else {
 						alert("복사에 실패했습니다.");
 					}
+				}
+			}
+
+			function teamAsDetailFourthSetImageProcessing(value) {
+				teamAsDetailFourthImageProcessing = Boolean(value);
+
+				if (teamAsDetailFourthTriggerBtn) {
+					teamAsDetailFourthTriggerBtn.disabled = !teamAsDetailFourthCanEdit || teamAsDetailFourthImageProcessing;
+					teamAsDetailFourthTriggerBtn.textContent = teamAsDetailFourthImageProcessing
+						? "이미지 변환 중..."
+						: "이미지 업로드";
+				}
+
+				if (teamAsDetailFourthSubmitBtn) {
+					teamAsDetailFourthSubmitBtn.disabled = !teamAsDetailFourthCanEdit || teamAsDetailFourthImageProcessing;
 				}
 			}
 
@@ -682,6 +701,12 @@
 						return;
 					}
 
+					if (teamAsDetailFourthImageProcessing) {
+						e.preventDefault();
+						alert("이미지를 JPEG로 변환하고 있습니다. 변환이 끝난 뒤 저장해 주세요.");
+						return;
+					}
+
 					const handlerChanged = teamAsDetailFourthIsHandlerChanged();
 					if (!handlerChanged) {
 						return;
@@ -726,7 +751,7 @@
 
 			if (teamAsDetailFourthTriggerBtn) {
 				teamAsDetailFourthTriggerBtn.addEventListener("click", () => {
-					if (!teamAsDetailFourthCanEdit) return;
+					if (!teamAsDetailFourthCanEdit || teamAsDetailFourthImageProcessing) return;
 
 					const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 					if (isMobile && teamAsDetailFourthFileInput) {
@@ -745,20 +770,45 @@
 			}
 
 			if (teamAsDetailFourthFileInput) {
-				teamAsDetailFourthFileInput.addEventListener("change", () => {
+				teamAsDetailFourthFileInput.addEventListener("change", async () => {
 					if (!teamAsDetailFourthCanEdit) return;
 					if (!teamAsDetailFourthPreviewList) return;
 
-					teamAsDetailFourthPreviewList.innerHTML = "";
+					const incomingFiles = Array.from(teamAsDetailFourthFileInput.files || []);
+					if (incomingFiles.length === 0) {
+						teamAsDetailFourthPreviewList.innerHTML = "";
+						return;
+					}
 
-					Array.from(teamAsDetailFourthFileInput.files).forEach((file, index) => {
-						const reader = new FileReader();
+					if (!window.HiddenAutoImageUpload) {
+						teamAsDetailFourthFileInput.value = "";
+						teamAsDetailFourthPreviewList.innerHTML = "";
+						alert("이미지 변환 모듈을 불러오지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.");
+						return;
+					}
 
-						reader.onload = (e) => {
-							const item = document.createElement("div");
-							item.className = "team-as-detail-fourth-preview-item";
+					try {
+						teamAsDetailFourthSetImageProcessing(true);
 
-							item.innerHTML = `
+						const normalized = await window.HiddenAutoImageUpload.normalizeFiles(incomingFiles, {
+							jpegQuality: 0.94
+						});
+
+						window.HiddenAutoImageUpload.replaceInputFiles(
+							teamAsDetailFourthFileInput,
+							normalized.files
+						);
+
+						teamAsDetailFourthPreviewList.innerHTML = "";
+
+						Array.from(teamAsDetailFourthFileInput.files).forEach((file, index) => {
+							const reader = new FileReader();
+
+							reader.onload = (e) => {
+								const item = document.createElement("div");
+								item.className = "team-as-detail-fourth-preview-item";
+
+								item.innerHTML = `
                             <img src="${e.target.result}" alt="미리보기" />
                             <button type="button"
                                     class="btn btn-danger btn-sm team-as-detail-fourth-preview-remove"
@@ -767,17 +817,37 @@
                             </button>
                         `;
 
-							teamAsDetailFourthPreviewList.appendChild(item);
-						};
+								teamAsDetailFourthPreviewList.appendChild(item);
+							};
 
-						reader.readAsDataURL(file);
-					});
+							reader.readAsDataURL(file);
+						});
+
+						const messages = [];
+						if (normalized.converted.length > 0) {
+							messages.push(`HEIC/HEIF ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
+						}
+						if (normalized.rejected.length > 0) {
+							messages.push(`이미지가 아닌 ${normalized.rejected.length}개 파일은 제외했습니다.`);
+						}
+						if (messages.length > 0) {
+							alert(messages.join("\n"));
+						}
+
+					} catch (error) {
+						console.error(error);
+						teamAsDetailFourthFileInput.value = "";
+						teamAsDetailFourthPreviewList.innerHTML = "";
+						alert(error && error.message ? error.message : "이미지 변환 중 오류가 발생했습니다.");
+					} finally {
+						teamAsDetailFourthSetImageProcessing(false);
+					}
 				});
 			}
 
 			if (teamAsDetailFourthPreviewList) {
 				teamAsDetailFourthPreviewList.addEventListener("click", (e) => {
-					if (!teamAsDetailFourthCanEdit) return;
+					if (!teamAsDetailFourthCanEdit || teamAsDetailFourthImageProcessing) return;
 
 					const btn = e.target.closest("button[data-index]");
 					if (!btn || !teamAsDetailFourthFileInput) return;

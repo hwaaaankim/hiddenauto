@@ -301,15 +301,31 @@ public class OrderService {
         }
     }
 
-    private List<MultipartFile> filterValidImageFiles(List<MultipartFile> files) {
+    private List<MultipartFile> filterValidImageFiles(List<MultipartFile> files) throws IOException {
         if (files == null || files.isEmpty()) {
             return List.of();
         }
 
-        return files.stream()
-                .filter(file -> file != null && !file.isEmpty())
-                .filter(this::isImageFile)
-                .collect(Collectors.toList());
+        List<MultipartFile> validFiles = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+
+            if (isHeicImageFile(file)) {
+                throw new IllegalArgumentException(
+                        "HEIC/HEIF 배송완료 이미지는 화면에서 JPEG로 변환 후 업로드되어야 합니다. "
+                                + "페이지를 새로고침한 뒤 이미지를 다시 선택해주세요."
+                );
+            }
+
+            if (isImageFile(file)) {
+                validFiles.add(file);
+            }
+        }
+
+        return validFiles;
     }
 
     private boolean isImageFile(MultipartFile file) {
@@ -317,6 +333,45 @@ public class OrderService {
 
         return contentType != null
                 && contentType.toLowerCase(Locale.ROOT).startsWith("image/");
+    }
+
+    private boolean isHeicImageFile(MultipartFile file) throws IOException {
+        if (file == null) {
+            return false;
+        }
+
+        String contentType = file.getContentType();
+        if (contentType != null) {
+            String normalizedContentType = contentType.trim().toLowerCase(Locale.ROOT);
+            if (normalizedContentType.equals("image/heic")
+                    || normalizedContentType.equals("image/heif")
+                    || normalizedContentType.equals("image/heic-sequence")
+                    || normalizedContentType.equals("image/heif-sequence")) {
+                return true;
+            }
+        }
+
+        String extension = getExtension(resolveOriginalFilename(file));
+        if ("heic".equals(extension) || "heif".equals(extension)) {
+            return true;
+        }
+
+        try (var input = file.getInputStream()) {
+            byte[] header = input.readNBytes(32);
+            if (header.length < 12) {
+                return false;
+            }
+
+            String signature = new String(header, java.nio.charset.StandardCharsets.ISO_8859_1);
+            if (!"ftyp".equals(signature.substring(4, 8))) {
+                return false;
+            }
+
+            return signature.contains("heic") || signature.contains("heix")
+                    || signature.contains("hevc") || signature.contains("hevx")
+                    || signature.contains("heim") || signature.contains("heis")
+                    || signature.contains("hevm") || signature.contains("hevs");
+        }
     }
 
     private Long resolveRequesterMemberId(Order order) {
