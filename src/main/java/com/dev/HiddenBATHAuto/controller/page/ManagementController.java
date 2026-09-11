@@ -1860,6 +1860,37 @@ public class ManagementController {
 		return "administration/management/as/asDetail";
 	}
 
+	private record AsIdRangeFilter(Long from, Long to) {
+	}
+
+	/**
+	 * AS ID 검색 범위를 정규화합니다.
+	 * 기존 로깅 등에서 asId 단건 파라미터만 전달하는 URL은 FROM=TO 단건 조회로 호환합니다.
+	 */
+	private AsIdRangeFilter resolveAsIdRange(String asIdFrom, String asIdTo, String legacyAsId) {
+		boolean hasExplicitRange = StringUtils.hasText(asIdFrom) || StringUtils.hasText(asIdTo);
+
+		Long from = parsePositiveLongFilter(asIdFrom, "AS ID FROM");
+		Long to = parsePositiveLongFilter(asIdTo, "AS ID TO");
+
+		if (!hasExplicitRange) {
+			Long legacy = parsePositiveLongFilter(legacyAsId, "AS ID");
+			if (legacy != null) {
+				from = legacy;
+				to = legacy;
+			}
+		}
+
+		if (from != null && to != null && from > to) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"AS ID TO는 FROM보다 크거나 같아야 합니다. 단건 조회는 FROM과 TO를 같은 값으로 입력해 주세요."
+			);
+		}
+
+		return new AsIdRangeFilter(from, to);
+	}
+
 	// =========================================================
 	// AS LIST / EXCEL 전용 상수
 	// - 기존 다른 화면 유틸과 충돌하지 않도록 전부 AS 전용 이름 사용
@@ -1877,6 +1908,9 @@ public class ManagementController {
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
 
+			@RequestParam(required = false) String asIdFrom, @RequestParam(required = false) String asIdTo,
+			@RequestParam(required = false) String asId,
+
 			@RequestParam(required = false) String priceFilter,
 			@RequestParam(required = false) String paymentCollectedFilter,
 
@@ -1889,6 +1923,10 @@ public class ManagementController {
 
 		LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
 		LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
+
+		AsIdRangeFilter asIdRange = resolveAsIdRange(asIdFrom, asIdTo, asId);
+		Long asIdFromFilter = asIdRange.from();
+		Long asIdToFilter = asIdRange.to();
 
 		String resolvedPriceFilter = normalizeAsListPriceFilter(priceFilter);
 		Boolean resolvedPaymentCollected = normalizeAsListPaymentCollectedFilter(paymentCollectedFilter);
@@ -1904,8 +1942,8 @@ public class ManagementController {
 		Pageable resolvedPageable = resolveAsListPageable(pageable);
 
 		Page<AsTask> asPage = asTaskService.getFilteredAsListPage(handlerId, status, resolvedDateType, start, end,
-				resolvedPriceFilter, resolvedPaymentCollected, resolvedKeywordType, resolvedKeyword, resolvedSortField,
-				resolvedSortDir, resolvedPageable);
+				asIdFromFilter, asIdToFilter, resolvedPriceFilter, resolvedPaymentCollected, resolvedKeywordType,
+				resolvedKeyword, resolvedSortField, resolvedSortDir, resolvedPageable);
 
 		Map<Long, LocalDate> scheduledDateMap = asTaskService.getScheduledDateMap(asPage.getContent());
 
@@ -1918,6 +1956,9 @@ public class ManagementController {
 		model.addAttribute("selectedDateType", resolvedDateType);
 		model.addAttribute("selectedFromDate", fromDate);
 		model.addAttribute("selectedToDate", toDate);
+		model.addAttribute("selectedAsIdFrom", asIdFromFilter);
+		model.addAttribute("selectedAsIdTo", asIdToFilter);
+		model.addAttribute("selectedAsId", Objects.equals(asIdFromFilter, asIdToFilter) ? asIdFromFilter : null);
 		model.addAttribute("selectedPriceFilter", resolvedPriceFilter == null ? "" : resolvedPriceFilter);
 		model.addAttribute("selectedPaymentCollectedFilter", selectedPaymentCollectedFilter);
 		model.addAttribute("selectedKeywordType", resolvedKeywordType);
@@ -1935,6 +1976,9 @@ public class ManagementController {
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
 
+			@RequestParam(required = false) String asIdFrom, @RequestParam(required = false) String asIdTo,
+			@RequestParam(required = false) String asId,
+
 			@RequestParam(required = false) String priceFilter,
 			@RequestParam(required = false) String paymentCollectedFilter,
 
@@ -1949,6 +1993,10 @@ public class ManagementController {
 		LocalDateTime start = (fromDate != null) ? fromDate.atStartOfDay() : null;
 		LocalDateTime end = (toDate != null) ? toDate.plusDays(1).atStartOfDay() : null;
 
+		AsIdRangeFilter asIdRange = resolveAsIdRange(asIdFrom, asIdTo, asId);
+		Long asIdFromFilter = asIdRange.from();
+		Long asIdToFilter = asIdRange.to();
+
 		String resolvedPriceFilter = normalizeAsListPriceFilter(priceFilter);
 		Boolean resolvedPaymentCollected = normalizeAsListPaymentCollectedFilter(paymentCollectedFilter);
 		String resolvedKeywordType = normalizeAsListKeywordType(keywordType);
@@ -1957,8 +2005,8 @@ public class ManagementController {
 		String resolvedSortDir = normalizeAsListSortDir(sortDir);
 
 		List<AsTask> asTasks = asTaskService.getFilteredAsListAll(handlerId, status, resolvedDateType, start, end,
-				resolvedPriceFilter, resolvedPaymentCollected, resolvedKeywordType, resolvedKeyword, resolvedSortField,
-				resolvedSortDir);
+				asIdFromFilter, asIdToFilter, resolvedPriceFilter, resolvedPaymentCollected, resolvedKeywordType,
+				resolvedKeyword, resolvedSortField, resolvedSortDir);
 
 		Map<Long, LocalDate> scheduledDateMap = asTaskService.getScheduledDateMap(asTasks);
 

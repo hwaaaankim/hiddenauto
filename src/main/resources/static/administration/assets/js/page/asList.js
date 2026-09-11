@@ -270,6 +270,7 @@
 	function sortLabelFromForm(form) {
 		if (!form) return '';
 		const configs = [
+			['idSort', 'ID'],
 			['statusSort', '상태'],
 			['addressSort', '주소'],
 			['scheduledDateSort', '방문예정일'],
@@ -290,6 +291,7 @@
 		if (getFormControl(form, 'status')?.value) count++;
 		if (getFormControl(form, 'dateType')?.value && getFormControl(form, 'dateType').value !== 'requested') count++;
 		if (getFormControl(form, 'startDate')?.value || getFormControl(form, 'endDate')?.value) count++;
+		if (getFormControl(form, 'asIdFrom')?.value || getFormControl(form, 'asIdTo')?.value) count++;
 		if (String(getFormControl(form, 'companyKeyword')?.value || '').trim()) count++;
 		if (getFormControl(form, 'provinceId')?.value) count++;
 		return count;
@@ -303,6 +305,8 @@
 		const dateTypeEl = getFormControl(topFilterForm, 'dateType');
 		const startDate = getFormControl(topFilterForm, 'startDate')?.value || '';
 		const endDate = getFormControl(topFilterForm, 'endDate')?.value || '';
+		const asIdFrom = String(getFormControl(topFilterForm, 'asIdFrom')?.value || '').trim();
+		const asIdTo = String(getFormControl(topFilterForm, 'asIdTo')?.value || '').trim();
 		const companyKeyword = String(getFormControl(topFilterForm, 'companyKeyword')?.value || '').trim();
 		const regionLabel = topRegionController.getRegionLabel();
 		const sortLabel = sortLabelFromForm(topFilterForm);
@@ -315,6 +319,12 @@
 		else if (startDate) period = `${startDate} ~`;
 		else if (endDate) period = `~ ${endDate}`;
 		addFilterChip('기간', period);
+
+		let asIdRange = '전체';
+		if (asIdFrom && asIdTo) asIdRange = asIdFrom === asIdTo ? asIdFrom : `${asIdFrom} ~ ${asIdTo}`;
+		else if (asIdFrom) asIdRange = `${asIdFrom} 이상`;
+		else if (asIdTo) asIdRange = `${asIdTo} 이하`;
+		addFilterChip('AS ID', asIdRange);
 
 		addFilterChip('업체', companyKeyword || '전체');
 		addFilterChip('지역', regionLabel || '전체');

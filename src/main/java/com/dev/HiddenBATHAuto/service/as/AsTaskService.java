@@ -436,6 +436,8 @@ public class AsTaskService {
             LocalDateTime end,
             AsStatus status,
             String companyKeyword,
+            Long asIdFrom,
+            Long asIdTo,
             Long provinceId,
             Long cityId,
             Long districtId,
@@ -443,6 +445,7 @@ public class AsTaskService {
             String scheduledDateSort,
             String addressSort,
             String statusSort,
+            String idSort,
             Pageable pageable) {
 
         String normalizedCompanyKeyword = normalizeBlankToNull(companyKeyword);
@@ -450,6 +453,7 @@ public class AsTaskService {
         String normalizedScheduledDateSort = normalizeScheduledDateSort(scheduledDateSort);
         String normalizedAddressSort = normalizeAddressSort(addressSort);
         String normalizedStatusSort = normalizeStatusSort(statusSort);
+        String normalizedIdSort = normalizeIdSort(idSort);
 
         String provinceName = regionLookupService.getProvinceName(provinceId);
         String cityName = regionLookupService.getCityName(cityId);
@@ -471,6 +475,8 @@ public class AsTaskService {
                     handler.getId(),
                     visibleStatuses,
                     status,
+                    asIdFrom,
+                    asIdTo,
                     startDate,
                     endDate,
                     normalizedCompanyKeyword,
@@ -481,6 +487,7 @@ public class AsTaskService {
                     normalizedScheduledDateSort,
                     normalizedAddressSort,
                     normalizedStatusSort,
+                    normalizedIdSort,
                     AsStatus.IN_PROGRESS,
                     AsStatus.COMPLETED,
                     pageable
@@ -492,6 +499,8 @@ public class AsTaskService {
                     handler.getId(),
                     visibleStatuses,
                     status,
+                    asIdFrom,
+                    asIdTo,
                     start,
                     end,
                     normalizedCompanyKeyword,
@@ -501,6 +510,7 @@ public class AsTaskService {
                     normalizedVisitTimeSort,
                     normalizedAddressSort,
                     normalizedStatusSort,
+                    normalizedIdSort,
                     AsStatus.IN_PROGRESS,
                     AsStatus.COMPLETED,
                     pageable
@@ -511,6 +521,8 @@ public class AsTaskService {
                 handler.getId(),
                 visibleStatuses,
                 status,
+                asIdFrom,
+                asIdTo,
                 start,
                 end,
                 normalizedCompanyKeyword,
@@ -520,10 +532,23 @@ public class AsTaskService {
                 normalizedVisitTimeSort,
                 normalizedAddressSort,
                 normalizedStatusSort,
+                normalizedIdSort,
                 AsStatus.IN_PROGRESS,
                 AsStatus.COMPLETED,
                 pageable
         );
+    }
+
+    private String normalizeIdSort(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        String normalized = raw.trim().toLowerCase();
+        if (!"asc".equals(normalized) && !"desc".equals(normalized)) {
+            return null;
+        }
+        return normalized;
     }
 
     private String normalizeStatusSort(String raw) {
@@ -2453,6 +2478,8 @@ public class AsTaskService {
 	        String dateType,
 	        LocalDateTime start,
 	        LocalDateTime end,
+	        Long asIdFrom,
+	        Long asIdTo,
 	        String priceFilter,
 	        Boolean paymentCollected,
 	        String keywordType,
@@ -2467,6 +2494,8 @@ public class AsTaskService {
 	                status,
 	                start,
 	                end,
+	                asIdFrom,
+	                asIdTo,
 	                priceFilter,
 	                paymentCollected,
 	                keywordType,
@@ -2482,6 +2511,8 @@ public class AsTaskService {
 	            status,
 	            start,
 	            end,
+	            asIdFrom,
+	            asIdTo,
 	            priceFilter,
 	            paymentCollected,
 	            keywordType,
@@ -2498,6 +2529,8 @@ public class AsTaskService {
 	        String dateType,
 	        LocalDateTime start,
 	        LocalDateTime end,
+	        Long asIdFrom,
+	        Long asIdTo,
 	        String priceFilter,
 	        Boolean paymentCollected,
 	        String keywordType,
@@ -2513,6 +2546,8 @@ public class AsTaskService {
 	                status,
 	                start,
 	                end,
+	                asIdFrom,
+	                asIdTo,
 	                priceFilter,
 	                paymentCollected,
 	                keywordType,
@@ -2528,6 +2563,8 @@ public class AsTaskService {
 	            status,
 	            start,
 	            end,
+	            asIdFrom,
+	            asIdTo,
 	            priceFilter,
 	            paymentCollected,
 	            keywordType,

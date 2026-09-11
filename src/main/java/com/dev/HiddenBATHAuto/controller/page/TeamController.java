@@ -1954,16 +1954,23 @@ public class TeamController {
 
 			@RequestParam(required = false) String status, @RequestParam(required = false) String companyKeyword,
 
+			@RequestParam(required = false) String asIdFrom, @RequestParam(required = false) String asIdTo,
+			@RequestParam(required = false) String asId,
+
 			@RequestParam(required = false) Long provinceId, @RequestParam(required = false) Long cityId,
 			@RequestParam(required = false) Long districtId,
 
 			@RequestParam(required = false) String visitTimeSort,
 			@RequestParam(required = false) String scheduledDateSort,
 			@RequestParam(required = false) String addressSort, @RequestParam(required = false) String statusSort,
+			@RequestParam(required = false) String idSort,
 
 			Pageable pageable, Model model) {
 
 		Member member = principal.getMember();
+		AsIdRangeFilter asIdRange = resolveAsIdRange(asIdFrom, asIdTo, asId);
+		Long asIdFromFilter = asIdRange.from();
+		Long asIdToFilter = asIdRange.to();
 
 		if (member.getTeam() == null || !"AS팀".equals(member.getTeam().getName())) {
 			throw new AccessDeniedException("AS팀만 접근할 수 있습니다.");
@@ -1990,10 +1997,11 @@ public class TeamController {
 
 		String normalizedAddressSort = normalizeSortDirection(addressSort);
 		String normalizedStatusSort = normalizeSortDirection(statusSort);
+		String normalizedIdSort = normalizeSortDirection(idSort);
 
 		Page<AsTask> asPage = asTaskService.getAsTasksForAsTeamList(member, dateType, start, end, statusEnum,
-				companyKeyword, provinceId, cityId, districtId, visitTimeSort, scheduledDateSort, normalizedAddressSort,
-				normalizedStatusSort, pageable);
+				companyKeyword, asIdFromFilter, asIdToFilter, provinceId, cityId, districtId, visitTimeSort,
+				scheduledDateSort, normalizedAddressSort, normalizedStatusSort, normalizedIdSort, pageable);
 
 		model.addAttribute("provinces", provinceRepository.findAll());
 
@@ -2006,6 +2014,9 @@ public class TeamController {
 		model.addAttribute("selectedStatusName", statusEnum != null ? statusEnum.name() : null);
 
 		model.addAttribute("companyKeyword", companyKeyword);
+		model.addAttribute("asIdFrom", asIdFromFilter);
+		model.addAttribute("asIdTo", asIdToFilter);
+		model.addAttribute("asId", Objects.equals(asIdFromFilter, asIdToFilter) ? asIdFromFilter : null);
 		model.addAttribute("provinceId", provinceId);
 		model.addAttribute("cityId", cityId);
 		model.addAttribute("districtId", districtId);
@@ -2014,6 +2025,7 @@ public class TeamController {
 		model.addAttribute("scheduledDateSort", scheduledDateSort);
 		model.addAttribute("addressSort", normalizedAddressSort);
 		model.addAttribute("statusSort", normalizedStatusSort);
+		model.addAttribute("idSort", normalizedIdSort);
 
 		model.addAttribute("asStatusLabels", AsStatus.labelMap());
 
@@ -2024,6 +2036,37 @@ public class TeamController {
 		model.addAttribute("addressGroupClassMap", asTaskService.getAddressGroupClassMap(asPage.getContent()));
 
 		return "administration/team/as/asList";
+	}
+
+	private record AsIdRangeFilter(Long from, Long to) {
+	}
+
+	/**
+	 * AS ID 검색 범위를 정규화합니다.
+	 * 기존 로깅 등에서 asId 단건 파라미터만 전달하는 URL은 FROM=TO 단건 조회로 호환합니다.
+	 */
+	private AsIdRangeFilter resolveAsIdRange(String asIdFrom, String asIdTo, String legacyAsId) {
+		boolean hasExplicitRange = StringUtils.hasText(asIdFrom) || StringUtils.hasText(asIdTo);
+
+		Long from = parsePositiveLongFilter(asIdFrom, "AS ID FROM");
+		Long to = parsePositiveLongFilter(asIdTo, "AS ID TO");
+
+		if (!hasExplicitRange) {
+			Long legacy = parsePositiveLongFilter(legacyAsId, "AS ID");
+			if (legacy != null) {
+				from = legacy;
+				to = legacy;
+			}
+		}
+
+		if (from != null && to != null && from > to) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"AS ID TO는 FROM보다 크거나 같아야 합니다. 단건 조회는 FROM과 TO를 같은 값으로 입력해 주세요."
+			);
+		}
+
+		return new AsIdRangeFilter(from, to);
 	}
 
 	/**

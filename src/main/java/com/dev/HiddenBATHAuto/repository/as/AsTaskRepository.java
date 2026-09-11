@@ -1275,6 +1275,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	        LEFT JOIN AsTaskSchedule s ON s.asTask = a
 	        WHERE (:status IS NULL OR a.status = :status)
 	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:asIdFrom IS NULL OR a.id >= :asIdFrom)
+	          AND (:asIdTo IS NULL OR a.id <= :asIdTo)
 	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
 	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
 	          AND (
@@ -1369,6 +1371,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	        LEFT JOIN a.assignedHandler ah
 	        WHERE (:status IS NULL OR a.status = :status)
 	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:asIdFrom IS NULL OR a.id >= :asIdFrom)
+	          AND (:asIdTo IS NULL OR a.id <= :asIdTo)
 	          AND (:startDate IS NULL OR a.requestedAt >= :startDate)
 	          AND (:endDate IS NULL OR a.requestedAt < :endDate)
 	          AND (
@@ -1419,6 +1423,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	        @Param("status") AsStatus status,
 	        @Param("startDate") LocalDateTime startDate,
 	        @Param("endDate") LocalDateTime endDate,
+	        @Param("asIdFrom") Long asIdFrom,
+	        @Param("asIdTo") Long asIdTo,
 	        @Param("priceFilter") String priceFilter,
 	        @Param("paymentCollected") Boolean paymentCollected,
 	        @Param("keywordType") String keywordType,
@@ -1439,6 +1445,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	        LEFT JOIN AsTaskSchedule s ON s.asTask = a
 	        WHERE (:status IS NULL OR a.status = :status)
 	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:asIdFrom IS NULL OR a.id >= :asIdFrom)
+	          AND (:asIdTo IS NULL OR a.id <= :asIdTo)
 	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
 	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
 	          AND (
@@ -1533,6 +1541,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	        LEFT JOIN a.assignedHandler ah
 	        WHERE (:status IS NULL OR a.status = :status)
 	          AND (:handlerId IS NULL OR ah.id = :handlerId)
+	          AND (:asIdFrom IS NULL OR a.id >= :asIdFrom)
+	          AND (:asIdTo IS NULL OR a.id <= :asIdTo)
 	          AND (:startDate IS NULL OR a.asProcessDate >= :startDate)
 	          AND (:endDate IS NULL OR a.asProcessDate < :endDate)
 	          AND (
@@ -1583,6 +1593,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	        @Param("status") AsStatus status,
 	        @Param("startDate") LocalDateTime startDate,
 	        @Param("endDate") LocalDateTime endDate,
+	        @Param("asIdFrom") Long asIdFrom,
+	        @Param("asIdTo") Long asIdTo,
 	        @Param("priceFilter") String priceFilter,
 	        @Param("paymentCollected") Boolean paymentCollected,
 	        @Param("keywordType") String keywordType,
@@ -1600,6 +1612,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             WHERE a.assignedHandler.id = :handlerId
               AND a.status IN :visibleStatuses
               AND (:selectedStatus IS NULL OR a.status = :selectedStatus)
+              AND (:asIdFrom IS NULL OR a.id >= :asIdFrom)
+              AND (:asIdTo IS NULL OR a.id <= :asIdTo)
               AND (:startDate IS NULL OR s.scheduledDate >= :startDate)
               AND (:endDate IS NULL OR s.scheduledDate <= :endDate)
               AND (:companyKeyword IS NULL OR :companyKeyword = '' OR lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
@@ -1607,6 +1621,9 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
               AND (:cityName IS NULL OR a.siName = :cityName)
               AND (:districtName IS NULL OR a.guName = :districtName)
             ORDER BY
+              case when :idSort = 'asc' then a.id else null end asc,
+              case when :idSort = 'desc' then a.id else null end desc,
+
               case when :addressSort = 'asc'
                         and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
                    then 1 else 0 end asc,
@@ -1643,12 +1660,14 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
               end desc,
 
               case
-                  when :statusSort is null
+                  when :idSort is null
+                   and :statusSort is null
                    and :addressSort is null
                    and :scheduledDateSort is null
                    and :visitTimeSort is null
                    and a.status = :inProgressStatus then 1
-                  when :statusSort is null
+                  when :idSort is null
+                   and :statusSort is null
                    and :addressSort is null
                    and :scheduledDateSort is null
                    and :visitTimeSort is null
@@ -1656,8 +1675,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
                   else null
               end asc,
 
-              case when :scheduledDateSort is null and :visitTimeSort is null then s.scheduledDate else null end desc,
-              case when :scheduledDateSort is null and :visitTimeSort is null then s.orderIndex else null end asc,
+              case when :idSort is null and :scheduledDateSort is null and :visitTimeSort is null then s.scheduledDate else null end desc,
+              case when :idSort is null and :scheduledDateSort is null and :visitTimeSort is null then s.orderIndex else null end asc,
 
               a.id desc
             """,
@@ -1670,6 +1689,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             WHERE a.assignedHandler.id = :handlerId
               AND a.status IN :visibleStatuses
               AND (:selectedStatus IS NULL OR a.status = :selectedStatus)
+              AND (:asIdFrom IS NULL OR a.id >= :asIdFrom)
+              AND (:asIdTo IS NULL OR a.id <= :asIdTo)
               AND (:startDate IS NULL OR s.scheduledDate >= :startDate)
               AND (:endDate IS NULL OR s.scheduledDate <= :endDate)
               AND (:companyKeyword IS NULL OR :companyKeyword = '' OR lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
@@ -1681,6 +1702,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             @Param("handlerId") Long handlerId,
             @Param("visibleStatuses") List<AsStatus> visibleStatuses,
             @Param("selectedStatus") AsStatus selectedStatus,
+            @Param("asIdFrom") Long asIdFrom,
+            @Param("asIdTo") Long asIdTo,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
             @Param("companyKeyword") String companyKeyword,
@@ -1691,6 +1714,7 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             @Param("scheduledDateSort") String scheduledDateSort,
             @Param("addressSort") String addressSort,
             @Param("statusSort") String statusSort,
+            @Param("idSort") String idSort,
             @Param("inProgressStatus") AsStatus inProgressStatus,
             @Param("completedStatus") AsStatus completedStatus,
             Pageable pageable);
@@ -1703,6 +1727,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             where a.assignedHandler.id = :handlerId
               and a.status in :visibleStatuses
               and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:asIdFrom is null or a.id >= :asIdFrom)
+              and (:asIdTo is null or a.id <= :asIdTo)
               and (:start is null or a.requestedAt >= :start)
               and (:end is null or a.requestedAt < :end)
               and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
@@ -1710,6 +1736,9 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
               and (:cityName is null or a.siName = :cityName)
               and (:districtName is null or a.guName = :districtName)
             order by
+              case when :idSort = 'asc' then a.id else null end asc,
+              case when :idSort = 'desc' then a.id else null end desc,
+
               case when :addressSort = 'asc'
                         and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
                    then 1 else 0 end asc,
@@ -1741,11 +1770,13 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
               end desc,
 
               case
-                  when :statusSort is null
+                  when :idSort is null
+                   and :statusSort is null
                    and :addressSort is null
                    and :visitTimeSort is null
                    and a.status = :inProgressStatus then 1
-                  when :statusSort is null
+                  when :idSort is null
+                   and :statusSort is null
                    and :addressSort is null
                    and :visitTimeSort is null
                    and a.status = :completedStatus then 2
@@ -1762,6 +1793,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             where a.assignedHandler.id = :handlerId
               and a.status in :visibleStatuses
               and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:asIdFrom is null or a.id >= :asIdFrom)
+              and (:asIdTo is null or a.id <= :asIdTo)
               and (:start is null or a.requestedAt >= :start)
               and (:end is null or a.requestedAt < :end)
               and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
@@ -1773,6 +1806,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             @Param("handlerId") Long handlerId,
             @Param("visibleStatuses") List<AsStatus> visibleStatuses,
             @Param("selectedStatus") AsStatus selectedStatus,
+            @Param("asIdFrom") Long asIdFrom,
+            @Param("asIdTo") Long asIdTo,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             @Param("companyKeyword") String companyKeyword,
@@ -1782,6 +1817,7 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             @Param("visitTimeSort") String visitTimeSort,
             @Param("addressSort") String addressSort,
             @Param("statusSort") String statusSort,
+            @Param("idSort") String idSort,
             @Param("inProgressStatus") AsStatus inProgressStatus,
             @Param("completedStatus") AsStatus completedStatus,
             Pageable pageable);
@@ -1794,6 +1830,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             where a.assignedHandler.id = :handlerId
               and a.status in :visibleStatuses
               and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:asIdFrom is null or a.id >= :asIdFrom)
+              and (:asIdTo is null or a.id <= :asIdTo)
               and (:start is null or a.asProcessDate >= :start)
               and (:end is null or a.asProcessDate < :end)
               and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
@@ -1801,6 +1839,9 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
               and (:cityName is null or a.siName = :cityName)
               and (:districtName is null or a.guName = :districtName)
             order by
+              case when :idSort = 'asc' then a.id else null end asc,
+              case when :idSort = 'desc' then a.id else null end desc,
+
               case when :addressSort = 'asc'
                         and trim(concat(coalesce(a.roadAddress, ''), ' ', coalesce(a.detailAddress, ''))) = ''
                    then 1 else 0 end asc,
@@ -1832,11 +1873,13 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
               end desc,
 
               case
-                  when :statusSort is null
+                  when :idSort is null
+                   and :statusSort is null
                    and :addressSort is null
                    and :visitTimeSort is null
                    and a.status = :inProgressStatus then 1
-                  when :statusSort is null
+                  when :idSort is null
+                   and :statusSort is null
                    and :addressSort is null
                    and :visitTimeSort is null
                    and a.status = :completedStatus then 2
@@ -1853,6 +1896,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             where a.assignedHandler.id = :handlerId
               and a.status in :visibleStatuses
               and (:selectedStatus is null or a.status = :selectedStatus)
+              and (:asIdFrom is null or a.id >= :asIdFrom)
+              and (:asIdTo is null or a.id <= :asIdTo)
               and (:start is null or a.asProcessDate >= :start)
               and (:end is null or a.asProcessDate < :end)
               and (:companyKeyword is null or :companyKeyword = '' or lower(company.companyName) like lower(concat('%', :companyKeyword, '%')))
@@ -1864,6 +1909,8 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             @Param("handlerId") Long handlerId,
             @Param("visibleStatuses") List<AsStatus> visibleStatuses,
             @Param("selectedStatus") AsStatus selectedStatus,
+            @Param("asIdFrom") Long asIdFrom,
+            @Param("asIdTo") Long asIdTo,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             @Param("companyKeyword") String companyKeyword,
@@ -1873,6 +1920,7 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
             @Param("visitTimeSort") String visitTimeSort,
             @Param("addressSort") String addressSort,
             @Param("statusSort") String statusSort,
+            @Param("idSort") String idSort,
             @Param("inProgressStatus") AsStatus inProgressStatus,
             @Param("completedStatus") AsStatus completedStatus,
             Pageable pageable);
