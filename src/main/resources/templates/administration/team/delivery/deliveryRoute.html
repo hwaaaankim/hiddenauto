@@ -621,9 +621,9 @@
                 </div>
 
                 <input type="file" class="d-none" id="delivery-route-camera-input"
-                       accept="image/*" capture="environment">
+                       accept="image/*,.heic,.heif" capture="environment">
                 <input type="file" class="d-none" id="delivery-route-gallery-input"
-                       accept="image/*" multiple>
+                       accept="image/*,.heic,.heif" multiple>
 
                 <div class="delivery-route-image-empty" id="delivery-route-image-empty">
                     <i class="ri-image-line"></i>
@@ -814,7 +814,8 @@
     });
 })();
 </script>
-<script src="/administration/assets/team/delivery/deliveryRoute.js?v=20260806-1"></script>
+<script src="/administration/assets/js/imageUploadNormalizer.js?v=20260909-1"></script>
+<script src="/administration/assets/team/delivery/deliveryRoute.js?v=20260909-2"></script>
 <script src="/administration/assets/team/delivery/deliveryTeamStatementPreview.js"></script>
 </body>
 </html>

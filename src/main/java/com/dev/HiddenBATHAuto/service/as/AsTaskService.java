@@ -774,9 +774,7 @@ public class AsTaskService {
 	                continue;
 	            }
 
-	            if (!isImageFile(file)) {
-	                throw new IllegalArgumentException("결과 이미지에는 이미지 파일만 업로드할 수 있습니다.");
-	            }
+	            validateResultImageFile(file);
 
 	            String originalFilename = file.getOriginalFilename();
 	            String filename = UUID.randomUUID() + "_"
@@ -1711,6 +1709,53 @@ public class AsTaskService {
 				|| ext.equals("bmp") || ext.equals("heic") || ext.equals("heif");
 	}
 
+	private void validateResultImageFile(MultipartFile file) throws IOException {
+		if (!isImageFile(file)) {
+			throw new IllegalArgumentException("결과 이미지에는 이미지 파일만 업로드할 수 있습니다.");
+		}
+
+		if (isHeicImageFile(file)) {
+			throw new IllegalArgumentException(
+					"HEIC/HEIF AS 완료 이미지는 화면에서 JPEG로 변환 후 업로드되어야 합니다. "
+							+ "페이지를 새로고침한 뒤 이미지를 다시 선택해주세요."
+			);
+		}
+	}
+
+	private boolean isHeicImageFile(MultipartFile file) throws IOException {
+		if (file == null) {
+			return false;
+		}
+
+		String contentType = normalizeContentType(file.getContentType());
+		if (contentType.equals("image/heic") || contentType.equals("image/heif")
+				|| contentType.equals("image/heic-sequence") || contentType.equals("image/heif-sequence")) {
+			return true;
+		}
+
+		String ext = getFileExtension(getSafeOriginalFilename(file));
+		if (ext.equals("heic") || ext.equals("heif")) {
+			return true;
+		}
+
+		try (var input = file.getInputStream()) {
+			byte[] header = input.readNBytes(32);
+			if (header.length < 12) {
+				return false;
+			}
+
+			String signature = new String(header, java.nio.charset.StandardCharsets.ISO_8859_1);
+			if (!"ftyp".equals(signature.substring(4, 8))) {
+				return false;
+			}
+
+			return signature.contains("heic") || signature.contains("heix")
+					|| signature.contains("hevc") || signature.contains("hevx")
+					|| signature.contains("heim") || signature.contains("heis")
+					|| signature.contains("hevm") || signature.contains("hevs");
+		}
+	}
+
 	private boolean isVideoFile(MultipartFile file) {
 		String contentType = normalizeContentType(file.getContentType());
 		if (contentType.startsWith("video/")) {
@@ -1983,8 +2028,10 @@ public class AsTaskService {
 			Files.createDirectories(saveDir);
 
 			for (MultipartFile file : resultImages) {
-				if (file.isEmpty())
+				if (file == null || file.isEmpty())
 					continue;
+
+				validateResultImageFile(file);
 
 				String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
 				Path filePath = saveDir.resolve(filename);
