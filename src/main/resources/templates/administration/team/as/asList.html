@@ -351,6 +351,63 @@
 			}
 
 		}
+
+
+		/* =========================================================
+		 * AS LIST - 표 가독성 / 모바일 ID 노출
+		 * 이 페이지 내부에서만 적용하여 다른 팀/관리자 표에는 영향 없음
+		 * ========================================================= */
+		.as-list-added-table-card .as-list-added-table-responsive {
+			overflow-x: auto !important;
+			overflow-y: hidden;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		.as-list-added-table-card .asList-second-table {
+			min-width: 1720px;
+		}
+
+		.as-list-added-table-card .asList-second-col-id {
+			width: 76px;
+			min-width: 76px;
+			white-space: nowrap !important;
+			word-break: keep-all !important;
+		}
+
+		.as-list-added-table-card .as-list-added-id {
+			display: inline-block;
+			white-space: nowrap !important;
+			word-break: keep-all !important;
+			overflow-wrap: normal !important;
+		}
+
+		.as-list-added-table-card .asList-second-col-address {
+			width: 380px;
+			min-width: 380px;
+		}
+
+		.as-list-added-table-card .asList-second-col-address .as-list-added-address {
+			word-break: keep-all;
+			overflow-wrap: break-word;
+		}
+
+		@media (max-width: 991.98px) {
+			.as-list-added-table-card .asList-second-table {
+				min-width: 1280px;
+			}
+
+			/* 공통 CSS의 모바일 ID 숨김 규칙을 이 AS 팀 화면에서만 해제 */
+			.as-list-added-table-card .as-list-added-col-id {
+				display: table-cell !important;
+				width: 76px;
+				min-width: 76px;
+			}
+
+			.as-list-added-table-card .asList-second-col-address {
+				width: 380px;
+				min-width: 380px;
+			}
+		}
 	</style>
 
 
@@ -420,6 +477,17 @@
 								</div>
 
 								<div class="col-lg-2">
+									<label class="form-label">AS ID 범위</label>
+									<div class="d-flex align-items-center gap-2">
+										<input type="number" name="asIdFrom" class="form-control" min="1" step="1" inputmode="numeric"
+											placeholder="FROM" th:value="${asIdFrom != null ? asIdFrom : ''}">
+										<span class="text-muted flex-shrink-0">~</span>
+										<input type="number" name="asIdTo" class="form-control" min="1" step="1" inputmode="numeric"
+											placeholder="TO" th:value="${asIdTo != null ? asIdTo : ''}">
+									</div>
+								</div>
+
+								<div class="col-lg-2">
 									<label class="form-label">업체명</label>
 									<input type="text" name="companyKeyword" class="form-control" placeholder="업체명 검색"
 										th:value="${companyKeyword}">
@@ -473,6 +541,8 @@
 									th:value="${addressSort != null ? addressSort : ''}" />
 								<input type="hidden" name="statusSort"
 									th:value="${statusSort != null ? statusSort : ''}" />
+								<input type="hidden" name="idSort"
+									th:value="${idSort != null ? idSort : ''}" />
 
 							</div>
 						</div>
@@ -497,10 +567,59 @@
 										<table class="table as-list-added-table align-middle mb-0 asList-second-table">
 											<thead class="as-list-added-thead">
 												<tr>
-													<th
-														class="as-list-added-th as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
-														ID
-													</th>
+													<th class="as-list-added-th as-list-added-col-id asList-second-col-id"
+													th:with="
+        startDateParam=${startDate != null ? #temporals.format(startDate, 'yyyy-MM-dd') : null},
+        endDateParam=${endDate != null ? #temporals.format(endDate, 'yyyy-MM-dd') : null},
+        companyKeywordParam=${#strings.isEmpty(companyKeyword) ? null : companyKeyword}">
+													<div class="d-inline-flex align-items-center gap-2">
+														<span>ID</span>
+														<span class="d-inline-flex flex-column lh-1">
+															<a class="text-decoration-none" th:href="@{/team/asList(
+                    page=0,
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${null},
+                    scheduledDateSort=${null},
+                    addressSort=${null},
+                    statusSort=${null},
+                    idSort=${idSort == 'asc' ? null : 'asc'}
+                )}" th:classappend="${idSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'"
+																aria-label="ID 오름차순 정렬 / 다시 누르면 해제">
+																<i class="ri-arrow-up-s-line"></i>
+															</a>
+															<a class="text-decoration-none" th:href="@{/team/asList(
+                    page=0,
+                    dateType=${dateType},
+                    startDate=${startDateParam},
+                    endDate=${endDateParam},
+                    status=${selectedStatusName},
+                    companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
+                    provinceId=${provinceId},
+                    cityId=${cityId},
+                    districtId=${districtId},
+                    visitTimeSort=${null},
+                    scheduledDateSort=${null},
+                    addressSort=${null},
+                    statusSort=${null},
+                    idSort=${idSort == 'desc' ? null : 'desc'}
+                )}" th:classappend="${idSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'"
+																aria-label="ID 내림차순 정렬 / 다시 누르면 해제">
+																<i class="ri-arrow-down-s-line"></i>
+															</a>
+														</span>
+													</div>
+												</th>
 
 													<th class="as-list-added-th as-list-added-col-status asList-second-col-status"
 														th:with="
@@ -517,13 +636,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${null},
                     scheduledDateSort=${null},
                     addressSort=${null},
-                    statusSort='asc'
+                    statusSort='asc',
+                    idSort=${null}
                 )}" th:classappend="${statusSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-up-s-line"></i>
 																</a>
@@ -535,13 +657,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${null},
                     scheduledDateSort=${null},
                     addressSort=${null},
-                    statusSort='desc'
+                    statusSort='desc',
+                    idSort=${null}
                 )}" th:classappend="${statusSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-down-s-line"></i>
 																</a>
@@ -595,13 +720,16 @@
 													                    endDate=${endDateParam},
 													                    status=${selectedStatusName},
 													                    companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
 													                    provinceId=${provinceId},
 													                    cityId=${cityId},
 													                    districtId=${districtId},
 													                    visitTimeSort=${null},
 													                    scheduledDateSort=${null},
 													                    addressSort='asc',
-													                    statusSort=${null}
+													                    statusSort=${null},
+                    idSort=${null}
 													               )}" th:classappend="${addressSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-up-s-line"></i>
 																</a>
@@ -613,13 +741,16 @@
 													                    endDate=${endDateParam},
 													                    status=${selectedStatusName},
 													                    companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
 													                    provinceId=${provinceId},
 													                    cityId=${cityId},
 													                    districtId=${districtId},
 													                    visitTimeSort=${null},
 													                    scheduledDateSort=${null},
 													                    addressSort='desc',
-													                    statusSort=${null}
+													                    statusSort=${null},
+                    idSort=${null}
 													               )}" th:classappend="${addressSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-down-s-line"></i>
 																</a>
@@ -652,13 +783,16 @@
 																        endDate=${endDateParam},
 																        status=${selectedStatusName},
 																        companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
 																        provinceId=${provinceId},
 																        cityId=${cityId},
 																        districtId=${districtId},
 																        visitTimeSort=${null},
 																        scheduledDateSort='asc',
 																        addressSort=${null},
-																        statusSort=${null}
+																        statusSort=${null},
+                    idSort=${null}
 																   )}" th:classappend="${scheduledDateSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-up-s-line"></i>
 																</a>
@@ -670,13 +804,16 @@
 																        endDate=${endDateParam},
 																        status=${selectedStatusName},
 																        companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
 																        provinceId=${provinceId},
 																        cityId=${cityId},
 																        districtId=${districtId},
 																        visitTimeSort=${null},
 																        scheduledDateSort='desc',
 																        addressSort=${null},
-																        statusSort=${null}
+																        statusSort=${null},
+                    idSort=${null}
 																   )}" th:classappend="${scheduledDateSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-down-s-line"></i>
 																</a>
@@ -699,13 +836,16 @@
 																        endDate=${endDateParam},
 																        status=${selectedStatusName},
 																        companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
 																        provinceId=${provinceId},
 																        cityId=${cityId},
 																        districtId=${districtId},
 																        visitTimeSort='asc',
 																        scheduledDateSort=${null},
 																        addressSort=${null},
-																        statusSort=${null}
+																        statusSort=${null},
+                    idSort=${null}
 																   )}" th:classappend="${visitTimeSort == 'asc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-up-s-line"></i>
 																</a>
@@ -717,13 +857,16 @@
 																        endDate=${endDateParam},
 																        status=${selectedStatusName},
 																        companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
 																        provinceId=${provinceId},
 																        cityId=${cityId},
 																        districtId=${districtId},
 																        visitTimeSort='desc',
 																        scheduledDateSort=${null},
 																        addressSort=${null},
-																        statusSort=${null}
+																        statusSort=${null},
+                    idSort=${null}
 																   )}" th:classappend="${visitTimeSort == 'desc'} ? ' text-primary fw-bold' : ' text-muted'">
 																	<i class="ri-arrow-down-s-line"></i>
 																</a>
@@ -752,7 +895,7 @@
 												             data-onsite=${task.onsiteContact}">
 
 													<td
-														class="as-list-added-td as-list-added-col-id d-none d-lg-table-cell asList-second-col-id">
+														class="as-list-added-td as-list-added-col-id asList-second-col-id">
 														<span class="as-list-added-id" th:text="${task.id}">1</span>
 													</td>
 
@@ -920,6 +1063,7 @@
         scheduledDateSortParam=${#strings.isEmpty(scheduledDateSort) ? null : scheduledDateSort},
         addressSortParam=${#strings.isEmpty(addressSort) ? null : addressSort},
         statusSortParam=${#strings.isEmpty(statusSort) ? null : statusSort},
+        idSortParam=${#strings.isEmpty(idSort) ? null : idSort},
         prevPage=${asPage.first ? 0 : asPage.number - 1},
         nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
         lastPage=${asPage.totalPages - 1},
@@ -937,13 +1081,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">FIRST</a>
 								</li>
 
@@ -955,13 +1102,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">PREV</a>
 								</li>
 
@@ -974,13 +1124,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">1</a>
 								</li>
 
@@ -992,13 +1145,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">NEXT</a>
 								</li>
 
@@ -1010,13 +1166,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">LAST</a>
 								</li>
 
@@ -1033,6 +1192,7 @@
         scheduledDateSortParam=${#strings.isEmpty(scheduledDateSort) ? null : scheduledDateSort},
         addressSortParam=${#strings.isEmpty(addressSort) ? null : addressSort},
         statusSortParam=${#strings.isEmpty(statusSort) ? null : statusSort},
+        idSortParam=${#strings.isEmpty(idSort) ? null : idSort},
         prevPage=${asPage.first ? 0 : asPage.number - 1},
         nextPage=${asPage.last ? asPage.totalPages - 1 : asPage.number + 1},
         lastPage=${asPage.totalPages - 1},
@@ -1050,13 +1210,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">&laquo;</a>
 								</li>
 
@@ -1068,13 +1231,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">&lsaquo;</a>
 								</li>
 
@@ -1087,13 +1253,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">1</a>
 								</li>
 
@@ -1105,13 +1274,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">&rsaquo;</a>
 								</li>
 
@@ -1123,13 +1295,16 @@
                     endDate=${endDateParam},
                     status=${selectedStatusName},
                     companyKeyword=${companyKeywordParam},
+                    asIdFrom=${asIdFrom},
+                    asIdTo=${asIdTo},
                     provinceId=${provinceId},
                     cityId=${cityId},
                     districtId=${districtId},
                     visitTimeSort=${visitTimeSortParam},
                     scheduledDateSort=${scheduledDateSortParam},
                     addressSort=${addressSortParam},
-                    statusSort=${statusSortParam}
+                    statusSort=${statusSortParam},
+                    idSort=${idSortParam}
                 )}">&raquo;</a>
 								</li>
 
@@ -1203,6 +1378,17 @@
 								</div>
 
 								<div class="col-12 col-md-6">
+									<label class="form-label">AS ID 범위</label>
+									<div class="d-flex align-items-center gap-2">
+										<input type="number" name="asIdFrom" class="form-control" min="1" step="1" inputmode="numeric"
+											placeholder="FROM" aria-label="AS ID 시작" th:value="${asIdFrom != null ? asIdFrom : ''}">
+										<span class="text-muted flex-shrink-0">~</span>
+										<input type="number" name="asIdTo" class="form-control" min="1" step="1" inputmode="numeric"
+											placeholder="TO" aria-label="AS ID 종료" th:value="${asIdTo != null ? asIdTo : ''}">
+									</div>
+								</div>
+
+								<div class="col-12 col-md-6">
 									<label for="as-filter-modal-company" class="form-label">업체명</label>
 									<input type="text" name="companyKeyword" id="as-filter-modal-company" class="form-control"
 										placeholder="업체명 검색" th:value="${companyKeyword}">
@@ -1242,6 +1428,7 @@
 						<input type="hidden" name="scheduledDateSort" th:value="${scheduledDateSort != null ? scheduledDateSort : ''}" />
 						<input type="hidden" name="addressSort" th:value="${addressSort != null ? addressSort : ''}" />
 						<input type="hidden" name="statusSort" th:value="${statusSort != null ? statusSort : ''}" />
+							<input type="hidden" name="idSort" th:value="${idSort != null ? idSort : ''}" />
 					</div>
 
 					<div class="modal-footer asList-filter-modal-footer">
