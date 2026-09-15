@@ -75,6 +75,33 @@ public final class ProductStudioEngine {
       require(!s.isBlank() && s.length() <= max, "고객·생산팀·관리팀 표시명은 1~" + max + "자여야 합니다.");
   }
 
+  public static String normalizedLabel(String value) {
+    return java.text.Normalizer.normalize(text(value).strip(), java.text.Normalizer.Form.NFC);
+  }
+
+  public static void uniqueLabels(List<Labels> items, String subject) {
+    for (int audience = 0; audience < 3; audience++) {
+      Set<String> seen = new HashSet<>();
+      for (Labels item : items) {
+        require(item != null, subject + " 표시명을 입력해 주세요.");
+        String value =
+            switch (audience) {
+              case 0 -> item.customer();
+              case 1 -> item.production();
+              default -> item.management();
+            };
+        String canonical = normalizedLabel(value).toLowerCase(java.util.Locale.ROOT);
+        require(
+            seen.add(canonical),
+            subject
+                + "의 "
+                + List.of("고객용", "생산팀용", "관리팀용").get(audience)
+                + " 표시명이 중복됩니다: "
+                + text(value));
+      }
+    }
+  }
+
   public static void fields(Control type, List<Field> fields, boolean allowEmpty) {
     require(type != null, "입력 방식을 선택해 주세요.");
     require(list(fields).size() <= 20, "한 그룹의 입력 필드는 최대 20개입니다.");
@@ -83,6 +110,7 @@ public final class ProductStudioEngine {
       return;
     }
     require(allowEmpty || !list(fields).isEmpty(), "입력 필드를 한 개 이상 등록해 주세요.");
+    uniqueLabels(list(fields).stream().map(f -> f == null ? null : f.labels()).toList(), "입력 필드");
     Set<String> ids = new HashSet<>();
     for (Field f : list(fields)) {
       require(f != null, "빈 입력 필드는 허용하지 않습니다.");
@@ -167,6 +195,7 @@ public final class ProductStudioEngine {
             "질문/도움말 길이를 확인해 주세요.");
         if (choice(q.control())) {
           require(!list(q.choices()).isEmpty() && q.choices().size() <= 200, "보기는 1~200개여야 합니다.");
+          uniqueLabels(q.choices().stream().map(c -> c == null ? null : c.labels()).toList(), "보기");
           Set<String> keys = new HashSet<>();
           for (Choice c : q.choices()) {
             require(

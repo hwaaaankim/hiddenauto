@@ -1,13 +1,7 @@
 package com.dev.HiddenBATHAuto.model.productmaster;
 
-import java.time.LocalDateTime;
-
-import com.dev.HiddenBATHAuto.enums.productmaster.ProductDimensionType;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -20,97 +14,90 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Table(
-        name = "tb_pm_attribute_value",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_pm_value_code", columnNames = "value_code"),
-                @UniqueConstraint(name = "uk_pm_value_customer", columnNames = {"group_id", "customer_label"}),
-                @UniqueConstraint(name = "uk_pm_value_management", columnNames = {"group_id", "management_label"}),
-                @UniqueConstraint(name = "uk_pm_value_production", columnNames = {"group_id", "production_label"})
-        },
-        indexes = {
-                @Index(name = "idx_pm_value_group_sort", columnList = "group_id,sort_order,id"),
-                @Index(name = "idx_pm_value_active", columnList = "active")
-        }
-)
+    name = "tb_pm_attribute_value",
+    uniqueConstraints = {
+      @UniqueConstraint(name = "uk_pm_value_code", columnNames = "value_code"),
+      @UniqueConstraint(
+          name = "uk_pm_value_customer",
+          columnNames = {"group_id", "customer_label"}),
+      @UniqueConstraint(
+          name = "uk_pm_value_management",
+          columnNames = {"group_id", "management_label"}),
+      @UniqueConstraint(
+          name = "uk_pm_value_production",
+          columnNames = {"group_id", "production_label"})
+    },
+    indexes = {
+      @Index(name = "idx_pm_value_group_sort", columnList = "group_id,sort_order,id"),
+      @Index(name = "idx_pm_value_active", columnList = "active")
+    })
 @Getter
 @Setter
 @NoArgsConstructor
 public class ProductAttributeValue {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "group_id", nullable = false)
-    private ProductAttributeGroup group;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "group_id", nullable = false)
+  private ProductAttributeGroup group;
 
-    @Column(name = "value_code", nullable = false, length = 16, updatable = false)
-    private String valueCode;
+  @Column(name = "value_code", nullable = false, length = 16, updatable = false)
+  private String valueCode;
 
-    @Column(name = "customer_label", nullable = false, length = 120)
-    private String customerLabel;
+  @Column(name = "customer_label", nullable = false, length = 120)
+  private String customerLabel;
 
-    @Column(name = "management_label", nullable = false, length = 120)
-    private String managementLabel;
+  @Column(name = "management_label", nullable = false, length = 120)
+  private String managementLabel;
 
-    @Column(name = "production_label", nullable = false, length = 120)
-    private String productionLabel;
+  @Column(name = "production_label", nullable = false, length = 120)
+  private String productionLabel;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "dimension_type", nullable = false, length = 30)
-    private ProductDimensionType dimensionType = ProductDimensionType.NONE;
+  @Column(name = "active", nullable = false)
+  private boolean active = true;
 
-    @Column(name = "price_adjustment", nullable = false)
-    private int priceAdjustment;
+  @Column(name = "sort_order", nullable = false)
+  private int sortOrder;
 
-    @Column(name = "description", length = 500)
-    private String description;
+  // An explicitly empty name part omits this option from generated names.
+  @Column(name = "name_part", length = 160)
+  private String namePart;
 
-    @Column(name = "customer_guide", length = 1000)
-    private String customerGuide;
+  @Column(name = "created_by", nullable = false, length = 100, updatable = false)
+  private String createdBy;
 
-    @Column(name = "active", nullable = false)
-    private boolean active = true;
+  @Column(name = "updated_by", nullable = false, length = 100)
+  private String updatedBy;
 
-    @Column(name = "sort_order", nullable = false)
-    private int sortOrder;
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private LocalDateTime createdAt;
 
-    // null means legacy fallback; an explicitly empty string must remain empty.
-    @Column(name = "name_part", length = 160)
-    private String namePart;
+  @Column(name = "updated_at", nullable = false)
+  private LocalDateTime updatedAt;
 
-    @Column(name = "created_by", nullable = false, length = 100, updatable = false)
-    private String createdBy;
+  @Version
+  @Column(name = "row_version", nullable = false)
+  private long rowVersion;
 
-    @Column(name = "updated_by", nullable = false, length = 100)
-    private String updatedBy;
+  @PrePersist
+  void prePersist() {
+    LocalDateTime now = LocalDateTime.now();
+    createdAt = now;
+    updatedAt = now;
+  }
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    @Version
-    @Column(name = "row_version", nullable = false)
-    private long rowVersion;
-
-    @PrePersist
-    void prePersist() {
-        LocalDateTime now = LocalDateTime.now();
-        createdAt = now;
-        updatedAt = now;
-    }
-
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+  @PreUpdate
+  void preUpdate() {
+    updatedAt = LocalDateTime.now();
+  }
 }

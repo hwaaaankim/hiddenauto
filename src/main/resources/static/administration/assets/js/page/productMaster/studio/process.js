@@ -43,15 +43,35 @@
         "<small>변경 사항이 있습니다. 저장 전 검증해 주세요.</small>";
     }
     function paint() {
+      const previous = new Map(
+        S.$$("[data-node]", nodes).map((el) => [
+          el.dataset.node,
+          { x: el.offsetLeft, y: el.offsetTop },
+        ]),
+      );
       paintOrder();
       paintNodes();
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+        S.$$("[data-node]", nodes).forEach((el) => {
+          const old = previous.get(el.dataset.node);
+          if (old && (old.x !== el.offsetLeft || old.y !== el.offsetTop))
+            el.animate(
+              [
+                {
+                  transform: `translate(${old.x - el.offsetLeft}px,${old.y - el.offsetTop}px)`,
+                },
+                { transform: "translate(0,0)" },
+              ],
+              { duration: 240, easing: "ease-out" },
+            );
+        });
       paintInspector();
     }
     function paintOrder() {
       order.innerHTML = process.questions
         .map(
           (q, i) =>
-            `<article class="pms-palette-item ${q.key === selected ? "active" : ""}" data-question-key="${S.e(q.key)}" draggable="true"><strong><span class="pms-handle">⠿</span> ${i + 1}. ${S.e(q.labels.management)}</strong><small>${q.fixed ? S.badge("고정 사양", "blue") : S.badge(S.controls[q.control])} ${q.fixed ? "" : S.isChoice(q.control) ? q.choices.length + "개 보기" : q.fields.length + "개 입력"}</small><div class="pms-actions"><button data-question-up="${i}" ${!i ? "disabled" : ""}>↑</button><button data-question-down="${i}" ${i === process.questions.length - 1 ? "disabled" : ""}>↓</button></div></article>`,
+            `<article class="pms-palette-item ${q.key === selected ? "active" : ""}" data-question-key="${S.e(q.key)}" ><strong><span class="pms-handle">⠿</span> ${i + 1}. ${S.e(q.labels.management)}</strong><small>${q.fixed ? S.badge("고정 사양", "blue") : S.badge(S.controls[q.control])} ${q.fixed ? "" : S.isChoice(q.control) ? q.choices.length + "개 보기" : q.fields.length + "개 입력"}</small><div class="pms-actions"><button data-question-up="${i}" ${!i ? "disabled" : ""}>↑</button><button data-question-down="${i}" ${i === process.questions.length - 1 ? "disabled" : ""}>↓</button></div></article>`,
         )
         .join("");
       S.$$("[data-question-key]", order).forEach(
@@ -377,7 +397,7 @@
       const dialog = S.dialog("질문 상세 · " + original.labels.management, "");
       const body = S.$(".pms-dialog-body", dialog);
       function paintQuestion() {
-        body.innerHTML = `${S.labels(q, "")}<div class="pms-form-grid pms-section">${S.field("고객에게 물어볼 질문", "question", q.question, "text", 'maxlength="300"')}${S.field("선택 도움말", "guide", q.guide, "text", 'maxlength="1000"')}<div class="pms-row">${S.badge(S.controls[q.control], "blue")}</div></div><div class="pms-help">각 항목의 value는 자동 생성되며 이름을 바꾸어도 유지됩니다. 사용 중인 value를 삭제하면 연결된 조건도 함께 수정해야 합니다.</div><div class="pms-row"><h2>${S.isChoice(q.control) ? "선택 보기" : "입력 필드"}</h2><button id="pms-add-question-item">+ ${S.isChoice(q.control) ? "보기" : "필드"}</button></div><div id="pms-question-items">${S.isChoice(q.control) ? q.choices.map((c, i) => `<article class="pms-list-row" draggable="true" data-choice-index="${i}"><div class="pms-row-head"><span class="pms-handle">⠿</span><strong>보기 ${i + 1}</strong><small class="mono">${S.e(c.key)}</small><button data-remove-choice="${i}" class="pms-remove">×</button></div>${S.labels(c, "choices." + i, true, c.namePart)}<details class="pms-section"><summary>보기 이미지·첨부</summary><div data-choice-files="${i}"></div></details></article>`).join("") : S.fieldRows(q.fields, q.control)}</div><section class="pms-section"><h2>이 질문의 이미지·첨부</h2><div id="pms-question-files"></div></section><footer class="pms-actions pms-section"><button class="primary" id="pms-apply-question">질문에 적용</button></footer>`;
+        body.innerHTML = `${S.labels(q, "")}<div class="pms-form-grid pms-section">${S.field("고객에게 물어볼 질문", "question", q.question, "text", 'maxlength="300"')}${S.field("선택 도움말", "guide", q.guide, "text", 'maxlength="1000"')}<div class="pms-row">${S.badge(S.controls[q.control], "blue")}</div></div><div class="pms-help">각 항목의 value는 자동 생성되며 이름을 바꾸어도 유지됩니다. 사용 중인 value를 삭제하면 연결된 조건도 함께 수정해야 합니다.</div><div class="pms-row"><h2>${S.isChoice(q.control) ? "선택 보기" : "입력 필드"}</h2><button id="pms-add-question-item">+ ${S.isChoice(q.control) ? "보기" : "필드"}</button></div><div id="pms-question-items">${S.isChoice(q.control) ? q.choices.map((c, i) => `<details class="pms-list-row pms-editor" ${S.editorAttrs(c.key, i === 0 || !c.labels.management)} data-choice-index="${i}"><summary class="pms-row-head"><span class="pms-handle">⠿</span><strong data-editor-title>보기 ${i + 1} · ${S.e(c.labels.management || "새 보기")}</strong><small class="mono">${S.e(c.key)}</small><button data-remove-choice="${i}" class="pms-remove">×</button></summary><div class="pms-editor-body">${S.labels(c, "choices." + i, true, c.namePart)}<details class="pms-section"><summary>보기 이미지·첨부</summary><div data-choice-files="${i}"></div></details></div></details>`).join("") : S.fieldRows(q.fields, q.control)}</div><section class="pms-section"><h2>이 질문의 이미지·첨부</h2><div id="pms-question-files"></div></section><footer class="pms-actions pms-section"><button class="primary" id="pms-apply-question">질문에 적용</button></footer>`;
         S.bind(body, q);
         const items = S.$("#pms-question-items", body);
         S.$("#pms-add-question-item", body).onclick = () => {
