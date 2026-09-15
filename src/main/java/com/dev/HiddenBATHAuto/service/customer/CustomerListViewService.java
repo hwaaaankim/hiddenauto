@@ -323,6 +323,7 @@ public class CustomerListViewService {
         return TaskOrderSummary.builder()
                 .orderId(order.getId())
                 .categoryName(extractCategory(order, optionMap))
+                .optionText(resolveCustomerExtraOptions(optionMap))
                 .productName(resolveCustomerProductName(item, optionMap))
                 .size(resolveCustomerProductSize(optionMap))
                 .color(resolveCustomerProductColor(optionMap))
@@ -436,6 +437,45 @@ public class CustomerListViewService {
     private String resolveCustomerProductColor(Map<String, Object> optionMap) {
         return safeText(pickFirstOptionValue(optionMap, List.of(
                 "색상", "컬러", "제품색상", "productColor", "ProductColor", "color", "Color")), "-");
+    }
+
+    private String resolveCustomerExtraOptions(Map<String, Object> optionMap) {
+        // 별도 출력하는 기본 항목과 내부 식별자를 제외하고 사용자 옵션을 모두 보존합니다.
+        List<String> separateKeys = List.of(
+                "카테고리", "category", "제품명", "제품", "productname", "product", "product_name",
+                "색상", "컬러", "제품색상", "productcolor", "color",
+                "사이즈", "규격", "크기", "제품사이즈", "제품규격", "규격사이즈", "productsize", "size",
+                "가로", "가로사이즈", "width", "세로", "세로사이즈", "height", "깊이", "깊이사이즈", "depth",
+                "수량", "quantity", "qty", "제품시리즈id", "id");
+        List<String> values = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : optionMap.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || !StringUtils.hasText(key) || entry.getValue() == null
+                    || separateKeys.contains(key.trim().toLowerCase(java.util.Locale.ROOT))) {
+                continue;
+            }
+            String value = customerOptionValueText(entry.getValue());
+            if (StringUtils.hasText(value)) {
+                values.add(key.trim() + " : " + value);
+            }
+        }
+        return String.join(" / ", values);
+    }
+
+    private String customerOptionValueText(Object value) {
+        if (value == null) return "";
+        if (value instanceof Map<?, ?> map) {
+            return map.entrySet().stream()
+                    .filter(entry -> entry.getValue() != null)
+                    .map(entry -> entry.getKey() + " : " + customerOptionValueText(entry.getValue()))
+                    .collect(Collectors.joining(", "));
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().filter(Objects::nonNull)
+                    .map(this::customerOptionValueText).filter(StringUtils::hasText)
+                    .collect(Collectors.joining(", "));
+        }
+        return value.toString().trim();
     }
 
     private String pickFirstOptionValue(Map<String, Object> optionMap, List<String> keys) {

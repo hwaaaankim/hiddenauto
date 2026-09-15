@@ -53,13 +53,37 @@ document.addEventListener('DOMContentLoaded', function () {
 	const overviewToInput = document.getElementById('index-main-overview-to');
 	const scrollTopButton = document.getElementById('index-main-scroll-top');
 
+    // 저장소 접근이 제한되어도 현재 페이지의 선택과 조회는 정상 동작합니다.
+    let selectedBasis = BASIS.PROCESS;
+    // 이번 배포 후 브라우저별 최초 접속에서 기존 선택을 처리일로 한 번만 전환합니다.
+    const BASIS_MIGRATION_KEY = 'calendarDateBasisMigration';
+    const BASIS_MIGRATION_VERSION = '20260915-process-default-v1';
+    try {
+        if (localStorage.getItem(BASIS_MIGRATION_KEY) !== BASIS_MIGRATION_VERSION) {
+            localStorage.setItem(LS_KEY, BASIS.PROCESS);
+            // 기준값 저장이 성공한 뒤에만 전환 완료를 기록합니다.
+            localStorage.setItem(BASIS_MIGRATION_KEY, BASIS_MIGRATION_VERSION);
+        } else {
+            const savedBasis = localStorage.getItem(LS_KEY);
+            if (savedBasis === BASIS.REQUEST || savedBasis === BASIS.PROCESS) {
+                selectedBasis = savedBasis;
+            }
+        }
+    } catch (_) {
+        // 저장소 접근이 제한되면 현재 페이지에서는 처리일로 시작합니다.
+    }
+
     function getBasis() {
-        const value = localStorage.getItem(LS_KEY);
-        return value === BASIS.PROCESS ? BASIS.PROCESS : BASIS.REQUEST;
+        return selectedBasis;
     }
 
     function setBasis(value) {
-        localStorage.setItem(LS_KEY, value);
+        selectedBasis = value === BASIS.REQUEST ? BASIS.REQUEST : BASIS.PROCESS;
+        try {
+            localStorage.setItem(LS_KEY, selectedBasis);
+        } catch (_) {
+            // 저장이 불가능한 환경에서는 현재 페이지에서만 유지합니다.
+        }
     }
 
     function getBasisText(basis) {
@@ -1276,9 +1300,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // =========================================================
     function changeBasis(nextBasis) {
         const current = getBasis();
-        if (current === nextBasis) return;
-
         setBasis(nextBasis);
+        if (current === nextBasis) return;
         setButtonActive(nextBasis);
         expandedOverviewKeys.clear();
         expandedWorkWindowKeys.clear();

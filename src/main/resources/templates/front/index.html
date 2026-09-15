@@ -66,7 +66,7 @@
 						<button type="button"
 							id="index-calendar-basis-request"
 							class="index-main-basis-button"
-							aria-pressed="true">
+							aria-pressed="false">
 							<i class="fa-solid fa-calendar-plus index-main-basis-button-fa" aria-hidden="true"></i>
 							<span>
 								<strong>신청일 기준</strong>
@@ -77,7 +77,7 @@
 						<button type="button"
 							id="index-calendar-basis-process"
 							class="index-main-basis-button"
-							aria-pressed="false">
+							aria-pressed="true">
 							<i class="fa-solid fa-calendar-check index-main-basis-button-fa" aria-hidden="true"></i>
 							<span>
 								<strong>처리일 기준</strong>
@@ -176,7 +176,7 @@
 						<p>
 							<span id="index-main-overview-period">조회 기간 계산 중</span>
 							<span class="index-main-overview-divider">·</span>
-							<strong id="index-main-overview-basis">신청일 기준</strong>
+							<strong id="index-main-overview-basis">처리일 기준</strong>
 						</p>
 					</div>
 					<div class="index-main-overview-controls">
@@ -311,7 +311,7 @@
 	<!-- 공용 스크립트 -->
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-	<script src="/front/calendar.js?v=20260906-2"></script>
+	<script src="/front/calendar.js?v=20260915-2"></script>
 	<script src="/front/index-popup.js"></script>
 </body>
 

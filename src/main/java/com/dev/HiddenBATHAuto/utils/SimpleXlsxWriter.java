@@ -44,6 +44,14 @@ public final class SimpleXlsxWriter {
             List<String> headers,
             List<List<String>> rows,
             double[] columnWidths) {
+        return write(sheetName, title, filterLines, headers, rows, columnWidths, false);
+    }
+
+    /** 상세 옵션을 출력하는 고객 발주 엑셀에서만 내용에 맞춰 행 높이를 확장합니다. */
+    public static byte[] write(
+            String sheetName, String title, List<String> filterLines,
+            List<String> headers, List<List<String>> rows, double[] columnWidths,
+            boolean expandBodyRows) {
 
         if (headers == null || headers.isEmpty()) {
             throw new IllegalArgumentException("엑셀 헤더가 비어 있습니다.");
@@ -104,6 +112,22 @@ public final class SimpleXlsxWriter {
                             ? sourceRow.get(col)
                             : "";
                     setTextCell(row, col, value, bodyStyle);
+                }
+                if (expandBodyRows) {
+                    int maxLines = 1;
+                    for (int col = 0; col < columnCount; col++) {
+                        double width = columnWidths != null && col < columnWidths.length
+                                ? columnWidths[col] : 12d;
+                        int lines = 0;
+                        String value = row.getCell(col).getStringCellValue();
+                        for (String line : value.split("\\R", -1)) {
+                            int units = line.codePoints().map(cp -> cp > 127 ? 2 : 1).sum();
+                            lines += Math.max(1, (int) Math.ceil(units / Math.max(1d, width - 3d)));
+                        }
+                        maxLines = Math.max(maxLines, lines);
+                    }
+                    // Excel 행 높이 상한(409pt) 이내에서 줄바꿈과 한글 너비를 반영합니다.
+                    row.setHeightInPoints(Math.min(409f, Math.max(28f, maxLines * 15f + 8f)));
                 }
             }
 

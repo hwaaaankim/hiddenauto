@@ -6,13 +6,12 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.AsListRow;
-import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.CategoryCount;
+import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskOrderSummary;
 import com.dev.HiddenBATHAuto.dto.customer.CustomerPageDtos.TaskListRow;
 import com.dev.HiddenBATHAuto.model.task.AsTask;
 import com.dev.HiddenBATHAuto.utils.SimpleXlsxWriter;
@@ -117,7 +116,7 @@ public class CustomerExcelExportService {
 					text(row.getRequesterName()),
                     text(row.getOrdererName()),
                     row.getOrderCount() + "건",
-                    categorySummary(row.getCategoryCounts()),
+                    categorySummary(row.getOrderSummaries()),
                     text(row.getDeliveryMethodName()),
                     text(row.getDeliveryAddress()),
                     formatDateTimeDate(row.getTask().getCreatedAt()),
@@ -132,7 +131,7 @@ public class CustomerExcelExportService {
             ));
         }
 
-		double[] widths = { 11, 14, 14, 11, 34, 15, 46, 13, 13, 18, 18, 17, 17, 18, 15, 16 };
+		double[] widths = { 11, 14, 14, 11, 80, 15, 46, 13, 13, 18, 18, 17, 17, 18, 15, 16 };
 
         return SimpleXlsxWriter.write(
                 "발주 목록",
@@ -140,18 +139,32 @@ public class CustomerExcelExportService {
                 filterDescriptions,
                 headers,
                 data,
-                widths);
+                widths,
+                true);
     }
 
-    private String categorySummary(List<CategoryCount> counts) {
-        if (counts == null || counts.isEmpty()) {
+    private String categorySummary(List<TaskOrderSummary> summaries) {
+        if (summaries == null || summaries.isEmpty()) {
             return "-";
         }
-
-        return counts.stream()
-                .map(item -> item.getName() + " " + item.getCount() + "개")
-                .reduce((left, right) -> left + ", " + right)
-                .orElse("-");
+        List<String> lines = new ArrayList<>();
+        for (TaskOrderSummary item : summaries) {
+            if (item == null) continue;
+            List<String> parts = new ArrayList<>();
+            parts.add(text(item.getCategoryName()));
+            parts.add("색상 : " + text(item.getColor()));
+            parts.add("사이즈 : " + text(item.getSize()));
+            if (StringUtils.hasText(item.getProductName()) && !"-".equals(item.getProductName())) {
+                parts.add("제품명 : " + item.getProductName());
+            }
+            if (StringUtils.hasText(item.getOptionText())) {
+                parts.add(item.getOptionText());
+            }
+            // 목록/상세와 동일한 Order.quantity를 사용하며 음수와 0도 그대로 출력합니다.
+            parts.add("수량 : " + item.getQuantity() + "개");
+            lines.add(String.join(" / ", parts));
+        }
+        return lines.isEmpty() ? "-" : String.join("\n", lines);
     }
 
     private String formatScheduled(LocalDate date, LocalTime time) {
