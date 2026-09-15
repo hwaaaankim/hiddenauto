@@ -158,6 +158,8 @@ public final class CustomerPageDtos {
     public static class TaskOrderSummary {
         private Long orderId;
         private String categoryName;
+        /** 고객 엑셀용 기타 옵션. 조회 트랜잭션 안에서 JSON을 해석합니다. */
+        private String optionText;
         private String productName;
         private String size;
         private String color;
