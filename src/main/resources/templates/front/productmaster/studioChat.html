@@ -1,37 +1,44 @@
 <!doctype html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-
-<head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width,initial-scale=1" />
-	<title>히든바스 제품 선택</title>
-	<link rel="stylesheet" href="/administration/assets/css/page/productMaster/productStudio.css?v=20260914-2" />
-	<link rel="stylesheet" href="/front/assets/css/page/productMaster/studioChat.css?v=20260914-2" />
-</head>
-
-<body>
-	<main class="pms pms-public" id="pm-public-chat" th:attr="data-token=${publicToken}">
-		<header class="pms-heading">
-			<div>
-				<span class="pms-eyebrow">HIDDENBATH</span>
-				<h1>나에게 맞는 제품 선택</h1>
-			</div>
-			<button id="pm-chat-restart">처음부터</button>
-		</header>
-		<section class="pms-panel">
-			<div class="pms-toolbar">
-				<span id="pm-chat-title">제품의 구성부터 차례로 선택해 주세요.</span>
-			</div>
-			<div id="pm-chat-content" aria-live="polite">
-				<div class="pms-empty">제품 정보를 불러오는 중입니다.</div>
-			</div>
-		</section>
-		<p class="pms-public-foot">
-			제품 구성 테스트 · 실제 주문 접수와 가격 확정은 진행되지 않습니다.
-		</p>
-	</main>
-	<script src="/administration/assets/js/page/productMaster/studio/common.js?v=20260914-2"></script>
-	<script src="/front/assets/js/page/productMaster/studioChat.js?v=20260914-2"></script>
-</body>
-
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>히든바스 제품 선택</title>
+    <link
+      rel="stylesheet"
+      href="/administration/assets/css/page/productMaster/productStudio.css?v=20260915-3"
+    />
+    <link
+      rel="stylesheet"
+      href="/front/assets/css/page/productMaster/studioChat.css?v=20260915-3"
+    />
+  </head>
+  <body>
+    <main
+      class="pms pms-public"
+      id="pm-public-chat"
+      th:attr="data-token=${publicToken}"
+    >
+      <header class="pms-heading">
+        <div>
+          <span class="pms-eyebrow">HIDDENBATH</span>
+          <h1>나에게 맞는 제품 선택</h1>
+        </div>
+        <button id="pm-chat-restart">처음부터</button>
+      </header>
+      <section class="pms-panel">
+        <div class="pms-toolbar">
+          <span id="pm-chat-title">제품의 구성부터 차례로 선택해 주세요.</span>
+        </div>
+        <div id="pm-chat-content" aria-live="polite">
+          <div class="pms-empty">제품 정보를 불러오는 중입니다.</div>
+        </div>
+      </section>
+      <p class="pms-public-foot">
+        제품 구성과 선택 흐름을 확인하는 테스트 화면입니다.
+      </p>
+    </main>
+    <script src="/administration/assets/js/page/productMaster/studio/common.js?v=20260915-3"></script>
+    <script src="/front/assets/js/page/productMaster/studioChat.js?v=20260915-3"></script>
+  </body>
 </html>

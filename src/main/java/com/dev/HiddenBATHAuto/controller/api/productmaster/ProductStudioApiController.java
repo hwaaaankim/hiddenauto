@@ -22,6 +22,22 @@ public class ProductStudioApiController {
   private final ProductStudioAttributeService attributes;
   private final ProductStudioService service;
   private final ProductStudioAssetService assets;
+  private final com.dev.HiddenBATHAuto.repository.productmaster.ProductMasterRepository products;
+
+  @GetMapping("/summary")
+  public ApiResponse<java.util.Map<String, Long>> summary() {
+    return ApiResponse.ok(
+        java.util.Map.of(
+            "standard",
+            products.countByNonStandard(false),
+            "custom",
+            products.countByNonStandard(true),
+            "draft",
+            products.countByNonStandardAndStatus(
+                true, com.dev.HiddenBATHAuto.enums.productmaster.ProductMasterStatus.DRAFT)));
+  }
+
+  private final com.dev.HiddenBATHAuto.service.productmaster.ProductInventoryService inventory;
 
   @PostMapping("/bootstrap")
   public ApiResponse<List<GroupView>> bootstrap(Principal p) {
@@ -136,5 +152,35 @@ public class ProductStudioApiController {
     if (file.getOwnerType().equals("STAGED") && !file.getCreatedBy().equals(p.getName()))
       throw new java.util.NoSuchElementException("첨부파일이 없습니다.");
     return assets.content(file, download);
+  }
+
+  @GetMapping("/products/{id}/stock")
+  public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.StockView> stock(
+      @PathVariable Long id) {
+    return ApiResponse.ok(inventory.detail(id));
+  }
+
+  @PostMapping("/products/{id}/stock")
+  public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.StockView>
+      adjustStock(
+          @PathVariable Long id,
+          @RequestBody
+              com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.StockAdjustmentRequest
+                  request,
+          Principal principal) {
+    return ApiResponse.ok(inventory.adjust(id, request, principal.getName()));
+  }
+
+  @PostMapping("/products/{id}/stock/{movementId}/void")
+  public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.StockView>
+      voidStock(
+          @PathVariable Long id,
+          @PathVariable Long movementId,
+          @RequestBody
+              com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.VoidStockMovementRequest
+                  request,
+          Principal principal) {
+    return ApiResponse.ok(
+        inventory.voidMovement(id, movementId, request.reason(), principal.getName()));
   }
 }

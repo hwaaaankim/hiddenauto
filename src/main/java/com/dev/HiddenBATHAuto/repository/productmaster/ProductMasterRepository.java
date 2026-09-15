@@ -1,47 +1,49 @@
 package com.dev.HiddenBATHAuto.repository.productmaster;
 
+import com.dev.HiddenBATHAuto.model.productmaster.ProductMaster;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.dev.HiddenBATHAuto.model.productmaster.ProductMaster;
-
-import jakarta.persistence.LockModeType;
-
 public interface ProductMasterRepository
-        extends JpaRepository<ProductMaster, Long>, JpaSpecificationExecutor<ProductMaster> {
+    extends JpaRepository<ProductMaster, Long>, JpaSpecificationExecutor<ProductMaster> {
 
-    java.util.List<ProductMaster> findByStudioIdentityIn(java.util.Collection<String> identities);
+  long countByNonStandard(boolean nonStandard);
 
-    Optional<ProductMaster> findByStudioIdentity(String identity);
+  long countByNonStandardAndStatus(
+      boolean nonStandard, com.dev.HiddenBATHAuto.enums.productmaster.ProductMasterStatus status);
 
-    boolean existsByStudioIdentityAndIdNot(String identity, Long id);
+  java.util.List<ProductMaster> findByStudioIdentityIn(java.util.Collection<String> identities);
 
-    boolean existsByProductNameIgnoreCase(String productName);
+  Optional<ProductMaster> findByStudioIdentity(String identity);
 
-    boolean existsByProductNameIgnoreCaseAndIdNot(String productName, Long id);
+  boolean existsByStudioIdentityAndIdNot(String identity, Long id);
 
-    boolean existsByProductCode(String productCode);
+  boolean existsByProductNameIgnoreCase(String productName);
 
-    boolean existsByProductCodeAndIdNot(String productCode, Long id);
+  boolean existsByProductNameIgnoreCaseAndIdNot(String productName, Long id);
 
-    boolean existsByCatalogCode(String catalogCode);
+  boolean existsByProductCode(String productCode);
 
-    boolean existsByConfigurationHash(String configurationHash);
+  boolean existsByProductCodeAndIdNot(String productCode, Long id);
 
-    boolean existsByConfigurationHashAndIdNot(String configurationHash, Long id);
+  boolean existsByCatalogCode(String catalogCode);
 
-    Optional<ProductMaster> findByCatalogCodeIgnoreCase(String catalogCode);
+  boolean existsByConfigurationHash(String configurationHash);
 
-    Optional<ProductMaster> findByProductCode(String productCode);
+  boolean existsByConfigurationHashAndIdNot(String configurationHash, Long id);
 
-    Optional<ProductMaster> findByQrPublicToken(String qrPublicToken);
+  Optional<ProductMaster> findByCatalogCodeIgnoreCase(String catalogCode);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from ProductMaster p where p.id = :id")
-    Optional<ProductMaster> findForUpdate(@Param("id") Long id);
+  Optional<ProductMaster> findByProductCode(String productCode);
+
+  Optional<ProductMaster> findByQrPublicToken(String qrPublicToken);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select p from ProductMaster p where p.id = :id")
+  Optional<ProductMaster> findForUpdate(@Param("id") Long id);
 }

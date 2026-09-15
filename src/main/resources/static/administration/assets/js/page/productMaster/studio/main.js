@@ -16,6 +16,9 @@
   S.$(
     `[data-tab="${mode === "detail" ? "standard" : mode === "process" ? "custom" : mode}"]`,
   )?.classList.add("active");
+  S.mode = mode;
+  S.initTheme();
+  S.$("#pms-description").textContent = S.descriptions[mode] || "";
   S.$("#pms-guide").onclick = () => S.guide(mode);
   try {
     try {
@@ -37,7 +40,8 @@
         await S.request("/products/" + root.dataset.productId),
       );
     else await S.listPage(work, mode === "custom");
-    if (!localStorage.getItem("pm-studio-tour-" + mode)) S.guide(mode);
+    if (!localStorage.getItem("pm-studio-tour-dismissed-v3-" + mode))
+      S.guide(mode);
   } catch (e) {
     work.innerHTML = `<div class="pms-alert">${S.e(e.message)}</div>`;
     console.error(e);

@@ -32,7 +32,6 @@ public class ProductStudioService {
   private final ProductStudioAssetService assets;
   private final ProductMasterCodeService codes;
   private final ProductInventoryService inventory;
-  private final ProductStockMovementRepository movements;
   private final ProductStudioJson json;
   private final EntityManager entityManager;
 
@@ -103,10 +102,9 @@ public class ProductStudioService {
           ProductAttributeValue v = available.get(id);
           if (v == null || !v.isActive())
             throw new IllegalArgumentException("다른 그룹 또는 비활성화된 보기가 포함되어 있습니다.");
-          if (v.getDimensionType() == ProductDimensionType.CUSTOM)
-            throw new IllegalArgumentException(
-                "기존 '비규격 옵션값'은 새 비규격 그룹으로 분리해 주세요: " + g.getManagementLabel());
-          Map<String, Object> input = normalizeDimension(v, s.inputs());
+          if (!map(s.inputs()).isEmpty())
+            throw new IllegalArgumentException("선택형에는 입력값을 섞을 수 없습니다.");
+          Map<String, Object> input = Map.of();
           axis.add(new Variant(g.getId(), List.of(id), input));
         }
       } else {
@@ -136,54 +134,6 @@ public class ProductStudioService {
                 + json.write(request.groups())
                 + json.write(tokens));
     return new Plan(groups, axes, tokens, count, stamp, custom);
-  }
-
-  private Map<String, Object> normalizeDimension(ProductAttributeValue v, Map<String, Object> raw) {
-    Map<String, Object> input = map(raw);
-    Map<String, Object> result = new LinkedHashMap<>();
-    if (v.getDimensionType() == ProductDimensionType.NONE) {
-      if (!input.isEmpty()) throw new IllegalArgumentException("일반 선택형에는 입력값을 섞을 수 없습니다.");
-      return result;
-    }
-    List<String> keys =
-        v.getDimensionType() == ProductDimensionType.WIDTH_HEIGHT
-            ? List.of("widthMm", "heightMm")
-            : List.of("widthMm", "heightMm", "depthMm");
-    for (String key : keys) {
-      try {
-        int n = number(input.get(key)).intValueExact();
-        if (n < 1 || n > 100000) throw new ArithmeticException();
-        result.put(key, n);
-      } catch (RuntimeException e) {
-        throw new IllegalArgumentException("기존 치수형 보기는 W/H/D를 1~100,000 정수로 입력해 주세요.");
-      }
-    }
-    // A shared generation axis may contain both W/H and W/H/D variants; retain only its dimensions.
-    if (!Set.of("widthMm", "heightMm", "depthMm").containsAll(input.keySet()))
-      throw new IllegalArgumentException("치수 입력 항목을 확인해 주세요.");
-    return result;
-  }
-
-  private String dimensionSuffix(Map<String, Object> input) {
-    List<String> parts = new ArrayList<>();
-    for (String key : List.of("widthMm", "heightMm", "depthMm")) {
-      Object value = map(input).get(key);
-      if (value != null)
-        parts.add(
-            switch (key) {
-                  case "widthMm" -> "W";
-                  case "heightMm" -> "H";
-                  default -> "D";
-                }
-                + display(value));
-    }
-    return parts.isEmpty() ? "" : " " + String.join("×", parts);
-  }
-
-  private Labels dimensionLabels(Labels labels, Map<String, Object> input) {
-    String suffix = dimensionSuffix(input);
-    return new Labels(
-        labels.customer() + suffix, labels.production() + suffix, labels.management() + suffix);
   }
 
   private Map<String, Object> normalizeInputs(ProductAttributeGroup g, Map<String, Object> raw) {
@@ -310,11 +260,7 @@ public class ProductStudioService {
                             .filter(x -> id.equals(x.getId()))
                             .findFirst()
                             .orElseThrow())
-                .map(
-                    x ->
-                        attributes.namePart(x).isBlank()
-                            ? ""
-                            : attributes.namePart(x) + dimensionSuffix(v.inputs()))
+                .map(attributes::namePart)
                 .filter(s -> !s.isBlank())
                 .collect(Collectors.joining("+"));
       else
@@ -383,16 +329,6 @@ public class ProductStudioService {
       for (ProductMaster p :
           products.findByStudioIdentityIn(keys.subList(start, Math.min(keys.size(), start + 500))))
         result.put(p.getStudioIdentity(), p);
-    // Legacy items retain their original codes. Compare their actual components without rewriting
-    // their identity or inventory.
-    List<ProductMaster> legacy =
-        products.findAll(
-            (Specification<ProductMaster>) (r, q, b) -> b.isNull(r.get("studioIdentity")));
-    Set<String> requested = new HashSet<>(identities);
-    for (ProductMaster p : legacy) {
-      String hash = identity(variants(p));
-      if (requested.contains(hash)) result.put(hash, p);
-    }
     return result;
   }
 
@@ -459,7 +395,6 @@ public class ProductStudioService {
       p.setQrPublicToken(UUID.randomUUID().toString());
       p.setNonStandard(plan.custom());
       p.setStatus(plan.custom() ? ProductMasterStatus.DRAFT : ProductMasterStatus.ACTIVE);
-      p.setPricingMode(ProductPricingMode.FIXED);
       p.setCreatedBy(actor);
       p.setUpdatedBy(actor);
       p.setStudioDefinitionJson(json.write(v));
@@ -470,8 +405,7 @@ public class ProductStudioService {
       bindInputFiles(v, actor);
       assets.attach("PRODUCT", p.getId(), row.assetIds(), actor);
       if (row.initialStock() > 0)
-        inventory.recordInitialStock(
-            p.getId(), row.initialStock(), "제품 자동생성 최초재고", List.of(), actor);
+        inventory.recordInitialStock(p.getId(), row.initialStock(), "제품 자동생성 최초재고", actor);
       ids.add(p.getId());
     }
     products.flush();
@@ -494,17 +428,6 @@ public class ProductStudioService {
         c.setGroup(g);
         c.setSortOrder(sort++);
         if (id != null) c.setValue(values.findById(id).orElseThrow());
-        Map<String, Object> input = map(variant.inputs());
-        if (input.containsKey("widthMm"))
-          c.setWidthMm(number(input.get("widthMm")).intValueExact());
-        if (input.containsKey("heightMm"))
-          c.setHeightMm(number(input.get("heightMm")).intValueExact());
-        if (input.containsKey("depthMm"))
-          c.setDepthMm(number(input.get("depthMm")).intValueExact());
-        if (attributes.control(g) == Control.NUMBER && input.size() == 1)
-          c.setNumericValue(number(input.values().iterator().next()));
-        if (attributes.control(g) == Control.TEXT && input.size() == 1)
-          c.setTextValue(String.valueOf(input.values().iterator().next()));
         p.addComponent(c);
       }
       if (!g.isNonStandard() && !choice(attributes.control(g)))
@@ -528,34 +451,7 @@ public class ProductStudioService {
   }
 
   public List<Variant> variants(ProductMaster p) {
-    if (p.getStudioDefinitionJson() != null)
-      return json.list(p.getStudioDefinitionJson(), Variant.class);
-    Map<Long, List<ProductComponent>> grouped =
-        components.findDetailedByProductId(p.getId()).stream()
-            .collect(
-                Collectors.groupingBy(
-                    c -> c.getGroup().getId(), LinkedHashMap::new, Collectors.toList()));
-    List<Variant> selected = new ArrayList<>();
-    grouped.forEach(
-        (id, items) -> {
-          ProductComponent c = items.get(0);
-          Map<String, Object> input = new LinkedHashMap<>();
-          if (c.getWidthMm() != null) input.put("widthMm", c.getWidthMm());
-          if (c.getHeightMm() != null) input.put("heightMm", c.getHeightMm());
-          if (c.getDepthMm() != null) input.put("depthMm", c.getDepthMm());
-          if (c.getNumericValue() != null) input.put("legacy", c.getNumericValue());
-          if (c.getTextValue() != null) input.put("legacy", c.getTextValue());
-          selected.add(
-              new Variant(
-                  id,
-                  items.stream()
-                      .map(ProductComponent::getValue)
-                      .filter(Objects::nonNull)
-                      .map(ProductAttributeValue::getId)
-                      .toList(),
-                  input));
-        });
-    return selected;
+    return json.list(p.getStudioDefinitionJson(), Variant.class);
   }
 
   public ProductView detail(Long id) {
@@ -591,8 +487,7 @@ public class ProductStudioService {
         detailed ? assets.owned("PROCESS", p.getId()) : List.of(),
         detailed
             ? v.stream().map(x -> attributes.view(attributes.require(x.groupId()))).toList()
-            : List.of(),
-        p.getStudioDefinitionJson() == null);
+            : List.of());
   }
 
   public ProductPage search(ProductFilter filter) {
@@ -817,14 +712,7 @@ public class ProductStudioService {
       Map<String, Object> input =
           g.isNonStandard()
               ? Map.of()
-              : choice(attributes.control(g))
-                  ? normalizeDimension(
-                      g.getValues().stream()
-                          .filter(x -> list(v.valueIds()).contains(x.getId()))
-                          .findFirst()
-                          .orElseThrow(),
-                      v.inputs())
-                  : normalizeInputs(g, v.inputs());
+              : choice(attributes.control(g)) ? Map.of() : normalizeInputs(g, v.inputs());
       normalized.add(new Variant(v.groupId(), list(v.valueIds()), input));
     }
     return normalized;
@@ -844,7 +732,7 @@ public class ProductStudioService {
                       x ->
                           new Choice(
                               x.getValueCode(),
-                              dimensionLabels(attributes.labelsOf(x), v.inputs()),
+                              attributes.labelsOf(x),
                               attributes.namePart(x),
                               List.of()))
                   .toList()
@@ -945,7 +833,7 @@ public class ProductStudioService {
         products.findForUpdate(id).orElseThrow(() -> new NoSuchElementException("제품을 찾을 수 없습니다."));
     ProductStudioAttributeService.version(save.version(), p.getRowVersion());
     if (!p.isNonStandard() || p.getStudioDefinitionJson() == null)
-      throw new IllegalArgumentException("신규 비규격 제품에서만 프로세스를 편집합니다.");
+      throw new IllegalArgumentException("비규격 제품에서만 프로세스를 편집합니다.");
     Process normalized = normalizeProcess(p, save.process());
     if (save.publish()) {
       Validation validation = validateProcess(p, normalized);

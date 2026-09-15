@@ -314,9 +314,7 @@ public class ProductStudioAssetService {
                     a.name(),
                     a.type(),
                     a.size(),
-                    a.id().startsWith("legacy-")
-                        ? a.url()
-                        : "/product-spec/studio/" + token + "/assets/" + a.id(),
+                    "/product-spec/studio/" + token + "/assets/" + a.id(),
                     a.image()))
         .toList();
   }

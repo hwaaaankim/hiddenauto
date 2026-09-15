@@ -18,7 +18,11 @@
         })[c],
     );
   S.copy = (v) => JSON.parse(JSON.stringify(v));
-  S.key = (prefix) => prefix + "_" + crypto.randomUUID().replaceAll("-", "");
+  S.key = (prefix) => {
+    const key = prefix + "_" + crypto.randomUUID().replaceAll("-", "");
+    S.openEditor?.(key);
+    return key;
+  };
   S.$ = (q, r = document) => r.querySelector(q);
   S.$$ = (q, r = document) => [...r.querySelectorAll(q)];
   S.controls = {
@@ -97,7 +101,8 @@
     const el = document.createElement("div");
     el.className = "pms-toast";
     el.textContent = text;
-    document.body.append(el);
+    (S.$$("dialog[open]").at(-1) || document.body).append(el);
+    el.setAttribute("role", "status");
     setTimeout(() => el.remove(), 3500);
   };
   S.run = async (button, fn) => {
@@ -115,6 +120,7 @@
   };
   S.catalog = async () => {
     S.groups = await S.request("/groups");
+    S.overview?.();
     return S.groups;
   };
   S.field = (label, path, value, type = "text", extra = "") =>
@@ -130,8 +136,10 @@
           `<option value="${S.e(key)}" ${key === value ? "selected" : ""}>${S.e(text)}</option>`,
       )
       .join("")}</select></label>`;
-  S.labels = (labels, prefix, withName = false, name = "") =>
-    `<div class="pms-form-grid ${withName ? "four" : ""}">${S.field("고객용", prefix + ".labels.customer", labels?.customer, "text", 'maxlength="120" data-mirror="' + S.e(prefix) + '"')}${S.field("생산팀용", prefix + ".labels.production", labels?.production, "text", 'maxlength="120"')}${S.field("관리팀용", prefix + ".labels.management", labels?.management, "text", 'maxlength="120"')}${withName ? S.field("제품명 구성 문자 (빈칸 가능)", prefix + ".namePart", name, "text", 'maxlength="160"') : ""}</div>`;
+  S.labels = (source, prefix, withName = false, name = "") => {
+    const labels = source?.labels || source;
+    return `<div class="pms-form-grid ${withName ? "four" : ""}">${S.field("고객용", prefix + ".labels.customer", labels?.customer, "text", 'maxlength="120" data-mirror="' + S.e(prefix) + '"')}${S.field("생산팀용", prefix + ".labels.production", labels?.production, "text", 'maxlength="120"')}${S.field("관리팀용", prefix + ".labels.management", labels?.management, "text", 'maxlength="120"')}${withName ? S.field("제품명 구성 문자 (빈칸 가능)", prefix + ".namePart", name, "text", 'maxlength="160"') : ""}</div>`;
+  };
   S.get = (obj, path) =>
     path
       .split(".")
@@ -232,10 +240,11 @@
     fields
       .map(
         (f, i) =>
-          `<article class="pms-list-row" data-field-index="${i}" draggable="true"><div class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong>입력 ${i + 1}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></div>${S.labels(f, prefix + "." + i, true, f.namePart)}<div class="pms-form-grid four pms-section">${S.check("필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.check("음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</article>`,
+          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}<div class="pms-form-grid four pms-section">${S.check("필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.check("음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
       )
       .join("");
   S.fieldEvents = (root, fields, rerender, prefix = "fields") => {
+    S.trackEditors(root);
     root.addEventListener("click", (e) => {
       const button = e.target.closest("[data-remove-field]");
       if (button) {
@@ -260,51 +269,53 @@
     });
   };
   S.sortable = (root, selector, onMove) => {
-    root._pmsSortable?.abort();
-    root._pmsSortable = new AbortController();
-    const eventOptions = { signal: root._pmsSortable.signal };
-    let dragging = null;
-    root.addEventListener(
-      "dragstart",
-      (e) => {
-        if (e.target.closest("input,textarea,select")) {
-          e.preventDefault();
-          return;
-        }
-        const row = e.target.closest(selector);
-        if (!row) return;
-        dragging = row;
-        e.dataTransfer.setData("text/plain", "reorder");
-        e.dataTransfer.effectAllowed = "move";
+    root._pmsSortable?.destroy?.();
+    if (!window.Sortable)
+      throw new Error(
+        "순서 변경 기능을 불러오지 못했습니다. 화면을 새로고침해 주세요.",
+      );
+    root._pmsSortable = new Sortable(root, {
+      draggable: selector,
+      handle: ".pms-handle",
+      animation: matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? 0
+        : 220,
+      easing: "cubic-bezier(.2,.7,.2,1)",
+      ghostClass: "pms-sort-ghost",
+      chosenClass: "pms-sort-chosen",
+      dragClass: "pms-sort-drag",
+      fallbackClass: "pms-sort-fallback",
+      forceFallback: true,
+      fallbackOnBody: false,
+      fallbackTolerance: 4,
+      delay: 100,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 5,
+      scroll: true,
+      scrollSensitivity: 70,
+      scrollSpeed: 12,
+      onStart: () => {
+        root._pmsDirtyBeforeDrag = S.dirty;
+        document.body.classList.add("pms-sorting");
       },
-      eventOptions,
-    );
-    root.addEventListener(
-      "dragover",
-      (e) => {
-        if (dragging && e.target.closest(selector)) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-        }
-      },
-      eventOptions,
-    );
-    root.addEventListener(
-      "drop",
-      (e) => {
-        const to = e.target.closest(selector);
-        if (dragging && to && to !== dragging) {
-          e.preventDefault();
-          e.stopPropagation();
-          const rows = S.$$(selector, root);
-          onMove(rows.indexOf(dragging), rows.indexOf(to));
+      onEnd: async (event) => {
+        document.body.classList.remove("pms-sorting");
+        const from = event.oldDraggableIndex,
+          to = event.newDraggableIndex;
+        if (from === to || from == null || to == null) return;
+        try {
           S.dirty = true;
+          await onMove(from, to);
+          const moved = S.$$(selector, root)[to];
+          moved?.classList.add("pms-moved");
+          setTimeout(() => moved?.classList.remove("pms-moved"), 850);
+          S.toast(`${from + 1}번째 항목을 ${to + 1}번째 위치로 이동했습니다.`);
+        } catch (error) {
+          S.notice(error.message);
+          S.toast(error.message);
         }
-        dragging = null;
       },
-      eventOptions,
-    );
-    root.addEventListener("dragend", () => (dragging = null), eventOptions);
+    });
   };
   S.dialog = (title, body, { wide = true, foot = "", onClose } = {}) => {
     const el = document.createElement("dialog");
@@ -333,7 +344,7 @@
       };
     });
   S.files = (files, editable = true) =>
-    `<div class="pms-files">${(files || []).map((f, i) => `<div class="pms-file">${f.image ? `<img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy">` : "▤"}<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>${editable && !f.id.startsWith("legacy-") ? `<button type="button" data-remove-file="${i}" class="pms-remove">×</button>` : ""}</div>`).join("")}</div>${editable ? '<div class="pms-drop" tabindex="0" role="button">파일 선택 또는 이곳에 드래그 · 여러 개 가능<input type="file" multiple hidden accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.zip,.hwp,.hwpx"></div>' : ""}`;
+    `<div class="pms-files">${(files || []).map((f, i) => `<div class="pms-file">${f.image ? `<img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy">` : "▤"}<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>${editable ? `<button type="button" data-remove-file="${i}" class="pms-remove">×</button>` : ""}</div>`).join("")}</div>${editable ? '<div class="pms-drop" tabindex="0" role="button">파일 선택 또는 이곳에 드래그 · 여러 개 가능<input type="file" multiple hidden accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.zip,.hwp,.hwpx"></div>' : ""}`;
   S.fileEvents = (
     root,
     files,
@@ -433,80 +444,6 @@
           input.type === "number" ? Number(input.value) : input.value;
     });
     return { choices: [], fields };
-  };
-  S.guide = (mode) => {
-    const steps =
-      mode === "process"
-        ? [
-            [
-              "질문 순서부터 정합니다",
-              "왼쪽 질문을 끌어 위아래로 배치합니다. 조건은 앞 질문에서 뒤 질문으로만 연결됩니다.",
-            ],
-            [
-              "각 질문의 입력·보기를 등록합니다",
-              "숫자형은 W/H/D 같은 필드를 +로 추가하고 최소·최대·입력 간격을 지정합니다. 선택형은 보기를 직접 추가합니다.",
-            ],
-            [
-              "커스텀 구간을 연결합니다",
-              "캔버스의 + 커스텀을 누르고 W 범위, 선택한 보기 등의 조건을 만듭니다. 구간 카드를 대상 질문으로 끌어 연결하면 표시·건너뜀·허용 보기를 설정할 수 있습니다.",
-            ],
-            [
-              "기본 동작과 경계를 확인합니다",
-              "조건이 없을 때 표시/숨김을 먼저 정합니다. 모든 범위를 규칙으로 처리하려면 ‘일치 규칙 필수’를 켜고, 경계의 포함 여부를 지정합니다.",
-            ],
-            [
-              "검증 후 등록완료합니다",
-              "실제 입력으로 미리보기하고 검증을 누릅니다. 임시저장은 등록중 상태이며, 검증 통과 후 등록완료해야 고객에게 표시됩니다.",
-            ],
-          ]
-        : [
-            [
-              "그룹·옵션부터 등록합니다",
-              "대분류·중분류·시리즈는 기본그룹입니다. 보기는 직접 등록하며 고객명을 입력하면 다른 표시명도 함께 채워집니다.",
-            ],
-            [
-              "규격과 비규격을 나눕니다",
-              "비규격 그룹은 입력 방식만 정합니다. 제품의 세 기본그룹을 제외한 구성은 모두 규격이거나 모두 비규격이어야 합니다.",
-            ],
-            [
-              "조합과 제품명을 만듭니다",
-              "제품 생성에서 그룹을 끌어 놓고 사용할 보기를 체크합니다. 제품명 구성에서 순서와 구분문자, 괄호 등을 정합니다.",
-            ],
-            [
-              "미리보기 후 등록합니다",
-              "중복 행은 ×로 제거하고 제품명·최초재고·첨부를 확인합니다. 등록 버튼을 누르기 전에는 제품이 저장되지 않습니다.",
-            ],
-            [
-              "제품별로 관리합니다",
-              "규격은 등록 즉시 사용중 또는 재고없음이 됩니다. 비규격은 프로세스를 설정하고 검증을 통과해야 등록완료됩니다.",
-            ],
-          ];
-    let index = 0;
-    const dialog = S.dialog("제품관리 사용 안내", "", {
-      wide: false,
-      foot: '<button data-back>이전</button><button class="primary" data-next>다음</button>',
-    });
-    const paint = () => {
-      S.$(".pms-dialog-body", dialog).innerHTML =
-        `${S.badge(index + 1 + " / " + steps.length, "blue")}<div class="pms-tour-step"><strong>${S.e(steps[index][0])}</strong><p>${S.e(steps[index][1])}</p></div>`;
-      S.$("[data-back]", dialog).disabled = index === 0;
-      S.$("[data-next]", dialog).textContent =
-        index === steps.length - 1 ? "완료" : "다음";
-    };
-    S.$("[data-back]", dialog).onclick = () => {
-      index--;
-      paint();
-    };
-    S.$("[data-next]", dialog).onclick = () => {
-      if (index === steps.length - 1) {
-        localStorage.setItem("pm-studio-tour-" + mode, "1");
-        dialog.close();
-      } else {
-        index++;
-        paint();
-      }
-    };
-    paint();
   };
   window.addEventListener("beforeunload", (e) => {
     if (S.dirty) {

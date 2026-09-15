@@ -6,7 +6,6 @@ import static com.dev.HiddenBATHAuto.service.productmaster.ProductStudioEngine.*
 import com.dev.HiddenBATHAuto.enums.productmaster.*;
 import com.dev.HiddenBATHAuto.model.productmaster.*;
 import com.dev.HiddenBATHAuto.repository.productmaster.*;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +20,6 @@ public class ProductStudioAttributeService {
   private final ProductAttributeGroupRepository groups;
   private final ProductAttributeValueRepository values;
   private final ProductComponentRepository components;
-  private final ProductAttributeService legacy;
-  private final ProductAttributeImageService legacyImages;
   private final ProductStudioAssetService assets;
   private final ProductMasterCodeService codes;
   private final ProductStudioJson json;
@@ -38,9 +35,7 @@ public class ProductStudioAttributeService {
             "기존 " + role + " 역할 그룹이 여러 개입니다. 그룹관리에서 기본으로 사용할 그룹 하나만 해당 역할로 지정해 주세요.");
       if (found.size() == 1) {
         ProductAttributeGroup g = found.get(0);
-        if (!choice(control(g))
-            || g.getSelectionMode() != ProductAttributeSelectionMode.SINGLE
-            || g.isNonStandard())
+        if (!choice(control(g)) || control(g) != Control.RADIO || g.isNonStandard())
           throw new IllegalStateException(
               "기본그룹의 입력 방식을 규격 하나선택형으로 수정해 주세요: " + g.getManagementLabel());
         if (!role.equals(g.getBaseRole())) {
@@ -79,38 +74,11 @@ public class ProductStudioAttributeService {
   }
 
   public Control control(ProductAttributeGroup g) {
-    if (g.getStudioControl() != null) return Control.valueOf(g.getStudioControl());
-    return switch (g.getInputType()) {
-      case CHOICE, DIMENSION ->
-          g.getSelectionMode() == ProductAttributeSelectionMode.MULTIPLE
-              ? Control.CHECKBOX
-              : Control.RADIO;
-      case NUMBER -> Control.NUMBER;
-      case TEXT -> Control.TEXT;
-    };
+    return Control.valueOf(g.getStudioControl());
   }
 
   public List<Field> fieldsFor(ProductAttributeGroup g) {
-    if (g.getStudioFieldsJson() != null) return json.list(g.getStudioFieldsJson(), Field.class);
-    if (choice(control(g))) return List.of();
-    return List.of(
-        new Field(
-            "legacy",
-            labelsOf(g),
-            g.getCustomerLabel(),
-            true,
-            g.getMinimumValue() != null && g.getMinimumValue().signum() < 0,
-            g.getMinimumValue(),
-            g.getMaximumValue(),
-            g.getStepValue() == null ? BigDecimal.ONE : g.getStepValue(),
-            0,
-            500,
-            "ANY",
-            g.getUnitLabel(),
-            List.of(),
-            0,
-            1,
-            10));
+    return json.list(g.getStudioFieldsJson(), Field.class);
   }
 
   public Labels labelsOf(ProductAttributeGroup g) {
@@ -127,18 +95,6 @@ public class ProductStudioAttributeService {
 
   public GroupView view(ProductAttributeGroup g) {
     List<AssetView> groupAssets = new ArrayList<>(assets.owned("GROUP", g.getId()));
-    legacyImages
-        .getGroupImages(g.getId())
-        .forEach(
-            i ->
-                groupAssets.add(
-                    new AssetView(
-                        "legacy-" + i.id(),
-                        i.originalFilename(),
-                        i.contentType(),
-                        i.fileSize(),
-                        i.contentPath(),
-                        true)));
     List<ValueView> options =
         g.getValues().stream()
             .sorted(
@@ -165,18 +121,6 @@ public class ProductStudioAttributeService {
 
   public ValueView view(ProductAttributeValue v) {
     List<AssetView> files = new ArrayList<>(assets.owned("VALUE", v.getId()));
-    legacyImages
-        .getValueImages(v.getId())
-        .forEach(
-            i ->
-                files.add(
-                    new AssetView(
-                        "legacy-" + i.id(),
-                        i.originalFilename(),
-                        i.contentType(),
-                        i.fileSize(),
-                        i.contentPath(),
-                        true)));
     return new ValueView(
         v.getId(),
         v.getRowVersion(),
@@ -184,7 +128,6 @@ public class ProductStudioAttributeService {
         labelsOf(v),
         namePart(v),
         v.isActive(),
-        v.getDimensionType().name(),
         files);
   }
 
@@ -229,7 +172,11 @@ public class ProductStudioAttributeService {
       if (!g.getValues().isEmpty() && (!choice(request.control()) || request.nonStandard()))
         throw new IllegalArgumentException("보기가 등록된 그룹을 입력형 또는 비규격으로 바꿀 수 없습니다.");
     }
-    Labels l = request.labels();
+    Labels l =
+        new Labels(
+            normalizedLabel(request.labels().customer()),
+            normalizedLabel(request.labels().production()),
+            normalizedLabel(request.labels().management()));
     boolean duplicate =
         request.id() == null
             ? groups.existsByCustomerLabelIgnoreCase(l.customer().trim())
@@ -245,7 +192,6 @@ public class ProductStudioAttributeService {
       g.setGroupCode(codes.newGroupCode());
       g.setCreatedBy(actor);
       g.setSortOrder(groups.findMaxSortOrder() + 10);
-      g.setGroupType(ProductAttributeGroupType.CORE);
     }
     g.setCustomerLabel(l.customer().trim());
     g.setProductionLabel(l.production().trim());
@@ -255,18 +201,6 @@ public class ProductStudioAttributeService {
     g.setStudioControl(request.control().name());
     g.setNonStandard(request.nonStandard());
     g.setIncludeInName(request.includeInName());
-    g.setSelectionMode(
-        request.control() == Control.CHECKBOX
-            ? ProductAttributeSelectionMode.MULTIPLE
-            : ProductAttributeSelectionMode.SINGLE);
-    // Legacy enum retains its existing values; Studio's uniform control is stored separately.
-    if (g.getInputType() != ProductAttributeInputType.DIMENSION)
-      g.setInputType(
-          choice(request.control())
-              ? ProductAttributeInputType.CHOICE
-              : request.control() == Control.NUMBER
-                  ? ProductAttributeInputType.NUMBER
-                  : ProductAttributeInputType.TEXT);
     g.setStudioFieldsJson(json.write(request.nonStandard() ? List.of() : list(request.fields())));
     g.setQuestionText(text(request.question()));
     g.setCustomerGuide(text(request.guide()));
@@ -284,6 +218,24 @@ public class ProductStudioAttributeService {
       throw new IllegalArgumentException("비규격 보기는 해당 제품의 프로세스에서 등록해 주세요. 입력형에는 보기를 등록할 수 없습니다.");
     if (requests == null || requests.isEmpty() || requests.size() > 200)
       throw new IllegalArgumentException("보기는 한 번에 1~200개까지 등록합니다.");
+    Set<Long> requestedIds = new HashSet<>();
+    List<Labels> pendingLabels = new ArrayList<>();
+    for (ValueEdit item : requests) {
+      if (item == null) throw new IllegalArgumentException("빈 보기입니다.");
+      labels(item.labels(), 120);
+      if (item.id() != null && !requestedIds.add(item.id()))
+        throw new IllegalArgumentException("보기 ID가 중복됩니다.");
+      pendingLabels.add(item.labels());
+    }
+    for (ProductAttributeValue existing : g.getValues()) {
+      if (!requestedIds.contains(existing.getId()))
+        pendingLabels.add(
+            new Labels(
+                existing.getCustomerLabel(),
+                existing.getProductionLabel(),
+                existing.getManagementLabel()));
+    }
+    uniqueLabels(pendingLabels, "같은 그룹의 보기");
     Set<Long> ids = new HashSet<>();
     List<ValueView> result = new ArrayList<>();
     int order = values.findMaxSortOrderByGroupId(groupId);
@@ -303,7 +255,11 @@ public class ProductStudioAttributeService {
           throw new IllegalArgumentException("보기 ID가 중복되었거나 다른 그룹의 보기입니다.");
         version(request.version(), v.getRowVersion());
       }
-      Labels l = request.labels();
+      Labels l =
+          new Labels(
+              normalizedLabel(request.labels().customer()),
+              normalizedLabel(request.labels().production()),
+              normalizedLabel(request.labels().management()));
       boolean duplicate =
           request.id() == null
               ? values.existsByGroupIdAndCustomerLabelIgnoreCase(groupId, l.customer().trim())
@@ -323,7 +279,6 @@ public class ProductStudioAttributeService {
         v.setValueCode(codes.newValueCode());
         v.setCreatedBy(actor);
         v.setSortOrder(order += 10);
-        v.setDimensionType(ProductDimensionType.NONE);
       }
       v.setCustomerLabel(l.customer().trim());
       v.setProductionLabel(l.production().trim());
@@ -344,30 +299,61 @@ public class ProductStudioAttributeService {
     ProductAttributeGroup g = require(id);
     if (BASE.contains(g.getSystemRole().name()))
       throw new IllegalArgumentException("기본그룹은 삭제할 수 없습니다.");
-    legacy.deleteGroup(id);
+    if (components.existsByGroupId(id))
+      throw new IllegalStateException("제품에서 사용하는 그룹은 삭제할 수 없습니다. 비활성화를 사용해 주세요.");
+    for (ProductAttributeValue value : new ArrayList<>(g.getValues()))
+      assets.attach("VALUE", value.getId(), List.of(), actor);
     assets.attach("GROUP", id, List.of(), actor);
+    groups.delete(g);
+    groups.flush();
   }
 
   @Transactional
   public void deleteValue(Long id, String actor) {
-    legacy.deleteValue(id);
+    ProductAttributeValue value =
+        values
+            .findWithGroupById(id)
+            .orElseThrow(() -> new NoSuchElementException("보기를 찾을 수 없습니다."));
+    if (components.existsByValueId(id))
+      throw new IllegalStateException("제품에서 사용하는 보기는 삭제할 수 없습니다. 비활성화를 사용해 주세요.");
     assets.attach("VALUE", id, List.of(), actor);
+    value.getGroup().removeValue(value);
+    values.delete(value);
+    values.flush();
   }
 
   @Transactional
   public List<GroupView> reorderGroups(List<Long> ids, String actor) {
-    legacy.reorderGroups(
-        new com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.ReorderRequest(ids), actor);
+    List<ProductAttributeGroup> all = groups.findAllByOrderBySortOrderAscIdAsc();
+    validateOrder(ids, all.stream().map(ProductAttributeGroup::getId).toList());
+    for (int i = 0; i < ids.size(); i++) {
+      ProductAttributeGroup g = require(ids.get(i));
+      g.setSortOrder(i * 10);
+      g.setUpdatedBy(actor);
+    }
+    groups.flush();
     return catalog();
   }
 
   @Transactional
   public GroupView reorderValues(Long id, List<Long> ids, String actor) {
-    legacy.reorderValues(
-        id,
-        new com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.ReorderRequest(ids),
-        actor);
-    return view(require(id));
+    ProductAttributeGroup group = require(id);
+    validateOrder(ids, group.getValues().stream().map(ProductAttributeValue::getId).toList());
+    for (int i = 0; i < ids.size(); i++) {
+      ProductAttributeValue v = values.findById(ids.get(i)).orElseThrow();
+      v.setSortOrder(i * 10);
+      v.setUpdatedBy(actor);
+    }
+    values.flush();
+    return view(group);
+  }
+
+  private void validateOrder(List<Long> ids, List<Long> expected) {
+    if (ids == null
+        || ids.size() != expected.size()
+        || new HashSet<>(ids).size() != ids.size()
+        || !new HashSet<>(ids).equals(new HashSet<>(expected)))
+      throw new IllegalArgumentException("순서에 모든 항목을 한 번씩 포함해야 합니다. 목록을 새로고침해 주세요.");
   }
 
   public static void version(Long requested, long actual) {

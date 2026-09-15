@@ -1,11 +1,5 @@
 (function (S) {
   "use strict";
-  S.dimensionText = (inputs) => {
-    const parts = Object.entries({ widthMm: "W", heightMm: "H", depthMm: "D" })
-      .filter(([key]) => inputs?.[key] != null)
-      .map(([key, label]) => label + inputs[key]);
-    return parts.length ? " " + parts.join("×") : "";
-  };
   S.nameText = function (groups, tokens) {
     let result = "";
     for (const token of tokens) {
@@ -17,7 +11,7 @@
         part = (row.valueIds || [])
           .map((id) => {
             const part = g.values.find((v) => v.id === id)?.namePart ?? "";
-            return part.trim() ? part + S.dimensionText(row.inputs) : "";
+            return part.trim() ? part : "";
           })
           .filter((x) => x.trim())
           .join("+");
@@ -45,7 +39,7 @@
         .filter(
           (g) => g?.includeInName && !current.some((t) => t.groupId === g.id),
         );
-      body.innerHTML = `<div class="pms-help">구성요소를 끌어 순서를 바꾸고 각 요소 앞의 구분문자, 요소의 앞·뒤 문자를 지정합니다. 공백은 스페이스로 입력합니다. 구성 문자가 빈 옵션은 구분문자와 괄호까지 함께 생략합니다.</div><div class="pms-split"><section class="pms-panel"><div class="pms-panel-title"><h2>사용 가능한 요소</h2></div><div class="pms-palette">${candidates.map((g) => `<div class="pms-palette-item" draggable="true" data-name-add="${g.id}">${S.e(g.labels.management)} <button data-add-token="${g.id}">+</button></div>`).join("") || "<small>모든 요소가 사용 중입니다.</small>"}</div></section><section><div class="pms-token-list" id="pms-name-tokens">${current.map((t, i) => `<div class="pms-token" draggable="true" data-token-index="${i}"><span class="pms-handle">⠿</span><strong>${S.e(S.group(t.groupId)?.labels.management)}</strong>${S.field("앞 구분문자", "tokens." + i + ".before", t.before)}${S.field("요소 앞 문자", "tokens." + i + ".prefix", t.prefix)}${S.field("요소 뒤 문자", "tokens." + i + ".suffix", t.suffix)}<button data-remove-token="${i}" class="pms-remove">×</button></div>`).join("")}</div><div class="pms-section"><small>현재 선택의 첫 번째 조합 예시</small><div id="pms-name-sample" class="pms-name-preview"></div></div></section></div><div class="pms-actions pms-section"><button class="primary" id="pms-save-tokens">구성 적용</button></div>`;
+      body.innerHTML = `<div class="pms-help">구성요소를 끌어 순서를 바꾸고 각 요소 앞의 구분문자, 요소의 앞·뒤 문자를 지정합니다. 공백은 스페이스로 입력합니다. 구성 문자가 빈 옵션은 구분문자와 괄호까지 함께 생략합니다.</div><div class="pms-split"><section class="pms-panel"><div class="pms-panel-title"><h2>사용 가능한 요소</h2></div><div class="pms-palette">${candidates.map((g) => `<div class="pms-palette-item" draggable="true" data-name-add="${g.id}">${S.e(g.labels.management)} <button data-add-token="${g.id}">+</button></div>`).join("") || "<small>모든 요소가 사용 중입니다.</small>"}</div></section><section><div class="pms-token-list" id="pms-name-tokens">${current.map((t, i) => `<div class="pms-token" data-token-index="${i}"><span class="pms-handle">⠿</span><strong>${S.e(S.group(t.groupId)?.labels.management)}</strong>${S.field("앞 구분문자", "tokens." + i + ".before", t.before)}${S.field("요소 앞 문자", "tokens." + i + ".prefix", t.prefix)}${S.field("요소 뒤 문자", "tokens." + i + ".suffix", t.suffix)}<button data-remove-token="${i}" class="pms-remove">×</button></div>`).join("")}</div><div class="pms-section"><small>현재 선택의 첫 번째 조합 예시</small><div id="pms-name-sample" class="pms-name-preview"></div></div></section></div><div class="pms-actions pms-section"><button class="primary" id="pms-save-tokens">구성 적용</button></div>`;
       const sample = () => {
         S.$("#pms-name-sample", body).textContent =
           S.nameText(
@@ -226,7 +220,7 @@
       lane.innerHTML = selected
         .map((r, i) => {
           const g = S.group(r.groupId);
-          return `<article class="pms-card" draggable="true" data-selected-group="${g.id}"><div class="pms-card-head"><span class="pms-handle">⠿</span><strong>${i + 1}. ${S.e(g.labels.management)}</strong>${S.isBase(g) ? S.badge("필수", "blue") : S.badge(g.nonStandard ? "비규격" : "규격", g.nonStandard ? "amber" : "")}<div class="grow"></div><button data-up="${i}" ${i === 0 ? "disabled" : ""} title="위로">↑</button><button data-down="${i}" ${i === selected.length - 1 ? "disabled" : ""} title="아래로">↓</button>${!S.isBase(g) ? `<button data-remove-group="${g.id}" class="pms-remove">×</button>` : ""}</div>${
+          return `<article class="pms-card" data-selected-group="${g.id}"><div class="pms-card-head"><span class="pms-handle">⠿</span><strong>${i + 1}. ${S.e(g.labels.management)}</strong>${S.isBase(g) ? S.badge("필수", "blue") : S.badge(g.nonStandard ? "비규격" : "규격", g.nonStandard ? "amber" : "")}<div class="grow"></div><button data-up="${i}" ${i === 0 ? "disabled" : ""} title="위로">↑</button><button data-down="${i}" ${i === selected.length - 1 ? "disabled" : ""} title="아래로">↓</button>${!S.isBase(g) ? `<button data-remove-group="${g.id}" class="pms-remove">×</button>` : ""}</div>${
             g.nonStandard
               ? `<div class="pms-help">${S.e(S.controls[g.control])} · 제품 생성 후 비규격 프로세스에서 상세 설정</div>`
               : S.isChoice(g.control)
@@ -236,9 +230,7 @@
                       (v) =>
                         `<label class="pms-check" title="고객: ${S.e(v.labels.customer)} / 생산: ${S.e(v.labels.production)} / 관리: ${S.e(v.labels.management)}"><input type="${detail && g.control === "RADIO" ? "radio" : "checkbox"}" name="variant-${g.id}" data-value-group="${g.id}" value="${v.id}" ${r.valueIds.includes(v.id) ? "checked" : ""}>${S.e(v.labels.management)}${!v.active ? " (비활성)" : ""}</label>`,
                     )
-                    .join(
-                      "",
-                    )}</div>${g.values.some((v) => r.valueIds.includes(v.id) && ["WIDTH_HEIGHT", "WIDTH_DEPTH_HEIGHT"].includes(v.dimensionType)) ? `<div class="pms-form-grid pms-section">${["widthMm", "heightMm", ...(g.values.some((v) => r.valueIds.includes(v.id) && v.dimensionType === "WIDTH_DEPTH_HEIGHT") ? ["depthMm"] : [])].map((key) => `<label><span>${{ widthMm: "W", heightMm: "H", depthMm: "D" }[key]} (기존 치수형)</span><input type="number" min="1" max="100000" data-fixed-input="${g.id}:${key}" value="${S.e(r.inputs[key])}"></label>`).join("")}</div>` : ""}`
+                    .join("")}</div>`
                 : `<div class="pms-section" data-fixed-fields="${g.id}">${S.inputAnswer({ key: g.key, control: g.control, fields: g.fields }, { fields: r.inputs })}</div>`
           }</article>`;
         })
@@ -253,23 +245,8 @@
               `[data-value-group="${r.groupId}"]:checked`,
               lane,
             ).map((x) => Number(x.value));
-            const dimensions = S.group(r.groupId).values.filter((v) =>
-              r.valueIds.includes(v.id),
-            );
-            if (
-              !dimensions.some((v) =>
-                ["WIDTH_HEIGHT", "WIDTH_DEPTH_HEIGHT"].includes(
-                  v.dimensionType,
-                ),
-              )
-            )
-              r.inputs = {};
-            else if (
-              !dimensions.some((v) => v.dimensionType === "WIDTH_DEPTH_HEIGHT")
-            )
-              delete r.inputs.depthMm;
             S.dirty = true;
-            paint();
+            paintSummary();
           }),
       );
       S.$$("[data-toggle-all]", lane).forEach(
@@ -389,9 +366,7 @@
               ...model,
               variants: selected,
               nameTokens: tokens,
-              assetIds: productFiles
-                .filter((f) => !f.id.startsWith("legacy-"))
-                .map((f) => f.id),
+              assetIds: productFiles.map((f) => f.id),
             });
             product = saved;
             S.dirty = false;
@@ -427,9 +402,9 @@
       S.$("[data-save-stock]", dialog).onclick = (e) =>
         S.run(e.currentTarget, async () => {
           await S.api(
-            `/admin/api/product-master/products/${product.id}/stock-movements`,
+            `/admin/api/product-master/studio/products/${product.id}/stock`,
             "POST",
-            { ...state, addonQuantities: [] },
+            state,
           );
           product = await S.request("/products/" + product.id);
           dialog.close();
@@ -520,7 +495,7 @@
                   options = v.valueIds.map((id) =>
                     g.values.find((o) => o.id === id),
                   );
-                return `<tr><td>${S.e(g.labels.management)}</td>${["customer", "production", "management"].map((a) => `<td>${S.e((options.length ? options.map((o) => o.labels[a]).join("+") + S.dimensionText(v.inputs) : "") || (g.nonStandard ? "고객 커스텀" : Object.values(v.inputs).join("*")))}</td>`).join("")}</tr>`;
+                return `<tr><td>${S.e(g.labels.management)}</td>${["customer", "production", "management"].map((a) => `<td>${S.e((options.length ? options.map((o) => o.labels[a]).join("+") : "") || (g.nonStandard ? "고객 커스텀" : Object.values(v.inputs).join("*")))}</td>`).join("")}</tr>`;
               })
               .join(
                 "",
@@ -625,15 +600,20 @@
       page: 0,
       size: 50,
     };
-    root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${custom ? "비규격" : "규격"} 제품 목록</h2><small>같은 그룹의 선택은 OR, 서로 다른 그룹은 AND 조건입니다.</small></div><a class="pms-button" href="/admin/product-master/products/new">+ 제품 생성</a></div><div class="pms-panel-body"><div class="pms-form-grid four"><label><span>제품명 검색</span><input id="pms-keyword" maxlength="160" placeholder="제품명 일부"></label><label><span>상태</span><select id="pms-status"><option value="">전체</option>${Object.entries(
+    root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${custom ? "비규격" : "규격"} 제품 목록</h2><small>같은 그룹의 선택은 OR, 서로 다른 그룹은 AND 조건입니다.</small></div><a class="pms-button" href="/admin/product-master/products/new">+ 제품 생성</a></div><div class="pms-panel-body"><div class="pms-search-grid"><label><span>제품명 검색</span><input id="pms-keyword" maxlength="160" placeholder="제품명 일부"></label><label><span>상태</span><select id="pms-status"><option value="">전체</option>${Object.entries(
       S.status,
     )
       .filter(([k]) => custom || k !== "DRAFT")
       .map(([k, v]) => `<option value="${k}">${v}</option>`)
       .join(
         "",
-      )}</select></label><div class="pms-row"><button class="primary" id="pms-search">조회</button><button id="pms-reset">초기화</button><button id="pms-advanced">고급검색</button></div><label><span>페이지 크기</span><select id="pms-page-size"><option>20</option><option selected>50</option><option>100</option><option>200</option></select></label></div><div id="pms-basic-filters">${S.groups
+      )}</select></label><div class="pms-search-actions"><button class="primary" id="pms-search">조회</button><button id="pms-reset">초기화</button><button id="pms-advanced">고급검색</button></div><label><span>페이지 크기</span><select id="pms-page-size"><option>20</option><option selected>50</option><option>100</option><option>200</option></select></label></div><div id="pms-basic-filters">${S.groups
       .filter(S.isBase)
+      .sort(
+        (a, b) =>
+          ["CATEGORY", "SUBCATEGORY", "SERIES"].indexOf(a.role) -
+          ["CATEGORY", "SUBCATEGORY", "SERIES"].indexOf(b.role),
+      )
       .map((g) => filterGroup(g))
       .join(
         "",
@@ -737,7 +717,7 @@
       try {
         const data = await S.request("/products/search", "POST", filter);
         filter.page = data.page;
-        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small></div><div class="pms-table-scroll"><table><thead><tr><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>재고</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td>${p.id}</td><td><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div>${p.legacy ? S.badge("기존 제품") : ""}</td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td></tr>`).join("") || '<tr><td colspan="7"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>'}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
+        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small></div><div class="pms-table-scroll"><table><thead><tr><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>재고</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td>${p.id}</td><td><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td></tr>`).join("") || '<tr><td colspan="7"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>'}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
         S.$$("[data-open]", content).forEach((tr) => {
           tr.onclick = () =>
             (location.href =

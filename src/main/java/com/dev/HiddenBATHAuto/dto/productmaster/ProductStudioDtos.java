@@ -81,7 +81,6 @@ public final class ProductStudioDtos {
       Labels labels,
       String namePart,
       boolean active,
-      String dimensionType,
       List<AssetView> assets) {}
 
   public record GroupView(
@@ -216,8 +215,7 @@ public final class ProductStudioDtos {
       Process process,
       List<AssetView> assets,
       List<AssetView> processAssets,
-      List<GroupView> groups,
-      boolean legacy) {}
+      List<GroupView> groups) {}
 
   public record InputFilter(
       Long groupId, String fieldKey, BigDecimal min, BigDecimal max, String contains) {}
