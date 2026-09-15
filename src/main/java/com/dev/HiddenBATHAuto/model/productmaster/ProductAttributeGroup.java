@@ -35,6 +35,7 @@ import lombok.Setter;
 @Table(
         name = "tb_pm_attribute_group",
         uniqueConstraints = {
+                @UniqueConstraint(name = "uk_pm_base_role", columnNames = "base_role"),
                 @UniqueConstraint(name = "uk_pm_group_code", columnNames = "group_code"),
                 @UniqueConstraint(name = "uk_pm_group_customer_label", columnNames = "customer_label"),
                 @UniqueConstraint(name = "uk_pm_group_management_label", columnNames = "management_label"),
@@ -119,6 +120,21 @@ public class ProductAttributeGroup {
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC, id ASC")
     private List<ProductAttributeValue> values = new ArrayList<>();
+
+    @Column(name = "base_role", length = 30)
+    private String baseRole;
+
+    @Column(name = "studio_control", length = 20)
+    private String studioControl;
+
+    @Column(name = "non_standard", nullable = false, columnDefinition = "boolean default false")
+    private boolean nonStandard;
+
+    @Column(name = "include_in_name", nullable = false, columnDefinition = "boolean default true")
+    private boolean includeInName = true;
+
+    @Column(name = "studio_fields_json", columnDefinition = "LONGTEXT")
+    private String studioFieldsJson;
 
     @Column(name = "created_by", nullable = false, length = 100, updatable = false)
     private String createdBy;

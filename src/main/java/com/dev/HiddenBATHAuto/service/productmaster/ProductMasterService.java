@@ -232,6 +232,9 @@ public class ProductMasterService {
         String normalizedActor = normalizeActor(actor);
         ProductMaster product = productRepository.findForUpdate(productId)
                 .orElseThrow(() -> new java.util.NoSuchElementException("제품을 찾을 수 없습니다."));
+        if (product.getStudioDefinitionJson() != null) {
+            throw new IllegalStateException("이 제품은 새 제품관리 상세 화면에서 수정해 주세요.");
+        }
         verifyVersion(request.rowVersion(), product.getRowVersion(), "제품");
         String productName = requiredText(request.productName(), "제품명", 160);
         if (productRepository.existsByProductNameIgnoreCaseAndIdNot(productName, productId)) {
@@ -401,6 +404,11 @@ public class ProductMasterService {
                 .count();
         if (coreCount == 0) {
             throw new IllegalArgumentException("제품 재고 정체성을 결정할 핵심 구성요소가 하나 이상 필요합니다.");
+        }
+        for (ProductAttributeRole role : List.of(ProductAttributeRole.SUBCATEGORY, ProductAttributeRole.SERIES)) {
+            if (resolved.stream().filter(item -> item.group().getSystemRole() == role).count() != 1) {
+                throw new IllegalArgumentException("제품에는 대분류·중분류·시리즈를 각각 하나씩 선택해야 합니다.");
+            }
         }
         if (categoryCount != 1) {
             throw new IllegalArgumentException("제품에는 핵심 구성요소인 대분류 값을 정확히 하나 선택해야 합니다.");

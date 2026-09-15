@@ -19,188 +19,114 @@ import com.dev.HiddenBATHAuto.utils.SimpleXlsxWriter;
 @Service
 public class CustomerExcelExportService {
 
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy/MM/dd");
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
+	private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+	private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
-    public byte[] buildAsListWorkbook(List<AsListRow> rows, List<String> filterDescriptions) {
-        List<String> headers = List.of(
-                "AS ID",
-				"계정 신청자",
-                "고객명",
-                "현장 연락처",
-                "제품정보",
-                "AS 증상 제목",
-                "AS 담당사원",
-                "담당자 연락처",
-                "신청일",
-                "방문예정일",
-                "처리일",
-                "금액",
-                "유/무상",
-                "상태",
-                "신청자명",
-                "신청자 연락처",
-                "신청자 이메일",
-                "납품일자",
-                "비용 청구 주체",
-                "주소",
-                "상세 증상"
-        );
+	public byte[] buildAsListWorkbook(List<AsListRow> rows, List<String> filterDescriptions) {
+		List<String> headers = List.of("AS ID", "계정 신청자", "고객명", "현장 연락처", "제품정보", "AS 증상 제목", "AS 담당사원", "담당자 연락처",
+				"신청일", "방문예정일", "처리일", "금액", "유/무상", "상태", "신청자명", "신청자 연락처", "신청자 이메일", "납품일자", "비용 청구 주체", "주소",
+				"상세 증상");
 
-        List<List<String>> data = new ArrayList<>();
-        for (AsListRow row : rows) {
-            AsTask task = row.getAsTask();
-            data.add(List.of(
-                    text(task.getId()),
-					text(row.getRequesterName()),
-                    text(task.getCustomerName()),
-                    text(task.getOnsiteContact()),
-                    text(row.getProductInfo()),
-                    text(task.getSubject()),
-                    text(row.getHandlerName()),
-                    text(row.getHandlerContact()),
-                    formatDateTimeDate(task.getRequestedAt()),
-                    formatScheduled(row.getScheduledDate(), task.getVisitPlannedTime()),
-                    formatDateTimeDate(task.getAsProcessDate()),
-                    formatMoney(task.getPrice()),
-                    task.getPrice() > 0 ? "유상" : "무상",
-                    task.getStatus() != null ? task.getStatus().getLabelKr() : "-",
-                    text(task.getApplicantName()),
-                    text(task.getApplicantPhone()),
-                    text(task.getApplicantEmail()),
-                    formatDate(task.getPurchaseDate()),
-                    task.getBillingTarget() != null ? task.getBillingTarget().getLabelKr() : "-",
-                    joinAddress(task.getRoadAddress(), task.getDetailAddress()),
-                    text(task.getReason())
-            ));
-        }
+		List<List<String>> data = new ArrayList<>();
+		for (AsListRow row : rows) {
+			AsTask task = row.getAsTask();
+			data.add(List.of(text(task.getId()), text(row.getRequesterName()), text(task.getCustomerName()),
+					text(task.getOnsiteContact()), text(row.getProductInfo()), text(task.getSubject()),
+					text(row.getHandlerName()), text(row.getHandlerContact()),
+					formatDateTimeDate(task.getRequestedAt()),
+					formatScheduled(row.getScheduledDate(), task.getVisitPlannedTime()),
+					formatDateTimeDate(task.getAsProcessDate()), formatMoney(task.getPrice()),
+					task.getPrice() > 0 ? "유상" : "무상", task.getStatus() != null ? task.getStatus().getLabelKr() : "-",
+					text(task.getApplicantName()), text(task.getApplicantPhone()), text(task.getApplicantEmail()),
+					formatDate(task.getPurchaseDate()),
+					task.getBillingTarget() != null ? task.getBillingTarget().getLabelKr() : "-",
+					joinAddress(task.getRoadAddress(), task.getDetailAddress()), text(task.getReason())));
+		}
 
-		double[] widths = {
-				10, 14, 14, 16, 34, 28, 14, 16, 13, 19, 13,
-				15, 10, 12, 14, 16, 25, 13, 16, 42, 48
-        };
+		double[] widths = { 10, 14, 14, 16, 34, 28, 14, 16, 13, 19, 13, 15, 10, 12, 14, 16, 25, 13, 16, 42, 48 };
 
-        return SimpleXlsxWriter.write(
-                "AS 목록",
-                "AS 신청 목록",
-                filterDescriptions,
-                headers,
-                data,
-                widths);
-    }
+		return SimpleXlsxWriter.write("AS 목록", "AS 신청 목록", filterDescriptions, headers, data, widths);
+	}
 
-    public byte[] buildTaskListWorkbook(List<TaskListRow> rows, List<String> filterDescriptions) {
-        List<String> headers = List.of(
-                "Task ID",
-				"신청자",
-                "주문자명",
-                "총 오더수",
-                "카테고리 구성",
-                "배송수단",
-                "배송지",
-                "발주일",
-                "배송예정일",
-                "단가(VAT 제외)",
-				"제품합계(VAT 포함)",
-				"포장비(Task당 1회)",
-				"배송비(Task당 1회)",
-				"최종합계",
-                "오더 상태",
-				"배송담당자"
-        );
+	public byte[] buildTaskListWorkbook(List<TaskListRow> rows, List<String> filterDescriptions) {
+		List<String> headers = List.of("Task ID", "신청자", "주문자명", "총 오더수", "카테고리 구성", "배송수단", "배송지", "발주일", "배송예정일",
+				"단가(VAT 제외)", "제품합계(VAT 포함)", "포장비(Task당 1회)", "배송비(Task당 1회)", "최종합계", "오더 상태", "배송담당자");
 
-        List<List<String>> data = new ArrayList<>();
-        for (TaskListRow row : rows) {
-            data.add(List.of(
-                    text(row.getTask().getId()),
-					text(row.getRequesterName()),
-                    text(row.getOrdererName()),
-                    row.getOrderCount() + "건",
-                    categorySummary(row.getOrderSummaries()),
-                    text(row.getDeliveryMethodName()),
-                    text(row.getDeliveryAddress()),
-                    formatDateTimeDate(row.getTask().getCreatedAt()),
-                    formatDateTimeDate(row.getDeliveryDate()),
-                    formatMoney(row.getSupplyPrice()),
-                    formatMoney(row.getVatIncludedTotalPrice()),
-					formatMoney(row.getPackingCost()),
-					formatMoney(row.getDeliveryCost()),
-					formatMoney(row.getGrandTotalPrice()),
-                    text(row.getStatusLabel()),
-					text(row.getDeliveryHandlerName())
-            ));
-        }
+		List<List<String>> data = new ArrayList<>();
+		for (TaskListRow row : rows) {
+			data.add(List.of(text(row.getTask().getId()), text(row.getRequesterName()), text(row.getOrdererName()),
+					row.getOrderCount() + "건", categorySummary(row.getOrderSummaries()),
+					text(row.getDeliveryMethodName()), text(row.getDeliveryAddress()),
+					formatDateTimeDate(row.getTask().getCreatedAt()), formatDateTimeDate(row.getDeliveryDate()),
+					formatMoney(row.getSupplyPrice()), formatMoney(row.getVatIncludedTotalPrice()),
+					formatMoney(row.getPackingCost()), formatMoney(row.getDeliveryCost()),
+					formatMoney(row.getGrandTotalPrice()), text(row.getStatusLabel()),
+					text(row.getDeliveryHandlerName())));
+		}
 
 		double[] widths = { 11, 14, 14, 11, 80, 15, 46, 13, 13, 18, 18, 17, 17, 18, 15, 16 };
 
-        return SimpleXlsxWriter.write(
-                "발주 목록",
-                "고객 발주 목록",
-                filterDescriptions,
-                headers,
-                data,
-                widths,
-                true);
-    }
+		return SimpleXlsxWriter.write("발주 목록", "고객 발주 목록", filterDescriptions, headers, data, widths, true);
+	}
 
-    private String categorySummary(List<TaskOrderSummary> summaries) {
-        if (summaries == null || summaries.isEmpty()) {
-            return "-";
-        }
-        List<String> lines = new ArrayList<>();
-        for (TaskOrderSummary item : summaries) {
-            if (item == null) continue;
-            List<String> parts = new ArrayList<>();
-            parts.add(text(item.getCategoryName()));
-            parts.add("색상 : " + text(item.getColor()));
-            parts.add("사이즈 : " + text(item.getSize()));
-            if (StringUtils.hasText(item.getProductName()) && !"-".equals(item.getProductName())) {
-                parts.add("제품명 : " + item.getProductName());
-            }
-            if (StringUtils.hasText(item.getOptionText())) {
-                parts.add(item.getOptionText());
-            }
-            // 목록/상세와 동일한 Order.quantity를 사용하며 음수와 0도 그대로 출력합니다.
-            parts.add("수량 : " + item.getQuantity() + "개");
-            lines.add(String.join(" / ", parts));
-        }
-        return lines.isEmpty() ? "-" : String.join("\n", lines);
-    }
+	private String categorySummary(List<TaskOrderSummary> summaries) {
+		if (summaries == null || summaries.isEmpty()) {
+			return "-";
+		}
 
-    private String formatScheduled(LocalDate date, LocalTime time) {
-        if (date == null) {
-            return "-";
-        }
-        if (time == null) {
-            return date.format(DATE);
-        }
-        return date.format(DATE) + " " + time.format(TIME);
-    }
+		List<String> lines = new ArrayList<>();
 
-    private String formatDateTimeDate(LocalDateTime dateTime) {
-        return dateTime == null ? "-" : dateTime.toLocalDate().format(DATE);
-    }
+		for (TaskOrderSummary item : summaries) {
+			if (item == null) {
+				continue;
+			}
 
-    private String formatDate(LocalDate date) {
-        return date == null ? "-" : date.format(DATE);
-    }
+			List<String> parts = new ArrayList<>();
+			parts.add("제품명 : " + text(item.getProductName()));
+			parts.add("사이즈 : " + text(item.getSize()));
+			parts.add("색상 : " + text(item.getColor()));
+			parts.add("수량 : " + item.getQuantity() + "개");
 
-    private String formatMoney(long value) {
-        return String.format("%,d원", value);
-    }
+			lines.add(String.join(" / ", parts));
+		}
 
-    private String joinAddress(String road, String detail) {
-        String left = StringUtils.hasText(road) ? road.trim() : "";
-        String right = StringUtils.hasText(detail) ? detail.trim() : "";
-        String joined = (left + " " + right).trim();
-        return joined.isEmpty() ? "-" : joined;
-    }
+		return lines.isEmpty() ? "-" : String.join("\n", lines);
+	}
 
-    private String text(Object value) {
-        if (value == null) {
-            return "-";
-        }
-        String text = String.valueOf(value).trim();
-        return text.isEmpty() ? "-" : text;
-    }
+	private String formatScheduled(LocalDate date, LocalTime time) {
+		if (date == null) {
+			return "-";
+		}
+		if (time == null) {
+			return date.format(DATE);
+		}
+		return date.format(DATE) + " " + time.format(TIME);
+	}
+
+	private String formatDateTimeDate(LocalDateTime dateTime) {
+		return dateTime == null ? "-" : dateTime.toLocalDate().format(DATE);
+	}
+
+	private String formatDate(LocalDate date) {
+		return date == null ? "-" : date.format(DATE);
+	}
+
+	private String formatMoney(long value) {
+		return String.format("%,d원", value);
+	}
+
+	private String joinAddress(String road, String detail) {
+		String left = StringUtils.hasText(road) ? road.trim() : "";
+		String right = StringUtils.hasText(detail) ? detail.trim() : "";
+		String joined = (left + " " + right).trim();
+		return joined.isEmpty() ? "-" : joined;
+	}
+
+	private String text(Object value) {
+		if (value == null) {
+			return "-";
+		}
+		String text = String.valueOf(value).trim();
+		return text.isEmpty() ? "-" : text;
+	}
 }

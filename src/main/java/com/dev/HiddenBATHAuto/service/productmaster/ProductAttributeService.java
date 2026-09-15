@@ -99,6 +99,7 @@ public class ProductAttributeService {
             String actor
     ) {
         ProductAttributeGroup group = requireGroup(groupId);
+        if (group.getStudioControl() != null) throw new IllegalStateException("새 그룹관리 화면에서 이 그룹을 수정해 주세요.");
         verifyVersion(request.rowVersion(), group.getRowVersion(), "옵션 그룹");
         validateGroupStructure(request, group);
         validateGroupLabels(request, groupId);
@@ -132,6 +133,7 @@ public class ProductAttributeService {
     @Transactional
     public void deleteGroup(Long groupId) {
         ProductAttributeGroup group = requireGroup(groupId);
+        if (ProductStudioAttributeService.BASE.contains(group.getSystemRole().name())) throw new IllegalArgumentException("기본그룹은 삭제할 수 없습니다.");
         if (componentRepository.existsByGroupId(groupId)
                 || movementAddonRepository.existsByOptionValue_Group_Id(groupId)
                 || ruleConditionRepository.existsBySourceGroupId(groupId)
@@ -305,7 +307,7 @@ public class ProductAttributeService {
             throw new IllegalArgumentException("대분류와 사이즈 역할은 핵심 구성·하나 선택 방식으로만 등록할 수 있습니다.");
         }
 
-        if (systemRole == ProductAttributeRole.CATEGORY) {
+        if (ProductStudioAttributeService.BASE.contains(systemRole.name())) {
             boolean duplicate = current == null
                     ? groupRepository.existsBySystemRole(systemRole)
                     : groupRepository.existsBySystemRoleAndIdNot(systemRole, current.getId());
@@ -413,6 +415,7 @@ public class ProductAttributeService {
         group.setGroupType(java.util.Objects.requireNonNull(request.groupType(), "그룹 구분이 필요합니다."));
         group.setSelectionMode(java.util.Objects.requireNonNull(request.selectionMode(), "선택 방식이 필요합니다."));
         group.setSystemRole(java.util.Objects.requireNonNull(request.systemRole(), "시스템 역할이 필요합니다."));
+        group.setBaseRole(ProductStudioAttributeService.BASE.contains(request.systemRole().name()) ? request.systemRole().name() : null);
         group.setInputType(java.util.Objects.requireNonNull(request.inputType(), "입력 유형이 필요합니다."));
         group.setQuestionText(optionalText(request.questionText(), 300));
         group.setCustomerGuide(optionalText(request.customerGuide(), 1000));

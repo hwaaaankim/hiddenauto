@@ -15,6 +15,12 @@ import jakarta.persistence.LockModeType;
 public interface ProductMasterRepository
         extends JpaRepository<ProductMaster, Long>, JpaSpecificationExecutor<ProductMaster> {
 
+    java.util.List<ProductMaster> findByStudioIdentityIn(java.util.Collection<String> identities);
+
+    Optional<ProductMaster> findByStudioIdentity(String identity);
+
+    boolean existsByStudioIdentityAndIdNot(String identity, Long id);
+
     boolean existsByProductNameIgnoreCase(String productName);
 
     boolean existsByProductNameIgnoreCaseAndIdNot(String productName, Long id);
