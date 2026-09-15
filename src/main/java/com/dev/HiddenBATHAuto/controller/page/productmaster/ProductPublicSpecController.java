@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 public class ProductPublicSpecController {
 
     private final ProductMasterService productMasterService;
+    private final com.dev.HiddenBATHAuto.repository.productmaster.ProductMasterRepository products;
 
     @GetMapping("/product-spec/{token}")
     public String publicSpecification(
@@ -28,6 +29,14 @@ public class ProductPublicSpecController {
         response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         response.setHeader("Pragma", "no-cache");
         try {
+            var studio = products.findByQrPublicToken(token).orElse(null);
+            if (studio != null && studio.getStudioDefinitionJson() != null) {
+                if (studio.getStatus() != com.dev.HiddenBATHAuto.enums.productmaster.ProductMasterStatus.ACTIVE) {
+                    response.setStatus(HttpStatus.NOT_FOUND.value()); return "error/404";
+                }
+                model.addAttribute("publicToken", token);
+                return "front/productmaster/studioChat";
+            }
             model.addAttribute("product", productMasterService.getPublicProduct(token));
             model.addAttribute("publicToken", token);
             return "front/productmaster/productSpec";

@@ -79,6 +79,7 @@ public class ProductConfigurationEvaluationService {
             boolean adminPreview
     ) {
         ProductMaster product = requireProduct(productId);
+        if (product.getStudioDefinitionJson() != null) throw new IllegalStateException("이 제품은 새 제품별 프로세스 평가를 사용해 주세요.");
         List<ProductAttributeGroup> groups = groupRepository.findAllByOrderBySortOrderAscIdAsc().stream()
                 .filter(group -> group.isActive() || adminPreview)
                 .toList();

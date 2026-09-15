@@ -11,7 +11,25 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 @RequestMapping("/admin/product-master")
 @PreAuthorize("hasRole('ADMIN')")
+@lombok.RequiredArgsConstructor
 public class ProductMasterPageController {
+    private final com.dev.HiddenBATHAuto.service.productmaster.ProductStudioService studio;
+
+    @GetMapping("/legacy/groups")
+    public String legacyGroups() { return "administration/productmaster/groups"; }
+
+    @GetMapping("/legacy/products")
+    public String legacyProducts() { return "administration/productmaster/productList"; }
+
+    @GetMapping("/non-standard")
+    public String custom(Model model) { model.addAttribute("studioMode", "custom"); return "administration/productmaster/studio"; }
+
+    @GetMapping("/products/{productId}/process")
+    public String process(@PathVariable Long productId, Model model) { model.addAttribute("studioMode", "process"); model.addAttribute("productId", productId); return "administration/productmaster/studio"; }
+
+    @GetMapping("/legacy/products/{productId}")
+    public String legacyProduct(@PathVariable Long productId, Model model) { model.addAttribute("productId", productId); model.addAttribute("embedded", false); return "administration/productmaster/productForm"; }
+
 
     @GetMapping
     public String index() {
@@ -19,13 +37,15 @@ public class ProductMasterPageController {
     }
 
     @GetMapping("/groups")
-    public String groups() {
-        return "administration/productmaster/groups";
+    public String groups(Model model) {
+        model.addAttribute("studioMode", "groups");
+        return "administration/productmaster/studio";
     }
 
     @GetMapping("/products")
-    public String products() {
-        return "administration/productmaster/productList";
+    public String products(Model model) {
+        model.addAttribute("studioMode", "standard");
+        return "administration/productmaster/studio";
     }
 
     @GetMapping("/automation")
@@ -36,8 +56,8 @@ public class ProductMasterPageController {
     @GetMapping("/products/new")
     public String createProduct(Model model) {
         model.addAttribute("productId", null);
-        model.addAttribute("embedded", false);
-        return "administration/productmaster/productForm";
+        model.addAttribute("studioMode", "builder");
+        return "administration/productmaster/studio";
     }
 
     @GetMapping("/products/{productId}")
@@ -46,6 +66,10 @@ public class ProductMasterPageController {
             @RequestParam(name = "embedded", defaultValue = "false") boolean embedded,
             Model model
     ) {
+        if (!studio.detail(productId).legacy()) {
+            model.addAttribute("productId", productId); model.addAttribute("studioMode", "detail");
+            return "administration/productmaster/studio";
+        }
         model.addAttribute("productId", productId);
         model.addAttribute("embedded", embedded);
         return "administration/productmaster/productForm";

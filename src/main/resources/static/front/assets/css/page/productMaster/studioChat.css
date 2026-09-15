@@ -1,0 +1,113 @@
+body {
+  background: #f2f4f7;
+  margin: 0;
+}
+.pms-public {
+  max-width: 850px;
+  padding: 24px 16px;
+  margin: 0 auto;
+  font-size: 11px;
+}
+.pms-public #pm-chat-content {
+  padding: 16px;
+}
+.pms-public .pms-bubble {
+  padding: 15px;
+  margin-bottom: 13px;
+}
+.pms-public .pms-bubble > strong {
+  font-size: 12px;
+}
+.pms-public .pms-check-grid {
+  gap: 7px;
+}
+.pms-public .pms-check {
+  padding: 9px 12px;
+}
+.pms-public .pms-bubble.answer {
+  margin-left: 70px;
+}
+.pms-public .pms-bubble.answer p {
+  margin: 4px 0 0;
+}
+.pms-public .pms-public-foot {
+  text-align: center;
+  font-size: 10px;
+  color: #7d899a;
+  margin-top: 15px;
+}
+.pms-public .pms-public-products {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.pms-public .pms-public-product {
+  padding: 14px;
+  border: 1px solid #d6deea;
+  background: #fff;
+}
+.pms-public .pms-public-product strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.pms-public .pms-public-product button {
+  margin-top: 8px;
+}
+.pms-public .pms-form-grid input,
+.pms-public .pms-form-grid textarea {
+  font-size: 13px;
+  min-height: 36px;
+}
+.pms-public .pms-gallery {
+  max-width: 100%;
+}
+.pms-public .pms-gallery a {
+  flex-basis: 250px;
+}
+.pms-public .pms-gallery img {
+  width: 250px;
+  height: 180px;
+}
+.pms-public .pms-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.pms-public .pms-error {
+  color: #a23742;
+  margin: 7px 0;
+}
+.pms-public .pms-attachments {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 5px 0;
+}
+.pms-public .pms-attachments a {
+  padding: 5px 9px;
+  background: white;
+  border: 1px solid #d6deea;
+}
+@media (max-width: 600px) {
+  .pms-public {
+    padding: 14px 8px;
+  }
+  .pms-public #pm-chat-content {
+    padding: 10px;
+  }
+  .pms-public .pms-bubble.answer {
+    margin-left: 30px;
+  }
+  .pms-public .pms-public-products {
+    grid-template-columns: 1fr;
+  }
+  .pms-public .pms-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .pms-public .pms-form-grid input,
+  .pms-public .pms-form-grid textarea {
+    font-size: 16px;
+  }
+}

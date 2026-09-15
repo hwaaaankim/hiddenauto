@@ -32,13 +32,15 @@ import lombok.Setter;
 @Table(
         name = "tb_pm_product",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_pm_product_name", columnNames = "product_name"),
+                @UniqueConstraint(name = "uk_pm_studio_identity", columnNames = "studio_identity"),
                 @UniqueConstraint(name = "uk_pm_product_code", columnNames = "product_code"),
                 @UniqueConstraint(name = "uk_pm_catalog_code", columnNames = "catalog_code"),
                 @UniqueConstraint(name = "uk_pm_configuration_hash", columnNames = "configuration_hash"),
                 @UniqueConstraint(name = "uk_pm_qr_token", columnNames = "qr_public_token")
         },
         indexes = {
+                @Index(name = "idx_pm_studio_kind_status", columnList = "non_standard,status,id"),
+                @Index(name = "idx_pm_product_name", columnList = "product_name"),
                 @Index(name = "idx_pm_product_status", columnList = "status"),
                 @Index(name = "idx_pm_product_stock", columnList = "current_stock,safety_stock"),
                 @Index(name = "idx_pm_product_created", columnList = "created_at")
@@ -110,6 +112,24 @@ public class ProductMaster {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id ASC")
     private List<ProductAddonBalance> addonBalances = new ArrayList<>();
+
+    @Column(name = "non_standard", nullable = false, columnDefinition = "boolean default false")
+    private boolean nonStandard;
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductStudioInput> studioInputs = new ArrayList<>();
+
+    @Column(name = "studio_identity", length = 64)
+    private String studioIdentity;
+
+    @Column(name = "studio_definition_json", columnDefinition = "LONGTEXT")
+    private String studioDefinitionJson;
+
+    @Column(name = "name_tokens_json", columnDefinition = "LONGTEXT")
+    private String nameTokensJson;
+
+    @Column(name = "studio_process_json", columnDefinition = "LONGTEXT")
+    private String studioProcessJson;
 
     @Column(name = "created_by", nullable = false, length = 100, updatable = false)
     private String createdBy;

@@ -82,6 +82,10 @@ public class ProductAttributeValue {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    // null means legacy fallback; an explicitly empty string must remain empty.
+    @Column(name = "name_part", length = 160)
+    private String namePart;
+
     @Column(name = "created_by", nullable = false, length = 100, updatable = false)
     private String createdBy;
 

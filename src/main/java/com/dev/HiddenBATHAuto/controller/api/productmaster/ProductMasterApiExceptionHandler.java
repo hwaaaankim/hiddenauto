@@ -23,6 +23,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice(assignableTypes = {
+        ProductStudioApiController.class,
+        ProductStudioPublicApiController.class,
         ProductAttributeApiController.class,
         ProductAttributeImageApiController.class,
         ProductMasterApiController.class,

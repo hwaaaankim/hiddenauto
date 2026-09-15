@@ -1,0 +1,52 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg"
+	data-sidebar-image="none" data-preloader="disable">
+
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+
+<body class="twocolumn-panel">
+	<div id="layout-wrapper">
+		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+		<div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+		<div class="vertical-overlay"></div>
+		<div class="main-content">
+			<div class="page-content">
+				<main id="pm-studio" th:attr="data-mode=${studioMode},data-product-id=${productId}" class="pms">
+					<header class="pms-heading">
+						<div>
+							<span class="pms-eyebrow">HIDDENBATH / PRODUCT STUDIO</span>
+							<h1 id="pms-title">제품관리</h1>
+						</div>
+						<div class="pms-actions">
+							<a href="/front/productmaster" target="_blank" rel="noopener">고객 챗봇</a><button
+								id="pms-guide" type="button">? 사용 안내</button>
+						</div>
+					</header>
+					<nav class="pms-nav" aria-label="제품관리">
+						<a data-tab="groups" href="/admin/product-master/groups">그룹·옵션</a><a data-tab="builder"
+							href="/admin/product-master/products/new">제품 생성</a><a data-tab="standard"
+							href="/admin/product-master/products">규격 제품</a><a data-tab="custom"
+							href="/admin/product-master/non-standard">비규격 제품</a><a
+							href="/admin/product-master/automation">기존 규칙·가격</a><a
+							href="/admin/product-master/legacy/groups">기존 그룹 설정</a>
+					</nav>
+					<div id="pms-notice" role="status" aria-live="polite"></div>
+					<div id="pms-workspace" class="pms-workspace">
+						<div class="pms-empty">제품관리 정보를 불러오고 있습니다.</div>
+					</div>
+				</main>
+			</div>
+		</div>
+	</div>
+	<link rel="stylesheet" href="/administration/assets/css/page/productMaster/productStudio.css?v=20260914-2" />
+	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+	<script src="/administration/assets/js/page/productMaster/studio/common.js?v=20260914-2"></script>
+	<script src="/administration/assets/js/page/productMaster/studio/groups.js?v=20260914-2"></script>
+	<script src="/administration/assets/js/page/productMaster/studio/products.js?v=20260914-2"></script>
+	<script src="/administration/assets/js/page/productMaster/studio/process.js?v=20260914-2"></script>
+	<script src="/administration/assets/js/page/productMaster/studio/main.js?v=20260914-2"></script>
+</body>
+
+</html>
