@@ -33,18 +33,6 @@
     TEXTAREA: "긴 텍스트",
     FILE: "파일 입력",
   };
-  S.roles = {
-    GENERAL: "일반 그룹",
-    CATEGORY: "대분류 · 기본",
-    SUBCATEGORY: "중분류 · 기본",
-    SERIES: "시리즈 · 기본",
-    COLOR: "색상",
-    SIZE: "사이즈",
-    DOOR_TYPE: "문의 형태",
-    HANDLE: "손잡이",
-    BASIN: "세면대",
-    OPTION: "기타 옵션",
-  };
   S.isBase = (g) => ["CATEGORY", "SUBCATEGORY", "SERIES"].includes(g.role);
   S.isChoice = (t) => ["RADIO", "CHECKBOX"].includes(t);
   S.group = (id) => S.groups.find((g) => g.id === Number(id));
@@ -83,8 +71,12 @@
           : "서버 응답을 읽을 수 없습니다. 상태 " + response.status,
       );
     }
-    if (!response.ok || data.success === false)
-      throw new Error(data.message || "요청 처리에 실패했습니다.");
+    if (!response.ok || data.success === false) {
+      const error = new Error(data.message || "요청 처리에 실패했습니다.");
+      error.fieldErrors = data.fieldErrors;
+      error.status = response.status;
+      throw error;
+    }
     return data.data === undefined ? data : data.data;
   };
   // API suffixes begin with '/'; pass them through this scoped helper.
@@ -111,7 +103,13 @@
     try {
       return await fn();
     } catch (err) {
-      S.notice(err.message);
+      if (!err.inlineShown) {
+        const scope =
+          button?.closest(".pms-dialog-body,.pms-panel") ||
+          S.$$("dialog[open]").at(-1);
+        if (scope) S.showErrors(scope, err.fieldErrors || { "": err.message });
+        else S.notice(err.message);
+      }
       S.toast(err.message);
       console.error(err);
     } finally {
@@ -138,7 +136,8 @@
       .join("")}</select></label>`;
   S.labels = (source, prefix, withName = false, name = "") => {
     const labels = source?.labels || source;
-    return `<div class="pms-form-grid ${withName ? "four" : ""}">${S.field("고객용", prefix + ".labels.customer", labels?.customer, "text", 'maxlength="120" data-mirror="' + S.e(prefix) + '"')}${S.field("생산팀용", prefix + ".labels.production", labels?.production, "text", 'maxlength="120"')}${S.field("관리팀용", prefix + ".labels.management", labels?.management, "text", 'maxlength="120"')}${withName ? S.field("제품명 구성 문자 (빈칸 가능)", prefix + ".namePart", name, "text", 'maxlength="160"') : ""}</div>`;
+    const labelMax = withName ? 120 : 80;
+    return `<div class="pms-form-grid ${withName ? "four" : ""}">${S.field("고객용", prefix + ".labels.customer", labels?.customer, "text", 'maxlength="' + labelMax + '" data-mirror="' + S.e(prefix) + '"')}${S.field("생산팀용", prefix + ".labels.production", labels?.production, "text", 'maxlength="' + labelMax + '"')}${S.field("관리팀용", prefix + ".labels.management", labels?.management, "text", 'maxlength="' + labelMax + '"')}${withName ? S.field("제품명 구성 문자 (빈칸 가능)", prefix + ".namePart", name, "text", 'maxlength="160"') : ""}</div>`;
   };
   S.get = (obj, path) =>
     path
@@ -204,12 +203,15 @@
         ]) {
           const key = (p ? p + "." : "") + suffix,
             previous = S.get(obj, key);
-          if (previous === old || previous === undefined || previous === null) {
+          const input = S.$$("[data-path]", root).find(
+            (x) => x.dataset.path === key || x.dataset.path === "." + key,
+          );
+          if (
+            input &&
+            (previous === old || previous === undefined || previous === null)
+          ) {
             S.set(obj, key, value);
-            const input = S.$$("[data-path]", root).find(
-              (x) => x.dataset.path === key || x.dataset.path === "." + key,
-            );
-            if (input) input.value = value;
+            input.value = value;
           }
         }
       }
@@ -240,7 +242,7 @@
     fields
       .map(
         (f, i) =>
-          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}<div class="pms-form-grid four pms-section">${S.check("필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.check("음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
+          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}<div class="pms-form-grid four pms-section">${S.check("필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.check("음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
       )
       .join("");
   S.fieldEvents = (root, fields, rerender, prefix = "fields") => {
@@ -359,14 +361,16 @@
       const body = new FormData();
       for (const file of selected) body.append("files", file);
       drop.textContent = "파일을 업로드하고 있습니다…";
+      let uploadError = null;
       try {
         files.push(...(await S.api(uploadPath, "POST", body)));
         S.dirty = true;
         updated();
       } catch (e) {
-        S.toast(e.message);
+        uploadError = e.message;
       } finally {
         render();
+        if (uploadError) S.showErrors(root, { "": uploadError });
       }
     }
     function render() {
@@ -452,3 +456,190 @@
     }
   });
 })();
+
+(function (S) {
+  // Validation paths use the same dot notation as data-path.
+  S.clearErrors = (root) => {
+    S.$$("[data-pms-error]", root).forEach((el) => el.remove());
+    S.$$("[data-pms-invalid]", root).forEach((el) => {
+      el.removeAttribute("aria-invalid");
+      const ids = (el.getAttribute("aria-describedby") || "")
+        .split(" ")
+        .filter((x) => !x.startsWith("pms-error-"));
+      if (ids.length) el.setAttribute("aria-describedby", ids.join(" "));
+      else el.removeAttribute("aria-describedby");
+      delete el.dataset.pmsInvalid;
+    });
+  };
+  let errorSequence = 0;
+  S.showErrors = (root, errors, focus = true) => {
+    if (!root) return;
+    S.clearErrors(root);
+    let first = null;
+    for (const [path, message] of Object.entries(errors || {})) {
+      const input = S.$$("[data-path]", root).find(
+        (el) => el.dataset.path.replace(/^\./, "") === path.replace(/^\./, ""),
+      );
+      const target =
+        input ||
+        S.$$("[data-validation-path]", root).find(
+          (el) => el.dataset.validationPath === path,
+        ) ||
+        (path === "fields" ? S.$("#pms-fields", root) : null) ||
+        root;
+      for (
+        let el = target;
+        el && el !== root.parentElement;
+        el = el.parentElement
+      )
+        if (el.tagName === "DETAILS") el.open = true;
+      const note = document.createElement("div");
+      note.className = "pms-field-error";
+      note.dataset.pmsError = path;
+      note.id = "pms-error-" + ++errorSequence;
+      note.textContent = message;
+      note.setAttribute("role", "alert");
+      if (input) {
+        input.setAttribute("aria-invalid", "true");
+        input.dataset.pmsInvalid = "1";
+        input.setAttribute(
+          "aria-describedby",
+          (
+            (input.getAttribute("aria-describedby") || "") +
+            " " +
+            note.id
+          ).trim(),
+        );
+        (input.closest("label") || input.parentElement).append(note);
+      } else {
+        note.classList.add("pms-section-error");
+        target.prepend(note);
+        note.tabIndex = -1;
+      }
+      first ||= input || note;
+    }
+    if (first && focus) {
+      first.scrollIntoView({ block: "center", behavior: "auto" });
+      first.focus({ preventScroll: true });
+    }
+  };
+  S.requestAt = async (root, path, method, body, prefix = "") => {
+    try {
+      return await S.request(path, method, body);
+    } catch (error) {
+      const fields = error.fieldErrors || { "": error.message };
+      S.showErrors(
+        root,
+        Object.fromEntries(
+          Object.entries(fields).map(([key, value]) => [
+            key ? prefix + key : "",
+            value,
+          ]),
+        ),
+      );
+      error.inlineShown = true;
+      throw error;
+    }
+  };
+  S.checkLabels = (labels, prefix, max, errors) => {
+    for (const [key, name] of Object.entries({
+      customer: "고객용",
+      production: "생산팀용",
+      management: "관리팀용",
+    })) {
+      const value = labels?.[key] ?? "";
+      if (!value.trim())
+        errors[prefix + "labels." + key] = name + " 표시명을 입력해 주세요.";
+      else if (value.length > max)
+        errors[prefix + "labels." + key] =
+          name + " 표시명은 " + max + "자 이하로 입력해 주세요.";
+    }
+  };
+  S.checkUniqueLabels = (items, prefix, errors) => {
+    for (const key of ["customer", "production", "management"]) {
+      const seen = new Map();
+      items.forEach((item, i) => {
+        const name = (item.labels?.[key] || "")
+          .normalize("NFC")
+          .trim()
+          .toLowerCase();
+        if (!name) return;
+        if (seen.has(name)) {
+          const other = seen.get(name);
+          errors[prefix + i + ".labels." + key] =
+            `${other + 1}번째 항목과 표시명이 같습니다.`;
+          errors[prefix + other + ".labels." + key] =
+            `${i + 1}번째 항목과 표시명이 같습니다.`;
+        } else seen.set(name, i);
+      });
+    }
+  };
+  S.checkFields = (fields, control, errors, prefix = "fields.") => {
+    if (S.isChoice(control)) return;
+    if (!fields.length) {
+      errors.fields = "입력 필드를 한 개 이상 추가해 주세요.";
+      return;
+    }
+    S.checkUniqueLabels(fields, prefix, errors);
+    fields.forEach((f, i) => {
+      const p = prefix + i + ".";
+      S.checkLabels(f.labels, p, 120, errors);
+      if ((f.namePart || "").length > 160)
+        errors[p + "namePart"] = "제품명 구성 문자는 160자 이하입니다.";
+      if ((f.unit || "").length > 20)
+        errors[p + "unit"] = "단위는 20자 이하입니다.";
+      const validNumber = (
+        key,
+        min,
+        max,
+        integer = false,
+        optional = false,
+      ) => {
+        const n = f[key];
+        if (optional && (n == null || n === "")) return;
+        if (
+          n == null ||
+          n === "" ||
+          !Number.isFinite(Number(n)) ||
+          (integer && !Number.isInteger(Number(n))) ||
+          n < min ||
+          n > max
+        )
+          errors[p + key] =
+            `${min}~${max} 범위의 ${integer ? "정수" : "숫자"}를 입력해 주세요.`;
+      };
+      if (control === "NUMBER") {
+        validNumber("min", f.allowNegative ? -1e9 : 0, 1e9, false, true);
+        validNumber("max", f.allowNegative ? -1e9 : 0, 1e9, false, true);
+        validNumber("step", 0.001, 1e9, false, true);
+        for (const key of ["min", "max", "step"])
+          if (
+            f[key] != null &&
+            Math.abs(
+              Number(f[key]) * 1000 - Math.round(Number(f[key]) * 1000),
+            ) > 1e-5
+          )
+            errors[p + key] = "소수 셋째 자리까지만 입력할 수 있습니다.";
+        if (f.min != null && f.max != null && f.min > f.max) {
+          errors[p + "min"] = "최소값은 최대값 이하여야 합니다.";
+          errors[p + "max"] = "최대값은 최소값 이상이어야 합니다.";
+        }
+      } else if (control === "FILE") {
+        validNumber("minFiles", 0, 20, true);
+        validNumber("maxFiles", 1, 20, true);
+        validNumber("maxFileMB", 1, 20, true);
+        if (f.minFiles > f.maxFiles)
+          errors[p + "minFiles"] = "최소 개수는 최대 개수 이하여야 합니다.";
+        if (!f.extensions?.length)
+          errors[p + "extensions"] =
+            "허용할 파일 확장자를 한 개 이상 선택해 주세요.";
+      } else {
+        validNumber("minLength", 0, 10000, true);
+        validNumber("maxLength", 1, 10000, true);
+        if (f.minLength > f.maxLength)
+          errors[p + "minLength"] =
+            "최소 글자 수는 최대 글자 수 이하여야 합니다.";
+      }
+    });
+  };
+})(window.PMS);

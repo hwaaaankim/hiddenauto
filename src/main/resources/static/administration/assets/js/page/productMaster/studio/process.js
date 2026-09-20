@@ -441,6 +441,21 @@
         attachmentBox.innerHTML = S.files(qFiles);
         S.fileEvents(attachmentBox, qFiles);
         S.$("#pms-apply-question", body).onclick = () => {
+          const errors = {};
+          S.checkLabels(q.labels, "", 80, errors);
+          if (S.isChoice(q.control)) {
+            if (!q.choices.length)
+              errors[""] = "선택 보기를 한 개 이상 추가해 주세요.";
+            q.choices.forEach((c, i) => {
+              S.checkLabels(c.labels, "choices." + i + ".", 120, errors);
+              if ((c.namePart || "").length > 160)
+                errors["choices." + i + ".namePart"] =
+                  "제품명 구성 문자는 160자 이하입니다.";
+            });
+            S.checkUniqueLabels(q.choices, "choices.", errors);
+          } else S.checkFields(q.fields, q.control, errors);
+          S.showErrors(body, errors);
+          if (Object.keys(errors).length) return;
           q.assetIds = qFiles.map((a) => a.id);
           qFiles.forEach((a) => files.set(a.id, a));
           q.choices.forEach((c) => {

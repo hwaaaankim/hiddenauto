@@ -30,9 +30,7 @@ public class ProductStudioAttributeService {
     for (String role : List.of("CATEGORY", "SUBCATEGORY", "SERIES")) {
       List<ProductAttributeGroup> found =
           all.stream().filter(g -> g.getSystemRole().name().equals(role)).toList();
-      if (found.size() > 1)
-        throw new IllegalStateException(
-            "기존 " + role + " 역할 그룹이 여러 개입니다. 그룹관리에서 기본으로 사용할 그룹 하나만 해당 역할로 지정해 주세요.");
+      if (found.size() > 1) throw new IllegalStateException("필수그룹 데이터가 중복되어 초기화할 수 없습니다: " + role);
       if (found.size() == 1) {
         ProductAttributeGroup g = found.get(0);
         if (!choice(control(g)) || control(g) != Control.RADIO || g.isNonStandard())
@@ -46,8 +44,8 @@ public class ProductStudioAttributeService {
       }
       String name = ProductAttributeRole.valueOf(role).getLabelKr();
       if (groups.existsByCustomerLabelIgnoreCase(name))
-        throw new IllegalStateException("기존 '" + name + "' 그룹에 기본 역할을 지정해 주세요.");
-      saveGroup(
+        throw new IllegalStateException("필수그룹과 같은 이름의 옵션그룹이 있습니다. 해당 옵션그룹의 이름을 변경해 주세요: " + name);
+      saveGroupInternal(
           new GroupEdit(
               null,
               null,
@@ -60,7 +58,8 @@ public class ProductStudioAttributeService {
               name + "를 선택해 주세요.",
               "",
               List.of()),
-          actor);
+          actor,
+          true);
     }
     return catalog();
   }
@@ -133,15 +132,27 @@ public class ProductStudioAttributeService {
 
   @Transactional
   public GroupView saveGroup(GroupEdit request, String actor) {
+    return saveGroupInternal(request, actor, false);
+  }
+
+  private GroupView saveGroupInternal(GroupEdit request, String actor, boolean initializeBase) {
     if (request == null) throw new IllegalArgumentException("그룹 정보가 필요합니다.");
-    labels(request.labels(), 80);
-    fields(request.control(), request.fields(), request.nonStandard());
-    ProductAttributeRole role;
+    Map<String, String> errors = new LinkedHashMap<>();
+    checkLabels(request.labels(), "", 80, errors);
+    if (!errors.isEmpty()) throw new ProductStudioValidationException(errors);
     try {
-      role = ProductAttributeRole.valueOf(request.role());
-    } catch (RuntimeException e) {
-      throw new IllegalArgumentException("시스템 역할을 확인해 주세요.");
+      fields(request.control(), request.fields(), request.nonStandard());
+    } catch (IllegalArgumentException e) {
+      throw new ProductStudioValidationException(Map.of("fields", e.getMessage()));
     }
+    ProductAttributeGroup current = request.id() == null ? null : require(request.id());
+    // Classification is determined by the stored base group, never by an editor selection.
+    ProductAttributeRole role =
+        initializeBase
+            ? ProductAttributeRole.valueOf(request.role())
+            : current != null && BASE.contains(current.getSystemRole().name())
+                ? current.getSystemRole()
+                : ProductAttributeRole.GENERAL;
     boolean base = BASE.contains(role.name());
     if (base && (request.nonStandard() || request.control() != Control.RADIO || !request.active()))
       throw new IllegalArgumentException("대분류·중분류·시리즈는 활성화된 규격 하나선택형 기본그룹이어야 합니다.");
@@ -165,7 +176,7 @@ public class ProductStudioAttributeService {
       if (components.existsByGroupId(g.getId())
           && (control(g) != request.control()
               || g.isNonStandard() != request.nonStandard()
-              || g.getSystemRole() != role
+              || (BASE.contains(g.getSystemRole().name()) && g.getSystemRole() != role)
               || !json.write(fieldsFor(g)).equals(json.write(list(request.fields())))))
         throw new IllegalStateException(
             "제품이 사용하는 그룹의 유형·역할·입력 필드는 변경할 수 없습니다. 제품별 비규격 필드는 비규격 제품에서 편집해 주세요.");
@@ -187,7 +198,13 @@ public class ProductStudioAttributeService {
                     l.production().trim(), g.getId())
                 || groups.existsByManagementLabelIgnoreCaseAndIdNot(
                     l.management().trim(), g.getId());
-    if (duplicate) throw new IllegalStateException("같은 표시명을 사용하는 그룹이 있습니다.");
+    if (duplicate) {
+      for (var existing : groups.findAllByOrderBySortOrderAscIdAsc()) {
+        if (java.util.Objects.equals(existing.getId(), request.id())) continue;
+        duplicateLabels(l, labelsOf(existing), "", errors, "같은 표시명을 사용하는 그룹이 있습니다.");
+      }
+      throw new ProductStudioValidationException(errors);
+    }
     if (request.id() == null) {
       g.setGroupCode(codes.newGroupCode());
       g.setCreatedBy(actor);
@@ -218,6 +235,45 @@ public class ProductStudioAttributeService {
       throw new IllegalArgumentException("비규격 보기는 해당 제품의 프로세스에서 등록해 주세요. 입력형에는 보기를 등록할 수 없습니다.");
     if (requests == null || requests.isEmpty() || requests.size() > 200)
       throw new IllegalArgumentException("보기는 한 번에 1~200개까지 등록합니다.");
+    Map<String, String> inputErrors = new LinkedHashMap<>();
+    Set<Long> editedIds =
+        requests.stream()
+            .filter(java.util.Objects::nonNull)
+            .map(ValueEdit::id)
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
+    for (int i = 0; i < requests.size(); i++) {
+      ValueEdit item = requests.get(i);
+      if (item == null) {
+        inputErrors.put(String.valueOf(i), "빈 보기입니다.");
+        continue;
+      }
+      checkLabels(item.labels(), i + ".", 120, inputErrors);
+      if (text(item.namePart()).length() > 160)
+        inputErrors.put(i + ".namePart", "제품명 구성 문자는 160자 이하입니다.");
+      if (item.labels() != null) {
+        for (int j = 0; j < i; j++)
+          if (requests.get(j) != null && requests.get(j).labels() != null) {
+            duplicateLabels(
+                item.labels(),
+                requests.get(j).labels(),
+                i + ".",
+                inputErrors,
+                "같은 그룹의 보기 표시명이 중복됩니다. (" + (j + 1) + "번째 보기)");
+            duplicateLabels(
+                requests.get(j).labels(),
+                item.labels(),
+                j + ".",
+                inputErrors,
+                "같은 그룹의 보기 표시명이 중복됩니다. (" + (i + 1) + "번째 보기)");
+          }
+        for (var existing : g.getValues())
+          if (!editedIds.contains(existing.getId()))
+            duplicateLabels(
+                item.labels(), labelsOf(existing), i + ".", inputErrors, "같은 그룹의 보기 표시명이 중복됩니다.");
+      }
+    }
+    if (!inputErrors.isEmpty()) throw new ProductStudioValidationException(inputErrors);
     Set<Long> requestedIds = new HashSet<>();
     List<Labels> pendingLabels = new ArrayList<>();
     for (ValueEdit item : requests) {
@@ -359,5 +415,30 @@ public class ProductStudioAttributeService {
   public static void version(Long requested, long actual) {
     if (requested == null || requested != actual)
       throw new IllegalStateException("다른 사용자가 변경했거나 저장 버전이 없습니다. 새로고침 후 다시 시도해 주세요.");
+  }
+
+  private static void checkLabels(
+      Labels labels, String prefix, int max, Map<String, String> errors) {
+    String[] keys = {"customer", "production", "management"}, names = {"고객용", "생산팀용", "관리팀용"};
+    String[] values =
+        labels == null
+            ? new String[] {"", "", ""}
+            : new String[] {
+              text(labels.customer()), text(labels.production()), text(labels.management())
+            };
+    for (int i = 0; i < 3; i++)
+      if (values[i].isBlank() || values[i].length() > max)
+        errors.put(prefix + "labels." + keys[i], names[i] + " 표시명은 1~" + max + "자로 입력해 주세요.");
+  }
+
+  private static void duplicateLabels(
+      Labels a, Labels b, String prefix, Map<String, String> errors, String message) {
+    String[] keys = {"customer", "production", "management"}, names = {"고객용", "생산팀용", "관리팀용"};
+    String[] left = {a.customer(), a.production(), a.management()},
+        right = {b.customer(), b.production(), b.management()};
+    for (int i = 0; i < 3; i++)
+      if (!normalizedLabel(left[i]).isBlank()
+          && normalizedLabel(left[i]).equalsIgnoreCase(normalizedLabel(right[i])))
+        errors.put(prefix + "labels." + keys[i], names[i] + " 표시명이 중복됩니다. " + message);
   }
 }

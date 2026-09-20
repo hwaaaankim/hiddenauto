@@ -23,6 +23,43 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
     assignableTypes = {ProductStudioApiController.class, ProductStudioPublicApiController.class})
 public class ProductMasterApiExceptionHandler {
 
+  @ExceptionHandler(
+      com.dev.HiddenBATHAuto.service.productmaster.ProductStudioValidationException.class)
+  public ResponseEntity<java.util.Map<String, Object>> handleFieldValidation(
+      com.dev.HiddenBATHAuto.service.productmaster.ProductStudioValidationException e) {
+    return ResponseEntity.badRequest()
+        .body(
+            java.util.Map.of(
+                "success", false, "message", e.getMessage(), "fieldErrors", e.getFieldErrors()));
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<java.util.Map<String, Object>> handleJson(
+      HttpMessageNotReadableException e) {
+    Throwable cause = e;
+    while (cause != null && !(cause instanceof com.fasterxml.jackson.databind.JsonMappingException))
+      cause = cause.getCause();
+    String path = "";
+    if (cause instanceof com.fasterxml.jackson.databind.JsonMappingException mapping) {
+      path =
+          mapping.getPath().stream()
+              .map(r -> r.getFieldName() != null ? r.getFieldName() : String.valueOf(r.getIndex()))
+              .collect(java.util.stream.Collectors.joining("."));
+    }
+    String message = "입력값의 형식이 올바르지 않습니다. 숫자와 선택 항목을 확인해 주세요.";
+    if (cause instanceof com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException)
+      message = "화면과 서버의 항목 구성이 다릅니다. 새로고침 후 다시 저장해 주세요.";
+    return ResponseEntity.badRequest()
+        .body(
+            java.util.Map.of(
+                "success",
+                false,
+                "message",
+                message,
+                "fieldErrors",
+                java.util.Map.of(path, message)));
+  }
+
   @ExceptionHandler(NoSuchElementException.class)
   public ResponseEntity<ApiResponse<Void>> handleNotFound(NoSuchElementException exception) {
     return error(HttpStatus.NOT_FOUND, exception.getMessage());
@@ -58,7 +95,6 @@ public class ProductMasterApiExceptionHandler {
   }
 
   @ExceptionHandler({
-    HttpMessageNotReadableException.class,
     MethodArgumentTypeMismatchException.class,
     MissingServletRequestParameterException.class,
     MissingServletRequestPartException.class
