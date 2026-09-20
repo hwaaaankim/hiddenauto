@@ -6,7 +6,8 @@
       groupFiles = [],
       draftValues = [],
       valueFiles = new Map(),
-      filter = "";
+      filter = "",
+      groupDirty = false;
     root.innerHTML =
       '<div class="pms-split"><section class="pms-panel"><div class="pms-panel-title"><h2>그룹 목록</h2><button id="pms-new-group" class="primary">+ 그룹</button></div><div class="pms-toolbar"><input id="pms-group-filter" placeholder="그룹 검색"></div><div id="pms-group-list" class="pms-palette"></div></section><section class="pms-panel"><div id="pms-group-editor"></div></section></div>';
     const list = S.$("#pms-group-list", root),
@@ -108,21 +109,67 @@
         (g?.values || []).map((v) => [v.id, S.copy(v.assets)]),
       );
       S.dirty = false;
+      groupDirty = false;
       paintList();
       paintEditor();
     }
+    function locked(label, path, value, reason) {
+      return `<div class="pms-locked-setting">${label ? `<label><span>${S.e(label)}</span></label>` : ""}<button type="button" class="pms-locked-button" data-lock="${path}" aria-expanded="false" aria-controls="pms-lock-${path}">${S.e(value)} <span aria-hidden="true">ⓘ</span></button><div id="pms-lock-${path}" class="pms-lock-reason" role="status" hidden>${S.e(reason)}</div></div>`;
+    }
+    function validateGroup() {
+      const errors = {};
+      S.checkLabels(model.labels, "", 80, errors);
+      if (!model.nonStandard)
+        S.checkFields(model.fields, model.control, errors);
+      for (const key of ["customer", "production", "management"]) {
+        const canonical = (x) =>
+          (x || "").normalize("NFC").trim().toLowerCase();
+        if (
+          model.labels[key]?.trim() &&
+          S.groups.some(
+            (g) =>
+              g.id !== model.id &&
+              canonical(g.labels[key]) === canonical(model.labels[key]),
+          )
+        )
+          errors["labels." + key] = "같은 표시명을 사용하는 그룹이 있습니다.";
+      }
+      const body = S.$(".pms-panel-body", editor);
+      S.showErrors(body, errors);
+      return !Object.keys(errors).length;
+    }
+    function validateOptions(requireAny = false, focus = true) {
+      const box = S.$("#pms-values", editor);
+      if (!box) return true;
+      const errors = {};
+      if (requireAny && !draftValues.length)
+        errors[""] = "등록할 보기를 + 보기 버튼으로 추가해 주세요.";
+      draftValues.forEach((v, i) => {
+        S.checkLabels(v.labels, "values." + i + ".", 120, errors);
+        if ((v.namePart || "").length > 160)
+          errors["values." + i + ".namePart"] =
+            "제품명 구성 문자는 160자 이하입니다.";
+      });
+      S.checkUniqueLabels(draftValues, "values.", errors);
+      S.showErrors(box, errors, focus);
+      return !Object.keys(errors).length;
+    }
     function paintEditor() {
       const base = S.isBase(model);
-      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"}</h2><small class="mono">${S.e(S.group(model.id)?.key || "내부 value는 저장할 때 자동 생성됩니다.")}</small></div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body">${S.labels(model, "")}<div class="pms-help">고객명을 입력하면 아직 별도로 수정하지 않은 생산팀·관리팀 표시명도 같은 값으로 채웁니다. 내부 value는 표시명과 독립적으로 유지됩니다.</div><div class="pms-form-grid">${S.select("그룹 역할", "role", model.role, S.roles)}${S.select("입력 방식", "control", model.control, S.controls)}<div class="pms-row">${S.check("비규격 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div><div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${S.check("신규 제품에 사용", "active", model.active, "pms-switch")}</div>${S.field("챗봇 질문", "question", model.question, "text", 'maxlength="300"')}${S.field("고객 도움말", "guide", model.guide, "text", 'maxlength="1000"')}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 이미지·첨부파일 <span class="pms-badge">${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles)}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
-      if (base) {
-        S.$('[data-path="nonStandard"]', editor).disabled = true;
-        S.$('[data-path="control"]', editor).disabled = true;
-        S.$('[data-path="active"]', editor).disabled = model.active;
-      }
+      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"} ${S.badge(base ? "필수그룹" : "옵션그룹", base ? "blue" : "")}</h2><small class="mono">${S.e(S.group(model.id)?.key || "내부 value는 저장할 때 자동 생성됩니다.")}</small></div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body">${S.labels(model, "")}<div class="pms-help">고객명을 입력하면 아직 별도로 수정하지 않은 생산팀·관리팀 표시명도 같은 값으로 채웁니다. 내부 value는 표시명과 독립적으로 유지됩니다.</div><div class="pms-form-grid two">${base ? locked("입력 방식", "control", "하나 선택 · 필수그룹", "대분류·중분류·시리즈는 제품마다 하나의 분류가 필요하므로 하나선택형으로 고정되어 변경할 수 없습니다.") : S.select("입력 방식", "control", model.control, S.controls)}${base ? locked("비규격용 그룹", "nonStandard", "규격 전용 · 필수그룹", "대분류·중분류·시리즈는 모든 제품의 고정 분류이므로 비규격용 그룹으로 변경할 수 없습니다.") : `<div class="pms-row">${S.check("비규격용 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div>`}<div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${base ? locked("", "active", "필수그룹 · 항상 사용", "모든 제품에 필요한 필수그룹이므로 사용을 중지할 수 없습니다.") : S.check("새 제품 구성에 사용", "active", model.active, "pms-switch")}</div>${S.field("챗봇 질문", "question", model.question, "text", 'maxlength="300"')}${S.field("고객 도움말", "guide", model.guide, "text", 'maxlength="1000"')}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 이미지·첨부파일 <span class="pms-badge">${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles)}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
+      S.$$("[data-lock]", editor).forEach(
+        (button) =>
+          (button.onclick = () => {
+            const note = S.$("#pms-lock-" + button.dataset.lock, editor);
+            note.hidden = !note.hidden;
+            button.setAttribute("aria-expanded", String(!note.hidden));
+          }),
+      );
       // Bind only once to the fresh body, avoiding stacked handlers on the persistent editor.
       const body = S.$(".pms-panel-body", editor);
       S.bind(body, model, (path, value) => {
-        if (["control", "nonStandard", "role"].includes(path)) {
+        groupDirty = true;
+        if (["control", "nonStandard"].includes(path)) {
           if (S.isBase(model)) {
             model.control = "RADIO";
             model.nonStandard = false;
@@ -135,20 +182,54 @@
       });
       if (S.$("#pms-fields", editor)) {
         const fields = S.$("#pms-fields", editor);
-        S.fieldEvents(fields, model.fields, paintEditor);
+        S.fieldEvents(fields, model.fields, () => {
+          groupDirty = true;
+          paintEditor();
+        });
         S.$("#pms-add-field", editor).onclick = () => {
           if (model.fields.length >= 20)
             return S.toast("입력 필드는 최대 20개입니다.");
           model.fields.push(S.newField());
+          groupDirty = true;
           S.dirty = true;
           paintEditor();
         };
       }
-      S.fileEvents(S.$("#pms-group-files", editor), groupFiles);
+      S.fileEvents(S.$("#pms-group-files", editor), groupFiles, () => {
+        groupDirty = true;
+      });
       S.$("#pms-save-group", editor).onclick = (e) =>
         S.run(e.currentTarget, async () => {
-          const saved = await S.request("/groups", "POST", model);
+          const groupValid = validateGroup();
+          const optionsValid = validateOptions(false, groupValid);
+          if (!groupValid || !optionsValid) return;
+          const {
+            id,
+            version,
+            labels,
+            control,
+            nonStandard,
+            includeInName,
+            active,
+            question,
+            guide,
+            fields,
+          } = model;
+          const saved = await S.requestAt(body, "/groups", "POST", {
+            id,
+            version,
+            labels,
+            role: base ? model.role : "GENERAL",
+            control,
+            nonStandard,
+            includeInName,
+            active,
+            question,
+            guide,
+            fields,
+          });
           model.id = saved.id;
+          groupDirty = false;
           model.version = saved.version;
           selected = saved.id;
           await S.request(
@@ -178,6 +259,12 @@
       if (S.$("#pms-values", editor)) {
         paintValues();
         S.$("#pms-add-value", editor).onclick = () => {
+          if (draftValues.length >= 200) {
+            S.showErrors(S.$("#pms-values", editor), {
+              "": "보기는 최대 200개까지 등록합니다.",
+            });
+            return;
+          }
           draftValues.push({
             id: null,
             version: null,
@@ -191,8 +278,7 @@
         };
         S.$("#pms-save-values", editor).onclick = (e) =>
           S.run(e.currentTarget, async () => {
-            if (!draftValues.length)
-              return S.toast("저장할 보기를 추가해 주세요.");
+            if (!validateOptions(true)) return;
             await saveOptionDrafts();
             await S.catalog();
             model.version = S.group(selected).version;
@@ -203,6 +289,7 @@
                 v.version,
             }));
             paintValues();
+            S.dirty = groupDirty;
             S.notice(
               "옵션을 저장했습니다. 그룹 설정을 변경하셨다면 그룹 저장도 눌러 주세요.",
               true,
@@ -211,16 +298,25 @@
       }
     }
     async function saveOptionDrafts() {
-      const saved = await S.request(
+      const saved = await S.requestAt(
+        S.$("#pms-values", editor),
         `/groups/${selected}/values`,
         "POST",
-        draftValues,
+        draftValues.map(({ id, version, labels, namePart, active }) => ({
+          id,
+          version,
+          labels,
+          namePart,
+          active,
+        })),
+        "values.",
       );
       for (let i = 0; i < saved.length; i++) {
         const previous = draftValues[i];
         const attachments = valueFiles.get(previous.id || previous.temp) || [];
         draftValues[i].id = saved[i].id;
         draftValues[i].version = saved[i].version;
+        draftValues[i].key = saved[i].key;
         valueFiles.set(saved[i].id, attachments);
         await S.request(
           `/assets/VALUE/${saved[i].id}`,
@@ -228,11 +324,16 @@
           attachments.map((f) => f.id),
         );
       }
-      await S.request(
+      const reordered = await S.requestAt(
+        S.$("#pms-values", editor),
         `/groups/${selected}/values/reorder`,
         "POST",
         draftValues.map((v) => v.id),
       );
+      model.version = reordered.version;
+      for (const v of draftValues)
+        v.version =
+          reordered.values.find((x) => x.id === v.id)?.version ?? v.version;
     }
     function paintValues() {
       const container = S.$("#pms-values", editor);

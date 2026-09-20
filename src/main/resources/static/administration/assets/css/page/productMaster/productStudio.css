@@ -1375,3 +1375,76 @@
   border: 1px solid #e4eaf4;
   border-radius: 5px;
 }
+
+/* Visible disclosure and field-local validation */
+.pms .pms-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  min-height: 36px;
+}
+.pms .pms-disclosure::-webkit-details-marker {
+  display: none;
+}
+.pms .pms-disclosure-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+.pms .pms-chevron {
+  flex: none;
+  transition: transform 0.2s ease;
+  color: var(--blue);
+}
+.pms details[open] > .pms-disclosure > .pms-chevron {
+  transform: rotate(180deg);
+}
+.pms .pms-locked-button {
+  width: 100%;
+  justify-content: space-between;
+  background: #f3f6fc;
+  border-color: #d4deee;
+  color: #455c7e;
+  cursor: help;
+  text-align: left;
+}
+.pms .pms-locked-setting {
+  min-width: 0;
+  align-self: start;
+}
+.pms .pms-lock-reason {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-left: 3px solid #7295de;
+  background: #edf3ff;
+  color: #38557f;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.pms .pms-lock-reason[hidden] {
+  display: none;
+}
+.pms [aria-invalid="true"] {
+  border-color: #c04450 !important;
+  box-shadow: 0 0 0 1px #c044501f;
+}
+.pms .pms-field-error {
+  display: block;
+  color: #ad2438;
+  font-size: 11px;
+  line-height: 1.65;
+  margin-top: 5px;
+  font-weight: 500;
+}
+.pms .pms-section-error {
+  border: 1px solid #ecc8ce;
+  background: #fff4f5;
+  border-radius: 5px;
+  padding: 9px 11px;
+  margin: 0 0 10px;
+}
+.pms .pms-form-grid:has(.pms-field-error) {align-items:start;}

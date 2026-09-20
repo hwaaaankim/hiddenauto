@@ -106,6 +106,17 @@
         );
       },
     );
+    S.$$(
+      ".pms details.pms-section > summary:not([data-disclosure])",
+      root,
+    ).forEach((el) => {
+      el.dataset.disclosure = "1";
+      el.classList.add("pms-disclosure");
+      el.insertAdjacentHTML(
+        "beforeend",
+        '<span class="pms-disclosure-hint">클릭하여 펼치기/접기</span><svg class="pms-chevron" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+      );
+    });
     S.trackEditors(root);
   };
   S.initTheme = () => {
