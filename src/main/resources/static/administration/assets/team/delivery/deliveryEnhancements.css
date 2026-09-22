@@ -1,0 +1,49 @@
+/* 배송 화면 전용: 기존 카드 디자인 유지, 필터·액션·이미지 팝업만 보완 */
+.delivery-filter-grid {display:grid;grid-template-columns:minmax(155px,1.3fr) minmax(125px,1fr) repeat(2,minmax(110px,.8fr)) minmax(170px,1.4fr) 95px;gap:10px;align-items:end;margin:0 0 14px}
+.delivery-filter-grid > div {min-width:0}
+.delivery-filter-grid .form-label {display:block;font-size:12px;font-weight:600;margin:0 0 4px}
+.delivery-filter-grid .form-control,.delivery-filter-grid .form-select,.delivery-filter-grid .btn {height:38px;min-height:38px;border-radius:5px;box-sizing:border-box}
+.delivery-filter-grid .btn {display:flex;align-items:center;justify-content:center;white-space:nowrap;padding:6px 10px}
+.delivery-route-filter-grid {grid-template-columns:minmax(290px,1.8fr) repeat(2,minmax(105px,.7fr)) minmax(170px,1fr) minmax(160px,1fr);margin:0}
+.delivery-route-filter-grid .delivery-route-date-field {min-width:0}
+.delivery-date-controls {display:grid;grid-template-columns:36px minmax(0,1fr) 36px 50px;gap:5px;align-items:center}
+.delivery-date-controls input {min-width:0;padding-left:8px;padding-right:4px}
+.delivery-filter-buttons {display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.delivery-company-field {position:relative}
+.delivery-company-options {position:absolute;left:0;right:0;top:100%;margin-top:3px;background:#fff;border:1px solid #cbd5e1;border-radius:5px;box-shadow:0 6px 18px #0002;max-height:240px;overflow-y:auto;z-index:1050}
+.delivery-company-option {display:block;width:100%;border:0;border-bottom:1px solid #eef2f7;background:#fff;text-align:left;padding:10px 12px;color:#243348}
+.delivery-company-option:hover,.delivery-company-option[aria-selected=true] {background:#eaf1ff}
+.delivery-mobile-actions {display:none}
+.delivery-image-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.delivery-image-tile {display:flex;flex-direction:column;gap:5px;min-width:0}
+.delivery-image-tile img {width:100%;height:130px;object-fit:contain;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px}
+.delivery-image-tile.is-removed img {opacity:.3}
+.delivery-image-actions {display:flex;gap:8px;flex-wrap:wrap}
+.delivery-image-actions .btn,.delivery-image-tile .btn {border-radius:5px}
+.delivery-image-message {white-space:pre-wrap;font-size:13px;color:#405189}
+@media(max-width:1199.98px) {
+ .delivery-filter-grid {grid-template-columns:repeat(4,minmax(0,1fr))}
+ .delivery-filter-grid .delivery-company-field {grid-column:span 3}
+ .delivery-route-filter-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .delivery-route-filter-grid .delivery-route-date-field {grid-column:1/-1}
+ .delivery-route-filter-grid .delivery-company-field {grid-column:auto}
+}
+@media(max-width:767.98px) {
+ .delivery-filter-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+ .delivery-filter-grid .delivery-company-field {grid-column:auto}
+ .delivery-filter-grid .form-control,.delivery-filter-grid .form-select {font-size:13px}
+ .delivery-route-filter-grid {margin-bottom:0}
+ .delivery-route-filter-card .card-body {padding:12px}
+ .delivery-route-filter-grid .delivery-company-field {grid-column:1/-1}
+ .delivery-route-filter-grid .delivery-filter-buttons {grid-column:1/-1}
+ .delivery-route-order-id-help {font-size:11px;text-align:left!important}
+ .delivery-mobile-actions {display:flex;position:fixed;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:1040;flex-direction:column;gap:6px}
+ .delivery-mobile-actions > .btn,.delivery-mobile-actions > #delivery-list-added-floating-handler-btn {display:flex!important;position:static!important;align-items:center;justify-content:center;width:112px;min-width:112px;height:38px;min-height:38px;padding:5px!important;border-radius:5px!important;font-size:12px;transform:none!important;opacity:1!important;visibility:visible!important;box-shadow:0 2px 6px #0002}
+ .delivery-mobile-actions .btn-outline-primary {background:#fff}
+ .delivery-list-enhanced #back-to-top,.delivery-bulk-desktop,.delivery-list-enhanced #delivery-list-added-open-bulk-handler-modal {display:none!important}
+ .delivery-list-enhanced .page-content {padding-bottom:210px}
+ .delivery-image-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .delivery-image-actions {display:grid;grid-template-columns:1fr 1fr;width:100%}
+ .delivery-image-actions > .btn-success {grid-column:1/-1}
+}
+@media print {.delivery-mobile-actions,.delivery-image-open {display:none!important}}

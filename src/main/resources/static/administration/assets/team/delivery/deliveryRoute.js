@@ -1242,6 +1242,10 @@
             document.body.classList.add('delivery-route-completion-modal-open');
         });
 
+        modalElement.addEventListener('hide.bs.modal', function (event) {
+            if (imageProcessing) event.preventDefault();
+        });
+
         modalElement.addEventListener('hidden.bs.modal', function () {
             document.body.classList.remove('delivery-route-completion-modal-open');
 
@@ -1293,7 +1297,7 @@
                 if (normalized.converted.length > 0 || normalized.rejected.length > 0) {
                     const messages = [];
                     if (normalized.converted.length > 0) {
-                        messages.push(`HEIC/HEIF ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
+                        messages.push(`이미지 ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
                     }
                     if (normalized.rejected.length > 0) {
                         messages.push(`이미지가 아닌 ${normalized.rejected.length}개 파일은 제외했습니다.`);
@@ -1507,6 +1511,9 @@
         const calculatedDoneCount = orderCards.filter(isDeliveryDoneCard).length;
         const calculatedCompletableCount = orderCards.filter(card => card.dataset.completable === 'true').length;
 
+        if (new URLSearchParams(window.location.search).get('companyName') ||
+            new URLSearchParams(window.location.search).get('orderIdFrom') ||
+            new URLSearchParams(window.location.search).get('orderIdTo')) snapshot = null;
         const orderCount = snapshot && snapshot.groupOrderCount > 0
             ? snapshot.groupOrderCount
             : calculatedOrderCount;
@@ -1557,6 +1564,7 @@
     }
 
     function markOrderCardAsDone(card) {
+        card?.querySelector('.delivery-image-open')?.classList.remove('d-none');
         if (!card) return;
 
         card.dataset.completable = 'false';

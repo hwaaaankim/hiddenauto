@@ -206,6 +206,7 @@
 		if (handlerSelectedCountEl) handlerSelectedCountEl.textContent = String(count);
 
 		if (bulkHandlerOpenBtn) bulkHandlerOpenBtn.disabled = count < 1;
+        if (floatingHandlerBtn) floatingHandlerBtn.disabled = count < 1;
 	}
 
 	function isElementFullyHiddenFromViewport(el) {
@@ -499,6 +500,7 @@
 	   모달 상태 초기화
 	   ========================= */
 	function resetModalUi() {
+        window.HiddenAutoDeliveryImages?.clear(document.getElementById('delivery-list-image-editor'));
 		currentOrderId = null;
 		currentMode = "detail";
 
@@ -722,6 +724,10 @@
 		setElementText(ordererPhoneEl, data?.ordererPhone || "-");
 
 		renderExistingImages(data?.deliveryImageUrls);
+        if (data?.status === 'DELIVERY_DONE' && window.HiddenAutoDeliveryImages) {
+            setElementDisplay(existingWrapEl, "none");
+            window.HiddenAutoDeliveryImages.mount(document.getElementById('delivery-list-image-editor'), currentOrderId);
+        }
 
 		setElementDisplay(skeletonEl, "none");
 		setElementDisplay(bodyEl, "");
@@ -864,6 +870,9 @@
 	});
 
 	if (modalEl) {
+        modalEl.addEventListener('hide.bs.modal', event => {
+            if (window.HiddenAutoDeliveryImages?.busy(document.getElementById('delivery-list-image-editor')) || imageProcessing) event.preventDefault();
+        });
 		modalEl.addEventListener("hidden.bs.modal", () => {
 			resetModalUi();
 		});
@@ -908,7 +917,7 @@
 
 			const messages = [];
 			if (normalized.converted.length > 0) {
-				messages.push(`HEIC/HEIF ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
+				messages.push(`이미지 ${normalized.converted.length}장을 JPEG로 변환했습니다.`);
 			}
 			if (normalized.rejected.length > 0) {
 				messages.push(`이미지가 아닌 ${normalized.rejected.length}개 파일은 제외했습니다.`);
