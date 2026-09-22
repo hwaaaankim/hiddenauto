@@ -4,7 +4,13 @@
     err = (v) =>
       v.issues
         .filter((i) => i.severity === "ERROR")
-        .map((i) => i.location + ": " + i.message)
+        .map(
+          (i) =>
+            i.location +
+            ": " +
+            i.message +
+            (S.errorAdvice(i.message) ? "\n" + S.errorAdvice(i.message) : ""),
+        )
         .join("\n");
   const checks = (xs, sel, tag) =>
     xs
@@ -31,6 +37,50 @@
     function dirty() {
       S.dirty = true;
     }
+    const conditionSignature = (conditions) =>
+      JSON.stringify(
+        (conditions || [])
+          .map((c) => ({
+            groupKey: c.groupKey,
+            fieldKey: c.fieldKey || null,
+            operator: c.operator,
+            choiceKeys: [...(c.choiceKeys || [])].sort(),
+            lower: c.lower ?? null,
+            upper: c.upper ?? null,
+            lowerInclusive: !!c.lowerInclusive,
+            upperInclusive: !!c.upperInclusive,
+          }))
+          .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      );
+    const conditionText = (q, cs) =>
+      (cs || [])
+        .map((c) => {
+          if (!q) return "삭제된 질문을 참조하는 조건";
+          if (S.isChoice(q.control))
+            return (c.choiceKeys || [])
+              .map(
+                (key) =>
+                  q.choices.find((x) => x.key === key)?.labels.management ||
+                  key,
+              )
+              .join(" / ");
+          const name =
+            q.fields.find((f) => f.key === c.fieldKey)?.labels.management ||
+            c.fieldKey;
+          const op = {
+            GE: "이상",
+            GT: "초과",
+            LE: "이하",
+            LT: "미만",
+            EQ: "일치",
+            PRESENT: "입력함",
+            ABSENT: "입력 안 함",
+          }[c.operator];
+          if (c.operator === "RANGE")
+            return `${name}: ${c.lower} ${c.lowerInclusive ? "이상" : "초과"} ~ ${c.upper} ${c.upperInclusive ? "이하" : "미만"}`;
+          return `${name}: ${c.lower ?? ""} ${op || c.operator}`;
+        })
+        .join(S.isChoice(q.control) ? " / " : " · ");
     async function validate(test = process) {
       const v = await S.request(
         "/products/" + p.id + "/validate",
@@ -38,8 +88,45 @@
         test,
       );
       const el = S.$("#pm-validation", root);
-      if (el)
-        el.innerHTML = `<p class="pms-help">${v.valid && v.exhaustive ? "검증 통과" : "수정 필요"} · ${v.scenarios}개 경로</p>${v.issues.map((i) => `<p class="${i.severity === "ERROR" ? "pms-error" : "pms-help"}">${S.e(i.location)}: ${S.e(i.message)}</p>`).join("")}`;
+      if (el && !S.$$("dialog[open]").length) {
+        el.innerHTML = `<p class="pms-help" role="status">${v.valid && v.exhaustive ? "검증 통과" : "수정 필요"} · ${v.scenarios}개 경로</p>${v.issues
+          .map((i, index) => {
+            const question = test.questions.find(
+              (q) => nm(q) === i.location && !S.isBase(S.group(q.groupId)),
+            );
+            const rules = test.rules.filter(
+              (r) =>
+                r.name === i.location ||
+                i.message.includes("[" + r.name) ||
+                i.message.includes(r.name + "]") ||
+                i.message.includes(" / " + r.name),
+            );
+            return `<article class="pm-validation-issue ${i.severity === "ERROR" ? "pms-error" : ""}"><strong>${S.e(i.location)} · ${i.severity === "ERROR" ? "수정 필요" : "확인"}</strong><p>${S.e(i.message)}</p>${S.errorAdvice(i.message) ? `<p class="pm-fix-example">${S.e(S.errorAdvice(i.message))}</p>` : ""}<div class="pms-actions">${question ? `<button data-fix-question="${S.e(question.key)}">${S.e(nm(question))} 답변 수정</button>` : ""}${rules.map((r) => `<button data-fix-rule="${S.e(r.key)}">${S.e(r.name)} 연결 수정</button>`).join("")}</div></article>`;
+          })
+          .join("")}`;
+        S.$$("[data-fix-question]", el).forEach(
+          (b) =>
+            (b.onclick = () => {
+              stage = 0;
+              paint();
+              question(
+                process.questions.find((q) => q.key === b.dataset.fixQuestion),
+              );
+            }),
+        );
+        S.$$("[data-fix-rule]", el).forEach(
+          (b) =>
+            (b.onclick = () => {
+              const rule = process.rules.find(
+                (r) => r.key === b.dataset.fixRule,
+              );
+              if (!rule) return;
+              stage = 1;
+              paint();
+              relation(rule.conditions[0].groupKey, rule);
+            }),
+        );
+      }
       return v;
     }
     async function save(publish) {
@@ -60,11 +147,30 @@
     function reorder(from, to) {
       const rows = qs();
       rows.splice(to, 0, rows.splice(from, 1)[0]);
-      process.questions = [...fixed(), ...rows];
+      const ordered = [...fixed(), ...rows];
+      const index = new Map(ordered.map((q, i) => [q.key, i]));
+      const backward = process.rules.filter((r) =>
+        r.conditions.some((c) =>
+          r.actions.some(
+            (a) => index.get(c.groupKey) >= index.get(a.targetKey),
+          ),
+        ),
+      );
+      if (backward.length) {
+        paint();
+        S.showErrors(S.$("#pm-validation", root), {
+          "":
+            "순서를 변경할 수 없습니다. 다음 연결은 시작 질문이 대상 질문보다 앞에 있어야 합니다: " +
+            backward.map((r) => r.name).join(" / "),
+        });
+        return;
+      }
+      process.questions = ordered;
       dirty();
       paint();
     }
     function paint() {
+      const saveStatus = S.dirty ? "저장하지 않은 변경사항" : "저장된 상태";
       root.innerHTML = `<section class="pms-panel"><header class="pms-panel-title"><div><h2>${S.e(p.productName)}</h2><small>고정 분류: ${fixed()
         .map((q) => q.choices.map((c) => S.e(c.labels.management)).join("/"))
         .join(
@@ -90,7 +196,7 @@
           )
           .join("") ||
         '<p class="pms-empty">추가 질문 없이 필수 분류만으로 등록할 수 있습니다.</p>'
-      }</div><div id="pm-validation"></div><div class="pms-actions pm-stage-actions">${stage ? '<button id="pm-prev">이전 단계</button>' : ""}<button id="pm-draft">임시 저장</button>${stage < 2 ? '<button id="pm-next" class="primary">' + (stage === 0 ? "답변 확인 · 연관관계 설정" : "전체 검증 단계로") + "</button>" : `<button id="pm-validate">전체 경로 검증</button><button id="pm-publish" class="primary">검증 후 등록완료</button><a class="pms-button" target="_blank" href="/admin/product-master/products/${p.id}/test">저장된 제품 고객 테스트</a>`}</div></div></section>`;
+      }</div><div id="pm-validation"></div><div class="pms-actions pm-stage-actions"><span class="pm-save-status" role="status">${saveStatus}</span>${stage ? '<button id="pm-prev">이전 단계</button>' : ""}<button id="pm-draft">임시 저장</button>${stage < 2 ? '<button id="pm-next" class="primary">' + (stage === 0 ? "답변 확인 · 연관관계 설정" : "전체 검증 단계로") + "</button>" : `<button id="pm-validate">전체 경로 검증</button><button id="pm-publish" class="primary">검증 후 등록완료</button><a class="pms-button" target="_blank" href="/admin/product-master/products/${p.id}/test">저장된 제품 고객 테스트</a>`}</div></div></section>`;
       S.$$("[data-edit]", root).forEach(
         (b) =>
           (b.onclick = () =>
@@ -141,7 +247,11 @@
       S.$("#pm-draft", root).onclick = (e) =>
         S.run(e.currentTarget, () => save(false));
       S.$("#pm-validate", root)?.addEventListener("click", (e) =>
-        S.run(e.currentTarget, () => validate()),
+        S.run(e.currentTarget, async () => {
+          const v = await validate();
+          if (!v.valid)
+            S.$("#pm-validation", root).scrollIntoView({ block: "center" });
+        }),
       );
       S.$("#pm-publish", root)?.addEventListener("click", (e) =>
         S.run(e.currentTarget, () => save(true)),
@@ -149,7 +259,8 @@
     }
     function question(original) {
       let q = S.copy(original),
-        step = 0;
+        step = 0,
+        openRow = 0;
       q.numberCases ??= [];
       q.preset ??= { choices: [], fields: {} };
       const hidden = S.group(q.groupId)?.askQuestion === false;
@@ -176,8 +287,20 @@
           const choice = S.isChoice(q.control),
             rows = choice ? q.choices : q.fields,
             prefix = choice ? "choices." : "fields.";
-          box.innerHTML = `<div class="pms-form-grid two">${S.field("질문 내용", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.field("질문 도움말", "guide", q.guide || "", "text", 'maxlength="1000"')}${S.check("반드시 답변", "required", q.required)}</div><div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<article class="pms-card">${S.labels(x, prefix + i, true, x.namePart)}${S.field("안내메시지", prefix + i + ".guide", x.guide || "", "text", 'maxlength="2000"')}${S.field("내부 value", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<button data-remove="${i}">삭제</button>${choice ? `<details><summary>이미지·파일</summary><div data-choice-files="${i}">${S.files(fs(x.assetIds))}</div></details>` : ""}</article>`).join("")}<details><summary>질문 이미지·파일</summary><div data-q-files>${S.files(fs(q.assetIds))}</div></details>`;
-          S.bind(box, q);
+          box.innerHTML = `<div class="pms-form-grid two">${S.field("질문 내용", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.field("질문 도움말", "guide", q.guide || "", "text", 'maxlength="1000"')}${S.check("반드시 답변", "required", q.required)}</div><div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong></summary><div class="pm-answer-body">${S.labels(x, prefix + i, true, x.namePart)}${S.field("안내메시지", prefix + i + ".guide", x.guide || "", "text", 'maxlength="2000"')}${S.field("내부 value", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<button data-remove="${i}">삭제</button>${choice ? `<details><summary>이미지·파일</summary><div data-choice-files="${i}">${S.files(fs(x.assetIds))}</div></details>` : ""}</div></details>`).join("")}<details><summary>질문 이미지·파일</summary><div data-q-files>${S.files(fs(q.assetIds))}</div></details>`;
+          S.bind(box, q, (path) => {
+            const m = /^(?:choices|fields)\.(\d+)\.labels\.management$/.exec(
+              path,
+            );
+            if (m)
+              S.$('[data-row-title="' + m[1] + '"]', box).textContent =
+                rows[Number(m[1])].labels.management || "이름 미입력";
+          });
+          S.$$(".pm-answer-editor", box).forEach((el, i) =>
+            el.addEventListener("toggle", () => {
+              if (el.open) openRow = i;
+            }),
+          );
           S.$("[data-add]", box).onclick = () => {
             if (rows.length >= (choice ? 200 : 20))
               return S.toast("최대 개수를 초과했습니다.");
@@ -192,7 +315,11 @@
                   }
                 : S.newField(),
             );
+            openRow = rows.length - 1;
             draw();
+            S.$$(".pm-answer-editor", body)
+              .at(-1)
+              ?.scrollIntoView({ block: "nearest" });
           };
           S.$$("[data-remove]", box).forEach(
             (b) =>
@@ -212,7 +339,7 @@
           S.bind(box, q);
           S.fieldEvents(box, q.fields, draw);
         } else if (title === "범위 조건 설정") {
-          box.innerHTML = `<p class="pms-help">범위 안의 조건은 모두 만족(AND)해야 합니다. 다른 범위와 값이 겹치면 등록할 수 없습니다. 어떤 범위에도 해당하지 않는 값에는 기본 흐름이 적용됩니다.</p><button data-case-add>+ 범위 조건</button>${q.numberCases.map((r, i) => `<article class="pms-card"><h3>${S.e(r.name)}</h3><p>${r.conditions.map((c) => S.e(q.fields.find((f) => f.key === c.fieldKey)?.labels.management) + " " + S.e(c.operator) + " " + S.e(c.lower) + (c.operator === "RANGE" ? " ~ " + S.e(c.upper) : "")).join(" AND ")}</p>${r.guide ? "<p>" + S.e(r.guide) + "</p>" : ""}<button data-case-edit="${i}">수정</button><button data-case-delete="${i}">삭제</button></article>`).join("")}`;
+          box.innerHTML = `<p class="pms-help">범위 안의 조건은 모두 만족(AND)해야 합니다. 연결에 사용 중인 범위를 수정하면 연결 조건도 함께 갱신·검증됩니다. 사용 중인 범위 삭제는 연결을 먼저 수정·삭제해야 합니다. 다른 범위와 값이 겹치면 등록할 수 없습니다. 어떤 범위에도 해당하지 않는 값에는 기본 흐름이 적용됩니다.</p><button data-case-add>+ 범위 조건</button>${q.numberCases.map((r, i) => `<article class="pms-card"><h3>${S.e(r.name)}</h3><p>${S.e(conditionText(q, r.conditions))}</p>${r.guide ? "<p>" + S.e(r.guide) + "</p>" : ""}<button data-case-edit="${i}">수정</button><button data-case-delete="${i}">삭제</button></article>`).join("")}`;
           S.$("[data-case-add]", box).onclick = () => editCase(null);
           S.$$("[data-case-edit]", box).forEach(
             (b) => (b.onclick = () => editCase(Number(b.dataset.caseEdit))),
@@ -261,17 +388,45 @@
                 throw Error("답변 또는 입력 필드를 먼저 추가해 주세요.");
               const errors = {};
               rows.forEach((x, i) =>
-                S.checkLabels(x.labels, "rows." + i + ".", 120, errors),
+                S.checkLabels(
+                  x.labels,
+                  (S.isChoice(q.control) ? "choices." : "fields.") + i + ".",
+                  120,
+                  errors,
+                ),
               );
-              S.checkUniqueLabels(rows, "rows.", errors);
-              if (Object.keys(errors).length)
-                throw Error(Object.values(errors).join(" / "));
+              S.checkUniqueLabels(
+                rows,
+                S.isChoice(q.control) ? "choices." : "fields.",
+                errors,
+              );
+              const keys = new Map();
+              rows.forEach((row, i) => {
+                const prefix = S.isChoice(q.control) ? "choices." : "fields.";
+                if (!/^[A-Za-z0-9_-]{1,80}$/.test(row.key || ""))
+                  errors[prefix + i + ".key"] =
+                    "내부 value는 영문·숫자·밑줄·하이픈으로 1~80자 입력해 주세요. 예: width 또는 color_white.";
+                else if (keys.has(row.key)) {
+                  errors[prefix + i + ".key"] =
+                    "같은 내부 value가 이미 있습니다. 서로 다른 값을 사용해 주세요. 예: width / height.";
+                  errors[prefix + keys.get(row.key) + ".key"] =
+                    "이 내부 value가 다른 항목과 중복됩니다. 각 항목은 독립된 value가 필요합니다.";
+                } else keys.set(row.key, i);
+              });
+              if (Object.keys(errors).length) {
+                const failure = Error("입력 항목을 확인해 주세요.");
+                failure.fieldErrors = errors;
+                throw failure;
+              }
             }
             if (title === "입력 제한 설정") {
               const errors = {};
               S.checkFields(q.fields, q.control, errors);
-              if (Object.keys(errors).length)
-                throw Error(Object.values(errors).join(" / "));
+              if (Object.keys(errors).length) {
+                const failure = Error("입력 항목을 확인해 주세요.");
+                failure.fieldErrors = errors;
+                throw failure;
+              }
             }
             if (title === "고정 사양 입력")
               q.preset = S.readAnswer(box, q, q.preset);
@@ -282,9 +437,37 @@
               if (!hidden) q.preset = null;
               const v = await S.request("/validate-question", "POST", q);
               if (!v.valid || !v.exhaustive) throw Error(err(v));
-              process.questions[
-                process.questions.findIndex((x) => x.key === q.key)
+              const updated = S.copy(process);
+              updated.questions[
+                updated.questions.findIndex((x) => x.key === q.key)
               ] = q;
+              // Relations store conditions, so synchronize rules linked to an edited numeric bucket.
+              for (const rule of updated.rules) {
+                const previousCase = (original.numberCases || []).find(
+                  (c) =>
+                    rule.match === "ALL" &&
+                    conditionSignature(c.conditions) ===
+                      conditionSignature(rule.conditions),
+                );
+                if (!previousCase) continue;
+                const currentCase = q.numberCases.find(
+                  (c) => c.key === previousCase.key,
+                );
+                if (!currentCase)
+                  throw Error(
+                    `범위 [${previousCase.name}]은 연관관계 [${rule.name}]에서 사용 중입니다. 연관관계를 먼저 수정·삭제한 뒤 범위를 삭제해 주세요.`,
+                  );
+                rule.conditions = S.copy(currentCase.conditions);
+              }
+              if (updated.rules.length) {
+                const linked = await validate(updated);
+                if (!linked.valid || !linked.exhaustive)
+                  throw Error(
+                    "기존 연관관계에 영향을 주어 질문을 변경할 수 없습니다.\n" +
+                      err(linked),
+                  );
+              }
+              process = updated;
               dirty();
               d.close();
               paint();
@@ -340,6 +523,44 @@
           );
           S.$("[data-save-case]", cb).onclick = (e) =>
             S.run(e.currentTarget, async () => {
+              const errors = {};
+              if (!r.name.trim())
+                errors.name = "범위 이름을 입력해 주세요. 예: ‘작은 사이즈’.";
+              if (
+                q.numberCases.some(
+                  (other, i) =>
+                    i !== index && other.name.trim() === r.name.trim(),
+                )
+              )
+                errors.name =
+                  "이미 사용한 범위 이름입니다. 구분되는 이름으로 입력해 주세요. 예: ‘W 301~500’.";
+              if (!r.conditions.length)
+                errors[""] =
+                  "조건이 없습니다. 위의 ‘+ W’ 같은 필드 버튼을 눌러 비교와 기준값을 추가해 주세요.";
+              r.conditions.forEach((c, i) => {
+                const path = "conditions." + i + ".";
+                if (c.lower == null || !Number.isFinite(Number(c.lower)))
+                  errors[path + "lower"] =
+                    "기준값을 입력해 주세요. 예: 300 이하라면 300.";
+                if (c.operator === "RANGE") {
+                  if (c.upper == null || !Number.isFinite(Number(c.upper)))
+                    errors[path + "upper"] =
+                      "상한값을 입력해 주세요. 예: 300~500이면 500.";
+                  else if (
+                    c.lower != null &&
+                    (Number(c.lower) > Number(c.upper) ||
+                      (Number(c.lower) === Number(c.upper) &&
+                        (!c.lowerInclusive || !c.upperInclusive)))
+                  )
+                    errors[path + "upper"] =
+                      "이 구간에는 가능한 값이 없습니다. 하한보다 큰 상한을 입력하거나, 한 값만 허용할 때 ‘일치’를 선택해 주세요.";
+                }
+              });
+              if (Object.keys(errors).length) {
+                const failure = Error("범위 조건의 입력값을 확인해 주세요.");
+                failure.fieldErrors = errors;
+                throw failure;
+              }
               const test = S.copy(q);
               test.fixed = false;
               test.visible = true;
@@ -364,7 +585,37 @@
             process.questions.indexOf(q) > process.questions.indexOf(source) &&
             S.group(q.groupId)?.askQuestion !== false,
         );
-      if (!targets.length) return S.toast("연결할 다음 질문이 없습니다.");
+      if (!targets.length)
+        return S.toast(
+          "연결할 다음 질문이 없습니다. 대상 질문을 시작 질문 뒤에 배치해 주세요.",
+        );
+      const complex =
+        old &&
+        (old.actions.length !== 1 ||
+          old.match !== "ALL" ||
+          old.conditions.some((c) => c.groupKey !== sourceKey) ||
+          (S.isChoice(source.control) &&
+            (old.conditions.length !== 1 ||
+              old.conditions[0].operator !== "EQ")) ||
+          (!S.isChoice(source.control) &&
+            source.control !== "NUMBER" &&
+            (old.conditions.length !== 1 ||
+              !["PRESENT", "ABSENT"].includes(old.conditions[0].operator))) ||
+          !["HIDE", "ALLOW", "RENAME"].includes(old.actions[0].effect));
+      if (complex) {
+        S.dialog(
+          "기존 복합 연관관계 확인",
+          `<div class="pms-alert">[${S.e(old.name)}]에는 현재 단계별 편집 방식과 다른 복수 시작 질문·동작 또는 조건 방식이 포함되어 있습니다. 일부 조건이 사라지는 것을 방지하기 위해 이 창에서 단순 연결로 덮어쓰지 않습니다.</div><p class="pms-help">대안: 원본 제품을 복사해 보관한 다음 이 연결을 삭제하고, 시작 답변과 대상별로 새 연결을 등록하세요. 예: ‘사이즈 → 문 수량 제한’과 ‘사이즈 → 설치 질문 건너뜀’을 각각 등록한 후 전체 검증을 진행합니다. 기존 연결을 그대로 쓰려면 닫기를 누르세요.</p><div class="pm-rule-summary"><strong>조건 결합: ${S.e(old.match === "ANY" ? "하나라도 만족" : "모두 만족")}</strong>${old.conditions
+            .map((c) => {
+              const q = process.questions.find((x) => x.key === c.groupKey);
+              return `<span>${S.e(nm(q))}: ${S.e(conditionText(q, [c]))}</span>`;
+            })
+            .join(
+              "",
+            )}<strong>적용 동작</strong>${old.actions.map((a) => `<span>${S.e(nm(process.questions.find((q) => q.key === a.targetKey)))} · ${S.e({ HIDE: "건너뜀", ALLOW: "옵션 제한", RENAME: "질문 변경", SHOW: "표시", REQUIRE: "필수 답변", OPTIONAL: "선택 답변" }[a.effect] || a.effect)}</span>`).join("")}</div>`,
+        );
+        return;
+      }
       let step = 0,
         selected = S.isChoice(source.control)
           ? old?.conditions[0]?.choiceKeys || []
@@ -375,7 +626,13 @@
         effect = old?.actions[0]?.effect || "HIDE",
         targetChoices = old?.actions[0]?.choiceKeys || [],
         questionText = old?.actions[0]?.questionText || "",
-        ruleName = old?.name || "";
+        ruleName = old?.name || "",
+        rangeKey =
+          (source.numberCases || []).find(
+            (c) =>
+              conditionSignature(c.conditions) ===
+              conditionSignature(conditions),
+          )?.key || "";
       const d = S.dialog(nm(source) + " · 연관관계", ""),
         body = S.$(".pms-dialog-body", d);
       function rp() {
@@ -400,7 +657,7 @@
           else if (source.control === "NUMBER") {
             box.innerHTML =
               "<p>등록한 숫자 범위를 선택하세요. 여러 범위를 사용하려면 범위별로 관계를 추가합니다.</p>" +
-              S.select("시작 범위", "range", "", {
+              S.select("시작 범위", "range", rangeKey, {
                 "": "범위 선택",
                 ...Object.fromEntries(
                   (source.numberCases || []).map((r) => [r.key, r.name]),
@@ -410,8 +667,9 @@
                 ? '<p class="pms-help">다른 범위를 선택하지 않으면 기존 조건을 유지합니다.</p>'
                 : "");
             S.$("select", box).onchange = (e) => {
+              rangeKey = e.target.value;
               conditions = S.copy(
-                source.numberCases.find((r) => r.key === e.target.value)
+                source.numberCases.find((r) => r.key === rangeKey)
                   ?.conditions || [],
               );
               match = "ALL";
@@ -436,8 +694,8 @@
         if (step === 1) {
           box.innerHTML =
             '<p>조건 묶음을 대상 버튼에 드래그하거나 클릭해 연결하세요.</p><div class="pm-condition-bundle" draggable="true">' +
-            S.e(nm(source)) +
-            ' · 선택한 조건 묶음</div><div class="pms-check-grid">' +
+            S.e(nm(source) + " · " + conditionText(source, conditions)) +
+            '</div><div class="pms-check-grid">' +
             targets
               .map(
                 (t) =>
@@ -449,9 +707,17 @@
             e.dataTransfer.setData("application/pm-condition", sourceKey);
           S.$$("[data-kind]", box).forEach((b) => {
             const choose = () => {
-              targetKey = b.closest("[data-target]").dataset.target;
-              effect = b.dataset.kind === "options" ? "ALLOW" : "HIDE";
-              targetChoices = [];
+              const nextTarget = b.closest("[data-target]").dataset.target;
+              const nextEffect =
+                b.dataset.kind === "options"
+                  ? "ALLOW"
+                  : effect === "RENAME"
+                    ? "RENAME"
+                    : "HIDE";
+              if (targetKey !== nextTarget || effect !== nextEffect)
+                targetChoices = [];
+              targetKey = nextTarget;
+              effect = nextEffect;
               step = 2;
               rp();
             };
@@ -486,8 +752,14 @@
               "text",
               'maxlength="120"',
             ) +
+            `<div class="pm-rule-summary"><strong>시작: ${S.e(nm(source))}</strong><span>${S.e(conditionText(source, conditions))}</span><strong>대상: ${S.e(nm(target))}</strong><span>${S.e(effect === "ALLOW" ? "표시할 답변: " + targetChoices.map((k) => target.choices.find((c) => c.key === k)?.labels.management || k).join(" / ") : effect === "HIDE" ? "이 질문을 건너뜁니다" : "질문 변경: " + questionText)}</span></div>` +
             '<p class="pms-help">동시에 적용되는 옵션 제한과 건너뜀·질문 변경 충돌을 검사합니다. 충돌한 규칙 이름과 입력 예시를 확인해 조건을 분리하세요.</p>';
         S.$("[data-back]", body)?.addEventListener("click", () => {
+          if (step === 3) ruleName = S.$('[data-path="ruleName"]', box).value;
+          if (step === 2 && effect === "ALLOW")
+            targetChoices = S.$$("[data-result]:checked", box).map(
+              (x) => x.value,
+            );
           step--;
           rp();
         });

@@ -46,7 +46,7 @@
   S.faqPage = async function (root) {
     let topics = await S.request("/faq");
     function paint() {
-      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><h2>FAQ 주제 관리</h2><button data-new class="primary">+ 주제 등록</button></div><div class="pms-panel-body pm-faq-grid">${topics.map((t) => `<article class="pms-card"><h3>${esc(t.title)}</h3><p>${t.entries.length}개 FAQ · ${esc(t.phone || "전화 미등록")}</p><p>${esc(t.link || "링크 미등록")}</p><div class="pms-actions"><button data-edit="${t.id}">주제·FAQ 수정</button><button data-delete="${t.id}" class="danger">삭제</button></div></article>`).join("") || "<p>주제를 만든 뒤 그 안에 FAQ를 추가해 주세요.</p>"}</div></section>`;
+      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><h2>FAQ 주제 관리</h2><button data-new class="primary">+ 주제 등록</button></div><div class="pms-panel-body pm-faq-grid">${topics.map((t) => `<article class="pms-card pm-faq-topic"><h3>${esc(t.title)}</h3><p>${t.entries.length}개 FAQ · ${esc(t.phone || "전화 미등록")}</p><p>${esc(t.link || "링크 미등록")}</p><div class="pms-actions"><button data-edit="${t.id}">주제·FAQ 수정</button><button data-delete="${t.id}" class="danger">삭제</button></div></article>`).join("") || "<p>주제를 만든 뒤 그 안에 FAQ를 추가해 주세요.</p>"}</div></section>`;
       S.$("[data-new]", root).onclick = () => edit(null);
       S.$$("[data-edit]", root).forEach(
         (b) =>
@@ -89,10 +89,12 @@
             entries: [],
           };
       const assets = new Map((topic?.assets || []).map((a) => [a.id, a]));
-      const d = S.dialog(topic ? "FAQ 주제 수정" : "FAQ 주제 등록", ""),
+      const d = S.dialog(topic ? "FAQ 주제 수정" : "FAQ 주제 등록", "", {
+          foot: '<button data-save class="primary">주제·FAQ 저장</button>',
+        }),
         body = S.$(".pms-dialog-body", d);
       function draw() {
-        body.innerHTML = `<div class="pms-form-grid two">${S.field("주제명", "title", m.title, "text", 'maxlength="160"')}${S.field("문의 전화번호", "phone", m.phone || "", "tel", 'maxlength="60"')}${S.field("별도 문의 링크", "link", m.link || "", "url", 'maxlength="2000"')}</div><p class="pms-help">연결된 제품에서 ? 버튼으로 이 주제의 FAQ가 표시됩니다. 문의 링크를 누르면 현재 선택값을 콘솔에 출력한 뒤 이동합니다.</p><div class="pms-actions"><button data-add>+ FAQ 추가</button></div>${m.entries.map((r, i) => `<article class="pms-card"><div class="pms-form-grid">${S.field("FAQ 제목", "entries." + i + ".title", r.title, "text", 'maxlength="200"')}<label>내용<textarea data-path="entries.${i}.content" maxlength="10000" rows="5">${esc(r.content)}</textarea></label></div><div data-faq-files="${i}">${S.files((r.assetIds || []).map((id) => assets.get(id)).filter(Boolean))}</div><button data-remove="${i}">FAQ 삭제</button></article>`).join("")}<button data-save class="primary">주제·FAQ 저장</button>`;
+        body.innerHTML = `<div class="pms-form-grid two">${S.field("주제명", "title", m.title, "text", 'maxlength="160"')}${S.field("문의 전화번호", "phone", m.phone || "", "tel", 'maxlength="60"')}<div class="wide">${S.field("별도 문의 링크", "link", m.link || "", "url", 'maxlength="2000"')}</div></div><p class="pms-help">연결된 제품에서 ? 버튼으로 이 주제의 FAQ가 표시됩니다. 문의 링크를 누르면 현재 선택값을 콘솔에 출력한 뒤 이동합니다.</p><div class="pms-actions"><button data-add>+ FAQ 추가</button></div>${m.entries.map((r, i) => `<article class="pms-card pm-faq-entry"><header class="pm-card-heading"><h3>FAQ ${i + 1}</h3><button data-remove="${i}" class="danger">삭제</button></header><div class="pms-form-grid one">${S.field("FAQ 제목", "entries." + i + ".title", r.title, "text", 'maxlength="200"')}<label><span>내용</span><textarea data-path="entries.${i}.content" maxlength="10000" rows="5">${esc(r.content)}</textarea></label></div><div data-faq-files="${i}">${S.files((r.assetIds || []).map((id) => assets.get(id)).filter(Boolean))}</div></article>`).join("")}`;
         S.bind(body, m);
         S.$("[data-add]", body).onclick = () => {
           m.entries.push({
@@ -102,6 +104,9 @@
             assetIds: [],
           });
           draw();
+          const last = S.$$(".pm-faq-entry", body).at(-1);
+          last?.scrollIntoView({ block: "nearest" });
+          S.$("input", last)?.focus({ preventScroll: true });
         };
         S.$$("[data-remove]", body).forEach(
           (b) =>
@@ -119,7 +124,7 @@
           });
           S.$("input[type=file]", el)?.setAttribute("accept", "image/*");
         });
-        S.$("[data-save]", body).onclick = (e) =>
+        S.$("[data-save]", d).onclick = (e) =>
           S.run(e.currentTarget, async () => {
             await S.request("/faq", "POST", {
               id: m.id,
@@ -140,7 +145,7 @@
   S.viewPage = async function (root, p) {
     const topics = await S.request("/faq"),
       faq = topics.find((t) => t.id === p.faqTopicId);
-    root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${esc(p.productName)}</h2><span class="mono">${esc(p.catalogCode)}</span> ${S.badge(p.nonStandard ? "비규격" : "규격")}</div><div class="pms-actions"><a class="pms-button" href="${path(p.id)}">구성 수정</a>${p.nonStandard ? `<a class="pms-button" href="${path(p.id)}/process">프로세스</a><a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a>` : ""}<a class="pms-button" href="${path(p.id)}/test" target="_blank">고객 테스트</a></div></div><div class="pms-panel-body"><p>${esc(p.description || "")}</p><div class="pms-row"><span>생산기간 ${p.productionHours ?? 0}시간</span>${!p.nonStandard ? `<span>단가 ${(p.unitPrice ?? 0).toLocaleString()}원</span>` : ""}<span>총 재고 ${p.stock}</span>${p.nonStandard ? `<span>실 제품 ${p.actualCount}종</span>` : ""}<span>FAQ ${esc(faq?.title || "연결 없음")}</span></div><div class="pms-gallery">${p.assets
+    root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${esc(p.productName)}</h2><span class="mono">${esc(p.catalogCode)}</span> ${S.badge(p.nonStandard ? "비규격" : "규격")}</div><div class="pms-actions"><a class="pms-button" href="${path(p.id)}">구성 수정</a>${p.nonStandard ? `<a class="pms-button" href="${path(p.id)}/process">프로세스</a><a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a>` : ""}<a class="pms-button" href="${path(p.id)}/test" target="_blank">고객 테스트</a></div></div><div class="pms-panel-body"><p>${esc(p.description || "")}</p><div class="pm-detail-metrics"><span>생산기간 ${p.productionHours ?? 0}시간</span>${!p.nonStandard ? `<span>단가 ${(p.unitPrice ?? 0).toLocaleString()}원</span>` : ""}<span>총 재고 ${p.stock}</span>${p.nonStandard ? `<span>실 제품 ${p.actualCount}종</span>` : ""}<span>FAQ ${esc(faq?.title || "연결 없음")}</span></div><div class="pms-gallery">${p.assets
       .filter((a) => a.image)
       .map(
         (a) =>
@@ -149,7 +154,7 @@
       .join("")}</div>${p.process.questions
       .map((q) => {
         const g = S.group(q.groupId);
-        return `<article class="pms-card"><h3>${esc(q.labels.management)}</h3><p>${esc(q.question || "")} · ${esc(S.controls[q.control])} · ${g.askQuestion ? "고객 질문 포함" : "질문 제외 / 고정 사양"}${g.priceImpact ? " · 단가 영향" : ""}</p>${q.guide ? `<p>${esc(q.guide)}</p>` : ""}<table><thead><tr><th>항목</th><th>내부 value</th><th>사양·입력 제한</th><th>안내메시지</th></tr></thead><tbody>${q.choices
+        return `<article class="pms-card"><h3>${esc(q.labels.management)}</h3><p>${esc(q.question || "")} · ${esc(S.controls[q.control])} · ${g.askQuestion ? "고객 질문 포함" : "질문 제외 / 고정 사양"}${g.priceImpact ? " · 단가 영향" : ""}</p>${q.guide ? `<p>${esc(q.guide)}</p>` : ""}<div class="pms-table-scroll pm-spec-table"><table><thead><tr><th>항목</th><th>내부 value</th><th>사양·입력 제한</th><th>안내메시지</th></tr></thead><tbody>${q.choices
           .map(
             (c) =>
               `<tr><td>${esc(c.labels.customer)}<small>생산: ${esc(c.labels.production)} / 관리: ${esc(c.labels.management)}</small></td><td>${esc(c.key)}</td><td>${(
@@ -167,7 +172,7 @@
           )
           .join(
             "",
-          )}${q.fields.map((f) => `<tr><td>${esc(f.labels.management)}</td><td>${esc(f.key)}</td><td>${q.control === "NUMBER" ? `${f.min ?? "제한 없음"} ~ ${f.max ?? "제한 없음"} ${esc(f.unit || "")} / 간격 ${f.step}` : q.control === "FILE" ? esc((f.extensions || []).join(", ")) + " / 최대 " + f.maxFiles + "개" : `${f.minLength ?? 0} ~ ${f.maxLength ?? 500}자`} ${f.required ? "필수" : ""}</td><td>${esc(f.guide || "")}</td></tr>`).join("")}</tbody></table>${(q.numberCases || []).map((r) => `<p><strong>${esc(r.name)}</strong>: ${r.conditions.map((c) => esc(q.fields.find((f) => f.key === c.fieldKey)?.labels.management) + " " + esc(c.operator) + " " + esc(c.lower) + (c.upper != null ? " ~ " + esc(c.upper) : "")).join(" AND ")} ${esc(r.guide || "")}</p>`).join("")}</article>`;
+          )}${q.fields.map((f) => `<tr><td>${esc(f.labels.management)}</td><td>${esc(f.key)}</td><td>${q.control === "NUMBER" ? `${f.min ?? "제한 없음"} ~ ${f.max ?? "제한 없음"} ${esc(f.unit || "")} / 간격 ${f.step}` : q.control === "FILE" ? esc((f.extensions || []).join(", ")) + " / 최대 " + f.maxFiles + "개" : `${f.minLength ?? 0} ~ ${f.maxLength ?? 500}자`} ${f.required ? "필수" : ""}</td><td>${esc(f.guide || "")}</td></tr>`).join("")}</tbody></table></div>${(q.numberCases || []).map((r) => `<p><strong>${esc(r.name)}</strong>: ${r.conditions.map((c) => esc(q.fields.find((f) => f.key === c.fieldKey)?.labels.management) + " " + esc(c.operator) + " " + esc(c.lower) + (c.upper != null ? " ~ " + esc(c.upper) : "")).join(" AND ")} ${esc(r.guide || "")}</p>`).join("")}</article>`;
       })
       .join(
         "",
@@ -181,8 +186,14 @@
       paint();
     }
     function paint() {
-      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${esc(p.productName)} · 실 제품 재고</h2><small>${esc(p.catalogCode)} · ${rows.length}종 / 총 재고 ${p.stock}개${p.unallocatedStock ? " / 기존 미배정 재고 " + p.unallocatedStock + "개" : ""}</small></div><button data-create class="primary" ${p.status === "DRAFT" || p.status === "DISCONTINUED" ? "disabled" : ""}>+ 실제 사양 등록</button></div><div class="pms-panel-body"><p class="pms-help">검증 완료된 제품의 허용 범위 안에서 실제 사양을 선택합니다. 실 제품이 하나라도 등록되면 원본 제품의 구성·프로세스는 잠깁니다.</p><div class="pms-row"><input data-code placeholder="제품 코드 또는 실 제품 코드"><button data-decode>코드 조회</button></div><div data-decoded></div><div class="pms-table-scroll"><table><thead><tr><th>실 제품 코드</th><th>실제 사양</th><th>재고</th><th>관리</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.code)}<small>소속: ${esc(r.parentCode)}</small></td><td>${r.specs.map((s) => `<div>${esc(s.group)}: ${esc(s.value)}</div>`).join("")}</td><td>${r.stock}</td><td><div class="pms-actions"><button data-stock="${r.id}">입출고·조정</button><button data-history="${r.id}">이력</button></div></td></tr>`).join("") || '<tr><td colspan="4">등록된 실 제품이 없습니다.</td></tr>'}</tbody></table></div></div></section>`;
+      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${esc(p.productName)} · 실 제품 재고</h2><small>${esc(p.catalogCode)} · ${rows.length}종 / 총 재고 ${p.stock}개${p.unallocatedStock ? " / 기존 미배정 재고 " + p.unallocatedStock + "개" : ""}</small></div><button data-create class="primary" ${p.status === "DRAFT" || p.status === "DISCONTINUED" ? "disabled" : ""}>+ 실제 사양 등록</button></div><div class="pms-panel-body"><p class="pms-help">검증 완료된 제품의 허용 범위 안에서 실제 사양을 선택합니다. 실 제품이 하나라도 등록되면 원본 제품의 구성·프로세스는 잠깁니다.</p><div class="pm-code-search"><label><span>제품 코드 조회</span><input data-code placeholder="제품 코드 또는 실 제품 코드"></label><button data-decode>코드 조회</button></div><div data-decoded></div><div class="pms-table-scroll"><table><thead><tr><th>실 제품 코드</th><th>실제 사양</th><th>재고</th><th>관리</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.code)}<small>소속: ${esc(r.parentCode)}</small></td><td>${S.specSummary(r.specs.map((s) => ({ label: s.group, value: s.value })))}</td><td>${r.stock}</td><td><div class="pms-actions pm-stock-actions"><button data-stock="${r.id}">입출고·조정</button><button data-history="${r.id}">이력</button></div></td></tr>`).join("") || '<tr><td colspan="4">등록된 실 제품이 없습니다.</td></tr>'}</tbody></table></div></div></section>`;
       S.$("[data-create]", root).onclick = create;
+      S.$("[data-code]", root).onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          S.$("[data-decode]", root).click();
+        }
+      };
       S.$("[data-decode]", root).onclick = (e) =>
         S.run(e.currentTarget, async () => {
           const r = await S.request(
@@ -210,14 +221,14 @@
               );
               S.dialog(
                 "실 제품 재고 이력",
-                "<table><thead><tr><th>일시</th><th>변경</th><th>잔고</th><th>사유</th><th>담당자</th></tr></thead><tbody>" +
+                '<div class="pms-table-scroll pm-history-table"><table><thead><tr><th>일시</th><th>변경</th><th>잔고</th><th>사유</th><th>담당자</th></tr></thead><tbody>' +
                   history
                     .map(
                       (h) =>
                         `<tr><td>${esc(h.createdAt)}</td><td>${h.delta}</td><td>${h.stockAfter}</td><td>${esc(h.reason)}</td><td>${esc(h.actor)}</td></tr>`,
                     )
                     .join("") +
-                  "</tbody></table>",
+                  "</tbody></table></div>",
               );
             })),
       );
@@ -226,7 +237,7 @@
       const m = { version: r.version, delta: 0, reason: "" };
       const d = S.dialog(
         r.code + " · 재고 변경",
-        `<p>현재 ${r.stock}개 · 입고는 양수, 출고는 음수</p><div class="pms-form-grid">${S.field("변경 수량", "delta", 0, "number", 'step="1"')}${S.field("사유", "reason", "", "text", 'maxlength="500"')}${p.unallocatedStock ? S.check("기존 미배정 재고에서 배정", "allocateLegacy", false) : ""}</div>`,
+        `<p>현재 ${r.stock}개 · 입고는 양수, 출고는 음수</p><div class="pms-form-grid two">${S.field("변경 수량", "delta", 0, "number", 'step="1"')}${S.field("사유", "reason", "", "text", 'maxlength="500"')}${p.unallocatedStock ? S.check("기존 미배정 재고에서 배정", "allocateLegacy", false) : ""}</div>`,
         {
           wide: false,
           foot: '<button data-save class="primary">재고 반영</button>',
