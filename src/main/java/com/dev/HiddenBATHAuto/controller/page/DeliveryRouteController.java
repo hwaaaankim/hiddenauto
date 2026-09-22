@@ -60,6 +60,7 @@ public class DeliveryRouteController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deliveryDate,
             @RequestParam(required = false) Long orderIdFrom,
             @RequestParam(required = false) Long orderIdTo,
+            @RequestParam(required = false) String companyName,
             Model model
     ) {
         Member loginMember = requireLoginMember(principal);
@@ -69,9 +70,10 @@ public class DeliveryRouteController {
                 loginMember,
                 selectedDate,
                 orderIdFrom,
-                orderIdTo
+                orderIdTo, companyName
         );
 
+        model.addAttribute("companyName", companyName == null ? "" : companyName.trim());
         model.addAttribute("routePage", routePage);
         model.addAttribute("selectedDate", selectedDate);
         model.addAttribute("orderIdFrom", orderIdFrom);

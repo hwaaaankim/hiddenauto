@@ -6,12 +6,13 @@
     'use strict';
 
     const HEIC_CONVERTER_URLS = [
+        '/administration/assets/libs/heic2any/heic2any-0.0.4.min.js',
         'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js',
         'https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js'
     ];
     const JPEG_QUALITY = 0.94;
     const IMAGE_EXTENSIONS = new Set([
-        'jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif'
+        'jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif', 'avif', 'tif', 'tiff'
     ]);
     const HEIC_EXTENSIONS = new Set(['heic', 'heif']);
     const HEIC_MIME_TYPES = new Set([
@@ -76,34 +77,21 @@
 
     function createScriptLoader(url) {
         return new Promise((resolve, reject) => {
-            const existing = Array.from(document.scripts || [])
-                .find(script => script.src === url);
-
-            if (existing) {
-                if (typeof window.heic2any === 'function') {
-                    resolve(window.heic2any);
-                    return;
-                }
-
-                existing.addEventListener('load', () => {
-                    if (typeof window.heic2any === 'function') resolve(window.heic2any);
-                    else reject(new Error('HEIC 변환 모듈을 초기화하지 못했습니다.'));
-                }, { once: true });
-                existing.addEventListener('error', () => {
-                    reject(new Error('HEIC 변환 모듈을 불러오지 못했습니다.'));
-                }, { once: true });
-                return;
-            }
-
+            if (typeof window.heic2any === 'function') return resolve(window.heic2any);
+            // 실패한 script 태그는 제거하여 다음 시도에서 load 이벤트를 영원히 기다리지 않게 합니다.
             const script = document.createElement('script');
-            script.src = url;
-            script.async = true;
-            script.crossOrigin = 'anonymous';
-            script.onload = () => {
-                if (typeof window.heic2any === 'function') resolve(window.heic2any);
-                else reject(new Error('HEIC 변환 모듈을 초기화하지 못했습니다.'));
-            };
-            script.onerror = () => reject(new Error('HEIC 변환 모듈을 불러오지 못했습니다.'));
+            let finished = false;
+            const timer = setTimeout(() => finish(new Error('HEIC 변환 모듈 로딩 시간이 초과되었습니다.')), 15000);
+            function finish(error) {
+                if (finished) return;
+                finished = true; clearTimeout(timer);
+                script.onload = null; script.onerror = null;
+                if (error) { script.remove(); reject(error); }
+                else resolve(window.heic2any);
+            }
+            script.src = url; script.async = true; script.crossOrigin = 'anonymous';
+            script.onload = () => finish(typeof window.heic2any === 'function' ? null : new Error('HEIC 변환 모듈을 초기화하지 못했습니다.'));
+            script.onerror = () => finish(new Error('HEIC 변환 모듈을 불러오지 못했습니다.'));
             document.head.appendChild(script);
         });
     }
@@ -169,8 +157,9 @@
                     }
 
                     const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
+                    const scale = Math.min(1, 4096 / Math.max(width, height));
+                    canvas.width = Math.max(1, Math.round(width * scale));
+                    canvas.height = Math.max(1, Math.round(height * scale));
 
                     const context = canvas.getContext('2d');
                     if (!context) {
@@ -179,7 +168,7 @@
                         return;
                     }
 
-                    context.drawImage(image, 0, 0, width, height);
+                    context.drawImage(image, 0, 0, canvas.width, canvas.height);
                     canvas.toBlob(blob => {
                         cleanup();
                         if (!blob || blob.size <= 0) {
@@ -244,11 +233,25 @@
         }
 
         if (!(await isHeicFile(file))) {
-            return {
-                file,
-                converted: false,
-                originalName: file.name || 'image'
-            };
+            const mimeByExtension = { jpg: 'image/jpeg', jpeg: 'image/jpeg', jfif: 'image/jpeg',
+                png: 'image/png', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
+            const knownMime = mimeByExtension[getExtension(file.name)];
+            const mime = String(file.type || '').toLowerCase();
+            if (knownMime && (mime === knownMime || !mime || mime === 'application/octet-stream')) {
+                const output = mime === knownMime ? file : new File([file], file.name, {
+                    type: knownMime, lastModified: file.lastModified || Date.now()
+                });
+                return { file: output, converted: false, originalName: file.name || 'image' };
+            }
+            // AVIF/TIFF 등은 브라우저가 해석할 수 있으면 JPEG로 변환합니다.
+            // 해석 불가능한 형식을 원본 그대로 올리거나 조용히 누락하지 않습니다.
+            try {
+                const blob = await convertHeicNatively(file, JPEG_QUALITY);
+                return { file: new File([blob], `${withoutExtension(file.name)}.jpg`, { type: 'image/jpeg' }),
+                    converted: true, originalName: file.name || 'image' };
+            } catch (error) {
+                throw new Error(`${file.name || '이미지'}을(를) 웹 이미지로 변환하지 못했습니다. JPG 또는 PNG로 저장한 뒤 다시 선택해주세요.`);
+            }
         }
 
         try {

@@ -33,37 +33,23 @@
 					</div>
 
 					<!-- 필터 폼 -->
-					<form method="get" th:action="@{/team/deliveryList}" class="row">
-						<div class="col-lg-10">
-							<div class="row g-4 mb-3">
-
-								<div class="col-lg-4 col-md-5 col-sm-5 col-xs-5">
-									<label class="form-label">출고일 조회</label>
-									<input type="text" name="preferredDate" id="deliveryDate" class="form-control"
-										placeholder="YYYY-MM-DD" data-provider="flatpickr" th:value="${preferredDate}">
-								</div>
-
-								<div class="col-lg-4 col-md-5 col-sm-5 col-xs-5">
-									<label class="form-label">상태</label>
-									<select class="form-select" name="status">
-										<option value="" th:selected="${status == null}">
-											전체(승인/생산완료/출고완료/배송완료)
-										</option>
-										<option th:each="st : ${availableStatuses}" th:value="${st}"
-											th:text="${st.label}"
-											th:selected="${status != null and status.name() == st.name()}">
-										</option>
-									</select>
-								</div>
-
-								<div class="col-lg-2 col-md-2 col-sm-2 col-xs-2">
-									<label class="form-label">조회</label>
-									<button type="submit" class="btn btn-primary w-100">검색하기</button>
-								</div>
-
-							</div>
-						</div>
-					</form>
+					<form method="get" th:action="@{/team/deliveryList}" class="delivery-filter-grid" id="delivery-list-search-form">
+<div><label for="deliveryDate" class="form-label">출고일 조회</label>
+<input type="text" name="preferredDate" id="deliveryDate" class="form-control" data-provider="flatpickr" th:value="${preferredDate}"></div>
+<div><label for="delivery-status-filter" class="form-label">상태</label>
+<select class="form-select" name="status" id="delivery-status-filter">
+<option value="" th:selected="${status == null}">전체</option>
+<option th:each="st : ${availableStatuses}" th:value="${st}" th:text="${st.label}" th:selected="${status != null and status.name() == st.name()}"></option>
+</select></div>
+<div><label for="delivery-id-from" class="form-label">Order ID From</label><input id="delivery-id-from" name="orderIdFrom" type="number" min="1" step="1" class="form-control" th:value="${orderIdFrom}" placeholder="이상"></div>
+<div><label for="delivery-id-to" class="form-label">Order ID To</label><input id="delivery-id-to" name="orderIdTo" type="number" min="1" step="1" class="form-control" th:value="${orderIdTo}" placeholder="이하"></div>
+<div class="delivery-company-field">
+<label for="delivery-company-name" class="form-label">거래처명</label>
+<input id="delivery-company-name" name="companyName" class="form-control" th:value="${companyName}"
+ placeholder="거래처명 입력" autocomplete="off" role="combobox" aria-autocomplete="list"
+ aria-expanded="false" aria-controls="delivery-company-options">
+<div id="delivery-company-options" class="delivery-company-options" role="listbox" hidden></div>
+</div><button type="submit" class="btn btn-primary">검색하기</button></form>
 
 					<div class="row">
 						<div class="col-lg-12">
@@ -77,11 +63,14 @@
 									data-scroll-target="#delivery-section-other" title="기타">기타</button>
 							</div>
 
-							<button type="button" class="btn btn-primary delivery-list-added-floating-handler-btn"
+							<div class="delivery-mobile-actions">
+<button type="button" class="btn btn-primary" data-delivery-check="true">일괄체크</button>
+<button type="button" class="btn btn-outline-primary" data-delivery-check="false">일괄체크해제</button>
+<button type="button" class="btn btn-primary delivery-list-added-floating-handler-btn"
 								id="delivery-list-added-floating-handler-btn" aria-label="선택 주문 담당자 변경">
 								담당자변경
 								<span class="badge bg-light text-primary ms-1" id="delivery-list-added-floating-selected-count-badge">0</span>
-							</button>
+							</button><button type="button" class="btn btn-secondary" id="delivery-mobile-top">TOP</button></div>
 
 							<div class="card">
 								<div class="card-header d-flex align-items-center justify-content-between">
@@ -109,7 +98,9 @@
 											<i class="ri-printer-line me-1"></i>인쇄
 										</button>
 
-										<small class="text-muted">
+										<button type="button" class="btn btn-outline-primary delivery-bulk-desktop" data-delivery-check="true">일괄체크</button>
+<button type="button" class="btn btn-outline-secondary delivery-bulk-desktop" data-delivery-check="false">일괄체크해제</button>
+<small class="text-muted">
 											※ 순서 변경과 업체별정렬은 <b>직배송/현장배송 + 승인완료/생산완료/출고완료</b> 건에서 가능합니다.
 											<br>
 											※ 업체별정렬은 <b>같은 업체 + 같은 실제 배송지</b>를 현재 최초 등장 순서대로 즉시 묶습니다. site 주소가 있으면 site 주소를 우선합니다.
@@ -118,7 +109,7 @@
 											<br>
 											※ 담당자변경은 <b>직배송/현장배송 + 승인완료/생산완료/출고완료</b> 건에서 가능하고, 배송완료 처리는 <b>생산완료</b> 건에서만 가능합니다.
 											<br>
-											※ 배송완료 건과 기타 배송수단(택배/화물/방문 등)은 상세확인만 가능합니다.
+											※ 배송완료 건은 상세 팝업에서 증빙 이미지를 수정할 수 있습니다.
 											<br>
 											※ 모바일은 <b>핸들(≡)</b>로만 순서 변경됩니다.
 										</small>
@@ -618,7 +609,8 @@
 							</div>
 						</div>
 
-						<!-- 기존 배송완료 증빙 이미지 표시 -->
+						<div id="delivery-list-image-editor" hidden></div>
+<!-- 기존 배송완료 증빙 이미지 표시 -->
 						<div class="delivery-list-added-existing-wrap" id="delivery-list-added-existing-wrap"
 							style="display:none;">
 							<hr class="my-3">
@@ -733,12 +725,14 @@
 	<script src="/administration/assets/libs/prismjs/prism.js"></script>
 	<script src="https://cdn.lordicon.com/libs/mssddfmo/lord-icon-2.1.0.js"></script>
 	<script src="/administration/assets/js/pages/modal.init.js"></script>
-	<script src="/administration/assets/js/imageUploadNormalizer.js?v=20260909-1"></script>
+	<script src="/administration/assets/js/imageUploadNormalizer.js?v=20260922-1"></script>
 
 	<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryList.added.css?v=20260804-6">
-	<script src="/administration/assets/team/delivery/deliveryList.added.js?v=20260909-1"></script>
+	<script src="/administration/assets/team/delivery/deliveryList.added.js?v=20260922-1"></script>
 	<script src="/administration/assets/team/delivery/deliveryList.print.js"></script>
 
+<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryEnhancements.css?v=20260922-1">
+<script src="/administration/assets/team/delivery/deliveryEnhancements.js?v=20260922-1"></script>
 </body>
 
 </html>

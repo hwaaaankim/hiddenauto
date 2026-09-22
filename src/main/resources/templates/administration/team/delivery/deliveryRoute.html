@@ -40,52 +40,27 @@
 
                 <div class="card delivery-route-filter-card">
                     <div class="card-body">
-                        <div class="delivery-route-date-nav">
-                            <a class="btn btn-outline-secondary delivery-route-date-step"
-                               th:href="@{/team/deliveryRoute(deliveryDate=${previousDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo})}"
-                               aria-label="이전 날짜">
-                                <i class="ri-arrow-left-s-line"></i>
-                            </a>
-
-                            <form class="delivery-route-date-form" id="delivery-route-search-form" method="get"
-                                  th:action="@{/team/deliveryRoute}">
-                                <div class="delivery-route-date-field">
-                                    <label for="delivery-route-date" class="form-label">배송일</label>
-                                    <input type="date" class="form-control" id="delivery-route-date"
-                                           name="deliveryDate" th:value="${selectedDate}" required>
-                                </div>
-                                <div class="delivery-route-order-id-field">
-                                    <label for="delivery-route-order-id-from" class="form-label">Order ID From</label>
-                                    <input type="number" min="1" step="1" class="form-control"
-                                           id="delivery-route-order-id-from" name="orderIdFrom"
-                                           th:value="${orderIdFrom}" placeholder="이상">
-                                </div>
-                                <div class="delivery-route-order-id-field">
-                                    <label for="delivery-route-order-id-to" class="form-label">Order ID To</label>
-                                    <input type="number" min="1" step="1" class="form-control"
-                                           id="delivery-route-order-id-to" name="orderIdTo"
-                                           th:value="${orderIdTo}" placeholder="이하">
-                                </div>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="ri-search-line me-1"></i>조회
-                                </button>
-                                <a class="btn btn-outline-secondary"
-                                   th:href="@{/team/deliveryRoute(deliveryDate=${selectedDate})}">ID 초기화</a>
-                            </form>
-
-                            <a class="btn btn-outline-primary delivery-route-today-btn"
-                               th:classappend="${isToday} ? ' active' : ''"
-                               th:href="@{/team/deliveryRoute(deliveryDate=${today},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo})}">
-                                오늘
-                            </a>
-
-                            <a class="btn btn-outline-secondary delivery-route-date-step"
-                               th:href="@{/team/deliveryRoute(deliveryDate=${nextDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo})}"
-                               aria-label="다음 날짜">
-                                <i class="ri-arrow-right-s-line"></i>
-                            </a>
-                        </div>
-                        <p class="delivery-route-order-id-help mb-0 mt-2 text-center">
+                        <form class="delivery-filter-grid delivery-route-filter-grid" id="delivery-route-search-form" method="get" th:action="@{/team/deliveryRoute}">
+<div class="delivery-route-date-field">
+<label for="delivery-route-date" class="form-label">배송일</label>
+<div class="delivery-date-controls">
+<a class="btn btn-outline-secondary" aria-label="이전 날짜" th:href="@{/team/deliveryRoute(deliveryDate=${previousDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},companyName=${companyName})}">‹</a>
+<input type="date" class="form-control" id="delivery-route-date" name="deliveryDate" th:value="${selectedDate}" required>
+<a class="btn btn-outline-secondary" aria-label="다음 날짜" th:href="@{/team/deliveryRoute(deliveryDate=${nextDate},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},companyName=${companyName})}">›</a>
+<a class="btn btn-outline-primary" th:href="@{/team/deliveryRoute(deliveryDate=${today},orderIdFrom=${orderIdFrom},orderIdTo=${orderIdTo},companyName=${companyName})}">오늘</a>
+</div></div>
+<div><label for="delivery-route-order-id-from" class="form-label">Order ID From</label><input type="number" min="1" step="1" class="form-control" id="delivery-route-order-id-from" name="orderIdFrom" th:value="${orderIdFrom}" placeholder="이상"></div>
+<div><label for="delivery-route-order-id-to" class="form-label">Order ID To</label><input type="number" min="1" step="1" class="form-control" id="delivery-route-order-id-to" name="orderIdTo" th:value="${orderIdTo}" placeholder="이하"></div>
+<div class="delivery-company-field">
+<label for="delivery-company-name" class="form-label">거래처명</label>
+<input id="delivery-company-name" name="companyName" class="form-control" th:value="${companyName}"
+ placeholder="거래처명 입력" autocomplete="off" role="combobox" aria-autocomplete="list"
+ aria-expanded="false" aria-controls="delivery-company-options">
+<div id="delivery-company-options" class="delivery-company-options" role="listbox" hidden></div>
+</div><div class="delivery-filter-buttons"><button type="submit" class="btn btn-primary">조회</button>
+<a class="btn btn-outline-secondary" th:href="@{/team/deliveryRoute(deliveryDate=${selectedDate},companyName=${companyName})}">ID 초기화</a></div>
+</form>
+<p class="delivery-route-order-id-help mb-0 mt-2 text-center">
                             From만 입력하면 해당 ID 이상, To만 입력하면 해당 ID 이하, 단건은 From과 To를 같은 값으로 입력합니다.
                         </p>
                     </div>
@@ -362,7 +337,9 @@
                                                        th:attr="data-order-id=${order.orderId},data-group-id=${group.domId}">
                                                 <span th:text="${order.deliveryDone} ? '배송완료' : (${order.completable} ? '완료 선택' : '처리 불가')">완료 선택</span>
                                             </label>
-                                            <div class="delivery-route-order-badges">
+                                            <button type="button" class="btn btn-sm btn-outline-success delivery-image-open"
+ th:attr="data-image-order-id=${order.orderId}" th:classappend="${!order.deliveryDone} ? ' d-none' : ''">이미지 보기·수정</button>
+<div class="delivery-route-order-badges">
                                                 <span class="badge bg-primary-subtle text-primary"
                                                       th:text="${order.deliveryMethodName}">직배송</span>
                                                 <span class="badge" data-delivery-route-status-badge
@@ -498,7 +475,9 @@
                                                 <input type="checkbox" class="form-check-input" disabled>
                                                 <span th:text="${order.deliveryDone} ? '배송완료' : '조회 전용'">조회 전용</span>
                                             </label>
-                                            <div class="delivery-route-order-badges">
+                                            <button type="button" class="btn btn-sm btn-outline-success delivery-image-open"
+ th:attr="data-image-order-id=${order.orderId}" th:classappend="${!order.deliveryDone} ? ' d-none' : ''">이미지 보기·수정</button>
+<div class="delivery-route-order-badges">
                                                 <span class="badge bg-dark-subtle text-dark"
                                                       th:text="${order.deliveryMethodName}">화물</span>
                                                 <span class="badge" data-delivery-route-status-badge
@@ -814,8 +793,17 @@
     });
 })();
 </script>
-<script src="/administration/assets/js/imageUploadNormalizer.js?v=20260909-1"></script>
-<script src="/administration/assets/team/delivery/deliveryRoute.js?v=20260909-2"></script>
+<script src="/administration/assets/js/imageUploadNormalizer.js?v=20260922-1"></script>
+<script src="/administration/assets/team/delivery/deliveryRoute.js?v=20260922-1"></script>
 <script src="/administration/assets/team/delivery/deliveryTeamStatementPreview.js"></script>
+<div class="modal fade" id="delivery-image-modal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">배송완료 이미지 <span id="delivery-image-order-label"></span></h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button></div>
+<div class="modal-body" id="delivery-route-image-editor"></div>
+<div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button></div>
+</div></div></div>
+<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryEnhancements.css?v=20260922-1">
+<script src="/administration/assets/team/delivery/deliveryEnhancements.js?v=20260922-1"></script>
 </body>
 </html>

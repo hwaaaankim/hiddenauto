@@ -1,5 +1,7 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import com.dev.HiddenBATHAuto.utils.DeliveryCompanyFilter;
+
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -1314,7 +1316,10 @@ public class TeamController {
 	@GetMapping("/deliveryList")
 	public String getDeliveryOrders(@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate preferredDate,
-			@RequestParam(required = false) OrderStatus status, Model model) {
+			@RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) Long orderIdFrom,
+            @RequestParam(required = false) Long orderIdTo,
+            @RequestParam(required = false) String companyName, Model model) {
 		if (principal == null || principal.getMember() == null) {
 			throw new AccessDeniedException("로그인이 필요합니다.");
 		}
@@ -1357,7 +1362,17 @@ public class TeamController {
 		List<DeliveryOrderIndex> all = deliveryOrderIndexService.getDirectDeliveryIndexes(member.getId(), preferredDate,
 				statuses);
 
-		List<DeliveryOrderIndex> pendingOrders = all.stream().filter(x -> x.getOrder() != null)
+		DeliveryCompanyFilter.validateRange(orderIdFrom, orderIdTo);
+        all = all.stream().filter(x -> x.getOrder() != null)
+                .filter(x -> orderIdFrom == null || x.getOrder().getId() >= orderIdFrom)
+                .filter(x -> orderIdTo == null || x.getOrder().getId() <= orderIdTo)
+                .filter(x -> DeliveryCompanyFilter.matches(x.getOrder(), companyName))
+                .collect(Collectors.toList());
+        model.addAttribute("companyName", companyName == null ? "" : companyName.trim());
+        model.addAttribute("orderIdFrom", orderIdFrom);
+        model.addAttribute("orderIdTo", orderIdTo);
+
+        List<DeliveryOrderIndex> pendingOrders = all.stream().filter(x -> x.getOrder() != null)
 				.filter(x -> deliveryOrderIndexService.isOrderIndexEditableDeliveryOrder(x.getOrder()))
 				.collect(Collectors.toList());
 

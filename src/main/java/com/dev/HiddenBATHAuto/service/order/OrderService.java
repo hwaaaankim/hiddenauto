@@ -8,6 +8,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,12 +20,15 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dev.HiddenBATHAuto.model.auth.Member;
+import com.dev.HiddenBATHAuto.repository.order.DeliveryOrderIndexRepository;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderImage;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
@@ -39,6 +43,7 @@ public class OrderService {
 
     private static final String DELIVERY_IMAGE_TYPE = "DELIVERY";
 
+    private final DeliveryOrderIndexRepository deliveryImageIndexRepository;
     private final OrderRepository orderRepository;
     private final OrderImageRepository orderImageRepository;
 
@@ -139,6 +144,70 @@ public class OrderService {
         }
     }
 
+    public record DeliveryImageView(Long id, String url, String filename) { }
+
+    @Transactional(readOnly = true)
+    public List<DeliveryImageView> getCompletedDeliveryImages(Member actor, Long orderId) {
+        Order order = requireCompletedImageOrder(actor, orderId, false);
+        return imageViews(order);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public List<DeliveryImageView> replaceCompletedDeliveryImages(Member actor,
+            Long orderId, List<Long> expectedIds, List<Long> keepIds, List<MultipartFile> files) throws IOException {
+        Order order = requireCompletedImageOrder(actor, orderId, true);
+        List<OrderImage> existing = order.getOrderImages().stream()
+                .filter(i -> DELIVERY_IMAGE_TYPE.equalsIgnoreCase(i.getType())).toList();
+        var current = existing.stream().map(OrderImage::getId).collect(Collectors.toSet());
+        var expected = new HashSet<>(expectedIds == null ? List.<Long>of() : expectedIds);
+        var keep = new HashSet<>(keepIds == null ? List.<Long>of() : keepIds);
+        if (!current.equals(expected)) throw new IllegalStateException("이미지가 다른 화면에서 변경되었습니다. 다시 열어 확인해주세요.");
+        if (!current.containsAll(keep)) throw new IllegalArgumentException("해당 주문에 없는 이미지입니다.");
+        List<DeliveryImagePayload> payloads = readImagePayloads(files);
+        if (keep.size() + payloads.size() < 1) throw new IllegalArgumentException("배송 증빙 이미지는 1장 이상 유지해야 합니다.");
+        List<Path> paths = new ArrayList<>();
+        try {
+            List<OrderImage> added = new ArrayList<>();
+            for (DeliveryImagePayload payload : payloads) {
+                SavedDeliveryImage saved = saveIndependentImageFile(order, payload);
+                paths.add(saved.path());
+                added.add(toOrderImage(order, payload, saved, LocalDateTime.now()));
+            }
+            registerRollbackFileCleanup(paths);
+            // 상태, 완료일(updatedAt), 배송순번은 변경하지 않습니다.
+            // 과거 공유 파일 참조 보호를 위해 기존 물리 파일은 보존하고 이 주문의 연결만 제거합니다.
+            order.getOrderImages().removeIf(i -> DELIVERY_IMAGE_TYPE.equalsIgnoreCase(i.getType()) && !keep.contains(i.getId()));
+            order.getOrderImages().addAll(added);
+            orderImageRepository.saveAll(added);
+            orderImageRepository.flush();
+            return imageViews(order);
+        } catch (IOException | RuntimeException e) {
+            deleteSavedFilesQuietly(paths);
+            throw e;
+        }
+    }
+
+    private Order requireCompletedImageOrder(Member actor, Long orderId, boolean lock) {
+        if (actor == null || actor.getTeam() == null || !"배송팀".equals(actor.getTeam().getName()))
+            throw new AccessDeniedException("배송팀만 접근할 수 있습니다.");
+        var index = (lock ? deliveryImageIndexRepository.findByOrderIdForUpdate(orderId)
+                : deliveryImageIndexRepository.findByOrder_Id(orderId))
+                .orElseThrow(() -> new IllegalArgumentException("배송목록에 없는 주문입니다."));
+        if (index.getDeliveryHandler() == null || !Objects.equals(index.getDeliveryHandler().getId(), actor.getId()))
+            throw new AccessDeniedException("본인 담당 주문만 수정할 수 있습니다.");
+        Order order = lock ? orderRepository.findByIdForChangeAuditLock(orderId).orElseThrow() : index.getOrder();
+        if (order.getAssignedDeliveryHandler() != null && !Objects.equals(order.getAssignedDeliveryHandler().getId(), actor.getId()))
+            throw new AccessDeniedException("배송 담당자가 변경되었습니다.");
+        if (order.getStatus() != OrderStatus.DELIVERY_DONE)
+            throw new IllegalArgumentException("배송완료 주문의 이미지만 수정할 수 있습니다.");
+        return order;
+    }
+
+    private List<DeliveryImageView> imageViews(Order order) {
+        return order.getOrderImages().stream().filter(i -> DELIVERY_IMAGE_TYPE.equalsIgnoreCase(i.getType()))
+                .map(i -> new DeliveryImageView(i.getId(), i.getUrl(), i.getFilename())).toList();
+    }
+
     private List<Long> normalizeOrderIds(List<Long> orderIds) {
         if (orderIds == null || orderIds.isEmpty()) {
             throw new IllegalArgumentException("배송완료 처리할 주문이 없습니다.");
@@ -189,13 +258,14 @@ public class OrderService {
 
         for (MultipartFile file : validFiles) {
             String originalFilename = resolveOriginalFilename(file);
-            String extension = getExtension(originalFilename);
             byte[] content = file.getBytes();
 
             if (content.length == 0) {
                 continue;
             }
 
+            String extension = detectWebImageExtension(content);
+            if (extension == null) throw new IllegalArgumentException("웹에서 확인 가능한 이미지가 아닙니다. JPG 또는 PNG로 변환한 뒤 다시 선택해주세요: " + originalFilename);
             payloads.add(new DeliveryImagePayload(
                     originalFilename,
                     extension,
@@ -205,6 +275,18 @@ public class OrderService {
         }
 
         return payloads;
+    }
+
+    private String detectWebImageExtension(byte[] bytes) {
+        if (bytes.length < 12) return null;
+        if ((bytes[0] & 255) == 255 && (bytes[1] & 255) == 216 && (bytes[2] & 255) == 255) return "jpg";
+        if ((bytes[0] & 255) == 137 && bytes[1] == 80 && bytes[2] == 78 && bytes[3] == 71
+                && bytes[4] == 13 && bytes[5] == 10 && bytes[6] == 26 && bytes[7] == 10) return "png";
+        String head = new String(bytes, 0, 12, java.nio.charset.StandardCharsets.ISO_8859_1);
+        if (head.startsWith("GIF87a") || head.startsWith("GIF89a")) return "gif";
+        if (head.startsWith("RIFF") && head.substring(8).equals("WEBP")) return "webp";
+        if (head.startsWith("BM")) return "bmp";
+        return null;
     }
 
     private SavedDeliveryImage saveIndependentImageFile(
@@ -320,9 +402,8 @@ public class OrderService {
                 );
             }
 
-            if (isImageFile(file)) {
-                validFiles.add(file);
-            }
+            if (!isImageFile(file)) throw new IllegalArgumentException("이미지 파일만 업로드할 수 있습니다.");
+            validFiles.add(file);
         }
 
         return validFiles;

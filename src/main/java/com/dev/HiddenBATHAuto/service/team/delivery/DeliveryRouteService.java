@@ -1,5 +1,7 @@
 package com.dev.HiddenBATHAuto.service.team.delivery;
 
+import com.dev.HiddenBATHAuto.utils.DeliveryCompanyFilter;
+
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -93,6 +95,12 @@ public class DeliveryRouteService {
             Long orderIdFrom,
             Long orderIdTo
     ) {
+        return getRoutePage(loginMember, deliveryDate, orderIdFrom, orderIdTo, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page getRoutePage(Member loginMember, LocalDate deliveryDate, Long orderIdFrom,
+            Long orderIdTo, String companyName) {
         validateDeliveryTeamMember(loginMember);
         validateOrderIdRange(orderIdFrom, orderIdTo);
 
@@ -104,6 +112,9 @@ public class DeliveryRouteService {
                 orderIdTo
         );
 
+        allRows = allRows.stream()
+                .filter(row -> DeliveryCompanyFilter.matches(row.getOrder(), companyName))
+                .toList();
         List<DeliveryOrderIndex> directRows = new ArrayList<>();
         List<DeliveryOrderIndex> freightRows = new ArrayList<>();
 
