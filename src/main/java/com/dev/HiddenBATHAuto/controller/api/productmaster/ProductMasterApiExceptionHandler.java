@@ -20,7 +20,11 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 @Slf4j
 @RestControllerAdvice(
-    assignableTypes = {ProductStudioApiController.class, ProductStudioPublicApiController.class})
+    assignableTypes = {
+      ProductStudioApiController.class,
+      ProductStudioPublicApiController.class,
+      ProductStudioExtensionController.class
+    })
 public class ProductMasterApiExceptionHandler {
 
   @ExceptionHandler(

@@ -206,6 +206,45 @@ public class ProductStudioAssetService {
     }
   }
 
+  @Transactional
+  public String copyOwned(String type, Long from, Long to, String definition, String actor) {
+    String result = definition;
+    for (ProductStudioAsset original :
+        repository.findByOwnerTypeAndOwnerIdOrderByCreatedAtAsc(type, from)) {
+      ProductStudioAsset copy = new ProductStudioAsset();
+      copy.setId(UUID.randomUUID().toString());
+      copy.setOwnerType(type);
+      copy.setOwnerId(to);
+      copy.setOriginalName(original.getOriginalName());
+      copy.setContentType(original.getContentType());
+      copy.setFileSize(original.getFileSize());
+      copy.setDiskName(UUID.randomUUID() + "." + extension(original.getOriginalName()));
+      copy.setCreatedBy(actor);
+      copy.setCreatedAt(LocalDateTime.now());
+      Path target = path(copy);
+      try {
+        Files.copy(path(original), target);
+      } catch (java.io.IOException ex) {
+        throw new IllegalStateException("복사할 첨부파일을 읽지 못했습니다.", ex);
+      }
+      org.springframework.transaction.support.TransactionSynchronizationManager
+          .registerSynchronization(
+              new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                  if (status != STATUS_COMMITTED)
+                    try {
+                      Files.deleteIfExists(target);
+                    } catch (java.io.IOException ignored) {
+                    }
+                }
+              });
+      repository.save(copy);
+      if (result != null) result = result.replace(original.getId(), copy.getId());
+    }
+    return result;
+  }
+
   public ProductStudioAsset require(String id) {
     return repository
         .findById(id)
@@ -214,8 +253,8 @@ public class ProductStudioAssetService {
 
   @Transactional
   public void attach(String type, Long ownerId, List<String> ids, String actor) {
-    if (!Set.of("GROUP", "VALUE", "PRODUCT", "PROCESS").contains(type) || ownerId == null)
-      throw new IllegalArgumentException("첨부 대상을 확인해 주세요.");
+    if (!Set.of("GROUP", "VALUE", "PRODUCT", "PROCESS", "FAQ", "ACTUAL").contains(type)
+        || ownerId == null) throw new IllegalArgumentException("첨부 대상을 확인해 주세요.");
     List<String> wanted = ProductStudioEngine.list(ids);
     if (wanted.size() > 200 || new HashSet<>(wanted).size() != wanted.size())
       throw new IllegalArgumentException("첨부파일 중복 또는 개수 제한을 확인해 주세요.");

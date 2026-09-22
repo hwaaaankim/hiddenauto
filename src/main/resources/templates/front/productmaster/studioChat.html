@@ -6,18 +6,18 @@
     <title>히든바스 제품 선택</title>
     <link
       rel="stylesheet"
-      href="/administration/assets/css/page/productMaster/productStudio.css?v=20260920-1"
+      href="/administration/assets/css/page/productMaster/productStudio.css?v=20260922-2"
     />
     <link
       rel="stylesheet"
-      href="/front/assets/css/page/productMaster/studioChat.css?v=20260920-1"
+      href="/front/assets/css/page/productMaster/studioChat.css?v=20260922-2"
     />
   </head>
   <body>
     <main
       class="pms pms-public"
       id="pm-public-chat"
-      th:attr="data-token=${publicToken}"
+      th:attr="data-token=${publicToken},data-admin-product-id=${adminProductId}"
     >
       <header class="pms-heading">
         <div>
@@ -38,7 +38,7 @@
         제품 구성과 선택 흐름을 확인하는 테스트 화면입니다.
       </p>
     </main>
-    <script src="/administration/assets/js/page/productMaster/studio/common.js?v=20260920-1"></script>
-    <script src="/front/assets/js/page/productMaster/studioChat.js?v=20260920-1"></script>
+    <script src="/administration/assets/js/page/productMaster/studio/common.js?v=20260922-2"></script>
+    <script src="/front/assets/js/page/productMaster/studioChat.js?v=20260922-2"></script>
   </body>
 </html>

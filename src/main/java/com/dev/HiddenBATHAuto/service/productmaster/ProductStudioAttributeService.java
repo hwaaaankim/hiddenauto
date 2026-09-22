@@ -16,7 +16,27 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ProductStudioAttributeService {
+  private final com.dev.HiddenBATHAuto.repository.productmaster.ProductActualRepository actuals;
+
+  @Transactional
+  public void noActuals(Long groupId) {
+    // Serialize shared group changes with registration of a concrete child product.
+    products
+        .findAll(
+            (root, query, b) -> {
+              query.distinct(true);
+              return b.equal(root.join("components").get("group").get("id"), groupId);
+            })
+        .stream()
+        .map(ProductMaster::getId)
+        .sorted()
+        .forEach(products::findForUpdate);
+    if (!actuals.lockForGroup(groupId).isEmpty())
+      throw new IllegalStateException("실 제품이 소속된 제품에서 사용하는 그룹·옵션은 수정하거나 삭제할 수 없습니다.");
+  }
+
   public static final Set<String> BASE = Set.of("CATEGORY", "SUBCATEGORY", "SERIES");
+  private final ProductMasterRepository products;
   private final ProductAttributeGroupRepository groups;
   private final ProductAttributeValueRepository values;
   private final ProductComponentRepository components;
@@ -115,7 +135,9 @@ public class ProductStudioAttributeService {
         g.getCustomerGuide(),
         fieldsFor(g),
         options,
-        groupAssets);
+        groupAssets,
+        g.isAskQuestion(),
+        g.isPriceImpact());
   }
 
   public ValueView view(ProductAttributeValue v) {
@@ -127,7 +149,8 @@ public class ProductStudioAttributeService {
         labelsOf(v),
         namePart(v),
         v.isActive(),
-        files);
+        files,
+        v.getAnswerGuide());
   }
 
   @Transactional
@@ -146,6 +169,7 @@ public class ProductStudioAttributeService {
       throw new ProductStudioValidationException(Map.of("fields", e.getMessage()));
     }
     ProductAttributeGroup current = request.id() == null ? null : require(request.id());
+    if (current != null) noActuals(current.getId());
     // Classification is determined by the stored base group, never by an editor selection.
     ProductAttributeRole role =
         initializeBase
@@ -217,6 +241,15 @@ public class ProductStudioAttributeService {
     g.setBaseRole(base ? role.name() : null);
     g.setStudioControl(request.control().name());
     g.setNonStandard(request.nonStandard());
+    boolean ask =
+        request.askQuestion() == null
+            ? role != ProductAttributeRole.SUBCATEGORY
+            : request.askQuestion();
+    boolean questionModeChanged = request.id() != null && g.isAskQuestion() != ask;
+    g.setAskQuestion(ask);
+    if (request.priceImpact() && !request.nonStandard())
+      throw new IllegalArgumentException("제품 단가 영향은 비규격 그룹에서만 설정할 수 있습니다.");
+    g.setPriceImpact(request.priceImpact());
     g.setIncludeInName(request.includeInName());
     g.setStudioFieldsJson(json.write(request.nonStandard() ? List.of() : list(request.fields())));
     g.setQuestionText(text(request.question()));
@@ -225,12 +258,27 @@ public class ProductStudioAttributeService {
     g.setUpdatedBy(actor);
     g.setUpdatedAt(LocalDateTime.now());
     groups.saveAndFlush(g);
+    if (questionModeChanged) {
+      for (ProductMaster p :
+          products.findAll(
+              (root, query, builder) -> {
+                query.distinct(true);
+                return builder.and(
+                    builder.equal(root.join("components").get("group").get("id"), g.getId()),
+                    builder.isTrue(root.get("nonStandard")));
+              }))
+        if (p.getStatus() != ProductMasterStatus.DISCONTINUED) {
+          p.setStatus(ProductMasterStatus.DRAFT);
+          p.setUpdatedBy(actor);
+        }
+    }
     return view(g);
   }
 
   @Transactional
   public List<ValueView> saveValues(Long groupId, List<ValueEdit> requests, String actor) {
     ProductAttributeGroup g = require(groupId);
+    noActuals(groupId);
     if (!choice(control(g)) || g.isNonStandard())
       throw new IllegalArgumentException("비규격 보기는 해당 제품의 프로세스에서 등록해 주세요. 입력형에는 보기를 등록할 수 없습니다.");
     if (requests == null || requests.isEmpty() || requests.size() > 200)
@@ -340,6 +388,9 @@ public class ProductStudioAttributeService {
       v.setProductionLabel(l.production().trim());
       v.setManagementLabel(l.management().trim());
       v.setNamePart(request.namePart() == null ? l.customer() : request.namePart());
+      if (text(request.guide()).length() > 2000)
+        throw new IllegalArgumentException("안내메시지는 2,000자 이하입니다.");
+      v.setAnswerGuide(text(request.guide()));
       v.setActive(request.active());
       v.setUpdatedBy(actor);
       v.setUpdatedAt(LocalDateTime.now());
@@ -353,6 +404,7 @@ public class ProductStudioAttributeService {
   @Transactional
   public void deleteGroup(Long id, String actor) {
     ProductAttributeGroup g = require(id);
+    noActuals(id);
     if (BASE.contains(g.getSystemRole().name()))
       throw new IllegalArgumentException("기본그룹은 삭제할 수 없습니다.");
     if (components.existsByGroupId(id))
@@ -394,6 +446,7 @@ public class ProductStudioAttributeService {
   @Transactional
   public GroupView reorderValues(Long id, List<Long> ids, String actor) {
     ProductAttributeGroup group = require(id);
+    noActuals(id);
     validateOrder(ids, group.getValues().stream().map(ProductAttributeValue::getId).toList());
     for (int i = 0; i < ids.size(); i++) {
       ProductAttributeValue v = values.findById(ids.get(i)).orElseThrow();

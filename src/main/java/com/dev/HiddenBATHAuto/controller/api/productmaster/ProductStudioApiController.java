@@ -138,9 +138,7 @@ public class ProductStudioApiController {
       @PathVariable Long id,
       @RequestBody List<String> ids,
       Principal p) {
-    service.validateAttachmentOwner(type, id);
-    assets.attach(type, id, ids, p.getName());
-    return ApiResponse.ok(assets.owned(type, id));
+    return ApiResponse.ok(service.attachAssets(type, id, ids, p.getName()));
   }
 
   @GetMapping("/assets/{id}")

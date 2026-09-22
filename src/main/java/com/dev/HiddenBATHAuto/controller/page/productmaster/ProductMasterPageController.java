@@ -50,4 +50,27 @@ public class ProductMasterPageController {
     m.addAttribute("productId", productId);
     return page(m, "process");
   }
+
+  @GetMapping("/faq")
+  public String faq(Model m) {
+    return page(m, "faq");
+  }
+
+  @GetMapping("/products/{productId}/view")
+  public String view(@PathVariable Long productId, Model m) {
+    m.addAttribute("productId", productId);
+    return page(m, "view");
+  }
+
+  @GetMapping("/products/{productId}/actuals")
+  public String actuals(@PathVariable Long productId, Model m) {
+    m.addAttribute("productId", productId);
+    return page(m, "actuals");
+  }
+
+  @GetMapping("/products/{productId}/test")
+  public String test(@PathVariable Long productId, Model m) {
+    m.addAttribute("adminProductId", productId);
+    return "front/productmaster/studioChat";
+  }
 }

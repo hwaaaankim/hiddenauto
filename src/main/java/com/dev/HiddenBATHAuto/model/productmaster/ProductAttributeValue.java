@@ -43,6 +43,9 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ProductAttributeValue {
 
+  @Column(name = "answer_guide", length = 2000)
+  private String answerGuide;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

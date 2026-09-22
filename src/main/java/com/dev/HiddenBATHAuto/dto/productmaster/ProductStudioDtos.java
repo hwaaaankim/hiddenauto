@@ -34,7 +34,8 @@ public final class ProductStudioDtos {
     HIDE,
     ALLOW,
     REQUIRE,
-    OPTIONAL
+    OPTIONAL,
+    RENAME
   }
 
   public record Labels(String customer, String production, String management) {}
@@ -55,9 +56,52 @@ public final class ProductStudioDtos {
       List<String> extensions,
       Integer minFiles,
       Integer maxFiles,
-      Integer maxFileMB) {}
+      Integer maxFileMB,
+      String guide) {
+    public Field(
+        String key,
+        Labels labels,
+        String namePart,
+        boolean required,
+        boolean allowNegative,
+        BigDecimal min,
+        BigDecimal max,
+        BigDecimal step,
+        Integer minLength,
+        Integer maxLength,
+        String format,
+        String unit,
+        List<String> extensions,
+        Integer minFiles,
+        Integer maxFiles,
+        Integer maxFileMB) {
+      this(
+          key,
+          labels,
+          namePart,
+          required,
+          allowNegative,
+          min,
+          max,
+          step,
+          minLength,
+          maxLength,
+          format,
+          unit,
+          extensions,
+          minFiles,
+          maxFiles,
+          maxFileMB,
+          null);
+    }
+  }
 
-  public record Choice(String key, Labels labels, String namePart, List<String> assetIds) {}
+  public record Choice(
+      String key, Labels labels, String namePart, List<String> assetIds, String guide) {
+    public Choice(String key, Labels labels, String namePart, List<String> assetIds) {
+      this(key, labels, namePart, assetIds, null);
+    }
+  }
 
   public record GroupEdit(
       Long id,
@@ -70,9 +114,44 @@ public final class ProductStudioDtos {
       boolean active,
       String question,
       String guide,
-      List<Field> fields) {}
+      List<Field> fields,
+      Boolean askQuestion,
+      boolean priceImpact) {
+    public GroupEdit(
+        Long id,
+        Long version,
+        Labels labels,
+        String role,
+        Control control,
+        boolean nonStandard,
+        boolean includeInName,
+        boolean active,
+        String question,
+        String guide,
+        List<Field> fields) {
+      this(
+          id,
+          version,
+          labels,
+          role,
+          control,
+          nonStandard,
+          includeInName,
+          active,
+          question,
+          guide,
+          fields,
+          null,
+          false);
+    }
+  }
 
-  public record ValueEdit(Long id, Long version, Labels labels, String namePart, boolean active) {}
+  public record ValueEdit(
+      Long id, Long version, Labels labels, String namePart, boolean active, String guide) {
+    public ValueEdit(Long id, Long version, Labels labels, String namePart, boolean active) {
+      this(id, version, labels, namePart, active, null);
+    }
+  }
 
   public record ValueView(
       Long id,
@@ -81,7 +160,19 @@ public final class ProductStudioDtos {
       Labels labels,
       String namePart,
       boolean active,
-      List<AssetView> assets) {}
+      List<AssetView> assets,
+      String guide) {
+    public ValueView(
+        Long id,
+        long version,
+        String key,
+        Labels labels,
+        String namePart,
+        boolean active,
+        List<AssetView> assets) {
+      this(id, version, key, labels, namePart, active, assets, null);
+    }
+  }
 
   public record GroupView(
       Long id,
@@ -97,7 +188,43 @@ public final class ProductStudioDtos {
       String guide,
       List<Field> fields,
       List<ValueView> values,
-      List<AssetView> assets) {}
+      List<AssetView> assets,
+      boolean askQuestion,
+      boolean priceImpact) {
+    public GroupView(
+        Long id,
+        long version,
+        String key,
+        Labels labels,
+        String role,
+        Control control,
+        boolean nonStandard,
+        boolean includeInName,
+        boolean active,
+        String question,
+        String guide,
+        List<Field> fields,
+        List<ValueView> values,
+        List<AssetView> assets) {
+      this(
+          id,
+          version,
+          key,
+          labels,
+          role,
+          control,
+          nonStandard,
+          includeInName,
+          active,
+          question,
+          guide,
+          fields,
+          values,
+          assets,
+          true,
+          false);
+    }
+  }
 
   public record GroupSelection(Long groupId, List<Long> valueIds, Map<String, Object> inputs) {}
 
@@ -109,7 +236,16 @@ public final class ProductStudioDtos {
   public record Variant(Long groupId, List<Long> valueIds, Map<String, Object> inputs) {}
 
   public record GenerateRequest(
-      List<GroupSelection> groups, List<NameToken> nameTokens, int offset, int limit) {}
+      List<GroupSelection> groups,
+      List<NameToken> nameTokens,
+      int offset,
+      int limit,
+      boolean nonStandard) {
+    public GenerateRequest(
+        List<GroupSelection> groups, List<NameToken> nameTokens, int offset, int limit) {
+      this(groups, nameTokens, offset, limit, false);
+    }
+  }
 
   public record PreviewRow(
       String key,
@@ -123,7 +259,18 @@ public final class ProductStudioDtos {
       long combinations, int offset, int limit, List<PreviewRow> rows, String definitionStamp) {}
 
   public record RegistrationRow(
-      String key, String productName, int initialStock, List<String> assetIds) {}
+      String key,
+      String productName,
+      int initialStock,
+      List<String> assetIds,
+      BigDecimal productionHours,
+      BigDecimal unitPrice,
+      Long faqTopicId) {
+    public RegistrationRow(
+        String key, String productName, int initialStock, List<String> assetIds) {
+      this(key, productName, initialStock, assetIds, null, null, null);
+    }
+  }
 
   public record RegisterRequest(
       GenerateRequest generation, String definitionStamp, List<RegistrationRow> rows) {}
@@ -135,7 +282,33 @@ public final class ProductStudioDtos {
       String status,
       List<Variant> variants,
       List<NameToken> nameTokens,
-      List<String> assetIds) {}
+      List<String> assetIds,
+      BigDecimal productionHours,
+      BigDecimal unitPrice,
+      Long faqTopicId) {
+    public ProductEdit(
+        Long version,
+        String productName,
+        String description,
+        String status,
+        List<Variant> variants,
+        List<NameToken> nameTokens,
+        List<String> assetIds) {
+      this(
+          version,
+          productName,
+          description,
+          status,
+          variants,
+          nameTokens,
+          assetIds,
+          null,
+          null,
+          null);
+    }
+  }
+
+  public record NumberCase(String key, String name, List<Condition> conditions, String guide) {}
 
   public record Condition(
       String groupKey,
@@ -148,7 +321,12 @@ public final class ProductStudioDtos {
       boolean lowerInclusive,
       boolean upperInclusive) {}
 
-  public record Action(String targetKey, Effect effect, List<String> choiceKeys) {}
+  public record Action(
+      String targetKey, Effect effect, List<String> choiceKeys, String questionText) {
+    public Action(String targetKey, Effect effect, List<String> choiceKeys) {
+      this(targetKey, effect, choiceKeys, null);
+    }
+  }
 
   public record Rule(
       String key, String name, String match, List<Condition> conditions, List<Action> actions) {}
@@ -166,7 +344,73 @@ public final class ProductStudioDtos {
       String guide,
       List<Choice> choices,
       List<Field> fields,
-      List<String> assetIds) {}
+      List<String> assetIds,
+      List<NumberCase> numberCases,
+      Answer preset) {
+    public Question(
+        String key,
+        Long groupId,
+        Labels labels,
+        Control control,
+        boolean fixed,
+        boolean visible,
+        boolean required,
+        boolean requireRule,
+        String question,
+        String guide,
+        List<Choice> choices,
+        List<Field> fields,
+        List<String> assetIds,
+        List<NumberCase> numberCases) {
+      this(
+          key,
+          groupId,
+          labels,
+          control,
+          fixed,
+          visible,
+          required,
+          requireRule,
+          question,
+          guide,
+          choices,
+          fields,
+          assetIds,
+          numberCases,
+          null);
+    }
+
+    public Question(
+        String key,
+        Long groupId,
+        Labels labels,
+        Control control,
+        boolean fixed,
+        boolean visible,
+        boolean required,
+        boolean requireRule,
+        String question,
+        String guide,
+        List<Choice> choices,
+        List<Field> fields,
+        List<String> assetIds) {
+      this(
+          key,
+          groupId,
+          labels,
+          control,
+          fixed,
+          visible,
+          required,
+          requireRule,
+          question,
+          guide,
+          choices,
+          fields,
+          assetIds,
+          List.of());
+    }
+  }
 
   public record Process(int schemaVersion, List<Question> questions, List<Rule> rules) {}
 
@@ -215,7 +459,55 @@ public final class ProductStudioDtos {
       Process process,
       List<AssetView> assets,
       List<AssetView> processAssets,
-      List<GroupView> groups) {}
+      List<GroupView> groups,
+      BigDecimal productionHours,
+      BigDecimal unitPrice,
+      Long faqTopicId,
+      long actualCount,
+      int unallocatedStock) {
+    public ProductView(
+        Long id,
+        long version,
+        String productName,
+        String productCode,
+        String catalogCode,
+        String token,
+        boolean nonStandard,
+        String status,
+        String registrationStatus,
+        int stock,
+        String description,
+        List<Variant> variants,
+        List<NameToken> nameTokens,
+        Process process,
+        List<AssetView> assets,
+        List<AssetView> processAssets,
+        List<GroupView> groups) {
+      this(
+          id,
+          version,
+          productName,
+          productCode,
+          catalogCode,
+          token,
+          nonStandard,
+          status,
+          registrationStatus,
+          stock,
+          description,
+          variants,
+          nameTokens,
+          process,
+          assets,
+          processAssets,
+          groups,
+          null,
+          null,
+          null,
+          0,
+          0);
+    }
+  }
 
   public record InputFilter(
       Long groupId, String fieldKey, BigDecimal min, BigDecimal max, String contains) {}
@@ -228,7 +520,21 @@ public final class ProductStudioDtos {
       List<Long> customGroups,
       List<InputFilter> inputs,
       int page,
-      int size) {}
+      int size,
+      Integer minActualCount,
+      Integer maxActualCount) {
+    public ProductFilter(
+        boolean nonStandard,
+        String keyword,
+        String status,
+        Map<Long, List<Long>> options,
+        List<Long> customGroups,
+        List<InputFilter> inputs,
+        int page,
+        int size) {
+      this(nonStandard, keyword, status, options, customGroups, inputs, page, size, null, null);
+    }
+  }
 
   public record ProductPage(
       List<ProductView> content, long totalElements, int totalPages, int page, int size) {}
@@ -239,9 +545,26 @@ public final class ProductStudioDtos {
       String status,
       List<AssetView> assets,
       List<String> productAssetIds,
-      Process process) {}
+      Process process,
+      BigDecimal productionHours,
+      BigDecimal unitPrice,
+      Long faqTopicId) {
+    public PublicProduct(
+        String productName,
+        String catalogCode,
+        String status,
+        List<AssetView> assets,
+        List<String> productAssetIds,
+        Process process) {
+      this(productName, catalogCode, status, assets, productAssetIds, process, null, null, null);
+    }
+  }
 
-  public record CatalogOption(String key, String label, List<AssetView> assets) {}
+  public record CatalogOption(String key, String label, List<AssetView> assets, String guide) {
+    public CatalogOption(String key, String label, List<AssetView> assets) {
+      this(key, label, assets, null);
+    }
+  }
 
   public record CatalogStep(
       Long groupId, String label, List<CatalogOption> options, List<AssetView> assets) {}
