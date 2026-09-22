@@ -43,6 +43,12 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ProductAttributeGroup {
 
+  @Column(name = "ask_question", nullable = false, columnDefinition = "boolean default true")
+  private boolean askQuestion = true;
+
+  @Column(name = "price_impact", nullable = false, columnDefinition = "boolean default false")
+  private boolean priceImpact;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

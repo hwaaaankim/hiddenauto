@@ -53,6 +53,7 @@ public class ProductInventoryService {
   @Transactional
   public StockView recordInitialStock(Long id, int quantity, String reason, String actor) {
     ProductMaster p = lock(id);
+    if (p.isNonStandard()) throw new IllegalArgumentException("비규격 재고는 실제품별로 관리합니다.");
     if (p.getCurrentStock() != 0 || movements.existsByProductIdAndVoidedFalse(id))
       throw new IllegalStateException("최초재고가 이미 등록되어 있습니다.");
     return apply(id, ProductStockMovementType.INITIAL, quantity, reason, actor);
@@ -61,6 +62,7 @@ public class ProductInventoryService {
   private StockView apply(
       Long id, ProductStockMovementType type, int delta, String reason, String actor) {
     ProductMaster p = lock(id);
+    if (p.isNonStandard()) throw new IllegalArgumentException("비규격 재고는 실제품별로 관리합니다.");
     if (Math.abs((long) delta) > MAX_STOCK)
       throw new IllegalArgumentException("변경 수량의 허용 범위를 초과했습니다.");
     switch (type) {
@@ -93,6 +95,7 @@ public class ProductInventoryService {
   @Transactional
   public StockView voidMovement(Long id, Long movementId, String reason, String actor) {
     ProductMaster p = lock(id);
+    if (p.isNonStandard()) throw new IllegalArgumentException("비규격 재고는 실제품별로 관리합니다.");
     ProductStockMovement m =
         movements
             .findDetailedByIdAndProductId(movementId, id)

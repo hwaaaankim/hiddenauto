@@ -27,6 +27,14 @@ public class ProductStudioJson {
     }
   }
 
+  public <T> T read(String value, com.fasterxml.jackson.core.type.TypeReference<T> type) {
+    try {
+      return mapper.readValue(value, type);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("저장된 설정을 읽을 수 없습니다.", e);
+    }
+  }
+
   public <T> List<T> list(String value, Class<T> type) {
     if (value == null || value.isBlank()) return List.of();
     try {

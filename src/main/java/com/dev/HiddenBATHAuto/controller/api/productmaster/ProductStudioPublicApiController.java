@@ -20,11 +20,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProductStudioPublicApiController {
   private final ProductStudioService service;
   private final ProductStudioAssetService assets;
+  private final ProductStudioExtensionService extension;
 
   @PostMapping("/catalog")
   public ApiResponse<CatalogResult> catalog(
-      @RequestBody Map<Long, String> selected, @RequestParam(defaultValue = "0") int page) {
-    return ApiResponse.ok(service.catalog(selected, page));
+      @RequestBody Map<Long, String> selected,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(required = false) Boolean nonStandard) {
+    return ApiResponse.ok(service.catalog(selected, page, nonStandard));
   }
 
   @GetMapping("/{token}/schema")
@@ -82,6 +85,16 @@ public class ProductStudioPublicApiController {
     if (!a.getOwnerType().equals("STAGED") || !a.getCreatedBy().equals(actor(session)))
       throw new java.util.NoSuchElementException("첨부파일이 없습니다.");
     return assets.content(a, download);
+  }
+
+  @GetMapping("/{token}/faq")
+  public Object faq(@PathVariable String token) {
+    return ApiResponse.ok(extension.publicFaq(token));
+  }
+
+  @GetMapping("/{token}/faq/assets/{id}")
+  public ResponseEntity<Resource> faqFile(@PathVariable String token, @PathVariable String id) {
+    return assets.content(extension.faqAsset(token, id), false);
   }
 
   private String actor(HttpSession s) {

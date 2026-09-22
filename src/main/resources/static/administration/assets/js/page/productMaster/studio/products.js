@@ -99,6 +99,37 @@
   };
   S.builderPage = async function (root, product) {
     const detail = !!product;
+    if (product?.actualCount > 0) {
+      root.innerHTML = `<div class="pms-help">실 제품 ${product.actualCount}개가 등록되어 구성과 프로세스 수정이 잠겨 있습니다.</div><a class="pms-button" href="/admin/product-master/products/${product.id}/view">제품 상세 조회</a><a class="pms-button" href="/admin/product-master/products/${product.id}/actuals">실 제품 재고 관리</a>`;
+      return;
+    }
+    const topics = await S.request("/faq");
+    let nonStandard =
+      product?.nonStandard ??
+      new URLSearchParams(location.search).get("kind") === "custom";
+    const faqOptions = {
+      "": "연결 안 함",
+      ...Object.fromEntries(topics.map((t) => [t.id, t.title])),
+    };
+    const metaHtml = (m) =>
+      S.field(
+        "생산기간 (시간)",
+        "productionHours",
+        m.productionHours,
+        "number",
+        'min="0" step="0.001"',
+      ) +
+      (!nonStandard
+        ? S.field(
+            "단가 (원)",
+            "unitPrice",
+            m.unitPrice,
+            "number",
+            'min="0" step="0.01"',
+          )
+        : "") +
+      S.select("연결할 FAQ 주제", "faqTopicId", m.faqTopicId ?? "", faqOptions);
+
     let selected = detail
       ? S.copy(product.variants)
       : S.groups
@@ -127,11 +158,35 @@
       productName: product?.productName || "",
       description: product?.description || "",
       status: product?.status || "ACTIVE",
+      productionHours: product?.productionHours ?? 0,
+      unitPrice: product?.unitPrice ?? 0,
+      faqTopicId: product?.faqTopicId ?? null,
     };
     root.innerHTML =
       '<div class="pms-triple"><section class="pms-panel"><div class="pms-panel-title"><h2>구성 가능한 그룹</h2></div><div class="pms-toolbar"><input id="pms-palette-filter" placeholder="그룹 검색"></div><div id="pms-palette" class="pms-palette"></div></section><section class="pms-panel"><div class="pms-panel-title"><div><h2>제품 구성 · 질문 순서</h2><small>그룹을 드래그하여 추가·순서 변경</small></div><button id="pms-name-rule">제품명 구성</button></div><div id="pms-selected" class="pms-selected"></div></section><section class="pms-panel"><div class="pms-panel-title"><h2>' +
       (detail ? "제품 정보" : "생성 요약") +
       '</h2></div><div class="pms-panel-body" id="pms-summary"></div></section></div>';
+    if (!detail) {
+      const bar = document.createElement("div");
+      bar.className = "pms-panel pms-toolbar";
+      bar.innerHTML =
+        '<strong>1. 제품 유형</strong><label class="pms-check"><input type="checkbox" id="pm-custom-product" ' +
+        (nonStandard ? "checked" : "") +
+        ">비규격 제품</label><small>필수 분류 세 가지로도 생성할 수 있습니다.</small>";
+      root.prepend(bar);
+      S.$("#pm-custom-product", bar).onchange = (e) => {
+        nonStandard = e.target.checked;
+        selected = selected.filter(
+          (r) =>
+            S.isBase(S.group(r.groupId)) ||
+            S.group(r.groupId).nonStandard === nonStandard,
+        );
+        tokens = tokens.filter((t) =>
+          selected.some((r) => r.groupId === t.groupId),
+        );
+        paint();
+      };
+    }
     const palette = S.$("#pms-palette", root),
       lane = S.$("#pms-selected", root),
       summary = S.$("#pms-summary", root);
@@ -141,6 +196,7 @@
           .filter(
             (g) =>
               g.active &&
+              (S.isBase(g) || g.nonStandard === nonStandard) &&
               !selected.some((r) => r.groupId === g.id) &&
               (!query || g.labels.management.includes(query)),
           )
@@ -164,6 +220,8 @@
     function add(id) {
       const g = S.group(id);
       if (selected.some((r) => r.groupId === id)) return;
+      if (!S.isBase(g) && g.nonStandard !== nonStandard)
+        return S.toast("제품 유형에 맞는 그룹만 추가할 수 있습니다.");
       const other = selected
         .map((x) => S.group(x.groupId))
         .filter((x) => !S.isBase(x));
@@ -337,22 +395,22 @@
       paintSummary();
     }
     function paintSummary() {
-      const custom = selected.some((r) => S.group(r.groupId).nonStandard);
+      const custom = nonStandard;
       let count = 1;
       for (const r of selected) {
         const g = S.group(r.groupId);
         if (!g.nonStandard && S.isChoice(g.control)) count *= r.valueIds.length;
       }
       summary.innerHTML = detail
-        ? `${S.badge(S.status[product.status], product.status === "DRAFT" ? "amber" : "blue")}<p class="mono">${S.e(product.catalogCode)} · #${product.id}</p><div class="pms-form-grid two"><div class="wide">${S.field("제품명", "productName", model.productName, "text", 'maxlength="160"')}</div><button id="pms-regenerate-name">규칙으로 제품명 생성</button><div class="wide">${S.field("제품 설명", "description", model.description, "text", 'maxlength="1000"')}</div><div class="wide">${S.select("상태", "status", model.status, { ACTIVE: "사용중 (재고로 자동 판단)", OUT_OF_STOCK: "재고없음 (재고로 자동 판단)", DISCONTINUED: "단종", ...(product.status === "DRAFT" ? { DRAFT: "등록중" } : {}) })}</div></div><section class="pms-section"><h2>제품 이미지·첨부</h2><div id="pms-product-files">${S.files(productFiles)}</div></section><div class="pms-section pms-actions"><button class="primary" id="pms-save-product">변경 저장</button>${custom ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/process">비규격 프로세스</a>` : ""}<button id="pms-stock">재고 관리 · ${product.stock}</button><a class="pms-button" href="/product-spec/${S.e(product.token)}" target="_blank" rel="noopener">고객 미리보기</a></div>`
+        ? `${S.badge(S.status[product.status], product.status === "DRAFT" ? "amber" : "blue")}<p class="mono">${S.e(product.catalogCode)} · #${product.id}</p><div class="pms-form-grid two"><div class="wide">${S.field("제품명", "productName", model.productName, "text", 'maxlength="160"')}</div><button id="pms-regenerate-name">규칙으로 제품명 생성</button><div class="wide">${S.field("제품 설명", "description", model.description, "text", 'maxlength="1000"')}</div><div class="wide">${S.select("상태", "status", model.status, { ACTIVE: "사용중 (재고로 자동 판단)", OUT_OF_STOCK: "재고없음 (재고로 자동 판단)", DISCONTINUED: "단종", ...(product.status === "DRAFT" ? { DRAFT: "등록중" } : {}) })}</div></div><div class="pms-form-grid two">${metaHtml(model)}</div><section class="pms-section"><h2>제품 이미지·첨부</h2><div id="pms-product-files">${S.files(productFiles)}</div></section><div class="pms-section pms-actions"><button class="primary" id="pms-save-product">변경 저장</button>${custom ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/process">비규격 프로세스</a>` : ""}<button id="pms-stock">재고 관리 · ${product.stock}</button><a class="pms-button" href="/admin/product-master/products/${product.id}/test" target="_blank" rel="noopener">고객 미리보기</a></div>`
         : `<div class="pms-stat"><small>생성될 조합 수</small><strong>${count.toLocaleString()}</strong>${S.badge(custom ? "비규격 제품" : "규격 제품", custom ? "amber" : "blue")}</div><h3>제품명 예시</h3><p class="pms-name-preview">${S.e(
             S.nameText(
               selected.map((r) => ({ ...r, valueIds: r.valueIds.slice(0, 1) })),
               tokens,
             ) || "(구성 문자를 확인해 주세요)",
-          )}</p><div class="pms-help">기본그룹은 필수입니다. 그룹마다 활성화된 보기 하나씩을 뽑아 조합합니다. 한 번에 최대 10,000개까지 생성할 수 있습니다.</div>${custom ? '<div class="pms-help">비규격은 등록중으로 생성됩니다. 각 제품에서 보기·입력 필드·관계 규칙을 설정하고 검증해야 등록완료됩니다.</div>' : ""}<button class="primary" id="pms-generate" ${count < 1 || count > 10000 ? "disabled" : ""}>조합 미리보기 · 자동 생성</button>`;
+          )}</p><div class="pms-help">기본그룹은 필수입니다. 그룹마다 활성화된 보기 하나씩을 뽑아 조합합니다. 한 번에 최대 10,000개까지 생성할 수 있습니다.</div>${custom ? '<div class="pms-help">비규격은 등록중으로 생성됩니다. 각 제품에서 보기·입력 필드·관계 규칙을 설정하고 검증해야 등록완료됩니다.</div>' : ""}<div class="pms-form-grid">${metaHtml(model)}</div><button class="primary" id="pms-generate" ${count < 1 || count > 10000 ? "disabled" : ""}>조합 미리보기 · 자동 생성</button>`;
+      S.bind(summary, model);
       if (detail) {
-        S.bind(summary, model);
         S.fileEvents(S.$("#pms-product-files", summary), productFiles);
         S.$("#pms-regenerate-name", summary).onclick = () => {
           model.productName = S.nameText(selected, tokens);
@@ -364,6 +422,7 @@
             const saved = await S.request("/products/" + product.id, "PUT", {
               version: product.version,
               ...model,
+              faqTopicId: model.faqTopicId ? Number(model.faqTopicId) : null,
               variants: selected,
               nameTokens: tokens,
               assetIds: productFiles.map((f) => f.id),
@@ -376,7 +435,11 @@
             );
             await S.builderPage(root, saved);
           });
-        S.$("#pms-stock", summary).onclick = () => stockDialog();
+        S.$("#pms-stock", summary).onclick = () =>
+          custom
+            ? (location.href =
+                "/admin/product-master/products/" + product.id + "/actuals")
+            : stockDialog();
       } else
         S.$("#pms-generate", summary).onclick = (e) =>
           S.run(e.currentTarget, () =>
@@ -385,6 +448,7 @@
               nameTokens: S.copy(tokens),
               offset: 0,
               limit: 200,
+              nonStandard,
             }),
           );
     }
@@ -450,6 +514,9 @@
             ...response.rows.map((r) => ({
               ...r,
               initialStock: 0,
+              productionHours: model.productionHours,
+              unitPrice: nonStandard ? null : model.unitPrice,
+              faqTopicId: model.faqTopicId ? Number(model.faqTopicId) : null,
               files: [],
               removed: false,
             })),
@@ -469,7 +536,7 @@
         const pages = Math.ceil(live.length / 50);
         page = Math.max(0, Math.min(page, pages - 1));
         const visible = live.slice(page * 50, page * 50 + 50);
-        body.innerHTML = `<div class="pms-toolbar"><strong>${live.length.toLocaleString()}개 등록 예정</strong>${S.badge("중복 " + dupes.length, dupes.length ? "red" : "green")}<div class="grow"></div><label>전체 최초재고 <input id="pms-all-stock" type="number" min="0" max="10000000" value="${stock}" style="width:80px"></label><button id="pms-set-stock">일괄 적용</button><button id="pms-remove-duplicates" ${!dupes.length ? "disabled" : ""}>중복 행 모두 제거</button><button class="primary" id="pms-register" ${dupes.length || !live.length ? "disabled" : ""}>등록 · ${live.length}개</button></div><div class="pms-help">×는 미리보기에서만 행을 제외합니다. 닫고 조건을 바꾸어 다시 생성할 수 있습니다. 같은 제품명이 있어도 실제 사양이 다르면 등록할 수 있습니다.</div><div class="pms-table-scroll"><table><thead><tr><th>#</th><th style="min-width:200px">제품명</th><th>구성 / 주체별 표시</th><th>최초재고</th><th>제품 이미지·첨부</th><th>중복 확인</th><th></th></tr></thead><tbody>${visible
+        body.innerHTML = `<div class="pms-toolbar"><strong>${live.length.toLocaleString()}개 등록 예정</strong>${S.badge("중복 " + dupes.length, dupes.length ? "red" : "green")}<div class="grow"></div><label>전체 최초재고 <input id="pms-all-stock" type="number" min="0" max="10000000" value="${stock}" style="width:80px"></label><button id="pms-set-stock">일괄 적용</button><button id="pms-bulk-meta">생산기간·단가·FAQ 일괄 연결</button><button id="pms-remove-duplicates" ${!dupes.length ? "disabled" : ""}>중복 행 모두 제거</button><button class="primary" id="pms-register" ${dupes.length || !live.length ? "disabled" : ""}>등록 · ${live.length}개</button></div><div class="pms-help">×는 미리보기에서만 행을 제외합니다. 닫고 조건을 바꾸어 다시 생성할 수 있습니다. 같은 제품명이 있어도 실제 사양이 다르면 등록할 수 있습니다.</div><div class="pms-table-scroll"><table><thead><tr><th>#</th><th style="min-width:200px">제품명</th><th>구성 / 주체별 표시</th><th>생산기간 / 단가 / FAQ</th><th>최초재고</th><th>제품 이미지·첨부</th><th>중복 확인</th><th></th></tr></thead><tbody>${visible
           .map((r) => {
             const index = rows.indexOf(r);
             return `<tr class="${r.duplicateId ? "duplicate" : ""}"><td>${index + 1}</td><td><input data-row-name="${index}" maxlength="160" value="${S.e(r.productName)}"></td><td><details><summary>${r.variants
@@ -499,11 +566,45 @@
               })
               .join(
                 "",
-              )}</tbody></table></details></td><td><input data-row-stock="${index}" type="number" min="0" max="10000000" style="width:70px" value="${r.initialStock}"></td><td><button data-row-files="${index}">첨부 ${r.files.length}</button></td><td>${r.duplicateId ? `<a href="/admin/product-master/products/${r.duplicateId}" target="_blank" rel="noopener">중복 #${r.duplicateId}</a><small>${S.e(r.duplicateName)}</small>` : S.badge("신규", "green")}</td><td><button data-remove-row="${index}" class="pms-remove">×</button></td></tr>`;
+              )}</tbody></table></details></td><td><button data-row-meta="${index}">${r.productionHours}시간${nonStandard ? "" : " / " + r.unitPrice + "원"}<br>${S.e(topics.find((t) => t.id === Number(r.faqTopicId))?.title || "FAQ 연결")}</button></td><td><input data-row-stock="${index}" type="number" min="0" max="10000000" style="width:70px" value="${r.initialStock}" ${nonStandard ? "disabled" : ""}></td><td><button data-row-files="${index}">첨부 ${r.files.length}</button></td><td>${r.duplicateId ? `<a href="/admin/product-master/products/${r.duplicateId}" target="_blank" rel="noopener">중복 #${r.duplicateId}</a><small>${S.e(r.duplicateName)}</small>` : S.badge("신규", "green")}</td><td><button data-remove-row="${index}" class="pms-remove">×</button></td></tr>`;
           })
           .join(
             "",
           )}</tbody></table></div>${S.pager(page, pages, "preview-page")}`;
+        function editMeta(targets) {
+          const m = {
+            productionHours: targets[0]?.productionHours ?? 0,
+            unitPrice: targets[0]?.unitPrice ?? 0,
+            faqTopicId: targets[0]?.faqTopicId ?? null,
+          };
+          const d = S.dialog(
+            "생산기간 · 단가 · FAQ 연결",
+            '<div class="pms-form-grid">' + metaHtml(m) + "</div>",
+            {
+              wide: false,
+              foot: '<button class="primary" data-apply>적용</button>',
+            },
+          );
+          S.bind(d, m);
+          S.$("[data-apply]", d).onclick = () => {
+            targets.forEach((r) =>
+              Object.assign(r, m, {
+                faqTopicId: m.faqTopicId ? Number(m.faqTopicId) : null,
+              }),
+            );
+            d.close();
+            paintPreview();
+          };
+        }
+        S.$("#pms-bulk-meta", body).onclick = () => editMeta(live);
+        S.$$("[data-row-meta]", body).forEach(
+          (b) =>
+            (b.onclick = () => editMeta([rows[Number(b.dataset.rowMeta)]])),
+        );
+        if (nonStandard) {
+          S.$("#pms-all-stock", body).disabled = true;
+          S.$("#pms-set-stock", body).disabled = true;
+        }
         S.$$("[data-row-name]", body).forEach(
           (input) =>
             (input.oninput = () =>
@@ -570,6 +671,9 @@
                 key: r.key,
                 productName: r.productName,
                 initialStock: r.initialStock,
+                productionHours: r.productionHours,
+                unitPrice: nonStandard ? null : r.unitPrice,
+                faqTopicId: r.faqTopicId ? Number(r.faqTopicId) : null,
                 assetIds: r.files.map((f) => f.id),
               })),
             });
@@ -579,7 +683,7 @@
               ids.length.toLocaleString() + "개 제품을 등록했습니다.",
               true,
             );
-            const custom = selected.some((r) => S.group(r.groupId).nonStandard);
+            const custom = nonStandard;
             location.href = custom
               ? "/admin/product-master/non-standard"
               : "/admin/product-master/products";
@@ -600,14 +704,14 @@
       page: 0,
       size: 50,
     };
-    root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${custom ? "비규격" : "규격"} 제품 목록</h2><small>같은 그룹의 선택은 OR, 서로 다른 그룹은 AND 조건입니다.</small></div><a class="pms-button" href="/admin/product-master/products/new">+ 제품 생성</a></div><div class="pms-panel-body"><div class="pms-search-grid"><label><span>제품명 검색</span><input id="pms-keyword" maxlength="160" placeholder="제품명 일부"></label><label><span>상태</span><select id="pms-status"><option value="">전체</option>${Object.entries(
+    root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${custom ? "비규격" : "규격"} 제품 목록</h2><small>같은 그룹의 선택은 OR, 서로 다른 그룹은 AND 조건입니다.</small></div><a class="pms-button" href="/admin/product-master/products/new?kind=${custom ? "custom" : "standard"}">+ 제품 생성</a></div><div class="pms-panel-body"><div class="pms-search-grid"><label><span>제품명 검색</span><input id="pms-keyword" maxlength="160" placeholder="제품명 일부"></label><label><span>상태</span><select id="pms-status"><option value="">전체</option>${Object.entries(
       S.status,
     )
       .filter(([k]) => custom || k !== "DRAFT")
       .map(([k, v]) => `<option value="${k}">${v}</option>`)
       .join(
         "",
-      )}</select></label><div class="pms-search-actions"><button class="primary" id="pms-search">조회</button><button id="pms-reset">초기화</button><button id="pms-advanced">고급검색</button></div><label><span>페이지 크기</span><select id="pms-page-size"><option>20</option><option selected>50</option><option>100</option><option>200</option></select></label></div><div id="pms-basic-filters">${S.groups
+      )}</select></label><div class="pms-search-actions"><button class="primary" id="pms-search">조회</button><button id="pms-reset">초기화</button><button id="pms-advanced">고급검색</button></div><label><span>페이지 크기</span><select id="pms-page-size"><option>20</option><option selected>50</option><option>100</option><option>200</option></select></label></div>${custom ? '<div class="pms-row"><label>실 제품 종류 최소 <input id="pm-count-min" type="number" min="0"></label><label>최대 <input id="pm-count-max" type="number" min="0"></label></div>' : ""}<div id="pms-basic-filters">${S.groups
       .filter(S.isBase)
       .sort(
         (a, b) =>
@@ -710,6 +814,14 @@
         .join("");
     }
     async function load() {
+      if (custom) {
+        filter.minActualCount = S.$("#pm-count-min", root).value
+          ? Number(S.$("#pm-count-min", root).value)
+          : null;
+        filter.maxActualCount = S.$("#pm-count-max", root).value
+          ? Number(S.$("#pm-count-max", root).value)
+          : null;
+      }
       filter.keyword = S.$("#pms-keyword", root).value;
       filter.status = S.$("#pms-status", root).value;
       filter.size = Number(S.$("#pms-page-size", root).value);
@@ -717,15 +829,26 @@
       try {
         const data = await S.request("/products/search", "POST", filter);
         filter.page = data.page;
-        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small></div><div class="pms-table-scroll"><table><thead><tr><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>재고</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td>${p.id}</td><td><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td></tr>`).join("") || '<tr><td colspan="7"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>'}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
+        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small></div><div class="pms-table-scroll"><table><thead><tr><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td>${p.id}</td><td><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td>` : ""}<td><div class="pms-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a><a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}<a class="pms-button" href="/admin/product-master/products/${p.id}/test">고객 테스트</a></div></td></tr>`).join("") || '<tr><td colspan="7"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>'}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
         S.$$("[data-open]", content).forEach((tr) => {
-          tr.onclick = () =>
-            (location.href =
-              "/admin/product-master/products/" + tr.dataset.open);
+          tr.onclick = (e) => {
+            if (e.target.closest("a,button")) return;
+            location.href =
+              "/admin/product-master/products/" + tr.dataset.open + "/view";
+          };
           tr.onkeydown = (e) => {
             if (e.key === "Enter") tr.click();
           };
         });
+        S.$$("[data-copy-product]", content).forEach(
+          (b) =>
+            (b.onclick = () =>
+              S.copyProductDialog(
+                data.content.find(
+                  (p) => p.id === Number(b.dataset.copyProduct),
+                ),
+              )),
+        );
         S.$$("[data-page]", content).forEach(
           (b) =>
             (b.onclick = () => {

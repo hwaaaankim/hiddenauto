@@ -118,6 +118,7 @@ public final class ProductStudioEngine {
           f.key() != null && f.key().matches("[A-Za-z0-9_-]{1,80}") && ids.add(f.key()),
           "입력 필드 value가 중복되거나 올바르지 않습니다.");
       labels(f.labels(), 120);
+      require(text(f.guide()).length() <= 2000, "안내메시지는 2,000자 이하입니다.");
       require(
           text(f.namePart()).length() <= 160 && text(f.unit()).length() <= 20,
           "필드 이름 구성 문자 또는 단위가 너무 깁니다.");
@@ -205,6 +206,7 @@ public final class ProductStudioEngine {
                     && keys.add(c.key()),
                 "보기 value가 중복되거나 올바르지 않습니다.");
             labels(c.labels(), q.fixed() ? 200 : 120);
+            require(text(c.guide()).length() <= 2000, "안내메시지는 2,000자 이하입니다.");
             require(text(c.namePart()).length() <= 160, "제품명 구성 문자는 160자 이하입니다.");
           }
         } else require(list(q.choices()).isEmpty(), "입력형에는 선택 보기를 등록할 수 없습니다.");
@@ -289,6 +291,10 @@ public final class ProductStudioEngine {
               order.get(a.targetKey()) > lastSource,
               "조건은 원본보다 뒤에 있는 질문에만 연결할 수 있습니다. 질문 순서를 확인해 주세요.");
           require(!target.fixed(), "제품의 고정 사양은 조건으로 변경할 수 없습니다.");
+          if (a.effect() == Effect.RENAME)
+            require(
+                !text(a.questionText()).isBlank() && text(a.questionText()).length() <= 300,
+                "변경할 질문 내용을 1~300자로 입력해주세요.");
           if (a.effect() == Effect.ALLOW)
             require(
                 choice(target.control())
@@ -336,14 +342,30 @@ public final class ProductStudioEngine {
           if (a.targetKey().equals(q.key())) {
             effects.add(a.effect());
             switch (a.effect()) {
+              case RENAME -> {}
               case SHOW -> visible = true;
               case HIDE -> visible = false;
               case REQUIRE -> required = true;
               case OPTIONAL -> required = false;
-              case ALLOW -> allowed.retainAll(list(a.choiceKeys()));
+              case ALLOW -> {
+                allowed.clear();
+                allowed.addAll(list(a.choiceKeys()));
+              }
             }
           }
       List<String> errors = new ArrayList<>();
+      List<Action> applied =
+          matched.stream()
+              .flatMap(r -> r.actions().stream())
+              .filter(a -> a.targetKey().equals(q.key()))
+              .toList();
+      long restrictions = applied.stream().filter(a -> a.effect() == Effect.ALLOW).count();
+      long renames = applied.stream().filter(a -> a.effect() == Effect.RENAME).count();
+      if (applied.size() > 1)
+        errors.add(
+            "충돌: 규칙 ["
+                + matched.stream().map(Rule::name).collect(Collectors.joining(" / "))
+                + "]이 동시에 적용됩니다. 조건 묶음의 선택값 또는 범위를 분리해주세요.");
       if (effects.contains(Effect.SHOW) && effects.contains(Effect.HIDE))
         errors.add("표시/건너뜀 규칙이 동시에 일치합니다.");
       if (effects.contains(Effect.REQUIRE) && effects.contains(Effect.OPTIONAL))
@@ -351,9 +373,12 @@ public final class ProductStudioEngine {
       Answer clean = empty();
       if (q.requireRule() && matched.isEmpty())
         errors.add("일치하는 경우의 수가 없습니다. 조건 범위 또는 기본 동작을 확인해 주세요.");
-      if (visible) {
+      if (visible || q.fixed()) {
         if (choice(q.control()) && allowed.isEmpty()) errors.add("선택 가능한 보기가 없습니다.");
-        Answer raw = map(submitted).getOrDefault(q.key(), empty());
+        Answer raw =
+            q.preset() != null && q.fixed()
+                ? q.preset()
+                : map(submitted).getOrDefault(q.key(), empty());
         if (choice(q.control())) {
           List<String> selected =
               list(raw.choices()).stream().filter(allowed::contains).distinct().toList();
@@ -381,11 +406,34 @@ public final class ProductStudioEngine {
         if (errors.isEmpty()) normalized.put(q.key(), clean);
       }
       // A hidden or invalid source cannot drive downstream conditions, including NE/ABSENT.
-      if (visible && errors.isEmpty()) visited.add(q.key());
+      if ((visible || q.fixed()) && errors.isEmpty()) visited.add(q.key());
       for (String e : errors) allErrors.add(label(q) + ": " + e);
+      String renamed =
+          applied.stream()
+              .filter(a -> a.effect() == Effect.RENAME)
+              .map(Action::questionText)
+              .findFirst()
+              .orElse(q.question());
+      Question shown =
+          new Question(
+              q.key(),
+              q.groupId(),
+              q.labels(),
+              q.control(),
+              q.fixed(),
+              q.visible(),
+              q.required(),
+              q.requireRule(),
+              renamed,
+              q.guide(),
+              q.choices(),
+              q.fields(),
+              q.assetIds(),
+              q.numberCases(),
+              q.preset());
       states.add(
           new QuestionState(
-              q,
+              shown,
               visible,
               required,
               List.copyOf(allowed),
@@ -495,6 +543,8 @@ public final class ProductStudioEngine {
   public static Validation validate(Process process, Map<String, Answer> fixed) {
     List<Issue> issues = structure(process);
     if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
+    issues.addAll(validateNumberCases(process));
+    if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
     Probe probe = new Probe(process, fixed, issues);
     probe.walk(0, new LinkedHashMap<>(map(fixed)));
     if (!probe.exhaustive)
@@ -506,7 +556,7 @@ public final class ProductStudioEngine {
           "검증 한도 20,000개 상태를 초과했습니다. 조건 또는 질문을 나눠 다시 검증해 주세요. 미검증 상태로 등록완료할 수 없습니다.");
     for (Rule r : list(process.rules()))
       if (!probe.hitRules.contains(r.key()))
-        issue(issues, "WARNING", "UNREACHABLE_RULE", r.name(), "허용된 입력 범위에서 이 규칙에 도달하지 못했습니다.");
+        issue(issues, "ERROR", "UNREACHABLE_RULE", r.name(), "허용된 입력 범위에서 이 규칙에 도달하지 못했습니다.");
     for (Question q : process.questions())
       if (!q.fixed() && !probe.visibleQuestions.contains(q.key()))
         issue(issues, "WARNING", "UNREACHABLE_QUESTION", label(q), "이 질문이 표시되는 경로를 찾지 못했습니다.");
@@ -546,8 +596,10 @@ public final class ProductStudioEngine {
       hitRules.addAll(state.matchedRules());
       // Input-required errors are expected until this question receives its sample answer.
       for (String e : state.errors())
-        if (e.contains("동시에") || e.contains("경우의 수") || e.contains("보기가 없습니다"))
+        if (e.contains("충돌") || e.contains("동시에") || e.contains("경우의 수") || e.contains("보기가 없습니다"))
           issue(issues, "ERROR", "PATH", label(q), e + " 예시: " + example(process, answers));
+      if (q.fixed() && !state.errors().isEmpty())
+        issue(issues, "ERROR", "FIXED", label(q), "고정 사양을 입력해 주세요: " + state.errors());
       if (!state.visible()) {
         walk(index + 1, answers);
         return;
@@ -599,16 +651,95 @@ public final class ProductStudioEngine {
     return s.length() > 400 ? s.substring(0, 400) + "…" : s;
   }
 
+  private static List<Condition> predicates(Process p) {
+    List<Condition> all = new ArrayList<>();
+    list(p.rules()).forEach(r -> all.addAll(list(r.conditions())));
+    list(p.questions())
+        .forEach(q -> list(q.numberCases()).forEach(c -> all.addAll(list(c.conditions()))));
+    return all;
+  }
+
+  public static List<Issue> validateNumberCases(Process process) {
+    List<Issue> issues = new ArrayList<>();
+    for (Question q : list(process.questions())) {
+      if (list(q.numberCases()).isEmpty()) continue;
+      try {
+        require(q.control() == Control.NUMBER, "숫자 그룹만 범위조건을 등록할 수 있습니다.");
+        require(q.numberCases().size() <= 100, "범위조건은 최대 100개입니다.");
+        Set<String> keys = new HashSet<>();
+        for (NumberCase row : q.numberCases()) {
+          require(
+              row != null
+                  && !text(row.name()).isBlank()
+                  && text(row.name()).length() <= 120
+                  && text(row.key()).matches("[A-Za-z0-9_-]{1,80}")
+                  && keys.add(row.key()),
+              "범위조건 이름/value가 없거나 중복됩니다.");
+          require(
+              !list(row.conditions()).isEmpty() && row.conditions().size() <= 20,
+              "조건식을 1~20개 등록해주세요.");
+          require(text(row.guide()).length() <= 2000, "안내메시지는 2,000자 이하입니다.");
+          for (Condition c : row.conditions()) {
+            require(
+                c != null
+                    && q.key().equals(c.groupKey())
+                    && q.fields().stream().anyMatch(f -> f.key().equals(c.fieldKey())),
+                "이 질문에 속한 숫자 필드를 선택해주세요.");
+            require(
+                c.operator() != null
+                    && Set.of(
+                            Operator.EQ,
+                            Operator.GT,
+                            Operator.GE,
+                            Operator.LT,
+                            Operator.LE,
+                            Operator.RANGE)
+                        .contains(c.operator())
+                    && c.lower() != null,
+                "숫자 비교와 기준값을 입력해주세요.");
+            require(
+                c.operator() != Operator.RANGE
+                    || c.upper() != null
+                        && (c.lower().compareTo(c.upper()) < 0
+                            || c.lower().compareTo(c.upper()) == 0
+                                && c.lowerInclusive()
+                                && c.upperInclusive()),
+                "숫자 범위 시작/끝과 포함 여부를 확인해주세요.");
+          }
+        }
+        List<Answer> samples = samples(q, true, List.of(), process);
+        require(samples.size() <= MAX_SCENARIOS, "숫자조건 검증 한도를 초과했습니다. 범위를 단순화해주세요.");
+        Set<String> hit = new HashSet<>();
+        for (Answer answer : samples) {
+          List<NumberCase> matches =
+              q.numberCases().stream()
+                  .filter(row -> row.conditions().stream().allMatch(c -> matches(c, answer)))
+                  .toList();
+          matches.forEach(row -> hit.add(row.key()));
+          require(
+              matches.size() < 2,
+              "범위 중복: ["
+                  + matches.stream().map(NumberCase::name).collect(Collectors.joining(" / "))
+                  + "] 값 "
+                  + answer.fields()
+                  + " 에서 동시에 성립합니다. 경계값의 이상/초과, 이하/미만을 분리해주세요.");
+        }
+        for (NumberCase row : q.numberCases())
+          require(hit.contains(row.key()), "조건 [" + row.name() + "]을 만족하는 값이 입력 범위에 없습니다.");
+      } catch (IllegalArgumentException ex) {
+        issue(issues, "ERROR", "NUMBER_CASE", label(q), ex.getMessage());
+      }
+    }
+    return issues;
+  }
+
   private static List<Answer> samples(
       Question q, boolean required, List<String> allowed, Process p) {
     List<Answer> result = new ArrayList<>();
     if (!required) result.add(empty());
     if (choice(q.control())) {
       List<Condition> predicates =
-          list(p.rules()).stream()
-              .flatMap(r -> r.conditions().stream())
-              .filter(c -> c.groupKey().equals(q.key()))
-              .toList();
+          predicates(p).stream().filter(c -> c.groupKey().equals(q.key())).toList();
       // Only predicate truth vectors can affect later questions. Equivalent values are checked
       // once.
       Map<String, Answer> projected = new LinkedHashMap<>();
@@ -650,8 +781,7 @@ public final class ProductStudioEngine {
       List<Object> domain = domain(q, f, p);
       if (!required || !f.required()) domain.add(null);
       List<Condition> predicates =
-          list(p.rules()).stream()
-              .flatMap(r -> r.conditions().stream())
+          predicates(p).stream()
               .filter(c -> q.key().equals(c.groupKey()) && f.key().equals(c.fieldKey()))
               .toList();
       Map<String, Object> projected = new LinkedHashMap<>();
@@ -684,8 +814,7 @@ public final class ProductStudioEngine {
 
   private static List<Object> domain(Question q, Field f, Process p) {
     List<Condition> conditions =
-        list(p.rules()).stream()
-            .flatMap(r -> r.conditions().stream())
+        predicates(p).stream()
             .filter(c -> q.key().equals(c.groupKey()) && f.key().equals(c.fieldKey()))
             .toList();
     Set<Object> values = new LinkedHashSet<>();

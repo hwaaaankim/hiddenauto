@@ -12,6 +12,9 @@
       custom: "비규격 제품 관리",
       detail: "제품 상세",
       process: "비규격 질문 프로세스",
+      faq: "FAQ 관리",
+      view: "제품 상세 조회",
+      actuals: "실 제품 재고",
     }[mode] || "제품관리";
   S.$(
     `[data-tab="${mode === "detail" ? "standard" : mode === "process" ? "custom" : mode}"]`,
@@ -39,8 +42,17 @@
         work,
         await S.request("/products/" + root.dataset.productId),
       );
+    else if (mode === "faq") await S.faqPage(work);
+    else if (mode === "view" || mode === "actuals")
+      await S[mode === "view" ? "viewPage" : "actualsPage"](
+        work,
+        await S.request("/products/" + root.dataset.productId),
+      );
     else await S.listPage(work, mode === "custom");
-    if (!localStorage.getItem("pm-studio-tour-dismissed-v3-" + mode))
+    if (
+      ["groups", "standard", "custom"].includes(mode) &&
+      !localStorage.getItem("pm-studio-tour-dismissed-v3-" + mode)
+    )
       S.guide(mode);
   } catch (e) {
     work.innerHTML = `<div class="pms-alert">${S.e(e.message)}</div>`;

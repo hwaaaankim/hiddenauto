@@ -46,6 +46,21 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ProductMaster {
 
+  @Column(
+      name = "legacy_unallocated_stock",
+      nullable = false,
+      columnDefinition = "integer default 0")
+  private int legacyUnallocatedStock;
+
+  @Column(name = "production_hours", precision = 12, scale = 3)
+  private java.math.BigDecimal productionHours;
+
+  @Column(name = "unit_price", precision = 15, scale = 2)
+  private java.math.BigDecimal unitPrice;
+
+  @Column(name = "faq_topic_id")
+  private Long faqTopicId;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

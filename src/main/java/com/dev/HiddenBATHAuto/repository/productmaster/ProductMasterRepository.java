@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ProductMasterRepository
     extends JpaRepository<ProductMaster, Long>, JpaSpecificationExecutor<ProductMaster> {
+  java.util.Optional<ProductMaster> findByCatalogCode(String code);
 
   long countByNonStandard(boolean nonStandard);
 
