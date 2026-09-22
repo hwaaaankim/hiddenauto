@@ -44,6 +44,10 @@
   };
   S.badge = (text, color = "") =>
     `<span class="pms-tag ${S.e(color)}">${S.e(text)}</span>`;
+  S.specSummary = (rows) => {
+    if (!rows.length) return '<span class="pm-muted">—</span>';
+    return `<button type="button" class="pm-spec-peek" data-spec-peek="${S.e(JSON.stringify(rows))}" aria-expanded="false" aria-label="실제 사양 전체 ${rows.length}개 보기"><span class="pm-spec-first"><span class="pm-spec-label">${S.e(rows[0].label)}</span><span>${S.e(rows[0].value)}</span></span>${rows.length > 1 ? `<span class="pm-spec-count">+${rows.length - 1}</span>` : ""}</button>`;
+  };
   S.api = async (path, method = "GET", body, signal) => {
     const headers = { Accept: "application/json" };
     const opts = { method, headers, credentials: "same-origin", signal };
@@ -100,17 +104,23 @@
   S.run = async (button, fn) => {
     if (button?.disabled) return;
     if (button) button.disabled = true;
+    const errorScope =
+      button?.closest(".pms-dialog-body,.pms-panel") ||
+      button?.closest("dialog")?.querySelector(".pms-dialog-body");
+    if (errorScope) S.clearErrors?.(errorScope);
     try {
       return await fn();
     } catch (err) {
+      const scope = errorScope || S.$$("dialog[open]").at(-1);
       if (!err.inlineShown) {
-        const scope =
-          button?.closest(".pms-dialog-body,.pms-panel") ||
-          S.$$("dialog[open]").at(-1);
         if (scope) S.showErrors(scope, err.fieldErrors || { "": err.message });
         else S.notice(err.message);
       }
-      S.toast(err.message);
+      S.toast(
+        scope || err.inlineShown
+          ? "저장·진행할 수 없습니다. 표시된 위치의 이유와 수정 안내를 확인해 주세요."
+          : err.message,
+      );
       console.error(err);
     } finally {
       if (button?.isConnected) button.disabled = false;
@@ -320,10 +330,14 @@
       },
     });
   };
+  let dialogSequence = 0;
   S.dialog = (title, body, { wide = true, foot = "", onClose } = {}) => {
     const el = document.createElement("dialog");
     el.className = "pms pms-dialog" + (wide ? "" : " narrow");
     el.innerHTML = `<header class="pms-dialog-head"><h2>${S.e(title)}</h2><button type="button" data-close aria-label="닫기">×</button></header><div class="pms-dialog-body">${body}</div>${foot ? `<footer class="pms-dialog-foot">${foot}</footer>` : ""}`;
+    const titleId = "pms-dialog-title-" + ++dialogSequence;
+    S.$("h2", el).id = titleId;
+    el.setAttribute("aria-labelledby", titleId);
     document.body.append(el);
     S.$("[data-close]", el).onclick = () => el.close();
     el.addEventListener("close", () => {
@@ -473,6 +487,27 @@
     });
   };
   let errorSequence = 0;
+  S.errorAdvice = (message) => {
+    const m = String(message || "");
+    if (m.includes("수정 예시:")) return "";
+    if (/범위 중복/.test(m))
+      return "수정 예시: ‘W 300 이하’와 ‘W 500 이하’는 겹칩니다. 두 번째를 ‘W 300 초과 AND W 500 이하’로 나누세요. W 조건과 H 조건도 동시에 성립할 수 있으므로 함께 확인해 주세요.";
+    if (/충돌|동시에 (적용|일치|성립)/.test(m))
+      return "수정 예시: 같은 대상에 ‘1·2·3 선택 → A·B 표시’와 ‘3·4 선택 → B·C 표시’를 함께 연결할 수 없습니다. 3을 한 조건에만 넣거나 하나의 연결로 합치세요. 체크박스는 다른 답변도 동시에 선택할 수 있으므로, 같은 대상의 동작은 한 연결에서 정의하세요.";
+    if (/만족하는 값이 입력 범위에 없|입력값이 없/.test(m))
+      return "수정 예시: 입력 최대값이 500이면 ‘500 초과’ 조건은 실행되지 않습니다. 입력 제한 또는 조건값을 변경하고, ‘500 초과 AND 300 이하’처럼 서로 모순되는 조건도 제거해 주세요.";
+    if (/검증.*한도|경우의 수.*한도/.test(m))
+      return "수정 예시: 겹치거나 반복된 조건을 정리하고 질문·범위를 단순화한 뒤 다시 검증하세요. 전체 검증이 끝나지 않은 상태에서는 등록완료할 수 없습니다.";
+    if (/원본.*앞|대상.*뒤|순서|후속/.test(m) && /규칙|조건|연결|질문/.test(m))
+      return "수정 예시: ‘사이즈 → 문 수량’ 연결이 있으면 사이즈 질문을 먼저 두세요. 순서를 뒤집으려면 해당 연관관계를 먼저 수정·삭제해야 합니다.";
+    if (/보기.*없|필드.*없/.test(m))
+      return "수정 예시: 삭제한 답변이나 필드를 참조하는 연관관계가 있는지 확인하세요. 관계를 새 답변으로 바꾸거나 삭제한 뒤 다시 저장하세요.";
+    if (/고정 사양/.test(m))
+      return "수정 예시: 질문에서 제외한 그룹은 ‘고정 사양 입력’ 단계에서 실제 저장할 값 하나를 지정해 주세요.";
+    if (/실 제품.*(수정|변경|삭제)|소속.*제품/.test(m))
+      return "수정 예시: 현재 사양과 재고를 보존하려면 제품을 복사한 뒤 복사본의 구성을 수정하세요.";
+    return "";
+  };
   S.showErrors = (root, errors, focus = true) => {
     if (!root) return;
     S.clearErrors(root);
@@ -499,6 +534,8 @@
       note.dataset.pmsError = path;
       note.id = "pms-error-" + ++errorSequence;
       note.textContent = message;
+      const advice = S.errorAdvice(message);
+      if (advice) note.append(document.createTextNode("\n" + advice));
       note.setAttribute("role", "alert");
       if (input) {
         input.setAttribute("aria-invalid", "true");
@@ -643,4 +680,102 @@
       }
     });
   };
+})(window.PMS);
+(function (S) {
+  // A body-level popup remains visible above horizontally scrollable tables.
+  let trigger = null,
+    popup = null,
+    pinned = false,
+    timer = null;
+  const cancelClose = () => clearTimeout(timer);
+  const close = () => {
+    cancelClose();
+    trigger?.setAttribute("aria-expanded", "false");
+    trigger?.removeAttribute("aria-controls");
+    popup?.remove();
+    trigger = popup = null;
+    pinned = false;
+  };
+  S.closeSpecPeek = close;
+  const place = () => {
+    if (!trigger?.isConnected || !popup) return close();
+    const r = trigger.getBoundingClientRect();
+    const box = popup.getBoundingClientRect();
+    popup.style.left =
+      Math.max(12, Math.min(r.left, innerWidth - box.width - 12)) + "px";
+    popup.style.top =
+      Math.max(
+        12,
+        r.bottom + box.height + 8 <= innerHeight - 12
+          ? r.bottom + 8
+          : r.top - box.height - 8,
+      ) + "px";
+  };
+  const open = (button, pin = false) => {
+    cancelClose();
+    if (trigger === button) {
+      pinned ||= pin;
+      return;
+    }
+    close();
+    let rows;
+    try {
+      rows = JSON.parse(button.dataset.specPeek);
+    } catch {
+      return;
+    }
+    trigger = button;
+    pinned = pin;
+    popup = document.createElement("section");
+    popup.className = "pms pm-spec-popover";
+    popup.id = "pm-spec-popover";
+    popup.setAttribute("role", "region");
+    popup.setAttribute("aria-label", "전체 구성 항목");
+    popup.innerHTML = `<strong>전체 항목 · ${rows.length}개</strong><dl>${rows.map((r) => `<div><dt>${S.e(r.label)}</dt><dd>${S.e(r.value)}</dd></div>`).join("")}</dl>`;
+    document.body.append(popup);
+    trigger.setAttribute("aria-expanded", "true");
+    trigger.setAttribute("aria-controls", popup.id);
+    popup.onpointerenter = cancelClose;
+    popup.onpointerleave = scheduleClose;
+    place();
+  };
+  function scheduleClose() {
+    cancelClose();
+    if (!pinned) timer = setTimeout(close, 180);
+  }
+  document.addEventListener("pointerover", (e) => {
+    if (e.pointerType === "touch") return;
+    const b = e.target.closest("[data-spec-peek]");
+    if (b) open(b);
+  });
+  document.addEventListener("pointerout", (e) => {
+    if (trigger?.contains(e.target) && !trigger.contains(e.relatedTarget))
+      scheduleClose();
+  });
+  document.addEventListener("focusin", (e) => {
+    const b = e.target.closest("[data-spec-peek]");
+    if (b) open(b);
+  });
+  document.addEventListener("focusout", (e) => {
+    if (e.target === trigger && !popup?.contains(e.relatedTarget))
+      scheduleClose();
+  });
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-spec-peek]");
+    if (b) {
+      if (trigger === b && pinned) close();
+      else open(b, true);
+    } else if (!popup?.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && popup) close();
+  });
+  document.addEventListener(
+    "scroll",
+    (e) => {
+      if (popup && !popup.contains(e.target)) close();
+    },
+    true,
+  );
+  window.addEventListener("resize", close);
 })(window.PMS);

@@ -120,6 +120,14 @@
         '<span class="pms-disclosure-hint">클릭하여 펼치기/접기</span><svg class="pms-chevron" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
       );
     });
+    S.$$(".pms .pms-table-scroll:not([data-scroll-ready])", root).forEach(
+      (el) => {
+        el.dataset.scrollReady = "1";
+        el.tabIndex = 0;
+        el.setAttribute("role", "region");
+        el.setAttribute("aria-label", "표 내용 — 좌우로 이동하여 전체 열 확인");
+      },
+    );
     S.trackEditors(root);
   };
   S.initTheme = () => {

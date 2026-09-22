@@ -16,9 +16,24 @@
       view: "제품 상세 조회",
       actuals: "실 제품 재고",
     }[mode] || "제품관리";
-  S.$(
-    `[data-tab="${mode === "detail" ? "standard" : mode === "process" ? "custom" : mode}"]`,
-  )?.classList.add("active");
+  const markTab = (tab) => {
+    S.$$(".pms-nav [data-tab]").forEach((a) => {
+      a.classList.toggle("active", a.dataset.tab === tab);
+      if (a.dataset.tab === tab) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    requestAnimationFrame(() => {
+      const nav = S.$(".pms-nav"),
+        active = nav?.querySelector(".active");
+      if (nav && active) {
+        const n = nav.getBoundingClientRect(),
+          a = active.getBoundingClientRect();
+        if (a.left < n.left || a.right > n.right)
+          nav.scrollLeft += a.left - n.left - (nav.clientWidth - a.width) / 2;
+      }
+    });
+  };
+  markTab(mode === "process" || mode === "actuals" ? "custom" : mode);
   S.mode = mode;
   S.initTheme();
   S.$("#pms-description").textContent = S.descriptions[mode] || "";
@@ -32,23 +47,21 @@
     await S.catalog();
     if (mode === "groups") await S.groupsPage(work);
     else if (mode === "builder") await S.builderPage(work);
-    else if (mode === "detail")
-      await S.builderPage(
-        work,
-        await S.request("/products/" + root.dataset.productId),
-      );
-    else if (mode === "process")
+    else if (mode === "detail") {
+      const p = await S.request("/products/" + root.dataset.productId);
+      markTab(p.nonStandard ? "custom" : "standard");
+      await S.builderPage(work, p);
+    } else if (mode === "process")
       await S.processPage(
         work,
         await S.request("/products/" + root.dataset.productId),
       );
     else if (mode === "faq") await S.faqPage(work);
-    else if (mode === "view" || mode === "actuals")
-      await S[mode === "view" ? "viewPage" : "actualsPage"](
-        work,
-        await S.request("/products/" + root.dataset.productId),
-      );
-    else await S.listPage(work, mode === "custom");
+    else if (mode === "view" || mode === "actuals") {
+      const p = await S.request("/products/" + root.dataset.productId);
+      markTab(p.nonStandard ? "custom" : "standard");
+      await S[mode === "view" ? "viewPage" : "actualsPage"](work, p);
+    } else await S.listPage(work, mode === "custom");
     if (
       ["groups", "standard", "custom"].includes(mode) &&
       !localStorage.getItem("pm-studio-tour-dismissed-v3-" + mode)
