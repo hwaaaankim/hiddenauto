@@ -431,6 +431,21 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
     }
 
+    function renderOrderAdminMemo(adminMemo) {
+        const memo = typeof adminMemo === 'string' ? adminMemo.trim() : '';
+        if (!memo) return '';
+
+        return `
+            <section class="index-main-modal-order-memo" aria-label="관리자 메모">
+                <div class="index-main-modal-order-memo-label">
+                    <i class="fa-regular fa-comment-dots" aria-hidden="true"></i>
+                    <span>관리자 메모</span>
+                </div>
+                <p class="index-main-modal-order-memo-text">${escapeHtml(memo)}</p>
+            </section>
+        `;
+    }
+
     function renderTaskModalCard(task, index) {
         const orders = Array.isArray(task.orders) ? task.orders : [];
         const orderHtml = orders.map((order, orderIndex) => {
@@ -466,6 +481,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         ${renderInfoItem('주문일', order.createdAt || '-')}
                         ${renderInfoItem('카테고리', order.categoryName || '-')}
                     </div>
+                    ${renderOrderAdminMemo(order.adminMemo)}
                 </div>
             `;
         }).join('');

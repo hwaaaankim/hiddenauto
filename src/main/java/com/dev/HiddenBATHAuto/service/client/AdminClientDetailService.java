@@ -101,16 +101,8 @@ public class AdminClientDetailService {
             licenseAction = "KEEP";
         }
 
-        if ("DELETE".equals(licenseAction) && !hasNewLicense) {
-            throw new IllegalArgumentException("사업자등록증은 필수입니다. 삭제만 할 수 없고 유지 또는 새 파일 등록이 필요합니다.");
-        }
-
         if ("REPLACE".equals(licenseAction) && !hasNewLicense) {
             throw new IllegalArgumentException("사업자등록증 교체 파일이 없습니다.");
-        }
-
-        if ("KEEP".equals(licenseAction) && !hasExistingLicense && !hasNewLicense) {
-            throw new IllegalArgumentException("사업자등록증은 필수입니다.");
         }
 
         company.setCompanyName(companyName);
@@ -134,12 +126,12 @@ public class AdminClientDetailService {
             deleteCompanyLicenseFile(company);
             saveCompanyLicenseFile(company, newLicenseFile);
         } else if ("DELETE".equals(licenseAction)) {
-            deleteCompanyLicenseFile(company);
             if (hasNewLicense) {
                 validateLicenseFile(newLicenseFile);
+            }
+            deleteCompanyLicenseFile(company);
+            if (hasNewLicense) {
                 saveCompanyLicenseFile(company, newLicenseFile);
-            } else {
-                throw new IllegalArgumentException("사업자등록증은 필수입니다.");
             }
         } else if ("KEEP".equals(licenseAction)) {
             if (!hasExistingLicense && hasNewLicense) {
