@@ -1129,6 +1129,7 @@ public class APIController {
 
 			CalendarTaskDetailDTO.OrderBriefDTO ob = new CalendarTaskDetailDTO.OrderBriefDTO();
 			ob.setOrderId(o.getId());
+			ob.setAdminMemo(o.getAdminMemo());
 			ob.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().format(DT) : null);
 			ob.setPreferredDeliveryDate(
 					o.getPreferredDeliveryDate() != null ? o.getPreferredDeliveryDate().format(DT) : null);

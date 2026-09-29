@@ -10,7 +10,7 @@
 		autoHead가 <head> 자체를 th:replace 하는 기존 구조이므로 공용 fragment를 건드리지 않고
 		이 페이지에서만 추가 로딩합니다. 브라우저는 stylesheet link를 정상 처리합니다.
 	-->
-	<link rel="stylesheet" href="/front/index-main.css?v=20260906-1">
+	<link rel="stylesheet" href="/front/index-main.css?v=20260929-1">
 
 	<th:block th:replace="~{fragments/front/common :: autoLoader}"></th:block>
 
@@ -311,7 +311,7 @@
 	<!-- 공용 스크립트 -->
 	<th:block th:replace="~{fragments/front/common :: autoScript}"></th:block>
 	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-	<script src="/front/calendar.js?v=20260915-2"></script>
+	<script src="/front/calendar.js?v=20260929-1"></script>
 	<script src="/front/index-popup.js"></script>
 </body>
 

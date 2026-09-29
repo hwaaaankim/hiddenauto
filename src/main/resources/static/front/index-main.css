@@ -3358,3 +3358,33 @@ body.index-main-modal-open {
         transition: none !important;
     }
 }
+
+/* 고객 달력: 오더별 관리자 메모 (내용이 있을 때만 렌더링) */
+.index-main-modal-order-memo {
+    min-width: 0;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid #dfe7f1;
+    border-radius: 5px;
+    background: #f2f6fb;
+}
+
+.index-main-modal-order-memo-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #445a76;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.index-main-modal-order-memo-text {
+    margin: 5px 0 0;
+    color: #26364a;
+    font-size: 12px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}

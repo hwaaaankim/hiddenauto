@@ -49,6 +49,9 @@ public class CalendarTaskDetailDTO {
         private Integer price;
         private String categoryName;
 
+        /** 고객 달력 팝업에 표시할 해당 오더의 관리자 메모 */
+        private String adminMemo;
+
         /** index 달력 발주 상세용 제품 정보 */
         private String productName;
         private String productSize;

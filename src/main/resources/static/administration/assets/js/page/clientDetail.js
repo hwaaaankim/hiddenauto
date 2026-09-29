@@ -545,24 +545,16 @@
 		updateLicenseStatusDisplay();
 	}
 
-	function hasCurrentLicense() {
-		if (companyLicenseState.newFile) {
-			return true;
-		}
-
-		return !!(companyLicenseState.existingUrl && !companyLicenseState.existingRemoved);
-	}
-
 	function getLicenseAction() {
 		if (companyLicenseState.newFile) {
 			return 'REPLACE';
 		}
 
-		if (companyLicenseState.existingUrl && !companyLicenseState.existingRemoved) {
-			return 'KEEP';
+		if (companyLicenseState.existingRemoved) {
+			return 'DELETE';
 		}
 
-		return 'DELETE';
+		return 'KEEP';
 	}
 
 	function createCompanySnapshot() {
@@ -615,10 +607,6 @@
 		}
 
 		if (!roadAddress) {
-			return false;
-		}
-
-		if (!hasCurrentLicense()) {
 			return false;
 		}
 
@@ -999,7 +987,7 @@
 					alert('담당직원은 검색 결과에서 선택해 주세요. 아이디 텍스트만 입력한 상태로는 저장할 수 없습니다.');
 					return;
 				}
-				alert('필수 입력값을 확인해주세요. 사업자등록증은 삭제만 할 수 없고 유지 또는 새 파일 등록이 필요합니다.');
+				alert('업체명, 적립금(0 이상), 사업자등록번호(숫자 10자리), 우편번호와 주소를 확인해주세요.');
 				return;
 			}
 
