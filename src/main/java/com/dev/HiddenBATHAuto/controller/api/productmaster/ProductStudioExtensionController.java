@@ -4,6 +4,9 @@ import static com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.*;
 import static com.dev.HiddenBATHAuto.service.productmaster.ProductStudioExtensionService.*;
 
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.ApiResponse;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDeletionDtos.ActualDeleteRequest;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDeletionDtos.DeleteResult;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDeletionDtos.ProductDeleteRequest;
 import com.dev.HiddenBATHAuto.service.productmaster.*;
 import java.security.Principal;
 import java.util.*;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProductStudioExtensionController {
   private final ProductStudioExtensionService extension;
   private final ProductStudioService studio;
+  private final ProductStudioDeletionService deletions;
 
   public record CopyRequest(String productName, List<Variant> fixed) {}
 
@@ -81,6 +85,18 @@ public class ProductStudioExtensionController {
   public Object deleteProduct(@PathVariable Long id, Principal p) {
     studio.deleteProduct(id);
     return ApiResponse.ok(null);
+  }
+
+  @PostMapping("/products/delete")
+  public ApiResponse<DeleteResult> deleteProducts(
+      @RequestBody ProductDeleteRequest request, Principal principal) {
+    return ApiResponse.ok(deletions.deleteProducts(request, principal.getName()));
+  }
+
+  @PostMapping("/products/{id}/actuals/delete")
+  public ApiResponse<DeleteResult> deleteActuals(
+      @PathVariable Long id, @RequestBody ActualDeleteRequest request, Principal principal) {
+    return ApiResponse.ok(deletions.deleteActuals(id, request, principal.getName()));
   }
 
   @GetMapping("/products/{id}/preview-schema")

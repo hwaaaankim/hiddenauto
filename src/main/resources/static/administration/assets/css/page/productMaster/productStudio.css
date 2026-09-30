@@ -1809,10 +1809,73 @@
 .pms .pm-product-table td {
   padding: 10px 8px;
 }
-.pms .pm-product-table td:nth-child(2) {
+.pms .pm-product-table td.pm-product-name {
   min-width: 150px;
   max-width: 270px;
   overflow-wrap: anywhere;
+}
+.pms table .pm-select-cell {
+  width: 42px;
+  min-width: 42px;
+  max-width: 42px;
+  padding: 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+.pms .pm-delete-check {
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  justify-content: center;
+  cursor: pointer;
+}
+.pms .pm-delete-check input {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.pms .pm-row-selected > td {
+  background: var(--blue-soft);
+}
+.pms .pm-delete-count {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pms .pm-delete-warning p {
+  margin: 8px 0 0;
+  line-height: 1.7;
+}
+.pms .pm-delete-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 14px 0;
+}
+.pms .pm-delete-targets {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.pms .pm-delete-targets li {
+  padding: 9px 12px;
+  overflow-wrap: anywhere;
+}
+.pms .pm-delete-targets li + li {
+  border-top: 1px solid var(--line);
+}
+.pms .pm-delete-targets small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+.pms .pm-actual-table {
+  min-width: 660px;
 }
 .pms .pm-product-actions {
   display: grid;

@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,6 +27,11 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
       ProductStudioExtensionController.class
     })
 public class ProductMasterApiExceptionHandler {
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException exception) {
+    return error(HttpStatus.FORBIDDEN, "제품관리 권한이 없습니다.");
+  }
 
   @ExceptionHandler(
       com.dev.HiddenBATHAuto.service.productmaster.ProductStudioValidationException.class)

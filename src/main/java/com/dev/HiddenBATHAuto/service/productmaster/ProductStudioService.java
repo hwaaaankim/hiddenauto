@@ -18,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -34,6 +35,7 @@ public class ProductStudioService {
   private final ProductStudioAssetService assets;
   private final ProductMasterCodeService codes;
   private final ProductInventoryService inventory;
+  private final ProductStudioDeletionService deletions;
   private final ProductStudioJson json;
   private final EntityManager entityManager;
 
@@ -450,7 +452,7 @@ public class ProductStudioService {
   private void requireNoActuals(ProductMaster p) {
     if (actuals.existsByProductId(p.getId()))
       throw new IllegalStateException(
-          "소속 실제품이 있어 원제품의 구성 및 프로세스를 수정/삭제할 수 없습니다. 제품복사로 새 제품을 생성해주세요.");
+          "소속 실 제품이 있어 원제품의 구성 및 프로세스를 수정할 수 없습니다. 제품복사로 새 제품을 생성하거나 실 제품을 모두 삭제한 뒤 수정해 주세요.");
   }
 
   private static void validateName(String name) {
@@ -589,14 +591,9 @@ public class ProductStudioService {
     return view(p, true);
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public void deleteProduct(Long id) {
-    ProductMaster p = products.findForUpdate(id).orElseThrow();
-    requireNoActuals(p);
-    if (p.getCurrentStock() != 0 || p.getLegacyUnallocatedStock() != 0)
-      throw new IllegalStateException("재고가 남아 있는 제품은 삭제할 수 없습니다.");
-    // 재고 이력과 코드 참조를 보존하는 판매중지 방식입니다.
-    p.setStatus(ProductMasterStatus.DISCONTINUED);
+    deletions.deleteProduct(id);
   }
 
   public ProductMaster require(Long id) {

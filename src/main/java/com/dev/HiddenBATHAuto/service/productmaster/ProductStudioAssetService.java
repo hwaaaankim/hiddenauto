@@ -5,6 +5,7 @@ import static com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.*;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.Process;
 import com.dev.HiddenBATHAuto.model.productmaster.ProductStudioAsset;
 import com.dev.HiddenBATHAuto.repository.productmaster.ProductStudioAssetRepository;
+import jakarta.persistence.EntityManager;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
@@ -35,6 +36,7 @@ public class ProductStudioAssetService {
           "jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc",
           "pptx", "ppt", "zip", "hwp", "hwpx");
   private final ProductStudioAssetRepository repository;
+  private final EntityManager entityManager;
 
   @Value("${spring.upload.path}")
   private String uploadPath;
@@ -315,8 +317,10 @@ public class ProductStudioAssetService {
 
   @Transactional
   public void bindFixedInputs(List<String> ids, String actor) {
-    for (String id : ids) {
-      ProductStudioAsset a = require(id);
+    // Deletion uses the same file locks so a shared fixed input cannot disappear while binding.
+    for (String id : new TreeSet<>(ids)) {
+      ProductStudioAsset a = repository.findForUpdate(id)
+          .orElseThrow(() -> new NoSuchElementException("고정 입력 파일을 찾을 수 없습니다."));
       // Already bound product input files may be retained by any authorized administrator.
       if (a.getOwnerType().equals("INPUT")) continue;
       if (!a.getOwnerType().equals("STAGED") || !a.getCreatedBy().equals(actor))
@@ -324,6 +328,44 @@ public class ProductStudioAssetService {
       a.setOwnerType("INPUT");
       a.setOwnerId(null);
     }
+  }
+
+  @Transactional
+  public void deleteOwned(String type, Long ownerId) {
+    if (!Set.of("PRODUCT", "PROCESS", "ACTUAL").contains(type) || ownerId == null)
+      throw new IllegalArgumentException("삭제할 첨부파일 대상을 확인해 주세요.");
+    for (ProductStudioAsset asset :
+        repository.findByOwnerTypeAndOwnerIdOrderByCreatedAtAsc(type, ownerId)) {
+      Path file = path(asset);
+      repository.delete(asset);
+      // Keep physical bytes available if any part of the database deletion rolls back.
+      afterCommit(file);
+    }
+  }
+
+  @Transactional
+  public void deleteUnusedInputs(Collection<String> ids) {
+    for (String id : new TreeSet<>(ids)) {
+      ProductStudioAsset asset = repository.findForUpdate(id).orElse(null);
+      if (asset == null || !"INPUT".equals(asset.getOwnerType())) continue;
+      String reference = "%\"" + id + "\"%";
+      boolean referenced = entityManager.createQuery(
+              "select count(p) from ProductMaster p where p.studioDefinitionJson like :reference"
+                  + " or p.studioProcessJson like :reference", Long.class)
+          .setParameter("reference", reference).getSingleResult() > 0;
+      if (!referenced) referenced = entityManager.createQuery(
+              "select count(a) from ProductActual a where a.answersJson like :reference", Long.class)
+          .setParameter("reference", reference).getSingleResult() > 0;
+      if (!referenced) referenced = entityManager.createQuery(
+              "select count(a) from ProductStudioAudit a where a.beforeJson like :reference"
+                  + " or a.afterJson like :reference", Long.class)
+          .setParameter("reference", reference).getSingleResult() > 0;
+      if (referenced) continue;
+      Path file = path(asset);
+      repository.delete(asset);
+      afterCommit(file);
+    }
+    repository.flush();
   }
 
   public ResponseEntity<Resource> content(ProductStudioAsset a, boolean download) {

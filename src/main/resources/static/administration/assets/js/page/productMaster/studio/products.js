@@ -854,10 +854,16 @@
       try {
         const data = await S.request("/products/search", "POST", filter);
         filter.page = data.page;
-        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td>${p.id}</td><td><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a><a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}<a class="pms-button" href="/admin/product-master/products/${p.id}/test">고객 테스트</a></div></td></tr>`).join("") || `<tr><td colspan="${custom ? 9 : 7}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
+        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택은 현재 페이지에만 적용됩니다.</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="현재 페이지 제품 전체선택"></label></th><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${p.id}" aria-label="${S.e(p.productName)} 삭제 선택"></label></td><td>${p.id}</td><td class="pm-product-name"><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a><a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}<a class="pms-button" href="/admin/product-master/products/${p.id}/test">고객 테스트</a></div></td></tr>`).join("") || `<tr><td colspan="${custom ? 10 : 8}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
+        S.bindDeletion(content, data.content, {
+          custom,
+          onDeleted: async () => {
+            if (!(await load())) throw new Error("삭제 후 목록을 다시 불러오지 못했습니다.");
+          },
+        });
         S.$$("[data-open]", content).forEach((tr) => {
           tr.onclick = (e) => {
-            if (e.target.closest("a,button")) return;
+            if (e.target.closest("a,button,input,label,select,textarea,.pm-select-cell")) return;
             location.href =
               "/admin/product-master/products/" + tr.dataset.open + "/view";
           };
@@ -901,8 +907,10 @@
                 ),
               )
               .join("");
+        return true;
       } catch (e) {
         content.innerHTML = `<div class="pms-alert">${S.e(e.message)}</div>`;
+        return false;
       }
     }
     function describe(p, base) {
