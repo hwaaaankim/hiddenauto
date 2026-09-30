@@ -60,6 +60,10 @@ public class ProductStudioAttributeService {
           g.setBaseRole(role);
           g.setUpdatedBy(actor);
         }
+        if (!"SUBCATEGORY".equals(role) && !g.isAskQuestion()) {
+          g.setAskQuestion(true);
+          g.setUpdatedBy(actor);
+        }
         continue;
       }
       String name = ProductAttributeRole.valueOf(role).getLabelKr();
@@ -94,6 +98,12 @@ public class ProductStudioAttributeService {
 
   public Control control(ProductAttributeGroup g) {
     return Control.valueOf(g.getStudioControl());
+  }
+
+  public boolean asksQuestion(ProductAttributeGroup g) {
+    return g.getSystemRole() == ProductAttributeRole.CATEGORY
+        || g.getSystemRole() == ProductAttributeRole.SERIES
+        || g.isAskQuestion();
   }
 
   public List<Field> fieldsFor(ProductAttributeGroup g) {
@@ -136,7 +146,7 @@ public class ProductStudioAttributeService {
         fieldsFor(g),
         options,
         groupAssets,
-        g.isAskQuestion(),
+        asksQuestion(g),
         g.isPriceImpact());
   }
 
@@ -242,7 +252,9 @@ public class ProductStudioAttributeService {
     g.setStudioControl(request.control().name());
     g.setNonStandard(request.nonStandard());
     boolean ask =
-        request.askQuestion() == null
+        role == ProductAttributeRole.CATEGORY || role == ProductAttributeRole.SERIES
+            ? true
+            : request.askQuestion() == null
             ? role != ProductAttributeRole.SUBCATEGORY
             : request.askQuestion();
     boolean questionModeChanged = request.id() != null && g.isAskQuestion() != ask;

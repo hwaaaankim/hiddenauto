@@ -2,484 +2,286 @@
   "use strict";
   const root = document.getElementById("pm-public-chat");
   if (!root) return;
-  const content = S.$("#pm-chat-content", root),
-    heading = S.$("#pm-chat-title", root);
-  const adminId = root.dataset.adminProductId || "";
-  let kind = new URLSearchParams(location.search).get("kind") || "standard",
-    faq = null;
-  let token = root.dataset.token || "",
-    catalogPage = 0,
-    picks = {},
-    catalogHistory = [],
-    answers = {},
-    schema = null,
-    evaluation = null,
-    historyKeys = [],
-    currentKey = null,
-    attempted = new Set(),
-    assetMap = new Map();
-  function gallery(files) {
-    const images = files.filter((f) => f.image),
-      docs = files.filter((f) => !f.image);
-    return `${images.length ? `<div class="pms-row"><small>이미지 ${images.length}장 · 좌우로 넘기거나 눌러 다운로드</small></div><div class="pms-gallery">${images.map((f) => `<a href="${S.e(f.url)}?download=true" download="${S.e(f.name)}"><img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy"></a>`).join("")}</div>` : ""}${docs.length ? `<div class="pms-attachments">${docs.map((f) => `<a href="${S.e(f.url)}?download=true">▤ 첨부파일 · ${S.e(f.name)}</a>`).join("")}</div>` : ""}`;
+  const content = S.$("#pm-chat-content", root), heading = S.$("#pm-chat-title", root);
+  const seedId = Number(root.dataset.adminProductId) || null;
+  const seedToken = root.dataset.token || "";
+  const admin = root.dataset.adminCatalog === "true" || seedId != null;
+  let kind = root.dataset.kind || new URLSearchParams(location.search).get("kind") || "standard";
+  let selections = {}, filters = {}, baseHistory = [], page = 0, browseResult = null;
+  let activeId = null, token = "", product = null, schema = null, faq = null, evaluation = null;
+  let answers = {}, completed = [], currentKey = null, attempted = new Set(), assetMap = new Map();
+  let browseSequence = 0, browseController = null, pendingUploads = 0, seedProduct = null, flowSequence = 0, productSequence = 0;
+  S.bindMedia(content);
+
+  function error(message) {
+    let box = S.$("#pm-chat-error", root);
+    if (!box) { box = document.createElement("div"); box.id = "pm-chat-error"; box.setAttribute("role", "alert"); content.before(box); }
+    box.innerHTML = message ? `<p class="pms-alert">${S.e(message)}</p>` : "";
   }
   async function guarded(fn) {
-    try {
-      await fn();
-    } catch (e) {
-      const error = document.createElement("p");
-      error.className = "pms-error";
-      error.textContent = e.message;
-      content.append(error);
-    }
+    error("");
+    try { await fn(); } catch (e) { if (e.name !== "AbortError") error(e.message); }
   }
-  S.$("#pm-chat-restart", root).onclick = () => {
-    if (adminId) {
-      answers = {};
-      historyKeys = [];
-      attempted.clear();
-      currentKey = null;
-      guarded(loadProduct);
-      return;
-    }
-    token = "";
-    faq = null;
-    document.getElementById("pm-faq-button")?.remove();
-    catalogPage = 0;
-    picks = {};
-    answers = {};
-    catalogHistory = [];
-    historyKeys = [];
-    currentKey = null;
-    attempted.clear();
-    schema = null;
-    guarded(catalog);
-  };
-  async function catalog() {
-    document.getElementById("pm-kind-picker")?.remove();
-    const picker = document.createElement("div");
-    picker.id = "pm-kind-picker";
-    picker.className = "pms-actions";
-    picker.innerHTML = ["standard", "custom"]
-      .map(
-        (k) =>
-          `<button data-kind="${k}" class="${k === kind ? "primary" : ""}">${k === "custom" ? "비규격" : "규격"} 제품 테스트</button>`,
-      )
-      .join("");
-    heading.before(picker);
-    picker.querySelectorAll("button").forEach(
-      (b) =>
-        (b.onclick = () => {
-          kind = b.dataset.kind;
-          picks = {};
-          catalogHistory = [];
-          catalogPage = 0;
-          guarded(catalog);
-        }),
-    );
-    const result = await S.api(
-      "/product-spec/studio/catalog?page=" +
-        catalogPage +
-        "&nonStandard=" +
-        (kind === "custom"),
-      "POST",
-      picks,
-    );
-    heading.textContent = "제품의 구성부터 차례로 선택해 주세요.";
-    content.innerHTML = catalogHistory
-      .map(
-        (h, i) =>
-          `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(h.label)}</strong><button data-catalog-back="${i}">수정</button></div><p>${S.e(h.answer)}</p>${h.guide ? `<p class="pm-answer-guide">${S.e(h.guide)}</p>` : ""}</article>`,
-      )
-      .join("");
+  function resetAnswers() {
+    flowSequence++;
+    answers = {}; completed = []; currentKey = null; attempted.clear(); evaluation = null;
+  }
+  function removeFaq() { document.getElementById("pm-faq-button")?.remove(); faq = null; }
+  async function restart() {
+    if (pendingUploads) return S.toast("파일 업로드가 끝난 후 다시 시작해 주세요.");
+    productSequence++;
+    resetAnswers(); selections = {}; filters = {}; baseHistory = []; page = 0;
+    activeId = null; token = ""; product = null; schema = null; removeFaq();
+    await browse();
+  }
+  S.$("#pm-chat-restart", root).onclick = () => guarded(restart);
+
+  function historyHtml() {
+    return `<div class="pm-base-history">${baseHistory.map((h, i) => `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(h.label)}</strong><button type="button" data-base-back="${i}">다시 선택</button></div>
+      <p>${S.e(h.answer)}</p>${h.guide?.trim() ? `<p class="pm-answer-guide">${S.e(h.guide)}</p>` : ""}</article>`).join("")}</div>`;
+  }
+  function bindBaseHistory() {
+    S.$$("[data-base-back]", content).forEach((b) => { b.onclick = () => guarded(async () => {
+      if (pendingUploads) throw Error("파일 업로드가 끝난 후 분류를 변경해 주세요.");
+      const index = Number(b.dataset.baseBack);
+      for (const h of baseHistory.slice(index)) delete selections[h.id];
+      baseHistory = baseHistory.slice(0, index); filters = {}; page = 0;
+      resetAnswers(); activeId = null; token = ""; product = null; schema = null; removeFaq();
+      await browse();
+    }); });
+  }
+  function kindPicker() {
+    const host = S.$("#pm-kind-picker", root);
+    host.hidden = !!seedProduct || root.dataset.kind === "standard";
+    host.innerHTML = ["standard", "custom"].map((k) => `<button type="button" data-kind="${k}" class="${kind === k ? "primary" : ""}" aria-pressed="${kind === k}">${k === "custom" ? "비규격" : "규격"} 고객 테스트</button>`).join("");
+    S.$$("[data-kind]", host).forEach((b) => { b.onclick = () => guarded(async () => { kind = b.dataset.kind; await restart(); }); });
+  }
+  async function browse() {
+    const seq = ++browseSequence;
+    browseController?.abort(); browseController = new AbortController();
+    kindPicker(); heading.textContent = `${kind === "custom" ? "비규격" : "규격"} 제품을 찾는 과정부터 시작합니다.`;
+    content.setAttribute("aria-busy", "true");
+    const focus = document.activeElement?.dataset.filterKey;
+    try {
+      const result = await S.api(admin ? S.base + "/customer-browse" : "/product-spec/studio/browse", "POST", {
+        nonStandard: kind === "custom", selections, filters, page, size: 12,
+        // A product test entry identifies the product to review; it never skips discovery.
+        productId: null, token: null,
+      }, browseController.signal);
+      if (seq !== browseSequence) return;
+      browseResult = result; page = result.page; renderBrowse(result);
+      if (focus) S.$$("[data-filter-key]", content).find((el) => el.dataset.filterKey === focus)?.focus({ preventScroll: true });
+    } finally { if (seq === browseSequence) content.setAttribute("aria-busy", "false"); }
+  }
+  function renderBrowse(result) {
+    content.innerHTML = `<div class="pm-customer-steps"><span class="${result.next ? "active" : "done"}">1 분류 선택</span><span class="${!result.next ? "active" : ""}">2 ${kind === "custom" ? "제품 선택" : "옵션으로 제품 찾기"}</span><span>3 ${kind === "custom" ? "옵션 구성·결과 확인" : "제품 상세 확인"}</span></div>${historyHtml()}`;
     if (result.next) {
-      const step = result.next;
-      content.innerHTML += `<article class="pms-bubble"><strong>${S.e(step.label)}를 선택해 주세요.</strong>${gallery(step.assets)}<div class="pms-check-grid">${step.options.map((o) => `<button data-catalog-choice="${S.e(o.key)}">${S.e(o.label)}</button>`).join("")}</div><div id="pm-option-preview"></div><small>선택 가능한 제품 ${result.total.toLocaleString()}개</small></article>`;
-      S.$$("[data-catalog-choice]", content).forEach((button) => {
-        const option = step.options.find(
-          (o) => o.key === button.dataset.catalogChoice,
-        );
-        button.onmouseenter = () => {
-          S.$("#pm-option-preview", content).innerHTML = gallery(option.assets);
-        };
-        button.onfocus = button.onmouseenter;
-        button.onclick = () =>
-          guarded(async () => {
-            catalogPage = 0;
-            picks[step.groupId] = option.key;
-            catalogHistory.push({
-              id: step.groupId,
-              label: step.label,
-              answer: option.label,
-              guide: option.guide,
-            });
-            await catalog();
-          });
+      const q = result.next;
+      content.innerHTML += `<article class="pms-bubble pm-discovery-question"><span class="pm-detail-eyebrow">STEP ${baseHistory.length + 1}</span><h2>${S.e(q.question || q.label + "를 선택해 주세요.")}</h2>
+        ${q.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(q.guide)}</p>` : ""}${S.media(q.assets, q.label + " 가이드")}
+        <div class="pm-category-options">${q.options.map((o) => `<button type="button" data-base-choice="${S.e(o.key)}"><span>${S.e(o.label)}</span><span aria-hidden="true">→</span></button>`).join("")}</div>
+        <div id="pm-option-preview"></div>${!q.options.length ? '<p class="pms-help">선택 가능한 제품이 없습니다. 등록 상태와 기본 분류를 확인해 주세요.</p>' : `<small>현재 선택 가능한 제품 ${result.total.toLocaleString()}개</small>`}</article>`;
+      S.$$("[data-base-choice]", content).forEach((b) => {
+        const option = q.options.find((o) => o.key === b.dataset.baseChoice);
+        const preview = () => { S.$("#pm-option-preview", content).innerHTML = S.media(option.assets, option.label + " 이미지") + (option.guide?.trim() ? `<p class="pm-answer-guide">${S.e(option.guide)}</p>` : ""); };
+        b.onmouseenter = preview; b.onfocus = preview;
+        b.onclick = () => guarded(async () => {
+          if (b.disabled || content.getAttribute("aria-busy") === "true") return;
+          b.disabled = true;
+          selections[q.groupId] = option.key;
+          baseHistory.push({ id: q.groupId, label: q.label, answer: option.label, guide: option.guide });
+          filters = {}; page = 0; await browse();
+          S.$(".pm-discovery-question,.pm-browse-layout", content)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
       });
     } else {
-      content.innerHTML += `<article class="pms-bubble"><strong>${result.total ? "제품을 선택해 주세요." : "선택 조건에 맞는 제품이 없습니다."}</strong><div class="pms-public-products">${result.products.map((p) => `<div class="pms-public-product"><strong>${S.e(p.productName)}</strong>${S.badge(p.nonStandard ? "비규격" : "규격", "blue")}${S.badge(S.status[p.status])}<p class="mono">${S.e(p.catalogCode)}</p><button class="primary" data-product-token="${S.e(p.token)}">${p.nonStandard ? "상세 구성 시작" : "제품 사양 확인"}</button></div>`).join("")}</div>${result.total > 200 ? S.pager(result.page, result.totalPages, "catalog-page") : ""}</article>`;
-      S.$$("[data-product-token]", content).forEach(
-        (b) =>
-          (b.onclick = () =>
-            guarded(async () => {
-              token = b.dataset.productToken;
-              answers = {};
-              historyKeys = [];
-              attempted.clear();
-              await loadProduct();
-            })),
-      );
+      const selectedCount = Object.values(filters).reduce((n, xs) => n + xs.length, 0);
+      content.innerHTML += `<div class="pm-browse-layout ${kind === "custom" ? "is-custom" : ""}">${kind === "standard" ? `<aside class="pm-option-filters"><header><h2>제품 옵션</h2><button type="button" data-filter-reset ${selectedCount ? "" : "disabled"}>초기화</button></header>
+        <p>선택한 옵션을 <strong>모두 포함한</strong> 제품을 찾습니다. 같은 그룹 안에서도 복수 선택은 AND 조건입니다.</p>
+        ${result.filters.map((g) => `<fieldset><legend>${S.e(g.label)}</legend>${g.guide?.trim() ? `<p class="pm-filter-guide">${S.e(g.guide)}</p>` : ""}
+          ${g.options.map((o) => `<label class="pms-check"><input type="checkbox" data-filter-group="${g.groupId}" data-filter-key="${g.groupId}:${S.e(o.key)}" value="${S.e(o.key)}" ${(filters[g.groupId] || []).includes(o.key) ? "checked" : ""}><span>${S.e(o.label)}</span></label>`).join("")}${g.options.filter((o) => (filters[g.groupId] || []).includes(o.key)).map((o) => `${o.guide?.trim() ? `<p class="pm-answer-guide">${S.e(o.guide)}</p>` : ""}${S.media(o.assets, g.label + " · " + o.label)}`).join("")}</fieldset>`).join("") || '<p class="pms-help">이 분류에는 추가 옵션이 없습니다.</p>'}</aside>` : ""}
+        <section class="pm-catalog-results"><header><div><h2>${kind === "custom" ? "구성할 비규격 제품을 선택해 주세요." : "조건에 맞는 제품"}</h2><p><strong>${result.total.toLocaleString()}</strong>개 제품${selectedCount ? " · " + selectedCount + "개 옵션 선택" : ""}</p></div></header>
+          ${seedProduct ? `<p class="pm-seed-note">테스트를 연 제품: <strong>${S.e(seedProduct.productName)}</strong> · 해당 분류와 시리즈를 선택하면 아래 목록에서 찾을 수 있습니다.</p>` : ""}
+          <div class="pm-catalog-grid">${result.products.map((p, i) => {
+            const image = p.assets.find((a) => a.image), seed = seedId ? p.id === seedId : p.token === seedToken;
+            return `<button type="button" class="pm-catalog-card ${seed ? "is-seed" : ""}" data-product="${i}">
+              <div class="pm-card-image">${image ? `<img src="${S.e(image.url)}" alt="${S.e(p.productName)}" loading="lazy">` : '<span>HIDDENBATH</span>'}${seed ? '<span class="pm-card-seed">테스트를 연 제품</span>' : ""}</div>
+              <div class="pm-card-copy"><span class="pm-card-code mono">${S.e(p.catalogCode)}</span><h3>${S.e(p.productName)}</h3><div class="pm-card-tags">${(p.tags || []).map((t) => S.badge(t)).join("")}</div>
+                <div class="pm-card-meta"><span>생산 ${p.productionHours == null ? "미등록" : S.e(p.productionHours) + "시간"}</span>${!p.nonStandard && p.unitPrice != null ? `<strong>${Number(p.unitPrice).toLocaleString()}원</strong>` : ""}</div>
+                <span class="pm-card-cta">${p.nonStandard ? "옵션 구성 시작" : "제품 상세 보기"} <span aria-hidden="true">→</span></span></div></button>`;
+          }).join("")}</div>${!result.total ? '<div class="pms-empty">선택한 옵션을 모두 가진 제품이 없습니다. 옵션을 해제하거나 초기화해 주세요.</div>' : ""}
+          ${result.totalPages > 1 ? S.pager(result.page, result.totalPages, "browse-page") : ""}</section></div>`;
+      S.$$("[data-filter-group]", content).forEach((input) => { input.onchange = () => guarded(async () => {
+        const id = input.dataset.filterGroup;
+        const values = S.$$("[data-filter-group]", content).filter((x) => x.dataset.filterGroup === id && x.checked).map((x) => x.value);
+        if (values.length) filters[id] = values; else delete filters[id];
+        page = 0; await browse();
+      }); });
+      S.$("[data-filter-reset]", content)?.addEventListener("click", () => guarded(async () => { filters = {}; page = 0; await browse(); }));
+      S.$$("[data-product]", content).forEach((b) => { b.onclick = () => guarded(async () => {
+        if (b.disabled || content.getAttribute("aria-busy") === "true") return;
+        b.disabled = true;
+        const card = result.products[Number(b.dataset.product)]; activeId = card.id; token = card.token;
+        resetAnswers();
+        try { await loadProduct(); } finally { if (b.isConnected) b.disabled = false; }
+      }); });
+      S.$$("[data-browse-page]", content).forEach((b) => { b.onclick = () => guarded(async () => { page = Number(b.dataset.browsePage); await browse(); }); });
     }
-    S.$$("[data-catalog-page]", content).forEach(
-      (b) =>
-        (b.onclick = () =>
-          guarded(async () => {
-            catalogPage = Number(b.dataset.catalogPage);
-            await catalog();
-          })),
-    );
-    S.$$("[data-catalog-back]", content).forEach(
-      (b) =>
-        (b.onclick = () =>
-          guarded(async () => {
-            const i = Number(b.dataset.catalogBack);
-            for (const h of catalogHistory.slice(i)) delete picks[h.id];
-            catalogPage = 0;
-            catalogHistory = catalogHistory.slice(0, i);
-            await catalog();
-          })),
-    );
+    bindBaseHistory();
   }
+
   async function loadProduct() {
-    schema = await S.api(
-      adminId
-        ? `/admin/api/product-master/studio/products/${adminId}/preview-schema`
-        : `/product-spec/studio/${encodeURIComponent(token)}/schema`,
-    );
-    document.getElementById("pm-kind-picker")?.remove();
-    faq = adminId
-      ? (await S.request("/faq")).find((t) => t.id === schema.faqTopicId)
-      : await S.api(`/product-spec/studio/${encodeURIComponent(token)}/faq`);
-    installFaq();
-    assetMap = new Map(schema.assets.map((a) => [a.id, a]));
-    heading.textContent = schema.productName;
+    const version = ++productSequence, selectedId = activeId, selectedToken = token;
+    browseSequence++; browseController?.abort(); content.setAttribute("aria-busy", "true");
+    S.$("#pm-kind-picker", root).hidden = true;
+    let loadedProduct, loadedSchema, loadedFaq;
+    try {
+      if (admin) {
+        [loadedProduct, loadedSchema] = await Promise.all([S.request(`/products/${selectedId}`), S.request(`/products/${selectedId}/preview-schema`)]);
+        loadedFaq = (await S.request("/faq")).find((t) => t.id === loadedProduct.faqTopicId) || null;
+      } else {
+        [loadedProduct, loadedSchema, loadedFaq] = await Promise.all([
+          S.api(`/product-spec/studio/${encodeURIComponent(selectedToken)}/detail`),
+          S.api(`/product-spec/studio/${encodeURIComponent(selectedToken)}/schema`),
+          S.api(`/product-spec/studio/${encodeURIComponent(selectedToken)}/faq`),
+        ]);
+      }
+    } finally { if (version === productSequence) content.setAttribute("aria-busy", "false"); }
+    if (version !== productSequence) return;
+    product = loadedProduct; schema = loadedSchema; faq = loadedFaq;
+    assetMap = new Map((schema.assets || []).map((a) => [a.id, a]));
+    heading.textContent = product.productName;
+    if (product.nonStandard) installFaq();
+    if (!product.nonStandard) {
+      S.mountProductDetail(content, product, { faq, onBack: () => guarded(async () => { removeFaq(); await browse(); }) });
+      root.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
     await evaluate();
   }
-  async function evaluate() {
-    evaluation = await S.api(
-      adminId
-        ? `/admin/api/product-master/studio/products/${adminId}/evaluate`
-        : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`,
-      "POST",
-      adminId ? { answers } : answers,
-    );
-    merge();
-    paint();
+  async function requestEvaluation() {
+    return S.api(admin ? `${S.base}/products/${activeId}/evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", admin ? { answers } : answers);
   }
+  async function evaluate() { const version = flowSequence, result = await requestEvaluation(); if (version !== flowSequence) return; evaluation = result; merge(); paintProcess(); }
   function merge() {
     for (const state of evaluation.questions) {
-      if (state.visible || state.question.fixed)
-        answers[state.question.key] = state.answer;
-      else delete answers[state.question.key];
+      const key = state.question.key;
+      if (!state.visible && !state.question.fixed) delete answers[key];
+      else if (!state.errors.length) answers[key] = state.answer;
     }
-    const visible = new Set(
-      evaluation.questions
-        .filter((s) => s.visible && !s.question.fixed)
-        .map((s) => s.question.key),
-    );
-    historyKeys = historyKeys.filter(
-      (k) =>
-        visible.has(k) &&
-        evaluation.questions.find((s) => s.question.key === k).errors.length ===
-          0,
-    );
-    currentKey =
-      evaluation.questions.find(
-        (s) =>
-          s.visible &&
-          !s.question.fixed &&
-          !historyKeys.includes(s.question.key),
-      )?.question.key || null;
+    const visible = evaluation.questions.filter((s) => s.visible && !s.question.fixed);
+    completed = completed.filter((key) => visible.some((s) => s.question.key === key && !s.errors.length));
+    currentKey = visible.find((s) => !completed.includes(s.question.key))?.question.key || null;
   }
-  function answerText(state) {
-    const q = state.question,
-      a = state.answer;
-    if (S.isChoice(q.control))
-      return (
-        a.choices
-          .map((k) => q.choices.find((c) => c.key === k)?.labels.customer || k)
-          .join(", ") || "선택 안 함"
-      );
-    return (
-      q.fields
-        .filter((f) => a.fields[f.key] !== undefined)
-        .map(
-          (f) =>
-            f.labels.customer +
-            ": " +
-            (Array.isArray(a.fields[f.key])
-              ? a.fields[f.key].length + "개 파일"
-              : a.fields[f.key] + (f.unit ? " " + f.unit : "")),
-        )
-        .join(" / ") || "입력 안 함"
-    );
-  }
-  function paint() {
-    const fixedGuides = [
-      ...new Set(
-        evaluation.questions
-          .filter((s) => s.question.fixed)
-          .flatMap((s) => [
-            ...s.question.choices
-              .filter((c) => s.answer.choices.includes(c.key))
-              .map((c) => c.guide),
-            ...s.question.fields
-              .filter((f) => s.answer.fields[f.key] !== undefined)
-              .map((f) => f.guide),
-          ])
-          .filter((t) => t && t.trim()),
-      ),
-    ];
-    const productAssets = (schema.productAssetIds || [])
-      .map((id) => assetMap.get(id))
-      .filter(Boolean);
-    content.innerHTML =
-      `<div class="pms-chat-head"><div>${S.badge(S.status[schema.status])}<small class="mono">${S.e(schema.catalogCode)}</small></div><small>${historyKeys.length} / ${evaluation.questions.filter((s) => s.visible && !s.question.fixed).length}</small></div>${gallery(productAssets)}<div class="pms-help">생산기간 ${schema.productionHours ?? 0}시간${schema.unitPrice != null ? " · 단가 " + Number(schema.unitPrice).toLocaleString() + "원" : ""}</div>${fixedGuides.map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("")}<details><summary>제품의 고정 사양</summary>${evaluation.questions
-        .filter((s) => s.question.fixed)
-        .map(
-          (s) =>
-            `<p>${S.e(s.question.labels.customer)}: ${S.e(answerText(s))}</p>`,
-        )
-        .join("")}</details>` +
-      historyKeys
-        .map((key) => {
-          const s = evaluation.questions.find((x) => x.question.key === key);
-          return `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(s.question.labels.customer)}</strong><button data-answer-back="${S.e(key)}">수정</button></div><p>${S.e(answerText(s))}</p></article>`;
-        })
-        .join("");
-    if (currentKey) {
-      const state = evaluation.questions.find(
-          (s) => s.question.key === currentKey,
-        ),
-        q = {
-          ...state.question,
-          choices: state.question.choices.filter((c) =>
-            state.allowed.includes(c.key),
-          ),
-        };
-      const attachments = [
-        ...(q.assetIds || []),
-        ...(q.fixed && q.control === "FILE"
-          ? Object.values(state.answer.fields).flat()
-          : []),
-      ]
-        .map((id) => assetMap.get(id))
-        .filter(Boolean);
-      content.innerHTML += `<article class="pms-bubble"><div class="pms-chat-head"><strong>${S.e(q.question || q.labels.customer + "를 입력해 주세요.")}</strong>${!state.required ? S.badge("선택사항") : ""}</div>${q.guide ? `<details><summary>? 선택 도움말</summary><p>${S.e(q.guide)}</p></details>` : ""}${gallery(attachments)}<div id="pm-answer-input">${S.inputAnswer(q, state.answer, q.fixed)}</div><div id="pm-choice-assets"></div><div id="pm-answer-guides" aria-live="polite"></div>${attempted.has(q.key) ? state.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("") : ""}<div class="pms-actions pms-section"><button class="primary" id="pm-answer-next">${q.fixed ? "사양 확인 · 다음" : "다음"}</button></div></article>`;
-      const box = S.$("#pm-answer-input", content);
-      function selectedAssets() {
-        const a = q.fixed ? state.answer : S.readAnswer(box, q, answers[q.key]);
-        renderGuides(q, a);
-        S.$("#pm-choice-assets", content).innerHTML = gallery(
-          a.choices.flatMap((key) =>
-            (q.choices.find((c) => c.key === key)?.assetIds || [])
-              .map((id) => assetMap.get(id))
-              .filter(Boolean),
-          ),
-        );
-      }
-      selectedAssets();
-      box.addEventListener("input", selectedAssets);
-      S.$$("[data-answer-choice]", box).forEach(
-        (input) => (input.onchange = selectedAssets),
-      );
-      S.$$("input[type=file]", box).forEach(
-        (input) =>
-          (input.onchange = () =>
-            guarded(async () => {
-              const f = q.fields.find(
-                (f) => f.key === input.dataset.answerField,
-              );
-              if (input.files.length > f.maxFiles)
-                throw Error("파일은 최대 " + f.maxFiles + "개입니다.");
-              for (const file of input.files) {
-                const ext = file.name.split(".").pop().toLowerCase();
-                if (
-                  !f.extensions.includes(ext) ||
-                  file.size > f.maxFileMB * 1024 * 1024
-                )
-                  throw Error(
-                    f.labels.customer +
-                      "의 파일 확장자 또는 용량을 확인해 주세요.",
-                  );
-              }
-              const fd = new FormData();
-              for (const file of input.files) fd.append("files", file);
-              const uploaded = await S.api(
-                adminId
-                  ? "/admin/api/product-master/studio/assets/stage"
-                  : `/product-spec/studio/${encodeURIComponent(token)}/upload`,
-                "POST",
-                fd,
-              );
-              answers[q.key] ??= { choices: [], fields: {} };
-              answers[q.key].fields[f.key] = uploaded.map((a) => a.id);
-              S.$(`[data-answer-files="${f.key}"]`, box).textContent = uploaded
-                .map((a) => a.name)
-                .join(", ");
-              selectedAssets();
-            })),
-      );
-      S.$("#pm-answer-next", content).onclick = async (e) => {
-        const b = e.currentTarget;
-        if (b.disabled) return;
-        b.disabled = true;
-        await guarded(async () => {
-          attempted.add(q.key);
-          answers[q.key] = q.fixed
-            ? state.answer
-            : S.readAnswer(box, q, answers[q.key]);
-          evaluation = await S.api(
-            adminId
-              ? `/admin/api/product-master/studio/products/${adminId}/evaluate`
-              : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`,
-            "POST",
-            adminId ? { answers } : answers,
-          );
-          const fresh = evaluation.questions.find(
-            (s) => s.question.key === q.key,
-          );
-          if (!fresh.errors.length) historyKeys.push(q.key);
-          merge();
-          paint();
-        });
-        if (b.isConnected) b.disabled = false;
-      };
-    } else {
-      content.innerHTML += `<article class="pms-bubble"><strong>${evaluation.complete ? "제품 구성이 완료되었습니다." : "구성을 다시 확인해 주세요."}</strong><p>선택하신 사양을 확인해 주세요.</p><table><tbody>${evaluation.questions
-        .filter((s) => s.visible || s.question.fixed)
-        .map(
-          (s) =>
-            `<tr><th>${S.e(s.question.labels.customer)}</th><td>${S.e(answerText(s))}</td></tr>`,
-        )
-        .join(
-          "",
-        )}</tbody></table><button id="pm-copy-spec">구성 내용 복사</button><p class="pms-help">구성 테스트 결과이며, 주문이나 재고 차감은 발생하지 않습니다.</p></article>`;
-      S.$("#pm-copy-spec", content).onclick = () =>
-        guarded(async () => {
-          await navigator.clipboard.writeText(
-            schema.productName +
-              "\n" +
-              schema.catalogCode +
-              "\n" +
-              evaluation.questions
-                .filter((s) => s.visible || s.question.fixed)
-                .map((s) => s.question.labels.customer + ": " + answerText(s))
-                .join("\n"),
-          );
-          S.toast("구성 내용을 복사했습니다.");
-        });
+  function clearAfter(key, keepCurrent = true) {
+    flowSequence++;
+    const index = schema.process.questions.findIndex((q) => q.key === key);
+    for (const q of schema.process.questions.slice(index + (keepCurrent ? 1 : 0))) {
+      if (!q.fixed) { delete answers[q.key]; attempted.delete(q.key); }
     }
-    S.$$("[data-answer-back]", content).forEach(
-      (b) =>
-        (b.onclick = () => {
-          const i = historyKeys.indexOf(b.dataset.answerBack);
-          historyKeys = historyKeys.slice(0, i);
-          currentKey = b.dataset.answerBack;
-          paint();
-        }),
-    );
+    completed = completed.filter((k) => schema.process.questions.findIndex((q) => q.key === k) < index);
   }
-  function renderGuides(q, a) {
-    const texts = [];
-    for (const c of q.choices || [])
-      if (a.choices?.includes(c.key) && c.guide?.trim()) texts.push(c.guide);
-    for (const f of q.fields || [])
-      if (
-        a.fields?.[f.key] !== undefined &&
-        a.fields[f.key] !== "" &&
-        (!Array.isArray(a.fields[f.key]) || a.fields[f.key].length) &&
-        f.guide?.trim()
-      )
-        texts.push(f.guide);
-    for (const r of q.numberCases || [])
-      if (
-        r.guide?.trim() &&
-        r.conditions.every((c) => {
-          const raw = a.fields?.[c.fieldKey];
-          if (raw === undefined || raw === "") return false;
-          const v = Number(raw),
-            n = Number(c.lower);
-          return {
-            EQ: () => v === n,
-            GE: () => v >= n,
-            GT: () => v > n,
-            LE: () => v <= n,
-            LT: () => v < n,
-            RANGE: () =>
-              (c.lowerInclusive ? v >= n : v > n) &&
-              (c.upperInclusive ? v <= Number(c.upper) : v < Number(c.upper)),
-          }[c.operator]?.();
-        })
-      )
-        texts.push(r.guide);
-    S.$("#pm-answer-guides", content).innerHTML = [...new Set(texts)]
-      .map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`)
-      .join("");
+  function currentContext() {
+    const current = S.copy(answers), state = evaluation?.questions.find((s) => s.question.key === currentKey);
+    const box = S.$("#pm-answer-input", content);
+    if (box && state) current[currentKey] = S.readAnswer(box, state.question, current[currentKey]);
+    return { product: { name: product.productName, code: product.catalogCode }, productionHours: product.productionHours, unitPrice: product.unitPrice, answers: current,
+      selections: (evaluation?.questions || []).filter((s) => s.visible || s.question.fixed).map((s) => ({ groupKey: s.question.key, groupName: s.question.labels.customer, answer: current[s.question.key] || s.answer })) };
   }
   function installFaq() {
     document.getElementById("pm-faq-button")?.remove();
     if (!faq) return;
-    const button = document.createElement("button");
-    button.id = "pm-faq-button";
-    button.className = "pm-faq-float";
-    button.textContent = "?";
-    button.setAttribute("aria-label", "자주 묻는 질문 및 별도 문의");
-    root.append(button);
-    button.onclick = () => {
-      const amap = new Map(faq.assets.map((a) => [a.id, a]));
-      const d = S.dialog(
-        faq.title,
-        `<div class="pm-faq-cards">${faq.entries.map((f) => `<article class="pm-faq-card"><h3>${S.e(f.title)}</h3><p>${S.e(f.content)}</p>${gallery(f.assetIds.map((id) => amap.get(id)).filter(Boolean))}</article>`).join("") || "<p>등록된 FAQ가 없습니다. 아래 연락처로 문의해 주세요.</p>"}</div>`,
-        {
-          foot: `${faq.phone ? `<a class="pms-button" href="tel:${S.e(faq.phone.replace(/[^+0-9]/g, ""))}">전화 ${S.e(faq.phone)}</a>` : ""}${faq.link ? '<button data-inquiry class="primary">별도 문의하기</button>' : ""}`,
-        },
-      );
-      S.$("[data-inquiry]", d)?.addEventListener("click", () => {
-        const current = S.copy(answers),
-          box = S.$("#pm-answer-input", content),
-          state = evaluation.questions.find(
-            (s) => s.question.key === currentKey,
-          );
-        if (box && state)
-          current[currentKey] = S.readAnswer(
-            box,
-            state.question,
-            current[currentKey],
-          );
-        const inquiryPayload = {
-          product: { name: schema.productName, code: schema.catalogCode },
-          topic: { id: faq.id, title: faq.title },
-          productionHours: schema.productionHours,
-          unitPrice: schema.unitPrice,
-          answers: current,
-          selections: evaluation.questions
-            .filter((s) => s.visible || s.question.fixed)
-            .map((s) => ({
-              groupKey: s.question.key,
-              groupName: s.question.labels.customer,
-              answer: current[s.question.key] ?? s.answer,
-            })),
-          createdAt: new Date().toISOString(),
-        };
-        window.productInquiryPayload = inquiryPayload;
-        console.log("[ProductMaster 별도 문의]", inquiryPayload);
-        const url = new URL(faq.link);
-        if (!["http:", "https:"].includes(url.protocol))
-          throw Error("문의 링크 형식이 올바르지 않습니다.");
-        window.open(url.href, "_blank", "noopener,noreferrer");
-      });
-    };
+    const b = document.createElement("button"); b.id = "pm-faq-button"; b.className = "pm-faq-float"; b.textContent = "?";
+    b.type = "button"; b.setAttribute("aria-label", "제품 FAQ 및 별도 문의"); b.onclick = () => S.showProductFaq(faq, currentContext); root.append(b);
   }
-  await guarded(adminId || token ? loadProduct : catalog);
+  function paintProcess() {
+    const visible = evaluation.questions.filter((s) => s.visible && !s.question.fixed);
+    if (!currentKey && evaluation.complete) {
+      const finalProduct = { ...product, processAssets: [...(product.processAssets || []), ...assetMap.values()] };
+      S.mountProductDetail(content, finalProduct, { faq, summary: evaluation, onBack: () => {
+        const key = completed.at(-1);
+        if (key) guarded(async () => { clearAfter(key); await evaluate(); });
+        else guarded(browse);
+      } });
+      root.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    content.innerHTML = `<div class="pm-customer-steps"><span class="done">1 분류 선택</span><span class="done">2 제품 선택</span><span class="active">3 옵션 구성</span></div>${historyHtml()}
+      <div class="pm-selected-product"><div><span class="pm-detail-eyebrow">CUSTOM PRODUCT</span><h2>${S.e(product.productName)}</h2><small class="mono">${S.e(product.catalogCode)}</small></div><button type="button" data-change-product>제품 다시 선택</button></div>
+      <div class="pm-question-progress"><span>${completed.length} / ${visible.length} 질문 완료</span><progress max="${Math.max(1, visible.length)}" value="${completed.length}"></progress><span>생산기간 ${product.productionHours == null ? "미등록" : S.e(product.productionHours) + "시간"}</span></div>
+      <div class="pm-chat-timeline">${completed.map((key) => {
+        const state = evaluation.questions.find((s) => s.question.key === key), q = state.question;
+        return `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(q.labels.customer)}</strong><button type="button" data-answer-back="${S.e(key)}">수정</button></div>
+          <p>${S.e(S.answerText(q, state.answer, assetMap))}</p>${S.answerGuides(q, state.answer).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("")}</article>`;
+      }).join("")}<div id="pm-current-question"></div></div>`;
+    bindBaseHistory();
+    S.$("[data-change-product]", content).onclick = () => guarded(async () => { if (pendingUploads) throw Error("업로드 완료 후 제품을 변경해 주세요."); resetAnswers(); removeFaq(); await browse(); });
+    S.$$("[data-answer-back]", content).forEach((b) => { b.onclick = () => guarded(async () => {
+      if (pendingUploads) throw Error("업로드 완료 후 답변을 수정해 주세요."); clearAfter(b.dataset.answerBack); await evaluate();
+    }); });
+    const target = S.$("#pm-current-question", content);
+    if (!currentKey) {
+      target.innerHTML = `<p class="pms-alert">완료할 수 없는 제품 구성입니다. 등록된 질문과 고정 사양을 확인해 주세요.</p>${evaluation.questions.flatMap((s) => s.errors.map((e) => `<p class="pms-error">${S.e(s.question.labels.customer + ": " + e)}</p>`)).join("")}`;
+      return;
+    }
+    const state = evaluation.questions.find((s) => s.question.key === currentKey);
+    const q = { ...state.question, choices: (state.question.choices || []).filter((c) => state.allowed.includes(c.key)) };
+    target.innerHTML = `<article class="pms-bubble pm-current-question"><span class="pm-detail-eyebrow">QUESTION ${completed.length + 1}</span><h2 tabindex="-1">${S.e(q.question || q.labels.customer + "를 입력해 주세요.")}</h2>
+      <div class="pms-actions">${S.badge(S.controls[q.control].split(" · ")[0], "blue")}${S.badge(state.required ? "필수 답변" : "선택사항")}</div>
+      ${q.guide?.trim() ? `<div class="pm-tutorial"><strong>선택 가이드</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}${S.media((q.assetIds || []).map((id) => assetMap.get(id)), q.labels.customer + " 가이드")}
+      <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer)}</div><div id="pm-choice-assets"></div><div id="pm-answer-guides" aria-live="polite"></div>
+      <div id="pm-answer-errors" role="alert">${attempted.has(q.key) ? state.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("") : ""}</div>
+      <div class="pms-actions"><button type="button" class="primary" id="pm-answer-next">${completed.length + 1 === visible.length ? "구성 완료 · 결과 확인" : "다음 질문"}</button></div></article>`;
+    const box = S.$("#pm-answer-input", content);
+    function preview() {
+      const a = S.readAnswer(box, q, answers[q.key]);
+      S.$("#pm-answer-guides", content).innerHTML = S.answerGuides(q, a).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("");
+      S.$("#pm-choice-assets", content).innerHTML = (a.choices || []).map((key) => {
+        const c = q.choices.find((c) => c.key === key);
+        return S.media((c?.assetIds || []).map((id) => assetMap.get(id)), q.labels.customer + " · " + c?.labels.customer);
+      }).join("");
+    }
+    preview(); box.addEventListener("input", preview); box.addEventListener("change", preview);
+    S.$$("input[type=file]", box).forEach((input) => { input.onchange = () => guarded(async () => {
+      const f = q.fields.find((f) => f.key === input.dataset.answerField), selectedFiles = [...input.files];
+      if (!selectedFiles.length) return;
+      if (selectedFiles.length > (f.maxFiles ?? 1)) throw Error("파일은 최대 " + f.maxFiles + "개입니다.");
+      for (const file of selectedFiles) {
+        const ext = file.name.split(".").pop().toLowerCase();
+        if (!(f.extensions || []).includes(ext) || file.size > (f.maxFileMB ?? 10) * 1024 * 1024) throw Error(f.labels.customer + "의 파일 확장자 또는 용량을 확인해 주세요.");
+      }
+      const fd = new FormData(); selectedFiles.forEach((file) => fd.append("files", file));
+      pendingUploads++; input.disabled = true; S.$("#pm-answer-next", content).disabled = true;
+      try {
+        const uploaded = await S.api(admin ? S.base + "/assets/stage" : `/product-spec/studio/${encodeURIComponent(token)}/upload`, "POST", fd);
+        answers[q.key] ??= { choices: [], fields: {} }; answers[q.key].fields[f.key] = uploaded.map((a) => a.id);
+        uploaded.forEach((a) => assetMap.set(a.id, a));
+        S.$$("[data-answer-files]", box).find((el) => el.dataset.answerFiles === f.key).textContent = uploaded.map((a) => a.name).join(", "); preview();
+      } finally { pendingUploads--; input.disabled = false; S.$("#pm-answer-next", content).disabled = pendingUploads > 0; }
+    }); });
+    S.$("#pm-answer-next", content).onclick = (e) => guarded(async () => {
+      const b = e.currentTarget; if (b.disabled || pendingUploads) return; b.disabled = true;
+      try {
+        const value = S.readAnswer(box, q, answers[q.key]); clearAfter(q.key); answers[q.key] = value; attempted.add(q.key);
+        const version = flowSequence, result = await requestEvaluation();
+        if (version !== flowSequence) return;
+        evaluation = result;
+        const fresh = evaluation.questions.find((s) => s.question.key === q.key);
+        if (!fresh.errors.length) completed.push(q.key);
+        merge(); paintProcess();
+        S.$(".pm-current-question h2", content)?.focus({ preventScroll: true });
+        S.$("#pm-current-question", content)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } finally { if (b.isConnected) b.disabled = false; }
+    });
+  }
+
+  await guarded(async () => {
+    if (seedId || seedToken) {
+      seedProduct = admin ? await S.request(`/products/${seedId}`) : await S.api(`/product-spec/studio/${encodeURIComponent(seedToken)}/detail`);
+      kind = seedProduct.nonStandard ? "custom" : "standard";
+      // Direct standard product URLs are detail links; customer tests always use the common entry.
+      if (!seedProduct.nonStandard && !admin) { token = seedToken; await loadProduct(); return; }
+    }
+    await browse();
+  });
 })(window.PMS);

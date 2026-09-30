@@ -22,6 +22,7 @@ public class ProductStudioApiController {
   private final ProductStudioAttributeService attributes;
   private final ProductStudioService service;
   private final ProductStudioAssetService assets;
+  private final ProductStudioCustomerService customer;
   private final com.dev.HiddenBATHAuto.repository.productmaster.ProductMasterRepository products;
 
   @GetMapping("/summary")
@@ -47,6 +48,12 @@ public class ProductStudioApiController {
   @GetMapping("/groups")
   public ApiResponse<List<GroupView>> groups() {
     return ApiResponse.ok(attributes.catalog());
+  }
+
+  @PostMapping("/customer-browse")
+  public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseResult> browse(
+      @RequestBody com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseRequest request) {
+    return ApiResponse.ok(customer.browse(request, true));
   }
 
   @PostMapping("/groups")

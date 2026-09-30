@@ -21,6 +21,19 @@ public class ProductStudioPublicApiController {
   private final ProductStudioService service;
   private final ProductStudioAssetService assets;
   private final ProductStudioExtensionService extension;
+  private final ProductStudioCustomerService customer;
+
+  @PostMapping("/browse")
+  public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseResult> browse(
+      @RequestBody com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseRequest request) {
+    return ApiResponse.ok(customer.browse(request, false));
+  }
+
+  @GetMapping("/{token}/detail")
+  public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.CustomerDetail> detail(
+      @PathVariable String token) {
+    return ApiResponse.ok(customer.detail(token));
+  }
 
   @PostMapping("/catalog")
   public ApiResponse<CatalogResult> catalog(
