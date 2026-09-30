@@ -4,6 +4,7 @@
     base: "/admin/api/product-master/studio",
     groups: [],
     dirty: false,
+    pendingUploads: 0,
   });
   S.e = (v) =>
     String(v ?? "").replace(
@@ -103,6 +104,7 @@
   };
   S.run = async (button, fn) => {
     if (button?.disabled) return;
+    if (S.pendingUploads) { S.toast("파일 업로드가 끝난 후 저장·진행해 주세요."); return; }
     if (button) button.disabled = true;
     const errorScope =
       button?.closest(".pms-dialog-body,.pms-panel") ||
@@ -133,6 +135,8 @@
   };
   S.field = (label, path, value, type = "text", extra = "") =>
     `<label><span>${S.e(label)}</span><input data-path="${S.e(path)}" type="${type}" value="${S.e(value)}" ${extra}></label>`;
+  S.textarea = (label, path, value, max = 2000) =>
+    `<label><span>${S.e(label)}</span><textarea data-path="${S.e(path)}" rows="3" maxlength="${max}">${S.e(value)}</textarea></label>`;
   S.check = (label, path, value, css = "") =>
     `<label class="${css || "pms-check"}"><input type="checkbox" data-path="${S.e(path)}" ${value ? "checked" : ""}><span>${S.e(label)}</span></label>`;
   S.select = (label, path, value, options) =>
@@ -253,7 +257,7 @@
     fields
       .map(
         (f, i) =>
-          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${S.field("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", "text", 'maxlength="2000"')}<div class="pms-form-grid four pms-section">${S.check("필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.check("음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
+          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${S.textarea("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", 2000)}<div class="pms-form-grid four pms-section">${S.check("필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.check("음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
       )
       .join("");
   S.fieldEvents = (root, fields, rerender, prefix = "fields") => {
@@ -360,66 +364,56 @@
         dialog.close();
       };
     });
-  S.files = (files, editable = true) =>
-    `<div class="pms-files">${(files || []).map((f, i) => `<div class="pms-file">${f.image ? `<img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy">` : "▤"}<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>${editable ? `<button type="button" data-remove-file="${i}" class="pms-remove">×</button>` : ""}</div>`).join("")}</div>${editable ? '<div class="pms-drop" tabindex="0" role="button">파일 선택 또는 이곳에 드래그 · 여러 개 가능<input type="file" multiple hidden accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.zip,.hwp,.hwpx"></div>' : ""}`;
-  S.fileEvents = (
-    root,
-    files,
-    updated = () => {},
-    uploadPath = S.base + "/assets/stage",
-  ) => {
-    const drop = S.$(".pms-drop", root),
-      input = S.$("input[type=file]", root);
+  S.files = (files, editable = true) => {
+    const images = (files || []).filter((f) => f.image);
+    return `<div class="pms-files" data-pm-gallery="${S.e(JSON.stringify(images))}" data-pm-gallery-title="등록된 이미지">${(files || []).map((f, i) => `<div class="pms-file">${f.image ? `<button type="button" class="pms-file-image" data-pm-image="${images.indexOf(f)}" aria-label="${S.e(f.name)} 확대"><img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy"></button>` : "▤"}<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>${editable ? `<div class="pm-file-actions"><button type="button" data-replace-file="${i}" aria-label="${S.e(f.name)} 새 파일로 교체">교체</button><button type="button" data-remove-file="${i}" class="danger" aria-label="${S.e(f.name)} 등록에서 삭제">삭제</button></div>` : ""}</div>`).join("")}</div>${editable ? '<div class="pms-drop" tabindex="0" role="button">+ 파일 추가 또는 이곳에 드래그 · 여러 개 가능<input type="file" multiple hidden accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.zip,.hwp,.hwpx"></div><input type="file" data-replace-picker hidden><small class="pms-help">추가·교체·삭제한 파일 목록은 해당 저장 버튼을 누를 때 반영됩니다.</small>' : ""}`;
+  };
+  S.fileEvents = (root, files, updated = () => {}, uploadPath = S.base + "/assets/stage") => {
+    const drop = S.$(".pms-drop", root), input = S.$(".pms-drop input[type=file]", root), replacement = S.$("[data-replace-picker]", root);
     if (!drop) return;
-    async function add(selected) {
-      if (!selected.length) return;
-      const body = new FormData();
-      for (const file of selected) body.append("files", file);
-      drop.textContent = "파일을 업로드하고 있습니다…";
-      let uploadError = null;
+    S.bindMedia?.(root);
+    let replaceIndex = null;
+    async function add(selected, index = null) {
+      if (!selected.length || root._pmsUploading) return;
+      if (index != null && selected.length !== 1) return S.toast("교체할 파일은 하나만 선택해 주세요.");
+      const accept = input.accept, body = new FormData();
+      selected.forEach((file) => body.append("files", file));
+      root._pmsUploading = true; S.pendingUploads++;
+      drop.textContent = index == null ? "파일을 추가하고 있습니다…" : "새 파일로 교체하고 있습니다…";
+      S.$$("[data-remove-file],[data-replace-file]", root).forEach((b) => { b.disabled = true; });
+      let failure = null;
       try {
-        files.push(...(await S.api(uploadPath, "POST", body)));
-        S.dirty = true;
-        updated();
-      } catch (e) {
-        uploadError = e.message;
-      } finally {
-        render();
-        if (uploadError) S.showErrors(root, { "": uploadError });
+        const added = await S.api(uploadPath, "POST", body);
+        if (!added.length) throw Error("업로드한 파일을 확인해 주세요.");
+        if (index == null) files.push(...added); else files.splice(index, 1, added[0]);
+        S.dirty = true; updated();
+      } catch (e) { failure = e.message; }
+      finally {
+        root._pmsUploading = false; S.pendingUploads--;
+        render(accept);
+        if (failure) S.showErrors(root, { "": failure });
       }
     }
-    function render() {
+    function render(accept = input.accept) {
       root.innerHTML = S.files(files);
+      S.$(".pms-drop input[type=file]", root).accept = accept;
       S.fileEvents(root, files, updated, uploadPath);
     }
-    drop.onclick = () => input.click();
+    drop.onclick = () => { if (!root._pmsUploading) input.click(); };
     input.onclick = (e) => e.stopPropagation();
-    drop.onkeydown = (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        input.click();
-      }
-    };
+    drop.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } };
     input.onchange = () => add([...input.files]);
-    drop.ondragover = (e) => {
-      e.preventDefault();
-      drop.classList.add("over");
-    };
+    drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
     drop.ondragleave = () => drop.classList.remove("over");
-    drop.ondrop = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      add([...e.dataTransfer.files]);
-    };
-    S.$$("[data-remove-file]", root).forEach(
-      (button) =>
-        (button.onclick = () => {
-          files.splice(Number(button.dataset.removeFile), 1);
-          S.dirty = true;
-          updated();
-          render();
-        }),
-    );
+    drop.ondrop = (e) => { e.preventDefault(); e.stopPropagation(); add([...e.dataTransfer.files]); };
+    S.$$("[data-replace-file]", root).forEach((b) => { b.onclick = () => {
+      replaceIndex = Number(b.dataset.replaceFile); replacement.accept = input.accept; replacement.click();
+    }; });
+    replacement.onchange = () => add([...replacement.files], replaceIndex);
+    S.$$("[data-remove-file]", root).forEach((b) => { b.onclick = () => {
+      if (root._pmsUploading) return;
+      files.splice(Number(b.dataset.removeFile), 1); S.dirty = true; updated(); render();
+    }; });
   };
   S.pager = (page, total, action = "page") => {
     let start = Math.floor(page / 5) * 5;

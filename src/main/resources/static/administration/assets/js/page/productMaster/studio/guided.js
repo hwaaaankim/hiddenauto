@@ -23,13 +23,14 @@
     `<ol class="pm-stepper">${xs.map((x, n) => `<li class="${i === n ? "active" : ""}">${n + 1}. ${x}</li>`).join("")}</ol>`;
   S.processPage = async function (root, p) {
     let process = S.copy(p.process),
-      stage = 0;
+      stage = 0, zoom = 100, canvasObserver = null, canvasScroll = { x: 0, y: 0 };
     const qs = () =>
         process.questions.filter((q) => !S.isBase(S.group(q.groupId))),
       fixed = () =>
         process.questions.filter((q) => S.isBase(S.group(q.groupId)));
     const files = new Map((p.processAssets || []).map((a) => [a.id, a]));
     const fs = (ids) => (ids || []).map((id) => files.get(id)).filter(Boolean);
+    if (!p.nonStandard) { root.innerHTML = '<p class="pms-help">규격 제품은 공통 고객 테스트에서 옵션으로 찾습니다.</p><a class="pms-button" href="/admin/product-master/standard-test">규격 고객 테스트</a>'; return; }
     if (p.actualCount) {
       root.innerHTML = `<p class="pms-help">실 제품 ${p.actualCount}개가 있어 구성과 프로세스를 수정할 수 없습니다. 제품을 복사하면 별도로 편집할 수 있습니다.</p><a class="pms-button" href="/admin/product-master/products/${p.id}/view">제품 상세 조회</a>`;
       return;
@@ -169,26 +170,61 @@
       dirty();
       paint();
     }
+    function ready(q) {
+      const rows = S.isChoice(q.control) ? q.choices : q.fields;
+      return rows?.length && rows.every((x) => x.key && x.labels?.customer?.trim() && x.labels?.production?.trim() && x.labels?.management?.trim())
+        && (!q.fixed || (q.preset && (q.preset.choices?.length || Object.keys(q.preset.fields || {}).length)));
+    }
+    function canvas() {
+      const view = S.$(".pm-flow-canvas", root), plane = S.$(".pm-flow-scale", root), size = S.$(".pm-flow-size", root);
+      function layout() {
+        plane.style.width = Math.max(300, view.clientWidth) + "px";
+        plane.style.transform = `scale(${zoom / 100})`;
+        size.style.width = Math.max(view.clientWidth, Math.ceil(plane.offsetWidth * zoom / 100)) + "px";
+        size.style.height = Math.max(view.clientHeight, Math.ceil(plane.offsetHeight * zoom / 100)) + "px";
+      }
+      function setZoom(value) {
+        const previous = zoom / 100, cx = (view.scrollLeft + view.clientWidth / 2) / previous, cy = (view.scrollTop + view.clientHeight / 2) / previous;
+        zoom = Math.max(10, Math.min(200, Math.round(value / 10) * 10));
+        layout(); view.scrollLeft = cx * zoom / 100 - view.clientWidth / 2; view.scrollTop = cy * zoom / 100 - view.clientHeight / 2;
+        S.$("[data-zoom-range]", root).value = zoom; S.$("[data-zoom-output]", root).textContent = zoom + "%";
+        S.$("[data-zoom-minus]", root).disabled = zoom === 10; S.$("[data-zoom-plus]", root).disabled = zoom === 200;
+      }
+      S.$("[data-zoom-range]", root).oninput = (e) => setZoom(Number(e.target.value));
+      S.$("[data-zoom-minus]", root).onclick = () => setZoom(zoom - 10);
+      S.$("[data-zoom-plus]", root).onclick = () => setZoom(zoom + 10);
+      S.$("[data-zoom-reset]", root).onclick = () => setZoom(100);
+      S.$("[data-zoom-fit]", root).onclick = () => {
+        setZoom(Math.floor(Math.min(view.clientWidth / plane.offsetWidth, view.clientHeight / plane.offsetHeight) * 100 / 10) * 10);
+        view.scrollLeft = 0; view.scrollTop = 0;
+      };
+      view.addEventListener("wheel", (e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? 10 : -10)); } }, { passive: false });
+      canvasObserver = new ResizeObserver(layout); canvasObserver.observe(view); canvasObserver.observe(plane);
+      layout(); setZoom(zoom); view.scrollLeft = canvasScroll.x; view.scrollTop = canvasScroll.y;
+    }
     function paint() {
+      const oldCanvas = S.$(".pm-flow-canvas", root);
+      if (oldCanvas) canvasScroll = { x: oldCanvas.scrollLeft, y: oldCanvas.scrollTop };
+      canvasObserver?.disconnect();
       const saveStatus = S.dirty ? "저장하지 않은 변경사항" : "저장된 상태";
       root.innerHTML = `<section class="pms-panel"><header class="pms-panel-title"><div><h2>${S.e(p.productName)}</h2><small>고정 분류: ${fixed()
         .map((q) => q.choices.map((c) => S.e(c.labels.management)).join("/"))
         .join(
           " · ",
-        )}</small></div><a class="pms-button" href="/admin/product-master/products/${p.id}">제품 구성</a></header>${steps(["질문·답변 완성", "연관관계 설정", "전체 검증·등록"], stage)}<div class="pms-panel-body"><p class="pms-help">${["각 질문을 열어 가능한 답변을 차례로 등록하세요. 숫자는 필드 구성 → 입력 제한 → 범위 조건 순서입니다.", "앞 질문의 답변을 조건으로 묶어 뒤 질문 또는 옵션에 연결합니다. 겹치는 조건은 등록되지 않습니다.", "전체 입력 경로를 검사한 뒤 등록을 완료합니다. 저장된 제품으로 고객 흐름을 테스트할 수 있습니다."][stage]}</p><div class="pm-order-strip">${qs()
+        )}</small></div><a class="pms-button" href="/admin/product-master/products/${p.id}">제품 구성</a></header>${steps(["질문·답변 완성", "연관관계 설정", "전체 검증·등록"], stage)}<div class="pms-panel-body"><p class="pms-help">${["각 질문을 열어 가능한 답변을 차례로 등록하세요. 숫자는 필드 구성 → 입력 제한 → 범위 조건 순서입니다.", "앞 질문의 답변을 조건으로 묶어 뒤 질문 또는 옵션에 연결합니다. 겹치는 조건은 등록되지 않습니다.", "전체 입력 경로를 검사한 뒤 등록을 완료합니다. 저장된 제품으로 고객 흐름을 테스트할 수 있습니다."][stage]}</p><div class="pm-process-progress"><strong>답변 설정 ${qs().filter(ready).length} / ${qs().length}개</strong><span>답변 준비 → 입력 제한·조건 → 연결 → 검증 순서로 완성합니다.</span>${stage === 0 && qs().some((q) => !ready(q)) ? '<button type="button" data-next-question class="primary">다음 미완성 질문 설정</button>' : ""}</div><div class="pm-order-strip">${qs()
         .map(
           (q, i) =>
             `<div data-order="${S.e(q.key)}"><span class="pms-handle">⠿</span>${i + 1}. ${S.e(nm(q))}<button data-move="${i}:-1" ${i === 0 ? "disabled" : ""}>↑</button><button data-move="${i}:1" ${i === qs().length - 1 ? "disabled" : ""}>↓</button></div>`,
         )
-        .join("")}</div><div class="pm-flow-canvas">${
+        .join("")}</div><div class="pm-canvas-toolbar" aria-label="프로세스 캔버스 배율"><strong>질문 흐름</strong><button type="button" data-zoom-minus aria-label="캔버스 축소">−</button><label>배율 <input type="range" data-zoom-range min="10" max="200" step="10" value="${zoom}" aria-label="캔버스 배율 10에서 200퍼센트"></label><output data-zoom-output>${zoom}%</output><button type="button" data-zoom-plus aria-label="캔버스 확대">+</button><button type="button" data-zoom-reset>100%</button><button type="button" data-zoom-fit>전체 흐름 맞춤</button><small>10~200% · Ctrl + 휠로도 조절</small></div><div class="pm-flow-canvas is-zoomable" tabindex="0" role="region" aria-label="스크롤 가능한 질문 흐름 캔버스"><div class="pm-flow-size"><div class="pm-flow-scale">${
         qs()
           .map(
             (q, i) =>
-              `<article class="pm-flow-node"><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p>${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">답변 등록·수정</button>` : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>이 답변에서 연관관계 설정</button>` : ""}${process.rules
+              `<article class="pm-flow-node"><span class="pm-flow-state">${S.badge(ready(q) ? "답변 등록됨" : "설정 필요", ready(q) ? "green" : "amber")}</span><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p><div class="pm-flow-answer-list">${(S.isChoice(q.control) ? q.choices.map((c) => c.labels.management) : q.fields.map((f) => f.labels.management + (q.control === "NUMBER" ? " · " + (f.min ?? "제한 없음") + "~" + (f.max ?? "제한 없음") + " " + (f.unit || "") : ""))).map((text) => `<span>${S.e(text)}</span>`).join("")}</div>${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">답변 등록·수정</button>` : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>이 답변에서 연관관계 설정</button>` : ""}${process.rules
                 .filter((r) => r.conditions.some((c) => c.groupKey === q.key))
                 .map(
                   (r) =>
-                    `<div class="pm-rule-line">${S.e(r.name)} → ${r.actions.map((a) => S.e(nm(process.questions.find((x) => x.key === a.targetKey))) + " · " + S.e({ HIDE: "건너뜀", ALLOW: "옵션 제한", RENAME: "질문 변경" }[a.effect] || a.effect)).join(", ")}${stage === 1 ? `<button data-rule-edit="${S.e(r.key)}">수정</button><button data-rule-remove="${S.e(r.key)}">삭제</button>` : ""}</div>`,
+                    `<div class="pm-rule-line">${S.e(r.name)} → ${r.actions.map((a) => S.e(nm(process.questions.find((x) => x.key === a.targetKey))) + " · " + S.e({ HIDE: "건너뜀", SHOW: "질문 표시", ALLOW: "옵션 제한", RENAME: "질문 변경" }[a.effect] || a.effect)).join(", ")}${stage === 1 ? `<button data-rule-edit="${S.e(r.key)}">수정</button><button data-rule-remove="${S.e(r.key)}">삭제</button>` : ""}</div>`,
                 )
                 .join(
                   "",
@@ -196,7 +232,9 @@
           )
           .join("") ||
         '<p class="pms-empty">추가 질문 없이 필수 분류만으로 등록할 수 있습니다.</p>'
-      }</div><div id="pm-validation"></div><div class="pms-actions pm-stage-actions"><span class="pm-save-status" role="status">${saveStatus}</span>${stage ? '<button id="pm-prev">이전 단계</button>' : ""}<button id="pm-draft">임시 저장</button>${stage < 2 ? '<button id="pm-next" class="primary">' + (stage === 0 ? "답변 확인 · 연관관계 설정" : "전체 검증 단계로") + "</button>" : `<button id="pm-validate">전체 경로 검증</button><button id="pm-publish" class="primary">검증 후 등록완료</button><a class="pms-button" target="_blank" href="/admin/product-master/products/${p.id}/test">저장된 제품 고객 테스트</a>`}</div></div></section>`;
+      }</div></div></div><div id="pm-validation"></div><div class="pms-actions pm-stage-actions"><span class="pm-save-status" role="status">${saveStatus}</span>${stage ? '<button id="pm-prev">이전 단계</button>' : ""}<button id="pm-draft">임시 저장</button>${stage < 2 ? '<button id="pm-next" class="primary">' + (stage === 0 ? "답변 확인 · 연관관계 설정" : "전체 검증 단계로") + "</button>" : `<button id="pm-validate">전체 경로 검증</button><button id="pm-publish" class="primary">검증 후 등록완료</button><a class="pms-button" target="_blank" href="/admin/product-master/products/${p.id}/test">저장된 제품 고객 테스트</a>`}</div></div></section>`;
+      canvas();
+      S.$("[data-next-question]", root)?.addEventListener("click", () => question(qs().find((q) => !ready(q))));
       S.$$("[data-edit]", root).forEach(
         (b) =>
           (b.onclick = () =>
@@ -237,7 +275,7 @@
       S.$("#pm-next", root)?.addEventListener("click", (e) =>
         S.run(e.currentTarget, async () => {
           const v = await validate(
-            stage === 0 ? { ...process, rules: [] } : process,
+            stage === 0 ? { ...process, questions: process.questions.map((q) => ({ ...q, requireRule: false })), rules: [] } : process,
           );
           if (!v.valid || !v.exhaustive) throw Error(err(v));
           stage++;
@@ -263,15 +301,18 @@
         openRow = 0;
       q.numberCases ??= [];
       q.preset ??= { choices: [], fields: {} };
-      const hidden = S.group(q.groupId)?.askQuestion === false;
-      const titles = [
+      let hidden = S.group(q.groupId)?.askQuestion === false;
+      const questionSteps = () => [
         "가능한 답변 등록",
         ...(!S.isChoice(q.control) ? ["입력 제한 설정"] : []),
         ...(q.control === "NUMBER" ? ["범위 조건 설정"] : []),
         ...(hidden ? ["고정 사양 입력"] : []),
         "확인",
       ];
-      const d = S.dialog(nm(q) + " · 답변 설정", ""),
+      let titles = questionSteps();
+      const dirtyBefore = S.dirty;
+      let applied = false;
+      const d = S.dialog(nm(q) + " · 답변 설정", "", { onClose: () => { if (!applied) S.dirty = dirtyBefore; } }),
         body = S.$(".pms-dialog-body", d);
       function draw() {
         const title = titles[step];
@@ -282,12 +323,22 @@
           '<button data-next class="primary">' +
           (step === titles.length - 1 ? "이 질문 완성" : "다음") +
           "</button></div>";
+        const guidance = document.createElement("div");
+        guidance.className = "pm-editor-guidance";
+        guidance.innerHTML = `<strong>${step + 1}단계 · ${S.e(title)}</strong><p>${{
+          "가능한 답변 등록": "질문 표시명과 고객·생산·관리팀 답변 이름을 정하고, 안내메시지와 이미지·파일을 넣으세요. 추가·교체·삭제한 파일은 이 질문을 완성한 뒤 프로세스를 저장할 때 반영됩니다.",
+          "입력 제한 설정": "각 항목의 최소·최대, 간격 또는 글자·파일 제한을 입력합니다. 입력칸의 범위와 다음 단계의 분기 조건은 별도로 설정합니다.",
+          "범위 조건 설정": "W만 또는 W·H·D를 조합해 숫자 조건을 만듭니다. 조건 사이의 겹침은 서버에서 검사합니다. 범위가 필요 없으면 기본 흐름으로 진행할 수 있습니다.",
+          "고정 사양 입력": "고객에게 묻지 않는 항목입니다. 제품에 저장할 답변을 입력하세요.",
+          "확인": "등록된 질문·답변·안내·범위를 확인합니다. 질문을 완성한 뒤 다음 질문을 이어서 설정할 수 있습니다.",
+        }[title]}</p>`;
+        S.$("[data-content]", body).before(guidance);
         const box = S.$("[data-content]", body);
         if (title === "가능한 답변 등록") {
           const choice = S.isChoice(q.control),
             rows = choice ? q.choices : q.fields,
             prefix = choice ? "choices." : "fields.";
-          box.innerHTML = `<div class="pms-form-grid two">${S.field("질문 내용", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.field("질문 도움말", "guide", q.guide || "", "text", 'maxlength="1000"')}${S.check("반드시 답변", "required", q.required)}</div><div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong></summary><div class="pm-answer-body">${S.labels(x, prefix + i, true, x.namePart)}${S.field("안내메시지", prefix + i + ".guide", x.guide || "", "text", 'maxlength="2000"')}${S.field("내부 value", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<button data-remove="${i}">삭제</button>${choice ? `<details><summary>이미지·파일</summary><div data-choice-files="${i}">${S.files(fs(x.assetIds))}</div></details>` : ""}</div></details>`).join("")}<details><summary>질문 이미지·파일</summary><div data-q-files>${S.files(fs(q.assetIds))}</div></details>`;
+          box.innerHTML = `<div class="pm-question-labels">${S.labels(q, "")}</div><div class="pms-form-grid two">${S.field("질문 내용", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.textarea("질문 튜토리얼·도움말", "guide", q.guide || "", 1000)}${S.check("반드시 답변", "required", q.required)}${!hidden ? S.check("기본 흐름에서 질문 표시", "visible", q.visible) : ""}</div>${!hidden && !q.visible ? '<p class="pms-help">기본 질문에서는 생략됩니다. 앞 답변에서 이 질문으로 ‘질문 표시’ 연결을 설정하면 조건이 맞을 때 나타납니다.</p>' : ""}<div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong></summary><div class="pm-answer-body">${S.labels(x, prefix + i, true, x.namePart)}${S.textarea("답변 선택·입력 시 안내메시지", prefix + i + ".guide", x.guide || "", 2000)}${S.field("내부 value", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<button data-remove="${i}">삭제</button>${choice ? `<details><summary>이미지·파일</summary><div data-choice-files="${i}">${S.files(fs(x.assetIds))}</div></details>` : ""}</div></details>`).join("")}<details><summary>이 제품의 질문 이미지·파일</summary><div data-q-files>${S.files(fs(q.assetIds))}</div></details><div class="pms-actions pms-section"><button type="button" data-common-settings>공통 그룹 표시명·안내·파일 수정</button></div>${S.media(S.group(q.groupId)?.assets || [], "공통 그룹 이미지")}`;
           S.bind(box, q, (path) => {
             const m = /^(?:choices|fields)\.(\d+)\.labels\.management$/.exec(
               path,
@@ -332,6 +383,17 @@
             bindFiles(el, q.choices[Number(el.dataset.choiceFiles)]),
           );
           bindFiles(S.$("[data-q-files]", box), q);
+          S.bindMedia(body);
+          S.$("[data-common-settings]", box).onclick = (e) => S.run(e.currentTarget, () => S.groupSettingsDialog(q.groupId, async () => {
+            const saved = await S.request("/products/" + p.id);
+            for (const key of ["version", "status", "groups", "processAssets"]) p[key] = saved[key];
+            (saved.processAssets || []).forEach((a) => files.set(a.id, a));
+            hidden = S.group(q.groupId)?.askQuestion === false;
+            titles = questionSteps();
+            step = 0;
+            q.preset ??= { choices: [], fields: {} };
+            draw();
+          }));
         } else if (title === "입력 제한 설정") {
           box.innerHTML =
             '<p class="pms-help">각 필드의 허용 범위를 정하세요. 숫자 범위 조건은 다음 단계입니다.</p>' +
@@ -373,7 +435,7 @@
                 })),
           );
         } else
-          box.innerHTML = `<h3>${S.e(q.question || nm(q))}</h3><p>${(S.isChoice(q.control) ? q.choices : q.fields).map((x) => S.e(x.labels.management)).join(" / ")}</p><p>${q.numberCases.length}개 범위 조건 · ${hidden ? "고정 사양 저장" : "고객 답변"}</p>`;
+          box.innerHTML = S.registeredQuestion(q, fs, S.group(q.groupId)) + `<p>${q.numberCases.length}개 범위 조건 · ${hidden ? "고정 사양 저장" : "고객 답변"}</p>${qs().indexOf(original) < qs().length - 1 ? '<label class="pms-check"><input type="checkbox" data-continue-question checked>완성 후 다음 질문을 이어서 설정</label>' : ""}`;
         S.$("[data-back]", body)?.addEventListener("click", () => {
           if (title === "고정 사양 입력")
             q.preset = S.readAnswer(box, q, q.preset);
@@ -432,10 +494,10 @@
               q.preset = S.readAnswer(box, q, q.preset);
             if (step === titles.length - 1) {
               q.fixed = hidden;
-              q.visible = !hidden;
-              q.requireRule = false;
+              q.visible = !hidden && q.visible;
               if (!hidden) q.preset = null;
-              const v = await S.request("/validate-question", "POST", q);
+              // Rule coverage belongs to the full process; keep the saved flag on the question.
+              const v = await S.request("/validate-question", "POST", { ...q, requireRule: false });
               if (!v.valid || !v.exhaustive) throw Error(err(v));
               const updated = S.copy(process);
               updated.questions[
@@ -467,10 +529,14 @@
                       err(linked),
                   );
               }
+              const continueNext = S.$("[data-continue-question]", body)?.checked;
+              const nextKey = qs()[qs().findIndex((x) => x.key === q.key) + 1]?.key;
               process = updated;
+              applied = true;
               dirty();
               d.close();
               paint();
+              if (continueNext && nextKey) question(process.questions.find((x) => x.key === nextKey));
             } else {
               step++;
               draw();
@@ -492,7 +558,7 @@
         const cd = S.dialog("숫자 범위 조건", ""),
           cb = S.$(".pms-dialog-body", cd);
         function cp() {
-          cb.innerHTML = `<div class="pms-form-grid two">${S.field("범위 이름", "name", r.name, "text", 'maxlength="120"')}${S.field("범위 해당 시 안내메시지", "guide", r.guide || "", "text", 'maxlength="2000"')}</div><p>필드를 선택해 조건을 추가하세요. 한 필드에 여러 조건을 추가할 수 있습니다.</p><div class="pms-actions">${q.fields.map((f) => `<button data-add-condition="${S.e(f.key)}">+ ${S.e(f.labels.management)}</button>`).join("")}</div>${r.conditions.map((c, i) => `<div class="pms-card pms-form-grid four"><strong>${S.e(q.fields.find((f) => f.key === c.fieldKey)?.labels.management)}</strong>${S.select("비교", "conditions." + i + ".operator", c.operator, { GE: "이상", GT: "초과", LE: "이하", LT: "미만", EQ: "일치", RANGE: "구간" })}${S.field("기준값 / 하한", "conditions." + i + ".lower", c.lower, "number", 'step="0.001"')}${c.operator === "RANGE" ? S.field("상한", "conditions." + i + ".upper", c.upper, "number", 'step="0.001"') + S.check("하한 포함", "conditions." + i + ".lowerInclusive", c.lowerInclusive) + S.check("상한 포함", "conditions." + i + ".upperInclusive", c.upperInclusive) : ""}<button data-del-condition="${i}">조건 삭제</button></div>`).join("")}<button data-save-case class="primary">겹침 검사 · 범위 등록</button>`;
+          cb.innerHTML = `<div class="pms-form-grid two">${S.field("범위 이름", "name", r.name, "text", 'maxlength="120"')}${S.textarea("범위 해당 시 안내메시지", "guide", r.guide || "", 2000)}</div><p>필드를 선택해 조건을 추가하세요. 한 필드에 여러 조건을 추가할 수 있습니다.</p><div class="pms-actions">${q.fields.map((f) => `<button data-add-condition="${S.e(f.key)}">+ ${S.e(f.labels.management)}</button>`).join("")}</div>${r.conditions.map((c, i) => `<div class="pms-card pms-form-grid four"><strong>${S.e(q.fields.find((f) => f.key === c.fieldKey)?.labels.management)}</strong>${S.select("비교", "conditions." + i + ".operator", c.operator, { GE: "이상", GT: "초과", LE: "이하", LT: "미만", EQ: "일치", RANGE: "구간" })}${S.field("기준값 / 하한", "conditions." + i + ".lower", c.lower, "number", 'step="0.001"')}${c.operator === "RANGE" ? S.field("상한", "conditions." + i + ".upper", c.upper, "number", 'step="0.001"') + S.check("하한 포함", "conditions." + i + ".lowerInclusive", c.lowerInclusive) + S.check("상한 포함", "conditions." + i + ".upperInclusive", c.upperInclusive) : ""}<button data-del-condition="${i}">조건 삭제</button></div>`).join("")}<button data-save-case class="primary">겹침 검사 · 범위 등록</button>`;
           S.bind(cb, r, (path) => {
             if (path.endsWith(".operator")) cp();
           });
@@ -564,6 +630,7 @@
               const test = S.copy(q);
               test.fixed = false;
               test.visible = true;
+              test.requireRule = false;
               test.preset = null;
               if (index == null) test.numberCases.push(r);
               else test.numberCases[index] = r;
@@ -601,7 +668,7 @@
             source.control !== "NUMBER" &&
             (old.conditions.length !== 1 ||
               !["PRESENT", "ABSENT"].includes(old.conditions[0].operator))) ||
-          !["HIDE", "ALLOW", "RENAME"].includes(old.actions[0].effect));
+          !["SHOW", "HIDE", "ALLOW", "RENAME"].includes(old.actions[0].effect));
       if (complex) {
         S.dialog(
           "기존 복합 연관관계 확인",
@@ -711,8 +778,8 @@
               const nextEffect =
                 b.dataset.kind === "options"
                   ? "ALLOW"
-                  : effect === "RENAME"
-                    ? "RENAME"
+                  : ["SHOW", "RENAME"].includes(effect)
+                    ? effect
                     : "HIDE";
               if (targetKey !== nextTarget || effect !== nextEffect)
                 targetChoices = [];
@@ -733,7 +800,7 @@
           });
         }
         if (step === 2) {
-          box.innerHTML = `<h3>${S.e(nm(target))}</h3>${effect === "ALLOW" ? '<p>이 조건에서 표시할 옵션을 묶어 주세요.</p><div class="pms-check-grid">' + checks(target.choices, targetChoices, "data-result") + "</div>" : S.select("질문에 적용할 동작", "effect", effect, { HIDE: "질문 건너뜀", RENAME: "질문 내용 변경" })}${effect === "RENAME" ? S.field("변경할 질문 내용", "questionText", questionText, "text", 'maxlength="300"') : ""}`;
+          box.innerHTML = `<h3>${S.e(nm(target))}</h3>${effect === "ALLOW" ? '<p>이 조건에서 표시할 옵션을 묶어 주세요.</p><div class="pms-check-grid">' + checks(target.choices, targetChoices, "data-result") + "</div>" : S.select("질문에 적용할 동작", "effect", effect, { HIDE: "질문 건너뜀", SHOW: "질문 표시", RENAME: "질문 내용 변경" })}${effect === "RENAME" ? S.field("변경할 질문 내용", "questionText", questionText, "text", 'maxlength="300"') : ""}`;
           S.$('[data-path="effect"]', box)?.addEventListener("change", (e) => {
             effect = e.target.value;
             rp();
@@ -752,7 +819,7 @@
               "text",
               'maxlength="120"',
             ) +
-            `<div class="pm-rule-summary"><strong>시작: ${S.e(nm(source))}</strong><span>${S.e(conditionText(source, conditions))}</span><strong>대상: ${S.e(nm(target))}</strong><span>${S.e(effect === "ALLOW" ? "표시할 답변: " + targetChoices.map((k) => target.choices.find((c) => c.key === k)?.labels.management || k).join(" / ") : effect === "HIDE" ? "이 질문을 건너뜁니다" : "질문 변경: " + questionText)}</span></div>` +
+            `<div class="pm-rule-summary"><strong>시작: ${S.e(nm(source))}</strong><span>${S.e(conditionText(source, conditions))}</span><strong>대상: ${S.e(nm(target))}</strong><span>${S.e(effect === "ALLOW" ? "표시할 답변: " + targetChoices.map((k) => target.choices.find((c) => c.key === k)?.labels.management || k).join(" / ") : effect === "HIDE" ? "이 질문을 건너뜁니다" : effect === "SHOW" ? "이 질문을 표시합니다" : "질문 변경: " + questionText)}</span></div>` +
             '<p class="pms-help">동시에 적용되는 옵션 제한과 건너뜀·질문 변경 충돌을 검사합니다. 충돌한 규칙 이름과 입력 예시를 확인해 조건을 분리하세요.</p>';
         S.$("[data-back]", body)?.addEventListener("click", () => {
           if (step === 3) ruleName = S.$('[data-path="ruleName"]', box).value;
@@ -841,5 +908,8 @@
     }
     paint();
     S.dirty = false;
+    const initialKey = new URLSearchParams(location.search).get("question");
+    const initialQuestion = qs().find((q) => q.key === initialKey);
+    if (initialQuestion) question(initialQuestion);
   };
 })(window.PMS);

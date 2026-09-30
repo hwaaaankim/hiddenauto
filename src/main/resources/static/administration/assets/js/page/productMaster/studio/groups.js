@@ -1,6 +1,6 @@
 (function (S) {
   "use strict";
-  S.groupsPage = async function (root) {
+  S.groupsPage = async function (root, initialGroupId = null) {
     let selected = null,
       model = null,
       groupFiles = [],
@@ -77,7 +77,7 @@
             role: g.role,
             control: g.control,
             nonStandard: g.nonStandard,
-            askQuestion: g.askQuestion,
+            askQuestion: ["CATEGORY", "SERIES"].includes(g.role) || g.askQuestion,
             priceImpact: g.priceImpact,
             includeInName: g.includeInName,
             active: g.active,
@@ -161,7 +161,7 @@
     }
     function paintEditor() {
       const base = S.isBase(model);
-      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"} ${S.badge(base ? "필수그룹" : "옵션그룹", base ? "blue" : "")}</h2><small class="mono">${S.e(S.group(model.id)?.key || "내부 value는 저장할 때 자동 생성됩니다.")}</small></div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body">${S.labels(model, "")}<div class="pms-help">고객명을 입력하면 아직 별도로 수정하지 않은 생산팀·관리팀 표시명도 같은 값으로 채웁니다. 내부 value는 표시명과 독립적으로 유지됩니다.</div><div class="pms-form-grid two">${base ? locked("입력 방식", "control", "하나 선택 · 필수그룹", "대분류·중분류·시리즈는 제품마다 하나의 분류가 필요하므로 하나선택형으로 고정되어 변경할 수 없습니다.") : S.select("입력 방식", "control", model.control, S.controls)}${base ? locked("비규격용 그룹", "nonStandard", "규격 전용 · 필수그룹", "대분류·중분류·시리즈는 모든 제품의 고정 분류이므로 비규격용 그룹으로 변경할 수 없습니다.") : `<div class="pms-row">${S.check("비규격용 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div>`}<div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${base ? locked("", "active", "필수그룹 · 항상 사용", "모든 제품에 필요한 필수그룹이므로 사용을 중지할 수 없습니다.") : S.check("새 제품 구성에 사용", "active", model.active, "pms-switch")}</div>${S.check("고객 질문에 포함", "askQuestion", model.askQuestion)}${model.nonStandard ? S.check("제품 단가에 영향", "priceImpact", model.priceImpact) : ""}${S.field("챗봇 질문", "question", model.question, "text", 'maxlength="300"')}${S.field("고객 도움말", "guide", model.guide, "text", 'maxlength="1000"')}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 이미지·첨부파일 <span class="pms-badge">${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles)}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
+      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"} ${S.badge(base ? "필수그룹" : "옵션그룹", base ? "blue" : "")}</h2><small class="mono">${S.e(S.group(model.id)?.key || "내부 value는 저장할 때 자동 생성됩니다.")}</small></div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body">${S.labels(model, "")}<div class="pms-help">고객명을 입력하면 아직 별도로 수정하지 않은 생산팀·관리팀 표시명도 같은 값으로 채웁니다. 내부 value는 표시명과 독립적으로 유지됩니다.</div><div class="pms-form-grid two">${base ? locked("입력 방식", "control", "하나 선택 · 필수그룹", "대분류·중분류·시리즈는 제품마다 하나의 분류가 필요하므로 하나선택형으로 고정되어 변경할 수 없습니다.") : S.select("입력 방식", "control", model.control, S.controls)}${base ? locked("비규격용 그룹", "nonStandard", "규격 전용 · 필수그룹", "대분류·중분류·시리즈는 모든 제품의 고정 분류이므로 비규격용 그룹으로 변경할 수 없습니다.") : `<div class="pms-row">${S.check("비규격용 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div>`}<div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${base ? locked("", "active", "필수그룹 · 항상 사용", "모든 제품에 필요한 필수그룹이므로 사용을 중지할 수 없습니다.") : S.check("새 제품 구성에 사용", "active", model.active, "pms-switch")}</div>${["CATEGORY", "SERIES"].includes(model.role) ? locked("고객 질문", "askQuestion", "항상 포함", "대분류와 시리즈는 고객이 제품을 찾는 필수 질문이므로 항상 포함됩니다. 중분류는 질문 포함 여부를 선택할 수 있습니다.") : S.check("고객 질문에 포함", "askQuestion", model.askQuestion)}${model.nonStandard ? S.check("제품 단가에 영향", "priceImpact", model.priceImpact) : ""}${S.field("챗봇 질문", "question", model.question, "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", model.guide, 1000)}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 이미지·첨부파일 <span class="pms-badge">${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles)}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
       S.$$("[data-lock]", editor).forEach(
         (button) =>
           (button.onclick = () => {
@@ -352,7 +352,7 @@
         draftValues
           .map(
             (v, i) =>
-              `<details class="pms-list-row pms-editor" ${S.editorAttrs("value-" + (v.id || v.temp), !v.id || i === 0)} data-value-index="${i}"><summary class="pms-row-head"><span class="pms-handle">⠿</span><strong data-editor-title>보기 ${i + 1} · ${S.e(v.labels.management || "새 보기")}</strong><small class="mono">${S.e(v.key || "저장 시 자동 value")}</small>${S.check("사용", "values." + i + ".active", v.active)}<button data-remove-value="${i}" class="pms-remove">×</button></summary><div class="pms-editor-body">${S.labels(v, "values." + i, true, v.namePart)}${S.field("선택 시 안내메시지", "values." + i + ".guide", v.guide || "", "text", 'maxlength="2000"')}<details class="pms-section"><summary>이미지·첨부파일</summary><div data-value-files="${i}"></div></details></div></details>`,
+              `<details class="pms-list-row pms-editor" ${S.editorAttrs("value-" + (v.id || v.temp), !v.id || i === 0)} data-value-index="${i}"><summary class="pms-row-head"><span class="pms-handle">⠿</span><strong data-editor-title>보기 ${i + 1} · ${S.e(v.labels.management || "새 보기")}</strong><small class="mono">${S.e(v.key || "저장 시 자동 value")}</small>${S.check("사용", "values." + i + ".active", v.active)}<button data-remove-value="${i}" class="pms-remove">×</button></summary><div class="pms-editor-body">${S.labels(v, "values." + i, true, v.namePart)}${S.textarea("선택 시 안내메시지", "values." + i + ".guide", v.guide || "", 2000)}<details class="pms-section"><summary>이미지·첨부파일</summary><div data-value-files="${i}"></div></details></div></details>`,
           )
           .join("") ||
         '<div class="pms-empty">+ 보기로 옵션을 추가해 주세요.</div>';
@@ -413,6 +413,14 @@
       );
     }
     paintList();
-    open(S.groups[0]?.id || null);
+    const requestedId = initialGroupId || Number(new URLSearchParams(location.search).get("groupId"));
+    open(S.groups.some((g) => g.id === requestedId) ? requestedId : S.groups[0]?.id || null);
+  };
+  S.groupSettingsDialog = async function (groupId, refreshed = () => {}) {
+    const before = S.dirty;
+    const d = S.dialog("공통 그룹·옵션 등록 내용 수정", '<p class="pms-help">그룹과 규격 옵션의 공통 정보를 편집합니다. 규격 제품에는 변경한 표시명·질문·안내·이미지가 적용됩니다. 비규격 제품의 질문·답변·안내는 해당 제품의 프로세스에서 수정하고, 공통 그룹 이미지는 함께 표시합니다.</p><div data-group-inspector class="pm-group-inspector"></div>', {
+      onClose: () => { S.dirty = before; Promise.resolve(refreshed()).catch((e) => S.toast(e.message)); },
+    });
+    await S.groupsPage(S.$("[data-group-inspector]", d), groupId);
   };
 })(window.PMS);

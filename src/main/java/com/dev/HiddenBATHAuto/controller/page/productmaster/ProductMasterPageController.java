@@ -4,11 +4,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import com.dev.HiddenBATHAuto.service.productmaster.ProductStudioService;
+import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequestMapping("/admin/product-master")
 @PreAuthorize("hasRole('ADMIN')")
+@RequiredArgsConstructor
 public class ProductMasterPageController {
+  private final ProductStudioService service;
   private String page(Model model, String mode) {
     model.addAttribute("studioMode", mode);
     return "administration/productmaster/studio";
@@ -70,7 +74,17 @@ public class ProductMasterPageController {
 
   @GetMapping("/products/{productId}/test")
   public String test(@PathVariable Long productId, Model m) {
+    if (!service.detail(productId).nonStandard())
+      return "redirect:/admin/product-master/standard-test";
     m.addAttribute("adminProductId", productId);
+    m.addAttribute("adminCatalog", true);
+    return "front/productmaster/studioChat";
+  }
+
+  @GetMapping("/standard-test")
+  public String standardTest(Model m) {
+    m.addAttribute("adminCatalog", true);
+    m.addAttribute("customerKind", "standard");
     return "front/productmaster/studioChat";
   }
 }

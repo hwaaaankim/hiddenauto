@@ -141,42 +141,14 @@
       draw();
     }
     paint();
+    const topicId = Number(new URLSearchParams(location.search).get("topicId"));
+    const initialTopic = topics.find((t) => t.id === topicId);
+    if (initialTopic) edit(initialTopic);
   };
   S.viewPage = async function (root, p) {
-    const topics = await S.request("/faq"),
-      faq = topics.find((t) => t.id === p.faqTopicId);
-    root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${esc(p.productName)}</h2><span class="mono">${esc(p.catalogCode)}</span> ${S.badge(p.nonStandard ? "비규격" : "규격")}</div><div class="pms-actions"><a class="pms-button" href="${path(p.id)}">구성 수정</a>${p.nonStandard ? `<a class="pms-button" href="${path(p.id)}/process">프로세스</a><a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a>` : ""}<a class="pms-button" href="${path(p.id)}/test" target="_blank">고객 테스트</a></div></div><div class="pms-panel-body"><p>${esc(p.description || "")}</p><div class="pm-detail-metrics"><span>생산기간 ${p.productionHours ?? 0}시간</span>${!p.nonStandard ? `<span>단가 ${(p.unitPrice ?? 0).toLocaleString()}원</span>` : ""}<span>총 재고 ${p.stock}</span>${p.nonStandard ? `<span>실 제품 ${p.actualCount}종</span>` : ""}<span>FAQ ${esc(faq?.title || "연결 없음")}</span></div><div class="pms-gallery">${p.assets
-      .filter((a) => a.image)
-      .map(
-        (a) =>
-          `<a href="${esc(a.url)}" target="_blank"><img src="${esc(a.url)}" alt="${esc(a.name)}"></a>`,
-      )
-      .join("")}</div>${p.process.questions
-      .map((q) => {
-        const g = S.group(q.groupId);
-        return `<article class="pms-card"><h3>${esc(q.labels.management)}</h3><p>${esc(q.question || "")} · ${esc(S.controls[q.control])} · ${g.askQuestion ? "고객 질문 포함" : "질문 제외 / 고정 사양"}${g.priceImpact ? " · 단가 영향" : ""}</p>${q.guide ? `<p>${esc(q.guide)}</p>` : ""}<div class="pms-table-scroll pm-spec-table"><table><thead><tr><th>항목</th><th>내부 value</th><th>사양·입력 제한</th><th>안내메시지</th></tr></thead><tbody>${q.choices
-          .map(
-            (c) =>
-              `<tr><td>${esc(c.labels.customer)}<small>생산: ${esc(c.labels.production)} / 관리: ${esc(c.labels.management)}</small></td><td>${esc(c.key)}</td><td>${(
-                c.assetIds || []
-              )
-                .map((id) => {
-                  const a =
-                    p.processAssets.find((a) => a.id === id) ||
-                    g.values.flatMap((v) => v.assets).find((a) => a.id === id);
-                  return a
-                    ? `<a href="${esc(a.url)}" target="_blank">${esc(a.name)}</a>`
-                    : "";
-                })
-                .join(" ")}</td><td>${esc(c.guide || "")}</td></tr>`,
-          )
-          .join(
-            "",
-          )}${q.fields.map((f) => `<tr><td>${esc(f.labels.management)}</td><td>${esc(f.key)}</td><td>${q.control === "NUMBER" ? `${f.min ?? "제한 없음"} ~ ${f.max ?? "제한 없음"} ${esc(f.unit || "")} / 간격 ${f.step}` : q.control === "FILE" ? esc((f.extensions || []).join(", ")) + " / 최대 " + f.maxFiles + "개" : `${f.minLength ?? 0} ~ ${f.maxLength ?? 500}자`} ${f.required ? "필수" : ""}</td><td>${esc(f.guide || "")}</td></tr>`).join("")}</tbody></table></div>${(q.numberCases || []).map((r) => `<p><strong>${esc(r.name)}</strong>: ${r.conditions.map((c) => esc(q.fields.find((f) => f.key === c.fieldKey)?.labels.management) + " " + esc(c.operator) + " " + esc(c.lower) + (c.upper != null ? " ~ " + esc(c.upper) : "")).join(" AND ")} ${esc(r.guide || "")}</p>`).join("")}</article>`;
-      })
-      .join(
-        "",
-      )}<section class="pms-card"><h3>등록된 연관관계</h3>${p.process.rules.map((r) => `<p>${esc(r.name)} · ${r.actions.map((a) => esc(p.process.questions.find((q) => q.key === a.targetKey)?.labels.management) + " " + esc(a.effect)).join(", ")}</p>`).join("") || "<p>기본 순서로 진행합니다.</p>"}</section></div></section>`;
+    const topics = await S.request("/faq"), faq = topics.find((t) => t.id === p.faqTopicId);
+    const actions = `<a class="pms-button primary" href="${path(p.id)}">제품 구성 수정</a>${p.nonStandard ? `<a class="pms-button" href="${path(p.id)}/process">질문·프로세스 수정</a><a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a><a class="pms-button" href="${path(p.id)}/test" target="_blank" rel="noopener">비규격 고객 테스트</a>` : ""}${faq ? `<a class="pms-button" href="/admin/product-master/faq?topicId=${faq.id}">FAQ 수정</a>` : ""}`;
+    S.mountProductDetail(root, p, { admin: true, faq, actions });
   };
   S.actualsPage = async function (root, p) {
     let rows = [];

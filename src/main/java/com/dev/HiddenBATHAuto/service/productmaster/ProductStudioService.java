@@ -630,11 +630,11 @@ public class ProductStudioService {
         p.getDescription(),
         v,
         json.list(p.getNameTokensJson(), NameToken.class),
-        detailed && p.getStudioProcessJson() != null
-            ? json.read(p.getStudioProcessJson(), Process.class)
+        detailed && p.getStudioDefinitionJson() != null
+            ? normalizeProcess(p, readProcess(p))
             : null,
         detailed ? assets.owned("PRODUCT", p.getId()) : List.of(),
-        detailed ? assets.owned("PROCESS", p.getId()) : List.of(),
+        detailed ? allProductAssets(p) : List.of(),
         detailed
             ? v.stream().map(x -> attributes.view(attributes.require(x.groupId()))).toList()
             : List.of(),
@@ -917,7 +917,7 @@ public class ProductStudioService {
               attributes.labelsOf(g),
               control,
               fixed,
-              g.isAskQuestion(),
+              attributes.asksQuestion(g),
               true,
               false,
               g.getQuestionText(),
@@ -1374,7 +1374,7 @@ public class ProductStudioService {
     if (!candidates.isEmpty()) {
       Long nextGroup = null;
       for (Variant v : byProduct.get(candidates.get(0).getId()))
-        if (attributes.require(v.groupId()).isAskQuestion()
+        if (attributes.asksQuestion(attributes.require(v.groupId()))
             && !map(selections).containsKey(v.groupId())
             && (!v.valueIds().isEmpty() || !map(v.inputs()).isEmpty())) {
           nextGroup = v.groupId();

@@ -3,26 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>히든바스 제품 선택</title>
+    <title>히든바스 고객 발주 흐름 테스트</title>
     <link
       rel="stylesheet"
-      href="/administration/assets/css/page/productMaster/productStudio.css?v=20260922-4"
+      href="/administration/assets/css/page/productMaster/productStudio.css?v=20260930-2"
     />
+    <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productShowcase.css?v=20260930-2" />
     <link
       rel="stylesheet"
-      href="/front/assets/css/page/productMaster/studioChat.css?v=20260922-4"
+      href="/front/assets/css/page/productMaster/studioChat.css?v=20260930-2"
     />
   </head>
   <body>
     <main
       class="pms pms-public"
       id="pm-public-chat"
-      th:attr="data-token=${publicToken},data-admin-product-id=${adminProductId}"
+      th:attr="data-token=${publicToken},data-admin-product-id=${adminProductId},data-admin-catalog=${adminCatalog},data-kind=${customerKind}"
     >
       <header class="pms-heading">
         <div>
           <span class="pms-eyebrow">HIDDENBATH</span>
-          <h1>나에게 맞는 제품 선택</h1>
+          <h1>나에게 맞는 제품 찾기</h1>
         </div>
         <button id="pm-chat-restart">처음부터</button>
       </header>
@@ -30,15 +31,17 @@
         <div class="pms-toolbar">
           <span id="pm-chat-title">제품의 구성부터 차례로 선택해 주세요.</span>
         </div>
+        <div id="pm-kind-picker" class="pms-actions pm-kind-picker" hidden></div>
         <div id="pm-chat-content" aria-live="polite">
           <div class="pms-empty">제품 정보를 불러오는 중입니다.</div>
         </div>
       </section>
       <p class="pms-public-foot">
-        제품 구성과 선택 흐름을 확인하는 테스트 화면입니다.
+        고객이 제품을 찾고 옵션을 구성하는 발주 흐름의 테스트 화면입니다.
       </p>
     </main>
-    <script src="/administration/assets/js/page/productMaster/studio/common.js?v=20260922-4"></script>
-    <script src="/front/assets/js/page/productMaster/studioChat.js?v=20260922-4"></script>
+    <script src="/administration/assets/js/page/productMaster/studio/common.js?v=20260930-2"></script>
+    <script src="/administration/assets/js/page/productMaster/studio/showcase.js?v=20260930-2"></script>
+    <script src="/front/assets/js/page/productMaster/studioChat.js?v=20260930-2"></script>
   </body>
 </html>
