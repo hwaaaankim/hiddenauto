@@ -1,6 +1,6 @@
 (function (S) {
   "use strict";
-  const nm = (q) => q?.labels?.management || "삭제된 질문",
+  const nm = (q) => q?.labels?.customer || "삭제된 질문",
     err = (v) =>
       v.issues
         .filter((i) => i.severity === "ERROR")
@@ -326,7 +326,7 @@
         const guidance = document.createElement("div");
         guidance.className = "pm-editor-guidance";
         guidance.innerHTML = `<strong>${step + 1}단계 · ${S.e(title)}</strong><p>${{
-          "가능한 답변 등록": "질문 표시명과 고객·생산·관리팀 답변 이름을 정하고, 안내메시지와 이미지·파일을 넣으세요. 추가·교체·삭제한 파일은 이 질문을 완성한 뒤 프로세스를 저장할 때 반영됩니다.",
+          "가능한 답변 등록": "질문과 튜토리얼은 고객용으로 작성합니다. 선택 옵션·입력 항목의 이름만 고객용·생산팀용·관리팀용으로 각각 정하세요. 안내메시지와 이미지·파일의 추가·교체·삭제는 질문 완성 후 프로세스를 저장할 때 반영됩니다.",
           "입력 제한 설정": "각 항목의 최소·최대, 간격 또는 글자·파일 제한을 입력합니다. 입력칸의 범위와 다음 단계의 분기 조건은 별도로 설정합니다.",
           "범위 조건 설정": "W만 또는 W·H·D를 조합해 숫자 조건을 만듭니다. 조건 사이의 겹침은 서버에서 검사합니다. 범위가 필요 없으면 기본 흐름으로 진행할 수 있습니다.",
           "고정 사양 입력": "고객에게 묻지 않는 항목입니다. 제품에 저장할 답변을 입력하세요.",
@@ -338,7 +338,7 @@
           const choice = S.isChoice(q.control),
             rows = choice ? q.choices : q.fields,
             prefix = choice ? "choices." : "fields.";
-          box.innerHTML = `<div class="pm-question-labels">${S.labels(q, "")}</div><div class="pms-form-grid two">${S.field("질문 내용", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.textarea("질문 튜토리얼·도움말", "guide", q.guide || "", 1000)}${S.check("반드시 답변", "required", q.required)}${!hidden ? S.check("기본 흐름에서 질문 표시", "visible", q.visible) : ""}</div>${!hidden && !q.visible ? '<p class="pms-help">기본 질문에서는 생략됩니다. 앞 답변에서 이 질문으로 ‘질문 표시’ 연결을 설정하면 조건이 맞을 때 나타납니다.</p>' : ""}<div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong></summary><div class="pm-answer-body">${S.labels(x, prefix + i, true, x.namePart)}${S.textarea("답변 선택·입력 시 안내메시지", prefix + i + ".guide", x.guide || "", 2000)}${S.field("내부 value", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<button data-remove="${i}">삭제</button>${choice ? `<details><summary>이미지·파일</summary><div data-choice-files="${i}">${S.files(fs(x.assetIds))}</div></details>` : ""}</div></details>`).join("")}<details><summary>이 제품의 질문 이미지·파일</summary><div data-q-files>${S.files(fs(q.assetIds))}</div></details><div class="pms-actions pms-section"><button type="button" data-common-settings>공통 그룹 표시명·안내·파일 수정</button></div>${S.media(S.group(q.groupId)?.assets || [], "공통 그룹 이미지")}`;
+          box.innerHTML = `<div class="pm-question-labels pms-form-grid one">${S.customerLabel(q)}</div><div class="pms-form-grid two">${S.field("고객에게 물어볼 질문", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", q.guide || "", 1000)}${S.check("반드시 답변", "required", q.required)}${!hidden ? S.check("기본 흐름에서 질문 표시", "visible", q.visible) : ""}</div>${!hidden && !q.visible ? '<p class="pms-help">기본 질문에서는 생략됩니다. 앞 답변에서 이 질문으로 ‘질문 표시’ 연결을 설정하면 조건이 맞을 때 나타납니다.</p>' : ""}<div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong></summary><div class="pm-answer-body">${S.labels(x, prefix + i, true, x.namePart)}${S.textarea("답변 선택·입력 시 안내메시지", prefix + i + ".guide", x.guide || "", 2000)}${S.field("내부 value", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<button data-remove="${i}">삭제</button>${choice ? `<details><summary>이미지·파일</summary><div data-choice-files="${i}">${S.files(fs(x.assetIds))}</div></details>` : ""}</div></details>`).join("")}<details><summary>이 제품의 질문 이미지·파일</summary><div data-q-files>${S.files(fs(q.assetIds))}</div></details><div class="pms-actions pms-section"><button type="button" data-common-settings>공통 그룹 이름·안내·파일 수정</button></div>${S.media(S.group(q.groupId)?.assets || [], "공통 그룹 이미지")}`;
           S.bind(box, q, (path) => {
             const m = /^(?:choices|fields)\.(\d+)\.labels\.management$/.exec(
               path,
@@ -449,6 +449,7 @@
               if (!rows.length)
                 throw Error("답변 또는 입력 필드를 먼저 추가해 주세요.");
               const errors = {};
+              S.checkCustomerLabel(q.labels, "", 80, errors);
               rows.forEach((x, i) =>
                 S.checkLabels(
                   x.labels,

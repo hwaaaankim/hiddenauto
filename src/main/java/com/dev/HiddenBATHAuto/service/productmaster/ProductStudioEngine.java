@@ -45,7 +45,9 @@ public final class ProductStudioEngine {
   }
 
   public static String label(Question q) {
-    return q.labels() == null ? q.key() : q.labels().management();
+    return q.labels() == null || text(q.labels().customer()).isBlank()
+        ? q.key()
+        : q.labels().customer();
   }
 
   private static void issue(
@@ -77,6 +79,18 @@ public final class ProductStudioEngine {
 
   public static String normalizedLabel(String value) {
     return java.text.Normalizer.normalize(text(value).strip(), java.text.Normalizer.Form.NFC);
+  }
+
+  /** Questions and groups have one customer name; retain the existing JSON/DB label shape. */
+  public static Labels customerLabels(Labels labels) {
+    String name = normalizedLabel(labels == null ? null : labels.customer());
+    return new Labels(name, name, name);
+  }
+
+  public static void customerLabel(Labels labels, int max) {
+    require(
+        labels != null && !text(labels.customer()).isBlank() && text(labels.customer()).length() <= max,
+        "고객용 질문 이름은 1~" + max + "자여야 합니다.");
   }
 
   public static void uniqueLabels(List<Labels> items, String subject) {
@@ -189,7 +203,7 @@ public final class ProductStudioEngine {
         issue(issues, "ERROR", "KEY", text(q.key()), "질문 value가 중복되거나 올바르지 않습니다.");
       order.put(q.key(), order.size());
       try {
-        labels(q.labels(), 80);
+        customerLabel(q.labels(), 80);
         fields(q.control(), q.fields(), q.fixed());
         require(
             text(q.question()).length() <= 300 && text(q.guide()).length() <= 1000,

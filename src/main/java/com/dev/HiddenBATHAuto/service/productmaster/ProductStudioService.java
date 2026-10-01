@@ -972,7 +972,7 @@ public class ProductStudioService {
             new Question(
                 original.key(),
                 q.groupId(),
-                q.labels(),
+                customerLabels(q.labels()),
                 q.control(),
                 !attributes.require(q.groupId()).isAskQuestion(),
                 attributes.require(q.groupId()).isAskQuestion() && q.visible(),
@@ -1041,7 +1041,7 @@ public class ProductStudioService {
               .anyMatch(q -> list(q.choices()).size() > 200 || list(q.fields()).size() > 20))
         throw new IllegalArgumentException("질문/보기/규칙 개수 또는 버전을 확인해 주세요.");
       for (Question q : normalized.questions()) {
-        labels(q.labels(), 80);
+        customerLabel(q.labels(), 80);
         fields(q.control(), q.fields(), true);
         if (text(q.question()).length() > 300 || text(q.guide()).length() > 1000)
           throw new IllegalArgumentException("질문 또는 안내 문구가 너무 깁니다.");

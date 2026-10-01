@@ -153,6 +153,8 @@
     const labelMax = withName ? 120 : 80;
     return `<div class="pms-form-grid ${withName ? "four" : ""}">${S.field("고객용", prefix + ".labels.customer", labels?.customer, "text", 'maxlength="' + labelMax + '" data-mirror="' + S.e(prefix) + '"')}${S.field("생산팀용", prefix + ".labels.production", labels?.production, "text", 'maxlength="' + labelMax + '"')}${S.field("관리팀용", prefix + ".labels.management", labels?.management, "text", 'maxlength="' + labelMax + '"')}${withName ? S.field("제품명 구성 문자 (빈칸 가능)", prefix + ".namePart", name, "text", 'maxlength="160"') : ""}</div>`;
   };
+  S.customerLabel = (source, prefix = "", title = "질문 이름 (고객용)") =>
+    S.field(title, prefix + ".labels.customer", source?.labels?.customer, "text", 'maxlength="80" data-customer-label');
   S.get = (obj, path) =>
     path
       .split(".")
@@ -230,6 +232,11 @@
         }
       }
       S.set(obj, path, value);
+      if (el.hasAttribute("data-customer-label")) {
+        const prefix = path.slice(0, -"customer".length);
+        S.set(obj, prefix + "production", value);
+        S.set(obj, prefix + "management", value);
+      }
       S.dirty = true;
       changed(path, value, el);
     }
@@ -572,6 +579,12 @@
       error.inlineShown = true;
       throw error;
     }
+  };
+  S.checkCustomerLabel = (labels, prefix, max, errors) => {
+    const value = labels?.customer ?? "";
+    if (!value.trim()) errors[prefix + "labels.customer"] = "고객용 이름을 입력해 주세요.";
+    else if (value.length > max)
+      errors[prefix + "labels.customer"] = "고객용 이름은 " + max + "자 이하로 입력해 주세요.";
   };
   S.checkLabels = (labels, prefix, max, errors) => {
     for (const [key, name] of Object.entries({
