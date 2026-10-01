@@ -111,7 +111,7 @@ public class ProductStudioAttributeService {
   }
 
   public Labels labelsOf(ProductAttributeGroup g) {
-    return new Labels(g.getCustomerLabel(), g.getProductionLabel(), g.getManagementLabel());
+    return customerLabels(new Labels(g.getCustomerLabel(), null, null));
   }
 
   public Labels labelsOf(ProductAttributeValue v) {
@@ -171,7 +171,10 @@ public class ProductStudioAttributeService {
   private GroupView saveGroupInternal(GroupEdit request, String actor, boolean initializeBase) {
     if (request == null) throw new IllegalArgumentException("그룹 정보가 필요합니다.");
     Map<String, String> errors = new LinkedHashMap<>();
-    checkLabels(request.labels(), "", 80, errors);
+    Labels l = customerLabels(request.labels());
+    if (l.customer().isBlank()) errors.put("labels.customer", "그룹 이름을 입력해 주세요.");
+    else if (l.customer().length() > 80)
+      errors.put("labels.customer", "그룹 이름은 80자 이하로 입력해 주세요.");
     if (!errors.isEmpty()) throw new ProductStudioValidationException(errors);
     try {
       fields(request.control(), request.fields(), request.nonStandard());
@@ -217,11 +220,6 @@ public class ProductStudioAttributeService {
       if (!g.getValues().isEmpty() && (!choice(request.control()) || request.nonStandard()))
         throw new IllegalArgumentException("보기가 등록된 그룹을 입력형 또는 비규격으로 바꿀 수 없습니다.");
     }
-    Labels l =
-        new Labels(
-            normalizedLabel(request.labels().customer()),
-            normalizedLabel(request.labels().production()),
-            normalizedLabel(request.labels().management()));
     boolean duplicate =
         request.id() == null
             ? groups.existsByCustomerLabelIgnoreCase(l.customer().trim())
@@ -233,10 +231,7 @@ public class ProductStudioAttributeService {
                 || groups.existsByManagementLabelIgnoreCaseAndIdNot(
                     l.management().trim(), g.getId());
     if (duplicate) {
-      for (var existing : groups.findAllByOrderBySortOrderAscIdAsc()) {
-        if (java.util.Objects.equals(existing.getId(), request.id())) continue;
-        duplicateLabels(l, labelsOf(existing), "", errors, "같은 표시명을 사용하는 그룹이 있습니다.");
-      }
+      errors.put("labels.customer", "기존 그룹의 이름과 중복됩니다. 다른 그룹 이름을 입력해 주세요.");
       throw new ProductStudioValidationException(errors);
     }
     if (request.id() == null) {

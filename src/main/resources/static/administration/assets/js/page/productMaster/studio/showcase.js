@@ -147,7 +147,7 @@
 
   S.registeredQuestion = function (q, fs = () => [], g = {}) {
     const names = (x) => `<dl><div><dt>고객용</dt><dd>${S.e(x.labels?.customer)}</dd></div><div><dt>생산팀용</dt><dd>${S.e(x.labels?.production)}</dd></div><div><dt>관리팀용</dt><dd>${S.e(x.labels?.management)}</dd></div></dl>`;
-    return `<div class="pm-registered-summary">${names(q)}<p><strong>질문</strong> · ${S.e(q.question || label(q))}</p>
+    return `<div class="pm-registered-summary"><p><strong>질문 이름 (고객용)</strong> · ${S.e(label(q))}</p><p><strong>고객용 질문</strong> · ${S.e(q.question || label(q))}</p>
       <small class="mono">질문 value: ${S.e(q.key)}</small>${q.guide?.trim() ? `<div class="pm-tutorial"><strong>튜토리얼·도움말</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}
       ${S.media(unique([...fs(q.assetIds), ...(g.assets || [])]), label(q) + " 질문 이미지")}
       ${q.choices?.length ? `<details><summary>등록된 답변 ${q.choices.length}개 · 표시명·value·안내·파일</summary>${q.choices.map((c) => {
@@ -198,12 +198,12 @@
     const topicButton = faq ? `<button type="button" data-pm-faq class="pm-faq-link">? FAQ · ${S.e(faq.title)}</button>` : "";
     const note = p.description?.trim() ? `<p class="pm-product-description pm-preserve-lines">${S.e(p.description)}</p>` : "";
 
-    function technical(x, extra = "") {
+    function technical(x, extra = "", option = true) {
       if (!admin) return "";
       return `<details class="pm-technical"><summary>value·상세 설정</summary><dl>
         <div><dt>내부 value</dt><dd class="mono">${S.e(x.key)}</dd></div>
-        <div><dt>생산팀 표시명</dt><dd>${S.e(x.labels?.production)}</dd></div>
-        <div><dt>관리팀 표시명</dt><dd>${S.e(x.labels?.management)}</dd></div>
+        ${option ? `<div><dt>생산팀 표시명</dt><dd>${S.e(x.labels?.production)}</dd></div>
+        <div><dt>관리팀 표시명</dt><dd>${S.e(x.labels?.management)}</dd></div>` : ""}
         ${x.namePart != null ? `<div><dt>제품명 구성 문자</dt><dd>${S.e(x.namePart) || "없음"}</dd></div>` : ""}${extra}</dl></details>`;
     }
     function fieldLimits(q, f) {
@@ -243,8 +243,8 @@
         ${admin ? `<div class="pms-actions pm-spec-edit-links"><a class="pms-button" href="/admin/product-master/groups?groupId=${q.groupId}" target="_blank" rel="noopener">공통 그룹·옵션 설정 수정</a>${p.nonStandard && !isBase(q) ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/process?question=${encodeURIComponent(q.key)}">이 제품의 질문·답변 수정</a>` : ""}</div>` : ""}
         ${technical(q, g.key ? `<div><dt>그룹 value</dt><dd class="mono">${S.e(g.key)}</dd></div><div><dt>그룹 질문 설정</dt><dd>${g.askQuestion ? "고객 질문 포함" : "질문 제외 · 고정 사양"}</dd></div>
           <div><dt>제품 질문 기본 표시</dt><dd>${q.fixed ? "고정 사양" : q.visible ? "표시" : "조건에 따라 표시"}</dd></div><div><dt>조건 연결 필수</dt><dd>${q.requireRule ? "모든 입력 경로에 연결 필요" : "기본 흐름 허용"}</dd></div>
-          ${g.labels && (JSON.stringify(g.labels) !== JSON.stringify(q.labels) || g.question !== q.question || g.guide !== q.guide) ? `<div><dt>공통 그룹 고객용</dt><dd>${S.e(g.labels.customer)}</dd></div><div><dt>공통 그룹 생산팀용</dt><dd>${S.e(g.labels.production)}</dd></div><div><dt>공통 그룹 관리팀용</dt><dd>${S.e(g.labels.management)}</dd></div>
-            <div><dt>공통 질문</dt><dd>${S.e(g.question)}</dd></div>${g.guide?.trim() ? `<div><dt>공통 안내</dt><dd class="pm-preserve-lines">${S.e(g.guide)}</dd></div>` : ""}` : ""}` : "")}
+          ${g.labels && (g.labels.customer !== q.labels?.customer || g.question !== q.question || g.guide !== q.guide) ? `<div><dt>공통 그룹 이름</dt><dd>${S.e(g.labels.customer)}</dd></div>
+            <div><dt>공통 고객 질문</dt><dd>${S.e(g.question)}</dd></div>${g.guide?.trim() ? `<div><dt>공통 고객 튜토리얼</dt><dd class="pm-preserve-lines">${S.e(g.guide)}</dd></div>` : ""}` : ""}` : "", false)}
       </article>`;
     }
     const rules = admin && !summary && p.nonStandard ? `<section id="${prefix}-rules" class="pm-product-section"><header><span class="pm-detail-eyebrow">PROCESS RULES</span><h2>답변에 따른 연관관계</h2></header>
