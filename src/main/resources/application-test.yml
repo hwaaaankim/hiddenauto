@@ -1,17 +1,17 @@
 spring:
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
-#    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+    # url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+    url: jdbc:mariadb://1.234.53.160:3306/hiddenauto_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
     username: root
-    password: 'hidden3660!@'
+    password: "hidden3660!@"
     hikari:
-      connectionTimeout: 30000
-      maximumPoolSize: 10
-      maxLifetime: 1800000
-      poolName: HikariCP
-      readOnly: false
-      connectionTestQuery: SELECT 1
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      max-lifetime: 1800000
+      pool-name: HikariCP
+      read-only: false
+      connection-test-query: SELECT 1
 
   h2:
     console:
@@ -22,14 +22,14 @@ spring:
 
   servlet:
     multipart:
-      maxFileSize: 5000MB
-      maxRequestSize: -1
+      max-file-size: 5000MB
+      max-request-size: -1
 
   mail:
     host: smtp.gmail.com
     port: 587
-    username: 'admin@hiddenbath.co.kr'
-    password: 'hfdpehjnemsxvhre'
+    username: "admin@hiddenbath.co.kr"
+    password: "hfdpehjnemsxvhre"
     properties:
       mail:
         smtp:
@@ -43,7 +43,7 @@ spring:
 
 security:
   remember-me:
-    key: hiddenremember
+    key: "hiddenremember"
     secure-cookie: false
 
 app:
@@ -60,6 +60,7 @@ app:
       emergency-enabled: true
       normal-enabled: true
       template-code: "D8jAppuvn1"
+
   as-notification:
     enabled: true
     notify-actor: false
@@ -84,8 +85,22 @@ app:
 logging:
   level:
     com.dev.HiddenBATHAuto.notification: DEBUG
+    com.dev.HiddenBATHAuto.service.productmaster: INFO
 
 hiddenbath:
+  product-drawing:
+    # 프로젝트에 포함된 로컬 diagrams.net 편집기
+    editor-url: "/administration/assets/libs/diagrams/index.html"
+
+    # 이미지 → 편집 가능한 도면 초안 생성
+    vision-model: "gpt-6.1-sol"
+    vision-reasoning-effort: medium
+    max-draft-completion-tokens: 32768
+
+    # GPT 요청·응답, 도형 데이터, 생성 XML 상세 로그
+    diagnostic-logging-enabled: true
+    diagnostic-log-max-chars: 131072
+
   rag:
     datasource:
       driver-class-name: org.postgresql.Driver
@@ -95,25 +110,30 @@ hiddenbath:
       # ssh -N -L 15433:127.0.0.1:5433 ubuntu@1.234.53.160
       url: jdbc:postgresql://127.0.0.1:15433/ax_rag_dev
       username: ax_rag_dev_user
-      password: ax_pass_1234
+      password: "ax_pass_1234"
       hikari:
         maximum-pool-size: 5
         minimum-idle: 1
         pool-name: rag-postgres-pool-local-dev
 
     openai:
-      # API Key만 환경변수를 우선 사용합니다.
-      # 로컬에서 직접 입력할 때는 콜론 뒤 플레이스홀더만 실제 키로 교체하십시오.
-      api-key: ${OPENAI_API_KEY}
-      base-url: https://api.openai.com
-      chat-model: gpt-5.6
-      embedding-model: text-embedding-3-large
+      # 도면 AI와 RAG가 이 API 키를 함께 사용합니다.
+      # 실행 프로세스의 OPENAI_API_KEY 환경변수에서 읽습니다.
+      # 미등록 시 빈 값으로 처리되며, OpenAI API를 호출하는 기능은 사용할 수 없습니다.
+      api-key: "${OPENAI_API_KEY:}"
+
+      base-url: "https://api.openai.com"
+
+      # 기존 RAG 채팅 설정
+      # 도면 AI 모델은 위 product-drawing.vision-model로 별도 지정
+      chat-model: "gpt-5.6"
+      embedding-model: "text-embedding-3-large"
       reasoning-effort: medium
       read-timeout-seconds: 180
       retry-count: 1
 
       # V4 GPT 중심 Agent
-      agent-capability-version: V4-20260714
+      agent-capability-version: "V4-20260714"
       agent-max-tool-turns: 30
       agent-no-progress-limit: 3
       agent-recovery-attempts: 2
@@ -153,8 +173,9 @@ hiddenbath:
       adaptive-chunk-overlap-chars: 220
       adaptive-group-size: 4
       adaptive-max-leaf-chunks: 480
+
     upload:
-      base-dir: ${user.home}/hiddenbath-rag-upload
+      base-dir: "${user.home}/hiddenbath-rag-upload"
       asset-sub-dir: rag-assets
       public-url-prefix: /administration/upload/rag-assets
       max-file-size-bytes: 52428800

@@ -6,6 +6,8 @@ import static com.dev.HiddenBATHAuto.service.productmaster.ProductStudioEngine.*
 import com.dev.HiddenBATHAuto.enums.productmaster.*;
 import com.dev.HiddenBATHAuto.model.productmaster.*;
 import com.dev.HiddenBATHAuto.repository.productmaster.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,22 @@ public class ProductStudioAttributeService {
   private final ProductStudioAssetService assets;
   private final ProductMasterCodeService codes;
   private final ProductStudioJson json;
+  private final EntityManager entityManager;
+
+  /** Shared custom definitions are immutable once used; product-local processes remain editable. */
+  @Transactional
+  public void requireEditableGroup(Long id) {
+    ProductAttributeGroup group = require(id);
+    if (group.isNonStandard()) {
+      entityManager.lock(group, LockModeType.PESSIMISTIC_WRITE);
+      entityManager.refresh(group);
+      if (components.existsByGroupId(id))
+        throw new IllegalStateException(
+            "제품에서 사용하는 비규격 공통 그룹은 설정·이미지를 변경하거나 삭제할 수 없습니다. "
+                + "질문·입력 필드·옵션·범위·분기·제품별 이미지는 해당 제품의 프로세스에서 수정해 주세요.");
+    }
+    noActuals(id);
+  }
 
   @Transactional
   public List<GroupView> bootstrap(String actor) {
@@ -147,7 +165,8 @@ public class ProductStudioAttributeService {
         options,
         groupAssets,
         asksQuestion(g),
-        g.isPriceImpact());
+        g.isPriceImpact(),
+        g.isNonStandard() && components.existsByGroupId(g.getId()));
   }
 
   public ValueView view(ProductAttributeValue v) {
@@ -182,7 +201,7 @@ public class ProductStudioAttributeService {
       throw new ProductStudioValidationException(Map.of("fields", e.getMessage()));
     }
     ProductAttributeGroup current = request.id() == null ? null : require(request.id());
-    if (current != null) noActuals(current.getId());
+    if (current != null) requireEditableGroup(current.getId());
     // Classification is determined by the stored base group, never by an editor selection.
     ProductAttributeRole role =
         initializeBase
@@ -411,7 +430,7 @@ public class ProductStudioAttributeService {
   @Transactional
   public void deleteGroup(Long id, String actor) {
     ProductAttributeGroup g = require(id);
-    noActuals(id);
+    requireEditableGroup(id);
     if (BASE.contains(g.getSystemRole().name()))
       throw new IllegalArgumentException("기본그룹은 삭제할 수 없습니다.");
     if (components.existsByGroupId(id))

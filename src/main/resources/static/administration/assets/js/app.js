@@ -555,15 +555,22 @@
 		(a = location.pathname === "/" ? "/admin/index" : location.pathname) &&
 			console.log(a);
 
+		// 제품별 도면 주소는 목록 메뉴에 연결하고, 직접 메뉴가 없는 주소도 허용합니다.
+		if (/^\/admin\/product-master\/products\/\d+\/drawing\/?$/.test(a)) {
+			a = "/admin/product-master/products";
+		} else if (/^\/admin\/product-master\/actuals\/\d+\/drawing\/?$/.test(a)) {
+			a = "/admin/product-master/non-standard";
+		}
+		var iconMenu = document.getElementById("two-column-menu"),
+			navbar = document.getElementById("navbar-nav");
+		function iconLink(href) {
+			return iconMenu && iconMenu.querySelector('[href="' + href + '"]');
+		}
+
 		// ✅ [수정] document.body.className 완전일치 비교 제거 -> contains로 변경
 		(document.body.classList.contains("twocolumn-panel") &&
-			document
-				.getElementById("two-column-menu")
-				.querySelector('[href="' + a + '"]')
-				.classList.add("active"),
-			(a = document
-				.getElementById("navbar-nav")
-				.querySelector('[href="' + a + '"]'))
+			iconLink(a) && iconLink(a).classList.add("active"),
+			(a = navbar && navbar.querySelector('[href="' + a + '"]'))
 				? (a.classList.add("active"),
 					(t = (
 						(e = a.closest(".collapse.menu-dropdown")) &&
@@ -586,12 +593,8 @@
 									e.parentElement
 										.closest(".collapse.menu-dropdown")
 										.parentElement.classList.remove("twocolumn-item-show"),
-									document
-										.getElementById("two-column-menu")
-										.querySelector('[href="#' + t + '"]')) &&
-								document
-									.getElementById("two-column-menu")
-									.querySelector('[href="#' + t + '"]')
+									iconLink("#" + t)) &&
+								iconLink("#" + t)
 									.classList.add("active"),
 								e.parentElement.closest(".collapse.menu-dropdown"))
 							: (a
@@ -599,12 +602,8 @@
 								.parentElement.classList.add("twocolumn-item-show"),
 								e)
 					).getAttribute("id")),
-					document
-						.getElementById("two-column-menu")
-						.querySelector('[href="#' + t + '"]') &&
-					document
-						.getElementById("two-column-menu")
-						.querySelector('[href="#' + t + '"]')
+					iconLink("#" + t) &&
+					iconLink("#" + t)
 						.classList.add("active"))
 				: document.body.classList.add("twocolumn-panel"));
 	}

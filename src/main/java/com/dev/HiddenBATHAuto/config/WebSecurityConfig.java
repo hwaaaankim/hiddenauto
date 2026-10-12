@@ -14,6 +14,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 
@@ -221,6 +224,11 @@ public class WebSecurityConfig {
                             frameOptionsConfig ->
                                     frameOptionsConfig.disable()
                     )
+                    .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                            new AntPathRequestMatcher("/administration/assets/libs/diagrams/**"),
+                            new XFrameOptionsHeaderWriter(
+                                    XFrameOptionsHeaderWriter.XFrameOptionsMode.SAMEORIGIN)
+                    ))
             )
             .authorizeHttpRequests(authorizeRequests ->
                     authorizeRequests

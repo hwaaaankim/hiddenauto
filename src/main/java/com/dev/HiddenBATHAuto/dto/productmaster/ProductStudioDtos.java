@@ -190,7 +190,17 @@ public final class ProductStudioDtos {
       List<ValueView> values,
       List<AssetView> assets,
       boolean askQuestion,
-      boolean priceImpact) {
+      boolean priceImpact,
+      boolean definitionLocked) {
+    public GroupView(
+        Long id, long version, String key, Labels labels, String role, Control control,
+        boolean nonStandard, boolean includeInName, boolean active, String question, String guide,
+        List<Field> fields, List<ValueView> values, List<AssetView> assets,
+        boolean askQuestion, boolean priceImpact) {
+      this(id, version, key, labels, role, control, nonStandard, includeInName, active,
+          question, guide, fields, values, assets, askQuestion, priceImpact, false);
+    }
+
     public GroupView(
         Long id,
         long version,

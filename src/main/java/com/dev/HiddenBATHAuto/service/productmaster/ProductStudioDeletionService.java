@@ -145,6 +145,8 @@ public class ProductStudioDeletionService {
           .setParameter("id", product.getId()).executeUpdate();
       assets.deleteOwned("PRODUCT", product.getId());
       assets.deleteOwned("PROCESS", product.getId());
+      entityManager.createQuery("delete from ProductDrawing d where d.product.id = :id")
+          .setParameter("id", product.getId()).executeUpdate();
       // Only product components and input indexes cascade; shared groups/options never cascade.
       products.delete(product);
     }
@@ -159,6 +161,8 @@ public class ProductStudioDeletionService {
       List<ProductActual> batch = selected.subList(start, Math.min(selected.size(), start + DELETE_BATCH_SIZE));
       List<Long> ids = batch.stream().map(ProductActual::getId).toList();
       entityManager.createQuery("delete from ProductActualMovement m where m.actual.id in :ids")
+          .setParameter("ids", ids).executeUpdate();
+      entityManager.createQuery("delete from ProductDrawing d where d.actual.id in :ids")
           .setParameter("ids", ids).executeUpdate();
       for (ProductActual actual : batch) assets.deleteOwned("ACTUAL", actual.getId());
       actuals.deleteAll(batch);

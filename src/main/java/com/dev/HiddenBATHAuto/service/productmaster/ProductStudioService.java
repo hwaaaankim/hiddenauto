@@ -317,8 +317,10 @@ public class ProductStudioService {
                   ? List.of("제품명을 1~160자로 입력해 주세요.")
                   : List.of()));
     }
+    // Custom products may share every classification and group. Their process is product-local.
     Map<String, ProductMaster> existing =
-        duplicates(rows.stream().map(r -> r.key().substring(r.key().indexOf(':') + 1)).toList());
+        plan.custom() ? Map.of()
+            : duplicates(rows.stream().map(r -> r.key().substring(r.key().indexOf(':') + 1)).toList());
     rows =
         rows.stream()
             .map(
@@ -387,7 +389,7 @@ public class ProductStudioService {
       selections.add(v);
       names.add(name);
     }
-    Map<String, ProductMaster> existing = duplicates(hashes);
+    Map<String, ProductMaster> existing = plan.custom() ? Map.of() : duplicates(hashes);
     if (!existing.isEmpty())
       throw new IllegalStateException(
           "동일 제품이 이미 등록되어 있습니다: "
@@ -400,7 +402,7 @@ public class ProductStudioService {
     for (int i = 0; i < request.rows().size(); i++) {
       RegistrationRow row = request.rows().get(i);
       List<Variant> v = selections.get(i);
-      String hash = identity(v, plan.custom());
+      String hash = plan.custom() ? codes.newNonStandardIdentity() : identity(v, false);
       ProductMaster p = new ProductMaster();
       validateMetadata(row.productionHours(), row.unitPrice(), row.faqTopicId(), plan.custom());
       if (plan.custom() && row.initialStock() != 0)
@@ -509,10 +511,9 @@ public class ProductStudioService {
                 !ProductStudioAttributeService.BASE.contains(
                     attributes.require(v.groupId()).getSystemRole().name()))
         .forEach(merged::add);
+    lockCustomGroups(merged);
     merged = validateVariants(merged, true);
-    String hash = identity(merged, true);
-    if (!duplicates(List.of(hash)).isEmpty())
-      throw new IllegalArgumentException("동일 사양 제품이 이미 존재합니다.");
+    String hash = codes.newNonStandardIdentity();
     ProductMaster p = new ProductMaster();
     p.setNonStandard(true);
     p.setProductName(name.trim());
@@ -531,6 +532,8 @@ public class ProductStudioService {
     p.setStatus(ProductMasterStatus.DRAFT);
     addComponents(p, merged);
     products.saveAndFlush(p);
+    // The JSON is stored on the new product. Question/option keys are scoped to that product,
+    // so retaining them preserves every internal branch without sharing editable option rows.
     String copiedProcess =
         assets.copyOwned(
             "PROCESS", source.getId(), p.getId(), source.getStudioProcessJson(), actor);
@@ -792,6 +795,7 @@ public class ProductStudioService {
     if (text(edit.description()).length() > 1000)
       throw new IllegalArgumentException("제품 설명은 최대 1,000자입니다.");
     requireNoActuals(p);
+    lockCustomGroups(list(edit.variants()));
     List<Variant> selected = validateVariants(edit.variants(), p.isNonStandard());
     boolean custom = p.isNonStandard();
     validateMetadata(edit.productionHours(), edit.unitPrice(), edit.faqTopicId(), custom);
@@ -801,11 +805,13 @@ public class ProductStudioService {
     if (custom != p.isNonStandard())
       throw new IllegalArgumentException("규격·비규격 제품 유형을 변경할 수 없습니다.");
     String hash = identity(selected, custom);
-    ProductMaster duplicate = duplicates(List.of(hash)).get(hash);
+    ProductMaster duplicate = custom ? null : duplicates(List.of(hash)).get(hash);
     if (duplicate != null && !duplicate.getId().equals(id))
       throw new IllegalStateException(
           "동일한 제품이 있습니다: " + duplicate.getProductName() + " (#" + duplicate.getId() + ")");
-    if (!hash.equals(p.getStudioIdentity())) {
+    // Custom identity/code stays stable; compare definitions to detect a configuration edit.
+    String previousHash = custom ? identity(variants(p), true) : p.getStudioIdentity();
+    if (!hash.equals(previousHash)) {
       // Inventory remains tied to the same product ID; record a complete before/after specification
       // audit.
       ProductStudioAudit audit = new ProductStudioAudit();
@@ -819,9 +825,11 @@ public class ProductStudioService {
       p.getStudioInputs().clear();
       products.flush();
       addComponents(p, selected);
-      p.setStudioIdentity(hash);
-      p.setProductCode("PM2|" + hash);
-      p.setConfigurationHash(codes.configurationHash(p.getProductCode()));
+      if (!custom) {
+        p.setStudioIdentity(hash);
+        p.setProductCode("PM2|" + hash);
+        p.setConfigurationHash(codes.configurationHash(p.getProductCode()));
+      }
     }
     List<ProductAttributeGroup> groups =
         selected.stream().map(v -> attributes.require(v.groupId())).toList();
@@ -859,6 +867,18 @@ public class ProductStudioService {
     assets.attach("PRODUCT", id, edit.assetIds(), actor);
     products.flush();
     return view(p, true);
+  }
+
+  /** Serialize adding shared custom groups with edits to an as-yet unused group definition. */
+  private void lockCustomGroups(List<Variant> selected) {
+    selected.stream().filter(Objects::nonNull).map(Variant::groupId).filter(Objects::nonNull)
+        .distinct().sorted().forEach(id -> {
+          ProductAttributeGroup group = attributes.require(id);
+          if (group.isNonStandard()) {
+            entityManager.lock(group, LockModeType.PESSIMISTIC_WRITE);
+            entityManager.refresh(group);
+          }
+        });
   }
 
   private List<Variant> validateVariants(List<Variant> selected, boolean custom) {
@@ -1309,8 +1329,7 @@ public class ProductStudioService {
     switch (type) {
       case "PRODUCT", "PROCESS" -> requireNoActuals(require(id));
       case "GROUP" -> {
-        attributes.require(id);
-        attributes.noActuals(id);
+        attributes.requireEditableGroup(id);
       }
       case "VALUE" -> {
         ProductAttributeValue v =

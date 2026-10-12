@@ -1,0 +1,27 @@
+draw.io / diagrams.net vendored static distribution
+
+Upstream: https://github.com/jgraph/drawio
+Release: v32.4.1 (stable, published 2026-10-08T21:49:28Z)
+Source distribution: https://github.com/jgraph/drawio/releases/download/v32.4.1/draw.war
+WAR bytes: 48,442,174
+WAR SHA-256: b83663313ccdecef6581476a7eaa96750bccf1bfdc3768981eb5d95e94be7820
+
+This directory contains the original upstream static files from the pinned official release WAR.
+The server-side WEB-INF and META-INF directories were excluded; no upstream bundles were rebuilt or minified.
+Root LICENSE and VERSION were copied from the same v32.4.1 tag. The upstream tag has no root NOTICE file.
+All included asset licenses remain in their original paths:
+  img/LICENSE
+  shapes/LICENSE
+  stencils/LICENSE
+  templates/LICENSE
+  js/libavoid-js/LICENSE
+
+The root LICENSE is Apache License 2.0. Some shape/image assets retain their own notices; consult their LICENSE files.
+The corresponding original upstream static file hashes are recorded in UPSTREAM-MANIFEST.json.
+HiddenBATHAuto stores product drawing XML through its own API. OpenAI requests remain on the HiddenBATHAuto backend.
+No account credentials or API keys belong in this public directory.
+
+Deployment overrides are limited to js/PreConfig.js and js/PostConfig.js.
+The original upstream statements and copyright comments remain; a clearly marked HiddenBATHAuto configuration block was appended.
+The overrides derive local deployment/viewer/math URLs and disable upstream cloud integrations, AI, plugins, service worker and realtime.
+UPSTREAM-MANIFEST.json records both original and deployed hashes for these two files.

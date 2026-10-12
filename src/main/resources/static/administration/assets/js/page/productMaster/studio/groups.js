@@ -299,6 +299,12 @@
             );
           });
       }
+      if (S.group(model.id)?.definitionLocked) {
+        editor.insertAdjacentHTML("afterbegin", '<div class="pms-help" role="status">제품에서 사용하는 비규격 공통 그룹입니다. 설정·이미지 변경과 삭제가 잠겨 있습니다. 제품별 질문·입력 필드·옵션·범위·분기는 각 제품의 프로세스에서 수정해 주세요.</div>');
+        S.$$("input, select, textarea, button", editor).forEach((el) => {
+          el.disabled = true;
+        });
+      }
     }
     async function saveOptionDrafts() {
       const saved = await S.requestAt(
@@ -411,7 +417,7 @@
   };
   S.groupSettingsDialog = async function (groupId, refreshed = () => {}) {
     const before = S.dirty;
-    const d = S.dialog("공통 그룹·옵션 등록 내용 수정", '<p class="pms-help">그룹과 규격 옵션의 공통 정보를 편집합니다. 규격 제품에는 변경한 표시명·질문·안내·이미지가 적용됩니다. 비규격 제품의 질문·답변·안내는 해당 제품의 프로세스에서 수정하고, 공통 그룹 이미지는 함께 표시합니다.</p><div data-group-inspector class="pm-group-inspector"></div>', {
+    const d = S.dialog("공통 그룹·옵션 등록 내용 수정", '<p class="pms-help">그룹과 규격 옵션의 공통 정보를 편집합니다. 규격 제품에는 변경한 표시명·질문·안내·이미지가 적용됩니다. 비규격 제품의 질문·답변·안내·제품별 이미지는 해당 제품의 프로세스에서 수정합니다. 사용 중인 비규격 공통 그룹의 설정·이미지는 조회만 가능합니다.</p><div data-group-inspector class="pm-group-inspector"></div>', {
       onClose: () => { S.dirty = before; Promise.resolve(refreshed()).catch((e) => S.toast(e.message)); },
     });
     await S.groupsPage(S.$("[data-group-inspector]", d), groupId);

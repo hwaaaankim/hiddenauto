@@ -5,12 +5,12 @@ spring:
     username: root
     password: 'hidden3660!@'
     hikari:
-      connectionTimeout: 30000
-      maximumPoolSize: 10
-      maxLifetime: 1800000
-      poolName: HikariCP
-      readOnly: false
-      connectionTestQuery: SELECT 1
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      max-lifetime: 1800000
+      pool-name: HikariCP
+      read-only: false
+      connection-test-query: SELECT 1
 
   h2:
     console:
@@ -21,8 +21,8 @@ spring:
 
   servlet:
     multipart:
-      maxFileSize: 5000MB
-      maxRequestSize: -1
+      max-file-size: 5000MB
+      max-request-size: -1
 
   mail:
     host: smtp.gmail.com
@@ -89,15 +89,29 @@ app:
 logging:
   level:
     com.dev.HiddenBATHAuto.notification: INFO
+    com.dev.HiddenBATHAuto.service.productmaster: INFO
 
 hiddenbath:
+  product-drawing:
+    # 프로젝트에 포함된 로컬 diagrams.net 편집기
+    editor-url: "/administration/assets/libs/diagrams/index.html"
+
+    # 이미지 → 편집 가능한 도면 초안 생성
+    vision-model: "gpt-6.1-sol"
+    vision-reasoning-effort: medium
+    max-draft-completion-tokens: 32768
+
+    # 운영에서는 요청·응답 및 도면 XML 상세 로그를 기본 비활성화합니다.
+    diagnostic-logging-enabled: false
+    diagnostic-log-max-chars: 131072
+
   rag:
     datasource:
       driver-class-name: org.postgresql.Driver
 
-      # 로컬 Windows는 서버 RAG dev DB를 SSH 터널로 봅니다.
-      # 실행 명령:
-      # ssh -N -L 15433:127.0.0.1:5433 ubuntu@1.234.53.160
+      # 제공된 운영 파일의 기존 RAG 접속 주소와 계정을 유지합니다.
+      # 이 주소는 15433 포트 / ax_rag_dev DB입니다. 서버의 실제 RAG 구성과 일치하는지 확인하십시오.
+      # 로컬용 SSH 터널 명령을 서버에서 그대로 실행하는 의미가 아닙니다.
       url: jdbc:postgresql://127.0.0.1:15433/ax_rag_dev
       username: ax_rag_dev_user
       password: ax_pass_1234
@@ -107,9 +121,10 @@ hiddenbath:
         pool-name: rag-postgres-pool-local-dev
 
     openai:
-      # API Key만 환경변수를 우선 사용합니다.
-      # 로컬에서 직접 입력할 때는 콜론 뒤 플레이스홀더만 실제 키로 교체하십시오.
-      api-key: ${OPENAI_API_KEY}
+      # 도면 AI와 RAG가 이 API 키를 함께 사용합니다.
+      # 실행 프로세스의 OPENAI_API_KEY 환경변수에서 읽습니다.
+      # 미등록 시 빈 값으로 처리되며, OpenAI API를 호출하는 기능은 사용할 수 없습니다.
+      api-key: "${OPENAI_API_KEY:}"
       base-url: https://api.openai.com
       chat-model: gpt-5.6
       embedding-model: text-embedding-3-large
