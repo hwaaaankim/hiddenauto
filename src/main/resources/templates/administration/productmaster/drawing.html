@@ -1,0 +1,65 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg" data-sidebar-image="none" data-preloader="disable">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+<body class="twocolumn-panel">
+  <div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+    <div class="main-content"><div class="page-content">
+      <main id="pm-drawing" class="pmd" tabindex="-1" th:attr="data-kind=${drawingKind},data-target-id=${drawingTargetId},data-editor-url=${editorUrl},data-back-url=${backUrl},data-ai-diagnostics=${aiDiagnosticsEnabled},data-ai-log-max-chars=${aiDiagnosticLogMaxChars}">
+        <header class="pmd-heading">
+          <div class="pmd-title-group"><span class="pmd-eyebrow">PRODUCT DRAWING</span><h1>제품 도면</h1><p id="pmd-product-label">제품 정보를 불러오고 있습니다.</p></div>
+          <div class="pmd-heading-actions"><button type="button" id="pmd-help">사용 안내</button><button type="button" id="pmd-fullscreen">화면 확대</button><a id="pmd-back" href="/admin/product-master/products">제품 목록</a></div>
+        </header>
+        <div class="pmd-toolbar">
+          <div class="pmd-tools"><button id="pmd-import" type="button" data-editor-tool>타제품 도면 불러오기</button><button id="pmd-ai" type="button" data-editor-tool>이미지로 초안 만들기</button><button id="pmd-open-file" type="button" data-editor-tool>도면 파일 열기</button></div>
+          <div class="pmd-tools"><button id="pmd-xml" type="button" data-editor-tool>.drawio 내려받기</button><button id="pmd-svg" type="button" data-editor-tool>SVG</button><button id="pmd-png" type="button" data-editor-tool>PNG</button><button id="pmd-save" class="pmd-primary" type="button" data-editor-tool>도면 등록</button></div>
+        </div>
+        <div class="pmd-statebar"><span id="pmd-state" class="pmd-state" role="status" aria-live="polite">불러오는 중</span><span id="pmd-updated"></span><span class="pmd-explicit">‘도면 등록’을 눌러야 제품에 저장됩니다.</span></div>
+        <div id="pmd-notice" class="pmd-notice" role="status" aria-live="polite" hidden></div>
+        <div id="pmd-conflict" class="pmd-conflict" hidden><span>다른 창에서 도면을 변경했습니다. 현재 작업을 내려받은 뒤 최신 도면을 확인해 주세요.</span><button type="button" id="pmd-conflict-backup">현재 작업 백업</button><button type="button" id="pmd-latest">최신 도면 불러오기</button></div>
+        <div class="pmd-editor-shell">
+          <iframe id="pmd-editor" title="제품 도면 편집기" allow="clipboard-read; clipboard-write; fullscreen" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe>
+          <div id="pmd-cover" class="pmd-cover"><div><span class="pmd-spinner" aria-hidden="true"></span><strong id="pmd-cover-text">도면 편집기를 준비하고 있습니다.</strong><p id="pmd-cover-detail">도형 · 정렬 안내선 · 텍스트 · 여러 페이지</p><button id="pmd-retry" type="button" hidden>편집기 다시 연결</button><button id="pmd-retry-data" type="button" hidden>제품 도면 다시 불러오기</button><button id="pmd-cover-backup" type="button" hidden>현재 도면 백업</button></div></div>
+        </div>
+        <footer class="pmd-footer"><span>하단 <b>＋</b>로 배면도·측면도·입체도를 추가하고, 페이지 탭 메뉴에서 이름 변경·복제·삭제를 하실 수 있습니다.</span><span>이미지 내려받기는 현재 선택한 페이지 기준입니다.</span></footer>
+        <input id="pmd-file" type="file" accept=".drawio,.xml" hidden />
+
+        <dialog id="pmd-import-dialog" class="pmd-dialog">
+          <div class="pmd-dialog-heading"><div><span class="pmd-eyebrow">DRAWING LIBRARY</span><h2>타제품 도면 불러오기</h2></div><button type="button" data-close aria-label="닫기">✕</button></div>
+          <p class="pmd-dialog-description">규격 제품과 비규격의 실제 제품에 등록된 도면을 복사합니다. 원본 도면에는 영향을 주지 않습니다.</p>
+          <form id="pmd-search" class="pmd-search"><input id="pmd-query" type="search" placeholder="제품명 또는 제품 ID 검색" maxlength="100" aria-label="제품명 또는 제품 ID" /><button type="submit">검색</button></form>
+          <fieldset class="pmd-import-choice"><legend>불러오는 방식</legend><label><input type="radio" name="pmd-template-mode" value="append" checked /> 현재 도면에 페이지 추가</label><label><input type="radio" name="pmd-template-mode" value="replace" /> 전체 도면 교체</label></fieldset>
+          <div id="pmd-search-status" role="status" aria-live="polite"></div><div id="pmd-template-results" class="pmd-template-results"></div><button id="pmd-more" class="pmd-more" type="button" hidden>더 보기</button>
+          <div class="pmd-dialog-bottom"><small>불러온 도면도 ‘도면 등록’을 눌러야 저장됩니다.</small><button type="button" data-close>닫기</button></div>
+        </dialog>
+
+        <dialog id="pmd-ai-dialog" class="pmd-dialog">
+          <div class="pmd-dialog-heading"><div><span class="pmd-eyebrow">IMAGE TO DRAWING</span><h2>이미지로 도면 초안 만들기</h2></div><button type="button" data-close aria-label="닫기">✕</button></div>
+          <p class="pmd-dialog-description">제품 사진·PPT 도면의 기본 외곽, 문·선반, 치수와 텍스트를 편집할 수 있는 도형으로 만듭니다. 생성 후 위치와 실제 치수를 확인해 주세요.</p>
+          <form id="pmd-ai-form">
+            <label class="pmd-upload"><span>참고 이미지</span><input id="pmd-ai-file" name="file" type="file" accept="image/png,image/jpeg,image/webp" required /><small>PNG·JPG·WEBP · 최대 10MB · 원본 이미지는 초안 해석을 위해 OpenAI로 전송됩니다.</small></label>
+            <div id="pmd-image-preview" class="pmd-image-preview" hidden><img alt="초안 생성에 사용할 참고 이미지" /></div>
+            <label class="pmd-instruction"><span>추가 설명 (선택)</span><textarea id="pmd-ai-instruction" name="instruction" rows="3" maxlength="2000" placeholder="예: 상부 2도어, 내부 선반 1개. 왼쪽은 정면도, 오른쪽은 측면도로 나누어 주세요."></textarea></label>
+            <fieldset class="pmd-import-choice"><legend>초안 적용 방식</legend><label><input type="radio" name="pmd-ai-mode" value="append" checked /> 현재 도면에 페이지 추가</label><label><input type="radio" name="pmd-ai-mode" value="replace" /> 전체 도면 교체</label></fieldset>
+            <div id="pmd-ai-status" class="pmd-ai-status" role="status" aria-live="polite"></div>
+            <div class="pmd-dialog-bottom"><small>AI 초안은 등록 전까지 제품에 저장되지 않습니다.</small><div><button type="button" id="pmd-ai-cancel" hidden>생성 취소</button><button type="button" data-close>닫기</button><button type="submit" class="pmd-primary" id="pmd-ai-submit">초안 생성</button></div></div>
+          </form>
+        </dialog>
+
+        <dialog id="pmd-help-dialog" class="pmd-dialog">
+          <div class="pmd-dialog-heading"><div><span class="pmd-eyebrow">DRAWING GUIDE</span><h2>도면 편집 안내</h2></div><button type="button" data-close aria-label="닫기">✕</button></div>
+          <dl class="pmd-guide"><dt>도형·텍스트</dt><dd>왼쪽 도형을 끌어다 놓으세요. 도형을 더블 클릭하면 글씨를 입력할 수 있습니다. 오른쪽 서식 패널에서 선 색·두께·점선·채우기·글꼴을 조절합니다.</dd><dt>정렬·동일 크기</dt><dd>도형 이동·크기 변경 시 정렬, 간격, 동일 폭·높이 안내선이 표시됩니다. 보기 메뉴의 안내선과 격자를 켜고, 정렬 메뉴에서 맞춤·간격 조정·그룹·앞뒤 배치를 사용하세요.</dd><dt>여러 도면</dt><dd>하단의 ＋로 페이지를 추가합니다. 각 탭의 메뉴에서 이름 변경·복제·삭제를 할 수 있습니다. 모든 페이지가 하나의 제품 도면으로 함께 등록됩니다.</dd><dt>복사·실행 취소</dt><dd>Ctrl+C / Ctrl+V로 도형을 복사하고, Ctrl+Z / Ctrl+Y로 실행 취소·다시 실행합니다. Mac에서는 Ctrl 대신 ⌘를 사용합니다.</dd><dt>등록·내려받기</dt><dd>상단 ‘도면 등록’ 또는 Ctrl+S로 제품에 저장합니다. PNG·SVG는 선택 페이지, .drawio는 전체 페이지와 도형 편집 정보를 내려받습니다. 편집기 파일 메뉴에서도 내보내기를 사용할 수 있습니다.</dd><dt>이미지 초안</dt><dd>AI는 기본 구조를 도형으로 해석합니다. 실제 생산 치수나 경첩·점선 등 상세 표현은 결과를 확인한 후 직접 보완해 주세요. 생성과 타제품 불러오기는 기본적으로 기존 페이지 뒤에 추가됩니다.</dd></dl>
+          <div class="pmd-dialog-bottom"><small>도면은 화면을 닫기 전에 직접 등록해 주세요.</small><button type="button" data-close>확인</button></div>
+        </dialog>
+      </main>
+    </div></div>
+  </div>
+  <link rel="stylesheet" href="/administration/assets/css/page/productMaster/drawing.css?v=20261010-1" />
+  <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+  <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+  <script src="/administration/assets/js/page/productMaster/drawing.js?v=20261012-ai-diagnostics-1"></script>
+</body>
+</html>

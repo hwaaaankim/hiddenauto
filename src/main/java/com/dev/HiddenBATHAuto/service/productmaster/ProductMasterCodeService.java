@@ -8,6 +8,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,15 @@ public class ProductMasterCodeService {
 
   public String newValueCode() {
     return uniqueRandomCode("V", 7, valueRepository::existsByValueCode);
+  }
+
+  /** A non-standard product is a reusable model, not a unique combination of groups. */
+  public String newNonStandardIdentity() {
+    for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+      String identity = sha256Hex("CUSTOM|" + UUID.randomUUID());
+      if (productRepository.findByStudioIdentity(identity).isEmpty()) return identity;
+    }
+    throw new IllegalStateException("비규격 제품 식별값을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.");
   }
 
   public String newCatalogCode(String productCode) {
