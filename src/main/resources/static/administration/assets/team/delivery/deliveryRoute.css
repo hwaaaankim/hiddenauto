@@ -1036,3 +1036,47 @@
         flex-wrap: wrap;
     }
 }
+
+/* 배송/회수 집계: 주문 건수와 제품 개수를 구분하며 작은 화면에서도 줄 간격을 유지합니다. */
+.delivery-route-summary-card .delivery-route-work-counts {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 6px;
+    row-gap: 4px;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.delivery-route-work-counts > span {
+    white-space: nowrap;
+}
+
+.delivery-route-count-help {
+    margin: -6px 0 18px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.delivery-route-section-heading {
+    flex-wrap: wrap;
+}
+
+/* 태블릿에서도 업체명과 배송/회수 배지가 서로 밀리지 않도록 배지를 다음 행에 둡니다. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .delivery-route-group-toggle {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .delivery-route-group-meta {
+        grid-column: 2 / 3;
+        justify-content: flex-start;
+        margin: 9px 0 0;
+        flex-wrap: wrap;
+    }
+
+    .delivery-route-plus {
+        grid-column: 3;
+        grid-row: 1 / 3;
+    }
+}

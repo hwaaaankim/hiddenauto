@@ -2507,3 +2507,76 @@
     padding: 8px 6px;
   }
 }
+
+/* ProductMaster detail spacing: keep wrapped controls and field help separate. */
+.pms .pms-help {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.pms .pms-actions:not(.pm-product-actions):not(.pm-stock-actions) {
+  row-gap: 10px;
+}
+.pms .pms-workspace > .pms-button {
+  margin: 4px 8px 4px 0;
+}
+.pms .pms-panel-title {
+  flex-wrap: wrap;
+}
+.pms .pms-panel-title > div:first-child:has(h2) {
+  flex: 1 1 160px;
+}
+.pms .pms-panel-title > .pms-actions {
+  max-width: 100%;
+}
+.pms #pms-summary .pms-section.pms-actions > *,
+.pms .pms-panel-title > .pms-actions > *,
+.pms .pm-stage-actions > button,
+.pms .pm-stage-actions > a {
+  max-width: 100%;
+  height: auto;
+  min-height: var(--control-height);
+  padding-block: 7px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.pms label > input + small,
+.pms label > select + small,
+.pms label > textarea + small {
+  display: block;
+  margin-top: 5px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.pms .pms-dialog-body > [data-answer] {
+  margin-top: 10px;
+}
+.pms .pms-dialog-body > [data-error]:not(:empty) {
+  margin-top: 10px;
+}
+.pms .pms-dialog-body > .pms-actions {
+  margin-top: 16px;
+}
+.pms .pms-check-grid {
+  gap: 8px;
+}
+.pms .pms-check-grid > .pms-check {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .pms .pms-form-grid.two,
+  .pms #pms-summary .pms-section.pms-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pms .pms-disclosure {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+  .pms .pms-disclosure-hint {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}

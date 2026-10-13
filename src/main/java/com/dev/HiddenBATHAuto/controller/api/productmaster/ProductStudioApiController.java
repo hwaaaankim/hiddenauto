@@ -127,6 +127,12 @@ public class ProductStudioApiController {
     return ApiResponse.ok(service.evaluate(id, r, p.getName()));
   }
 
+  @PostMapping("/products/{id}/customer-evaluate")
+  public ApiResponse<Evaluation> customerEvaluate(
+      @PathVariable Long id, @RequestBody java.util.Map<String, Answer> answers, Principal p) {
+    return ApiResponse.ok(service.evaluateCustomerPreview(id, answers, p.getName()));
+  }
+
   @PutMapping("/products/{id}/process")
   public ApiResponse<ProductView> process(
       @PathVariable Long id, @RequestBody ProcessSave r, Principal p) {

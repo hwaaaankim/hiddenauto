@@ -138,6 +138,10 @@ public class DeliveryRouteService {
 
         int directOrderCount = directGroups.stream().mapToInt(Group::getOrderCount).sum();
         int freightOrderCount = freightGroups.stream().mapToInt(Group::getOrderCount).sum();
+        int directDeliveryOrderCount = directGroups.stream().mapToInt(Group::getDeliveryOrderCount).sum();
+        int directCollectionOrderCount = directGroups.stream().mapToInt(Group::getCollectionOrderCount).sum();
+        int freightDeliveryOrderCount = freightGroups.stream().mapToInt(Group::getDeliveryOrderCount).sum();
+        int freightCollectionOrderCount = freightGroups.stream().mapToInt(Group::getCollectionOrderCount).sum();
         int deliveryDoneCount = directGroups.stream().mapToInt(Group::getDeliveryDoneCount).sum()
                 + freightGroups.stream().mapToInt(Group::getDeliveryDoneCount).sum();
 
@@ -153,6 +157,12 @@ public class DeliveryRouteService {
                 .directOrderCount(directOrderCount)
                 .freightOrderCount(freightOrderCount)
                 .totalOrderCount(directOrderCount + freightOrderCount)
+                .directDeliveryOrderCount(directDeliveryOrderCount)
+                .directCollectionOrderCount(directCollectionOrderCount)
+                .freightDeliveryOrderCount(freightDeliveryOrderCount)
+                .freightCollectionOrderCount(freightCollectionOrderCount)
+                .deliveryOrderCount(directDeliveryOrderCount + freightDeliveryOrderCount)
+                .collectionOrderCount(directCollectionOrderCount + freightCollectionOrderCount)
                 .deliveryDoneCount(deliveryDoneCount)
                 .build();
     }
@@ -491,10 +501,19 @@ public class DeliveryRouteService {
             OrderRow orderRow = toOrderRow(indexRow, addressInfo.display());
             accumulator.orders.add(orderRow);
             /*
-             * 반품/회수 주문은 음수 수량을 사용하므로 0으로 보정하지 않습니다.
-             * 묶음 수량도 주문별 부호를 유지한 순수 합계로 표시합니다.
+             * 주문/출력 원본 수량과 기존 순합계는 유지합니다.
+             * 화면 집계는 배송과 회수를 분리하여 음수 회수가 배송량을 상쇄하지 않게 합니다.
+             * 건수는 주문 행을 세고, 회수 제품 개수는 절댓값으로 합산합니다.
              */
-            accumulator.totalQuantity += orderRow.getQuantity();
+            int quantity = orderRow.getQuantity();
+            accumulator.totalQuantity += quantity;
+            if (quantity < 0) {
+                accumulator.collectionOrderCount++;
+                accumulator.collectionQuantity += -(long) quantity;
+            } else {
+                accumulator.deliveryOrderCount++;
+                accumulator.deliveryQuantity += quantity;
+            }
 
             if (orderRow.isDeliveryDone()) {
                 accumulator.deliveryDoneCount++;
@@ -545,6 +564,10 @@ public class DeliveryRouteService {
                     .orderCount(accumulator.orders.size())
                     .completableOrderCount(accumulator.completableOrderCount)
                     .totalQuantity(accumulator.totalQuantity)
+                    .deliveryOrderCount(accumulator.deliveryOrderCount)
+                    .collectionOrderCount(accumulator.collectionOrderCount)
+                    .deliveryQuantity(accumulator.deliveryQuantity)
+                    .collectionQuantity(accumulator.collectionQuantity)
                     .deliveryDoneCount(accumulator.deliveryDoneCount)
                     .build());
         }
@@ -932,6 +955,10 @@ public class DeliveryRouteService {
         private String primaryContact;
         private final List<OrderRow> orders = new ArrayList<>();
         private int totalQuantity;
+        private int deliveryOrderCount;
+        private int collectionOrderCount;
+        private long deliveryQuantity;
+        private long collectionQuantity;
         private int deliveryDoneCount;
         private int completableOrderCount;
 

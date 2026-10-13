@@ -29,6 +29,12 @@ public final class DeliveryRouteDtos {
         private int directOrderCount;
         private int freightOrderCount;
         private int totalOrderCount;
+        private int directDeliveryOrderCount;
+        private int directCollectionOrderCount;
+        private int freightDeliveryOrderCount;
+        private int freightCollectionOrderCount;
+        private int deliveryOrderCount;
+        private int collectionOrderCount;
         private int deliveryDoneCount;
     }
 
@@ -50,6 +56,11 @@ public final class DeliveryRouteDtos {
         private int orderCount;
         private int completableOrderCount;
         private int totalQuantity;
+        // 건수는 주문 행, 수량은 제품 개수이며 회수 수량은 절댓값입니다.
+        private int deliveryOrderCount;
+        private int collectionOrderCount;
+        private long deliveryQuantity;
+        private long collectionQuantity;
         private int deliveryDoneCount;
     }
 

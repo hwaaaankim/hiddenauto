@@ -80,14 +80,18 @@
                         <strong><span th:text="${routePage.totalGroupCount}">0</span>곳</strong>
                     </div>
                     <div class="delivery-route-summary-card">
-                        <span class="delivery-route-summary-label">주문</span>
-                        <strong><span th:text="${routePage.totalOrderCount}">0</span>건</strong>
+                        <span class="delivery-route-summary-label">배송 / 회수 주문</span>
+                        <strong class="delivery-route-work-counts">
+                            <span>배송 <b th:text="${routePage.deliveryOrderCount}">0</b>건,</span>
+                            <span>회수 <b th:text="${routePage.collectionOrderCount}">0</b>건</span>
+                        </strong>
                     </div>
                     <div class="delivery-route-summary-card">
                         <span class="delivery-route-summary-label">배송완료</span>
                         <strong><span id="delivery-route-summary-done-count" th:text="${routePage.deliveryDoneCount}">0</span>건</strong>
                     </div>
                 </div>
+                <p class="delivery-route-count-help">건수는 주문별로 집계합니다. 음수 수량 주문은 회수로 구분하며, 제품 수량은 배송·회수 각각의 개수로 표시합니다.</p>
 
                 <div class="delivery-route-toolbar">
                     <div class="delivery-route-toolbar-copy">
@@ -235,7 +239,8 @@
                         </div>
                         <span class="badge bg-primary-subtle text-primary">
                             <span th:text="${routePage.directGroupCount}">0</span>곳 ·
-                            <span th:text="${routePage.directOrderCount}">0</span>건
+                            배송 <span th:text="${routePage.directDeliveryOrderCount}">0</span>건,
+                            회수 <span th:text="${routePage.directCollectionOrderCount}">0</span>건
                         </span>
                     </div>
 
@@ -267,10 +272,12 @@
                                     <span class="badge bg-primary-subtle text-primary"
                                           th:text="${group.deliveryMethodName}">직배송</span>
                                     <span class="badge bg-light text-dark">
-                                        주문 <b th:text="${group.orderCount}">0</b>건
+                                        배송 <b th:text="${group.deliveryOrderCount}">0</b>건,
+                                        회수 <b th:text="${group.collectionOrderCount}">0</b>건
                                     </span>
                                     <span class="badge bg-light text-dark">
-                                        수량 <b th:text="${group.totalQuantity}">0</b>
+                                        배송 <b th:text="${group.deliveryQuantity}">0</b>개,
+                                        회수 <b th:text="${group.collectionQuantity}">0</b>개
                                     </span>
                                     <span class="badge delivery-route-completion-badge"
                                           data-delivery-route-group-completion
@@ -398,7 +405,8 @@
                         </div>
                         <span class="badge bg-dark-subtle text-dark">
                             <span th:text="${routePage.freightGroupCount}">0</span>곳 ·
-                            <span th:text="${routePage.freightOrderCount}">0</span>건
+                            배송 <span th:text="${routePage.freightDeliveryOrderCount}">0</span>건,
+                            회수 <span th:text="${routePage.freightCollectionOrderCount}">0</span>건
                         </span>
                     </div>
 
@@ -430,10 +438,12 @@
                                     <span class="badge bg-dark-subtle text-dark"
                                           th:text="${group.deliveryMethodName}">화물</span>
                                     <span class="badge bg-light text-dark">
-                                        주문 <b th:text="${group.orderCount}">0</b>건
+                                        배송 <b th:text="${group.deliveryOrderCount}">0</b>건,
+                                        회수 <b th:text="${group.collectionOrderCount}">0</b>건
                                     </span>
                                     <span class="badge bg-light text-dark">
-                                        수량 <b th:text="${group.totalQuantity}">0</b>
+                                        배송 <b th:text="${group.deliveryQuantity}">0</b>개,
+                                        회수 <b th:text="${group.collectionQuantity}">0</b>개
                                     </span>
                                     <span class="badge delivery-route-completion-badge"
                                           data-delivery-route-group-completion
@@ -771,7 +781,7 @@
 <th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 <th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
-<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css?v=20260804-8">
+<link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.css?v=20261013-work-counts">
 <link rel="stylesheet" href="/administration/assets/team/delivery/deliveryRoute.export-completion.css">
 <script>
 (function () {
