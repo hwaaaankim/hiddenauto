@@ -25,7 +25,15 @@ public class OrderExcelAddressParser {
                     + "|1[5-8]\\d{2}" + PHONE_SEPARATOR + "\\d{4}"
                     + ")(?!\\d)"
     );
-    private static final Pattern ZIP_PATTERN = Pattern.compile("\\b\\d{5}\\b");
+    private static final Pattern ZIP_PATTERN = Pattern.compile("(?<![\\p{L}\\p{N}-])\\d{5}(?![\\p{L}\\p{N}-])");
+    private static final Pattern LABELED_ZIP_PATTERN = Pattern.compile(
+            "(?i)(?<![가-힣A-Za-z])(?:우편\\s*번호|우편|postal\\s*code|zip(?:\\s*code)?)"
+                    + "\\s*[:：=]?\\s*[\\[(]?\\s*(\\d{5})(?![\\p{L}\\p{N}-])\\s*[\\])]?"
+    );
+    private static final Pattern WRAPPED_ZIP_PATTERN = Pattern.compile(
+            "^(?:\\(\\s*(\\d{5})\\s*\\)|\\[\\s*(\\d{5})\\s*\\])(?![\\p{L}\\p{N}])"
+    );
+    private static final Pattern LEADING_ZIP_PATTERN = Pattern.compile("^(\\d{5})(?=\\s+\\S)");
 
     /**
      * 도로명 주소 검색에 필요한 핵심 주소입니다.
@@ -38,9 +46,11 @@ public class OrderExcelAddressParser {
      *
      * 기존 정규식은 "시청로32번길 59"에서 "시청로32"까지만 먼저 매칭하여
      * "번길 59"를 상세주소로 잘못 분리할 수 있었습니다.
+     * 건물번호 뒤에 공백으로 구분된 "길 56"은 도로명 숫자에 붙은 "4길"과
+     * 구별하여 상세주소 중복 정리 대상으로 넘깁니다.
      */
     private static final String ROAD_NAME_AND_BUILDING_NUMBER_PATTERN =
-            "(?:대로|로|길)(?:\\s*\\d+(?:번길|길))?\\s*(?>\\d+(?:-\\d+)?)(?!\\s*(?:번길|길)(?=\\s|\\d|$))";
+            "(?:대로|로|길)(?:\\s*\\d+(?:번길|길))?\\s*(?>\\d+(?:-\\d+)?)(?!\\d|-(?=\\d)|(?:번길|길)(?=\\s|\\d|$))";
     private static final Pattern ROAD_CORE_PATTERN = Pattern.compile(
             "^(.+?" + ROAD_NAME_AND_BUILDING_NUMBER_PATTERN + ")(.*)$"
     );
@@ -71,7 +81,9 @@ public class OrderExcelAddressParser {
         String addressPart = raw;
         String contactPart = "";
 
-        int slashIndex = raw.indexOf('/');
+        // 상세주소 자체의 '/'는 보존합니다. 연락처가 있는 경우에만 연락처 직전의
+        // 마지막 '/'를 구분자로 읽습니다. 예: "101동/103호 / 홍길동 010-1234-5678".
+        int slashIndex = contactSeparatorIndex(raw);
         if (slashIndex >= 0) {
             addressPart = raw.substring(0, slashIndex).trim();
             contactPart = raw.substring(slashIndex + 1).trim();
@@ -81,14 +93,20 @@ public class OrderExcelAddressParser {
         result.setContactPart(contactPart);
         parseContact(result, raw, contactPart);
 
-        Matcher zipMatcher = ZIP_PATTERN.matcher(addressPart);
-        if (zipMatcher.find()) {
-            result.setZipCode(zipMatcher.group());
-            addressPart = addressPart.replace(zipMatcher.group(), "").trim();
-            result.setAddressPart(addressPart);
-        }
+        addressPart = extractZipCode(result, addressPart);
+        result.setAddressPart(addressPart);
 
         RoadAddressParts parts = splitRoadCoreAndDetail(addressPart);
+        Matcher roadMatcher = ROAD_CORE_PATTERN.matcher(addressPart);
+        if (roadMatcher.matches()) {
+            String originalDetail = trimLeadingAddressSeparators(roadMatcher.group(2));
+            if (!compact(originalDetail).equals(compact(parts.detail()))) {
+                result.getWarnings().add("상세주소 앞에 중복된 도로명 접미어를 정리했습니다. 기존 상세주소: " + originalDetail);
+            }
+        }
+        if (ZIP_PATTERN.matcher(parts.detail()).find()) {
+            result.getWarnings().add("상세주소의 단독 5자리 숫자는 우편번호로 단정하지 않고 보존했습니다. 우편번호는 주소 앞 또는 '우편번호:' 표기로 입력해 주세요.");
+        }
         String detailFromContactPart = extractDetailFromContactPart(contactPart);
 
         parseRegionByTokens(result, parts.core());
@@ -257,6 +275,50 @@ public class OrderExcelAddressParser {
         return trimLeadingAddressSeparators(detail.substring(duplicatedPrefixEnd));
     }
 
+    private int contactSeparatorIndex(String raw) {
+        // 상세주소에 관리실 전화번호가 있어도, 뒤의 명시 연락처 구간을 우선합니다.
+        for (int slash = raw.lastIndexOf('/'); slash >= 0; slash = raw.lastIndexOf('/', slash - 1)) {
+            if (PHONE_PATTERN.matcher(raw.substring(slash + 1)).find()) return slash;
+        }
+        return -1;
+    }
+
+    /**
+     * 우편번호가 확실한 위치/표기만 읽고 해당 구간 하나만 제거합니다.
+     * 명시된 "우편번호:"는 어느 위치든, 그 외 숫자/괄호 표기는 주소 앞에서만 읽습니다.
+     * 상세주소의 "12345호", "12345-1" 또는 단독 숫자를 우편번호로 오인하지 않습니다.
+     * 과거처럼 String.replace로 동일한 숫자가 포함된 건물번호/상세주소까지 지우지 않습니다.
+     */
+    private String extractZipCode(ParsedSiteAddress result, String addressPart) {
+        Matcher matcher = LABELED_ZIP_PATTERN.matcher(addressPart);
+        if (matcher.find()) {
+            return removeZipMatch(result, addressPart, matcher, matcher.group(1));
+        }
+
+        matcher = WRAPPED_ZIP_PATTERN.matcher(addressPart);
+        if (matcher.find()) {
+            String zip = matcher.group(1) == null ? matcher.group(2) : matcher.group(1);
+            return removeZipMatch(result, addressPart, matcher, zip);
+        }
+
+        matcher = LEADING_ZIP_PATTERN.matcher(addressPart);
+        if (matcher.find()) {
+            String remainingAddress = normalize(addressPart.substring(matcher.end()));
+            if (ROAD_NUMBER_PATTERN.matcher(remainingAddress).matches()
+                    || JIBUN_ADDRESS_PATTERN.matcher(remainingAddress).matches()
+                    || REGION_PATTERN.matcher(remainingAddress).matches()) {
+                return removeZipMatch(result, addressPart, matcher, matcher.group(1));
+            }
+        }
+        return addressPart;
+    }
+
+    private String removeZipMatch(ParsedSiteAddress result, String addressPart, Matcher matcher, String zip) {
+        result.setZipCode(zip);
+        return trimLeadingAddressSeparators(addressPart.substring(0, matcher.start())
+                + " " + addressPart.substring(matcher.end()));
+    }
+
     private void parseContact(ParsedSiteAddress result, String raw, String contactPart) {
         String source = contactPart == null || contactPart.isBlank() ? raw : contactPart;
         Matcher phoneMatcher = PHONE_PATTERN.matcher(source);
@@ -268,6 +330,14 @@ public class OrderExcelAddressParser {
         result.setRecipientPhone(phone);
 
         String beforePhone = source.substring(0, phoneMatcher.start()).replace("/", " ").trim();
+        // 명시적인 연락처 구간의 공백 포함 이름도 보존합니다. 주소/동호수로 보이는
+        // 내용이 섞인 옛 양식은 마지막 이름 토큰을 읽는 기존 동작을 유지합니다.
+        if (contactPart != null && !contactPart.isBlank() && !beforePhone.isBlank()
+                && beforePhone.length() <= 50 && !beforePhone.contains(":")
+                && !beforePhone.matches(".*\\d.*") && !looksLikeDetailText(beforePhone)) {
+            result.setRecipientName(beforePhone);
+            return;
+        }
         String[] nameTokens = beforePhone.split("\\s+");
         if (nameTokens.length > 0) {
             String candidate = nameTokens[nameTokens.length - 1].trim();
