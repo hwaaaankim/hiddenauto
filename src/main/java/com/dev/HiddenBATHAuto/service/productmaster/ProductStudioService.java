@@ -1236,9 +1236,17 @@ public class ProductStudioService {
     return new Labels(labels.customer(), labels.customer(), labels.customer());
   }
 
+  /** Customer test keeps draft access while using the same customer projection as the public flow. */
+  public Evaluation evaluateCustomerPreview(Long id, Map<String, Answer> submitted, String actor) {
+    return customerEvaluation(evaluate(id, new EvaluateRequest(null, submitted), actor));
+  }
+
   public Evaluation evaluatePublic(String token, Map<String, Answer> submitted, String actor) {
     ProductMaster p = publicProduct(token);
-    Evaluation result = evaluate(p.getId(), new EvaluateRequest(null, submitted), actor);
+    return customerEvaluation(evaluate(p.getId(), new EvaluateRequest(null, submitted), actor));
+  }
+
+  private Evaluation customerEvaluation(Evaluation result) {
     Map<String, Question> safe =
         customerProcess(
                 new Process(

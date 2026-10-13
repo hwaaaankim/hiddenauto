@@ -148,7 +148,9 @@
       }
     } finally { if (version === productSequence) content.setAttribute("aria-busy", "false"); }
     if (version !== productSequence) return;
-    product = loadedProduct; schema = loadedSchema; faq = loadedFaq;
+    // The customer test uses customer labels for both fixed specifications and custom answers.
+    // Management details remain available through their own screen, while this flow follows its schema.
+    schema = loadedSchema; product = { ...loadedProduct, process: schema.process }; faq = loadedFaq;
     assetMap = new Map((schema.assets || []).map((a) => [a.id, a]));
     heading.textContent = product.productName;
     if (product.nonStandard) installFaq();
@@ -160,7 +162,7 @@
     await evaluate();
   }
   async function requestEvaluation() {
-    return S.api(admin ? `${S.base}/products/${activeId}/evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", admin ? { answers } : answers);
+    return S.api(admin ? `${S.base}/products/${activeId}/customer-evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", answers);
   }
   async function evaluate() { const version = flowSequence, result = await requestEvaluation(); if (version !== flowSequence) return; evaluation = result; merge(); paintProcess(); }
   function merge() {

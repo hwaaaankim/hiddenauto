@@ -141,3 +141,34 @@
   .pms .pm-canvas-toolbar { gap: 6px; }
   .pms .pm-canvas-toolbar input[type=range] { width: 110px; }
 }
+
+/* Detail headings and action groups may wrap without crowding adjacent text. */
+.pms .pm-field-heading,
+.pms .pm-media-caption,
+.pms .pm-lightbox-bottom {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.pms .pm-field-heading > *,
+.pms .pm-media-caption > *,
+.pms .pm-lightbox-bottom > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pms .pm-detail-actions {
+  padding-top: 4px;
+}
+.pms .pm-detail-actions > .pms-button {
+  max-width: 100%;
+  height: auto;
+  min-height: var(--control-height);
+  padding-block: 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pms .pm-spec-head > div:last-child {
+  min-width: 0;
+}
+.pms .pm-spec-edit-links {
+  gap: 10px 8px;
+}

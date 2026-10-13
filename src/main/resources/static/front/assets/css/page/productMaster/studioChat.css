@@ -82,3 +82,67 @@ body { background: #f2f4f7; margin: 0; }
   .pms-public .pm-customer-steps { gap: 4px; }
   .pms-public .pm-customer-steps > span { font-size: 11px; padding: 8px; }
 }
+
+/* Customer tests share the same spacing at each discovery and question depth. */
+.pms-public .pms-chat-head {
+  flex-wrap: wrap;
+  gap: 10px 12px;
+}
+.pms-public .pms-chat-head > strong {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pms-public .pm-selected-product {
+  flex-wrap: wrap;
+}
+.pms-public .pm-selected-product > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.pms-public .pm-category-options button {
+  height: auto;
+  min-height: 56px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  gap: 12px;
+}
+.pms-public .pm-category-options button > span:first-child {
+  min-width: 0;
+}
+.pms-public .pm-category-options button > span:last-child {
+  flex: none;
+}
+.pms-public .pm-current-question .pms-actions,
+.pms-public .pm-kind-picker {
+  gap: 10px 8px;
+}
+.pms-public .pm-current-question .pms-check {
+  line-height: 1.6;
+}
+.pms-public .pm-option-filters label.pms-check {
+  align-items: flex-start;
+}
+.pms-public .pm-option-filters label.pms-check input {
+  margin-top: 2px;
+}
+.pms-public .pm-option-filters label.pms-check span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pms-public .pms-error:empty {
+  display: none;
+}
+@media (max-width: 500px) {
+  .pms-public .pm-selected-product > .pms-actions {
+    width: 100%;
+  }
+  .pms-public .pm-current-question .pms-actions > button,
+  .pms-public .pm-selected-product > .pms-actions > * {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: var(--control-height);
+    padding-block: 8px;
+    white-space: normal;
+  }
+}
