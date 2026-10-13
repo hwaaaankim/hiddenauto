@@ -202,6 +202,9 @@ public class ProductStudioAttributeService {
     }
     ProductAttributeGroup current = request.id() == null ? null : require(request.id());
     if (current != null) requireEditableGroup(current.getId());
+    Set<String> previousFieldAssets = new HashSet<>();
+    if (current != null)
+      fieldsFor(current).forEach(f -> previousFieldAssets.addAll(list(f.assetIds())));
     // Classification is determined by the stored base group, never by an editor selection.
     ProductAttributeRole role =
         initializeBase
@@ -284,6 +287,13 @@ public class ProductStudioAttributeService {
     g.setUpdatedBy(actor);
     g.setUpdatedAt(LocalDateTime.now());
     groups.saveAndFlush(g);
+    // Field illustrations use the shared group's ownership and are retained separately from its
+    // general attachments. Removing a field removes its otherwise unreferenced illustrations.
+    Set<String> wantedAssets = new LinkedHashSet<>();
+    for (AssetView a : assets.owned("GROUP", g.getId()))
+      if (!previousFieldAssets.contains(a.id())) wantedAssets.add(a.id());
+    fieldsFor(g).forEach(f -> wantedAssets.addAll(list(f.assetIds())));
+    assets.attach("GROUP", g.getId(), new ArrayList<>(wantedAssets), actor);
     if (questionModeChanged) {
       for (ProductMaster p :
           products.findAll(

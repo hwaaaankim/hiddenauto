@@ -1205,20 +1205,23 @@ public class AmountSalesVoucherExportService {
     }
 
     private Money resolveProductMoney(Order order, AmountItemMaster matchedItem, int qty) {
-        int safeQty = Math.max(qty, 1);
+        // 저장 금액은 기존 등록/수정 흐름에서 양수로 보관될 수 있습니다.
+        // 단가와 금액 크기를 먼저 계산한 뒤 회수 수량의 부호를 전표 금액에 적용합니다.
+        // BigDecimal로 절댓값을 구해 Integer.MIN_VALUE 수량에서도 오버플로를 피합니다.
+        BigDecimal quantityMagnitude = BigDecimal.valueOf(qty).abs().max(BigDecimal.ONE);
         BigDecimal supply = money(order.getSupplyPrice());
         BigDecimal total = money(order.getTotalAmount());
         BigDecimal unitPrice = money(order.getProductCost());
 
         if (supply.signum() <= 0 && unitPrice.signum() > 0) {
-            supply = unitPrice.multiply(BigDecimal.valueOf(safeQty));
+            supply = unitPrice.multiply(quantityMagnitude);
         }
         if (supply.signum() <= 0 && matchedItem != null) {
-            unitPrice = parseMoney(matchedItem.getSalesPrice());
-            supply = unitPrice.multiply(BigDecimal.valueOf(safeQty));
+            unitPrice = parseMoney(matchedItem.getSalesPrice()).abs();
+            supply = unitPrice.multiply(quantityMagnitude);
         }
-        if (unitPrice.signum() <= 0 && safeQty > 0) {
-            unitPrice = supply.divide(BigDecimal.valueOf(safeQty), 0, RoundingMode.HALF_UP);
+        if (unitPrice.signum() <= 0) {
+            unitPrice = supply.divide(quantityMagnitude, 0, RoundingMode.HALF_UP);
         }
 
         BigDecimal vat;
@@ -1227,6 +1230,11 @@ public class AmountSalesVoucherExportService {
         } else {
             vat = supply.multiply(BigDecimal.valueOf(0.1)).setScale(0, RoundingMode.HALF_UP);
             total = supply.add(vat);
+        }
+        if (qty < 0) {
+            supply = supply.negate();
+            vat = vat.negate();
+            total = total.negate();
         }
         return new Money(unitPrice, supply, vat, total);
     }
@@ -1336,11 +1344,14 @@ public class AmountSalesVoucherExportService {
             default -> styles.get("itemReview");
         };
 
-        cell(row, 0, firstInTask ? line.transactionDate().format(YMD) : "", base);
-        cell(row, 1, firstInTask ? SALES_DIVISION_CODE : "", base);
-        cell(row, 2, firstInTask ? value(line.customerMatch().customer(), AmountCustomerMaster::getCustomerCode) : "", customerStyle);
-        cell(row, 3, firstInTask ? line.companyName() : "", customerStyle);
-        cell(row, 4, firstInTask ? TAX_TYPE_CODE : "", base);
+        // 각 품목/비용행을 독립적으로 확인할 수 있도록 거래정보를 반복합니다.
+        // 주소 보조행과 거래금액의 그룹별 1회 출력은 기존 전표 구조를 유지합니다.
+        boolean showTransactionHeader = firstInTask || !line.addressLine();
+        cell(row, 0, showTransactionHeader ? line.transactionDate().format(YMD) : "", base);
+        cell(row, 1, showTransactionHeader ? SALES_DIVISION_CODE : "", base);
+        cell(row, 2, showTransactionHeader ? value(line.customerMatch().customer(), AmountCustomerMaster::getCustomerCode) : "", customerStyle);
+        cell(row, 3, showTransactionHeader ? line.companyName() : "", customerStyle);
+        cell(row, 4, showTransactionHeader ? TAX_TYPE_CODE : "", base);
         cell(row, 5, "", base);
         cell(row, 6, "", base);
         cell(row, 7, "", base);
@@ -1433,6 +1444,9 @@ public class AmountSalesVoucherExportService {
         Row row2 = infoSheet.createRow(1);
         row2.setHeightInPoints(18);
         cell(row2, 0, "비용 품목: 운임비와 포장비를 품목 마스터에서 각각 매칭해 Task 마지막에 별도 행으로 출력합니다. 각 실제 Order 금액이 0원보다 클 때만 출력하며, 같은 Task에 중복 저장된 값은 비용별 양수 최대값 1회만 사용합니다. 비용행이 있을 때만 바로 다음 주소 보조행을 출력합니다.", styles.get("body"));
+        Row row3 = infoSheet.createRow(2);
+        row3.setHeightInPoints(18);
+        cell(row3, 0, "모든 품목행에 거래일·구분·거래처 코드·거래처명·유형을 표시합니다. 거래금액은 출고일/거래처 묶음의 첫 행에만 표시합니다. 회수 품목은 저장된 음수 수량을 유지하고 단가는 양수, 공급가·부가세·합계금액은 음수로 표시합니다.", styles.get("body"));
         infoSheet.setColumnWidth(0, 28000);
     }
 
@@ -1660,11 +1674,11 @@ public class AmountSalesVoucherExportService {
     }
 
     private int resolveQuantity(Order order) {
-        if (order.getQuantity() > 0) {
+        if (order.getQuantity() != 0) {
             return order.getQuantity();
         }
         OrderItem item = order.getOrderItem();
-        if (item != null && item.getQuantity() > 0) {
+        if (item != null && item.getQuantity() != 0) {
             return item.getQuantity();
         }
         return 1;
@@ -2003,7 +2017,7 @@ public class AmountSalesVoucherExportService {
     }
 
     private BigDecimal money(int value) {
-        return BigDecimal.valueOf(Math.max(value, 0));
+        return BigDecimal.valueOf(value).abs();
     }
 
     private boolean same(String a, String b) {

@@ -57,7 +57,18 @@ public final class ProductStudioDtos {
       Integer minFiles,
       Integer maxFiles,
       Integer maxFileMB,
-      String guide) {
+      String guide,
+      String bundleKey,
+      List<String> assetIds) {
+    public Field(
+        String key, Labels labels, String namePart, boolean required, boolean allowNegative,
+        BigDecimal min, BigDecimal max, BigDecimal step, Integer minLength, Integer maxLength,
+        String format, String unit, List<String> extensions, Integer minFiles, Integer maxFiles,
+        Integer maxFileMB, String guide) {
+      this(key, labels, namePart, required, allowNegative, min, max, step, minLength, maxLength,
+          format, unit, extensions, minFiles, maxFiles, maxFileMB, guide, null, List.of());
+    }
+
     public Field(
         String key,
         Labels labels,
@@ -422,7 +433,25 @@ public final class ProductStudioDtos {
     }
   }
 
-  public record Process(int schemaVersion, List<Question> questions, List<Rule> rules) {}
+  /** Bounds are independent from question visibility and branching. Null sourceKey means static. */
+  public record LimitCase(
+      String key, String name, List<Condition> conditions, BigDecimal min, BigDecimal max) {}
+
+  public record InputLimit(
+      String key, String name, String targetKey, List<String> fieldKeys, String aggregation,
+      BigDecimal min, BigDecimal max, String sourceKey, List<LimitCase> cases) {}
+
+  public record InputNotice(
+      String key, String targetKey, String fieldKey, String message, String mode,
+      List<Condition> conditions) {}
+
+  public record Process(
+      int schemaVersion, List<Question> questions, List<Rule> rules,
+      List<InputLimit> inputLimits, List<InputNotice> notices) {
+    public Process(int schemaVersion, List<Question> questions, List<Rule> rules) {
+      this(schemaVersion, questions, rules, List.of(), List.of());
+    }
+  }
 
   public record ProcessSave(Long version, Process process, boolean publish) {}
 
@@ -437,7 +466,14 @@ public final class ProductStudioDtos {
       List<String> allowed,
       Answer answer,
       List<String> errors,
-      List<String> matchedRules) {}
+      List<String> matchedRules,
+      List<String> notices) {
+    public QuestionState(
+        Question question, boolean visible, boolean required, List<String> allowed, Answer answer,
+        List<String> errors, List<String> matchedRules) {
+      this(question, visible, required, allowed, answer, errors, matchedRules, List.of());
+    }
+  }
 
   public record Evaluation(
       List<QuestionState> questions,

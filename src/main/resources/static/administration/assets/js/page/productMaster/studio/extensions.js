@@ -94,7 +94,7 @@
         }),
         body = S.$(".pms-dialog-body", d);
       function draw() {
-        body.innerHTML = `<div class="pms-form-grid two">${S.field("주제명", "title", m.title, "text", 'maxlength="160"')}${S.field("문의 전화번호", "phone", m.phone || "", "tel", 'maxlength="60"')}<div class="wide">${S.field("별도 문의 링크", "link", m.link || "", "url", 'maxlength="2000"')}</div></div><p class="pms-help">연결된 제품에서 ? 버튼으로 이 주제의 FAQ가 표시됩니다. 문의 링크를 누르면 현재 선택값을 콘솔에 출력한 뒤 이동합니다.</p><div class="pms-actions"><button data-add>+ FAQ 추가</button></div>${m.entries.map((r, i) => `<article class="pms-card pm-faq-entry"><header class="pm-card-heading"><h3>FAQ ${i + 1}</h3><button data-remove="${i}" class="danger">삭제</button></header><div class="pms-form-grid one">${S.field("FAQ 제목", "entries." + i + ".title", r.title, "text", 'maxlength="200"')}<label><span>내용</span><textarea data-path="entries.${i}.content" maxlength="10000" rows="5">${esc(r.content)}</textarea></label></div><div data-faq-files="${i}">${S.files((r.assetIds || []).map((id) => assets.get(id)).filter(Boolean))}</div></article>`).join("")}`;
+        body.innerHTML = `<div class="pms-form-grid two">${S.field("주제명", "title", m.title, "text", 'maxlength="160"')}${S.field("문의 전화번호", "phone", m.phone || "", "tel", 'maxlength="60"')}<div class="wide">${S.field("별도 문의 링크", "link", m.link || "", "url", 'maxlength="2000"')}</div></div><p class="pms-help"><strong>연결된 제품의 FAQ 버튼에서 제목·내용·이미지가 카드로 표시됩니다.</strong> 예: ‘설치 전 확인사항’ 주제에 배관 위치, 설치 공간, 사용 시 주의사항을 FAQ로 추가합니다. 전화번호와 문의 링크는 선택 항목입니다. 같은 주제를 여러 제품에 연결했다면 내용 수정은 그 제품들에 함께 반영됩니다.</p><div class="pms-actions"><button data-add>+ FAQ 추가</button></div>${m.entries.map((r, i) => `<article class="pms-card pm-faq-entry"><header class="pm-card-heading"><h3>FAQ ${i + 1}</h3><button data-remove="${i}" class="danger">삭제</button></header><div class="pms-form-grid one">${S.field("FAQ 제목", "entries." + i + ".title", r.title, "text", 'maxlength="200"')}<label><span>내용</span><textarea data-path="entries.${i}.content" maxlength="10000" rows="5">${esc(r.content)}</textarea></label></div><div data-faq-files="${i}">${S.files((r.assetIds || []).map((id) => assets.get(id)).filter(Boolean))}</div></article>`).join("")}`;
         S.bind(body, m);
         S.$("[data-add]", body).onclick = () => {
           m.entries.push({
@@ -145,21 +145,120 @@
     const initialTopic = topics.find((t) => t.id === topicId);
     if (initialTopic) edit(initialTopic);
   };
+  S.productFaqDialog = async function (p, onSaved) {
+    const topics = await S.request("/faq");
+    const m = { faqTopicId: p.faqTopicId ?? "" };
+    const previousDirty = S.dirty;
+    const d = S.dialog("제품 FAQ 연결 · " + p.productName,
+      `<p class="pms-help"><strong>규격·비규격 제품 모두 FAQ를 연결할 수 있습니다.</strong> 연결한 주제는 제품 상세와 고객 테스트의 FAQ 버튼에 표시됩니다. 실 제품이 등록되어도 FAQ 연결은 변경할 수 있습니다.</p><div class="pms-form-grid one">${S.select("이 제품에 표시할 FAQ 주제", "faqTopicId", m.faqTopicId, { "": "연결하지 않음", ...Object.fromEntries(topics.map((t) => [t.id, t.title])) })}</div><div data-topic-preview></div><div class="pms-actions"><a class="pms-button" href="/admin/product-master/faq" target="_blank" rel="noopener">FAQ 주제·내용 등록 / 수정</a><small>새 주제를 등록한 뒤 이 창을 다시 열어 연결해 주세요.</small></div>`,
+      { foot: '<button type="button" data-save-product-faq class="primary">FAQ 연결 저장</button>', onClose: () => { S.dirty = previousDirty; } });
+    const preview = () => {
+      const t = topics.find((t) => t.id === Number(m.faqTopicId));
+      S.$("[data-topic-preview]", d).innerHTML = t
+        ? `<div class="pms-card"><strong>${esc(t.title)}</strong><p>등록된 FAQ ${(t.entries || []).length}개</p><button type="button" data-preview-product-faq>고객에게 표시되는 FAQ 미리보기</button></div>`
+        : '<p class="pms-help">FAQ를 연결하지 않으면 고객 화면의 FAQ 버튼은 표시되지 않습니다.</p>';
+      S.$("[data-preview-product-faq]", d)?.addEventListener("click", () => S.showProductFaq(t, { product: { name: p.productName, code: p.catalogCode } }));
+    };
+    S.bind(d, m, preview);
+    preview();
+    S.$("[data-save-product-faq]", d).onclick = (e) => S.run(e.currentTarget, async () => {
+      const saved = await S.request("/products/" + p.id + "/faq", "PUT", { version: p.version, faqTopicId: m.faqTopicId ? Number(m.faqTopicId) : null });
+      d.close();
+      S.dirty = false;
+      S.toast("제품 FAQ 연결을 저장했습니다.");
+      if (onSaved) await onSaved(saved);
+    });
+  };
   S.viewPage = async function (root, p) {
     const topics = await S.request("/faq"), faq = topics.find((t) => t.id === p.faqTopicId);
-    const actions = `<a class="pms-button primary" href="${path(p.id)}">제품 구성 수정</a>${!p.nonStandard ? S.drawingLinks("products", p.id) : ""}${p.nonStandard ? `<a class="pms-button" href="${path(p.id)}/process">질문·프로세스 수정</a><a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a><a class="pms-button" href="${path(p.id)}/test" target="_blank" rel="noopener">비규격테스트</a>` : ""}${faq ? `<a class="pms-button" href="/admin/product-master/faq?topicId=${faq.id}">FAQ 수정</a>` : ""}`;
+    const locked = p.actualCount > 0;
+    const actions = `${locked ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">제품 구성 수정</button>' : `<a class="pms-button primary" href="${path(p.id)}">제품 구성 수정</a>`}${!p.nonStandard ? S.drawingLinks("products", p.id) : ""}${p.nonStandard ? `${locked ? '<button type="button" disabled title="실 제품이 등록되어 프로세스 수정이 잠겨 있습니다.">질문·프로세스 수정</button><a class="pms-button" href="' + path(p.id) + '/process?mode=view">등록 프로세스·분기 조회</a>' : `<a class="pms-button" href="${path(p.id)}/process">질문·프로세스 수정</a>`}<a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a><a class="pms-button" href="${path(p.id)}/test" target="_blank" rel="noopener">비규격 테스트</a>` : ""}<button type="button" data-link-product-faq>${faq ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>${faq ? `<a class="pms-button" href="/admin/product-master/faq?topicId=${faq.id}" target="_blank" rel="noopener">FAQ 내용 수정</a>` : ""}`;
     S.mountProductDetail(root, p, { admin: true, faq, actions });
+    S.$("[data-link-product-faq]", root).onclick = () => S.productFaqDialog(p, (saved) => S.viewPage(root, saved));
+  };
+  // Each populated field is independent. An omitted field never narrows inventory results.
+  S.actualMatchesFilter = function (row, filter, questions) {
+    if (filter.code && !String(row.code || "").toLocaleLowerCase().includes(filter.code.toLocaleLowerCase()) && !String(row.parentCode || "").toLocaleLowerCase().includes(filter.code.toLocaleLowerCase())) return false;
+    if (filter.minStock !== "" && Number(row.stock) < Number(filter.minStock)) return false;
+    if (filter.maxStock !== "" && Number(row.stock) > Number(filter.maxStock)) return false;
+    for (const q of questions) {
+      const cond = filter.questions[q.key];
+      if (!cond) continue;
+      const answer = row.answers?.[q.key] || { choices: [], fields: {} };
+      const keys = cond.choices || [];
+      if (keys.length) {
+        const saved = answer.choices || [];
+        const match = cond.choiceMatch === "ANY" ? keys.some((key) => saved.includes(key))
+          : cond.choiceMatch === "EXACT" ? keys.length === saved.length && keys.every((key) => saved.includes(key))
+          : keys.every((key) => saved.includes(key));
+        if (!match) return false;
+      }
+      for (const f of q.fields || []) {
+        const value = cond.fields?.[f.key];
+        if (value === undefined || value === "") continue;
+        const raw = answer.fields?.[f.key];
+        const present = raw !== undefined && raw !== null && raw !== "" && (!Array.isArray(raw) || raw.length > 0);
+        if (q.control === "FILE") {
+          if ((value === "PRESENT") !== present) return false;
+        } else if (q.control === "NUMBER") {
+          if (!present || !Number.isFinite(Number(raw)) || Number(raw) !== Number(value)) return false;
+        } else {
+          if (!present) return false;
+          const saved = String(raw), query = String(value);
+          if (cond.textMatch === "EXACT" ? saved !== query : !saved.toLocaleLowerCase().includes(query.toLocaleLowerCase())) return false;
+        }
+      }
+    }
+    return true;
   };
   S.actualsPage = async function (root, p) {
     let rows = [];
+    let filter = { code: "", minStock: "", maxStock: "", questions: {} };
+    const questions = () => (p.process?.questions || []).filter((q) => !q.fixed && !S.isBase((p.groups || []).find((g) => g.id === q.groupId) || S.group(q.groupId) || {}));
     async function load() {
       rows = await S.request("/products/" + p.id + "/actuals");
       p = await S.request("/products/" + p.id);
       paint();
     }
+    function fieldFiltersHtml(q, saved) {
+      const fieldHtml = (f, caption = "") => `<label${caption ? ` title="${esc(caption)}"` : ""}><span>${esc(f.labels.management || f.labels.customer)}${f.unit ? " (" + esc(f.unit) + ")" : ""}</span>${q.control === "FILE"
+        ? `<select data-actual-filter-field="${esc(f.key)}"><option value="">첨부 여부 무관</option><option value="PRESENT" ${saved.fields?.[f.key] === "PRESENT" ? "selected" : ""}>파일 첨부한 제품</option><option value="ABSENT" ${saved.fields?.[f.key] === "ABSENT" ? "selected" : ""}>파일 첨부하지 않은 제품</option></select>`
+        : `<input data-actual-filter-field="${esc(f.key)}" type="${q.control === "NUMBER" ? "number" : "text"}" ${q.control === "NUMBER" ? 'step="any"' : 'maxlength="10000"'} value="${esc(saved.fields?.[f.key] ?? "")}" placeholder="${q.control === "NUMBER" ? "정확히 일치하는 값 · 빈 칸은 전체" : "찾을 문자 · 빈 칸은 전체"}">`}</label>`;
+      if (q.control !== "NUMBER") return `<div class="pms-form-grid two pm-actual-filter-fields">${(q.fields || []).map((f) => fieldHtml(f)).join("")}</div>`;
+      const grouped = new Map();
+      for (const f of q.fields || []) {
+        const key = f.bundleKey || f.key;
+        if (!grouped.has(key)) grouped.set(key, { key, fields: [] });
+        grouped.get(key).fields.push(f);
+      }
+      const bundles = S.numberBundles ? S.numberBundles(q) : [...grouped.values()];
+      return `<div class="pm-number-answer-bundles pm-actual-filter-bundles">${bundles.map((bundle, i) => {
+        const names = bundle.fields.map((f) => f.labels.management || f.labels.customer).join(" + ");
+        const title = `${bundle.fields.length > 1 ? "묶음" : "독립 입력"} ${i + 1} · ${names}`;
+        const rules = (p.process?.rules || []).filter((r) => (r.actions || []).some((a) => a.targetKey === q.key && a.effect === "ALLOW" && bundle.fields.some((f) => (a.choiceKeys || []).includes(f.key))));
+        const sourceText = (rule) => (rule.conditions || []).map((c) => {
+          const source = (p.process.questions || []).find((x) => x.key === c.groupKey);
+          return (source?.labels.management || source?.labels.customer || "앞 질문") + " · " + S.conditionText(source, c);
+        }).join(rule.match === "ANY" ? " 또는 " : " 그리고 ");
+        const caption = title + (rules.length ? "\n표시 분기: " + rules.map((r) => r.name + " (" + sourceText(r) + ")").join("\n") : "\n별도 표시 분기 없음");
+        return `<section class="pm-number-answer-bundle ${bundle.fields.length > 1 ? "grouped" : ""}" data-actual-filter-bundle="${i + 1}"><div class="pm-answer-bundle-title"><strong>${esc(title)}</strong></div>${rules.length ? `<div class="pms-help pm-actual-bundle-sources"><strong>등록된 표시 분기</strong>${rules.map((r) => `<p><b>${esc(r.name)}</b> · ${esc(sourceText(r))}</p>`).join("")}<small>위 분기는 항목을 구별하기 위한 설명입니다. 재고 조회에서는 분기를 실행하지 않고 아래에 입력한 값만 비교합니다.</small></div>` : ""}<div class="pms-form-grid two pm-actual-filter-fields">${bundle.fields.map((f) => fieldHtml(f, caption)).join("")}</div></section>`;
+      }).join("")}</div>`;
+    }
+    function filterHtml() {
+      return `<details class="pm-actual-filters" open><summary><strong>실제 사양 상세 필터</strong><small>필요한 값만 입력하여 재고를 찾습니다.</small></summary><div class="pms-panel-body"><p class="pms-help"><strong>입력한 조건끼리는 모두 일치해야 합니다.</strong> 분기 순서와 상관없이 커스텀 항목을 직접 검색합니다. 빈 칸은 검색에서 제외합니다. 예: 사이즈 W에 <strong>500</strong>만 입력하면 H·D에 관계없이 W=500인 모든 실 제품이 나옵니다. 해당 항목을 입력하지 않은 제품은 값 검색 결과에 포함되지 않습니다.</p><div class="pms-search-grid pm-actual-filter-bar"><label><span>실 제품 코드 일부</span><input data-actual-filter-code value="${esc(filter.code)}" placeholder="코드를 모르면 비워 두세요"></label><label><span>재고 수량 · 최소</span><input data-actual-stock-min type="number" min="0" step="1" value="${esc(filter.minStock)}" placeholder="제한 없음"></label><label><span>재고 수량 · 최대</span><input data-actual-stock-max type="number" min="0" step="1" value="${esc(filter.maxStock)}" placeholder="제한 없음"></label></div><div class="pm-actual-filter-grid">${questions().map((q) => {
+        const saved = filter.questions[q.key] || { choices: [], fields: {} };
+        return `<article class="pms-card pm-actual-filter-question" data-actual-filter-question="${esc(q.key)}"><header class="pm-card-heading"><div><h3>${esc(q.labels.management || q.labels.customer)}</h3><small>${esc(S.controls[q.control])} · ${esc(q.question || q.labels.customer)}</small></div></header>${S.isChoice(q.control)
+          ? `<div class="pms-check-grid">${(q.choices || []).map((c) => `<label class="pms-check"><input type="checkbox" data-actual-filter-choice value="${esc(c.key)}" ${(saved.choices || []).includes(c.key) ? "checked" : ""}>${esc(c.labels.management || c.labels.customer)}</label>`).join("") || '<small>등록된 답변이 없습니다.</small>'}</div>${q.control === "CHECKBOX" ? `<label><span>선택 조건 적용 방식</span><select data-actual-choice-match><option value="ALL" ${saved.choiceMatch !== "ANY" && saved.choiceMatch !== "EXACT" ? "selected" : ""}>선택한 항목 모두 포함</option><option value="ANY" ${saved.choiceMatch === "ANY" ? "selected" : ""}>선택한 항목 중 하나 포함</option><option value="EXACT" ${saved.choiceMatch === "EXACT" ? "selected" : ""}>선택한 항목과 완전히 동일</option></select></label>` : '<small>여러 답변을 체크하면 그중 하나를 선택한 실 제품을 찾습니다.</small>'}`
+          : `${q.control === "TEXT" || q.control === "TEXTAREA" ? `<label><span>문자 검색 방식</span><select data-actual-text-match><option value="CONTAINS" ${saved.textMatch !== "EXACT" ? "selected" : ""}>입력한 문자 포함 · 영문 대소문자 구분 없음</option><option value="EXACT" ${saved.textMatch === "EXACT" ? "selected" : ""}>입력한 문자와 완전히 동일</option></select></label>` : ""}${fieldFiltersHtml(q, saved)}`}</article>`;
+      }).join("") || '<p class="pms-help">검색 가능한 커스텀 항목이 없습니다.</p>'}</div><div data-actual-filter-errors></div><div class="pms-actions"><button type="button" data-apply-actual-filter class="primary">입력한 사양으로 조회</button><button type="button" data-reset-actual-filter>필터 초기화 · 전체 조회</button></div></div></details>`;
+    }
     function paint() {
-      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div><h2>${esc(p.productName)} · 실 제품 재고</h2><small>${esc(p.catalogCode)} · ${rows.length}종 / 총 재고 ${p.stock}개${p.unallocatedStock ? " / 기존 미배정 재고 " + p.unallocatedStock + "개" : ""}</small></div><button data-create class="primary" ${p.status === "DRAFT" || p.status === "DISCONTINUED" ? "disabled" : ""}>+ 실제 사양 등록</button></div><div class="pms-panel-body"><p class="pms-help">검증 완료된 제품의 허용 범위 안에서 실제 사양을 선택합니다. 실 제품이 하나라도 등록되면 원본 제품의 구성·프로세스는 잠깁니다. 도면은 아래 각 실 제품에 개별 등록하며, 규격 제품이나 다른 실 제품의 도면을 불러와 편집할 수 있습니다. 도면 등록 버튼을 눌러야 변경 내용이 저장됩니다.</p><div class="pm-code-search"><label><span>제품 코드 조회</span><input data-code placeholder="제품 코드 또는 실 제품 코드"></label><button data-decode>코드 조회</button></div><div data-decoded></div><div class="pms-toolbar"><strong>실 제품 ${rows.length.toLocaleString()}개</strong><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button></div><div class="pms-table-scroll"><table class="pm-actual-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="실 제품 전체선택"></label></th><th>실 제품 코드</th><th>실제 사양</th><th>재고</th><th>관리</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${r.id}" aria-label="${esc(r.code)} 삭제 선택"></label></td><td>${esc(r.code)}<small>소속: ${esc(r.parentCode)}</small></td><td>${S.specSummary(r.specs.map((s) => ({ label: s.group, value: s.value })))}</td><td>${r.stock}</td><td><div class="pms-actions pm-stock-actions"><button data-stock="${r.id}">입출고·조정</button><button data-history="${r.id}">이력</button>${S.drawingLinks("actuals", r.id)}</div></td></tr>`).join("") || '<tr><td colspan="5">등록된 실 제품이 없습니다.</td></tr>'}</tbody></table></div></div></section>`;
-      S.bindDeletion(root, rows, { product: p, onDeleted: load });
+      const visibleRows = rows.filter((r) => S.actualMatchesFilter(r, filter, questions()));
+      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div class="pm-header-content"><h2>${esc(p.productName)} · 실 제품 재고</h2><small>${esc(p.catalogCode)} · ${rows.length}종 / 총 재고 ${p.stock}개${p.unallocatedStock ? " / 기존 미배정 재고 " + p.unallocatedStock + "개" : ""}</small></div><div class="pms-actions"><a class="pms-button" href="${path(p.id)}/view">원제품 상세·분기 조회</a><button data-create class="primary" ${p.status === "DRAFT" || p.status === "DISCONTINUED" ? "disabled" : ""}>+ 실제 사양 등록</button></div></div><div class="pms-panel-body"><p class="pms-help">검증 완료된 제품의 허용 범위 안에서 실제 사양을 선택합니다. 실 제품이 하나라도 등록되면 원본 제품의 구성·프로세스는 잠깁니다. 등록된 구성과 분기는 원제품 상세에서 계속 확인할 수 있습니다. 도면은 각 실 제품에 개별 등록합니다.</p>${filterHtml()}<div class="pm-code-search"><label><span>제품 코드의 상세 조회</span><input data-code placeholder="제품 코드 또는 실 제품 코드"></label><button data-decode>코드 조회</button></div><div data-decoded></div><div class="pms-toolbar"><strong class="pm-actual-result-count" aria-live="polite">검색 결과 ${visibleRows.length.toLocaleString()}종 / 전체 ${rows.length.toLocaleString()}종</strong><small>결과 재고 합계 ${visibleRows.reduce((sum, r) => sum + Number(r.stock || 0), 0).toLocaleString()}개</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택·삭제는 현재 검색 결과에만 적용됩니다. 필터를 바꾸면 선택이 해제됩니다.</small></div><div class="pms-table-scroll"><table class="pm-actual-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="검색 결과 실 제품 전체선택"></label></th><th>실 제품 코드</th><th>실제 사양</th><th>재고</th><th>관리</th></tr></thead><tbody>${visibleRows.map((r) => `<tr><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${r.id}" aria-label="${esc(r.code)} 삭제 선택"></label></td><td>${esc(r.code)}<small>소속: ${esc(r.parentCode)}</small></td><td>${S.specSummary(r.specs.map((s) => ({ label: s.group, value: s.value })))}</td><td>${r.stock}</td><td><div class="pms-actions pm-stock-actions" style="flex-wrap:nowrap;white-space:nowrap"><button data-stock="${r.id}">입출고·조정</button><button data-history="${r.id}">이력</button>${S.drawingLinks("actuals", r.id)}</div></td></tr>`).join("") || '<tr><td colspan="5"><div class="pms-empty">조건에 맞는 실 제품이 없습니다. 필터를 초기화하거나 입력값을 확인해 주세요.</div></td></tr>'}</tbody></table></div></div></section>`;
+      S.bindDeletion(root, visibleRows, { product: p, onDeleted: load });
+      S.$("[data-apply-actual-filter]", root).onclick = applyFilter;
+      S.$("[data-reset-actual-filter]", root).onclick = () => { filter = { code: "", minStock: "", maxStock: "", questions: {} }; paint(); };
+      S.$(".pm-actual-filters", root).onkeydown = (e) => { if (e.key === "Enter" && e.target.matches("input:not([type=checkbox])")) { e.preventDefault(); applyFilter(); } };
       S.$("[data-create]", root).onclick = create;
       S.$("[data-code]", root).onkeydown = (e) => {
         if (e.key === "Enter") {
@@ -206,6 +305,27 @@
             })),
       );
     }
+    function applyFilter() {
+      const next = { code: S.$("[data-actual-filter-code]", root).value.trim(), minStock: S.$("[data-actual-stock-min]", root).value, maxStock: S.$("[data-actual-stock-max]", root).value, questions: {} };
+      const errors = [];
+      const finiteInteger = (v) => v === "" || (Number.isSafeInteger(Number(v)) && Number(v) >= 0);
+      if (!finiteInteger(next.minStock) || !finiteInteger(next.maxStock)) errors.push("재고 수량은 0 이상의 정수로 입력해 주세요.");
+      if (next.minStock !== "" && next.maxStock !== "" && Number(next.minStock) > Number(next.maxStock)) errors.push("최소 재고 수량을 최대 재고 수량 이하로 수정해 주세요.");
+      S.$$("[data-actual-filter-question]", root).forEach((el) => {
+        const key = el.dataset.actualFilterQuestion, q = questions().find((q) => q.key === key);
+        const condition = { choices: S.$$("[data-actual-filter-choice]:checked", el).map((x) => x.value), fields: {}, choiceMatch: S.$("[data-actual-choice-match]", el)?.value || "ANY", textMatch: S.$("[data-actual-text-match]", el)?.value || "CONTAINS" };
+        S.$$("[data-actual-filter-field]", el).forEach((input) => {
+          if (!input.validity.valid || (q.control === "NUMBER" && input.value !== "" && !Number.isFinite(Number(input.value)))) errors.push((q.labels.management || q.labels.customer) + " · " + (q.fields.find((f) => f.key === input.dataset.actualFilterField)?.labels.management || input.dataset.actualFilterField) + ": 숫자를 올바르게 입력해 주세요.");
+          if (input.value !== "") condition.fields[input.dataset.actualFilterField] = input.value;
+        });
+        next.questions[key] = condition;
+      });
+      const box = S.$("[data-actual-filter-errors]", root);
+      box.innerHTML = errors.length ? `<div class="pms-alert">${errors.map((text) => `<p>${esc(text)}</p>`).join("")}</div>` : "";
+      if (errors.length) { box.scrollIntoView({ block: "nearest" }); return; }
+      filter = next;
+      paint();
+    }
     function stock(r) {
       const m = { version: r.version, delta: 0, reason: "" };
       const d = S.dialog(
@@ -232,8 +352,11 @@
       let answers = {},
         visited = [],
         evaluation;
+      const assets = new Map([...(p.assets || []), ...(p.processAssets || []), ...(p.groups || []).flatMap((g) => [...(g.assets || []), ...(g.values || []).flatMap((v) => v.assets || [])])].map((a) => [a.id, a]));
+      let evaluationSequence = 0, timer;
       const d = S.dialog("실제 사양 등록", ""),
         body = S.$(".pms-dialog-body", d);
+      d.addEventListener("close", () => { clearTimeout(timer); evaluationSequence++; });
       async function evaluate() {
         evaluation = await S.request(
           "/products/" + p.id + "/evaluate",
@@ -244,6 +367,8 @@
         draw();
       }
       function draw() {
+        clearTimeout(timer);
+        evaluationSequence++;
         const states = evaluation.questions.filter(
             (s) => s.visible && !s.question.fixed,
           ),
@@ -286,7 +411,7 @@
                   true,
                 )
               : "") +
-            '</div><div class="pms-actions"><button data-back>선택 다시하기</button><button data-save class="primary">실 제품 등록</button></div>';
+            `</div>${evaluation.complete ? "" : `<div class="pms-alert"><strong>실제 사양의 검증을 완료해야 등록할 수 있습니다.</strong>${(evaluation.errors || []).map((text) => `<p>${esc(text)}</p>`).join("")}</div>`}<div class="pms-actions"><button data-back>선택 다시하기</button><button data-save class="primary" ${evaluation.complete ? "" : "disabled"}>실 제품 등록</button></div>`;
           const m = {
             answers,
             quantity: 0,
@@ -312,31 +437,44 @@
             state.allowed.includes(c.key),
           ),
         };
-        body.innerHTML = `<p>${visited.length + 1} / ${states.length}</p><h3>${esc(q.question || q.labels.management)}</h3><div data-answer>${S.inputAnswer(q, state.answer)}</div><div data-error></div><div class="pms-actions"><button data-back ${visited.length ? "" : "disabled"}>이전</button><button data-next class="primary">다음</button></div>`;
+        body.innerHTML = `<p>${visited.length + 1} / ${states.length}</p><h3>${esc(q.question || q.labels.management)}</h3>${q.guide?.trim() ? `<div class="pms-help pm-preserve-lines">${esc(q.guide)}</div>` : ""}${S.media((q.assetIds || []).map((id) => assets.get(id)), q.labels.customer + " 안내 이미지")}<div data-answer>${S.inputAnswer(q, state.answer, false, assets)}</div>${S.inputLimitSummary(p.process, q)}<div data-answer-notices></div><div data-error></div><div class="pms-actions"><button data-back ${visited.length ? "" : "disabled"}>이전</button><button data-next class="primary">다음</button></div>`;
         const box = S.$("[data-answer]", body);
-        S.$$("input[type=file]", box).forEach(
-          (input) =>
-            (input.onchange = () =>
-              S.run(null, async () => {
-                const fd = new FormData();
-                for (const f of input.files) fd.append("files", f);
-                const fs = await S.request("/assets/stage", "POST", fd);
-                answers[q.key] ??= { choices: [], fields: {} };
-                answers[q.key].fields[input.dataset.answerField] = fs.map(
-                  (f) => f.id,
-                );
-                S.$(
-                  '[data-answer-files="' + input.dataset.answerField + '"]',
-                  box,
-                ).textContent = fs.map((f) => f.name).join(", ");
-              })),
-        );
+        S.bindMedia(body);
+        const notices = (fresh, answer) => {
+          S.$("[data-answer-notices]", body).innerHTML = S.answerGuides(q, answer, fresh).map((text) => `<div class="pms-help pm-preserve-lines">${esc(text)}</div>`).join("");
+        };
+        notices(state, state.answer);
+        const liveEvaluate = () => {
+          clearTimeout(timer);
+          const sequence = ++evaluationSequence;
+          timer = setTimeout(async () => {
+            if (!box.isConnected) return;
+            const currentAnswer = S.readAnswer(box, q, answers[q.key] || state.answer);
+            try {
+              const result = await S.request("/products/" + p.id + "/evaluate", "POST", { answers: { ...answers, [q.key]: currentAnswer } });
+              if (sequence !== evaluationSequence || !box.isConnected) return;
+              notices(result.questions.find((s) => s.question.key === q.key), currentAnswer);
+            } catch (error) {
+              if (sequence === evaluationSequence && box.isConnected) S.$("[data-error]", body).innerHTML = `<div class="pms-alert">${esc(error.message)}</div>`;
+            }
+          }, 250);
+        };
+        box.addEventListener("input", liveEvaluate);
+        box.addEventListener("change", liveEvaluate);
+        S.answerFileEvents(box, q, S.copy(state.answer || { choices: [], fields: {} }), assets, {
+          onChange: (answer) => { answers[q.key] = S.copy(answer); },
+          onBusy: (busy) => { S.$("[data-next]", body).disabled = busy; S.$("[data-back]", body).disabled = busy || !visited.length; },
+          onError: (error) => { if (box.isConnected) S.$("[data-error]", body).innerHTML = `<div class="pms-alert">${esc(error.message)}</div>`; },
+          isCurrent: () => box.isConnected && d.open,
+        });
         S.$("[data-back]", body).onclick = () => {
           visited.pop();
           draw();
         };
         S.$("[data-next]", body).onclick = (e) =>
           S.run(e.currentTarget, async () => {
+            if (S.pendingUploads) throw Error("첨부파일 등록을 완료한 뒤 다음 단계로 진행해 주세요.");
+            clearTimeout(timer); evaluationSequence++;
             answers[q.key] = S.readAnswer(box, q, answers[q.key]);
             const next = await S.request(
               "/products/" + p.id + "/evaluate",
@@ -344,7 +482,10 @@
               { answers },
             );
             const fresh = next.questions.find((s) => s.question.key === q.key);
-            if (fresh.errors.length) throw Error(fresh.errors.join(" / "));
+            if (fresh.errors.length) {
+              S.$("[data-error]", body).innerHTML = `<div class="pms-alert">${fresh.errors.map((text) => `<p>${esc(text)}</p>`).join("")}</div>`;
+              return;
+            }
             visited.push(q.key);
             evaluation = next;
             answers = S.copy(next.answers);

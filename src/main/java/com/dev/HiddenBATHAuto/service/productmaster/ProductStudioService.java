@@ -550,39 +550,32 @@ public class ProductStudioService {
                         r.match(),
                         r.conditions().stream()
                             .map(
-                                c -> {
-                                  if (!oldFixed.containsKey(c.groupKey())
-                                      || list(c.choiceKeys()).isEmpty()) return c;
-                                  List<String> oldValues = oldFixed.get(c.groupKey()).choices(),
-                                      newValues = newFixed.get(c.groupKey()).choices();
-                                  List<String> remapped =
-                                      c.choiceKeys().stream()
-                                          .map(
-                                              key -> {
-                                                int index = oldValues.indexOf(key);
-                                                return index >= 0 && index < newValues.size()
-                                                    ? newValues.get(index)
-                                                    : key;
-                                              })
-                                          .toList();
-                                  return new Condition(
-                                      c.groupKey(),
-                                      c.fieldKey(),
-                                      c.operator(),
-                                      remapped,
-                                      c.text(),
-                                      c.lower(),
-                                      c.upper(),
-                                      c.lowerInclusive(),
-                                      c.upperInclusive());
-                                })
+                              c -> remapFixedCondition(c, oldFixed, newFixed))
                             .toList(),
                         r.actions()))
             .toList();
     p.setStudioProcessJson(
         json.write(
             normalizeProcess(
-                p, new Process(copied.schemaVersion(), copied.questions(), copiedRules))));
+                p,
+                new Process(
+                    copied.schemaVersion(), copied.questions(), copiedRules,
+                    list(copied.inputLimits()).stream()
+                        .map(l -> new InputLimit(
+                            l.key(), l.name(), l.targetKey(), l.fieldKeys(), l.aggregation(),
+                            l.min(), l.max(), l.sourceKey(),
+                            list(l.cases()).stream()
+                                .map(c -> new LimitCase(c.key(), c.name(),
+                                    list(c.conditions()).stream()
+                                        .map(condition -> remapFixedCondition(condition, oldFixed, newFixed))
+                                        .toList(), c.min(), c.max()))
+                                .toList()))
+                        .toList(),
+                    list(copied.notices()).stream()
+                        .map(n -> new InputNotice(n.key(), n.targetKey(), n.fieldKey(), n.message(), n.mode(),
+                            list(n.conditions()).stream()
+                                .map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList()))
+                        .toList()))));
     assets.copyOwned("PRODUCT", source.getId(), p.getId(), null, actor);
     if (source.getStatus() != ProductMasterStatus.DRAFT) {
       Validation validation = validateProcess(p, readProcess(p));
@@ -592,6 +585,19 @@ public class ProductStudioService {
     }
     products.flush();
     return view(p, true);
+  }
+
+  private Condition remapFixedCondition(
+      Condition c, Map<String, Answer> previous, Map<String, Answer> current) {
+    if (!previous.containsKey(c.groupKey()) || !current.containsKey(c.groupKey())
+        || list(c.choiceKeys()).isEmpty()) return c;
+    List<String> before = list(previous.get(c.groupKey()).choices());
+    List<String> after = list(current.get(c.groupKey()).choices());
+    return new Condition(c.groupKey(), c.fieldKey(), c.operator(),
+        c.choiceKeys().stream().map(key -> {
+          int index = before.indexOf(key);
+          return index >= 0 && index < after.size() ? after.get(index) : key;
+        }).toList(), c.text(), c.lower(), c.upper(), c.lowerInclusive(), c.upperInclusive());
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -784,6 +790,7 @@ public class ProductStudioService {
 
   @Transactional
   public ProductView update(Long id, ProductEdit edit, String actor) {
+    if (edit == null) throw new IllegalArgumentException("제품 수정 정보가 필요합니다.");
     ProductMaster p =
         products.findForUpdate(id).orElseThrow(() -> new NoSuchElementException("제품을 찾을 수 없습니다."));
     ProductStudioAttributeService.version(edit.version(), p.getRowVersion());
@@ -794,7 +801,28 @@ public class ProductStudioService {
     validateName(edit.productName());
     if (text(edit.description()).length() > 1000)
       throw new IllegalArgumentException("제품 설명은 최대 1,000자입니다.");
-    requireNoActuals(p);
+    if (actuals.existsByProductId(p.getId())) {
+      // Concrete child codes refer to this exact definition. Metadata has no effect on identity.
+      if (!json.write(canonical(variants(p))).equals(json.write(canonical(list(edit.variants()))))
+          || !json.write(json.list(p.getNameTokensJson(), NameToken.class))
+              .equals(json.write(list(edit.nameTokens())))
+          || !p.getProductName().equals(edit.productName().trim())
+          || !status(p).equals(edit.status())
+          || !decimalEquals(p.getProductionHours(), edit.productionHours())
+          || !decimalEquals(p.getUnitPrice(), edit.unitPrice()))
+        throw new IllegalStateException(
+            "소속 실 제품이 있어 구성·제품명·프로세스·생산기간·단가는 변경할 수 없습니다. "
+                + "현재 설정은 구성/프로세스 보기에서 확인하시고, 수정하려면 제품을 복사하거나 실 제품을 모두 삭제해 주세요. "
+                + "설명·FAQ·제품 이미지는 변경할 수 있습니다.");
+      validateFaq(edit.faqTopicId());
+      p.setDescription(text(edit.description()));
+      p.setFaqTopicId(edit.faqTopicId());
+      p.setUpdatedBy(actor);
+      p.setUpdatedAt(LocalDateTime.now());
+      assets.attach("PRODUCT", id, edit.assetIds(), actor);
+      products.flush();
+      return view(p, true);
+    }
     lockCustomGroups(list(edit.variants()));
     List<Variant> selected = validateVariants(edit.variants(), p.isNonStandard());
     boolean custom = p.isNonStandard();
@@ -850,7 +878,8 @@ public class ProductStudioService {
           defaultProcess(selected).questions().stream()
               .map(q -> q.fixed() ? q : previousByGroup.getOrDefault(q.groupId(), q))
               .toList();
-      p.setStudioProcessJson(json.write(new Process(2, reordered, previousProcess.rules())));
+      p.setStudioProcessJson(json.write(new Process(
+          2, reordered, previousProcess.rules(), previousProcess.inputLimits(), previousProcess.notices())));
     }
     if (custom && processChanged) p.setStatus(ProductMasterStatus.DRAFT);
     else if ("DISCONTINUED".equals(edit.status())) p.setStatus(ProductMasterStatus.DISCONTINUED);
@@ -865,6 +894,29 @@ public class ProductStudioService {
     p.setUpdatedBy(actor);
     p.setUpdatedAt(LocalDateTime.now());
     assets.attach("PRODUCT", id, edit.assetIds(), actor);
+    products.flush();
+    return view(p, true);
+  }
+
+  private static boolean decimalEquals(BigDecimal a, BigDecimal b) {
+    return a == null ? b == null : b != null && a.compareTo(b) == 0;
+  }
+
+  private void validateFaq(Long topicId) {
+    if (topicId != null && !faqTopics.existsById(topicId))
+      throw new IllegalArgumentException("FAQ 주제를 다시 선택해주세요.");
+  }
+
+  /** Linking help never changes a saved specification or the identity of its concrete stock. */
+  @Transactional
+  public ProductView updateFaq(Long id, Long version, Long topicId, String actor) {
+    ProductMaster p = products.findForUpdate(id)
+        .orElseThrow(() -> new NoSuchElementException("제품을 찾을 수 없습니다."));
+    ProductStudioAttributeService.version(version, p.getRowVersion());
+    validateFaq(topicId);
+    p.setFaqTopicId(topicId);
+    p.setUpdatedBy(actor);
+    p.setUpdatedAt(LocalDateTime.now());
     products.flush();
     return view(p, true);
   }
@@ -1006,11 +1058,25 @@ public class ProductStudioService {
                 q.numberCases(),
                 q.preset()));
     }
-    return new Process(process.schemaVersion(), normalized, list(process.rules()));
+    return new Process(process.schemaVersion(), normalized, list(process.rules()),
+        list(process.inputLimits()), list(process.notices()));
   }
 
   public Validation validateProcess(Long id, Process process) {
     return validateProcess(require(id), process);
+  }
+
+  /** Definition checks for the question-editing stage, before visibility relations are complete. */
+  public Validation validateProcessStructure(Long id, Process process) {
+    try {
+      Process normalized = normalizeProcess(require(id), process);
+      List<Issue> issues = new ArrayList<>(ProductStudioEngine.structure(normalized));
+      if (issues.isEmpty()) issues.addAll(ProductStudioEngine.validateNumberCases(normalized));
+      return new Validation(issues.stream().noneMatch(i -> "ERROR".equals(i.severity())), true, 0, issues);
+    } catch (IllegalArgumentException ex) {
+      return new Validation(false, true, 0,
+          List.of(new Issue("ERROR", "PRODUCT", "프로세스", ex.getMessage())));
+    }
   }
 
   private Validation validateProcess(ProductMaster p, Process process) {
@@ -1024,6 +1090,7 @@ public class ProductStudioService {
 
   @Transactional
   public ProductView saveProcess(Long id, ProcessSave save, String actor) {
+    if (save == null) throw new IllegalArgumentException("프로세스 저장 정보가 필요합니다.");
     ProductMaster p =
         products.findForUpdate(id).orElseThrow(() -> new NoSuchElementException("제품을 찾을 수 없습니다."));
     ProductStudioAttributeService.version(save.version(), p.getRowVersion());
@@ -1031,19 +1098,8 @@ public class ProductStudioService {
       throw new IllegalArgumentException("비규격 제품에서만 프로세스를 편집합니다.");
     requireNoActuals(p);
     Process normalized = normalizeProcess(p, save.process());
-    // Completed question sets are validated even when saving a draft. No conflicting rule can be
-    // stored.
-    if (!list(normalized.rules()).isEmpty()
-        || normalized.questions().stream().anyMatch(q -> !list(q.numberCases()).isEmpty())) {
-      Validation check = validateProcess(p, normalized);
-      if (!check.valid() || !check.exhaustive())
-        throw new IllegalArgumentException(
-            check.issues().stream()
-                .filter(i -> "ERROR".equals(i.severity()))
-                .map(i -> i.location() + ": " + i.message())
-                .limit(12)
-                .collect(Collectors.joining(" / ")));
-    }
+    // A draft can contain alternative bundles before their display relations are connected.
+    // It remains DRAFT; exhaustive reachability/dependency validation gates publication below.
     if (save.publish()) {
       Validation validation = validateProcess(p, normalized);
       if (!validation.valid() || !validation.exhaustive())
@@ -1057,6 +1113,8 @@ public class ProductStudioService {
       // Drafts may have empty options/fields, but cannot exceed structural payload limits.
       if (normalized.schemaVersion() != 2
           || list(normalized.rules()).size() > MAX_RULES
+          || list(normalized.inputLimits()).size() > 200
+          || list(normalized.notices()).size() > 200
           || normalized.questions().stream()
               .anyMatch(q -> list(q.choices()).size() > 200 || list(q.fields()).size() > 20))
         throw new IllegalArgumentException("질문/보기/규칙 개수 또는 버전을 확인해 주세요.");
@@ -1084,11 +1142,22 @@ public class ProductStudioService {
             || list(r.conditions()).stream().anyMatch(Objects::isNull)
             || list(r.actions()).stream().anyMatch(Objects::isNull))
           throw new IllegalArgumentException("커스텀 조건과 결과 형식을 확인해 주세요.");
+      for (InputLimit limit : list(normalized.inputLimits()))
+        if (limit == null || list(limit.fieldKeys()).size() > 20 || list(limit.cases()).size() > 100
+            || list(limit.cases()).stream().anyMatch(c -> c == null
+                || list(c.conditions()).size() > 20 || list(c.conditions()).stream().anyMatch(Objects::isNull)))
+          throw new IllegalArgumentException("입력제한은 최대 200개, 조건은 제한별 100개·조건식 20개까지입니다.");
+      for (InputNotice notice : list(normalized.notices()))
+        if (notice == null || text(notice.message()).length() > 2000
+            || list(notice.conditions()).size() > 20 || list(notice.conditions()).stream().anyMatch(Objects::isNull))
+          throw new IllegalArgumentException("안내메시지는 2,000자·조건식 20개까지 입력할 수 있습니다.");
     }
     Set<String> allFiles = new LinkedHashSet<>();
     for (Question q : normalized.questions()) {
       allFiles.addAll(list(q.assetIds()));
       for (Choice c : list(q.choices())) allFiles.addAll(list(c.assetIds()));
+      if (attributes.require(q.groupId()).isNonStandard())
+        for (Field f : list(q.fields())) allFiles.addAll(list(f.assetIds()));
       if (q.control() == Control.FILE && q.preset() != null)
         for (Object value : map(q.preset().fields()).values())
           if (value instanceof List<?> values) values.forEach(v -> allFiles.add(v.toString()));
@@ -1109,6 +1178,7 @@ public class ProductStudioService {
   }
 
   public Evaluation evaluate(Long id, EvaluateRequest request, String actor) {
+    if (request == null) throw new IllegalArgumentException("프로세스 입력 정보가 필요합니다.");
     ProductMaster p = require(id);
     Process process =
         normalizeProcess(p, request.process() == null ? readProcess(p) : request.process());
@@ -1178,7 +1248,10 @@ public class ProductStudioService {
     for (Question q : process.questions()) {
       GroupView g = attributes.view(attributes.require(q.groupId()));
       List<String> questionAssets = new ArrayList<>(list(q.assetIds()));
-      questionAssets.addAll(g.assets().stream().map(AssetView::id).toList());
+      Set<String> sharedFieldAssets = g.fields().stream()
+          .flatMap(f -> list(f.assetIds()).stream()).collect(Collectors.toSet());
+      questionAssets.addAll(g.assets().stream().map(AssetView::id)
+          .filter(id -> !sharedFieldAssets.contains(id)).toList());
       List<Choice> choices = new ArrayList<>();
       for (Choice c : list(q.choices())) {
         List<String> ids = new ArrayList<>(list(c.assetIds()));
@@ -1223,13 +1296,16 @@ public class ProductStudioService {
                               f.minFiles(),
                               f.maxFiles(),
                               f.maxFileMB(),
-                              f.guide()))
+                              f.guide(),
+                              f.bundleKey(),
+                              list(f.assetIds())))
                   .toList(),
               questionAssets.stream().distinct().toList(),
               q.numberCases(),
               q.preset()));
     }
-    return new Process(process.schemaVersion(), safe, List.of());
+    return new Process(process.schemaVersion(), safe, List.of(),
+        list(process.inputLimits()), list(process.notices()));
   }
 
   private Labels customer(Labels labels) {
@@ -1267,7 +1343,8 @@ public class ProductStudioService {
                         s.allowed(),
                         s.answer(),
                         s.errors(),
-                        List.of()))
+                        List.of(),
+                        list(s.notices())))
             .toList(),
         result.answers(),
         List.of(),
@@ -1329,13 +1406,20 @@ public class ProductStudioService {
   public List<AssetView> attachAssets(String type, Long id, List<String> ids, String actor) {
     if (Set.of("PRODUCT", "PROCESS").contains(type)) products.findForUpdate(id).orElseThrow();
     validateAttachmentOwner(type, id);
-    assets.attach(type, id, ids, actor);
+    List<String> wanted = list(ids);
+    if ("GROUP".equals(type)) {
+      Set<String> retained = new LinkedHashSet<>(wanted);
+      attributes.fieldsFor(attributes.require(id)).forEach(f -> retained.addAll(list(f.assetIds())));
+      wanted = new ArrayList<>(retained);
+    }
+    assets.attach(type, id, wanted, actor);
     return assets.owned(type, id);
   }
 
   public void validateAttachmentOwner(String type, Long id) {
     switch (type) {
-      case "PRODUCT", "PROCESS" -> requireNoActuals(require(id));
+      case "PRODUCT" -> require(id);
+      case "PROCESS" -> requireNoActuals(require(id));
       case "GROUP" -> {
         attributes.requireEditableGroup(id);
       }

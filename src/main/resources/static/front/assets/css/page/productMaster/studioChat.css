@@ -146,3 +146,23 @@ body { background: #f2f4f7; margin: 0; }
     white-space: normal;
   }
 }
+
+.pms-public .pm-answer-field > label > span:first-child { font-size: 14px; color: #273954; }
+.pms-public .pm-answer-unit { font-size: 13px; }
+.pms-public .pm-effective-limit { font-size: 12px; line-height: 1.8; }
+.pms-public .pm-number-answer-bundle.grouped { padding: 18px; }
+.pms-public #pm-answer-guides:not(:empty) { margin: 16px 0; }
+.pms-public #pm-answer-guides > .pm-answer-guide { padding: 13px 15px; margin: 8px 0; border-left: 3px solid #86a6dc; background: #f3f7ff; font-size: 13px; }
+.pms-public .pm-live-notice-failure { color: #79643b; font-size: 12px; line-height: 1.7; }
+.pms-public .pm-upload-area .pms-files { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
+.pms-public .pm-upload-area .pms-drop { min-height: 100px; }
+.pms-public .pm-upload-area .pms-file-image,
+.pms-public .pm-file-placeholder { height: 170px; }
+.pms-public .pm-upload-area button { min-height: 38px; }
+.pms-public .pm-upload-help { font-size: 12px; }
+@media (max-width: 500px) {
+  .pms-public .pm-number-answer-bundle.grouped { padding: 12px; }
+  .pms-public .pm-answer-value { gap: 7px; }
+  .pms-public .pm-upload-area .pms-files { grid-template-columns: minmax(0, 1fr); }
+  .pms-public .pm-upload-area .pms-drop { padding: 12px; gap: 10px; }
+}

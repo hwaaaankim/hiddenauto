@@ -27,11 +27,15 @@ public class ProductStudioExtensionController {
 
   @PostMapping("/validate-question")
   public Object validateQuestion(@RequestBody Question q) {
-    return ApiResponse.ok(
-        ProductStudioEngine.validate(
-            new com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.Process(
-                2, List.of(q), List.of()),
-            Map.of()));
+    if (q == null) throw new IllegalArgumentException("질문 정보를 입력해 주세요.");
+    var definition = new com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.Process(
+        2, List.of(q), List.of());
+    var issues = new ArrayList<>(ProductStudioEngine.structure(definition));
+    if (issues.isEmpty()) issues.addAll(ProductStudioEngine.validateNumberCases(definition));
+    // The rest of the process has not been connected yet. Alternative number bundles can
+    // intentionally reuse W/D labels; reachable-path checks belong to final process validation.
+    return ApiResponse.ok(new Validation(
+        issues.stream().noneMatch(i -> "ERROR".equals(i.severity())), true, 0, issues));
   }
 
   @GetMapping("/faq")
