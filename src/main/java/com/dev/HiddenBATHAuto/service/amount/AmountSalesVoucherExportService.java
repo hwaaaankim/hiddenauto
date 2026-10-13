@@ -402,6 +402,7 @@ public class AmountSalesVoucherExportService {
 
     /**
      * 운임비와 포장비는 품목 마스터의 서로 다른 품목으로 각각 출력합니다.
+     * 저장된 비용은 기존 입력 흐름의 VAT 포함 금액이며 전표에서만 공급가와 부가세를 분리합니다.
      *
      * 기존 업무 규칙대로 같은 Task 안에 동일 비용이 여러 Order에 중복 저장될 수 있으므로
      * 각 비용별 양수 최대값을 실제 Order 값으로 1회만 사용합니다.
@@ -451,9 +452,11 @@ public class AmountSalesVoucherExportService {
         AmountItemMatchResult chargeMatch = matchChargeItem(chargeType, items);
         AmountItemMaster matchedItem = chargeMatch.item();
 
-        BigDecimal supply = BigDecimal.valueOf(chargeAmount.amount());
-        BigDecimal vat = supply.multiply(BigDecimal.valueOf(0.1)).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal total = supply.add(vat);
+        // 기존 입력/저장 비용은 VAT 포함 합계입니다. 전표의 단가·공급가만 별도로 분리합니다.
+        // 합계에서 역산해야 저장된 44,000원을 공급가 44,000원으로 다시 과세하지 않습니다.
+        BigDecimal total = BigDecimal.valueOf(chargeAmount.amount());
+        BigDecimal supply = total.divide(new BigDecimal("1.1"), 0, RoundingMode.HALF_UP);
+        BigDecimal vat = total.subtract(supply);
 
         String sourceOrderText = chargeAmount.sourceOrderId() == null
                 ? ""

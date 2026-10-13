@@ -1977,24 +1977,14 @@ public class OrderExcelUploadService {
                 || normalized.contains("택배비");
     }
 
-    /**
-     * 운임비·포장비는 부가세 별도 공급가로 저장합니다.
-     * 합계금액을 먼저 사용하면 엑셀의 부가세 포함 금액이 공급가로 저장되어
-     * 매출전표에서 다시 부가세가 계산되므로, 엑셀에 입력된 공급가를 우선합니다.
-     * 공급가가 없으면 명시된 부가세를 제외한 합계 또는 단가를 사용하며,
-     * 부가세 정보도 없는 합계는 기존 단일 금액 입력 형식대로 그대로 사용합니다.
-     */
     private int resolveFreightCost(ExcelRawRow row) {
+        if (row.totalAmount > 0) {
+            return row.totalAmount;
+        }
         if (row.supplyPrice > 0) {
             return row.supplyPrice;
         }
-        if (row.totalAmount > 0 && row.vatAmount > 0 && row.totalAmount > row.vatAmount) {
-            return row.totalAmount - row.vatAmount;
-        }
-        if (row.productCost > 0) {
-            return row.productCost;
-        }
-        return Math.max(0, row.totalAmount);
+        return Math.max(0, row.productCost);
     }
 
     private OrderExcelDeliveryRule resolveDeliveryRule(String rawToken) {
