@@ -10,7 +10,7 @@
   let selections = {}, filters = {}, baseHistory = [], page = 0, browseResult = null;
   let activeId = null, token = "", product = null, schema = null, faq = null, evaluation = null;
   let answers = {}, completed = [], currentKey = null, attempted = new Set(), assetMap = new Map();
-  let browseSequence = 0, browseController = null, pendingUploads = 0, seedProduct = null, flowSequence = 0, productSequence = 0;
+  let browseSequence = 0, browseController = null, pendingUploads = 0, seedProduct = null, flowSequence = 0, productSequence = 0, liveSequence = 0, liveController = null, liveTimer = null;
   S.bindMedia(content);
 
   function error(message) {
@@ -22,7 +22,9 @@
     error("");
     try { await fn(); } catch (e) { if (e.name !== "AbortError") error(e.message); }
   }
+  function cancelLivePreview() { clearTimeout(liveTimer); liveSequence++; liveController?.abort(); liveController = null; }
   function resetAnswers() {
+    cancelLivePreview();
     flowSequence++;
     answers = {}; completed = []; currentKey = null; attempted.clear(); evaluation = null;
   }
@@ -161,8 +163,8 @@
     }
     await evaluate();
   }
-  async function requestEvaluation() {
-    return S.api(admin ? `${S.base}/products/${activeId}/customer-evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", answers);
+  async function requestEvaluation(values = answers, signal) {
+    return S.api(admin ? `${S.base}/products/${activeId}/customer-evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", values, signal);
   }
   async function evaluate() { const version = flowSequence, result = await requestEvaluation(); if (version !== flowSequence) return; evaluation = result; merge(); paintProcess(); }
   function merge() {
@@ -170,12 +172,20 @@
       const key = state.question.key;
       if (!state.visible && !state.question.fixed) delete answers[key];
       else if (!state.errors.length) answers[key] = state.answer;
+      else if (answers[key]) {
+        // Retain values needing correction, but discard values excluded by a branch.
+        const allowed = new Set((state.question.fields || []).map((f) => f.key));
+        answers[key] = S.isChoice(state.question.control)
+          ? { choices: (answers[key].choices || []).filter((k) => state.allowed.includes(k)), fields: {} }
+          : { choices: [], fields: Object.fromEntries(Object.entries(answers[key].fields || {}).filter(([k]) => allowed.has(k))) };
+      }
     }
     const visible = evaluation.questions.filter((s) => s.visible && !s.question.fixed);
     completed = completed.filter((key) => visible.some((s) => s.question.key === key && !s.errors.length));
     currentKey = visible.find((s) => !completed.includes(s.question.key))?.question.key || null;
   }
   function clearAfter(key, keepCurrent = true) {
+    cancelLivePreview();
     flowSequence++;
     const index = schema.process.questions.findIndex((q) => q.key === key);
     for (const q of schema.process.questions.slice(index + (keepCurrent ? 1 : 0))) {
@@ -197,6 +207,7 @@
     b.type = "button"; b.setAttribute("aria-label", "제품 FAQ 및 별도 문의"); b.onclick = () => S.showProductFaq(faq, currentContext); root.append(b);
   }
   function paintProcess() {
+    cancelLivePreview();
     const visible = evaluation.questions.filter((s) => s.visible && !s.question.fixed);
     if (!currentKey && evaluation.complete) {
       const finalProduct = { ...product, processAssets: [...(product.processAssets || []), ...assetMap.values()] };
@@ -214,7 +225,7 @@
       <div class="pm-chat-timeline">${completed.map((key) => {
         const state = evaluation.questions.find((s) => s.question.key === key), q = state.question;
         return `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(q.labels.customer)}</strong><button type="button" data-answer-back="${S.e(key)}">수정</button></div>
-          <p>${S.e(S.answerText(q, state.answer, assetMap))}</p>${S.answerGuides(q, state.answer).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("")}</article>`;
+          <p>${S.e(S.answerText(q, state.answer, assetMap))}</p>${S.answerGuides(q, state.answer, state).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("")}</article>`;
       }).join("")}<div id="pm-current-question"></div></div>`;
     bindBaseHistory();
     S.$("[data-change-product]", content).onclick = () => guarded(async () => { if (pendingUploads) throw Error("업로드 완료 후 제품을 변경해 주세요."); resetAnswers(); removeFaq(); await browse(); });
@@ -227,40 +238,79 @@
       return;
     }
     const state = evaluation.questions.find((s) => s.question.key === currentKey);
-    const q = { ...state.question, choices: (state.question.choices || []).filter((c) => state.allowed.includes(c.key)) };
+    const q = { ...state.question, choices: (state.question.choices || []).filter((c) => (state.allowed || []).includes(c.key)) };
     target.innerHTML = `<article class="pms-bubble pm-current-question"><span class="pm-detail-eyebrow">QUESTION ${completed.length + 1}</span><h2 tabindex="-1">${S.e(q.question || q.labels.customer + "를 입력해 주세요.")}</h2>
       <div class="pms-actions">${S.badge(S.controls[q.control].split(" · ")[0], "blue")}${S.badge(state.required ? "필수 답변" : "선택사항")}</div>
       ${q.guide?.trim() ? `<div class="pm-tutorial"><strong>선택 가이드</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}${S.media((q.assetIds || []).map((id) => assetMap.get(id)), q.labels.customer + " 가이드")}
-      <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer)}</div><div id="pm-choice-assets"></div><div id="pm-answer-guides" aria-live="polite"></div>
+      <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer, false, assetMap)}</div><div id="pm-choice-assets"></div><div id="pm-answer-guides" aria-live="polite"></div>
       <div id="pm-answer-errors" role="alert">${attempted.has(q.key) ? state.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("") : ""}</div>
       <div class="pms-actions"><button type="button" class="primary" id="pm-answer-next">${completed.length + 1 === visible.length ? "구성 완료 · 결과 확인" : "다음 질문"}</button></div></article>`;
     const box = S.$("#pm-answer-input", content);
-    function preview() {
+    const initialAnswer = answers[q.key] || S.copy(state.answer);
+    answers[q.key] = initialAnswer;
+    let currentState = state;
+    function showGuides(a, effectiveState) {
+      const host = S.$("#pm-answer-guides", content);
+      if (!host || !box.isConnected) return;
+      host.innerHTML = S.answerGuides(q, a, effectiveState).map((t) => `<div class="pm-answer-guide">${S.e(t)}</div>`).join("");
+    }
+    function preview(schedule = true) {
+      if (!box.isConnected || currentKey !== q.key) return;
       const a = S.readAnswer(box, q, answers[q.key]);
-      S.$("#pm-answer-guides", content).innerHTML = S.answerGuides(q, a).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("");
+      // Choice hints are immediate; conditions on entered values are evaluated by the server.
+      showGuides(a, schedule ? { notices: [] } : currentState);
       S.$("#pm-choice-assets", content).innerHTML = (a.choices || []).map((key) => {
         const c = q.choices.find((c) => c.key === key);
         return S.media((c?.assetIds || []).map((id) => assetMap.get(id)), q.labels.customer + " · " + c?.labels.customer);
       }).join("");
+      if (!schedule || pendingUploads) return;
+      clearTimeout(liveTimer); liveController?.abort();
+      const serial = ++liveSequence, version = flowSequence, selectedProduct = productSequence;
+      const values = S.copy(answers); values[q.key] = a;
+      liveTimer = setTimeout(async () => {
+        liveController = new AbortController();
+        const controller = liveController;
+        try {
+          const result = await requestEvaluation(values, controller.signal);
+          if (serial !== liveSequence || version !== flowSequence || selectedProduct !== productSequence || !box.isConnected || currentKey !== q.key) return;
+          const fresh = result.questions.find((s) => s.question.key === q.key);
+          if (!fresh) return;
+          currentState = fresh; showGuides(a, fresh);
+          // Updating range descriptions keeps keyboard focus and in-progress text intact.
+          for (const f of fresh.question.fields || []) {
+            const card = S.$$('[data-field-key]', box).find((el) => el.dataset.fieldKey === f.key);
+            const input = card?.querySelector('input[type="number"]'), hint = card?.querySelector('.pm-effective-limit');
+            if (input) {
+              if (f.min != null || !f.allowNegative) input.min = f.min ?? 0; else input.removeAttribute("min");
+              if (f.max != null) input.max = f.max; else input.removeAttribute("max");
+              input.step = f.step ?? 1;
+            }
+            if (hint) hint.innerHTML = `입력 범위 <strong>${S.e(f.min ?? (!f.allowNegative ? 0 : "제한 없음"))} ~ ${S.e(f.max ?? "제한 없음")}</strong> · 간격 ${S.e(f.step ?? 1)}`;
+          }
+          if (attempted.has(q.key)) S.$("#pm-answer-errors", content).innerHTML = fresh.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("");
+        } catch (e) {
+          if (e.name !== "AbortError" && serial === liveSequence && box.isConnected) {
+            const host = S.$("#pm-answer-guides", content);
+            host.innerHTML += '<p class="pm-live-notice-failure">입력 안내를 갱신하지 못했습니다. 다음 질문을 누르면 입력값을 다시 검증합니다.</p>';
+          }
+        }
+      }, 240);
     }
-    preview(); box.addEventListener("input", preview); box.addEventListener("change", preview);
-    S.$$("input[type=file]", box).forEach((input) => { input.onchange = () => guarded(async () => {
-      const f = q.fields.find((f) => f.key === input.dataset.answerField), selectedFiles = [...input.files];
-      if (!selectedFiles.length) return;
-      if (selectedFiles.length > (f.maxFiles ?? 1)) throw Error("파일은 최대 " + f.maxFiles + "개입니다.");
-      for (const file of selectedFiles) {
-        const ext = file.name.split(".").pop().toLowerCase();
-        if (!(f.extensions || []).includes(ext) || file.size > (f.maxFileMB ?? 10) * 1024 * 1024) throw Error(f.labels.customer + "의 파일 확장자 또는 용량을 확인해 주세요.");
-      }
-      const fd = new FormData(); selectedFiles.forEach((file) => fd.append("files", file));
-      pendingUploads++; input.disabled = true; S.$("#pm-answer-next", content).disabled = true;
-      try {
-        const uploaded = await S.api(admin ? S.base + "/assets/stage" : `/product-spec/studio/${encodeURIComponent(token)}/upload`, "POST", fd);
-        answers[q.key] ??= { choices: [], fields: {} }; answers[q.key].fields[f.key] = uploaded.map((a) => a.id);
-        uploaded.forEach((a) => assetMap.set(a.id, a));
-        S.$$("[data-answer-files]", box).find((el) => el.dataset.answerFiles === f.key).textContent = uploaded.map((a) => a.name).join(", "); preview();
-      } finally { pendingUploads--; input.disabled = false; S.$("#pm-answer-next", content).disabled = pendingUploads > 0; }
-    }); });
+    preview(false);
+    box.addEventListener("input", () => preview());
+    box.addEventListener("change", () => preview());
+    S.answerFileEvents(box, q, initialAnswer, assetMap, {
+      uploadPath: admin ? S.base + "/assets/stage" : `/product-spec/studio/${encodeURIComponent(token)}/upload`,
+      isCurrent: () => box.isConnected && currentKey === q.key,
+      onChange: (value) => { answers[q.key] = value; preview(); },
+      onBusy: (busy) => {
+        pendingUploads = Math.max(0, pendingUploads + (busy ? 1 : -1));
+        const next = S.$("#pm-answer-next", content);
+        if (next) next.disabled = pendingUploads > 0;
+        if (!busy && box.isConnected) preview();
+      },
+      onError: error,
+    });
     S.$("#pm-answer-next", content).onclick = (e) => guarded(async () => {
       const b = e.currentTarget; if (b.disabled || pendingUploads) return; b.disabled = true;
       try {
@@ -269,7 +319,7 @@
         if (version !== flowSequence) return;
         evaluation = result;
         const fresh = evaluation.questions.find((s) => s.question.key === q.key);
-        if (!fresh.errors.length) completed.push(q.key);
+        if (fresh && !fresh.errors.length && !completed.includes(q.key)) completed.push(q.key);
         merge(); paintProcess();
         S.$(".pm-current-question h2", content)?.focus({ preventScroll: true });
         S.$("#pm-current-question", content)?.scrollIntoView({ block: "nearest", behavior: "smooth" });

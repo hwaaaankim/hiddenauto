@@ -106,7 +106,11 @@
   S.builderPage = async function (root, product) {
     const detail = !!product;
     if (product?.actualCount > 0) {
-      root.innerHTML = `<div class="pms-help">실 제품 ${product.actualCount}개가 등록되어 구성과 프로세스 수정이 잠겨 있습니다.</div><a class="pms-button" href="/admin/product-master/products/${product.id}/view">제품 상세 조회</a><a class="pms-button" href="/admin/product-master/products/${product.id}/actuals">실 제품 재고 관리</a>`;
+      await S.viewPage(root, product);
+      const message = document.createElement("div");
+      message.className = "pms-help pm-definition-lock";
+      message.innerHTML = `<strong>실 제품 ${product.actualCount}종이 등록되어 구성·프로세스 수정이 잠겨 있습니다.</strong><p>등록된 질문, 답변, 입력 제한과 분기를 아래에서 확인할 수 있습니다. 답변에 마우스를 올리면 연결된 분기 요약이 표시됩니다. 상세 분기는 ‘등록 프로세스·분기 조회’를 눌러 확인해 주세요. 구성 수정이 필요하면 실 제품을 삭제해 잠금을 해제하거나 제품을 복사해 새로 구성해 주세요.</p>`;
+      root.prepend(message);
       return;
     }
     const topics = await S.request("/faq");
@@ -299,7 +303,7 @@
           }${detail ? `<div class="pms-actions pms-section"><button type="button" data-group-settings="${g.id}">공통 표시명·안내·파일 수정</button>${g.nonStandard ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/process?question=${encodeURIComponent(g.key)}">이 제품의 질문·답변 수정</a>` : ""}</div>${(() => {
             const q = product.process?.questions.find((q) => q.groupId === g.id);
             const files = new Map([...(product.processAssets || []), ...(g.assets || []), ...g.values.flatMap((v) => v.assets || [])].map((a) => [a.id, a]));
-            return q ? S.registeredQuestion(q, (ids) => (ids || []).map((id) => files.get(id)).filter(Boolean), g) : "";
+            return q ? S.registeredQuestion(q, (ids) => (ids || []).map((id) => files.get(id)).filter(Boolean), g, product.process) : "";
           })()}` : ""}</article>`;
         })
         .join("");
@@ -869,7 +873,7 @@
       try {
         const data = await S.request("/products/search", "POST", filter);
         filter.page = data.page;
-        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택은 현재 페이지에만 적용됩니다.</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="현재 페이지 제품 전체선택"></label></th><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${p.id}" aria-label="${S.e(p.productName)} 삭제 선택"></label></td><td>${p.id}</td><td class="pm-product-name"><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a><a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>${!custom ? S.drawingLinks("products", p.id) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/test" target="_blank" rel="noopener">비규격 테스트</a>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="${custom ? 10 : 8}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
+        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택은 현재 페이지에만 적용됩니다.</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="현재 페이지 제품 전체선택"></label></th><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${p.id}" aria-label="${S.e(p.productName)} 삭제 선택"></label></td><td>${p.id}</td><td class="pm-product-name"><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a>${p.actualCount > 0 ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">구성 수정</button>' : `<a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>`}${!custom ? S.drawingLinks("products", p.id) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/test" target="_blank" rel="noopener">비규격 테스트</a><button type="button" data-product-faq="${p.id}">${p.faqTopicId ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="${custom ? 10 : 8}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
         S.bindDeletion(content, data.content, {
           custom,
           onDeleted: async () => {
@@ -885,6 +889,12 @@
           tr.onkeydown = (e) => {
             if (e.key === "Enter" && e.target === tr) tr.click();
           };
+        });
+        S.$$("[data-product-faq]", content).forEach((button) => {
+          button.onclick = () => S.run(button, async () => {
+            const detail = await S.request("/products/" + button.dataset.productFaq);
+            await S.productFaqDialog(detail, load);
+          });
         });
         S.$$("[data-copy-product]", content).forEach(
           (b) =>

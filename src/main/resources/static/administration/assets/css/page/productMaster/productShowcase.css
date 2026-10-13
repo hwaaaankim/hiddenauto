@@ -172,3 +172,18 @@
 .pms .pm-spec-edit-links {
   gap: 10px 8px;
 }
+
+/* Heading copy begins at the same horizontal edge across title and subtitle. */
+.pms .pm-spec-head > div:last-child { min-width: 0; flex: 1; }
+.pms .pm-spec-head h3 { margin: 0 0 8px; }
+.pms .pm-spec-head p { margin: 0; }
+.pms .pm-field-heading { align-items: center; }
+.pms .pm-product-heading { display: flex; align-items: center; gap: 12px; }
+.pms .pm-header-content { display: grid; gap: 6px; min-width: 0; }
+.pms .pm-header-content > h1,
+.pms .pm-header-content > h2,
+.pms .pm-header-content > p { margin: 0; }
+.pms .pm-product-detail .pm-detail-actions { align-items: center; gap: 8px; }
+.pms .pm-detail-actions button:disabled { opacity: .6; }
+.pms .pm-detail-actions a[aria-disabled="true"] { background: #f3f5f8; color: #69778a; border-color: #d6dce5; }
+.pms .pm-spec-option .pm-media { margin-top: 12px; }

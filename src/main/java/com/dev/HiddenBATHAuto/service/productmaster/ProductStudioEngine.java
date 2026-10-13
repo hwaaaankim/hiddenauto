@@ -124,7 +124,14 @@ public final class ProductStudioEngine {
       return;
     }
     require(allowEmpty || !list(fields).isEmpty(), "입력 필드를 한 개 이상 등록해 주세요.");
-    uniqueLabels(list(fields).stream().map(f -> f == null ? null : f.labels()).toList(), "입력 필드");
+    // Independent price/visibility bundles may use the same W/D captions; within one bundle
+    // a label must remain unique. Simultaneously visible duplicates are checked at evaluation.
+    if (type == Control.NUMBER) {
+      Map<String, List<Labels>> bundles = new LinkedHashMap<>();
+      for (Field f : list(fields)) if (f != null)
+        bundles.computeIfAbsent(text(f.bundleKey()), k -> new ArrayList<>()).add(f.labels());
+      for (List<Labels> bundle : bundles.values()) uniqueLabels(bundle, "입력 묶음의 필드");
+    } else uniqueLabels(list(fields).stream().map(f -> f == null ? null : f.labels()).toList(), "입력 필드");
     Set<String> ids = new HashSet<>();
     for (Field f : list(fields)) {
       require(f != null, "빈 입력 필드는 허용하지 않습니다.");
@@ -132,6 +139,10 @@ public final class ProductStudioEngine {
           f.key() != null && f.key().matches("[A-Za-z0-9_-]{1,80}") && ids.add(f.key()),
           "입력 필드 value가 중복되거나 올바르지 않습니다.");
       labels(f.labels(), 120);
+      require(text(f.bundleKey()).isBlank() || f.bundleKey().matches("[A-Za-z0-9_-]{1,80}"),
+          "입력 묶음 value가 올바르지 않습니다.");
+      require(list(f.assetIds()).size() <= 20 && list(f.assetIds()).stream().allMatch(id -> id != null && !id.isBlank()),
+          "입력 필드의 이미지/파일은 최대 20개이며 빈 파일 value는 허용하지 않습니다.");
       require(text(f.guide()).length() <= 2000, "안내메시지는 2,000자 이하입니다.");
       require(
           text(f.namePart()).length() <= 160 && text(f.unit()).length() <= 20,
@@ -309,20 +320,28 @@ public final class ProductStudioEngine {
             require(
                 !text(a.questionText()).isBlank() && text(a.questionText()).length() <= 300,
                 "변경할 질문 내용을 1~300자로 입력해주세요.");
-          if (a.effect() == Effect.ALLOW)
-            require(
-                choice(target.control())
-                    && !list(a.choiceKeys()).isEmpty()
-                    && target.choices().stream()
-                        .map(Choice::key)
-                        .collect(Collectors.toSet())
-                        .containsAll(a.choiceKeys()),
-                "허용할 보기를 한 개 이상 선택해 주세요. 질문 생략은 '건너뜀'을 사용합니다.");
+          if (a.effect() == Effect.ALLOW) {
+            Set<String> keys = choice(target.control())
+                ? target.choices().stream().map(Choice::key).collect(Collectors.toSet())
+                : target.control() == Control.NUMBER
+                    ? target.fields().stream().map(Field::key).collect(Collectors.toSet()) : Set.of();
+            require(!list(a.choiceKeys()).isEmpty() && keys.containsAll(a.choiceKeys()),
+                "표시할 보기 또는 숫자 입력필드를 한 개 이상 선택해 주세요. 질문 생략은 '건너뜀'을 사용합니다.");
+            if (target.control() == Control.NUMBER) {
+              Set<String> selected = new HashSet<>(a.choiceKeys());
+              Set<String> bundles = target.fields().stream().filter(f -> selected.contains(f.key()))
+                  .map(Field::bundleKey).filter(b -> b != null && !b.isBlank()).collect(Collectors.toSet());
+              require(target.fields().stream().filter(f -> bundles.contains(f.bundleKey()))
+                      .allMatch(f -> selected.contains(f.key())),
+                  "숫자 입력묶음은 전체 필드를 함께 표시해야 합니다. 묶음에 속한 모든 필드를 선택해 주세요.");
+            }
+          }
         }
       } catch (IllegalArgumentException e) {
         issue(issues, "ERROR", "RULE", at, e.getMessage());
       }
     }
+    if (issues.isEmpty()) ProductStudioConstraints.structure(process, issues);
     return issues;
   }
 
@@ -338,138 +357,115 @@ public final class ProductStudioEngine {
     Map<String, Answer> normalized = new LinkedHashMap<>();
     List<QuestionState> states = new ArrayList<>();
     List<String> allErrors = new ArrayList<>();
-    Set<String> visited = new HashSet<>();
+    Set<String> visited = new HashSet<>(), hidden = new HashSet<>(), hiddenFields = new HashSet<>();
     for (Question q : process.questions()) {
       boolean visible = q.visible(), required = q.required();
-      LinkedHashSet<String> allowed =
-          list(q.choices()).stream()
-              .map(Choice::key)
-              .collect(Collectors.toCollection(LinkedHashSet::new));
-      List<Rule> matched =
-          list(process.rules()).stream()
-              .filter(r -> matches(r, normalized, visited))
-              .filter(r -> r.actions().stream().anyMatch(a -> a.targetKey().equals(q.key())))
-              .toList();
-      Set<Effect> effects = new HashSet<>();
-      for (Rule r : matched)
-        for (Action a : r.actions())
-          if (a.targetKey().equals(q.key())) {
-            effects.add(a.effect());
-            switch (a.effect()) {
-              case RENAME -> {}
-              case SHOW -> visible = true;
-              case HIDE -> visible = false;
-              case REQUIRE -> required = true;
-              case OPTIONAL -> required = false;
-              case ALLOW -> {
-                allowed.clear();
-                allowed.addAll(list(a.choiceKeys()));
-              }
-            }
-          }
+      LinkedHashSet<String> allowed = (choice(q.control())
+          ? list(q.choices()).stream().map(Choice::key) : list(q.fields()).stream().map(Field::key))
+          .collect(Collectors.toCollection(LinkedHashSet::new));
+      List<Rule> matched = list(process.rules()).stream()
+          .filter(r -> matches(r, normalized, visited, hiddenFields))
+          .filter(r -> r.actions().stream().anyMatch(a -> a.targetKey().equals(q.key()))).toList();
+      List<Action> applied = matched.stream().flatMap(r -> r.actions().stream())
+          .filter(a -> a.targetKey().equals(q.key())).toList();
+      Set<Effect> effects = applied.stream().map(Action::effect).collect(Collectors.toSet());
+      for (Action a : applied) switch (a.effect()) {
+        case RENAME -> {}
+        case SHOW -> visible = true;
+        case HIDE -> visible = false;
+        case REQUIRE -> required = true;
+        case OPTIONAL -> required = false;
+        case ALLOW -> { allowed.clear(); allowed.addAll(list(a.choiceKeys())); }
+      }
       List<String> errors = new ArrayList<>();
-      List<Action> applied =
-          matched.stream()
-              .flatMap(r -> r.actions().stream())
-              .filter(a -> a.targetKey().equals(q.key()))
-              .toList();
-      long restrictions = applied.stream().filter(a -> a.effect() == Effect.ALLOW).count();
-      long renames = applied.stream().filter(a -> a.effect() == Effect.RENAME).count();
-      if (applied.size() > 1)
-        errors.add(
-            "충돌: 규칙 ["
-                + matched.stream().map(Rule::name).collect(Collectors.joining(" / "))
-                + "]이 동시에 적용됩니다. 조건 묶음의 선택값 또는 범위를 분리해주세요.");
       if (effects.contains(Effect.SHOW) && effects.contains(Effect.HIDE))
-        errors.add("표시/건너뜀 규칙이 동시에 일치합니다.");
+        errors.add("충돌: 표시/건너뜀 규칙이 동시에 일치합니다. 조건 범위를 분리해 주세요.");
       if (effects.contains(Effect.REQUIRE) && effects.contains(Effect.OPTIONAL))
-        errors.add("필수/선택 규칙이 동시에 일치합니다.");
-      Answer clean = empty();
-      if (q.requireRule() && matched.isEmpty())
+        errors.add("충돌: 필수/선택 규칙이 동시에 일치합니다. 조건 범위를 분리해 주세요.");
+      if (applied.stream().filter(a -> a.effect() == Effect.ALLOW)
+          .map(a -> new TreeSet<>(list(a.choiceKeys()))).distinct().count() > 1)
+        errors.add("충돌: 서로 다른 보기/입력묶음 표시 규칙이 동시에 적용됩니다. 선택지 또는 숫자 구간을 분리해 주세요.");
+      if (applied.stream().filter(a -> a.effect() == Effect.RENAME)
+          .map(Action::questionText).distinct().count() > 1)
+        errors.add("충돌: 서로 다른 질문변경 규칙이 동시에 적용됩니다. 조건 범위를 분리해 주세요.");
+      if (visible && q.requireRule() && matched.isEmpty())
         errors.add("일치하는 경우의 수가 없습니다. 조건 범위 또는 기본 동작을 확인해 주세요.");
+      boolean hasNumericBranch = q.control() == Control.NUMBER && list(process.rules()).stream()
+          .flatMap(r -> r.actions().stream()).anyMatch(a -> a.targetKey().equals(q.key()) && a.effect() == Effect.ALLOW);
+      if (visible && hasNumericBranch && !effects.contains(Effect.ALLOW)) {
+        String sources = list(process.rules()).stream()
+            .filter(r -> r.actions().stream().anyMatch(a -> q.key().equals(a.targetKey()) && a.effect() == Effect.ALLOW))
+            .flatMap(r -> r.conditions().stream()).map(Condition::groupKey).distinct()
+            .map(k -> process.questions().stream().filter(x -> k.equals(x.key())).findFirst().map(ProductStudioEngine::label).orElse(k))
+            .collect(Collectors.joining(" / "));
+        errors.add("의존성 충돌: [" + sources + "]에 따라 숫자 입력묶음이 결정되지만 현재 경로에 표시할 묶음이 없습니다. "
+            + "선행 선택/숫자 질문의 생략을 해제하거나 이 질문도 생략하고, 모든 선택지와 숫자 범위에 필드 분기를 연결해 주세요.");
+      }
+      if (!visible && !q.fixed()) hidden.add(q.key());
+      List<Field> shownFields = list(q.fields()).stream().filter(f -> allowed.contains(f.key())).toList();
+      if (q.control() == Control.NUMBER) for (Field f : q.fields())
+        if (!allowed.contains(f.key())) hiddenFields.add(q.key() + ":" + f.key());
+      if (visible && q.control() == Control.NUMBER) try {
+        uniqueLabels(shownFields.stream().map(Field::labels).toList(), "동시에 표시되는 입력 필드");
+      } catch (IllegalArgumentException ex) { errors.add("충돌: " + ex.getMessage() + " 각 가격 묶음이 분기별로 하나씩 나오도록 연결해 주세요."); }
+      ProductStudioConstraints.Projection projection = ProductStudioConstraints.project(
+          process, q, shownFields, normalized, visited, visible || q.fixed(), hidden, hiddenFields);
+      errors.addAll(projection.errors());
+      String renamed = applied.stream().filter(a -> a.effect() == Effect.RENAME)
+          .map(Action::questionText).findFirst().orElse(q.question());
+      Question shown = new Question(q.key(), q.groupId(), q.labels(), q.control(), q.fixed(),
+          q.visible(), q.required(), q.requireRule(), renamed, q.guide(), q.choices(),
+          projection.fields(), q.assetIds(), q.numberCases(), q.preset());
+      Answer clean = empty();
       if (visible || q.fixed()) {
         if (choice(q.control()) && allowed.isEmpty()) errors.add("선택 가능한 보기가 없습니다.");
-        Answer raw =
-            q.preset() != null && q.fixed()
-                ? q.preset()
-                : map(submitted).getOrDefault(q.key(), empty());
+        Answer raw = q.preset() != null && q.fixed() ? q.preset() : map(submitted).getOrDefault(q.key(), empty());
+        if (raw == null) raw = empty();
         if (choice(q.control())) {
-          List<String> selected =
-              list(raw.choices()).stream().filter(allowed::contains).distinct().toList();
-          if (q.control() == Control.RADIO && selected.size() > 1) {
-            errors.add("하나만 선택해 주세요.");
-            selected = List.of();
-          }
+          List<String> selected = list(raw.choices()).stream().filter(allowed::contains).distinct().toList();
+          if (q.control() == Control.RADIO && selected.size() > 1) { errors.add("하나만 선택해 주세요."); selected = List.of(); }
           clean = new Answer(selected, Map.of());
           if (required && selected.isEmpty()) errors.add("보기를 선택해 주세요.");
         } else {
-          Map<String, Object> fields = new LinkedHashMap<>();
-          for (Field f : list(q.fields())) {
+          Map<String, Object> values = new LinkedHashMap<>();
+          for (Field f : projection.fields()) {
             Object value = map(raw.fields()).get(f.key());
-            boolean absent = absent(value);
-            if (absent) {
+            if (absent(value)) {
               if (required && f.required()) errors.add(f.labels().customer() + ": 입력해 주세요.");
               continue;
             }
             String error = valueError(q.control(), f, value);
             if (error != null) errors.add(f.labels().customer() + ": " + error);
-            else fields.put(f.key(), q.control() == Control.NUMBER ? number(value) : value);
+            else values.put(f.key(), q.control() == Control.NUMBER ? number(value) : value);
           }
-          clean = new Answer(List.of(), fields);
+          clean = new Answer(List.of(), values);
+          errors.addAll(ProductStudioConstraints.sumErrors(projection.sums(), clean, required));
         }
-        if (errors.isEmpty()) normalized.put(q.key(), clean);
+        // Only normalized, valid values can drive following rules. Invalid and hidden values never persist.
+        if (errors.isEmpty()) { normalized.put(q.key(), clean); visited.add(q.key()); }
       }
-      // A hidden or invalid source cannot drive downstream conditions, including NE/ABSENT.
-      if ((visible || q.fixed()) && errors.isEmpty()) visited.add(q.key());
       for (String e : errors) allErrors.add(label(q) + ": " + e);
-      String renamed =
-          applied.stream()
-              .filter(a -> a.effect() == Effect.RENAME)
-              .map(Action::questionText)
-              .findFirst()
-              .orElse(q.question());
-      Question shown =
-          new Question(
-              q.key(),
-              q.groupId(),
-              q.labels(),
-              q.control(),
-              q.fixed(),
-              q.visible(),
-              q.required(),
-              q.requireRule(),
-              renamed,
-              q.guide(),
-              q.choices(),
-              q.fields(),
-              q.assetIds(),
-              q.numberCases(),
-              q.preset());
-      states.add(
-          new QuestionState(
-              shown,
-              visible,
-              required,
-              List.copyOf(allowed),
-              clean,
-              List.copyOf(errors),
-              matched.stream().map(Rule::key).toList()));
+      List<String> notices = new ArrayList<>(ProductStudioConstraints.notices(process, shown, clean, visible || q.fixed()));
+      if (visible) notices.addAll(ProductStudioConstraints.sumHints(projection.sums(), projection.fields()));
+      states.add(new QuestionState(shown, visible, required, List.copyOf(allowed), clean,
+          List.copyOf(errors), matched.stream().map(Rule::key).toList(), List.copyOf(notices)));
     }
-    return new Evaluation(
-        List.copyOf(states), normalized, List.copyOf(allErrors), allErrors.isEmpty());
+    return new Evaluation(List.copyOf(states), normalized, List.copyOf(allErrors), allErrors.isEmpty());
   }
 
-  private static boolean matches(Rule r, Map<String, Answer> answers, Set<String> visited) {
+  private static boolean matches(Rule r, Map<String, Answer> answers, Set<String> visited,
+      Set<String> hiddenFields) {
     // Hidden/invalid sources never match, including NE and ABSENT. A valid OR branch is sufficient.
     if ("ANY".equals(r.match()))
       return r.conditions().stream()
-          .filter(c -> visited.contains(c.groupKey()))
+          .filter(c -> visited.contains(c.groupKey()) && !hiddenFields.contains(c.groupKey() + ":" + c.fieldKey()))
           .anyMatch(c -> matches(c, answers.get(c.groupKey())));
-    if (r.conditions().stream().anyMatch(c -> !visited.contains(c.groupKey()))) return false;
+    if (r.conditions().stream().anyMatch(c -> !visited.contains(c.groupKey())
+        || hiddenFields.contains(c.groupKey() + ":" + c.fieldKey()))) return false;
     return r.conditions().stream().allMatch(c -> matches(c, answers.get(c.groupKey())));
   }
 
-  private static boolean matches(Condition c, Answer answer) {
+  static boolean matches(Condition c, Answer answer) {
     if (answer == null) return false;
     Object value =
         text(c.fieldKey()).isBlank()
@@ -558,6 +554,7 @@ public final class ProductStudioEngine {
     List<Issue> issues = structure(process);
     if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
     issues.addAll(validateNumberCases(process));
+    issues.addAll(ProductStudioConstraints.coverage(process));
     if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
     Probe probe = new Probe(process, fixed, issues);
     probe.walk(0, new LinkedHashMap<>(map(fixed)));
@@ -610,7 +607,7 @@ public final class ProductStudioEngine {
       hitRules.addAll(state.matchedRules());
       // Input-required errors are expected until this question receives its sample answer.
       for (String e : state.errors())
-        if (e.contains("충돌") || e.contains("동시에") || e.contains("경우의 수") || e.contains("보기가 없습니다"))
+        if (e.contains("충돌") || e.contains("동시에") || e.contains("경우의 수") || e.contains("보기가 없습니다") || e.contains("의존성 충돌"))
           issue(issues, "ERROR", "PATH", label(q), e + " 예시: " + example(process, answers));
       if (q.fixed() && !state.errors().isEmpty())
         issue(issues, "ERROR", "FIXED", label(q), "고정 사양을 입력해 주세요: " + state.errors());
@@ -624,20 +621,35 @@ public final class ProductStudioEngine {
         walk(index + 1, answers);
         return;
       }
-      List<Answer> samples = samples(q, state.required(), state.allowed(), process);
+      Set<String> hidden = evaluation.questions().stream().filter(s -> !s.visible())
+          .map(s -> s.question().key()).collect(Collectors.toSet());
+      Set<String> hiddenFields = new HashSet<>();
+      for (QuestionState evaluated : evaluation.questions()) {
+        Question original = process.questions().stream().filter(x -> x.key().equals(evaluated.question().key())).findFirst().orElseThrow();
+        Set<String> shownKeys = evaluated.question().fields().stream().map(Field::key).collect(Collectors.toSet());
+        for (Field f : list(original.fields())) if (!shownKeys.contains(f.key()))
+          hiddenFields.add(original.key() + ":" + f.key());
+      }
+      ProductStudioConstraints.Projection limits = ProductStudioConstraints.project(process, q,
+          q.fields(), evaluation.answers(), evaluation.answers().keySet(), state.visible(), hidden, hiddenFields);
+      List<Answer> samples = limits.sums().isEmpty() ? samples(q, state.required(), state.allowed(), process)
+          : ProductStudioConstraints.sumSamples(q, state.required(), process, limits.sums());
       if (samples.size() > MAX_SCENARIOS) {
         exhaustive = false;
         return;
       }
       if (samples.isEmpty())
         issue(issues, "ERROR", "EMPTY_DOMAIN", label(q), "검증 조건을 만족하는 입력값이 없습니다.");
+      boolean hasValid = false;
       for (Answer a : samples) {
         Map<String, Answer> next = new LinkedHashMap<>(answers);
         next.put(q.key(), a);
         QuestionState tested = evaluateChecked(process, next).questions().get(index);
-        if (tested.errors().isEmpty()) walk(index + 1, next);
+        if (tested.errors().isEmpty()) { hasValid = true; walk(index + 1, next); }
         if (!exhaustive) return;
       }
+      if (!hasValid && !samples.isEmpty()) issue(issues, "ERROR", "EMPTY_DOMAIN", label(q),
+          "현재 경로의 필드별 제한과 합계 제한을 동시에 만족하는 값이 없습니다. 예시: " + example(process, answers));
     }
   }
 
@@ -665,11 +677,13 @@ public final class ProductStudioEngine {
     return s.length() > 400 ? s.substring(0, 400) + "…" : s;
   }
 
-  private static List<Condition> predicates(Process p) {
+  static List<Condition> predicates(Process p) {
     List<Condition> all = new ArrayList<>();
     list(p.rules()).forEach(r -> all.addAll(list(r.conditions())));
     list(p.questions())
         .forEach(q -> list(q.numberCases()).forEach(c -> all.addAll(list(c.conditions()))));
+    list(p.inputLimits()).forEach(l -> list(l.cases()).forEach(c -> all.addAll(list(c.conditions()))));
+    list(p.notices()).forEach(n -> all.addAll(list(n.conditions())));
     return all;
   }
 
@@ -730,13 +744,15 @@ public final class ProductStudioEngine {
                   .filter(row -> row.conditions().stream().allMatch(c -> matches(c, answer)))
                   .toList();
           matches.forEach(row -> hit.add(row.key()));
-          require(
-              matches.size() < 2,
+          Map<Set<String>, List<NumberCase>> dimensions = matches.stream().collect(Collectors.groupingBy(
+              row -> row.conditions().stream().map(Condition::fieldKey).collect(Collectors.toSet())));
+          for (List<NumberCase> overlap : dimensions.values()) require(
+              overlap.size() < 2,
               "범위 중복: ["
-                  + matches.stream().map(NumberCase::name).collect(Collectors.joining(" / "))
+                  + overlap.stream().map(NumberCase::name).collect(Collectors.joining(" / "))
                   + "] 값 "
                   + answer.fields()
-                  + " 에서 동시에 성립합니다. 경계값의 이상/초과, 이하/미만을 분리해주세요.");
+                  + " 에서 같은 입력필드의 범위가 동시에 성립합니다. 경계값의 이상/초과, 이하/미만을 분리해주세요.");
         }
         for (NumberCase row : q.numberCases())
           require(hit.contains(row.key()), "조건 [" + row.name() + "]을 만족하는 값이 입력 범위에 없습니다.");
@@ -747,7 +763,7 @@ public final class ProductStudioEngine {
     return issues;
   }
 
-  private static List<Answer> samples(
+  static List<Answer> samples(
       Question q, boolean required, List<String> allowed, Process p) {
     List<Answer> result = new ArrayList<>();
     if (!required) result.add(empty());
@@ -820,13 +836,13 @@ public final class ProductStudioEngine {
     return result;
   }
 
-  private static String signature(List<Condition> predicates, Answer answer) {
+  static String signature(List<Condition> predicates, Answer answer) {
     StringBuilder signature = new StringBuilder();
     for (Condition c : predicates) signature.append(matches(c, answer) ? '1' : '0');
     return signature.toString();
   }
 
-  private static List<Object> domain(Question q, Field f, Process p) {
+  static List<Object> domain(Question q, Field f, Process p) {
     List<Condition> conditions =
         predicates(p).stream()
             .filter(c -> q.key().equals(c.groupKey()) && f.key().equals(c.fieldKey()))

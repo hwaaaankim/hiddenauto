@@ -116,9 +116,23 @@ public class ProductStudioApiController {
     return ApiResponse.ok(service.update(id, r, p.getName()));
   }
 
+  public record FaqLinkEdit(Long version, Long faqTopicId) {}
+
+  @PutMapping("/products/{id}/faq")
+  public ApiResponse<ProductView> updateFaq(
+      @PathVariable Long id, @RequestBody FaqLinkEdit r, Principal p) {
+    if (r == null) throw new IllegalArgumentException("FAQ 연결 정보를 입력해 주세요.");
+    return ApiResponse.ok(service.updateFaq(id, r.version(), r.faqTopicId(), p.getName()));
+  }
+
   @PostMapping("/products/{id}/validate")
   public ApiResponse<Validation> validate(@PathVariable Long id, @RequestBody Process r) {
     return ApiResponse.ok(service.validateProcess(id, r));
+  }
+
+  @PostMapping("/products/{id}/validate-structure")
+  public ApiResponse<Validation> validateStructure(@PathVariable Long id, @RequestBody Process r) {
+    return ApiResponse.ok(service.validateProcessStructure(id, r));
   }
 
   @PostMapping("/products/{id}/evaluate")

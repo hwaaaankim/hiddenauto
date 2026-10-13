@@ -136,7 +136,7 @@
   S.field = (label, path, value, type = "text", extra = "") =>
     `<label><span>${S.e(label)}</span><input data-path="${S.e(path)}" type="${type}" value="${S.e(value)}" ${extra}></label>`;
   S.textarea = (label, path, value, max = 2000) =>
-    `<label><span>${S.e(label)}</span><textarea data-path="${S.e(path)}" rows="3" maxlength="${max}">${S.e(value)}</textarea></label>`;
+    `<label class="pms-textarea-field"><span>${S.e(label)}</span><textarea data-path="${S.e(path)}" rows="3" maxlength="${max}">${S.e(value)}</textarea></label>`;
   S.check = (label, path, value, css = "") =>
     `<label class="${css || "pms-check"}"><input type="checkbox" data-path="${S.e(path)}" ${value ? "checked" : ""}><span>${S.e(label)}</span></label>`;
   S.select = (label, path, value, options) =>
@@ -151,7 +151,7 @@
   S.labels = (source, prefix, withName = false, name = "") => {
     const labels = source?.labels || source;
     const labelMax = withName ? 120 : 80;
-    return `<div class="pms-form-grid ${withName ? "four" : ""}">${S.field("고객용", prefix + ".labels.customer", labels?.customer, "text", 'maxlength="' + labelMax + '" data-mirror="' + S.e(prefix) + '"')}${S.field("생산팀용", prefix + ".labels.production", labels?.production, "text", 'maxlength="' + labelMax + '"')}${S.field("관리팀용", prefix + ".labels.management", labels?.management, "text", 'maxlength="' + labelMax + '"')}${withName ? S.field("제품명 구성 문자 (빈칸 가능)", prefix + ".namePart", name, "text", 'maxlength="160"') : ""}</div>`;
+    return `<div class="pms-form-grid ${withName ? "four" : ""}">${S.field("고객용 표시명", prefix + ".labels.customer", labels?.customer, "text", 'maxlength="' + labelMax + '" data-mirror="' + S.e(prefix) + '"')}${S.field("생산팀용 표시명", prefix + ".labels.production", labels?.production, "text", 'maxlength="' + labelMax + '"')}${S.field("관리팀용 표시명", prefix + ".labels.management", labels?.management, "text", 'maxlength="' + labelMax + '"')}${withName ? S.field("제품명 구성 문자 (빈칸 가능)", prefix + ".namePart", name, "text", 'maxlength="160"') : ""}</div>`;
   };
   S.customerLabel = (source, prefix = "", title = "질문 이름 (고객용)") =>
     S.field(title, prefix + ".labels.customer", source?.labels?.customer, "text", 'maxlength="80" data-customer-label');
@@ -246,6 +246,8 @@
     key: S.key("F"),
     labels: { customer: "", production: "", management: "" },
     namePart: "",
+    bundleKey: null,
+    assetIds: [],
     required: true,
     allowNegative: false,
     min: 0,
@@ -352,6 +354,7 @@
     document.body.append(el);
     S.$("[data-close]", el).onclick = () => el.close();
     el.addEventListener("close", () => {
+      S.$$("[data-pms-upload-scope]", el).forEach((scope) => scope._pmsFileState?.controller?.abort());
       onClose?.();
       el.remove();
     });
@@ -371,99 +374,160 @@
         dialog.close();
       };
     });
-  S.files = (files, editable = true) => {
-    const images = (files || []).filter((f) => f.image);
-    return `<div class="pms-files" data-pm-gallery="${S.e(JSON.stringify(images))}" data-pm-gallery-title="등록된 이미지">${(files || []).map((f, i) => `<div class="pms-file">${f.image ? `<button type="button" class="pms-file-image" data-pm-image="${images.indexOf(f)}" aria-label="${S.e(f.name)} 확대"><img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy"></button>` : "▤"}<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>${editable ? `<div class="pm-file-actions"><button type="button" data-replace-file="${i}" aria-label="${S.e(f.name)} 새 파일로 교체">교체</button><button type="button" data-remove-file="${i}" class="danger" aria-label="${S.e(f.name)} 등록에서 삭제">삭제</button></div>` : ""}</div>`).join("")}</div>${editable ? '<div class="pms-drop" tabindex="0" role="button">+ 파일 추가 또는 이곳에 드래그 · 여러 개 가능<input type="file" multiple hidden accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.zip,.hwp,.hwpx"></div><input type="file" data-replace-picker hidden><small class="pms-help">추가·교체·삭제한 파일 목록은 해당 저장 버튼을 누를 때 반영됩니다.</small>' : ""}`;
+  const fileDrafts = new WeakMap();
+  const fileIcon = '<svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true"><path d="M5 3h9l5 5v13H5zM14 3v6h5M8 13h8M8 17h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+  const fileAccept = ".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.zip,.hwp,.hwpx";
+  S.files = (files, editable = true, options = {}) => {
+    const rows = (files || []).filter(Boolean), images = rows.filter((f) => f.image);
+    return `<section class="pm-upload-area ${editable ? "editable" : "readonly"}" aria-label="이미지·첨부파일"><header class="pm-upload-heading"><div><strong>${editable ? "이미지·파일 등록" : "등록된 이미지·파일"}</strong><small>${rows.length}개 · 이미지를 누르면 확대해서 볼 수 있습니다.</small></div>${editable ? '<button type="button" data-cancel-files hidden>등록 변경 취소</button>' : ""}</header><div class="pms-files" data-pm-gallery="${S.e(JSON.stringify(images))}" data-pm-gallery-title="등록된 이미지">${rows.map((f, i) => `<article class="pms-file">${f.image && f.url ? `<button type="button" class="pms-file-image" data-pm-image="${images.indexOf(f)}" aria-label="${S.e(f.name)} 미리보기 확대"><img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy"></button>` : `<div class="pm-file-placeholder">${fileIcon}<span>${S.e((f.name || "파일").split(".").pop().toUpperCase())}</span></div>`}<div class="pm-file-copy">${f.url ? `<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>` : `<strong>${S.e(f.name || "등록된 파일")}</strong>`}<small>${f.image ? "이미지 미리보기" : "첨부파일"}</small></div>${editable ? `<div class="pm-file-actions"><button type="button" data-replace-file="${i}" aria-label="${S.e(f.name)} 새 파일로 교체">교체</button><button type="button" data-remove-file="${i}" class="danger" aria-label="${S.e(f.name)} 등록 목록에서 삭제">삭제</button></div>` : ""}</article>`).join("")}${!rows.length ? `<div class="pm-upload-empty">${fileIcon}<strong>${editable ? "등록할 이미지나 파일을 추가해 주세요." : "등록된 파일이 없습니다."}</strong>${editable ? "<span>아래 영역을 누르거나 파일을 끌어 놓으세요.</span>" : ""}</div>` : ""}</div>${editable ? `<div class="pms-drop" tabindex="0" role="button" aria-label="이미지·파일 선택"><span class="pm-upload-add" aria-hidden="true">＋</span><span><strong>이미지·파일 선택</strong><small>클릭 또는 드래그하여 추가 · 여러 파일 선택 가능</small></span><input type="file" multiple hidden accept="${S.e(options.accept || fileAccept)}" ${options.answerField ? `data-answer-field="${S.e(options.answerField)}"` : ""}></div><input type="file" data-replace-picker hidden><p class="pms-help pm-upload-help">삭제·교체는 현재 등록 목록에만 적용됩니다. <strong>${options.answerField ? "다음 질문을 누를 때 답변으로 반영됩니다." : "해당 저장 버튼을 눌러야 최종 반영됩니다."}</strong> ‘등록 변경 취소’로 이 영역의 변경을 되돌릴 수 있습니다.</p><span class="pm-upload-status" role="status" aria-live="polite"></span>` : ""}${options.answerField ? `<small data-answer-files="${S.e(options.answerField)}">${rows.length ? rows.length + "개 파일 등록됨" : ""}</small>` : ""}</section>`;
   };
-  S.fileEvents = (root, files, updated = () => {}, uploadPath = S.base + "/assets/stage") => {
+  S.fileEvents = (root, files, updated = () => {}, uploadPath = S.base + "/assets/stage", options = {}) => {
+    if (!root) return;
+    root.dataset.pmsUploadScope = "";
+    let state = fileDrafts.get(files);
+    if (!state) { state = { baseline: files.slice(), controller: null, serial: 0, busy: false }; fileDrafts.set(files, state); }
+    state.files = files;
+    root._pmsFileState = state;
+    root._pmsFileOptions = options;
     const drop = S.$(".pms-drop", root), input = S.$(".pms-drop input[type=file]", root), replacement = S.$("[data-replace-picker]", root);
-    if (!drop) return;
-    S.bindMedia?.(root);
-    let replaceIndex = null;
+    if (!drop || !input) { S.bindMedia?.(root); return; }
+    const accept = options.accept || input.accept;
+    input.accept = accept;
+    const changed = () => JSON.stringify(files.map((f) => f.id)) !== JSON.stringify(state.baseline.map((f) => f.id));
+    const refreshStatus = () => {
+      const cancel = S.$("[data-cancel-files]", root);
+      if (cancel) { cancel.hidden = !changed() && !state.busy; cancel.textContent = state.busy ? "업로드 취소" : "등록 변경 취소"; }
+      root.setAttribute("aria-busy", String(state.busy));
+      S.$$("[data-remove-file],[data-replace-file]", root).forEach((b) => { b.disabled = state.busy; });
+      drop.setAttribute("aria-disabled", String(state.busy));
+      const status = S.$(".pm-upload-status", root);
+      if (status) status.textContent = state.busy ? "파일을 업로드하고 있습니다…" : changed() ? "등록 목록이 변경되었습니다. 저장하거나 변경을 취소해 주세요." : "";
+    };
+    function render() {
+      if (!root.isConnected) return;
+      root.innerHTML = S.files(files, true, { ...options, accept });
+      S.fileEvents(root, files, updated, uploadPath, { ...options, accept });
+    }
     async function add(selected, index = null) {
-      if (!selected.length || root._pmsUploading) return;
+      if (!selected.length || state.busy) return;
       if (index != null && selected.length !== 1) return S.toast("교체할 파일은 하나만 선택해 주세요.");
-      const accept = input.accept, body = new FormData();
+      if (options.maxFiles != null && files.length + selected.length - (index == null ? 0 : 1) > options.maxFiles)
+        return S.toast(`파일은 최대 ${options.maxFiles}개까지 등록할 수 있습니다. 기존 파일을 삭제한 뒤 추가해 주세요.`);
+      const allowed = accept.split(",").map((ext) => ext.trim().replace(/^\./, "").toLowerCase()).filter(Boolean);
+      for (const file of selected) {
+        const extension = file.name.split(".").pop().toLowerCase();
+        if (allowed.length && !allowed.includes(extension)) return S.toast(`${file.name}: 허용된 파일 형식을 선택해 주세요.`);
+        if (file.size > (options.maxFileMB ?? 20) * 1024 * 1024) return S.toast(`${file.name}: 파일당 ${options.maxFileMB ?? 20}MB 이하로 등록해 주세요.`);
+      }
+      const selectedId = index == null ? null : files[index]?.id, body = new FormData();
       selected.forEach((file) => body.append("files", file));
-      root._pmsUploading = true; S.pendingUploads++;
-      drop.textContent = index == null ? "파일을 추가하고 있습니다…" : "새 파일로 교체하고 있습니다…";
-      S.$$("[data-remove-file],[data-replace-file]", root).forEach((b) => { b.disabled = true; });
+      const serial = ++state.serial;
+      state.controller = new AbortController(); state.busy = true; root._pmsUploading = true; S.pendingUploads++;
+      options.onBusy?.(true); refreshStatus();
       let failure = null;
       try {
-        const added = await S.api(uploadPath, "POST", body);
-        if (!added.length) throw Error("업로드한 파일을 확인해 주세요.");
-        if (index == null) files.push(...added); else files.splice(index, 1, added[0]);
+        const added = await S.api(uploadPath, "POST", body, state.controller.signal);
+        if (serial !== state.serial || !root.isConnected || options.isCurrent?.() === false) return;
+        if (!Array.isArray(added) || !added.length) throw Error("업로드한 파일을 확인해 주세요.");
+        if (index == null) files.push(...added);
+        else {
+          const currentIndex = files.findIndex((f) => f.id === selectedId);
+          if (currentIndex < 0) return;
+          files.splice(currentIndex, 1, added[0]);
+        }
         S.dirty = true; updated();
-      } catch (e) { failure = e.message; }
+      } catch (e) { if (e.name !== "AbortError") failure = e.message; }
       finally {
-        root._pmsUploading = false; S.pendingUploads--;
-        render(accept);
-        if (failure) S.showErrors(root, { "": failure });
+        S.pendingUploads = Math.max(0, S.pendingUploads - 1);
+        if (serial === state.serial) { state.busy = false; state.controller = null; root._pmsUploading = false; }
+        options.onBusy?.(false); render();
+        if (failure && root.isConnected) { if (options.onError) options.onError(failure); else S.showErrors(root, { "": failure }); }
       }
     }
-    function render(accept = input.accept) {
-      root.innerHTML = S.files(files);
-      S.$(".pms-drop input[type=file]", root).accept = accept;
-      S.fileEvents(root, files, updated, uploadPath);
-    }
-    drop.onclick = () => { if (!root._pmsUploading) input.click(); };
+    drop.onclick = () => { if (!state.busy) { input.value = ""; input.click(); } };
     input.onclick = (e) => e.stopPropagation();
-    drop.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } };
+    drop.onkeydown = (e) => { if ((e.key === "Enter" || e.key === " ") && !state.busy) { e.preventDefault(); input.value = ""; input.click(); } };
     input.onchange = () => add([...input.files]);
-    drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+    drop.ondragover = (e) => { e.preventDefault(); if (!state.busy) drop.classList.add("over"); };
     drop.ondragleave = () => drop.classList.remove("over");
-    drop.ondrop = (e) => { e.preventDefault(); e.stopPropagation(); add([...e.dataTransfer.files]); };
+    drop.ondrop = (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("over"); add([...e.dataTransfer.files]); };
     S.$$("[data-replace-file]", root).forEach((b) => { b.onclick = () => {
-      replaceIndex = Number(b.dataset.replaceFile); replacement.accept = input.accept; replacement.click();
+      if (state.busy) return;
+      replacement.dataset.replaceIndex = b.dataset.replaceFile; replacement.accept = accept; replacement.value = ""; replacement.click();
     }; });
-    replacement.onchange = () => add([...replacement.files], replaceIndex);
+    replacement.onchange = () => add([...replacement.files], Number(replacement.dataset.replaceIndex));
     S.$$("[data-remove-file]", root).forEach((b) => { b.onclick = () => {
-      if (root._pmsUploading) return;
+      if (state.busy) return;
       files.splice(Number(b.dataset.removeFile), 1); S.dirty = true; updated(); render();
     }; });
+    S.$("[data-cancel-files]", root).onclick = () => {
+      if (state.busy) { state.controller?.abort(); return; }
+      files.splice(0, files.length, ...state.baseline); S.dirty = true; updated(); render();
+    };
+    S.bindMedia?.(root); refreshStatus();
   };
+  S.commitFileDrafts = (root) => S.$$("[data-pms-upload-scope]", root).forEach((scope) => {
+    if (scope._pmsFileState) scope._pmsFileState.baseline = (scope._pmsFileState.files || []).slice();
+  });
   S.pager = (page, total, action = "page") => {
     let start = Math.floor(page / 5) * 5;
     return `<div class="pms-pager"><button data-${action}="0" ${page <= 0 ? "disabled" : ""}>FIRST</button><button data-${action}="${Math.max(0, page - 1)}" ${page <= 0 ? "disabled" : ""}>PREV</button>${Array.from({ length: Math.max(0, Math.min(5, total - start)) }, (_, i) => `<button data-${action}="${start + i}" class="${page === start + i ? "current" : ""}">${start + i + 1}</button>`).join("")}<button data-${action}="${page + 1}" ${page >= total - 1 ? "disabled" : ""}>NEXT</button><button data-${action}="${Math.max(0, total - 1)}" ${page >= total - 1 ? "disabled" : ""}>LAST</button></div>`;
   };
-  S.inputAnswer = (q, answer = {}, disabled = false) => {
-    const choices = answer.choices || [],
-      fields = answer.fields || {};
+  S.labelSamples = (f) => `<div class="pm-live-sample"><strong>실제 표시 예시</strong><div class="pm-label-examples">${Object.entries({ customer: "고객", production: "생산팀", management: "관리팀" }).map(([key, name]) => `<span><small>${name} 화면</small><b>${S.e(f.labels?.[key] || "표시명")}</b> : <em>___</em>${f.unit ? ` <span>(${S.e(f.unit)})</span>` : ""}</span>`).join("")}</div><small>표시명은 입력칸 앞에, 단위는 입력한 값 뒤에 표시됩니다. 저장되는 숫자는 세 화면에서 같습니다.</small></div>`;
+  S.inputAnswer = (q, answer = {}, disabled = false, assets = new Map()) => {
+    const choices = answer.choices || [], fields = answer.fields || {};
     if (S.isChoice(q.control))
-      return `<div class="pms-check-grid">${(q.choices || []).map((c) => `<label class="pms-check"><input type="${q.control === "RADIO" ? "radio" : "checkbox"}" name="q-${S.e(q.key)}" data-answer-choice="${S.e(c.key)}" ${choices.includes(c.key) ? "checked" : ""} ${disabled ? "disabled" : ""}>${S.e(c.labels.customer)}</label>`).join("")}</div>`;
-    return `<div class="pms-form-grid two">${(q.fields || [])
-      .map((f) => {
-        const attr = `data-answer-field="${S.e(f.key)}" ${disabled ? "disabled" : ""}`;
-        let input;
-        if (q.control === "TEXTAREA")
-          input = `<textarea ${attr} rows="3" maxlength="${f.maxLength || 500}">${S.e(fields[f.key])}</textarea>`;
-        else if (q.control === "FILE")
-          input = `<input type="file" ${attr} multiple accept="${(f.extensions || []).map((x) => "." + x).join(",")}"><small data-answer-files="${S.e(f.key)}">${Array.isArray(fields[f.key]) ? fields[f.key].length + "개 파일 업로드됨" : ""}</small>`;
-        else
-          input = `<input ${attr} type="${q.control === "NUMBER" ? "number" : "text"}" value="${S.e(fields[f.key])}" ${q.control === "NUMBER" ? `step="${f.step || 1}" ${f.min !== null ? `min="${f.min}"` : !f.allowNegative ? 'min="0"' : ""} ${f.max !== null ? `max="${f.max}"` : ""}` : `maxlength="${f.maxLength || 500}"`}>`;
-        return `<label><span>${S.e(f.labels.customer)} ${f.required ? "*" : ""} ${S.e(f.unit || "")}</span>${input}${q.control === "NUMBER" ? `<small>${f.min ?? (!f.allowNegative ? 0 : "제한 없음")} ~ ${f.max ?? "제한 없음"} · 간격 ${f.step || 1}</small>` : ""}</label>`;
-      })
-      .join("")}</div>`;
+      return `<div class="pms-check-grid">${(q.choices || []).map((c) => `<label class="pms-check"><input type="${q.control === "RADIO" ? "radio" : "checkbox"}" name="q-${S.e(q.key)}" data-answer-choice="${S.e(c.key)}" ${choices.includes(c.key) ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${S.e(c.labels?.customer || c.key)}</span></label>`).join("")}</div>`;
+    const resolve = (id) => assets instanceof Map ? assets.get(id) : assets?.[id];
+    function fieldHtml(f) {
+      const attr = `data-answer-field="${S.e(f.key)}" aria-label="${S.e(f.labels?.customer || f.key)}" ${f.required ? 'aria-required="true"' : ""} ${disabled ? "disabled" : ""}`;
+      let input;
+      if (q.control === "TEXTAREA") input = `<textarea ${attr} rows="4" maxlength="${f.maxLength ?? 500}">${S.e(fields[f.key])}</textarea>`;
+      else if (q.control === "FILE") {
+        const ids = Array.isArray(fields[f.key]) ? fields[f.key] : [];
+        const list = ids.map((id) => resolve(id) || { id, name: "등록된 파일", image: false });
+        input = `<div data-answer-upload="${S.e(f.key)}">${S.files(list, !disabled, { answerField: f.key, accept: (f.extensions || []).map((x) => "." + x).join(",") })}</div><small>허용 형식: ${S.e((f.extensions || []).join(", "))} · 최대 ${f.maxFiles ?? 5}개 · 파일당 ${f.maxFileMB ?? 10}MB</small>`;
+      } else {
+        const number = q.control === "NUMBER";
+        input = `<div class="pm-answer-value"><input ${attr} type="${number ? "number" : "text"}" value="${S.e(fields[f.key])}" ${number ? `step="${f.step ?? 1}" ${f.min != null ? `min="${f.min}"` : !f.allowNegative ? 'min="0"' : ""} ${f.max != null ? `max="${f.max}"` : ""}` : `maxlength="${f.maxLength ?? 500}"`}>${f.unit ? `<span class="pm-answer-unit">(${S.e(f.unit)})</span>` : ""}</div>`;
+      }
+      return `<div class="pm-answer-field ${q.control === "TEXTAREA" || q.control === "FILE" ? "wide" : ""}" data-field-key="${S.e(f.key)}"><label><span><strong>${S.e(f.labels?.customer || f.key)}</strong>${f.required ? ' <span class="pm-required-mark">필수</span>' : ""}</span>${q.control === "FILE" ? "" : input}</label>${q.control === "FILE" ? input : ""}${q.control === "NUMBER" ? `<small class="pm-effective-limit">입력 범위 <strong>${S.e(f.min ?? (!f.allowNegative ? 0 : "제한 없음"))} ~ ${S.e(f.max ?? "제한 없음")}</strong> · 간격 ${S.e(f.step ?? 1)}</small>` : ""}${S.media ? S.media((f.assetIds || []).map(resolve).filter(Boolean), (f.labels?.customer || "입력 항목") + " 안내 이미지") : ""}</div>`;
+    }
+    if (q.control !== "NUMBER") return `<div class="pms-form-grid two pm-answer-fields">${(q.fields || []).map(fieldHtml).join("")}</div>`;
+    const bundles = new Map();
+    for (const f of q.fields || []) { const key = f.bundleKey || f.key; if (!bundles.has(key)) bundles.set(key, []); bundles.get(key).push(f); }
+    return `<div class="pm-number-answer-bundles">${[...bundles.values()].map((fs) => `<section class="pm-number-answer-bundle ${fs.length > 1 ? "grouped" : ""}">${fs.length > 1 ? '<div class="pm-answer-bundle-title">함께 입력하는 항목</div>' : ""}<div class="pms-form-grid two pm-answer-fields">${fs.map(fieldHtml).join("")}</div></section>`).join("")}</div>`;
   };
   S.readAnswer = (root, q, previous = {}) => {
-    if (S.isChoice(q.control))
-      return {
-        choices: S.$$("[data-answer-choice]:checked", root).map(
-          (x) => x.dataset.answerChoice,
-        ),
-        fields: {},
-      };
-    const fields = {};
+    if (S.isChoice(q.control)) return { choices: S.$$("[data-answer-choice]:checked", root).map((x) => x.dataset.answerChoice), fields: {} };
+    const fields = {}, allowed = new Set((q.fields || []).map((f) => f.key));
     S.$$("[data-answer-field]", root).forEach((input) => {
+      const key = input.dataset.answerField;
+      if (!allowed.has(key)) return;
       if (input.type === "file") {
-        if (previous.fields?.[input.dataset.answerField])
-          fields[input.dataset.answerField] =
-            previous.fields[input.dataset.answerField];
-      } else if (input.value !== "")
-        fields[input.dataset.answerField] =
-          input.type === "number" ? Number(input.value) : input.value;
+        const upload = input.closest("[data-answer-upload]");
+        const list = upload?._pmsFileState?.files;
+        if (list) fields[key] = list.map((a) => a.id);
+        else if (Array.isArray(previous.fields?.[key])) fields[key] = previous.fields[key].slice();
+      } else if (input.value !== "") fields[key] = input.type === "number" ? Number(input.value) : input.value;
     });
     return { choices: [], fields };
+  };
+  S.answerFileEvents = (root, q, answer = {}, assets = new Map(), options = {}) => {
+    if (q.control !== "FILE") return;
+    S.$$('[data-answer-upload]', root).forEach((upload) => {
+      const field = (q.fields || []).find((f) => f.key === upload.dataset.answerUpload);
+      if (!field) return;
+      const ids = Array.isArray(answer.fields?.[field.key]) ? answer.fields[field.key] : [];
+      const files = ids.map((id) => assets.get(id) || { id, name: "등록된 파일", image: false });
+      S.fileEvents(upload, files, () => {
+        files.forEach((a) => assets.set(a.id, a));
+        answer.fields ??= {}; answer.fields[field.key] = files.map((a) => a.id);
+        options.onChange?.(answer, field);
+        upload.dispatchEvent(new Event("change", { bubbles: true }));
+      }, options.uploadPath || S.base + "/assets/stage", { ...options, answerField: field.key,
+        accept: (field.extensions || []).map((ext) => "." + ext).join(","), maxFiles: field.maxFiles ?? 5, maxFileMB: field.maxFileMB ?? 10 });
+    });
   };
   window.addEventListener("beforeunload", (e) => {
     if (S.dirty) {
@@ -491,6 +555,10 @@
   S.errorAdvice = (message) => {
     const m = String(message || "");
     if (m.includes("수정 예시:")) return "";
+    if (/의존성|선행.*(생략|건너)|앞 질문.*(생략|건너)/.test(m))
+      return "수정 예시: 문 수량의 입력묶음을 ‘문의 종류’가 정한다면 그 질문을 건너뛸 수 없습니다. 앞 질문의 생략 연결을 해제하거나 영향을 받는 문 수량도 같은 경로에서 생략하세요. 사이즈로 입력 범위를 정하는 경우에도 사이즈 답변이 먼저 필요합니다.";
+    if (/합계.*(충돌|범위|제한)|입력제한.*(충돌|모순)/.test(m))
+      return "수정 예시: 혼합 수량의 합계 최대값이 4이면 여닫이 2 + 서랍 2는 가능하고 3 + 2는 불가능합니다. 개별 최대·최소와 합계 제한이 함께 충족되는지, 앞 답변의 모든 조건에 허용값을 등록했는지 확인해 주세요.";
     if (/범위 중복/.test(m))
       return "수정 예시: ‘W 300 이하’와 ‘W 500 이하’는 겹칩니다. 두 번째를 ‘W 300 초과 AND W 500 이하’로 나누세요. W 조건과 H 조건도 동시에 성립할 수 있으므로 함께 확인해 주세요.";
     if (/충돌|동시에 (적용|일치|성립)/.test(m))
@@ -625,8 +693,26 @@
       errors.fields = "입력 필드를 한 개 이상 추가해 주세요.";
       return;
     }
-    S.checkUniqueLabels(fields, prefix, errors);
+    if (control === "NUMBER" && fields.some((f) => f.bundleKey)) {
+      const bundles = new Map();
+      fields.forEach((field, index) => {
+        const key = field.bundleKey || "__independent__";
+        if (!bundles.has(key)) bundles.set(key, []);
+        bundles.get(key).push({ field, index });
+      });
+      for (const rows of bundles.values()) {
+        const local = {};
+        S.checkUniqueLabels(rows.map((row) => row.field), "", local);
+        for (const [path, message] of Object.entries(local)) {
+          const [index, ...rest] = path.split(".");
+          errors[prefix + rows[Number(index)].index + "." + rest.join(".")] = message;
+        }
+      }
+    } else S.checkUniqueLabels(fields, prefix, errors);
+    const fieldKeys = new Set();
     fields.forEach((f, i) => {
+      if (fieldKeys.has(f.key)) errors[prefix + i + ".key"] = "입력 필드의 내부 value가 중복됩니다. 새 입력 필드로 다시 생성해 주세요.";
+      fieldKeys.add(f.key);
       const p = prefix + i + ".";
       S.checkLabels(f.labels, p, 120, errors);
       if ((f.namePart || "").length > 160)

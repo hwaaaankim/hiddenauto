@@ -139,6 +139,25 @@
 											   )}" class="btn btn-dark">
 													<i class="fa-solid fa-file-invoice-dollar"></i> 매출전표다운로드
 												</a>
+												<a sec:authorize="hasAuthority('ROLE_ADMIN') and hasIpAddress('58.121.75.67')"
+													th:href="@{/admin/order-excel-upload/download(
+                                                    keyword=${keyword},
+                                                    orderIdFrom=${orderIdFrom},
+                                                    orderIdTo=${orderIdTo},
+                                                    orderId=${orderId},
+                                                    productName=${productName},
+                                                    dateCriteria=${dateCriteria},
+                                                    startDate=${startDateStr},
+                                                    endDate=${endDateStr},
+                                                    productCategoryId=${productCategoryId},
+                                                    orderStatus=${orderStatus},
+                                                    standard=${standard},
+                                                    sortField=${sortField},
+                                                    sortDir=${sortDir}
+                                                )}" class="btn btn-outline-success"
+													title="현재 검색 조건에 해당하는 전체 품목을 발주등록용 엑셀 양식으로 다운로드합니다.">
+													<i class="fa-solid fa-file-excel"></i> 발주등록용엑셀 다운로드
+												</a>
 												<button type="button" class="btn btn-danger"
 													id="task-list-delete-tasks-btn" disabled>
 													<i class="fa-solid fa-trash-can"></i> 태스크 삭제

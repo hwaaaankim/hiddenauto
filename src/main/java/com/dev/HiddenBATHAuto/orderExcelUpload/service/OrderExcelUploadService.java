@@ -58,6 +58,7 @@ import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressParser;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressValidationResult;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressValidator;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelCellReader;
+import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelColumnLayout;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelDeliveryRule;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelProductNameParser;
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelRowKind;
@@ -104,6 +105,7 @@ public class OrderExcelUploadService {
      * 7=대분류, 8=관리 담당자, 9=배송 담당자/배송수단 부호, 10=사진,
      * 11=단가, 12=공급가액, 13=부가세, 14=합계금액, 15~17=무시,
      * 18(S열)=사업자등록번호입니다. 하이픈 등 숫자 외 문자는 제거합니다.
+     * 신규 20열 양식은 C열 오른쪽에 참고용 거래처명이 추가되며, D~S열 위치를 한 칸 옮겨 읽습니다.
      * 규격/비규격 및 거울재단 여부는 엑셀에서 읽지 않고 AmountItemMaster의 품목명 매칭 결과를 사용합니다.
      */
     private static final int COL_DATE = 0;
@@ -497,7 +499,7 @@ public class OrderExcelUploadService {
 
                 LinkedHashMap<String, String> optionMap = buildOptionMap(rowRequest, productionCategory);
                 OrderItem orderItem = new OrderItem();
-                // 엑셀 D열의 "품목명" 원문은 기존 제품명 가공 로직과 분리하여 그대로 보존합니다.
+                // 엑셀 품목 열(기존 D열 / 신규 E열)의 원문은 기존 제품명 가공 로직과 분리하여 그대로 보존합니다.
                 orderItem.setItemName(rowRequest.getOriginalItemName());
                 orderItem.setProductName(optionMap.getOrDefault("제품명", safe(rowRequest.getCalculatedProductName())));
                 orderItem.setQuantity(rowRequest.getQuantity());
@@ -552,15 +554,17 @@ public class OrderExcelUploadService {
             return rows;
         }
 
+        OrderExcelColumnLayout columnLayout = OrderExcelColumnLayout.detect(sheet, cellReader);
+
         for (int rowIndex = sheet.getFirstRowNum(); rowIndex <= sheet.getLastRowNum(); rowIndex++) {
             Row row = sheet.getRow(rowIndex);
             if (row == null) {
                 continue;
             }
 
-            String dateText = cellReader.text(row, COL_DATE);
-            String companyText = cellReader.text(row, COL_COMPANY);
-            String itemName = cellReader.text(row, COL_ITEM_NAME);
+            String dateText = cellReader.text(row, columnLayout.mapIndex(COL_DATE));
+            String companyText = cellReader.text(row, columnLayout.mapIndex(COL_COMPANY));
+            String itemName = cellReader.text(row, columnLayout.mapIndex(COL_ITEM_NAME));
 
             if (isHeaderRow(dateText, companyText, itemName)) {
                 continue;
@@ -568,22 +572,22 @@ public class OrderExcelUploadService {
 
             ExcelRawRow raw = new ExcelRawRow();
             raw.excelRowNumber = rowIndex + 1;
-            raw.preferredDeliveryDate = cellReader.date(row, COL_DATE);
+            raw.preferredDeliveryDate = cellReader.date(row, columnLayout.mapIndex(COL_DATE));
             raw.companyRaw = companyText;
             raw.itemName = itemName;
-            raw.size = cellReader.text(row, COL_SIZE);
-            raw.quantity = cellReader.signedInteger(row, COL_QUANTITY);
-            raw.adminMemo = cellReader.text(row, COL_ADMIN_MEMO);
-            raw.categoryName = cellReader.text(row, COL_CATEGORY);
-            raw.managerName = cellReader.text(row, COL_MANAGER);
-            raw.deliveryTokenRaw = cellReader.text(row, COL_DELIVERY_HANDLER);
+            raw.size = cellReader.text(row, columnLayout.mapIndex(COL_SIZE));
+            raw.quantity = cellReader.signedInteger(row, columnLayout.mapIndex(COL_QUANTITY));
+            raw.adminMemo = cellReader.text(row, columnLayout.mapIndex(COL_ADMIN_MEMO));
+            raw.categoryName = cellReader.text(row, columnLayout.mapIndex(COL_CATEGORY));
+            raw.managerName = cellReader.text(row, columnLayout.mapIndex(COL_MANAGER));
+            raw.deliveryTokenRaw = cellReader.text(row, columnLayout.mapIndex(COL_DELIVERY_HANDLER));
             raw.deliveryHandlerName = normalizeDeliveryMemberName(raw.deliveryTokenRaw);
             raw.deliveryRule = resolveDeliveryRule(raw.deliveryTokenRaw);
-            raw.productCost = cellReader.money(row, COL_PRODUCT_COST);
-            raw.supplyPrice = cellReader.money(row, COL_SUPPLY_PRICE);
-            raw.vatAmount = cellReader.money(row, COL_VAT_AMOUNT);
-            raw.totalAmount = cellReader.money(row, COL_TOTAL_AMOUNT);
-            raw.businessNumber = normalizeBusinessNumber(cellReader.text(row, COL_BUSINESS_NUMBER));
+            raw.productCost = cellReader.money(row, columnLayout.mapIndex(COL_PRODUCT_COST));
+            raw.supplyPrice = cellReader.money(row, columnLayout.mapIndex(COL_SUPPLY_PRICE));
+            raw.vatAmount = cellReader.money(row, columnLayout.mapIndex(COL_VAT_AMOUNT));
+            raw.totalAmount = cellReader.money(row, columnLayout.mapIndex(COL_TOTAL_AMOUNT));
+            raw.businessNumber = normalizeBusinessNumber(cellReader.text(row, columnLayout.mapIndex(COL_BUSINESS_NUMBER)));
             // 엑셀의 규격/거울재단 열은 제거되었습니다. 미리보기 생성 시 AmountItemMaster 값으로 덮어씁니다.
             raw.standard = inferStandardFromItemName(itemName);
             raw.mirrorCuttingProduct = false;
@@ -1349,7 +1353,7 @@ public class OrderExcelUploadService {
         if (companies.isEmpty()) {
             issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명으로 업체를 찾을 수 없습니다: " + group.getCompanyName()));
         } else if (companies.size() > 1) {
-            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명이 중복됩니다. S열 사업자등록번호를 확인해 주세요: " + group.getCompanyName()));
+            issues.add(OrderExcelIssueDto.error(null, group.getGroupNo(), "companyName", "거래처명이 중복됩니다. 사업자등록번호 열(기존 19열 S / 신규 20열 T)을 확인해 주세요: " + group.getCompanyName()));
         }
     }
 
@@ -1552,7 +1556,7 @@ public class OrderExcelUploadService {
 
         List<Company> companies = findCompanies(group.getCompanyName());
         if (companies.size() != 1) {
-            throw new IllegalArgumentException("거래처를 정확히 찾을 수 없습니다. S열 사업자등록번호를 확인해 주세요: " + group.getCompanyName());
+            throw new IllegalArgumentException("거래처를 정확히 찾을 수 없습니다. 사업자등록번호 열(기존 19열 S / 신규 20열 T)을 확인해 주세요: " + group.getCompanyName());
         }
         return companies.get(0);
     }
@@ -1637,7 +1641,7 @@ public class OrderExcelUploadService {
     /**
      * 사용자가 미리보기에서 최종 선택한 DeliveryMethod의 실제 DB 명칭을 기준으로
      * 배송담당자 필수 여부와 현장주소 필수 여부를 결정합니다.
-     * 엑셀 J열은 초기 선택값만 만들며 저장 시 배송수단을 강제로 고정하지 않습니다.
+     * 엑셀 배송담당자 열(기존 J열 / 신규 K열)은 초기 선택값만 만들며 저장 시 배송수단을 강제로 고정하지 않습니다.
      */
     private OrderExcelDeliveryRule resolveDeliveryRuleFromMethod(DeliveryMethod method) {
         if (method == null) {
@@ -2100,7 +2104,7 @@ public class OrderExcelUploadService {
                 rowNo,
                 groupNo,
                 "businessNumber",
-                "S열 사업자등록번호가 비어 있어 거래처명으로 조회했습니다. 동일 거래처명이 있으면 사업자등록번호가 필요합니다."
+                "사업자등록번호 열(기존 19열 S / 신규 20열 T)이 비어 있어 거래처명으로 조회했습니다. 동일 거래처명이 있으면 사업자등록번호가 필요합니다."
         ));
 
         List<Company> companies = findCompanies(companyName);
@@ -2109,7 +2113,7 @@ public class OrderExcelUploadService {
             return Optional.empty();
         }
         if (companies.size() > 1) {
-            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "companyName", "거래처명이 중복됩니다. S열 사업자등록번호를 확인해 주세요: " + companyName));
+            issues.add(OrderExcelIssueDto.error(rowNo, groupNo, "companyName", "거래처명이 중복됩니다. 사업자등록번호 열(기존 19열 S / 신규 20열 T)을 확인해 주세요: " + companyName));
             return Optional.empty();
         }
         return Optional.of(companies.get(0));
@@ -2405,7 +2409,7 @@ public class OrderExcelUploadService {
                         rowNo,
                         groupNo,
                         "deliveryMethod",
-                        "J열 배송담당자/부호로 결정된 배송수단은 '" + deliveryRule.getLabel() + "'입니다. 상단 기본 배송수단을 확인해 주세요."
+                        "배송담당자 열(기존 19열 J / 신규 20열 K)의 이름/부호로 결정된 배송수단은 '" + deliveryRule.getLabel() + "'입니다. 상단 기본 배송수단을 확인해 주세요."
                 ));
                 return null;
             }
