@@ -112,6 +112,9 @@ public class ProductMaster {
   @Column(name = "studio_process_json", columnDefinition = "LONGTEXT")
   private String studioProcessJson;
 
+  @Column(name = "studio_price_json", columnDefinition = "LONGTEXT")
+  private String studioPriceJson;
+
   @Column(name = "created_by", nullable = false, length = 100, updatable = false)
   private String createdBy;
 

@@ -72,6 +72,14 @@ public class ProductMasterPageController {
     return page(m, "actuals");
   }
 
+  @GetMapping("/products/{productId}/pricing")
+  public String pricing(@PathVariable Long productId, Model m) {
+    if (!service.detail(productId).nonStandard())
+      throw new IllegalArgumentException("비규격 제품에서 가격계산식을 등록해 주세요.");
+    m.addAttribute("productId", productId);
+    return page(m, "pricing");
+  }
+
   @GetMapping("/products/{productId}/test")
   public String test(@PathVariable Long productId, Model m) {
     if (!service.detail(productId).nonStandard())

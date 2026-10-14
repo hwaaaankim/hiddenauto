@@ -22,7 +22,14 @@
   const steps = (xs, i) =>
     `<ol class="pm-stepper">${xs.map((x, n) => `<li class="${i === n ? "active" : ""}">${n + 1}. ${x}</li>`).join("")}</ol>`;
   S.processPage = async function (root, p) {
-    const readOnly = Number(p.actualCount || 0) > 0 || new URLSearchParams(location.search).get("mode") === "view";
+    let priceLinked = false;
+    try { priceLinked = (await S.request("/pricing/status", "POST", { productIds: [p.id] }))[0]?.registered || false; }
+    catch (err) { S.notice("가격식 연결 상태를 확인하지 못했습니다. " + err.message); }
+    const readOnly = priceLinked || Number(p.actualCount || 0) > 0 || new URLSearchParams(location.search).get("mode") === "view";
+    const lockMessage = Number(p.actualCount || 0) > 0
+      ? `실 제품 ${p.actualCount}종이 등록되어 구성·프로세스의 변경과 저장은 잠겨 있습니다.`
+      : priceLinked ? "등록된 가격계산식과 연결되어 프로세스를 조회합니다. 가격계산식을 삭제한 뒤 프로세스를 변경하고 가격식을 다시 등록해 주세요."
+      : "등록된 프로세스의 질문·답변·입력 제한·분기를 조회합니다.";
     let process = S.copy(p.process),
       stage = 0, zoom = 100, canvasObserver = null, canvasScroll = { x: 0, y: 0 };
     process.inputLimits ??= [];
@@ -139,7 +146,7 @@
       return { ...result, issues: remaining, valid: remaining.every((issue) => issue.severity !== "ERROR") };
     }
     async function save(publish) {
-      if (readOnly) throw Error("실 재고가 등록된 제품은 프로세스를 수정할 수 없습니다. 현재 등록내용을 확인하고 새 제품을 등록해 주세요.");
+      if (readOnly) throw Error(lockMessage);
       if (publish) {
         const v = await validate();
         if (!v.valid || !v.exhaustive) throw Error(err(v));
@@ -231,7 +238,7 @@
       if (oldCanvas) canvasScroll = { x: oldCanvas.scrollLeft, y: oldCanvas.scrollTop };
       canvasObserver?.disconnect();
       const saveStatus = S.dirty ? "저장하지 않은 변경사항" : "저장된 상태";
-      root.innerHTML = `${readOnly ? `<div class="pms-alert pm-readonly-notice"><strong>등록내용 조회 모드</strong><p>실 제품 ${p.actualCount || 0}개가 등록되어 구성·프로세스의 변경과 저장은 잠겨 있습니다. 질문·답변을 열거나 답변에 마우스를 올리면 묶음, 입력제한, 분기 연결을 확인할 수 있습니다.</p></div>` : ""}<section class="pms-panel"><header class="pms-panel-title"><div><h2>${S.e(p.productName)}</h2><small>고정 분류: ${fixed()
+      root.innerHTML = `${readOnly ? `<div class="pms-alert pm-readonly-notice"><strong>등록내용 조회 모드</strong><p>${S.e(lockMessage)} 질문·답변을 열거나 답변에 마우스를 올리면 묶음, 입력제한, 분기 연결을 확인할 수 있습니다.</p>${priceLinked ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/pricing">연결된 가격계산식 관리</a>` : ""}</div>` : ""}<section class="pms-panel"><header class="pms-panel-title"><div><h2>${S.e(p.productName)}</h2><small>고정 분류: ${fixed()
         .map((q) => q.choices.map((c) => S.e(c.labels.management)).join("/"))
         .join(
           " · ",

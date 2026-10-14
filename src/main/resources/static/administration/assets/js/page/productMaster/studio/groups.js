@@ -23,7 +23,7 @@
         )
         .map(
           (g) =>
-            `<article  data-group="${g.id}" class="pms-palette-item ${g.id === selected ? "active" : ""}"><strong><span class="pms-handle">⠿</span> ${S.e(g.labels.management)}</strong><small>${S.isBase(g) ? S.badge("기본", "blue") : S.badge(g.nonStandard ? "비규격" : "규격", g.nonStandard ? "amber" : "")}${S.e(S.controls[g.control])} · ${g.values.length}개</small>${!g.active ? S.badge("비활성", "red") : ""}</article>`,
+            `<article  data-group="${g.id}" class="pms-palette-item ${g.id === selected ? "active" : ""}"><strong><span class="pms-handle">⠿</span> ${S.e(g.labels.management)}</strong><small>${S.isBase(g) ? S.badge("기본", "blue") : S.badge(g.nonStandard ? "비규격" : "규격", g.nonStandard ? "amber" : "")}${S.e(S.controls[g.control])} · ${g.values.length}개</small>${g.priceImpact ? S.badge("가격영향", "blue") : ""}${!g.active ? S.badge("비활성", "red") : ""}</article>`,
         )
         .join("");
     }
@@ -300,9 +300,26 @@
           });
       }
       if (S.group(model.id)?.definitionLocked) {
-        editor.insertAdjacentHTML("afterbegin", '<div class="pms-help" role="status">제품에서 사용하는 비규격 공통 그룹입니다. 설정·이미지 변경과 삭제가 잠겨 있습니다. 제품별 질문·입력 필드·옵션·범위·분기는 각 제품의 프로세스에서 수정해 주세요.</div>');
+        editor.insertAdjacentHTML("afterbegin", '<div class="pms-help" role="status">제품에서 사용하는 비규격 공통 그룹입니다. 공통 정의·이미지 변경과 삭제가 잠겨 있습니다. 가격영향 설정은 아래에서 별도로 변경하며, 제품별 질문·입력 필드·옵션·범위·분기는 각 제품의 프로세스에서 수정해 주세요.</div>');
         S.$$("input, select, textarea, button", editor).forEach((el) => {
           el.disabled = true;
+        });
+        const groupId = model.id;
+        const panel = document.createElement("section");
+        panel.className = "pms-panel-body";
+        panel.innerHTML = '<h3>가격계산 영향 설정</h3><div data-price-impact-setting role="status">등록된 가격 항을 확인하고 있습니다.</div>';
+        editor.append(panel);
+        S.request(`/groups/${groupId}/price-impact`).then((state) => {
+          if (model.id !== groupId || !panel.isConnected) return;
+          panel.innerHTML = `<h3>가격계산 영향 설정</h3><p class="pms-help">${S.e(state.message)}</p><label class="pms-check"><input type="checkbox" data-price-impact-toggle ${state.priceImpact ? "checked" : ""} ${state.locked ? "disabled" : ""}>가격계산에 영향을 주는 그룹</label><div class="pms-actions"><button type="button" data-save-price-impact ${state.locked ? "disabled" : ""}>가격영향 설정 저장</button>${state.locked ? S.badge("가격 항 사용 중 · 해제 잠김", "amber") : ""}</div>`;
+          S.$("[data-save-price-impact]", panel).onclick = (e) => S.run(e.currentTarget, async () => {
+            await S.request(`/groups/${groupId}/price-impact`, "PUT", { version: state.version, priceImpact: S.$("[data-price-impact-toggle]", panel).checked });
+            await S.catalog();
+            if (model.id === groupId) open(groupId);
+            S.notice("가격영향 설정을 저장했습니다.", true);
+          });
+        }).catch((err) => {
+          if (panel.isConnected) panel.innerHTML = `<div class="pms-alert">${S.e(err.message)}</div>`;
         });
       }
     }

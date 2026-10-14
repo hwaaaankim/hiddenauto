@@ -18,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,8 @@ public class ProductStudioService {
   private final ProductInventoryService inventory;
   private final ProductStudioDeletionService deletions;
   private final ProductStudioJson json;
+  // Deferred to avoid the pricing -> studio -> pricing constructor dependency cycle.
+  private final ObjectProvider<ProductPricingService> pricing;
   private final EntityManager entityManager;
 
   private record Plan(
@@ -825,6 +828,7 @@ public class ProductStudioService {
     }
     lockCustomGroups(list(edit.variants()));
     List<Variant> selected = validateVariants(edit.variants(), p.isNonStandard());
+    pricing.getObject().assertProductChangeAllowed(p, selected);
     boolean custom = p.isNonStandard();
     validateMetadata(edit.productionHours(), edit.unitPrice(), edit.faqTopicId(), custom);
     p.setProductionHours(edit.productionHours());
@@ -1098,6 +1102,7 @@ public class ProductStudioService {
       throw new IllegalArgumentException("비규격 제품에서만 프로세스를 편집합니다.");
     requireNoActuals(p);
     Process normalized = normalizeProcess(p, save.process());
+    pricing.getObject().assertProcessChangeAllowed(p, normalized);
     // A draft can contain alternative bundles before their display relations are connected.
     // It remains DRAFT; exhaustive reachability/dependency validation gates publication below.
     if (save.publish()) {
