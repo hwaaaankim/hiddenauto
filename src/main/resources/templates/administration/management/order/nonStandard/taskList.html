@@ -139,7 +139,7 @@
 											   )}" class="btn btn-dark">
 													<i class="fa-solid fa-file-invoice-dollar"></i> 매출전표다운로드
 												</a>
-												<a sec:authorize="hasAuthority('ROLE_ADMIN') and hasIpAddress('58.121.75.67')"
+												<a sec:authorize="hasAuthority('ROLE_ADMIN')"
 													th:href="@{/admin/order-excel-upload/download(
                                                     keyword=${keyword},
                                                     orderIdFrom=${orderIdFrom},
