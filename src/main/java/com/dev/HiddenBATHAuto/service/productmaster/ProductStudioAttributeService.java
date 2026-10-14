@@ -13,6 +13,7 @@ import java.util.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 @Service
 @RequiredArgsConstructor
@@ -182,7 +183,7 @@ public class ProductStudioAttributeService {
         v.getAnswerGuide());
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public GroupView saveGroup(GroupEdit request, String actor) {
     return saveGroupInternal(request, actor, false);
   }

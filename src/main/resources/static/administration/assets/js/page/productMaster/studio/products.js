@@ -1,5 +1,17 @@
 (function (S) {
   "use strict";
+  S.pricingStatus = function (status) {
+    if (!status) return S.badge("가격 상태 확인 실패", "amber");
+    return S.badge(status.registered ? (status.stale ? "가격식 재검증 필요" : "가격식 등록됨") : "가격식 미등록", status.stale ? "red" : status.registered ? "green" : "amber");
+  };
+  S.pricingLinks = function (p, status) {
+    const link = `/admin/product-master/products/${p.id}/pricing`;
+    return `<a class="pms-button" href="${link}">${status?.registered ? "가격계산식 조회·수정" : "가격계산식 등록"}</a><button type="button" data-copy-pricing="${p.id}" ${!status || status.registered || !status.ready ? "disabled" : ""} title="가격식이 없고 프로세스가 완성된 제품에서 동일한 그룹·옵션·입력 제한·분기의 가격식을 복사합니다.">가격계산 불러오기</button>`;
+  };
+  S.showPricingCalculation = function (result, title = "실 제품 가격계산") {
+    const money = (v) => v == null ? "계산 불가" : Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) + "원";
+    S.dialog(title, `<div class="pms-help">현재 등록된 가격계산식으로 계산한 단가입니다. 재고 수량은 곱하지 않습니다.</div>${result.complete ? `<div class="pms-name-preview">${S.e(money(result.total))}</div>` : `<div class="pms-alert">${(result.errors || ["가격을 계산할 수 없습니다."]).map((e) => `<p>${S.e(e)}</p>`).join("")}</div>`}<div class="pms-table-scroll"><table><thead><tr><th>항</th><th>적용 여부</th><th>금액</th><th>계산 근거</th></tr></thead><tbody>${(result.terms || []).map((t) => `<tr><td>${S.e(t.name)}</td><td>${t.applied ? "적용" : "미적용"}</td><td>${t.applied ? S.e(money(t.amount)) : "—"}</td><td>${S.e(t.explanation)}</td></tr>`).join("")}</tbody></table></div>`);
+  };
   S.drawingLinks = function (kind, id) {
     const url = "/admin/product-master/" + kind + "/" + id + "/drawing";
     return `<a class="pms-button" href="${url}?mode=view" title="등록한 도면을 열고 수정하거나 이미지로 내려받습니다.">도면보기</a><a class="pms-button" href="${url}?mode=edit" title="도형 그리기·타제품 도면 불러오기·이미지로 초안을 작성합니다.">도면등록</a>`;
@@ -105,6 +117,16 @@
   };
   S.builderPage = async function (root, product) {
     const detail = !!product;
+    if (product?.nonStandard && !product.actualCount) {
+      let priceLinked = false;
+      try { priceLinked = (await S.request("/pricing/status", "POST", { productIds: [product.id] }))[0]?.registered || false; }
+      catch (err) { S.notice("가격식 연결 상태를 확인하지 못했습니다. " + err.message); }
+      if (priceLinked) {
+        await S.viewPage(root, product);
+        root.insertAdjacentHTML("afterbegin", `<div class="pms-help pm-definition-lock"><strong>가격계산식이 연결된 제품입니다.</strong><p>그룹 구성·프로세스 변경이 필요하면 가격계산식을 삭제한 뒤 변경하고 다시 등록해 주세요.</p><a class="pms-button" href="/admin/product-master/products/${product.id}/pricing">가격계산식 관리</a></div>`);
+        return;
+      }
+    }
     if (product?.actualCount > 0) {
       await S.viewPage(root, product);
       const message = document.createElement("div");
@@ -873,7 +895,14 @@
       try {
         const data = await S.request("/products/search", "POST", filter);
         filter.page = data.page;
-        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택은 현재 페이지에만 적용됩니다.</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="현재 페이지 제품 전체선택"></label></th><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${p.id}" aria-label="${S.e(p.productName)} 삭제 선택"></label></td><td>${p.id}</td><td class="pm-product-name"><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a>${p.actualCount > 0 ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">구성 수정</button>' : `<a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>`}${!custom ? S.drawingLinks("products", p.id) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/test" target="_blank" rel="noopener">비규격 테스트</a><button type="button" data-product-faq="${p.id}">${p.faqTopicId ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="${custom ? 10 : 8}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
+        let priceStatuses = new Map();
+        if (custom && data.content.length) {
+          try {
+            const statuses = await S.request("/pricing/status", "POST", { productIds: data.content.map((p) => p.id) });
+            priceStatuses = new Map(statuses.map((s) => [s.productId, s]));
+          } catch (err) { S.notice("가격계산 상태를 불러오지 못했습니다. " + err.message); }
+        }
+        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택은 현재 페이지에만 적용됩니다.</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="현재 페이지 제품 전체선택"></label></th><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th><th>가격계산 상태</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${p.id}" aria-label="${S.e(p.productName)} 삭제 선택"></label></td><td>${p.id}</td><td class="pm-product-name"><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td><td title="${S.e(priceStatuses.get(p.id)?.message || "")}">${S.pricingStatus(priceStatuses.get(p.id))}</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a>${p.actualCount > 0 ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">구성 수정</button>' : `<a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>`}${!custom ? S.drawingLinks("products", p.id) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}${custom ? S.pricingLinks(p, priceStatuses.get(p.id)) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/test" target="_blank" rel="noopener">비규격 테스트</a><button type="button" data-product-faq="${p.id}">${p.faqTopicId ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="${custom ? 11 : 8}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
         S.bindDeletion(content, data.content, {
           custom,
           onDeleted: async () => {
@@ -889,6 +918,12 @@
           tr.onkeydown = (e) => {
             if (e.key === "Enter" && e.target === tr) tr.click();
           };
+        });
+        S.$$("[data-copy-pricing]", content).forEach((button) => {
+          button.onclick = () => S.run(button, async () => {
+            const p = data.content.find((p) => p.id === Number(button.dataset.copyPricing));
+            await S.openPricingCopy(p, load);
+          });
         });
         S.$$("[data-product-faq]", content).forEach((button) => {
           button.onclick = () => S.run(button, async () => {

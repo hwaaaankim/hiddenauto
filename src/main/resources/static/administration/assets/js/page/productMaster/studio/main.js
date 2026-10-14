@@ -15,6 +15,7 @@
       faq: "FAQ 관리",
       view: "제품 상세 조회",
       actuals: "실 제품 재고",
+      pricing: "비규격 가격계산식",
     }[mode] || "제품관리";
   const markTab = (tab) => {
     S.$$(".pms-nav [data-tab]").forEach((a) => {
@@ -33,11 +34,11 @@
       }
     });
   };
-  markTab(mode === "process" || mode === "actuals" ? "custom" : mode);
+  markTab(["process", "actuals", "pricing"].includes(mode) ? "custom" : mode);
   S.mode = mode;
   S.initTheme();
   S.$("#pms-description").textContent = S.descriptions[mode] || "";
-  S.$("#pms-guide").onclick = () => S.guide(mode);
+  S.$("#pms-guide").onclick = () => mode === "pricing" ? S.pricingGuide() : S.guide(mode);
   try {
     try {
       await S.request("/bootstrap", "POST");
@@ -57,6 +58,11 @@
         await S.request("/products/" + root.dataset.productId),
       );
     else if (mode === "faq") await S.faqPage(work);
+    else if (mode === "pricing") {
+      const p = await S.request("/products/" + root.dataset.productId);
+      markTab("custom");
+      await S.pricingPage(work, p);
+    }
     else if (mode === "view" || mode === "actuals") {
       const p = await S.request("/products/" + root.dataset.productId);
       markTab(p.nonStandard ? "custom" : "standard");

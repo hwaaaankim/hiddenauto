@@ -24,7 +24,9 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
     assignableTypes = {
       ProductStudioApiController.class,
       ProductStudioPublicApiController.class,
-      ProductStudioExtensionController.class
+      ProductStudioExtensionController.class,
+      ProductPricingController.class,
+      ProductPricingGroupController.class
     })
 public class ProductMasterApiExceptionHandler {
 

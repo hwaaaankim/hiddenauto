@@ -172,8 +172,14 @@
   S.viewPage = async function (root, p) {
     const topics = await S.request("/faq"), faq = topics.find((t) => t.id === p.faqTopicId);
     const locked = p.actualCount > 0;
-    const actions = `${locked ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">제품 구성 수정</button>' : `<a class="pms-button primary" href="${path(p.id)}">제품 구성 수정</a>`}${!p.nonStandard ? S.drawingLinks("products", p.id) : ""}${p.nonStandard ? `${locked ? '<button type="button" disabled title="실 제품이 등록되어 프로세스 수정이 잠겨 있습니다.">질문·프로세스 수정</button><a class="pms-button" href="' + path(p.id) + '/process?mode=view">등록 프로세스·분기 조회</a>' : `<a class="pms-button" href="${path(p.id)}/process">질문·프로세스 수정</a>`}<a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a><a class="pms-button" href="${path(p.id)}/test" target="_blank" rel="noopener">비규격 테스트</a>` : ""}<button type="button" data-link-product-faq>${faq ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>${faq ? `<a class="pms-button" href="/admin/product-master/faq?topicId=${faq.id}" target="_blank" rel="noopener">FAQ 내용 수정</a>` : ""}`;
+    let priceStatus = null;
+    if (p.nonStandard) {
+      try { priceStatus = (await S.request("/pricing/status", "POST", { productIds: [p.id] }))[0]; }
+      catch (err) { S.notice("가격계산 상태를 불러오지 못했습니다. " + err.message); }
+    }
+    const actions = `${locked ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">제품 구성 수정</button>' : `<a class="pms-button primary" href="${path(p.id)}">제품 구성 수정</a>`}${!p.nonStandard ? S.drawingLinks("products", p.id) : ""}${p.nonStandard ? `${locked ? '<button type="button" disabled title="실 제품이 등록되어 프로세스 수정이 잠겨 있습니다.">질문·프로세스 수정</button><a class="pms-button" href="' + path(p.id) + '/process?mode=view">등록 프로세스·분기 조회</a>' : `<a class="pms-button" href="${path(p.id)}/process">질문·프로세스 수정</a>`}<a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a><a class="pms-button" href="${path(p.id)}/test" target="_blank" rel="noopener">비규격 테스트</a>` : ""}${p.nonStandard ? S.pricingLinks(p, priceStatus) : ""}<button type="button" data-link-product-faq>${faq ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>${faq ? `<a class="pms-button" href="/admin/product-master/faq?topicId=${faq.id}" target="_blank" rel="noopener">FAQ 내용 수정</a>` : ""}`;
     S.mountProductDetail(root, p, { admin: true, faq, actions });
+    S.$("[data-copy-pricing]", root)?.addEventListener("click", (e) => S.run(e.currentTarget, () => S.openPricingCopy(p, async () => S.viewPage(root, await S.request("/products/" + p.id)))));
     S.$("[data-link-product-faq]", root).onclick = () => S.productFaqDialog(p, (saved) => S.viewPage(root, saved));
   };
   // Each populated field is independent. An omitted field never narrows inventory results.
@@ -213,11 +219,19 @@
   };
   S.actualsPage = async function (root, p) {
     let rows = [];
+    let priceResults = new Map(), pricingIssue = "";
+    const priceText = (r) => {
+      const c = priceResults.get(r.id);
+      return c?.complete ? `<strong>${S.e(Number(c.total).toLocaleString("ko-KR", { maximumFractionDigits: 2 }))}원</strong>` : `<small title="${esc((c?.errors || [pricingIssue || "가격식 미등록"]).join(" / "))}">${c ? "계산 불가" : "가격 확인 필요"}</small>`;
+    };
     let filter = { code: "", minStock: "", maxStock: "", questions: {} };
     const questions = () => (p.process?.questions || []).filter((q) => !q.fixed && !S.isBase((p.groups || []).find((g) => g.id === q.groupId) || S.group(q.groupId) || {}));
     async function load() {
-      rows = await S.request("/products/" + p.id + "/actuals");
-      p = await S.request("/products/" + p.id);
+      [rows, p] = await Promise.all([S.request("/products/" + p.id + "/actuals"), S.request("/products/" + p.id)]);
+      pricingIssue = "";
+      try {
+        priceResults = new Map((await S.request(`/products/${p.id}/pricing/actuals`)).map((c) => [c.actualId, c]));
+      } catch (err) { priceResults = new Map(); pricingIssue = err.message; }
       paint();
     }
     function fieldFiltersHtml(q, saved) {
@@ -254,8 +268,19 @@
     }
     function paint() {
       const visibleRows = rows.filter((r) => S.actualMatchesFilter(r, filter, questions()));
-      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div class="pm-header-content"><h2>${esc(p.productName)} · 실 제품 재고</h2><small>${esc(p.catalogCode)} · ${rows.length}종 / 총 재고 ${p.stock}개${p.unallocatedStock ? " / 기존 미배정 재고 " + p.unallocatedStock + "개" : ""}</small></div><div class="pms-actions"><a class="pms-button" href="${path(p.id)}/view">원제품 상세·분기 조회</a><button data-create class="primary" ${p.status === "DRAFT" || p.status === "DISCONTINUED" ? "disabled" : ""}>+ 실제 사양 등록</button></div></div><div class="pms-panel-body"><p class="pms-help">검증 완료된 제품의 허용 범위 안에서 실제 사양을 선택합니다. 실 제품이 하나라도 등록되면 원본 제품의 구성·프로세스는 잠깁니다. 등록된 구성과 분기는 원제품 상세에서 계속 확인할 수 있습니다. 도면은 각 실 제품에 개별 등록합니다.</p>${filterHtml()}<div class="pm-code-search"><label><span>제품 코드의 상세 조회</span><input data-code placeholder="제품 코드 또는 실 제품 코드"></label><button data-decode>코드 조회</button></div><div data-decoded></div><div class="pms-toolbar"><strong class="pm-actual-result-count" aria-live="polite">검색 결과 ${visibleRows.length.toLocaleString()}종 / 전체 ${rows.length.toLocaleString()}종</strong><small>결과 재고 합계 ${visibleRows.reduce((sum, r) => sum + Number(r.stock || 0), 0).toLocaleString()}개</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택·삭제는 현재 검색 결과에만 적용됩니다. 필터를 바꾸면 선택이 해제됩니다.</small></div><div class="pms-table-scroll"><table class="pm-actual-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="검색 결과 실 제품 전체선택"></label></th><th>실 제품 코드</th><th>실제 사양</th><th>재고</th><th>관리</th></tr></thead><tbody>${visibleRows.map((r) => `<tr><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${r.id}" aria-label="${esc(r.code)} 삭제 선택"></label></td><td>${esc(r.code)}<small>소속: ${esc(r.parentCode)}</small></td><td>${S.specSummary(r.specs.map((s) => ({ label: s.group, value: s.value })))}</td><td>${r.stock}</td><td><div class="pms-actions pm-stock-actions" style="flex-wrap:nowrap;white-space:nowrap"><button data-stock="${r.id}">입출고·조정</button><button data-history="${r.id}">이력</button>${S.drawingLinks("actuals", r.id)}</div></td></tr>`).join("") || '<tr><td colspan="5"><div class="pms-empty">조건에 맞는 실 제품이 없습니다. 필터를 초기화하거나 입력값을 확인해 주세요.</div></td></tr>'}</tbody></table></div></div></section>`;
+      root.innerHTML = `<section class="pms-panel"><div class="pms-panel-title"><div class="pm-header-content"><h2>${esc(p.productName)} · 실 제품 재고</h2><small>${esc(p.catalogCode)} · ${rows.length}종 / 총 재고 ${p.stock}개${p.unallocatedStock ? " / 기존 미배정 재고 " + p.unallocatedStock + "개" : ""}</small></div><div class="pms-actions"><a class="pms-button" href="${path(p.id)}/view">원제품 상세·분기 조회</a><a class="pms-button" href="${path(p.id)}/pricing">가격계산식 관리</a><button type="button" data-refresh-prices>가격 다시 계산</button><button data-create class="primary" ${p.status === "DRAFT" || p.status === "DISCONTINUED" ? "disabled" : ""}>+ 실제 사양 등록</button></div></div><div class="pms-panel-body"><p class="pms-help">검증 완료된 제품의 허용 범위 안에서 실제 사양을 선택합니다. 실 제품이 하나라도 등록되면 원본 제품의 구성·프로세스는 잠깁니다. 등록된 구성과 분기는 원제품 상세에서 계속 확인할 수 있습니다. 도면은 각 실 제품에 개별 등록합니다.</p>${pricingIssue ? `<div class="pms-alert">가격계산: ${esc(pricingIssue)}</div>` : ""}<p class="pms-help">금액은 현재 가격식으로 계산한 실 제품 1개의 단가이며, 재고 수량과 별개입니다. 가격식 수정 시 새 가격으로 다시 계산됩니다.</p>${filterHtml()}<div class="pm-code-search"><label><span>제품 코드의 상세 조회</span><input data-code placeholder="제품 코드 또는 실 제품 코드"></label><button data-decode>코드 조회</button></div><div data-decoded></div><div class="pms-toolbar"><strong class="pm-actual-result-count" aria-live="polite">검색 결과 ${visibleRows.length.toLocaleString()}종 / 전체 ${rows.length.toLocaleString()}종</strong><small>결과 재고 합계 ${visibleRows.reduce((sum, r) => sum + Number(r.stock || 0), 0).toLocaleString()}개</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택·삭제는 현재 검색 결과에만 적용됩니다. 필터를 바꾸면 선택이 해제됩니다.</small></div><div class="pms-table-scroll"><table class="pm-actual-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="검색 결과 실 제품 전체선택"></label></th><th>실 제품 코드</th><th>실제 사양</th><th>재고</th><th>계산 단가</th><th>관리</th></tr></thead><tbody>${visibleRows.map((r) => `<tr><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${r.id}" aria-label="${esc(r.code)} 삭제 선택"></label></td><td>${esc(r.code)}<small>소속: ${esc(r.parentCode)}</small></td><td>${S.specSummary(r.specs.map((s) => ({ label: s.group, value: s.value })))}</td><td>${r.stock}</td><td data-actual-price="${r.id}">${priceText(r)}</td><td><div class="pms-actions pm-stock-actions" style="flex-wrap:nowrap;white-space:nowrap"><button type="button" data-calculate-price="${r.id}">가격계산</button><button data-stock="${r.id}">입출고·조정</button><button data-history="${r.id}">이력</button>${S.drawingLinks("actuals", r.id)}</div></td></tr>`).join("") || '<tr><td colspan="6"><div class="pms-empty">조건에 맞는 실 제품이 없습니다. 필터를 초기화하거나 입력값을 확인해 주세요.</div></td></tr>'}</tbody></table></div></div></section>`;
       S.bindDeletion(root, visibleRows, { product: p, onDeleted: load });
+      S.$("[data-refresh-prices]", root).onclick = (e) => S.run(e.currentTarget, load);
+      S.$$("[data-calculate-price]", root).forEach((button) => {
+        button.onclick = () => S.run(button, async () => {
+          const result = await S.request(`/products/${p.id}/pricing/actuals/${button.dataset.calculatePrice}`);
+          priceResults.set(result.actualId, result);
+          const row = rows.find((r) => r.id === result.actualId);
+          const cell = S.$(`[data-actual-price="${result.actualId}"]`, root);
+          if (cell && row) cell.innerHTML = priceText(row);
+          S.showPricingCalculation(result, "가격계산 · " + (row?.code || "실 제품"));
+        });
+      });
       S.$("[data-apply-actual-filter]", root).onclick = applyFilter;
       S.$("[data-reset-actual-filter]", root).onclick = () => { filter = { code: "", minStock: "", maxStock: "", questions: {} }; paint(); };
       S.$(".pm-actual-filters", root).onkeydown = (e) => { if (e.key === "Enter" && e.target.matches("input:not([type=checkbox])")) { e.preventDefault(); applyFilter(); } };
