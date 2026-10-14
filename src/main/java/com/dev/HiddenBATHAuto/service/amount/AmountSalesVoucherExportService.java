@@ -54,6 +54,7 @@ import com.dev.HiddenBATHAuto.repository.amount.AmountItemMasterRepository;
 import com.dev.HiddenBATHAuto.repository.auth.TeamCategoryRepository;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
+import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletOutputStream;
@@ -248,7 +249,8 @@ public class AmountSalesVoucherExportService {
      *
      * deliveryCost/packingCost는 현재 Order에 있지만 실제 업무 의미는 Task 단위 비용이므로,
      * Task 안의 여러 Order에 중복 저장되어 있어도 중복 합산하지 않고 비용별 양수 최대값 1회만 사용합니다.
-     * 비용이 0원 이하이면 해당 비용 품목행과 주소 보조행을 출력하지 않습니다.
+     * 비용이 0원 이하이면 해당 비용 품목행만 생략합니다.
+     * 주소 보조행은 비용 유무와 별개로 각 출고일의 Task별 실제 주소를 출력합니다.
      */
     private List<TaskVoucherBlock> buildTaskBlocks(List<Order> orders,
                                                    List<AmountCustomerMaster> customers,
@@ -323,14 +325,15 @@ public class AmountSalesVoucherExportService {
 					List<Order> fullTaskOrders = allOrdersByTask.getOrDefault(taskId, taskOrdersForDate);
 					List<VoucherLine> chargeLines = buildTaskChargeLines(
 							taskId, transactionDate, companyName, customerMatch, fullTaskOrders, items);
-					if (!chargeLines.isEmpty()) {
-						lines.addAll(chargeLines);
-						VoucherLine addressLine = buildTaskAddressLine(
-								taskId, transactionDate, companyName, customerMatch, taskOrdersForDate);
-						if (addressLine != null) {
-							lines.add(addressLine);
-						}
-					}
+					lines.addAll(chargeLines);
+				}
+
+				// 주소는 비용 발생 여부와 독립적입니다. 같은 Task가 여러 출고일로
+				// 나뉘어도 현재 출고일에 속한 주문의 주소를 각각 남깁니다.
+				VoucherLine addressLine = buildTaskAddressLine(
+						taskId, transactionDate, companyName, customerMatch, taskOrdersForDate);
+				if (addressLine != null) {
+					lines.add(addressLine);
 				}
 			}
 
@@ -368,7 +371,7 @@ public class AmountSalesVoucherExportService {
         AmountItemMaster matchedItem = itemMatch.item();
 
         int qty = resolveQuantity(order);
-        Money money = resolveProductMoney(order, matchedItem, qty);
+        Money money = resolveProductMoney(order, qty);
         String spec = StringUtils.hasText(parsed.sizeText()) ? parsed.sizeText() : value(matchedItem, AmountItemMaster::getSpecification);
         String actualOrderCategory = parsed != null ? safe(parsed.category()) : "";
         String unit = StringUtils.hasText(actualOrderCategory)
@@ -581,7 +584,7 @@ public class AmountSalesVoucherExportService {
             return null;
         }
         String phoneMemo = buildTaskAddressMemo(taskOrders);
-        AmountItemMatchResult addressMatch = new AmountItemMatchResult(null, 100, "EXACT", "비용 품목 하단 주소 보조행", false);
+        AmountItemMatchResult addressMatch = new AmountItemMatchResult(null, 100, "EXACT", "출고일별 Task 주소 보조행", false);
         BigDecimal zero = BigDecimal.ZERO;
 
         return new VoucherLine(
@@ -619,31 +622,45 @@ public class AmountSalesVoucherExportService {
     }
 
     private String buildOrderAddressText(Order order) {
-        if (order == null) {
+        if (order == null || isVoucherAddressExcluded(order)) {
             return "";
         }
-		if (isDirectDeliveryOrder(order)) {
-			return "";
-		}
 
-        String siteAddress = joinNonBlank(" ",
-                order.getSiteDoName(),
-                order.getSiteSiName(),
-                order.getSiteGuName(),
-                order.getSiteRoadAddress(),
-                order.getSiteDetailAddress()
-        );
-        if (StringUtils.hasText(siteAddress)) {
-            return siteAddress;
+        // 직배송은 일반주소를 사용합니다. 배송수단 변경 전 남은 SITE 주소가
+        // 있더라도 직배송 주소를 덮어쓰지 않도록 명시적으로 분리합니다.
+        if (!isDirectDeliveryOrder(order) && order.hasMeaningfulSiteDeliveryAddress()) {
+            return formatVoucherAddress(
+                    order.getSiteDoName(), order.getSiteSiName(), order.getSiteGuName(),
+                    order.getSiteRoadAddress(), order.getSiteDetailAddress());
         }
 
+        // 현장/화물 등은 SITE 주소 우선, SITE가 비어 있는 과거 데이터는 일반주소 사용.
+        return formatVoucherAddress(
+                order.getDoName(), order.getSiName(), order.getGuName(),
+                order.getRoadAddress(), order.getDetailAddress());
+    }
+
+    private boolean isVoucherAddressExcluded(Order order) {
+        String methodName = order != null && order.getDeliveryMethod() != null
+                ? order.getDeliveryMethod().getMethodName() : null;
+        return DeliveryMethodAssignmentPolicy.containsKeyword(methodName, "미배송")
+                || DeliveryMethodAssignmentPolicy.containsKeyword(methodName, "택배");
+    }
+
+    private String formatVoucherAddress(String doName, String siName, String guName,
+                                        String roadAddress, String detailAddress) {
+        // 기존 배송지 표시 규칙을 재사용해 '-', '없음'과 지역/상세주소 중복을 피합니다.
+        String display = DeliveryAddressNormalizationUtil.cleanAddressComponent(
+                DeliveryAddressNormalizationUtil.build(
+                        null, doName, siName, guName, roadAddress, detailAddress).display());
+        if (StringUtils.hasText(display)) {
+            return display;
+        }
+        // 도로명 없이 행정구역만 저장된 과거 데이터도 확인할 수 있도록 남깁니다.
         return joinNonBlank(" ",
-                order.getDoName(),
-                order.getSiName(),
-                order.getGuName(),
-                order.getRoadAddress(),
-                order.getDetailAddress()
-        );
+                DeliveryAddressNormalizationUtil.cleanAddressComponent(doName),
+                DeliveryAddressNormalizationUtil.cleanAddressComponent(siName),
+                DeliveryAddressNormalizationUtil.cleanAddressComponent(guName));
     }
 
     private String buildTaskAddressMemo(List<Order> taskOrders) {
@@ -651,7 +668,7 @@ public class AmountSalesVoucherExportService {
             return "";
         }
         return taskOrders.stream()
-				.filter(order -> !isDirectDeliveryOrder(order))
+				.filter(order -> StringUtils.hasText(buildOrderAddressText(order)))
                 .map(order -> joinNonBlank(" ", order.getOrdererName(), order.getOrdererPhone()))
                 .filter(StringUtils::hasText)
                 .distinct()
@@ -1204,7 +1221,7 @@ public class AmountSalesVoucherExportService {
                 + "], 옵션점수=" + score;
     }
 
-    private Money resolveProductMoney(Order order, AmountItemMaster matchedItem, int qty) {
+    private Money resolveProductMoney(Order order, int qty) {
         // 저장 금액은 기존 등록/수정 흐름에서 양수로 보관될 수 있습니다.
         // 단가와 금액 크기를 먼저 계산한 뒤 회수 수량의 부호를 전표 금액에 적용합니다.
         // BigDecimal로 절댓값을 구해 Integer.MIN_VALUE 수량에서도 오버플로를 피합니다.
@@ -1216,9 +1233,11 @@ public class AmountSalesVoucherExportService {
         if (supply.signum() <= 0 && unitPrice.signum() > 0) {
             supply = unitPrice.multiply(quantityMagnitude);
         }
-        if (supply.signum() <= 0 && matchedItem != null) {
-            unitPrice = parseMoney(matchedItem.getSalesPrice()).abs();
-            supply = unitPrice.multiply(quantityMagnitude);
+        // 품목 마스터는 품목 코드/명칭 매칭에만 사용합니다. 주문에 저장된
+        // 단가/공급가/합계가 모두 0원이면 AS·무상 주문이므로 0원을 유지합니다.
+        // 합계만 남아 있는 과거 데이터는 OrderUpdateService와 동일하게 역산합니다.
+        if (supply.signum() <= 0 && total.signum() > 0) {
+            supply = total.divide(new BigDecimal("1.1"), 0, RoundingMode.HALF_UP);
         }
         if (unitPrice.signum() <= 0) {
             unitPrice = supply.divide(quantityMagnitude, 0, RoundingMode.HALF_UP);
@@ -1443,10 +1462,10 @@ public class AmountSalesVoucherExportService {
         cell(row, 0, "검정/무채색: 97점 이상 정확 매칭, 주황: 51~96점 부분 매칭, 빨강: 50점 이하 재검토 필요", styles.get("body"));
         Row row2 = infoSheet.createRow(1);
         row2.setHeightInPoints(18);
-        cell(row2, 0, "비용 품목: 운임비와 포장비를 품목 마스터에서 각각 매칭해 Task 마지막에 별도 행으로 출력합니다. 각 실제 Order 금액이 0원보다 클 때만 출력하며, 같은 Task에 중복 저장된 값은 비용별 양수 최대값 1회만 사용합니다. 비용행이 있을 때만 바로 다음 주소 보조행을 출력합니다.", styles.get("body"));
+        cell(row2, 0, "비용 품목: 운임비와 포장비를 품목 마스터에서 각각 매칭해 Task 마지막에 별도 행으로 출력합니다. 각 실제 Order 금액이 0원보다 클 때만 출력하며, 같은 Task에 중복 저장된 값은 비용별 양수 최대값 1회만 사용합니다. 주소 보조행은 비용 유무와 무관하게 각 출고일의 Task별로 출력합니다. 미배송·택배는 제외하며, 직배송은 일반주소, 그 외는 현장주소 우선(없으면 일반주소)으로 출력합니다.", styles.get("body"));
         Row row3 = infoSheet.createRow(2);
         row3.setHeightInPoints(18);
-        cell(row3, 0, "모든 품목행에 거래일·구분·거래처 코드·거래처명·유형을 표시합니다. 거래금액은 출고일/거래처 묶음의 첫 행에만 표시합니다. 회수 품목은 저장된 음수 수량을 유지하고 단가는 양수, 공급가·부가세·합계금액은 음수로 표시합니다.", styles.get("body"));
+        cell(row3, 0, "모든 품목행에 거래일·구분·거래처 코드·거래처명·유형을 표시합니다. 거래금액은 출고일/거래처 묶음의 첫 행에만 표시합니다. 회수 품목은 저장된 음수 수량을 유지하고 단가는 양수, 공급가·부가세·합계금액은 음수로 표시합니다. 제품 금액은 Order 저장값을 기준으로 하며, 0원 주문을 품목 마스터 판매가로 대체하지 않습니다.", styles.get("body"));
         infoSheet.setColumnWidth(0, 28000);
     }
 
@@ -2003,17 +2022,6 @@ public class AmountSalesVoucherExportService {
             return Boolean.FALSE;
         }
         return null;
-    }
-
-    private BigDecimal parseMoney(String value) {
-        if (!StringUtils.hasText(value)) {
-            return BigDecimal.ZERO;
-        }
-        try {
-            return new BigDecimal(value.replace(",", "").trim());
-        } catch (Exception e) {
-            return BigDecimal.ZERO;
-        }
     }
 
     private BigDecimal money(int value) {

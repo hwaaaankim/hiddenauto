@@ -279,16 +279,11 @@ public class WebSecurityConfig {
                         ))
 
                         /*
-                         * 발주등록 양식 내보내기는 지정한 사무실 IP의 ADMIN만 허용합니다.
-                         * 템플릿의 버튼 표시 조건과 동일하며, 직접 URL 호출도 차단합니다.
-                         * 컨테이너가 인식한 원격 IP만 사용합니다. 프록시 뒤에서는 기존
-                         * server.forward-headers-strategy: native 설정과 신뢰할 수 있는
-                         * 프록시의 X-Forwarded-For 전달 설정이 함께 필요합니다.
+                         * 발주등록 양식 내보내기는 접속 IP와 무관하게 ADMIN만 허용합니다.
+                         * 템플릿 버튼 및 컨트롤러의 ADMIN 권한 조건과 일치시킵니다.
                          */
                         .requestMatchers("/admin/order-excel-upload/download")
-                        .access(new WebExpressionAuthorizationManager(
-                                "hasAuthority('ROLE_ADMIN') and hasIpAddress('58.121.75.67')"
-                        ))
+                        .hasAuthority("ROLE_ADMIN")
 
                         /*
                          * /admin/** 나머지와 /analytics는 ADMIN 전용

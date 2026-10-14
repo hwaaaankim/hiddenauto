@@ -4,7 +4,7 @@ feature:
 
 spring:
   profiles:
-    active: test
+    active: prod
 
   application:
     name: HiddenBATHAuto
@@ -104,6 +104,98 @@ logging:
     com.dev.HiddenBATHAuto.notification: DEBUG
 
 hiddenbath:
+  product-drawing:
+    # 프로젝트에 포함된 로컬 diagrams.net 편집기
+    editor-url: "/administration/assets/libs/diagrams/index.html"
+
+    # 이미지 → 편집 가능한 도면 초안 생성
+    vision-model: "gpt-6.1-sol"
+    vision-reasoning-effort: medium
+    max-draft-completion-tokens: 32768
+
+    # GPT 요청·응답, 도형 데이터, 생성 XML 상세 로그
+    diagnostic-logging-enabled: true
+    diagnostic-log-max-chars: 131072
+
+  rag:
+    datasource:
+      driver-class-name: org.postgresql.Driver
+
+      # 로컬 Windows는 서버 RAG dev DB를 SSH 터널로 봅니다.
+      # 실행 명령:
+      # ssh -N -L 15433:127.0.0.1:5433 ubuntu@1.234.53.160
+      url: jdbc:postgresql://127.0.0.1:15433/ax_rag_dev
+      username: ax_rag_dev_user
+      password: "ax_pass_1234"
+      hikari:
+        maximum-pool-size: 5
+        minimum-idle: 1
+        pool-name: rag-postgres-pool-local-dev
+
+    openai:
+      # 도면 AI와 RAG가 이 API 키를 함께 사용합니다.
+      # 실행 프로세스의 OPENAI_API_KEY 환경변수에서 읽습니다.
+      # 미등록 시 빈 값으로 처리되며, OpenAI API를 호출하는 기능은 사용할 수 없습니다.
+      api-key: "${OPENAI_API_KEY:}"
+
+      base-url: "https://api.openai.com"
+
+      # 기존 RAG 채팅 설정
+      # 도면 AI 모델은 위 product-drawing.vision-model로 별도 지정
+      chat-model: "gpt-5.6"
+      embedding-model: "text-embedding-3-large"
+      reasoning-effort: medium
+      read-timeout-seconds: 180
+      retry-count: 1
+
+      # V4 GPT 중심 Agent
+      agent-capability-version: "V4-20260714"
+      agent-max-tool-turns: 30
+      agent-no-progress-limit: 3
+      agent-recovery-attempts: 2
+      agent-text-recovery-enabled: true
+      agent-max-output-tokens: 16000
+      agent-max-context-chars: 220000
+      agent-recent-message-limit: 12
+
+      # DB Tool/ChangeSet 제한
+      agent-default-read-rows: 200
+      agent-hard-max-read-rows: 1000
+      agent-query-timeout-seconds: 60
+      agent-max-tool-output-chars: 60000
+      agent-max-file-preview-chars: 40000
+      agent-max-sql-chars: 50000
+      agent-max-params-chars: 100000
+      agent-max-change-items: 100
+      agent-max-affected-rows-per-statement: 1
+
+      # 8192 embedding context 오류 방지
+      semantic-embedding-input-chars: 4500
+      semantic-embedding-estimated-token-limit: 7000
+      semantic-embedding-dimensions: 1536
+      semantic-worker-enabled: true
+      semantic-worker-delay-ms: 5000
+      semantic-worker-batch-size: 10
+      semantic-worker-max-attempts: 6
+      semantic-worker-lock-timeout-seconds: 300
+      semantic-content-max-chars: 60000
+      semantic-query-embedding-enabled: true
+      semantic-default-search-limit: 15
+      semantic-hard-search-limit: 100
+
+      # 장문 학습 계층형 분할
+      adaptive-chunk-threshold-chars: 1200
+      adaptive-chunk-chars: 2800
+      adaptive-chunk-overlap-chars: 220
+      adaptive-group-size: 4
+      adaptive-max-leaf-chunks: 480
+
+    upload:
+      base-dir: "${user.home}/hiddenbath-rag-upload"
+      asset-sub-dir: rag-assets
+      public-url-prefix: /administration/upload/rag-assets
+      max-file-size-bytes: 52428800
+
   order:
     mirror-cutting:
       enabled: true
