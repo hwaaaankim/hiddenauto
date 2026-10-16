@@ -11,7 +11,17 @@ public final class ProductPricingDtos {
   private ProductPricingDtos() {}
   public enum TermType { FIXED, MULTIPLY, MATRIX_1D, MATRIX_2D }
   public enum Threshold { LE, LT }
-  public record Axis(String fieldKey, Threshold operator, List<BigDecimal> headers) {}
+  public record Axis(String fieldKey, Threshold operator, List<BigDecimal> headers,
+      List<Threshold> operators) {
+    // Existing definitions and callers retain their axis-wide boundary behavior.
+    public Axis(String fieldKey, Threshold operator, List<BigDecimal> headers) {
+      this(fieldKey, operator, headers, null);
+    }
+    public Threshold operatorAt(int index) {
+      return operators == null || operators.isEmpty() || operators.get(index) == null
+          ? operator : operators.get(index);
+    }
+  }
   public record Bundle(String key, String label, List<Field> fields) {}
   public record PricingGroup(Long groupId, String groupKey, String label, Control control,
       List<Bundle> bundles, List<Choice> choices) {}

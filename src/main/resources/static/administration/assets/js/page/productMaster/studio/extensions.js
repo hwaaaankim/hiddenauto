@@ -179,6 +179,11 @@
     }
     const actions = `${locked ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">제품 구성 수정</button>' : `<a class="pms-button primary" href="${path(p.id)}">제품 구성 수정</a>`}${!p.nonStandard ? S.drawingLinks("products", p.id) : ""}${p.nonStandard ? `${locked ? '<button type="button" disabled title="실 제품이 등록되어 프로세스 수정이 잠겨 있습니다.">질문·프로세스 수정</button><a class="pms-button" href="' + path(p.id) + '/process?mode=view">등록 프로세스·분기 조회</a>' : `<a class="pms-button" href="${path(p.id)}/process">질문·프로세스 수정</a>`}<a class="pms-button" href="${path(p.id)}/actuals">실 제품·재고</a><a class="pms-button" href="${path(p.id)}/test" target="_blank" rel="noopener">비규격 테스트</a>` : ""}${p.nonStandard ? S.pricingLinks(p, priceStatus) : ""}<button type="button" data-link-product-faq>${faq ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>${faq ? `<a class="pms-button" href="/admin/product-master/faq?topicId=${faq.id}" target="_blank" rel="noopener">FAQ 내용 수정</a>` : ""}`;
     S.mountProductDetail(root, p, { admin: true, faq, actions });
+    if (!p.nonStandard) {
+      root.insertAdjacentHTML("afterbegin", S.unitPriceCard(p));
+      S.$("[data-open-unit-price]", root).onclick = (event) => S.run(event.currentTarget,
+        () => S.unitPriceDialog(p, (saved) => S.viewPage(root, saved)));
+    }
     S.$("[data-copy-pricing]", root)?.addEventListener("click", (e) => S.run(e.currentTarget, () => S.openPricingCopy(p, async () => S.viewPage(root, await S.request("/products/" + p.id)))));
     S.$("[data-link-product-faq]", root).onclick = () => S.productFaqDialog(p, (saved) => S.viewPage(root, saved));
   };

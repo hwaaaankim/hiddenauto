@@ -78,16 +78,19 @@ public final class ProductPricingCoverage {
           pricePredicates.add(numeric(term.groupKey(), field, Operator.GE, BigDecimal.ZERO));
           if (term.type() == TermType.MULTIPLY) multipliedFields.add(term.groupKey() + ":" + field);
         }
-        axis(term.groupKey(), term.xAxis());
-        axis(term.groupKey(), term.yAxis());
+        if (term.type() == TermType.MATRIX_1D || term.type() == TermType.MATRIX_2D) {
+          axis(term.groupKey(), term.xAxis());
+          if (term.type() == TermType.MATRIX_2D) axis(term.groupKey(), term.yAxis());
+        }
       }
     }
 
     private void axis(String question, Axis axis) {
       if (axis == null) return;
-      Operator operator = axis.operator() == Threshold.LE ? Operator.LE : Operator.LT;
-      for (BigDecimal boundary : list(axis.headers()))
-        pricePredicates.add(numeric(question, axis.fieldKey(), operator, boundary));
+      for (int i = 0; i < list(axis.headers()).size(); i++) {
+        Operator operator = axis.operatorAt(i) == Threshold.LE ? Operator.LE : Operator.LT;
+        pricePredicates.add(numeric(question, axis.fieldKey(), operator, axis.headers().get(i)));
+      }
     }
 
     void walk(int index, Map<String, Answer> submitted) {

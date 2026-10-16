@@ -14,6 +14,7 @@ public final class ProductPricingWire {
       Map<String, Object> result = new LinkedHashMap<>();
       result.put("fieldKey", axis.fieldKey());
       result.put("operator", axis.operator());
+      result.put("operators", axis.operators());
       result.put("headers", axis.headers() == null ? null
           : axis.headers().stream().map(n -> n == null ? null : n.toPlainString()).toList());
       return result;

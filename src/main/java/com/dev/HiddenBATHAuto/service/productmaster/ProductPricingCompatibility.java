@@ -162,8 +162,8 @@ public final class ProductPricingCompatibility {
     for (Term term : definition.terms()) {
       Map<String, BigDecimal> rates = new LinkedHashMap<>();
       map(term.rates()).forEach((k, v) -> rates.put(field.apply(term.groupKey(), k), v));
-      Axis x = term.xAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.xAxis().fieldKey()), term.xAxis().operator(), term.xAxis().headers());
-      Axis y = term.yAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.yAxis().fieldKey()), term.yAxis().operator(), term.yAxis().headers());
+      Axis x = term.xAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.xAxis().fieldKey()), term.xAxis().operator(), term.xAxis().headers(), term.xAxis().operators());
+      Axis y = term.yAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.yAxis().fieldKey()), term.yAxis().operator(), term.yAxis().headers(), term.yAxis().operators());
       String bundle = text(term.bundleKey()).isBlank() ? null : unqualified(requiredKey(targetBundle.get(from.b(term.groupKey(), term.bundleKey()))));
       terms.add(new Term(UUID.randomUUID().toString(), term.name(), question.apply(term.groupKey()), bundle,
           list(term.fieldKeys()).stream().map(k -> field.apply(term.groupKey(), k)).toList(), term.type(), term.amount(), rates, x, y,
