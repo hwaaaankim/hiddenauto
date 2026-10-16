@@ -5,6 +5,7 @@ import static com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.*;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.Process;
 import com.dev.HiddenBATHAuto.service.productmaster.*;
+import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -114,6 +115,15 @@ public class ProductStudioApiController {
   public ApiResponse<ProductView> update(
       @PathVariable Long id, @RequestBody ProductEdit r, Principal p) {
     return ApiResponse.ok(service.update(id, r, p.getName()));
+  }
+
+  public record UnitPriceEdit(Long version, BigDecimal unitPrice) {}
+
+  @PutMapping("/products/{id}/unit-price")
+  public ApiResponse<ProductView> updateUnitPrice(
+      @PathVariable Long id, @RequestBody UnitPriceEdit r, Principal p) {
+    if (r == null) throw new IllegalArgumentException("수정할 제품 단가를 입력해 주세요.");
+    return ApiResponse.ok(service.updateUnitPrice(id, r.version(), r.unitPrice(), p.getName()));
   }
 
   public record FaqLinkEdit(Long version, Long faqTopicId) {}

@@ -62,8 +62,8 @@ public final class ProductPricingEngine {
           Bundle bundle = group.bundles().stream().filter(b -> Objects.equals(b.key(), term.bundleKey()))
               .findFirst().orElseThrow(() -> new IllegalArgumentException("숫자 입력묶음을 선택해 주세요."));
           Set<String> expected = bundle.fields().stream().map(Field::key).collect(Collectors.toSet());
-          require(!fields.isEmpty() && expected.equals(new HashSet<>(fields)),
-              "숫자 입력묶음에 속한 필드 전체를 하나의 항에 연결해 주세요.");
+          require(!fields.isEmpty() && expected.containsAll(fields),
+              "선택한 입력묶음 안에서 계산에 사용할 항목을 하나 이상 선택해 주세요.");
           require(list(term.choiceKeys()).isEmpty(), "숫자 항에 선택 보기를 지정할 수 없습니다.");
         } else {
           require(choice(group.control()), "가격 항은 숫자 입력형 또는 선택형 그룹으로 구성합니다.");
@@ -84,7 +84,7 @@ public final class ProductPricingEngine {
           case MATRIX_1D, MATRIX_2D -> {
             int dimensions = term.type() == TermType.MATRIX_1D ? 1 : 2;
             require(group.control() == Control.NUMBER && fields.size() == dimensions,
-                dimensions + "차원 매트릭스는 " + dimensions + "개 입력 필드로 된 묶음을 사용합니다.");
+                dimensions + "차원 가격표는 같은 입력묶음에서 " + dimensions + "개 항목을 선택해 주세요.");
             validateAxis(term.xAxis(), fields, "X축");
             if (dimensions == 2) {
               validateAxis(term.yAxis(), fields, "Y축");
@@ -108,6 +108,8 @@ public final class ProductPricingEngine {
   private static void validateAxis(Axis axis, List<String> fields, String name) {
     require(axis != null && fields.contains(axis.fieldKey()) && axis.operator() != null, name + " 입력 필드와 이하/미만을 선택해 주세요.");
     require(!list(axis.headers()).isEmpty() && list(axis.headers()).size() <= MAX_AXIS, name + " 기준값을 1~200개 입력해 주세요.");
+    require(axis.operators() == null || axis.operators().isEmpty()
+        || axis.operators().size() == axis.headers().size(), name + " 기준값과 개별 이하/미만 설정 수가 다릅니다.");
     BigDecimal previous = null;
     for (BigDecimal header : axis.headers()) {
       require(header != null && header.signum() >= 0 && header.precision() <= 24 && (long) header.precision() - header.scale() <= 24 && Math.max(0, header.scale()) <= 6,
@@ -167,9 +169,9 @@ public final class ProductPricingEngine {
     BigDecimal total = BigDecimal.ZERO;
     for (Term term : definition.terms()) {
       QuestionState state = states.get(term.groupKey());
-      if (state == null || !(state.visible() || state.question().fixed()) || !state.errors().isEmpty()
-          || !active(term, state, evaluated, states)) {
-        results.add(new TermResult(term.key(), term.name(), false, BigDecimal.ZERO, "현재 분기에서 사용하지 않는 항"));
+      String inactive = inactiveReason(term, state, evaluated, states);
+      if (inactive != null) {
+        results.add(new TermResult(term.key(), term.name(), false, BigDecimal.ZERO, inactive));
         continue;
       }
       try {
@@ -219,16 +221,19 @@ public final class ProductPricingEngine {
         List.copyOf(errors), List.copyOf(results), evaluated);
   }
 
-  private static boolean active(Term term, QuestionState source, Evaluation evaluation,
+  private static String inactiveReason(Term term, QuestionState source, Evaluation evaluation,
       Map<String, QuestionState> states) {
+    if (source == null) return "계산에 연결한 입력 그룹을 찾을 수 없습니다.";
+    if (!(source.visible() || source.question().fixed())) return "현재 분기에서 계산에 연결한 질문이 표시되지 않습니다.";
+    if (!source.errors().isEmpty()) return "연결한 질문의 입력 오류를 먼저 수정해 주세요: " + String.join(" / ", source.errors());
     if (source.question().control() == Control.NUMBER
-        && !source.allowed().containsAll(term.fieldKeys())) return false;
+        && !source.allowed().containsAll(term.fieldKeys())) return "현재 분기에서 이 항의 숫자 입력 항목이 허용되지 않습니다.";
     if (choice(source.question().control())) {
       List<String> selected = list(source.answer().choices());
       if (selected.isEmpty() || !list(term.choiceKeys()).isEmpty()
-          && selected.stream().noneMatch(term.choiceKeys()::contains)) return false;
+          && selected.stream().noneMatch(term.choiceKeys()::contains)) return "이 항에 지정한 옵션이 선택되지 않았습니다.";
     }
-    if (list(term.conditions()).isEmpty()) return true;
+    if (list(term.conditions()).isEmpty()) return null;
     java.util.function.Predicate<Condition> matches = condition -> {
       QuestionState state = states.get(condition.groupKey());
       // Reuse process matching; hidden questions/fields never satisfy even NE or ABSENT.
@@ -237,8 +242,11 @@ public final class ProductPricingEngine {
           && (text(condition.fieldKey()).isBlank() || state.allowed().contains(condition.fieldKey()))
           && ProductStudioEngine.matches(condition, evaluation.answers().get(condition.groupKey()));
     };
-    return "ANY".equals(term.match()) ? term.conditions().stream().anyMatch(matches)
+    boolean applied = "ANY".equals(term.match()) ? term.conditions().stream().anyMatch(matches)
         : term.conditions().stream().allMatch(matches);
+    return applied ? null : "추가 적용 조건이 충족되지 않았습니다 ("
+        + ("ANY".equals(term.match()) ? "하나 이상 일치 필요" : "모두 일치 필요")
+        + "). 조건의 질문·옵션이 현재 분기에 표시되는지도 확인해 주세요.";
   }
 
   private static String fieldLabel(Question question, String key) {
@@ -255,17 +263,17 @@ public final class ProductPricingEngine {
   }
 
   private static String thresholdLabel(Axis axis, int index) {
-    return axis.headers().get(index).toPlainString() + (axis.operator() == Threshold.LE ? " 이하" : " 미만");
+    return axis.headers().get(index).toPlainString() + (axis.operatorAt(index) == Threshold.LE ? " 이하" : " 미만");
   }
 
   public static int index(Axis axis, BigDecimal value) {
     for (int i = 0; i < axis.headers().size(); i++) {
       int compare = value.compareTo(axis.headers().get(i));
-      if (compare < 0 || compare == 0 && axis.operator() == Threshold.LE) return i;
+      if (compare < 0 || compare == 0 && axis.operatorAt(i) == Threshold.LE) return i;
     }
     throw new IllegalArgumentException(value.toPlainString() + "은 매트릭스 최대 기준 "
         + axis.headers().get(axis.headers().size() - 1).toPlainString()
-        + (axis.operator() == Threshold.LE ? " 이하" : " 미만") + "를 벗어났습니다. 기준 행·열을 추가해 주세요.");
+        + (axis.operatorAt(axis.headers().size() - 1) == Threshold.LE ? " 이하" : " 미만") + "를 벗어났습니다. 기준 행·열을 추가해 주세요.");
   }
 
   private static void require(boolean valid, String message) {

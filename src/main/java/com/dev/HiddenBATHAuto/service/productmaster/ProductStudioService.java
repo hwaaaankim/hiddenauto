@@ -444,12 +444,7 @@ public class ProductStudioService {
         || hours.scale() > 3
         || hours.compareTo(new BigDecimal("1000000")) > 0)
       throw new IllegalArgumentException("생산기간은 0~1,000,000 시간, 소수 3자리까지 입력해주세요.");
-    if (!custom
-        && (price == null
-            || price.signum() < 0
-            || price.scale() > 2
-            || price.compareTo(new BigDecimal("1000000000000")) > 0))
-      throw new IllegalArgumentException("규격 단가는 0 이상, 소수 2자리까지 입력해주세요.");
+    if (!custom) validateUnitPrice(price);
     if (faq != null && !faqTopics.existsById(faq))
       throw new IllegalArgumentException("FAQ 주제를 다시 선택해주세요.");
   }
@@ -909,6 +904,28 @@ public class ProductStudioService {
   private void validateFaq(Long topicId) {
     if (topicId != null && !faqTopics.existsById(topicId))
       throw new IllegalArgumentException("FAQ 주제를 다시 선택해주세요.");
+  }
+
+  /** Price-only edit keeps specifications, identity, stock and historical orders untouched. */
+  @Transactional
+  public ProductView updateUnitPrice(Long id, Long version, BigDecimal unitPrice, String actor) {
+    ProductMaster p = products.findForUpdate(id)
+        .orElseThrow(() -> new NoSuchElementException("제품을 찾을 수 없습니다."));
+    ProductStudioAttributeService.version(version, p.getRowVersion());
+    if (p.isNonStandard())
+      throw new IllegalArgumentException("비규격 제품은 가격계산식에서 항의 금액·단가·가격표를 수정해 주세요.");
+    validateUnitPrice(unitPrice);
+    p.setUnitPrice(unitPrice);
+    p.setUpdatedBy(actor);
+    p.setUpdatedAt(LocalDateTime.now());
+    products.flush();
+    return view(p, true);
+  }
+
+  private static void validateUnitPrice(BigDecimal price) {
+    if (price == null || price.signum() < 0 || price.stripTrailingZeros().scale() > 2
+        || price.compareTo(new BigDecimal("1000000000000")) > 0)
+      throw new IllegalArgumentException("규격 단가는 0~1,000,000,000,000원, 소수 2자리까지 입력해 주세요. 무료는 0을 입력하세요.");
   }
 
   /** Linking help never changes a saved specification or the identity of its concrete stock. */

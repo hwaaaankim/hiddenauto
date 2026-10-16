@@ -41,17 +41,19 @@ public class ProductPricingExcelController {
 
   @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ApiResponse<MatrixImport> importAmounts(
-      @RequestPart("file") MultipartFile file, @RequestParam int dimensions) {
-    return ApiResponse.ok("금액을 불러왔습니다. X·Y축 기준값을 확인하고 입력해 주세요.",
-        excel.importAmounts(file, dimensions));
+      @RequestPart("file") MultipartFile file, @RequestParam int dimensions,
+      @RequestParam(defaultValue = "false") boolean includeHeaders) {
+    return ApiResponse.ok(includeHeaders ? "기준값과 금액을 불러왔습니다. 입력 항목 연결과 포함 여부를 확인해 주세요." : "금액을 불러왔습니다. X·Y축 기준값을 확인하고 입력해 주세요.",
+        excel.importFile(file, dimensions, includeHeaders));
   }
 
   @GetMapping("/template")
   public ResponseEntity<byte[]> template(
       @RequestParam int dimensions,
       @RequestParam(defaultValue = "3") int rows,
-      @RequestParam(defaultValue = "3") int columns) {
-    return download(excel.template(dimensions, rows, columns), "price-matrix-template.xlsx");
+      @RequestParam(defaultValue = "3") int columns,
+      @RequestParam(defaultValue = "false") boolean includeHeaders) {
+    return download(includeHeaders ? excel.tableTemplate(dimensions, rows, columns) : excel.template(dimensions, rows, columns), "price-matrix-template.xlsx");
   }
 
   @PostMapping("/export")

@@ -198,6 +198,7 @@
       '<div class="pms-triple"><section class="pms-panel"><div class="pms-panel-title"><h2>구성 가능한 그룹</h2></div><div class="pms-toolbar"><input id="pms-palette-filter" placeholder="그룹 검색"></div><div id="pms-palette" class="pms-palette"></div></section><section class="pms-panel"><div class="pms-panel-title"><div><h2>제품 구성 · 질문 순서</h2><small>그룹을 드래그하여 추가·순서 변경</small></div><button id="pms-name-rule">제품명 구성</button></div><div id="pms-selected" class="pms-selected"></div></section><section class="pms-panel"><div class="pms-panel-title"><h2>' +
       (detail ? "제품 정보" : "생성 요약") +
       '</h2></div><div class="pms-panel-body" id="pms-summary"></div></section></div>';
+    if (detail && !nonStandard) root.insertAdjacentHTML("afterbegin", '<div data-standard-price-top></div>');
     if (!detail) {
       const bar = document.createElement("div");
       bar.className = "pms-panel pms-toolbar";
@@ -454,6 +455,12 @@
           )}</p><div class="pms-help">기본그룹은 필수입니다. 그룹마다 활성화된 보기 하나씩을 뽑아 조합합니다. 한 번에 최대 10,000개까지 생성할 수 있습니다.</div>${custom ? '<div class="pms-help">비규격은 등록중으로 생성됩니다. 각 제품에서 보기·입력 필드·관계 규칙을 설정하고 검증해야 등록완료됩니다.</div>' : ""}<div class="pms-form-grid">${metaHtml(model)}</div><button class="primary" id="pms-generate" ${count < 1 || count > 10000 ? "disabled" : ""}>조합 미리보기 · 자동 생성</button>`;
       S.bind(summary, model);
       if (detail) {
+        const priceTop = S.$("[data-standard-price-top]", root);
+        if (priceTop) priceTop.innerHTML = S.unitPriceCard(product);
+        S.$("[data-open-unit-price]", root)?.addEventListener("click", (event) => S.run(event.currentTarget,
+          () => S.unitPriceDialog(product, (saved) => {
+            product = saved; model.unitPrice = saved.unitPrice; paintSummary();
+          })));
         S.fileEvents(S.$("#pms-product-files", summary), productFiles);
         S.$("#pms-regenerate-name", summary).onclick = () => {
           model.productName = S.nameText(selected, tokens);
@@ -609,11 +616,14 @@
               })
               .join(
                 "",
-              )}</tbody></table></details></td><td><button data-row-meta="${index}">${r.productionHours}시간${nonStandard ? "" : " / " + r.unitPrice + "원"}<br>${S.e(topics.find((t) => t.id === Number(r.faqTopicId))?.title || "FAQ 연결")}</button></td><td><input data-row-stock="${index}" type="number" min="0" max="10000000" style="width:70px" value="${r.initialStock}" ${nonStandard ? "disabled" : ""}></td><td><button data-row-files="${index}">첨부 ${r.files.length}</button></td><td>${r.duplicateId ? `<a href="/admin/product-master/products/${r.duplicateId}" target="_blank" rel="noopener">중복 #${r.duplicateId}</a><small>${S.e(r.duplicateName)}</small>` : S.badge("신규", "green")}</td><td><button data-remove-row="${index}" class="pms-remove">×</button></td></tr>`;
+              )}</tbody></table></details></td><td>${!nonStandard ? `<label class="pm-preview-price"><span>제품 단가</span><input type="number" min="0" max="1000000000000" step="0.01" data-row-price="${index}" value="${S.e(r.unitPrice)}" aria-label="${S.e(r.productName)} 단가 (원)"><small>원 · 직접 수정 가능</small></label>` : ""}<button data-row-meta="${index}">${r.productionHours}시간 · FAQ 설정<br>${S.e(topics.find((t) => t.id === Number(r.faqTopicId))?.title || "FAQ 연결")}</button></td><td><input data-row-stock="${index}" type="number" min="0" max="10000000" style="width:70px" value="${r.initialStock}" ${nonStandard ? "disabled" : ""}></td><td><button data-row-files="${index}">첨부 ${r.files.length}</button></td><td>${r.duplicateId ? `<a href="/admin/product-master/products/${r.duplicateId}" target="_blank" rel="noopener">중복 #${r.duplicateId}</a><small>${S.e(r.duplicateName)}</small>` : S.badge("신규", "green")}</td><td><button data-remove-row="${index}" class="pms-remove">×</button></td></tr>`;
           })
           .join(
             "",
           )}</tbody></table></div>${S.pager(page, pages, "preview-page")}`;
+        S.$$('[data-row-price]', body).forEach((input) => {
+          input.oninput = () => { rows[Number(input.dataset.rowPrice)].unitPrice = input.value; };
+        });
         function editMeta(targets) {
           const m = {
             productionHours: targets[0]?.productionHours ?? 0,
@@ -902,7 +912,7 @@
             priceStatuses = new Map(statuses.map((s) => [s.productId, s]));
           } catch (err) { S.notice("가격계산 상태를 불러오지 못했습니다. " + err.message); }
         }
-        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택은 현재 페이지에만 적용됩니다.</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="현재 페이지 제품 전체선택"></label></th><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : ""}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th><th>가격계산 상태</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${p.id}" aria-label="${S.e(p.productName)} 삭제 선택"></label></td><td>${p.id}</td><td class="pm-product-name"><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : ""}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td><td title="${S.e(priceStatuses.get(p.id)?.message || "")}">${S.pricingStatus(priceStatuses.get(p.id))}</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a>${p.actualCount > 0 ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">구성 수정</button>' : `<a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>`}${!custom ? S.drawingLinks("products", p.id) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}${custom ? S.pricingLinks(p, priceStatuses.get(p.id)) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/test" target="_blank" rel="noopener">비규격 테스트</a><button type="button" data-product-faq="${p.id}">${p.faqTopicId ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="${custom ? 11 : 8}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
+        content.innerHTML = `<div class="pms-toolbar"><strong>총 ${data.totalElements.toLocaleString()}개</strong><small>${data.totalPages ? data.page + 1 : 0} / ${data.totalPages} 페이지</small><span class="pm-delete-count" data-delete-count aria-live="polite">0개 선택</span><button type="button" class="danger" data-delete-button disabled>삭제</button><small>전체선택은 현재 페이지에만 적용됩니다.</small></div><div class="pms-table-scroll"><table class="pm-product-table"><thead><tr><th class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-all aria-label="현재 페이지 제품 전체선택"></label></th><th>ID</th><th>제품명 / 코드</th><th>기본 분류</th><th>${custom ? "커스텀 가능 항목" : "구성 사양"}</th>${custom ? "<th>등록 상태</th>" : "<th>제품 단가 (원)</th>"}<th>제품 상태</th><th>총 재고</th>${custom ? "<th>실 제품 종류</th><th>가격계산 상태</th>" : ""}<th>상세 / 관리</th></tr></thead><tbody>${data.content.map((p) => `<tr data-open="${p.id}" tabindex="0"><td class="pm-select-cell"><label class="pms-check pm-delete-check"><input type="checkbox" data-delete-select="${p.id}" aria-label="${S.e(p.productName)} 삭제 선택"></label></td><td>${p.id}</td><td class="pm-product-name"><strong>${S.e(p.productName)}</strong><div class="mono">${S.e(p.catalogCode)}</div></td><td>${describe(p, true)}</td><td>${describe(p, false)}</td>${custom ? `<td>${S.badge(p.registrationStatus, p.status === "DRAFT" ? "amber" : "green")}</td>` : `<td><button type="button" class="pm-unit-price-button" data-list-unit-price="${p.id}" aria-label="${S.e(p.productName)} 단가 수정"><strong>${S.e(S.unitPriceText(p.unitPrice))}</strong><small>단가 수정</small></button></td>`}<td>${S.badge(S.status[p.status], p.status === "ACTIVE" ? "green" : p.status === "DRAFT" ? "amber" : "")}</td><td>${p.stock.toLocaleString()}</td>${custom ? `<td>${p.actualCount}종</td><td title="${S.e(priceStatuses.get(p.id)?.message || "")}">${S.pricingStatus(priceStatuses.get(p.id))}</td>` : ""}<td><div class="pms-actions pm-product-actions"><a class="pms-button" href="/admin/product-master/products/${p.id}/view">상세 조회</a>${p.actualCount > 0 ? '<button type="button" disabled title="실 제품이 등록되어 구성 수정이 잠겨 있습니다.">구성 수정</button>' : `<a class="pms-button" href="/admin/product-master/products/${p.id}">구성 수정</a>`}${!custom ? S.drawingLinks("products", p.id) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/actuals">실 제품·재고</a><button data-copy-product="${p.id}">제품 복사</button>` : ""}${custom ? S.pricingLinks(p, priceStatuses.get(p.id)) : ""}${custom ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/test" target="_blank" rel="noopener">비규격 테스트</a><button type="button" data-product-faq="${p.id}">${p.faqTopicId ? "FAQ 연결 변경" : "+ FAQ 연결"}</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="${custom ? 12 : 10}"><div class="pms-empty">검색 조건에 맞는 제품이 없습니다.</div></td></tr>`}</tbody></table></div>${S.pager(data.page, data.totalPages)}`;
         S.bindDeletion(content, data.content, {
           custom,
           onDeleted: async () => {
@@ -918,6 +928,10 @@
           tr.onkeydown = (e) => {
             if (e.key === "Enter" && e.target === tr) tr.click();
           };
+        });
+        S.$$('[data-list-unit-price]', content).forEach((button) => {
+          button.onclick = () => S.run(button, () => S.unitPriceDialog(
+            data.content.find((p) => String(p.id) === button.dataset.listUnitPrice), load));
         });
         S.$$("[data-copy-pricing]", content).forEach((button) => {
           button.onclick = () => S.run(button, async () => {
